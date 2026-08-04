@@ -149,7 +149,11 @@ holds: call sites rarely change, failure modes proliferate. The
 exception is bounded on purpose — a closed set the storage layer can
 name, with call-site naming as the fallback for everything it cannot.
 `:http-client/failed` is still wrong, because nothing can act on it
-that could not act on `:http-client/request`.
+that could not act on `:http-client/request`. That pair is
+illustrative, not a defect to go and fix — `mono`'s http-client
+already names by call site (`:http-client/request`,
+`:http-client/body-parse`). Both halves name the same brick so the
+example isolates the naming choice.
 
 When a category names the problem, the call site is not discarded — it
 moves to the payload (`:operation`) so logs still say where the failure
