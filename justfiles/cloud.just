@@ -602,6 +602,7 @@ gcp-keycloak-idp name="google":
     KCHOST=https://keycloak.{{ QUEENSWOOD_DOMAIN }}
     client_id=$(pass show {{ PASS_ENV }}/auth/clients/ids/{{ name }} | head -1)
     just gcp-keycloak-vault-secret {{ name }}
+    just _keycloak-wait-serving
     TOK=$(just _keycloak-admin-token)
     idp=$(curl -sf --max-time 15 -H "Authorization: Bearer $TOK" \
       "$KCHOST/admin/realms/queenswood/identity-provider/instances/{{ name }}")
@@ -613,6 +614,35 @@ gcp-keycloak-idp name="google":
     echo ">>> {{ name }} clientId updated; restarting Keycloak for the vault mount"
     kubectl --context $KCTX -n {{ QUEENSWOOD_ENV }} rollout restart statefulset/queenswood-keycloak-keycloak
     kubectl --context $KCTX -n {{ QUEENSWOOD_ENV }} rollout status statefulset/queenswood-keycloak-keycloak --timeout=5m
+
+# Block until the queenswood realm answers on the public hostname.
+[private]
+_keycloak-wait-serving timeout="1800":
+    #!/usr/bin/env zsh
+    set -euo pipefail
+    # The realm endpoint rather than the Job or the pod, because it is
+    # the conjunction of everything a caller here needs: DNS resolving,
+    # the certificate issued, the gateway routing, Keycloak serving,
+    # AND the realm imported. Nothing in `gcp-up` waits for that on its
+    # own -- Argo calls the platform Application Healthy once the
+    # Crossplane Releases are applied, which is well before the
+    # realm-import Job has run, and `gcp-health-check` reports rather
+    # than blocks.
+    URL=https://keycloak.{{ QUEENSWOOD_DOMAIN }}/realms/queenswood/.well-known/openid-configuration
+    deadline=$(( $(date +%s) + {{ timeout }} ))
+    until curl -sf --max-time 10 -o /dev/null "$URL"; do
+      if (( $(date +%s) > deadline )); then
+        echo >&2
+        echo "the queenswood realm never came up at $URL" >&2
+        echo "check the realm import and the gateway:" >&2
+        echo "  kubectl -n {{ QUEENSWOOD_ENV }} logs -l app.kubernetes.io/component=keycloak-realm-import" >&2
+        echo "  kubectl -n {{ QUEENSWOOD_ENV }} get httproute,gateway" >&2
+        exit 1
+      fi
+      echo "  waiting for the queenswood realm to serve..."
+      sleep 10
+    done
+    echo ">>> the queenswood realm is serving"
 
 # Print a Keycloak admin access token for the active env.
 [private]
@@ -1054,6 +1084,19 @@ gcp-keycloak-export:
     BUCKET=$(just _gcp-backup-bucket)
     KCTX=$(just _gke-ctx)
     JOB="keycloak-export-$(date -u +%Y%m%d%H%M%S)"
+
+    # Checked rather than discovered through `create job --from`
+    # failing: this runs first in gcp-down, so an unhelpful error here
+    # aborts the teardown with GKE still billing.
+    if ! kubectl --context "$KCTX" -n {{ QUEENSWOOD_ENV }} get \
+         cronjob/queenswood-keycloak-backup >/dev/null 2>&1; then
+      echo "no queenswood-keycloak-backup CronJob in {{ QUEENSWOOD_ENV }}." >&2
+      echo "The realm export is what makes this environment restorable," >&2
+      echo "so tearing down without it loses the realm. Check that the" >&2
+      echo "deployed queenswood-keycloak chart has backup.enabled, and" >&2
+      echo "that 'just gcp-keycloak-backup-sa-create' has run." >&2
+      exit 1
+    fi
 
     echo ">>> running a final realm export"
     kubectl --context "$KCTX" -n {{ QUEENSWOOD_ENV }} create job "$JOB" \
