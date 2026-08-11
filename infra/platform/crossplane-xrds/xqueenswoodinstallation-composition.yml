@@ -1196,6 +1196,79 @@ spec:
           # artifactregistry.reader is not among them. Every image this
           # plane runs comes from a public registry.
           # ===================================================================
+          # ===================================================================
+          # Reading a pod's logs, and nothing else. container.viewer does
+          # not carry container.pods.getLogs, and the only predefined
+          # role that does -- container.developer -- also grants exec,
+          # port-forward and every write. Debugging a workload should not
+          # require the power to change it.
+          #
+          # A project custom role rather than an organisation one, so an
+          # installation built in an organisation we do not own needs
+          # nothing from whoever does. The cost is that it grants on this
+          # project alone; an instance project wants its own.
+          #
+          # Two spellings of one name: a GCP custom role id takes letters,
+          # numbers, underscores and periods, and a Kubernetes name takes
+          # hyphens and not underscores. The id is the external name.
+          # ===================================================================
+          - name: pod-log-reader-role
+            base:
+              apiVersion: cloudplatform.gcp.m.upbound.io/v1beta1
+              kind: ProjectIAMCustomRole
+              metadata:
+                namespace: crossplane-system
+                annotations:
+                  crossplane.io/external-name: rl_pod_log_reader
+              spec:
+                managementPolicies:
+                  - Observe
+                  - Create
+                  - Update
+                  - LateInitialize
+                providerConfigRef:
+                  kind: ClusterProviderConfig
+                  name: default
+                forProvider:
+                  title: Pod log reader
+                  description: Reads container logs through the Kubernetes API, and changes nothing
+                  permissions:
+                    - container.pods.getLogs
+            patches:
+              - fromFieldPath: spec.code
+                toFieldPath: metadata.name
+                transforms:
+                  - type: string
+                    string:
+                      type: Format
+                      fmt: "%s-rl-pod-log-reader"
+              - fromFieldPath: spec.management.projectId
+                toFieldPath: spec.forProvider.project
+          # The platform identity has to be able to maintain a role this
+          # composition creates.
+          - name: platform-role-project-role-admin
+            base:
+              apiVersion: cloudplatform.gcp.m.upbound.io/v1beta1
+              kind: ProjectIAMMember
+              metadata:
+                namespace: crossplane-system
+              spec:
+                providerConfigRef:
+                  kind: ClusterProviderConfig
+                  name: default
+                forProvider:
+                  role: roles/iam.roleAdmin
+            patches:
+              - fromFieldPath: spec.code
+                toFieldPath: metadata.name
+                transforms:
+                  - type: string
+                    string:
+                      type: Format
+                      fmt: "%s-platform-project-role-admin"
+              - fromFieldPath: spec.management.projectId
+                toFieldPath: spec.forProvider.project
+              - *platform-member
           - name: nodes-identity
             base:
               apiVersion: cloudplatform.gcp.m.upbound.io/v1beta1
@@ -1508,15 +1581,28 @@ spec:
                   (dict "key" "clusterAdmin" "kind" "FolderIAMMember" "roles" (list
                     "roles/container.admin"))
                   (dict "key" "secretsAdmin" "kind" "ProjectIAMMember" "roles" (list
-                    "roles/secretmanager.admin")) }}
+                    "roles/secretmanager.admin"))
+                  {{- /* Reading a pod's logs is not in container.viewer,
+                         and the only predefined role that has it also
+                         grants exec and every write. So a custom role
+                         carries the one permission, and because a
+                         project custom role may only be granted on its
+                         own project, it binds there rather than on the
+                         folder. */}}
+                  (dict "key" "platformViewer" "kind" "ProjectIAMMember" "roles" (list
+                    (printf "projects/%s/roles/rl_pod_log_reader" $project))) }}
             {{- range $capability := $capabilities }}
             {{- range $member := dig $capability.key list $access }}
             {{- range $role := $capability.roles }}
             {{- /* Hashed, not indexed: a member removed from the middle of
                    the list would otherwise renumber the ones after it, and
                    Crossplane would delete and recreate live bindings. */}}
+            {{- /* A custom role is named projects/<id>/roles/<name>, so
+                   the last segment is what identifies it -- a slug
+                   built from the whole string would carry slashes and
+                   not be a Kubernetes name. */}}
             {{- $slug := printf "%s-%s"
-                  ($role | trimPrefix "roles/" | replace "." "-" | lower)
+                  ($role | splitList "/" | last | replace "." "-" | replace "_" "-" | lower)
                   (sha256sum $member | trunc 8) }}
             {{- $resource := printf "access-%s-%s" (kebabcase $capability.key) $slug }}
             ---

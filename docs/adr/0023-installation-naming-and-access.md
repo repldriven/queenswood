@@ -70,7 +70,8 @@ Environment codes are the guide's: `b` bootstrap, `c` common, `d` dev,
 - group — `grp-gcp-<label>` at the organisation,
   `grp-gcp-qw01-<label>` for an installation
 - bucket — `bkt-qw01-<label>`
-- custom role — `rl-<function>`
+- custom role — `rl_<function>`, underscored: GCP rejects a hyphen in a
+  custom role id
 
 Two kinds the guide does not cover take the same shape, environment
 segment included: GKE cluster `gke-qw01-c-mgmt`, node pool

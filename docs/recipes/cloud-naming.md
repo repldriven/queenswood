@@ -65,8 +65,12 @@ destroyed as a whole.
   `grp-gcp-qw01-<capability>` for an installation. The `gcp` segment is
   the guide's, marking these as cloud access groups within a directory
   that holds other kinds.
-- **Custom role** — `rl-<function>`. Defined once at the organisation
-  and referenced everywhere.
+- **Custom role** — `rl_<function>`, underscores rather than hyphens: a
+  custom role id takes letters, numbers, underscores and periods, and
+  GCP rejects anything else. Defined at the organisation where it is
+  shared, and in a project where an installation must own it outright —
+  an installation built in an organisation somebody else administers
+  cannot define one above its own folder.
 
 ### The inventory
 
@@ -87,7 +91,12 @@ Resource-manager and identity:
   in plain words instead: `management-plane`, `crossplane-providers`,
   `external-secrets`. There is one installation per management cluster,
   so a code on those would distinguish nothing.
-- **custom role** — `rl-<function>`
+- **custom role** — `rl_<function>`, with underscores. A custom role id
+  takes letters, numbers, underscores and periods, and no hyphens, so
+  this is the one kind that cannot follow the separator every other name
+  uses. Where the same role is also a Kubernetes object, its Kubernetes
+  name keeps hyphens and the id is the external name — `rl-pod-log-reader`
+  naming `rl_pod_log_reader`.
 - **group** — `grp-gcp-qw01-platform-viewer`
 
 Network:
