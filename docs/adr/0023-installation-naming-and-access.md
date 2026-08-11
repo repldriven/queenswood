@@ -155,6 +155,43 @@ Owner, Editor, Viewer — are not used, including for `platformViewer`,
 which despite the name is assembled from predefined viewer roles rather
 than granted `roles/viewer`.
 
+### An installation's capabilities are not an instance's
+
+Running the installation and operating what runs inside it are
+different jobs, held by different people at different times, and the
+answer for a production instance differs from the answer for a
+development one. The four capabilities above are the first job. They
+bind on the folder or on the management project, and they say nothing
+about who may act on an instance.
+
+Where they bind decides this, and one of them binds too widely.
+`platformViewer` and `clusterAdmin` are folder-scoped, and a folder
+binding inherits into every project beneath it. For reading that is
+deliberate — seeing everything inside the installation is what the
+capability is for, and narrowing it per instance would make the
+day-to-day capability fiddly for little. For Kubernetes administration
+it is wrong: joining a break-glass group to debug the management
+cluster would confer the same rights on every instance cluster,
+including production, and nobody would notice until an incident made
+somebody join it.
+
+So an instance carries an access mapping of its own, bound on its own
+project, and the capabilities in it are named the same way with the
+environment in the group: `grp-gcp-qw01-p-cluster-admin` beside
+`grp-gcp-qw01-cluster-admin`, matching the environment segment every
+resource name already carries. A capability that reads or administers
+one instance is granted on that instance and expires with it.
+
+A project-scoped custom role follows the same seam by construction: it
+may only be granted on the project that defines it, so an instance
+wanting one gets its own rather than inheriting the management
+project's.
+
+This is written before instances exist because it costs a paragraph
+now and a migration later. `clusterAdmin` stays folder-scoped until
+there is a second cluster for it to reach, at which point it moves to
+the management project and instances bring their own.
+
 ### Capabilities are logical, principals are configuration
 
 The four are logical names. What each resolves to is per-installation
