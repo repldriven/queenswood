@@ -146,8 +146,15 @@ because a chart writing into a Secret's `data` needed base64 and
 Kubernetes decoded it again: same key, two encodings, one of them
 wrong. `just gcp-fdb-backup-key <env> <label>` is what puts it in, so
 the encoding is not left to whoever is holding the terminal — and it
-refuses an entry that already holds one, since a second version does
-not rotate anything, it strands every backup taken under the first.
+refuses an entry that already holds one, since a later version does not
+rotate anything, it strands every backup taken under the first. Passing
+`yes` as a third argument supersedes anyway, which is right only where
+nothing has been backed up under the current key: an entry written
+before that recipe existed holds the base64 text, and nobody can read
+it back to check, because `secretsAdmin` carries no `versions.access`.
+It supersedes rather than replaces — the entry is read at `latest` and
+nothing pins a version, so the old one is left enabled and unused,
+since destroying it would need a role that could also destroy the key.
 
 One per instance rather than one per installation, for the reason each
 instance has its own bucket: a key that opens every instance's backups

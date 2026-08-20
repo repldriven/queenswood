@@ -1274,7 +1274,7 @@ gcp-platform-billing-role billing="":
 
 # Generate the key an instance's FDB backups are encrypted under, and
 # put it in that instance's entry. Once, ever.
-gcp-fdb-backup-key env label:
+gcp-fdb-backup-key env label supersede="":
     #!/usr/bin/env zsh
     set -e
     # Its own recipe rather than a value typed into gcp-secret-version,
@@ -1306,16 +1306,34 @@ gcp-fdb-backup-key env label:
       exit 1
     fi
     # Refused rather than versioned. An existing backup is readable only
-    # under the key it was written with, so a second version does not
+    # under the key it was written with, so a later version does not
     # rotate anything -- it strands every backup taken before it. Rotate
     # by starting a new generation under a new entry and keeping this
     # one until nothing readable is left under it.
+    #
+    # supersede=yes is for the one case that is not a rotation: a key
+    # nothing has been backed up under, so there is nothing to strand.
+    # An entry written before this recipe existed holds base64 text
+    # rather than raw bytes, and nobody can read it back to check --
+    # secretsAdmin carries no versions.access, deliberately. So the way
+    # out of a wrong value is to write a right one over it.
+    #
+    # It supersedes rather than replaces: the entry is read at `latest`
+    # and nothing pins a version, so the old one is left enabled and
+    # unused. Destroying it would need a role that can also destroy the
+    # key, which is the thing this entry exists to keep.
     if VERSIONS=$(gcloud secrets versions list "$SECRET" --project="$PROJECT" \
                     --filter="state=ENABLED" --format='value(name)' 2>/dev/null) \
        && [[ -n "$VERSIONS" ]]; then
-      echo "$SECRET already holds a key, and replacing it would strand" >&2
-      echo "every backup taken under the current one" >&2
-      exit 1
+      if [[ "{{ supersede }}" != "yes" ]]; then
+        echo "$SECRET already holds a key, and a later version does not" >&2
+        echo "rotate it -- it strands every backup taken under the current" >&2
+        echo "one. Where nothing has been backed up yet, say so:" >&2
+        echo "  just gcp-fdb-backup-key {{ env }} {{ label }} yes" >&2
+        exit 1
+      fi
+      echo ">>> superseding the key in $SECRET, on your word that nothing" >&2
+      echo ">>> has been backed up under it" >&2
     fi
     openssl rand 32 \
       | gcloud secrets versions add "$SECRET" --project="$PROJECT" --data-file=- \
