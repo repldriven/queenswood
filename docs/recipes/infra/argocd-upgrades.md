@@ -46,27 +46,27 @@ Merge before going further.
 
 The plane does not upgrade the release, but it does compose the object
 describing it — with every patch applied. Wait until that object
-carries what you merged:
+carries what you merged. The kind is spelled in full because the short
+name resolves to provider-helm's other, cluster-scoped `Release`:
 
 ```bash
 kubectl --context "$CODE-mgmt" -n crossplane-system \
-  get release "argocd-$CODE-c-mgmt" \
+  get "release.helm.m.crossplane.io/argocd-$CODE-c-mgmt" \
   -o jsonpath='{.spec.forProvider.chart.version}{"\n"}'
 ```
 
 ### 3. Take the values and the version from that object
 
 ```bash
-REL="argocd-$CODE-c-mgmt"
-kubectl --context "$CODE-mgmt" -n crossplane-system get release "$REL" \
+REL="release.helm.m.crossplane.io/argocd-$CODE-c-mgmt"
+kubectl --context "$CODE-mgmt" -n crossplane-system get "$REL" \
   -o jsonpath='{.spec.forProvider.values}' > "$WORK/argocd-values.yaml"
-VERSION=$(kubectl --context "$CODE-mgmt" -n crossplane-system \
-  get release "$REL" -o jsonpath='{.spec.forProvider.chart.version}')
+VERSION=$(kubectl --context "$CODE-mgmt" -n crossplane-system get "$REL" \
+  -o jsonpath='{.spec.forProvider.chart.version}')
 ```
 
-That file is now the complete set of values a boot plane
-would install with, `extraObjects` included. Do not add to it or
-retype it.
+That file is now the complete set of values a boot plane would install
+with, `extraObjects` included. Do not add to it or retype it.
 
 ### 4. Compare it with what is running
 
@@ -122,6 +122,9 @@ no git at all.
 - Change the version in both the boot chart and the composition.
   `check-versions` fails on one without the other.
 - Build the values file from the composed `Release`, never by hand.
+- Spell the kind as `release.helm.m.crossplane.io`. The short name
+  resolves to provider-helm's cluster-scoped `Release` and reports
+  the object as not found.
 - Pin `--version` to the same object's `chart.version`.
 - Confirm `management-plane` still exists before anything else.
 
