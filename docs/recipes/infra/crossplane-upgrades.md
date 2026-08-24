@@ -4,9 +4,8 @@
 
 ## Status
 
-**Verified**, 2026-08-24, on the configuration path (introducing a
-values block, for the core's own resources). The version path is
-untested.
+**Verified**, 2026-08-24, on both paths: a configuration change (the
+core's own resources) and a version change (chart 2.3.4 to 2.4.0).
 
 ## Problem
 
