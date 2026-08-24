@@ -2,7 +2,8 @@
 
 ## Status
 
-Superseded in its environment model, and accurate about its mechanics.
+**Superseded** in its environment model, and accurate about its
+mechanics.
 It assumes `QUEENSWOOD_ENV`, `pass` and the `gcp-up` / `gcp-down` cycle
 of the previous generation, none of which the current installation
 has. How FoundationDB and Keycloak restore has not changed; where their

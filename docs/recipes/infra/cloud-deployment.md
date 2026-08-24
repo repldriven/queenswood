@@ -2,7 +2,7 @@
 
 ## Status
 
-Superseded, and describing the previous generation: one environment
+**Superseded**, and describing the previous generation: one environment
 keyed to `QUEENSWOOD_ENV`, secrets in `pass`, `gcp-up` and `gcp-down`
 as imperative orchestrators, and a permanent kind control plane on one
 laptop. Kept because `justfiles/cloud.just` still runs an instance this

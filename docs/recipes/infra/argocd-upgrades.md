@@ -4,9 +4,11 @@
 
 ## Status
 
-Not yet run. The steps are derived from the composition and the live
-release rather than from having performed them, and the first person to
-follow them should correct them as they go.
+**Verified.** Followed end to end on this installation's management
+plane, to give Argo's own components resource requests. Eight defects
+in the steps were found by following them and are fixed here; the
+release went from revision 7 to 8 with the chart version unchanged, and
+every Application stayed `Synced`.
 
 ## Problem
 
@@ -39,7 +41,8 @@ For a version change, two files:
 
 For anything else, one:
 
-- the same composition file — `management-argo`'s `values:` block.
+- `infra/platform/crossplane-xrds/xmanagementplane-composition.yml` —
+  `management-argo`'s `values:` block.
 
 ```bash
 just check-versions

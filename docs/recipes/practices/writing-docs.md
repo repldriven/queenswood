@@ -113,6 +113,27 @@ anything outside `docs/` reaching in is `../recipes/<chapter>/...`.
 Three or more means the link is leaving `docs/` for a tree that
 should have been under it.
 
+### A procedure says whether it has been run
+
+A recipe describing steps carries a `## Status` as its first section,
+opening with one of three words. A recipe describing a convention
+carries none: there is nothing to have run.
+
+- **Verified** — the steps have been followed as written, and corrected
+  from doing so. Say when, and on what.
+- **Untested** — nobody has followed them. Say what they were derived
+  from, since that is what a reader is trusting instead.
+- **Superseded** — they describe a generation no longer in use. Say
+  what still holds, since mechanics often outlive the model around
+  them.
+
+Being run and being followed are different things: a procedure written
+up after the act is `Untested` until somebody works from the document.
+That is the distinction the word is carrying, and it is worth the
+pedantry — the defects a walkthrough finds are in the writing rather
+than in the acts, so a document nobody has followed has not been tested
+at all.
+
 ### Mermaid diagrams
 
 **Don't use `;` inside mermaid labels, notes, or arrow text.**
@@ -297,6 +318,8 @@ without naming the operation.
 **MUST:**
 
 - Hard-wrap markdown at 80 columns under `docs/`.
+- Open a procedure's `## Status` with **Verified**, **Untested** or
+  **Superseded**. A recipe describing a convention has no Status.
 - Use the canonical reference-list pattern for ADR / recipe /
   TDD links: `[ID](path) — Title`.
 - Keep relative links inside `docs/` to two levels at most,
