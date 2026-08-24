@@ -22,9 +22,6 @@ export CODE=qw01   ## example, qw01
 export WORK=$(mktemp -d)
 export REL="release.helm.m.crossplane.io/argocd-$CODE-c-mgmt"
 export VALUES="$WORK/argocd-values.json"
-
-flat() { jq -r 'paths(scalars) as $p
-  | "\($p | map(tostring) | join(".")) = \(getpath($p))"' "$1" | sort; }
 ```
 
 `$WORK` keeps the values file out of a repository. It carries the
@@ -84,10 +81,11 @@ to it or retype it.
 ### 4. Compare it with what is running
 
 ```bash
+JQ='paths(scalars) as $p | "\($p|map(tostring)|join(".")) = \(getpath($p))"'
+
 helm --kube-context "$CODE-mgmt" get values argocd -n argocd -o json \
-  > "$WORK/running.json"
-flat "$WORK/running.json" > "$WORK/running.txt"
-flat "$VALUES" > "$WORK/desired.txt" \
+  | jq -r "$JQ" | sort > "$WORK/running.txt"
+jq -r "$JQ" "$VALUES" | sort > "$WORK/desired.txt" \
   && diff "$WORK/running.txt" "$WORK/desired.txt"
 ```
 
