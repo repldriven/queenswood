@@ -71,6 +71,22 @@ relinquishes it — the provider then writes it back under its own field
 manager. Three managers are normal: the composition, the reference
 resolver, the provider.
 
+A pinned service account is not the package manager's to own. A
+`DeploymentRuntimeConfig`'s `serviceAccountTemplate` has it create and
+own the account it names, and each `ProviderRevision` claims controller
+ownership — of which Kubernetes permits exactly one. So a name shared
+between providers, or simply held across a provider's own revisions,
+leaves every claimant but the first failing its post-establish hook and
+losing its Deployment. Crossplane 2.3 tolerated that; 2.4 does not, and
+upstream calls the arrangement a common mistake.
+
+Naming is exactly what Workload Identity and a RoleBinding need, so the
+account has to be created by something else — a chart — and named at pod
+level through `deploymentTemplate.spec.template.spec.serviceAccountName`,
+which the package manager uses without claiming. Leave
+`serviceAccountTemplate` for an account nothing else refers to, which is
+the case where the generated one would have done.
+
 Which is why the time to own a field is before the provider does, not
 after. Two kinds are worth taking: a value that is a choice, and a
 value that is only a description now and a create parameter later. A
@@ -117,6 +133,9 @@ turns out not to exist.
   value is a choice somebody should make or a parameter a later create
   will need. Read `metadata.managedFields` to tell which fields are
   the composition's and which the provider filled in.
+- Create a service account a provider shares, or that a binding names,
+  outside the package manager — and point the pod at it with
+  `deploymentTemplate`.
 
 **MUST NOT:**
 
@@ -124,6 +143,9 @@ turns out not to exist.
 - Diagnose from `Synced` alone. The refusal is in
   `LastAsyncOperation`.
 - Re-add a patch for a field late-initialisation now owns.
+- Pin a name in `serviceAccountTemplate`. The package manager takes
+  controller ownership, and the next claimant — another provider, or
+  this provider's next revision — fails its runtime hook.
 
 ## References
 
