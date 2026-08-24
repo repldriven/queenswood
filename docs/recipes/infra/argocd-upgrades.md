@@ -22,6 +22,9 @@ export CODE=qw01   ## example, qw01
 export WORK=$(mktemp -d)
 export REL="release.helm.m.crossplane.io/argocd-$CODE-c-mgmt"
 export VALUES="$WORK/argocd-values.json"
+
+flat() { jq -r 'paths(scalars) as $p
+  | "\($p | map(tostring) | join(".")) = \(getpath($p))"' "$1" | sort; }
 ```
 
 `$WORK` keeps the values file out of a repository. It carries the
@@ -82,13 +85,15 @@ to it or retype it.
 
 ```bash
 helm --kube-context "$CODE-mgmt" get values argocd -n argocd -o json \
-  | python3 -m json.tool --sort-keys > "$WORK/running.json"
-python3 -m json.tool --sort-keys "$VALUES" > "$WORK/desired.json" \
-  && diff "$WORK/running.json" "$WORK/desired.json"
+  > "$WORK/running.json"
+flat "$WORK/running.json" > "$WORK/running.txt"
+flat "$VALUES" > "$WORK/desired.txt" \
+  && diff "$WORK/running.txt" "$WORK/desired.txt"
 ```
 
-Chained, because an unreadable `$VALUES` otherwise leaves an empty file
-and `diff` reports every line of the running release as deleted — which
+One line per value, so a change is a line rather than a brace. Chained,
+because an unreadable `$VALUES` otherwise leaves an empty file and
+`diff` reports every value of the running release as deleted — which
 reads as catastrophe and is a missing file.
 
 Lines marked `>` are your change. Lines marked `<` are values the
