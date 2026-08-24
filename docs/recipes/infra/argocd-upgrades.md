@@ -21,6 +21,7 @@ Every command below reads these:
 export CODE=qw01   ## example, qw01
 export WORK=$(mktemp -d)
 export REL="release.helm.m.crossplane.io/argocd-$CODE-c-mgmt"
+export VALUES="$WORK/argocd-values.json"
 ```
 
 `$WORK` keeps the values file out of a repository. It carries the
@@ -68,7 +69,7 @@ nothing yet to upgrade to.
 
 ```bash
 kubectl --context "$CODE-mgmt" -n crossplane-system get "$REL" \
-  -o jsonpath='{.spec.forProvider.values}' > "$WORK/argocd-values.json"
+  -o jsonpath='{.spec.forProvider.values}' > "$VALUES"
 VERSION=$(kubectl --context "$CODE-mgmt" -n crossplane-system get "$REL" \
   -o jsonpath='{.spec.forProvider.chart.version}')
 ```
@@ -82,10 +83,13 @@ to it or retype it.
 ```bash
 helm --kube-context "$CODE-mgmt" get values argocd -n argocd -o json \
   | python3 -m json.tool --sort-keys > "$WORK/running.json"
-python3 -m json.tool --sort-keys \
-  "$WORK/argocd-values.json" > "$WORK/desired.json"
-diff "$WORK/running.json" "$WORK/desired.json"
+python3 -m json.tool --sort-keys "$VALUES" > "$WORK/desired.json" \
+  && diff "$WORK/running.json" "$WORK/desired.json"
 ```
+
+Chained, because an unreadable `$VALUES` otherwise leaves an empty file
+and `diff` reports every line of the running release as deleted — which
+reads as catastrophe and is a missing file.
 
 Lines marked `>` are your change. Lines marked `<` are values the
 running release has and the composed object does not: drift from an
@@ -98,7 +102,7 @@ merge that drift into the composition, and start again.
 helm repo add argo https://argoproj.github.io/argo-helm
 helm repo update argo
 helm --kube-context "$CODE-mgmt" upgrade argocd argo/argo-cd \
-  --version "$VERSION" -n argocd -f "$WORK/argocd-values.json"
+  --version "$VERSION" -n argocd -f "$VALUES"
 ```
 
 ### 6. Verify, in this order
