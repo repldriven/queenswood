@@ -20,6 +20,7 @@ Every command below reads these:
 ```bash
 export CODE=qw01   ## example, qw01
 export WORK=$(mktemp -d)
+export REL="release.helm.m.crossplane.io/argocd-$CODE-c-mgmt"
 ```
 
 `$WORK` keeps the values file out of a repository. It carries the
@@ -46,19 +47,23 @@ Merge before going further.
 
 The plane does not upgrade the release, but it does compose the object
 describing it — with every patch applied. Wait until that object
-carries what you merged. The kind is spelled in full because the short
-name resolves to provider-helm's other, cluster-scoped `Release`:
+carries what you merged — the version, the values, or both:
 
 ```bash
-kubectl --context "$CODE-mgmt" -n crossplane-system \
-  get "release.helm.m.crossplane.io/argocd-$CODE-c-mgmt" \
+kubectl --context "$CODE-mgmt" -n crossplane-system get "$REL" \
   -o jsonpath='{.spec.forProvider.chart.version}{"\n"}'
+
+kubectl --context "$CODE-mgmt" -n crossplane-system get "$REL" \
+  -o jsonpath='{.spec.forProvider.values}' | python3 -m json.tool
 ```
+
+A version change shows in the first, anything else in the second. Until
+your change is there the composite has not reconciled it, and there is
+nothing yet to upgrade to.
 
 ### 3. Take the values and the version from that object
 
 ```bash
-REL="release.helm.m.crossplane.io/argocd-$CODE-c-mgmt"
 kubectl --context "$CODE-mgmt" -n crossplane-system get "$REL" \
   -o jsonpath='{.spec.forProvider.values}' > "$WORK/argocd-values.yaml"
 VERSION=$(kubectl --context "$CODE-mgmt" -n crossplane-system get "$REL" \
