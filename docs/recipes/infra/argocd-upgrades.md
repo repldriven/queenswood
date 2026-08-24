@@ -68,24 +68,29 @@ nothing yet to upgrade to.
 
 ```bash
 kubectl --context "$CODE-mgmt" -n crossplane-system get "$REL" \
-  -o jsonpath='{.spec.forProvider.values}' > "$WORK/argocd-values.yaml"
+  -o jsonpath='{.spec.forProvider.values}' > "$WORK/argocd-values.json"
 VERSION=$(kubectl --context "$CODE-mgmt" -n crossplane-system get "$REL" \
   -o jsonpath='{.spec.forProvider.chart.version}')
 ```
 
-That file is now the complete set of values a boot plane would install
-with, `extraObjects` included. Do not add to it or retype it.
+That file is the complete set of values a boot plane would install with,
+`extraObjects` included. It is JSON, which `helm -f` reads. Do not add
+to it or retype it.
 
 ### 4. Compare it with what is running
 
 ```bash
-helm --kube-context "$CODE-mgmt" get values argocd -n argocd -o yaml
+helm --kube-context "$CODE-mgmt" get values argocd -n argocd -o json \
+  | python3 -m json.tool --sort-keys > "$WORK/running.json"
+python3 -m json.tool --sort-keys \
+  "$WORK/argocd-values.json" > "$WORK/desired.json"
+diff "$WORK/running.json" "$WORK/desired.json"
 ```
 
-Expect your change, and nothing else, to differ. Anything present in
-the running release and absent from the file is drift from an earlier
-hand-upgrade: stop, merge that into the composition first, and start
-again — applying the file as it stands would remove it.
+Lines marked `>` are your change. Lines marked `<` are values the
+running release has and the composed object does not: drift from an
+earlier hand-upgrade, which applying this file would remove. Stop there,
+merge that drift into the composition, and start again.
 
 ### 5. Upgrade
 
@@ -93,7 +98,7 @@ again — applying the file as it stands would remove it.
 helm repo add argo https://argoproj.github.io/argo-helm
 helm repo update argo
 helm --kube-context "$CODE-mgmt" upgrade argocd argo/argo-cd \
-  --version "$VERSION" -n argocd -f "$WORK/argocd-values.yaml"
+  --version "$VERSION" -n argocd -f "$WORK/argocd-values.json"
 ```
 
 ### 6. Verify, in this order
