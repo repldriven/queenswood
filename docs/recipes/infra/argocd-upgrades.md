@@ -30,19 +30,48 @@ export VALUES="$WORK/argocd-values.json"
 management project's id, and a checkout is the one place that must not
 acquire one.
 
-### 1. Change it in git, and merge
+### 1a. A version change
 
-For a version change, two files:
+See what the new chart would render, against the values this plane
+actually runs:
+
+```bash
+export FROM=10.2.1 TO=10.4.0   ## example
+
+helm repo add argo https://argoproj.github.io/argo-helm
+helm repo update argo
+helm --kube-context "$CODE-mgmt" get values argocd -n argocd -o json \
+  > "$WORK/running.json"
+for V in "$FROM" "$TO"; do
+  helm template argocd argo/argo-cd --version "$V" -n argocd \
+    -f "$WORK/running.json" > "$WORK/render-$V.yaml"
+done
+diff "$WORK/render-$FROM.yaml" "$WORK/render-$TO.yaml"
+```
+
+Read it for objects appearing or disappearing, and for CRD fields being
+removed. Image tags will differ, and so will the `checksum/cm` and
+`checksum/cmd-params` annotations — that is Helm saying a ConfigMap
+moved and the pods will restart, not a finding.
+
+Then two files, to the same number:
 
 - `infra/helm/boot-management-plane/Chart.yaml` — the `argo-cd`
   dependency version.
 - `infra/platform/crossplane-xrds/xmanagementplane-composition.yml` —
-  `management-argo`'s `chart.version`, to the same number.
+  `management-argo`'s `chart.version`.
 
-For anything else, one:
+The rendered diff shows nothing about how the product behaves. Read the
+Argo CD release notes for the app versions it crosses.
+
+### 1b. A configuration change
+
+One file:
 
 - `infra/platform/crossplane-xrds/xmanagementplane-composition.yml` —
   `management-argo`'s `values:` block.
+
+### 1c. Either way
 
 ```bash
 just check-versions
@@ -149,6 +178,9 @@ no git at all.
   resolves to provider-helm's cluster-scoped `Release` and reports
   the object as not found.
 - Pin `--version` to the same object's `chart.version`.
+- Render both chart versions against the running values before
+  merging a version change, and read the Argo CD release notes for
+  the app versions it crosses.
 - Confirm `management-plane` still exists before anything else.
 
 **MUST NOT:**
