@@ -18,9 +18,13 @@ resource request, or any other chart value.
 Every command below reads these:
 
 ```bash
-export CODE=qw01        ## example, qw01
-export VERSION=10.2.1   ## example, whatever the composition pins
+export CODE=qw01   ## example, qw01
+export WORK=$(mktemp -d)
 ```
+
+`$WORK` keeps the values file out of a repository. It carries the
+management project's id, and a checkout is the one place that must not
+acquire one.
 
 ### 1. Change it in git, and merge
 
@@ -32,42 +36,59 @@ Two files, both required:
   the `management-argo` resource. Its `chart.version` for a version
   change; its `values:` block for anything else.
 
-Then:
-
 ```bash
 just check-versions
 ```
 
-Merge before touching the running plane.
+Merge before going further.
 
-### 2. Read what the plane is running
+### 2. Wait for the plane to render it
+
+The plane does not upgrade the release, but it does compose the object
+describing it — with every patch applied. Wait until that object
+carries what you merged:
 
 ```bash
-kubectl --context "$CODE-mgmt" -n argocd get deploy argocd-server \
-  -o jsonpath='{.metadata.labels.helm\.sh/chart}{"\n"}'
-helm --kube-context "$CODE-mgmt" get values argocd -n argocd -o yaml \
-  > argocd-values.yaml
+kubectl --context "$CODE-mgmt" -n crossplane-system \
+  get release "argocd-$CODE-c-mgmt" \
+  -o jsonpath='{.spec.forProvider.chart.version}{"\n"}'
 ```
 
-`argocd-values.yaml` now holds every value the release was installed
-with, including `extraObjects`.
+### 3. Take the values and the version from that object
 
-### 3. Add the change to that file
+```bash
+REL="argocd-$CODE-c-mgmt"
+kubectl --context "$CODE-mgmt" -n crossplane-system get release "$REL" \
+  -o jsonpath='{.spec.forProvider.values}' > "$WORK/argocd-values.yaml"
+VERSION=$(kubectl --context "$CODE-mgmt" -n crossplane-system \
+  get release "$REL" -o jsonpath='{.spec.forProvider.chart.version}')
+```
 
-Edit `argocd-values.yaml`. Add what changed and leave everything else
-exactly as it is — `extraObjects` in particular.
+That file is now the complete set of values a boot plane
+would install with, `extraObjects` included. Do not add to it or
+retype it.
 
-### 4. Upgrade
+### 4. Compare it with what is running
+
+```bash
+helm --kube-context "$CODE-mgmt" get values argocd -n argocd -o yaml
+```
+
+Expect your change, and nothing else, to differ. Anything present in
+the running release and absent from the file is drift from an earlier
+hand-upgrade: stop, merge that into the composition first, and start
+again — applying the file as it stands would remove it.
+
+### 5. Upgrade
 
 ```bash
 helm repo add argo https://argoproj.github.io/argo-helm
 helm repo update argo
 helm --kube-context "$CODE-mgmt" upgrade argocd argo/argo-cd \
-  --version "$VERSION" \
-  -n argocd -f argocd-values.yaml
+  --version "$VERSION" -n argocd -f "$WORK/argocd-values.yaml"
 ```
 
-### 5. Verify, in this order
+### 6. Verify, in this order
 
 ```bash
 # the bootstrap Application still exists
@@ -89,7 +110,7 @@ helm --kube-context "$CODE-mgmt" history argocd -n argocd
 helm --kube-context "$CODE-mgmt" rollback argocd <revision> -n argocd
 ```
 
-If `management-plane` is gone, recreate it from the composition's
+If `management-plane` is gone, recreate it from the same object's
 `values.extraObjects` before anything else: without it the plane reads
 no git at all.
 
@@ -100,8 +121,8 @@ no git at all.
 - Merge the change before upgrading the plane.
 - Change the version in both the boot chart and the composition.
   `check-versions` fails on one without the other.
-- Build the values file from `helm get values`, never from scratch.
-- Pin `--version` to what the composition says.
+- Build the values file from the composed `Release`, never by hand.
+- Pin `--version` to the same object's `chart.version`.
 - Confirm `management-plane` still exists before anything else.
 
 **MUST NOT:**
@@ -113,7 +134,7 @@ no git at all.
 
 **MAY:**
 
-- Use `--reuse-values` instead of a written-out file.
+- Use `--reuse-values` where the release has no drift to preserve.
 - Leave a plane on an older chart than git describes, deliberately.
   Nothing detects it.
 
@@ -133,7 +154,8 @@ lives in `sh.helm.release.v1.argocd.*` Secrets, and any client with
 cluster access can upgrade it. Crossplane observes the result
 afterwards and does nothing.
 
-**Why the values file is read from the cluster.** The composition gives
+**Why the values file comes from the composed object.** The composition
+gives
 this release exactly one value: `extraObjects`, holding the
 `management-plane` Application — the thing that points the plane at
 git. Helm deletes what a previous manifest carried and a new one does
@@ -141,7 +163,11 @@ not. That Application has `resources-finalizer.argocd.argoproj.io` and
 `prune: true`, so deleting it cascades through the child Applications
 to the composites, and an instance's cluster and node pool are managed
 resources that permit `Delete`. A values file that forgets one key
-reaches GCP.
+reaches GCP. Taking the file from the `Release` rather than writing one
+means the key cannot be forgotten: it arrives with everything else, and
+already patched — the repository, the revision and the path inside the
+bootstrap Application are filled in on the composed object even though
+the release itself is only observed.
 
 **Why merge first.** The manifest is the record of what a plane should
 be. Upgrading first leaves a plane running something git does not
