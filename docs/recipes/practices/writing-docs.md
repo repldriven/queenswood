@@ -17,6 +17,42 @@ column ruler at 80, GitHub markdown, mermaid rendering), plus a
 tone register that's deliberately understated and a PRD-vs-TDD
 split that determines which vocabulary is allowed where.
 
+### What a recipe is made of
+
+Six sections, in this order, each answering one question and only
+one:
+
+- **`## Status`** — has this been run? A procedure only; see below.
+- **`## Problem`** — *what* you want, in a sentence or two. Not why it
+  is hard, not what it costs, not what makes it awkward.
+- **`## Solution`** — *how*. The steps, or the convention, and nothing
+  else.
+- **`## Rules`** — MUST, MUST NOT, MAY. The normative summary, and what
+  the tessl plugins distil into agent rules.
+- **`## Discussion`** — *why*. Everything the sections above left out.
+  Optional, and often the longest.
+- **`## References`** — the related recipes and ADRs.
+
+The test is a reader who does not care why: they should be able to stop
+at the end of the Rules with everything they need. Where they cannot,
+the how is carrying a why, and the why belongs one section further
+down where somebody has chosen to read it.
+
+### Steps are followed, not read
+
+A Solution made of steps is copied into a terminal by somebody who is
+partway through something and not reading around it. So:
+
+- Set the variables the steps share once, at the top of the Solution,
+  with an example value. A command carrying `<code>` has to be edited
+  before it runs, which is how one gets run against the wrong thing.
+- Name a file in full in every step that touches it. "The same file as
+  above" assumes a reader who arrived from above.
+- Let each step stand alone. A step that calls a helper defined in
+  another step fails for anybody who came back to it in a new shell.
+- Say what the output means, especially when nothing appears to have
+  happened. A step whose success looks like failure gets repeated.
+
 ### Hard-wrap at 80 columns
 
 All Markdown under `docs/` hard-wraps at 80 columns. Wrap prose
@@ -318,6 +354,10 @@ without naming the operation.
 **MUST:**
 
 - Hard-wrap markdown at 80 columns under `docs/`.
+- Structure a recipe as Problem, Solution, Rules and — where there
+  is one to give — Discussion. What, how, normative, why.
+- Keep rationale out of the Solution. A reader following steps has
+  not asked for it.
 - Open a procedure's `## Status` with **Verified**, **Untested** or
   **Superseded**. A recipe describing a convention has no Status.
 - Use the canonical reference-list pattern for ADR / recipe /
