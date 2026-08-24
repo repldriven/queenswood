@@ -29,13 +29,16 @@ acquire one.
 
 ### 1. Change it in git, and merge
 
-Two files, both required:
+For a version change, two files:
 
 - `infra/helm/boot-management-plane/Chart.yaml` — the `argo-cd`
-  dependency version, for a version change.
+  dependency version.
 - `infra/platform/crossplane-xrds/xmanagementplane-composition.yml` —
-  the `management-argo` resource. Its `chart.version` for a version
-  change; its `values:` block for anything else.
+  `management-argo`'s `chart.version`, to the same number.
+
+For anything else, one:
+
+- the same composition file — `management-argo`'s `values:` block.
 
 ```bash
 just check-versions
