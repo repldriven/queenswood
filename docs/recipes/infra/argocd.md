@@ -142,6 +142,17 @@ last act of the handover:
 kubectl -n argocd annotate <kind> <name> argocd.argoproj.io/tracking-id-
 ```
 
+That annotation is the marker of annotation tracking. Which method a
+plane uses:
+
+```bash
+kubectl --context "$CODE-mgmt" -n argocd get configmap argocd-cm \
+  -o json | jq -r '.data["application.resourceTrackingMethod"] // "unset"'
+```
+
+Unset means the installed Argo's default decides. Changing it re-tracks
+every resource, so read it before setting it.
+
 **A Secret whose contents change on every sync.** A chart that mints a
 value and preserves it with `lookup` mints a fresh one each render —
 see [external-secrets](external-secrets.md).

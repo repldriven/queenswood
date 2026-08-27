@@ -2,100 +2,55 @@
 
 <!-- tessl-plugin: deployment -->
 
+## Status
+
+**Verified**, 2026-08-27, on this installation's plane: the entries
+registered and replaced the four that preceded them, and
+`gcp-plane-statusless-kinds` reported nothing missing from either list.
+`ARGOCD_K8S_CLIENT_QPS` is merged and has not yet reached a plane.
+
 ## Problem
 
 You want Argo's health verdict to be true for the kinds a plane serves.
 
 ## Solution
 
-Register a check for every group whose verdict anything acts on, and
-carry corrected copies of the two Argo ships for Crossplane until the
-fix for them reaches a release. They live in
-`infra/helm/management-plane/templates/argocd-cm.yaml`, in one
-`resource.customizations` block rather than as
-`resource.customizations.health.<group>_<kind>` keys — two of the four
-are wildcard groups, and a ConfigMap key cannot contain a `*`.
-
 ### Prerequisites
 
 - A management plane running in the installation's folder.
-- `platformViewer`, e.g. `grp-gcp-<code>-platform-viewer@`.
+- Each environment's Applications under a parent of their own, before
+  step 1 registers a verdict for the kind.
+- Step 1 — write access to this repository.
+- Steps 2 to 5 — `platformViewer`, e.g.
+  `grp-gcp-<code>-platform-viewer@`.
 
 ```bash
 # the installation code, e.g. qw01
 export CODE=qw01
 ```
 
-### What to register
+### 1. Register the checks
 
-- **`<group>/*` per composite group**, from `compositeGroups` in the
-  chart's values. An XRD loaded onto a plane whose group is not in that
-  list is a composite that can fail to compose and read as though it
-  worked.
-- **`argoproj.io/Application`**, where a parent holds children in
-  waves.
-- **`*.crossplane.io/*` and `*.upbound.io/*`**, corrected copies of
-  what Argo compiles in.
+`infra/helm/management-plane/templates/argocd-cm.yaml`, in one
+`resource.customizations` block:
 
-### The two copies, and when they go
+- `<group>/*` per composite group, from `compositeGroups` in the
+  chart's values.
+- `argoproj.io/Application`.
+- `*.crossplane.io/*` and `*.upbound.io/*`, transcribed from
+  `argoproj/argo-cd#29382`.
 
-Argo's compiled-in checks read as `A or (B and C)` where `(A or B) and
-C` was meant, so a resource with no status answers Healthy from the nil
-branch before the list of status-less kinds is consulted. The copies in
-the chart are the corrected scripts from `argoproj/argo-cd#29382`,
-transcribed rather than adapted so the diff against upstream stays
-readable.
+Merge before going further.
 
-They are `resource_customizations/_.crossplane.io/_/health.lua` and its
-upbound twin upstream. A `_` path segment is how that tree spells the
-wildcard a directory name cannot carry, so `_.crossplane.io/_` is the
-`*.crossplane.io/*` entry here — the same wildcard in a third
-encoding, since a ConfigMap key cannot express it at all.
-
-They are temporary. When that fix reaches a release this plane runs,
-delete both entries and point `HAS_NO_CONDITIONS` in
-`scripts/crossplane-statusless-kinds.py` at the upstream lists.
-
-### Kinds that carry no status
+### 2. Wait for the plane to apply it
 
 ```bash
-just gcp-plane-statusless-kinds
+kubectl --context "$CODE-mgmt" -n argocd get application management-plane
 ```
 
-It reads the plane for kinds no served CRD version gives a `status`
-subresource or a `status` property, and diffs them against what Argo
-compiles in. Anything it reports that the copies do not list goes into
-`has_no_conditions` in both places, and upstream. Re-run it after a
-Crossplane upgrade, which is what moves the answer.
+`SYNC STATUS` is `Synced`, `HEALTH STATUS` is `Healthy`.
 
-### What else the plane configures
-
-- **`resource.exclusions`** for `ProviderConfigUsage` and
-  `ClusterProviderConfigUsage`. One exists per managed resource and
-  carries no meaning of its own.
-- **`ARGOCD_K8S_CLIENT_QPS: 300`** on the application controller, in
-  `management-argo`'s values in
-  `infra/platform/crossplane-xrds/xmanagementplane-composition.yml`.
-  The default is 50, and a plane serving a provider's worth of CRDs
-  spends that on discovery. Reaching a running plane takes the upgrade
-  procedure — see [argocd-upgrades](argocd-upgrades.md).
-
-### Writing a check of your own
-
-Two passes over `status.conditions`, `Synced` before `Ready`. One loop
-answers whichever condition the array happened to hold first, and a
-composite that went out of sync after it was once ready then reports
-the stale success.
-
-### Before registering `Application`
-
-Give an environment's Applications a parent of their own. A child that
-cannot go Healthy holds its parent's sync open once the kind has a
-verdict, and a hung sync retries at the revision it began with — so
-everything else under that parent is re-applied from a stale copy for
-as long as the budget lasts.
-
-### Checking they are installed
+### 3. Check the entries landed
 
 ```bash
 kubectl --context "$CODE-mgmt" -n argocd get configmap argocd-cm \
@@ -103,21 +58,43 @@ kubectl --context "$CODE-mgmt" -n argocd get configmap argocd-cm \
 ```
 
 One line per group in `compositeGroups`, plus `argoproj.io/Application`
-and the two wildcards. A group that is not there is a verdict Argo is
-not using, and the Applications relying on it read Healthy meanwhile.
-Worth running after an Argo upgrade: `argocd-cm` belongs to the Argo
-release and carries these keys from a second manager, so two things
-write to one object.
+and the two wildcards.
 
 ```bash
 kubectl --context "$CODE-mgmt" -n argocd get configmap argocd-cm \
-  -o json | jq -r '.data["application.resourceTrackingMethod"] // "unset"'
+  -o json | jq -r '.data | keys[]
+    | select(startswith("resource.customizations.health."))'
 ```
 
-`annotation` is what tracks a resource by
-`argocd.argoproj.io/tracking-id`, which is what
-[argocd](argocd.md) describes. Unset means the installed Argo's
-default decides, so read that before assuming either.
+Nothing.
+
+### 4. Check the lists cover the plane
+
+```bash
+just gcp-plane-statusless-kinds
+```
+
+`none` under both `missing from` headings. A kind named there goes into
+`has_no_conditions` in `argocd-cm.yaml` and in
+`scripts/crossplane-statusless-kinds.py`, and upstream.
+
+### 5. Check the exclusions took effect
+
+```bash
+kubectl --context "$CODE-mgmt" -n argocd get application installation \
+  -o json | jq -r '[.status.resources[].kind] | unique | .[]'
+```
+
+No `ProviderConfigUsage` or `ClusterProviderConfigUsage`. Still there a
+few minutes after the sync: restart the application controller.
+
+### 6. Raise the client QPS
+
+`ARGOCD_K8S_CLIENT_QPS: 300` on the application controller, in
+`management-argo`'s values in
+`infra/platform/crossplane-xrds/xmanagementplane-composition.yml`.
+Apply it by the configuration-change path in
+[argocd-upgrades](argocd-upgrades.md).
 
 ## Failures
 
@@ -138,7 +115,13 @@ of the same bug. A kind that carries no status *and* is missing from
 the list is graded Healthy by accident today, so the list looks
 complete while it is not — and a release correcting the precedence
 grades that kind Progressing for ever, taking its Application with it.
-`gcp-plane-statusless-kinds` is what finds them before that happens.
+Step 4 is what finds them before that happens.
+
+**A `resource.customizations.health.<group>_<kind>` key still there
+after step 1.** Server-side apply removes a field when the manager that
+owned it stops declaring it, so one that survives is owned by something
+else. An exact key beats a wildcard, so a stale one goes on grading its
+kind by whatever an earlier generation wrote.
 
 **A parent whose waves gate nothing.** The waves are doing what waves
 do. `Application` is an ungraded kind — no Lua under
@@ -164,12 +147,11 @@ matters.
   when it runs one with it.
 - Put a wildcard group's check in `resource.customizations`. A
   ConfigMap key cannot contain a `*`.
-- Re-run `just gcp-plane-statusless-kinds` after a Crossplane upgrade,
-  and check `argocd-cm` still carries every entry after an Argo one.
+- Re-run step 4 after a Crossplane upgrade, and step 3 after an Argo
+  one.
 - Read `Synced` before `Ready`, in a pass of its own.
-- Register a check for `argoproj.io/Application` where a parent holds
-  children in waves, and give an environment's Applications a parent of
-  their own before doing so.
+- Give an environment's Applications a parent of their own before
+  registering a check for `argoproj.io/Application`.
 
 **MUST NOT:**
 
@@ -207,6 +189,27 @@ corrected copies is what makes this installation indifferent to which
 of the two readings the installed release has, and patching a single
 kind is not: the affected kinds run to four in the crossplane list
 alone, and the upbound script has its own.
+
+**Why one block and not four keys.** A ConfigMap key cannot contain a
+`*`, and two of the four entries are wildcard groups, so the dotted
+`resource.customizations.health.<group>_<kind>` form cannot carry them.
+The nested `resource.customizations` block can, and takes the exact
+groups too, so all four live in one place.
+
+**Which upstream file each copy is.** They are
+`resource_customizations/_.crossplane.io/_/health.lua` and its upbound
+twin. A `_` path segment is how that tree spells the wildcard a
+directory name cannot carry, so `_.crossplane.io/_` is the
+`*.crossplane.io/*` entry here — the same wildcard in a third encoding,
+since a ConfigMap key cannot express it at all. The copies are
+temporary: when the fix reaches a release this plane runs, delete both
+entries and point `HAS_NO_CONDITIONS` in
+`scripts/crossplane-statusless-kinds.py` at the upstream lists.
+
+**How a composite is graded.** Two passes over `status.conditions`,
+`Synced` before `Ready`. One loop answers whichever condition the array
+happened to hold first, and a composite that went out of sync after it
+was once ready then reports the stale success.
 
 **Why the `Application` case costs something.** Registering it is not
 turning waves on — they were always ordering, on a signal that was
