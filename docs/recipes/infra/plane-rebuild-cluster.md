@@ -184,6 +184,19 @@ kubectl config use-context "$QW_CODE-mgmt"
 `get-credentials` makes its own context current, so put the plane in
 charge back before doing anything else.
 
+Export `NEXT`, and check it before every step that writes. An unset
+variable makes `--context ""` mean the current context, which is the
+plane in charge, and nothing says so — a write meant for the successor
+lands on the estate instead. The nodes are the tell, and they are the
+tell because of the name this rebuild is for:
+
+```bash
+kubectl --context "$NEXT" get nodes -o name | head -1
+```
+
+`gke-gke-…` is the cluster being replaced. `gke-<code>-…` is the
+successor.
+
 ### 5. Install Crossplane and Argo onto it
 
 **As the installation's cluster admin.**
@@ -452,6 +465,14 @@ identity `actAs` on the default compute service account, because a
 cluster's initial node pool runs as it, and a plane whose project the
 seed created is not owner there. Merge that and the create is retried.
 
+**A command aimed at the successor changed nothing there, and something
+moved on the plane in charge.** `$NEXT` is unset in that shell, so
+`--context ""` meant the current context. Nothing reports it: the
+command succeeds against the wrong cluster. Check the node names before
+every write, and read both clusters afterwards — a pod deleted on the
+plane in charge recovers by itself, and a `spec` patched there is drift
+its Argo reverts, so the usual damage is only lost time.
+
 **`the server doesn't have a resource type "applications"`, or the same
 for `"composite"`.** Ahead of the waves rather than broken. The first
 kind arrives with Argo; `composite` is a category carried by the CRDs
@@ -558,6 +579,9 @@ successor before scaling anything again.
 - Never use `just plane-ctx` before the swap: it renames whatever it
   fetches to `MGMT_CTX`, which until then has to reach the plane in
   charge.
+- Never run a step 5 to 7 command without checking `$NEXT` is set. An
+  unset one is the current context, which is the plane in charge, and
+  the command succeeds there rather than failing.
 - Never delete the old plane's composite to stop it. Its access
   bindings carry `Delete`, including the one its Crossplane
   authenticates with.
