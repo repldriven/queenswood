@@ -27,6 +27,7 @@
     [com.repldriven.mono.log.interface :as log]
     [com.repldriven.mono.utility.interface :as util]
 
+    [reitit.core :as r]
     [sieppari.context :as sc]
 
     [clojure.set :as set]
@@ -181,24 +182,56 @@
              [:request :auth]
              (service-auth claims)))))))})
 
-(defn- required-roles
-  "Derive the role set a route requires from its OpenAPI metadata.
-  `bearerAuth` alone permits any authenticated principal; an
-  `x-required-roles`-style extension narrows it (e.g. `[admin]` or
-  `[user]`)."
+(defn- bare-security?
+  "True when `security` names a scheme and gives it no roles."
   [security]
-  (let [schemes (into #{} (mapcat keys) security)
-        explicit (->> security
-                      (mapcat vals)
-                      (mapcat identity)
-                      (into #{}))]
-    (cond
-     (empty? schemes)
-     nil
-     (seq explicit)
-     (into #{} (map keyword) explicit)
-     :else
-     #{:org})))
+  (boolean (some (fn [entry] (some empty? (vals entry))) security)))
+
+(defn- method-securities
+  "Every OpenAPI security declaration written under one of a route's
+  method keys, rather than on the route itself."
+  [data]
+  (keep (fn [v] (when (map? v) (get-in v [:openapi :security])))
+        (vals data)))
+
+(defn bare-security-routes
+  "The paths in `router` that name a security scheme but give it no
+  roles — a `{\"bearerAuth\" []}` entry. Such a route has no gate
+  anyone can read: it demands a token and says nothing about what the
+  token must carry, so `authorize` would have to guess. A route whose
+  `:security` is `[]` names no scheme at all and is public by design,
+  so it is not reported."
+  [router]
+  (into []
+        (comp (filter (fn [[_ data]]
+                        (bare-security? (get-in data [:openapi :security]))))
+              (map first))
+        (r/routes router)))
+
+(defn method-security-routes
+  "The paths in `router` that declare `:security` under a method key
+  instead of on the route. `authorize` reads the match's route-level
+  data, and reitit merges method data into the compiled endpoints and
+  never into that map, so a gate written under `:post` is advertised
+  by the generated OpenAPI and enforced by nobody. A route's gate is
+  written in exactly one place, so any such declaration is reported —
+  including an empty one, which reads as a method-level override of a
+  route-level gate and is not honoured either."
+  [router]
+  (into []
+        (comp (filter (fn [[_ data]] (seq (method-securities data))))
+              (map first))
+        (r/routes router)))
+
+(defn- required-roles
+  "The role set a route requires, read off its OpenAPI security. A
+  route that names no scheme requires nothing and answers nil;
+  otherwise the roles its scheme names, as keywords. A scheme that
+  names no roles never reaches here — `bare-security-routes` refuses
+  it while the router is being built."
+  [security]
+  (let [explicit (into #{} (comp (mapcat vals) cat) security)]
+    (when (seq explicit) (into #{} (map keyword) explicit))))
 
 (defn unauthenticated-response
   "The 401 an unauthenticated caller receives. Public so a handler that
