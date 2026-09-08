@@ -6,6 +6,7 @@
    {:method :post
     :path "/v1/banks"
     :auth "wrong-key"
+    :headers {:idempotency-key "ik-wrong-key-rejected-bank-001"}
     :body
     {:name "Bad Key Bank" :status "live" :tier "micro" :currencies ["GBP"]}}
    :assert {:status 401}}]}

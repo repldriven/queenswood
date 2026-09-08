@@ -7,7 +7,12 @@
     [com.repldriven.queenswood.api.payee-check.queries :as queries]
 
     [com.repldriven.queenswood.api.schema :refer [ErrorResponse]]
-    [com.repldriven.queenswood.api.shared.parameters :as shared.parameters]))
+    [com.repldriven.queenswood.api.shared.idempotency :as shared.idempotency]
+    [com.repldriven.queenswood.api.shared.parameters :as shared.parameters]
+
+    [com.repldriven.queenswood.idempotency.interface :as bank-idempotency]
+
+    [com.repldriven.mono.server.interface :as server]))
 
 (def ^:private list-query-schema
   [:map {:closed true} [:page {:optional true} [:ref "PageQuery"]]])
@@ -24,10 +29,15 @@
             :handler queries/list-checks}
       :post {:summary "Create a payee check"
              :openapi {:operationId "CreatePayeeCheck"
-                       :requestBody {:required true}}
+                       :requestBody {:required true}
+                       :parameters ^:replace
+                                   [shared.parameters/ref-idempotency-key]}
+             :interceptors [server/require-idempotency-key
+                            bank-idempotency/cache-response]
              :parameters {:body [:ref "PayeeCheckRequest"]}
-             :responses {201 {:body [:ref "PayeeCheck"]
-                              :openapi {:links links/from-check}}}
+             :responses (shared.idempotency/with-responses
+                         {201 {:body [:ref "PayeeCheck"]
+                               :openapi {:links links/from-check}}})
              :handler handlers/create-check}}]
     ["/{check-id}"
      {:parameters {:path {:check-id [:ref "CheckId"]}}}

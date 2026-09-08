@@ -115,6 +115,7 @@
                        "components/clearbank-relay/test-resources"
                        "components/onfido-relay/test"
                        "components/onfido-relay/test-resources"
+                       "bases/api/test"
                        "bases/clearbank-simulator/test"
                        "bases/clearbank-simulator/test-resources"
                        "bases/clearbank-adapter/test"

@@ -5,6 +5,7 @@
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
+             :headers {:idempotency-key "ik-token-exchange-happy-bank-001"}
              :body {:name "OAuth Token Test Org"
                     :status "live"
                     :tier "micro"

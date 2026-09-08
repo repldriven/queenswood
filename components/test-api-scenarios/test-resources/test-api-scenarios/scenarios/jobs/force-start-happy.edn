@@ -5,6 +5,7 @@
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
+             :headers {:idempotency-key "ik-force-start-happy-bank-001"}
              :body {:name "Force Start Test Bank"
                     :status "live"
                     :tier "micro"
@@ -25,7 +26,8 @@
    :request {:method :post
              :path "/v1/jobs/{job-id}/runs"
              :path-params {:job-id "daily-interest"}
-             :auth :org-0-token}
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-force-start-happy-run-001"}}
    :assert {:status 201
             :body {:job-id "daily-interest"
                    :trigger-source "forced"

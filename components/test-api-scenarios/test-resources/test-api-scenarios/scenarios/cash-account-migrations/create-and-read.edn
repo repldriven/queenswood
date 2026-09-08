@@ -5,6 +5,7 @@
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
+             :headers {:idempotency-key "ik-create-and-read-bank-001"}
              :body {:name "Migration Create Test Org"
                     :status "live"
                     :tier "micro"
@@ -21,6 +22,7 @@
    :request {:method :post
              :path "/v1/cash-account-products"
              :auth :org-0-token
+             :headers {:idempotency-key "ik-create-and-read-prod-001"}
              :body {:name "Saver"
                     :template-id "tpl.00000000000000000000000002"
                     :currency "GBP"
@@ -62,6 +64,7 @@
    :request {:method :post
              :path "/v1/cash-account-migrations"
              :auth :org-0-token
+             :headers {:idempotency-key "ik-create-and-read-mig-001"}
              :body {:name "Saver v1 holders onto v2"
                     :source-product-id [:ref :v1 :product-id]
                     :source-version-ids [[:ref :v1 :version-id]]

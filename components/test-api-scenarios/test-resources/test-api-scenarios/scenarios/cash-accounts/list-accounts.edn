@@ -5,6 +5,7 @@
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
+             :headers {:idempotency-key "ik-list-accounts-bank-001"}
              :body {:name "List Cash Accounts Test Org"
                     :status "live"
                     :tier "micro"
@@ -49,6 +50,7 @@
    :request {:method :post
              :path "/v1/cash-account-products"
              :auth :org-0-token
+             :headers {:idempotency-key "ik-list-accounts-prod-001"}
              :body {:name "Current"
                     :template-id "tpl.00000000000000000000000001"
                     :currency "GBP"
@@ -69,6 +71,7 @@
    :request {:method :post
              :path "/v1/cash-account-products"
              :auth :org-0-token
+             :headers {:idempotency-key "ik-list-accounts-prod-002"}
              :body {:name "Savings"
                     :template-id "tpl.00000000000000000000000002"
                     :currency "GBP"
