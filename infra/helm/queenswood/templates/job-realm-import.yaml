@@ -90,7 +90,7 @@ metadata:
          two env vars, so an instance adopting a supplied credential
          changed this template and left the name alone, and the sync
          wedged until somebody deleted the Job by hand. */}}
-  name: {{ .Release.Name }}-realm-import-{{ printf "%s|%s|%s|%s|%s|%s|%s|%s" $restore .Chart.Version (get $realmFiles "queenswood-realm.json") (get $realmFiles "queenswood-ops-realm.json") (include "queenswood.consoleRedirectUri" .) .Values.keycloak.googleClientId .Values.keycloak.googleIdpAlias (include "queenswood.keycloakBootstrapAdminSecret" .) | sha256sum | trunc 8 }}
+  name: {{ .Release.Name }}-realm-import-{{ printf "%s|%s|%s|%s|%s|%s|%s|%s|%s" $restore .Chart.Version (get $realmFiles "queenswood-realm.json") (get $realmFiles "queenswood-ops-realm.json") (include "queenswood.consoleRedirectUri" .) (include "queenswood.opsRedirectUri" .) .Values.keycloak.googleClientId .Values.keycloak.googleIdpAlias (include "queenswood.keycloakBootstrapAdminSecret" .) | sha256sum | trunc 8 }}
   labels:
     {{- include "queenswood.labels" . | nindent 4 }}
     app.kubernetes.io/component: keycloak-realm-import
@@ -192,32 +192,36 @@ spec:
               api() {
                 curl -s -H "Authorization: Bearer $TOK" "$@"
               }
-              # The console's deployed origin, applied to the client on
-              # every run rather than only at import. A realm is created
-              # once and never overwritten, so a hostname that changes
-              # later -- a new environment, a second origin -- would
-              # otherwise reach the realm not at all, and the fix would
-              # be a click nobody can review. Idempotent: it adds what
-              # is missing and returns when it is not.
-              reconcile_console_redirect() {
-                [ -n "$CONSOLE_REDIRECT_URI" ] || return 0
-                cid=$(api "$KC/admin/realms/$1/clients?clientId=$CONSOLE_CLIENT_ID" \
+              # An SPA's deployed origin, applied to its client on every
+              # run rather than only at import. A realm is created once
+              # and never overwritten, so a hostname that changes later
+              # -- a new environment, a second origin -- would otherwise
+              # reach the realm not at all, and the fix would be a click
+              # nobody can review. Idempotent: it adds what is missing
+              # and returns when it is not.
+              #
+              # $1 realm, $2 client id, $3 the whole URI. Both SPAs go
+              # through here: the console in the orgs realm and the
+              # operator app in the ops realm.
+              reconcile_redirect() {
+                [ -n "$3" ] || return 0
+                cid=$(api "$KC/admin/realms/$1/clients?clientId=$2" \
                   | jq -r '.[0].id // ""')
                 if [ -z "$cid" ]; then
-                  echo "no client '$CONSOLE_CLIENT_ID' in realm '$1'; nothing to reconcile"
+                  echo "no client '$2' in realm '$1'; nothing to reconcile"
                   return 0
                 fi
                 cur=$(api "$KC/admin/realms/$1/clients/$cid")
-                if echo "$cur" | jq -e --arg u "$CONSOLE_REDIRECT_URI" \
+                if echo "$cur" | jq -e --arg u "$3" \
                      '(.redirectUris // []) | index($u)' >/dev/null; then
                   return 0
                 fi
-                echo "$cur" | jq --arg u "$CONSOLE_REDIRECT_URI" \
+                echo "$cur" | jq --arg u "$3" \
                     '.redirectUris = (((.redirectUris // []) + [$u]) | unique)' \
                   | curl -sf -X PUT -H "Authorization: Bearer $TOK" \
                       -H 'Content-Type: application/json' -d @- \
                       -o /dev/null "$KC/admin/realms/$1/clients/$cid"
-                echo "added $CONSOLE_REDIRECT_URI to '$CONSOLE_CLIENT_ID' in realm '$1'"
+                echo "added $3 to '$2' in realm '$1'"
               }
 
               # The Google OAuth client id, applied to an existing realm
@@ -289,7 +293,10 @@ spec:
                 if [ "$(status_of "$realm")" = "200" ]; then
                   if [ -z "$RESTORED_FROM" ]; then
                     echo "realm '$realm' exists; nothing to import"
-                    reconcile_console_redirect "$realm"
+                    reconcile_redirect "$realm" "$CONSOLE_CLIENT_ID" \
+                      "$CONSOLE_REDIRECT_URI"
+                    reconcile_redirect "$realm" "$OPS_CLIENT_ID" \
+                      "$OPS_REDIRECT_URI"
                     # Only the realm the console signs in through. The
                     # operator realm's own google provider carries a
                     # literal placeholder secret rather than a vault
@@ -346,14 +353,20 @@ spec:
                   gid="$GOOGLE_CLIENT_ID"
                 fi
                 jq --arg uri "$CONSOLE_REDIRECT_URI" \
+                   --arg console "$CONSOLE_CLIENT_ID" \
+                   --arg opsuri "$OPS_REDIRECT_URI" \
+                   --arg ops "$OPS_CLIENT_ID" \
                    --arg gid "$gid" \
                    --arg alias "$GOOGLE_IDP_ALIAS" '
-                  (if $uri == "" then . else
-                    .clients = ((.clients // []) | map(
-                      if .clientId == "queenswood-console"
-                      then .redirectUris = (((.redirectUris // []) + [$uri]) | unique)
-                      else . end))
-                   end)
+                  def add_redirect($id; $u):
+                    if $u == "" then . else
+                      .clients = ((.clients // []) | map(
+                        if .clientId == $id
+                        then .redirectUris = (((.redirectUris // []) + [$u]) | unique)
+                        else . end))
+                    end;
+                  add_redirect($console; $uri)
+                  | add_redirect($ops; $opsuri)
                   | (if $gid == "" then . else
                     .identityProviders = ((.identityProviders // []) | map(
                       if .alias == $alias then .config.clientId = $gid else . end))
@@ -456,6 +469,10 @@ spec:
               value: {{ include "queenswood.consoleRedirectUri" . | quote }}
             - name: CONSOLE_CLIENT_ID
               value: {{ .Values.keycloak.consoleClientId | quote }}
+            - name: OPS_REDIRECT_URI
+              value: {{ include "queenswood.opsRedirectUri" . | quote }}
+            - name: OPS_CLIENT_ID
+              value: {{ .Values.keycloak.opsClientId | quote }}
             - name: GOOGLE_CLIENT_ID
               value: {{ .Values.keycloak.googleClientId | quote }}
             - name: GOOGLE_IDP_ALIAS

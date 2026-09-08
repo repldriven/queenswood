@@ -61,10 +61,7 @@
         "pkce.code.challenge.method": "S256",
         "post.logout.redirect.uris": "+"
       },
-      "redirectUris": [
-        "http://localhost:5174/*",
-        "http://localhost:8081/*"
-      ],
+      "redirectUris": [],
       "webOrigins": ["+"],
       "protocolMappers": [
         {

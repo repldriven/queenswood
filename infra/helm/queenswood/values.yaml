@@ -68,6 +68,12 @@ keycloak:
   # guessed origin is permanent.
   consoleRedirectUri: ""
 
+  # The operator app's deployed origin, added to the `queenswood-app`
+  # client in the ops realm the same way. Empty by default and adds
+  # nothing when empty, because this chart deploys no operator SPA and
+  # so has no hostname to fall back to.
+  opsRedirectUri: ""
+
   # The Google OAuth client the realm's `google` identity provider
   # authenticates as. Created by hand in the Cloud console -- Google
   # exposes no API for a web client with a chosen redirect URI -- so the
@@ -144,6 +150,29 @@ keycloak:
     # Keycloak's master-realm bootstrap admin. Dev-only credentials.
     adminUser: admin
     adminPassword: admin
+
+    # The local origins the committed realms no longer carry. The realm
+    # pair a deployment imports lists no `localhost` redirect URI, so
+    # nothing there widens a deployed realm by accident; the dev bundle
+    # serves both SPAs on the developer's own machine and needs them,
+    # so the template adds these at render time instead.
+    #
+    # The console is on 8081: that is the port
+    # `console.keycloakPublicUrl` falls back to
+    # (`http://localhost:8081/keycloak`) and the one the documented
+    # `kubectl port-forward svc/<release>-console 8081:8080` opens, so
+    # the SPA's origin and the authority it asks Keycloak for are the
+    # same string. The operator app takes 8082, the other port this
+    # bundle's own comment names; the chart deploys no operator SPA, so
+    # nothing else claims it.
+    #
+    # The Vite ports (5173 console, 5174 operator app) belong to the
+    # host SPAs run outside the cluster, and stay in the test realm
+    # pair only.
+    consoleRedirectUris:
+      - "http://localhost:8081/*"
+    opsRedirectUris:
+      - "http://localhost:8082/*"
 
   # Admin REST credentials the bootstrap Job uses to push the generated
   # admin client secret into Keycloak. Derived from the mode when empty:
