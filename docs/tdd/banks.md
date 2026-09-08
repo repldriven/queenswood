@@ -154,8 +154,11 @@ the following inside one FDB transaction:
 5. **Create the service-account client** *(before the FDB write)*
    — when `opts` carries `:identity-provider`,
    `identity-provider/create-service-account` with
-   `client_id == bank-id` and a status-derived audience; the
-   one-time `:client-secret` is captured for the response.
+   `client_id == bank-id` and a status-derived audience. The secret
+   minted here is discarded: the command reply crosses the bus, so no
+   credential travels on it. The API handler mints the one in the
+   response with `rotate-secret` after the reply — see the
+   [authentication TDD's service-account lifecycle](authentication.md).
 6. **Persist the bank.**
 7. **Create the bank's org party** — `party/new-party` with
    `:type :party-type-organization` and display-name = bank name.
@@ -222,9 +225,13 @@ return — walks the related bricks:
 
 `:client-secret` (the service-account secret, the one-time
 credential) appears only when an `:identity-provider` was supplied
-at create — there is no API key. The enriched shape walks the org
-party and the cash accounts (with balances and resolved
-`:gl-code`); it does not list the seeded ledger accounts.
+at create — there is no API key. It is not the secret creation
+minted; that one is discarded rather than carried back over the
+command bus. The handler calls `rotate-secret` once the reply
+arrives and returns what that mints, so the credential exists only on
+the response. The enriched shape walks the org party and the cash
+accounts (with balances and resolved `:gl-code`); it does not list
+the seeded ledger accounts.
 
 ### Tier and the policy-binding model
 
