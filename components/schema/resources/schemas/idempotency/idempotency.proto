@@ -7,9 +7,11 @@ import "record_metadata_options.proto";
 option java_outer_classname = "IdempotencyProto";
 
 // Cached response for an Idempotency-Key, scoped by the
-// authenticated principal (the API key id for org-scoped
-// API-key callers, or the JWT's `azp` for Keycloak-authenticated
-// callers) and the operation (HTTP method + path template).
+// authenticated principal and the operation (HTTP method + path
+// template). The principal is the bank id for a service token,
+// `queenswood-admin` for the admin client, and the user id for a
+// user — whatever `:principal-id` the auth interceptor put on the
+// request.
 //
 // Two-state machine to handle concurrent duplicate requests:
 //
@@ -36,4 +38,11 @@ message Idempotency {
   optional string body            = 6;
   required int64  created_at      = 7;
   required int64  expires_at      = 8;
+  // Hash of the request this entry was claimed for: the path and the
+  // decoded body. A live entry whose fingerprint differs means the
+  // caller reused a key for a different request, which is a mistake
+  // rather than a retry. Optional at the wire level so entries
+  // written before this field still parse; those match anything for
+  // the rest of their lifetime.
+  optional string fingerprint     = 9;
 }

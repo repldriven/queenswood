@@ -63,11 +63,15 @@
 (def ^:private shared-responses
   {400 (ErrorResponse [#'examples/BadRequest #'examples/MissingIdempotencyKey
                        #'examples/InvalidIdempotencyKey])
-   409 (ErrorResponse [#'examples/IdempotentRequestInFlight])})
+   409 (ErrorResponse [#'examples/IdempotentRequestInFlight])
+   422 (ErrorResponse [#'examples/IdempotencyKeyReused])
+   503 (ErrorResponse [#'examples/IdempotencyCacheUnavailable])})
 
 (defn with-responses
   "Fold the refusals every protected route shares into `responses`:
-  the two `Idempotency-Key` header 400s beside the generic one, and
-  the 409 raised while an identical request is still in flight."
+  the two `Idempotency-Key` header 400s beside the generic one, the
+  409 raised while an identical request is still in flight, the 422
+  refusing a key already live against a different request, and the
+  503 answering a cache that could not be read."
   [responses]
   (utility/deep-merge responses shared-responses))

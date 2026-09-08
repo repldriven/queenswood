@@ -85,6 +85,8 @@
                        "components/cash-account/test-resources"
                        "components/company/test"
                        "components/company/test-resources"
+                       "components/idempotency/test"
+                       "components/idempotency/test-resources"
                        "components/idv/test"
                        "components/idv/test-resources"
                        "components/interest/test"

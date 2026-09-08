@@ -216,9 +216,13 @@
           (str ":api/race response was neither a 409 in-flight nor an"
                " exact replay of the fresh response: "
                (pr-str response))))
+    ;; Captured fresh-first. The vector's own order is meaningless --
+    ;; deref'd in creation order, not completion order -- so a scenario
+    ;; reading `[:ref alias 0 :body ...]` wants the one that ran the
+    ;; handler, not whichever future was built first.
     (cond-> (assoc ctx :last-response (or original (first responses)))
             as
-            (assoc-in [:captures as] responses))))
+            (assoc-in [:captures as] (into (vec fresh-responses) others)))))
 
 (defmethod dispatch :wait
   [ctx {:keys [duration-ms]}]

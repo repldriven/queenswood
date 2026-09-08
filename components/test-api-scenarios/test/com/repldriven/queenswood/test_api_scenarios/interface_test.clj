@@ -10,6 +10,7 @@
   (:require
     [com.repldriven.queenswood.test-api-scenarios.system]
 
+    [com.repldriven.queenswood.test-api-scenarios.fault :as fault]
     [com.repldriven.queenswood.test-api-scenarios.interface :as SUT]
 
     [com.repldriven.queenswood.api.api :as api]
@@ -60,10 +61,20 @@
         (throw (ex-info "Failed to mint scenario admin token"
                         {:status (:status res) :body body})))))
 
+(defn- app-with-fault
+  "The bank API, with the lost-reply seam spliced into the interceptor
+  list the server hands its routes. Test-only, and inert until a
+  scenario sends an `ik-lost-reply-` key."
+  [ctx]
+  (api/app (update ctx
+                   :interceptors
+                   (fn [interceptors]
+                     (vec (concat interceptors [fault/lose-reply]))))))
+
 (defn- patch-handlers
   [defs]
   (-> defs
-      (assoc-in [:system/defs :server :handler] api/app)
+      (assoc-in [:system/defs :server :handler] app-with-fault)
       (assoc-in [:system/defs :clearbank-simulator-server :handler]
                 cb-simulator/app)
       (assoc-in [:system/defs :clearbank-adapter-server :handler]

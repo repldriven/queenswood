@@ -52,6 +52,20 @@
            :detail (str "A request with this Idempotency-Key is already "
                         "being processed; please retry in a moment.")}})
 
+(def IdempotencyKeyReused
+  {:value {:title "REJECTED"
+           :type "mono/idempotency-key-reused"
+           :status 422
+           :detail (str "This Idempotency-Key was used for a different "
+                        "request; use a fresh key.")}})
+
+(def IdempotencyCacheUnavailable
+  {:value {:title "FAILED"
+           :type "mono/idempotency-cache-unavailable"
+           :status 503
+           :detail (str "The idempotency cache could not be read; please "
+                        "retry in a moment.")}})
+
 (def Contention
   {:value {:title "FAILED"
            :type ":fdb/contention"
@@ -68,4 +82,5 @@
   (examples-registry [#'BadRequest #'Unauthorized #'Forbidden #'BadResponse
                       #'InternalServerError #'Contention #'Timeout
                       #'MissingIdempotencyKey #'InvalidIdempotencyKey
-                      #'IdempotentRequestInFlight]))
+                      #'IdempotentRequestInFlight #'IdempotencyKeyReused
+                      #'IdempotencyCacheUnavailable]))

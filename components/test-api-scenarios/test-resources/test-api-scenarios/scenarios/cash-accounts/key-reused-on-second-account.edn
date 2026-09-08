@@ -1,0 +1,129 @@
+{:name "One key reused on a second account is refused, and the account stands"
+ :tags #{:api :cash-accounts :idempotency :unhappy}
+ ;; The two closes share a path template but not a path, so the key is
+ ;; live against a different request. Replaying the first answer would
+ ;; report the second account as closed when it is not, which is worse
+ ;; than a refusal: the caller is told to use a fresh key, and the
+ ;; second account is left exactly as it was.
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-key-reused-bank-001"}
+             :body {:name "Key Reuse Test Org"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :bank-0
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :bank-0 :client-id]
+         :client-secret [:ref :bank-0 :client-secret]
+         :status :live}
+   :as :bank-0-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-key-reused-prod-001"}
+             :body {:name "Current"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-01-01"}}
+   :as :product
+   :assert {:status 201 :body {:status "draft"}}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :product :product-id]
+                  :version-id [:ref :product :version-id]}
+    :auth :bank-0-token}
+   :assert {:status 200 :body {:status "published"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-key-reused-party-001"}
+             :body {:type "person"
+                    :display-name "Reuse Customer"
+                    :given-name "Reuse"
+                    :family-name "Customer"
+                    :date-of-birth "1962-02-02"
+                    :nationality "GB"
+                    :address {:building-number "3"
+                              :street "Improbability Drive"
+                              :town "Cottington"
+                              :postcode "CT12 4XY"
+                              :country "GBR"}
+                    :national-identifier {:type "national-insurance"
+                                          :value "TN555801H"
+                                          :issuing-country "GB"}}}
+   :as :party
+   :assert {:status 200 :body {:status "pending"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}"
+             :path-params {:party-id [:ref :party :party-id]}
+             :auth :bank-0-token}
+   :until {:status 200 :body {:status "active"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-key-reused-first-0001"}
+             :body {:party-id [:ref :party :party-id]
+                    :name "First"
+                    :currency "GBP"
+                    :product-id [:ref :product :product-id]}}
+   :as :first
+   :assert {:status 200 :body {:account-status "opening"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :first :account-id]}
+             :auth :bank-0-token}
+   :until {:status 200 :body {:account-status "opened"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-key-reused-second-001"}
+             :body {:party-id [:ref :party :party-id]
+                    :name "Second"
+                    :currency "GBP"
+                    :product-id [:ref :product :product-id]}}
+   :as :second
+   :assert {:status 200 :body {:account-status "opening"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :second :account-id]}
+             :auth :bank-0-token}
+   :until {:status 200 :body {:account-status "opened"}}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts/{account-id}/close"
+             :path-params {:account-id [:ref :first :account-id]}
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-key-reused-close-001"}}
+   :assert {:status 200}}
+  ;; The same key, a different account.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts/{account-id}/close"
+             :path-params {:account-id [:ref :second :account-id]}
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-key-reused-close-001"}}
+   :assert {:status 422 :problem {:type "mono/idempotency-key-reused"}}}]
+ :then
+ ;; The second account was never touched.
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :second :account-id]}
+             :auth :bank-0-token}
+   :assert {:status 200 :body {:account-status "opened"}}}]}
