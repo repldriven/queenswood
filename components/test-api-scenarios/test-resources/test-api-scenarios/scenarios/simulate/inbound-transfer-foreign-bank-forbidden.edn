@@ -80,14 +80,26 @@
                     :amount 100000
                     :currency "GBP"}}
    :assert {:status 200}}
-  ;; The admin takes its bank from the path, so it may fund either.
+  ;; The admin takes its bank from the path, so it may fund either —
+  ;; both are posted, since a check that short-circuits on the role
+  ;; would pass one bank and a check that compares banks would not.
   {:command :api/request
    :request {:method :post
              :path "/v1/simulate/banks/{bank-id}/inbound-transfer"
              :path-params {:bank-id [:ref :bank-b :bank-id]}
              :auth :admin
-             :headers {:idempotency-key "ik-tenant-admin-inbound"}
+             :headers {:idempotency-key "ik-tenant-admin-inbound-b"}
              :body {:account-id [:ref :bank-b :accounts 0 :account-id]
+                    :amount 100000
+                    :currency "GBP"}}
+   :assert {:status 200}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/simulate/banks/{bank-id}/inbound-transfer"
+             :path-params {:bank-id [:ref :bank-a :bank-id]}
+             :auth :admin
+             :headers {:idempotency-key "ik-tenant-admin-inbound-a"}
+             :body {:account-id [:ref :bank-a :accounts 0 :account-id]
                     :amount 100000
                     :currency "GBP"}}
    :assert {:status 200}}]}
