@@ -4,10 +4,11 @@
   A scenario is a map with `:given` / `:when` / `:then` step lists;
   each step is dispatched through `verbs/dispatch`. The runner
   context carries a base URL, an admin bearer token (a Keycloak-
-  minted service JWT carrying the `admin` realm role), and a
-  `:captures` map populated by steps that capture their response
-  body via `:as <alias>`. Later steps refer back to captures with
-  `[:ref :alias :k1 :k2 ...]` markers.
+  minted service JWT carrying the `admin` realm role), the realms'
+  token endpoints and a test-owned signing key for the user-token
+  verbs, and a `:captures` map populated by steps that capture their
+  response body via `:as <alias>`. Later steps refer back to
+  captures with `[:ref :alias :k1 :k2 ...]` markers.
 
   Scenarios call the API over HTTP. One booted system serves every
   scenario; per-scenario isolation is the fresh `:captures` map
@@ -26,13 +27,23 @@
     `http://localhost:NNNN`).
   - `:admin-token` — Keycloak-minted service JWT used when
     `:auth :admin` appears in a step.
+  - `:token-endpoints` (optional) — realm keyword → that realm's
+    OpenID token endpoint, for `:auth/mint-user-token`. The API's
+    `/oauth/token` proxies `client_credentials` only, so a user
+    token is fetched from the realm directly.
+  - `:signing-key` (optional) — a test-owned `java.security.KeyPair`
+    for `:auth/sign-token`, which mints tokens the realm would never
+    issue. The caller generates one for the whole run rather than one
+    per scenario; RSA key generation is not free.
   - `:run-id` (optional) — caller-supplied tag for log lines.
 
   The fresh `:captures` map isolates scenarios from each other so
   one boot can serve many."
-  [{:keys [base-url admin-token run-id]}]
+  [{:keys [base-url admin-token token-endpoints signing-key run-id]}]
   {:base-url base-url
    :admin-token admin-token
+   :token-endpoints token-endpoints
+   :signing-key signing-key
    :run-id run-id
    :captures {}
    :last-response nil
