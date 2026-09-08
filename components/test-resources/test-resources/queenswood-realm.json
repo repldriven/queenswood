@@ -118,7 +118,7 @@
       "enabled": true,
       "publicClient": true,
       "standardFlowEnabled": true,
-      "directAccessGrantsEnabled": false,
+      "directAccessGrantsEnabled": true,
       "implicitFlowEnabled": false,
       "serviceAccountsEnabled": false,
       "protocol": "openid-connect",
@@ -239,6 +239,21 @@
         {
           "type": "password",
           "value": "dev",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "member",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "member@queenswood.local",
+      "firstName": "Member",
+      "lastName": "User",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "member",
           "temporary": false
         }
       ]

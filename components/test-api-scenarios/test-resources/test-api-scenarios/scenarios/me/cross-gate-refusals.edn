@@ -1,0 +1,23 @@
+{:name "A user token is refused an admin route, and a service token /v1/me"
+ :tags #{:api :auth :me :unhappy}
+ ;; The two gates in the other direction. Neither principal is short
+ ;; of a valid token; each is short of the role the route asks for.
+ :when
+ [{:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "dev"
+   :password "dev"
+   :as :dev-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :dev-token
+             :body {:name "Refused Bank"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :assert {:status 403 :problem {:type "auth/forbidden"}}}
+  {:command :api/request
+   :request {:method :get :path "/v1/me" :auth :admin}
+   :assert {:status 403 :problem {:type "auth/forbidden"}}}]}
