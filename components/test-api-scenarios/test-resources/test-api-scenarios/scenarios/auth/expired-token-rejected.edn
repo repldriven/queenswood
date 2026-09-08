@@ -1,0 +1,16 @@
+{:name "An expired token is rejected"
+ :tags #{:api :auth :unhappy}
+ ;; The realm mints this one, so what the 401 proves is Keycloak's
+ ;; `exp` and the verifier's zero leeway, not a claim the test wrote.
+ ;; `queenswood-short-lived` exists in the test realm for this alone:
+ ;; a one-second access-token lifespan, which the wait passes twice
+ ;; over.
+ :when
+ [{:command :auth/mint-token
+   :for {:client-id "queenswood-short-lived"
+         :client-secret "queenswood-short-lived-test-secret"}
+   :as :short-lived-token}
+  {:command :wait :duration-ms 2500}
+  {:command :api/request
+   :request {:method :get :path "/v1/parties" :auth :short-lived-token}
+   :assert {:status 401 :problem {:type "auth/unauthenticated"}}}]}
