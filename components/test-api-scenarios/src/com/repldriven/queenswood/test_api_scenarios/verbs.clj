@@ -144,23 +144,81 @@
                (with-out-str
                  (standalone/print! (standalone/match matcher actual))))))))
 
+(def ^:private replay-header
+  "The header the idempotency cache marks a replayed response with."
+  :idempotent-replayed)
+
+(defn- replayed?
+  [response]
+  (= "true" (get-in response [:headers replay-header])))
+
+(defn- send-once
+  [ctx request]
+  (let [res (http/request (build-request ctx request))]
+    {:status (:status res)
+     :body (http/res->edn res)
+     :headers (:headers res)}))
+
 (defmulti dispatch
   "Scenario step dispatch. `:api/*` methods drive the bank API over
-  HTTP; `:assert/*` methods check the previous response."
+  HTTP; `:assert/*` methods check the previous response.
+
+  `:api/race` sends one request `:count` times at once and asserts the
+  idempotency invariant over the answers rather than their timing: see
+  its own method."
   (fn [_ctx command] (:command command)))
 
 (defmethod dispatch :api/request
   [{:keys [captures] :as ctx} {:keys [request as] :as step}]
   (let [resolved (refs/resolve-all captures request)
-        res (http/request (build-request ctx resolved))
-        body (http/res->edn res)
-        response {:status (:status res) :body body :headers (:headers res)}
+        response (send-once ctx resolved)
         ctx' (cond-> (assoc ctx :last-response response)
                      as
-                     (assoc-in [:captures as] body))]
+                     (assoc-in [:captures as] (:body response)))]
     (if-let [expect (:assert step)]
       (dispatch ctx' {:command :assert/response :assert expect})
       ctx')))
+
+(defmethod dispatch :api/race
+  [{:keys [captures] :as ctx} {:keys [request as] n :count :as step}]
+  (let [{:keys [status fresh]} (refs/resolve-all captures (:assert step))
+        resolved (refs/resolve-all captures request)
+        responses (->> (repeatedly n #(future (send-once ctx resolved)))
+                       (into [])
+                       (mapv deref))
+        [fresh-responses others] (reduce (fn [[f o] response]
+                                           (if (and (= status
+                                                       (:status response))
+                                                    (not (replayed? response)))
+                                             [(conj f response) o]
+                                             [f (conj o response)]))
+                                         [[] []]
+                                         responses)
+        original (first fresh-responses)]
+    (is (= fresh (count fresh-responses))
+        (str ":api/race expected "
+             fresh
+             " response(s) with status "
+             status
+             " and no replay header,"
+             " got " (count fresh-responses)
+             "; statuses: " (pr-str (mapv :status responses))))
+    ;; Whether a loser sees the winner still in flight or already
+    ;; committed is the scheduler's business, so both answers pass. What
+    ;; is invariant is that no loser ran the handler again.
+    (doseq [response others]
+      (is (or (and (= 409 (:status response))
+                   (= "mono/idempotent-request-in-flight"
+                      (get-in response [:body :type])))
+              (and (replayed? response)
+                   (= status (:status response))
+                   (= (:body original) (:body response))))
+          (str ":api/race response was neither a 409 in-flight nor an"
+               " exact replay of the fresh response: "
+               (pr-str response))))
+    (cond-> (assoc ctx :last-response (or original (first responses)))
+            as
+            (assoc-in [:captures as] responses))))
 
 (defmethod dispatch :wait
   [ctx {:keys [duration-ms]}]
@@ -210,7 +268,8 @@
 
 (defmethod dispatch :assert/response
   [{:keys [captures last-response] :as ctx} {expectation :assert}]
-  (let [{:keys [status body problem]} (refs/resolve-all captures expectation)
+  (let [{:keys [status body headers problem]} (refs/resolve-all captures
+                                                                expectation)
         actual-body (:body last-response)]
     (when status
       (is (= status (:status last-response))
@@ -218,6 +277,7 @@
                " got " (:status last-response)
                "; body: " (pr-str actual-body))))
     (when body (assert-match body actual-body "body"))
+    (when headers (assert-match headers (:headers last-response) "headers"))
     (when problem
       (assert-match (merge {:type [:m/any] :title [:m/any]} problem)
                     actual-body

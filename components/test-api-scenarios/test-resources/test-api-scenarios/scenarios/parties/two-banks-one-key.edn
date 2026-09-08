@@ -1,0 +1,107 @@
+{:name "Two banks reusing one idempotency key each get their own party"
+ :tags #{:api :idempotency :parties :happy}
+ ;; An idempotency key is unique within a principal, not across the
+ ;; platform. Two tenants that happen to pick the same key each get
+ ;; their own party: neither is refused, and neither is handed the
+ ;; other's. This is what pins the cache's scope to the principal.
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-parties-two-banks-a-001"}
+             :body {:name "Parties Key Scope A"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :bank-a
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-parties-two-banks-b-001"}
+             :body {:name "Parties Key Scope B"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :bank-b
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :bank-a :client-id]
+         :client-secret [:ref :bank-a :client-secret]
+         :status :live}
+   :as :bank-a-token}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :bank-b :client-id]
+         :client-secret [:ref :bank-b :client-secret]
+         :status :live}
+   :as :bank-b-token}]
+ :when
+ ;; The same key literal, sent by two different principals.
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth :bank-a-token
+             :headers {:idempotency-key "ik-parties-shared-key-0001"}
+             :body {:type "person"
+                    :display-name "Zaphod Beeblebrox"
+                    :given-name "Zaphod"
+                    :family-name "Beeblebrox"
+                    :date-of-birth "1949-01-15"
+                    :nationality "GB"
+                    :address {:building-number "1"
+                              :street "Heart Of Gold"
+                              :town "Cottington"
+                              :postcode "CT12 4XY"
+                              :country "GBR"}
+                    :national-identifier {:type "national-insurance"
+                                          :value "TN555301B"
+                                          :issuing-country "GB"}}}
+   :as :party-a
+   :assert {:status 200 :body {:bank-id [:ref :bank-a :bank-id]}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth :bank-b-token
+             :headers {:idempotency-key "ik-parties-shared-key-0001"}
+             :body {:type "person"
+                    :display-name "Slartibartfast"
+                    :given-name "Slarti"
+                    :family-name "Bartfast"
+                    :date-of-birth "1931-06-02"
+                    :nationality "GB"
+                    :address {:building-number "2"
+                              :street "Fjord Lane"
+                              :town "Cottington"
+                              :postcode "CT12 4XY"
+                              :country "GBR"}
+                    :national-identifier {:type "national-insurance"
+                                          :value "TN555302C"
+                                          :issuing-country "GB"}}}
+   :as :party-b
+   :assert {:status 200 :body {:bank-id [:ref :bank-b :bank-id]}}}]
+ :then
+ ;; Two parties, not one replayed twice — B's answer is B's own party,
+ ;; with B's own name, not A's read back.
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/parties/{party-id}"
+             :path-params {:party-id [:ref :party-b :party-id]}
+             :auth :bank-b-token}
+   :assert {:status 200
+            :body {:display-name "Slartibartfast"
+                   :bank-id [:ref :bank-b :bank-id]}}}
+  ;; Each bank's listing holds its own party and only its own.
+  {:command :api/request
+   :request {:method :get :path "/v1/parties" :auth :bank-a-token}
+   :assert {:status 200
+            :body {:parties [:m/embeds
+                             [{:party-id [:ref :party-a :party-id]
+                               :display-name "Zaphod Beeblebrox"}]]}}}
+  {:command :api/request
+   :request {:method :get :path "/v1/parties" :auth :bank-b-token}
+   :assert {:status 200
+            :body {:parties [:m/embeds
+                             [{:party-id [:ref :party-b :party-id]
+                               :display-name "Slartibartfast"}]]}}}]}

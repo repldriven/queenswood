@@ -13,6 +13,8 @@
    [:command keyword?]
    [:request {:optional true} map?]
    [:assert {:optional true} map?]
+   ;; `:api/race` only — how many copies of `:request` to send at once.
+   [:count {:optional true} pos-int?]
    [:as {:optional true} keyword?]])
 
 (def schema

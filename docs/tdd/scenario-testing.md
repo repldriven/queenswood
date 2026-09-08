@@ -50,6 +50,32 @@ hypermedia links. They share neither code nor configuration
 beyond pattern — each has its own runner, its own
 `application-test.yml`, and its own scenario fixtures.
 
+### Proving idempotency over HTTP
+
+Three things in the HTTP-layer runner exist for idempotency, where
+what a client sees is the whole of the contract.
+
+`:assert/response` takes `:headers` beside `:body`, matched the same
+way, against the header map the runner captures on every response.
+It is how a scenario asserts that a replayed answer is marked as one.
+
+`:api/race` sends one request `:count` times at once, on futures, and
+asserts the invariant rather than the timing. Whether a losing request
+finds the winner still in flight or already committed is the
+scheduler's business and cannot be pinned in a scenario; what holds
+either way is that exactly `:fresh` responses carry the expected
+status and no replay marker, and every other response is either a 409
+saying an identical request is in flight or an exact replay of the
+winner. The timing-dependent half — the 409 specifically — is pinned
+with a latch in the idempotency brick's own test, where it can be.
+
+Every `Idempotency-Key` literal in the corpus must be unique across
+files. Bank creation sits in the `:given` of almost every scenario and
+the admin principal is shared by the whole boot, so a literal used by
+two files would replay the other file's bank rather than create one.
+The runner test fails on a shared literal; a key repeated *within* one
+file is how a replay is written, and is fine.
+
 The rest of this TDD is about the domain-layer brick. The
 HTTP-layer brick follows the same EDN + runner pattern with verb
 semantics swapped for HTTP requests.

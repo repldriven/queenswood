@@ -1,0 +1,307 @@
+{:name "Two banks reusing one idempotency key each get their own payment"
+ :tags #{:api :idempotency :payments :happy}
+ ;; The F1 collision, through HTTP. A payment's idempotency key is
+ ;; unique within a bank, not across the platform: two tenants that
+ ;; pick the same key each get their own payment, and neither is
+ ;; refused nor handed the other's.
+ :given
+ [
+  ;; Bank A
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-pay-two-banks-bank-a-001"}
+             :body {:name "Payments Key Scope A"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :bank-a
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :bank-a :client-id]
+         :client-secret [:ref :bank-a :client-secret]
+         :status :live}
+   :as :bank-a-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :bank-a-token
+             :headers {:idempotency-key "ik-pay-two-banks-prod-a-001"}
+             :body {:name "Current"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-01-01"}}
+   :as :product-a
+   :assert {:status 201 :body {:status "draft"}}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :product-a :product-id]
+                  :version-id [:ref :product-a :version-id]}
+    :auth :bank-a-token}
+   :assert {:status 200 :body {:status "published"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth :bank-a-token
+             :headers {:idempotency-key "ik-pay-two-banks-party-a-001"}
+             :body {:type "person"
+                    :display-name "Arthur Dent"
+                    :given-name "Arthur"
+                    :family-name "Dent"
+                    :date-of-birth "1950-07-27"
+                    :nationality "GB"
+                    :address {:building-number "155"
+                              :street "Improbability Drive"
+                              :town "Cottington"
+                              :postcode "CT12 4XY"
+                              :country "GBR"}
+                    :national-identifier {:type "national-insurance"
+                                          :value "TN555401D"
+                                          :issuing-country "GB"}}}
+   :as :party-a
+   :assert {:status 200 :body {:status "pending"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}"
+             :path-params {:party-id [:ref :party-a :party-id]}
+             :auth :bank-a-token}
+   :until {:status 200 :body {:status "active"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :bank-a-token
+             :headers {:idempotency-key "ik-pay-two-banks-debtor-a-001"}
+             :body {:party-id [:ref :party-a :party-id]
+                    :name "Current"
+                    :currency "GBP"
+                    :product-id [:ref :product-a :product-id]}}
+   :as :debtor-a
+   :assert {:status 200 :body {:account-status "opening"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :debtor-a :account-id]}
+             :auth :bank-a-token}
+   :until {:status 200 :body {:account-status "opened"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :bank-a-token
+             :headers {:idempotency-key "ik-pay-two-banks-creditor-a-01"}
+             :body {:party-id [:ref :party-a :party-id]
+                    :name "Savings"
+                    :currency "GBP"
+                    :product-id [:ref :product-a :product-id]}}
+   :as :creditor-a
+   :assert {:status 200 :body {:account-status "opening"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :creditor-a :account-id]}
+             :auth :bank-a-token}
+   :until {:status 200 :body {:account-status "opened"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/simulate/banks/{bank-id}/inbound-transfer"
+             :path-params {:bank-id [:ref :bank-a :bank-id]}
+             :auth :admin
+             :headers {:idempotency-key "ik-pay-two-banks-fund-a-001"}
+             :body {:account-id [:ref :debtor-a :account-id]
+                    :amount 100000
+                    :currency "GBP"}}
+   :assert {:status 200}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :debtor-a :account-id]}
+             :auth :bank-a-token}
+   :until {:status 200
+           :body {:available-balance {:value 100000 :currency "GBP"}}}}
+  ;; Bank B
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-pay-two-banks-bank-b-001"}
+             :body {:name "Payments Key Scope B"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :bank-b
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :bank-b :client-id]
+         :client-secret [:ref :bank-b :client-secret]
+         :status :live}
+   :as :bank-b-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :bank-b-token
+             :headers {:idempotency-key "ik-pay-two-banks-prod-b-001"}
+             :body {:name "Current"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-01-01"}}
+   :as :product-b
+   :assert {:status 201 :body {:status "draft"}}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :product-b :product-id]
+                  :version-id [:ref :product-b :version-id]}
+    :auth :bank-b-token}
+   :assert {:status 200 :body {:status "published"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth :bank-b-token
+             :headers {:idempotency-key "ik-pay-two-banks-party-b-001"}
+             :body {:type "person"
+                    :display-name "Marvin Android"
+                    :given-name "Marvin"
+                    :family-name "Android"
+                    :date-of-birth "1961-11-04"
+                    :nationality "GB"
+                    :address {:building-number "42"
+                              :street "Improbability Drive"
+                              :town "Cottington"
+                              :postcode "CT12 4XY"
+                              :country "GBR"}
+                    :national-identifier {:type "national-insurance"
+                                          :value "TN555402E"
+                                          :issuing-country "GB"}}}
+   :as :party-b
+   :assert {:status 200 :body {:status "pending"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}"
+             :path-params {:party-id [:ref :party-b :party-id]}
+             :auth :bank-b-token}
+   :until {:status 200 :body {:status "active"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :bank-b-token
+             :headers {:idempotency-key "ik-pay-two-banks-debtor-b-001"}
+             :body {:party-id [:ref :party-b :party-id]
+                    :name "Current"
+                    :currency "GBP"
+                    :product-id [:ref :product-b :product-id]}}
+   :as :debtor-b
+   :assert {:status 200 :body {:account-status "opening"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :debtor-b :account-id]}
+             :auth :bank-b-token}
+   :until {:status 200 :body {:account-status "opened"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :bank-b-token
+             :headers {:idempotency-key "ik-pay-two-banks-creditor-b-01"}
+             :body {:party-id [:ref :party-b :party-id]
+                    :name "Savings"
+                    :currency "GBP"
+                    :product-id [:ref :product-b :product-id]}}
+   :as :creditor-b
+   :assert {:status 200 :body {:account-status "opening"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :creditor-b :account-id]}
+             :auth :bank-b-token}
+   :until {:status 200 :body {:account-status "opened"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/simulate/banks/{bank-id}/inbound-transfer"
+             :path-params {:bank-id [:ref :bank-b :bank-id]}
+             :auth :admin
+             :headers {:idempotency-key "ik-pay-two-banks-fund-b-001"}
+             :body {:account-id [:ref :debtor-b :account-id]
+                    :amount 100000
+                    :currency "GBP"}}
+   :assert {:status 200}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :debtor-b :account-id]}
+             :auth :bank-b-token}
+   :until {:status 200
+           :body {:available-balance {:value 100000 :currency "GBP"}}}}
+  ]
+ :when
+ ;; The same key literal, sent by two different principals.
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/payments/internal"
+             :auth :bank-a-token
+             :headers {:idempotency-key "ik-payments-shared-key-001"}
+             :body {:debtor-account-id [:ref :debtor-a :account-id]
+                    :creditor-account-id [:ref :creditor-a :account-id]
+                    :currency "GBP"
+                    :amount 2500
+                    :reference "Bank A payment"}}
+   :as :payment-a
+   :assert {:status 200 :body {:bank-id [:ref :bank-a :bank-id]
+                               :amount 2500
+                               :reference "Bank A payment"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/payments/internal"
+             :auth :bank-b-token
+             :headers {:idempotency-key "ik-payments-shared-key-001"}
+             :body {:debtor-account-id [:ref :debtor-b :account-id]
+                    :creditor-account-id [:ref :creditor-b :account-id]
+                    :currency "GBP"
+                    :amount 7100
+                    :reference "Bank B payment"}}
+   :as :payment-b
+   :assert {:status 200 :body {:bank-id [:ref :bank-b :bank-id]
+                               :amount 7100
+                               :reference "Bank B payment"}}}]
+ :then
+ ;; Two payments, not one replayed. B's answer is B's own — a different
+ ;; amount and reference than A's, which a replay could not produce.
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/payments/internal/{payment-id}"
+             :path-params {:payment-id [:ref :payment-a :payment-id]}
+             :auth :bank-a-token}
+   :assert {:status 200
+            :body {:payment-id [:ref :payment-a :payment-id]
+                   :bank-id [:ref :bank-a :bank-id]
+                   :amount 2500
+                   :reference "Bank A payment"}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/payments/internal/{payment-id}"
+             :path-params {:payment-id [:ref :payment-b :payment-id]}
+             :auth :bank-b-token}
+   :assert {:status 200
+            :body {:payment-id [:ref :payment-b :payment-id]
+                   :bank-id [:ref :bank-b :bank-id]
+                   :amount 7100
+                   :reference "Bank B payment"}}}
+  ;; Each bank was debited for its own payment and no other.
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :debtor-a :account-id]}
+             :auth :bank-a-token}
+   :until {:status 200
+           :body {:available-balance {:value 97500 :currency "GBP"}}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :debtor-b :account-id]}
+             :auth :bank-b-token}
+   :until {:status 200
+           :body {:available-balance {:value 92900 :currency "GBP"}}}}]}
