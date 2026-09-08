@@ -1,0 +1,105 @@
+{:name "A bank's token cannot fund another bank over the simulator"
+ :tags #{:api :auth :simulate :unhappy}
+ ;; The simulate inbound-transfer route drops to the org tier so a
+ ;; tenant can fund its own sandbox, and it takes its bank from the
+ ;; path. Without a check against the principal's bank, any tenant's
+ ;; service token could post a credit into any other tenant's books.
+ :given
+ [{:command :api/request
+   :request
+   {:method :post
+    :path "/v1/banks"
+    :auth :admin
+    :body {:name "Tenant A Bank"
+           :status "live"
+           :tier "micro"
+           :currencies ["GBP"]}}
+   :as :bank-a
+   :assert {:status 201}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/banks"
+    :auth :admin
+    :body {:name "Tenant B Bank"
+           :status "live"
+           :tier "micro"
+           :currencies ["GBP"]}}
+   :as :bank-b
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :bank-a :client-id]
+         :client-secret [:ref :bank-a :client-secret]
+         :status :live}
+   :as :bank-a-token}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :bank-b :client-id]
+         :client-secret [:ref :bank-b :client-secret]
+         :status :live}
+   :as :bank-b-token}
+  ;; B's own-funds house account arrives with the bank and needs no
+  ;; party. Its balances are read with B's own token because the
+  ;; balances route is org-only and the admin carries no bank.
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :bank-b :accounts 0 :account-id]}
+             :auth :bank-b-token}
+   :as :b-before
+   :assert {:status 200}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/simulate/banks/{bank-id}/inbound-transfer"
+             :path-params {:bank-id [:ref :bank-b :bank-id]}
+             :auth :bank-a-token
+             :headers {:idempotency-key "ik-tenant-foreign-inbound"}
+             :body {:account-id [:ref :bank-b :accounts 0 :account-id]
+                    :amount 100000
+                    :currency "GBP"}}
+   :assert {:status 403 :problem {:type "auth/forbidden"}}}]
+ :then
+ ;; Nothing reached B's books.
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :bank-b :accounts 0 :account-id]}
+             :auth :bank-b-token}
+   :assert {:status 200
+            :body {:available-balance [:ref :b-before :available-balance]
+                   :posted-balance [:ref :b-before :posted-balance]
+                   :balances [:m/in-any-order [:ref :b-before :balances]]}}}
+  ;; A's token on A's own path is untouched by the check.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/simulate/banks/{bank-id}/inbound-transfer"
+             :path-params {:bank-id [:ref :bank-a :bank-id]}
+             :auth :bank-a-token
+             :headers {:idempotency-key "ik-tenant-own-inbound"}
+             :body {:account-id [:ref :bank-a :accounts 0 :account-id]
+                    :amount 100000
+                    :currency "GBP"}}
+   :assert {:status 200}}
+  ;; The admin takes its bank from the path, so it may fund either —
+  ;; both are posted, since a check that short-circuits on the role
+  ;; would pass one bank and a check that compares banks would not.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/simulate/banks/{bank-id}/inbound-transfer"
+             :path-params {:bank-id [:ref :bank-b :bank-id]}
+             :auth :admin
+             :headers {:idempotency-key "ik-tenant-admin-inbound-b"}
+             :body {:account-id [:ref :bank-b :accounts 0 :account-id]
+                    :amount 100000
+                    :currency "GBP"}}
+   :assert {:status 200}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/simulate/banks/{bank-id}/inbound-transfer"
+             :path-params {:bank-id [:ref :bank-a :bank-id]}
+             :auth :admin
+             :headers {:idempotency-key "ik-tenant-admin-inbound-a"}
+             :body {:account-id [:ref :bank-a :accounts 0 :account-id]
+                    :amount 100000
+                    :currency "GBP"}}
+   :assert {:status 200}}]}
