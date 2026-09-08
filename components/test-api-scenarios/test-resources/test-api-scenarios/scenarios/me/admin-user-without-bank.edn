@@ -19,6 +19,15 @@
             :body {:user {:issuer [:m/regex "/realms/queenswood-ops$"]
                           :email "ops@queenswood.local"}
                    :memberships []}}}
+  ;; The detail is asserted because the status and the type alone do
+  ;; not say which branch refused. A principal carrying no `:org` at
+  ;; all is refused earlier in `authorize` with the same 403 and the
+  ;; same type; this one carries `:org` and is refused for its bank.
   {:command :api/request
    :request {:method :get :path "/v1/cash-accounts" :auth :ops-token}
-   :assert {:status 403 :problem {:type "auth/forbidden"}}}]}
+   :assert
+   {:status 403
+    :problem
+    {:type "auth/forbidden"
+     :detail
+     "This route acts on the caller's bank and the token names none"}}}]}
