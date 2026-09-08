@@ -6,7 +6,9 @@
     [com.repldriven.queenswood.bank-query.interface :as banks]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
-    [com.repldriven.mono.identity-provider.interface :as identity-provider]))
+    [com.repldriven.mono.identity-provider.interface :as identity-provider]
+
+    [clojure.string :as str]))
 
 (defn- dispatcher
   [request]
@@ -26,7 +28,14 @@
   "Mint a fresh client secret for the bank — the command reply carries
   no credential, so it never sits on the bus — and load the bank
   enriched with its party and accounts. Returns the rich bank map with
-  `:client-secret`, or an anomaly."
+  `:client-secret`, or an anomaly.
+
+  A rotation that answers no secret is an error rather than a
+  rejection: the request was well formed, and nothing the caller does
+  will change the outcome, so a status that invites a retry would
+  mislead. The bank stays created — its command has already committed
+  — so the message names it, and an operator regenerates the
+  credential by hand."
   [request bank-id]
   (let [{:keys [record-db record-store identity-provider]} request
         txn {:record-db record-db :record-store record-store}]
@@ -34,6 +43,14 @@
       [{:keys [client-secret]} (identity-provider/rotate-secret
                                 identity-provider
                                 bank-id)
+       _ (when (str/blank? client-secret)
+           (error/fail :bank/credential-not-issued
+                       {:message (str "Bank "
+                                      bank-id
+                                      " was created, but no client credential"
+                                      " was issued for it; regenerate the"
+                                      " credential before the bank is used")
+                        :bank-id bank-id}))
        bank (banks/get-bank-view txn bank-id)]
       (assoc bank :client-secret client-secret))))
 
