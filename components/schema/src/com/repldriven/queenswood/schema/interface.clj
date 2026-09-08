@@ -292,14 +292,18 @@
 
 (defn pb->Party
   "Parse Party protobuf bytes into a Clojure map. Strips
-  `merged-into-party-id` when it deserialises as the proto2
-  empty-string default — every party except a merged-away one
-  leaves it unset."
+  `merged-into-party-id` and `idempotency-key` when they deserialise
+  as the proto2 empty-string default — every party except a
+  merged-away one leaves the first unset, and every party not created
+  by a client command leaves the second unset."
   [input]
   (let [party (party/pb->Party input)]
     (cond-> party
             (= "" (:merged-into-party-id party))
-            (dissoc :merged-into-party-id))))
+            (dissoc :merged-into-party-id)
+
+            (= "" (:idempotency-key party))
+            (dissoc :idempotency-key))))
 
 (defn Party->pb
   "Serialise a Party map to protobuf bytes.
@@ -565,8 +569,10 @@
 (defn pb->CashAccount
   "Parse CashAccount protobuf bytes into a Clojure map. Strips
   optional string fields that deserialise as the proto2 empty-string
-  default (`bban`, `gl-control-account-id`) — GL chart-of-accounts
-  rows leave both unset, and downstream read sites use `(when (:bban
+  default (`bban`, `gl-control-account-id`,
+  `last-rotation-idempotency-key`) — GL chart-of-accounts rows leave
+  the first two unset and an account that has never been rotated
+  leaves the third unset, and downstream read sites use `(when (:bban
   account) ...)` semantics to distinguish customer instruments from
   GL rows."
   [input]
@@ -576,7 +582,10 @@
             (dissoc :bban)
 
             (= "" (:gl-control-account-id account))
-            (dissoc :gl-control-account-id))))
+            (dissoc :gl-control-account-id)
+
+            (= "" (:last-rotation-idempotency-key account))
+            (dissoc :last-rotation-idempotency-key))))
 
 (defn CashAccount->pb
   "Serialise a CashAccount map to protobuf bytes.

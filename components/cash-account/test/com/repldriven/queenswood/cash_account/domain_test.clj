@@ -115,6 +115,7 @@
                     :cash-account-status-closed
                     :cash-account-status-suspended]]
       (let [result (SUT/rotate-address (account status)
+                                       {}
                                        product-version
                                        (constantly "99999999")
                                        [])]
@@ -128,6 +129,7 @@
            retires the old address on-record"
     (let [acct (opened-account-with-address)
           result (SUT/rotate-address acct
+                                     {:idempotency-key "ik-rotate-0000000001"}
                                      product-version
                                      (constantly "99999999")
                                      [(policy-allowing
@@ -139,8 +141,8 @@
              (:payment-addresses result)))
       (is (= (:payment-addresses acct)
              (mapv :address (:retired-payment-addresses result))))
-      (is (every? int?
-                  (map :retired-at (:retired-payment-addresses result)))))))
+      (is (every? int? (map :retired-at (:retired-payment-addresses result))))
+      (is (= "ik-rotate-0000000001" (:last-rotation-idempotency-key result))))))
 
 (def ^:private migration-target {:product-id "prd.mega" :version-id "prv.4"})
 

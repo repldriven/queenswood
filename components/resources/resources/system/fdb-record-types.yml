@@ -170,7 +170,10 @@ payee-checks:
 parties:
   record-type: Party
   primary-key: [bank_id, party_id]
-  indexes: []
+  indexes:
+    - name: Party_by_idempotency_key
+      fields: [bank_id, idempotency_key]
+      unique: true
 party-national-identifiers:
   record-type: PartyNationalIdentifier
   primary-key: [party_id, type]

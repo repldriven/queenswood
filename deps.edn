@@ -94,6 +94,7 @@
                        "components/ledger-account/test"
                        "components/ledger-account/test-resources"
                        "components/party/test"
+                       "components/party/test-resources"
                        "components/policy/test"
                        "components/policy/test-resources"
                        "components/scheduler/test"

@@ -1,0 +1,93 @@
+{:name "A lost create-party reply is retried under the same key and
+        creates one party"
+ :tags #{:api :idempotency :parties :unhappy}
+ ;; The command commits and its reply never arrives, so the API answers
+ ;; 500 and the cache releases its claim rather than caching a failure.
+ ;; The retry under the same key therefore runs the handler again -- it
+ ;; is not a replay, and carries no replay header -- and the store-level
+ ;; key is what keeps it to one party: the write violates, the party is
+ ;; read back under [bank-id, idempotency-key], and the caller is handed
+ ;; the party the first attempt made rather than a 422 on the national
+ ;; identifier the first attempt also wrote.
+ ;;
+ ;; The lost reply is produced by a test-only seam keyed on the
+ ;; `ik-lost-reply-` prefix; see `test_api_scenarios/fault.clj`.
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-party-lostreply-bank-001"}
+             :body {:name "Party Lost Reply Test"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :bank-0
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :bank-0 :client-id]
+         :client-secret [:ref :bank-0 :client-secret]
+         :status :live}
+   :as :bank-0-token}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-lost-reply-party-first"}
+             :body {:type "person"
+                    :display-name "Ford Prefect"
+                    :given-name "Ford"
+                    :family-name "Prefect"
+                    :date-of-birth "1952-03-11"
+                    :nationality "GB"
+                    :address {:building-number "42"
+                              :street "Betelgeuse Way"
+                              :town "Cottington"
+                              :postcode "CT12 4XY"
+                              :country "GBR"}
+                    :national-identifier {:type "national-insurance"
+                                          :value "TN555801D"
+                                          :issuing-country "GB"}}}
+   :assert {:status 500}}]
+ :then
+ ;; The party the lost attempt wrote is committed, so it appears in the
+ ;; listing before the retry is sent -- otherwise the retry would race
+ ;; the first command rather than follow it.
+ [{:command :api/poll
+   :request {:method :get :path "/v1/parties" :auth :bank-0-token}
+   :until {:status 200
+           :body {:parties [:m/embeds [{:display-name "Ford Prefect"}]]}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-lost-reply-party-first"}
+             :body {:type "person"
+                    :display-name "Ford Prefect"
+                    :given-name "Ford"
+                    :family-name "Prefect"
+                    :date-of-birth "1952-03-11"
+                    :nationality "GB"
+                    :address {:building-number "42"
+                              :street "Betelgeuse Way"
+                              :town "Cottington"
+                              :postcode "CT12 4XY"
+                              :country "GBR"}
+                    :national-identifier {:type "national-insurance"
+                                          :value "TN555801D"
+                                          :issuing-country "GB"}}}
+   :as :retry
+   ;; The claim was released, so this ran rather than replayed.
+   :assert {:status 200
+            :headers {:idempotent-replayed [:m/absent]}
+            :body {:display-name "Ford Prefect"}}}
+  ;; The retry was handed the first attempt's party: this bank holds it
+  ;; and its own organisation party, and nothing else.
+  {:command :api/request
+   :request {:method :get :path "/v1/parties" :auth :bank-0-token}
+   :assert {:status 200
+            :body {:parties
+                   [:m/in-any-order
+                    [{:party-id [:ref :retry :party-id]}
+                     {:party-id [:ref :bank-0 :party :party-id]}]]}}}]}
