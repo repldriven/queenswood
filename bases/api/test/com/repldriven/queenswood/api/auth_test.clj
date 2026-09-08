@@ -5,12 +5,14 @@
     [com.repldriven.queenswood.membership.interface :as memberships]
     [com.repldriven.queenswood.user.interface :as users]
 
+    [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.identity-provider.interface :as identity-provider]
     [com.repldriven.mono.utility.interface :as util]
 
     [buddy.sign.jwt :as jwt]
 
-    [clojure.test :refer [deftest is testing]])
+    [clojure.test :refer [deftest is testing]]
+    [clojure.tools.logging.test :as log-test])
   (:import
     (java.security KeyPair)))
 
@@ -53,14 +55,18 @@
   (get-in (authenticate (sign-token claims)) [:request :auth]))
 
 (defn- authorize
-  [roles security]
-  ((:enter SUT/authorize)
-   {:request (cond-> {:reitit.core/match {:data {:openapi {}}}}
-                     security
-                     (assoc-in [:reitit.core/match :data :openapi :security]
-                      security)
-                     roles
-                     (assoc :auth {:roles roles}))}))
+  ([roles security] (authorize roles security "bnk.test"))
+  ([roles security bank-id]
+   ((:enter SUT/authorize)
+    {:request (cond-> {:reitit.core/match {:data {:openapi {}}}}
+                      security
+                      (assoc-in [:reitit.core/match :data :openapi :security]
+                       security)
+                      roles
+                      (assoc :auth
+                             (cond-> {:roles roles}
+                                     bank-id
+                                     (assoc :bank-id bank-id))))})))
 
 (def ^:private user-row
   {:user-id "usr-1"
@@ -158,3 +164,71 @@
     (testing "a principal holding none of them is refused"
       (let [ctx (authorize #{:user} [{"bearerAuth" ["org" "admin"]}])]
         (is (= 403 (get-in ctx [:response :status])))))))
+
+(defn- logged-messages
+  []
+  (mapv :message (log-test/the-log)))
+
+(defn- warned-naming?
+  [issuer sub]
+  (some (fn [{:keys [level message]}]
+          (and (= :warn level)
+               (re-find (re-pattern (str "(?s)" issuer)) message)
+               (re-find (re-pattern (str "(?s)" sub)) message)))
+        (log-test/the-log)))
+
+(def ^:private user-claims
+  {:azp console-client-id
+   :sub "sub-1"
+   :aud [audience]
+   :email "ada@example.test"
+   :name "Ada Lovelace"})
+
+(deftest user-store-failure-test
+  (testing
+    "an upsert that cannot reach the store answers 503, not a
+           principal with no identity"
+    (log-test/with-log
+     (with-redefs [users/upsert-by-sub (fn [_txn _claims]
+                                         (error/fail :fdb/timeout
+                                                     {:message
+                                                      "Transaction timed out"}))
+                   memberships/list-by-user (fn [_txn _user-id]
+                                              [membership-row])]
+       (let [ctx (authenticate (sign-token user-claims))]
+         (is (= 503 (get-in ctx [:response :status])))
+         (is (nil? (get-in ctx [:request :auth])))
+         (is (warned-naming? issuer "sub-1")
+             (str "expected a warning naming the issuer and subject, got: "
+                  (pr-str (logged-messages))))))))
+  (testing
+    "a membership read that fails after a successful upsert is
+           reported the same way"
+    (log-test/with-log
+     (with-redefs [users/upsert-by-sub (fn [_txn _claims] user-row)
+                   memberships/list-by-user
+                   (fn [_txn _user-id]
+                     (error/fail :fdb/timeout
+                                 {:message "Transaction timed out"}))]
+       (let [ctx (authenticate (sign-token user-claims))]
+         (is (= 503 (get-in ctx [:response :status])))
+         (is (nil? (get-in ctx [:request :auth])))
+         (is (warned-naming? issuer "sub-1")))))))
+
+(deftest org-without-bank-test
+  (testing "an admin with no membership is refused on an org-only route"
+    (let [ctx (authorize #{:org :admin} [{"bearerAuth" ["org"]}] nil)]
+      (is (= 403 (get-in ctx [:response :status])))
+      (is (= "auth/forbidden" (get-in ctx [:response :body :type])))))
+  (testing "the same principal passes a route declaring org and admin"
+    (let [ctx (authorize #{:org :admin} [{"bearerAuth" ["org" "admin"]}] nil)]
+      (is (nil? (:response ctx)))))
+  (testing "a member carrying a bank passes an org-only route"
+    (let [ctx (authorize #{:org} [{"bearerAuth" ["org"]}] "bnk.test")]
+      (is (nil? (:response ctx)))))
+  (testing
+    "an ops-realm admin user carries org and no bank, so it is
+           refused the same way"
+    (let [ctx (authorize #{:user :admin :org} [{"bearerAuth" ["org"]}] nil)]
+      (is (= 403 (get-in ctx [:response :status])))
+      (is (= "auth/forbidden" (get-in ctx [:response :body :type]))))))
