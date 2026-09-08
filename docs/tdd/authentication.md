@@ -179,12 +179,15 @@ accounts, parties, payments and balances belong to a tenant; `/me`
 and onboarding are about who the caller is.
 
 **Every route names its roles.** A route declares them in its OpenAPI
-security, `:security [{"bearerAuth" ["admin"]}]`. There is no bare
-form: a scheme that names no roles is refused when the router is
-built, with the route's path in the message, so the service fails to
-start rather than serving a gate nobody can read. A route whose
-`:security` is `[]` names no scheme, requires nothing and is public by
-design — the OAuth routes are the only ones.
+security, `:security [{"bearerAuth" ["admin"]}]`, written on the route
+rather than under a method key. There is no bare form: a scheme that
+names no roles is refused when the router is built, with the route's
+path in the message, so the service fails to start rather than serving
+a gate nobody can read. A method-level declaration is refused the same
+way — `authorize` reads the match's route-level data, so a gate written
+under `:post` would be advertised by the generated OpenAPI and enforced
+by nobody. A route whose `:security` is `[]` names no scheme, requires
+nothing and is public by design — the OAuth routes are the only ones.
 
 `authorize` then:
 
