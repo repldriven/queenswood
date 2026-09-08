@@ -197,6 +197,34 @@
      :else
      #{:org})))
 
+(defn unauthenticated-response
+  "The 401 an unauthenticated caller receives. Public so a handler that
+  refuses a caller on its own terms answers in exactly this shape:
+  `errors/anomaly->response` derives `type` from an anomaly kind and so
+  writes a leading colon, which this shape does not carry."
+  ([] (unauthenticated-response nil))
+  ([detail]
+   {:status 401
+    :headers {"content-type" "application/json"}
+    :body {:title "UNAUTHORIZED"
+           :type "auth/unauthenticated"
+           :status 401
+           :detail (or detail "Missing or invalid token")}}))
+
+(defn forbidden-response
+  "The 403 a caller whose roles miss the route's receives. Public for
+  the same reason as `unauthenticated-response`: a handler enforcing a
+  tenant boundary of its own must be indistinguishable from this
+  interceptor."
+  ([] (forbidden-response nil))
+  ([detail]
+   {:status 403
+    :headers {"content-type" "application/json"}
+    :body {:title "FORBIDDEN"
+           :type "auth/forbidden"
+           :status 403
+           :detail (or detail "Insufficient privileges")}}))
+
 (def authorize
   {:name ::authorize
    :enter (fn [ctx]
@@ -209,22 +237,10 @@
                 (let [roles (get-in request [:auth :roles] #{})]
                   (cond
                    (empty? roles)
-                   (sc/terminate ctx
-                                 {:status 401
-                                  :headers {"content-type" "application/json"}
-                                  :body {:title "UNAUTHORIZED"
-                                         :type "auth/unauthenticated"
-                                         :status 401
-                                         :detail "Missing or invalid token"}})
+                   (sc/terminate ctx (unauthenticated-response))
 
                    (empty? (set/intersection roles required))
-                   (sc/terminate ctx
-                                 {:status 403
-                                  :headers {"content-type" "application/json"}
-                                  :body {:title "FORBIDDEN"
-                                         :type "auth/forbidden"
-                                         :status 403
-                                         :detail "Insufficient privileges"}})
+                   (sc/terminate ctx (forbidden-response))
 
                    :else
                    ctx)))))})
