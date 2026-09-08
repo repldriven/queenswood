@@ -157,24 +157,66 @@ A brand-new human with no memberships still authenticates as
 scope once a membership exists. `:bank-id` comes from the first
 membership.
 
+**The store write is on every user request, so its failure is a
+failure mode of authentication itself.** An anomaly from the upsert or
+from the membership lookup is not absence: it is logged at warning
+level naming the issuer and the subject, and answered through the
+API's own anomaly mapping — **503** for a store that cannot be
+reached, 500 for anything else — with no principal placed on the
+request. A user whose row cannot be written does not proceed as a user
+with no identity.
+
 ### Roles and route authorization
 
 The role vocabulary is `:user`, `:org`, `:admin`. (`:service` is
 a *principal-type*, not a role — service principals carry `:org`,
 plus `:admin` if their realm roles say so.)
 
-A route declares the roles it needs in its OpenAPI security, e.g.
-`:security [{"bearerAuth" ["admin"]}]`. `authorize`:
+The rule: **platform-wide resources under `admin`, a tenant's own
+resources under `org`, identity routes under `user`.** Banks, tiers,
+policy administration and the simulator are platform-wide; cash
+accounts, parties, payments and balances belong to a tenant; `/me`
+and onboarding are about who the caller is.
 
-- passes through if the route has no security scheme;
+**Every route names its roles.** A route declares them in its OpenAPI
+security, `:security [{"bearerAuth" ["admin"]}]`. There is no bare
+form: a scheme that names no roles is refused when the router is
+built, with the route's path in the message, so the service fails to
+start rather than serving a gate nobody can read. A route whose
+`:security` is `[]` names no scheme, requires nothing and is public by
+design — the OAuth routes are the only ones.
+
+`authorize` then:
+
+- passes through if the route names no scheme;
 - returns **401** (`auth/unauthenticated`) if the principal's
   role set is empty (no valid token);
 - returns **403** (`auth/forbidden`) if roles are present but
   don't intersect the route's required roles.
 
-Observed gates: `["admin"]` for bank / tier / policy creation and
-the simulator, `["org"]` for cash-accounts / parties / payments /
-balances, `["user"]` for `/me` and onboarding.
+**An `org`-gated route acts on the principal's bank.** A principal
+that satisfies the gate only through `:org` and carries no `:bank-id`
+has nothing for the route to act on, and is refused **403**
+(`auth/forbidden`) rather than served against a nil bank. The admin
+service account and an ops-realm admin user are both such principals.
+A route an admin may call on *any* bank takes the bank from its path
+and declares `admin` alongside `org`, which widens the intersection
+past `#{:org}` and opts out of the rule.
+
+The exceptions to the three-way split, each deliberate:
+
+- The **simulator's inbound transfer** is `["org" "admin"]`, so a
+  tenant can fund its own sandbox. Its handler holds the tenant
+  boundary itself: the path's bank must be the principal's, unless the
+  principal is an admin, and a foreign bank is refused 403 before the
+  bank is looked up — so the answer says nothing about another tenant.
+  The rest of `/simulate` stays `["admin"]`.
+- The **companies** routes are `["user"]`, because a human completing
+  onboarding uses them before any membership exists.
+- **Jobs**, **ledger accounts**, **cash-account migrations**,
+  **cash-account products**, **payee checks**, **`/me/policies`** and
+  **`/me/effective-policies`** are `["org"]`: each reads or writes one
+  tenant's own data, whatever its path suggests.
 
 ### Service-account lifecycle
 
@@ -190,15 +232,34 @@ local impl for tests) exposes:
   by `POST /oauth/token` so a bank can mint its own JWT.
 - **`rotate-secret`** / **`revoke-service-account`** — reissue or
   delete a bank's client.
+- **`update-service-account-audience`** — re-point a bank's client
+  at a different `aud`.
 - **`verify-token`**, **`get-jwks`**, **`get-issuer`** — the
   verification surface used by `authenticate`.
 
-`create-service-account` is wired into bank creation (`new-bank`,
-behind the admin-only create-bank endpoint) and runs *before* the
-FDB write so an IDP failure aborts cleanly; the `client-secret` is
-surfaced once in the create-bank response. `rotate-secret` and
-`revoke-service-account` are implemented but **not yet wired to
-any endpoint** (see Known Limitations).
+**Creation is a bus round trip, and that shapes the lifecycle.**
+`new-bank` runs in the operational processors service, not in the
+API. It calls `create-service-account` *before* the FDB write, so an
+identity-provider failure aborts the transaction cleanly. The secret
+that call mints is **discarded**: the reply travels back over the
+command bus, and no credential is put on the bus. The API handler,
+holding the reply, calls **`rotate-secret`** for that bank and
+returns what it mints — once — in the create-bank response. So the
+secret a tenant receives is a rotated one, never the created one.
+
+**A status change re-points the audience.** `change-status` calls
+`update-service-account-audience` before its FDB write, with the
+audience its new status maps to, on the same reasoning: a failure
+aborts rather than leaving the bank's status ahead of its client's
+audience. Tokens the bank already holds keep the old audience until
+they expire; the next token it mints carries the new one.
+
+Both the API service and the operational processors service
+authenticate to Keycloak with the admin credential, because both make
+these calls.
+
+`revoke-service-account` is implemented but has no caller (see Known
+Limitations).
 
 ### Realms and clients
 
@@ -212,9 +273,46 @@ Two realms on one Keycloak instance:
   Queenswood's own operators; verification-only from the API's
   side.
 
-The API stamps a status-derived audience on a bank's tokens:
-`bank-status-test → queenswood-api-test`,
-`bank-status-live → queenswood-api-live`.
+**Four audiences are accepted**, and who carries each is the whole of
+the mapping:
+
+- `queenswood-api-test` — a bank's service tokens while its status is
+  `bank-status-test`.
+- `queenswood-api-live` — the same once its status is
+  `bank-status-live`.
+- `queenswood-console` — console user tokens; the SPA's audience
+  mapper points the client at itself.
+- `queenswood-app` — operator user tokens, the same way.
+
+The status-to-audience mapping is the API's deployment config, and it
+is what `change-status` forwards to
+`update-service-account-audience`.
+
+**The expected issuer can be overridden per provider.** A provider
+otherwise derives its issuer from its base URL, which is wrong
+whenever the API reaches Keycloak in-cluster while tokens carry a
+public issuer. The override replaces the derived value for *both*
+uses — picking which provider verifies a token from its unverified
+`iss`, and the `iss` check the verifier itself makes — so the two
+cannot disagree. It is unset under the dev and test profiles, where
+base URL and issuer are the same host.
+
+### The API's own identity
+
+Provisioning a bank's client is an Admin API call, so the API has an
+identity of its own: the `queenswood-admin` client. Under the dev and
+test profiles it authenticates with a client secret against an
+ephemeral realm. Deployed, it uses **`private_key_jwt`**: the realm
+import declares `client-jwt` as the client's authenticator, and the
+key arrives as a *file* named by
+`KEYCLOAK_ADMIN_CLIENT_PRIVATE_KEY_FILE` rather than inline, because a
+multi-line PEM does not survive an environment variable intact.
+
+Its service account holds `manage-clients`, `view-clients`,
+`manage-realm`, `view-realm` and `manage-users` on
+`realm-management` — enough to create, re-point and delete a bank's
+client. It also carries the `admin` realm role, which is why tokens
+minted *by* it are admin principals at this API's edge.
 
 ## Alternatives Considered
 
@@ -244,11 +342,29 @@ The API stamps a status-derived audience on a bank's tokens:
 
 ## Known Limitations
 
-- **Rotation and revocation aren't wired.** `rotate-secret` and
-  `revoke-service-account` exist on the `identity-provider`
-  interface but have no callers — there is no rotate/revoke
-  endpoint, and bank deletion doesn't call them. Revoking a
+- **No rotate or revoke endpoint.** `rotate-secret` has exactly one
+  caller, the create-bank handler, which uses it to mint the secret
+  the response carries; nothing else calls it, so a tenant cannot
+  rotate a compromised credential. `revoke-service-account` has no
+  caller at all, and bank deletion does not call it. Revoking a
   bank's access today means deleting its Keycloak client by hand.
+- **A retried creation can leave an orphan client.**
+  `create-service-account` runs inside `new-bank`'s FDB transaction
+  but is not part of it. A retried transaction calls it again and
+  mints a second client, and nothing removes the first. The
+  alternative is the intent-based path the
+  [transaction-processing TDD](transaction-processing.md) describes
+  for external calls: record the intent, drain it once from a relay.
+- **An unknown `kid` forces a JWKS fetch.** Every bearer naming a key
+  id the cache does not hold triggers a refetch, so an unauthenticated
+  caller can drive one round trip to Keycloak per request simply by
+  varying the `kid` on an unsigned token. Throttling the refresh is
+  the fix, and it belongs in the `keycloak` brick upstream.
+- **A realm imported before the local redirect URIs were removed keeps
+  them.** A realm is never overwritten, and the import Job's reconcile
+  only adds, so dropping a redirect URI from the imported file does
+  not drop it from an environment whose realm already exists.
+  Removing it there is an operator's step against the Admin API.
 - **JWT validity is bounded by expiry, not revocation.** Tokens
   are stateless, so a revoked or rotated service account keeps any
   already-minted token working until its `exp` (≤ 1 h). Revocation
@@ -283,6 +399,26 @@ The API stamps a status-derived audience on a bank's tokens:
 - `api` auth interceptors (`auth.clj`)
 - `identity-provider` brick interface (`verify-token`,
   `create-service-account`, `exchange-client-credentials`,
-  `rotate-secret`, `revoke-service-account`, `get-jwks`,
-  `get-issuer`)
+  `rotate-secret`, `revoke-service-account`,
+  `update-service-account-audience`, `get-jwks`, `get-issuer`)
 - `keycloak` brick (JWKS cache, admin token, per-bank clients)
+
+### Changes that wait on an upstream release
+
+The `identity-provider` and `keycloak` bricks are not in this
+workspace. They live upstream in `mono`, which this repository
+consumes as a pinned git dependency — see
+[ADR-0001](../adr/0001-reuse-mono-as-upstream.md). A fix in either
+needs a release there and a pin bump under `deps/`, so the following
+are deferred rather than open work here:
+
+- **A refused Keycloak write or grant should be an anomaly.** A
+  non-2xx response to the client POST, the audience PUT, the client
+  DELETE, the secret POST or the token grant should carry Keycloak's
+  status and body, with a fault-injection test per write. Until then
+  this API compensates at its own edge, which is why the token proxy
+  inspects the body it is handed rather than trusting the status.
+- **The JWKS cache-expiry refetch has no test.** It can only be
+  exercised where the cache lives.
+- **The JWKS refresh throttle**, the fix for the unknown-`kid`
+  limitation above.
