@@ -78,6 +78,8 @@
     [com.repldriven.mono.server.interface :as server]
     [com.repldriven.mono.telemetry.interface :as telemetry]
 
+    [clojure.string :as str]
+
     [malli.core :as m]
     [malli.transform :as mt]
     [reitit.coercion.malli :as malli-coercion]
@@ -234,12 +236,25 @@
 
 (defn app
   [ctx]
-  (http/ring-handler
-   (http/router (routes ctx)
-                (-> server/standard-router-data
-                    (assoc-in [:data :coercion] coercion)
-                    (add-interceptor-before-coerce
-                     shared.interceptors/nest-bracket-query-params)))
-   (ring/routes (server/standard-openapi-ui-handler)
-                (server/standard-default-handler))
-   server/standard-executor))
+  (let [router (http/router (routes ctx)
+                            (->
+                              server/standard-router-data
+                              (assoc-in [:data :coercion] coercion)
+                              (add-interceptor-before-coerce
+                               shared.interceptors/nest-bracket-query-params)))
+        bare (auth/bare-security-routes router)]
+    (when (seq bare)
+      ;; A route that demands a token without saying which roles it
+      ;; admits has no gate anyone can read, and the service must not
+      ;; start serving it. This is a programming error in the route
+      ;; table of this base, caught while the router is built — not an
+      ;; anomaly crossing a component boundary, so it throws.
+      ;; nosemgrep: no-raw-throw
+      (throw (ex-info (str "Route table declares a security scheme with no "
+                           "roles: "
+                           (str/join ", " bare))
+                      {:routes bare})))
+    (http/ring-handler router
+                       (ring/routes (server/standard-openapi-ui-handler)
+                                    (server/standard-default-handler))
+                       server/standard-executor)))
