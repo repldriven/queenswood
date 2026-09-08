@@ -1,0 +1,16 @@
+{:name "A token carrying no accepted audience is rejected"
+ :tags #{:api :auth :unhappy}
+ ;; The API's audience is an optional scope on `queenswood-admin`, so
+ ;; asking for `realm-roles` alone mints a token the realm signed and
+ ;; the caller holds admin on, whose only defect is an `aud` no
+ ;; listener accepts. It is refused before any role is read, which is
+ ;; why this is 401 rather than the 403 a wrong role would give.
+ :when
+ [{:command :auth/mint-token
+   :for {:client-id "queenswood-admin"
+         :client-secret "queenswood-admin-test-secret"
+         :scope "realm-roles"}
+   :as :no-audience-token}
+  {:command :api/request
+   :request {:method :get :path "/v1/banks" :auth :no-audience-token}
+   :assert {:status 401 :problem {:type "auth/unauthenticated"}}}]}

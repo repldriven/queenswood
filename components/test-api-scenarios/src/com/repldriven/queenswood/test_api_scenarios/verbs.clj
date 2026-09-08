@@ -317,3 +317,62 @@
     (cond-> ctx
             as
             (assoc-in [:captures as] token))))
+
+(def ^:private admin-service-client
+  "The operator service-account client both test realms seed. The
+  Admin API reads the caller's realm roles rather than an API
+  audience, so the grant asks for `realm-roles`."
+  {:client-id "queenswood-admin"
+   :client-secret "queenswood-admin-test-secret"
+   :scope "realm-roles"})
+
+(def ^:private rotated-key-component
+  "A second active RSA provider, at a higher priority than the one
+  the realm imported, so Keycloak signs subsequent tokens with it
+  under a new `kid`. The imported provider stays active, so tokens
+  minted before the addition still verify."
+  {:name "rotated-rsa"
+   :providerId "rsa-generated"
+   :providerType "org.keycloak.keys.KeyProvider"
+   :config
+   {:priority ["200"] :active ["true"] :enabled ["true"] :algorithm ["RS256"]}})
+
+(defn- admin-base-url
+  "Keycloak's root, derived from the realm's token endpoint by
+  removing the `/realms/<realm>` tail the issuer carries. Taken from
+  the same configuration the verifier uses rather than a second one,
+  so an admin call can never reach a different Keycloak from the one
+  minting the tokens."
+  [token-endpoints realm]
+  (some-> (get token-endpoints realm)
+          (str/replace (str "/realms/" (name realm) token-path) "")))
+
+(defmethod dispatch :keycloak/add-signing-key
+  [{:keys [token-endpoints] :as ctx} {:keys [realm as]}]
+  (if-let [base (admin-base-url token-endpoints realm)]
+    (let [token (-> (dispatch ctx
+                              {:command :auth/mint-token
+                               :for admin-service-client
+                               :as ::admin-token})
+                    (get-in [:captures ::admin-token]))
+          res (http/request
+               {:method :post
+                :url (str base "/admin/realms/" (name realm) "/components")
+                :headers {"content-type" "application/json"
+                          "authorization" (str "Bearer " token)}
+                :body (json/write-str rotated-key-component)})]
+      (if (= 201 (:status res))
+        (cond-> ctx
+                as
+                (assoc-in [:captures as]
+                 (last (str/split (get-in res [:headers :location] "") #"/"))))
+        (do (is false
+                (str ":keycloak/add-signing-key was refused by " base
+                     " — status: " (:status res)
+                     " body: " (pr-str (http/res->edn res))))
+            ctx)))
+    (do (is false
+            (str ":keycloak/add-signing-key knows no token endpoint for realm "
+                 (pr-str realm)
+                 " — known: " (pr-str (vec (sort (keys token-endpoints))))))
+        ctx)))
