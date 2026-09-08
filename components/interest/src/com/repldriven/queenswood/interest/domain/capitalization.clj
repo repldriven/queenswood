@@ -14,8 +14,9 @@
   up into interest payable, the default leg into the deposit control
   its product type feeds, so what the bank owed becomes the customer's
   to spend."
-  [account-id currency accrued as-of-date]
-  {:idempotency-key (idempotency-key account-id as-of-date)
+  [bank-id account-id currency accrued as-of-date]
+  {:bank-id bank-id
+   :idempotency-key (idempotency-key account-id as-of-date)
    :transaction-type :transaction-type-interest-capital
    :currency currency
    :reference (str "Monthly interest capitalization "
@@ -41,10 +42,14 @@
 
   This is the only part of interest a customer sees. Accrual runs
   silently day by day, capitalisation is the statement line."
-  [account-id currency account-balances as-of-date]
+  [bank-id account-id currency account-balances as-of-date]
   (let [accrued (balances/accrued-amount account-balances currency)]
     (when-not (zero? accrued)
-      {:transaction (transaction account-id currency accrued as-of-date)
+      {:transaction (transaction bank-id
+                                 account-id
+                                 currency
+                                 accrued
+                                 as-of-date)
        :amount accrued
        :principal accrued})))
 
@@ -69,7 +74,8 @@
   The key is the group's identity, so a repeat posts once."
   [gl bank-id currency product-type total as-of-date]
   (when-not (zero? total)
-    {:idempotency-key (str "capitalize-run-" bank-id
+    {:bank-id bank-id
+     :idempotency-key (str "capitalize-run-" bank-id
                            "-" as-of-date
                            "-"
                            currency

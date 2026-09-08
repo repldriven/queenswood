@@ -24,7 +24,7 @@
 
 (deftest sweep-test
   (testing "nothing accrued means nothing to sweep, and that is not a failure"
-    (is (nil? (SUT/sweep "acc.1" "GBP" nothing-accrued 20260501))))
+    (is (nil? (SUT/sweep "org.1" "acc.1" "GBP" nothing-accrued 20260501))))
   (testing "an accrued balance that nets to zero is nothing to sweep either"
     (let [zeroed (conj nothing-accrued
                        {:product-type :product-type-sub-ledger-current
@@ -33,11 +33,12 @@
                         :currency "GBP"
                         :credit 100
                         :debit 100})]
-      (is (nil? (SUT/sweep "acc.1" "GBP" zeroed 20260501)))))
+      (is (nil? (SUT/sweep "org.1" "acc.1" "GBP" zeroed 20260501)))))
   (testing "a sweep takes the whole accrued balance"
     (let [{:keys [transaction amount principal]}
-          (SUT/sweep "acc.1" "GBP" accrued-balances 20260501)
+          (SUT/sweep "org.1" "acc.1" "GBP" accrued-balances 20260501)
           legs (:legs transaction)]
+      (is (= "org.1" (:bank-id transaction)))
       (is (= "capitalize-acc.1-20260501" (:idempotency-key transaction)))
       (is (= :transaction-type-interest-capital
              (:transaction-type transaction)))
@@ -65,10 +66,11 @@
                                      legs))]
           (is (= (total-for :leg-side-debit) (total-for :leg-side-credit)))))))
   (testing "the key composes account and date, so a repeat posts once"
-    (let [key-for (fn [account-id]
-                    (get-in
-                     (SUT/sweep account-id "GBP" accrued-balances 20260501)
-                     [:transaction :idempotency-key]))]
+    (let [key-for
+          (fn [account-id]
+            (get-in
+             (SUT/sweep "org.1" account-id "GBP" accrued-balances 20260501)
+             [:transaction :idempotency-key]))]
       (is (not= (key-for "acc.1") (key-for "acc.2")))
       (is (= (key-for "acc.1") (key-for "acc.1"))))))
 

@@ -196,7 +196,7 @@ outbound-payments:
   record-type: OutboundPayment
   indexes:
     - name: OutboundPayment_by_idempotency_key
-      field: idempotency_key
+      fields: [bank_id, idempotency_key]
       unique: true
     - name: OutboundPayment_count_by_bank_business_day
       fields: [bank_id, business_day]
@@ -208,7 +208,7 @@ internal-payments:
   record-type: InternalPayment
   indexes:
     - name: InternalPayment_by_idempotency_key
-      field: idempotency_key
+      fields: [bank_id, idempotency_key]
       unique: true
     - name: InternalPayment_count_by_bank_business_day
       fields: [bank_id, business_day]
@@ -232,7 +232,7 @@ transactions:
   record-type: Transaction
   indexes:
     - name: Transaction_by_idempotency_key
-      fields: [transaction_type, idempotency_key]
+      fields: [bank_id, transaction_type, idempotency_key]
       unique: true
 users:
   record-type: User

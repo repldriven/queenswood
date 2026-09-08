@@ -16,8 +16,10 @@
 
   Args:
   - txn: FDB handle or open transaction.
-  - data: transaction data (idempotency-key, transaction-type,
-    currency, reference, legs).
+  - data: transaction data (bank-id, idempotency-key,
+    transaction-type, currency, reference, legs). `:bank-id` scopes
+    the idempotency key, so data without one is rejected with
+    `:transaction/missing-bank-id`.
 
   Returns the transaction map with `:legs` or an anomaly."
   [txn data]
@@ -33,7 +35,8 @@
   Args:
   - txn: FDB handle or open transaction.
   - bank-id: owning bank id, which heads the key of every balance the
-    legs reach.
+    legs reach and scopes the idempotency key. Assoc'd onto `data`,
+    so callers need not repeat it.
   - data: transaction data (idempotency-key, transaction-type,
     currency, reference, legs).
 

@@ -693,9 +693,16 @@
   (InternalPaymentProto$InternalPayment/parseFrom
    (InternalPayment->pb m)))
 
-(def ^{:doc "Parse Transaction protobuf bytes into a Clojure map."}
-     pb->Transaction
-  transactions/pb->Transaction)
+(defn pb->Transaction
+  "Parse Transaction protobuf bytes into a Clojure map. Strips
+  `bank-id` when it deserialises as the proto2 empty-string default
+  — records written before the idempotency-key index was scoped by
+  bank carry no bank."
+  [input]
+  (let [transaction (transactions/pb->Transaction input)]
+    (cond-> transaction
+            (= "" (:bank-id transaction))
+            (dissoc :bank-id))))
 
 (defn Transaction->pb
   "Serialise a Transaction map to protobuf bytes.
