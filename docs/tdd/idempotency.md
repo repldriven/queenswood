@@ -490,12 +490,15 @@ header as the store-level key.
 - **Only the replay marker is replayed, not the response's other
   headers.** The cache stores status and body, and sets
   `Idempotent-Replayed` itself. Four routes that declare the pair
-  set `Location` on their 201 and declare it in their OpenAPI
-  response: product creation, migration creation, the migration
-  preview and the forced job run. A replay of any of the four omits
-  a header the generated document promises. Product draft opening
-  also sets `Location`, but it is exempt, so it never replays.
-  Widening the entry to store headers is deferred.
+  set `Location` on a fresh 201: product creation, migration
+  creation, the migration preview and the forced job run. A replay of
+  any of the four omits it. Each declares the header in its route
+  data, but that declaration does not reach the generated document,
+  which names `Location` nowhere, so no generated client expects it
+  either; moving the declaration where reitit reads it is an `api`
+  fix of its own. Product draft opening also sets `Location`, but it
+  is exempt, so it never replays. Widening the entry to store headers
+  is deferred.
 
 ## References
 

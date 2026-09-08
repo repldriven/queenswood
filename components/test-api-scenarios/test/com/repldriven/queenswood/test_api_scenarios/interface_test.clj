@@ -135,6 +135,11 @@
      (let [jetty (system/instance sys [:server :jetty-adapter])
            base-url (server/http-local-url jetty)
            admin-token (mint-admin-token base-url)]
+       ;; The seam remembers which ids it has already lost, and it
+       ;; outlives the system this boot tears down. Clearing it here
+       ;; keeps a second run in the same JVM — a REPL re-run — losing
+       ;; the replies the lost-reply scenarios need to go missing.
+       (fault/reset-lost!)
        (doseq [{:keys [relative]} files]
          (let [resource-path (str "test-api-scenarios/scenarios/" relative)]
            (testing relative

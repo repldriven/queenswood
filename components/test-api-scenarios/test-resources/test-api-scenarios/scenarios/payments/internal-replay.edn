@@ -2,8 +2,9 @@
  :tags #{:api :idempotency :payments :happy}
  ;; The second submission never reaches the handler: the cache answers
  ;; it from the first. Same status, same body, same payment id — so the
- ;; debtor is debited once. The replay is not yet marked in a header;
- ;; that assertion arrives with the header itself.
+ ;; debtor is debited once. The replay says so in its headers: the
+ ;; first answer carries no `Idempotent-Replayed`, the second carries
+ ;; it set to "true", and this file asserts both.
  :given
  [{:command :api/request
    :request {:method :post

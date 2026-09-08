@@ -28,6 +28,17 @@
 
 (defonce ^:private lost (atom #{}))
 
+(defn reset-lost!
+  "Forget every id that has already lost its reply.
+
+  `lost` is a `defonce` and `lose?` never removes an id, so without
+  this the lost-reply scenarios are one-shot per JVM: a second run in
+  the same REPL has its reply delivered, the retry replays instead of
+  re-running, and the scenario fails with a message pointing at the
+  route rather than at the seam."
+  []
+  (reset! lost #{}))
+
 (defn- lose?
   "True for the first send of `id` only. `swap-vals!` makes the claim
   atomic, so two concurrent sends cannot both be the first."

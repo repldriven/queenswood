@@ -162,7 +162,12 @@
                 (is (= "mono/idempotency-cache-unavailable"
                        (get-in response [:body :type])))
                 (is (zero? @calls))
-                (is (logged? "idempotency cache unavailable"))))))))
+                (is (logged? "idempotency cache unavailable"))
+                ;; AC-4 asks that the entry name the key, not merely
+                ;; that something was logged: an operator holding a
+                ;; client's key and no way to find its line is back to
+                ;; reading the whole log.
+                (is (logged? "idem-icept-lookup-001"))))))))
      (testing "a transaction that answers an anomaly is 503 the same way"
        (log-test/with-log
         (let [calls (atom 0)
@@ -173,7 +178,8 @@
                                   handler)]
                 (is (= 503 (:status response)))
                 (is (zero? @calls))
-                (is (logged? "idempotency cache unavailable")))))))))))
+                (is (logged? "idempotency cache unavailable"))
+                (is (logged? "idem-icept-txn-retry")))))))))))
 
 (deftest failed-completion-returns-the-handlers-response-test
   (with-test-system
@@ -189,8 +195,9 @@
             (testing "the handler's effect committed, so its answer stands"
               (is (= 200 (:status response)))
               (is (= {:name "First"} (:body response))))
-            (testing "the failure is logged"
-              (is (logged? "idempotency completion failed")))))))
+            (testing "the failure is logged, and names the key"
+              (is (logged? "idempotency completion failed"))
+              (is (logged? key)))))))
      (testing "the claim was released, so a retry re-runs the handler"
        (is (= ::core/claimed
               (:type (core/claim-or-replay config

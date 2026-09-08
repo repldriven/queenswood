@@ -7,12 +7,20 @@
   it names a write route that exists and that does not declare the
   pair after all.
 
+  A route that declares the pair carries a three-part contract, and
+  all three parts are held here: the interceptors, the 409, 422 and
+  503 `with-responses` folds into its `:responses`, and the
+  `Idempotency-Key` parameter in its `:openapi`. Holding only the
+  first would let a route require the header and still ship a
+  document naming neither the header nor the refusals it answers.
+
   No system is booted. `api/router` compiles the routes from an empty
   interceptor context, and reitit has already merged the group data
   into each method by the time `reitit.core/routes` reports it."
   (:require
     [com.repldriven.queenswood.api.api :as api]
     [com.repldriven.queenswood.api.shared.idempotency :as shared.idempotency]
+    [com.repldriven.queenswood.api.shared.parameters :as shared.parameters]
 
     [com.repldriven.queenswood.idempotency.interface :as bank-idempotency]
 
@@ -23,6 +31,11 @@
     [reitit.core :as r]))
 
 (def ^:private write-methods [:post :put :patch :delete])
+
+(def ^:private shared-refusals
+  "The statuses `shared.idempotency/with-responses` folds into every
+  route that declares the pair."
+  [409 422 503])
 
 (def ^:private pair
   [(:name server/require-idempotency-key)
@@ -62,7 +75,14 @@
         (is (or (declares-pair? data)
                 (contains? shared.idempotency/exempt-writes route))
             (str "declares require-idempotency-key immediately followed by "
-                 "cache-response, or names its guard in exempt-writes"))))))
+                 "cache-response, or names its guard in exempt-writes"))
+        (when (declares-pair? data)
+          (doseq [status shared-refusals]
+            (is (contains? (:responses data) status)
+                (str "documents the " status " that with-responses folds in")))
+          (is (contains? (set (get-in data [:openapi :parameters]))
+                         shared.parameters/ref-idempotency-key)
+              "documents the Idempotency-Key parameter it requires"))))))
 
 (deftest exempt-writes-names-live-undeclared-routes-test
   (let [writes (into {} (write-routes))]

@@ -183,9 +183,15 @@
   [{:keys [captures] :as ctx} {:keys [request as] n :count :as step}]
   (let [{:keys [status fresh]} (refs/resolve-all captures (:assert step))
         resolved (refs/resolve-all captures request)
-        responses (->> (repeatedly n #(future (send-once ctx resolved)))
-                       (into [])
-                       (mapv deref))
+        ;; Every future must exist before any of them is deref'd.
+        ;; `repeatedly` is lazy, so deref'ing straight off the seq
+        ;; would start and finish one request before creating the
+        ;; next, and the race would serialise. It would still pass:
+        ;; one fresh response and the rest replays is exactly what
+        ;; serialised requests give, so this vector is the only thing
+        ;; making the step race at all.
+        in-flight (into [] (repeatedly n #(future (send-once ctx resolved))))
+        responses (mapv deref in-flight)
         [fresh-responses others] (reduce (fn [[f o] response]
                                            (if (and (= status
                                                        (:status response))
