@@ -18,10 +18,23 @@ data:
   # --import-realm scans the directory and imports each .json file
   # found, so the queenswood (orgs) and queenswood-ops (operators)
   # realms come up side-by-side on a single Keycloak instance.
+  #
+  # The committed realms carry no `localhost` redirect URI -- a
+  # deployed realm must not be widened by an origin no deployment
+  # reaches -- so this bundle, which does serve both SPAs on the
+  # developer's own machine, adds them here at render time. Only in
+  # this template: the operator-mode Job imports the files as they are
+  # and reconciles the deployed origins over the Admin API instead.
   realm.json: |-
-{{ .Files.Get "files/keycloak-realm.json" | indent 4 }}
+{{ include "queenswood.devRealmWithRedirects"
+     (dict "realm" (.Files.Get "files/keycloak-realm.json")
+           "clientId" .Values.keycloak.consoleClientId
+           "uris" .Values.keycloak.dev.consoleRedirectUris) | indent 4 }}
   realm-ops.json: |-
-{{ .Files.Get "files/keycloak-realm-ops.json" | indent 4 }}
+{{ include "queenswood.devRealmWithRedirects"
+     (dict "realm" (.Files.Get "files/keycloak-realm-ops.json")
+           "clientId" .Values.keycloak.opsClientId
+           "uris" .Values.keycloak.dev.opsRedirectUris) | indent 4 }}
 ---
 apiVersion: v1
 kind: ConfigMap

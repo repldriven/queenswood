@@ -254,14 +254,64 @@ against this list strictly, and a mismatch fails as a login refused with
 hostname.
 
 Empty where the console is not published, which is a console reached
-through a port-forward and already covered by the realm's own localhost
-entries.
+through a port-forward. The deployed realm carries no localhost entries
+of its own any more, so the dev bundle adds them at render time from
+`keycloak.dev.consoleRedirectUris` instead.
 */ -}}
 {{- define "queenswood.consoleRedirectUri" -}}
 {{- if .Values.keycloak.consoleRedirectUri -}}
 {{ .Values.keycloak.consoleRedirectUri }}
 {{- else if and .Values.gateway.enabled .Values.gateway.consoleHost -}}
 https://{{ .Values.gateway.consoleHost }}/*
+{{- end -}}
+{{- end -}}
+
+{{- /*
+The operator app's deployed origin, merged into the `queenswood-app`
+client by the realm import, and the ops-realm mirror of the console's.
+
+Supplied whole or not at all: unlike the console's there is no gateway
+fallback, because this chart deploys no operator SPA and so publishes no
+hostname to derive one from. Empty adds nothing, which is what an
+environment with no operator app wants -- and is the default.
+*/ -}}
+{{- define "queenswood.opsRedirectUri" -}}
+{{- if .Values.keycloak.opsRedirectUri -}}
+{{ .Values.keycloak.opsRedirectUri }}
+{{- end -}}
+{{- end -}}
+
+{{- /*
+A committed realm with local redirect URIs appended to one client, for
+the dev bundle only.
+
+The realm pair a deployment imports carries none, so nothing widens a
+deployed realm by accident. The dev bundle serves both SPAs on the
+developer's machine, so it needs them -- and it imports the files at
+startup rather than over the Admin API, so there is nowhere else to add
+them.
+
+Takes `realm` (the file's contents), `clientId` and `uris`. Parses,
+rebuilds the client list with the URIs appended to the matching client,
+and renders it back. Returns the input untouched when `uris` is empty,
+so nothing is round-tripped for nothing.
+*/ -}}
+{{- define "queenswood.devRealmWithRedirects" -}}
+{{- if .uris -}}
+{{- $parsed := .realm | fromJson -}}
+{{- $clientId := .clientId -}}
+{{- $uris := .uris -}}
+{{- $clients := list -}}
+{{- range $parsed.clients -}}
+{{- if eq .clientId $clientId -}}
+{{- $clients = append $clients (merge (dict "redirectUris" (concat (default (list) .redirectUris) $uris | uniq)) .) -}}
+{{- else -}}
+{{- $clients = append $clients . -}}
+{{- end -}}
+{{- end -}}
+{{ set $parsed "clients" $clients | toJson }}
+{{- else -}}
+{{ .realm }}
 {{- end -}}
 {{- end -}}
 
