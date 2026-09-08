@@ -187,13 +187,12 @@
   [security]
   (boolean (some (fn [entry] (some empty? (vals entry))) security)))
 
-(defn- securities
-  "Every OpenAPI security declaration on a route's data: the route's
-  own, and one per method that overrides it."
+(defn- method-securities
+  "Every OpenAPI security declaration written under one of a route's
+  method keys, rather than on the route itself."
   [data]
-  (cons (get-in data [:openapi :security])
-        (keep (fn [v] (when (map? v) (get-in v [:openapi :security])))
-              (vals data))))
+  (keep (fn [v] (when (map? v) (get-in v [:openapi :security])))
+        (vals data)))
 
 (defn bare-security-routes
   "The paths in `router` that name a security scheme but give it no
@@ -204,7 +203,23 @@
   so it is not reported."
   [router]
   (into []
-        (comp (filter (fn [[_ data]] (some bare-security? (securities data))))
+        (comp (filter (fn [[_ data]]
+                        (bare-security? (get-in data [:openapi :security]))))
+              (map first))
+        (r/routes router)))
+
+(defn method-security-routes
+  "The paths in `router` that declare `:security` under a method key
+  instead of on the route. `authorize` reads the match's route-level
+  data, and reitit merges method data into the compiled endpoints and
+  never into that map, so a gate written under `:post` is advertised
+  by the generated OpenAPI and enforced by nobody. A route's gate is
+  written in exactly one place, so any such declaration is reported —
+  including an empty one, which reads as a method-level override of a
+  route-level gate and is not honoured either."
+  [router]
+  (into []
+        (comp (filter (fn [[_ data]] (seq (method-securities data))))
               (map first))
         (r/routes router)))
 
