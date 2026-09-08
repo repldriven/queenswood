@@ -5,17 +5,22 @@
            :main com.repldriven.queenswood.exclusive-dispatchers.main
            :major-minor-version "0.0"}
           :ns-default com.repldriven.queenswood.build.build}
-  ;; The external test runner (cloverage + eftest) plus the test-helper
-  ;; components the included bricks' tests require. CI runs every
-  ;; project through this runner for coverage; matches the sibling
-  ;; processor projects.
+  ;; The external test runner (cloverage + eftest) plus the components
+  ;; the included bricks' tests require. CI runs every project through
+  ;; this runner for coverage; matches the sibling processor projects.
+  ;; `cash-account-product` is here rather than in `:deps` because only
+  ;; the cash-account rotation test needs it — to author the product
+  ;; version an account is opened against — and this service writes no
+  ;; products at runtime.
   :test
   {:extra-deps
    {ext/mono {:local/root "../../deps/mono-test"}
     ext/mono-test-runner {:local/root "../../deps/mono-test-runner"}
     component/test-resources {:local/root "../../components/test-resources"}
     component/testcontainers {:local/root "../../components/testcontainers"}
-    component/test-schema {:local/root "../../components/test-schema"}}}}
+    component/test-schema {:local/root "../../components/test-schema"}
+    component/cash-account-product
+    {:local/root "../../components/cash-account-product"}}}}
  :deps
  {ext/mono {:local/root "../../deps/mono"}
   component/fdb {:local/root "../../components/fdb"}
