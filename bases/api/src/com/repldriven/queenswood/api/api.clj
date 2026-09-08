@@ -242,18 +242,26 @@
                               (assoc-in [:data :coercion] coercion)
                               (add-interceptor-before-coerce
                                shared.interceptors/nest-bracket-query-params)))
-        bare (auth/bare-security-routes router)]
-    (when (seq bare)
-      ;; A route that demands a token without saying which roles it
-      ;; admits has no gate anyone can read, and the service must not
-      ;; start serving it. This is a programming error in the route
-      ;; table of this base, caught while the router is built — not an
-      ;; anomaly crossing a component boundary, so it throws.
+        bare (auth/bare-security-routes router)
+        method-level (auth/method-security-routes router)]
+    (when (or (seq bare) (seq method-level))
+      ;; A route that demands a token without naming roles has no gate
+      ;; anyone can read; one that writes its gate under a method key
+      ;; has a gate `authorize` never sees. Neither may be served. A
+      ;; programming error in this base's route table, caught while the
+      ;; router is built — not an anomaly at a boundary, so it throws.
       ;; nosemgrep: no-raw-throw
-      (throw (ex-info (str "Route table declares a security scheme with no "
-                           "roles: "
-                           (str/join ", " bare))
-                      {:routes bare})))
+      (throw (ex-info (str "Route table declares a security gate this "
+                           "service cannot enforce."
+                           (when (seq bare)
+                             (str " Scheme with no roles: "
+                                  (str/join ", " bare)
+                                  "."))
+                           (when (seq method-level)
+                             (str " Security under a method key: "
+                                  (str/join ", " method-level)
+                                  ".")))
+                      {:bare bare :method-level method-level})))
     (http/ring-handler router
                        (ring/routes (server/standard-openapi-ui-handler)
                                     (server/standard-default-handler))
