@@ -14,12 +14,14 @@
   user path always upserts a `bank-user` row on first sign-in so
   every authenticated human has a stable platform-identity record."
   (:require
+    [com.repldriven.queenswood.api.errors :as errors]
+
     [com.repldriven.queenswood.api.shared.claims :as claims]
 
     [com.repldriven.queenswood.membership.interface :as memberships]
     [com.repldriven.queenswood.user.interface :as users]
 
-    [com.repldriven.mono.error.interface :as error]
+    [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.identity-provider.interface :as identity-provider]
     [com.repldriven.mono.json.interface :as json]
     [com.repldriven.mono.log.interface :as log]
@@ -57,12 +59,6 @@
      :roles (into #{:org} realm-roles)
      :token-jti (:jti claims)}))
 
-(defn- nilable-result
-  "Treat a `nil` or anomaly result as absence; pass other values
-  through."
-  [v]
-  (when-not (or (nil? v) (error/anomaly? v)) v))
-
 (defn- realm-access-roles
   "Project the JWT's `realm_access.roles` claim into a set of role
   keywords. Empty when the claim is absent (the SPA realm may not
@@ -79,35 +75,37 @@
   realm carries it via `realm_access.roles`; `:org` is added when the
   user has at least one membership OR is admin (so existing org-
   scoped routes accept ops JWTs). The principal's `:bank-id` is the
-  first membership's bank, or nil — admins carry no implicit bank-id."
+  first membership's bank, or nil — admins carry no implicit bank-id.
+
+  Returns the principal, or the first anomaly the store gave back. A
+  store that cannot be reached is reported, not read as a user with no
+  identity and no memberships."
   [request claims]
   (let [{:keys [record-db record-store]} request
-        txn {:record-db record-db :record-store record-store}
-        user (nilable-result
-              (users/upsert-by-sub txn (claims/claims->user-claims claims)))
-        memberships (or (when user
-                          (nilable-result
-                           (memberships/list-by-user txn (:user-id user))))
-                        [])
-        realm-roles (realm-access-roles claims)
-        is-admin? (contains? realm-roles :admin)
-        primary (first memberships)]
-    (util/assoc-some
-     {:principal-type :user
-      :principal-id (:user-id user)
-      :issuer (:iss claims)
-      :sub (:sub claims)
-      :user user
-      :claims claims
-      :memberships memberships
-      :roles (cond-> #{:user}
-                     is-admin?
-                     (conj :admin :org)
-                     (seq memberships)
-                     (conj :org))
-      :token-jti (:jti claims)}
-     :bank-id
-     (:bank-id primary))))
+        txn {:record-db record-db :record-store record-store}]
+    (let-nom>
+      [user (users/upsert-by-sub txn (claims/claims->user-claims claims))
+       memberships (memberships/list-by-user txn (:user-id user))]
+      (let [realm-roles (realm-access-roles claims)
+            is-admin? (contains? realm-roles :admin)
+            memberships (or memberships [])
+            primary (first memberships)]
+        (util/assoc-some
+         {:principal-type :user
+          :principal-id (:user-id user)
+          :issuer (:iss claims)
+          :sub (:sub claims)
+          :user user
+          :claims claims
+          :memberships memberships
+          :roles (cond-> #{:user}
+                         is-admin?
+                         (conj :admin :org)
+                         (seq memberships)
+                         (conj :org))
+          :token-jti (:jti claims)}
+         :bank-id
+         (:bank-id primary))))))
 
 (defn- decode-unverified-payload
   "Best-effort base64url-decode of a JWT's middle segment into the
@@ -169,9 +167,14 @@
                 ctx)
 
             (contains? (set user-client-ids) (:azp claims))
-            (assoc-in ctx
-             [:request :auth]
-             (user-auth request claims))
+            (let [auth (user-auth request claims)]
+              (if (error/anomaly? auth)
+                (do (log/warn "User sign-in failed:"
+                              (:message (error/payload auth))
+                              "iss:" (pr-str (:iss claims))
+                              "sub:" (pr-str (:sub claims)))
+                    (sc/terminate ctx (errors/anomaly->response auth)))
+                (assoc-in ctx [:request :auth] auth)))
 
             :else
             (assoc-in ctx
@@ -225,6 +228,16 @@
            :status 403
            :detail (or detail "Insufficient privileges")}}))
 
+(defn- org-without-bank?
+  "An `org`-gated route acts on the principal's bank, so a principal
+  that reaches it through `:org` alone and carries no bank has nothing
+  for the route to act on. A route an admin may call on any bank takes
+  the bank from the path and declares `admin` alongside `org`, so the
+  intersection is wider than `#{:org}` and this does not fire."
+  [roles required request]
+  (and (= #{:org} (set/intersection roles required))
+       (nil? (get-in request [:auth :bank-id]))))
+
 (def authorize
   {:name ::authorize
    :enter (fn [ctx]
@@ -241,6 +254,13 @@
 
                    (empty? (set/intersection roles required))
                    (sc/terminate ctx (forbidden-response))
+
+                   (org-without-bank? roles required request)
+                   (sc/terminate
+                    ctx
+                    (forbidden-response
+                     (str "This route acts on the caller's bank and the"
+                          " token names none")))
 
                    :else
                    ctx)))))})
