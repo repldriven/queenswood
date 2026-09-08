@@ -7,6 +7,7 @@
    {:method :post
     :path "/v1/banks"
     :auth :admin
+    :headers {:idempotency-key "ik-bank-key-forbidden-on-admin-bank-001"}
     :body {:name "First Bank" :status "live" :tier "micro" :currencies ["GBP"]}}
    :as :bank-0
    :assert {:status 201}}
@@ -21,6 +22,7 @@
    {:method :post
     :path "/v1/banks"
     :auth :bank-0-token
+    :headers {:idempotency-key "ik-bank-key-forbidden-on-admin-bank-002"}
     :body
     {:name "Second Bank" :status "live" :tier "micro" :currencies ["GBP"]}}
    :assert {:status 403}}]}

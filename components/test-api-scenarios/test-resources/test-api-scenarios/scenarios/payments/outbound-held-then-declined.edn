@@ -15,6 +15,7 @@
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
+             :headers {:idempotency-key "ik-outbound-held-then-bank-001"}
              :body {:name "Outbound Decline Test"
                     :status "live"
                     :tier "micro"
@@ -31,6 +32,7 @@
    :request {:method :post
              :path "/v1/cash-account-products"
              :auth :bank-0-token
+             :headers {:idempotency-key "ik-outbound-held-then-prod-001"}
              :body {:name "Current"
                     :template-id "tpl.00000000000000000000000001"
                     :currency "GBP"

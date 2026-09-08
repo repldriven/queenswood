@@ -5,6 +5,7 @@
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
+             :headers {:idempotency-key "ik-list-checks-bank-001"}
              :body {:name "Payee Check List Org"
                     :status "live"
                     :tier "micro"
@@ -20,6 +21,7 @@
    :request {:method :post
              :path "/v1/payee-checks"
              :auth :org-0-token
+             :headers {:idempotency-key "ik-list-checks-chk-001"}
              :body {:creditor-name "Arthur Dent"
                     :account {:sort-code "040062" :account-number "12345678"}
                     :account-type "personal"}}

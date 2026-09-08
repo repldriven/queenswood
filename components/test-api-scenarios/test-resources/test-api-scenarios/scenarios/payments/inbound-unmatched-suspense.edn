@@ -15,6 +15,7 @@
    {:method :post
     :path "/v1/banks"
     :auth :admin
+    :headers {:idempotency-key "ik-inbound-unmatched-suspense-bank-001"}
     :body
     {:name "Suspense Test" :status "live" :tier "micro" :currencies ["GBP"]}}
    :as :bank-0
@@ -33,6 +34,7 @@
    :request {:method :post
              :path "/v1/cash-account-products"
              :auth :bank-0-token
+             :headers {:idempotency-key "ik-inbound-unmatched-prod-001"}
              :body {:name "Current"
                     :template-id "tpl.00000000000000000000000001"
                     :currency "GBP"

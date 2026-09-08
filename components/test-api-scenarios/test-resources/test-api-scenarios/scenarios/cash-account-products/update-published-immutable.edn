@@ -5,6 +5,7 @@
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
+             :headers {:idempotency-key "ik-update-published-bank-001"}
              :body {:name "Immutable Update Test Org"
                     :status "live"
                     :tier "micro"
@@ -20,6 +21,7 @@
    :request {:method :post
              :path "/v1/cash-account-products"
              :auth :org-0-token
+             :headers {:idempotency-key "ik-update-published-prod-001"}
              :body {:name "v1"
                     :template-id "tpl.00000000000000000000000001"
                     :currency "GBP"

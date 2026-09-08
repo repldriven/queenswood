@@ -232,14 +232,21 @@
                                 [i]))
                      xs)))))
 
+(defn router
+  "The compiled route tree, without the ring handler around it. Split
+  out so a test can walk `reitit.core/routes` and assert over route
+  data — `idempotency-coverage-test` does — without booting a system."
+  [ctx]
+  (http/router (routes ctx)
+               (-> server/standard-router-data
+                   (assoc-in [:data :coercion] coercion)
+                   (add-interceptor-before-coerce
+                    shared.interceptors/nest-bracket-query-params))))
+
 (defn app
   [ctx]
   (http/ring-handler
-   (http/router (routes ctx)
-                (-> server/standard-router-data
-                    (assoc-in [:data :coercion] coercion)
-                    (add-interceptor-before-coerce
-                     shared.interceptors/nest-bracket-query-params)))
+   (router ctx)
    (ring/routes (server/standard-openapi-ui-handler)
                 (server/standard-default-handler))
    server/standard-executor))

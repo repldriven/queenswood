@@ -5,6 +5,7 @@
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
+             :headers {:idempotency-key "ik-suspend-party-from-bank-001"}
              :body {:name "Suspend Rejected Party Test Org"
                     :status "live"
                     :tier "micro"

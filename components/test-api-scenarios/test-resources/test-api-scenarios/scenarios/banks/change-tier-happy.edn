@@ -5,6 +5,7 @@
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
+             :headers {:idempotency-key "ik-change-tier-happy-bank-001"}
              :body {:name "Tier Change Test Org"
                     :status "live"
                     :tier "micro"

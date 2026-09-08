@@ -5,6 +5,7 @@
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
+             :headers {:idempotency-key "ik-force-start-404-bank-001"}
              :body {:name "Force Start 404 Test Org"
                     :status "live"
                     :tier "micro"
@@ -20,5 +21,6 @@
          :request {:method :post
                    :path "/v1/jobs/{job-id}/runs"
                    :path-params {:job-id "no-such-job"}
-                   :auth :org-0-token}
+                   :auth :org-0-token
+                   :headers {:idempotency-key "ik-force-start-404-run-001"}}
          :assert {:status 404 :problem {:type ":scheduler/job-not-found"}}}]}

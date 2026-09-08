@@ -92,6 +92,24 @@
                  :relative (subs (.getPath f) prefix-len)}))
          (sort-by :relative))))
 
+(deftest idempotency-keys-are-unique-across-files-test
+  ;; Bank creation sits in the `:given` of almost every scenario file
+  ;; and the admin principal is shared by the whole boot, so a key
+  ;; literal that appears in two files replays the other file's bank
+  ;; rather than creating one.
+  (let [owners (reduce (fn [m {:keys [file relative]}]
+                         (reduce
+                          (fn [m [_ k]]
+                            (update m k (fnil conj (sorted-set)) relative))
+                          m
+                          (re-seq #"\"(ik-[^\"]+)\"" (slurp file))))
+                       {}
+                       (scenario-files))
+        reused (into (sorted-map)
+                     (filter (fn [[_ files]] (< 1 (count files))) owners))]
+    (is (= {} reused)
+        "an Idempotency-Key literal shared by two scenario files replays")))
+
 (deftest api-scenarios-test
   ;; One test system serves every scenario. Per-scenario isolation
   ;; comes from a fresh runner context (own captures map), so

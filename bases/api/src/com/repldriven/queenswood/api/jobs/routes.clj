@@ -5,7 +5,13 @@
     [com.repldriven.queenswood.api.jobs.handlers :as handlers]
     [com.repldriven.queenswood.api.jobs.queries :as queries]
 
-    [com.repldriven.queenswood.api.schema :refer [ErrorResponse]]))
+    [com.repldriven.queenswood.api.schema :refer [ErrorResponse]]
+    [com.repldriven.queenswood.api.shared.idempotency :as shared.idempotency]
+    [com.repldriven.queenswood.api.shared.parameters :as shared.parameters]
+
+    [com.repldriven.queenswood.idempotency.interface :as bank-idempotency]
+
+    [com.repldriven.mono.server.interface :as server]))
 
 (def ^:private run-location-header
   {:schema {:type "string"} :description "URI of the newly-started run"})
@@ -44,11 +50,17 @@
                           404 (ErrorResponse [#'JobNotFound])}
               :handler queries/list-runs}
         :post {:summary "Force-start the job now"
-               :openapi {:operationId "StartJobRun"}
-               :responses {201 {:body [:ref "Run"]
-                                :openapi {:headers {"Location"
-                                                    run-location-header}}}
-                           404 (ErrorResponse [#'JobNotFound])}
+               :openapi {:operationId "StartJobRun"
+                         :parameters ^:replace
+                                     [shared.parameters/ref-job-id
+                                      shared.parameters/ref-idempotency-key]}
+               :interceptors [server/require-idempotency-key
+                              bank-idempotency/cache-response]
+               :responses (shared.idempotency/with-responses
+                           {201 {:body [:ref "Run"]
+                                 :openapi {:headers {"Location"
+                                                     run-location-header}}}
+                            404 (ErrorResponse [#'JobNotFound])})
                :handler handlers/start-run}}]
       ["/{run-id}"
        {:parameters {:path {:run-id [:ref "RunId"]}}}

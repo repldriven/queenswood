@@ -5,6 +5,7 @@
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
+             :headers {:idempotency-key "ik-preview-bank-001"}
              :body {:name "Migration Preview Test Org"
                     :status "live"
                     :tier "micro"
@@ -20,6 +21,7 @@
    :request {:method :post
              :path "/v1/cash-account-products"
              :auth :org-0-token
+             :headers {:idempotency-key "ik-preview-prod-001"}
              :body {:name "Saver"
                     :template-id "tpl.00000000000000000000000002"
                     :currency "GBP"
@@ -59,6 +61,7 @@
    :request {:method :post
              :path "/v1/cash-account-migrations"
              :auth :org-0-token
+             :headers {:idempotency-key "ik-preview-mig-001"}
              :body {:name "Saver v1 holders onto v2"
                     :source-product-id [:ref :v1 :product-id]
                     :target-product-id [:ref :v2 :product-id]
@@ -70,7 +73,8 @@
    :request {:method :post
              :path "/v1/cash-account-migrations/{migration-id}/previews"
              :path-params {:migration-id [:ref :migration :migration-id]}
-             :auth :org-0-token}
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-preview-prev-001"}}
    :as :preview
    ;; A preview says so on the record and completes having decided
    ;; about the cohort. The bank holds no accounts on this product, so
