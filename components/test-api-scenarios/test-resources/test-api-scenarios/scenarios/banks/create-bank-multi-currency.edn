@@ -30,20 +30,33 @@
              ;; the field and bank-query resolves it off the product
              ;; version. in-any-order pins the count at three, and maps in
              ;; expected position embed, so no other field needs listing.
+             ;; :party-id and the scan sort code are read back off this
+             ;; same response rather than matched by pattern, so the
+             ;; assertion is identity with the organisation party and
+             ;; the bank's allocated sort code, not merely shape.
              :accounts
              [:m/in-any-order
               [{:currency "EUR"
                 :name "Bank own funds"
                 :product-type "own-funds"
-                :party-id [:m/regex "^pty\\."]
+                :party-id [:ref :bank-0 :party :party-id]
+                :payment-addresses [{:scheme "scan"
+                                     :scan {:sort-code
+                                            [:ref :bank-0 :sort-code]}}]
                 :balances [:m/non-empty]}
                {:currency "GBP"
                 :name "Bank own funds"
                 :product-type "own-funds"
-                :party-id [:m/regex "^pty\\."]
+                :party-id [:ref :bank-0 :party :party-id]
+                :payment-addresses [{:scheme "scan"
+                                     :scan {:sort-code
+                                            [:ref :bank-0 :sort-code]}}]
                 :balances [:m/non-empty]}
                {:currency "USD"
                 :name "Bank own funds"
                 :product-type "own-funds"
-                :party-id [:m/regex "^pty\\."]
+                :party-id [:ref :bank-0 :party :party-id]
+                :payment-addresses [{:scheme "scan"
+                                     :scan {:sort-code
+                                            [:ref :bank-0 :sort-code]}}]
                 :balances [:m/non-empty]}]]}}}]}

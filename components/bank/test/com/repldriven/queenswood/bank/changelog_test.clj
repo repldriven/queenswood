@@ -4,9 +4,18 @@
 
     [com.repldriven.queenswood.schema.interface :as schema]
 
+    [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.error.interface :as error]
 
+    [clojure.java.io :as io]
     [clojure.test :refer [deftest is testing]]))
+
+;; Loaded the same way `changelog.clj` loads it — from the classpath
+;; rather than the injected serde — so the assertion below reads the
+;; payload back through the schema that wrote it.
+(def ^:private tier-schema
+  (delay (avro/json->schema
+          (slurp (io/resource "schemas/banks/bank-tier-changed.avsc.json")))))
 
 (deftest changelog-carries-the-shared-envelope-test
   (testing
@@ -49,7 +58,9 @@
       (is (= "bank-tier-changed" (:event-name decoded)))
       (is (= "bnk.x:tier:growth" (:dedup-key decoded)))
       (is (= "bnk.x" (:causation-id decoded)))
-      (is (pos? (count (:payload decoded))) "the Avro payload is carried")
+      (is (= {:bank-id "bnk.x" :tier-before "micro" :tier-after "growth"}
+             (avro/deserialize-same @tier-schema (:payload decoded)))
+          "the Avro payload carries the bank and both tiers")
       (is (not= (:dedup-key (schema/pb->ChangelogEvent (changelog/status-changed
                                                         {:bank-id "bnk.x"
                                                          :status-after
