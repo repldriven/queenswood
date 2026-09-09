@@ -1,8 +1,9 @@
 (ns ^:eftest/synchronized com.repldriven.queenswood.bank.interface-test
   "Unknown-command dispatch stays pure; the FDB-backed cases cover
   what the API scenario suite can't see — that the owner membership
-  commits atomically with the bank and that a duplicate onboarding
-  aborts the whole transaction, and that a tier change rebinds the
+  commits atomically with the bank, that a duplicate onboarding
+  aborts the whole transaction, that a failure after the last write
+  rolls every earlier write back, and that a tier change rebinds the
   underlying `PolicyBinding` records rather than just stamping
   `:tier`. Happy-path admin creation over the bus is covered by
   banks/*.edn in bank-test-api-scenarios."
@@ -14,8 +15,14 @@
     [com.repldriven.queenswood.bank.interface :as SUT]
 
     [com.repldriven.queenswood.bank-query.interface :as bank-query]
+    [com.repldriven.queenswood.cash-account-product-query.interface :as
+     products]
+    [com.repldriven.queenswood.cash-account-query.interface :as cash-accounts]
+    [com.repldriven.queenswood.ledger-account.interface :as ledger-accounts]
     [com.repldriven.queenswood.membership.interface :as memberships]
+    [com.repldriven.queenswood.party-query.interface :as party-query]
     [com.repldriven.queenswood.policy.interface :as policy]
+    [com.repldriven.queenswood.scheduler.interface :as scheduler]
     [com.repldriven.queenswood.schema.interface :as schema]
 
     [com.repldriven.mono.error.interface :as error]
@@ -74,7 +81,9 @@
          (is (error/rejection? r))
          (is (= :membership/already-exists (error/kind r)))
          (nom-test> [listed (memberships/list-by-user config user-id)
-                     _ (is (= 1 (count listed)))]))))))
+                     _ (is (= 1 (count listed)))
+                     banks (bank-query/get-banks config)
+                     _ (is (not-any? #(= "Acme Again" (:name %)) banks))]))))))
 
 (deftest new-bank-unknown-tier-test
   (with-test-system
@@ -92,6 +101,61 @@
          (is (= :bank/unknown-tier (error/kind r)))
          (nom-test> [banks (bank-query/get-banks config)
                      _ (is (not-any? #(= "Unknown Tier Bank" (:name %)) banks))]))))))
+
+(deftest new-bank-rolls-back-on-failure-test
+  (with-test-system
+   [sys "classpath:bank/application-test.yml"]
+   (let [config (fdb-config sys)
+         idp (identity-provider/local-provider {})
+         user-id "usr.rollback"
+         created (atom nil)]
+     (testing "a failure after the last write leaves nothing behind"
+       ;; The owner membership is `new-bank`'s final write, so failing
+       ;; there leaves every other write — the seeded jobs included —
+       ;; behind the rollback. `fdb/transact` rolls its transaction
+       ;; back when the body returns an anomaly; this is the evidence.
+       (let [r (with-redefs
+                 [memberships/new-membership
+                  (fn [_ m]
+                    (reset! created (:bank-id m))
+                    (error/fail :test/injected
+                                {:message "Injected after every write"}))]
+                 (SUT/new-bank config
+                               "Rollback Bank"
+                               :bank-status-test
+                               "micro"
+                               ["GBP"]
+                               {:identity-provider idp
+                                :membership {:user-id user-id
+                                             :role :role-owner}}))
+             bank-id @created]
+         (is (error/anomaly? r))
+         (is (= :test/injected (error/kind r)))
+         (is (some? bank-id)
+             "the injection ran, so every earlier write did too")
+         (let [bank (bank-query/get-bank config bank-id)]
+           (is (error/rejection? bank))
+           (is (= :bank/not-found (error/kind bank))))
+         (nom-test>
+           [{:keys [parties]} (party-query/get-parties config bank-id)
+            _ (is (empty? parties))
+            ledger (ledger-accounts/list-accounts config bank-id)
+            _ (is (empty? ledger))
+            {:keys [items]} (products/get-products config bank-id)
+            _ (is (empty? items))
+            ;; The public listing hides internal products, and the
+            ;; own-funds house product is the only one `new-bank`
+            ;; writes — so the raw versions are what actually bite.
+            versions (products/get-versions config bank-id)
+            _ (is (empty? versions))
+            {:keys [accounts]} (cash-accounts/get-accounts config bank-id)
+            _ (is (empty? accounts))
+            bindings (policy/get-bindings-for-bank config bank-id)
+            _ (is (empty? bindings))
+            jobs (scheduler/list-jobs config bank-id)
+            _ (is (empty? jobs))
+            listed (memberships/list-by-user config user-id)
+            _ (is (empty? listed))]))))))
 
 (deftest change-tier-test
   (with-test-system
