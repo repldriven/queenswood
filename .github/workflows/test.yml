@@ -335,3 +335,35 @@ jobs:
             esac
           done
           exit "$blocked"
+
+  # Polylith reports a brick as changed by comparing against the last tag
+  # matching `:stable` in workspace.edn (`stable-*`). The repo has never
+  # had one, so that comparison has no anchor and every brick reads as
+  # changed — which is why `poly test` without `:all` cannot currently be
+  # trusted to select a subset.
+  #
+  # Moving the tag to each green commit on main is what gives it meaning:
+  # "changed since stable" then reads as "changed since main was last
+  # known good". A run where the Clojure matrix was skipped still earns
+  # the tag — nothing under test moved, so the previous tag's guarantee
+  # carries forward and the anchor stays near the tip.
+  stable-tag:
+    needs: [tests]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Tag this commit stable
+        run: |
+          # UTC timestamp: monotonic, and lexically ordered too, so the
+          # newest tag is the newest however a reader happens to sort.
+          tag="stable-$(date -u +%Y%m%d%H%M%S)"
+          git tag "$tag" "$GITHUB_SHA"
+          git push origin "$tag"
+          echo "Tagged \`$GITHUB_SHA\` as \`$tag\`." >> "$GITHUB_STEP_SUMMARY"
