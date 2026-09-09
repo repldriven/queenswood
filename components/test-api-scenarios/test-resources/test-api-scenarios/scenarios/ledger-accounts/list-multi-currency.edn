@@ -1,0 +1,90 @@
+{:name "A multi-currency bank is seeded with the whole chart per currency"
+ :tags #{:api :happy :ledger-accounts}
+ :given
+ [{:command :api/request
+   :request
+   {:method :post
+    :path "/v1/banks"
+    :auth :admin
+    :headers {:idempotency-key "ik-ledger-accounts-list-multi-ccy-bank-001"}
+    :body
+    {:name "Trilingual Bank"
+     :status "live"
+     :tier "micro"
+     :currencies ["EUR" "GBP" "USD"]}}
+   :as :org-0
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :org-0 :client-id]
+         :client-secret [:ref :org-0 :client-secret]
+         :status :live}
+   :as :org-0-token}]
+ :when
+ [{:command :api/request
+   :request {:method :get :path "/v1/ledger-accounts" :auth :org-0-token}
+   ;; The chart is seeded once per requested currency, so the nine rows
+   ;; of resources/ledgers/general-ledger.edn come back three times over
+   ;; -- twenty-seven in all. Seeding runs under the platform policies,
+   ;; so the micro tier's own caps do not thin it out. in-any-order pins
+   ;; the count, so a tenth row in any currency fails the match; maps in
+   ;; expected position embed, so a row not under scrutiny needs only
+   ;; its code and currency. 2400 and 5100 carry their class and type:
+   ;; interest payable is a control account and interest expense an
+   ;; expense detail account, which is what F6 of the gap analysis
+   ;; found the TDDs disagreeing about.
+   :assert
+   {:status 200
+    :body
+    {:ledger-accounts
+     [:m/in-any-order
+      [{:gl-code "1100" :currency "EUR"}
+       {:gl-code "1200" :currency "EUR"}
+       {:gl-code "2100" :currency "EUR"}
+       {:gl-code "2200" :currency "EUR"}
+       {:gl-code "2300" :currency "EUR"}
+       {:gl-code "2400"
+        :currency "EUR"
+        :gl-account-class "control"
+        :gl-account-type "liability"}
+       {:gl-code "2500" :currency "EUR"}
+       {:gl-code "3100" :currency "EUR"}
+       {:gl-code "5100"
+        :currency "EUR"
+        :gl-account-class "detail"
+        :gl-account-type "expense"}
+       {:gl-code "1100" :currency "GBP"}
+       {:gl-code "1200" :currency "GBP"}
+       {:gl-code "2100" :currency "GBP"}
+       {:gl-code "2200" :currency "GBP"}
+       {:gl-code "2300" :currency "GBP"}
+       {:gl-code "2400"
+        :currency "GBP"
+        :gl-account-class "control"
+        :gl-account-type "liability"}
+       {:gl-code "2500" :currency "GBP"}
+       {:gl-code "3100" :currency "GBP"}
+       {:gl-code "5100"
+        :currency "GBP"
+        :gl-account-class "detail"
+        :gl-account-type "expense"}
+       {:gl-code "1100" :currency "USD"}
+       {:gl-code "1200" :currency "USD"}
+       {:gl-code "2100" :currency "USD"}
+       {:gl-code "2200" :currency "USD"}
+       {:gl-code "2300" :currency "USD"}
+       {:gl-code "2400"
+        :currency "USD"
+        :gl-account-class "control"
+        :gl-account-type "liability"}
+       {:gl-code "2500" :currency "USD"}
+       {:gl-code "3100" :currency "USD"}
+       {:gl-code "5100"
+        :currency "USD"
+        :gl-account-class "detail"
+        :gl-account-type "expense"}]]
+     ;; A freshly provisioned bank has no funded balances, so every
+     ;; currency ties at zero on its own.
+     :trial-balance [:m/embeds
+                     [{:currency "EUR" :debit 0 :credit 0}
+                      {:currency "GBP" :debit 0 :credit 0}
+                      {:currency "USD" :debit 0 :credit 0}]]}}}]}
