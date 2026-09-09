@@ -17,6 +17,8 @@
    {:method :post
     :path "/v1/banks"
     :auth :admin
+    :headers {:idempotency-key
+              "ik-admin-token-forbidden-on-org-route-bank-001"}
     :body {:name "Admin Reach Bank"
            :status "live"
            :tier "micro"
