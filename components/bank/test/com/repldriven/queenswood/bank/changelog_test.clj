@@ -37,3 +37,28 @@
                                            :status-after :bank-status-test})
           decoded (schema/pb->ChangelogEvent bytes)]
       (is (= "bnk.changelog.3:bank-status-test" (:dedup-key decoded))))))
+
+(deftest tier-change-is-its-own-event-test
+  (testing
+    "a tier transition serialises under its own event name, and
+           its dedup key carries a `tier` discriminator so it cannot
+           collide with a status key for the same bank"
+    (let [bytes (changelog/tier-changed
+                 {:bank-id "bnk.x" :tier-before "micro" :tier-after "growth"})
+          decoded (schema/pb->ChangelogEvent bytes)]
+      (is (= "bank-tier-changed" (:event-name decoded)))
+      (is (= "bnk.x:tier:growth" (:dedup-key decoded)))
+      (is (= "bnk.x" (:causation-id decoded)))
+      (is (pos? (count (:payload decoded))) "the Avro payload is carried")
+      (is (not= (:dedup-key (schema/pb->ChangelogEvent (changelog/status-changed
+                                                        {:bank-id "bnk.x"
+                                                         :status-after
+                                                         :bank-status-live})))
+                (:dedup-key decoded))
+          "a status key and a tier key for one bank are disjoint"))))
+
+(deftest bank-creation-has-no-tier-before-test
+  (testing "a newly created bank has no source tier"
+    (let [bytes (changelog/tier-changed {:bank-id "bnk.y" :tier-after "micro"})
+          decoded (schema/pb->ChangelogEvent bytes)]
+      (is (= "bnk.y:tier:micro" (:dedup-key decoded))))))

@@ -1,5 +1,6 @@
 (ns com.repldriven.queenswood.bank.core
   (:require
+    [com.repldriven.queenswood.bank.changelog :as changelog]
     [com.repldriven.queenswood.bank.domain :as domain]
     [com.repldriven.queenswood.bank.store :as store]
 
@@ -225,11 +226,10 @@
         updated (domain/change-tier bank tier new-tier-policies)
         _ (unbind-tier-policies txn bank-id)
         _ (bind-policies txn bank-id new-tier-policies)
-        _ (store/save txn
-                      updated
-                      {:bank-id bank-id
-                       :status-before (:status bank)
-                       :status-after (:status updated)})]
+        entry (changelog/tier-changed {:bank-id bank-id
+                                       :tier-before (:tier bank)
+                                       :tier-after tier})
+        _ (store/save txn updated entry)]
        updated))
    :bank/change-tier
    "Failed to change bank tier"))
@@ -251,11 +251,11 @@
              identity-provider
              bank-id
              audience)
-          _ (store/save txn
-                        updated
-                        {:bank-id bank-id
-                         :status-before (:status bank)
-                         :status-after (:status updated)})]
+          entry (changelog/status-changed
+                 {:bank-id bank-id
+                  :status-before (:status bank)
+                  :status-after (:status updated)})
+          _ (store/save txn updated entry)]
          updated)))
    :bank/change-status
    "Failed to change bank status"))
