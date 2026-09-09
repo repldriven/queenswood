@@ -289,24 +289,29 @@ cannot be deleted (status flip only).
 | 2100 | Customer deposits — current       | Liability | Control |
 | 2200 | Customer deposits — savings       | Liability | Control |
 | 2300 | Customer deposits — term deposits | Liability | Control |
-| 2400 | Interest payable                  | Liability | Detail  |
+| 2400 | Interest payable                  | Liability | Control |
 | 2500 | Suspense — unreconciled inbound   | Liability | Detail  |
 | 3100 | Bank own funds                    | Equity    | Control |
+| 5100 | Interest expense                  | Expense   | Detail  |
 
 Normal side follows from type per the convention table above
 (A and E are debit-normal; L, Eq, I are credit-normal).
 
-The four control accounts each aggregate a cohort of
-sub-ledger cash-accounts: 2100 / 2200 / 2300 hold the customer
-current / savings / term-deposit deposits, and **3100 holds
-the bank's own funds** (the own-funds cash account the bank
-funds and pays customers from). Cash-accounts of the
-corresponding product type roll up to their control.
+The five control accounts each aggregate a cohort of
+sub-ledger balances: 2100 / 2200 / 2300 hold the customer
+current / savings / term-deposit deposits, **2400 aggregates
+the customer interest-accrued balances** (interest the bank
+owes but has not yet capitalised), and **3100 holds the
+bank's own funds** (the own-funds cash account the bank funds
+and pays customers from). Cash-accounts of the corresponding
+product type roll up to their deposit or own-funds control by
+paired leg; 2400 is maintained by the aggregate accrual and
+capitalisation postings instead — see "Balance buckets per
+account class" below.
 
 Accounts the chart will grow when those flows land — fee
-income (4xxx), interest expense (5xxx), retained earnings,
-accrued fees receivable — are not seeded today; a bank adds
-them as it needs them.
+income (4xxx), retained earnings, accrued fees receivable —
+are not seeded today; a bank adds them as it needs them.
 
 `1100 — Cash at correspondent` is the bank's own settlement
 account at its clearing rail — the ISO 20022
@@ -371,8 +376,9 @@ The bank's **own-funds cash account** carries a single
 pending lifecycle; its available balance is just its posted
 default.
 
-**GL control accounts (2100 / 2200 / 2300 / 3100)** mirror the
-sub-ledger's *default* movements only:
+**The GL control accounts that mirror per leg (2100 / 2200 /
+2300 / 3100)** carry the sub-ledger's *default* movements
+only:
 
 | Balance type | Statuses                                            |
 |--------------|-----------------------------------------------------|
@@ -380,11 +386,11 @@ sub-ledger's *default* movements only:
 
 Only the `default` balance-type mirrors, and it no longer
 mirrors per leg. Customer `interest-accrued` legs do *not*
-auto-pair to a control bucket — interest lives on dedicated GL
-accounts (2400) and the sub-ledger detail on the customer
-side, with no third home on the control. This avoids
-double-counting interest as both `2100.interest-accrued` and
-`2400.default`.
+auto-pair to a control bucket — the bank's side sits on the
+2400 interest control and the sub-ledger detail on the
+customer side, with no third home on the deposit controls.
+This avoids double-counting interest as both
+`2100.interest-accrued` and `2400.default`.
 
 Interest's control movements are posted **in aggregate at the
 close of a run**, not fanned out per account. Accrual posts DR
@@ -395,12 +401,18 @@ read-modify-write the same control rows, which is contention
 no account key can spread. See
 [interest.md](interest.md).
 
-**GL detail accounts** (1100, 1200, 2400, 2500) carry one
-bucket each:
+**Single-bucket GL accounts** (1100, 1200, 2400, 2500) carry
+one bucket each:
 
 | Balance type | Statuses |
 |--------------|----------|
 | `default`    | `posted` |
+
+That list groups accounts by the buckets they maintain, not by
+`gl-account-class`: 1100, 1200 and 2500 are detail accounts,
+while 2400 is a control account whose postings arrive in
+aggregate at the close of a run, so it needs only the one
+bucket.
 
 The account's *identity* carries what `balance-type` encodes
 on customer and control accounts. Pending semantics are
@@ -429,9 +441,9 @@ leg-set touches a GL account, per currency:
 Σ debit-amount = Σ credit-amount
 ```
 
-**Invariant 2 — Sub-ledger ↔ control.** For each control
-account (2100 / 2200 / 2300 / 3100), per (balance-status,
-currency), after every commit:
+**Invariant 2 — Sub-ledger ↔ control.** For each deposit or
+own-funds control account (2100 / 2200 / 2300 / 3100), per
+(balance-status, currency), after every commit:
 
 ```
 control balance per (default, status, currency)
@@ -653,8 +665,8 @@ per-currency children:
 
 ```
 2400   Interest payable                 (summary, no currency)
-├ 2400-GBP  Interest payable — GBP      (detail, currency GBP)
-└ 2400-USD  Interest payable — USD      (detail, currency USD)
+├ 2400-GBP  Interest payable — GBP     (control, currency GBP)
+└ 2400-USD  Interest payable — USD     (control, currency USD)
 ```
 
 The paired-leg pipeline routes a posting in currency X to the
@@ -740,9 +752,9 @@ table extends naturally.
   `GlAccountType` / `GlAccountClass` / `Required` /
   `SubLedgerKind` / `GlAccountCode` enums, the `LedgerAccount`
   entry in `RecordTypeUnion`, and the
-  `LedgerAccount_by_bank_gl_account_code` index. `ProductType` carries the sub-ledger values
-  `-current` / `-savings` / `-term-deposit` / `-own-funds`
-  plus `-general-ledger`.
+  `LedgerAccount_by_bank_gl_account_code` index. `ProductType`
+  carries the sub-ledger values `-current` / `-savings` /
+  `-term-deposit` / `-own-funds` plus `-general-ledger`.
 - **`api`** exposes a read-only `/ledger-accounts` surface
   (list / get / balances); transaction-leg responses accept a
   cash-account *or* a ledger-account id (the shared id space).
@@ -938,12 +950,14 @@ that touches a customer accrued bucket and two GL accounts):
   chart (cost centres, per-scheme `1100` children), re-coding,
   versioning ("what a code meant" at posting time), and account
   close-out are all future work.
-- **Interest-accrued has no control-account mirror by
-  design.** The bank's interest payable lives on GL 2400
-  directly; the sub-ledger ↔ control invariant is restricted
-  to the `default` balance-type. The interest reconciliation
-  (Σ customer interest-accrued = 2400 balance) is a separate
-  scenario-test assertion, not a hard commit-path check.
+- **Interest-accrued has no per-leg control mirror by
+  design.** The bank's interest payable lives on the 2400
+  control, posted in aggregate at the close of a run rather
+  than paired leg by leg; the sub-ledger ↔ control invariant
+  is restricted to the `default` balance-type. The interest
+  reconciliation (Σ customer interest-accrued = 2400 balance)
+  is a separate scenario-test assertion, not a hard
+  commit-path check.
 - **Indirect-access (`CPAC`) modelling is single-sided.** A
   bank using sponsor access sees its 1100 position as its
   own `SACC` view of what the sponsor holds for it; the
