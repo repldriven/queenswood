@@ -1,0 +1,47 @@
+{:name "A write route refuses a missing or malformed Idempotency-Key"
+ :tags #{:api :cash-accounts :idempotency :unhappy}
+ ;; The header is mandatory on every protected write, and its value must
+ ;; match ^[A-Za-z0-9_-]{16,255}$ — long enough that a client cannot
+ ;; collide two requests by accident. Both refusals are 400s, and they
+ ;; are distinct types so a client can tell "you forgot it" from "that
+ ;; will not do".
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-key-refusals-bank-001"}
+             :body {:name "Key Refusals Test Org"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :bank-0
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :bank-0 :client-id]
+         :client-secret [:ref :bank-0 :client-secret]
+         :status :live}
+   :as :bank-0-token}]
+ :when
+ ;; No header at all.
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :bank-0-token
+             :body {:party-id "pty.00000000000000000000000000"
+                    :name "Never Opened"
+                    :currency "GBP"
+                    :product-id "prd.00000000000000000000000000"}}
+   :assert {:status 400 :problem {:type "mono/missing-idempotency-key"}}}]
+ :then
+ ;; Eight characters — present, but shorter than the minimum sixteen.
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-short"}
+             :body {:party-id "pty.00000000000000000000000000"
+                    :name "Never Opened"
+                    :currency "GBP"
+                    :product-id "prd.00000000000000000000000000"}}
+   :assert {:status 400 :problem {:type "mono/invalid-idempotency-key"}}}]}

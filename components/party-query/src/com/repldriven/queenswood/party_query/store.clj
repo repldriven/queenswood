@@ -21,6 +21,21 @@
    :party/get
    "Failed to load party"))
 
+(defn find-party-by-idempotency-key
+  [txn bank-id idempotency-key]
+  (fdb/transact
+   txn
+   (fn [txn]
+     (some-> (fdb/query-record-compound
+              (fdb/open txn store-name)
+              "Party"
+              [["bank_id" bank-id]
+               ["idempotency_key" idempotency-key]]
+              {:index "Party_by_idempotency_key"})
+             schema/pb->Party))
+   :party/find-by-idempotency-key
+   "Failed to find party by idempotency key"))
+
 (defn get-party-national-identifier
   [txn party-id]
   (fdb/transact

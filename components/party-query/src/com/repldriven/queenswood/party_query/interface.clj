@@ -4,7 +4,12 @@
   party brick `bank-api` (and other readers) may require — it exposes no
   writes. Party creation and status transitions live in `bank-party`
   (commands + watcher), which reuses these reads inside its own
-  transactions."
+  transactions.
+
+  `find-party-by-idempotency-key` is a read primitive for the write
+  sibling's create-party idempotency read-back; the public reads for
+  API consumers are `get-party`, `get-party-detail` and
+  `get-parties`."
   (:require
     [com.repldriven.queenswood.party-query.core :as core]
     [com.repldriven.queenswood.party-query.domain :as domain]
@@ -21,6 +26,20 @@
   Returns the party map or a `:party/not-found` anomaly."
   [txn bank-id party-id]
   (core/get-party txn bank-id party-id))
+
+(defn find-party-by-idempotency-key
+  "Return the party previously written under `idempotency-key`, or
+  nil. A read primitive for the write sibling's new-party idempotency
+  read-back — the create-party command is the only path that stamps a
+  key, so a party created in-process carries none and is never found
+  here.
+
+  Args:
+  - txn: FDB handle or open transaction.
+  - bank-id: bank id.
+  - idempotency-key: the command's idempotency key."
+  [txn bank-id idempotency-key]
+  (store/find-party-by-idempotency-key txn bank-id idempotency-key))
 
 (defn get-party-detail
   "Load a party, optionally enriched with sub-records selected by the

@@ -42,6 +42,10 @@ message Transaction {
   required int64 created_at = 6;
   required int64 updated_at = 7;
   optional string reference = 8; // human-readable memo
+  // Scopes the idempotency-key index. Optional on the wire so
+  // records written before the index was scoped still parse; the
+  // domain requires it.
+  optional string bank_id = 9;
 }
 
 message TransactionLeg {

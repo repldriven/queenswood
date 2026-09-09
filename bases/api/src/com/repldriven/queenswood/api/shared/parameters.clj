@@ -116,6 +116,18 @@
    :required true
    :schema {:$ref "#/components/schemas/VersionId"}})
 
+(def JobId
+  {:name "job-id"
+   :in "path"
+   :required true
+   :schema {:$ref "#/components/schemas/JobId"}})
+
+(def MigrationId
+  {:name "migration-id"
+   :in "path"
+   :required true
+   :schema {:$ref "#/components/schemas/MigrationId"}})
+
 (def CheckId
   {:name "check-id"
    :in "path"
@@ -179,6 +191,8 @@
 (def ref-account-id {:$ref "#/components/parameters/AccountId"})
 (def ref-bank-id {:$ref "#/components/parameters/BankId"})
 (def ref-party-id {:$ref "#/components/parameters/PartyId"})
+(def ref-job-id {:$ref "#/components/parameters/JobId"})
+(def ref-migration-id {:$ref "#/components/parameters/MigrationId"})
 
 (def registry
   "Map of OpenAPI parameter component name → parameter object. Merged
@@ -190,6 +204,8 @@
    "AccountId" AccountId
    "BankId" BankId
    "PartyId" PartyId
+   "JobId" JobId
+   "MigrationId" MigrationId
    "ProductId" ProductId
    "VersionId" VersionId
    "CheckId" CheckId

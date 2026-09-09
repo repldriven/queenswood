@@ -234,16 +234,22 @@
                                 [i]))
                      xs)))))
 
+(defn router
+  "The compiled route tree, without the ring handler around it. Split
+  out so a test can walk `reitit.core/routes` and assert over route
+  data — `idempotency-coverage-test` does — without booting a system."
+  [ctx]
+  (http/router (routes ctx)
+               (-> server/standard-router-data
+                   (assoc-in [:data :coercion] coercion)
+                   (add-interceptor-before-coerce
+                    shared.interceptors/nest-bracket-query-params))))
+
 (defn app
   [ctx]
-  (let [router (http/router (routes ctx)
-                            (->
-                              server/standard-router-data
-                              (assoc-in [:data :coercion] coercion)
-                              (add-interceptor-before-coerce
-                               shared.interceptors/nest-bracket-query-params)))
-        bare (auth/bare-security-routes router)
-        method-level (auth/method-security-routes router)]
+  (let [compiled (router ctx)
+        bare (auth/bare-security-routes compiled)
+        method-level (auth/method-security-routes compiled)]
     (when (or (seq bare) (seq method-level))
       ;; A route that demands a token without naming roles has no gate
       ;; anyone can read; one that writes its gate under a method key
@@ -262,7 +268,7 @@
                                   (str/join ", " method-level)
                                   ".")))
                       {:bare bare :method-level method-level})))
-    (http/ring-handler router
+    (http/ring-handler compiled
                        (ring/routes (server/standard-openapi-ui-handler)
                                     (server/standard-default-handler))
                        server/standard-executor)))

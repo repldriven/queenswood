@@ -9,6 +9,7 @@
     [com.repldriven.queenswood.api.cash-account.queries :as queries]
 
     [com.repldriven.queenswood.api.schema :refer [ErrorResponse]]
+    [com.repldriven.queenswood.api.shared.idempotency :as shared.idempotency]
     [com.repldriven.queenswood.api.shared.parameters :as shared.parameters]
 
     [com.repldriven.queenswood.idempotency.interface :as bank-idempotency]
@@ -44,13 +45,14 @@
              :interceptors [server/require-idempotency-key
                             bank-idempotency/cache-response]
              :parameters {:body [:ref "CreateCashAccountRequest"]}
-             :responses {200 {:body [:ref "CreateCashAccountResponse"]
-                              :openapi {:links links/from-account}}
-                         404 (ErrorResponse [#'PartyNotFound
-                                             #'ProductNotFound])
-                         422 (ErrorResponse [#'CashAccountAlreadyExists
-                                             #'ProductNotPublished
-                                             #'InvalidCurrency])}
+             :responses (shared.idempotency/with-responses
+                         {200 {:body [:ref "CreateCashAccountResponse"]
+                               :openapi {:links links/from-account}}
+                          404 (ErrorResponse [#'PartyNotFound
+                                              #'ProductNotFound])
+                          422 (ErrorResponse [#'CashAccountAlreadyExists
+                                              #'ProductNotPublished
+                                              #'InvalidCurrency])})
              :handler commands/open-cash-account}}]
     ["/{account-id}" {:parameters {:path {:account-id [:ref "CashAccountId"]}}}
      [""
@@ -77,11 +79,12 @@
                                      shared.parameters/ref-idempotency-key]}
               :interceptors [server/require-idempotency-key
                              bank-idempotency/cache-response]
-              :responses {200 {:body [:ref "CloseCashAccountResponse"]
-                               :openapi {:links links/from-account}}
-                          404 (ErrorResponse [#'CashAccountNotFound])
-                          409 (ErrorResponse [#'CashAccountInvalidStatus
-                                              #'CashAccountNonZeroBalance])}
+              :responses (shared.idempotency/with-responses
+                          {200 {:body [:ref "CloseCashAccountResponse"]
+                                :openapi {:links links/from-account}}
+                           404 (ErrorResponse [#'CashAccountNotFound])
+                           409 (ErrorResponse [#'CashAccountInvalidStatus
+                                               #'CashAccountNonZeroBalance])})
               :handler commands/close-cash-account}}]
      ["/suspend"
       {:post {:summary "Suspend a cash account"
@@ -91,10 +94,11 @@
                                      shared.parameters/ref-idempotency-key]}
               :interceptors [server/require-idempotency-key
                              bank-idempotency/cache-response]
-              :responses {200 {:body [:ref "SuspendCashAccountResponse"]
-                               :openapi {:links links/from-account}}
-                          404 (ErrorResponse [#'CashAccountNotFound])
-                          409 (ErrorResponse [#'CashAccountInvalidStatus])}
+              :responses (shared.idempotency/with-responses
+                          {200 {:body [:ref "SuspendCashAccountResponse"]
+                                :openapi {:links links/from-account}}
+                           404 (ErrorResponse [#'CashAccountNotFound])
+                           409 (ErrorResponse [#'CashAccountInvalidStatus])})
               :handler commands/suspend-cash-account}}]
      ["/resume"
       {:post {:summary "Resume a suspended cash account"
@@ -104,10 +108,11 @@
                                      shared.parameters/ref-idempotency-key]}
               :interceptors [server/require-idempotency-key
                              bank-idempotency/cache-response]
-              :responses {200 {:body [:ref "ResumeCashAccountResponse"]
-                               :openapi {:links links/from-account}}
-                          404 (ErrorResponse [#'CashAccountNotFound])
-                          409 (ErrorResponse [#'CashAccountInvalidStatus])}
+              :responses (shared.idempotency/with-responses
+                          {200 {:body [:ref "ResumeCashAccountResponse"]
+                                :openapi {:links links/from-account}}
+                           404 (ErrorResponse [#'CashAccountNotFound])
+                           409 (ErrorResponse [#'CashAccountInvalidStatus])})
               :handler commands/resume-cash-account}}]
      ["/rotate-address"
       {:post {:summary "Rotate a cash account's payment address"
@@ -117,8 +122,9 @@
                                      shared.parameters/ref-idempotency-key]}
               :interceptors [server/require-idempotency-key
                              bank-idempotency/cache-response]
-              :responses {200 {:body [:ref "RotateCashAccountAddressResponse"]
-                               :openapi {:links links/from-account}}
-                          404 (ErrorResponse [#'CashAccountNotFound])
-                          409 (ErrorResponse [#'CashAccountInvalidStatus])}
+              :responses (shared.idempotency/with-responses
+                          {200 {:body [:ref "RotateCashAccountAddressResponse"]
+                                :openapi {:links links/from-account}}
+                           404 (ErrorResponse [#'CashAccountNotFound])
+                           409 (ErrorResponse [#'CashAccountInvalidStatus])})
               :handler commands/rotate-cash-account-address}}]]]])

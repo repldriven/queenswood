@@ -7,6 +7,7 @@
     [com.repldriven.queenswood.party-query.interface :as q]
     [com.repldriven.queenswood.person-identification.interface :as person-id]
     [com.repldriven.queenswood.policy.interface :as policy]
+    [com.repldriven.queenswood.schema.interface :as schema]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]))
 
@@ -55,6 +56,30 @@
   (or (:policies opts)
       (policy/get-effective-policies txn {:bank-id bank-id})))
 
+(defn- or-already-created
+  "On a uniqueness violation — a redelivered or retried create-party
+  command carrying an already-seen idempotency-key — read the existing
+  party back and return it, so the caller gets the original resource
+  instead of a duplicate party or a bare rejection.
+
+  A retry violates the national-identifier index as readily as the
+  key's, and the Record Layer names whichever it reaches first, so the
+  read-back rather than the exception decides which happened: a party
+  under this bank and key means the retry, and no party means a second
+  person arriving under another party's national identifier, whose
+  violation passes through unchanged."
+  [txn data result]
+  (if (and (store/uniqueness-violation? result)
+           (:idempotency-key data))
+    (let-nom> [existing (q/find-party-by-idempotency-key
+                         txn
+                         (:bank-id data)
+                         (:idempotency-key data))]
+      (if existing
+        (schema/Party->pb existing)
+        result))
+    result))
+
 (defn new-party
   ([txn data]
    (new-party txn data {}))
@@ -65,9 +90,12 @@
                                  :party
                                  {:action :party-action-create
                                   :type (:type data)})]
-     (let [result (if (= :party-type-person (:type data))
-                    (create-person txn data)
-                    (create-internal txn data))]
+     (let [result (or-already-created
+                   txn
+                   data
+                   (if (= :party-type-person (:type data))
+                     (create-person txn data)
+                     (create-internal txn data)))]
        (if (store/uniqueness-violation? result)
          (error/reject :party/identification-rejected
                        "Identification rejected for this party")

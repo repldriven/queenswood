@@ -1,0 +1,151 @@
+{:name "Three concurrent submissions on one key make one payment"
+ :tags #{:api :idempotency :payments :happy}
+ ;; Whether a losing request finds the winner still in flight or
+ ;; already committed is the scheduler's business, so the assertion is
+ ;; the invariant: exactly one execution, and every other answer either
+ ;; a 409 or an exact replay. The 409 specifically is pinned with a
+ ;; latch in the idempotency brick's own test.
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-race-bank-001"}
+             :body {:name "Internal Race Test"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :bank-0
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :bank-0 :client-id]
+         :client-secret [:ref :bank-0 :client-secret]
+         :status :live}
+   :as :bank-0-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-race-prod-001"}
+             :body {:name "Current"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-01-01"}}
+   :as :product
+   :assert {:status 201 :body {:status "draft"}}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :product :product-id]
+                  :version-id [:ref :product :version-id]}
+    :auth :bank-0-token}
+   :assert {:status 200 :body {:status "published"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-race-party-001"}
+             :body {:type "person"
+                    :display-name "Random Frequentflyer"
+                    :given-name "Random"
+                    :family-name "Frequentflyer"
+                    :date-of-birth "1955-05-05"
+                    :nationality "GB"
+                    :address {:building-number "9"
+                              :street "Improbability Drive"
+                              :town "Cottington"
+                              :postcode "CT12 4XY"
+                              :country "GBR"}
+                    :national-identifier {:type "national-insurance"
+                                          :value "TN555601F"
+                                          :issuing-country "GB"}}}
+   :as :party
+   :assert {:status 200 :body {:status "pending"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}"
+             :path-params {:party-id [:ref :party :party-id]}
+             :auth :bank-0-token}
+   :until {:status 200 :body {:status "active"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-race-debtor-001"}
+             :body {:party-id [:ref :party :party-id]
+                    :name "Current"
+                    :currency "GBP"
+                    :product-id [:ref :product :product-id]}}
+   :as :debtor
+   :assert {:status 200 :body {:account-status "opening"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :debtor :account-id]}
+             :auth :bank-0-token}
+   :until {:status 200 :body {:account-status "opened"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-race-creditor-001"}
+             :body {:party-id [:ref :party :party-id]
+                    :name "Savings"
+                    :currency "GBP"
+                    :product-id [:ref :product :product-id]}}
+   :as :creditor
+   :assert {:status 200 :body {:account-status "opening"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :creditor :account-id]}
+             :auth :bank-0-token}
+   :until {:status 200 :body {:account-status "opened"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/simulate/banks/{bank-id}/inbound-transfer"
+             :path-params {:bank-id [:ref :bank-0 :bank-id]}
+             :auth :admin
+             :headers {:idempotency-key "ik-race-fund-001"}
+             :body {:account-id [:ref :debtor :account-id]
+                    :amount 100000
+                    :currency "GBP"}}
+   :assert {:status 200}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :debtor :account-id]}
+             :auth :bank-0-token}
+   :until {:status 200
+           :body {:available-balance {:value 100000 :currency "GBP"}}}}]
+ :when
+ [{:command :api/race
+   :count 3
+   :request {:method :post
+             :path "/v1/payments/internal"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-internal-race-payment-1"}
+             :body {:debtor-account-id [:ref :debtor :account-id]
+                    :creditor-account-id [:ref :creditor :account-id]
+                    :currency "GBP"
+                    :amount 2500
+                    :reference "Raced payment"}}
+   :as :responses
+   :assert {:status 200 :fresh 1}}]
+ :then
+ ;; One payment, so one debit.
+ [{:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :debtor :account-id]}
+             :auth :bank-0-token}
+   :until {:status 200
+           :body {:available-balance {:value 97500 :currency "GBP"}}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/payments/internal/{payment-id}"
+             :path-params {:payment-id [:ref :responses 0 :body :payment-id]}
+             :auth :bank-0-token}
+   :assert {:status 200 :body {:amount 2500 :reference "Raced payment"}}}]}

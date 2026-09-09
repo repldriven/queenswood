@@ -30,7 +30,7 @@
 
 (defn- dispatch
   [config message]
-  (let [{:keys [command payload]} message
+  (let [{:keys [command id payload]} message
         handler (get command-handlers command)]
     (if (nil? handler)
       (error/reject :party/unknown-command
@@ -41,7 +41,8 @@
           (error/fail :party/process-command
                       {:message "No schema found for command"
                        :command command})
-          (let-nom> [data (avro/deserialize-same schema payload)]
+          (let-nom> [raw (avro/deserialize-same schema payload)
+                     data (assoc raw :idempotency-key id)]
             (handler config data)))))))
 
 (defrecord PartyProcessor [config]

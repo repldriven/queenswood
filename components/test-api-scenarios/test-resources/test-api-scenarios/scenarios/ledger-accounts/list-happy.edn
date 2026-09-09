@@ -6,6 +6,7 @@
    {:method :post
     :path "/v1/banks"
     :auth :admin
+    :headers {:idempotency-key "ik-ledger-accounts-list-happy-bank-001"}
     :body
     {:name "Ledger Test Bank" :status "live" :tier "micro" :currencies ["GBP"]}}
    :as :org-0

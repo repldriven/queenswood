@@ -6,7 +6,12 @@
     [com.repldriven.queenswood.api.bank.queries :as queries]
 
     [com.repldriven.queenswood.api.schema :refer [ErrorResponse]]
-    [com.repldriven.queenswood.api.shared.parameters :as shared.parameters]))
+    [com.repldriven.queenswood.api.shared.idempotency :as shared.idempotency]
+    [com.repldriven.queenswood.api.shared.parameters :as shared.parameters]
+
+    [com.repldriven.queenswood.idempotency.interface :as bank-idempotency]
+
+    [com.repldriven.mono.server.interface :as server]))
 
 (def routes
   [["/banks"
@@ -17,10 +22,16 @@
             :responses {200 {:body [:ref "BankList"]}}
             :handler queries/list-banks}
       :post {:summary "Create a new bank"
-             :openapi {:operationId "CreateBank" :requestBody {:required true}}
+             :openapi {:operationId "CreateBank"
+                       :requestBody {:required true}
+                       :parameters ^:replace
+                                   [shared.parameters/ref-idempotency-key]}
+             :interceptors [server/require-idempotency-key
+                            bank-idempotency/cache-response]
              :parameters {:body [:ref "CreateBankRequest"]}
-             :responses {201 {:body [:ref "CreateBankResponse"]}
-                         422 (ErrorResponse [#'BankLimitExceeded])}
+             :responses (shared.idempotency/with-responses
+                         {201 {:body [:ref "CreateBankResponse"]}
+                          422 (ErrorResponse [#'BankLimitExceeded])})
              :handler bank-commands/create-bank}}]
     ["/{bank-id}"
      {:parameters {:path {:bank-id [:ref "BankId"]}}}

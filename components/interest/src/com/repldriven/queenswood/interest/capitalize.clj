@@ -23,9 +23,10 @@
   bucket, which payments move, so `apply-legs` reads inside the posting
   transaction and the read-modify-write there is load-bearing."
   [_config ctx txn account balances]
-  (let [{:keys [account-id currency]} account]
+  (let [{:keys [account-id bank-id currency]} account]
     (let-nom>
-      [swept (capitalization/sweep account-id
+      [swept (capitalization/sweep bank-id
+                                   account-id
                                    currency
                                    balances
                                    (:business-day ctx))
@@ -34,7 +35,7 @@
              [recorded (transactions/record-transaction txn
                                                         (:transaction swept))
               _ (balances/apply-legs txn
-                                     (:bank-id account)
+                                     bank-id
                                      (:legs recorded)
                                      (:transaction-type recorded))]))]
       swept)))

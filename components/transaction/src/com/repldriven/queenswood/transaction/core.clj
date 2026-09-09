@@ -12,17 +12,18 @@
   (store/transact
    txn
    (fn [txn]
-     (let [{:keys [legs]} data
-           transaction (domain/new-transaction data)
-           {:keys [transaction-id currency]} transaction
-           legs' (mapv (fn [leg]
-                         (domain/new-leg leg transaction-id currency))
-                       legs)]
-       (let-nom>
-         [_ (domain/validate-legs legs)
-          _ (store/save-transaction txn transaction)
-          _ (store/save-legs txn legs')]
-         (assoc transaction :legs legs'))))))
+     (let-nom>
+       [transaction (domain/new-transaction data)]
+       (let [{:keys [legs]} data
+             {:keys [transaction-id currency]} transaction
+             legs' (mapv (fn [leg]
+                           (domain/new-leg leg transaction-id currency))
+                         legs)]
+         (let-nom>
+           [_ (domain/validate-legs legs)
+            _ (store/save-transaction txn transaction)
+            _ (store/save-legs txn legs')]
+           (assoc transaction :legs legs')))))))
 
 (defn- or-already-recorded
   "On a uniqueness violation — a redelivered record-transaction command
@@ -35,6 +36,7 @@
            (:idempotency-key data))
     (let-nom> [existing (store/find-transaction-by-idempotency-key
                          txn
+                         (:bank-id data)
                          (:transaction-type data)
                          (:idempotency-key data))]
       (or existing result))
@@ -42,16 +44,17 @@
 
 (defn record-and-post
   [txn bank-id data]
-  (or-already-recorded
-   txn
-   data
-   (store/transact
-    txn
-    (fn [txn]
-      (let-nom>
-        [result (record txn data)
-         _ (balances/apply-legs txn
-                                bank-id
-                                (:legs result)
-                                (:transaction-type result))]
-        result)))))
+  (let [data (assoc data :bank-id bank-id)]
+    (or-already-recorded
+     txn
+     data
+     (store/transact
+      txn
+      (fn [txn]
+        (let-nom>
+          [result (record txn data)
+           _ (balances/apply-legs txn
+                                  bank-id
+                                  (:legs result)
+                                  (:transaction-type result))]
+          result))))))

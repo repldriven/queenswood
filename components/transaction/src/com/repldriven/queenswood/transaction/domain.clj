@@ -9,23 +9,30 @@
 
 (defn new-transaction
   [data]
-  (let [{:keys [idempotency-key transaction-type currency
+  (let [{:keys [bank-id idempotency-key transaction-type currency
                 reference]}
         data
         now (utility/now)
         status (get type->status
                     transaction-type
                     :transaction-status-pending)]
-    (utility/assoc-some
-     {:transaction-id (utility/generate-id "txn")
-      :idempotency-key idempotency-key
-      :transaction-type transaction-type
-      :currency currency
-      :status status
-      :created-at now
-      :updated-at now}
-     :reference
-     reference)))
+    (if (nil? bank-id)
+      ;; The record's bank_id is optional on the wire so older records
+      ;; still parse, but it heads the idempotency-key index — a
+      ;; transaction written without one takes an unscoped entry.
+      (error/reject :transaction/missing-bank-id
+                    "Transaction must carry a bank-id")
+      (utility/assoc-some
+       {:transaction-id (utility/generate-id "txn")
+        :bank-id bank-id
+        :idempotency-key idempotency-key
+        :transaction-type transaction-type
+        :currency currency
+        :status status
+        :created-at now
+        :updated-at now}
+       :reference
+       reference))))
 
 (defn- leg-total
   [side legs]

@@ -51,12 +51,6 @@
            :status 404
            :detail "Balance not found"}})
 
-(def TransactionAlreadyRecorded
-  {:value {:title "REJECTED"
-           :type ":transaction/already-recorded"
-           :status 422
-           :detail "Transaction already recorded"}})
-
 (def InvalidAmount
   {:value {:title "REJECTED"
            :type ":transaction/invalid-amount"
@@ -65,4 +59,4 @@
 
 (def registry
   (examples-registry [#'SettlementAccountNotFound #'BalanceNotFound
-                      #'TransactionAlreadyRecorded #'InvalidAmount]))
+                      #'InvalidAmount]))

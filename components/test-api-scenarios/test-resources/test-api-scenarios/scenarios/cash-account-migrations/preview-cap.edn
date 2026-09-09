@@ -9,6 +9,7 @@
    {:method :post
     :path "/v1/banks"
     :auth :admin
+    :headers {:idempotency-key "ik-preview-cap-bank-001"}
     :body {:name "Preview Cap Org"
            :status "live"
            :tier "micro"
@@ -24,6 +25,7 @@
    :request {:method :post
              :path "/v1/cash-account-products"
              :auth :org-0-token
+             :headers {:idempotency-key "ik-preview-cap-prod-001"}
              :body {:name "Saver"
                     :template-id "tpl.00000000000000000000000002"
                     :currency "GBP"
@@ -63,6 +65,7 @@
    :request {:method :post
              :path "/v1/cash-account-migrations"
              :auth :org-0-token
+             :headers {:idempotency-key "ik-preview-cap-mig-001"}
              :body {:name "Saver holders onto v2"
                     :source-product-id [:ref :v1 :product-id]
                     :target-product-id [:ref :v2 :product-id]
@@ -73,61 +76,71 @@
    :request {:method :post
              :path "/v1/cash-account-migrations/{migration-id}/previews"
              :path-params {:migration-id [:ref :migration :migration-id]}
-             :auth :org-0-token}
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-preview-cap-prev-001"}}
    :assert {:status 201}}
   {:command :api/request
    :request {:method :post
              :path "/v1/cash-account-migrations/{migration-id}/previews"
              :path-params {:migration-id [:ref :migration :migration-id]}
-             :auth :org-0-token}
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-preview-cap-prev-002"}}
    :assert {:status 201}}
   {:command :api/request
    :request {:method :post
              :path "/v1/cash-account-migrations/{migration-id}/previews"
              :path-params {:migration-id [:ref :migration :migration-id]}
-             :auth :org-0-token}
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-preview-cap-prev-003"}}
    :assert {:status 201}}
   {:command :api/request
    :request {:method :post
              :path "/v1/cash-account-migrations/{migration-id}/previews"
              :path-params {:migration-id [:ref :migration :migration-id]}
-             :auth :org-0-token}
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-preview-cap-prev-004"}}
    :assert {:status 201}}
   {:command :api/request
    :request {:method :post
              :path "/v1/cash-account-migrations/{migration-id}/previews"
              :path-params {:migration-id [:ref :migration :migration-id]}
-             :auth :org-0-token}
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-preview-cap-prev-005"}}
    :assert {:status 201}}
   {:command :api/request
    :request {:method :post
              :path "/v1/cash-account-migrations/{migration-id}/previews"
              :path-params {:migration-id [:ref :migration :migration-id]}
-             :auth :org-0-token}
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-preview-cap-prev-006"}}
    :assert {:status 201}}
   {:command :api/request
    :request {:method :post
              :path "/v1/cash-account-migrations/{migration-id}/previews"
              :path-params {:migration-id [:ref :migration :migration-id]}
-             :auth :org-0-token}
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-preview-cap-prev-007"}}
    :assert {:status 201}}
   {:command :api/request
    :request {:method :post
              :path "/v1/cash-account-migrations/{migration-id}/previews"
              :path-params {:migration-id [:ref :migration :migration-id]}
-             :auth :org-0-token}
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-preview-cap-prev-008"}}
    :assert {:status 201}}
   {:command :api/request
    :request {:method :post
              :path "/v1/cash-account-migrations/{migration-id}/previews"
              :path-params {:migration-id [:ref :migration :migration-id]}
-             :auth :org-0-token}
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-preview-cap-prev-009"}}
    :assert {:status 201}}
   {:command :api/request
    :request {:method :post
              :path "/v1/cash-account-migrations/{migration-id}/previews"
              :path-params {:migration-id [:ref :migration :migration-id]}
-             :auth :org-0-token}
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-preview-cap-prev-010"}}
    :assert {:status 201}}]
  :when
  ;; The eleventh is refused, and refused before a run is opened — a
@@ -137,7 +150,8 @@
    :request {:method :post
              :path "/v1/cash-account-migrations/{migration-id}/previews"
              :path-params {:migration-id [:ref :migration :migration-id]}
-             :auth :org-0-token}
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-preview-cap-prev-011"}}
    :assert {:status 429 :problem {:type ":policy/limit-exceeded"}}}
   {:command :api/request
    :request {:method :get

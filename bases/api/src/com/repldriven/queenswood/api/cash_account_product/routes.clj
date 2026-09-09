@@ -8,7 +8,12 @@
     [com.repldriven.queenswood.api.cash-account-product.queries :as queries]
 
     [com.repldriven.queenswood.api.schema :refer [ErrorResponse]]
-    [com.repldriven.queenswood.api.shared.parameters :as shared.parameters]))
+    [com.repldriven.queenswood.api.shared.idempotency :as shared.idempotency]
+    [com.repldriven.queenswood.api.shared.parameters :as shared.parameters]
+
+    [com.repldriven.queenswood.idempotency.interface :as bank-idempotency]
+
+    [com.repldriven.mono.server.interface :as server]))
 
 (def ^:private list-products-query-schema
   [:map {:closed true} [:page {:optional true} [:ref "PageQuery"]]])
@@ -42,12 +47,17 @@
             :handler queries/list-products}
       :post {:summary "Create a product (returns its initial draft version)"
              :openapi {:operationId "CreateCashAccountProduct"
-                       :requestBody {:required true}}
+                       :requestBody {:required true}
+                       :parameters ^:replace
+                                   [shared.parameters/ref-idempotency-key]}
+             :interceptors [server/require-idempotency-key
+                            bank-idempotency/cache-response]
              :parameters {:body [:ref "CashAccountProductRequest"]}
-             :responses {201 {:body [:ref "CashAccountProductVersion"]
-                              :openapi {:headers {"Location" location-header}
-                                        :links links/from-draft}}
-                         422 (ErrorResponse [#'CurrencyNotAllowed])}
+             :responses (shared.idempotency/with-responses
+                         {201 {:body [:ref "CashAccountProductVersion"]
+                               :openapi {:headers {"Location" location-header}
+                                         :links links/from-draft}}
+                          422 (ErrorResponse [#'CurrencyNotAllowed])})
              :handler handlers/create-product}}]
     ["/{product-id}" {:parameters {:path {:product-id [:ref "ProductId"]}}}
      [""

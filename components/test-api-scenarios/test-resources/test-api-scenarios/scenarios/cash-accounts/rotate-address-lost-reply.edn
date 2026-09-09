@@ -1,0 +1,139 @@
+{:name "A lost rotate-address reply is retried under the same key and
+        rotates once"
+ :tags #{:api :cash-accounts :idempotency :unhappy}
+ ;; The rotation commits and its reply never arrives, so the API answers
+ ;; 500 and the cache releases its claim. The retry under the same key
+ ;; runs the handler again -- it is not a replay, and carries no replay
+ ;; header -- and the account's own record of the key that last rotated
+ ;; it is what keeps it to one set of addresses: no allocation, no save,
+ ;; no changelog entry, and the addresses the first attempt allocated
+ ;; come back.
+ ;;
+ ;; The lost reply is produced by a test-only seam keyed on the
+ ;; `ik-lost-reply-` prefix; see `test_api_scenarios/fault.clj`.
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-rotate-lostreply-bank-01"}
+             :body {:name "Rotate Lost Reply Test"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :bank-0
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :bank-0 :client-id]
+         :client-secret [:ref :bank-0 :client-secret]
+         :status :live}
+   :as :bank-0-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-rotate-lostreply-party01"}
+             :body {:type "person"
+                    :display-name "Arthur Dent"
+                    :given-name "Arthur"
+                    :family-name "Dent"
+                    :date-of-birth "1953-03-08"
+                    :nationality "GB"
+                    :address {:building-number "1"
+                              :street "Cottington Lane"
+                              :town "Cottington"
+                              :postcode "CT12 4XY"
+                              :country "GBR"}
+                    :national-identifier {:type "national-insurance"
+                                          :value "TN555802E"
+                                          :issuing-country "GB"}}}
+   :as :party-0
+   :assert {:status 200 :body {:status "pending"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}"
+             :path-params {:party-id [:ref :party-0 :party-id]}
+             :auth :bank-0-token}
+   :until {:status 200 :body {:status "active"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-rotate-lostreply-prod-01"}
+             :body {:name "Current Account"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-01-01"}}
+   :as :draft
+   :assert {:status 201 :body {:status "draft"}}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :draft :product-id]
+                  :version-id [:ref :draft :version-id]}
+    :auth :bank-0-token}
+   :assert {:status 200 :body {:status "published"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-rotate-lostreply-open-01"}
+             :body {:party-id [:ref :party-0 :party-id]
+                    :name "To Be Rotated Once"
+                    :currency "GBP"
+                    :product-id [:ref :draft :product-id]}}
+   :as :account-0
+   :assert {:status 200 :body {:account-status "opening"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :account-0 :account-id]}
+             :auth :bank-0-token}
+   :until {:status 200 :body {:account-status "opened"}}
+   :as :account-0-opened}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts/{account-id}/rotate-address"
+             :path-params {:account-id [:ref :account-0 :account-id]}
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-lost-reply-rotate-0001"}}
+   :assert {:status 500}}]
+ :then
+ ;; The rotation the lost attempt made is committed, so the account
+ ;; carries its new addresses before the retry is sent -- otherwise the
+ ;; retry would race the first command rather than follow it.
+ [{:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :account-0 :account-id]}
+             :auth :bank-0-token}
+   :until {:status 200
+           :body {:payment-addresses
+                  [:m/mismatch [:ref :account-0-opened :payment-addresses]]}}
+   :as :after-first}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts/{account-id}/rotate-address"
+             :path-params {:account-id [:ref :account-0 :account-id]}
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-lost-reply-rotate-0001"}}
+   ;; The claim was released, so this ran rather than replayed -- and
+   ;; still answers with the addresses the first attempt allocated.
+   :assert {:status 200
+            :headers {:idempotent-replayed [:m/absent]}
+            :body {:account-status "opened"
+                   :payment-addresses
+                   [:ref :after-first :payment-addresses]}}}
+  ;; Nothing was written, so the stored account is where the first
+  ;; rotation left it.
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :account-0 :account-id]}
+             :auth :bank-0-token}
+   :assert {:status 200
+            :body {:payment-addresses
+                   [:ref :after-first :payment-addresses]}}}]}

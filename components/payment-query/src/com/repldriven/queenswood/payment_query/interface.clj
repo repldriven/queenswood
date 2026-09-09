@@ -44,26 +44,34 @@
   (store/get-inbound-payment txn scheme-transaction-id))
 
 (defn find-internal-payment-by-idempotency-key
-  "Return the InternalPayment previously written under
+  "Return the InternalPayment `bank-id` previously wrote under
   `idempotency-key`, or nil. A read primitive for the write sibling's
-  idempotent submit read-back.
+  idempotent submit read-back. The key is unique within a bank, not
+  across the platform, so the bank is part of the lookup.
 
   Args:
   - txn: FDB handle or open transaction.
+  - bank-id: the bank the key belongs to.
   - idempotency-key: the command's idempotency key."
-  [txn idempotency-key]
-  (store/find-internal-payment-by-idempotency-key txn idempotency-key))
+  [txn bank-id idempotency-key]
+  (store/find-internal-payment-by-idempotency-key txn
+                                                  bank-id
+                                                  idempotency-key))
 
 (defn find-outbound-payment-by-idempotency-key
-  "Return the OutboundPayment previously written under
+  "Return the OutboundPayment `bank-id` previously wrote under
   `idempotency-key`, or nil. A read primitive for the write sibling's
-  idempotent submit read-back.
+  idempotent submit read-back. The key is unique within a bank, not
+  across the platform, so the bank is part of the lookup.
 
   Args:
   - txn: FDB handle or open transaction.
+  - bank-id: the bank the key belongs to.
   - idempotency-key: the command's idempotency key."
-  [txn idempotency-key]
-  (store/find-outbound-payment-by-idempotency-key txn idempotency-key))
+  [txn bank-id idempotency-key]
+  (store/find-outbound-payment-by-idempotency-key txn
+                                                  bank-id
+                                                  idempotency-key))
 
 (defn get-held-inbound-by-end-to-end-id
   "Return the open `held` InboundPayment for `end-to-end-id`, or nil. A

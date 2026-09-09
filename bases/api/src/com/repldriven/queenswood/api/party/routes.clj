@@ -8,6 +8,7 @@
     [com.repldriven.queenswood.api.party.queries :as queries]
 
     [com.repldriven.queenswood.api.schema :refer [ErrorResponse]]
+    [com.repldriven.queenswood.api.shared.idempotency :as shared.idempotency]
     [com.repldriven.queenswood.api.shared.parameters :as shared.parameters]
 
     [com.repldriven.queenswood.idempotency.interface :as bank-idempotency]
@@ -37,9 +38,10 @@
              :interceptors [server/require-idempotency-key
                             bank-idempotency/cache-response]
              :parameters {:body [:ref "CreatePartyRequest"]}
-             :responses {200 {:body [:ref "CreatePartyResponse"]
-                              :openapi {:links links/from-party}}
-                         422 (ErrorResponse [#'IdentificationRejected])}
+             :responses (shared.idempotency/with-responses
+                         {200 {:body [:ref "CreatePartyResponse"]
+                               :openapi {:links links/from-party}}
+                          422 (ErrorResponse [#'IdentificationRejected])})
              :handler commands/create-party}}]
     ["/{party-id}" {:parameters {:path {:party-id [:ref "PartyId"]}}}
      [""
@@ -60,10 +62,11 @@
                                      shared.parameters/ref-idempotency-key]}
               :interceptors [server/require-idempotency-key
                              bank-idempotency/cache-response]
-              :responses {200 {:body [:ref "SuspendPartyResponse"]
-                               :openapi {:links links/from-party}}
-                          404 (ErrorResponse [#'PartyNotFound])
-                          409 (ErrorResponse [#'PartyInvalidStatus])}
+              :responses (shared.idempotency/with-responses
+                          {200 {:body [:ref "SuspendPartyResponse"]
+                                :openapi {:links links/from-party}}
+                           404 (ErrorResponse [#'PartyNotFound])
+                           409 (ErrorResponse [#'PartyInvalidStatus])})
               :handler commands/suspend-party}}]
      ["/resume"
       {:post {:summary "Resume a suspended party"
@@ -73,10 +76,11 @@
                                      shared.parameters/ref-idempotency-key]}
               :interceptors [server/require-idempotency-key
                              bank-idempotency/cache-response]
-              :responses {200 {:body [:ref "ResumePartyResponse"]
-                               :openapi {:links links/from-party}}
-                          404 (ErrorResponse [#'PartyNotFound])
-                          409 (ErrorResponse [#'PartyInvalidStatus])}
+              :responses (shared.idempotency/with-responses
+                          {200 {:body [:ref "ResumePartyResponse"]
+                                :openapi {:links links/from-party}}
+                           404 (ErrorResponse [#'PartyNotFound])
+                           409 (ErrorResponse [#'PartyInvalidStatus])})
               :handler commands/resume-party}}]
      ["/close"
       {:post {:summary "Close a party"
@@ -86,11 +90,12 @@
                                      shared.parameters/ref-idempotency-key]}
               :interceptors [server/require-idempotency-key
                              bank-idempotency/cache-response]
-              :responses {200 {:body [:ref "ClosePartyResponse"]
-                               :openapi {:links links/from-party}}
-                          404 (ErrorResponse [#'PartyNotFound])
-                          409 (ErrorResponse [#'PartyInvalidStatus
-                                              #'PartyOpenAccounts])}
+              :responses (shared.idempotency/with-responses
+                          {200 {:body [:ref "ClosePartyResponse"]
+                                :openapi {:links links/from-party}}
+                           404 (ErrorResponse [#'PartyNotFound])
+                           409 (ErrorResponse [#'PartyInvalidStatus
+                                               #'PartyOpenAccounts])})
               :handler commands/close-party}}]
      ["/merge"
       {:post {:summary "Merge a party into another"
@@ -102,10 +107,11 @@
               :interceptors [server/require-idempotency-key
                              bank-idempotency/cache-response]
               :parameters {:body [:ref "MergePartyRequest"]}
-              :responses {200 {:body [:ref "MergePartyResponse"]
-                               :openapi {:links links/from-merged-party}}
-                          404 (ErrorResponse [#'PartyNotFound])
-                          409 (ErrorResponse [#'PartyInvalidStatus
-                                              #'PartyOpenAccounts])
-                          422 (ErrorResponse [#'PartyMergeIntoSelf])}
+              :responses (shared.idempotency/with-responses
+                          {200 {:body [:ref "MergePartyResponse"]
+                                :openapi {:links links/from-merged-party}}
+                           404 (ErrorResponse [#'PartyNotFound])
+                           409 (ErrorResponse [#'PartyInvalidStatus
+                                               #'PartyOpenAccounts])
+                           422 (ErrorResponse [#'PartyMergeIntoSelf])})
               :handler commands/merge-party}}]]]])

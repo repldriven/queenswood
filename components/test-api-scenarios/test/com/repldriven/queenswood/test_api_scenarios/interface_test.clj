@@ -10,6 +10,7 @@
   (:require
     [com.repldriven.queenswood.test-api-scenarios.system]
 
+    [com.repldriven.queenswood.test-api-scenarios.fault :as fault]
     [com.repldriven.queenswood.test-api-scenarios.interface :as SUT]
 
     [com.repldriven.queenswood.api.api :as api]
@@ -84,10 +85,20 @@
     (.initialize generator 2048)
     (.generateKeyPair generator)))
 
+(defn- app-with-fault
+  "The bank API, with the lost-reply seam spliced into the interceptor
+  list the server hands its routes. Test-only, and inert until a
+  scenario sends an `ik-lost-reply-` key."
+  [ctx]
+  (api/app (update ctx
+                   :interceptors
+                   (fn [interceptors]
+                     (vec (concat interceptors [fault/lose-reply]))))))
+
 (defn- patch-handlers
   [defs]
   (-> defs
-      (assoc-in [:system/defs :server :handler] api/app)
+      (assoc-in [:system/defs :server :handler] app-with-fault)
       (assoc-in [:system/defs :clearbank-simulator-server :handler]
                 cb-simulator/app)
       (assoc-in [:system/defs :clearbank-adapter-server :handler]
@@ -116,6 +127,24 @@
                  :relative (subs (.getPath f) prefix-len)}))
          (sort-by :relative))))
 
+(deftest idempotency-keys-are-unique-across-files-test
+  ;; Bank creation sits in the `:given` of almost every scenario file
+  ;; and the admin principal is shared by the whole boot, so a key
+  ;; literal that appears in two files replays the other file's bank
+  ;; rather than creating one.
+  (let [owners (reduce (fn [m {:keys [file relative]}]
+                         (reduce
+                          (fn [m [_ k]]
+                            (update m k (fnil conj (sorted-set)) relative))
+                          m
+                          (re-seq #"\"(ik-[^\"]+)\"" (slurp file))))
+                       {}
+                       (scenario-files))
+        reused (into (sorted-map)
+                     (filter (fn [[_ files]] (< 1 (count files))) owners))]
+    (is (= {} reused)
+        "an Idempotency-Key literal shared by two scenario files replays")))
+
 (deftest api-scenarios-test
   ;; One test system serves every scenario. Per-scenario isolation
   ;; comes from a fresh runner context (own captures map), so
@@ -132,6 +161,11 @@
            admin-token (mint-admin-token base-url)
            endpoints (token-endpoints sys)
            key-pair (signing-key)]
+       ;; The seam remembers which ids it has already lost, and it
+       ;; outlives the system this boot tears down. Clearing it here
+       ;; keeps a second run in the same JVM — a REPL re-run — losing
+       ;; the replies the lost-reply scenarios need to go missing.
+       (fault/reset-lost!)
        (doseq [{:keys [relative]} files]
          (let [resource-path (str "test-api-scenarios/scenarios/" relative)]
            (testing relative

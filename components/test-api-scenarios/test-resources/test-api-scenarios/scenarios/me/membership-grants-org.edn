@@ -21,6 +21,8 @@
    :request {:method :post
              :path "/v1/onboarding/me"
              :auth :member-token
+             :headers {:idempotency-key
+                       "ik-membership-grants-org-onboarding-001"}
              :body {:company-number "TY046601"
                     :bank-name "Tyrell Corporation"}}
    :as :onboarded

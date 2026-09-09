@@ -226,8 +226,11 @@
   retiring the old ones on-record (QNS-20). The old addresses are
   never redirected — a payment landing on a retired address is a
   lookup miss for `get-account-by-bban`, which already falls into
-  the suspense path."
-  [account product-version address-fountain-fn policies]
+  the suspense path.
+
+  The rotation stamps its own idempotency key onto the account, so a
+  retry under that key can be told from a fresh rotation."
+  [account data product-version address-fountain-fn policies]
   (let-nom>
     [_ (when-not (= :cash-account-status-opened (:account-status account))
          (error/reject :cash-account/invalid-status
@@ -255,7 +258,9 @@
                                retired)
                          :updated-at now)
                   :bban
-                  bban))))
+                  bban
+                  :last-rotation-idempotency-key
+                  (:idempotency-key data)))))
 
 (defn migrate-product
   "Repin an opened account to another product version. Direct

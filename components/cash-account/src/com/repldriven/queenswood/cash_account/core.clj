@@ -187,6 +187,16 @@
                                   :status-after (:account-status updated)})]
           updated))))))
 
+(defn- rotated-under-key?
+  "True when the account's last rotation is the one this command is
+  asking for — a retry after a lost reply. It gets back the addresses
+  the first attempt allocated: no allocation, no save, no changelog
+  entry. A read-derived skip, not a rejection."
+  [account idempotency-key]
+  (boolean (and idempotency-key
+                (= idempotency-key
+                   (:last-rotation-idempotency-key account)))))
+
 (defn rotate-address
   ([txn data]
    (rotate-address txn data {}))
@@ -194,27 +204,31 @@
    (store/transact
     txn
     (fn [txn]
-      (let [{:keys [bank-id account-id]} data]
+      (let [{:keys [bank-id account-id idempotency-key]} data]
         (let-nom>
           [policies (get-policies txn bank-id account-id opts)
-           account (q/get-account txn bank-id account-id)
-           product-version (products/get-version txn
-                                                 bank-id
-                                                 (:product-id account)
-                                                 (:version-id account))
-           updated (domain/rotate-address account
-                                          product-version
-                                          (fn [counter]
-                                            (store/allocate-payment-address
-                                             txn
-                                             counter))
-                                          policies)
-           _ (store/save-account txn
-                                 updated
-                                 {:account-id account-id
-                                  :status-before (:account-status account)
-                                  :status-after (:account-status updated)})]
-          updated))))))
+           account (q/get-account txn bank-id account-id)]
+          (if (rotated-under-key? account idempotency-key)
+            account
+            (let-nom>
+              [product-version (products/get-version txn
+                                                     bank-id
+                                                     (:product-id account)
+                                                     (:version-id account))
+               updated (domain/rotate-address
+                        account
+                        data
+                        product-version
+                        (fn [counter]
+                          (store/allocate-payment-address txn counter))
+                        policies)
+               _ (store/save-account txn
+                                     updated
+                                     {:account-id account-id
+                                      :status-before (:account-status account)
+                                      :status-after (:account-status
+                                                     updated)})]
+              updated))))))))
 
 (defn migrate-account
   "Repin an account the caller already holds, writing into the caller's

@@ -6,6 +6,7 @@
    {:method :post
     :path "/v1/banks"
     :auth :admin
+    :headers {:idempotency-key "ik-get-job-404-bank-001"}
     :body
     {:name "404 Job Test Org" :status "live" :tier "micro" :currencies ["GBP"]}}
    :as :org-0

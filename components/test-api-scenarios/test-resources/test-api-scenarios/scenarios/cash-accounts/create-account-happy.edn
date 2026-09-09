@@ -6,6 +6,7 @@
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
+             :headers {:idempotency-key "ik-create-account-happy-bank-001"}
              :body {:name "Cash Accounts Test Org"
                     :status "live"
                     :tier "micro"
@@ -51,6 +52,7 @@
    :request {:method :post
              :path "/v1/cash-account-products"
              :auth :org-0-token
+             :headers {:idempotency-key "ik-create-account-happy-prod-001"}
              :body {:name "Current Account"
                     :template-id "tpl.00000000000000000000000001"
                     :currency "GBP"
