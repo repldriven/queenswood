@@ -268,7 +268,7 @@ shape `get-banks` and the api handlers return:
  :tier            "micro"
  :company-binding {...}      ; when the bank was onboarded
  :party           {...}      ; the bank's org party
- :accounts        [{...}]    ; with embedded balances + :gl-code
+ :accounts        [{...}]    ; with embedded balances
  :client-id       "bnk...."  ; == bank-id
  :client-secret   "..."}     ; only on a create response
 ```
@@ -279,8 +279,9 @@ creation minted; that one is discarded rather than carried back
 over the command bus. The handler calls `rotate-secret` once the
 reply arrives and returns what that mints, so the credential
 exists only on the response. The view walks the org party and the
-cash accounts, with balances and resolved `:gl-code`; it does not
-list the seeded ledger accounts.
+cash accounts, with balances; it does not list the seeded ledger
+accounts. No `:gl-code` is carried: `gl_code` is reserved on the
+product schema, so the enrichment reads nil and omits the key.
 
 ### Tier and the policy-binding model
 

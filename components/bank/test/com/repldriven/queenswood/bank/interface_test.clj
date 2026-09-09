@@ -115,12 +115,12 @@
        ;; there leaves every other write — the seeded jobs included —
        ;; behind the rollback. `fdb/transact` rolls its transaction
        ;; back when the body returns an anomaly; this is the evidence.
-       (let [r (with-redefs
-                 [memberships/new-membership
-                  (fn [_ m]
-                    (reset! created (:bank-id m))
-                    (error/fail :test/injected
-                                {:message "Injected after every write"}))]
+       (let [r (with-redefs [memberships/new-membership
+                             (fn [_ m]
+                               (reset! created (:bank-id m))
+                               (error/fail :test/injected
+                                           {:message
+                                            "Injected after every write"}))]
                  (SUT/new-bank config
                                "Rollback Bank"
                                :bank-status-test
@@ -137,26 +137,27 @@
          (let [bank (bank-query/get-bank config bank-id)]
            (is (error/rejection? bank))
            (is (= :bank/not-found (error/kind bank))))
-         (nom-test>
-           [{:keys [parties]} (party-query/get-parties config bank-id)
-            _ (is (empty? parties))
-            ledger (ledger-accounts/list-accounts config bank-id)
-            _ (is (empty? ledger))
-            {:keys [items]} (products/get-products config bank-id)
-            _ (is (empty? items))
-            ;; The public listing hides internal products, and the
-            ;; own-funds house product is the only one `new-bank`
-            ;; writes — so the raw versions are what actually bite.
-            versions (products/get-versions config bank-id)
-            _ (is (empty? versions))
-            {:keys [accounts]} (cash-accounts/get-accounts config bank-id)
-            _ (is (empty? accounts))
-            bindings (policy/get-bindings-for-bank config bank-id)
-            _ (is (empty? bindings))
-            jobs (scheduler/list-jobs config bank-id)
-            _ (is (empty? jobs))
-            listed (memberships/list-by-user config user-id)
-            _ (is (empty? listed))]))))))
+         (nom-test> [{:keys [parties]} (party-query/get-parties config bank-id)
+                     _ (is (empty? parties))
+                     ledger (ledger-accounts/list-accounts config bank-id)
+                     _ (is (empty? ledger))
+                     {:keys [items]} (products/get-products config bank-id)
+                     _ (is (empty? items))
+                     ;; The public listing hides internal products, and the
+                     ;; own-funds house product is the only one `new-bank`
+                     ;; writes — so the raw versions are what actually
+                     ;; bite.
+                     versions (products/get-versions config bank-id)
+                     _ (is (empty? versions))
+                     {:keys [accounts]} (cash-accounts/get-accounts config
+                                                                    bank-id)
+                     _ (is (empty? accounts))
+                     bindings (policy/get-bindings-for-bank config bank-id)
+                     _ (is (empty? bindings))
+                     jobs (scheduler/list-jobs config bank-id)
+                     _ (is (empty? jobs))
+                     listed (memberships/list-by-user config user-id)
+                     _ (is (empty? listed))]))))))
 
 (deftest change-tier-test
   (with-test-system
@@ -275,19 +276,21 @@
    [sys "classpath:bank/application-test.yml"]
    (let [config (fdb-config sys)
          idp (identity-provider/local-provider {})]
-     (nom-test>
-       [{:keys [bank]} (SUT/new-bank config
-                                     "Sort Code Bank"
-                                     :bank-status-test
-                                     "micro"
-                                     ["GBP"]
-                                     {:identity-provider idp})
-        found (bank-query/get-bank-by-sort-code config (:sort-code bank))
-        _ (testing "the allocated sort code resolves back to its bank"
-            (is (some? (:sort-code bank)))
-            (is (= (:bank-id bank) (:bank-id found))))
-        _ (testing "an unallocated sort code resolves to nil"
-            ;; nil, not a `:bank/not-found` rejection: the `bank-query`
-            ;; interface documents it that way and the unmatched-inbound
-            ;; suspense path branches on the nil rather than on a kind.
-            (is (nil? (bank-query/get-bank-by-sort-code config "999999"))))]))))
+     (nom-test> [{:keys [bank]} (SUT/new-bank config
+                                              "Sort Code Bank"
+                                              :bank-status-test
+                                              "micro"
+                                              ["GBP"]
+                                              {:identity-provider idp})
+                 found (bank-query/get-bank-by-sort-code config
+                                                         (:sort-code bank))
+                 _ (testing "the allocated sort code resolves back to its bank"
+                     (is (some? (:sort-code bank)))
+                     (is (= (:bank-id bank) (:bank-id found))))
+                 _ (testing "an unallocated sort code resolves to nil"
+                     ;; nil, not a `:bank/not-found` rejection: the
+                     ;; `bank-query` interface documents it that way and
+                     ;; the unmatched-inbound suspense path branches on the
+                     ;; nil rather than on a kind.
+                     (is (nil? (bank-query/get-bank-by-sort-code config
+                                                                 "999999"))))]))))
