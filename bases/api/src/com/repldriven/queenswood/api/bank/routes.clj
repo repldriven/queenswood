@@ -31,7 +31,8 @@
              :parameters {:body [:ref "CreateBankRequest"]}
              :responses (shared.idempotency/with-responses
                          {201 {:body [:ref "CreateBankResponse"]}
-                          422 (ErrorResponse [#'BankLimitExceeded])})
+                          422 (ErrorResponse [#'BankLimitExceeded
+                                              #'BankUnknownTier])})
              :handler bank-commands/create-bank}}]
     ["/{bank-id}"
      {:parameters {:path {:bank-id [:ref "BankId"]}}}

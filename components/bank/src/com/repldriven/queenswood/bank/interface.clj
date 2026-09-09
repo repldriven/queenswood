@@ -25,8 +25,9 @@
   - txn: FDB transaction or db handle.
   - bank-name: bank display name.
   - bank-status: `:bank-status-*` keyword.
-  - tier: tier name (string) selecting `tier=<name>`-labelled
-    policies to bind to the new bank, or nil for none.
+  - tier: tier name (string, required) selecting `tier=<name>`-labelled
+    policies to bind to the new bank — creation is rejected
+    `:bank/unknown-tier` when it is nil or resolves to no policies.
   - currencies: collection of ISO 4217 currency strings.
   - opts: map; `:identity-provider` (required) is the IDP component
     that issues the bank's service-account client — without one a bank

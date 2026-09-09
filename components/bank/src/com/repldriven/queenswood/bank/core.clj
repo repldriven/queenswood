@@ -114,12 +114,6 @@
           nil
           policies))
 
-(defn- bind-tier-policies
-  [txn bank-id tier]
-  (when-let [policies (when (some? tier)
-                        (policy/get-policies-by-tier txn tier))]
-    (bind-policies txn bank-id policies)))
-
 (defn- tier-labelled-policy?
   [txn policy-id]
   (let [p (policy/get-policy txn policy-id)]
@@ -170,11 +164,15 @@
           policies (or (:policies opts)
                        (policy/get-effective-policies txn {}))
           sort-code (store/allocate-sort-code txn)
+          tier-policies (if (some? tier)
+                          (policy/get-policies-by-tier txn tier)
+                          [])
           bank (domain/new-bank bank-name
                                 bank-status
                                 sort-code
                                 tier
                                 company-binding
+                                tier-policies
                                 policies)
           bank-id (:bank-id bank)
 
@@ -205,7 +203,7 @@
                                 sort-code
                                 currencies
                                 policies)
-          _ (bind-tier-policies txn bank-id tier)
+          _ (bind-policies txn bank-id tier-policies)
           _ (scheduler/seed-jobs txn bank-id)
           owner (when membership
                   (memberships/new-membership txn

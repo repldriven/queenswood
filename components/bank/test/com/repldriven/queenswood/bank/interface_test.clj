@@ -13,6 +13,7 @@
     [com.repldriven.queenswood.bank.commands :as commands]
     [com.repldriven.queenswood.bank.interface :as SUT]
 
+    [com.repldriven.queenswood.bank-query.interface :as bank-query]
     [com.repldriven.queenswood.membership.interface :as memberships]
     [com.repldriven.queenswood.policy.interface :as policy]
 
@@ -49,7 +50,7 @@
                                               config
                                               "Acme Bank"
                                               :bank-status-test
-                                              nil
+                                              "micro"
                                               ["GBP"]
                                               {:identity-provider idp
                                                :membership {:user-id user-id
@@ -64,7 +65,7 @@
        (let [r (SUT/new-bank config
                              "Acme Again"
                              :bank-status-test
-                             nil
+                             "micro"
                              ["GBP"]
                              {:identity-provider idp
                               :membership {:user-id user-id
@@ -73,6 +74,23 @@
          (is (= :membership/already-exists (error/kind r)))
          (nom-test> [listed (memberships/list-by-user config user-id)
                      _ (is (= 1 (count listed)))]))))))
+
+(deftest new-bank-unknown-tier-test
+  (with-test-system
+   [sys "classpath:bank/application-test.yml"]
+   (let [config (fdb-config sys)
+         idp (identity-provider/local-provider {})]
+     (testing "a tier resolving to no policies is rejected, leaving no bank"
+       (let [r (SUT/new-bank config
+                             "Unknown Tier Bank"
+                             :bank-status-test
+                             "no-such-tier"
+                             ["GBP"]
+                             {:identity-provider idp})]
+         (is (error/rejection? r))
+         (is (= :bank/unknown-tier (error/kind r)))
+         (nom-test> [banks (bank-query/get-banks config)
+                     _ (is (not-any? #(= "Unknown Tier Bank" (:name %)) banks))]))))))
 
 (deftest change-tier-test
   (with-test-system
@@ -123,7 +141,7 @@
      (nom-test> [{:keys [bank]} (SUT/new-bank config
                                               "Status Change Bank"
                                               :bank-status-test
-                                              nil
+                                              "micro"
                                               ["GBP"]
                                               {:identity-provider idp
                                                :audience "queenswood-api-test"})
