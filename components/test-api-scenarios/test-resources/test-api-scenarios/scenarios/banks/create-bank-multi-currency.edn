@@ -1,0 +1,49 @@
+{:name "Admin creates a bank in every currency the API offers"
+ :tags #{:api :banks :happy}
+ :when
+ [{:command :api/request
+   :request
+   {:method :post
+    :path "/v1/banks"
+    :auth :admin
+    :headers {:idempotency-key "ik-create-bank-multi-currency-bank-001"}
+    :body
+    {:name "Polyglot Bank"
+     :status "live"
+     :tier "micro"
+     :currencies ["EUR" "GBP" "USD"]}}
+   :as :bank-0
+   :assert {:status 201
+            :body
+            {:name "Polyglot Bank"
+             :status "live"
+             :bank-id [:m/regex "^bnk\\."]
+             ;; The organisation party the house accounts are opened on.
+             :party {:party-id [:m/regex "^pty\\."]
+                     :type "organization"
+                     :display-name "Polyglot Bank"}
+             ;; One own-funds house account per requested currency -- the
+             ;; chart identifies an account by role and currency, not by
+             ;; number, so all three are the same own-funds role. Their
+             ;; 3100 coding lives on the ledger side; a cash account
+             ;; carries no :gl-code, because CashAccountProduct reserves
+             ;; the field and bank-query resolves it off the product
+             ;; version. in-any-order pins the count at three, and maps in
+             ;; expected position embed, so no other field needs listing.
+             :accounts
+             [:m/in-any-order
+              [{:currency "EUR"
+                :name "Bank own funds"
+                :product-type "own-funds"
+                :party-id [:m/regex "^pty\\."]
+                :balances [:m/non-empty]}
+               {:currency "GBP"
+                :name "Bank own funds"
+                :product-type "own-funds"
+                :party-id [:m/regex "^pty\\."]
+                :balances [:m/non-empty]}
+               {:currency "USD"
+                :name "Bank own funds"
+                :product-type "own-funds"
+                :party-id [:m/regex "^pty\\."]
+                :balances [:m/non-empty]}]]}}}]}
