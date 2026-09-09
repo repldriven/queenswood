@@ -54,6 +54,11 @@
    [:name [:ref "Name"]]
    [:status [:ref "BankStatus"]]
    [:sort-code [:ref "SortCode"]]
+   ;; Required here but optional on `Bank`: creation rejects an
+   ;; unmatched tier, so a bank this release just made always carries
+   ;; one, while `Bank` describes any bank on record — including those
+   ;; stored before the tier was demanded.
+   [:tier [:ref "Name"]]
    [:party [:ref "Party"]]
    [:accounts [:vector [:ref "CashAccount"]]]
    [:client-id [:ref "BankId"]]
