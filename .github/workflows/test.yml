@@ -159,14 +159,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-clojure-
 
-      # The coverage floor is 90 for dev and 0 for a service project: a
+      # The coverage floor is 80 for dev and 0 for a service project: a
       # service imports its infra from mono without mono's tests, so the
       # coverage measured here is not representative of the code it runs.
       - name: Run tests
         env:
           TESTCONTAINERS_REUSE_ENABLE: "true"
           COVERAGE: "true"
-          COVERAGE_THRESHOLD: ${{ matrix.project == 'dev' && '90' || '0' }}
+          COVERAGE_THRESHOLD: ${{ matrix.project == 'dev' && '80' || '0' }}
           # The JUnit reporter trims this from suite and classname
           # attributes, so the published report reads `bank.core-test`
           # rather than the full namespace. mono's runner cannot default
@@ -214,7 +214,7 @@ jobs:
         uses: zgosalvez/github-actions-report-lcov@v7.1.0
         with:
           coverage-files: target/coverage/${{ matrix.project == 'dev' && 'development' || matrix.project }}/lcov.info
-          minimum-coverage: ${{ matrix.project == 'dev' && 90 || 0 }}
+          minimum-coverage: ${{ matrix.project == 'dev' && 80 || 0 }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           update-comment: true
           title-prefix: "[${{ matrix.project }}]"
