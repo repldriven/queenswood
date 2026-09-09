@@ -5,6 +5,7 @@
    :request
    {:method :post
     :path "/v1/banks"
+    :headers {:idempotency-key "ik-create-bank-unauthenticated-bank-001"}
     :body
     {:name "No Auth Bank" :status "live" :tier "micro" :currencies ["GBP"]}}
    :assert {:status 401}}]}

@@ -61,7 +61,7 @@
          expanded
          (let [r (transactions/record-transaction
                   txn
-                  (assoc tx-data :legs expanded))]
+                  (assoc tx-data :bank-id bank-id :legs expanded))]
            (balances/apply-legs txn
                                 bank-id
                                 (:legs r)

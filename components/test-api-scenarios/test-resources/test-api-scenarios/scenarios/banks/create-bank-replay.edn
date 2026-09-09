@@ -1,0 +1,34 @@
+{:name "Creating a bank twice under one key creates one bank"
+ :tags #{:api :banks :idempotency :happy}
+ ;; Bank creation is the admin's, and the admin principal is shared, so
+ ;; this is also the case where a shared scope has to be scoped by the
+ ;; key rather than by the caller. The second call is answered from the
+ ;; cache: the same bank id, the same client id, and marked as a replay.
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-create-bank-replay-001"}
+             :body {:name "Replayed Bank"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :bank-0
+   :assert {:status 201
+            :headers {:idempotent-replayed [:m/absent]}
+            :body {:client-id [:m/regex "^bnk\\."]}}}]
+ :then
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-create-bank-replay-001"}
+             :body {:name "Replayed Bank"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :assert {:status 201
+            :headers {:idempotent-replayed "true"}
+            :body {:bank-id [:ref :bank-0 :bank-id]
+                   :client-id [:ref :bank-0 :client-id]}}}]}

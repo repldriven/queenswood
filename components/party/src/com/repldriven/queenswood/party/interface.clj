@@ -32,10 +32,16 @@
   organisation parties skip both. Capability is checked against
   effective policies before the write.
 
+  A create-party command stamps its `:idempotency-key` onto the party,
+  unique per bank, so a retry under that key reads the original party
+  back instead of creating a second one. In-process callers pass no
+  key and so write no index entry.
+
   Args:
   - txn: FDB handle or open transaction.
   - data: party submission map (bank-id, type,
-    display-name, optional person fields).
+    display-name, optional person fields, and on the command path the
+    envelope's `:idempotency-key`).
   - opts: optional map; `:policies` overrides policy resolution.
 
   Returns the party map or an anomaly."

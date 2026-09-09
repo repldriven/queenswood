@@ -71,7 +71,8 @@
   its own. The key is the run's identity, so a repeat posts once."
   [gl bank-id currency total as-of-date]
   (when-not (zero? total)
-    {:idempotency-key (str "accrue-run-" bank-id "-" as-of-date "-" currency)
+    {:bank-id bank-id
+     :idempotency-key (str "accrue-run-" bank-id "-" as-of-date "-" currency)
      :transaction-type :transaction-type-interest-accrual
      :currency currency
      :reference (str "Daily interest accrual "

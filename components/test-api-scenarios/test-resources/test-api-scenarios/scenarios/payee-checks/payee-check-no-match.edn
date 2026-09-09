@@ -8,6 +8,7 @@
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
+             :headers {:idempotency-key "ik-payee-check-no-match-bank-001"}
              :body {:name "Payee Check No Match Org"
                     :status "live"
                     :tier "micro"
@@ -24,6 +25,7 @@
    :request {:method :post
              :path "/v1/payee-checks"
              :auth :org-0-token
+             :headers {:idempotency-key "ik-payee-check-no-match-chk-001"}
              :body {:creditor-name "COP_NOMATCH"
                     :account {:sort-code "040062" :account-number "12345678"}
                     :account-type "personal"}}

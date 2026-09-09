@@ -1,0 +1,165 @@
+{:name "A lost reply is retried under the same key and pays once"
+ :tags #{:api :idempotency :payments :unhappy}
+ ;; The command commits and its reply never arrives, so the API answers
+ ;; 500 and the cache releases its claim rather than caching a failure.
+ ;; The retry under the same key therefore runs the handler again --
+ ;; it is not a replay, and carries no replay header -- and the
+ ;; processor's own idempotency is what keeps it to one payment.
+ ;;
+ ;; The lost reply is produced by a test-only seam keyed on the
+ ;; `ik-lost-reply-` prefix; see `test_api_scenarios/fault.clj`.
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-lost-bank-001"}
+             :body {:name "Internal Lost Reply Test"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :bank-0
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :bank-0 :client-id]
+         :client-secret [:ref :bank-0 :client-secret]
+         :status :live}
+   :as :bank-0-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-lost-prod-001"}
+             :body {:name "Current"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-01-01"}}
+   :as :product
+   :assert {:status 201 :body {:status "draft"}}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :product :product-id]
+                  :version-id [:ref :product :version-id]}
+    :auth :bank-0-token}
+   :assert {:status 200 :body {:status "published"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-lost-party-001"}
+             :body {:type "person"
+                    :display-name "Tricia McMillan"
+                    :given-name "Tricia"
+                    :family-name "McMillan"
+                    :date-of-birth "1955-05-05"
+                    :nationality "GB"
+                    :address {:building-number "9"
+                              :street "Improbability Drive"
+                              :town "Cottington"
+                              :postcode "CT12 4XY"
+                              :country "GBR"}
+                    :national-identifier {:type "national-insurance"
+                                          :value "TN555701G"
+                                          :issuing-country "GB"}}}
+   :as :party
+   :assert {:status 200 :body {:status "pending"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}"
+             :path-params {:party-id [:ref :party :party-id]}
+             :auth :bank-0-token}
+   :until {:status 200 :body {:status "active"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-lost-debtor-001"}
+             :body {:party-id [:ref :party :party-id]
+                    :name "Current"
+                    :currency "GBP"
+                    :product-id [:ref :product :product-id]}}
+   :as :debtor
+   :assert {:status 200 :body {:account-status "opening"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :debtor :account-id]}
+             :auth :bank-0-token}
+   :until {:status 200 :body {:account-status "opened"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-lost-creditor-001"}
+             :body {:party-id [:ref :party :party-id]
+                    :name "Savings"
+                    :currency "GBP"
+                    :product-id [:ref :product :product-id]}}
+   :as :creditor
+   :assert {:status 200 :body {:account-status "opening"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :creditor :account-id]}
+             :auth :bank-0-token}
+   :until {:status 200 :body {:account-status "opened"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/simulate/banks/{bank-id}/inbound-transfer"
+             :path-params {:bank-id [:ref :bank-0 :bank-id]}
+             :auth :admin
+             :headers {:idempotency-key "ik-lost-fund-001"}
+             :body {:account-id [:ref :debtor :account-id]
+                    :amount 100000
+                    :currency "GBP"}}
+   :assert {:status 200}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :debtor :account-id]}
+             :auth :bank-0-token}
+   :until {:status 200
+           :body {:available-balance {:value 100000 :currency "GBP"}}}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/payments/internal"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-lost-reply-internal-001"}
+             :body {:debtor-account-id [:ref :debtor :account-id]
+                    :creditor-account-id [:ref :creditor :account-id]
+                    :currency "GBP"
+                    :amount 2500
+                    :reference "Lost reply"}}
+   :assert {:status 500}}]
+ :then
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/payments/internal"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-lost-reply-internal-001"}
+             :body {:debtor-account-id [:ref :debtor :account-id]
+                    :creditor-account-id [:ref :creditor :account-id]
+                    :currency "GBP"
+                    :amount 2500
+                    :reference "Lost reply"}}
+   :as :retry
+   ;; The claim was released, so this ran rather than replayed.
+   :assert {:status 200 :headers {:idempotent-replayed [:m/absent]}}}
+  ;; Debited once across both attempts.
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :debtor :account-id]}
+             :auth :bank-0-token}
+   :until {:status 200
+           :body {:available-balance {:value 97500 :currency "GBP"}}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/payments/internal/{payment-id}"
+             :path-params {:payment-id [:ref :retry :payment-id]}
+             :auth :bank-0-token}
+   :assert {:status 200 :body {:amount 2500 :reference "Lost reply"}}}]}

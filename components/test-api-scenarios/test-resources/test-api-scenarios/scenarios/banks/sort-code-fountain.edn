@@ -10,6 +10,7 @@
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
+             :headers {:idempotency-key "ik-sort-code-fountain-bank-001"}
              :body {:name "Sort Code Fountain A"
                     :status "live"
                     :tier "micro"
@@ -21,6 +22,7 @@
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
+             :headers {:idempotency-key "ik-sort-code-fountain-bank-002"}
              :body {:name "Sort Code Fountain B"
                     :status "live"
                     :tier "micro"
@@ -35,6 +37,7 @@
    :request {:method :post
              :path "/v1/cash-account-products"
              :auth :bank-a-token
+             :headers {:idempotency-key "ik-sort-code-fountain-prod-001"}
              :body {:name "Current"
                     :template-id "tpl.00000000000000000000000001"
                     :currency "GBP"

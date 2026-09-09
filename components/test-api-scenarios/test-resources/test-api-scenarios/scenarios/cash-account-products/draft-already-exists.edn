@@ -5,6 +5,7 @@
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
+             :headers {:idempotency-key "ik-draft-already-exists-bank-001"}
              :body {:name "Draft Already Exists Test Org"
                     :status "live"
                     :tier "micro"
@@ -20,6 +21,7 @@
    :request {:method :post
              :path "/v1/cash-account-products"
              :auth :org-0-token
+             :headers {:idempotency-key "ik-draft-already-exists-prod-001"}
              :body {:name "Initial Draft"
                     :template-id "tpl.00000000000000000000000001"
                     :currency "GBP"

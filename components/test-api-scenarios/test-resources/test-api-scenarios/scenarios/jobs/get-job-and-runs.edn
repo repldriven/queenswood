@@ -5,6 +5,7 @@
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
+             :headers {:idempotency-key "ik-get-job-and-runs-bank-001"}
              :body {:name "Jobs Runs Test Bank"
                     :status "live"
                     :tier "micro"

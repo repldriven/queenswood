@@ -69,7 +69,7 @@
 
 (defn internal-payment->transaction
   [data debtor-account creditor-account policies aggregates]
-  (let [{:keys [idempotency-key debtor-account-id
+  (let [{:keys [bank-id idempotency-key debtor-account-id
                 creditor-account-id currency amount
                 reference]}
         data]
@@ -82,7 +82,8 @@
                            :internal-payment-action-submit)
        _ (check-daily-count policies :internal-payment aggregates)]
       (utility/assoc-some
-       {:idempotency-key idempotency-key
+       {:bank-id bank-id
+        :idempotency-key idempotency-key
         :transaction-type :transaction-type-internal-transfer
         :currency currency
         :legs [{:account-id debtor-account-id
@@ -103,7 +104,8 @@
 (defn inbound-payment->transaction
   [data creditor-account suspense-account-id policies aggregates]
   (let [{:keys [scheme-transaction-id currency amount reference]} data
-        {creditor-account-id :account-id} creditor-account]
+        {creditor-account-id :account-id bank-id :bank-id}
+        creditor-account]
     (let-nom>
       [_ (ensure-currency-matches currency creditor-account)
        _ (check-capability policies
@@ -111,7 +113,8 @@
                            :inbound-payment-action-receive)
        _ (check-daily-count policies :inbound-payment aggregates)]
       (utility/assoc-some
-       {:idempotency-key scheme-transaction-id
+       {:bank-id bank-id
+        :idempotency-key scheme-transaction-id
         :transaction-type :transaction-type-inbound-transfer
         :currency currency
         :legs [{:account-id suspense-account-id
@@ -156,10 +159,11 @@
   "DEBIT 1100 cash-at-correspondent / CREDIT 2500 suspense — an inbound
   arrived for a BBAN that matches no account, so the funds land in
   suspense (a liability) pending reconciliation. GL-only legs."
-  [data cash-at-correspondent-id suspense-account-id]
+  [data bank-id cash-at-correspondent-id suspense-account-id]
   (let [{:keys [scheme-transaction-id currency amount reference]} data]
     (utility/assoc-some
-     {:idempotency-key scheme-transaction-id
+     {:bank-id bank-id
+      :idempotency-key scheme-transaction-id
       :transaction-type :transaction-type-inbound-transfer
       :currency currency
       :legs [{:account-id cash-at-correspondent-id
@@ -233,9 +237,10 @@
   on release. No policy/capability checks: the payment was already accepted
   when it was held."
   [held creditor-account cash-at-correspondent-id]
-  (let [{:keys [currency amount payment-id]} held
+  (let [{:keys [bank-id currency amount payment-id]} held
         {creditor-account-id :account-id} creditor-account]
-    {:idempotency-key (str "release-in-" payment-id)
+    {:bank-id bank-id
+     :idempotency-key (str "release-in-" payment-id)
      :transaction-type :transaction-type-inbound-transfer
      :currency currency
      :legs [{:account-id cash-at-correspondent-id
@@ -270,7 +275,7 @@
 
 (defn outbound-payment->transaction
   [data debtor-account pending-outbound-account-id policies aggregates]
-  (let [{:keys [idempotency-key debtor-account-id
+  (let [{:keys [bank-id idempotency-key debtor-account-id
                 currency amount reference]}
         data]
     (let-nom>
@@ -299,7 +304,8 @@
       ;; bucket, so the trial balance is undisturbed at submit, and a
       ;; non-posted leg doesn't fan out a control leg.
       (utility/assoc-some
-       {:idempotency-key idempotency-key
+       {:bank-id bank-id
+        :idempotency-key idempotency-key
         :transaction-type :transaction-type-outbound-transfer
         :currency currency
         :legs [{:account-id debtor-account-id
@@ -372,10 +378,12 @@
   the trial balance moves only now, at settlement. Carries the payment's
   reference so the settled debit reads as the customer wrote it."
   [payment debtor-account pending-outbound-id cash-at-correspondent-id]
-  (let [{:keys [amount currency payment-id debtor-account-id reference]}
+  (let [{:keys [bank-id amount currency payment-id debtor-account-id
+                reference]}
         payment]
     (utility/assoc-some
-     {:idempotency-key (str "settle-out-" payment-id)
+     {:bank-id bank-id
+      :idempotency-key (str "settle-out-" payment-id)
       :transaction-type :transaction-type-outbound-transfer
       :currency currency
       :legs [{:account-id debtor-account-id
@@ -410,8 +418,10 @@
   the debtor's posted balance, so there is nothing posted to reverse — only
   the reservation is released. The mirror of `outbound-payment->transaction`."
   [payment debtor-account pending-outbound-account-id]
-  (let [{:keys [amount currency payment-id debtor-account-id]} payment]
-    {:idempotency-key (str "reverse-out-" payment-id)
+  (let [{:keys [bank-id amount currency payment-id debtor-account-id]}
+        payment]
+    {:bank-id bank-id
+     :idempotency-key (str "reverse-out-" payment-id)
      :transaction-type :transaction-type-outbound-transfer
      :currency currency
      :legs [{:account-id pending-outbound-account-id

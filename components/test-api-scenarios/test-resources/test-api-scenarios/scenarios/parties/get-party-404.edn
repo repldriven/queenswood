@@ -5,6 +5,7 @@
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
+             :headers {:idempotency-key "ik-get-party-404-bank-001"}
              :body {:name "404 Party Test Org"
                     :status "live"
                     :tier "micro"

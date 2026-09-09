@@ -23,6 +23,13 @@ message Party {
   // party-id, so this pointer is the durable audit link.
   optional string merged_into_party_id = 8;
 
+  // Client idempotency key (the command envelope :id, sourced from the
+  // required Idempotency-Key header) that created this party. Unique-indexed
+  // per bank so a redelivered or retried create-party command reads the
+  // existing party back instead of creating a duplicate. Optional at the
+  // wire level for compatibility with parties written before this field.
+  optional string idempotency_key = 9;
+
   enum PartyType {
     PARTY_TYPE_UNKNOWN = 0;
     PARTY_TYPE_PERSON = 1;

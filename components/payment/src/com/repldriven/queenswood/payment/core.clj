@@ -29,7 +29,9 @@
   [txn data result find-fn]
   (if (and (store/uniqueness-violation? result)
            (:idempotency-key data))
-    (let-nom> [existing (find-fn txn (:idempotency-key data))]
+    (let-nom> [existing (find-fn txn
+                                 (:bank-id data)
+                                 (:idempotency-key data))]
       (or existing result))
     result))
 

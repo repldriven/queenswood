@@ -82,6 +82,13 @@ message CashAccount {
   // QNS-37's last_customer_activity_at.
   repeated RetiredPaymentAddress retired_payment_addresses = 23;
 
+  // The idempotency key of the rotation that last replaced this account's
+  // payment addresses. A rotate-cash-account-address command retried under
+  // that same key returns the account unchanged rather than allocating a
+  // second set. Optional at the wire level for compatibility with accounts
+  // written before this field.
+  optional string last_rotation_idempotency_key = 24;
+
   enum CashAccountStatus {
     CASH_ACCOUNT_STATUS_UNKNOWN = 0;
     CASH_ACCOUNT_STATUS_OPENING = 1;

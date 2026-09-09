@@ -4,7 +4,7 @@
     [com.repldriven.queenswood.policy.interface :as policy]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
-    [com.repldriven.mono.utility.interface :as utility]))
+    [com.repldriven.mono.utility.interface :as utility :refer [assoc-some]]))
 
 (defn new-party
   [data]
@@ -13,13 +13,15 @@
         status (if (= :party-type-person type)
                  :party-status-pending
                  :party-status-active)]
-    {:bank-id bank-id
-     :party-id (utility/generate-id "pty")
-     :type type
-     :display-name display-name
-     :status status
-     :created-at now
-     :updated-at now}))
+    (assoc-some {:bank-id bank-id
+                 :party-id (utility/generate-id "pty")
+                 :type type
+                 :display-name display-name
+                 :status status
+                 :created-at now
+                 :updated-at now}
+                :idempotency-key
+                (:idempotency-key data))))
 
 (defn activate-party
   [party]

@@ -6,6 +6,7 @@
    {:method :post
     :path "/v1/banks"
     :auth :admin
+    :headers {:idempotency-key "ik-per-type-cap-bank-001"}
     :body
     {:name "Per-Type Cap Org" :status "live" :tier "micro" :currencies ["GBP"]}}
    :as :org-0
@@ -21,6 +22,7 @@
    :request {:method :post
              :path "/v1/cash-account-products"
              :auth :org-0-token
+             :headers {:idempotency-key "ik-per-type-cap-prod-001"}
              :body {:name "Current Account"
                     :template-id "tpl.00000000000000000000000001"
                     :currency "GBP"
@@ -33,6 +35,7 @@
    :request {:method :post
              :path "/v1/cash-account-products"
              :auth :org-0-token
+             :headers {:idempotency-key "ik-per-type-cap-prod-002"}
              :body {:name "Second Current"
                     :template-id "tpl.00000000000000000000000001"
                     :currency "GBP"

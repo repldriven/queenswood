@@ -124,6 +124,7 @@
                         :bank-id bank-id}))
        transaction (domain/inbound-suspense->transaction
                     data
+                    bank-id
                     (:ledger-account-id cash)
                     (:ledger-account-id suspense))
        recorded (transactions/record-transaction txn transaction)

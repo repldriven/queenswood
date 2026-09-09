@@ -94,9 +94,16 @@
   single-phase flip, no second leg. Returns the updated account
   (`:cash-account-status-opened`) or an anomaly.
 
+  A rotation stamps its `:idempotency-key` onto the account, and a
+  command repeating the key that last rotated it returns the account
+  untouched — no address is allocated and nothing is written. That is
+  what a retry after a lost reply gets, rather than a second set of
+  addresses and a second retirement.
+
   Args:
   - txn: FDB transaction or db handle.
-  - data: map with `:bank-id` and `:account-id`.
+  - data: map with `:bank-id`, `:account-id` and, on the command
+    path, the envelope's `:idempotency-key`.
   - opts (optional): map; `:policies` overrides policy resolution."
   ([txn data]
    (core/rotate-address txn data))
