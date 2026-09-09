@@ -1,5 +1,6 @@
 (ns com.repldriven.queenswood.api.simulate.handlers
   (:require
+    [com.repldriven.queenswood.api.auth :as auth]
     [com.repldriven.queenswood.api.commands :as commands]
     [com.repldriven.queenswood.api.errors :as errors]
 
@@ -34,9 +35,27 @@
     (when (error/anomaly? result)
       (errors/anomaly->response result))))
 
+(defn- check-principal-bank
+  "Confirms the caller may act on the path's `{bank-id}`. A service
+  principal carries the bank its token was minted for; an admin carries
+  none and takes its bank from the path. Returns nil when the caller
+  may act, or the 403 the `authorize` interceptor would have returned.
+  Runs before `check-bank`, so a foreign bank id is refused whether or
+  not that bank exists and the answer tells the caller nothing about
+  another tenant."
+  [request]
+  (let [{:keys [auth parameters]} request
+        {:keys [path]} parameters
+        {:keys [bank-id]} path]
+    (when-not (or (= bank-id (:bank-id auth))
+                  (contains? (:roles auth) :admin))
+      (auth/forbidden-response
+       "Token is not this bank's; simulate only your own bank"))))
+
 (defn inbound-transfer
   [request]
   (or
+   (check-principal-bank request)
    (check-bank request)
    (let [{:keys [record-db record-store parameters]} request
          {:keys [path body]} parameters

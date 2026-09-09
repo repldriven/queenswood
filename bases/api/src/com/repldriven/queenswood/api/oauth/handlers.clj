@@ -55,12 +55,24 @@
                    {:client-id client_id
                     :client-secret client_secret
                     :scope scope})]
-       (if (error/anomaly? result)
-         (oauth-error 401
-                      "invalid_client"
-                      (or (:message (error/payload result))
-                          "Authentication failed"))
-         {:status 200 :body result})))))
+       ;; 200 only for a body carrying access_token. A realm refuses a
+       ;; grant with an `error` body, which passed through here and then
+       ;; failed to coerce against TokenResponse — a 500 for an ordinary
+       ;; authentication failure.
+       (cond
+        (error/anomaly? result)
+        (oauth-error 401
+                     "invalid_client"
+                     (or (:message (error/payload result))
+                         "Authentication failed"))
+
+        (or (:error result) (not (:access_token result)))
+        (oauth-error 401
+                     "invalid_client"
+                     (or (:error_description result) "Authentication failed"))
+
+        :else
+        {:status 200 :body result})))))
 
 (defn jwks
   "RFC 7517 — return the realm's signing keys so consumers can verify

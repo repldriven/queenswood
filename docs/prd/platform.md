@@ -111,7 +111,7 @@ The platform is delivered through seven capabilities, each
 covered by its own PRD.
 
 - **Onboarding** — multi-tenant tenancy creation:
-  organisation setup, API key issuance, default product and
+  organisation setup, credential issuance, default product and
   bookkeeping accounts bootstrapped in one transaction.
   Forthcoming PRD: [onboarding](onboarding.md).
 - **Parties and identity** — customer registration with
@@ -154,15 +154,15 @@ sequenceDiagram
     participant T as Tenant engineer
 
     A->>Q: create organisation (name, type, tier, currencies)
-    Q->>Q: mint API key, party, default product,<br/>accounts, policy bindings
-    Q-->>A: organisation, key-secret (one-time delivery)
-    A->>T: hand over key-secret
-    T->>Q: subsequent calls authenticated by Bearer key
+    Q->>Q: mint credential, party, default product,<br/>accounts, policy bindings
+    Q-->>A: organisation, credential (handed over once)
+    A->>T: hand over the credential
+    T->>Q: subsequent calls carry a token the tenant<br/>obtains with its credential
 ```
 
 A platform admin creates a tenant in one operation. The
-tenant gets a complete starting state: their organisation, an
-API key (delivered once), a settlement product, settlement
+tenant gets a complete starting state: their organisation, a
+credential (delivered once), a settlement product, settlement
 accounts in each requested currency, and policy bindings for
 their tier.
 

@@ -26,8 +26,8 @@
             :responses {200 {:body [:ref "JwksResponse"]}}
             :handler handlers/jwks}}]]
    ["/.well-known/openid-configuration"
-    {:get {:summary "OIDC discovery document"
-           :openapi
-           {:tags ["OAuth"] :security [] :operationId "GetDiscoveryDocument"}
+    {:openapi {:tags ["OAuth"] :security []}
+     :get {:summary "OIDC discovery document"
+           :openapi {:operationId "GetDiscoveryDocument"}
            :responses {200 {:body [:ref "DiscoveryDoc"]}}
            :handler handlers/discovery}}]])

@@ -61,7 +61,7 @@
     },
     {
       "name": "realm-roles",
-      "description": "Adds the caller's realm roles to realm_access.roles",
+      "description": "Adds the caller's roles, and the audiences they imply",
       "protocol": "openid-connect",
       "attributes": {
         "include.in.token.scope": "true",
@@ -76,6 +76,27 @@
             "claim.name": "realm_access.roles",
             "jsonType.label": "String",
             "multivalued": "true",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        },
+        {
+          "name": "client-roles-mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-client-role-mapper",
+          "config": {
+            "claim.name": "resource_access.${client_id}.roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        },
+        {
+          "name": "audience-resolve-mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-resolve-mapper",
+          "config": {
             "access.token.claim": "true",
             "id.token.claim": "false"
           }
@@ -114,11 +135,26 @@
       "optionalClientScopes": ["queenswood-api-test", "realm-roles"]
     },
     {
+      "clientId": "queenswood-short-lived",
+      "secret": "queenswood-short-lived-test-secret",
+      "enabled": true,
+      "publicClient": false,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "protocol": "openid-connect",
+      "defaultClientScopes": ["queenswood-api-test"],
+      "attributes": {
+        "access.token.lifespan": "1"
+      }
+    },
+    {
       "clientId": "queenswood-console",
       "enabled": true,
       "publicClient": true,
       "standardFlowEnabled": true,
-      "directAccessGrantsEnabled": false,
+      "directAccessGrantsEnabled": true,
       "implicitFlowEnabled": false,
       "serviceAccountsEnabled": false,
       "protocol": "openid-connect",
@@ -239,6 +275,21 @@
         {
           "type": "password",
           "value": "dev",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "member",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "member@queenswood.local",
+      "firstName": "Member",
+      "lastName": "User",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "member",
           "temporary": false
         }
       ]

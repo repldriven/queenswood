@@ -1,0 +1,17 @@
+{:name "A token signed by a key the realm never had is rejected"
+ :tags #{:api :auth :unhappy}
+ ;; The other side of the forced refresh. The claims name the
+ ;; realm's own issuer and an admin principal, so the token reaches
+ ;; the verifier and gets as far as the signing key; the `kid` is one
+ ;; the refetch cannot find either, and there the request stops.
+ :when
+ [{:command :auth/sign-token
+   :realm :queenswood
+   :claims {:azp "queenswood-admin"
+            :sub "queenswood-admin"
+            :aud ["queenswood-api-test"]
+            :realm_access {:roles ["org" "admin"]}}
+   :as :unknown-key-token}
+  {:command :api/request
+   :request {:method :get :path "/v1/banks" :auth :unknown-key-token}
+   :assert {:status 401 :problem {:type "auth/unauthenticated"}}}]}

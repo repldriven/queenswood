@@ -1,0 +1,13 @@
+{:name "An invalid bearer token is rejected"
+ :tags #{:api :auth :banks :unhappy}
+ ;; Not a JWT at all, so nothing downstream of `Authorization` gets a
+ ;; chance to run: there is no `iss` to pick a provider by.
+ :when
+ [{:command :api/request
+   :request
+   {:method :post
+    :path "/v1/banks"
+    :auth "not-a-jwt"
+    :body
+    {:name "Rejected Bank" :status "live" :tier "micro" :currencies ["GBP"]}}
+   :assert {:status 401}}]}

@@ -1,0 +1,24 @@
+{:name "A token signed by a key added after the cache warmed verifies"
+ :tags #{:api :auth :happy}
+ ;; The forced refresh an unknown `kid` triggers, proven end to end.
+ ;; The first request puts the realm's current keys in the API's JWKS
+ ;; cache; the new provider takes a higher priority, so the token
+ ;; minted after it carries a `kid` that cache cannot hold. A 200 is
+ ;; only reachable by refetching. The imported provider stays active,
+ ;; so tokens minted earlier in the run keep verifying.
+ :given
+ [{:command :api/request
+   :request {:method :get :path "/v1/banks" :auth :admin}
+   :assert {:status 200}}
+  {:command :keycloak/add-signing-key
+   :realm :queenswood
+   :as :rotated-key-id}]
+ :when
+ [{:command :auth/mint-token
+   :for {:client-id "queenswood-admin"
+         :client-secret "queenswood-admin-test-secret"
+         :scope "queenswood-api-test+realm-roles"}
+   :as :rotated-admin-token}
+  {:command :api/request
+   :request {:method :get :path "/v1/banks" :auth :rotated-admin-token}
+   :assert {:status 200}}]}

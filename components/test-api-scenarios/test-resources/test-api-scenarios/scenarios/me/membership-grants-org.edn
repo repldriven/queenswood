@@ -1,0 +1,37 @@
+{:name "Onboarding gives a user a membership, and the membership grants org"
+ :tags #{:api :auth :me :onboarding :happy}
+ ;; Onboarding, not bank creation, is how a scenario gives a user a
+ ;; membership: `CreateBankRequest` is closed and carries none. The
+ ;; user store is shared by the whole run, so this uses `member`
+ ;; rather than `dev` — the first-sign-in scenario asserts an empty
+ ;; membership list and must not depend on which file runs first.
+ :when
+ [{:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "member"
+   :password "member"
+   :as :member-token}
+  {:command :api/request
+   :request {:method :get :path "/v1/me" :auth :member-token}
+   :assert {:status 200
+            :body {:user {:email "member@queenswood.local"}
+                   :memberships []}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/onboarding/me"
+             :auth :member-token
+             :body {:company-number "TY046601"
+                    :bank-name "Tyrell Corporation"}}
+   :as :onboarded
+   :assert {:status 201 :body {:membership {:role "owner"}}}}
+  {:command :api/request
+   :request {:method :get :path "/v1/me" :auth :member-token}
+   :assert {:status 200
+            :body {:memberships
+                   [{:bank-id [:ref :onboarded :bank :bank-id]
+                     :role "owner"}]}}}
+  ;; An org-gated route the same token could not reach a moment ago.
+  {:command :api/request
+   :request {:method :get :path "/v1/cash-accounts" :auth :member-token}
+   :assert {:status 200}}]}

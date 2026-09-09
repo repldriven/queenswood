@@ -21,6 +21,7 @@
      ukch-simulator]
 
     [com.repldriven.mono.http-client.interface :as http]
+    [com.repldriven.mono.identity-provider.interface :as identity-provider]
     [com.repldriven.mono.log.interface :as log]
     [com.repldriven.mono.server.interface :as server]
     [com.repldriven.mono.system.interface :as system]
@@ -33,7 +34,8 @@
     [clojure.test :refer [deftest is testing]])
   (:import
     (io.opentelemetry.api.common AttributeKey)
-    (io.opentelemetry.sdk.trace.data SpanData)))
+    (io.opentelemetry.sdk.trace.data SpanData)
+    (java.security KeyPairGenerator)))
 
 (defn- mint-admin-token
   "Exchange the seeded queenswood-admin client_credentials for an
@@ -59,6 +61,28 @@
         ;; nosemgrep: no-raw-throw
         (throw (ex-info "Failed to mint scenario admin token"
                         {:status (:status res) :body body})))))
+
+(defn- token-endpoints
+  "Realm keyword → that realm's OpenID token endpoint, read off the
+  booted providers so the URL and the issuer the API verifies against
+  can never drift apart."
+  [sys]
+  (into {}
+        (map (fn [[realm path]]
+               [realm
+                (str (identity-provider/get-issuer (system/instance sys path))
+                     "/protocol/openid-connect/token")]))
+        {:queenswood [:keycloak :identity-provider]
+         :queenswood-ops [:keycloak :identity-provider-ops]}))
+
+(defn- signing-key
+  "One RSA keypair for the whole run. `fresh-context` is called per
+  scenario file, so generating it there would be one key generation
+  per scenario for a key only the token-forging verb uses."
+  []
+  (let [generator (KeyPairGenerator/getInstance "RSA")]
+    (.initialize generator 2048)
+    (.generateKeyPair generator)))
 
 (defn- patch-handlers
   [defs]
@@ -105,7 +129,9 @@
        patch-handlers]]
      (let [jetty (system/instance sys [:server :jetty-adapter])
            base-url (server/http-local-url jetty)
-           admin-token (mint-admin-token base-url)]
+           admin-token (mint-admin-token base-url)
+           endpoints (token-endpoints sys)
+           key-pair (signing-key)]
        (doseq [{:keys [relative]} files]
          (let [resource-path (str "test-api-scenarios/scenarios/" relative)]
            (testing relative
@@ -117,6 +143,8 @@
                          _ (SUT/run-scenario (SUT/fresh-context
                                               {:base-url base-url
                                                :admin-token admin-token
+                                               :token-endpoints endpoints
+                                               :signing-key key-pair
                                                :run-id (str (util/uuidv7))})
                                              resource-path)
                          _ (log/info "api scenario complete" {:file relative})]))))

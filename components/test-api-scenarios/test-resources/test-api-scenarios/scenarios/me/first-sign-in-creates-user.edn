@@ -1,0 +1,27 @@
+{:name "A first sign-in yields a user row, and a second call the same one"
+ :tags #{:api :auth :me :happy}
+ ;; The token is minted by the console SPA's own client against the
+ ;; orgs realm, so its `azp` is a user client id and `authenticate`
+ ;; takes the user path. No step creates the row: the interceptor
+ ;; upserts it on every authenticated request, keyed on the (issuer,
+ ;; sub) pair, which is what the second call proves.
+ :when
+ [{:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "dev"
+   :password "dev"
+   :as :dev-token}
+  {:command :api/request
+   :request {:method :get :path "/v1/me" :auth :dev-token}
+   :as :me-1
+   :assert {:status 200
+            :body {:user {:issuer [:m/regex "/realms/queenswood$"]
+                          :sub [:m/non-empty]
+                          :email "dev@queenswood.local"}
+                   :memberships []}}}
+  {:command :api/request
+   :request {:method :get :path "/v1/me" :auth :dev-token}
+   :assert {:status 200
+            :body {:user {:user-id [:ref :me-1 :user :user-id]}
+                   :memberships []}}}]}

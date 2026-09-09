@@ -6,12 +6,15 @@
     [com.repldriven.mono.json.interface :as json]
     [com.repldriven.mono.utility.interface :as utility]
 
+    [buddy.sign.jwt :as jwt]
     [matcher-combinators.matchers :as m]
     [matcher-combinators.standalone :as standalone]
 
     [clojure.string :as str]
     [clojure.test :refer [is]]
-    [clojure.walk :as walk]))
+    [clojure.walk :as walk])
+  (:import
+    (java.security KeyPair)))
 
 (def ^:private matcher-constructors
   "EDN `:m/<name>` markers → matcher-combinators constructors.
@@ -249,3 +252,127 @@
     (cond-> ctx
             as
             (assoc-in [:captures as] token))))
+
+(def ^:private token-path "/protocol/openid-connect/token")
+
+(defmethod dispatch :auth/mint-user-token
+  [{:keys [captures token-endpoints] :as ctx}
+   {:keys [realm client-id username password scope as]}]
+  (let [{:keys [realm client-id username password]} (refs/resolve-all
+                                                     captures
+                                                     {:realm realm
+                                                      :client-id client-id
+                                                      :username username
+                                                      :password password})
+        endpoint (get token-endpoints realm)]
+    (if-not endpoint
+      (do (is false
+              (str ":auth/mint-user-token knows no token endpoint for realm "
+                   (pr-str realm)
+                   " — known: " (pr-str (vec (sort (keys token-endpoints))))))
+          ctx)
+      ;; The API's /oauth/token proxies client_credentials only, so a
+      ;; user token comes from the realm itself. A public client may
+      ;; run the password grant on its client id alone, and the token
+      ;; it mints carries that client's azp — which is what
+      ;; `authenticate` discriminates a user JWT on.
+      (let [res (http/request
+                 {:method :post
+                  :url endpoint
+                  :headers {"content-type" "application/x-www-form-urlencoded"}
+                  :body (form-urlencode {:grant_type "password"
+                                         :client_id client-id
+                                         :username username
+                                         :password password
+                                         :scope (or scope "openid")})})
+            body (http/res->edn res)
+            token (:access_token body)]
+        (when-not token
+          (is false
+              (str ":auth/mint-user-token failed the password grant at "
+                   endpoint
+                   " — status: " (:status res)
+                   " body: " (pr-str body))))
+        (cond-> ctx
+                as
+                (assoc-in [:captures as] token))))))
+
+(defmethod dispatch :auth/sign-token
+  [{:keys [captures signing-key token-endpoints] :as ctx}
+   {:keys [realm claims kid as]}]
+  (let [{:keys [realm claims kid]}
+        (refs/resolve-all captures {:realm realm :claims claims :kid kid})
+        ;; The issuer is the token endpoint without its OpenID suffix,
+        ;; so the two can never name different realms.
+        issuer (some-> (get token-endpoints realm)
+                       (str/replace token-path ""))
+        now-s (quot (utility/now) 1000)
+        token (jwt/sign (merge {:iss issuer :iat now-s :exp (+ now-s 3600)}
+                               claims)
+                        (.getPrivate ^KeyPair signing-key)
+                        {:alg :rs256
+                         :header {:kid (or kid (str (utility/uuidv7)))
+                                  :alg "RS256"
+                                  :typ "JWT"}})]
+    (cond-> ctx
+            as
+            (assoc-in [:captures as] token))))
+
+(def ^:private admin-service-client
+  "The operator service-account client both test realms seed. The
+  Admin API reads the caller's realm roles rather than an API
+  audience, so the grant asks for `realm-roles`."
+  {:client-id "queenswood-admin"
+   :client-secret "queenswood-admin-test-secret"
+   :scope "realm-roles"})
+
+(def ^:private rotated-key-component
+  "A second active RSA provider, at a higher priority than the one
+  the realm imported, so Keycloak signs subsequent tokens with it
+  under a new `kid`. The imported provider stays active, so tokens
+  minted before the addition still verify."
+  {:name "rotated-rsa"
+   :providerId "rsa-generated"
+   :providerType "org.keycloak.keys.KeyProvider"
+   :config
+   {:priority ["200"] :active ["true"] :enabled ["true"] :algorithm ["RS256"]}})
+
+(defn- admin-base-url
+  "Keycloak's root, derived from the realm's token endpoint by
+  removing the `/realms/<realm>` tail the issuer carries. Taken from
+  the same configuration the verifier uses rather than a second one,
+  so an admin call can never reach a different Keycloak from the one
+  minting the tokens."
+  [token-endpoints realm]
+  (some-> (get token-endpoints realm)
+          (str/replace (str "/realms/" (name realm) token-path) "")))
+
+(defmethod dispatch :keycloak/add-signing-key
+  [{:keys [token-endpoints] :as ctx} {:keys [realm as]}]
+  (if-let [base (admin-base-url token-endpoints realm)]
+    (let [token (-> (dispatch ctx
+                              {:command :auth/mint-token
+                               :for admin-service-client
+                               :as ::admin-token})
+                    (get-in [:captures ::admin-token]))
+          res (http/request
+               {:method :post
+                :url (str base "/admin/realms/" (name realm) "/components")
+                :headers {"content-type" "application/json"
+                          "authorization" (str "Bearer " token)}
+                :body (json/write-str rotated-key-component)})]
+      (if (= 201 (:status res))
+        (cond-> ctx
+                as
+                (assoc-in [:captures as]
+                 (last (str/split (get-in res [:headers :location] "") #"/"))))
+        (do (is false
+                (str ":keycloak/add-signing-key was refused by " base
+                     " — status: " (:status res)
+                     " body: " (pr-str (http/res->edn res))))
+            ctx)))
+    (do (is false
+            (str ":keycloak/add-signing-key knows no token endpoint for realm "
+                 (pr-str realm)
+                 " — known: " (pr-str (vec (sort (keys token-endpoints))))))
+        ctx)))

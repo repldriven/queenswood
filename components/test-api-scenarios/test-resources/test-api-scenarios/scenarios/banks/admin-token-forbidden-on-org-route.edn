@@ -1,0 +1,24 @@
+{:name "The admin token is refused by a route that acts on the caller's bank"
+ :tags #{:api :auth :banks :unhappy}
+ ;; An `org`-gated route acts on the principal's bank. The admin
+ ;; service account carries `org` but no bank of its own, so on such a
+ ;; route there is no bank to act on and the request is refused rather
+ ;; than served against a nil one. A route an admin may call on any
+ ;; bank takes the bank from the path and declares `admin` alongside
+ ;; `org` — the simulator's inbound transfer is the one such route.
+ :when
+ [{:command :api/request
+   :request {:method :get :path "/v1/cash-accounts" :auth :admin}
+   :assert {:status 403 :problem {:type "auth/forbidden"}}}]
+ :then
+ ;; The same token still reaches its platform-wide routes.
+ [{:command :api/request
+   :request
+   {:method :post
+    :path "/v1/banks"
+    :auth :admin
+    :body {:name "Admin Reach Bank"
+           :status "live"
+           :tier "micro"
+           :currencies ["GBP"]}}
+   :assert {:status 201}}]}

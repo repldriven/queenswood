@@ -169,13 +169,22 @@ keycloak-up:
     # imports the queenswood-admin + queenswood-console clients
     # plus the Google IdP (placeholder creds — sign-in via Google
     # only works once you wire real credentials in).
+    #
+    # The test pair, not the chart's. This container exists for the
+    # host SPAs on their Vite ports, which is what the test pair's
+    # localhost entries name and what the dev profile's own
+    # testcontainer already imports — and its queenswood-admin carries
+    # the client secret that profile expects, where the deployed pair's
+    # authenticates with private_key_jwt and has no secret at all. The
+    # deployed pair also carries no localhost redirect URI any more, so
+    # nothing here would be able to sign in.
     docker run --rm \
       --name queenswood-keycloak-dev \
       -p 8090:8080 \
       -e KEYCLOAK_ADMIN=admin \
       -e KEYCLOAK_ADMIN_PASSWORD=admin \
-      -v "$PWD/infra/helm/queenswood/files/keycloak-realm.json:/opt/keycloak/data/import/realm.json:ro" \
-      -v "$PWD/infra/helm/queenswood/files/keycloak-realm-ops.json:/opt/keycloak/data/import/realm-ops.json:ro" \
+      -v "$PWD/components/test-resources/test-resources/queenswood-realm.json:/opt/keycloak/data/import/realm.json:ro" \
+      -v "$PWD/components/test-resources/test-resources/queenswood-ops-realm.json:/opt/keycloak/data/import/realm-ops.json:ro" \
       quay.io/keycloak/keycloak:26.0 \
       start-dev --import-realm
 

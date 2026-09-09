@@ -1,0 +1,17 @@
+{:name "A token whose issuer matches no provider is rejected"
+ :tags #{:api :auth :unhappy}
+ ;; No realm mints this: the `iss` names a host the API has never
+ ;; been configured with, so provider selection finds nothing and no
+ ;; signature is ever checked. `auth_test.clj` covers the same
+ ;; refusal at the interceptor.
+ :when
+ [{:command :auth/sign-token
+   :claims {:iss "https://nobody.invalid/realms/nobody"
+            :azp "queenswood-admin"
+            :sub "queenswood-admin"
+            :aud ["queenswood-api-test"]
+            :realm_access {:roles ["org" "admin"]}}
+   :as :foreign-issuer-token}
+  {:command :api/request
+   :request {:method :get :path "/v1/banks" :auth :foreign-issuer-token}
+   :assert {:status 401 :problem {:type "auth/unauthenticated"}}}]}

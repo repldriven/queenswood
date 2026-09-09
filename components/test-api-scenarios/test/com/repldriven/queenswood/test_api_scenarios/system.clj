@@ -26,6 +26,7 @@
     [com.repldriven.queenswood.schema.interface]
     [com.repldriven.queenswood.testcontainers.interface]
     [com.repldriven.queenswood.transaction.interface]
+    [com.repldriven.queenswood.uk-companies-house-adapter.interface]
 
     [com.repldriven.mono.avro.interface]
     [com.repldriven.mono.command-processor.interface]
