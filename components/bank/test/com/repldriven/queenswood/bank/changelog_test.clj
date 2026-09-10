@@ -56,13 +56,12 @@
     "a tier named after a status keys differently from the
            transition into that status, so the two can never share a
            dedup key"
-    (let [tier (schema/pb->ChangelogEvent
-                (changelog/tier-changed {:bank-id "bnk.changelog.5"
-                                         :tier-after "bank-status-live"}))
+    (let [tier (schema/pb->ChangelogEvent (changelog/tier-changed
+                                           {:bank-id "bnk.changelog.5"
+                                            :tier-after "bank-status-live"}))
           status (schema/pb->ChangelogEvent
-                  (changelog/status-changed
-                   {:bank-id "bnk.changelog.5"
-                    :status-after :bank-status-live}))]
+                  (changelog/status-changed {:bank-id "bnk.changelog.5"
+                                             :status-after :bank-status-live}))]
       (is (not= (:dedup-key tier) (:dedup-key status))))))
 
 (deftest a-tierless-bank-has-no-tier-before-test

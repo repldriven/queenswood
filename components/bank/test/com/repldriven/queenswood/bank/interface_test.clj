@@ -244,9 +244,8 @@
                                                 "micro"
                                                 ["EUR" "GBP" "USD"]
                                                 {:identity-provider idp})
-                   {:keys [accounts]} (cash-accounts-query/get-accounts
-                                       config
-                                       (:bank-id bank))
+                   {:keys [accounts]}
+                   (cash-accounts-query/get-accounts config (:bank-id bank))
                    _ (is (= #{"EUR" "GBP" "USD"}
                             (set (map :currency accounts))))
                    chart (ledger-accounts/list-accounts config (:bank-id bank))
@@ -292,7 +291,8 @@
                            (str "bank-changelog-test-" (utility/uuidv7))
                            "banks"
                            (fn [_ bytes]
-                             (swap! seen conj (schema/pb->ChangelogEvent bytes)))
+                             (swap! seen conj
+                               (schema/pb->ChangelogEvent bytes)))
                            {:deduplicate? false
                             :keyspace-prefix (system/instance
                                               sys
@@ -304,30 +304,31 @@
    [sys "classpath:bank/application-test.yml"]
    (let [config (fdb-config sys)
          idp (identity-provider/local-provider {})]
-     (nom-test> [{:keys [bank]} (SUT/new-bank config
-                                              "Changelog Bank"
-                                              :bank-status-test
-                                              "micro"
-                                              ["GBP"]
-                                              {:identity-provider idp
-                                               :audience
-                                               "queenswood-api-test"})
-                 bank-id (:bank-id bank)
-                 _ (SUT/change-tier config bank-id "test-scenario")
-                 _ (SUT/change-status config
-                                      bank-id
-                                      :bank-status-live
-                                      {:identity-provider idp
-                                       :audience "queenswood-api-live"})
-                 entries (changelog-entries sys config bank-id)
-                 _ (testing
-                     "each transition is written back under its own event
+     (nom-test>
+       [{:keys [bank]} (SUT/new-bank config
+                                     "Changelog Bank"
+                                     :bank-status-test
+                                     "micro"
+                                     ["GBP"]
+                                     {:identity-provider idp
+                                      :audience "queenswood-api-test"})
+        bank-id (:bank-id bank)
+        _ (SUT/change-tier config bank-id "test-scenario")
+        _ (SUT/change-status config
+                             bank-id
+                             :bank-status-live
+                             {:identity-provider idp
+                              :audience "queenswood-api-live"})
+        entries (changelog-entries sys config bank-id)
+        _
+        (testing
+          "each transition is written back under its own event
                       name, with dedup keys a tier and a status change
                       cannot share"
-                     (is (= ["bank-tier-changed" "bank-status-changed"]
-                            (mapv :event-name entries)))
-                     (is (= [(str bank-id ":tier:test-scenario")
-                             (str bank-id ":status:bank-status-live")]
-                            (mapv :dedup-key entries)))
-                     (is (every? (fn [e] (pos? (count (:payload e)))) entries)
-                         "each entry carries its Avro payload"))]))))
+          (is (= ["bank-tier-changed" "bank-status-changed"]
+                 (mapv :event-name entries)))
+          (is (= [(str bank-id ":tier:test-scenario")
+                  (str bank-id ":status:bank-status-live")]
+                 (mapv :dedup-key entries)))
+          (is (every? (fn [e] (pos? (count (:payload e)))) entries)
+              "each entry carries its Avro payload"))]))))
