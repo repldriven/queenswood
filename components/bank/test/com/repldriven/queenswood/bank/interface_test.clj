@@ -103,6 +103,22 @@
          (nom-test> [banks (bank-query/get-banks config)
                      _ (is (not-any? #(= "Unknown Tier Bank" (:name %)) banks))]))))))
 
+;; `with-redefs` alters a root binding, so a stub here is visible to
+;; every namespace beside this one — the API scenarios provision banks
+;; through this same seam. The stub consults a thread-local, so another
+;; thread gets the real function.
+(def ^:private ^:dynamic *rollback-probe* nil)
+
+(def ^:private real-new-membership memberships/new-membership)
+
+(defn- stubbed-new-membership
+  [txn-or-config m]
+  (if-let [created *rollback-probe*]
+    (do (reset! created (:bank-id m))
+        (error/fail :test/injected
+                    {:message "Injected after every write"}))
+    (real-new-membership txn-or-config m)))
+
 (deftest new-bank-rolls-back-on-failure-test
   (with-test-system
    [sys "classpath:bank/application-test.yml"]
@@ -115,20 +131,16 @@
        ;; there leaves every other write — the seeded jobs included —
        ;; behind the rollback. `fdb/transact` rolls its transaction
        ;; back when the body returns an anomaly; this is the evidence.
-       (let [r (with-redefs [memberships/new-membership
-                             (fn [_ m]
-                               (reset! created (:bank-id m))
-                               (error/fail :test/injected
-                                           {:message
-                                            "Injected after every write"}))]
-                 (SUT/new-bank config
-                               "Rollback Bank"
-                               :bank-status-test
-                               "micro"
-                               ["GBP"]
-                               {:identity-provider idp
-                                :membership {:user-id user-id
-                                             :role :role-owner}}))
+       (let [r (with-redefs [memberships/new-membership stubbed-new-membership]
+                 (binding [*rollback-probe* created]
+                   (SUT/new-bank config
+                                 "Rollback Bank"
+                                 :bank-status-test
+                                 "micro"
+                                 ["GBP"]
+                                 {:identity-provider idp
+                                  :membership {:user-id user-id
+                                               :role :role-owner}})))
              bank-id @created]
          (is (error/anomaly? r))
          (is (= :test/injected (error/kind r)))
