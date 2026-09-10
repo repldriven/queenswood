@@ -50,13 +50,22 @@
     txn
     bank-id
     data
-    (let-nom>
-      [policies (get-policies txn bank-id opts)
-       template (q/get-template txn (:template-id data))
-       aggregates (counts txn bank-id (:product-type template))
-       version (domain/new-product bank-id template data aggregates policies)
-       _ (store/save-version txn version)]
-      version))))
+    (store/transact
+     txn
+     (fn [txn]
+       (let-nom>
+         [policies (get-policies txn bank-id opts)
+          template (q/get-template txn (:template-id data))
+          aggregates (counts txn bank-id (:product-type template))
+          version (domain/new-product bank-id
+                                      template
+                                      data
+                                      aggregates
+                                      policies)
+          _ (store/save-version txn version)]
+         version))
+     :cash-account-product/save-version
+     "Failed to save product version"))))
 
 (defn open-draft
   ([txn bank-id product-id data]
