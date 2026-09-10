@@ -151,9 +151,10 @@
               fields)
        :effective-from effective-from
        :effective-to effective-to
-       ;; Present only on the create-product command path (the command
-       ;; envelope :id); unique-indexed so a redelivered create reads the
-       ;; original back. In-process callers pass no key, so it stays unset.
+       ;; The client's key on the create-product path (the command envelope
+       ;; :id), unique-indexed so a replayed create reads the original
+       ;; back. Only new-product stamps it; publish, discard and
+       ;; update-version preserve it.
        :idempotency-key (:idempotency-key data)))))
 
 (defn new-product
@@ -197,7 +198,8 @@
                :updated-at (utility/now)}
               fields)
        :effective-from effective-from
-       :effective-to effective-to))))
+       :effective-to effective-to
+       :idempotency-key (:idempotency-key existing)))))
 
 (defn publish
   [existing policies]

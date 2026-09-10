@@ -84,11 +84,12 @@ message CashAccountProduct {
   // listing, mirroring how internal templates are hidden.
   optional bool internal = 24;
   // Client idempotency key (the command envelope :id) that created this
-  // product. Unique-indexed per bank so a redelivered or retried
-  // create-cash-account-product command reads the existing product back
+  // product. Unique-indexed per bank so a create-cash-account-product
+  // command replayed with the same key reads the existing product back
   // instead of minting a duplicate draft. Only new-product stamps it;
-  // versions created by other operations leave it unset (protojure drops
-  // the empty default, so they take no unique-index entry).
+  // publish, discard and update-version preserve it. A version reached by
+  // any other path leaves it unset (protojure drops the empty default, so
+  // it takes no unique-index entry).
   optional string idempotency_key = 25;
 }
 
