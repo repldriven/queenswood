@@ -3,22 +3,36 @@
 ## Objective
 
 A new fintech tenant comes onto the Queenswood platform via a
-single creation operation. One call by a platform admin
-produces the tenant's organisation, a credential for the
-tenant's own systems, a party representing the tenant in the
-bank's books, a default product, a cash account per requested
-currency, and the appropriate policy bindings — all atomic.
-The credential is handed over once. The tenant immediately has
-a working starting state: their systems can begin operating
-without further bootstrap.
+single creation operation. One call produces the tenant's
+organisation, a credential for the tenant's own systems, a
+party representing the tenant in the bank's books, a default
+product, a cash account per requested currency, and the
+appropriate policy bindings — all atomic. The credential is
+handed over once. The tenant immediately has a working
+starting state: their systems can begin operating without
+further bootstrap.
+
+There are two ways in. A platform admin creates a tenant on
+someone's behalf and chooses everything about it. A founder
+signing in for the first time creates their own, naming their
+company and their bank, and the platform fills the rest in
+with sandbox defaults.
 
 ## Users and stakeholders
 
 **Platform admin / Queenswood operator.** Drives the
-onboarding operation. Decides the tenant's type
-(customer vs internal), status (live vs test), tier (which
-bundle of policies binds), and supported currencies. Receives
-the credential, delivered once, to forward to the tenant.
+onboarding operation on the admin path. Decides the tenant's
+type (customer vs internal), status (live vs test), tier
+(which bundle of policies binds), and supported currencies.
+Receives the credential, delivered once, to forward to the
+tenant. Later moves a tenant to a different tier, or between
+test and live.
+
+**Tenant founder.** Signs in to the console, names their
+company and the bank they want, and gets a sandbox tenant of
+their own without an operator in the loop. Becomes its owner.
+Cares about: the company they name being the one the platform
+recognises, and getting to a working sandbox in one sitting.
 
 **Tenant engineer.** The downstream recipient of the
 credential. Their experience starts when they receive it and
@@ -49,7 +63,13 @@ multi-tenant boundary that scopes everything else.
 - **Tier-based policy binding.** A `tier` label at creation
   time binds the tenant to the corresponding bundle of
   policies. Different tiers can ship with different rule
-  sets.
+  sets, and a tenant can be moved onto a different bundle
+  later without being re-created.
+- **Self-service sandbox signup.** A founder signing in for
+  the first time can create their own tenant against a
+  confirmed legal entity, and becomes its owner. The company
+  is looked up in the registry of record and must be active.
+  One person, one tenant.
 - **Default product and accounts.** A settlement product
   (for customer tenants) or internal product (for internal
   tenants) is drafted and published, and accounts are opened
@@ -61,14 +81,17 @@ multi-tenant boundary that scopes everything else.
 
 ## Non-goals
 
-- **Self-service tenant signup.** No public signup form.
-  Tenants are minted by platform admins.
+- **Self-service live tenants.** A tenant a founder creates
+  is a sandbox: test status, the entry tier, GBP. Reaching
+  the live service is an operator decision.
 - **Billing or pricing.** No subscription, metering, or
   invoicing.
 - **Tenant deactivation, closure, or off-boarding.** Tenants
   once created are permanent. No flow to close one.
-- **Tier transitions post-creation.** A tenant's tier is set
-  at creation and stays there. No upgrade or downgrade flow.
+- **Tenant-requested tier or status changes.** A tenant can
+  be moved between tiers and between test and live, but an
+  operator makes the move. There is no request or approval
+  step, and no notice to the tenant.
 - **More than one credential per tenant.** Only the default
   credential is issued. Issuing further ones is a separate
   concern, with limited tooling today and no polished
@@ -157,7 +180,33 @@ The tenant engineer receives the credential and:
    customers (parties), opening accounts for those customers,
    processing payments.
 
-### 3. Tenant changes status
+### 3. A founder creates their own sandbox tenant
+
+```mermaid
+sequenceDiagram
+    participant F as Tenant founder
+    participant Q as Queenswood
+    participant R as Company registry
+
+    F->>Q: sign in for the first time
+    F->>Q: name the company, name the bank
+    Q->>R: look the company up
+    R-->>Q: the company, and whether it is active
+    Note over Q: One transaction end-to-end
+    Q->>Q: create the tenant, bound to that company
+    Q->>Q: make the founder its owner
+    Q-->>F: the tenant, and its credential (handed over once)
+```
+
+A founder wants to try the platform out. They sign in, give
+the company's registration number and the name they want
+their bank to carry, and get back a sandbox tenant: test
+status, the entry tier, GBP, and everything the admin path
+creates. They own it. The platform refuses if the company is
+not active, or if they already belong to a tenant — one
+person, one tenant.
+
+### 4. Tenant changes status
 
 An operator moves a tenant between test and live. The
 credential is unchanged — the tenant keeps the one it was
@@ -165,17 +214,32 @@ given at creation, and is not asked to store a new one. Tokens
 the tenant already holds keep their old reach until they
 expire, and the next token the tenant obtains has the new one.
 
+### 5. Tenant changes tier
+
+An operator moves a tenant to a different tier, because it has
+outgrown the limits it started on or is moving down to
+smaller ones. The tenant's rules change together with the
+move: the bundle it came in on stops applying and the new one
+starts, and anything an operator bound to the tenant on top
+of its tier stays. Nothing else about the tenant changes —
+same credential, same accounts, same status. A tier nobody has
+published rules for is refused, so a mistyped name cannot
+leave the tenant governed by the platform's own rules alone.
+
 ## Open questions
 
-- **Self-service tenant signup.** Today every tenant is
-  minted by a platform admin. A self-service signup flow
-  with KYC for the tenant entity itself would let fintechs
-  onboard without operator intervention.
+- **Verifying the founder against the company.** A founder
+  names a company and the platform confirms the company is
+  real and active. Nothing yet checks that the person
+  signing in is entitled to act for it.
 - **Off-boarding / closure.** No flow exists to close a
   tenant. Operationally needed if a customer relationship
   ends.
-- **Tier transitions.** Moving a tenant between tiers
-  requires re-binding the policy set. No exposed flow today.
+- **Promotion from sandbox to live.** A self-service tenant
+  starts in the sandbox, and moving it to live is an
+  operator action with no completeness check behind it —
+  nothing confirms the tenant is ready to handle real money
+  before its credential starts reaching the live service.
 - **Credential rotation and revocation.** Neither is
   offered. A compromised credential is replaced by an
   operator by hand today, which is the sharpest gap in this

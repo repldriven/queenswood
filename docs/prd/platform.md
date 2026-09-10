@@ -112,8 +112,11 @@ covered by its own PRD.
 
 - **Onboarding** — multi-tenant tenancy creation:
   organisation setup, credential issuance, default product and
-  bookkeeping accounts bootstrapped in one transaction.
-  Forthcoming PRD: [onboarding](onboarding.md).
+  bookkeeping accounts bootstrapped in one transaction, by a
+  platform admin or by a founder signing in for the first
+  time. A tenant can afterwards be moved to a different tier,
+  and between test and live. Forthcoming PRD:
+  [onboarding](onboarding.md).
 - **Parties and identity** — customer registration with
   national identifiers and person identifications; identity
   verification that activates a person party for transacting.
@@ -279,10 +282,11 @@ Things deliberately left unresolved or future work.
 - **Multi-currency rate support.** A product version carries
   a single interest rate; multi-currency products earning
   different rates per currency would need rate-per-currency.
-- **Tier transitions and status changes.** Tenants are
-  created with a tier label that binds tier-specific
-  policies; today there's no flow to move a tenant between
-  tiers post-creation, nor between live and test status.
+- **A tenant asking for its own tier or status change.** A
+  tenant can be moved between tiers and between test and
+  live, but only by an operator acting on its behalf. There
+  is no request, no approval step, and no notice to the
+  tenant that its limits or its reach have changed.
 - **Dormancy and un-closing.** Cash account lifecycle now
   covers open, close, suspend, and resume. Dormant flows and
   reopening a closed account (closing is terminal) aren't

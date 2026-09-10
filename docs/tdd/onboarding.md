@@ -20,8 +20,8 @@ The user-onboarding flow is **distinct** from the existing
 operator-driven tenant onboarding documented in
 [prd/onboarding](../prd/onboarding.md): operators create
 tenants with API keys, humans create their own tenant by
-signing in. Both paths converge at `organization/new-
-organization`.
+signing in. Both paths converge on the `create-bank` command
+the `bank` processor handles — see [banks](banks.md).
 
 In scope: the realm changes (Google IdP + `queenswood-console`
 client), the new bricks, the auth interceptor extension, the
@@ -255,33 +255,38 @@ Accepts a verified user JWT even when no user record exists
 yet (the `:user` role doesn't require a user record). Request:
 
 ```json
-{ "organization-name": "Acme Bank" }
+{ "company-number": "SC998137", "bank-name": "Acme Bank" }
 ```
 
 Handler:
 
-1. Upserts the user from JWT claims.
-2. Lists memberships for the user; if non-empty, returns 409
-   with the existing organisation identifier — the MVP is one
-   user, one organisation.
-3. Calls `organization/new-organization` with default
-   tier (`micro`), default currencies (`["GBP"]`), and status
-   `organization-status-test`. This is the same call the
-   operator-driven onboarding makes, with the user-facing
-   defaults filled in.
-4. Calls `membership/new-membership` with role
-   `role-owner`.
-5. Returns 201 with the user, the rich organisation (party,
-   accounts, client-id, one-time client-secret), and the
-   membership.
+1. The auth interceptor has already upserted the user from
+   the JWT claims.
+2. Reads the interceptor-loaded memberships; if non-empty,
+   returns 409 with the existing bank identifier — the MVP is
+   one user, one bank.
+3. Looks `company-number` up in the registry of record, and
+   snapshots the reply into the bank's company-binding shape.
+4. Sends the `create-bank` command with default tier
+   (`micro`), default currencies (`["GBP"]`), status
+   `bank-status-test`, that company binding, and a
+   `:membership` of `{:user-id … :role :role-owner}`. This is
+   the same command the operator-driven onboarding sends, with
+   the user-facing defaults filled in.
+5. Mints the client secret with `rotate-secret`, loads the
+   enriched bank from `bank-query`, and returns 201 with the
+   user, the bank (party, accounts, client-id, one-time
+   client-secret), and the membership.
 
-The four record writes don't run inside a single FDB
-transaction — each brick opens its own — so a duplicate-tab
-race could in principle create two memberships. The
-`Membership_by_user_and_org` unique index protects against
-the duplicate-membership case; a duplicate-organisation case
-is acceptable since the second call would 409 on its own
-membership check.
+Every record write lands inside the command's single FDB
+transaction, the membership included, so a duplicate-tab race
+cannot create a bank without its membership or a membership
+without its bank. The step-2 check is a fast path only: the
+processor re-runs the sole-membership check inside the
+transaction, and the loser of a race is rejected
+`:membership/already-exists` with nothing written. An inactive
+company is rejected `:onboarding/company-not-active` the same
+way, before the first write.
 
 #### `GET /v1/me`
 

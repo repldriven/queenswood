@@ -64,7 +64,8 @@ without being locked out.
 - **Tier labelling.** Policies carry labels (e.g. a tier
   label). At tenant onboarding, the tenant is bound to
   the bundle of policies sharing the requested tier
-  label. Different tiers ship with different rule sets.
+  label. Different tiers ship with different rule sets,
+  and a tenant can be moved onto a different bundle later.
 - **Deny wins.** Within a tenant's rule set, an explicit
   deny overrides every allow in scope. The default in the
   absence of any matching rule is denial — the platform
@@ -231,8 +232,13 @@ tier might allow only a small number of accounts and
 modest payment amounts; a "production" tier might
 allow more.
 
-The tier choice is permanent for the tenant. There is no
-flow today to move a tenant between tiers.
+A tenant can be moved to a different tier later. The
+platform drops the bindings that came from the old tier,
+binds the bundle that matches the new one, and records the
+tenant's new tier. Bindings an operator added on top of a
+tier are untouched. A tier nobody has published policies
+for is refused, so a mistyped name cannot leave a tenant
+governed by the platform's rules alone.
 
 ### How domains use policies
 
@@ -359,6 +365,25 @@ At onboarding, the tier label drives which bundle of
 policies the tenant inherits. The choice is part of the
 single onboarding call — see [onboarding](onboarding.md).
 
+### 6. A tenant is moved to a different tier
+
+```mermaid
+sequenceDiagram
+    participant O as Platform admin
+    participant Q as Queenswood
+
+    O->>Q: move tenant to tier "growth"
+    Q->>Q: drop the bindings that came from<br/>the tenant's old tier
+    Q->>Q: bind every policy labelled tier=growth
+    Q-->>O: tenant, now on the growth tier
+```
+
+A tenant outgrows the limits it signed up under. An
+operator moves it to the tier that fits, and the whole
+swap happens together — the tenant is never briefly
+governed by both bundles or by neither. Bindings added on
+top of the tenant's tier stay where they were.
+
 ## Open questions
 
 - **Per-target binding resolution.** The data model
@@ -393,10 +418,10 @@ single onboarding call — see [onboarding](onboarding.md).
   the denial — useful for root-cause analysis. A future
   enrichment could include the policy and clause
   references.
-- **Tier transitions post-creation.** A tenant's tier is
-  set at onboarding and stays there. There's no flow to
-  move a tenant between tiers (which would re-bind the
-  policy set).
+- **Tier changes are operator-driven.** A tenant cannot
+  request its own tier change. An operator makes the move
+  on the tenant's behalf, and there is no notice to the
+  tenant that its limits have changed.
 - **Self-service rule editing for tenants.** Today
   tenants can't author or edit policies. Operator-
   mediated only. A future product would likely give
