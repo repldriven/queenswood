@@ -347,9 +347,27 @@ jobs:
   # known good". A run where the Clojure matrix was skipped still earns
   # the tag — nothing under test moved, so the previous tag's guarantee
   # carries forward and the anchor stays near the tip.
+  #
+  # `needs: [tests]` alone is not enough to reach this job. A skip
+  # propagates transitively: when `discover`, `test`, `js` or `helm` is
+  # skipped because nothing in its tree changed, everything downstream is
+  # skipped too, and `tests` surviving on `always()` does not stop it
+  # crossing. The job then never evaluates its own condition -- which is
+  # why it has run once, on the only push where every job happened to
+  # execute, and skipped on every green push since.
+  #
+  # A status function in the `if` is what stops the propagation, so the
+  # job runs and decides for itself. `!cancelled()` rather than
+  # `always()`: a cancelled run must not be tagged. Restating the gate
+  # `tests` gave is then this job's own job, since a status function
+  # replaces the implicit `success()` over `needs`.
   stable-tag:
     needs: [tests]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: >-
+      !cancelled()
+      && needs.tests.result == 'success'
+      && github.event_name == 'push'
+      && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
 
     permissions:
