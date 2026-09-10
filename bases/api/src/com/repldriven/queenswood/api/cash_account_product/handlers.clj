@@ -44,8 +44,9 @@
 (defn- no-content [_] {:status 204})
 
 (defn- with-idempotency-key
-  "The client's key when it sent one. These routes don't require it, so
-  most writes carry none and the index simply never matches them."
+  "The client's key when it sent one. Only create-product reads it, and
+  the route doesn't require it, so a create carrying none simply never
+  matches the index."
   [data request]
   (let [key (get (:headers request) "idempotency-key")]
     (cond-> data key (assoc :idempotency-key key))))
@@ -66,10 +67,7 @@
         {:keys [bank-id]} auth
         {:keys [path body]} parameters
         {:keys [product-id]} path]
-    (respond (products/open-draft (config request)
-                                  bank-id
-                                  product-id
-                                  (with-idempotency-key body request))
+    (respond (products/open-draft (config request) bank-id product-id body)
              created)))
 
 (defn update-draft
