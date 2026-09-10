@@ -192,7 +192,12 @@ Three conventions:
 Schema translation (`schema/X->pb`, `schema/pb->X`,
 `schema/X->java`) belongs in `store.clj` too — it is the
 serialisation boundary between FDB records and domain data
-shapes.
+shapes. The changelog envelope is the exception in a brick that
+emits more than one event kind: there `core.clj` picks the
+builder and passes the encoded entry to `store/save`, because
+the store cannot know which of them a given call means. A brick
+with a single changelog event keeps building the envelope in
+`store.clj`.
 
 ### `domain.clj` — pure logic, the canonical rejection site
 

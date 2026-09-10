@@ -1,0 +1,10 @@
+{
+  "type": "record",
+  "name": "BankTierChanged",
+  "namespace": "com.repldriven.mono.banks",
+  "fields": [
+    {"name": "bank_id", "type": "string"},
+    {"name": "tier_before", "type": ["null", "string"], "default": null},
+    {"name": "tier_after", "type": "string"}
+  ]
+}

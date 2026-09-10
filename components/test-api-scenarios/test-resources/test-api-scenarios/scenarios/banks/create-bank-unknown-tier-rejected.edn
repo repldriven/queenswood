@@ -1,0 +1,12 @@
+{:name "Creating a bank with an unknown tier is rejected"
+ :tags #{:api :banks :unhappy}
+ :when [{:command :api/request
+         :request {:method :post
+                   :path "/v1/banks"
+                   :auth :admin
+                   :headers {:idempotency-key "ik-create-bank-unknown-tier-001"}
+                   :body {:name "Unknown Tier Create Org"
+                          :status "live"
+                          :tier "no-such-tier"
+                          :currencies ["GBP"]}}
+         :assert {:status 422 :body {:type ":bank/unknown-tier"}}}]}

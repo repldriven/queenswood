@@ -49,7 +49,14 @@ multi-tenant boundary that scopes everything else.
 - **Tier-based policy binding.** A `tier` label at creation
   time binds the tenant to the corresponding bundle of
   policies. Different tiers can ship with different rule
-  sets.
+  sets, and a platform operator uses the banking API to move
+  a tenant to another tier afterwards, which rebinds it to
+  that tier's bundle.
+- **Self-service signup.** A person signs in to the
+  management console with their own identity, names the
+  company they act for, and the banking API creates their
+  tenant bound to that company and makes them its owner. No
+  operator is in the loop.
 - **Default product and accounts.** A settlement product
   (for customer tenants) or internal product (for internal
   tenants) is drafted and published, and accounts are opened
@@ -61,14 +68,10 @@ multi-tenant boundary that scopes everything else.
 
 ## Non-goals
 
-- **Self-service tenant signup.** No public signup form.
-  Tenants are minted by platform admins.
 - **Billing or pricing.** No subscription, metering, or
   invoicing.
 - **Tenant deactivation, closure, or off-boarding.** Tenants
   once created are permanent. No flow to close one.
-- **Tier transitions post-creation.** A tenant's tier is set
-  at creation and stays there. No upgrade or downgrade flow.
 - **More than one credential per tenant.** Only the default
   credential is issued. Issuing further ones is a separate
   concern, with limited tooling today and no polished
@@ -78,8 +81,9 @@ multi-tenant boundary that scopes everything else.
   (settlement or internal). Customer-facing accounts are
   opened separately by the tenant for their customers.
 - **User management.** A tenant's own systems act as the
-  tenant when they call. People sign in with their own
-  identity, which this flow does not set up.
+  tenant when they call. Who else may sign in to a tenant,
+  and what each of them may do, is [users](users.md) and
+  [memberships](memberships.md).
 - **Per-credential audit attribution.** Which platform admin
   created the tenant isn't recorded.
 
@@ -112,6 +116,20 @@ end-to-end. If any step fails — a capability denied, a count
 limit exceeded, a currency rejected, the credential not
 minted — the whole tenant rolls back. There is no partial
 state to clean up.
+
+**Signing up without an operator.** A person signing in to
+the management console for the first time names the company
+they act for. The banking API looks that company up in the
+registry of record, refuses one that is not active, and
+creates the tenant in the same single call — test status,
+the entry tier, sterling, bound to the confirmed company,
+with the signed-in person as its owner. The call returns the
+same starting state the admin route returns.
+
+**Moving a tenant afterwards.** A platform operator uses the
+banking API to move a tenant to another tier, which rebinds
+it to that tier's policies, and between test and live, which
+moves what the tenant's existing credential reaches.
 
 ## User journeys
 
@@ -167,15 +185,9 @@ expire, and the next token the tenant obtains has the new one.
 
 ## Open questions
 
-- **Self-service tenant signup.** Today every tenant is
-  minted by a platform admin. A self-service signup flow
-  with KYC for the tenant entity itself would let fintechs
-  onboard without operator intervention.
 - **Off-boarding / closure.** No flow exists to close a
   tenant. Operationally needed if a customer relationship
   ends.
-- **Tier transitions.** Moving a tenant between tiers
-  requires re-binding the policy set. No exposed flow today.
 - **Credential rotation and revocation.** Neither is
   offered. A compromised credential is replaced by an
   operator by hand today, which is the sharpest gap in this

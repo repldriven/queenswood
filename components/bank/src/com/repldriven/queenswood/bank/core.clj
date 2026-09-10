@@ -1,5 +1,6 @@
 (ns com.repldriven.queenswood.bank.core
   (:require
+    [com.repldriven.queenswood.bank.changelog :as changelog]
     [com.repldriven.queenswood.bank.domain :as domain]
     [com.repldriven.queenswood.bank.store :as store]
 
@@ -114,12 +115,6 @@
           nil
           policies))
 
-(defn- bind-tier-policies
-  [txn bank-id tier]
-  (when-let [policies (when (some? tier)
-                        (policy/get-policies-by-tier txn tier))]
-    (bind-policies txn bank-id policies)))
-
 (defn- tier-labelled-policy?
   [txn policy-id]
   (let [p (policy/get-policy txn policy-id)]
@@ -170,11 +165,15 @@
           policies (or (:policies opts)
                        (policy/get-effective-policies txn {}))
           sort-code (store/allocate-sort-code txn)
+          tier-policies (if (some? tier)
+                          (policy/get-policies-by-tier txn tier)
+                          [])
           bank (domain/new-bank bank-name
                                 bank-status
                                 sort-code
                                 tier
                                 company-binding
+                                tier-policies
                                 policies)
           bank-id (:bank-id bank)
 
@@ -205,7 +204,7 @@
                                 sort-code
                                 currencies
                                 policies)
-          _ (bind-tier-policies txn bank-id tier)
+          _ (bind-policies txn bank-id tier-policies)
           _ (scheduler/seed-jobs txn bank-id)
           owner (when membership
                   (memberships/new-membership txn
@@ -227,11 +226,10 @@
         updated (domain/change-tier bank tier new-tier-policies)
         _ (unbind-tier-policies txn bank-id)
         _ (bind-policies txn bank-id new-tier-policies)
-        _ (store/save txn
-                      updated
-                      {:bank-id bank-id
-                       :status-before (:status bank)
-                       :status-after (:status updated)})]
+        entry (changelog/tier-changed {:bank-id bank-id
+                                       :tier-before (:tier bank)
+                                       :tier-after tier})
+        _ (store/save txn updated entry)]
        updated))
    :bank/change-tier
    "Failed to change bank tier"))
@@ -253,11 +251,11 @@
              identity-provider
              bank-id
              audience)
-          _ (store/save txn
-                        updated
-                        {:bank-id bank-id
-                         :status-before (:status bank)
-                         :status-after (:status updated)})]
+          entry (changelog/status-changed
+                 {:bank-id bank-id
+                  :status-before (:status bank)
+                  :status-after (:status updated)})
+          _ (store/save txn updated entry)]
          updated)))
    :bank/change-status
    "Failed to change bank status"))

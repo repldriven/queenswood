@@ -166,6 +166,13 @@ credential (delivered once), a settlement product, settlement
 accounts in each requested currency, and policy bindings for
 their tier.
 
+Neither the tier nor the status is fixed at creation. A
+platform operator uses the banking API to move a tenant to
+another tier, which rebinds it to that tier's policies, and
+to move it between test and live, which changes what the
+tenant's existing credential reaches without a new one being
+issued.
+
 ### 2. Customer onboarding
 
 ```mermaid
@@ -279,10 +286,6 @@ Things deliberately left unresolved or future work.
 - **Multi-currency rate support.** A product version carries
   a single interest rate; multi-currency products earning
   different rates per currency would need rate-per-currency.
-- **Tier transitions and status changes.** Tenants are
-  created with a tier label that binds tier-specific
-  policies; today there's no flow to move a tenant between
-  tiers post-creation, nor between live and test status.
 - **Dormancy and un-closing.** Cash account lifecycle now
   covers open, close, suspend, and resume. Dormant flows and
   reopening a closed account (closing is terminal) aren't
