@@ -68,12 +68,14 @@
     (store/transact
      txn
      (fn [txn]
-       (let [{:keys [bank-id party-id product-id currency]} data]
+       (let [{:keys [bank-id party-id product-id currency]} data
+             today (utility/today)]
          (let-nom>
            [policies (get-policies txn bank-id opts)
             party (parties/get-party txn bank-id party-id)
             product (products/get-product txn bank-id product-id)
-            product-version (products/active-version product (utility/today))
+            _ (domain/ensure-product-exists product)
+            product-version (products/active-version product today)
             aggregates (when product-version
                          (counts txn
                                  bank-id
@@ -83,6 +85,7 @@
             account (domain/open-account
                      data
                      product-version
+                     today
                      party
                      (fn [counter]
                        (store/allocate-payment-address txn counter))

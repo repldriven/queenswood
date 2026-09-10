@@ -1,8 +1,6 @@
 (ns com.repldriven.queenswood.cash-account.domain
   (:refer-clojure :exclude [name])
   (:require
-    [com.repldriven.queenswood.cash-account.validation :as validation]
-
     [com.repldriven.queenswood.balance-domain.interface :as balance-domain]
     [com.repldriven.queenswood.policy.interface :as policy]
 
@@ -80,11 +78,45 @@
              []
              schemes))))
 
+(defn- enum-suffix
+  [kw prefix]
+  (subs (clojure.core/name kw)
+        (inc (count (clojure.core/name prefix)))))
+
+(defn- ensure-currency-allowed
+  [currency product-version]
+  (let [allowed (:allowed-currencies product-version)]
+    (when (and (seq allowed)
+               (not (some #{currency} allowed)))
+      (error/reject :cash-account/invalid-currency
+                    {:message "Currency not allowed for this product"
+                     :currency currency}))))
+
+(defn- ensure-party-active
+  [party]
+  (let [status (:status party)]
+    (when (not= :party-status-active status)
+      (error/reject :cash-account/party-status
+                    {:message (str "Party is "
+                                   (enum-suffix status :party-status))
+                     :party-id (:party-id party)
+                     :status status}))))
+
+(defn ensure-product-exists
+  "Reject an unknown product id. `get-product` answers for any id with
+  an aggregate rather than nil or a rejection, so an empty `:versions`
+  is the only evidence that no such product exists."
+  [product]
+  (when (empty? (:versions product))
+    (error/reject :cash-account/product-not-found
+                  {:message "Product not found"
+                   :product-id (:product-id product)})))
+
 (defn open-account
   "Build a cash-account record from input data and a published product
   version: derives account-type from the holder party, runs the open
   capability + count limits, and allocates payment-addresses."
-  [data product-version party address-fountain-fn aggregates policies]
+  [data product-version as-of party address-fountain-fn aggregates policies]
   (let [{:keys [bank-id party-id product-id currency name sort-code]}
         data
         {:keys [version-id]} product-version
@@ -92,16 +124,19 @@
         account-type (party->account-type party)]
     (let-nom>
       [_ (when (nil? product-version)
-           (error/reject :cash-account/open
-                         {:message "Product is not published"
-                          :product-id product-id}))
+           (error/reject :cash-account/product-not-published
+                         {:message (str "No product version published for "
+                                        product-id
+                                        " effective on epoch day "
+                                        as-of)
+                          :product-id product-id
+                          :as-of as-of}))
        _ (when (nil? sort-code)
            (error/reject :cash-account/missing-sort-code
                          {:message "No sort code supplied for account opening"
                           :bank-id bank-id}))
-       _ (validation/valid-product? product-version)
-       _ (validation/valid-currency? currency product-version)
-       _ (validation/valid-party? party)
+       _ (ensure-currency-allowed currency product-version)
+       _ (ensure-party-active party)
        _ (check-capability :cash-account-action-open account-type policies)
        _ (check-total-limit aggregates policies)
        _ (check-subtotal-limit product-type
