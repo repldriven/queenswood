@@ -5,8 +5,8 @@
   the pure resolver account-opening uses. This is the only product brick
   `bank-api` (and other readers) may require — it exposes no writes. The
   product lifecycle (new/open-draft/update/discard/publish) lives in
-  `bank-cash-account-product` (commands), which reuses these reads inside
-  its own transactions.
+  `cash-account-product` (commands), which reuses these reads inside its
+  own transactions.
 
   `get-versions`, `count-by-org`, `count-by-org-product-type` and
   `find-version-by-idempotency-key` are read primitives for the write
