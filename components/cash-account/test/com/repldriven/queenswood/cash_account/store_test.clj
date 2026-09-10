@@ -33,7 +33,9 @@
 
 (defn- changelog
   [account-id]
-  {:account-id account-id :status-after :cash-account-status-opening})
+  {:account-id account-id
+   :status-after :cash-account-status-opening
+   :change-kind :cash-account-change-kind-open})
 
 (deftest idempotency-key-unique-index-and-read-back-test
   (with-test-system
@@ -91,7 +93,8 @@
         _ (store/save-account config
                               (account-with-bban "acc.retire.1" bban-1)
                               {:account-id "acc.retire.1"
-                               :status-after :cash-account-status-opened})
+                               :status-after :cash-account-status-opened
+                               :change-kind :cash-account-change-kind-open})
         _ (cash-account/seed-closed-account config test-bank-id "acc.retire.1")
         found (q/get-account config test-bank-id "acc.retire.1")
         _ (testing "the account transitions to closed"

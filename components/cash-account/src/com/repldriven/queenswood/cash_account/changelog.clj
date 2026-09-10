@@ -3,7 +3,7 @@
     [com.repldriven.queenswood.schema.interface :as schema]
 
     [com.repldriven.mono.avro.interface :as avro]
-    [com.repldriven.mono.error.interface :refer [let-nom>]]
+    [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.telemetry.interface :as telemetry]
     [com.repldriven.mono.utility.interface :as utility]
 
@@ -20,26 +20,39 @@
                   "schemas/cash-accounts/account-status-changed.avsc.json")))))
 
 (defn status-changed
-  "Build the shared-envelope changelog bytes for a cash-account status
-  transition. `changelog` carries `:bank-id`, `:account-id`,
-  `:status-before` and `:status-after`."
-  [{:keys [bank-id account-id status-before status-after]}]
-  (let-nom> [payload (avro/serialize @schema
-                                     {:bank-id bank-id
-                                      :account-id account-id
-                                      :status-before status-before
-                                      :status-after status-after})]
-    (schema/ChangelogEvent->pb
-     (utility/assoc-some
-      {:event-id (str (utility/uuidv7))
-       :dedup-key (str account-id ":" (name status-after))
-       :event-name event-name
-       :payload payload
-       :causation-id account-id
-       :ordering-key account-id
-       :created-at (utility/now)}
-      ;; Written inside the command's transaction, so this is the
-      ;; `process-command` span — which is itself under the request. The
-      ;; relay republishes it and the consumer's span joins that trace.
-      :traceparent
-      (telemetry/inject-traceparent)))))
+  "Build the shared-envelope changelog bytes for a cash-account write.
+  `changelog` carries `:bank-id`, `:account-id`, `:status-before`,
+  `:status-after`, `:change-kind` and `:updated-at`; `store.clj` supplies
+  the last two of those off the saved record, so a caller passes only the
+  kind.
+
+  A missing `:change-kind` is an error anomaly rather than a null in the
+  payload: a migration and a rotation both leave the status alone, so the
+  kind is the only thing telling a consumer which write it is reading."
+  [{:keys [bank-id account-id status-before status-after change-kind
+           updated-at]}]
+  (if-not change-kind
+    (error/fail :cash-account/changelog
+                {:message "Cash-account changelog entry needs a change kind"
+                 :account-id account-id
+                 :status-after status-after})
+    (let-nom> [payload (avro/serialize @schema
+                                       {:bank-id bank-id
+                                        :account-id account-id
+                                        :status-before status-before
+                                        :status-after status-after
+                                        :change-kind change-kind})]
+      (schema/ChangelogEvent->pb
+       (utility/assoc-some
+        {:event-id (str (utility/uuidv7))
+         :dedup-key (str account-id ":" (name change-kind) ":" updated-at)
+         :event-name event-name
+         :payload payload
+         :causation-id account-id
+         :ordering-key account-id
+         :created-at (utility/now)}
+        ;; Written inside the command's transaction, so this is the
+        ;; `process-command` span — which is itself under the request. The
+        ;; relay republishes it and the consumer's span joins that trace.
+        :traceparent
+        (telemetry/inject-traceparent))))))
