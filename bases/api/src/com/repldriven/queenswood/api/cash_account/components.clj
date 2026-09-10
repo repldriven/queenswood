@@ -15,11 +15,10 @@
    [:account-number [:ref "AccountNumber"]]])
 
 (def PaymentAddress
-  "Wire shape emitted by the command-response Avro serializer in
-  `bank-cash-account/commands.clj:payment-address->avro` — the
-  protojure `oneof identifier { ScanAddress scan; string value; }`
-  is flattened into sibling `:scan` / `:value` fields alongside
-  `:scheme`."
+  "A scheme and at most one of a SCAN pair or a string value. The
+  record declares the two variants as sibling optional fields rather
+  than a proto `oneof`, so the shape a response carries is
+  `{scheme, scan, value}` with the unused variant absent."
   [:map {:closed true}
    [:scheme [:ref "PaymentAddressScheme"]]
    [:scan {:optional true} [:maybe [:ref "ScanAddress"]]]

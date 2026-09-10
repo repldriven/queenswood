@@ -18,7 +18,7 @@
         {:keys [bank-id]} auth
         {:keys [body]} parameters
         ;; The bank's sort code prefixes its accounts' BBANs; resolve it
-        ;; here (above cash-account, which can't depend on bank-bank) and
+        ;; here (above cash-account, which can't depend on bank) and
         ;; pass it on the open command.
         bank (banks/get-bank {:record-db record-db :record-store record-store}
                              bank-id)]
