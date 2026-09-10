@@ -48,7 +48,8 @@
   ^{:doc
     "Real-side product version-history projection. Reads
   each org's products via `get-products` and emits
-  `{model-prod-id [{:status ... :number n} ...]}` ordered
+  `{model-prod-id [{:status ... :number n :currency ...
+  :effective-from ... :effective-to ...} ...]}` ordered
   descending by `:number`. Args:
   - bank: FDB config map.
   - model->real: `{model-prod-id {:real-id <id>

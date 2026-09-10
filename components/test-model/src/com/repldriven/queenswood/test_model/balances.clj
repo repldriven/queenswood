@@ -1,5 +1,6 @@
 (ns com.repldriven.queenswood.test-model.balances
   (:require
+    [com.repldriven.queenswood.test-model.products :as products]
     [com.repldriven.queenswood.test-model.state :as state]
 
     [clojure.test.check.generators :as gen]))
@@ -34,7 +35,7 @@
                                   ;; first-class).
                                   :product-type :current
                                   :interest-rate-bps 0
-                                  :versions [{:status :published :number 1}]})
+                                  :versions [(products/version :published 1)]})
                        (assoc-in
                         [:parties party-id]
                         {:bank bank-id :type :organization :status :active})
@@ -93,7 +94,7 @@
                       {:bank bank-id
                        :product-type :current
                        :interest-rate-bps 0
-                       :versions [{:status :published :number 1}]})
+                       :versions [(products/version :published 1)]})
             (update-in [:banks bank-id :products] (fnil conj []) prod-id)
             (update :next-product-id inc))
 
