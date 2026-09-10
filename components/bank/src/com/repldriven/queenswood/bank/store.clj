@@ -1,7 +1,5 @@
 (ns com.repldriven.queenswood.bank.store
   (:require
-    [com.repldriven.queenswood.bank.changelog :as changelog]
-
     [com.repldriven.queenswood.fdb.interface :as fdb]
     [com.repldriven.queenswood.schema.interface :as schema]
 
@@ -37,14 +35,13 @@
                 "Failed to create bank"))
 
 (defn save
-  [txn bank changelog]
+  [txn bank entry]
   (fdb/transact
    txn
    (fn [txn]
      (let [store (fdb/open txn store-name)]
        (let-nom>
          [_ (fdb/save-record store (schema/Bank->java bank))
-          entry (changelog/status-changed changelog)
           _ (fdb/write-changelog txn
                                  store-name
                                  (:bank-id bank)

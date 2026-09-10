@@ -20,8 +20,7 @@ The user-onboarding flow is **distinct** from the existing
 operator-driven tenant onboarding documented in
 [prd/onboarding](../prd/onboarding.md): operators create
 tenants with API keys, humans create their own tenant by
-signing in. Both paths converge at `organization/new-
-organization`.
+signing in. Both paths converge at the `create-bank` command.
 
 In scope: the realm changes (Google IdP + `queenswood-console`
 client), the new bricks, the auth interceptor extension, the
@@ -255,7 +254,7 @@ Accepts a verified user JWT even when no user record exists
 yet (the `:user` role doesn't require a user record). Request:
 
 ```json
-{ "organization-name": "Acme Bank" }
+{ "company-number": "12345678", "bank-name": "Acme Bank" }
 ```
 
 Handler:
@@ -264,24 +263,29 @@ Handler:
 2. Lists memberships for the user; if non-empty, returns 409
    with the existing organisation identifier — the MVP is one
    user, one organisation.
-3. Calls `organization/new-organization` with default
-   tier (`micro`), default currencies (`["GBP"]`), and status
-   `organization-status-test`. This is the same call the
-   operator-driven onboarding makes, with the user-facing
-   defaults filled in.
-4. Calls `membership/new-membership` with role
-   `role-owner`.
+3. Looks the company number up against the registry of
+   record; a failed lookup comes back to the caller as it
+   stands.
+4. Sends the `create-bank` command with the defaults this
+   path fixes: status `bank-status-test`, tier `micro`,
+   currencies `["GBP"]`, a company binding snapshotted from
+   the lookup, and an owner membership carrying `role-owner`
+   for the signed-in user. The command itself rejects
+   `:onboarding/company-not-active` when the snapshot is not
+   active. It is the same command the operator-driven
+   onboarding sends, with the user-facing defaults filled
+   in.
 5. Returns 201 with the user, the rich organisation (party,
    accounts, client-id, one-time client-secret), and the
    membership.
 
-The four record writes don't run inside a single FDB
-transaction — each brick opens its own — so a duplicate-tab
-race could in principle create two memberships. The
-`Membership_by_user_and_org` unique index protects against
-the duplicate-membership case; a duplicate-organisation case
-is acceptable since the second call would 409 on its own
-membership check.
+The organisation, its party, its accounts and the owner
+membership are written in one FDB transaction, which re-runs
+the sole-membership check inside itself: a duplicate-tab race
+rejects `:membership/already-exists` on the second command
+and leaves nothing half-created. Step 1's user upsert is the
+one write outside that transaction, and repeating it is
+harmless.
 
 #### `GET /v1/me`
 
@@ -393,13 +397,13 @@ The end-to-end flow:
   resources sibling under `components/resources/
   resources/bank/`). Both have to move together or imports
   in different deployment paths diverge.
-- **Multi-write race in onboarding.** The four record writes
-  aren't in a single FDB transaction. The unique
-  `Membership_by_user_and_org` index protects against
-  duplicate memberships; an unlucky duplicate-tab user could
-  end up with two `Organization` records and one membership
-  pointing at the first. Acceptable for MVP; the next
-  iteration should thread a real transaction handle.
+- **User upsert outside the create transaction.** The
+  `create-bank` command writes the organisation, its party,
+  its accounts and the owner membership together, but the
+  user upsert in step 1 of the handler runs before it and on
+  its own. A user who abandons onboarding is left with a user
+  record and no membership; nothing cleans that record up,
+  and the next sign-in reuses it.
 - **Token lifetime vs SPA UX.** Keycloak's default access
   token lifetime is 5 minutes. The SPA's API wrapper calls
   `kc.updateToken(30)` before every call, so the token

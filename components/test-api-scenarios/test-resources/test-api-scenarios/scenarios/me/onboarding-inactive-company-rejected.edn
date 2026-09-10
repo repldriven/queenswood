@@ -1,0 +1,25 @@
+{:name "Onboarding against an inactive company is rejected"
+ :tags #{:api :auth :me :onboarding :unhappy}
+ ;; INITECH LTD is `dissolved` in the Companies House simulator's
+ ;; examples, and only an active company may be bound to a bank. The
+ ;; rejection writes nothing, so `dev` keeps the empty membership list
+ ;; the first-sign-in scenario asserts, whichever file runs first.
+ :when
+ [{:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "dev"
+   :password "dev"
+   :as :dev-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/onboarding/me"
+             :auth :dev-token
+             :headers {:idempotency-key
+                       "ik-onboarding-inactive-company-001"}
+             :body {:company-number "IN071194"
+                    :bank-name "Initech Bank"}}
+   :assert {:status 422 :body {:type ":onboarding/company-not-active"}}}
+  {:command :api/request
+   :request {:method :get :path "/v1/me" :auth :dev-token}
+   :assert {:status 200 :body {:memberships []}}}]}

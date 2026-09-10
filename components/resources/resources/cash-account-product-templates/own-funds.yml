@@ -6,7 +6,11 @@ name: Bank own funds
 product-type: !keyword product-type-sub-ledger-own-funds
 balance-sheet-side: !keyword balance-sheet-side-liability
 internal: true
-allowed-currencies: [GBP]
+# Must match the API's `Currency` enum in
+# bases/api/src/com/repldriven/queenswood/api/shared/components.clj --
+# a create names its currencies from that enum and every one of them
+# opens an own-funds house account from this template.
+allowed-currencies: [EUR, GBP, USD]
 allowed-payment-address-schemes:
   - !keyword payment-address-scheme-scan
 balance-products: !keywords

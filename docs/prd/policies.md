@@ -231,8 +231,11 @@ tier might allow only a small number of accounts and
 modest payment amounts; a "production" tier might
 allow more.
 
-The tier choice is permanent for the tenant. There is no
-flow today to move a tenant between tiers.
+The tier choice is not permanent. A platform operator uses
+the banking API to move a tenant to another tier, which
+unbinds the policies the old tier brought and binds the new
+tier's bundle in their place. Policies bound to the tenant
+for any other reason are left alone.
 
 ### How domains use policies
 
@@ -393,10 +396,6 @@ single onboarding call — see [onboarding](onboarding.md).
   the denial — useful for root-cause analysis. A future
   enrichment could include the policy and clause
   references.
-- **Tier transitions post-creation.** A tenant's tier is
-  set at onboarding and stays there. There's no flow to
-  move a tenant between tiers (which would re-bind the
-  policy set).
 - **Self-service rule editing for tenants.** Today
   tenants can't author or edit policies. Operator-
   mediated only. A future product would likely give

@@ -14,12 +14,17 @@
                    :bank-id (:bank-id (first existing))})))
 
 (defn new-bank
-  [bank-name bank-status sort-code tier company-binding policies]
+  [bank-name bank-status sort-code tier company-binding tier-policies policies]
   (let-nom>
     [_ (policy/check-capability policies
                                 :bank
                                 {:action :bank-action-create
                                  :status bank-status})
+     _ (when (empty? tier-policies)
+         (error/reject :bank/unknown-tier
+                       {:message "No policies found for tier"
+                        :bank-name bank-name
+                        :tier tier}))
      _ (when (and company-binding
                   (not= "active" (:company-status company-binding)))
          (error/reject
@@ -32,10 +37,9 @@
                            :name bank-name
                            :status bank-status
                            :sort-code sort-code
+                           :tier tier
                            :created-at now
                            :updated-at now}
-                          :tier
-                          tier
                           :company-binding
                           company-binding))))
 

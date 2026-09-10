@@ -1,5 +1,6 @@
 (ns com.repldriven.queenswood.bank.domain-test
   "Pure-function tests for the rejection paths of bank provisioning:
+  `:bank/unknown-tier` when the tier resolves to no policies,
   `:onboarding/company-not-active` when the bound company snapshot is
   not active, and `:membership/already-exists` from the sole-membership
   check core runs inside the provisioning transaction."
@@ -16,6 +17,11 @@
   on set fields."
   [{:enabled true :capabilities [{:kind {:bank {}} :effect :effect-allow}]}])
 
+(def ^:private tier-policies
+  "A tier that resolves to at least one policy — creation rejects an
+  empty list."
+  [{:policy-id "pol.micro"}])
+
 (def ^:private active-binding
   {:registry "uk-companies-house"
    :company-number "12345678"
@@ -29,6 +35,7 @@
                              "000001"
                              "micro"
                              active-binding
+                             tier-policies
                              permissive-policies)]
       (is (re-find #"^bnk\." (:bank-id bank)))
       (is (= :bank-status-test (:status bank)))
@@ -41,22 +48,36 @@
                              "000001"
                              "micro"
                              nil
+                             tier-policies
                              permissive-policies)]
       (is (not (contains? bank :company-binding)))))
-  (testing "omits :tier when none is supplied"
-    (let [bank (SUT/new-bank "Acme"
-                             :bank-status-test
-                             "000001"
-                             nil
-                             nil
-                             permissive-policies)]
-      (is (not (contains? bank :tier)))))
+  (testing "rejects a nil tier"
+    (let [r (SUT/new-bank "Acme"
+                          :bank-status-test
+                          "000001"
+                          nil
+                          nil
+                          []
+                          permissive-policies)]
+      (is (error/rejection? r))
+      (is (= :bank/unknown-tier (error/kind r)))))
+  (testing "rejects a tier that resolves to no policies"
+    (let [r (SUT/new-bank "Acme"
+                          :bank-status-test
+                          "000001"
+                          "no-such-tier"
+                          nil
+                          []
+                          permissive-policies)]
+      (is (error/rejection? r))
+      (is (= :bank/unknown-tier (error/kind r)))))
   (testing "rejects a binding whose company is not active"
     (let [r (SUT/new-bank "Acme"
                           :bank-status-test
                           "000001"
                           "micro"
                           (assoc active-binding :company-status "dissolved")
+                          tier-policies
                           permissive-policies)]
       (is (error/rejection? r))
       (is (= :onboarding/company-not-active (error/kind r))))))

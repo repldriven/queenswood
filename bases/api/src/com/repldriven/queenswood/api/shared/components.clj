@@ -181,7 +181,13 @@
 (def Currency
   "Closed enum of currencies the system natively supports. Stricter
   than `CurrencyCode` — request bodies use this to reject unsupported
-  ISO codes at coercion time."
+  ISO codes at coercion time.
+
+  A symbol added here has to be added to `allowed-currencies` in
+  `components/resources/resources/cash-account-product-templates/own-funds.yml`
+  too: a bank create opens an own-funds house account for every
+  currency it names, and a template that omits one rejects the
+  account, rolling the whole create back."
   [:enum {:json-schema/example "EUR"} "EUR" "GBP" "USD"])
 
 (def CurrencyCode
