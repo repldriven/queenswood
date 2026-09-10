@@ -116,3 +116,62 @@
            (SUT/check policies :cash-account-migration (preview-request 50)))))
     (testing "an unrelated domain is untouched by either"
       (is (true? (SUT/check policies :cash-account (commit-request 999)))))))
+
+(defn- term-deposit-count-policy
+  "The micro tier's filtered cash-account limit as it reads back off
+  the store: proto2 has filled the two terms the seed left unset with
+  their zero values."
+  []
+  [{:enabled true
+    :limits [{:kind {:cash-account
+                     {:filters [{:product-type
+                                 :product-type-sub-ledger-term-deposit
+                                 :account-type :account-type-unknown
+                                 :currency ""}]}}
+              :bound {:kind {:max {:aggregate
+                                   {:kind {:count
+                                           {:value 10
+                                            :window
+                                            :time-window-instant}}}}}}
+              :reason "ten term deposits"}]}])
+
+(defn- cash-account-count-request
+  [product-type account-type currency value]
+  {:aggregate :count
+   :window :time-window-instant
+   :product-type product-type
+   :account-type account-type
+   :currency currency
+   :value value})
+
+(deftest cash-account-filter-unset-terms-test
+  (let [policies (term-deposit-count-policy)]
+    (testing "an unset term matches whatever the request carries"
+      (let [result (SUT/check policies
+                              :cash-account
+                              (cash-account-count-request
+                               :product-type-sub-ledger-term-deposit
+                               :account-type-business
+                               "GBP" 11))]
+        (is (error/rejection? result))
+        (is (= :policy/limit-exceeded (error/kind result)))))
+    (testing "and matches a second currency the same way"
+      (is (error/rejection? (SUT/check policies
+                                       :cash-account
+                                       (cash-account-count-request
+                                        :product-type-sub-ledger-term-deposit
+                                        :account-type-personal
+                                        "EUR" 11)))))
+    (testing "while the set term still narrows the limit"
+      (is (true? (SUT/check policies
+                            :cash-account
+                            (cash-account-count-request
+                             :product-type-sub-ledger-current
+                             :account-type-business
+                             "GBP" 11)))))
+    (testing "and a request with no product-type reaches no filter"
+      (is (true? (SUT/check policies
+                            :cash-account
+                            {:aggregate :count
+                             :window :time-window-instant
+                             :value 11}))))))
