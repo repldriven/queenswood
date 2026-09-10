@@ -32,9 +32,16 @@
            :status 422
            :detail "Currency not allowed for this product-type"}})
 
+(def TemplateMismatch
+  {:value {:title "REJECTED"
+           :type "cash-account-products/template-mismatch"
+           :status 422
+           :detail "Template does not match the product's template"}})
+
 (def registry
   (examples-registry [#'ProductNotFound #'VersionNotFound #'DraftAlreadyExists
-                      #'VersionImmutable #'CurrencyNotAllowed]))
+                      #'VersionImmutable #'CurrencyNotAllowed
+                      #'TemplateMismatch]))
 
 (def ProductId "prd.01kprbmgcj35ptc8npmybhh4se")
 (def VersionId "prv.01kprbmgcj35ptc8npmybhh4sf")

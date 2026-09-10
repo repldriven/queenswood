@@ -62,9 +62,7 @@
                                       aggregates
                                       policies)
           _ (store/save-version txn version)]
-         version))
-     :cash-account-product/save-version
-     "Failed to save product version"))))
+         version))))))
 
 (defn open-draft
   ([txn bank-id product-id data]

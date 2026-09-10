@@ -45,8 +45,8 @@
 
 (defn- with-idempotency-key
   "The client's key when it sent one. Only create-product reads it, and
-  the route doesn't require it, so a create carrying none simply never
-  matches the index."
+  its route requires the header via `server/require-idempotency-key`,
+  so this lifts it onto the command data."
   [data request]
   (let [key (get (:headers request) "idempotency-key")]
     (cond-> data key (assoc :idempotency-key key))))

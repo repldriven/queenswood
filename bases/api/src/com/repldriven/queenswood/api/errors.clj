@@ -34,16 +34,13 @@
 
 (def ^:private rejection-status-overrides
   "Explicit status overrides for rejection categories whose names
-  don't fit the default heuristics, plus categories listed for
-  legibility beside their siblings where the heuristic already yields
-  the same status."
+  don't fit the default heuristics."
   {:payment/already-submitted 409
    :bank/invalid-status 409
    :cash-account/invalid-status 409
    :cash-account/non-zero-on-close 409
    :cash-account-product/draft-already-exists 409
    :cash-account-product/version-immutable 409
-   :cash-account-product/template-mismatch 422
    :cash-account-migration/invalid-status 409
    :interest/no-settlement 404
    :party/invalid-status 409
