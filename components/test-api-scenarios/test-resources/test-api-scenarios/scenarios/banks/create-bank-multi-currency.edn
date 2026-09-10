@@ -1,0 +1,68 @@
+{:name "A bank is created in every currency the request accepts"
+ :tags #{:api :banks :happy}
+ ;; The create fans `currencies` across the ledger chart and the
+ ;; own-funds house account. Both fan-outs have to accept every currency
+ ;; the request schema does, or a create naming one of them is rejected
+ ;; at the house-account step and rolls the whole bank back. Three
+ ;; currencies in one create is the shape that proves it.
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-create-bank-multi-currency-001"}
+             :body {:name "Multi Currency Bank"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["EUR" "GBP" "USD"]}}
+   :as :bank-0
+   ;; One own-funds house account per currency, each an ordinary
+   ;; BBAN-addressable cash account on the bank's own org party.
+   :assert {:status 201
+            :body {:bank-id [:m/regex "^bnk\\."]
+                   :accounts
+                   [:m/embeds
+                    [{:currency "EUR" :product-type "own-funds"}
+                     {:currency "GBP" :product-type "own-funds"}
+                     {:currency "USD" :product-type "own-funds"}]]}}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :bank-0 :client-id]
+         :client-secret [:ref :bank-0 :client-secret]
+         :status :live}
+   :as :bank-0-token}]
+ :when
+ ;; One full chart per currency: nine rows each, so three trial balances
+ ;; that tie independently. `:accounts` on a trial-balance entry counts
+ ;; that currency's ledger accounts, which pins the seed's row count
+ ;; without listing all twenty-seven.
+ [{:command :api/request
+   :request {:method :get :path "/v1/ledger-accounts" :auth :bank-0-token}
+   :assert
+   {:status 200
+    :body {:trial-balance
+           [:m/embeds [{:currency "EUR" :debit 0 :credit 0 :accounts 9}
+                       {:currency "GBP" :debit 0 :credit 0 :accounts 9}
+                       {:currency "USD" :debit 0 :credit 0 :accounts 9}]]
+           ;; The two rows the interest accrual posts against — DR 5100
+           ;; expense, CR 2400 payable — exist in every currency and
+           ;; carry the class each leg needs: 2400 is a control (it
+           ;; rolls up the customers' accrued interest), 5100 a detail
+           ;; expense account.
+           :ledger-accounts
+           [:m/embeds
+            [{:gl-code "2400"
+              :currency "EUR"
+              :gl-account-type "liability"
+              :gl-account-class "control"}
+             {:gl-code "5100"
+              :currency "EUR"
+              :gl-account-type "expense"
+              :gl-account-class "detail"}
+             {:gl-code "2400"
+              :currency "USD"
+              :gl-account-type "liability"
+              :gl-account-class "control"}
+             {:gl-code "5100"
+              :currency "USD"
+              :gl-account-type "expense"
+              :gl-account-class "detail"}]]}}}]}

@@ -1,12 +1,19 @@
 # Internal template (excluded from the customer-facing list-templates).
 # The bank's own-funds house product is created from this at bank
 # provisioning; a single settled bucket, no interest accrual.
+#
+# Every currency the create-bank request accepts is allowed here. A bank
+# is provisioned with one own-funds house account per currency it names,
+# so a template narrower than the request schema would reject the create
+# and roll the whole bank back. The customer-facing templates stay GBP —
+# what a bank may sell is a product decision, separate from what its own
+# books may hold.
 template-id: tpl.00000000000000000000000004
 name: Bank own funds
 product-type: !keyword product-type-sub-ledger-own-funds
 balance-sheet-side: !keyword balance-sheet-side-liability
 internal: true
-allowed-currencies: [GBP]
+allowed-currencies: [EUR, GBP, USD]
 allowed-payment-address-schemes:
   - !keyword payment-address-scheme-scan
 balance-products: !keywords
