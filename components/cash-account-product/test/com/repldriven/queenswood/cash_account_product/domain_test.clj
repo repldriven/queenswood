@@ -7,8 +7,10 @@
   The template is the resolved record core looks up by id and passes
   in; here it's a fixture map.
 
-  Replaces the slow integration paths in interface_test.clj that
-  spun up FDB just to assert these anomaly kinds."
+  These kinds are asserted here rather than in `interface-test`, which
+  holds what only a record store can show — the idempotency-key index,
+  the count indexes, the template store and the concurrent-create
+  race."
   (:require
     [com.repldriven.queenswood.cash-account-product.domain :as SUT]
 
