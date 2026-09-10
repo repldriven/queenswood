@@ -114,11 +114,14 @@
           nil
           policies))
 
-(defn- bind-tier-policies
-  [txn bank-id tier]
-  (when-let [policies (when (some? tier)
-                        (policy/get-policies-by-tier txn tier))]
-    (bind-policies txn bank-id policies)))
+(defn- policies-for-tier
+  "The policies labelled `tier=<tier>`, or an empty vector for a
+  tierless bank. Resolved before the first write so `domain/new-bank`
+  can reject an unmatched tier, and so a read anomaly aborts the
+  transaction rather than being bound over as if it were a policy
+  list."
+  [txn tier]
+  (if (some? tier) (policy/get-policies-by-tier txn tier) []))
 
 (defn- tier-labelled-policy?
   [txn policy-id]
@@ -169,11 +172,13 @@
           _ (domain/check-sole-membership user-id existing)
           policies (or (:policies opts)
                        (policy/get-effective-policies txn {}))
+          tier-policies (policies-for-tier txn tier)
           sort-code (store/allocate-sort-code txn)
           bank (domain/new-bank bank-name
                                 bank-status
                                 sort-code
                                 tier
+                                tier-policies
                                 company-binding
                                 policies)
           bank-id (:bank-id bank)
@@ -205,7 +210,7 @@
                                 sort-code
                                 currencies
                                 policies)
-          _ (bind-tier-policies txn bank-id tier)
+          _ (bind-policies txn bank-id tier-policies)
           _ (scheduler/seed-jobs txn bank-id)
           owner (when membership
                   (memberships/new-membership txn
@@ -227,11 +232,11 @@
         updated (domain/change-tier bank tier new-tier-policies)
         _ (unbind-tier-policies txn bank-id)
         _ (bind-policies txn bank-id new-tier-policies)
-        _ (store/save txn
-                      updated
-                      {:bank-id bank-id
-                       :status-before (:status bank)
-                       :status-after (:status updated)})]
+        _ (store/save-tier txn
+                           updated
+                           {:bank-id bank-id
+                            :tier-before (:tier bank)
+                            :tier-after (:tier updated)})]
        updated))
    :bank/change-tier
    "Failed to change bank tier"))
@@ -253,11 +258,11 @@
              identity-provider
              bank-id
              audience)
-          _ (store/save txn
-                        updated
-                        {:bank-id bank-id
-                         :status-before (:status bank)
-                         :status-after (:status updated)})]
+          _ (store/save-status txn
+                               updated
+                               {:bank-id bank-id
+                                :status-before (:status bank)
+                                :status-after (:status updated)})]
          updated)))
    :bank/change-status
    "Failed to change bank status"))

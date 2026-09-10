@@ -13,13 +13,25 @@
                    :user-id user-id
                    :bank-id (:bank-id (first existing))})))
 
+(defn- check-tier
+  "A named tier must resolve to at least one policy, the same rule
+  `change-tier` applies. A nil tier is the one exception: a tierless
+  bank binds nothing and is governed by the platform policies alone.
+  Anything else is a typo, and a bank created under it would be stamped
+  with a tier whose policies it is not bound to."
+  [tier tier-policies]
+  (when (and (some? tier) (empty? tier-policies))
+    (error/reject :bank/unknown-tier
+                  {:message "No policies found for tier" :tier tier})))
+
 (defn new-bank
-  [bank-name bank-status sort-code tier company-binding policies]
+  [bank-name bank-status sort-code tier tier-policies company-binding policies]
   (let-nom>
     [_ (policy/check-capability policies
                                 :bank
                                 {:action :bank-action-create
                                  :status bank-status})
+     _ (check-tier tier tier-policies)
      _ (when (and company-binding
                   (not= "active" (:company-status company-binding)))
          (error/reject

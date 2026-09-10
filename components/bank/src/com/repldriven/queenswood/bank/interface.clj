@@ -26,8 +26,14 @@
   - bank-name: bank display name.
   - bank-status: `:bank-status-*` keyword.
   - tier: tier name (string) selecting `tier=<name>`-labelled
-    policies to bind to the new bank, or nil for none.
-  - currencies: collection of ISO 4217 currency strings.
+    policies to bind to the new bank, or nil for a tierless bank that
+    binds none and is governed by the platform policies alone. A named
+    tier matching no policies is rejected `:bank/unknown-tier` before
+    any write, the same rule `change-tier` applies.
+  - currencies: collection of ISO 4217 currency strings. Each one gets
+    its own chart of ledger accounts and its own own-funds house
+    account, so every currency named must be one the own-funds
+    template allows.
   - opts: map; `:identity-provider` (required) is the IDP component
     that issues the bank's service-account client — without one a bank
     has no credentials, so creation is rejected `:bank/missing-identity-provider`;
@@ -53,8 +59,9 @@
   unbinds every existing binding whose policy carries a `tier` label
   (identified from the policy, not any tier previously stored on the
   bank — so a bank with no stored tier still transitions cleanly),
-  binds the new tier's policies, and persists the bank's `:tier`.
-  Returns the updated bank map or an anomaly.
+  binds the new tier's policies, and persists the bank's `:tier` with a
+  `bank-tier-changed` changelog entry. Returns the updated bank map or
+  an anomaly.
 
   Rejects `:bank/invalid-status` unless the bank is test or live, and
   `:bank/unknown-tier` when `tier` resolves to no policies (a typo

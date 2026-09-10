@@ -1,0 +1,19 @@
+{:name "Creating a bank on an unknown tier is rejected"
+ :tags #{:api :banks :unhappy}
+ ;; A tier is a free-form label matched against policy labels, so a typo
+ ;; resolves to nothing. Left unguarded it would create a bank stamped
+ ;; with that tier and bound to no tier policy at all — governed by the
+ ;; platform policies alone, which is more permissive than any tier the
+ ;; caller could have meant. The guard runs before the first write, the
+ ;; same rule `change-tier` applies.
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-create-bank-unknown-tier-001"}
+             :body {:name "Unknown Tier At Creation"
+                    :status "test"
+                    :tier "no-such-tier"
+                    :currencies ["GBP"]}}
+   :assert {:status 422 :body {:type ":bank/unknown-tier"}}}]}
