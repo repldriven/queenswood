@@ -48,12 +48,14 @@ two. Open a procedure's `## Status` with **Verified**, **Untested** or
 **Superseded**; a recipe describing a convention has none.
 
 Open a step-based Solution with `### Prerequisites`, which carries what
-is known before step 1, and export a value a step produces at that
-step. Keep a step to its instruction, its command and what the output
-should say: never explain a step inside the step, since mechanism and
-rationale are the Discussion's, which opens with a short unbolded
-summary of what was done. Use no GitHub alert type other than
-`[!WARNING]`.
+is known before step 1 and nothing a step supplies — a value a step's
+own recipe names is that step's — as one block, never one per reader.
+Say where each way into a recipe starts, in a sentence. Export a value a
+step produces at that step. Keep a step to its instruction, its command
+and what the output should say: never explain a step inside the step,
+since mechanism and rationale are the Discussion's, which opens with a
+short unbolded summary of what was done. Use no GitHub alert type other
+than `[!WARNING]`.
 
 Key a Failures entry on what the reader observes, never on its cause,
 and give no entry to a failure whose message already names it.
@@ -87,4 +89,18 @@ principle and discipline rather than a mechanical CI gate, and
 acknowledge drift in a recipe's Harder consequences; reserve the
 project's own vocabulary (`changelog relay`, `brick`,
 `interceptor`) for TDDs and recipes.
+
+Write in the fewest words that stay precise — the facts and the
+instructions, and nothing else. Never state the same fact under two
+headings, and never say the same thing twice in other words. Don't say
+that anything earns, deserves, or is worth its place; don't raise an
+objection nobody made in order to answer it ("not arbitrary",
+"deliberate rather than lax"); don't close a passage with a sentence
+that generalises what was just said and carries no fact; don't gesture
+at a thing that has a name ("what pays for it" for a billing account,
+"where its manifests live" for a repository); and don't narrate the
+writing — what the page used to say, which recipes it replaces, or how a
+section reads now. Title a section or a bold paragraph label in the
+words somebody would search for — "Known limitations", not "What is not
+yet true, and should not be assumed" — never an epigram.
 See [writing-docs](../../../docs/recipes/practices/writing-docs.md).

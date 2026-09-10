@@ -953,10 +953,14 @@ identifiers, compare the two planes field by field with `just
 crossplane-drift` -- a field only the creating plane sets is one
 late-initialisation filled there, which an adopting plane has no way to
 learn and only the composition can supply -- and prove the instances
-adopted as well as the plane before swapping:
-adoption is the whole procedure and nothing else reports whether it
-happened. Scale the old plane's Crossplane core down before its
-provider pods, and only once the successor holds the estate; never
+adopted as well as the plane before swapping, counting a `down`
+instance's stopped servers as adopted since nothing about them can
+reconcile until it is up: adoption is the whole procedure and nothing
+else reports whether it happened. Never run a command against the
+successor without checking `$NEXT` is set, since an unset one is the
+current context -- the plane in charge -- and the command succeeds there
+rather than failing. Scale the old plane's Crossplane core down before
+its provider pods, and only once the successor holds the estate; never
 delete the old composite to stop it, since its access bindings carry
 `Delete`, including the one its Crossplane authenticates with. Keep the
 cluster it replaced until the successor is trusted -- while it stands,

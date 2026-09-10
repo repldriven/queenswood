@@ -108,3 +108,6 @@ output/
 
 # Factory run output, rewritten by every run. As output/ above.
 docs/plan/gaps/
+
+# Gas City per-machine rig state, written by the factory tooling.
+.gc/
