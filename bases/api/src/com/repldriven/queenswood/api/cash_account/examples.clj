@@ -44,7 +44,7 @@
   {:value {:title "REJECTED"
            :type ":cash-account/non-zero-on-close"
            :status 409
-           :detail "Account has a non-zero balance"}})
+           :detail "Account has non-zero balance buckets"}})
 
 (def registry
   (examples-registry [#'CashAccountNotFound #'ProductNotPublished
