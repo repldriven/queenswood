@@ -1,5 +1,9 @@
-# Run all polylith project tests
+# Test the bricks changed since the last stable-* tag, docker up first.
 test: docker-start
+    clojure -M:poly test
+
+# Test every brick in every project, whatever changed. Docker up first.
+test-all: docker-start
     clojure -M:poly test :all
 
 # Parse schemathesis JUnit report; optionally filter by status class: 2xx, 4xx, 5xx (or just 2, 4, 5)

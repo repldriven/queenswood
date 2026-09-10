@@ -316,6 +316,11 @@ rule (and its source recipe/ADR, kept in sync by the
 ## Common commands
 
 ```bash
+# Run the bricks changed since the last stable-* tag (what `just test`
+# and so the Gas City lane run). With no such tag reachable the
+# comparison falls back to the initial commit and everything runs.
+clojure -M:poly test
+
 # Run the full polylith test matrix (per service project)
 clojure -M:poly test :all
 

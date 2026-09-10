@@ -337,10 +337,10 @@ jobs:
           exit "$blocked"
 
   # Polylith reports a brick as changed by comparing against the last tag
-  # matching `:stable` in workspace.edn (`stable-*`). The repo has never
-  # had one, so that comparison has no anchor and every brick reads as
-  # changed — which is why `poly test` without `:all` cannot currently be
-  # trusted to select a subset.
+  # matching `:stable` in workspace.edn (`stable-*`). Where none is
+  # reachable the comparison falls back to the initial commit, so every
+  # brick reads as changed and `poly test` selects the whole workspace —
+  # the anchor's absence over-tests rather than under-tests.
   #
   # Moving the tag to each green commit on main is what gives it meaning:
   # "changed since stable" then reads as "changed since main was last
