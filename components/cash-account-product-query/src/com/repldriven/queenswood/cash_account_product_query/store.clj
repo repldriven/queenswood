@@ -5,7 +5,7 @@
 
     [com.repldriven.mono.error.interface :as error]))
 
-;; must match bank-cash-account-product.store store-names — same FDB stores
+;; must match cash-account-product.store store-names — same FDB stores
 (def ^:private store-name "cash-account-products")
 (def ^:private templates-store-name "cash-account-product-templates")
 
