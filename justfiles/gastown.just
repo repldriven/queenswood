@@ -8,14 +8,17 @@
 # here, so the command set is versioned with the code it checks and the
 # city holds only the names.
 
-# `:force true` because a fresh agent worktree carries no `gen/` output —
-# it is gitignored, so a new worktree starts without it — while prep's
-# own staleness check can still conclude there is nothing to do and leave
-# the classpath short of the generated namespaces.
+# Delegates to `force-prep`, which is the repo's own forced codegen and
+# carries DOMAIN_ALIASES — empty today, but a hook for the bank profile that
+# a hand-copied `:aliases '[:dev]'` here would silently drop.
+#
+# Forced, because a fresh agent worktree carries no `gen/` output — it is
+# gitignored, so a new worktree starts without it — while prep's own
+# staleness check can still conclude there is nothing to do and leave the
+# classpath short of the generated namespaces.
 
 # Run protobuf and malli codegen, unconditionally.
-gastown-setup:
-    clj -X:deps prep :aliases '[:dev]' :force true
+gastown-setup: force-prep
 
 # Named separately from `test` so the lane has a stable entry point:
 # retune `test` and the factory needs no edit.
