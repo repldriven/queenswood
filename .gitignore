@@ -105,3 +105,6 @@ infra/helm/boot-management-plane/charts/*.tgz
 # Scanner output. prowler writes a run's JSON, CSV and HTML here every
 # time, and a scan result is a moment rather than a fact about the repo.
 output/
+
+# Factory run output, rewritten by every run. As output/ above.
+docs/plan/gaps/
