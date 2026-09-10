@@ -1,5 +1,19 @@
 # The commands the Gas City polecat lane runs against a work branch.
 #
+# Every one runs inside the nix devshell. clojure lives only there — it is on
+# no profile PATH — and an agent shell cannot load it on its own: there is no
+# direnv hook installed, and direnv's zsh hook fires on precmd, which the
+# non-interactive `sh -c` an agent runs never reaches.
+#
+# `nix develop` rather than `direnv exec`, because a fresh agent worktree has an
+# untrusted .envrc and direnv refuses there — exactly where the gates must run.
+# No --extra-experimental-features needed: nix-command and flakes are enabled
+# globally in /etc/nix/nix.conf.
+#
+# Without this a gate exits 127 for "clojure: command not found", and a wrapper
+# whose last statement succeeds reports that as 0. The refinery filed qw-9962
+# after concluding "main is clean 3/3" from three runs that executed no tests.
+#
 # `mol-polecat-work` rebases onto its base branch and then runs a setup,
 # lint, and test command taken from the rig's `formula_vars`. Each one
 # defaults to empty, which means skip, so a city that names none of them
@@ -18,19 +32,27 @@
 # classpath short of the generated namespaces.
 
 # Run protobuf and malli codegen, unconditionally.
-gastown-setup: force-prep
+gastown-setup:
+    nix develop . --command just force-prep
 
 # Named separately from `test` so the lane has a stable entry point:
 # retune `test` and the factory needs no edit.
 
 # Run the full suite, bringing docker up first.
-gastown-test: test
+gastown-test:
+    nix develop . --command just test
 
 # The hook sees one commit's staged files; a polecat is reviewed on the
 # whole branch, so the same checks are scoped to the branch instead.
 
 # Lint, idiom- and semgrep-check the branch's Clojure changes.
 gastown-lint base="main":
+    nix develop . --command just _gastown-lint {{ base }}
+
+# The body of gastown-lint. Split out so the recipe above can run it inside the
+# devshell; clj-kondo and semgrep are both only on the PATH in there.
+[private]
+_gastown-lint base="main":
     #!/usr/bin/env bash
     set -euo pipefail
     bash scripts/hooks/enforce-idioms.sh --branch
