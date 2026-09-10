@@ -289,24 +289,32 @@ cannot be deleted (status flip only).
 | 2100 | Customer deposits — current       | Liability | Control |
 | 2200 | Customer deposits — savings       | Liability | Control |
 | 2300 | Customer deposits — term deposits | Liability | Control |
-| 2400 | Interest payable                  | Liability | Detail  |
+| 2400 | Interest payable                  | Liability | Control |
 | 2500 | Suspense — unreconciled inbound   | Liability | Detail  |
 | 3100 | Bank own funds                    | Equity    | Control |
+| 5100 | Interest expense                  | Expense   | Detail  |
 
 Normal side follows from type per the convention table above
 (A and E are debit-normal; L, Eq, I are credit-normal).
 
-The four control accounts each aggregate a cohort of
-sub-ledger cash-accounts: 2100 / 2200 / 2300 hold the customer
-current / savings / term-deposit deposits, and **3100 holds
-the bank's own funds** (the own-funds cash account the bank
-funds and pays customers from). Cash-accounts of the
-corresponding product type roll up to their control.
+The control accounts each aggregate a cohort of sub-ledger
+buckets. 2100 / 2200 / 2300 hold the customer current /
+savings / term-deposit deposits, and **3100 holds the bank's
+own funds** (the own-funds cash account the bank funds and
+pays customers from) — for these three, cash-accounts of the
+corresponding product type roll up to their control. **2400
+holds what the bank owes customers in interest**, and rolls up
+the customers' `interest-accrued` buckets rather than a
+product type: an accrued leg on a savings account reconciles
+to 2400, not to the savings deposit control.
+
+5100 interest expense is the debit leg of the accrual whose
+credit leg is 2400 — a detail account, since nothing rolls up
+into it.
 
 Accounts the chart will grow when those flows land — fee
-income (4xxx), interest expense (5xxx), retained earnings,
-accrued fees receivable — are not seeded today; a bank adds
-them as it needs them.
+income (4xxx), retained earnings, accrued fees receivable —
+are not seeded today; a bank adds them as it needs them.
 
 `1100 — Cash at correspondent` is the bank's own settlement
 account at its clearing rail — the ISO 20022
@@ -372,7 +380,9 @@ pending lifecycle; its available balance is just its posted
 default.
 
 **GL control accounts (2100 / 2200 / 2300 / 3100)** mirror the
-sub-ledger's *default* movements only:
+sub-ledger's *default* movements only. 2400 is a control too,
+but it takes its movements in aggregate rather than by
+mirroring — see below:
 
 | Balance type | Statuses                                            |
 |--------------|-----------------------------------------------------|
@@ -395,7 +405,7 @@ read-modify-write the same control rows, which is contention
 no account key can spread. See
 [interest.md](interest.md).
 
-**GL detail accounts** (1100, 1200, 2400, 2500) carry one
+**GL detail accounts** (1100, 1200, 2500, 5100) carry one
 bucket each:
 
 | Balance type | Statuses |
