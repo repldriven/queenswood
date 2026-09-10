@@ -395,6 +395,8 @@ the legs need to find the right buckets.
   derivation; active-only opens)
 - [cash-account-products.md](cash-account-products.md) —
   Cash account products (the version pinned at open time)
+- [cash-account-migration.md](cash-account-migration.md) —
+  Cash account migration (what moves an opened account's pin)
 - [transactions-and-balances.md](transactions-and-balances.md)
   — Transactions and balances (balance buckets created at
   open time; the legs that affect them)
