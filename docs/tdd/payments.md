@@ -343,7 +343,11 @@ bank is resolved from the BBAN's sort code
 (`bank/get-bank-by-sort-code`, per-bank sort codes), and the
 funds are parked in that bank's `2500` suspense GL account
 (DEBIT `1100` / CREDIT `2500`) with a `suspended` InboundPayment
-(no creditor) recorded for later reconciliation. A sort code
+(no creditor) recorded for later reconciliation. A BBAN that
+does resolve, to an account that is not
+`:cash-account-status-opened`, parks the same way, because
+the credit cannot land on it and the receipt must not be
+lost. A sort code
 that matches no bank is genuinely foreign and fails (we only
 receive inbounds for sort codes we own). Resolving a suspended
 inbound — matching it to an account, or returning it — is a
