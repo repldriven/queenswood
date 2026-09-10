@@ -1,0 +1,78 @@
+{:name "An Idempotency-Key on open-draft doesn't claim the key for a create"
+ :tags #{:api :cash-account-products :idempotency :lifecycle}
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-open-draft-key-bank-001"}
+             :body {:name "Open Draft Key Test Org"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :org-0
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :org-0 :client-id]
+         :client-secret [:ref :org-0 :client-secret]
+         :status :live}
+   :as :org-0-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-open-draft-key-prod-001"}
+             :body {:name "v1"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-01-01"}}
+   :as :v1
+   :assert {:status 201 :body {:status "draft" :version-number 1}}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :v1 :product-id]
+                  :version-id [:ref :v1 :version-id]}
+    :auth :org-0-token}
+   :assert {:status 200 :body {:status "published"}}}]
+ :when
+ ;; open-draft carries a key. Only create-product reads one, so the
+ ;; draft is minted without claiming it.
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products/{product-id}/versions"
+             :path-params {:product-id [:ref :v1 :product-id]}
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-open-draft-key-shared-001"}
+             :body {:name "v2"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-06-01"}}
+   :as :v2
+   :assert {:status 201
+            :body {:product-id [:ref :v1 :product-id]
+                   :version-number 2
+                   :status "draft"}}}
+  ;; The same key on a create still mints a new product rather than
+  ;; replaying the draft above. Savings, because the micro per-type cap
+  ;; allows one current product per bank.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-open-draft-key-shared-001"}
+             :body {:name "Savings Account"
+                    :template-id "tpl.00000000000000000000000002"
+                    :currency "GBP"
+                    :interest-rate-bps 250
+                    :effective-from "2026-01-01"}}
+   :as :product-1
+   :assert {:status 201
+            :body {:product-id [:m/mismatch
+                                [:m/equals [:ref :v1 :product-id]]]
+                   :version-number 1
+                   :status "draft"
+                   :product-type "savings"}}}]}

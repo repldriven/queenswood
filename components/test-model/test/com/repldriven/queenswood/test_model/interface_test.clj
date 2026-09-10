@@ -11,6 +11,17 @@
   (let [spec (get SUT/model command)]
     ((:next-state spec) state {:args args})))
 
+(defn- version
+  "The version map every product verb's payload produces, so a test
+  asserts on status and number without restating the currency and
+  effective window each one carries."
+  [status number]
+  {:status status
+   :number number
+   :currency "GBP"
+   :effective-from 20089
+   :effective-to nil})
+
 (deftest create-bank-test
   (testing
     "create-bank allocates a bank, settlement product, org-party, and settlement account"
@@ -26,8 +37,7 @@
       (is (= [:acct-0] (get-in s [:banks :bank-0 :accounts])))
       (is (= [:prod-0] (get-in s [:banks :bank-0 :products])))
       (is (= [:party-0] (get-in s [:banks :bank-0 :parties])))
-      (is (= [{:status :published :number 1}]
-             (get-in s [:products :prod-0 :versions])))
+      (is (= [(version :published 1)] (get-in s [:products :prod-0 :versions])))
       (is (= :active (get-in s [:parties :party-0 :status])))
       (is (= :organization (get-in s [:parties :party-0 :type])))
       (is (= 1 (:next-id s)))
@@ -54,8 +64,7 @@
       (let [s1 (step s0 :create-product [:bank-0 :current 0])]
         (is (= 1 (:next-product-id s0))
             "prod-0 was already taken by the auto settlement product")
-        (is (= [{:status :draft :number 1}]
-               (get-in s1 [:products :prod-1 :versions])))
+        (is (= [(version :draft 1)] (get-in s1 [:products :prod-1 :versions])))
         (is (= :bank-0 (get-in s1 [:products :prod-1 :bank])))
         (is (= :current (get-in s1 [:products :prod-1 :product-type])))
         (is (= [:prod-0 :prod-1] (get-in s1 [:banks :bank-0 :products])))))
@@ -67,28 +76,52 @@
       (let [s2 (-> s0
                    (step :create-product [:bank-0 :current 0])
                    (step :publish-product [:prod-1]))]
-        (is (= [{:status :published :number 1}]
+        (is (= [(version :published 1)]
                (get-in s2 [:products :prod-1 :versions])))))
     (testing "open-draft after publish appends v2 in :draft"
       (let [s5 (-> s0
                    (step :create-product [:bank-0 :current 0])
                    (step :publish-product [:prod-1])
                    (step :open-draft [:prod-1]))]
-        (is (= [{:status :published :number 1} {:status :draft :number 2}]
+        (is (= [(version :published 1) (version :draft 2)]
                (get-in s5 [:products :prod-1 :versions])))))
     (testing "discard-draft flips the latest draft to discarded"
       (let [s6 (-> s0
                    (step :create-product [:bank-0 :current 0])
                    (step :discard-draft [:prod-1]))]
-        (is (= [{:status :discarded :number 1}]
+        (is (= [(version :discarded 1)]
                (get-in s6 [:products :prod-1 :versions])))))
     (testing "open-draft after discard appends v2 in :draft"
       (let [s7 (-> s0
                    (step :create-product [:bank-0 :current 0])
                    (step :discard-draft [:prod-1])
                    (step :open-draft [:prod-1]))]
-        (is (= [{:status :discarded :number 1} {:status :draft :number 2}]
-               (get-in s7 [:products :prod-1 :versions])))))))
+        (is (= [(version :discarded 1) (version :draft 2)]
+               (get-in s7 [:products :prod-1 :versions])))))
+    (testing "update-product-draft rewrites the latest version's window"
+      (let [s8 (-> s0
+                   (step :create-product [:bank-0 :current 0])
+                   (step :update-product-draft
+                         [:prod-1
+                          {:effective-from 20454 :effective-to 21184}]))]
+        (is (= [(assoc (version :draft 1)
+                       :effective-from 20454
+                       :effective-to 21184)]
+               (get-in s8 [:products :prod-1 :versions])))))
+    (testing "update-product-draft on a published version is a no-op"
+      (let [s9 (-> s0
+                   (step :create-product [:bank-0 :current 0])
+                   (step :publish-product [:prod-1])
+                   (step :update-product-draft
+                         [:prod-1
+                          {:effective-from 20454 :effective-to 21184}]))]
+        (is (= [(version :published 1)]
+               (get-in s9 [:products :prod-1 :versions])))))
+    (testing "update-product-draft on an unknown product is a no-op"
+      (let [s10 (step s0
+                      :update-product-draft
+                      [:prod-9 {:effective-from 20454 :effective-to nil}])]
+        (is (= s0 s10))))))
 
 (deftest inbound-transfer-test
   (let [s (-> SUT/init-state

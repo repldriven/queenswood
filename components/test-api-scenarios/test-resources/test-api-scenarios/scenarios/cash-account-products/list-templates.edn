@@ -1,0 +1,43 @@
+{:name "The template menu lists the customer templates and not the internal one"
+ :tags #{:api :cash-account-products :happy}
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-list-templates-bank-001"}
+             :body {:name "List Templates Test Org"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :org-0
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :org-0 :client-id]
+         :client-secret [:ref :org-0 :client-secret]
+         :status :live}
+   :as :org-0-token}]
+ :when
+ ;; A vector in expected position matches on length and order, so the
+ ;; three customer templates sorted by product-type is also the
+ ;; assertion that own-funds (tpl.…04, `internal: true`) is absent.
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/cash-account-product-templates"
+             :auth :org-0-token}
+   :assert {:status 200
+            :body {:items [{:template-id "tpl.00000000000000000000000001"
+                            :name "Current account"
+                            :product-type "current"
+                            :balance-sheet-side "liability"
+                            :allowed-currencies ["GBP"]}
+                           {:template-id "tpl.00000000000000000000000002"
+                            :name "Savings account"
+                            :product-type "savings"
+                            :balance-sheet-side "liability"
+                            :allowed-currencies ["GBP"]}
+                           {:template-id "tpl.00000000000000000000000003"
+                            :name "Term deposit"
+                            :product-type "term-deposit"
+                            :balance-sheet-side "liability"
+                            :allowed-currencies ["GBP"]}]}}}]}

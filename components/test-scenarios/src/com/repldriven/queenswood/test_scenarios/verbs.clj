@@ -114,19 +114,27 @@
    :product-type-sub-ledger-term-deposit "tpl.00000000000000000000000003"
    :product-type-sub-ledger-own-funds "tpl.00000000000000000000000004"})
 
-(defn- product-payload
-  "Build a flat product input for new-product/update-draft, optionally
-  merging caller-supplied extras such as :interest-rate-bps. The
-  `product-type` kind selects the seeded template by id."
-  [product-name product-type & [extras]]
-  (merge {:name product-name
+(defn- version-payload
+  "Build a flat version input for open-draft/update-draft, optionally
+  merging caller-supplied extras such as :interest-rate-bps. Names no
+  template: a version inherits its product's, and naming a different
+  one is rejected."
+  [version-name & [extras]]
+  (merge {:name version-name
           :currency "GBP"
-          :template-id (product-type->template-id product-type)
           ;; A fixed past effective-from (epoch-day 20089 = 2025-01-01)
           ;; so the published version is always active when accounts
           ;; open during the run.
           :effective-from 20089}
          (or extras {})))
+
+(defn- product-payload
+  "Build a flat product input for new-product. The `product-type` kind
+  selects the seeded template by id, which only a create names."
+  [product-name product-type & [extras]]
+  (assoc (version-payload product-name extras)
+         :template-id
+         (product-type->template-id product-type)))
 
 (defmulti dispatch (fn [_ctx command] (:command command)))
 
@@ -310,9 +318,8 @@
         result (products/open-draft bank
                                     bank-real-id
                                     real-id
-                                    (product-payload
-                                     (str "Draft Version " next-number)
-                                     :product-type-sub-ledger-current))]
+                                    (version-payload (str "Draft Version "
+                                                          next-number)))]
     (-> ctx
         (cond-> (not (error/anomaly? result))
                 (update-in [:products model-prod :versions]
@@ -1016,15 +1023,41 @@
         (track result))))
 
 (defmethod dispatch :update-product-draft
-  [{:keys [bank banks products] :as ctx}
-   {[model-bank product-ref version-id data] :args :or {data {}}}]
-  (let [bank-real-id (get-in banks [model-bank :real-id])
-        product-id (resolve-product-id products product-ref)
-        result
-        (products/update-draft bank bank-real-id product-id version-id data)]
-    (-> ctx
-        (update :counter inc)
-        (track result))))
+  [{:keys [bank banks products] :as ctx} {args :args}]
+  (case (count args)
+    ;; Model-driven: rewrite the tracked latest version of `model-prod`.
+    2 (let [[model-prod data] args
+            product (get products model-prod)
+            {model-bank :bank :keys [real-id]} product
+            {version-real-id :real-id :keys [number]} (latest-version product)
+            bank-real-id (get-in banks [model-bank :real-id])
+            result (products/update-draft
+                    bank
+                    bank-real-id
+                    real-id
+                    version-real-id
+                    (version-payload (str "Updated Version " number) data))]
+        (-> ctx
+            (cond-> (not (error/anomaly? result))
+                    (update-latest-version
+                     model-prod
+                     (fn [v]
+                       (assoc v
+                              :effective-from (:effective-from result)
+                              :effective-to (:effective-to result)))))
+            (update :counter inc)
+            (track result)))
+    (let [[model-bank product-ref version-id data] args
+          bank-real-id (get-in banks [model-bank :real-id])
+          product-id (resolve-product-id products product-ref)
+          result (products/update-draft bank
+                                        bank-real-id
+                                        product-id
+                                        version-id
+                                        (or data {}))]
+      (-> ctx
+          (update :counter inc)
+          (track result)))))
 
 (defmethod dispatch :assert-balance
   [{:keys [bank banks accounts id-mapping] :as ctx} {[model-id expected] :args}]

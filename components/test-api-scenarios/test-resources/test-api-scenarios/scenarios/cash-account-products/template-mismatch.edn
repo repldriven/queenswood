@@ -1,0 +1,105 @@
+{:name "A version may not name a template other than its product's"
+ :tags #{:api :cash-account-products :lifecycle :unhappy}
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-template-mismatch-bank-001"}
+             :body {:name "Template Mismatch Test Org"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :org-0
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :org-0 :client-id]
+         :client-secret [:ref :org-0 :client-secret]
+         :status :live}
+   :as :org-0-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-template-mismatch-prod-001"}
+             :body {:name "v1"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-01-01"}}
+   :as :v1
+   :assert {:status 201
+            :body {:status "draft" :template-id
+                   "tpl.00000000000000000000000001"}}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :v1 :product-id]
+                  :version-id [:ref :v1 :version-id]}
+    :auth :org-0-token}
+   :assert {:status 200 :body {:status "published"}}}]
+ :when
+ ;; Open-draft naming the savings template on a product created from
+ ;; the current one. Checked before the no-existing-draft rule, and
+ ;; run first so no draft exists to confuse the two.
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products/{product-id}/versions"
+             :path-params {:product-id [:ref :v1 :product-id]}
+             :auth :org-0-token
+             :body {:name "v2 wrong template"
+                    :template-id "tpl.00000000000000000000000002"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-06-01"}}
+   :assert {:status 422
+            :problem {:type ":cash-account-product/template-mismatch"}}}
+  ;; The absent case: naming no template inherits the product's, which
+  ;; the new version re-snapshots.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products/{product-id}/versions"
+             :path-params {:product-id [:ref :v1 :product-id]}
+             :auth :org-0-token
+             :body {:name "v2"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-06-01"}}
+   :as :v2
+   :assert {:status 201
+            :body {:version-number 2
+                   :status "draft"
+                   :template-id "tpl.00000000000000000000000001"
+                   :product-type "current"}}}
+  ;; The same pair on update-draft.
+  {:command :api/request
+   :request {:method :put
+             :path
+             "/v1/cash-account-products/{product-id}/versions/{version-id}"
+             :path-params {:product-id [:ref :v1 :product-id]
+                           :version-id [:ref :v2 :version-id]}
+             :auth :org-0-token
+             :body {:name "v2 renamed"
+                    :template-id "tpl.00000000000000000000000003"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-06-01"}}
+   :assert {:status 422
+            :problem {:type ":cash-account-product/template-mismatch"}}}
+  {:command :api/request
+   :request {:method :put
+             :path
+             "/v1/cash-account-products/{product-id}/versions/{version-id}"
+             :path-params {:product-id [:ref :v1 :product-id]
+                           :version-id [:ref :v2 :version-id]}
+             :auth :org-0-token
+             :body {:name "v2 renamed"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-06-01"}}
+   :assert {:status 200
+            :body {:version-id [:ref :v2 :version-id]
+                   :status "draft"
+                   :name "v2 renamed"
+                   :template-id "tpl.00000000000000000000000001"}}}]}

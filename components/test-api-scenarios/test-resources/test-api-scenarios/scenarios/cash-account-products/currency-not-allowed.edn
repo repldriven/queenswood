@@ -1,0 +1,53 @@
+{:name "A currency the product's template doesn't allow is rejected"
+ :tags #{:api :cash-account-products :unhappy}
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-currency-not-allowed-bank-001"}
+             :body {:name "Currency Not Allowed Test Org"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["EUR" "GBP"]}}
+   :as :org-0
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :org-0 :client-id]
+         :client-secret [:ref :org-0 :client-secret]
+         :status :live}
+   :as :org-0-token}]
+ :when
+ ;; The savings template allows GBP alone, and the bank declaring EUR
+ ;; doesn't widen it — the template is what refuses.
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-currency-not-allowed-prod-001"}
+             :body {:name "Savings EUR"
+                    :template-id "tpl.00000000000000000000000002"
+                    :currency "EUR"
+                    :interest-rate-bps 250
+                    :effective-from "2026-01-01"}}
+   :assert {:status 422
+            :problem {:type ":cash-account-product/currency-not-allowed"}}}
+  ;; The control, and the reason it runs second: the rejection above
+  ;; created no product, so this one is still the bank's first savings
+  ;; product and clears the micro per-type cap. Run first, it would
+  ;; take that slot and the EUR request would trip the cap — which is
+  ;; checked before the currency — instead.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-currency-not-allowed-prod-002"}
+             :body {:name "Savings GBP"
+                    :template-id "tpl.00000000000000000000000002"
+                    :currency "GBP"
+                    :interest-rate-bps 250
+                    :effective-from "2026-01-01"}}
+   :assert {:status 201
+            :body {:status "draft"
+                   :product-type "savings"
+                   :allowed-currencies ["GBP"]}}}]}

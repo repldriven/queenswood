@@ -1,0 +1,219 @@
+{:name "Account opening pins to the version effective today"
+ :tags #{:api :cash-account-products :cash-accounts :lifecycle}
+ ;; Three products, one per type because the micro tier caps products
+ ;; at one per type, each carrying two published versions that put the
+ ;; window resolver under a different case. One party serves all three
+ ;; — the IDV cascade is the expensive part of the setup.
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-effective-dating-bank-001"}
+             :body {:name "Effective Dating Test Org"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :org-0
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :org-0 :client-id]
+         :client-secret [:ref :org-0 :client-secret]
+         :status :live}
+   :as :org-0-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-effective-dating-party-001"}
+             :body {:type "person"
+                    :display-name "Trillian Astra"
+                    :given-name "Trillian"
+                    :family-name "Astra"
+                    :date-of-birth "1975-03-14"
+                    :nationality "GB"
+                    :address {:building-number "42"
+                              :street "Hitchhiker Way"
+                              :town "Cottington"
+                              :postcode "CT12 4XY"
+                              :country "GBR"}
+                    :national-identifier {:type "national-insurance"
+                                          :value "TN000042A"
+                                          :issuing-country "GB"}}}
+   :as :party-0
+   :assert {:status 200 :body {:status "pending"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}"
+             :path-params {:party-id [:ref :party-0 :party-id]}
+             :auth :org-0-token}
+   :until {:status 200 :body {:status "active"}}}
+
+  ;; --- Current: a live version and a future-dated successor ---------
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-effective-dating-current-001"}
+             :body {:name "Current v1"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2020-01-01"}}
+   :as :cur-v1
+   :assert {:status 201 :body {:version-number 1}}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :cur-v1 :product-id]
+                  :version-id [:ref :cur-v1 :version-id]}
+    :auth :org-0-token}
+   :assert {:status 200 :body {:status "published"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products/{product-id}/versions"
+             :path-params {:product-id [:ref :cur-v1 :product-id]}
+             :auth :org-0-token
+             :body {:name "Current v2"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2099-01-01"}}
+   :as :cur-v2
+   :assert {:status 201 :body {:version-number 2}}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :cur-v1 :product-id]
+                  :version-id [:ref :cur-v2 :version-id]}
+    :auth :org-0-token}
+   :assert {:status 200 :body {:status "published"}}}
+
+  ;; --- Savings: an expired version and its live successor -----------
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-effective-dating-savings-001"}
+             :body {:name "Savings v1"
+                    :template-id "tpl.00000000000000000000000002"
+                    :currency "GBP"
+                    :interest-rate-bps 250
+                    :effective-from "2020-01-01"
+                    :effective-to "2021-01-01"}}
+   :as :sav-v1
+   :assert {:status 201 :body {:version-number 1}}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :sav-v1 :product-id]
+                  :version-id [:ref :sav-v1 :version-id]}
+    :auth :org-0-token}
+   :assert {:status 200 :body {:status "published"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products/{product-id}/versions"
+             :path-params {:product-id [:ref :sav-v1 :product-id]}
+             :auth :org-0-token
+             :body {:name "Savings v2"
+                    :currency "GBP"
+                    :interest-rate-bps 250
+                    :effective-from "2021-01-01"}}
+   :as :sav-v2
+   :assert {:status 201 :body {:version-number 2}}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :sav-v1 :product-id]
+                  :version-id [:ref :sav-v2 :version-id]}
+    :auth :org-0-token}
+   :assert {:status 200 :body {:status "published"}}}
+
+  ;; --- Term deposit: two live versions with overlapping windows -----
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-effective-dating-term-001"}
+             :body {:name "Term v1"
+                    :template-id "tpl.00000000000000000000000003"
+                    :currency "GBP"
+                    :interest-rate-bps 100
+                    :effective-from "2020-01-01"
+                    :effective-to "2099-01-01"}}
+   :as :td-v1
+   :assert {:status 201 :body {:version-number 1}}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :td-v1 :product-id]
+                  :version-id [:ref :td-v1 :version-id]}
+    :auth :org-0-token}
+   :assert {:status 200 :body {:status "published"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products/{product-id}/versions"
+             :path-params {:product-id [:ref :td-v1 :product-id]}
+             :auth :org-0-token
+             :body {:name "Term v2"
+                    :currency "GBP"
+                    :interest-rate-bps 100
+                    :effective-from "2024-01-01"
+                    :effective-to "2099-01-01"}}
+   :as :td-v2
+   :assert {:status 201 :body {:version-number 2}}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :td-v1 :product-id]
+                  :version-id [:ref :td-v2 :version-id]}
+    :auth :org-0-token}
+   :assert {:status 200 :body {:status "published"}}}]
+ :when
+ ;; v2 opens in 2099, so today still resolves to v1.
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-effective-dating-open-current"}
+             :body {:party-id [:ref :party-0 :party-id]
+                    :name "Current GBP"
+                    :currency "GBP"
+                    :product-id [:ref :cur-v1 :product-id]}}
+   :assert {:status 200
+            :body {:product-id [:ref :cur-v1 :product-id]
+                   :version-id [:ref :cur-v1 :version-id]
+                   :product-type "current"}}}
+  ;; v1's window closed in 2021, so the open falls to v2.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-effective-dating-open-savings"}
+             :body {:party-id [:ref :party-0 :party-id]
+                    :name "Savings GBP"
+                    :currency "GBP"
+                    :product-id [:ref :sav-v1 :product-id]}}
+   :assert {:status 200
+            :body {:product-id [:ref :sav-v1 :product-id]
+                   :version-id [:ref :sav-v2 :version-id]
+                   :product-type "savings"}}}
+  ;; Both windows contain today, so the greatest effective-from wins.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-effective-dating-open-term"}
+             :body {:party-id [:ref :party-0 :party-id]
+                    :name "Term GBP"
+                    :currency "GBP"
+                    :product-id [:ref :td-v1 :product-id]}}
+   :assert {:status 200
+            :body {:product-id [:ref :td-v1 :product-id]
+                   :version-id [:ref :td-v2 :version-id]
+                   :product-type "term-deposit"}}}]}
