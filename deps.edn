@@ -81,6 +81,8 @@
                        "components/cash-account-product/test"
                        "components/cash-account-product/test-resources"
                        "components/cash-account-product-query/test"
+                       "components/cash-account-query/test"
+                       "components/cash-account-query/test-resources"
                        "components/cash-account/test"
                        "components/cash-account/test-resources"
                        "components/company/test"
