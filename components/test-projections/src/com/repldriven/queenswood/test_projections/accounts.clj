@@ -11,9 +11,6 @@
   (case status
     :cash-account-status-opening :open
     :cash-account-status-opened :open
-    ;; The model has no suspended state and the balance is still owed,
-    ;; so suspension reads as open rather than as a state of its own.
-    :cash-account-status-suspended :open
     :cash-account-status-closing :closed
     :cash-account-status-closed :closed
     ;; A status nobody mapped surfaces as an equality failure naming it,

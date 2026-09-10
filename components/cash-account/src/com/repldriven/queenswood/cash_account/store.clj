@@ -22,7 +22,7 @@
      (let [store (fdb/open txn store-name)]
        (let-nom>
          [_ (fdb/save-record store (schema/CashAccount->java account))
-          entry (changelog/status-changed
+          entry (changelog/account-changed
                  (assoc changelog
                         :bank-id (:bank-id account)
                         :updated-at (:updated-at account)))

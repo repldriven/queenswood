@@ -1,9 +1,7 @@
 {:name "Opening a cash account against an unknown product is rejected"
  :tags #{:api :cash-accounts :lifecycle :unhappy}
- ;; The product read runs before the account brick's own check, so the
- ;; kind carries the product brick's namespace. REQ-003 asks for
- ;; `:cash-account/product-not-found`; the status and the detail are
- ;; already what it asks for.
+ ;; The product read itself refuses an unknown id, so the kind carries
+ ;; the product brick's namespace.
  :given
  [{:command :api/request
    :request {:method :post

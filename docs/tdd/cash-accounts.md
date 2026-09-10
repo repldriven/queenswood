@@ -250,11 +250,12 @@ is a later operational workflow described in
 1. Resolve effective policies for the bank.
 2. Load the **party**. Absent, it is `:party/not-found`
    (404).
-3. Load the **product**. `get-product` answers for any id
-   with an aggregate rather than nil, so an empty
-   `:versions` is the only evidence that no such product
-   exists: `:cash-account/product-not-found` (404),
-   carrying the product id.
+3. Load the **product**. `get-product` itself refuses an
+   unknown id with
+   `:cash-account-product/product-not-found` (404),
+   carrying the bank id and the product id. The read
+   short-circuits, so the account brick never sees an
+   empty aggregate.
 4. **Resolve the version** effective today — of the
    published versions whose
    `[effective-from, effective-to)` window contains today,

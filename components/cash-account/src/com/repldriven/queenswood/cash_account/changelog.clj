@@ -19,12 +19,12 @@
           (slurp (io/resource
                   "schemas/cash-accounts/account-status-changed.avsc.json")))))
 
-(defn status-changed
+(defn account-changed
   "Build the shared-envelope changelog bytes for a cash-account write.
   `changelog` carries `:bank-id`, `:account-id`, `:status-before`,
   `:status-after`, `:change-kind` and `:updated-at`; `store.clj` supplies
-  the last two of those off the saved record, so a caller passes only the
-  kind.
+  `:bank-id` and `:updated-at` off the saved record, and the caller
+  passes the kind.
 
   A missing `:change-kind` is an error anomaly rather than a null in the
   payload: a migration and a rotation both leave the status alone, so the

@@ -83,7 +83,7 @@
     "a status transition serialises as a ChangelogEvent the
            generic relay can decode without knowing this domain"
     (nom-test> [bytes
-                (changelog/status-changed
+                (changelog/account-changed
                  (entry "acc.events.2" :cash-account-change-kind-open 1000))
                 decoded (schema/pb->ChangelogEvent bytes)
                 _ (is (= "cash-account-status-changed" (:event-name decoded)))
@@ -102,11 +102,11 @@
   (testing
     "the kind and the saved record's :updated-at are what separate
            two rotations of one account, which leave the status alone"
-    (nom-test> [first-bytes (changelog/status-changed
+    (nom-test> [first-bytes (changelog/account-changed
                              (entry "acc.events.3"
                                     :cash-account-change-kind-rotate-address
                                     1000))
-                second-bytes (changelog/status-changed
+                second-bytes (changelog/account-changed
                               (entry "acc.events.3"
                                      :cash-account-change-kind-rotate-address
                                      2000))
@@ -118,12 +118,12 @@
                     first-key))
                 _ (is (not= first-key second-key))]))
   (testing "a rotation and a migration of one account differ by kind"
-    (nom-test> [rotated (changelog/status-changed
+    (nom-test> [rotated (changelog/account-changed
                          (entry "acc.events.4"
                                 :cash-account-change-kind-rotate-address
                                 1000))
                 migrated
-                (changelog/status-changed
+                (changelog/account-changed
                  (entry "acc.events.4" :cash-account-change-kind-migrate 1000))
                 _ (is (not= (:dedup-key (schema/pb->ChangelogEvent rotated))
                             (:dedup-key (schema/pb->ChangelogEvent migrated))))])))
@@ -132,7 +132,7 @@
   (testing
     "a caller that omits the kind gets an error anomaly, so the
            save fails rather than writing a null a consumer cannot read"
-    (let [result (changelog/status-changed
+    (let [result (changelog/account-changed
                   (dissoc (entry "acc.events.5" nil 1000) :change-kind))]
       (is (error/error? result))
       (is (= :cash-account/changelog (error/kind result))))))

@@ -109,16 +109,6 @@
                      :party-id (:party-id party)
                      :status status}))))
 
-(defn ensure-product-exists
-  "Reject an unknown product id. `get-product` answers for any id with
-  an aggregate rather than nil or a rejection, so an empty `:versions`
-  is the only evidence that no such product exists."
-  [product]
-  (when (empty? (:versions product))
-    (error/reject :cash-account/product-not-found
-                  {:message "Product not found"
-                   :product-id (:product-id product)})))
-
 (defn open-account
   "Build a cash-account record from input data and a published product
   version: derives account-type from the holder party, runs the open
@@ -134,8 +124,7 @@
            (error/reject :cash-account/product-not-published
                          {:message (str "No product version published for "
                                         product-id
-                                        " effective on epoch day "
-                                        as-of)
+                                        " effective today")
                           :product-id product-id
                           :as-of as-of}))
        _ (when (nil? sort-code)

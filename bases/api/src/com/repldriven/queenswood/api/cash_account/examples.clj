@@ -14,7 +14,7 @@
            :status 422
            :detail (str "No product version published for "
                         "prd.01kprbmgcj35ptc8npmybhh4se"
-                        " effective on epoch day 20468")}})
+                        " effective today")}})
 
 (def InvalidCurrency
   {:value {:title "REJECTED"
@@ -30,7 +30,7 @@
 
 (def ProductNotFound
   {:value {:title "REJECTED"
-           :type ":cash-account/product-not-found"
+           :type ":cash-account-product/product-not-found"
            :status 404
            :detail "Product not found"}})
 

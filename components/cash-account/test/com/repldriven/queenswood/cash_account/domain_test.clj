@@ -4,9 +4,9 @@
   processor — this pins the lifecycle-transition convention
   (docs/recipes/code/lifecycle-transitions.md): reject before any
   capability/limit check when the account isn't in a valid source
-  state. The opening guards — the unknown product, the unpublished
-  version, the currency and the party status — are the rejection
-  paths the open-cash-account command surfaces."
+  state. The opening guards — the unpublished version, the currency
+  and the party status — are the rejection paths the open-cash-account
+  command surfaces."
   (:require
     [com.repldriven.queenswood.cash-account.domain :as SUT]
 
@@ -58,17 +58,6 @@
                     (constantly "12345678")
                     nil
                     []))
-
-(deftest ensure-product-exists-test
-  (testing "an aggregate carrying versions is a product that exists"
-    (is (nil? (SUT/ensure-product-exists
-               {:product-id "prd.001" :versions [{:version-id "prv.001"}]}))))
-  (testing "an aggregate with no versions is an unknown product"
-    (let [result (SUT/ensure-product-exists {:product-id "prd.001"
-                                             :versions []})]
-      (is (error/rejection? result))
-      (is (= :cash-account/product-not-found (error/kind result)))
-      (is (= "prd.001" (:product-id (error/payload result)))))))
 
 (deftest open-account-no-published-version-test
   (testing

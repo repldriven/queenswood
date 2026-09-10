@@ -74,7 +74,6 @@
            [policies (get-policies txn bank-id opts)
             party (parties/get-party txn bank-id party-id)
             product (products/get-product txn bank-id product-id)
-            _ (domain/ensure-product-exists product)
             product-version (products/active-version product today)
             aggregates (when product-version
                          (counts txn
@@ -125,6 +124,15 @@
                                   :cash-account-change-kind-close})]
           updated))))))
 
+(def ^:private second-leg
+  "The source statuses that have a second leg, each mapped to the
+  domain fn that completes it and the change kind the write records.
+  A new two-phase transition is one entry here."
+  {:cash-account-status-opening [domain/opened-account
+                                 :cash-account-change-kind-open]
+   :cash-account-status-closing [domain/closed-account
+                                 :cash-account-change-kind-close]})
+
 (defn complete-status-transition
   "Second leg of the two-step open and close: `opening` becomes
   `opened`, `closing` becomes `closed`.
@@ -134,34 +142,21 @@
   replay must be a no-op here, not a rejection — the transition having
   already happened is the normal case, not an error."
   [txn bank-id account-id status-after]
-  (when (#{:cash-account-status-opening :cash-account-status-closing}
-         status-after)
+  (when-let [[transition-fn change-kind] (get second-leg status-after)]
     (store/transact
      txn
      (fn [txn]
        (let-nom>
          [account (q/find-account txn bank-id account-id)]
          (when (and account (= status-after (:account-status account)))
-           (let [transitioned
-                 (case status-after
-                   :cash-account-status-opening
-                   (domain/opened-account account)
-
-                   :cash-account-status-closing
-                   (domain/closed-account account))]
+           (let [transitioned (transition-fn account)]
              (store/save-account txn
                                  transitioned
                                  {:account-id account-id
                                   :status-before status-after
                                   :status-after (:account-status
                                                  transitioned)
-                                  :change-kind
-                                  (case status-after
-                                    :cash-account-status-opening
-                                    :cash-account-change-kind-open
-
-                                    :cash-account-status-closing
-                                    :cash-account-change-kind-close)}))))))))
+                                  :change-kind change-kind}))))))))
 
 (defn suspend-account
   ([txn data]
