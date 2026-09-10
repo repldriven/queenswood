@@ -33,6 +33,15 @@
    [:effective-from [:ref "BusinessDay"]]
    [:effective-to {:optional true} [:maybe [:ref "BusinessDay"]]]])
 
+(def CashAccountProductDraftRequest
+  [:map {:closed true :json-schema/example examples/CashAccountProductRequest}
+   [:name [:ref "Name"]]
+   [:template-id {:optional true} [:ref "TemplateId"]]
+   [:currency [:ref "Currency"]]
+   [:interest-rate-bps {:optional true} [:ref "SignedBasisPoints"]]
+   [:effective-from [:ref "BusinessDay"]]
+   [:effective-to {:optional true} [:maybe [:ref "BusinessDay"]]]])
+
 (def CashAccountProductVersion
   [:map {:json-schema/example examples/CashAccountProductVersion}
    [:bank-id [:ref "BankId"]]
@@ -89,6 +98,6 @@
   (components-registry
    [#'ProductId #'VersionId #'TemplateId #'ProductType #'BalanceSheetSide
     #'PaymentAddressScheme #'VersionStatus #'CashAccountProductRequest
-    #'CashAccountProductVersion #'CashAccountProduct
-    #'CashAccountProductListLinks #'CashAccountProductList
+    #'CashAccountProductDraftRequest #'CashAccountProductVersion
+    #'CashAccountProduct #'CashAccountProductListLinks #'CashAccountProductList
     #'CashAccountProductTemplate #'CashAccountProductTemplateList]))
