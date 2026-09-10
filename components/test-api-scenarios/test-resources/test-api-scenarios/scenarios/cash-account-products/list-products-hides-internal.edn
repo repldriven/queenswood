@@ -1,0 +1,44 @@
+{:name "The product listing excludes the bank's own-funds house product"
+ :tags #{:api :cash-account-products :happy}
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-hides-internal-bank-001"}
+             :body {:name "Hides Internal Test Org"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :org-0
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :org-0 :client-id]
+         :client-secret [:ref :org-0 :client-secret]
+         :status :live}
+   :as :org-0-token}]
+ :when
+ ;; Provisioning created and published one own-funds product per
+ ;; declared currency, so a bank that has defined nothing still holds
+ ;; a product. The listing shows none of them.
+ [{:command :api/request
+   :request {:method :get :path "/v1/cash-account-products" :auth :org-0-token}
+   :assert {:status 200 :body {:items []}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-hides-internal-prod-001"}
+             :body {:name "Current Account"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-01-01"}}
+   :as :product-0
+   :assert {:status 201}}
+  ;; And after defining one, the listing is that one alone.
+  {:command :api/request
+   :request {:method :get :path "/v1/cash-account-products" :auth :org-0-token}
+   :assert {:status 200
+            :body {:items [{:product-id [:ref :product-0 :product-id]
+                            :versions [{:product-type "current"}]}]}}}]}

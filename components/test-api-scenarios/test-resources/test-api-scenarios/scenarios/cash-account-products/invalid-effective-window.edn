@@ -1,0 +1,64 @@
+{:name "An effective-to on or before effective-from is rejected"
+ :tags #{:api :cash-account-products :unhappy}
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-invalid-window-bank-001"}
+             :body {:name "Invalid Window Test Org"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :org-0
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :org-0 :client-id]
+         :client-secret [:ref :org-0 :client-secret]
+         :status :live}
+   :as :org-0-token}]
+ :when
+ ;; effective-to strictly before effective-from.
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-invalid-window-prod-001"}
+             :body {:name "Backwards Window"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-06-01"
+                    :effective-to "2026-01-01"}}
+   :assert {:status 422
+            :problem {:type ":cash-account-product/invalid-effective-window"}}}
+  ;; And the boundary: equal dates are an empty window, also rejected.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-invalid-window-prod-002"}
+             :body {:name "Empty Window"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-01-01"
+                    :effective-to "2026-01-01"}}
+   :assert {:status 422
+            :problem {:type ":cash-account-product/invalid-effective-window"}}}
+  ;; The control: a window that opens before it closes is accepted.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-invalid-window-prod-003"}
+             :body {:name "Valid Window"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-01-01"
+                    :effective-to "2026-06-01"}}
+   :assert {:status 201
+            :body {:status "draft"
+                   :effective-from "2026-01-01"
+                   :effective-to "2026-06-01"}}}]}

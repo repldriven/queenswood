@@ -3,7 +3,7 @@
     [com.repldriven.queenswood.api.cash-account-product.handlers :as handlers]
     [com.repldriven.queenswood.api.cash-account-product.examples :refer
      [ProductNotFound VersionNotFound DraftAlreadyExists VersionImmutable
-      CurrencyNotAllowed]]
+      CurrencyNotAllowed TemplateMismatch]]
     [com.repldriven.queenswood.api.cash-account-product.links :as links]
     [com.repldriven.queenswood.api.cash-account-product.queries :as queries]
 
@@ -71,13 +71,14 @@
       {:post {:summary "Open a new draft version (requires no existing draft)"
               :openapi {:operationId "OpenCashAccountProductDraft"
                         :requestBody {:required true}}
-              :parameters {:body [:ref "CashAccountProductRequest"]}
+              :parameters {:body [:ref "CashAccountProductDraftRequest"]}
               :responses {201 {:body [:ref "CashAccountProductVersion"]
                                :openapi {:headers {"Location" location-header}
                                          :links links/from-draft}}
                           404 (ErrorResponse [#'ProductNotFound])
                           409 (ErrorResponse [#'DraftAlreadyExists])
-                          422 (ErrorResponse [#'CurrencyNotAllowed])}
+                          422 (ErrorResponse [#'CurrencyNotAllowed
+                                              #'TemplateMismatch])}
               :handler handlers/open-draft}}]
      ["/versions/{version-id}"
       {:parameters {:path {:version-id [:ref "VersionId"]}}}
@@ -92,12 +93,13 @@
         :put {:summary "Update the draft version (draft state only)"
               :openapi {:operationId "UpdateCashAccountProductDraft"
                         :requestBody {:required true}}
-              :parameters {:body [:ref "CashAccountProductRequest"]}
+              :parameters {:body [:ref "CashAccountProductDraftRequest"]}
               :responses {200 {:body [:ref "CashAccountProductVersion"]
                                :openapi {:links links/from-draft}}
                           404 (ErrorResponse [#'VersionNotFound])
                           409 (ErrorResponse [#'VersionImmutable])
-                          422 (ErrorResponse [#'CurrencyNotAllowed])}
+                          422 (ErrorResponse [#'CurrencyNotAllowed
+                                              #'TemplateMismatch])}
               :handler handlers/update-draft}
         :delete {:summary "Discard the draft version (draft state only)"
                  :openapi {:operationId "DiscardCashAccountProductDraft"}

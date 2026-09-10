@@ -13,8 +13,14 @@
 (defn- versions-from-aggregate
   [aggregate]
   (mapv (fn [v]
+          ;; A version stores one currency in `:allowed-currencies`,
+          ;; and drops `:effective-to` when it has none — the model
+          ;; carries both as scalars, nil included.
           {:status (normalise-status (:status v))
-           :number (:version-number v)})
+           :number (:version-number v)
+           :currency (first (:allowed-currencies v))
+           :effective-from (:effective-from v)
+           :effective-to (:effective-to v)})
         (:versions aggregate)))
 
 (defn project-products

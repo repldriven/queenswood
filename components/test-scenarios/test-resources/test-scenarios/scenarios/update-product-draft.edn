@@ -1,0 +1,14 @@
+{:name "Updating a draft version rewrites its effective window"
+ :tags #{:lifecycle :products}
+ ;; The model tracks a version's currency and effective window as well
+ ;; as its status and number, so an update is a modelled step: the
+ ;; runner compares both ends after it, and again after the publish
+ ;; that carries the rewritten window forward.
+ :given [{:command :create-bank :args []}                      ; prod-0
+         {:command :create-product :args [:bank-0 :current 0]} ; prod-1 (draft)
+         {:command :assert-outcome :args [:succeeded]}]
+ :when [{:command :update-product-draft
+         :args [:prod-1 {:effective-from 20454 :effective-to 21184}]}]
+ :then [{:command :assert-outcome :args [:succeeded]}
+        {:command :publish-product :args [:prod-1]}
+        {:command :assert-no-anomaly :args []}]}

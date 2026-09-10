@@ -4,12 +4,27 @@
 
     [clojure.test.check.generators :as gen]))
 
+;; Epoch-days the runner's product verbs send: every create and
+;; open-draft carries 20089 (2025-01-01), and an update moves the
+;; window without letting it stop containing today.
+(def ^:private default-effective-from 20089)
+(def ^:private later-effective-from 20454)
+(def ^:private far-effective-to 21184)
+
+(defn version
+  [status number]
+  {:status status
+   :number number
+   :currency "GBP"
+   :effective-from default-effective-from
+   :effective-to nil})
+
 (defn- new-product-state
   [bank-id product-type interest-rate-bps]
   {:bank bank-id
    :product-type product-type
    :interest-rate-bps interest-rate-bps
-   :versions [{:status :draft :number 1}]})
+   :versions [(version :draft 1)]})
 
 (def create-product
   {:run? (fn [state] (seq (state/known-banks state)))
@@ -61,7 +76,30 @@
                    (update-in state
                               [:products prod-id :versions]
                               conj
-                              {:status :draft :number (inc (:number latest))})))
+                              (version :draft (inc (:number latest))))))
    :valid? (fn [state {[prod-id] :args}]
              (let [latest (state/latest-version state prod-id)]
                (and latest (not= :draft (:status latest)))))})
+
+(def update-product-draft
+  {:run? (fn [state] (seq (state/drafts state)))
+   :args (fn [state]
+           (gen/let [prod-id (gen/elements (state/drafts state))
+                     from (gen/elements [default-effective-from
+                                         later-effective-from])
+                     to (gen/elements [nil far-effective-to])]
+             [prod-id {:effective-from from :effective-to to}]))
+   :next-state
+   ;; Reality rejects an update whose target is unknown or no longer a
+   ;; draft — predict a no-op, same convention as `close-account`.
+   (fn [state {[prod-id data] :args}]
+     (if (= :draft (:status (state/latest-version state prod-id)))
+       (flip-latest state
+                    prod-id
+                    (fn [v]
+                      (assoc v
+                             :effective-from (:effective-from data)
+                             :effective-to (:effective-to data))))
+       state))
+   :valid? (fn [state {[prod-id] :args}]
+             (= :draft (:status (state/latest-version state prod-id))))})

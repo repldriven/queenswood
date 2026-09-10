@@ -134,12 +134,13 @@ cancel and preview operations, three record types carry its state,
 the platform and micro policies carry limits for it, and the capability
 is `:cash-account-action-migrate`. The commit scenario shows an
 account that read back on v1 reading back on v2 after the task runs.
-No TDD describes any of this: the design is in
-[cash-account-migration.md](../../plan/cash-account-migration.md)
-under `docs/plan`, and the PRD lists repricing existing accounts as a
-non-goal. Evidence: `migrate-product` in the cash-account brick's
-`domain.clj`, `ensure-target-published` and `ensure-same-product-type`
-in the migration brick's `domain.clj`, and the `commit` scenario under
+No TDD described any of this when the gap was found: the design was a
+plan under `docs/plan`, since promoted to
+[cash-account-migration.md](../cash-account-migration.md), and the PRD
+lists repricing existing accounts as a non-goal. Evidence:
+`migrate-product` in the cash-account brick's `domain.clj`,
+`ensure-target-published` and `ensure-same-product-type` in the
+migration brick's `domain.clj`, and the `commit` scenario under
 `cash-account-migrations`.
 
 Fix: restate the cohort property as "pinned at open, and moved only
@@ -440,8 +441,8 @@ In order:
 - [policy-evaluation.md](../policy-evaluation.md) — Policy evaluation
 - [cash-account-products.md](../../prd/cash-account-products.md) —
   Cash account products (PRD)
-- [cash-account-migration.md](../../plan/cash-account-migration.md) —
-  Migrating cash accounts between products (plan)
+- [cash-account-migration.md](../cash-account-migration.md) —
+  Migrating cash accounts between products (TDD)
 - [ADR-0017](../../adr/0017-query-write-brick-split.md) — Query/write
   brick split for domain components
 - [ADR-0018](../../adr/0018-command-writes-are-earned.md) — Command

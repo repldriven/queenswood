@@ -27,11 +27,10 @@
                             #{:bank-id :product-type} by-type}}))
 
 (defn- or-already-created
-  "On a uniqueness violation — a redelivered create-cash-account-product
-  command carrying an already-seen idempotency-key — read the existing
-  product version back and return it, so the caller gets the original
-  resource instead of a duplicate draft product. Any other value passes
-  through unchanged."
+  "On a uniqueness violation — a retried create carrying an already-seen
+  idempotency-key — read the existing product version back and return
+  it, so the caller gets the original resource instead of a duplicate
+  draft product. Any other value passes through unchanged."
   [txn bank-id data result]
   (if (and (store/uniqueness-violation? result)
            (:idempotency-key data))
@@ -50,13 +49,20 @@
     txn
     bank-id
     data
-    (let-nom>
-      [policies (get-policies txn bank-id opts)
-       template (q/get-template txn (:template-id data))
-       aggregates (counts txn bank-id (:product-type template))
-       version (domain/new-product bank-id template data aggregates policies)
-       _ (store/save-version txn version)]
-      version))))
+    (store/transact
+     txn
+     (fn [txn]
+       (let-nom>
+         [policies (get-policies txn bank-id opts)
+          template (q/get-template txn (:template-id data))
+          aggregates (counts txn bank-id (:product-type template))
+          version (domain/new-product bank-id
+                                      template
+                                      data
+                                      aggregates
+                                      policies)
+          _ (store/save-version txn version)]
+         version))))))
 
 (defn open-draft
   ([txn bank-id product-id data]
