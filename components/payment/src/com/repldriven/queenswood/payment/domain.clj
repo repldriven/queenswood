@@ -23,6 +23,31 @@
         .toLocalDate
         .toEpochDay)))
 
+(def ^:private operable-statuses #{:cash-account-status-opened})
+
+(def ^:private role->not-operable
+  {:debtor :payment/debtor-account-not-operable
+   :creditor :payment/creditor-account-not-operable})
+
+(defn operable?
+  "True when money may move on `account` — it is opened. The status
+  vocabulary the payment brick reads lives here alone."
+  [account]
+  (contains? operable-statuses (:account-status account)))
+
+(defn ensure-account-operable
+  "Rejects when `account` is not operable. `role` is `:debtor` or
+  `:creditor` and selects the rejection kind."
+  [account role]
+  (when-not (operable? account)
+    (error/reject (role->not-operable role)
+                  {:message (str "The "
+                                 (name role)
+                                 " account is not open for payments")
+                   :account-id (:account-id account)
+                   :status (:account-status account)
+                   :allowed operable-statuses})))
+
 (defn- ensure-distinct-accounts
   [debtor-account-id creditor-account-id]
   (when (= debtor-account-id creditor-account-id)
@@ -74,7 +99,9 @@
                 reference]}
         data]
     (let-nom>
-      [_ (ensure-distinct-accounts debtor-account-id creditor-account-id)
+      [_ (ensure-account-operable debtor-account :debtor)
+       _ (ensure-account-operable creditor-account :creditor)
+       _ (ensure-distinct-accounts debtor-account-id creditor-account-id)
        _ (ensure-currency-matches currency debtor-account)
        _ (ensure-currency-matches currency creditor-account)
        _ (check-capability policies
@@ -279,7 +306,8 @@
                 currency amount reference]}
         data]
     (let-nom>
-      [_ (ensure-currency-matches currency debtor-account)
+      [_ (ensure-account-operable debtor-account :debtor)
+       _ (ensure-currency-matches currency debtor-account)
        _ (check-capability policies
                            :outbound-payment
                            :outbound-payment-action-send)

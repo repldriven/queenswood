@@ -36,6 +36,8 @@
   "Explicit status overrides for rejection categories whose names
   don't fit the default heuristics."
   {:payment/already-submitted 409
+   :payment/debtor-account-not-operable 409
+   :payment/creditor-account-not-operable 409
    :bank/invalid-status 409
    :cash-account/invalid-status 409
    :cash-account/non-zero-on-close 409
