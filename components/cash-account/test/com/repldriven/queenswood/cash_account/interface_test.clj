@@ -95,11 +95,12 @@
                                                {:policies allow-draft})
                  account-number (store/allocate-payment-address config
                                                                 test-sort-code)
-                 _ (store/save-account config
-                                       (opened-account version account-number)
-                                       {:account-id "acc.rotate.retry"
-                                        :status-after
-                                        :cash-account-status-opened})
+                 _ (store/save-account
+                    config
+                    (opened-account version account-number)
+                    {:account-id "acc.rotate.retry"
+                     :status-after :cash-account-status-opened
+                     :change-kind :cash-account-change-kind-open})
                  rotated
                  (SUT/rotate-address config command {:policies allow-rotate})
                  _ (testing "the first rotation allocates and retires"

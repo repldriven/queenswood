@@ -16,6 +16,16 @@
                                     "CASH_ACCOUNT_STATUS_SUSPENDED"]}],
      "default": null},
     {"name": "status_after",
-     "type": "com.repldriven.mono.cash_accounts.CashAccountStatus"}
+     "type": "com.repldriven.mono.cash_accounts.CashAccountStatus"},
+    {"name": "change_kind",
+     "type": ["null", {"type": "enum",
+                       "name": "CashAccountChangeKind",
+                       "symbols": ["CASH_ACCOUNT_CHANGE_KIND_OPEN",
+                                    "CASH_ACCOUNT_CHANGE_KIND_CLOSE",
+                                    "CASH_ACCOUNT_CHANGE_KIND_SUSPEND",
+                                    "CASH_ACCOUNT_CHANGE_KIND_RESUME",
+                                    "CASH_ACCOUNT_CHANGE_KIND_ROTATE_ADDRESS",
+                                    "CASH_ACCOUNT_CHANGE_KIND_MIGRATE"]}],
+     "default": null}
   ]
 }

@@ -171,7 +171,9 @@
                                opened
                                {:account-id account-id
                                 :status-before (:account-status account)
-                                :status-after (:account-status opened)})]
+                                :status-after (:account-status opened)
+                                :change-kind
+                                :cash-account-change-kind-open})]
     saved))
 
 (defn seed-closed-account
@@ -192,5 +194,7 @@
                                closed
                                {:account-id account-id
                                 :status-before (:account-status account)
-                                :status-after (:account-status closed)})]
+                                :status-after (:account-status closed)
+                                :change-kind
+                                :cash-account-change-kind-close})]
     saved))

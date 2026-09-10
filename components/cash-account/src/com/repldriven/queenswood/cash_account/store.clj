@@ -24,8 +24,8 @@
          [_ (fdb/save-record store (schema/CashAccount->java account))
           entry (changelog/status-changed
                  (assoc changelog
-                        :bank-id
-                        (:bank-id account)))
+                        :bank-id (:bank-id account)
+                        :updated-at (:updated-at account)))
           _ (fdb/write-changelog txn
                                  store-name
                                  (:account-id account)
