@@ -9,3 +9,16 @@
               value: 50
               window: !keyword time-window-instant
   reason: "Micro tier - max 50 cash accounts"
+- kind:
+    cash-account:
+      filters:
+        - product-type: !keyword product-type-sub-ledger-term-deposit
+  bound:
+    kind:
+      max:
+        aggregate:
+          kind:
+            count:
+              value: 10
+              window: !keyword time-window-instant
+  reason: "Micro tier - max 10 term deposit accounts"

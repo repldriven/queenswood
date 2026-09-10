@@ -1,0 +1,2 @@
+system:
+  avro: !include system/avro.yml
