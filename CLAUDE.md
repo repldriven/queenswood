@@ -319,7 +319,9 @@ rule (and its source recipe/ADR, kept in sync by the
 # Run the bricks changed since the last stable-* tag (what `just test`
 # and so the Gas City lane run). With no such tag reachable the
 # comparison falls back to the initial commit and everything runs.
-clojure -M:poly test
+# `:dev` is what reaches the scenario bricks: they belong to the
+# development project alone, which polylith excludes without it.
+clojure -M:poly test :dev
 
 # Run the full polylith test matrix (per service project)
 clojure -M:poly test :all
