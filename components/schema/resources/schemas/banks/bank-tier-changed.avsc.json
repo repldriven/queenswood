@@ -1,0 +1,12 @@
+{
+  "type": "record",
+  "name": "BankTierChanged",
+  "namespace": "com.repldriven.mono.banks",
+  "doc": "A bank moved between tiers, rebinding its tier-labelled policies. Distinct from BankStatusChanged: a tier change leaves the bank's status alone.",
+  "fields": [
+    {"name": "bank_id", "type": "string"},
+    {"name": "tier_before", "type": ["null", "string"], "default": null,
+     "doc": "Null for a bank created without a tier, or one whose tier predates the field"},
+    {"name": "tier_after", "type": "string"}
+  ]
+}

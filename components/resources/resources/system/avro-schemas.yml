@@ -21,6 +21,7 @@ create-bank: schemas/banks/create-bank.avsc.json
 change-bank-tier: schemas/banks/change-bank-tier.avsc.json
 change-bank-status: schemas/banks/change-bank-status.avsc.json
 bank-status-changed: schemas/banks/bank-status-changed.avsc.json
+bank-tier-changed: schemas/banks/bank-tier-changed.avsc.json
 
 idv: schemas/idv/idv.avsc.json
 initiate-idv: schemas/idv/initiate-idv.avsc.json

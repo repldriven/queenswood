@@ -36,15 +36,18 @@
                 :bank/create
                 "Failed to create bank"))
 
-(defn save
-  [txn bank changelog]
+(defn- save-with
+  "Persist `bank` and append the entry `entry-fn` builds from
+  `changelog`, in one transaction — the record change and the event
+  that announces it cannot diverge."
+  [txn bank entry-fn changelog]
   (fdb/transact
    txn
    (fn [txn]
      (let [store (fdb/open txn store-name)]
        (let-nom>
          [_ (fdb/save-record store (schema/Bank->java bank))
-          entry (changelog/status-changed changelog)
+          entry (entry-fn changelog)
           _ (fdb/write-changelog txn
                                  store-name
                                  (:bank-id bank)
@@ -52,3 +55,11 @@
          bank)))
    :bank/save
    "Failed to save bank"))
+
+(defn save-status
+  [txn bank changelog]
+  (save-with txn bank changelog/status-changed changelog))
+
+(defn save-tier
+  [txn bank changelog]
+  (save-with txn bank changelog/tier-changed changelog))
