@@ -145,12 +145,12 @@
   ;; The model treats `:create-bank` as "bank + one usable account in
   ;; one go". Reality post-CoA seeds 7 GL accounts on the bank's own
   ;; organization-party at provisioning, but none of them are
-  ;; scenario-usable (no `:gl-control-account-id`, no spendable
-  ;; default-posted bucket the model recognises). So we additionally
-  ;; create + publish a scenario customer-current product and open a
-  ;; single customer-style account on the bank's organization-party —
-  ;; that account is what gets tracked as `:acct-0`. The 7 GL accounts
-  ;; stay off-model (projections only look at `id-mapping`).
+  ;; scenario-usable: no spendable default-posted bucket the model
+  ;; recognises. So we additionally create + publish a scenario
+  ;; customer-current product and open a single customer-style account
+  ;; on the bank's organization-party — that account is what gets
+  ;; tracked as `:acct-0`. The 7 GL accounts stay off-model
+  ;; (projections only look at `id-mapping`).
   (let [model-acct (model-id-for-next-account next-model-id)
         model-bank (model-id-for-next-bank next-bank-id)
         model-prod (model-id-for-next-product next-product-id)

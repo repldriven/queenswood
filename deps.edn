@@ -97,6 +97,7 @@
                        "components/party/test-resources"
                        "components/policy/test"
                        "components/policy/test-resources"
+                       "components/schema/test"
                        "components/scheduler/test"
                        "components/test-api-scenarios/test"
                        "components/test-api-scenarios/test-resources"
