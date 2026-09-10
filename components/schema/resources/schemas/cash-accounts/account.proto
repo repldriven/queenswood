@@ -61,13 +61,10 @@ message CashAccount {
   required int64 created_at = 13;
   required int64 updated_at = 14;
 
-  // Customer accounts (current/savings/term-deposit) inherit a direct
-  // pointer to the matching GL control account, resolved at open-time by
-  // chasing product-type → control gl-code → GL product → GL account. The
-  // add-control-legs paired-leg construction reads this pointer directly so
-  // posting is one extra lookup per leg, not a four-hop chase. GL
-  // accounts leave it unset (they ARE the controls; they don't roll up).
-  optional string gl_control_account_id = 20;
+  // Tag 20 held a pointer to the GL control account. A leg's control
+  // account is resolved from its product-type at posting time, so the
+  // account stores no pointer to one.
+  reserved 20;
 
   // Client idempotency key (the command envelope :id, sourced from the
   // required Idempotency-Key header) that opened this account. Unique-indexed
