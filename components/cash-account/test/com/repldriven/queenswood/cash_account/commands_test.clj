@@ -105,7 +105,7 @@
          processor (SUT/->CashAccountProcessor {:schemas schemas})]
      (testing "a name the table does not carry is rejected, not dropped"
        (let [result (processor/process processor
-                                       {:command "migrate-cash-account-product"
+                                       {:command "not-a-cash-account-command"
                                         :id "ik-dispatch-00000003"
                                         :payload (byte-array 0)})]
          (is (error/rejection? result))
