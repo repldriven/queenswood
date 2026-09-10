@@ -2,16 +2,16 @@
 
 ## Objective
 
-A **cash account product** is the template under which a
-tenant's customer accounts are opened — it sets the
+A **cash account product** is the set of terms under which a
+tenant's customer accounts are opened — it settles the
 currency, the interest rate, the balance buckets the
 account will carry, and the payment-address schemes the
 account will accept. Tenants design their own products and
 **version** them: when terms change, a new version is
 published, but accounts opened under previous versions keep
 their original terms. This is the model that lets banking
-products evolve over time without retroactively repricing
-the customers who signed up under the old terms.
+products evolve over time without changing the terms under
+the customers who signed up to the old ones.
 
 ## Users and stakeholders
 
@@ -44,8 +44,8 @@ the number of products, restricting product types).
   fills in the terms.
 - **Versioned terms.** Every product carries a sequence of
   versions. New accounts open under the latest published
-  version; existing accounts stay on the version they were
-  opened under.
+  version; existing accounts stay, by default, on the
+  version they were opened under.
 - **Immutable once published.** A published version's terms
   cannot be edited. To change terms, the tenant publishes a
   new version.
@@ -59,8 +59,19 @@ the number of products, restricting product types).
   accounts, savings accounts, term deposits, and the
   internal product types used for the tenant's own
   bookkeeping (settlement, internal).
-- **Multi-currency products.** A product can list more than
-  one allowed currency; the account picks one at open time.
+- **Built from a published template.** The platform
+  publishes a menu of templates — one per product type — and
+  every product is built from one of them. The template
+  settles the mechanics; the tenant settles the commercial
+  terms.
+- **Dated versions.** A version states the date it takes
+  effect and, optionally, the date it stops. A tenant can
+  therefore publish a rate change ahead of time and let it
+  start on the day it was announced for.
+- **One currency per version.** A version pins a single
+  currency, and every account opened under it holds that
+  currency. A multi-currency offering is several products,
+  one per currency.
 - **Policy-bounded.** Platform-level policies cap the
   number of products a tenant can have and can restrict
   which product types a given tenant may draft.
@@ -69,27 +80,13 @@ the number of products, restricting product types).
 
 ## Non-goals
 
-- **A shared catalogue of templates.** The platform doesn't
-  ship reusable starter products ("standard savings",
-  "standard term deposit"). Each tenant builds its own
-  products from scratch.
-- **Effective-from / effective-to dating.** Publishing is
-  immediate. There's no scheduling a version to take effect
-  on a future date.
-- **Retiring or closing a product.** A published product is
-  open for new accounts indefinitely. There is no flow to
-  stop accepting new accounts against a product.
 - **Comparing versions.** The platform doesn't provide a
   diff between two versions. If a tenant wants to know
   "what changed between v2 and v3", they read both and
   compare.
-- **Multi-currency rate variation.** A version carries one
-  interest rate. A product that earns different rates in
-  different currencies isn't expressible as a single
-  version.
-- **Repricing existing accounts.** New versions only apply
-  to new accounts. There is no flow to migrate existing
-  accounts onto a newer version.
+- **Tenant-authored templates.** The menu is the platform's.
+  A tenant chooses from it and cannot add to it or change
+  what a template settles.
 - **Parallel drafts.** Compliance and product teams cannot
   prepare independent draft versions of the same product
   in parallel. One draft at a time.
@@ -98,10 +95,10 @@ the number of products, restricting product types).
   flow.
 - **Tenant-specified balance buckets.** The shape of an
   account's balances (which balance buckets it carries) is
-  determined by the product type — current, savings, term
-  deposit. Tenants don't choose the bucket layout
-  themselves. Letting them specify it directly would be
-  too easy a way to break the bank's bookkeeping.
+  settled by the template the product is built from.
+  Tenants don't choose the bucket layout themselves.
+  Letting them specify it directly would be too easy a way
+  to break the bank's bookkeeping.
 
 ## Functional scope
 
@@ -112,21 +109,23 @@ point in time.
 
 ### Creating a product
 
-The tenant uses the banking API to create a new product,
-supplying:
+The tenant reads the template menu from the banking API and
+uses it to create a new product, supplying:
 
 - A display name (e.g. "Premier Savings").
-- The product type (current, savings, term deposit, or one
-  of the internal types).
-- The list of allowed currencies (ISO 4217 strings — e.g.
-  `"GBP"` or `["GBP", "EUR"]`).
+- The template it is built from. The template settles the
+  product type, the balance buckets the account will carry,
+  the payment-address schemes it will accept (e.g. UK Faster
+  Payments), and which side of the bank's books the product
+  sits on — the liability side for customer deposits, the
+  typical case, or the asset side.
+- The currency (an ISO 4217 string — e.g. `"GBP"`), which
+  has to be one the template allows. It is a single
+  currency, not a list.
 - The interest rate, expressed in basis points (e.g. `550`
-  for 5.5% APR).
-- The payment-address schemes the account will accept
-  (e.g. UK Faster Payments).
-- Whether, from the bank's books, this product is on the
-  liability side (customer deposits — the typical case) or
-  the asset side.
+  for 5.5% APR). Optional.
+- The date the version takes effect, and optionally the date
+  it stops.
 
 Creation produces the first version of the product, in
 draft. The product itself has a stable identifier; versions
@@ -163,25 +162,29 @@ same product.
 
 ### Reading products
 
-The tenant can read a product to see all its versions.
-There is also a way to get the currently active (latest
-published) version of a product, which is the version new
-accounts will open under.
+The tenant can read a product to see all its versions, and
+can read the menu of templates products are built from.
+There is also a way to get a product's active version — the
+published one whose effective window covers today — which is
+the version new accounts will open under.
 
 ### How accounts use products
 
-When an account is opened, the platform reads the product's
-currently published version and pins both the product and
-that version to the account. Every operation on the account
-that needs the terms — interest accrual reading the rate,
-payment validation reading the allowed schemes, currency
-checks reading the allowed currencies — goes back to that
-specific version.
+When an account is opened, the platform reads the published
+version of the product that is in effect that day and pins
+both the product and that version to the account. Every
+operation on the account that needs the terms — interest
+accrual reading the rate, payment validation reading the
+allowed schemes, currency checks reading the version's
+currency — goes back to that specific version.
 
 When the tenant later publishes a new version, only newly
-opened accounts see the new terms. Existing accounts remain
-on their original version. This is the cohort property
-that the versioning model exists to deliver.
+opened accounts see the new terms. Existing accounts stay on
+the version they were opened under unless the tenant authors
+a migration and has it approved, which moves a cohort of
+accounts onto a newer published version of the same product
+type. Staying put is what happens by default, and that is
+the cohort property the versioning model exists to deliver.
 
 ### Policy bounds
 
@@ -207,7 +210,7 @@ sequenceDiagram
     participant T as Tenant engineer
     participant Q as Queenswood
 
-    T->>Q: create product (name, type, currencies, rate, ...)
+    T->>Q: create product (name, template, currency, rate, dates)
     Q-->>T: product with v1 in draft
     loop Iterate on terms
         T->>Q: update draft (revised terms)
@@ -278,30 +281,16 @@ sequenceDiagram
     Q-->>T: account pinned to v1
     Note over E,Q: months later, tenant publishes v2 with a lower rate
     E->>T: continues earning v1's rate
-    Note over E,Q: only new accounts opened from v2 onwards see the new rate
+    Note over E,Q: publishing alone moves nobody — new accounts open under v2
 ```
 
 The cohort property in action: an existing customer's
 account stays on the terms it was opened under, even after
 the tenant publishes a new version with different terms.
+Only an approved migration moves it.
 
 ## Open questions
 
-- **Effective-from / effective-to dating.** Publishing is
-  immediate. A real product team would often want to schedule
-  a version to take effect on a future date — for a
-  rate change announced in advance, for instance.
-- **Retiring a product.** No flow exists to stop a published
-  product from accepting new accounts. Once published, it's
-  open for new business indefinitely.
-- **Repricing existing accounts.** New versions only apply
-  to new accounts. There is no migration flow for moving
-  existing accounts onto a new version (with all the
-  consent and notice requirements that would imply).
-- **Multi-currency rate variation.** A version carries one
-  interest rate. Products earning different rates in
-  different currencies need either separate products per
-  currency or a model change.
 - **Version comparison.** "What changed between v2 and v3?"
   is left to callers. A diff helper would make audit and
   compliance review easier.
@@ -313,22 +302,16 @@ the tenant publishes a new version with different terms.
   An archival or pruning pass would prevent the version
   list from growing without bound for tenants that
   rapid-iterate.
-- **Shared product templates.** Each tenant builds products
-  from scratch. A shared library of standard shapes
-  ("standard savings", "standard term deposit") would cut
-  duplication.
 - **Supersession history.** When a new version publishes,
   the previous version isn't marked superseded — it just
   stops being the latest. "Which versions are still in use
   by accounts" requires walking accounts; the platform
   doesn't surface it directly.
-- **Balance buckets in the API today.** The current
-  banking API still accepts a balance-bucket layout from
-  the tenant. The intent is to remove this — the layout
-  should be derived from the product type — but until
-  then, tenants who set it inconsistently can break their
-  own bookkeeping. A migration to product-type-derived
-  layouts is a known direction.
+- **Currencies the templates allow.** The customer-facing
+  templates allow one currency today, so a tenant banking in
+  another cannot yet offer a customer product in it. Which
+  currencies each template should allow is a product
+  decision nobody has taken.
 
 ## References
 
