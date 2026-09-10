@@ -1,7 +1,6 @@
 (ns com.repldriven.queenswood.cash-account.domain
   (:refer-clojure :exclude [name])
   (:require
-    [com.repldriven.queenswood.balance-domain.interface :as balance-domain]
     [com.repldriven.queenswood.policy.interface :as policy]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
@@ -34,6 +33,14 @@
   balance-statuses (pending holds included, not just posted)."
   [balances]
   (remove (fn [b] (= (:credit b 0) (:debit b 0))) balances))
+
+(defn- reported-buckets
+  [balances]
+  (mapv (fn [b]
+          (select-keys b
+                       [:balance-type :balance-status :currency
+                        :credit :debit]))
+        balances))
 
 (defn- check-subtotal-limit
   [product-type account-type currency aggregates policies]
@@ -193,26 +200,28 @@
 (defn close-account
   [account balances policies]
   (let-nom>
-    [_ (when-not (= :cash-account-status-opened (:account-status account))
+    [_ (when-not (contains? #{:cash-account-status-opened
+                              :cash-account-status-suspended}
+                            (:account-status account))
          (error/reject :cash-account/invalid-status
                        {:message "Account is not in a closeable state"
                         :account-id (:account-id account)
                         :status (:account-status account)
-                        :allowed #{:cash-account-status-opened}}))
+                        :allowed #{:cash-account-status-opened
+                                   :cash-account-status-suspended}}))
      _ (check-capability :cash-account-action-close
                          (:account-type account)
                          policies)
-     _ (when (and (seq (non-zero-balances balances))
+     offending (non-zero-balances balances)
+     _ (when (and (seq offending)
                   (error/anomaly?
                    (check-capability :cash-account-action-close-non-zero
                                      (:account-type account)
                                      policies)))
          (error/reject :cash-account/non-zero-on-close
-                       {:message "Account has a non-zero balance"
+                       {:message "Account has non-zero balance buckets"
                         :account-id (:account-id account)
-                        :posted-balance (balance-domain/posted-balance
-                                         balances
-                                         (:currency account))}))]
+                        :balances (reported-buckets offending)}))]
     (assoc account
            :account-status :cash-account-status-closing
            :updated-at (utility/now))))

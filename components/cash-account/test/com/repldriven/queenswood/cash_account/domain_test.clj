@@ -113,27 +113,64 @@
 
 (deftest close-account-source-state-guard-test
   (testing
-    "closing an account not in :cash-account-status-opened is
-           rejected, regardless of policy"
+    "closing an account that is neither opened nor suspended is
+           rejected, regardless of policy, and the rejection names both
+           closeable statuses"
     (doseq [status [:cash-account-status-opening
                     :cash-account-status-closing
                     :cash-account-status-closed]]
       (let [result (SUT/close-account (account status) [] [])]
         (is (error/rejection? result))
         (is (= :cash-account/invalid-status (error/kind result)))
-        (is (= status (:status (error/payload result))))))))
+        (is (= status (:status (error/payload result))))
+        (is (= #{:cash-account-status-opened :cash-account-status-suspended}
+               (:allowed (error/payload result))))))))
+
+(deftest close-account-from-suspended-test
+  (testing "a suspended account closes without being resumed first"
+    (let [result (SUT/close-account (account :cash-account-status-suspended)
+                                    []
+                                    [(policy-allowing
+                                      :cash-account-action-close)])]
+      (is (= :cash-account-status-closing (:account-status result))))))
+
+(def ^:private posted-bucket
+  {:balance-type :balance-type-default
+   :balance-status :balance-status-posted
+   :currency "GBP"
+   :credit 500
+   :debit 500})
+
+(def ^:private pending-hold
+  {:balance-type :balance-type-default
+   :balance-status :balance-status-pending-outgoing
+   :currency "GBP"
+   :credit 0
+   :debit 500})
 
 (deftest close-account-non-zero-balance-test
   (let [acct (account :cash-account-status-opened)
-        balances [{:credit 500 :debit 0}]]
-    (testing "a non-zero balance bucket is rejected by default"
+        balances [posted-bucket pending-hold]]
+    (testing
+      "a bucket that doesn't net to zero is rejected by default, and
+             the rejection names the buckets it refused on rather than
+             a posted total"
       (let [result (SUT/close-account acct
                                       balances
                                       [(policy-allowing
-                                        :cash-account-action-close)])]
+                                        :cash-account-action-close)])
+            payload (error/payload result)]
         (is (error/rejection? result))
         (is (= :cash-account/non-zero-on-close (error/kind result)))
-        (is (= "acc.test" (:account-id (error/payload result))))))
+        (is (= "acc.test" (:account-id payload)))
+        (is (= [pending-hold] (:balances payload)))
+        (is (not (contains? payload :posted-balance)))))
+    (testing "a bucket carrying no type or status reports what it has"
+      (let [result (SUT/close-account acct
+                                      [{:credit 500 :debit 0}]
+                                      [(policy-allowing
+                                        :cash-account-action-close)])]
+        (is (= [{:credit 500 :debit 0}] (:balances (error/payload result))))))
     (testing "an explicit opt-out capability allows the close"
       (let [result (SUT/close-account acct
                                       balances
