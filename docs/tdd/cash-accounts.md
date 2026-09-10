@@ -96,7 +96,8 @@ ADR-0021 describes.
  :account-id        "acc.<ulid>"
  :party-id          ;; the holder
  :product-id        ;; the conceptual product
- :version-id        ;; pinned product version (immutable per ADR)
+ :version-id        ;; pinned product version (set at open, moved
+                    ;; only by an approved migration)
  :currency          "GBP"      ;; ISO 4217 string
 
  :name              ;; user-friendly label

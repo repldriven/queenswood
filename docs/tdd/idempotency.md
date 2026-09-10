@@ -399,8 +399,8 @@ from.
 - Source-state guards:
   `POST /v1/cash-account-products/{product-id}/versions` (a second
   open finds the draft the first made and is refused
-  `product/draft-already-exists`, and the handler also reads the
-  optional key back off the store index),
+  `product/draft-already-exists`; opening a draft does not participate
+  in idempotency at all, so a key sent with it takes no index entry),
   `DELETE` and `POST .../publish` on a version
   (`product/version-immutable`), and
   `POST /v1/cash-account-migrations/{migration-id}/approve` and
