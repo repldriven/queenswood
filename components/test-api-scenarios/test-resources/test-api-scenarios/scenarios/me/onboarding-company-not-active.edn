@@ -1,0 +1,31 @@
+{:name "Onboarding against a company that is not active is refused"
+ :tags #{:api :me :onboarding :unhappy}
+ ;; The registry lookup succeeds — a dissolved company is a real
+ ;; company, and the adapter answers 200 with its status. The refusal
+ ;; comes from the bank's own domain, inside the create transaction, so
+ ;; nothing is written: no bank, and no membership for the user who
+ ;; tried. `dev` is used rather than `member` because `member` has
+ ;; already onboarded, and a user who belongs to a bank would be
+ ;; refused for that reason instead.
+ :when
+ [{:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "dev"
+   :password "dev"
+   :as :dev-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/onboarding/me"
+             :auth :dev-token
+             :headers {:idempotency-key
+                       "ik-onboarding-company-not-active-001"}
+             :body {:company-number "IN071194"
+                    :bank-name "Initech"}}
+   :assert {:status 422
+            :body {:type ":onboarding/company-not-active"}}}]
+ :then
+ ;; The refused attempt left the user exactly as it found them.
+ [{:command :api/request
+   :request {:method :get :path "/v1/me" :auth :dev-token}
+   :assert {:status 200 :body {:memberships []}}}]}
