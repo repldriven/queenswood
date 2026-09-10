@@ -29,9 +29,9 @@ sort code and account number staying stable.
 
 **Platform admin / Queenswood operator.** Sets the
 policies that cap how many accounts a tenant can open, of
-which type, in which currency. Provides the bank's clearing
-identity (the sort code under which all SCAN addresses are
-issued).
+which type, in which currency. Issues each bank its own
+clearing identity — the sort code its accounts' payment
+addresses are built from.
 
 ## Goals
 
@@ -59,28 +59,39 @@ issued).
   is; an *account type* (personal or business) describes
   who holds it. Both dimensions are visible to the
   platform's policies.
-- **Lifecycle: open then close.** Accounts open and then,
-  at the end of their life, close. Both transitions
+- **Lifecycle: open, freeze, unfreeze, close.** An account
+  opens, can be frozen and unfrozen while it is live, and
+  at the end of its life closes. Opening and closing each
   complete in two steps — the first step records the
   intent; the platform finishes the transition shortly
-  after.
+  after. Freezing and unfreezing take effect at once.
+- **A frozen account holds still.** While an account is
+  frozen no money leaves it and no money lands in it, but
+  it keeps earning interest, because the balance is still
+  owed. It can be closed without being unfrozen first.
+- **An account closes empty.** The platform refuses to
+  close an account whose balance is not zero, and tells the
+  tenant which part of the balance is in the way.
 - **Multi-tenant isolation.** Every account belongs to one
   tenant. Tenants don't see each other's accounts.
 - **Policy-bounded.** Platform-level policies cap the
   number of accounts a tenant can have, and can cap the
   number per (product type, account type, currency)
-  combination.
+  combination. The cap counts every account the tenant has
+  ever had: a closed account still occupies its place, and
+  so do the bank's own bookkeeping accounts.
 
 ## Non-goals
 
-- **Tenant choice of sort code.** The bank operates under
-  one clearing identity; every SCAN address shares the same
-  sort code. Tenants don't select or vary it.
+- **Tenant choice of sort code.** Each bank is issued its
+  own sort code when it is created, and every payment
+  address on that bank is built from it. Tenants don't
+  select or vary it.
 - **Multi-currency on a single account.** A customer who
   holds GBP and EUR holds two accounts.
-- **Suspended or dormant states.** An account is either
-  open or closed; there's no intermediate "suspended" or
-  "dormant" state.
+- **Dormancy.** An account left unused indefinitely is not
+  flagged, closed or escheated by the platform. Freezing is
+  an operator's decision, not something inactivity triggers.
 - **Re-opening a closed account.** Closing is terminal. A
   customer who closes an account and wants it back opens
   a fresh one — with a new identifier and a new payment
@@ -89,9 +100,6 @@ issued).
   party always opens personal accounts; an organisation
   party always opens business accounts. There's no way to
   open a "business" account on behalf of a person party.
-- **Balance-zero check at close.** The platform doesn't
-  enforce that an account is empty before it closes. The
-  tenant is responsible for sweeping the balance.
 - **International payment addresses.** No IBAN, no BIC, no
   cross-border addresses. UK SCAN only.
 - **Product-derived account behaviour beyond the version
@@ -159,9 +167,9 @@ party", "business customers cannot open term deposits".
 
 Every account is given a UK SCAN address (sort code +
 account number) at open time. The sort code is the bank's
-clearing identity (one shared by all accounts on the
-platform); the account number is unique within that sort
-code.
+own clearing identity, issued to it when the bank is
+created; the account number is unique within that sort
+code, and is never issued twice.
 
 The address is the route money travels along: a UK Faster
 Payment to that sort code and account number lands in this
@@ -175,31 +183,69 @@ is no window in which a payment can still reach it.
 
 ### Closing an account
 
-The tenant uses the banking API to close an account.
-Before closing, the platform checks:
+The tenant uses the banking API to close an account. An
+account that is open, and an account that is frozen, can
+both be closed — a frozen account does not have to be
+unfrozen first. Before closing, the platform checks:
 
 - The tenant is allowed (by policy) to close this kind
   of account.
+- The balance is empty. Every part of the balance counts,
+  including money set aside for a payment that has not
+  settled yet, so an account with a pending outgoing hold
+  is not empty even when the settled figure reads zero.
+
+If the balance is not empty the close is refused, and the
+refusal names the parts that are not empty so the tenant
+knows what to sweep. An operator who has to close a
+non-empty account can be granted that permission
+explicitly; no tier carries it by default.
 
 If allowed, the platform sets the status to **closing**.
 A moment later the transition completes and the account
 becomes **closed** — its terminal state.
 
-The platform does not check that the balance is zero
-before closing; the tenant is responsible for sweeping
-funds out beforehand.
+### Freezing and unfreezing an account
+
+A tenant can freeze a live account — pending a review, or
+after a suspected compromise — and unfreeze it again. A
+frozen account is not a closed one: it keeps its payment
+address, its balance and its history, and it goes on
+earning interest. What it cannot do is move money. A
+payment from a frozen account is refused, and a payment
+arriving for one is held by the platform for
+reconciliation rather than credited, exactly as a payment
+to an address the platform does not recognise is.
+
+The same is true of a closed account, whose payment
+address is never reissued to anyone else: money sent to it
+is held for reconciliation rather than landing on an
+account nobody is watching.
+
+### Moving an account to another product
+
+A tenant can move a live account onto another product, or
+onto a later version of the one it is already on — a
+customer changing to a different account, or a group of
+customers moved off terms that are being withdrawn. The
+account keeps its identifier, its payment address, its
+balance and its history; only the terms it is held on
+change, and from that point the interest it earns and the
+payment schemes it supports are the new product's.
+
+Moving a group of accounts at once is a reviewed exercise:
+the tenant asks for the move, sees how many accounts it
+would touch before anything changes, and approves it. See
+[cash-account-products](cash-account-products.md).
 
 ### Reading accounts
 
 The tenant can:
 
 - Read an account by its identifier.
-- Look an account up by its UK payment address (sort code
-  + account number) — used internally by the platform
-  when an inbound payment arrives, but available to
-  tenants who want to confirm an address resolves.
-- Read the tenant's own bookkeeping accounts (settlement,
-  internal) by type.
+- List the accounts the bank holds, a page at a time, with
+  balances included on request.
+- Read an account's transactions.
 
 ### Multi-tenant isolation
 
@@ -263,9 +309,9 @@ sequenceDiagram
     participant Q as Queenswood
 
     Note over T: customer asks to close their account
-    Note over T: tenant sweeps the balance to zero<br/>(platform doesn't enforce this)
+    Note over T: tenant sweeps the balance to zero
     T->>Q: close account
-    Q->>Q: check policy
+    Q->>Q: check policy + balance is empty
     Q-->>T: account closing
     Note over Q: transition completes in the background
     T->>Q: read account
@@ -284,25 +330,23 @@ someone else.
 
 ## Open questions
 
-- **Suspended state.** Real banking has a "frozen pending
-  review" state distinct from "closed". The platform's
-  policy vocabulary hints at it but the lifecycle today
-  doesn't express it.
 - **Re-opening a closed account.** Closed is terminal. If
   a customer comes back after closing, they get a fresh
   account with a new payment address. Some operators
   prefer to retain the original identifier or address.
-- **Balance-zero on close.** The platform doesn't enforce
-  it. Either the platform should refuse a non-zero close,
-  or it should be configurable per tenant via policy. Today
-  it's caller-side discipline.
+- **Closing a non-empty account.** The permission that
+  waives the empty-balance check is not carried by any
+  tier, so an operator who needs it has to be granted it
+  one account at a time. Whether a tier should carry it is
+  open.
 - **Dormancy and inactivity.** Real banks have regulatory
   regimes for accounts unused for long periods (flagged,
   then closed, sometimes escheated to the state). None
   of that is modelled.
-- **Multiple sort codes.** The bank operates under one
-  clearing identity. Multi-bank routing or per-tenant
-  sort codes aren't supported.
+- **A second sort code for one bank.** A bank is issued one
+  sort code and keeps it. A bank that outgrows the account
+  numbers under a single code, or wants to route some
+  customers separately, has no way to hold a second.
 - **International payment addresses.** No IBAN or BIC
   today. Cross-border payments are out of scope at the
   platform level.
