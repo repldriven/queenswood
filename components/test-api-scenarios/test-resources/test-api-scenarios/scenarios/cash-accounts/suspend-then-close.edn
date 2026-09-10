@@ -1,0 +1,106 @@
+{:name "A suspended cash account closes without being resumed first"
+ :tags #{:api :cash-accounts :lifecycle :happy}
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-suspend-then-close-bank-001"}
+             :body {:name "Suspend Then Close Test Org"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :org-0
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :org-0 :client-id]
+         :client-secret [:ref :org-0 :client-secret]
+         :status :live}
+   :as :org-0-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-suspend-then-close-party"}
+             :body {:type "person"
+                    :display-name "Suspended Closer"
+                    :given-name "Suspended"
+                    :family-name "Closer"
+                    :date-of-birth "1970-01-01"
+                    :nationality "GB"
+                    :address {:building-number "155"
+                              :street "Country Lane"
+                              :town "Cottington"
+                              :postcode "CT12 4XY"
+                              :country "GBR"}
+                    :national-identifier {:type "national-insurance"
+                                          :value "TN889005A"
+                                          :issuing-country "GB"}}}
+   :as :party-0
+   :assert {:status 200 :body {:status "pending"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}"
+             :path-params {:party-id [:ref :party-0 :party-id]}
+             :auth :org-0-token}
+   :until {:status 200 :body {:status "active"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-suspend-then-close-prod-001"}
+             :body {:name "Current Account"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-01-01"}}
+   :as :draft
+   :assert {:status 201 :body {:status "draft"}}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :draft :product-id]
+                  :version-id [:ref :draft :version-id]}
+    :auth :org-0-token}
+   :assert {:status 200 :body {:status "published"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-suspend-then-close-open-account-0"}
+             :body {:party-id [:ref :party-0 :party-id]
+                    :name "To Be Suspended Then Closed"
+                    :currency "GBP"
+                    :product-id [:ref :draft :product-id]}}
+   :as :account-0
+   :assert {:status 200 :body {:account-status "opening"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :account-0 :account-id]}
+             :auth :org-0-token}
+   :until {:status 200 :body {:account-status "opened"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts/{account-id}/suspend"
+             :path-params {:account-id [:ref :account-0 :account-id]}
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-suspend-then-close-suspend"}}
+   :assert {:status 200 :body {:account-status "suspended"}}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts/{account-id}/close"
+             :path-params {:account-id [:ref :account-0 :account-id]}
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-suspend-then-close-close"}}
+   :assert {:status 200
+            :body {:account-id [:ref :account-0 :account-id]
+                   :account-status "closing"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :account-0 :account-id]}
+             :auth :org-0-token}
+   :until {:status 200 :body {:account-status "closed"}}}]}

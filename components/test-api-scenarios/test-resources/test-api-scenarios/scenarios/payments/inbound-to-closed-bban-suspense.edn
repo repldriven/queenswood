@@ -1,0 +1,181 @@
+{:name "Inbound to a closed account's BBAN lands in 2500 suspense"
+ :tags #{:api :inbound :payments :unhappy}
+ ;; A closed account keeps its BBAN in the unique index, so the address
+ ;; still resolves — it is the credit that is refused. The funds park in
+ ;; the owning bank's 2500 suspense account (DEBIT 1100 / CREDIT 2500)
+ ;; exactly as an unmatched BBAN's do, and the closed account's balance
+ ;; stays zero.
+ ;;
+ ;; We trigger it the way inbound-unmatched-suspense does: an outbound
+ ;; from a funded account to the closed account's own BBAN, which the
+ ;; simulator answers with a credit-settled. All amounts in pence.
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-inbound-to-closed-bban-bank-001"}
+             :body {:name "Inbound To Closed BBAN Test Org"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :org-0
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :org-0 :client-id]
+         :client-secret [:ref :org-0 :client-secret]
+         :status :live}
+   :as :org-0-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-inbound-to-closed-bban-party"}
+             :body {:type "person"
+                    :display-name "Closed Address Holder"
+                    :given-name "Closed"
+                    :family-name "Holder"
+                    :date-of-birth "1970-01-01"
+                    :nationality "GB"
+                    :address {:building-number "155"
+                              :street "Country Lane"
+                              :town "Cottington"
+                              :postcode "CT12 4XY"
+                              :country "GBR"}
+                    :national-identifier {:type "national-insurance"
+                                          :value "TN889011A"
+                                          :issuing-country "GB"}}}
+   :as :party-0
+   :assert {:status 200 :body {:status "pending"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}"
+             :path-params {:party-id [:ref :party-0 :party-id]}
+             :auth :org-0-token}
+   :until {:status 200 :body {:status "active"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-inbound-to-closed-bban-prod-001"}
+             :body {:name "Current Account"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-01-01"}}
+   :as :draft
+   :assert {:status 201 :body {:status "draft"}}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :draft :product-id]
+                  :version-id [:ref :draft :version-id]}
+    :auth :org-0-token}
+   :assert {:status 200 :body {:status "published"}}}
+  {:command :api/request
+   :request {:method :get :path "/v1/ledger-accounts" :auth :org-0-token}
+   :as :ledgers
+   :assert {:status 200}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-inbound-to-closed-bban-open-debtor"}
+             :body {:party-id [:ref :party-0 :party-id]
+                    :name "Funded Debtor"
+                    :currency "GBP"
+                    :product-id [:ref :draft :product-id]}}
+   :as :debtor
+   :assert {:status 200 :body {:account-status "opening"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :debtor :account-id]}
+             :auth :org-0-token}
+   :until {:status 200 :body {:account-status "opened"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-inbound-to-closed-bban-open-closed"}
+             :body {:party-id [:ref :party-0 :party-id]
+                    :name "Closed Creditor"
+                    :currency "GBP"
+                    :product-id [:ref :draft :product-id]}}
+   :as :closed
+   :assert {:status 200 :body {:account-status "opening"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :closed :account-id]}
+             :auth :org-0-token}
+   :until {:status 200 :body {:account-status "opened"}}
+   :as :closed}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts/{account-id}/close"
+             :path-params {:account-id [:ref :closed :account-id]}
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-inbound-to-closed-bban-close"}}
+   :assert {:status 200 :body {:account-status "closing"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :closed :account-id]}
+             :auth :org-0-token}
+   :until {:status 200 :body {:account-status "closed"}}}
+  ;; Fund the debtor so the outbound can leave.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/simulate/banks/{bank-id}/inbound-transfer"
+             :path-params {:bank-id [:ref :org-0 :bank-id]}
+             :auth :admin
+             :headers {:idempotency-key "ik-inbound-to-closed-bban-fund"}
+             :body {:account-id [:ref :debtor :account-id]
+                    :amount 100000
+                    :currency "GBP"}}
+   :assert {:status 200}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :debtor :account-id]}
+             :auth :org-0-token}
+   :until {:status 200
+           :body {:available-balance {:value 100000 :currency "GBP"}}}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/payments/outbound"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-inbound-to-closed-bban-outbound"}
+             :body {:debtor-account-id [:ref :debtor :account-id]
+                    :creditor-bban
+                    [:str [:ref :closed :payment-addresses 0 :scan :sort-code]
+                     [:ref :closed :payment-addresses 0 :scan
+                      :account-number]]
+                    :creditor-name "Closed Creditor"
+                    :currency "GBP"
+                    :amount 4200
+                    :scheme "fps"
+                    :reference "Inbound to a closed address"}}
+   :assert {:status 200}}]
+ :then
+ [{:command :api/poll
+   :request {:method :get
+             :path "/v1/ledger-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref-find :ledgers :ledger-accounts
+                                        :gl-code "2500" :account-id]}
+             :auth :org-0-token}
+   :until {:status 200 :body {:balances [:m/embeds [{:credit 4200 :debit 0}]]}}
+   :timeout-ms 10000}
+  ;; The credit was refused, not lost: the closed account's own
+  ;; balance did not move.
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :closed :account-id]}
+             :auth :org-0-token}
+   :assert {:status 200
+            :body {:posted-balance {:value 0 :currency "GBP"}
+                   :available-balance {:value 0 :currency "GBP"}}}}]}
