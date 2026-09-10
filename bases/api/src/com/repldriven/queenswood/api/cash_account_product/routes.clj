@@ -71,7 +71,7 @@
       {:post {:summary "Open a new draft version (requires no existing draft)"
               :openapi {:operationId "OpenCashAccountProductDraft"
                         :requestBody {:required true}}
-              :parameters {:body [:ref "CashAccountProductRequest"]}
+              :parameters {:body [:ref "CashAccountProductDraftRequest"]}
               :responses {201 {:body [:ref "CashAccountProductVersion"]
                                :openapi {:headers {"Location" location-header}
                                          :links links/from-draft}}
@@ -92,7 +92,7 @@
         :put {:summary "Update the draft version (draft state only)"
               :openapi {:operationId "UpdateCashAccountProductDraft"
                         :requestBody {:required true}}
-              :parameters {:body [:ref "CashAccountProductRequest"]}
+              :parameters {:body [:ref "CashAccountProductDraftRequest"]}
               :responses {200 {:body [:ref "CashAccountProductVersion"]
                                :openapi {:links links/from-draft}}
                           404 (ErrorResponse [#'VersionNotFound])

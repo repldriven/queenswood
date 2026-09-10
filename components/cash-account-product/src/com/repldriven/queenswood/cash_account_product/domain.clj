@@ -31,6 +31,15 @@
                    :currency currency
                    :allowed-currencies (:allowed-currencies template)})))
 
+(defn- ensure-template-matches
+  [template data]
+  (let [requested (:template-id data)]
+    (when (and requested (not= requested (:template-id template)))
+      (error/reject :cash-account-product/template-mismatch
+                    {:message "Template does not match the product's template"
+                     :template-id (:template-id template)
+                     :requested-template-id requested}))))
+
 (defn- product-fields
   "Snapshot the derived instrument fields from the resolved `template`
   (product-type, balance-sheet-side, balance buckets, payment-address
@@ -127,7 +136,8 @@
   (let [{:keys [name currency effective-from effective-to]} data
         now (utility/now)]
     (let-nom>
-      [fields (product-fields template data)
+      [_ (ensure-template-matches template data)
+       fields (product-fields template data)
        _ (ensure-effective-window effective-from effective-to)
        _ (check-capability :cash-account-product-action-draft
                            (:product-type template)
@@ -181,6 +191,7 @@
         {:keys [name currency effective-from effective-to]} data]
     (let-nom>
       [_ (ensure-draft existing)
+       _ (ensure-template-matches template data)
        fields (product-fields template data)
        _ (ensure-effective-window effective-from effective-to)
        _ (check-capability :cash-account-product-action-draft
