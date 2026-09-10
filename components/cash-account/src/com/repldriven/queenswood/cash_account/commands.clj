@@ -27,8 +27,6 @@
    (fn [config data] (->response config (core/resume-account config data)))
    "rotate-cash-account-address"
    (fn [config data] (->response config (core/rotate-address config data)))
-   "migrate-cash-account-product"
-   (fn [config data] (->response config (core/migrate-product config data)))
    "get-cash-account"
    (fn [config data]
      (let [{:keys [bank-id account-id]} data]

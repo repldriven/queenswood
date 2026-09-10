@@ -7,7 +7,7 @@
 
     [com.repldriven.mono.error.interface :refer [let-nom>]]))
 
-;; must match bank-cash-account-query.store/store-name — same FDB store
+;; must match cash-account-query.store/store-name — same FDB store
 (def ^:private store-name "cash-accounts")
 
 (def transact fdb/transact)
@@ -37,7 +37,7 @@
 (defn allocate-payment-address
   "Allocates the next account number from the monotonic FDB
   counter (same pattern as the sort-code fountain in
-  bank-bank/store.clj). The counter only advances — it never
+  bank/store.clj). The counter only advances — it never
   rewinds or re-issues a number, so a closed account's number
   is retired forever, never handed to a later account. Same
   guarantee covers a payment address rotated away (QNS-20)."

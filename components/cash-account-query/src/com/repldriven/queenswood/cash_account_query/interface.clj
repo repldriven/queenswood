@@ -1,8 +1,8 @@
 (ns com.repldriven.queenswood.cash-account-query.interface
   "Read-side (query) surface for cash accounts. Loads and lists
   accounts, optionally enriching with balances and transactions. This
-  is the only cash-account brick `bank-api` is allowed to require: it
-  exposes no writes. State changes go through `bank-cash-account`
+  is the only cash-account brick `api` is allowed to require: it
+  exposes no writes. State changes go through `cash-account`
   (commands), which itself reuses these reads inside its own
   transactions.
 
@@ -10,8 +10,8 @@
   `find-accounts-by-party`, `count-by-org` and
   `count-by-org-product-account-type-currency` fns are read
   primitives for the write sibling's transactions; the public reads for
-  API consumers are `get-account`, `get-accounts`,
-  `find-account-by-product` and `get-account-by-bban`."
+  API consumers are `get-account`, `get-accounts` and
+  `get-account-by-bban`."
   (:require
     [com.repldriven.queenswood.cash-account-query.core :as core]
     [com.repldriven.queenswood.cash-account-query.store :as store]))
@@ -69,17 +69,6 @@
   [config bank-id f init]
   (store/reduce-accounts-with-balances config bank-id f init))
 
-(defn find-account-by-product
-  "Return the first CashAccount whose `(bank-id, product-id)` match,
-  or nil.
-
-  Args:
-  - txn: FDB transaction or db handle.
-  - bank-id: owning bank id.
-  - product-id: product id."
-  [txn bank-id product-id]
-  (core/find-account-by-product txn bank-id product-id))
-
 (defn get-account-by-bban
   "Return the account matching the given BBAN, or nil.
 
@@ -92,8 +81,9 @@
 (defn find-account
   "Load a single cash account by primary key without enrichment or
   rejection; returns the raw account map or nil. A read primitive for
-  the write sibling's transactions (e.g. the status-transition
-  watcher).
+  the write sibling's transactions (e.g. its
+  `complete-status-transition`, which the changelog relay drives
+  through that brick's `events.clj`).
 
   Args:
   - txn: FDB transaction or db handle.
