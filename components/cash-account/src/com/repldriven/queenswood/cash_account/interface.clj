@@ -17,8 +17,8 @@
   Closing an account doesn't need to inform the fountain; there's
   nothing to release.
 
-  Reads live in `bank-cash-account-query`; this brick reuses them inside
-  its own transactions. `bank-api` requires the query brick, not this
+  Reads live in `cash-account-query`; this brick reuses them inside
+  its own transactions. `api` requires the query brick, not this
   one — state changes reach the processor as commands over the bus."
   (:require
     [com.repldriven.queenswood.cash-account.system]
@@ -156,7 +156,7 @@
   `:cash-account-status-opening` to `:cash-account-status-opened`
   by writing the transition straight to the store, bypassing the
   relay and event-processor that run the transition in production.
-  Same spirit as `bank-party/seed-active-party`. Returns the opened account or
+  Same spirit as `party/seed-active-party`. Returns the opened account or
   an anomaly.
 
   Args:
