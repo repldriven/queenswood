@@ -38,8 +38,8 @@
     - `:effective-from` — epoch-day (required), the date the version
       becomes active.
     - `:effective-to` — optional epoch-day; open-ended when absent.
-    - `:idempotency-key` — optional; the command envelope id, unique per
-      bank so a redelivered create reads the original product back.
+    - `:idempotency-key` — optional; unique per bank, so a retried
+      create reads the original product back.
   - opts (optional): map; `:policies` overrides policy resolution."
   ([txn bank-id data]
    (core/new-product txn bank-id data))
