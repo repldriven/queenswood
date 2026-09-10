@@ -288,9 +288,9 @@ topic.
 
 - **Per-capability designs** — `docs/tdd/` has one TDD per
   capability or subsystem (authentication, banks,
-  cash-account-products, cash-accounts, idempotency,
-  infrastructure, interest, onboarding, parties, payments,
-  policy-evaluation, scenario-testing, service-apis,
+  cash-account-migration, cash-account-products, cash-accounts,
+  idempotency, infrastructure, interest, onboarding, parties,
+  payments, policy-evaluation, scenario-testing, service-apis,
   traceability, transaction-processing,
   transactions-and-balances).
 - **Per-capability requirements** — `docs/prd/` has the
