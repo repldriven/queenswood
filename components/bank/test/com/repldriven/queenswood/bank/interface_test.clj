@@ -154,6 +154,24 @@
                        (is (error/rejection? r))
                        (is (= :bank/invalid-status (error/kind r)))))]))))
 
+;; `with-redefs` alters a root binding, so a stub installed here is
+;; visible to every namespace running beside this one — the scenario
+;; suites provision banks of their own, and an unconditional failure
+;; would roll those back too. The stub therefore consults a
+;; thread-local: another thread sees it, finds no instruction in it,
+;; and gets the real function back.
+(def ^:private ^:dynamic *rollback-probe* nil)
+
+(def ^:private real-seed-jobs scheduler/seed-jobs)
+
+(defn- stubbed-seed-jobs
+  [txn bank-id]
+  (if-let [attempted *rollback-probe*]
+    (do (reset! attempted bank-id)
+        (error/fail :test/injected
+                    {:message "Injected mid-flow failure" :bank-id bank-id}))
+    (real-seed-jobs txn bank-id)))
+
 (defn- provisioned
   "Everything `new-bank` writes for `bank-id`, as one map: the bank
   record, its org party, its ledger chart, its house accounts and its
@@ -179,18 +197,14 @@
        ;; there is the latest point at which the whole tenant is in the
        ;; transaction and none of it committed — and the only seam that
        ;; hands the test the id of a bank that will never exist.
-       (let [r (with-redefs [scheduler/seed-jobs
-                             (fn [_ bank-id]
-                               (reset! attempted bank-id)
-                               (error/fail :test/injected
-                                           {:message "Injected mid-flow failure"
-                                            :bank-id bank-id}))]
-                 (SUT/new-bank config
-                               "Rollback Probe Bank"
-                               :bank-status-test
-                               "micro"
-                               ["GBP"]
-                               {:identity-provider idp}))
+       (let [r (with-redefs [scheduler/seed-jobs stubbed-seed-jobs]
+                 (binding [*rollback-probe* attempted]
+                   (SUT/new-bank config
+                                 "Rollback Probe Bank"
+                                 :bank-status-test
+                                 "micro"
+                                 ["GBP"]
+                                 {:identity-provider idp})))
              bank-id @attempted]
          (is (error/anomaly? r))
          (is (some? bank-id) "the injected failure saw a bank id")
