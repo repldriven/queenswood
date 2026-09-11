@@ -71,6 +71,7 @@
 
     [com.repldriven.queenswood.api-schema.interface :as api-schema]
     [com.repldriven.queenswood.cash-account-api.interface :as cash-account-api]
+    [com.repldriven.queenswood.webhook.interface :as webhook]
 
     [com.repldriven.mono.server.interface :as server]
     [com.repldriven.mono.telemetry.interface :as telemetry]
@@ -137,7 +138,8 @@
                                api-schema/registry
                                simulate.components/registry
                                tier.components/registry
-                               transaction.components/registry)}}))
+                               transaction.components/registry
+                               webhook/registry)}}))
 
 (defn- routes
   [ctx]
@@ -177,7 +179,8 @@
                     payment.examples/registry
                     policy.examples/registry
                     simulate.examples/registry
-                    tier.examples/registry)}}
+                    tier.examples/registry
+                    webhook/examples)}}
        :handler (server/standard-openapi-handler)}}]
     (into [""
            {:interceptors (concat telemetry/trace-span

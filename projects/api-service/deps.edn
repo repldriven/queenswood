@@ -44,6 +44,7 @@
         component/schema {:local/root "../../components/schema"}
         component/transaction {:local/root "../../components/transaction"}
         component/user {:local/root "../../components/user"}
+        component/webhook {:local/root "../../components/webhook"}
         base/api {:local/root "../../bases/api"}
         org.clojure/clojure {:mvn/version "1.12.5"}
         pin/clojure-core-async {:local/root "../../deps/clojure-core-async"}}

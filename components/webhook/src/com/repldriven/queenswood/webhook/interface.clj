@@ -19,11 +19,19 @@
   `:endpoint-id`, `:status` and `:allowed`; an address the platform
   refuses to call is `:webhook-endpoint/invalid-address`.
 
+  The notification the bank publishes is declared here too, as the
+  `registry` and `examples` the document is assembled from: an
+  envelope around one of the API's own resource components, its `data`
+  a `oneOf` discriminated on `resource-type`, so a resource gaining a
+  field gains it in its notifications with no second schema to keep.
+
   The delivery side — notifications, deliveries and their attempts —
   is persisted by this brick but not yet exposed here."
   (:require
+    [com.repldriven.queenswood.webhook.components :as components]
     [com.repldriven.queenswood.webhook.core :as core]
-    [com.repldriven.queenswood.webhook.domain :as domain]))
+    [com.repldriven.queenswood.webhook.domain :as domain]
+    [com.repldriven.queenswood.webhook.examples :as examples]))
 
 (defn register
   "Register a webhook endpoint for a bank. Mints the endpoint's id and
@@ -201,3 +209,26 @@
   - platform-hosts: hosts a tenant may not point at."
   [address resolved-addresses platform-hosts]
   (domain/check-address address resolved-addresses platform-hosts))
+
+;; ---
+;; the notification resource
+;; ---
+
+(def
+  ^{:doc
+    "Malli registry of the notification schemas, keyed by the name
+  each appears under in the document's `components/schemas` —
+  `WebhookNotification`, the `WebhookNotificationData` union its
+  `data` refers to, the notification id, the public kind, and the
+  resource type the union is discriminated on. Merged into the
+  coercion registry in `api.clj`, so `[:ref \"X\"]` resolves them on
+  any route."}
+  registry
+  components/registry)
+
+(def
+  ^{:doc
+    "Map of example name to example value for the notification,
+  feeding the document's `components/examples` section."}
+  examples
+  examples/registry)

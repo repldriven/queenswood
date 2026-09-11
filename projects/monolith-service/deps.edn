@@ -54,6 +54,7 @@
   component/schema {:local/root "../../components/schema"}
   component/transaction {:local/root "../../components/transaction"}
   component/user {:local/root "../../components/user"}
+  component/webhook {:local/root "../../components/webhook"}
   base/api {:local/root "../../bases/api"}
   base/clearbank-adapter {:local/root "../../bases/clearbank-adapter"}
   base/clearbank-simulator {:local/root "../../bases/clearbank-simulator"}
