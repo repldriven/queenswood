@@ -90,9 +90,33 @@ hits=$(printf '%s\n' "$files" | xargs grep -nHE \
 # either: this predates prj- and would have caught it.
 #
 # The mask cannot match, x not being a hex digit.
-hits=$(printf '%s\n' "$files" | xargs grep -nHE \
-  '[0-9a-z]-[0-9a-f]{6}([^0-9a-z-]|$)' 2>/dev/null \
-  | grep -v 'cloud-id-ok' || true)
+#
+# One shape is masked before the test rather than refused: this
+# project's own dated artefacts, `<name>-YYYY-MM-DD-HHMMSS.md`. A UTC
+# time is six digits closing a name, and every decimal digit is a hex
+# digit, so a gap report citing an earlier gap report matches this rule
+# exactly -- which analysts are meant to do, and which no amount of
+# cloud-id-ok on each citing line would stop recurring.
+#
+# Masked rather than exempted by line: a real suffix elsewhere on the
+# same line still reports, and what is reported is the original line.
+# The mask is narrow enough to be safe -- it consumes a full ISO date
+# and an all-digit time only, so a date closed by a hex suffix rather
+# than a time is left exactly where the rule can still see it.
+suffix='[0-9a-z]-[0-9a-f]{6}([^0-9a-z-]|$)'
+
+mask_dated_artefacts() {
+  sed -E 's/-(19|20)[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{6}/-<timestamp>/g'
+}
+
+hits=$(printf '%s\n' "$files" | xargs grep -nHE "$suffix" 2>/dev/null \
+  | grep -v 'cloud-id-ok' \
+  | while IFS= read -r line; do
+      if printf '%s' "$line" | mask_dated_artefacts \
+           | grep -qE "$suffix"; then
+        printf '%s\n' "$line"
+      fi
+    done || true)
 [ -n "$hits" ] && report "project id suffix" "$hits"
 
 # Bare digit runs. In a tree, restricted to what describes
