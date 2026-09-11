@@ -49,11 +49,12 @@
      closed)))
 
 (defn find-by-code
-  [txn bank-id gl-account-code]
+  [txn bank-id gl-account-code currency]
   (let-nom>
-    [account (store/find-by-code txn bank-id gl-account-code)]
-    (some-> account
-            domain/ensure-open)))
+    [account (store/find-by-code txn bank-id gl-account-code currency)]
+    (if account
+      (domain/ensure-open account)
+      (domain/missing-currency-account bank-id gl-account-code currency))))
 
 (defn list-accounts
   [txn bank-id]
@@ -69,29 +70,28 @@
       (get domain/product-type->control-code (:product-type leg))))
 
 (defn- control-leg
-  "If `leg` fans out, resolve its control ledger account and return a
-  same-side mirror leg targeting the control's default-posted bucket,
-  tagged `:control` so the double-entry balance check skips the roll-up.
-  Nil for legs that don't fan out, legs with no resolvable control code,
-  and when the control account isn't seeded yet."
-  [txn bank-id leg]
+  "If `leg` fans out, resolve its control ledger account in `currency`
+  and return a same-side mirror leg targeting the control's
+  default-posted bucket, tagged `:control` so the double-entry balance
+  check skips the roll-up. Nil for legs that don't fan out and legs with
+  no resolvable control code; the `:gl/missing-currency-account`
+  rejection for a leg whose control is not seeded in `currency`."
+  [txn bank-id currency leg]
   (when (domain/fans-out? leg)
     (when-let [code (control-code leg)]
       (let-nom>
-        [control (store/find-by-code txn bank-id code)
-         control (if control (domain/ensure-open control) control)]
-        (when control
-          {:account-id (:ledger-account-id control)
-           :balance-type :balance-type-default
-           :balance-status :balance-status-posted
-           :side (:side leg)
-           :amount (:amount leg)
-           :control true})))))
+        [control (find-by-code txn bank-id code currency)]
+        {:account-id (:ledger-account-id control)
+         :balance-type :balance-type-default
+         :balance-status :balance-status-posted
+         :side (:side leg)
+         :amount (:amount leg)
+         :control true}))))
 
 (defn add-control-legs
-  [txn bank-id legs]
+  [txn bank-id currency legs]
   (reduce (fn [acc leg]
-            (let [extra (control-leg txn bank-id leg)]
+            (let [extra (control-leg txn bank-id currency leg)]
               (cond
                (error/anomaly? extra)
                (reduced extra)

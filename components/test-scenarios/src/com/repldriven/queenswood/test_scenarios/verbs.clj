@@ -56,7 +56,10 @@
    bank
    (fn [txn]
      (let [tagged (mapv #(tag-leg-product-type txn bank-id %) (:legs tx-data))
-           expanded (ledger-accounts/add-control-legs txn bank-id tagged)]
+           expanded (ledger-accounts/add-control-legs txn
+                                                      bank-id
+                                                      (:currency tx-data)
+                                                      tagged)]
        (if (error/anomaly? expanded)
          expanded
          (let [r (transactions/record-transaction
@@ -583,9 +586,10 @@
    :legs [gl-leg customer-leg]})
 
 (defn- gl-account-for
-  "Look up the bank's GL account by `gl-account-code` role on its own books."
-  [bank bank-id gl-account-code]
-  (ledger-accounts/find-by-code bank bank-id gl-account-code))
+  "Look up the bank's GL account by `gl-account-code` role and `currency`
+  on its own books."
+  [bank bank-id gl-account-code currency]
+  (ledger-accounts/find-by-code bank bank-id gl-account-code currency))
 
 (defn- bank-id-for-account
   "Resolve the bank-id that owns `model-acct`."
@@ -679,7 +683,7 @@
   (let [real-id (id-mapping/real id-mapping model-id)
         bank-id (bank-id-for-account banks accounts model-id)
         pending-outbound
-        (gl-account-for bank bank-id :gl-account-code-pending-outbound)
+        (gl-account-for bank bank-id :gl-account-code-pending-outbound "GBP")
         result
         (if (or (nil? pending-outbound) (error/anomaly? pending-outbound))
           (error/reject :scenario/no-pending-outbound-account
@@ -861,8 +865,10 @@
   ;; until 4100 fee-income lands in a future wave).
   (let [real-id (id-mapping/real id-mapping model-id)
         bank-id (bank-id-for-account banks accounts model-id)
-        cash
-        (gl-account-for bank bank-id :gl-account-code-cash-at-correspondent)
+        cash (gl-account-for bank
+                             bank-id
+                             :gl-account-code-cash-at-correspondent
+                             "GBP")
         result
         (if (or (nil? cash) (error/anomaly? cash))
           (error/reject :scenario/no-cash-at-correspondent-account
@@ -1074,7 +1080,7 @@
   [{:keys [bank banks] :as ctx}
    {[model-bank gl-account-code currency expected] :args}]
   (let [{bank-real-id :real-id} (get banks model-bank)
-        gl (gl-account-for bank bank-real-id gl-account-code)
+        gl (gl-account-for bank bank-real-id gl-account-code currency)
         balance (balances-query/get-balance bank
                                             bank-real-id
                                             (:ledger-account-id gl)
