@@ -388,11 +388,15 @@ InboundPayment and returns it without re-posting.
 Its egress is a transactional outbox on both edges — it owns:
 
 - **Webhook receiver** — HTTP endpoints under its own server
-  (separate from `api`), receiving signed webhooks from
-  ClearBank. Verifies signatures, normalises the scheme-specific
-  payload into an internal event, and writes it to an outbox in
-  one transaction, returning 200 only on commit — a failed write
-  is retried by ClearBank rather than silently lost.
+  (separate from `api`), receiving webhooks from ClearBank. It
+  normalises the scheme-specific payload into an internal event
+  and writes it to an outbox in one transaction, returning 200
+  only on commit — a failed write is retried by ClearBank rather
+  than silently lost. It authenticates nobody: the routes carry
+  no security metadata, the chain ahead of them only injects
+  components, and no adapter config holds a signing secret, so
+  anything that reaches the port can post an event. Verifying
+  ClearBank's signature is an open gap.
 - **Scheme command consumer** — message-bus consumer for
   `submit-payment` commands. Each is persisted as a pending
   outbound intent and acked; the consumer makes no HTTP call.

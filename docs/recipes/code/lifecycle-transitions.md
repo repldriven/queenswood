@@ -43,8 +43,9 @@ function guards its source state before doing anything else.
 9. **Service YAML** — the event channel, its topic, and the
    consumer that subscribes it are declared in every system that
    needs the reaction, including the monolith and the test rigs.
-   Use `changelog-relay/event-consumer`, not mono's
-   `event-processor`, which acks on anomaly.
+   The consumer is the brick's own `<brick>/event-processor` kind
+   wrapped in mono's `event-processor/event-processor`, which
+   redelivers when the handler throws or returns an anomaly.
 10. **Tests** — a model-command test (or update to an existing one)
     and an API-scenario test covering the new transition.
 

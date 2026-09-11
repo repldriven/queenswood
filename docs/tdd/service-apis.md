@@ -198,9 +198,10 @@ handler returns the spec assembled from:
 - **Per-domain example registries.** Merged into
   `:openapi :components :examples`. Endpoints reference
   examples by `$ref` in their request and response bodies.
-- **Security schemes.** Two declared at the top:
-  `adminAuth` and `orgAuth`, both `http`/`bearer`. Routes opt
-  in per-operation via `:openapi :security`.
+- **Security scheme.** One declared at the top: `bearerAuth`,
+  `http`/`bearer` with `bearerFormat: JWT`. Routes opt in
+  per-operation via `:openapi :security`, naming in the entry
+  the roles a token must carry — `[{"bearerAuth" ["org"]}]`.
 - **Default 4xx/5xx responses on the `/v1` group.** Declared
   once on the route group, inherited by every endpoint
   underneath. Per-endpoint responses extend (4xx domain-
@@ -273,13 +274,11 @@ never short-circuits. Routes without `:openapi :security` are
 genuinely public.
 
 `authorize` reads the route's `:openapi :security` (e.g.
-`[{"orgAuth" []}]`) and resolves required schemes to allowed
-roles via the table:
-
-```clojure
-{"adminAuth" #{:admin}
- "orgAuth"   #{:org :admin}}
-```
+`[{"bearerAuth" ["org"]}]`) and takes the roles named in the
+entry, as keywords, as the allowed set. A route naming the
+scheme with no roles is refused while the router is built: it
+would demand a token and say nothing about what the token must
+carry, leaving nothing to check.
 
 If no role is attached → terminate 401. If the role isn't in
 the allowed set → terminate 403. Termination uses
