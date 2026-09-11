@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# Lay down the Tessl rules a fresh checkout does not carry.
+#
+# `.tessl/` is gitignored, so a new worktree has no RULES.md and the
+# `@.tessl/RULES.md` import in AGENTS.md resolves to nothing. Memory is
+# read before any session hook runs, so the repair has to happen when the
+# worktree is created rather than when an agent opens it -- which is what
+# this hook is. Gas City makes a worktree per work item with
+# `git worktree add`, and that fires post-checkout in the new tree.
+#
+# Args: $1 previous HEAD, $2 new HEAD, $3 1 for a branch/worktree
+# checkout, 0 for a file checkout.
+#
+# Advisory: a missing tool or a failed install never fails the checkout.
+
+set -u
+
+[ "${3:-0}" = "1" ] || exit 0
+
+root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+cd "$root" || exit 0
+
+# Already installed. The common case: every `git switch` in a worktree
+# that has been through here once.
+[ -f .tessl/RULES.md ] && exit 0
+
+# A checkout of a commit from before the plugins existed has nothing to
+# install, and tessl.json is what names them.
+[ -f tessl.json ] || exit 0
+
+# Through the dev shell, which is where `just` and `tessl` come from.
+# Nothing has allowed direnv in a tree this new, and whoever ran
+# `git worktree add` -- a Gas City agent, most of all -- need not carry
+# either tool on its own PATH.
+if command -v nix >/dev/null 2>&1; then
+  run=(nix develop --command just tessl-plugins-install)
+elif command -v just >/dev/null 2>&1 && command -v tessl >/dev/null 2>&1; then
+  run=(just tessl-plugins-install)
+else
+  echo "post-checkout: no nix, and no just/tessl on PATH." >&2
+  echo "post-checkout: agents in $root will load AGENTS.md with no rules." >&2
+  exit 0
+fi
+
+echo "post-checkout: installing Tessl rules into $root"
+# Installs every plugin from this tree and lays down the default
+# profile. A worktree gets `default` rather than whatever profile the
+# primary checkout happens to be on: that setting is per-machine scratch,
+# and `default` is the profile implementation work wants.
+if ! "${run[@]}" >/dev/null 2>&1; then
+  echo "post-checkout: ${run[*]} failed in $root." >&2
+  echo "post-checkout: run it by hand before starting an agent there." >&2
+fi
+
+exit 0

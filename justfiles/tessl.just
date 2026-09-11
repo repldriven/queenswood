@@ -8,6 +8,10 @@
 # alone changes nothing any agent reads, and shows no diff, which is
 # what `tessl-plugins-check` is for.
 #
+# A fresh worktree has no copy at all, and memory is read before any
+# session hook runs, so the install has to happen when the tree is
+# created. The `post-checkout` hook does that -- `just install-hooks`.
+#
 # Every plugin stays installed. A profile chooses which of them
 # `.tessl/RULES.md` links, so an agent loads the rules its task needs
 # and none of the rest. A profile is read at session start, so a change

@@ -68,16 +68,27 @@ lint:
   just lint-eastwood
   just lint-clj-kondo
 
-# Install the pre-commit hook (run again whenever the hook itself changes)
+# Install the git hooks. Silent when the installed copies already match.
+# .envrc runs this, so entering the primary checkout is what arms them.
 install-hooks:
     #!/usr/bin/env zsh
     set -euo pipefail
-    # git resolves this for a worktree too, where .git is a file and the real
-    # hooks directory lives in the primary checkout — so one install covers
-    # every worktree of this clone.
-    for name in pre-commit commit-msg; do
+    # There is one hooks directory per clone, in the git dir a linked
+    # worktree's .git file points back at. So one install covers every
+    # worktree, including the ones Gas City has yet to create — and a
+    # worktree is not allowed to be what installs them, since its checkout
+    # is whatever commit a work item landed on.
+    if [[ "$(git rev-parse --git-dir)" != "$(git rev-parse --git-common-dir)" ]]; then
+      echo "install-hooks: skipped — hooks belong to the whole clone."
+      echo "install-hooks: run it in $(dirname $(git rev-parse --git-common-dir))"
+      exit 0
+    fi
+    # A copy, not a symlink: editing scripts/hooks/ changes nothing until
+    # this runs again.
+    for name in pre-commit commit-msg post-checkout; do
       hook=$(git rev-parse --git-path "hooks/$name")
       mkdir -p "$(dirname "$hook")"
+      cmp -s "scripts/hooks/$name" "$hook" && continue
       cp "scripts/hooks/$name" "$hook"
       chmod +x "$hook"
       echo "installed $hook"
