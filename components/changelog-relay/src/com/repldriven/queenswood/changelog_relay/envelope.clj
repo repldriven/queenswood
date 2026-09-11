@@ -5,7 +5,7 @@
     [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.event.interface :as event]
     [com.repldriven.mono.log.interface :as log]
-    [com.repldriven.mono.utility.interface :refer [assoc-some]]))
+    [com.repldriven.mono.utility.interface :refer [assoc-seq assoc-some]]))
 
 (defn ->handler
   [{:keys [bus event-channel store-name]}]
@@ -35,8 +35,8 @@
                            ;; `event/envelope` mints `:id` per publish; the
                            ;; relay overrides it with the entry's id, so a
                            ;; redrive republishes under the same
-                           ;; identifier.
-                           (assoc-some :id event-id))
+                           ;; identifier. `assoc-seq` declines `""`.
+                           (assoc-seq :id event-id))
               ;; The writer declares the ordering key; the relay only
               ;; carries it across. Absent means an unkeyed publish —
               ;; correct while a topic has one partition, and the thing
