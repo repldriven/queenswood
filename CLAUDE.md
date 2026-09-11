@@ -293,11 +293,11 @@ topic.
   idempotency, infrastructure, interest, onboarding, parties,
   payments, policy-evaluation, scenario-testing, service-apis,
   traceability, transaction-processing,
-  transactions-and-balances).
+  transactions-and-balances, webhooks).
 - **Per-capability requirements** — `docs/prd/` has the
   product-shaped requirements (cash-account-products,
   cash-accounts, interest, memberships, onboarding, parties,
-  payments, platform, policies, users).
+  payments, platform, policies, users, webhooks).
 - **In-flight implementation plans** — `docs/plan/`.
 
 ## Guardrails
