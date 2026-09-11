@@ -4,10 +4,10 @@
 
 ## Status
 
-**Untested** against a store holding data. The rules are exercised by
-the fdb brick's meta-data tests against a testcontainer and by the
-migrator's guard, and the test instance is the first to be evolved
-rather than rebuilt.
+**Verified.** The test instance's meta-data was taken from version 49
+to 50 this way: four indexes rebuilt under their names, one added, the
+stored versions logged by the migrator first, and every service opened
+its stores against the result.
 
 ## Problem
 
