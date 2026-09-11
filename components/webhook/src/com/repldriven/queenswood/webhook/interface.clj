@@ -28,6 +28,8 @@
   The delivery side — notifications, deliveries and their attempts —
   is persisted by this brick but not yet exposed here."
   (:require
+    [com.repldriven.queenswood.webhook.system]
+
     [com.repldriven.queenswood.webhook.components :as components]
     [com.repldriven.queenswood.webhook.core :as core]
     [com.repldriven.queenswood.webhook.domain :as domain]

@@ -1,9 +1,11 @@
 (ns com.repldriven.queenswood.webhook.store
   (:require
+    [com.repldriven.queenswood.webhook.changelog :as changelog]
+
     [com.repldriven.queenswood.fdb.interface :as fdb]
     [com.repldriven.queenswood.schema.interface :as schema]
 
-    [com.repldriven.mono.error.interface :refer [let-nom>]]))
+    [com.repldriven.mono.error.interface :as error :refer [let-nom>]]))
 
 (def ^:private endpoints-store-name "webhook-endpoints")
 (def ^:private notifications-store-name "webhook-notifications")
@@ -243,3 +245,107 @@
                               {:index "WebhookDeliveryAttempt_by_delivery"})))
    :webhook-delivery-attempt/find-by-delivery
    "Failed to find webhook delivery attempts by delivery"))
+
+(defn save-endpoint-status
+  "Save an endpoint whose status changed, co-committing the changelog
+  envelope for the transition in the same transaction as the record.
+
+  `status-before` is the status the loaded record carried, which the
+  envelope needs and the saved record no longer has."
+  [txn endpoint status-before]
+  (fdb/transact
+   txn
+   (fn [txn]
+     (let [store (fdb/open txn endpoints-store-name)]
+       (let-nom>
+         [_ (fdb/save-record store (schema/WebhookEndpoint->java endpoint))
+          entry (changelog/endpoint-status-changed
+                 {:bank-id (:bank-id endpoint)
+                  :endpoint-id (:endpoint-id endpoint)
+                  :status-before status-before
+                  :status-after (:status endpoint)
+                  :updated-at (:updated-at endpoint)})
+          _ (fdb/write-changelog txn
+                                 endpoints-store-name
+                                 (:endpoint-id endpoint)
+                                 entry)]
+         nil)))
+   :webhook-endpoint/save-status
+   "Failed to save webhook endpoint status change"))
+
+(defn claim-due-deliveries
+  "Claim the deliveries that are due, in the transaction that read
+  them: each moves from pending to in-flight and carries a lease and
+  the claiming runner. A second replica reading the same row loses this
+  transaction and claims nothing, so a due delivery is sent once.
+
+  Returns the claimed deliveries as they were written.
+
+  Args:
+  - txn: FDB transaction or config map.
+  - opts:
+    - `:now` — epoch-ms; a delivery is due when its next attempt is at
+      or before this, and one that has never been attempted has none.
+    - `:claimed-by` — the runner's id, stamped on the row.
+    - `:lease-ms` — how long the claim holds.
+    - `:limit` — how many to claim in this pass.
+    - `:per-endpoint-limit` — how many of one endpoint's deliveries the
+      batch may carry, so one tenant cannot fill it."
+  [txn {:keys [now claimed-by lease-ms limit per-endpoint-limit]}]
+  (fdb/transact
+   txn
+   (fn [txn]
+     (let [store (fdb/open txn deliveries-store-name)
+           pending (fdb/query-records
+                    store
+                    "WebhookDelivery"
+                    "status"
+                    (fdb/enum-value store
+                                    "WebhookDelivery"
+                                    "status"
+                                    (schema/webhook-delivery-status->int
+                                     :webhook-delivery-status-pending))
+                    {:index "WebhookDelivery_by_status_due"})
+           taken (volatile! {})
+           within-endpoint-limit?
+           (fn [{:keys [endpoint-id]}]
+             (when (< (get @taken endpoint-id 0) per-endpoint-limit)
+               (vswap! taken update endpoint-id (fnil inc 0))
+               true))
+           due (into []
+                     (comp (map schema/pb->WebhookDelivery)
+                           (filter #(<= (or (:next-attempt-at %) 0) now))
+                           (filter within-endpoint-limit?)
+                           (take limit))
+                     pending)]
+       (reduce (fn [claimed delivery]
+                 (let [row (assoc delivery
+                                  :status :webhook-delivery-status-in-flight
+                                  :claim-lease-expires-at (+ now lease-ms)
+                                  :claimed-by claimed-by
+                                  :updated-at now)
+                       res (fdb/save-record
+                            store
+                            (schema/WebhookDelivery->java row))]
+                   (if (error/anomaly? res) (reduced res) (conj claimed row))))
+               []
+               due)))
+   :webhook-delivery/claim
+   "Failed to claim due webhook deliveries"))
+
+(defn save-outcome
+  "Write one attempt's outcome: the delivery as the outcome left it and
+  the attempt row for the call, in one transaction of their own — the
+  HTTP call has already happened outside every transaction."
+  [txn delivery attempt]
+  (fdb/transact
+   txn
+   (fn [txn]
+     (let-nom>
+       [_ (fdb/save-record (fdb/open txn deliveries-store-name)
+                           (schema/WebhookDelivery->java delivery))
+        _ (fdb/save-record (fdb/open txn attempts-store-name)
+                           (schema/WebhookDeliveryAttempt->java attempt))]
+       nil))
+   :webhook-delivery/save-outcome
+   "Failed to record webhook delivery outcome"))

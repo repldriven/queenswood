@@ -219,3 +219,48 @@
       (is (false? (SUT/should-pause? (- now SUT/pause-window-ms)
                                      now
                                      SUT/pause-minimum-attempts))))))
+
+(deftest retry-schedule-test
+  (testing "the first retry is inside a minute"
+    (is (< (SUT/retry-schedule 1) 60000)))
+  (testing "the schedule grows and never passes its cap"
+    (is (apply <= SUT/retry-schedule-ms))
+    (is (every? #(<= % SUT/retry-max-interval-ms) SUT/retry-schedule-ms))
+    (is (= SUT/retry-max-interval-ms (last SUT/retry-schedule-ms))
+        "growth saturates at the cap rather than running past it"))
+  (testing "the whole schedule spans no longer than it may"
+    (is (<= (reduce + SUT/retry-schedule-ms) SUT/retry-span-ms)))
+  (testing "a spent schedule has no next attempt"
+    (is (nil? (SUT/retry-schedule SUT/max-attempts)))
+    (is (some? (SUT/retry-schedule (dec SUT/max-attempts))))))
+
+(deftest record-outcome-test
+  (let [now 1700000000000
+        delivery {:delivery-id "whd.1"
+                  :status :webhook-delivery-status-in-flight
+                  :claim-lease-expires-at (+ now 60000)
+                  :claimed-by "runner-1"}]
+    (testing "a 2xx delivers, and releases the claim"
+      (let [updated (SUT/record-outcome delivery {:status 204} now)]
+        (is (= :webhook-delivery-status-delivered (:status updated)))
+        (is (= 1 (:attempts updated)))
+        (is (= 204 (:last-response-status updated)))
+        (is (nil? (:claim-lease-expires-at updated)))
+        (is (nil? (:claimed-by updated)))))
+    (testing "a non-2xx counts the attempt and schedules the next"
+      (let [updated (SUT/record-outcome delivery {:status 500} now)]
+        (is (= :webhook-delivery-status-pending (:status updated)))
+        (is (= 1 (:attempts updated)))
+        (is (= 500 (:last-response-status updated)))
+        (is (= (+ now (SUT/retry-schedule 1)) (:next-attempt-at updated)))))
+    (testing "a call that never answered records the error, not a status"
+      (let [updated (SUT/record-outcome delivery {:error "timeout"} now)]
+        (is (= :webhook-delivery-status-pending (:status updated)))
+        (is (= "timeout" (:last-error updated)))
+        (is (nil? (:last-response-status updated)))))
+    (testing "the attempt past the schedule fails and keeps the delivery"
+      (let [spent (assoc delivery :attempts (dec SUT/max-attempts))
+            updated (SUT/record-outcome spent {:status 500} now)]
+        (is (= :webhook-delivery-status-failed (:status updated)))
+        (is (= SUT/max-attempts (:attempts updated)))
+        (is (nil? (:next-attempt-at updated)))))))
