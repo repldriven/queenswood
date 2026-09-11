@@ -374,9 +374,10 @@ the in-process changelog watcher it grew out of:
   event for a transition already applied finds the entity past
   that state and skips, rather than rejecting.
 
-Wire it with `changelog-relay/event-consumer` rather than mono's
-`event-processor/event-processor` — the latter acks on anomaly, so
-a failed lifecycle transition would be lost instead of redriven.
+Wire it as a `<brick>/event-processor` kind wrapped in mono's
+`event-processor/event-processor`, which leaves the event
+unacknowledged when the handler throws or returns an anomaly, so a
+failed lifecycle transition is redriven rather than lost.
 
 ### `commands.clj` — message entry point
 

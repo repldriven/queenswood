@@ -1,3 +1,9 @@
 system:
   fdb: !include system/fdb-test.yml
   message-bus: !include changelog-relay/message-bus-test.yml
+  relay-handler:
+    handler: !system/component
+      system/component-kind: changelog-relay/envelope-handler
+      bus: !system/ref message-bus.bus
+      store-name: clearbank-outbox
+      event-channel: !keyword relay-test-event
