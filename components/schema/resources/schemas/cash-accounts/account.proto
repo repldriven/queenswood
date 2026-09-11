@@ -63,8 +63,10 @@ message CashAccount {
 
   // Tag 20 held a pointer to the GL control account. A leg's control
   // account is resolved from its product-type at posting time, so the
-  // account stores no pointer to one.
-  reserved 20;
+  // account stores no pointer to one and nothing reads this field. It
+  // stays in the descriptor because the Record Layer refuses to save
+  // meta-data that drops a field an existing store was written with.
+  optional string gl_control_account_id = 20 [deprecated = true];
 
   // Client idempotency key (the command envelope :id, sourced from the
   // required Idempotency-Key header) that opened this account. Unique-indexed
