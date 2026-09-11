@@ -42,9 +42,10 @@
 
 (defn- post-ledger-entry
   "The bank's ledger entry for one currency and product type of a
-  capitalisation run. Split by product type because the credit side is
-  whichever deposit control that product rolls into, so one entry per
-  currency could not name them all and still balance."
+  capitalisation run, posted against the `gl` roles resolved for that
+  currency. Split by product type because the credit side is whichever
+  deposit control that product rolls into, so one entry per currency
+  could not name them all and still balance."
   [config ctx gl [currency product-type]]
   (let [{:keys [bank-id business-day account-kind]} ctx]
     (store/transact
@@ -75,4 +76,5 @@
    :account-fn capitalize-account
    :gl-fn chart/capitalization-accounts
    :entry-fn post-ledger-entry
+   :entry-currency first
    :entries-fn capitalization/entries})
