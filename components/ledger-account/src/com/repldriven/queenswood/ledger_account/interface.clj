@@ -3,11 +3,11 @@
   customer bank runs its own books on (cash at correspondent,
   customer-deposit controls, interest payable, suspense, etc.). A
   `LedgerAccount` is a flat, bank-owned record distinct from a
-  customer `CashAccount`: 1:1 with a chart row, created directly by
-  `seed!`, with no product, no versioning, and no command/watcher
-  lifecycle. Ledger accounts share the `account-id` space with cash
-  accounts, so a `:ledger-account-id` is just another `account-id` to
-  `bank-balance` and `bank-transaction` — which is what keeps a
+  customer `CashAccount`: 1:1 with a chart row, created a row at a
+  time by `new-account`, with no product, no versioning, and no
+  command/watcher lifecycle. Ledger accounts share the `account-id`
+  space with cash accounts, so a `:ledger-account-id` is just another
+  `account-id` to `balance` and `transaction` — which is what keeps a
   customer leg and its control-account leg atomic in one posting.
 
   This brick owns: the product-type to control-code mapping, the
@@ -141,13 +141,15 @@
 
 (defn add-control-legs
   "Walk `legs` and append a matching control-side leg for every
-  customer default-posted leg carrying a sub-ledger `:product-type`,
+  posted default customer leg carrying a sub-ledger `:product-type`,
   resolving the control ledger account from that product type in
   `currency` — the transaction's currency, which every leg of one
   transaction shares. Posting sites call this BEFORE recording the
   transaction so the synthetic control leg lands atomically in the same
-  transaction. Legs without a customer product type pass through
-  unchanged.
+  transaction. Only posted default legs fan out: a leg in any other
+  balance-type (`interest-accrued` among them) or any other
+  balance-status, and a leg without a customer product type, passes
+  through unchanged.
 
   A leg that fans out and whose control is absent in `currency` or
   closed fails the whole posting, with `:gl/missing-currency-account` or

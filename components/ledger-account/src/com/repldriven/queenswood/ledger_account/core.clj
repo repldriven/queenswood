@@ -61,21 +61,20 @@
   (store/list-by-bank txn bank-id))
 
 (defn- control-code
-  "The control gl-code `leg` rolls up into: an interest-accrued bucket
-  goes to 2400 (by balance-type) ahead of the product-type deposit
-  control, so a savings account's accrued interest reconciles to 2400
-  rather than 2200. Nil if the leg has no control counterpart."
+  "The control gl-code `leg` rolls up into, by its product type. Nil for
+  a leg with no control counterpart."
   [leg]
-  (or (get domain/balance-type->control-code (:balance-type leg))
-      (get domain/product-type->control-code (:product-type leg))))
+  (get domain/product-type->control-code (:product-type leg)))
 
 (defn- control-leg
   "If `leg` fans out, resolve its control ledger account in `currency`
   and return a same-side mirror leg targeting the control's
   default-posted bucket, tagged `:control` so the double-entry balance
-  check skips the roll-up. Nil for legs that don't fan out and legs with
-  no resolvable control code; the `:gl/missing-currency-account`
-  rejection for a leg whose control is not seeded in `currency`."
+  check skips the roll-up. The mirror is one leg per posted default
+  customer leg. Nil for legs that don't fan out and legs with no
+  resolvable control code; the `:gl/missing-currency-account` rejection
+  for a leg whose control is not seeded in `currency`, and
+  `:ledger-account/closed` for a leg whose control is closed."
   [txn bank-id currency leg]
   (when (domain/fans-out? leg)
     (when-let [code (control-code leg)]
