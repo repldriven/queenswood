@@ -98,6 +98,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          # The migrator's schema-evolution guard describes HEAD against
+          # the last stable-* tag, which needs the history it sits on.
+          fetch-depth: 0
 
       # versions.json is the single source for the native toolchain. The
       # steps below read it rather than repeating the numbers, so CI cannot

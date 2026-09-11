@@ -1,20 +1,24 @@
-_record-types: &record-types !strs
-  pets:
-    record-type: Pet
-    indexes:
-      - name: species_idx
-        field: species
-  # Keys sharing a leading element, for scan and merge coverage. One
-  # owner per key, several toys, so a toys scan under a household has a
-  # key tail longer than one element.
-  owners:
-    record-type: Owner
-    primary-key: [household_id, owner_id]
-    indexes: []
-  toys:
-    record-type: Toy
-    primary-key: [household_id, owner_id, toy_id]
-    indexes: []
+_metadata: &metadata !strs
+  version: 1
+  stores:
+    pets:
+      record-type: Pet
+      indexes:
+        - name: species_idx
+          added: 1
+          modified: 1
+          field: species
+    # Keys sharing a leading element, for scan and merge coverage. One
+    # owner per key, several toys, so a toys scan under a household has a
+    # key tail longer than one element.
+    owners:
+      record-type: Owner
+      primary-key: [household_id, owner_id]
+      indexes: []
+    toys:
+      record-type: Toy
+      primary-key: [household_id, owner_id, toy_id]
+      indexes: []
 
 container: !system/component
   system/component-kind: fdb/container
@@ -39,12 +43,12 @@ record-db: !system/component
 pet-store: !system/component
   system/component-kind: fdb/store
   descriptor: com.repldriven.queenswood.test_schemas.schemas.TestSchemaProto
-  record-types: *record-types
+  metadata: *metadata
 
 pet-meta-store: !system/component
   system/component-kind: fdb/meta-store
   record-db: !system/local-ref record-db
   path: pet-meta
   descriptor: com.repldriven.queenswood.test_schemas.schemas.TestSchemaProto
-  record-types: *record-types
+  metadata: *metadata
   migrate: true

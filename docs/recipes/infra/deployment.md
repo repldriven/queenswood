@@ -91,8 +91,10 @@ metadata vs data, and platform-wide vs tenant-specific:
   record metadata via the FDB YAML in `resources`;
   creates the Kafka topics via the kafka-bootstrap YAML
   in the same component. Idempotent: skips
-  already-existing topics, treats FDB
-  "meta-data version must increase" as a no-op. Exits
+  already-existing topics, and saves the FDB metadata
+  only when its declared version exceeds the stored one,
+  logging what is stored first. The same version with
+  any change, or an older one, fails the Job. Exits
   non-zero if topic creation fails.
 - **`bootstrap-service`** — runs after the migrator
   completes; idempotently seeds the platform and micro
