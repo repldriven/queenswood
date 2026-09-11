@@ -30,11 +30,17 @@ System tests manage lifecycle explicitly with `with-test-system`
 
 ### Running tests
 
-The default project is `project:dev`. All tests:
+The full run is every service project's matrix plus the development
+project, which is where the scenario bricks live:
 
 ```bash
-clojure -M:poly test project:dev
+clojure -M:poly test :all :dev
 ```
+
+`just test-all` is that command with docker started first. Nothing
+narrower is "all tests": `:all` on its own omits the development
+project and so every scenario, and `project:dev` on its own tests each
+brick against dev's dependency set only.
 
 Specific bricks (one or more, colon-separated), in every project
 that hosts them plus the development project:

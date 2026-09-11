@@ -324,10 +324,20 @@ rule (and its source recipe/ADR, kept in sync by the
 # development project alone, which polylith excludes without it.
 clojure -M:poly test :dev
 
-# Run the full polylith test matrix (per service project)
+# The full run: every brick in every service project, and the
+# development project with it, so the scenarios run too. This is what
+# `just test-all` does (and it starts docker first). When something
+# says "the full suite", this is the command. The two narrower forms
+# below each drop a dimension, so neither stands in for it.
+clojure -M:poly test :all :dev
+
+# Every service project's matrix, without the development project —
+# so no scenario bricks.
 clojure -M:poly test :all
 
-# Run the development project (every brick — includes scenarios)
+# The development project alone. It carries every brick, scenarios
+# included, but tests each one against dev's dependency set only: a
+# test dependency a service project lacks still fails only there.
 clojure -M:poly test project:dev :all
 
 # Run tests for one or more bricks, in every project that hosts them
