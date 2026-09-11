@@ -8,6 +8,7 @@
 
     [com.repldriven.queenswood.balance-query.interface :as balances]
     [com.repldriven.queenswood.balance.interface :as balance-writes]
+    [com.repldriven.queenswood.policy.interface :as policy]
 
     [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.system.interface :as system]
@@ -22,8 +23,9 @@
    :record-store (system/instance sys [:fdb :store])})
 
 (def ^:private template
-  "Test chart of accounts passed into seed!, mirroring the canonical
-  set bank-bank seeds at provisioning time."
+  "Test chart of accounts passed into seed!, the nine-row seed of
+  components/resources/resources/ledgers/general-ledger.edn, which
+  bank-bank seeds every customer bank with at provisioning time."
   [{:gl-account-code :gl-account-code-cash-at-correspondent
     :name "Cash at correspondent"
     :gl-account-type :gl-account-type-asset
@@ -52,13 +54,39 @@
    {:gl-account-code :gl-account-code-interest-payable
     :name "Interest payable"
     :gl-account-type :gl-account-type-liability
-    :gl-account-class :gl-account-class-detail
+    :gl-account-class :gl-account-class-control
     :required :required-mandatory}
    {:gl-account-code :gl-account-code-suspense
     :name "Suspense - unreconciled inbound"
     :gl-account-type :gl-account-type-liability
     :gl-account-class :gl-account-class-detail
+    :required :required-mandatory}
+   {:gl-account-code :gl-account-code-own-funds
+    :name "Bank own funds"
+    :gl-account-type :gl-account-type-equity
+    :gl-account-class :gl-account-class-control
+    :required :required-mandatory}
+   {:gl-account-code :gl-account-code-interest-expense
+    :name "Interest expense"
+    :gl-account-type :gl-account-type-expense
+    :gl-account-class :gl-account-class-detail
     :required :required-mandatory}])
+
+(def ^:private chart-numbers
+  "The chart number each role in `template` reports, as a string."
+  {:gl-account-code-cash-at-correspondent "1100"
+   :gl-account-code-pending-outbound "1200"
+   :gl-account-code-customer-deposits-current "2100"
+   :gl-account-code-customer-deposits-savings "2200"
+   :gl-account-code-customer-deposits-term "2300"
+   :gl-account-code-interest-payable "2400"
+   :gl-account-code-suspense "2500"
+   :gl-account-code-own-funds "3100"
+   :gl-account-code-interest-expense "5100"})
+
+(def ^:private list-cap
+  "The row cap `list-accounts` scans a bank's chart under."
+  1000)
 
 (defn- seed!
   "Test helper: create every template row in GBP, returning the
@@ -72,6 +100,25 @@
           []
           template))
 
+(defn- customer-leg
+  "A customer posting leg on `acc.customer1` in the current-account
+  sub-ledger, defaulted to the posted default bucket that fans out."
+  [overrides]
+  (merge {:account-id "acc.customer1"
+          :product-type :product-type-sub-ledger-current
+          :balance-type :balance-type-default
+          :balance-status :balance-status-posted
+          :side :leg-side-credit
+          :amount 1000}
+         overrides))
+
+(defn- current-deposits-control
+  [config bank-id]
+  (SUT/find-by-code config
+                    bank-id
+                    :gl-account-code-customer-deposits-current
+                    "GBP"))
+
 ;; --- Pure mapping checks ------------------------------------------------
 
 (deftest product-type->control-code-test
@@ -82,8 +129,17 @@
   (is (= :gl-account-code-customer-deposits-term
          (SUT/product-type->control-code
           :product-type-sub-ledger-term-deposit)))
+  (is (= :gl-account-code-own-funds
+         (SUT/product-type->control-code :product-type-sub-ledger-own-funds)))
   (testing "non-customer product types have no control"
     (is (nil? (SUT/product-type->control-code :product-type-unknown)))))
+
+(deftest gl-account-code->gl-code-test
+  (testing "the test chart is the nine seeded roles"
+    (is (= (set (keys chart-numbers)) (set (map :gl-account-code template)))))
+  (testing "each role reports its chart number as a string"
+    (doseq [[role number] chart-numbers]
+      (is (= number (SUT/gl-account-code->gl-code role)) (str role)))))
 
 ;; --- FDB-backed seed / lookup / add-control-legs
 ;; -----------------------------
@@ -93,18 +149,14 @@
    [sys "classpath:ledger-account/application-test.yml"]
    (let [config (fdb-config sys)
          bank-id "bnk.test-seed"]
-     (testing "seeds seven ledger accounts per currency, each with a led. id"
+     (testing "seeds nine ledger accounts per currency, each with a led. id"
        (nom-test> [accounts (seed! config bank-id)
-                   _ (is (= 7 (count accounts)))
+                   _ (is (= 9 (count accounts)))
                    _ (is (every? #(re-find #"^led\." (:ledger-account-id %))
                                  accounts))
                    _ (is (every? #(= "GBP" (:currency %)) accounts))]))
      (testing "each seeded account opens a default-posted balance"
-       (nom-test> [control (SUT/find-by-code
-                            config
-                            bank-id
-                            :gl-account-code-customer-deposits-current
-                            "GBP")
+       (nom-test> [control (current-deposits-control config bank-id)
                    bals (balances/get-balances config
                                                bank-id
                                                (:ledger-account-id control))
@@ -118,11 +170,7 @@
    (let [config (fdb-config sys)
          bank-id "bnk.test-lookup"]
      (nom-test> [_ (seed! config bank-id)
-                 control (SUT/find-by-code
-                          config
-                          bank-id
-                          :gl-account-code-customer-deposits-current
-                          "GBP")
+                 control (current-deposits-control config bank-id)
                  _ (is (= :gl-account-code-customer-deposits-current
                           (:gl-account-code control)))
                  _ (is (= :gl-account-class-control
@@ -131,53 +179,121 @@
                  (SUT/get-account config bank-id (:ledger-account-id control))
                  _ (is (= (:ledger-account-id control)
                           (:ledger-account-id fetched)))])
-     (testing "an unseeded code rejects; an unknown id resolves to nil"
-       ;; own-funds is a valid role but absent from this test chart
-       (let [result
-             (SUT/find-by-code config bank-id :gl-account-code-own-funds "GBP")
+     (testing "a currency the chart lacks rejects; an unknown id is nil"
+       (let [result (SUT/find-by-code config
+                                      bank-id
+                                      :gl-account-code-customer-deposits-current
+                                      "USD")
              payload (error/payload result)]
          (is (error/anomaly? result))
          (is (= :gl/missing-currency-account (error/kind result)))
          (is (= bank-id (:bank-id payload)))
-         (is (= :gl-account-code-own-funds (:gl-account-code payload)))
-         (is (= "GBP" (:currency payload))))
+         (is (= :gl-account-code-customer-deposits-current
+                (:gl-account-code payload)))
+         (is (= "USD" (:currency payload))))
        (is (nil? (SUT/get-account config bank-id "led.nope")))))))
 
-(deftest add-control-legs-test
+(deftest list-accounts-caps-the-scan-test
+  (with-test-system
+   [sys "classpath:ledger-account/application-test.yml"]
+   (let [config (fdb-config sys)
+         bank-id "bnk.test-cap"
+         row (first template)]
+     (nom-test> [policies (policy/get-effective-policies config
+                                                         {:bank-id bank-id})
+                 created
+                 (reduce
+                  (fn [acc _]
+                    (let [result (SUT/new-account config
+                                                  bank-id
+                                                  "GBP"
+                                                  row
+                                                  {:policies policies})]
+                      (if (error/anomaly? result) (reduced result) (inc acc))))
+                  0
+                  (range (inc list-cap)))
+                 _ (is (= (inc list-cap) created))
+                 listed (SUT/list-accounts config bank-id)
+                 _ (is
+                    (= list-cap (count listed))
+                    "a bank with more rows than the cap lists exactly the cap")]))))
+
+(deftest add-control-legs-fans-out-posted-default-test
   (with-test-system
    [sys "classpath:ledger-account/application-test.yml"]
    (let [config (fdb-config sys)
          bank-id "bnk.test-expand"]
      (nom-test> [_ (seed! config bank-id)
-                 control (SUT/find-by-code
-                          config
-                          bank-id
-                          :gl-account-code-customer-deposits-current
-                          "GBP")
-                 customer-leg {:account-id "acc.customer1"
-                               :product-type :product-type-sub-ledger-current
-                               :balance-type :balance-type-default
-                               :balance-status :balance-status-posted
-                               :side :side-credit
-                               :amount 1000}
-                 expanded
-                 (SUT/add-control-legs config bank-id "GBP" [customer-leg])
+                 control (current-deposits-control config bank-id)
+                 leg (customer-leg {})
+                 expanded (SUT/add-control-legs config bank-id "GBP" [leg])
                  _ (is (= 2 (count expanded)))
-                 _ (is (= customer-leg (first expanded)))
-                 control-leg (second expanded)
-                 _ (is (= (:ledger-account-id control)
-                          (:account-id control-leg)))
-                 _ (is (= :side-credit (:side control-leg)))
-                 _ (is (= 1000 (:amount control-leg)))])
-     (testing "non-fanning legs pass through unchanged"
-       (let [gl-leg {:account-id "led.something"
-                     :balance-type :balance-type-default
-                     :balance-status :balance-status-posted
-                     :side :side-debit
-                     :amount 1000}
-             result (SUT/add-control-legs config bank-id "GBP" [gl-leg])]
-         (is (not (error/anomaly? result)))
-         (is (= [gl-leg] result)))))))
+                 _ (is (= leg (first expanded)))
+                 mirror (second expanded)
+                 _ (is (= (:ledger-account-id control) (:account-id mirror)))
+                 _ (is (= (:side leg) (:side mirror))
+                       "the mirror posts on the customer leg's side")
+                 _ (is (= :leg-side-credit (:side mirror)))
+                 _ (is (= (:amount leg) (:amount mirror)))
+                 _ (is (true? (:control mirror)))
+                 _ (is (= :balance-type-default (:balance-type mirror)))
+                 _ (is (= :balance-status-posted (:balance-status mirror)))])
+     (testing "a debit customer leg mirrors on the debit side"
+       (nom-test> [leg (customer-leg {:side :leg-side-debit})
+                   expanded (SUT/add-control-legs config bank-id "GBP" [leg])
+                   _ (is (= 2 (count expanded)))
+                   _ (is (= :leg-side-debit (:side (second expanded))))])))))
+
+(deftest add-control-legs-skips-non-fanning-legs-test
+  (with-test-system
+   [sys "classpath:ledger-account/application-test.yml"]
+   (let [config (fdb-config sys)
+         bank-id "bnk.test-no-fan"]
+     (nom-test> [_ (seed! config bank-id)
+                 control (current-deposits-control config bank-id)
+                 control-id (:ledger-account-id control)
+                 pending (customer-leg {:balance-status
+                                        :balance-status-pending-outgoing
+                                        :side :leg-side-debit})
+                 accrued (customer-leg {:balance-type
+                                        :balance-type-interest-accrued})
+                 gl-leg {:account-id "led.something"
+                         :balance-type :balance-type-default
+                         :balance-status :balance-status-posted
+                         :side :leg-side-debit
+                         :amount 1000}
+                 from-pending
+                 (SUT/add-control-legs config bank-id "GBP" [pending])
+                 from-accrued
+                 (SUT/add-control-legs config bank-id "GBP" [accrued])
+                 from-gl (SUT/add-control-legs config bank-id "GBP" [gl-leg])
+                 _ (is (= [pending] from-pending)
+                       "a pending-outgoing default leg does not fan out")
+                 _ (is (= [accrued] from-accrued)
+                       "an interest-accrued leg does not fan out")
+                 _ (is (= [gl-leg] from-gl)
+                       "a leg with no customer product type passes through")
+                 bals (balances/get-balances config bank-id control-id)
+                 _
+                 (is
+                  (= 1 (count (:balances bals)))
+                  "no control gains a bucket from a leg that does not fan out")]))))
+
+(deftest add-control-legs-unseeded-control-rejects-test
+  (with-test-system
+   [sys "classpath:ledger-account/application-test.yml"]
+   (let [config (fdb-config sys)
+         bank-id "bnk.test-unseeded-control"
+         seeded (seed! config bank-id)
+         result (SUT/add-control-legs config bank-id "USD" [(customer-leg {})])
+         payload (error/payload result)]
+     (is (not (error/anomaly? seeded)))
+     (is (error/anomaly? result)
+         "a posted default leg whose control is unseeded rejects")
+     (is (= :gl/missing-currency-account (error/kind result)))
+     (is (= :gl-account-code-customer-deposits-current
+            (:gl-account-code payload)))
+     (is (= "USD" (:currency payload))))))
 
 ;; --- Close lifecycle -----------------------------------------------------
 
@@ -246,18 +362,9 @@
    (let [config (fdb-config sys)
          bank-id "bnk.test-close-control"
          seeded (seed! config bank-id)
-         control (SUT/find-by-code config
-                                   bank-id
-                                   :gl-account-code-customer-deposits-current
-                                   "GBP")
+         control (current-deposits-control config bank-id)
          closed (SUT/close-account config bank-id (:ledger-account-id control))
-         customer-leg {:account-id "acc.customer1"
-                       :product-type :product-type-sub-ledger-current
-                       :balance-type :balance-type-default
-                       :balance-status :balance-status-posted
-                       :side :side-credit
-                       :amount 1000}
-         result (SUT/add-control-legs config bank-id "GBP" [customer-leg])]
+         result (SUT/add-control-legs config bank-id "GBP" [(customer-leg {})])]
      (is (not (error/anomaly? seeded)))
      (is (not (error/anomaly? closed)))
      (is (error/anomaly? result))
