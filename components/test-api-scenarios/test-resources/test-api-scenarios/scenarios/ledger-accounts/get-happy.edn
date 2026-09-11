@@ -1,0 +1,54 @@
+{:name "Tenant retrieves one ledger account by id"
+ :tags #{:api :happy :ledger-accounts}
+ :given
+ [{:command :api/request
+   :request
+   {:method :post
+    :path "/v1/banks"
+    :auth :admin
+    :headers {:idempotency-key "ik-ledger-accounts-get-happy-bank-001"}
+    :body
+    {:name "Single Ledger Account Bank"
+     :status "live"
+     :tier "micro"
+     :currencies ["GBP"]}}
+   :as :org-0
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :org-0 :client-id]
+         :client-secret [:ref :org-0 :client-secret]
+         :status :live}
+   :as :org-0-token}
+  {:command :api/request
+   :request {:method :get :path "/v1/ledger-accounts" :auth :org-0-token}
+   :as :chart
+   :assert {:status 200}}]
+ :when
+ ;; The single-get answers the documented fields and nothing derived:
+ ;; `posted-balance` is the list route's server-side enrichment, so it
+ ;; is absent here, and `status` is the stored tag-13 field, open on
+ ;; every row the seed creates.
+ [{:command :api/request
+   :request
+   {:method :get
+    :path "/v1/ledger-accounts/{account-id}"
+    :path-params
+    {:account-id [:ref-find :chart :ledger-accounts :gl-code "2100"
+                  :account-id]}
+    :auth :org-0-token}
+   :assert
+   {:status 200
+    :body
+    {:bank-id [:ref :org-0 :bank-id]
+     :account-id [:ref-find :chart :ledger-accounts :gl-code "2100"
+                  :account-id]
+     :gl-code "2100"
+     :name "Customer deposits - current"
+     :currency "GBP"
+     :gl-account-type "liability"
+     :gl-account-class "control"
+     :required "mandatory"
+     :status "open"
+     :posted-balance [:m/absent]
+     :created-at [:m/regex ".+"]
+     :updated-at [:m/regex ".+"]}}}]}

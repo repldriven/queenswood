@@ -1,7 +1,8 @@
 (ns com.repldriven.queenswood.api.simulate.routes
   (:require
     [com.repldriven.queenswood.api.simulate.examples :refer
-     [BalanceNotFound InvalidAmount SettlementAccountNotFound]]
+     [BalanceNotFound InvalidAmount LedgerAccountClosed
+      MissingCurrencyAccount SettlementAccountNotFound]]
     [com.repldriven.queenswood.api.simulate.handlers :as handlers]
 
     [com.repldriven.queenswood.api.bank.examples :refer [BankNotFound]]
@@ -38,6 +39,8 @@
                                        "SimulateInboundTransferResponse"]}
                            404 (ErrorResponse [#'BankNotFound
                                                #'BalanceNotFound])
+                           409 (ErrorResponse [#'MissingCurrencyAccount
+                                               #'LedgerAccountClosed])
                            422 (ErrorResponse [#'InvalidAmount])})
               :handler handlers/inbound-transfer}}]
      ["/accrue"

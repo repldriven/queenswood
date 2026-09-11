@@ -22,6 +22,9 @@
   (coercion/sub-ledger-kind-enum-schema {:json-schema/example
                                          "cash-account-current"}))
 
+(def LedgerAccountStatus
+  (coercion/ledger-account-status-enum-schema {:json-schema/example "open"}))
+
 (def LedgerAccount
   [:map {:json-schema/example examples/LedgerAccount}
    [:bank-id [:ref "BankId"]]
@@ -33,6 +36,7 @@
    [:gl-account-class [:ref "GlAccountClass"]]
    [:required [:ref "Required"]]
    [:sub-ledger-kind {:optional true} [:ref "SubLedgerKind"]]
+   [:status [:ref "LedgerAccountStatus"]]
    ;; Present on the list (derived server-side); absent on the single-get.
    [:posted-balance {:optional true} [:ref "SignedAmount"]]
    [:created-at [:ref "Timestamp"]]
@@ -72,6 +76,6 @@
 
 (def registry
   (components-registry [#'LedgerAccountId #'GlAccountType #'GlAccountClass
-                        #'Required #'SubLedgerKind #'LedgerAccount
-                        #'TrialBalanceEntry #'LedgerAccountList #'LedgerBalance
-                        #'LedgerBalanceList]))
+                        #'Required #'SubLedgerKind #'LedgerAccountStatus
+                        #'LedgerAccount #'TrialBalanceEntry #'LedgerAccountList
+                        #'LedgerBalance #'LedgerBalanceList]))
