@@ -26,9 +26,9 @@ service-account lifecycle, the realm and client layout, and the
 `:auth` shape the rest of the system reads.
 
 Out of scope: the bank-creation flow that provisions a bank's
-service-account client (see [banks.md](banks.md));
-policy authorization of domain operations (see
-[policy-evaluation.md](policy-evaluation.md)); the SPA-side OIDC
+service-account client, covered in [banks.md](banks.md); policy
+authorization of domain operations, covered in
+[policy-evaluation.md](policy-evaluation.md); the SPA-side OIDC
 redirect/PKCE dance, which lives in the front-ends and Keycloak,
 not this repo.
 

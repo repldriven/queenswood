@@ -52,7 +52,7 @@ this ADR captures the decision rather than the walk-through.
 
 ## Decision
 
-We will use [`donut.system`](https://github.com/donut-party/system)
+We will use [donut.system](https://github.com/donut-party/system)
 for component lifecycle, and define every system in a YAML (or EDN)
 configuration file parsed by mono's `system` and `env` bricks before
 being handed to donut.

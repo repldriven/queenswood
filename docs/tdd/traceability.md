@@ -97,7 +97,7 @@ The IDs play together:
 ### The telemetry brick
 
 `telemetry` wraps
-[`clj-otel`](https://github.com/steffan-westcott/clj-otel) and
+[clj-otel](https://github.com/steffan-westcott/clj-otel) and
 exposes a Clojure-friendly surface to domain code:
 
 - **`telemetry/with-span`** — macro, wraps a body in a child
@@ -300,4 +300,4 @@ property under test.
 - `log` brick interface
 - [W3C Trace Context](https://www.w3.org/TR/trace-context/)
 - [OpenTelemetry](https://opentelemetry.io/)
-- [`clj-otel`](https://github.com/steffan-westcott/clj-otel)
+- [clj-otel](https://github.com/steffan-westcott/clj-otel)

@@ -226,7 +226,13 @@ paragraphs and indent bullet continuation lines by 2 spaces.
   continue with a 2-space indent on subsequent lines.
 ```
 
-Verify with awk:
+What cannot wrap is not measured: a fenced block, a table row, an
+HTML tag, and a link's target. A line is measured with its
+`](...)` targets removed, so a long URL never forces a break in
+the link around it, while the prose beside it still has to fit.
+
+Verify with `/check-docs`, whose wrap check applies those
+exemptions. The bare form, for one file with none of them:
 
 ```
 awk '{ if (length($0) > 80) print FILENAME":"NR": "length($0) }' <file>
