@@ -50,9 +50,11 @@
   threading the runner context through. Waits for read-side
   quiescence before returning the final context.
 
-  After every step the standing books-tie invariant fires (see
+  After every step both standing invariants fire (see
   `invariants/verify-books-tie`), so any command that leaves a bank's
-  trial balance out of balance fails the scenario at the offending step.
+  trial balance out of balance, or a control holding anything other
+  than its sub-ledger's roll-up, fails the scenario at the offending
+  step.
 
   Args:
   - ctx: runner context (typically from `fresh-context`).
