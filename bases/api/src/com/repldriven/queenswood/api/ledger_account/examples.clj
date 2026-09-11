@@ -19,6 +19,7 @@
    :gl-account-type :liability
    :gl-account-class :control
    :required :mandatory
+   :status :open
    :posted-balance {:value 90000 :currency "GBP"}
    :created-at "2025-01-01T00:00:00Z"
    :updated-at "2025-01-01T00:00:00Z"})

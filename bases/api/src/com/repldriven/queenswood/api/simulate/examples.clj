@@ -57,6 +57,20 @@
            :status 422
            :detail "Transaction amount must be positive"}})
 
+(def MissingCurrencyAccount
+  {:value {:title "REJECTED"
+           :type ":gl/missing-currency-account"
+           :status 409
+           :detail (str "Bank has no ledger account for this"
+                        " gl-account-code in this currency")}})
+
+(def LedgerAccountClosed
+  {:value {:title "REJECTED"
+           :type ":ledger-account/closed"
+           :status 409
+           :detail "Ledger account is closed"}})
+
 (def registry
   (examples-registry [#'SettlementAccountNotFound #'BalanceNotFound
-                      #'InvalidAmount]))
+                      #'InvalidAmount #'MissingCurrencyAccount
+                      #'LedgerAccountClosed]))
