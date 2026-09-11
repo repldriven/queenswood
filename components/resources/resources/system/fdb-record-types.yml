@@ -4,15 +4,15 @@
 # changed at, and a store lists the indexes removed from it under
 # former-indexes with the versions they were added and removed at.
 # See docs/recipes/code/schema-evolution.md.
-version: 2
+version: 50
 stores:
   assertions:
     record-type: Assertion
     primary-key: [bank_id, party_id, assertion_id]
     indexes:
       - name: Assertion_by_party_kind
-        added: 1
-        modified: 1
+        added: 13
+        modified: 13
         fields: [party_id, kind]
   balances:
     record-type: Balance
@@ -26,22 +26,22 @@ stores:
     primary-key: [bank_id, product_id, version_id]
     indexes:
       - name: CashAccountProduct_count_by_bank
-        added: 1
-        modified: 1
+        added: 6
+        modified: 6
         fields: [bank_id, product_id]
         type: count
       - name: CashAccountProduct_count_by_bank_product_type
-        added: 1
-        modified: 1
+        added: 7
+        modified: 7
         fields: [bank_id, product_type, product_id]
         type: count
       - name: CashAccountProduct_by_bank_product_type
-        added: 1
-        modified: 1
+        added: 8
+        modified: 8
         fields: [bank_id, product_type]
       - name: CashAccountProduct_by_idempotency_key
-        added: 1
-        modified: 1
+        added: 9
+        modified: 9
         fields: [bank_id, idempotency_key]
         unique: true
   cash-account-product-templates:
@@ -54,18 +54,18 @@ stores:
       # The scheduler's work list: migrations a bank has approved, read by
       # status rather than scanned and filtered.
       - name: CashAccountMigration_by_bank_status
-        added: 1
-        modified: 1
+        added: 33
+        modified: 33
         fields: [bank_id, status]
       # What a product version answers when asked which migrations point
       # at it, without owning any of them.
       - name: CashAccountMigration_by_target_version
-        added: 1
-        modified: 1
+        added: 34
+        modified: 34
         fields: [bank_id, target_product_id, target_version_id]
       - name: CashAccountMigration_by_idempotency_key
-        added: 1
-        modified: 1
+        added: 35
+        modified: 35
         fields: [bank_id, idempotency_key]
         unique: true
   cash-account-migration-runs:
@@ -74,14 +74,14 @@ stores:
     indexes:
       # Runs of one migration, newest first.
       - name: CashAccountMigrationRun_by_migration
-        added: 1
-        modified: 1
+        added: 4
+        modified: 4
         fields: [bank_id, migration_id]
       # How many previews a bank has done today, for the daily limit — a
       # count rather than a scan, so enforcing the cap costs one read.
       - name: CashAccountMigrationRun_count_by_bank_day_dry_run
-        added: 1
-        modified: 1
+        added: 5
+        modified: 5
         fields: [bank_id, business_day, dry_run]
         type: count
   cash-account-migration-account-runs:
@@ -91,8 +91,8 @@ stores:
       # A run's verdicts grouped by outcome — what a preview is read for
       # is the totals per outcome, not the rows.
       - name: CashAccountMigrationAccountRun_count_by_run_outcome
-        added: 1
-        modified: 1
+        added: 46
+        modified: 46
         fields: [bank_id, run_id, outcome]
         type: count
   cash-accounts:
@@ -100,48 +100,48 @@ stores:
     primary-key: [bank_id, account_id]
     indexes:
       - name: CashAccount_count_by_bank
-        added: 1
-        modified: 1
+        added: 37
+        modified: 37
         field: bank_id
         type: count
       - name: CashAccount_count_by_bank_product_account_type_currency
-        added: 1
-        modified: 1
+        added: 38
+        modified: 38
         fields: [bank_id, product_type, account_type, currency]
         type: count
       # How many accounts sit on one product version. A migration's
       # cohort is measured against this before it runs, so a limit on
       # how many accounts one may move refuses before anything moves.
       - name: CashAccount_count_by_bank_version
-        added: 1
-        modified: 1
+        added: 39
+        modified: 39
         fields: [bank_id, version_id]
         type: count
       - name: CashAccount_by_bban
-        added: 1
-        modified: 1
+        added: 40
+        modified: 40
         field: bban
         unique: true
       - name: CashAccount_by_bank_product
-        added: 1
-        modified: 1
+        added: 41
+        modified: 41
         fields: [bank_id, product_id]
       - name: CashAccount_by_idempotency_key
-        added: 1
-        modified: 1
+        added: 42
+        modified: 42
         fields: [bank_id, idempotency_key]
         unique: true
       - name: CashAccount_by_party
-        added: 1
-        modified: 1
+        added: 43
+        modified: 43
         field: party_id
   ledger-accounts:
     record-type: LedgerAccount
     primary-key: [bank_id, ledger_account_id]
     indexes:
       - name: LedgerAccount_by_bank_gl_account_code
-        added: 1
-        modified: 2
+        added: 3
+        modified: 50
         fields: [bank_id, gl_account_code, currency]
   companies:
     record-type: Company
@@ -156,8 +156,8 @@ stores:
     primary-key: [bank_id, verification_id]
     indexes:
       - name: Idv_by_party
-        added: 1
-        modified: 1
+        added: 2
+        modified: 2
         field: party_id
         unique: true
   interest-runs:
@@ -175,22 +175,22 @@ stores:
     indexes:
       # Scope size for a run.
       - name: InterestAccountRun_count_by_bank_day_kind
-        added: 1
-        modified: 1
+        added: 20
+        modified: 20
         fields: [bank_id, business_day, kind]
         type: count
       # Progress and residue: count pending/done/failed within a run.
       - name: InterestAccountRun_count_by_bank_day_kind_state
-        added: 1
-        modified: 1
+        added: 21
+        modified: 21
         fields: [bank_id, business_day, kind, state]
         type: count
       # The run's total per currency, for the ledger entries posted at
       # close. Grouped by currency because one entry per currency is the
       # only way the pair of legs can balance.
       - name: InterestAccountRun_sum_amount_by_bank_day_kind_currency
-        added: 1
-        modified: 1
+        added: 22
+        modified: 22
         fields: [bank_id, business_day, kind, currency, amount]
         type: sum
       # The same total split by product type, which capitalisation needs
@@ -200,32 +200,32 @@ stores:
       # one entry per (currency, product type) and needs the total for
       # each.
       - name: InterestAccountRun_sum_amount_by_bank_day_kind_currency_product
-        added: 1
-        modified: 1
+        added: 23
+        modified: 23
         fields: [bank_id, business_day, kind, currency, product_type, amount]
         type: sum
   memberships:
     record-type: Membership
     indexes:
       - name: Membership_by_user
-        added: 1
-        modified: 1
+        added: 47
+        modified: 47
         field: user_id
       - name: Membership_by_bank
-        added: 1
-        modified: 1
+        added: 48
+        modified: 48
         field: bank_id
       - name: Membership_by_user_and_bank
-        added: 1
-        modified: 1
+        added: 49
+        modified: 49
         fields: [user_id, bank_id]
         unique: true
   banks:
     record-type: Bank
     indexes:
       - name: Bank_by_sort_code
-        added: 1
-        modified: 1
+        added: 45
+        modified: 45
         field: sort_code
         unique: true
   payee-checks:
@@ -237,8 +237,8 @@ stores:
     primary-key: [bank_id, party_id]
     indexes:
       - name: Party_by_idempotency_key
-        added: 2
-        modified: 2
+        added: 50
+        modified: 50
         fields: [bank_id, idempotency_key]
         unique: true
   party-national-identifiers:
@@ -246,8 +246,8 @@ stores:
     primary-key: [party_id, type]
     indexes:
       - name: bank_type_value_unique_idx
-        added: 1
-        modified: 1
+        added: 36
+        modified: 36
         fields: [bank_id, type, value]
         unique: true
   person-identifications:
@@ -257,56 +257,56 @@ stores:
     record-type: InboundPayment
     indexes:
       - name: InboundPayment_by_scheme_transaction_id
-        added: 1
-        modified: 1
+        added: 14
+        modified: 14
         field: scheme_transaction_id
         unique: true
       - name: InboundPayment_by_end_to_end_id
-        added: 1
-        modified: 1
+        added: 15
+        modified: 15
         field: end_to_end_id
       - name: InboundPayment_count_by_bank_business_day
-        added: 1
-        modified: 1
+        added: 16
+        modified: 16
         fields: [bank_id, business_day]
         type: count
   outbound-payments:
     record-type: OutboundPayment
     indexes:
       - name: OutboundPayment_by_idempotency_key
-        added: 1
-        modified: 2
+        added: 10
+        modified: 50
         fields: [bank_id, idempotency_key]
         unique: true
       - name: OutboundPayment_count_by_bank_business_day
-        added: 1
-        modified: 1
+        added: 11
+        modified: 11
         fields: [bank_id, business_day]
         type: count
       - name: OutboundPayment_sum_amount_by_bank_business_day
-        added: 1
-        modified: 1
+        added: 12
+        modified: 12
         fields: [bank_id, business_day, amount]
         type: sum
   internal-payments:
     record-type: InternalPayment
     indexes:
       - name: InternalPayment_by_idempotency_key
-        added: 1
-        modified: 2
+        added: 24
+        modified: 50
         fields: [bank_id, idempotency_key]
         unique: true
       - name: InternalPayment_count_by_bank_business_day
-        added: 1
-        modified: 1
+        added: 25
+        modified: 25
         fields: [bank_id, business_day]
         type: count
   policies:
     record-type: Policy
     indexes:
       - name: Policy_by_label
-        added: 1
-        modified: 1
+        added: 32
+        modified: 32
         field: labels
         fan-out: true
         nest:
@@ -322,21 +322,21 @@ stores:
     record-type: Transaction
     indexes:
       - name: Transaction_by_idempotency_key
-        added: 1
-        modified: 2
+        added: 44
+        modified: 50
         fields: [bank_id, transaction_type, idempotency_key]
         unique: true
   users:
     record-type: User
     indexes:
       - name: User_by_issuer_and_sub
-        added: 1
-        modified: 1
+        added: 26
+        modified: 26
         fields: [issuer, sub]
         unique: true
       - name: User_by_email
-        added: 1
-        modified: 1
+        added: 27
+        modified: 27
         field: email
   scheduler-jobs:
     record-type: SchedulerJob
@@ -347,16 +347,16 @@ stores:
     primary-key: [bank_id, run_id]
     indexes:
       - name: SchedulerRun_by_bank_job
-        added: 1
-        modified: 1
+        added: 19
+        modified: 19
         fields: [bank_id, job_id]
   clearbank-outbox:
     record-type: ClearbankOutboxEvent
     primary-key: [outbox_id]
     indexes:
       - name: ClearbankOutboxEvent_by_dedup_key
-        added: 1
-        modified: 1
+        added: 31
+        modified: 31
         field: dedup_key
         unique: true
   clearbank-outbound-intents:
@@ -364,21 +364,21 @@ stores:
     primary-key: [intent_id]
     indexes:
       - name: ClearbankOutboundIntent_by_dedup_key
-        added: 1
-        modified: 1
+        added: 17
+        modified: 17
         field: dedup_key
         unique: true
       - name: ClearbankOutboundIntent_by_status
-        added: 1
-        modified: 1
+        added: 18
+        modified: 18
         field: status
   onfido-outbox:
     record-type: OnfidoOutboxEvent
     primary-key: [outbox_id]
     indexes:
       - name: OnfidoOutboxEvent_by_dedup_key
-        added: 1
-        modified: 1
+        added: 28
+        modified: 28
         field: dedup_key
         unique: true
   onfido-outbound-intents:
@@ -386,11 +386,11 @@ stores:
     primary-key: [intent_id]
     indexes:
       - name: OnfidoOutboundIntent_by_dedup_key
-        added: 1
-        modified: 1
+        added: 29
+        modified: 29
         field: dedup_key
         unique: true
       - name: OnfidoOutboundIntent_by_status
-        added: 1
-        modified: 1
+        added: 30
+        modified: 30
         field: status

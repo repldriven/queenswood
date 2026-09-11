@@ -18,12 +18,14 @@ incompatible:
   that drops a field an existing store was written with. Fixed in
   PR #635: the field is back, deprecated, and the record conversion
   drops it unconditionally.
-- Seven indexes changed their key expression under the same name. Six
+- Four indexes changed their key expression under the same name. Three
   idempotency-key indexes gained a leading `bank_id` in PR #609, and
   `LedgerAccount_by_bank_gl_account_code` gained a trailing `currency`
   in PR #634. The validator refuses a changed expression outright.
   `Party_by_idempotency_key` was added at the same time, which is
-  allowed on its own.
+  allowed on its own. The instance stores version 49, the declaration
+  as it was before PR #609, with every index numbered by the order the
+  old builder met it.
 
 Neither failure can be caught by the test suite as it stands. A test
 cluster is empty, so there is no stored metadata to evolve from, and
@@ -101,7 +103,7 @@ Give the YAML an evolution model, and make the builder honour it.
   `allowIndexRebuilds`. Nothing else is relaxed: a removed field, a
   missing former index or an unbumped version still fails, loudly, in
   the migrator and nowhere later.
-- **This change's own migration.** The seven changed indexes keep
+- **This change's own migration.** The four changed indexes keep
   their names and get `modified` set to the new metadata version, so
   the stored ones are rebuilt rather than replaced. `Party_by_...` and
   any other index that exists today gets `added` equal to the version
@@ -124,7 +126,7 @@ Give the YAML an evolution model, and make the builder honour it.
    `modified` saves, a changed expression without a bump fails, a
    removed index without a former entry fails, and a removed proto
    field fails.
-5. Fill in the versions for the current YAML, with the seven changed
+5. Fill in the versions for the current YAML, with the four changed
    indexes marked modified at the new version.
 6. Add a guard that runs in CI against the last `stable-*` tag: build
    metadata from the tag's YAML and protos, then from the working
