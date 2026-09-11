@@ -1,0 +1,126 @@
+{:name "An internal payment to a closed account is rejected"
+ :tags #{:api :cash-accounts :payments :unhappy}
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-pay-to-closed-bank-001"}
+             :body {:name "Pay To Closed Test Org"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :org-0
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :org-0 :client-id]
+         :client-secret [:ref :org-0 :client-secret]
+         :status :live}
+   :as :org-0-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-pay-to-closed-party"}
+             :body {:type "person"
+                    :display-name "Closed Payee"
+                    :given-name "Closed"
+                    :family-name "Payee"
+                    :date-of-birth "1970-01-01"
+                    :nationality "GB"
+                    :address {:building-number "155"
+                              :street "Country Lane"
+                              :town "Cottington"
+                              :postcode "CT12 4XY"
+                              :country "GBR"}
+                    :national-identifier {:type "national-insurance"
+                                          :value "TN889004A"
+                                          :issuing-country "GB"}}}
+   :as :party-0
+   :assert {:status 200 :body {:status "pending"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}"
+             :path-params {:party-id [:ref :party-0 :party-id]}
+             :auth :org-0-token}
+   :until {:status 200 :body {:status "active"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-pay-to-closed-prod-001"}
+             :body {:name "Current Account"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-01-01"}}
+   :as :draft
+   :assert {:status 201 :body {:status "draft"}}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :draft :product-id]
+                  :version-id [:ref :draft :version-id]}
+    :auth :org-0-token}
+   :assert {:status 200 :body {:status "published"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-pay-to-closed-open-debtor"}
+             :body {:party-id [:ref :party-0 :party-id]
+                    :name "Open Debtor"
+                    :currency "GBP"
+                    :product-id [:ref :draft :product-id]}}
+   :as :debtor
+   :assert {:status 200 :body {:account-status "opening"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :debtor :account-id]}
+             :auth :org-0-token}
+   :until {:status 200 :body {:account-status "opened"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-pay-to-closed-open-creditor"}
+             :body {:party-id [:ref :party-0 :party-id]
+                    :name "Closed Creditor"
+                    :currency "GBP"
+                    :product-id [:ref :draft :product-id]}}
+   :as :creditor
+   :assert {:status 200 :body {:account-status "opening"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :creditor :account-id]}
+             :auth :org-0-token}
+   :until {:status 200 :body {:account-status "opened"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts/{account-id}/close"
+             :path-params {:account-id [:ref :creditor :account-id]}
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-pay-to-closed-close"}}
+   :assert {:status 200 :body {:account-status "closing"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :creditor :account-id]}
+             :auth :org-0-token}
+   :until {:status 200 :body {:account-status "closed"}}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/payments/internal"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-pay-to-closed-payment"}
+             :body {:debtor-account-id [:ref :debtor :account-id]
+                    :creditor-account-id [:ref :creditor :account-id]
+                    :currency "GBP"
+                    :amount 2500
+                    :reference "To a closed account"}}
+   :assert {:status 409
+            :problem {:type ":payment/creditor-account-not-operable"}}}]}

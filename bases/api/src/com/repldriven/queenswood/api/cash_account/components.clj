@@ -15,11 +15,10 @@
    [:account-number [:ref "AccountNumber"]]])
 
 (def PaymentAddress
-  "Wire shape emitted by the command-response Avro serializer in
-  `bank-cash-account/commands.clj:payment-address->avro` — the
-  protojure `oneof identifier { ScanAddress scan; string value; }`
-  is flattened into sibling `:scan` / `:value` fields alongside
-  `:scheme`."
+  "A scheme and at most one of a SCAN pair or a string value. The
+  record declares the two variants as sibling optional fields rather
+  than a proto `oneof`, so the shape a response carries is
+  `{scheme, scan, value}` with the unused variant absent."
   [:map {:closed true}
    [:scheme [:ref "PaymentAddressScheme"]]
    [:scan {:optional true} [:maybe [:ref "ScanAddress"]]]
@@ -41,10 +40,11 @@
    [:product-id [:ref "ProductId"]]
    [:version-id [:ref "VersionId"]]
    [:product-type [:ref "ProductType"]]
-   [:gl-code {:optional true} string?]
    [:account-type [:ref "AccountType"]]
    [:account-status [:ref "CashAccountStatus"]]
    [:payment-addresses [:vector [:ref "PaymentAddress"]]]
+   [:retired-payment-addresses {:optional true}
+    [:vector [:ref "RetiredPaymentAddress"]]]
    [:bban {:optional true} [:ref "Bban"]]
    [:balances {:optional true} [:vector [:ref "Balance"]]]
    [:posted-balance {:optional true} [:ref "SignedAmount"]]
@@ -52,6 +52,17 @@
    [:transactions {:optional true} [:vector [:ref "Transaction"]]]
    [:created-at [:ref "Timestamp"]]
    [:updated-at [:ref "Timestamp"]]])
+
+(def RetiredPaymentAddress
+  [:map {:closed true}
+   [:address [:ref "PaymentAddress"]]
+   [:retired-at [:ref "Timestamp"]]])
+
+(def cash-account-keys
+  "Every key `CashAccount` declares. The read routes project a stored
+  account through these, so a record field the component does not
+  declare cannot reach a response body."
+  (into [] (comp (filter vector?) (map first)) CashAccount))
 
 (def CreateCashAccountRequest
   [:map {:json-schema/example examples/CreateCashAccountRequest}
@@ -79,9 +90,9 @@
 (def RotateCashAccountAddressResponse [:ref "CashAccount"])
 
 (def registry
-  (components-registry [#'CashAccountId #'ScanAddress #'PaymentAddress
-                        #'CashAccountStatus #'AccountType #'CashAccount
-                        #'CreateCashAccountRequest #'CreateCashAccountResponse
-                        #'CashAccountList #'CloseCashAccountResponse
-                        #'SuspendCashAccountResponse #'ResumeCashAccountResponse
-                        #'RotateCashAccountAddressResponse]))
+  (components-registry
+   [#'CashAccountId #'ScanAddress #'PaymentAddress #'CashAccountStatus
+    #'AccountType #'CashAccount #'RetiredPaymentAddress
+    #'CreateCashAccountRequest #'CreateCashAccountResponse #'CashAccountList
+    #'CloseCashAccountResponse #'SuspendCashAccountResponse
+    #'ResumeCashAccountResponse #'RotateCashAccountAddressResponse]))

@@ -10,7 +10,7 @@ You want to handle failure across component interfaces.
 
 We use anomalies — return values that represent failure — instead
 of throwing exceptions. The `error` brick wraps
-[`de.otto/nom`](https://github.com/otto-de/nom) and adds three
+[de.otto/nom](https://github.com/otto-de/nom) and adds three
 semantic kinds of anomaly so the API and command envelope can map
 to HTTP status families directly.
 
@@ -173,6 +173,6 @@ structured.
 
 - [ADR-0005](../../adr/0005-error-handling-with-anomalies.md) —
   Error handling with anomalies
-- [`de.otto/nom`](https://github.com/otto-de/nom)
+- [de.otto/nom](https://github.com/otto-de/nom)
 - `error` brick interface
 - [Cognitect anomalies](https://github.com/cognitect-labs/anomalies)

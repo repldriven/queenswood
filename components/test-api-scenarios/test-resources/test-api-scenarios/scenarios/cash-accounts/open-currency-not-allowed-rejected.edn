@@ -1,0 +1,80 @@
+{:name "Opening a cash account in a currency the version bars is rejected"
+ :tags #{:api :cash-accounts :lifecycle :unhappy}
+ ;; The bank declares EUR and the current-account template does not, so
+ ;; the published version is what refuses.
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-open-currency-not-allowed-bank-001"}
+             :body {:name "Open Currency Not Allowed Test Org"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["EUR" "GBP"]}}
+   :as :org-0
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :org-0 :client-id]
+         :client-secret [:ref :org-0 :client-secret]
+         :status :live}
+   :as :org-0-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-open-currency-not-allowed-party"}
+             :body {:type "person"
+                    :display-name "Euro Holder"
+                    :given-name "Euro"
+                    :family-name "Holder"
+                    :date-of-birth "1970-01-01"
+                    :nationality "GB"
+                    :address {:building-number "155"
+                              :street "Country Lane"
+                              :town "Cottington"
+                              :postcode "CT12 4XY"
+                              :country "GBR"}
+                    :national-identifier {:type "national-insurance"
+                                          :value "TN889007A"
+                                          :issuing-country "GB"}}}
+   :as :party-0
+   :assert {:status 200 :body {:status "pending"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}"
+             :path-params {:party-id [:ref :party-0 :party-id]}
+             :auth :org-0-token}
+   :until {:status 200 :body {:status "active"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-open-currency-not-allowed-prod-001"}
+             :body {:name "Current Account"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-01-01"}}
+   :as :draft
+   :assert {:status 201 :body {:status "draft"}}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :draft :product-id]
+                  :version-id [:ref :draft :version-id]}
+    :auth :org-0-token}
+   :assert {:status 200 :body {:status "published"}}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-open-currency-not-allowed-open"}
+             :body {:party-id [:ref :party-0 :party-id]
+                    :name "Euro Current"
+                    :currency "EUR"
+                    :product-id [:ref :draft :product-id]}}
+   :assert {:status 422
+            :problem {:type ":cash-account/invalid-currency"}}}]}

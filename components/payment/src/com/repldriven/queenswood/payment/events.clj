@@ -175,6 +175,10 @@
       released)))
 
 (defn settle-inbound
+  "Settle an inbound ClearBank credit against the creditor resolved by
+  BBAN. A creditor that is not opened — suspended, closing, closed, or
+  still opening — is parked in 2500 suspense rather than credited, as
+  an unmatched BBAN is; a held record for it, if any, stays `held`."
   [config data]
   (let [{:keys [debit-credit-code creditor-bban
                 scheme-transaction-id end-to-end-id]}
@@ -195,6 +199,15 @@
           (do (log/infof "Inbound payment settlement already processed: %s"
                          scheme-transaction-id)
               settled)
+
+          ;; The BBAN resolves, but the account cannot take a credit —
+          ;; park the funds in suspense as an unmatched BBAN is, so the
+          ;; receipt stays recoverable.
+          (and account (not (domain/operable? account)))
+          (do (log/infof "Inbound settlement to a non-operable account: %s"
+                         {:account-id (:account-id account)
+                          :account-status (:account-status account)})
+              (record-inbound-suspense txn data business-day))
 
           ;; Release of a previously-held inbound — settle it to the
           ;; account and flip the held record to settled.
@@ -325,8 +338,9 @@
 (defn hold-inbound
   "An inbound ClearBank is holding for screening. Record it `held` (creditor
   resolved by BBAN); no money moves — the funds are held at ClearBank, not
-  ours yet. Idempotent on an existing held; a held to an unmatched BBAN is
-  logged and ignored (held inbounds are to known accounts)."
+  ours yet. Idempotent on an existing held; a held to an unmatched BBAN, or
+  to a creditor that is not opened, is logged and ignored — the settle that
+  follows finds no held record and parks in suspense."
   [config data]
   (let [{:keys [creditor-bban end-to-end-id]} data
         business-day (domain/current-business-day
@@ -342,6 +356,12 @@
           existing
           (do (log/infof "Inbound hold already recorded: %s" end-to-end-id)
               existing)
+
+          (and account (not (domain/operable? account)))
+          (do (log/infof "Inbound held for a non-operable account, ignored: %s"
+                         {:account-id (:account-id account)
+                          :account-status (:account-status account)})
+              data)
 
           (nil? account)
           (do (log/infof "Inbound held for unmatched BBAN, ignored: %s"

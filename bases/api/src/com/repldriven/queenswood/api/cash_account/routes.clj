@@ -2,9 +2,8 @@
   (:require
     [com.repldriven.queenswood.api.cash-account.commands :as commands]
     [com.repldriven.queenswood.api.cash-account.examples :refer
-     [CashAccountNotFound CashAccountAlreadyExists ProductNotPublished
-      InvalidCurrency PartyNotFound ProductNotFound CashAccountInvalidStatus
-      CashAccountNonZeroBalance]]
+     [CashAccountNotFound ProductNotPublished InvalidCurrency PartyNotFound
+      ProductNotFound CashAccountInvalidStatus CashAccountNonZeroBalance]]
     [com.repldriven.queenswood.api.cash-account.links :as links]
     [com.repldriven.queenswood.api.cash-account.queries :as queries]
 
@@ -50,8 +49,7 @@
                                :openapi {:links links/from-account}}
                           404 (ErrorResponse [#'PartyNotFound
                                               #'ProductNotFound])
-                          422 (ErrorResponse [#'CashAccountAlreadyExists
-                                              #'ProductNotPublished
+                          422 (ErrorResponse [#'ProductNotPublished
                                               #'InvalidCurrency])})
              :handler commands/open-cash-account}}]
     ["/{account-id}" {:parameters {:path {:account-id [:ref "CashAccountId"]}}}

@@ -12,9 +12,13 @@
   [config result]
   (if (error/anomaly? result)
     result
-    (let [{:keys [schemas]} config]
+    (let [{:keys [schemas]} config
+          ;; An account that has never been rotated carries no
+          ;; `:retired-payment-addresses` key, and the reply schema's
+          ;; array field has no null branch to fall back on.
+          account (update result :retired-payment-addresses #(or % []))]
       {:status "ACCEPTED"
-       :payload (avro/serialize (schemas "cash-account") result)})))
+       :payload (avro/serialize (schemas "cash-account") account)})))
 
 (def ^:private command-handlers
   {"open-cash-account" (fn [config data]
@@ -27,8 +31,6 @@
    (fn [config data] (->response config (core/resume-account config data)))
    "rotate-cash-account-address"
    (fn [config data] (->response config (core/rotate-address config data)))
-   "migrate-cash-account-product"
-   (fn [config data] (->response config (core/migrate-product config data)))
    "get-cash-account"
    (fn [config data]
      (let [{:keys [bank-id account-id]} data]

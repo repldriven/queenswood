@@ -12,7 +12,10 @@
     :cash-account-status-opening :open
     :cash-account-status-opened :open
     :cash-account-status-closing :closed
-    :cash-account-status-closed :closed))
+    :cash-account-status-closed :closed
+    ;; A status nobody mapped surfaces as an equality failure naming it,
+    ;; not as an exception from `case`.
+    status))
 
 (defn project-accounts
   [bank ctx]

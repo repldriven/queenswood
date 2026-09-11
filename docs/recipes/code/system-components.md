@@ -270,4 +270,4 @@ conflict, they serve different purposes.
 - [ADR-0007 — System-as-data](../../adr/0007-system-as-data.md)
 - [components.md](components.md)
 - [bases.md](bases.md)
-- [`donut.system`](https://github.com/donut-party/system)
+- [donut.system](https://github.com/donut-party/system)

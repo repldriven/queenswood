@@ -9,7 +9,7 @@
  :deps {pin/protojure {:local/root "../../deps/protojure"}
         pin/fdb {:local/root "../../deps/fdb"}}
  :deps/prep-lib {:alias :build :fn build/gen-proto :ensure "classes"}
- :aliases {:test {:extra-paths ["test-resources"]}
+ :aliases {:test {:extra-paths ["test" "test-resources"]}
            :build {:deps {io.github.clojure/tools.build {:mvn/version "0.10.12"}
                           pin/fdb {:local/root "../../deps/fdb"}}
                    :extra-deps {com.repldriven.queenswood/build

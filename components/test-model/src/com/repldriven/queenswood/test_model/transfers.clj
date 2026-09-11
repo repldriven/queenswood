@@ -5,6 +5,13 @@
 
     [clojure.test.check.generators :as gen]))
 
+(defn- operable?
+  "True when money may move on `acct` — reality's payment brick moves
+  it only on an opened account, and the model's only non-open status
+  is `:closed`."
+  [state acct]
+  (= :open (get-in state [:accounts acct :status])))
+
 (defn- bump-legs
   [state & accts]
   (reduce (fn [s a] (update-in s [:accounts a :transaction-legs] (fnil inc 0)))
@@ -41,8 +48,13 @@
            (gen/tuple (gen/elements (state/known-accounts state))
                       (gen/choose 1 10000)))
    :next-state (fn [state {[acct amount] :args}]
+                 ;; A credit to a non-operable account parks in the
+                 ;; bank's suspense instead of landing: the receipt is
+                 ;; still recorded, the account's balance is not.
                  (let [marker (state/next-inbound-id state)
-                       advanced (apply-delta state acct amount)]
+                       advanced (if (operable? state acct)
+                                  (apply-delta state acct amount)
+                                  state)]
                    (-> advanced
                        (update :inbound-payments conj marker)
                        (update :next-inbound-id inc))))
@@ -84,9 +96,18 @@
        ;; `:transaction/invalid-amount` — predict no-op.
        (if-not (pos? amount)
          state
-         (let [advanced (if creditor
-                          (transfer-between state debtor creditor amount)
-                          (apply-delta state debtor (- amount)))]
+         (let [advanced (cond
+                         ;; Reality refuses the submission outright.
+                         (not (operable? state debtor))
+                         state
+
+                         ;; The debit leaves either way; a non-operable
+                         ;; creditor's credit parks in suspense.
+                         (and creditor (operable? state creditor))
+                         (transfer-between state debtor creditor amount)
+
+                         :else
+                         (apply-delta state debtor (- amount)))]
            (if (= advanced state)
              state
              (let [pmt-id (state/next-payment-id advanced)]
@@ -158,6 +179,8 @@
                  ;; non-GBP explicit currency is a mismatch.
                  (if (and (pos? amount)
                           (not= from to)
+                          (operable? state from)
+                          (operable? state to)
                           (= (get-in state [:accounts from :bank])
                              (get-in state [:accounts to :bank]))
                           (or (nil? currency) (= "GBP" currency)))

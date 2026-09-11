@@ -31,7 +31,7 @@ something from a blog post, work through this sequence:
 2. **Is it already exposed by `utility`?** Use it from there.
 3. **Does an established Clojure helper library already
    provide it?** A good example is
-   [`weavejester/medley`](https://github.com/weavejester/medley)
+   [weavejester/medley](https://github.com/weavejester/medley)
    — small, generic, well-maintained — but other libraries
    exist. If a helper there fits the need, add the library to
    `components/utility/deps.edn` and re-export through
@@ -152,5 +152,5 @@ yes, hoist it.
 - [ADR-0011](../../adr/0011-one-component-per-third-party-library.md) —
   One component per third-party library
 - [code-style.md](code-style.md)
-- [`weavejester/medley`](https://github.com/weavejester/medley)
+- [weavejester/medley](https://github.com/weavejester/medley)
 - `utility` brick interface

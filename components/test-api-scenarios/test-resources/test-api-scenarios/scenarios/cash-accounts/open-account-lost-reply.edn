@@ -1,0 +1,126 @@
+{:name "A lost open-account reply is retried under the same key and opens
+        once"
+ :tags #{:api :cash-accounts :idempotency :unhappy}
+ ;; The open commits and its reply never arrives, so the API answers
+ ;; 500 and the cache releases its claim. The retry under the same key
+ ;; runs the handler again -- it is not a replay, and carries no replay
+ ;; header -- and the store's unique index on the key is what keeps it
+ ;; to one account: the processor reads the first open's account back
+ ;; and answers with it.
+ ;;
+ ;; The lost reply is produced by a test-only seam keyed on the
+ ;; `ik-lost-reply-` prefix; see `test_api_scenarios/fault.clj`.
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-open-lostreply-bank-01"}
+             :body {:name "Open Lost Reply Test"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :bank-0
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :bank-0 :client-id]
+         :client-secret [:ref :bank-0 :client-secret]
+         :status :live}
+   :as :bank-0-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-open-lostreply-party01"}
+             :body {:type "person"
+                    :display-name "Tricia McMillan"
+                    :given-name "Tricia"
+                    :family-name "McMillan"
+                    :date-of-birth "1962-03-08"
+                    :nationality "GB"
+                    :address {:building-number "1"
+                              :street "Cottington Lane"
+                              :town "Cottington"
+                              :postcode "CT12 4XY"
+                              :country "GBR"}
+                    :national-identifier {:type "national-insurance"
+                                          :value "TN555803E"
+                                          :issuing-country "GB"}}}
+   :as :party-0
+   :assert {:status 200 :body {:status "pending"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}"
+             :path-params {:party-id [:ref :party-0 :party-id]}
+             :auth :bank-0-token}
+   :until {:status 200 :body {:status "active"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-open-lostreply-prod-01"}
+             :body {:name "Current Account"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-01-01"}}
+   :as :draft
+   :assert {:status 201 :body {:status "draft"}}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :draft :product-id]
+                  :version-id [:ref :draft :version-id]}
+    :auth :bank-0-token}
+   :assert {:status 200 :body {:status "published"}}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-lost-reply-open-0001"}
+             :body {:party-id [:ref :party-0 :party-id]
+                    :name "Opened Once"
+                    :currency "GBP"
+                    :product-id [:ref :draft :product-id]}}
+   :assert {:status 500}}]
+ :then
+ ;; The open the lost attempt made is committed, so the bank lists the
+ ;; party's account before the retry is sent -- otherwise the retry
+ ;; would race the first command rather than follow it.
+ [{:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts"
+             :auth :bank-0-token}
+   :until {:status 200
+           :body {:cash-accounts
+                  [:m/in-any-order
+                   [{:account-id [:ref :bank-0 :accounts 0 :account-id]}
+                    {:party-id [:ref :party-0 :party-id]}]]}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-lost-reply-open-0001"}
+             :body {:party-id [:ref :party-0 :party-id]
+                    :name "Opened Once"
+                    :currency "GBP"
+                    :product-id [:ref :draft :product-id]}}
+   ;; The claim was released, so this ran rather than replayed -- and
+   ;; still answers with the account the first attempt opened.
+   :assert {:status 200
+            :headers {:idempotent-replayed [:m/absent]}
+            :body {:party-id [:ref :party-0 :party-id]}}
+   :as :retried}
+  ;; Nothing more was opened: the bank holds its house account and the
+  ;; one the retry answered with.
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts"
+             :auth :bank-0-token}
+   :assert {:status 200
+            :body {:cash-accounts
+                   [:m/in-any-order
+                    [{:account-id [:ref :bank-0 :accounts 0 :account-id]}
+                     {:account-id [:ref :retried :account-id]}]]}}}]}

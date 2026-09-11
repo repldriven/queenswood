@@ -1,5 +1,7 @@
 (ns com.repldriven.queenswood.api.cash-account.queries
   (:require
+    [com.repldriven.queenswood.api.cash-account.components :as components]
+
     [com.repldriven.queenswood.api.cursor :as cursor]
     [com.repldriven.queenswood.api.errors :as errors]
 
@@ -8,6 +10,13 @@
 
     [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.utility.interface :as utility]))
+
+(defn- ->body
+  "Project a stored account onto the keys `CashAccount` declares, so a
+  record field the component does not declare — `:idempotency-key`,
+  `:last-rotation-idempotency-key` — cannot reach a read body."
+  [account]
+  (select-keys account components/cash-account-keys))
 
 (defn list-cash-accounts
   [request]
@@ -36,12 +45,14 @@
       ;; Skip any account whose product-type reads back unset — proto2
       ;; deserialises an absent enum as `:product-type-unknown`.
       (let [{:keys [accounts before after]} result
-            customer-accounts (filterv
-                               (fn [a]
-                                 (let [pt (:product-type a)]
-                                   (and (some? pt)
-                                        (not= :product-type-unknown pt))))
-                               accounts)
+            customer-accounts (mapv
+                               ->body
+                               (filterv
+                                (fn [a]
+                                  (let [pt (:product-type a)]
+                                    (and (some? pt)
+                                         (not= :product-type-unknown pt))))
+                                accounts))
             links (when (seq customer-accounts)
                     (cursor/build-links "/v1/cash-accounts"
                                         size
@@ -67,18 +78,9 @@
                 (utility/assoc-some {}
                                     :embed-balances embed-balances
                                     :embed-transactions embed-transactions))]
-    (cond
-     (error/anomaly? result)
-     (errors/anomaly->response result)
-
-     (nil? result)
-     {:status 404
-      :body (errors/error-response 404 "REJECTED"
-                                   "cash-accounts/not-found"
-                                   "Cash account not found")}
-
-     :else
-     {:status 200 :body result})))
+    (if (error/anomaly? result)
+      (errors/anomaly->response result)
+      {:status 200 :body (->body result)})))
 
 (defn list-transactions
   [request]

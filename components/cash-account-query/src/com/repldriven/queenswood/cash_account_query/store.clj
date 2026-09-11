@@ -6,7 +6,7 @@
 
     [com.repldriven.mono.error.interface :refer [let-nom>]]))
 
-;; must match bank-cash-account.store/store-name — same FDB store
+;; must match cash-account.store/store-name — same FDB store
 (def ^:private store-name "cash-accounts")
 
 (defn reduce-accounts-with-balances
@@ -130,20 +130,6 @@
     :product-type product-type
     :account-type account-type
     :currency currency}))
-
-(defn find-account-by-product
-  [txn bank-id product-id]
-  (fdb/transact txn
-                (fn [txn]
-                  (some-> (fdb/query-record-compound
-                           (fdb/open txn store-name)
-                           "CashAccount"
-                           [["bank_id" bank-id]
-                            ["product_id" product-id]]
-                           {:index "CashAccount_by_bank_product"})
-                          schema/pb->CashAccount))
-                :cash-account/find-by-product
-                "Failed to find account by product"))
 
 (defn find-accounts-by-party
   [txn bank-id party-id]
