@@ -250,6 +250,6 @@ walk through the assembly mechanics in detail.
 - [ADR-0007 — System-as-data](../../adr/0007-system-as-data.md)
 - [system-components.md](system-components.md)
 - [bases.md](bases.md)
-- [`donut.system`](https://github.com/donut-party/system)
-- [`aero`](https://github.com/juxt/aero)
+- [donut.system](https://github.com/donut-party/system)
+- [aero](https://github.com/juxt/aero)
 - [Systems-as-data slides](../slides/systems-as-data/slides.md)

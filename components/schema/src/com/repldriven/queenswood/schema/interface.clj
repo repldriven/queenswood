@@ -569,20 +569,16 @@
 (defn pb->CashAccount
   "Parse CashAccount protobuf bytes into a Clojure map. Strips
   optional string fields that deserialise as the proto2 empty-string
-  default (`bban`, `gl-control-account-id`,
-  `last-rotation-idempotency-key`) — GL chart-of-accounts rows leave
-  the first two unset and an account that has never been rotated
-  leaves the third unset, and downstream read sites use `(when (:bban
-  account) ...)` semantics to distinguish customer instruments from
-  GL rows."
+  default (`bban`, `last-rotation-idempotency-key`) — GL
+  chart-of-accounts rows leave the first unset and an account that has
+  never been rotated leaves the second unset, and downstream read
+  sites use `(when (:bban account) ...)` semantics to distinguish
+  customer instruments from GL rows."
   [input]
   (let [account (cash-accounts/pb->CashAccount input)]
     (cond-> account
             (= "" (:bban account))
             (dissoc :bban)
-
-            (= "" (:gl-control-account-id account))
-            (dissoc :gl-control-account-id)
 
             (= "" (:last-rotation-idempotency-key account))
             (dissoc :last-rotation-idempotency-key))))

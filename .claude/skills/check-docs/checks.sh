@@ -48,13 +48,22 @@ report() {
   fi
 }
 
-# 1. Over-80 prose lines (mermaid blocks excluded).
-section 'Over-80 prose lines (excluding mermaid blocks)'
+# 1. Over-80 prose lines. What cannot wrap is not measured: any fenced
+# block (mermaid or code, indented under a bullet or not), table rows,
+# HTML tags, and a link's target -- the recipe forbids breaking a link,
+# so a line is measured with its `](...)` targets removed.
+section 'Over-80 prose lines (excluding fences, tables, HTML, link targets)'
 out=$(awk '
-  FNR == 1     { in_m = 0 }
-  /```mermaid/ { in_m = 1; next }
-  /^```$/      { in_m = 0; next }
-  !in_m && length > 80 { print FILENAME":"FNR": "length" chars" }
+  FNR == 1            { in_f = 0 }
+  /^[ ]*```/          { in_f = !in_f; next }
+  in_f                { next }
+  /^[ ]*\|/           { next }
+  /^[ ]*<[a-zA-Z!\/]/ { next }
+  {
+    l = $0
+    gsub(/\]\([^)]*\)/, "]()", l)
+    if (length(l) > 80) print FILENAME":"FNR": "length" chars"
+  }
 ' "${ALL_MD[@]}")
 report 'wrap' "$out"
 

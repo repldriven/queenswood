@@ -16,7 +16,8 @@ order), the Composites we own, the patterns we keep
 re-applying.
 
 Out of scope: building service images and iterating on a local
-kind cluster — see [recipes/infra/deployment.md](../recipes/infra/deployment.md).
+kind cluster — see
+[recipes/infra/deployment.md](../recipes/infra/deployment.md).
 The Polylith brick layout for the application itself — see the
 per-capability TDDs.
 

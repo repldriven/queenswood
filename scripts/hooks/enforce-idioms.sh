@@ -441,4 +441,73 @@ base_fdb_alias=$(grep -rnE 'com\.repldriven\.queenswood\.fdb\.interface([^]]|$)'
 out=$(printf '%s' "$out" | grep -v '^$' || true)
 report 'store-in-a-base' "$out"
 
+# 9. A brick's tests require only what the brick requires.
+# A brick's test tree reaches another component only through its
+# `.interface` (or `.system`, for registration), and only a component the
+# brick's own `src` already requires. A test that drives a further write
+# brick to build its fixtures -- a party, a product version, a policy on
+# record -- is a scenario, and belongs in `test-scenarios` or
+# `test-api-scenarios`. Read-side `*-query` bricks, `test-*` bricks and
+# the plumbing (`fdb`, `testcontainers`, `schema`, `changelog-relay`) are
+# always in scope. A `system.clj` in a test tree is the sanctioned home
+# for bare registration requires and is skipped. An exception carries
+# `;; enforce-idioms: brick-test-scope -- <reason>` on the line above the
+# require.
+#
+# Why here rather than `poly check`: polylith validates src requires only,
+# so a test namespace needing a component its project lacks loads fine in
+# `project:dev` (which carries everything) and fails only when that
+# project's own tests run -- in CI, after the push.
+section 'Brick tests require only what the brick requires'
+out=""
+TEST_CLJ=( $(printf '%s\n' "${SRC_CLJ[@]}" \
+             | grep -E '^(components|bases)/[^/]+/test/' \
+             | grep -v '/system\.clj$' || true) )
+if [ ${#TEST_CLJ[@]} -gt 0 ]; then
+  bricks_us=$(ls components 2>/dev/null | paste -sd, -)
+  # `unit:target` for every component each unit's own src requires.
+  src_deps=""
+  for u in $(printf '%s\n' "${TEST_CLJ[@]}" | cut -d/ -f1,2 | sort -u); do
+    for t in $(grep -rhoE 'com\.repldriven\.queenswood\.[a-z0-9-]+\.' "$u/src" 2>/dev/null \
+                 | sed -E 's/^com\.repldriven\.queenswood\.([a-z0-9-]+)\.$/\1/' \
+                 | sort -u); do
+      src_deps="${src_deps}${u##*/}:${t},"
+    done
+  done
+  out=$(awk -v bricks="$bricks_us" -v deps="$src_deps" '
+    BEGIN {
+      n = split(bricks, a, ",")
+      for (i = 1; i <= n; i++) if (a[i] != "") is_brick[a[i]] = 1
+      n = split(deps, a, ",")
+      for (i = 1; i <= n; i++) if (a[i] != "") in_src[a[i]] = 1
+      plumbing["fdb"] = 1
+      plumbing["testcontainers"] = 1
+      plumbing["schema"] = 1
+      plumbing["changelog-relay"] = 1
+    }
+    FNR == 1 { split(FILENAME, parts, "/"); own = parts[2]; prev = "" }
+    {
+      line = $0
+      marked = (prev ~ /enforce-idioms: brick-test-scope/)
+      while (match(line, /com\.repldriven\.queenswood\.[a-z0-9-]+\.[a-z0-9-]+/)) {
+        s = substr(line, RSTART, RLENGTH)
+        line = substr(line, RSTART + RLENGTH)
+        split(s, p, ".")
+        target = p[4]
+        sub_ns = p[5]
+        if (target == own || !(target in is_brick) || marked) continue
+        if (sub_ns != "interface" && sub_ns != "system") {
+          print FILENAME ":" FNR ": " s "  <- another brick internals; reach it via .interface"
+          continue
+        }
+        if (target in plumbing || target ~ /-query$/ || target ~ /^test-/) continue
+        if ((own ":" target) in in_src) continue
+        print FILENAME ":" FNR ": " s "  <- not required by " own "/src; a fixture needing it is a scenario"
+      }
+      prev = $0
+    }
+  ' "${TEST_CLJ[@]}" 2>/dev/null)
+fi
+report 'brick-test-scope' "$out"
+
 exit "$FAILED"

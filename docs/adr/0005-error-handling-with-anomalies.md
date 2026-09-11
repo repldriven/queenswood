@@ -46,7 +46,7 @@ The shortlist:
   way.
 - **Condition systems** (Common Lisp style). More machinery; not
   idiomatic in Clojure; harder for contributors to reason about.
-- **Anomalies via [`de.otto/nom`](https://github.com/otto-de/nom)**, a
+- **Anomalies via [de.otto/nom](https://github.com/otto-de/nom)**, a
   thin tag-vector convention with macros (`let-nom>`, `nom->`,
   `try-nom`, and friends) that make anomaly-returning code ergonomic.
   We layer three semantic anomaly tags on top to distinguish the
@@ -116,9 +116,9 @@ interface boundary, every component, every test relies on it.
 ### Naming a category
 
 Rule 4 originally said call site, always. That was written while a
-category was an internal diagnostic. The single unified API
-([ADR-0013](0013-single-unified-api.md),
-[ADR-0014](0014-openapi-3x-compliance.md)) then made it the RFC 9457
+category was an internal diagnostic. The single unified API of
+[ADR-0013](0013-single-unified-api.md) and
+[ADR-0014](0014-openapi-3x-compliance.md) then made it the RFC 9457
 `type` on every problem response, and RFC 9457 defines `type` as
 identifying the *problem*, not its origin. The two conventions were
 settled independently and collide wherever an anomaly reaches a client.

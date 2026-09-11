@@ -342,8 +342,8 @@ the set grows as the installation gains resource types.
 ## References
 
 - [Cloud security foundations guide](https://services.google.com/fh/files/misc/google-cloud-security-foundations-guide.pdf)
-  — the August 2020 whitepaper this follows. The live URL now serves a
-  stub; the intact editions are in the Wayback Machine.
+  — the 2020 whitepaper this follows. The live URL serves a stub; the
+  intact editions are in the Wayback Machine.
 - [ADR-0022](0022-cloud-foundation-and-environment-lifecycle.md) — the
   folder as an installation, and the lifecycle around it.
 

@@ -1,0 +1,26 @@
+{:name "A policy bound to the bank waives the non-zero balance check on close"
+ :tags #{:cash-accounts :lifecycle :policy}
+ ;; Fund the account `:create-bank` opens, so its close is refused with
+ ;; `:cash-account/non-zero-on-close` — the model predicts the same
+ ;; no-op. Then bind a policy granting the waiver capability to bank-0
+ ;; and close again. What only a bound record shows is that
+ ;; `get-effective-policies` picks the capability up from the store;
+ ;; the guard itself, waived by a capability passed in, is
+ ;; `cash-account.domain-test`'s.
+ :given
+ [{:command :create-bank :args []}
+  {:command :inbound-transfer :args [:acct-0 1000]}
+  {:command :close-account :args [:acct-0]}
+  {:command :assert-rejection-kind :args [:cash-account/non-zero-on-close]}
+  {:command :bind-policy
+   :args
+   [:bank-0
+    {:name "Test: waive the non-zero balance check on close"
+     :category :policy-category-standard
+     :capabilities
+     [{:effect :effect-allow
+       :kind {:cash-account {:action :cash-account-action-close-non-zero}}
+       :reason "Test-bound waiver"}]}]}]
+ :when [{:command :close-account :args [:acct-0]}]
+ :then [{:command :assert-outcome :args [:succeeded]}
+        {:command :assert-balance :args [:acct-0 1000]}]}

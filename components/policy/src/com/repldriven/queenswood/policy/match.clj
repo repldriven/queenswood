@@ -4,7 +4,11 @@
 
 (defn none?
   [v]
+  ;; Proto2 gives an unset optional its zero value, so a filter term
+  ;; read back off a record carries "" where nothing was written. An
+  ;; empty string is that absence, never a currency to match on.
   (or (nil? v)
+      (and (string? v) (str/blank? v))
       (and (keyword? v)
            (str/ends-with? (name v) "-unknown"))))
 

@@ -4,25 +4,21 @@
 
 (def CashAccountNotFound
   {:value {:title "REJECTED"
-           :type "cash-accounts/not-found"
+           :type ":cash-account/not-found"
            :status 404
            :detail "Cash account not found"}})
 
-(def CashAccountAlreadyExists
-  {:value {:title "REJECTED"
-           :type "cash-accounts/exists"
-           :status 422
-           :detail "Customer already has an account of this kind"}})
-
 (def ProductNotPublished
   {:value {:title "REJECTED"
-           :type "cash-account/product-not-published"
+           :type ":cash-account/product-not-published"
            :status 422
-           :detail "No published product version found"}})
+           :detail (str "No product version published for "
+                        "prd.01kprbmgcj35ptc8npmybhh4se"
+                        " effective today")}})
 
 (def InvalidCurrency
   {:value {:title "REJECTED"
-           :type "cash-account/invalid-currency"
+           :type ":cash-account/invalid-currency"
            :status 422
            :detail "Currency not allowed for this product"}})
 
@@ -40,21 +36,20 @@
 
 (def CashAccountInvalidStatus
   {:value {:title "REJECTED"
-           :type "cash-account/invalid-status"
+           :type ":cash-account/invalid-status"
            :status 409
            :detail "Account is not in a valid state for this action"}})
 
 (def CashAccountNonZeroBalance
   {:value {:title "REJECTED"
-           :type "cash-account/non-zero-on-close"
+           :type ":cash-account/non-zero-on-close"
            :status 409
-           :detail "Account has a non-zero balance"}})
+           :detail "Account has non-zero balance buckets"}})
 
 (def registry
-  (examples-registry [#'CashAccountNotFound #'CashAccountAlreadyExists
-                      #'ProductNotPublished #'InvalidCurrency #'PartyNotFound
-                      #'ProductNotFound #'CashAccountInvalidStatus
-                      #'CashAccountNonZeroBalance]))
+  (examples-registry [#'CashAccountNotFound #'ProductNotPublished
+                      #'InvalidCurrency #'PartyNotFound #'ProductNotFound
+                      #'CashAccountInvalidStatus #'CashAccountNonZeroBalance]))
 
 (def CashAccount
   {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"

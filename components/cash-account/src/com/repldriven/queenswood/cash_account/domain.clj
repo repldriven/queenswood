@@ -1,9 +1,6 @@
 (ns com.repldriven.queenswood.cash-account.domain
   (:refer-clojure :exclude [name])
   (:require
-    [com.repldriven.queenswood.cash-account.validation :as validation]
-
-    [com.repldriven.queenswood.balance-domain.interface :as balance-domain]
     [com.repldriven.queenswood.policy.interface :as policy]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
@@ -36,6 +33,14 @@
   balance-statuses (pending holds included, not just posted)."
   [balances]
   (remove (fn [b] (= (:credit b 0) (:debit b 0))) balances))
+
+(defn- reported-buckets
+  [balances]
+  (mapv (fn [b]
+          (select-keys b
+                       [:balance-type :balance-status :currency
+                        :credit :debit]))
+        balances))
 
 (defn- check-subtotal-limit
   [product-type account-type currency aggregates policies]
@@ -80,11 +85,35 @@
              []
              schemes))))
 
+(defn- enum-suffix
+  [kw prefix]
+  (subs (clojure.core/name kw)
+        (inc (count (clojure.core/name prefix)))))
+
+(defn- ensure-currency-allowed
+  [currency product-version]
+  (let [allowed (:allowed-currencies product-version)]
+    (when (and (seq allowed)
+               (not (some #{currency} allowed)))
+      (error/reject :cash-account/invalid-currency
+                    {:message "Currency not allowed for this product"
+                     :currency currency}))))
+
+(defn- ensure-party-active
+  [party]
+  (let [status (:status party)]
+    (when (not= :party-status-active status)
+      (error/reject :cash-account/party-status
+                    {:message (str "Party is "
+                                   (enum-suffix status :party-status))
+                     :party-id (:party-id party)
+                     :status status}))))
+
 (defn open-account
   "Build a cash-account record from input data and a published product
   version: derives account-type from the holder party, runs the open
   capability + count limits, and allocates payment-addresses."
-  [data product-version party address-fountain-fn aggregates policies]
+  [data product-version as-of party address-fountain-fn aggregates policies]
   (let [{:keys [bank-id party-id product-id currency name sort-code]}
         data
         {:keys [version-id]} product-version
@@ -92,16 +121,18 @@
         account-type (party->account-type party)]
     (let-nom>
       [_ (when (nil? product-version)
-           (error/reject :cash-account/open
-                         {:message "Product is not published"
-                          :product-id product-id}))
+           (error/reject :cash-account/product-not-published
+                         {:message (str "No product version published for "
+                                        product-id
+                                        " effective today")
+                          :product-id product-id
+                          :as-of as-of}))
        _ (when (nil? sort-code)
            (error/reject :cash-account/missing-sort-code
                          {:message "No sort code supplied for account opening"
                           :bank-id bank-id}))
-       _ (validation/valid-product? product-version)
-       _ (validation/valid-currency? currency product-version)
-       _ (validation/valid-party? party)
+       _ (ensure-currency-allowed currency product-version)
+       _ (ensure-party-active party)
        _ (check-capability :cash-account-action-open account-type policies)
        _ (check-total-limit aggregates policies)
        _ (check-subtotal-limit product-type
@@ -158,26 +189,28 @@
 (defn close-account
   [account balances policies]
   (let-nom>
-    [_ (when-not (= :cash-account-status-opened (:account-status account))
+    [_ (when-not (contains? #{:cash-account-status-opened
+                              :cash-account-status-suspended}
+                            (:account-status account))
          (error/reject :cash-account/invalid-status
                        {:message "Account is not in a closeable state"
                         :account-id (:account-id account)
                         :status (:account-status account)
-                        :allowed #{:cash-account-status-opened}}))
+                        :allowed #{:cash-account-status-opened
+                                   :cash-account-status-suspended}}))
      _ (check-capability :cash-account-action-close
                          (:account-type account)
                          policies)
-     _ (when (and (seq (non-zero-balances balances))
+     offending (non-zero-balances balances)
+     _ (when (and (seq offending)
                   (error/anomaly?
                    (check-capability :cash-account-action-close-non-zero
                                      (:account-type account)
                                      policies)))
          (error/reject :cash-account/non-zero-on-close
-                       {:message "Account has a non-zero balance"
+                       {:message "Account has non-zero balance buckets"
                         :account-id (:account-id account)
-                        :posted-balance (balance-domain/posted-balance
-                                         balances
-                                         (:currency account))}))]
+                        :balances (reported-buckets offending)}))]
     (assoc account
            :account-status :cash-account-status-closing
            :updated-at (utility/now))))

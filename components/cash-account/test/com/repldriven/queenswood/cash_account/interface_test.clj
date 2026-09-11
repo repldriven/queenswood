@@ -1,8 +1,11 @@
 (ns ^:eftest/synchronized com.repldriven.queenswood.cash-account.interface-test
   "The rotation retry, against a real store: `rotate-address` driven
   twice under one idempotency key allocates one set of addresses. The
-  domain-level guards live in `domain_test`; this is the part only a
-  store and a payment-address fountain can show."
+  domain-level guards live in `domain-test`; this is the part only a
+  store and a payment-address fountain can show. The opening guards,
+  the count limits and the non-zero close are pure in `domain-test`;
+  their end-to-end shape is an EDN scenario in `test-scenarios` or
+  `test-api-scenarios`."
   (:require
     [com.repldriven.queenswood.fdb.interface]
     [com.repldriven.queenswood.testcontainers.interface]
@@ -10,9 +13,11 @@
     [com.repldriven.queenswood.cash-account.interface :as SUT]
     [com.repldriven.queenswood.cash-account.store :as store]
 
+    ;; enforce-idioms: brick-test-scope -- rotate-address reads the version
     [com.repldriven.queenswood.cash-account-product.interface :as products]
     [com.repldriven.queenswood.cash-account-query.interface :as q]
 
+    [com.repldriven.mono.error.interface :refer [let-nom>]]
     [com.repldriven.mono.system.interface :as system]
     [com.repldriven.mono.test-system.interface :refer
      [with-test-system nom-test>]]
@@ -20,8 +25,20 @@
 
     [clojure.test :refer [deftest is testing]]))
 
+(def ^:private config-file "classpath:cash-account/application-test.yml")
+
 (def ^:private test-bank-id "bnk_rotate_retry_test")
 (def ^:private test-sort-code "040404")
+
+(def ^:private effective-from
+  "An epoch day well behind any run, so a published version is active
+  the day the test rotates against it."
+  20089)
+
+(defn- fdb-config
+  [sys]
+  {:record-db (system/instance sys [:fdb :record-db])
+   :record-store (system/instance sys [:fdb :store])})
 
 (defn- policy-allowing
   [kind & actions]
@@ -31,13 +48,15 @@
                           :kind {kind {:action action}}})
                        actions)})
 
-(def ^:private allow-draft
-  [(policy-allowing :cash-account-product :cash-account-product-action-draft)])
+(def ^:private allow-product
+  [(policy-allowing :cash-account-product
+                    :cash-account-product-action-draft
+                    :cash-account-product-action-publish)])
 
 (def ^:private allow-rotate
   [(policy-allowing :cash-account :cash-account-action-rotate-address)])
 
-(def ^:private template
+(def ^:private current-template
   {:template-id "tpl.rotate-retry-current"
    :name "Rotation Retry Current"
    :product-type :product-type-sub-ledger-current
@@ -47,6 +66,27 @@
    :allowed-payment-address-schemes [:payment-address-scheme-scan]
    :balance-products [{:balance-type :balance-type-default
                        :balance-status :balance-status-posted}]})
+
+(defn- published-version
+  "Create a product from the template and publish its first version,
+  returning that version. The rotation reads the version's allowed
+  schemes, which is the one thing here another brick has to write."
+  [config]
+  (let-nom>
+    [version (products/new-product config
+                                   test-bank-id
+                                   {:name "Rotation Retry Current"
+                                    :template-id (:template-id
+                                                  current-template)
+                                    :currency "GBP"
+                                    :effective-from effective-from}
+                                   {:policies allow-product})
+     _ (products/publish config
+                         test-bank-id
+                         (:product-id version)
+                         (:version-id version)
+                         {:policies allow-product})]
+    version))
 
 (defn- opened-account
   [version account-number]
@@ -77,29 +117,22 @@
 
 (deftest rotate-address-retried-under-one-key-allocates-once-test
   (with-test-system
-   [sys "classpath:cash-account/application-test.yml"]
-   (let [config {:record-db (system/instance sys [:fdb :record-db])
-                 :record-store (system/instance sys [:fdb :store])}
+   [sys config-file]
+   (let [config (fdb-config sys)
          key "ik-rotate-retry-00000001"
          command {:bank-id test-bank-id
                   :account-id "acc.rotate.retry"
                   :idempotency-key key}]
-     (nom-test> [_ (products/new-template config template)
-                 version (products/new-product config
-                                               test-bank-id
-                                               {:name "Rotation Retry Current"
-                                                :template-id (:template-id
-                                                              template)
-                                                :currency "GBP"
-                                                :effective-from 20089}
-                                               {:policies allow-draft})
+     (nom-test> [_ (products/new-template config current-template)
+                 version (published-version config)
                  account-number (store/allocate-payment-address config
                                                                 test-sort-code)
-                 _ (store/save-account config
-                                       (opened-account version account-number)
-                                       {:account-id "acc.rotate.retry"
-                                        :status-after
-                                        :cash-account-status-opened})
+                 _ (store/save-account
+                    config
+                    (opened-account version account-number)
+                    {:account-id "acc.rotate.retry"
+                     :status-after :cash-account-status-opened
+                     :change-kind :cash-account-change-kind-open})
                  rotated
                  (SUT/rotate-address config command {:policies allow-rotate})
                  _ (testing "the first rotation allocates and retires"

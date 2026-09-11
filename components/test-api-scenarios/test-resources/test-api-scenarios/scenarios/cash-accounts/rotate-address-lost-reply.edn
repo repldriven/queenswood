@@ -128,7 +128,9 @@
                    :payment-addresses
                    [:ref :after-first :payment-addresses]}}}
   ;; Nothing was written, so the stored account is where the first
-  ;; rotation left it.
+  ;; rotation left it. The account was opened under one key and rotated
+  ;; under another, so both idempotency keys are on the stored record
+  ;; and neither may reach a read body.
   {:command :api/request
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}"
@@ -136,4 +138,6 @@
              :auth :bank-0-token}
    :assert {:status 200
             :body {:payment-addresses
-                   [:ref :after-first :payment-addresses]}}}]}
+                   [:ref :after-first :payment-addresses]
+                   :idempotency-key [:m/absent]
+                   :last-rotation-idempotency-key [:m/absent]}}}]}

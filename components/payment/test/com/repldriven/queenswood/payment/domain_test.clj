@@ -73,9 +73,24 @@
 
 (defn- account
   "Minimal cash-account fixture — just the fields the domain guards
-  read."
-  [account-id currency]
-  {:account-id account-id :currency currency})
+  read. Opened unless a status is given."
+  ([account-id currency]
+   (account account-id currency :cash-account-status-opened))
+  ([account-id currency account-status]
+   {:account-id account-id
+    :currency currency
+    :account-status account-status}))
+
+(def ^:private non-opened-statuses
+  [:cash-account-status-opening
+   :cash-account-status-suspended
+   :cash-account-status-closing
+   :cash-account-status-closed])
+
+(defn- guard-payload
+  "The three payload keys `ensure-account-operable` promises."
+  [anomaly]
+  (select-keys (error/payload anomaly) [:account-id :status :allowed]))
 
 (deftest internal-payment->transaction-test
   (let [tx (SUT/internal-payment->transaction {:idempotency-key "idem-1"
@@ -212,6 +227,86 @@
         (is (= "debtor" (:account-id release)))
         (is (= 250 (:amount release)))))
     (testing "legs balance" (is (balanced? tx)))))
+
+(deftest operable?-test
+  (testing "opened alone is operable"
+    (is (SUT/operable? (account "debtor" "GBP")))
+    (doseq [status non-opened-statuses]
+      (is (not (SUT/operable? (account "debtor" "GBP" status)))
+          (str status " is not operable")))))
+
+(deftest account-not-operable-test
+  (testing "an opened debtor and creditor still build a transaction"
+    (is (not (error/anomaly? (SUT/internal-payment->transaction
+                              {:idempotency-key "idem-op"
+                               :debtor-account-id "debtor"
+                               :creditor-account-id "creditor"
+                               :currency "GBP"
+                               :amount 100}
+                              (account "debtor" "GBP")
+                              (account "creditor" "GBP")
+                              (allow-all)
+                              (empty-aggregates :internal-payment)))))
+    (is (not (error/anomaly? (SUT/outbound-payment->transaction
+                              {:idempotency-key "ob-op"
+                               :debtor-account-id "debtor"
+                               :currency "GBP"
+                               :amount 100}
+                              (account "debtor" "GBP")
+                              "internal"
+                              (allow-all)
+                              (empty-aggregates :outbound-payment))))))
+  (doseq [status non-opened-statuses]
+    (testing (str "internal payment, debtor " (name status))
+      (let [result (SUT/internal-payment->transaction
+                    {:idempotency-key "idem-op"
+                     :debtor-account-id "debtor"
+                     :creditor-account-id "creditor"
+                     :currency "GBP"
+                     :amount 100}
+                    (account "debtor" "GBP" status)
+                    (account "creditor" "GBP")
+                    (allow-all)
+                    (empty-aggregates :internal-payment))]
+        (is (error/anomaly? result))
+        (is (= :payment/debtor-account-not-operable (error/kind result)))
+        (is (= {:account-id "debtor"
+                :status status
+                :allowed #{:cash-account-status-opened}}
+               (guard-payload result)))))
+    (testing (str "internal payment, creditor " (name status))
+      (let [result (SUT/internal-payment->transaction
+                    {:idempotency-key "idem-op"
+                     :debtor-account-id "debtor"
+                     :creditor-account-id "creditor"
+                     :currency "GBP"
+                     :amount 100}
+                    (account "debtor" "GBP")
+                    (account "creditor" "GBP" status)
+                    (allow-all)
+                    (empty-aggregates :internal-payment))]
+        (is (error/anomaly? result))
+        (is (= :payment/creditor-account-not-operable (error/kind result)))
+        (is (= {:account-id "creditor"
+                :status status
+                :allowed #{:cash-account-status-opened}}
+               (guard-payload result)))))
+    (testing (str "outbound payment, debtor " (name status))
+      (let [result (SUT/outbound-payment->transaction
+                    {:idempotency-key "ob-op"
+                     :debtor-account-id "debtor"
+                     :currency "GBP"
+                     :amount 100}
+                    (account "debtor" "GBP" status)
+                    "internal"
+                    (allow-all)
+                    (empty-aggregates :outbound-payment))]
+        (is (error/anomaly? result))
+        (is (= :payment/debtor-account-not-operable (error/kind result)))
+        (is (= {:account-id "debtor"
+                :status status
+                :allowed #{:cash-account-status-opened}}
+               (guard-payload result)))))))
 
 (deftest currency-mismatch-test
   (testing "internal-payment: debtor currency must match payment currency"

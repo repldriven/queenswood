@@ -48,8 +48,8 @@ each with different lifecycle rules.
   on). The bank's books. Status starts `active`.
 
 A note on terminology that often confuses: **a party is not
-a user**. A `User` (the authenticated human, an OIDC identity
-— see [authentication.md](authentication.md)) now exists and is
+a user**. A `User` is the authenticated human, an OIDC identity
+described in [authentication.md](authentication.md), and is
 deliberately separate from a party. A party is the
 customer-of-the-customer or counterparty the bank deals with
 as a *customer of the bank's customer*; a user is the

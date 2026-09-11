@@ -31,7 +31,21 @@ See [common-helpers](../../../docs/recipes/code/common-helpers.md),
 
 ## Tests drive the system with `with-test-system`
 
-Manage system lifecycle with `with-test-system`; assert
+A brick's `deftest`s cover its pure functions and its own store and
+changelog against FDB. Anything that crosses a brick boundary or
+drives the command pipeline is a scenario, and the HTTP contract is
+an EDN scenario in `test-api-scenarios`, never a brick
+`interface_test.clj`. Beyond test infrastructure and `*-query`
+bricks, a brick's tests require only what its own `src` requires: a
+fixture that needs another write brick — a party, a product version,
+a policy on record — makes the case a scenario, and a service
+project's `:test` alias is never widened so the namespace loads; the
+rare exception carries `;; enforce-idioms: brick-test-scope -- <reason>`
+on the line above the require. Run a brick with `brick:<name> :dev`,
+in every project that hosts it. Manage system lifecycle with
+`with-test-system`, mark namespaces that boot infrastructure
+`^:eftest/synchronized`, keep per-brick config at
+`test-resources/<brick>/application-test.yml`, and assert
 anomaly-freeness with `nom-test>`. Never `use-fixtures`.
 See [testing](../../../docs/recipes/test/testing.md).
 

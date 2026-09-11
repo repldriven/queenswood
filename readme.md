@@ -34,9 +34,11 @@ open: yours to read, to run, and to change.
 
 Everything a bank needs, from the same API:
 
-- **Accounts** — open, close, suspend/resume with sort code addresses and balances
+- **Accounts** — open, close, suspend/resume with sort code addresses
+  and balances
 - **Account products** — current and savings account product versioning
-- **Account migrations** — plan, preview and migrate accounts within a product line
+- **Account migrations** — plan, preview and migrate accounts within a
+  product line
 - **Interest** — accrual, capitalisation and fractional carry
 - **Ledger** — double-entry postings on every money movement
 - **Onboarding & identity** — know-your-customer checks and onboarding

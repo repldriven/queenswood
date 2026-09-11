@@ -18,7 +18,7 @@ vault integration. None of it is bank-specific.
 
 That infrastructure lives in a separate, domain-independent Polylith
 workspace with its own tests:
-[`mono`](https://github.com/repldriven/mono). The question is how to
+[mono](https://github.com/repldriven/mono). The question is how to
 reuse it. Everything else about Queenswood's organisation — workspace
 structure, dependency management, deployment shape — flows from the
 answer.

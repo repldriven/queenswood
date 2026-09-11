@@ -1,0 +1,122 @@
+{:name "An internal payment from a suspended account is rejected"
+ :tags #{:api :cash-accounts :payments :unhappy}
+ ;; The debtor's status is read before its balance, so an unfunded
+ ;; pair still proves that the status is what refuses.
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-pay-from-suspended-bank-001"}
+             :body {:name "Pay From Suspended Test Org"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :org-0
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :org-0 :client-id]
+         :client-secret [:ref :org-0 :client-secret]
+         :status :live}
+   :as :org-0-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-pay-from-suspended-party"}
+             :body {:type "person"
+                    :display-name "Suspended Payer"
+                    :given-name "Suspended"
+                    :family-name "Payer"
+                    :date-of-birth "1970-01-01"
+                    :nationality "GB"
+                    :address {:building-number "155"
+                              :street "Country Lane"
+                              :town "Cottington"
+                              :postcode "CT12 4XY"
+                              :country "GBR"}
+                    :national-identifier {:type "national-insurance"
+                                          :value "TN889001A"
+                                          :issuing-country "GB"}}}
+   :as :party-0
+   :assert {:status 200 :body {:status "pending"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}"
+             :path-params {:party-id [:ref :party-0 :party-id]}
+             :auth :org-0-token}
+   :until {:status 200 :body {:status "active"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-pay-from-suspended-prod-001"}
+             :body {:name "Current Account"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-01-01"}}
+   :as :draft
+   :assert {:status 201 :body {:status "draft"}}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :draft :product-id]
+                  :version-id [:ref :draft :version-id]}
+    :auth :org-0-token}
+   :assert {:status 200 :body {:status "published"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-pay-from-suspended-open-debtor"}
+             :body {:party-id [:ref :party-0 :party-id]
+                    :name "Suspended Debtor"
+                    :currency "GBP"
+                    :product-id [:ref :draft :product-id]}}
+   :as :debtor
+   :assert {:status 200 :body {:account-status "opening"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :debtor :account-id]}
+             :auth :org-0-token}
+   :until {:status 200 :body {:account-status "opened"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-pay-from-suspended-open-creditor"}
+             :body {:party-id [:ref :party-0 :party-id]
+                    :name "Open Creditor"
+                    :currency "GBP"
+                    :product-id [:ref :draft :product-id]}}
+   :as :creditor
+   :assert {:status 200 :body {:account-status "opening"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :creditor :account-id]}
+             :auth :org-0-token}
+   :until {:status 200 :body {:account-status "opened"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts/{account-id}/suspend"
+             :path-params {:account-id [:ref :debtor :account-id]}
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-pay-from-suspended-suspend"}}
+   :assert {:status 200 :body {:account-status "suspended"}}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/payments/internal"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-pay-from-suspended-payment"}
+             :body {:debtor-account-id [:ref :debtor :account-id]
+                    :creditor-account-id [:ref :creditor :account-id]
+                    :currency "GBP"
+                    :amount 2500
+                    :reference "From a suspended account"}}
+   :assert {:status 409
+            :problem {:type ":payment/debtor-account-not-operable"}}}]}

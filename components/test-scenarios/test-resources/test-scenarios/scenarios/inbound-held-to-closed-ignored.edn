@@ -1,0 +1,13 @@
+{:name "Inbound held for a closed account — the hold is ignored"
+ :tags #{:held :inbound :transfers :unhappy}
+ ;; A closed account keeps its BBAN, so the address still resolves — it
+ ;; is the credit the account refuses. The hold is logged and dropped
+ ;; rather than recorded, so the release that follows finds no held
+ ;; record and parks the funds in suspense instead of settling them.
+ ;; The account stays at zero either way.
+ :given [{:command :create-bank :args []}
+         {:command :close-account :args [:acct-0]}]
+ :when [{:command :hold-inbound :args [:acct-0 1000]}
+        {:command :release-inbound :args [:acct-0]}]
+ :then [{:command :assert-no-anomaly :args []}
+        {:command :assert-balance :args [:acct-0 0]}]}
