@@ -447,6 +447,57 @@ verbs:
 Schema-validate at load time using Malli, so typos fail loudly
 before the runner starts.
 
+## The standing invariants
+
+Both runners assert the bank's two accounting invariants after
+every step, not only at the end of a scenario — a failure then
+names the step that caused it. Each brick carries them in its own
+`invariants.clj`, threaded around `verbs/dispatch` in
+`run-commands`, and the assertions are `clojure.test/is` rather
+than `nom-test>`: what is being asserted is an equality between
+two balances, not the absence of an anomaly.
+
+The invariants are the trial-balance tie — per currency, across
+the bank's whole chart, Σ debit equals Σ credit — and the
+sub-ledger ↔ control reconciliation: for each control role a
+product type rolls up into, the sum of the sub-ledger's
+`default / posted` balances equals the control account's own, per
+currency. Both read posted default buckets alone. See
+[chart-of-accounts.md](chart-of-accounts.md) for what the two
+invariants mean and why neither subsumes the other.
+
+The two runners read the same facts from opposite sides.
+`test-scenarios` reads both sides out of one `fdb/transact`
+snapshot, so an async settlement committing mid-read cannot tear
+them apart, and pages the cash-account walk inside that
+transaction. `test-api-scenarios` holds no FDB config and reads
+only the API: the per-currency `:trial-balance` block and each
+control's `:posted-balance` come from `GET /v1/ledger-accounts`,
+the sub-ledger from a cursor-paged walk of
+`GET /v1/cash-accounts?embed[balances]=true`. Both routes scope
+themselves to the caller's token, so that runner asserts over
+every bank it holds a token for — `:api/request` mints one from
+each bank-create response — and a bank whose token cannot be
+minted is logged and listed under `:skipped-banks` rather than
+passed over in silence.
+
+A read that fails is never treated as a zero balance or as
+nothing to assert. An anomaly, a non-2xx, or a body missing its
+block fails an assertion naming the bank and the account. An
+invariant that holds because nothing was read is the failure
+these are written to rule out, and it is worth proving a new
+assertion can fail before trusting it.
+
+Interest is reconciled at scenario level instead of standing:
+the `:assert-interest-reconciliation` verb ties the customer
+`interest-accrued / posted` buckets in a currency to that
+currency's 2400 balance, and the `interest-accrual` scenario
+asserts it after the accrual run and again after
+capitalisation. It is not a standing invariant because the two
+sides move in separate transactions — the customer's accrual and
+the bank's aggregate entry — so a mid-run step can legitimately
+see them apart.
+
 ## Fugato wiring
 
 The property test:

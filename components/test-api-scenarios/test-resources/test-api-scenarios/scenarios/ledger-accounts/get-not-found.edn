@@ -1,0 +1,31 @@
+{:name "Unknown ledger account id returns 404"
+ :tags #{:api :ledger-accounts :unhappy}
+ :given
+ [{:command :api/request
+   :request
+   {:method :post
+    :path "/v1/banks"
+    :auth :admin
+    :headers {:idempotency-key "ik-ledger-accounts-get-404-bank-001"}
+    :body
+    {:name "Ledger Account 404 Bank"
+     :status "live"
+     :tier "micro"
+     :currencies ["GBP"]}}
+   :as :org-0
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :org-0 :client-id]
+         :client-secret [:ref :org-0 :client-secret]
+         :status :live}
+   :as :org-0-token}]
+ :when
+ ;; Well-formed against `LedgerAccountId`'s pattern, so the path
+ ;; coercion admits it and the existence guard is what refuses.
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/ledger-accounts/{account-id}"
+             :path-params {:account-id "led.00000000000000000000000000"}
+             :auth :org-0-token}
+   :assert {:status 404
+            :problem {:type ":ledger-account/not-found"}}}]}

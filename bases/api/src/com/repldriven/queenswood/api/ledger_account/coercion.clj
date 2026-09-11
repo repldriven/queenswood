@@ -28,7 +28,14 @@
     "cash-account-term-deposit" :sub-ledger-kind-cash-account-term-deposit}
    :sub-ledger-kind-unknown))
 
+(def ^:private ledger-account-status-enum
+  (coercion/enum-coercion {"open" :ledger-account-status-open
+                           "closed" :ledger-account-status-closed}
+                          :ledger-account-status-unknown))
+
 (def gl-account-type-enum-schema (:enum-schema gl-account-type-enum))
 (def gl-account-class-enum-schema (:enum-schema gl-account-class-enum))
 (def required-enum-schema (:enum-schema required-enum))
 (def sub-ledger-kind-enum-schema (:enum-schema sub-ledger-kind-enum))
+(def ledger-account-status-enum-schema
+  (:enum-schema ledger-account-status-enum))

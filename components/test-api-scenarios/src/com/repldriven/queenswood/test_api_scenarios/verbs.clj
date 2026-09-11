@@ -4,6 +4,7 @@
 
     [com.repldriven.mono.http-client.interface :as http]
     [com.repldriven.mono.json.interface :as json]
+    [com.repldriven.mono.log.interface :as log]
     [com.repldriven.mono.utility.interface :as utility]
 
     [buddy.sign.jwt :as jwt]
@@ -162,6 +163,77 @@
      :body (http/res->edn res)
      :headers (:headers res)}))
 
+(defn- audience-scope
+  "The audience a bank's client credentials are exchanged for. A
+  scenario spells the bank's status as a keyword in its own `:for`
+  map and a create response spells it as a string, so both reach the
+  live audience."
+  [status]
+  (if (#{:live "live"} status)
+    "queenswood-api-live"
+    "queenswood-api-test"))
+
+(defn- mint-token
+  "Exchange a bank's client credentials at `/oauth/token` for a
+  bank-scoped bearer token, as `{:token :response}`. `:token` is nil
+  when the exchange is refused, and `:response` is what says why."
+  [{:keys [base-url]} {:keys [client-id client-secret status scope]}]
+  (let [res (http/request {:method :post
+                           :url (str base-url "/oauth/token")
+                           :headers {"content-type"
+                                     "application/x-www-form-urlencoded"}
+                           :body (str "grant_type=client_credentials"
+                                      "&client_id=" client-id
+                                      "&client_secret=" client-secret
+                                      "&scope=" (or scope
+                                                    (audience-scope status)))})
+        body (http/res->edn res)]
+    {:token (:access_token body)
+     :response {:status (:status res) :body body}}))
+
+(def ^:private create-bank-request
+  "The request a bank is created by. Its 201 is what `track-bank`
+  reacts to."
+  {:method :post :path "/v1/banks"})
+
+(defn- created-bank?
+  [request response]
+  (and (= create-bank-request (select-keys request [:method :path]))
+       (= 201 (:status response))))
+
+(defn- track-bank
+  "Record a bank a step just created under `:banks`, with a bearer
+  token minted from its own client credentials. The standing
+  assertions take their `bank-id` from the token rather than a path,
+  so a bank the run holds no token for cannot be read at all: one
+  whose credentials are absent or will not exchange is logged and
+  listed under `:skipped-banks` instead of dropping out unremarked."
+  [ctx {:keys [bank-id client-id client-secret status]}]
+  (let [{:keys [token response]} (when (and client-id client-secret)
+                                   (mint-token ctx
+                                               {:client-id client-id
+                                                :client-secret client-secret
+                                                :status status}))]
+    (cond
+     (nil? bank-id)
+     ctx
+
+     token
+     (assoc-in ctx [:banks bank-id] {:bank-id bank-id :token token})
+
+     :else
+     (do (log/warn "api scenario skipping a bank it cannot mint a token for"
+                   {:bank-id bank-id
+                    :bank-status status
+                    :token-status (:status response)})
+         (update ctx
+                 :skipped-banks
+                 (fnil conj [])
+                 {:bank-id bank-id
+                  :reason (if client-id
+                            :token-exchange-refused
+                            :no-client-credentials)})))))
+
 (defmulti dispatch
   "Scenario step dispatch. `:api/*` methods drive the bank API over
   HTTP; `:assert/*` methods check the previous response.
@@ -177,7 +249,9 @@
         response (send-once ctx resolved)
         ctx' (cond-> (assoc ctx :last-response response)
                      as
-                     (assoc-in [:captures as] (:body response)))]
+                     (assoc-in [:captures as] (:body response))
+                     (created-bank? resolved response)
+                     (track-bank (:body response)))]
     (if-let [expect (:assert step)]
       (dispatch ctx' {:command :assert/response :assert expect})
       ctx')))
@@ -298,27 +372,14 @@
   ctx)
 
 (defmethod dispatch :auth/mint-token
-  [{:keys [base-url captures] :as ctx} {:keys [for as]}]
-  (let [{:keys [client-id client-secret status scope]}
-        (refs/resolve-all captures for)
-        scope-value
-        (or scope
-            (if (= :live status) "queenswood-api-live" "queenswood-api-test"))
-        res (http/request {:method :post
-                           :url (str base-url "/oauth/token")
-                           :headers {"content-type"
-                                     "application/x-www-form-urlencoded"}
-                           :body (str "grant_type=client_credentials"
-                                      "&client_id=" client-id
-                                      "&client_secret=" client-secret
-                                      "&scope=" scope-value)})
-        body (http/res->edn res)
-        token (:access_token body)]
+  [{:keys [captures] :as ctx} {:keys [for as]}]
+  (let [{:keys [token response]} (mint-token ctx
+                                             (refs/resolve-all captures for))]
     (when-not token
       (is false
           (str ":auth/mint-token failed to exchange credentials at /oauth/token"
-               " — status: " (:status res)
-               " body: " (pr-str body))))
+               " — status: " (:status response)
+               " body: " (pr-str (:body response)))))
     (cond-> ctx
             as
             (assoc-in [:captures as] token))))

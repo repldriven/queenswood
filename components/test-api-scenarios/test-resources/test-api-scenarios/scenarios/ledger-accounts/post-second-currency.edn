@@ -1,0 +1,83 @@
+{:name "A posting in the bank's second currency lands on that currency's rows"
+ :tags #{:api :happy :ledger-accounts}
+ :given
+ [{:command :api/request
+   :request
+   {:method :post
+    :path "/v1/banks"
+    :auth :admin
+    :headers {:idempotency-key "ik-ledger-accounts-second-ccy-bank-001"}
+    :body
+    {:name "Second Currency Bank"
+     :status "live"
+     :tier "micro"
+     :currencies ["EUR" "GBP" "USD"]}}
+   :as :org-0
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :org-0 :client-id]
+         :client-secret [:ref :org-0 :client-secret]
+         :status :live}
+   :as :org-0-token}
+  ;; One own-funds house account per requested currency, so the
+  ;; currency picks the account out of the list.
+  {:command :api/request
+   :request {:method :get :path "/v1/cash-accounts" :auth :org-0-token}
+   :as :accounts
+   :assert {:status 200}}]
+ :when
+ [{:command :api/request
+   :request
+   {:method :post
+    :path "/v1/simulate/banks/{bank-id}/inbound-transfer"
+    :path-params {:bank-id [:ref :org-0 :bank-id]}
+    :auth :org-0-token
+    :headers {:idempotency-key "ik-ledger-accounts-second-ccy-inbound"}
+    :body {:account-id [:ref-find :accounts :cash-accounts :currency "USD"
+                        :account-id]
+           :amount 750000
+           :currency "USD"}}
+   :assert {:status 200}}
+  {:command :api/poll
+   :request {:method :get :path "/v1/ledger-accounts" :auth :org-0-token}
+   :until
+   {:status 200
+    :body {:ledger-accounts
+           [:m/embeds
+            [{:gl-code "1100"
+              :currency "USD"
+              :posted-balance {:value -750000 :currency "USD"}}]]}}}
+  ;; The USD legs, and only the USD legs: 1100 is debited (asset up,
+  ;; so its credit-minus-debit net is negative) and the house account's
+  ;; credit fans out to the USD 3100 own-funds control. The EUR and GBP
+  ;; rows of both roles stay at zero, which is what distinguishes
+  ;; currency-aware routing from a chart that merely ties.
+  {:command :api/request
+   :request {:method :get :path "/v1/ledger-accounts" :auth :org-0-token}
+   :assert
+   {:status 200
+    :body
+    {:ledger-accounts
+     [:m/embeds
+      [{:gl-code "1100"
+        :currency "USD"
+        :posted-balance {:value -750000 :currency "USD"}}
+       {:gl-code "3100"
+        :currency "USD"
+        :posted-balance {:value 750000 :currency "USD"}}
+       {:gl-code "1100"
+        :currency "EUR"
+        :posted-balance {:value 0 :currency "EUR"}}
+       {:gl-code "3100"
+        :currency "EUR"
+        :posted-balance {:value 0 :currency "EUR"}}
+       {:gl-code "1100"
+        :currency "GBP"
+        :posted-balance {:value 0 :currency "GBP"}}
+       {:gl-code "3100"
+        :currency "GBP"
+        :posted-balance {:value 0 :currency "GBP"}}]]
+     :trial-balance [:m/embeds
+                     [{:currency "EUR" :debit 0 :credit 0}
+                      {:currency "GBP" :debit 0 :credit 0}
+                      {:currency "USD" :debit 750000 :credit 750000}]]}}}]}

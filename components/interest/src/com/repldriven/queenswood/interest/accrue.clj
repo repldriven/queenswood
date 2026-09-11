@@ -66,9 +66,10 @@
 
 (defn- post-ledger-entry
   "The bank's ledger entry for one currency of an accrual run, posted
-  once at close. The total comes off the SUM index rather than a tally
-  the pass kept, because a resumed run only posts what it processed
-  itself while the index covers every row whichever attempt wrote it.
+  once at close against the `gl` roles resolved for that currency. The
+  total comes off the SUM index rather than a tally the pass kept,
+  because a resumed run only posts what it processed itself while the
+  index covers every row whichever attempt wrote it.
 
   `record-and-post` reads back on a duplicate idempotency key, so
   reaching close twice posts once."
@@ -99,4 +100,5 @@
    :account-fn accrue-account
    :gl-fn chart/accrual-accounts
    :entry-fn post-ledger-entry
+   :entry-currency identity
    :entries-fn accrual/entries})

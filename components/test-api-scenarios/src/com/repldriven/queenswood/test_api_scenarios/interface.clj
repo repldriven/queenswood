@@ -8,12 +8,17 @@
   token endpoints and a test-owned signing key for the user-token
   verbs, and a `:captures` map populated by steps that capture their
   response body via `:as <alias>`. Later steps refer back to
-  captures with `[:ref :alias :k1 :k2 ...]` markers.
+  captures with `[:ref :alias :k1 :k2 ...]` markers. It also carries
+  a `:banks` map of every bank a step created, each with a
+  bank-scoped token, and a `:skipped-banks` list of the ones no token
+  could be minted for — what the standing invariants read and what
+  they could not.
 
   Scenarios call the API over HTTP. One booted system serves every
   scenario; per-scenario isolation is the fresh `:captures` map
   plus a fresh request counter."
   (:require
+    [com.repldriven.queenswood.test-api-scenarios.invariants :as invariants]
     [com.repldriven.queenswood.test-api-scenarios.scenario :as scenario]
     [com.repldriven.queenswood.test-api-scenarios.verbs :as verbs]
 
@@ -38,7 +43,8 @@
   - `:run-id` (optional) — caller-supplied tag for log lines.
 
   The fresh `:captures` map isolates scenarios from each other so
-  one boot can serve many."
+  one boot can serve many, and the fresh `:banks` map limits the
+  standing invariants to the banks this scenario created."
   [{:keys [base-url admin-token token-endpoints signing-key run-id]}]
   {:base-url base-url
    :admin-token admin-token
@@ -46,15 +52,26 @@
    :signing-key signing-key
    :run-id run-id
    :captures {}
+   :banks {}
+   :skipped-banks []
    :last-response nil
    :counter 0})
 
 (defn run-commands
   "Dispatch each step in `commands` through `verbs/dispatch`,
   threading the runner context through. Assertion steps fire
-  `clojure.test/is`. Returns the final context."
+  `clojure.test/is`. Returns the final context.
+
+  After every step the two standing accounting invariants fire (see
+  `invariants/verify-books-tie`) against every bank the run holds a
+  token for, so a step that leaves a bank's trial balance out of
+  balance, or a control out of step with the sub-ledger it controls,
+  fails the scenario at the offending step."
   [ctx commands]
-  (reduce verbs/dispatch ctx commands))
+  (reduce (fn [ctx command]
+            (invariants/verify-books-tie (verbs/dispatch ctx command)))
+          ctx
+          commands))
 
 (defn run-scenario
   "Load the EDN scenario at `resource-path`, then dispatch every
