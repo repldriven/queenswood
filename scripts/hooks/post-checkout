@@ -28,21 +28,27 @@ cd "$root" || exit 0
 # install, and tessl.json is what names them.
 [ -f tessl.json ] || exit 0
 
-for tool in just tessl; do
-  if ! command -v "$tool" >/dev/null 2>&1; then
-    echo "post-checkout: $tool not on PATH; skipping Tessl rules." >&2
-    echo "post-checkout: agents in $root will load AGENTS.md with no rules." >&2
-    exit 0
-  fi
-done
+# Through the dev shell, which is where `just` and `tessl` come from.
+# Nothing has allowed direnv in a tree this new, and whoever ran
+# `git worktree add` -- a Gas City agent, most of all -- need not carry
+# either tool on its own PATH.
+if command -v nix >/dev/null 2>&1; then
+  run=(nix develop --command just tessl-plugins-install)
+elif command -v just >/dev/null 2>&1 && command -v tessl >/dev/null 2>&1; then
+  run=(just tessl-plugins-install)
+else
+  echo "post-checkout: no nix, and no just/tessl on PATH." >&2
+  echo "post-checkout: agents in $root will load AGENTS.md with no rules." >&2
+  exit 0
+fi
 
 echo "post-checkout: installing Tessl rules into $root"
 # Installs every plugin from this tree and lays down the default
 # profile. A worktree gets `default` rather than whatever profile the
 # primary checkout happens to be on: that setting is per-machine scratch,
 # and `default` is the profile implementation work wants.
-if ! just tessl-plugins-install >/dev/null 2>&1; then
-  echo "post-checkout: 'just tessl-plugins-install' failed in $root." >&2
+if ! "${run[@]}" >/dev/null 2>&1; then
+  echo "post-checkout: ${run[*]} failed in $root." >&2
   echo "post-checkout: run it by hand before starting an agent there." >&2
 fi
 
