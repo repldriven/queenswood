@@ -6,7 +6,9 @@
     [com.repldriven.queenswood.changelog-relay.interface :as SUT]
 
     [com.repldriven.queenswood.fdb.interface :as fdb]
+    [com.repldriven.queenswood.schema.interface :as schema]
 
+    [com.repldriven.mono.message-bus.interface :as message-bus]
     [com.repldriven.mono.system.interface :as system]
     [com.repldriven.mono.test-system.interface :refer [with-test-system]]
     [com.repldriven.mono.utility.interface :as utility]
@@ -37,6 +39,19 @@
 
        :else
        (do (Thread/sleep 25) (recur))))))
+
+(defn- changelog-entry
+  [event-name]
+  (let [event-id (str (utility/uuidv7))]
+    {:event-id event-id
+     :bytes (schema/ChangelogEvent->pb
+             {:event-id event-id
+              :dedup-key event-id
+              :event-name event-name
+              :payload (.getBytes "avro-payload-bytes")
+              :correlation-id "corr-1"
+              :causation-id "caus-1"
+              :created-at (utility/now)})}))
 
 (deftest relays-every-entry-test
   (with-test-system
@@ -87,3 +102,30 @@
                           (Thread/sleep 300)
                           (is (= after-stop @calls)
                               "the daemon thread must not run after stop"))))))
+
+(deftest relayed-envelope-carries-the-entry-id-test
+  (with-test-system
+   [sys "classpath:changelog-relay/application-test.yml"]
+   (let [bus (system/instance sys [:message-bus :bus])
+         handler (system/instance sys [:relay-handler :handler])
+         published (atom [])
+         first-entry (changelog-entry "relay-id-test-first")
+         second-entry (changelog-entry "relay-id-test-second")]
+     (message-bus/subscribe bus
+                            :relay-test-event
+                            (fn [e] (swap! published conj e)))
+     ;; The same bytes twice is a redrive: the pass did not checkpoint,
+     ;; so the relay is handed the entry it already published.
+     (handler nil (:bytes first-entry))
+     (handler nil (:bytes first-entry))
+     (handler nil (:bytes second-entry))
+     (is (wait-for #(= 3 (count @published)) 5000)
+         "all three publishes must reach the bus")
+     (let [[redrive-1 redrive-2 other] @published]
+       (testing "a redriven entry republishes under that entry's own id"
+         (is (= (:event-id first-entry) (:id redrive-1) (:id redrive-2))
+             "both publishes carry the changelog entry's event-id"))
+       (testing "a second entry carries its own id"
+         (is (= (:event-id second-entry) (:id other)))
+         (is (not= (:id redrive-1) (:id other))
+             "two entries must not share an identifier"))))))
