@@ -169,12 +169,17 @@
                    (domain/disable existing policies))))))
 
 (defn pause
+  "The one transition whose write co-commits a changelog envelope: the
+  platform took it, so the tenant's other endpoints are told."
   [txn bank-id endpoint-id]
-  (transition txn
-              bank-id
-              endpoint-id
-              (fn [_txn existing]
-                (domain/pause existing))))
+  (store/transact
+   txn
+   (fn [txn]
+     (let-nom>
+       [existing (load-endpoint txn bank-id endpoint-id)
+        updated (domain/pause existing)
+        _ (store/save-endpoint-status txn updated (:status existing))]
+       updated))))
 
 (defn remove-endpoint
   ([txn bank-id endpoint-id]

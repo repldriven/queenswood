@@ -327,3 +327,135 @@
             :updated-at (utility/now))
      :rotation-idempotency-key
      idempotency-key)))
+
+;; ---------------------------------------------------------------------------
+;; The retry schedule, and the bounds on the call
+
+(def
+  ^{:doc
+    "The delay before the first retry — under a minute, so a receiver
+  that was restarting hears again quickly."}
+  retry-base-ms
+  30000)
+
+(def ^{:doc "How much each retry delay grows on the one before it."}
+     retry-growth
+  4)
+
+(def
+  ^{:doc
+    "The longest a retry delay grows to. Geometric growth doubles the
+  whole schedule's span with every step past this, so the growth stops
+  here and the remaining attempts run at this interval."}
+  retry-max-interval-ms
+  14400000)
+
+(def
+  ^{:doc
+    "How long the schedule may span before a delivery is given up on —
+  roughly a day."}
+  retry-span-ms
+  86400000)
+
+(def
+  ^{:doc
+    "The delay before each retry, in order. Geometric from
+  `retry-base-ms` by `retry-growth` until it would pass
+  `retry-max-interval-ms`, then that interval, for as many retries as
+  fit inside `retry-span-ms`. A delivery makes one more attempt than
+  this has entries."}
+  retry-schedule-ms
+  (loop [delays []
+         delay retry-base-ms
+         span 0]
+    (let [delay (min delay retry-max-interval-ms)
+          span' (+ span delay)]
+      (if (> span' retry-span-ms)
+        delays
+        (recur (conj delays delay) (* delay retry-growth) span')))))
+
+(def
+  ^{:doc
+    "How many attempts a delivery makes before it is failed and kept:
+  the first, and one per entry in the schedule."}
+  max-attempts
+  (inc (count retry-schedule-ms)))
+
+(def
+  ^{:doc
+    "How long a call to a tenant address may take. An endpoint that
+  accepts the connection and then never answers holds a drain slot for
+  this long and no longer."}
+  request-timeout-ms
+  10000)
+
+(def
+  ^{:doc
+    "How much of a tenant's response body is read. A response longer
+  than this is read up to here and the rest abandoned, so an unbounded
+  body cannot exhaust the runner."}
+  max-response-bytes
+  65536)
+
+(def
+  ^{:doc
+    "How many of one endpoint's deliveries may be in flight at once, so
+  one tenant's slow endpoint cannot occupy every drain slot."}
+  max-in-flight-per-endpoint
+  2)
+
+(def
+  ^{:doc
+    "How long a runner's claim on a delivery holds. A claim whose lease
+  has passed is reclaimable, so a runner that died mid-flight strands
+  nothing."}
+  claim-lease-ms
+  60000)
+
+(defn retry-schedule
+  "The delay before the attempt after `attempts`, or nil when the
+  schedule is spent and the delivery is failed and kept."
+  [attempts]
+  (get retry-schedule-ms (dec (max 1 (or attempts 0)))))
+
+(def ^:private delivery-pending :webhook-delivery-status-pending)
+(def ^:private delivery-delivered :webhook-delivery-status-delivered)
+(def ^:private delivery-failed :webhook-delivery-status-failed)
+
+(defn delivered?
+  "Whether a response status is the outcome that ends a delivery. A 2xx
+  is delivered; every other status, and every error, is a failure to
+  retry."
+  [status]
+  (boolean (and status (<= 200 status) (< status 300))))
+
+(defn record-outcome
+  "The delivery as one attempt's outcome leaves it: delivered on a 2xx,
+  otherwise the attempt counted and the next attempt taken from the
+  schedule, and failed once the schedule is spent. The claim is
+  released either way, so a delivery never sits in flight past its
+  outcome.
+
+  `outcome` carries `:status` when a response arrived and `:error` when
+  the call failed before one did."
+  [delivery {:keys [status error]} now]
+  (let [attempts (inc (or (:attempts delivery) 0))
+        delay (retry-schedule attempts)
+        base (-> delivery
+                 (assoc :attempts attempts :updated-at now)
+                 (dissoc :claim-lease-expires-at :claimed-by :next-attempt-at))]
+    (cond
+     (delivered? status)
+     (assoc base :status delivery-delivered :last-response-status status)
+
+     (nil? delay)
+     (utility/assoc-some (assoc base :status delivery-failed)
+                         :last-response-status status
+                         :last-error error)
+
+     :else
+     (utility/assoc-some (assoc base
+                                :status delivery-pending
+                                :next-attempt-at (+ now delay))
+                         :last-response-status status
+                         :last-error error))))

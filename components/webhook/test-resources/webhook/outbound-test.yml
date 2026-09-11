@@ -1,0 +1,4 @@
+system:
+  fdb: !include system/fdb-test.yml
+  policies: !include system/policy-test.yml
+  receiver: !include webhook/receiver-test.yml
