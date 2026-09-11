@@ -43,8 +43,15 @@
          {:command :internal-transfer :args [:acct-0 :acct-1 100000]}] ; settlement
                                                                        ; →
                                                                        ; savings
+ ;; The reconciliation runs between the two passes and again after
+ ;; capitalisation: what every customer has accrued is what 2400 says
+ ;; the bank owes, whatever the run produced. The four pinned
+ ;; `:assert-gl-balance` steps below stay — they check the arithmetic,
+ ;; this checks the routing.
  :when [{:command :accrue-interest :args [:bank-0 20260501]}
-        {:command :capitalize-interest :args [:bank-0 20260501]}]
+        {:command :assert-interest-reconciliation :args [:bank-0 "GBP"]}
+        {:command :capitalize-interest :args [:bank-0 20260501]}
+        {:command :assert-interest-reconciliation :args [:bank-0 "GBP"]}]
  ;; Both passes enumerate each customer account into an
  ;; InterestAccountRun row and flip it to done in the same transaction
  ;; as the posting. Scope is 2: acct-1 (savings) and acct-0, which
