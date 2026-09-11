@@ -16,13 +16,21 @@
     [com.repldriven.queenswood.api.api :as api]
     [com.repldriven.queenswood.clearbank-adapter.interface :as cb-adapter]
     [com.repldriven.queenswood.clearbank-simulator.interface :as cb-simulator]
+    ;; The closed-control deftest sets up a state no route reaches. This
+    ;; brick belongs to the development project alone, and the namespace
+    ;; already loads api.api, which requires both of these.
+    ;; enforce-idioms: brick-test-scope -- see above.
+    [com.repldriven.queenswood.ledger-account.interface :as ledger-accounts]
     [com.repldriven.queenswood.onfido-adapter.interface :as onfido-adapter]
     [com.repldriven.queenswood.onfido-simulator.interface :as onfido-simulator]
+    ;; enforce-idioms: brick-test-scope -- see the note above.
+    [com.repldriven.queenswood.policy.interface :as policy]
     [com.repldriven.queenswood.uk-companies-house-simulator.interface :as
      ukch-simulator]
 
     [com.repldriven.mono.http-client.interface :as http]
     [com.repldriven.mono.identity-provider.interface :as identity-provider]
+    [com.repldriven.mono.json.interface :as json]
     [com.repldriven.mono.log.interface :as log]
     [com.repldriven.mono.server.interface :as server]
     [com.repldriven.mono.system.interface :as system]
@@ -126,6 +134,84 @@
                 {:file f
                  :relative (subs (.getPath f) prefix-len)}))
          (sort-by :relative))))
+
+(defn- fdb-config
+  "The booted system's own FDB handles, as the `txn-or-config` map a
+  brick interface takes. Lets a test reach a transition no route
+  exposes against the same records the API is serving."
+  [sys]
+  {:record-db (system/instance sys [:fdb :record-db])
+   :record-store (system/instance sys [:fdb :store])})
+
+(defn- post-json
+  "POST `body` as JSON to `path` on the booted API, bearing `token`
+  and `idempotency-key`, and return `{:status :body}`."
+  [base-url token idempotency-key path body]
+  (let [res (http/request {:method :post
+                           :url (str base-url path)
+                           :headers {"content-type" "application/json"
+                                     "authorization" (str "Bearer " token)
+                                     "idempotency-key" idempotency-key}
+                           :body (json/write-str body)})]
+    {:status (:status res) :body (http/res->edn res)}))
+
+(deftest closed-control-refuses-a-posting-test
+  ;; The 409 half of the closed-control rule. No route or command
+  ;; closes a ledger account, so an EDN scenario cannot set the state
+  ;; up: the close runs through the brick's interface against the
+  ;; booted system's own FDB config, and the posting that meets it
+  ;; goes over HTTP. Closing is gated on the `:ledger-account` close
+  ;; capability, which the micro tier denies and the platform tier
+  ;; grants, so the platform policies are passed explicitly the way
+  ;; bank bootstrap passes them to `new-account`.
+  (with-test-system
+   [sys
+    ["classpath:test-api-scenarios/application-test.yml"
+     patch-handlers]]
+   (let [jetty (system/instance sys [:server :jetty-adapter])
+         base-url (server/http-local-url jetty)
+         admin-token (mint-admin-token base-url)
+         config (fdb-config sys)
+         created (post-json base-url
+                            admin-token
+                            "ik-closed-control-bank-001"
+                            "/v1/banks"
+                            {:name "Closed Control Bank"
+                             :status "live"
+                             :tier "micro"
+                             :currencies ["GBP"]})
+         bank-id (get-in created [:body :bank-id])
+         house-account-id (get-in created [:body :accounts 0 :account-id])]
+     (is (= 201 (:status created)) (pr-str (:body created)))
+     (nom-test> [policies (policy/get-effective-policies config {})
+                 own-funds (ledger-accounts/find-by-code
+                            config
+                            bank-id
+                            :gl-account-code-own-funds
+                            "GBP")
+                 closed (ledger-accounts/close-account config
+                                                       bank-id
+                                                       (:ledger-account-id
+                                                        own-funds)
+                                                       {:policies policies})
+                 _ (is (= :ledger-account-status-closed (:status closed)))
+                 ;; The house account is an own-funds product, so its
+                 ;; credit leg fans out to the 3100 control just closed.
+                 ;; The customer leg is never recorded without its mirror,
+                 ;; so the posting fails outright rather than landing
+                 ;; single-sided.
+                 _ (let [refused (post-json base-url
+                                            admin-token
+                                            "ik-closed-control-inbound-001"
+                                            (str "/v1/simulate/banks/"
+                                                 bank-id
+                                                 "/inbound-transfer")
+                                            {:account-id house-account-id
+                                             :amount 250000
+                                             :currency "GBP"})]
+                     (is (= 409 (:status refused)) (pr-str (:body refused)))
+                     (is (= ":ledger-account/closed"
+                            (get-in refused [:body :type]))))]))))
 
 (deftest idempotency-keys-are-unique-across-files-test
   ;; Bank creation sits in the `:given` of almost every scenario file

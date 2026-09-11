@@ -224,6 +224,36 @@ customers no product in them. Widening that is a change to the seeded
 templates, not to a bank's own configuration — see **Known
 limitations**.
 
+#### The ISO 20022 cash-account type
+
+ISO 20022 defines `ExternalCashAccountType1Code`, a list of
+four-character codes classifying cash accounts for inclusion in
+payment messages (`pacs.008`, `pain.001`, `camt.053`, and others).
+The code says what kind of account this is for payment-rail purposes.
+
+It is a template field. Each of the three customer templates carries
+one — `CACC` for current, `SVGS` for savings, `LLSV` for term deposit
+— and the internal own-funds template carries none. `product-fields`
+snapshots it into every version created from the template, alongside
+the other derived instrument fields, so a version's
+`:iso-cash-account-type` is whatever its template held at creation.
+
+Nothing beyond that reads it today:
+
+- The `CashAccount` record carries no such field. An account's ISO
+  classification is its version's.
+- The open command takes no override, so a sub-flavour the
+  product-type does not distinguish (`TRAN` for a basic transacting
+  current account, say) cannot be selected per account.
+- No emitter, adapter or handler reads the field, and the API does not
+  expose it. `SACC` and `CPAC` are values of the enum with no writer
+  at all: they classify a bank's own settlement position, which is a
+  chart-of-accounts concern and carries no product — see
+  [chart-of-accounts.md](chart-of-accounts.md).
+
+The field is stored ahead of the messaging that will read it, which is
+why the enum is wider than the templates that set it.
+
 ### Lifecycle
 
 ```mermaid
@@ -577,6 +607,14 @@ truncated.
   changes genuinely need parallel work, there's no escape hatch. Could
   be lifted later with explicit conflict resolution; today it's a hard
   rule.
+- **The ISO cash-account-type defaults are best-effort.** The
+  `term-deposit` template carries `LLSV`, the closest standard code
+  but not an exact one — `LLSV` is "savings with special interest and
+  withdrawal terms", which includes term deposits without being
+  specific to them. There is no per-account override, so a bank
+  integrating with a counterparty that wants a finer classification
+  has nowhere to put it. Future ISO 20022 releases may add a more
+  specific code.
 - **No explicit retirement status.** A version's `effective-to`
   already time-boxes it — set it to stop new accounts opening after a
   date (once it passes, `active-version` returns nil) — but there is
@@ -606,7 +644,14 @@ truncated.
   `:interest-rate-bps` from the version; the per-run memo)
 - [idempotency.md](idempotency.md) — Idempotency (the create's key
   and its unique index)
+- [chart-of-accounts.md](chart-of-accounts.md) — Chart of accounts
+  (the control account a product type rolls up into, and the bank's
+  own settlement position)
 - [policy-evaluation.md](policy-evaluation.md) — Policy evaluation
   (draft and publish capabilities, the two count limits)
+- [ISO 20022 external codes](https://www.iso20022.org/external-code-lists) —
+  Source for `ExternalCashAccountType1Code` (`CACC`, `SVGS`, `LLSV`,
+  `TRAN`, `SACC`, `CPAC`, and the rest), maintained by the ISO 20022
+  Registration Authority and republished periodically
 - `cash-account-product` and `cash-account-product-query` brick
   interfaces

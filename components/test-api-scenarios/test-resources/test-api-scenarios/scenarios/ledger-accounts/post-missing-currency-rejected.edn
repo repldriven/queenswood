@@ -1,0 +1,42 @@
+{:name "A posting in a currency the bank has no chart row for is refused"
+ :tags #{:api :ledger-accounts :unhappy}
+ :given
+ [{:command :api/request
+   :request
+   {:method :post
+    :path "/v1/banks"
+    :auth :admin
+    :headers {:idempotency-key "ik-ledger-accounts-missing-ccy-bank-001"}
+    :body
+    {:name "Sterling Only Bank"
+     :status "live"
+     :tier "micro"
+     :currencies ["GBP"]}}
+   :as :org-0
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :org-0 :client-id]
+         :client-secret [:ref :org-0 :client-secret]
+         :status :live}
+   :as :org-0-token}]
+ :when
+ ;; The bank holds a GBP chart alone, so resolving 1100 in USD finds
+ ;; no row. The handler does that before it reads the account or
+ ;; builds a leg, so the refusal is the by-role one rather than a
+ ;; currency mismatch on the target account.
+ [{:command :api/request
+   :request
+   {:method :post
+    :path "/v1/simulate/banks/{bank-id}/inbound-transfer"
+    :path-params {:bank-id [:ref :org-0 :bank-id]}
+    :auth :org-0-token
+    :headers {:idempotency-key "ik-ledger-accounts-missing-ccy-inbound"}
+    :body {:account-id [:ref :org-0 :accounts 0 :account-id]
+           :amount 250000
+           :currency "USD"}}
+   :assert {:status 409
+            :problem {:type ":gl/missing-currency-account"
+                      :title "REJECTED"
+                      :detail
+                      [:m/regex
+                       "cash-at-correspondent.*USD"]}}}]}
