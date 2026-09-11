@@ -226,6 +226,19 @@ message LedgerAccountCapability {
   required LedgerAccountAction action = 1;
 }
 
+// REGISTER is the first write — creating an endpoint. MANAGE covers
+// every later write against one: updating it, enabling, disabling,
+// removing it and rotating its secret.
+enum WebhookEndpointAction {
+  WEBHOOK_ENDPOINT_ACTION_UNKNOWN = 0;
+  WEBHOOK_ENDPOINT_ACTION_REGISTER = 1;
+  WEBHOOK_ENDPOINT_ACTION_MANAGE = 2;
+}
+
+message WebhookEndpointCapability {
+  required WebhookEndpointAction action = 1;
+}
+
 enum Effect {
   EFFECT_UNKNOWN = 0;
   EFFECT_ALLOW = 1;
@@ -253,6 +266,7 @@ message Capability {
     PolicyCapability policy = 113;
     TransactionCapability transaction = 114;
     LedgerAccountCapability ledger_account = 115;
+    WebhookEndpointCapability webhook_endpoint = 116;
   }
 }
 
@@ -428,6 +442,10 @@ message PolicyLimit {
 
 message TransactionLimit {}
 
+// No filters: the bound is a per-bank count of endpoints, and an
+// endpoint carries nothing else a limit would select on.
+message WebhookEndpointLimit {}
+
 message Limit {
   reserved 1;
 
@@ -446,6 +464,7 @@ message Limit {
     PolicyLimit policy = 13;
     TransactionLimit transaction = 14;
     CashAccountMigrationLimit cash_account_migration = 18;
+    WebhookEndpointLimit webhook_endpoint = 19;
   }
 
   required Bound bound = 15;

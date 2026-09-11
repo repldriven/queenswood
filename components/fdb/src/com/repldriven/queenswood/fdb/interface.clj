@@ -96,6 +96,25 @@
   ([store record-type filters opts]
    (record/query-one-compound store record-type filters opts)))
 
+(defn enum-value
+  "The comparand a query on the enum `field` of `record-type` takes,
+  for the enum value with `number`.
+
+  The planner accepts an enum comparand only as a generated protobuf
+  enum whose descriptor equals the field's, or as the Record Layer's
+  own dynamic enum. An open store's descriptors are rebuilt from the
+  meta-data it persisted, so a generated class's descriptor is a
+  different object and never equal; the name and number are read off
+  the store's own descriptor and handed over as the dynamic form.
+
+  Args:
+  - store: an open FDBRecordStore.
+  - record-type: record type name.
+  - field: the enum field's proto name.
+  - number: the enum value's protobuf int."
+  [store record-type field number]
+  (record/enum-value store record-type field number))
+
 (defn query-records-by-map-entry
   "Queries records where a proto map field has at least one
   entry matching `map-key`/`map-value`. Returns a vector of

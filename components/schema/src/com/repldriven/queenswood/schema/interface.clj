@@ -1065,3 +1065,11 @@
   [m]
   (WebhookDeliveryAttemptProto$WebhookDeliveryAttempt/parseFrom
    (WebhookDeliveryAttempt->pb m)))
+
+(def ^{:doc "Map of WebhookEndpointStatus label to protobuf int value."}
+     webhook-endpoint-status->int
+  webhooks/WebhookEndpointStatus-label2val)
+
+(def ^{:doc "Map of WebhookDeliveryStatus label to protobuf int value."}
+     webhook-delivery-status->int
+  webhooks/WebhookDeliveryStatus-label2val)
