@@ -2,7 +2,7 @@
 
 Queenswood is a Clojure core-banking system, organised as a Polylith
 workspace that consumes shared infrastructure from
-[`mono`](https://github.com/repldriven/mono) as a pinned git-dependency
+[mono](https://github.com/repldriven/mono) as a pinned git-dependency
 (the `ext/mono` shims under `deps/`). The workspace holds only
 Queenswood's own domain bricks — `com.repldriven.queenswood.*`; the
 shared infra lives in the dependency as `com.repldriven.mono.*`. See
@@ -93,7 +93,8 @@ topic.
 ### Tests
 
 - **General testing** — `with-test-system`, `nom-test>`, no
-  `use-fixtures`, brick-level vs project-level test runs.
+  `use-fixtures`, what a brick's own tests may require and what
+  makes a case a scenario, brick-level vs project-level test runs.
   See [testing.md](docs/recipes/test/testing.md).
 - **Testcontainers** — FDB and Pulsar containers, reuse, image
   selection. See
@@ -329,9 +330,12 @@ clojure -M:poly test :all
 # Run the development project (every brick — includes scenarios)
 clojure -M:poly test project:dev :all
 
-# Run tests for one or more bricks
-clojure -M:poly test brick:<brick-name> project:dev
-clojure -M:poly test brick:<brick1>:<brick2> project:dev
+# Run tests for one or more bricks, in every project that hosts them
+# plus the development project. Never restrict to project:dev alone: it
+# carries every brick, so a test dependency a service project lacks
+# only fails there.
+clojure -M:poly test brick:<brick-name> :dev
+clojure -M:poly test brick:<brick1>:<brick2> :dev
 
 # Code generation prep (add :force true after a schema change)
 clj -X:deps prep :aliases '[:dev]'
