@@ -76,6 +76,26 @@ two files would replay the other file's bank rather than create one.
 The runner test fails on a shared literal; a key repeated *within* one
 file is how a replay is written, and is fine.
 
+### Receiving a delivery over HTTP
+
+Two verbs the webhooks design depends on, neither of which exists
+yet. See [webhooks.md](webhooks.md), which schedules them and the
+wait they need in its second slice.
+
+A **receiver verb** starts an HTTP server for the length of a
+scenario, records every request it is handed, and answers with a
+status the scenario chooses, so a refused delivery and the retry
+after it are both writable. The simulators the brick boots today
+stand in for vendor services the system calls out to; a receiver
+is the tenant's own endpoint, registered through the API under
+test rather than configured into the system.
+
+An **equality assertion** holds a captured request body against
+the response of a read route, with no matcher markers in it. Every
+assertion in the brick today is a matcher-combinators shape, which
+passes on a body carrying keys the component never declared — the
+leak equality exists to catch.
+
 The rest of this TDD is about the domain-layer brick. The
 HTTP-layer brick follows the same EDN + runner pattern with verb
 semantics swapped for HTTP requests.
@@ -401,6 +421,13 @@ The wait is on changelog cursor catch-up to the last command's
 outbox versionstamp, with a timeout. The timeout should be
 generous (single-digit seconds) and timing out is a test failure.
 
+The HTTP-layer brick has no wait of this shape: `:wait` sleeps for
+a fixed duration and `:api/poll` re-reads a route until the
+response matches. A webhook delivery needs one that reaches
+further than cursor catch-up — on past it to the bus hop, the
+consuming brick's commit, the delivery runner's next poll, and the
+HTTP call to the receiver.
+
 ### Five outcomes, two states
 
 Recall the policy evaluator's outcomes: `:not-applicable`,
@@ -566,6 +593,12 @@ _must_ wait before projecting. Specifically:
 Without this, intermittent failures will appear identical to real
 bugs and you will lose hours chasing them. Implement the wait
 before writing the first defspec.
+
+The same rule binds the delivery wait, with one difference: an
+HTTP call to a receiver publishes no sequencing token, so the poll
+is on the delivery row the runner writes, read back through the
+API, and the timeout has to cover a runner poll interval rather
+than a projection's lag.
 
 ## Considered alternatives, rejected
 
