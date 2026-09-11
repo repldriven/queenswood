@@ -109,6 +109,19 @@
                   {:message "Ledger account is closed"
                    :ledger-account-id (:ledger-account-id account)})))
 
+(defn missing-currency-account
+  "`:gl/missing-currency-account` — the bank holds no ledger account for
+  the `gl-account-code` role in `currency`, so a by-role resolution has
+  no row to return. Carries `:bank-id`, `:gl-account-code` and
+  `:currency`, the triple that found nothing."
+  [bank-id gl-account-code currency]
+  (error/reject :gl/missing-currency-account
+                {:message (str "Bank has no ledger account for this"
+                               " gl-account-code in this currency")
+                 :bank-id bank-id
+                 :gl-account-code gl-account-code
+                 :currency currency}))
+
 (defn close
   "Transition `account` to closed. Rejects
   `:ledger-account/invalid-status` if already closed,

@@ -68,14 +68,13 @@
          cash (ledger-accounts/find-by-code
                {:record-db record-db :record-store record-store}
                bank-id
-               :gl-account-code-cash-at-correspondent)]
-     (if (or (nil? cash) (error/anomaly? cash))
-       (errors/anomaly->response
-        (error/fail
-         :simulate/no-cash-at-correspondent-account
-         {:message
-          "Bank has no 1100 cash-at-correspondent account in its chart"
-          :bank-id bank-id}))
+               :gl-account-code-cash-at-correspondent
+               currency)]
+     ;; The lookup's own rejection travels: a bank with no 1100 in the
+     ;; body's currency answers `:gl/missing-currency-account` 409
+     ;; rather than a generic simulate failure.
+     (if (error/anomaly? cash)
+       (errors/anomaly->response cash)
        (let [txn {:record-db record-db :record-store record-store}
              account (cash-accounts/get-account txn bank-id account-id)
              product-type (when (and (map? account)
@@ -96,6 +95,7 @@
              expanded-legs (ledger-accounts/add-control-legs
                             txn
                             bank-id
+                            currency
                             legs)]
          (if (error/anomaly? expanded-legs)
            (errors/anomaly->response expanded-legs)

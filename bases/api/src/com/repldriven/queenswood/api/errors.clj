@@ -45,6 +45,9 @@
    :cash-account-product/version-immutable 409
    :cash-account-migration/invalid-status 409
    :interest/no-settlement 404
+   :gl/missing-currency-account 409
+   :ledger-account/invalid-status 409
+   :ledger-account/closed 409
    :party/invalid-status 409
    :party/open-accounts 409
    :policy/limit-exceeded 429})

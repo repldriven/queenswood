@@ -103,7 +103,8 @@
        (nom-test> [control (SUT/find-by-code
                             config
                             bank-id
-                            :gl-account-code-customer-deposits-current)
+                            :gl-account-code-customer-deposits-current
+                            "GBP")
                    bals (balances/get-balances config
                                                bank-id
                                                (:ledger-account-id control))
@@ -120,7 +121,8 @@
                  control (SUT/find-by-code
                           config
                           bank-id
-                          :gl-account-code-customer-deposits-current)
+                          :gl-account-code-customer-deposits-current
+                          "GBP")
                  _ (is (= :gl-account-code-customer-deposits-current
                           (:gl-account-code control)))
                  _ (is (= :gl-account-class-control
@@ -129,9 +131,16 @@
                  (SUT/get-account config bank-id (:ledger-account-id control))
                  _ (is (= (:ledger-account-id control)
                           (:ledger-account-id fetched)))])
-     (testing "unseeded code / unknown id resolve to nil"
+     (testing "an unseeded code rejects; an unknown id resolves to nil"
        ;; own-funds is a valid role but absent from this test chart
-       (is (nil? (SUT/find-by-code config bank-id :gl-account-code-own-funds)))
+       (let [result
+             (SUT/find-by-code config bank-id :gl-account-code-own-funds "GBP")
+             payload (error/payload result)]
+         (is (error/anomaly? result))
+         (is (= :gl/missing-currency-account (error/kind result)))
+         (is (= bank-id (:bank-id payload)))
+         (is (= :gl-account-code-own-funds (:gl-account-code payload)))
+         (is (= "GBP" (:currency payload))))
        (is (nil? (SUT/get-account config bank-id "led.nope")))))))
 
 (deftest add-control-legs-test
@@ -143,14 +152,16 @@
                  control (SUT/find-by-code
                           config
                           bank-id
-                          :gl-account-code-customer-deposits-current)
+                          :gl-account-code-customer-deposits-current
+                          "GBP")
                  customer-leg {:account-id "acc.customer1"
                                :product-type :product-type-sub-ledger-current
                                :balance-type :balance-type-default
                                :balance-status :balance-status-posted
                                :side :side-credit
                                :amount 1000}
-                 expanded (SUT/add-control-legs config bank-id [customer-leg])
+                 expanded
+                 (SUT/add-control-legs config bank-id "GBP" [customer-leg])
                  _ (is (= 2 (count expanded)))
                  _ (is (= customer-leg (first expanded)))
                  control-leg (second expanded)
@@ -164,7 +175,7 @@
                      :balance-status :balance-status-posted
                      :side :side-debit
                      :amount 1000}
-             result (SUT/add-control-legs config bank-id [gl-leg])]
+             result (SUT/add-control-legs config bank-id "GBP" [gl-leg])]
          (is (not (error/anomaly? result)))
          (is (= [gl-leg] result)))))))
 
@@ -172,7 +183,7 @@
 
 (defn- suspense-account
   [config bank-id]
-  (SUT/find-by-code config bank-id :gl-account-code-suspense))
+  (SUT/find-by-code config bank-id :gl-account-code-suspense "GBP"))
 
 (deftest close-account-zero-balance-test
   (with-test-system
@@ -237,7 +248,8 @@
          seeded (seed! config bank-id)
          control (SUT/find-by-code config
                                    bank-id
-                                   :gl-account-code-customer-deposits-current)
+                                   :gl-account-code-customer-deposits-current
+                                   "GBP")
          closed (SUT/close-account config bank-id (:ledger-account-id control))
          customer-leg {:account-id "acc.customer1"
                        :product-type :product-type-sub-ledger-current
@@ -245,7 +257,7 @@
                        :balance-status :balance-status-posted
                        :side :side-credit
                        :amount 1000}
-         result (SUT/add-control-legs config bank-id [customer-leg])]
+         result (SUT/add-control-legs config bank-id "GBP" [customer-leg])]
      (is (not (error/anomaly? seeded)))
      (is (not (error/anomaly? closed)))
      (is (error/anomaly? result))

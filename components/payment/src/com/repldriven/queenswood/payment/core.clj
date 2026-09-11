@@ -44,7 +44,7 @@
     config
     (fn [txn]
       (let [{:keys [bank-id debtor-account-id
-                    creditor-account-id]}
+                    creditor-account-id currency]}
             data
             business-day (domain/current-business-day
                           (utility/now)
@@ -76,6 +76,7 @@
            expanded-legs (ledger-accounts/add-control-legs
                           txn
                           bank-id
+                          currency
                           (:legs payment-transaction))
            transaction (transactions/record-transaction
                         txn
@@ -128,7 +129,7 @@
 
 (defn submit-outbound
   [config data]
-  (let [{:keys [bank-id debtor-account-id]} data
+  (let [{:keys [bank-id debtor-account-id currency]} data
         raw (store/transact
              config
              (fn [txn]
@@ -147,7 +148,8 @@
                     (ledger-accounts/find-by-code
                      txn
                      bank-id
-                     :gl-account-code-pending-outbound)
+                     :gl-account-code-pending-outbound
+                     currency)
                     _ (when (nil? pending-outbound)
                         (error/reject
                          :payment/no-pending-outbound-account
@@ -177,6 +179,7 @@
                     expanded-legs (ledger-accounts/add-control-legs
                                    txn
                                    bank-id
+                                   currency
                                    (:legs transaction))
                     transaction+legs (transactions/record-transaction
                                       txn

@@ -97,7 +97,7 @@ ledger-accounts:
   primary-key: [bank_id, ledger_account_id]
   indexes:
     - name: LedgerAccount_by_bank_gl_account_code
-      fields: [bank_id, gl_account_code]
+      fields: [bank_id, gl_account_code, currency]
 companies:
   record-type: Company
   primary-key: [company_number]

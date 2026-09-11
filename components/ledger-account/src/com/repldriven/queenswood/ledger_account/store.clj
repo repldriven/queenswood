@@ -30,7 +30,7 @@
    "Failed to load ledger account"))
 
 (defn find-by-code
-  [txn bank-id gl-account-code]
+  [txn bank-id gl-account-code currency]
   (fdb/transact
    txn
    (fn [txn]
@@ -40,7 +40,8 @@
               [["bank_id" bank-id]
                ["gl_account_code"
                 (schema/gl-account-code->pb-enum
-                 gl-account-code)]]
+                 gl-account-code)]
+               ["currency" currency]]
               {:index "LedgerAccount_by_bank_gl_account_code"})
              schema/pb->LedgerAccount))
    :ledger-account/find-by-code

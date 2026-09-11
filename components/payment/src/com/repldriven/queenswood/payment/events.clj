@@ -34,7 +34,8 @@
 
 (defn- record-inbound-settlement
   [txn data account business-day]
-  (let [{:keys [account-id bank-id]} account]
+  (let [{:keys [account-id bank-id]} account
+        {:keys [currency]} data]
     ;; Creditor is known (matched via BBAN) so the inbound settles
     ;; directly to the bank's correspondent cash account; suspense
     ;; (2500) is reserved for unmatched inbounds — a workflow for
@@ -43,7 +44,8 @@
       [cash (ledger-accounts/find-by-code
              txn
              bank-id
-             :gl-account-code-cash-at-correspondent)
+             :gl-account-code-cash-at-correspondent
+             currency)
        _ (when (nil? cash)
            (error/fail
             :payment/no-cash-at-correspondent-account
@@ -69,6 +71,7 @@
        expanded-legs (ledger-accounts/add-control-legs
                       txn
                       bank-id
+                      currency
                       (:legs transaction))
        transaction+legs (transactions/record-transaction
                          txn
@@ -93,7 +96,7 @@
   persist a `suspended` InboundPayment for later reconciliation. A sort
   code that matches no bank is genuinely foreign and fails."
   [txn data business-day]
-  (let [{:keys [creditor-bban]} data
+  (let [{:keys [creditor-bban currency]} data
         sort-code (bban->sort-code creditor-bban)]
     (let-nom>
       [bank (banks/get-bank-by-sort-code txn sort-code)
@@ -106,7 +109,8 @@
        cash (ledger-accounts/find-by-code
              txn
              bank-id
-             :gl-account-code-cash-at-correspondent)
+             :gl-account-code-cash-at-correspondent
+             currency)
        _ (when (nil? cash)
            (error/fail :payment/no-cash-at-correspondent-account
                        {:message
@@ -116,7 +120,8 @@
        suspense (ledger-accounts/find-by-code
                  txn
                  bank-id
-                 :gl-account-code-suspense)
+                 :gl-account-code-suspense
+                 currency)
        _ (when (nil? suspense)
            (error/fail :payment/no-suspense-account
                        {:message
@@ -143,12 +148,14 @@
   already accepted (and counted) when it was held."
   [txn data account held]
   (let [{:keys [bank-id]} account
-        {:keys [scheme-transaction-id]} data]
+        {:keys [scheme-transaction-id]} data
+        {:keys [currency]} held]
     (let-nom>
       [cash (ledger-accounts/find-by-code
              txn
              bank-id
-             :gl-account-code-cash-at-correspondent)
+             :gl-account-code-cash-at-correspondent
+             currency)
        _ (when (nil? cash)
            (error/fail :payment/no-cash-at-correspondent-account
                        {:message
@@ -162,6 +169,7 @@
        expanded-legs (ledger-accounts/add-control-legs
                       txn
                       bank-id
+                      currency
                       (:legs transaction))
        recorded (transactions/record-transaction
                  txn
@@ -230,12 +238,13 @@
   a sub-ledger leg, so route through `add-control-legs` to fan it up to the
   deposit control."
   [txn payment]
-  (let [{:keys [bank-id debtor-account-id]} payment]
+  (let [{:keys [bank-id debtor-account-id currency]} payment]
     (let-nom>
       [pending (ledger-accounts/find-by-code
                 txn
                 bank-id
-                :gl-account-code-pending-outbound)
+                :gl-account-code-pending-outbound
+                currency)
        _ (when (nil? pending)
            (error/fail :payment/no-pending-outbound-account
                        {:message
@@ -245,7 +254,8 @@
        cash (ledger-accounts/find-by-code
              txn
              bank-id
-             :gl-account-code-cash-at-correspondent)
+             :gl-account-code-cash-at-correspondent
+             currency)
        _ (when (nil? cash)
            (error/fail :payment/no-cash-at-correspondent-account
                        {:message
@@ -264,6 +274,7 @@
        expanded-legs (ledger-accounts/add-control-legs
                       txn
                       bank-id
+                      currency
                       (:legs tx))
        recorded (transactions/record-transaction
                  txn
@@ -408,12 +419,13 @@
   an outbound payment the scheme declined or returned. The debtor leg is a
   sub-ledger account, so route through `add-control-legs`."
   [txn payment]
-  (let [{:keys [bank-id debtor-account-id]} payment]
+  (let [{:keys [bank-id debtor-account-id currency]} payment]
     (let-nom>
       [pending (ledger-accounts/find-by-code
                 txn
                 bank-id
-                :gl-account-code-pending-outbound)
+                :gl-account-code-pending-outbound
+                currency)
        _ (when (nil? pending)
            (error/fail :payment/no-pending-outbound-account
                        {:message
@@ -431,6 +443,7 @@
        expanded-legs (ledger-accounts/add-control-legs
                       txn
                       bank-id
+                      currency
                       (:legs tx))
        recorded (transactions/record-transaction
                  txn
