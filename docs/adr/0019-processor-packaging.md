@@ -80,10 +80,21 @@ Two invariants when regrouping:
   group hosting either is pinned to `replicas: 1`.
   `exclusive-dispatchers-service` is pinned by design; every other
   group is free of the constraint precisely because it hosts none.
+  A poll loop is not exclusive work on its own. A runner that claims
+  each row by a conditional transition inside one FDB transaction
+  leaves a second replica with nothing to take, so the group hosting
+  it stays free. `external-adapters-service` relies on that already:
+  it hosts the ClearBank outbound intent runner, which is not pinned
+  and drains the pending-intent index. That runner claims nothing
+  yet: it tolerates a second replica only because ClearBank
+  deduplicates a retried POST on `endToEndIdentification`, so the
+  transactional claim is what a new runner in that group carries
+  instead.
   Note that freedom is necessary but not sufficient — every topic is
-  currently single-partition and `message-bus/send` passes no
-  partition key, so raising replicas buys standbys rather than
-  throughput until that key exists (ADR-0008).
+  currently single-partition and a store that declares no
+  `ordering_key` publishes unkeyed, so raising replicas buys standbys
+  rather than throughput until both change. See
+  [ADR-0021](0021-changelog-relay.md).
 
 ## Consequences
 

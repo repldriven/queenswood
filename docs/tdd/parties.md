@@ -358,12 +358,15 @@ create a second IDV.
   `external_id` field as a correlation channel.
 - **Webhook receiver** — HTTP endpoint
   `POST /webhooks/onfido/check-completed` under its own
-  server (separate from `api`). Verifies the
-  signature, parses the Onfido payload, parses the
-  composite `external_id` back into org-id /
-  verification-id, and republishes as an `idv-completed`
-  event with `:status` set to `ACCEPTED` (Onfido `clear`)
-  or `REJECTED` (Onfido `consider`).
+  server (separate from `api`). Parses the Onfido
+  payload, parses the composite `external_id` back into
+  org-id / verification-id, and republishes as an
+  `idv-completed` event with `:status` set to `ACCEPTED`
+  (Onfido `clear`) or `REJECTED` (Onfido `consider`). It
+  authenticates nobody: the route carries no security
+  metadata, the chain ahead of it only injects
+  components, and no adapter config holds a signing
+  secret. Verifying Onfido's signature is an open gap.
 - **Periodic webhook re-register daemon** — re-asserts
   the adapter's webhook registration with the provider
   on a schedule. Closes the silent-loss window when the
