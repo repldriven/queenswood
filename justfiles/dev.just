@@ -68,14 +68,15 @@ lint:
   just lint-eastwood
   just lint-clj-kondo
 
-# Install the pre-commit hook (run again whenever the hook itself changes)
+# Install the git hooks (run again whenever a hook itself changes)
 install-hooks:
     #!/usr/bin/env zsh
     set -euo pipefail
     # git resolves this for a worktree too, where .git is a file and the real
     # hooks directory lives in the primary checkout — so one install covers
-    # every worktree of this clone.
-    for name in pre-commit commit-msg; do
+    # every worktree of this clone, including the ones Gas City has yet to
+    # create. That is what makes post-checkout reach them.
+    for name in pre-commit commit-msg post-checkout; do
       hook=$(git rev-parse --git-path "hooks/$name")
       mkdir -p "$(dirname "$hook")"
       cp "scripts/hooks/$name" "$hook"

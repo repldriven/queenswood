@@ -336,8 +336,10 @@ clojure -M:poly test brick:<brick1>:<brick2> project:dev
 # Code generation prep (add :force true after a schema change)
 clj -X:deps prep :aliases '[:dev]'
 
-# Install the pre-commit hook (once per clone, and again whenever
-# scripts/hooks/pre-commit changes — the hook is a copy, not a symlink)
+# Install the git hooks (once per clone, and again whenever anything
+# under scripts/hooks/ changes — a hook is a copy, not a symlink).
+# post-checkout is among them, so this is also what gives every new
+# worktree its .tessl/ rules.
 just install-hooks
 ```
 
