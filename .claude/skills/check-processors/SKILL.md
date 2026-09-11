@@ -62,9 +62,11 @@ Per-check fix hints:
   directly.
 - **`watcher-present`** — delete the watcher and move its
   reaction into `events.clj`, keyed off the event the relay
-  republishes from the originating brick's changelog. Consume
-  via `changelog-relay/event-consumer`, not mono's
-  `event-processor`, which acks on anomaly and would lose it.
+  republishes from the originating brick's changelog. Wire the
+  consumer as a `<brick>/event-processor` kind wrapped in
+  mono's `event-processor/event-processor`, which leaves the
+  event unacknowledged when the handler throws or returns an
+  anomaly, so it is redriven rather than lost.
 - **`domain-impurity`** — remove the require. If domain needs
   data from the store, the caller in `core.clj` should fetch
   it and pass plain data into the domain fn. If domain needs

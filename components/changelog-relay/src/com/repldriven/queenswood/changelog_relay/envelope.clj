@@ -5,7 +5,7 @@
     [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.event.interface :as event]
     [com.repldriven.mono.log.interface :as log]
-    [com.repldriven.mono.utility.interface :refer [assoc-some]]))
+    [com.repldriven.mono.utility.interface :refer [assoc-seq assoc-some]]))
 
 (defn ->handler
   [{:keys [bus event-channel store-name]}]
@@ -19,7 +19,7 @@
         ;; forever and block every later entry behind it.
         (log/error "Skipping undecodable changelog entry"
                    {:store-name store-name :anomaly decoded})
-        (let [{:keys [event-name payload correlation-id causation-id
+        (let [{:keys [event-id event-name payload correlation-id causation-id
                       traceparent ordering-key]}
               decoded
               envelope (-> (event/envelope event-name
@@ -31,7 +31,12 @@
                            ;; opening its own. Absent for entries written
                            ;; before the field existed, or with nothing
                            ;; being traced.
-                           (assoc-some :traceparent traceparent))
+                           (assoc-some :traceparent traceparent)
+                           ;; `event/envelope` mints `:id` per publish; the
+                           ;; relay overrides it with the entry's id, so a
+                           ;; redrive republishes under the same
+                           ;; identifier. `assoc-seq` declines `""`.
+                           (assoc-seq :id event-id))
               ;; The writer declares the ordering key; the relay only
               ;; carries it across. Absent means an unkeyed publish —
               ;; correct while a topic has one partition, and the thing
