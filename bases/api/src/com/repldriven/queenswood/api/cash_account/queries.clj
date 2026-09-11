@@ -1,22 +1,14 @@
 (ns com.repldriven.queenswood.api.cash-account.queries
   (:require
-    [com.repldriven.queenswood.api.cash-account.components :as components]
-
     [com.repldriven.queenswood.api.cursor :as cursor]
     [com.repldriven.queenswood.api.errors :as errors]
 
+    [com.repldriven.queenswood.cash-account-api.interface :as cash-account-api]
     [com.repldriven.queenswood.cash-account-query.interface :as cash-accounts]
     [com.repldriven.queenswood.transaction.interface :as transactions]
 
     [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.utility.interface :as utility]))
-
-(defn- ->body
-  "Project a stored account onto the keys `CashAccount` declares, so a
-  record field the component does not declare — `:idempotency-key`,
-  `:last-rotation-idempotency-key` — cannot reach a read body."
-  [account]
-  (select-keys account components/cash-account-keys))
 
 (defn list-cash-accounts
   [request]
@@ -46,7 +38,7 @@
       ;; deserialises an absent enum as `:product-type-unknown`.
       (let [{:keys [accounts before after]} result
             customer-accounts (mapv
-                               ->body
+                               cash-account-api/->body
                                (filterv
                                 (fn [a]
                                   (let [pt (:product-type a)]
@@ -80,7 +72,7 @@
                                     :embed-transactions embed-transactions))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
-      {:status 200 :body (->body result)})))
+      {:status 200 :body (cash-account-api/->body result)})))
 
 (defn list-transactions
   [request]

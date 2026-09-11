@@ -9,10 +9,6 @@
     [com.repldriven.queenswood.api.bank.components :as bank.components]
     [com.repldriven.queenswood.api.bank.examples :as bank.examples]
     [com.repldriven.queenswood.api.bank.routes :as bank]
-    [com.repldriven.queenswood.api.cash-account.components :as
-     cash-account.components]
-    [com.repldriven.queenswood.api.cash-account.examples :as
-     cash-account.examples]
     [com.repldriven.queenswood.api.cash-account.routes :as cash-account]
     [com.repldriven.queenswood.api.cash-account-migration.components :as
      cash-account-migration.components]
@@ -74,6 +70,7 @@
      transaction.components]
 
     [com.repldriven.queenswood.api-schema.interface :as api-schema]
+    [com.repldriven.queenswood.cash-account-api.interface :as cash-account-api]
 
     [com.repldriven.mono.server.interface :as server]
     [com.repldriven.mono.telemetry.interface :as telemetry]
@@ -124,7 +121,7 @@
                                 "ErrorResponse" api-schema/ErrorResponseSchema}
                                balance.components/registry
                                bank.components/registry
-                               cash-account.components/registry
+                               cash-account-api/registry
                                cash-account-migration.components/registry
                                cash-account-product.components/registry
                                companies.components/registry
@@ -166,7 +163,7 @@
                     examples/registry
                     balance.examples/registry
                     bank.examples/registry
-                    cash-account.examples/registry
+                    cash-account-api/examples
                     cash-account-migration.examples/registry
                     cash-account-product.examples/registry
                     jobs.examples/registry

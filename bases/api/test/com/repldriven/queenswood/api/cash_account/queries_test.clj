@@ -1,8 +1,9 @@
 (ns com.repldriven.queenswood.api.cash-account.queries-test
-  "A stored cash account carries fields the API never publishes — the
-  key that opened it and the key that last rotated its addresses. The
-  read routes project onto the keys `CashAccount` declares, so those
-  two cannot reach a body while the BBAN, which is declared, does.
+  "The read handlers' response shape: a 200 carrying the account as
+  `cash-account-api` projects it, a list wrapped under
+  `:cash-accounts`, and a 404 taken off the query brick's rejection
+  kind. What the projection itself publishes is held in
+  `cash-account-api`'s own test.
 
   The query brick is redefined here rather than started, because
   `get-account` and `get-accounts` are the whole boundary these
@@ -11,6 +12,7 @@
   (:require
     [com.repldriven.queenswood.api.cash-account.queries :as SUT]
 
+    [com.repldriven.queenswood.cash-account-api.interface :as cash-account-api]
     [com.repldriven.queenswood.cash-account-query.interface :as cash-accounts]
 
     [com.repldriven.mono.error.interface :as error]
@@ -47,24 +49,23 @@
   {:auth {:bank-id bank-id}
    :parameters {:path {:account-id account-id} :query {}}})
 
-(deftest get-cash-account-publishes-only-declared-keys-test
+(deftest get-cash-account-answers-with-the-projected-account-test
   (with-redefs [cash-accounts/get-account (fn [& _] stored-account)]
     (let [{:keys [status body]} (SUT/get-cash-account (request))]
       (is (= 200 status))
-      (testing "the BBAN travels" (is (= "04000412345678" (:bban body))))
-      (testing "the idempotency keys do not"
-        (is (not (contains? body :idempotency-key)))
-        (is (not (contains? body :last-rotation-idempotency-key)))))))
+      (testing "the body is the account as cash-account-api projects it"
+        (is (= (cash-account-api/->body stored-account) body))))))
 
-(deftest list-cash-accounts-publishes-only-declared-keys-test
+(deftest list-cash-accounts-answers-with-projected-accounts-test
   (with-redefs [cash-accounts/get-accounts
                 (fn [& _] {:accounts [stored-account] :before nil :after nil})]
-    (let [{:keys [status body]} (SUT/list-cash-accounts (request))
-          [account] (:cash-accounts body)]
+    (let [{:keys [status body]} (SUT/list-cash-accounts (request))]
       (is (= 200 status))
-      (is (= "04000412345678" (:bban account)))
-      (is (not (contains? account :idempotency-key)))
-      (is (not (contains? account :last-rotation-idempotency-key))))))
+      (testing "each account in the list is projected, under :cash-accounts"
+        (is (= [(cash-account-api/->body stored-account)]
+               (:cash-accounts body))))
+      (testing "one unpaged page advertises no links"
+        (is (not (contains? body :links)))))))
 
 (deftest get-cash-account-answers-a-missing-account-from-the-rejection-test
   ;; The handler has no not-found branch of its own — `get-account`

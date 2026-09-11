@@ -1,4 +1,4 @@
-(ns com.repldriven.queenswood.api.cash-account.coercion
+(ns com.repldriven.queenswood.cash-account-api.coercion
   (:require
     [com.repldriven.queenswood.api-schema.interface :as coercion]))
 

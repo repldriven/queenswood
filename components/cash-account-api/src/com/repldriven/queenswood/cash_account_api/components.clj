@@ -1,7 +1,7 @@
-(ns com.repldriven.queenswood.api.cash-account.components
+(ns com.repldriven.queenswood.cash-account-api.components
   (:require
-    [com.repldriven.queenswood.api.cash-account.coercion :as coercion]
-    [com.repldriven.queenswood.api.cash-account.examples :as examples]
+    [com.repldriven.queenswood.cash-account-api.coercion :as coercion]
+    [com.repldriven.queenswood.cash-account-api.examples :as examples]
 
     [com.repldriven.queenswood.api-schema.interface :as schema :refer
      [components-registry]]))
@@ -59,10 +59,11 @@
    [:retired-at [:ref "Timestamp"]]])
 
 (def cash-account-keys
-  "Every key `CashAccount` declares. The read routes project a stored
-  account through these, so a record field the component does not
-  declare cannot reach a response body."
   (into [] (comp (filter vector?) (map first)) CashAccount))
+
+(defn ->body
+  [account]
+  (select-keys account cash-account-keys))
 
 (def CreateCashAccountRequest
   [:map {:json-schema/example examples/CreateCashAccountRequest}

@@ -1,4 +1,4 @@
-(ns com.repldriven.queenswood.api.cash-account.examples
+(ns com.repldriven.queenswood.cash-account-api.examples
   (:require
     [com.repldriven.queenswood.api-schema.interface :refer
      [examples-registry]]))
