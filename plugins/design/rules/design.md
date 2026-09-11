@@ -62,9 +62,18 @@ handles the event in its own `events.clj`, against its own records. The
 relay holds no domain logic, and no handler runs inside the changelog
 checkpoint transaction. Never mint a fresh `consumer-id` for an
 existing cursor — it starts at no checkpoint and rescans the store's
-whole history in one transaction. A lifecycle transition consumes via
-`changelog-relay/event-consumer`, not mono's `event-processor`, which
-acks on anomaly and would lose it.
+whole history in one transaction. Not every envelope field crosses:
+the relay carries `event_name`, `payload`, `correlation_id`,
+`causation_id` and `traceparent` into mono's `EventEnvelope`, carries
+`event_id` as its `id`, and hands `ordering_key` to the bus as the
+publish key, while `dedup_key` and `created_at` stop there — a
+consumer needing either reads it from the Avro payload. Consume with
+the reacting brick's own `<brick>/event-processor` kind wrapped in
+mono's `event-processor/event-processor`, which leaves an event
+unacknowledged when the handler throws or returns an anomaly. A brick
+acts only on its own records, the webhook component excepted: it reads
+across domains through each catalogued domain's `*-query` brick, so a
+notification body equals what that domain's read route returns.
 See [ADR-0021](../../../docs/adr/0021-changelog-relay.md).
 
 ## The message bus stays behind an abstraction
@@ -119,9 +128,14 @@ never grouped with domain processors, and share one JVM of their
 own. Work that admits exactly one dispatcher — every store's
 changelog runner and the Quartz scheduler — goes in
 `exclusive-dispatchers-service`, pinned to `replicas: 1`, which is
-what leaves every other group free of the constraint. When a
-processor moves between groups its consumer groups and changelog
-`consumer-id`s move with it verbatim, or the cursor is abandoned.
+what leaves every other group free of the constraint. A poll loop is
+not exclusive work on its own: a runner that claims each row by a
+conditional transition inside one FDB transaction leaves a second
+replica nothing to take, so its group stays free — that claim is
+what a runner added to `external-adapters-service` carries instead
+of a pin. When a processor moves between groups its consumer groups
+and changelog `consumer-id`s move with it verbatim, or the cursor is
+abandoned.
 See [ADR-0019](../../../docs/adr/0019-processor-packaging.md).
 
 ## External providers are deployment facts

@@ -33,9 +33,14 @@ reads it. The real problems are different:
   `{:deduplicate? false}`, logs failures) and a `relay-service` that owns
   every cursor at `replicas: 1`. Both adapter relays moved into it, so the
   adapter services no longer own a cursor.
-- **#269** — the shared `ChangelogEvent` envelope, `cash-accounts`
-  migrated to relay + event-processor, and `changelog-relay/event-consumer`
-  (see "Upstream" below for why it exists).
+- **#269** — the shared `ChangelogEvent` envelope, and `cash-accounts`
+  migrated to relay + event-processor.
+- **mono v0.0.22** — `event/process` rethrows on anomaly, so a handler
+  that throws or returns one leaves the event unacknowledged and the bus
+  redelivers it. Every consumer is the reacting brick's own
+  `<brick>/event-processor` kind wrapped in mono's
+  `event-processor/event-processor`; no separate relay-side consumer
+  kind is registered.
 - **Phase 3** — store `parties`, consumer `idv`. The flow that carried
   the real defect: `idv/watcher.clj` did a Kafka `message-bus/send` *and*
   opened nested FDB transactions from inside the changelog checkpoint
@@ -182,19 +187,23 @@ scoping the `fdb` requires inside one.
 
 ## Upstream, in mono
 
-Both gate real scale-out, in this order:
+One thing gates real scale-out:
 
-1. **`message-bus/send` needs a partition key**, and topic partition counts
-   need raising — in that order. Every topic is `partitions: 1` today and
-   `KafkaProducer.send` passes no key, so extra replicas are idle standbys;
-   raising partitions without a key silently breaks per-entity ordering.
+1. **Stores must declare `ordering_key`**, and topic partition counts
+   need raising — in that order. `event/publish` passes `:key` to the bus
+   and the relay hands it the entry's `ordering_key`, so the mechanism is
+   in place. Every topic is `partitions: 1` today and a store that
+   declares no key publishes unkeyed, so extra replicas are idle standbys;
+   raising partitions before the writers declare silently breaks
+   per-entity ordering.
 
    Keying does not restore commit order across the topic; it makes global
-   order unnecessary. Kafka orders within a partition only, so hashing an
-   entity's id to a partition keeps that entity's own transitions in
-   sequence, and nothing depends on one entity's order relative to
-   another's. The envelope already carries the value: `causation_id` is the
-   `party-id` / `account-id` for the events written so far.
+   order unnecessary. Kafka orders within a partition only, so an entity's
+   own transitions stay in sequence as long as they share a key, and
+   nothing depends on one entity's order relative to another's. The writer
+   declares the key and the relay only carries it across — the
+   `ChangelogEvent` proto's comment on the field says why it is never
+   derived.
 
    Unkeyed reordering is invisible rather than loud. A `closing` event
    overtaking its `opening` lands on `complete-status-transition`, whose
@@ -212,19 +221,7 @@ Both gate real scale-out, in this order:
    asked for — leaving retries and in-flight at the values that reorder
    within a partition. Setting `enable.idempotence: true` explicitly on
    the event producers converts that into a boot-time `ConfigException`.
-2. **`event/process` should rethrow on anomaly.** It wraps the handler in
-   `error/try-nom`, logs, and returns — so the Kafka consumer acks and the
-   event is lost, where the watcher it replaces redrove forever. That is why
-   `changelog-relay/event-consumer` subscribes directly and rethrows;
-   fixing it upstream retires that component.
-
-   Every event consumer now uses `event-consumer`, so nothing instantiates
-   `event-processor/event-processor` any more. The last two on it were
-   `payment` (`schemes-payments-event`) and `idv` (`idv-event`) — which
-   were exactly the two carrying webhook-derived facts, the ones that
-   cannot be re-derived if dropped.
-
-Both of those live in mono's `kafka` / `event` components. **FDB does not.**
+That lives in mono's `kafka` / `event` components. **FDB does not.**
 PR #270 moved it into this workspace, so everything below is a local
 change in `components/fdb` — check `git log -- components/<name>` before
 assuming any component is upstream.

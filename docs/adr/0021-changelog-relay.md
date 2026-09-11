@@ -64,18 +64,31 @@ The rules that follow from that split:
 2. **Every store writes one envelope.** A store's `write-changelog`
    payload is a `ChangelogEvent`: `event_id` (uuidv7, the consumer's
    dedup key), `dedup_key`, `event_name`, `payload` (Avro),
-   `correlation_id`, `causation_id`, `created_at`, `traceparent`. One
-   handler kind decodes every store's changelog without knowing the
-   domain, and republishes `payload` verbatim — the relay never
-   deserialises it. Because the adapter outbox protos reuse
-   `ChangelogEvent`'s field numbers and wire types, their entries
-   decode as one too.
+   `correlation_id`, `causation_id`, `created_at`, `traceparent`,
+   `ordering_key`. One handler kind decodes every store's changelog
+   without knowing the domain, and republishes `payload` verbatim —
+   the relay never deserialises it. Because the adapter outbox protos
+   reuse `ChangelogEvent`'s field numbers and wire types, their
+   entries decode as one too.
+
+   Not every field crosses. The relay carries `event_name`, `payload`,
+   `correlation_id`, `causation_id` and `traceparent` into mono's
+   `EventEnvelope`, carries `event_id` as that envelope's `id` so a
+   consumer dedups on the entry rather than on an id the publisher
+   minted, and hands `ordering_key` to the bus as the publish key.
+   `dedup_key` and `created_at` stop at the relay: `EventEnvelope` has
+   no field for either, so a consumer needing the logical identity of
+   a change, or the time it committed, reads it from the Avro payload.
+   Carrying them is a mono change under
+   [ADR-0001](0001-reuse-mono-as-upstream.md).
 3. **Consumers are event processors in the reacting brick.** A brick
    that reacts to another's transition subscribes to an event channel
    and handles the event in its own `events.clj`, outside any changelog
-   transaction, against its own records. A lifecycle transition
-   subscribes through `changelog-relay/event-consumer`, not mono's
-   `event-processor`, which acks on anomaly and would lose it.
+   transaction, against its own records. The subscription is a
+   per-brick `<brick>/event-processor` kind wrapped in mono's
+   `event-processor/event-processor`, which leaves an event
+   unacknowledged when the handler throws or returns an anomaly, so
+   the bus redelivers it rather than dropping the transition.
 4. **Cursor ids are physical and are never minted fresh.**
    `changelog/scan` range-reads everything after the checkpoint and
    calls `.asList` with no limit, inside one transaction. A new
@@ -95,10 +108,14 @@ The rules that follow from that split:
    consumers — each in the reacting brick — not an HTTP-layer
    orchestrator chaining commands across bricks. A brick publishes its
    own changes and acts only on its own records; it never reaches into
-   another's.
+   another's. The webhook component is the stated exception: a
+   notification body must equal what a domain's read route returns,
+   which only that domain can render, so it reads across domains
+   through each catalogued domain's `*-query` brick.
 
-Rule 6 is ADR-0008's brick-boundary rule, carried over intact, and is
-the reason this is a change of transport rather than of architecture.
+Rule 6 is ADR-0008's brick-boundary rule, carried over with the one
+exception stated in it, and is the reason this is a change of transport
+rather than of architecture.
 What changed is that the hop between "X committed" and "Y reacts" is
 now a broker rather than a function call in the same JVM.
 
@@ -129,37 +146,30 @@ Harder:
   failure mode is now redelivery rather than replay.
 - The relay is a distinct tier to deploy, configure and keep at
   `replicas: 1`.
-- Ordering is preserved in FDB and then discarded at the relay.
-  `message-bus/send` passes no partition key and every topic is
-  single-partition, so ordering holds today by accident of topology
-  rather than by design. See "Future".
+- Ordering is preserved in FDB and carried only as far as the writer
+  declares. The relay passes `ordering_key` to the bus as the publish
+  key, and an entry without one publishes unkeyed, so ordering holds
+  today by every topic having one partition rather than by design. See
+  "Future".
 
 ## Future
 
-Two things gate real scale-out, in this order.
+One thing gates real scale-out.
 
-**`message-bus/send` needs a partition key, before partition counts
-rise.** Keying does not restore commit order across a topic; it makes
-global order unnecessary. Kafka orders within a partition only, so
-hashing an entity's id to a partition keeps that entity's own
-transitions in sequence, and nothing depends on one entity's order
-relative to another's. The envelope already carries the value:
-`causation_id` is the entity the consumer acts on. Raising partition
-counts *without* a key would silently break per-entity ordering.
+**Stores must declare `ordering_key`, before partition counts rise.**
+Keying does not restore commit order across a topic; it makes global
+order unnecessary. A broker orders within a partition only, so an
+entity's own transitions stay in sequence as long as they share a key,
+and nothing depends on one entity's order relative to another's. The
+relay already hands the field to the bus, so what is missing is the
+writer: a store that declares none publishes unkeyed, and raising
+partition counts under that would silently break per-entity ordering.
 
 Unkeyed reordering is invisible rather than loud, which is what makes
 it worth fixing before it can happen. A `closing` event overtaking its
 `opening` lands on a source-status guard that skips silently — by
 design, so redelivery is a no-op. The guard that makes replay safe is
 the guard that hides reordering.
-
-**`event/process` should rethrow on anomaly.** It wraps the handler in
-`error/try-nom`, logs, and returns, so the consumer acks and the event
-is lost — where the watcher it replaced redrove forever. That is why
-`changelog-relay/event-consumer` exists: it subscribes directly and
-rethrows. Fixing it upstream retires that component. Until then, a
-lifecycle transition should use `event-consumer` rather than mono's
-`event-processor`.
 
 Smaller, in `components/fdb`: `changelog/process` needs a `:limit`
 batch cap, since with `{:deduplicate? false}` a burst issues N
