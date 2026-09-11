@@ -58,6 +58,7 @@
     components/payment-query {:local/root "components/payment-query"}
     components/transaction {:local/root "components/transaction"}
     components/user {:local/root "components/user"}
+    components/webhook {:local/root "components/webhook"}
     bases/api {:local/root "bases/api"}
     bases/clearbank-simulator {:local/root "bases/clearbank-simulator"}
     bases/clearbank-adapter {:local/root "bases/clearbank-adapter"}
@@ -114,6 +115,8 @@
                        "components/payment/test-resources"
                        "components/transaction/test"
                        "components/transaction/test-resources"
+                       "components/webhook/test"
+                       "components/webhook/test-resources"
                        "components/testcontainers/test"
                        "components/fdb/test"
                        "components/fdb/test-resources"

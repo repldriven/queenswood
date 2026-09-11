@@ -287,3 +287,41 @@ onfido-outbound-intents:
       unique: true
     - name: OnfidoOutboundIntent_by_status
       field: status
+# Appended rather than filed beside the cash-account entries they read
+# like, so the file matches the order `build-meta-data` visits these in.
+# That order is the RecordTypeUnion's field numbers, not this file's:
+# nothing here fixes an index's version, and editing above this point
+# does not move one.
+webhook-endpoints:
+  record-type: WebhookEndpoint
+  primary-key: [bank_id, endpoint_id]
+  indexes:
+    - name: WebhookEndpoint_count_by_bank
+      fields: [bank_id, endpoint_id]
+      type: count
+    - name: WebhookEndpoint_by_idempotency_key
+      fields: [bank_id, idempotency_key]
+      unique: true
+webhook-notifications:
+  record-type: WebhookNotification
+  primary-key: [bank_id, notification_id]
+  indexes:
+    - name: WebhookNotification_by_changelog_event_id
+      field: changelog_event_id
+      unique: true
+    - name: WebhookNotification_by_bank_created
+      fields: [bank_id, created_at]
+webhook-deliveries:
+  record-type: WebhookDelivery
+  primary-key: [bank_id, delivery_id]
+  indexes:
+    - name: WebhookDelivery_by_status_due
+      fields: [status, next_attempt_at]
+    - name: WebhookDelivery_by_endpoint_created
+      fields: [endpoint_id, created_at]
+webhook-delivery-attempts:
+  record-type: WebhookDeliveryAttempt
+  primary-key: [bank_id, attempt_id]
+  indexes:
+    - name: WebhookDeliveryAttempt_by_delivery
+      fields: [delivery_id, attempted_at]

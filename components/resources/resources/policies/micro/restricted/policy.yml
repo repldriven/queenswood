@@ -18,3 +18,4 @@ limits: !concat
   - !include policies/micro/restricted/limits/payee-checks.yml
   - !include policies/micro/restricted/limits/parties.yml
   - !include policies/micro/restricted/limits/idvs.yml
+  - !include policies/micro/restricted/limits/webhook-endpoints.yml

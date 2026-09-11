@@ -23,6 +23,7 @@ capabilities: !concat
   - !include policies/platform/restricted/capabilities/payments.yml
   - !include policies/platform/restricted/capabilities/policies.yml
   - !include policies/platform/restricted/capabilities/transactions.yml
+  - !include policies/platform/restricted/capabilities/webhook-endpoints.yml
 limits: !concat
   - !include policies/platform/restricted/limits/balances.yml
   - !include policies/platform/restricted/limits/cash-account-products.yml
@@ -35,3 +36,4 @@ limits: !concat
   - !include policies/platform/restricted/limits/payments.yml
   - !include policies/platform/restricted/limits/policies.yml
   - !include policies/platform/restricted/limits/transactions.yml
+  - !include policies/platform/restricted/limits/webhook-endpoints.yml

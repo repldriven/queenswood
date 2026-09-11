@@ -1,0 +1,11 @@
+- kind:
+    webhook-endpoint: {}
+  bound:
+    kind:
+      max:
+        aggregate:
+          kind:
+            count:
+              value: 50
+              window: !keyword time-window-instant
+  reason: "Platform-restricted - max 50 webhook endpoints"

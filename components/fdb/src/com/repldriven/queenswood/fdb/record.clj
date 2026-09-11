@@ -12,6 +12,7 @@
                                             IndexTypes)
     (com.apple.foundationdb.record.query RecordQuery)
     (com.apple.foundationdb.record.query.expressions Query)
+    (com.apple.foundationdb.record.util ProtoUtils$DynamicEnum)
     (com.apple.foundationdb.tuple Tuple)
     (com.google.protobuf MessageLite)))
 
@@ -38,6 +39,16 @@
 (defn delete
   [store & primary-key-parts]
   (.deleteRecord store (->tuple primary-key-parts)))
+
+(defn enum-value
+  [store record-type field number]
+  (let [value (-> (.getRecordMetaData store)
+                  (.getRecordType record-type)
+                  .getDescriptor
+                  (.findFieldByName field)
+                  .getEnumType
+                  (.findValueByNumber number))]
+    (ProtoUtils$DynamicEnum. (.getNumber value) (.getName value))))
 
 (defn- field-filter
   [[field value]]
