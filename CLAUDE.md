@@ -336,10 +336,11 @@ clojure -M:poly test brick:<brick1>:<brick2> project:dev
 # Code generation prep (add :force true after a schema change)
 clj -X:deps prep :aliases '[:dev]'
 
-# Install the git hooks (once per clone, and again whenever anything
-# under scripts/hooks/ changes — a hook is a copy, not a symlink).
-# post-checkout is among them, so this is also what gives every new
-# worktree its .tessl/ rules.
+# Install the git hooks. .envrc already does this on entering the
+# primary checkout, so this is the fallback for a clone with no direnv.
+# A hook is a copy, not a symlink, so anything edited under
+# scripts/hooks/ needs it again. post-checkout is among them, which is
+# what gives every new worktree its .tessl/ rules.
 just install-hooks
 ```
 
