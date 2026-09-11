@@ -18,15 +18,6 @@
    :product-type-sub-ledger-term-deposit :gl-account-code-customer-deposits-term
    :product-type-sub-ledger-own-funds :gl-account-code-own-funds})
 
-(def balance-type->control-code
-  "Maps a non-default customer balance bucket to the `:gl-account-code` of
-  the control it rolls up into, regardless of product type. The customer
-  `interest-accrued` buckets reconcile to interest payable (2400), the
-  same way default buckets reconcile to the deposit controls. Checked
-  ahead of `product-type->control-code`, so a savings account's accrued
-  interest rolls into interest payable, not the savings deposit control."
-  {:balance-type-interest-accrued :gl-account-code-interest-payable})
-
 (defn gl-account-code->gl-code
   "The chart number, as a string, for a `gl-account-code` role — the
   enum's own integer value (e.g. `:gl-account-code-suspense` -> `\"2500\"`).
@@ -72,14 +63,14 @@
      :currency currency}))
 
 (defn fans-out?
-  "Posted customer legs that have a control counterpart roll up into it:
-  default buckets into the product-type deposit control (2100/2200/2300/
-  3100), interest-accrued buckets into 2400. Other buckets (interest-
-  paid) and non-posted statuses are sub-ledger-only and don't fan out."
+  "Posted default customer legs roll up into their product-type control
+  (2100/2200/2300/3100). Every other bucket and every non-posted status
+  is sub-ledger-only: an `interest-accrued` bucket does not fan out,
+  because the bank's side of an accrual is posted in aggregate at close
+  by the interest brick's `sweep` rather than per leg."
   [leg]
   (and (= :balance-status-posted (:balance-status leg))
-       (contains? #{:balance-type-default :balance-type-interest-accrued}
-                  (:balance-type leg))))
+       (= :balance-type-default (:balance-type leg))))
 
 (defn debit-normal?
   "True for the debit-normal account families (asset, expense); false
@@ -108,6 +99,21 @@
     (error/reject :ledger-account/closed
                   {:message "Ledger account is closed"
                    :ledger-account-id (:ledger-account-id account)})))
+
+(defn missing-currency-account
+  "`:gl/missing-currency-account` — the bank holds no ledger account for
+  the `gl-account-code` role in `currency`, so a by-role resolution has
+  no row to return. Carries `:bank-id`, `:gl-account-code` and
+  `:currency`, the triple that found nothing."
+  [bank-id gl-account-code currency]
+  (error/reject :gl/missing-currency-account
+                {:message (str "Bank has no "
+                               (name gl-account-code)
+                               " ledger account in "
+                               currency)
+                 :bank-id bank-id
+                 :gl-account-code gl-account-code
+                 :currency currency}))
 
 (defn close
   "Transition `account` to closed. Rejects

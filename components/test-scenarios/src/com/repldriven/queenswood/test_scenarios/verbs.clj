@@ -1,6 +1,7 @@
 (ns com.repldriven.queenswood.test-scenarios.verbs
   (:require
     [com.repldriven.queenswood.test-scenarios.id-mapping :as id-mapping]
+    [com.repldriven.queenswood.test-scenarios.invariants :as invariants]
     [com.repldriven.queenswood.test-scenarios.quiescence :as quiescence]
 
     [com.repldriven.queenswood.balance-query.interface :as balances-query]
@@ -56,7 +57,10 @@
    bank
    (fn [txn]
      (let [tagged (mapv #(tag-leg-product-type txn bank-id %) (:legs tx-data))
-           expanded (ledger-accounts/add-control-legs txn bank-id tagged)]
+           expanded (ledger-accounts/add-control-legs txn
+                                                      bank-id
+                                                      (:currency tx-data)
+                                                      tagged)]
        (if (error/anomaly? expanded)
          expanded
          (let [r (transactions/record-transaction
@@ -583,9 +587,10 @@
    :legs [gl-leg customer-leg]})
 
 (defn- gl-account-for
-  "Look up the bank's GL account by `gl-account-code` role on its own books."
-  [bank bank-id gl-account-code]
-  (ledger-accounts/find-by-code bank bank-id gl-account-code))
+  "Look up the bank's GL account by `gl-account-code` role and `currency`
+  on its own books."
+  [bank bank-id gl-account-code currency]
+  (ledger-accounts/find-by-code bank bank-id gl-account-code currency))
 
 (defn- bank-id-for-account
   "Resolve the bank-id that owns `model-acct`."
@@ -676,10 +681,16 @@
 (defmethod dispatch :outbound-transfer
   [{:keys [bank counter id-mapping banks accounts run-id] :as ctx}
    {[model-id amount] :args}]
+  ;; Reserve, don't post — the shape `payment/domain.clj`'s
+  ;; `outbound-payment->transaction` produces: the customer's funds
+  ;; move to their pending-outgoing bucket and the bank's 1200 claim
+  ;; is likewise pending, so available drops while posted is
+  ;; untouched. Nothing reaches a posted bucket, so the transfer
+  ;; disturbs neither standing invariant until the scheme settles.
   (let [real-id (id-mapping/real id-mapping model-id)
         bank-id (bank-id-for-account banks accounts model-id)
         pending-outbound
-        (gl-account-for bank bank-id :gl-account-code-pending-outbound)
+        (gl-account-for bank bank-id :gl-account-code-pending-outbound "GBP")
         result
         (if (or (nil? pending-outbound) (error/anomaly? pending-outbound))
           (error/reject :scenario/no-pending-outbound-account
@@ -688,20 +699,20 @@
           (record-and-apply
            bank
            bank-id
-           (transfer-tx {:transaction-type :transaction-type-outbound-transfer
-                         :idempotency-key (str "scen-out-" run-id "-" counter)
-                         :reference (str "scenario outbound " counter)
-                         :gl-leg {:account-id (:ledger-account-id
-                                               pending-outbound)
-                                  :balance-type :balance-type-default
-                                  :balance-status :balance-status-posted
-                                  :side :leg-side-credit
-                                  :amount amount}
-                         :customer-leg {:account-id real-id
-                                        :balance-type :balance-type-default
-                                        :balance-status :balance-status-posted
-                                        :side :leg-side-debit
-                                        :amount amount}})))]
+           (transfer-tx
+            {:transaction-type :transaction-type-outbound-transfer
+             :idempotency-key (str "scen-out-" run-id "-" counter)
+             :reference (str "scenario outbound " counter)
+             :gl-leg {:account-id (:ledger-account-id pending-outbound)
+                      :balance-type :balance-type-default
+                      :balance-status :balance-status-pending-outgoing
+                      :side :leg-side-credit
+                      :amount amount}
+             :customer-leg {:account-id real-id
+                            :balance-type :balance-type-default
+                            :balance-status :balance-status-pending-outgoing
+                            :side :leg-side-debit
+                            :amount amount}})))]
     (-> ctx
         (update :counter inc)
         (track result))))
@@ -861,8 +872,10 @@
   ;; until 4100 fee-income lands in a future wave).
   (let [real-id (id-mapping/real id-mapping model-id)
         bank-id (bank-id-for-account banks accounts model-id)
-        cash
-        (gl-account-for bank bank-id :gl-account-code-cash-at-correspondent)
+        cash (gl-account-for bank
+                             bank-id
+                             :gl-account-code-cash-at-correspondent
+                             "GBP")
         result
         (if (or (nil? cash) (error/anomaly? cash))
           (error/reject :scenario/no-cash-at-correspondent-account
@@ -1074,7 +1087,7 @@
   [{:keys [bank banks] :as ctx}
    {[model-bank gl-account-code currency expected] :args}]
   (let [{bank-real-id :real-id} (get banks model-bank)
-        gl (gl-account-for bank bank-real-id gl-account-code)
+        gl (gl-account-for bank bank-real-id gl-account-code currency)
         balance (balances-query/get-balance bank
                                             bank-real-id
                                             (:ledger-account-id gl)
@@ -1084,6 +1097,84 @@
         actual (- (:credit balance 0) (:debit balance 0))]
     (is (= expected actual)
         (str "GL " (name gl-account-code) " balance for " model-bank))
+    ctx))
+
+(defn- interest-payable-net
+  "The credit-positive `default / posted` net of the bank's 2400 row in
+  `currency`. Resolved from the chart by code and currency rather than
+  by role alone, so a multi-currency bank reconciles against the row
+  the accrual actually posted to."
+  [txn bank-id currency]
+  (error/let-nom>
+    [accounts (ledger-accounts/list-accounts txn bank-id)
+     payable (or (first (filter (fn [account]
+                                  (and (= :gl-account-code-interest-payable
+                                          (:gl-account-code account))
+                                       (= currency (:currency account))))
+                                accounts))
+                 (error/fail
+                  :scenario/no-interest-payable-account
+                  {:message
+                   "Bank has no 2400 interest-payable account in this currency"
+                   :bank-id bank-id
+                   :currency currency}))
+     balances (balances-query/get-balances txn
+                                           bank-id
+                                           (:ledger-account-id payable))]
+    (:value (:posted-balance balances))))
+
+(defn- accrued-total
+  "Sigma of the customer `interest-accrued / posted` buckets in
+  `currency` across the bank's cash accounts, credit-positive like the
+  control it reconciles to."
+  [txn bank-id currency]
+  (invariants/reduce-cash-accounts
+   txn
+   bank-id
+   (fn [total account]
+     (reduce (fn [total balance]
+               (if (and (= :balance-type-interest-accrued
+                           (:balance-type balance))
+                        (= :balance-status-posted (:balance-status balance))
+                        (= currency (:currency balance)))
+                 (+ total (- (:credit balance 0) (:debit balance 0)))
+                 total))
+             total
+             (:balances account)))
+   0))
+
+(defmethod dispatch :assert-interest-reconciliation
+  [{:keys [bank banks] :as ctx} {[model-bank currency] :args}]
+  (let [{bank-real-id :real-id} (get banks model-bank)
+        totals
+        (fdb/transact
+         bank
+         (fn [txn]
+           (error/let-nom> [payable
+                            (interest-payable-net txn bank-real-id currency)
+                            accrued (accrued-total txn bank-real-id currency)]
+             {:payable payable :accrued accrued}))
+         :scenario/interest-reconciliation
+         "Failed to read the interest reconciliation snapshot")]
+    (if (error/anomaly? totals)
+      (is (not (error/anomaly? totals))
+          (str "interest reconciliation must be readable — bank "
+               model-bank
+               " "
+               currency
+               " ("
+               (pr-str totals)
+               ")"))
+      (is (= (:accrued totals) (:payable totals))
+          (str "interest payable must hold the accrued roll-up — bank "
+               model-bank
+               " "
+               currency
+               " (accrued "
+               (:accrued totals)
+               " / 2400 "
+               (:payable totals)
+               ")")))
     ctx))
 
 (defmethod dispatch :assert-interest-run

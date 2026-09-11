@@ -3,11 +3,11 @@
   customer bank runs its own books on (cash at correspondent,
   customer-deposit controls, interest payable, suspense, etc.). A
   `LedgerAccount` is a flat, bank-owned record distinct from a
-  customer `CashAccount`: 1:1 with a chart row, created directly by
-  `seed!`, with no product, no versioning, and no command/watcher
-  lifecycle. Ledger accounts share the `account-id` space with cash
-  accounts, so a `:ledger-account-id` is just another `account-id` to
-  `bank-balance` and `bank-transaction` — which is what keeps a
+  customer `CashAccount`: 1:1 with a chart row, created a row at a
+  time by `new-account`, with no product, no versioning, and no
+  command/watcher lifecycle. Ledger accounts share the `account-id`
+  space with cash accounts, so a `:ledger-account-id` is just another
+  `account-id` to `balance` and `transaction` — which is what keeps a
   customer leg and its control-account leg atomic in one posting.
 
   This brick owns: the product-type to control-code mapping, the
@@ -99,17 +99,25 @@
    (core/close-account txn bank-id ledger-account-id opts)))
 
 (defn find-by-code
-  "Resolve a ledger account from its `gl-account-code` role. Returns the
-  `LedgerAccount` map (or nil if not seeded). Used by posting sites to find
+  "Resolve a ledger account from its `gl-account-code` role and
+  `currency`. A bank holds one row per chart role per currency, so the
+  role alone does not identify an account. Used by posting sites to find
   counter-leg accounts by role — `:gl-account-code-cash-at-correspondent`,
   `:gl-account-code-interest-payable`, `:gl-account-code-suspense`, etc.
+
+  An absent row is a rejection, not nil: rejects
+  `:gl/missing-currency-account` carrying `:message`, `:bank-id`,
+  `:gl-account-code` and `:currency` when the bank has no row for the
+  triple, and `:ledger-account/closed` when the row it finds is closed.
+  Returns the `LedgerAccount` map otherwise.
 
   Args:
   - txn: FDB transaction or db handle.
   - bank-id: owning bank id.
-  - gl-account-code: a `:gl-account-code-*` role keyword."
-  [txn bank-id gl-account-code]
-  (core/find-by-code txn bank-id gl-account-code))
+  - gl-account-code: a `:gl-account-code-*` role keyword.
+  - currency: ISO 4217 currency string of the posting."
+  [txn bank-id gl-account-code currency]
+  (core/find-by-code txn bank-id gl-account-code currency))
 
 (defn list-accounts
   "Return every `LedgerAccount` for `bank-id` (the bank's full chart),
@@ -133,17 +141,26 @@
 
 (defn add-control-legs
   "Walk `legs` and append a matching control-side leg for every
-  customer default-posted leg carrying a sub-ledger `:product-type`,
-  resolving the control ledger account from that product type.
-  Posting sites call this BEFORE recording the transaction so the
-  synthetic control leg lands atomically in the same transaction.
-  Legs without a customer product type pass through unchanged.
-  Returns the expanded leg vector, or an anomaly on lookup failure.
+  posted default customer leg carrying a sub-ledger `:product-type`,
+  resolving the control ledger account from that product type in
+  `currency` — the transaction's currency, which every leg of one
+  transaction shares. Posting sites call this BEFORE recording the
+  transaction so the synthetic control leg lands atomically in the same
+  transaction. Only posted default legs fan out: a leg in any other
+  balance-type (`interest-accrued` among them) or any other
+  balance-status, and a leg without a customer product type, passes
+  through unchanged.
+
+  A leg that fans out and whose control is absent in `currency` or
+  closed fails the whole posting, with `:gl/missing-currency-account` or
+  `:ledger-account/closed` — the customer leg is never recorded without
+  its mirror. Returns the expanded leg vector otherwise.
 
   Args:
   - txn: FDB transaction or db handle.
   - bank-id: owning bank id.
+  - currency: ISO 4217 currency string of the transaction.
   - legs: original transaction legs (customer legs carry
     `:product-type`)."
-  [txn bank-id legs]
-  (core/add-control-legs txn bank-id legs))
+  [txn bank-id currency legs]
+  (core/add-control-legs txn bank-id currency legs))
