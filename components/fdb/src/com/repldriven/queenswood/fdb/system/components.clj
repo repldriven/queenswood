@@ -220,13 +220,38 @@
         method (.getMethod clazz "getDescriptor" (into-array Class []))]
     (.invoke method nil (into-array Object []))))
 
+(defn- union-field-numbers
+  [file-desc]
+  (into {}
+        (map (fn [field] [(.getName (.getMessageType field))
+                          (.getNumber field)]))
+        (.getFields (.findMessageTypeByName file-desc "RecordTypeUnion"))))
+
+(defn- union-ordered
+  "Record-type configs in `RecordTypeUnion` field-number order.
+  `addIndex` stamps each index with the builder's running version, so the
+  order stores are visited in is what fixes every index's added version,
+  and the Record Layer refuses a save that moves one. Declaration order
+  cannot supply it: the config reader re-reads the record types as a hash
+  map, so a new entry lands wherever its hash falls and shifts every index
+  after it. Union field numbers do not move — an existing record type
+  keeps its number and a new one takes the next free one — so visiting in
+  that order leaves every existing index's version where it was. A record
+  type absent from the union sorts last, by name."
+  [file-desc record-types]
+  (let [numbers (union-field-numbers file-desc)]
+    (sort-by (juxt #(get numbers (get % "record-type") Integer/MAX_VALUE)
+                   #(get % "record-type"))
+             (vals record-types))))
+
 (defn- build-meta-data
   [descriptor record-types]
   (let [file-desc (resolve-descriptor descriptor)
         builder (-> (RecordMetaData/newBuilder)
                     (.setRecords file-desc))]
     (set-primary-keys builder record-types)
-    (doseq [[_store-name {:strs [record-type indexes]}] record-types]
+    (doseq [{:strs [record-type indexes]} (union-ordered file-desc
+                                                         record-types)]
       (add-indexes builder record-type indexes))
     (.build builder)))
 

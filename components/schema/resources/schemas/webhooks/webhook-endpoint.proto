@@ -1,0 +1,50 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schemas.webhooks;
+
+import "record_metadata_options.proto";
+
+option java_outer_classname = "WebhookEndpointProto";
+
+enum WebhookEndpointStatus {
+  WEBHOOK_ENDPOINT_STATUS_UNKNOWN = 0;
+  WEBHOOK_ENDPOINT_STATUS_ENABLED = 1;
+  WEBHOOK_ENDPOINT_STATUS_DISABLED = 2;
+  WEBHOOK_ENDPOINT_STATUS_PAUSED = 3;
+  WEBHOOK_ENDPOINT_STATUS_REMOVED = 4;
+}
+
+// A tenant's registered destination for webhook notifications.
+message WebhookEndpoint {
+  option (com.apple.foundationdb.record.record).usage = RECORD;
+  // The meta-data version these four record types are introduced on.
+  // Without it the Record Layer refuses a save that adds a record type
+  // to an existing store — "new record type is missing since version" —
+  // and `build-meta-data` has nowhere else to say it: it sets no explicit
+  // version, so the version is the index count, 50 before these stores
+  // and 57 with them. Provisional until read off a deployed instance's
+  // stored meta-data.
+  option (com.apple.foundationdb.record.record).since_version = 57;
+
+  required string bank_id = 1;
+  required string endpoint_id = 2;
+  required string address = 3;
+  optional string description = 4;
+  // The notification kinds this endpoint has chosen.
+  repeated string kinds = 5;
+  required WebhookEndpointStatus status = 6;
+  required string secret = 7;
+  // The secret a rotation replaced, still accepted for signature
+  // verification until it expires, so a tenant that has not yet picked
+  // up the new one keeps verifying.
+  optional string previous_secret = 8;
+  optional int64 previous_secret_expires_at = 9;
+  optional int64 last_success_at = 10;
+  // The registering request's key. Unique-indexed per bank, which is
+  // what makes a retried registration read back the endpoint it already
+  // created rather than mint a second one.
+  required string idempotency_key = 11;
+  optional string rotation_idempotency_key = 12;
+  required int64 created_at = 13;
+  optional int64 updated_at = 14;
+}

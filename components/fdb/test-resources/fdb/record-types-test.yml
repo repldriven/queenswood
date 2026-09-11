@@ -1,0 +1,4 @@
+# The bank's own record types, read the way `system/fdb.yml` reads them,
+# so the meta-data evolution check runs against that file rather than a
+# copy of it that could drift.
+record-types: !include system/fdb-record-types.yml
