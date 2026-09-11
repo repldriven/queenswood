@@ -1,9 +1,6 @@
-(ns com.repldriven.queenswood.api.coercion)
+(ns com.repldriven.queenswood.api-schema.coercion)
 
 (defn enum-coercion
-  "Builds decoder, encoder, and json-schema from a
-  string-to-keyword mapping. When unknown-key is provided,
-  the encoder maps it to :unknown."
   ([m] (enum-coercion m nil))
   ([m unknown-key]
    (let [decode-m (merge m (update-keys m keyword))

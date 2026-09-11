@@ -3,7 +3,7 @@
     [com.repldriven.queenswood.api.cash-account.coercion :as coercion]
     [com.repldriven.queenswood.api.cash-account.examples :as examples]
 
-    [com.repldriven.queenswood.api.schema :as schema :refer
+    [com.repldriven.queenswood.api-schema.interface :as schema :refer
      [components-registry]]))
 
 (def CashAccountId

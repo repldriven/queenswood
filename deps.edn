@@ -12,6 +12,7 @@
     org.clojure/clojure {:mvn/version "1.12.5"}
     pin/clojure-core-async {:local/root "deps/clojure-core-async"}
     djblue/portal {:mvn/version "0.67.1"}
+    components/api-schema {:local/root "components/api-schema"}
     components/balance {:local/root "components/balance"}
     components/balance-domain {:local/root "components/balance-domain"}
     components/balance-query {:local/root "components/balance-query"}

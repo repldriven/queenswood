@@ -1,6 +1,6 @@
 (ns com.repldriven.queenswood.api.jobs.coercion
   (:require
-    [com.repldriven.queenswood.api.coercion :as coercion]))
+    [com.repldriven.queenswood.api-schema.interface :as coercion]))
 
 (def ^:private periodicity-enum
   (coercion/enum-coercion {"daily" :scheduler-periodicity-daily

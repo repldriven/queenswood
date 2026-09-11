@@ -1,6 +1,6 @@
 (ns com.repldriven.queenswood.api.me.coercion
   (:require
-    [com.repldriven.queenswood.api.coercion :as coercion]))
+    [com.repldriven.queenswood.api-schema.interface :as coercion]))
 
 (def ^:private identity-provider-enum
   (coercion/enum-coercion {"google" :identity-provider-google

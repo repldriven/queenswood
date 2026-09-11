@@ -1,6 +1,6 @@
 (ns com.repldriven.queenswood.api.cash-account-product.coercion
   (:require
-    [com.repldriven.queenswood.api.coercion :as coercion]))
+    [com.repldriven.queenswood.api-schema.interface :as coercion]))
 
 (def ^:private product-type-enum
   (coercion/enum-coercion {"current" :product-type-sub-ledger-current

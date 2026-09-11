@@ -1,6 +1,6 @@
 (ns com.repldriven.queenswood.api.transaction.coercion
   (:require
-    [com.repldriven.queenswood.api.coercion :as coercion]))
+    [com.repldriven.queenswood.api-schema.interface :as coercion]))
 
 (def ^:private transaction-status-enum
   (coercion/enum-coercion {"pending" :transaction-status-pending

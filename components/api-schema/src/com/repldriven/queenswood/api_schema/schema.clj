@@ -1,4 +1,4 @@
-(ns com.repldriven.queenswood.api.schema
+(ns com.repldriven.queenswood.api-schema.schema
   (:require
     [com.repldriven.mono.utility.interface :refer [vname]]))
 
@@ -7,15 +7,6 @@
   (reduce (fn [m v] (assoc m (vname v) @v)) {} vars))
 
 (defn id-schema
-  "Malli :re schema for a prefixed ULID entity id of the shape
-  <prefix>.<26 Crockford-base32 lowercase chars>.
-
-  The same regex drives runtime validation and OpenAPI `pattern`
-  output, so fuzzers and clients see the same constraint we enforce.
-
-  Prefixes must be alphanumeric ASCII — they are embedded literally
-  (no regex-quoting) so the resulting pattern stays portable across
-  Java, Python, and JavaScript regex engines."
   [title prefix example]
   [:re
    {:title title :json-schema/example example}

@@ -6,7 +6,9 @@
      cash-account-examples]
     [com.repldriven.queenswood.api.party.examples :as
      party-examples]
-    [com.repldriven.queenswood.api.schema :refer [examples-registry]]))
+
+    [com.repldriven.queenswood.api-schema.interface :refer
+     [examples-registry]]))
 
 (def BankLimitExceeded
   {:value {:title "REJECTED"

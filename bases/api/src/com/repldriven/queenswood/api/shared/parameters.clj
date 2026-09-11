@@ -19,7 +19,7 @@
   Routes that need both a path param and a query/header override must
   include `ref-account-id` / `ref-bank-id` alongside the other refs."
   (:require
-    [com.repldriven.queenswood.api.shared.components :as shared.components]
+    [com.repldriven.queenswood.api-schema.interface :as api-schema]
 
     [malli.json-schema :as mjs]))
 
@@ -32,7 +32,7 @@
   {:name "Idempotency-Key"
    :in "header"
    :required true
-   :schema (mjs/transform shared.components/IdempotencyKey)
+   :schema (mjs/transform api-schema/IdempotencyKey)
    :example "01jsx6k7h0abfdv8qpm2ytn3we"})
 
 (def PageQuery

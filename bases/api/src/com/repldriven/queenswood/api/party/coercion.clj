@@ -1,6 +1,6 @@
 (ns com.repldriven.queenswood.api.party.coercion
   (:require
-    [com.repldriven.queenswood.api.coercion :as coercion]))
+    [com.repldriven.queenswood.api-schema.interface :as coercion]))
 
 (def ^:private party-type-enum
   (coercion/enum-coercion {"person" :party-type-person

@@ -2,7 +2,6 @@
   (:require
     [com.repldriven.queenswood.api.auth :as auth]
     [com.repldriven.queenswood.api.examples :as examples]
-    [com.repldriven.queenswood.api.schema :as schema]
 
     [com.repldriven.queenswood.api.balance.components :as balance.components]
     [com.repldriven.queenswood.api.balance.examples :as balance.examples]
@@ -63,7 +62,6 @@
     [com.repldriven.queenswood.api.policy.components :as policy.components]
     [com.repldriven.queenswood.api.policy.examples :as policy.examples]
     [com.repldriven.queenswood.api.policy.routes :as policy]
-    [com.repldriven.queenswood.api.shared.components :as shared.components]
     [com.repldriven.queenswood.api.shared.interceptors :as shared.interceptors]
     [com.repldriven.queenswood.api.shared.parameters :as shared.parameters]
     [com.repldriven.queenswood.api.simulate.components :as simulate.components]
@@ -74,6 +72,8 @@
     [com.repldriven.queenswood.api.tier.routes :as tier]
     [com.repldriven.queenswood.api.transaction.components :as
      transaction.components]
+
+    [com.repldriven.queenswood.api-schema.interface :as api-schema]
 
     [com.repldriven.mono.server.interface :as server]
     [com.repldriven.mono.telemetry.interface :as telemetry]
@@ -118,11 +118,10 @@
     ;; query-params and request bodies.
     :strip-extra-keys false
     :options {:registry (merge (m/default-schemas)
-                               {:unique-vector
-                                shared.components/unique-vector-schema
+                               {:unique-vector api-schema/unique-vector-schema
                                 :unique-vector-lax
-                                shared.components/unique-vector-lax-schema
-                                "ErrorResponse" schema/ErrorResponseSchema}
+                                api-schema/unique-vector-lax-schema
+                                "ErrorResponse" api-schema/ErrorResponseSchema}
                                balance.components/registry
                                bank.components/registry
                                cash-account.components/registry
@@ -138,7 +137,7 @@
                                payee-check.components/registry
                                payment.components/registry
                                policy.components/registry
-                               shared.components/registry
+                               api-schema/registry
                                simulate.components/registry
                                tier.components/registry
                                transaction.components/registry)}}))
@@ -192,13 +191,13 @@
                                   (:interceptors ctx)
                                   [auth/authenticate
                                    auth/authorize])
-            :responses {400 (schema/ErrorResponse [#'examples/BadRequest])
-                        401 (schema/ErrorResponse [#'examples/Unauthorized])
-                        403 (schema/ErrorResponse [#'examples/Forbidden])
-                        500 (schema/ErrorResponse
+            :responses {400 (api-schema/ErrorResponse [#'examples/BadRequest])
+                        401 (api-schema/ErrorResponse [#'examples/Unauthorized])
+                        403 (api-schema/ErrorResponse [#'examples/Forbidden])
+                        500 (api-schema/ErrorResponse
                              [#'examples/InternalServerError
                               #'examples/BadResponse])
-                        503 (schema/ErrorResponse
+                        503 (api-schema/ErrorResponse
                              [#'examples/Contention
                               #'examples/Timeout])}}]
           (concat

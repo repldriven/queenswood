@@ -1,6 +1,7 @@
 (ns com.repldriven.queenswood.api.oauth.examples
   (:require
-    [com.repldriven.queenswood.api.schema :refer [examples-registry]]))
+    [com.repldriven.queenswood.api-schema.interface :refer
+     [examples-registry]]))
 
 (def TokenRequest
   {:grant_type "client_credentials"

@@ -1,10 +1,6 @@
-(ns com.repldriven.queenswood.api.shared.components
-  "Cross-cutting malli schemas shared across API surfaces — timestamps,
-  date / country / currency primitives, payment address fragments, and
-  the idempotency-key header. Registered globally in `api.clj` so any
-  `[:ref \"X\"]` resolves the same definition everywhere."
+(ns com.repldriven.queenswood.api-schema.components
   (:require
-    [com.repldriven.queenswood.api.schema :refer [components-registry]]
+    [com.repldriven.queenswood.api-schema.schema :refer [components-registry]]
 
     [malli.core :as m]
     [malli.json-schema :as mjs])

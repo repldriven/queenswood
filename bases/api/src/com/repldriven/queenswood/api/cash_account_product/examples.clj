@@ -1,6 +1,7 @@
 (ns com.repldriven.queenswood.api.cash-account-product.examples
   (:require
-    [com.repldriven.queenswood.api.schema :refer [examples-registry]]))
+    [com.repldriven.queenswood.api-schema.interface :refer
+     [examples-registry]]))
 
 (def ProductNotFound
   {:value {:title "REJECTED"

@@ -2,7 +2,8 @@
   (:require
     [com.repldriven.queenswood.api.simulate.examples :as examples]
 
-    [com.repldriven.queenswood.api.schema :refer [components-registry]]))
+    [com.repldriven.queenswood.api-schema.interface :refer
+     [components-registry]]))
 
 (def SimulateInboundTransferRequest
   [:map

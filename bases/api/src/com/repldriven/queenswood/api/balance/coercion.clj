@@ -1,6 +1,6 @@
 (ns com.repldriven.queenswood.api.balance.coercion
   (:require
-    [com.repldriven.queenswood.api.coercion :as coercion]))
+    [com.repldriven.queenswood.api-schema.interface :as coercion]))
 
 (def ^:private balance-type-enum
   (coercion/enum-coercion {"default" :balance-type-default

@@ -3,7 +3,7 @@
     [com.repldriven.queenswood.api.cash-account-product.coercion :as coercion]
     [com.repldriven.queenswood.api.cash-account-product.examples :as examples]
 
-    [com.repldriven.queenswood.api.schema :as schema :refer
+    [com.repldriven.queenswood.api-schema.interface :as schema :refer
      [components-registry]]))
 
 (def ProductId (schema/id-schema "ProductId" "prd" examples/ProductId))

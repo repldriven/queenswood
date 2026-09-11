@@ -5,7 +5,8 @@
 
     [com.repldriven.queenswood.api.cash-account.examples :refer
      [CashAccountNotFound]]
-    [com.repldriven.queenswood.api.schema :refer [ErrorResponse]]))
+
+    [com.repldriven.queenswood.api-schema.interface :refer [ErrorResponse]]))
 
 (def routes
   [["/cash-accounts/{account-id}/balances"

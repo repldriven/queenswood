@@ -1,6 +1,7 @@
 (ns com.repldriven.queenswood.api.ledger-account.examples
   (:require
-    [com.repldriven.queenswood.api.schema :refer [examples-registry]]))
+    [com.repldriven.queenswood.api-schema.interface :refer
+     [examples-registry]]))
 
 (def LedgerAccountNotFound
   {:value {:title "REJECTED"

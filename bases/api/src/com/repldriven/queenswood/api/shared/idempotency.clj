@@ -15,7 +15,8 @@
   409 of its own keeps that example beside the shared one."
   (:require
     [com.repldriven.queenswood.api.examples :as examples]
-    [com.repldriven.queenswood.api.schema :refer [ErrorResponse]]
+
+    [com.repldriven.queenswood.api-schema.interface :refer [ErrorResponse]]
 
     [com.repldriven.mono.utility.interface :as utility]))
 

@@ -1,6 +1,7 @@
 (ns com.repldriven.queenswood.api.simulate.examples
   (:require
-    [com.repldriven.queenswood.api.schema :refer [examples-registry]]))
+    [com.repldriven.queenswood.api-schema.interface :refer
+     [examples-registry]]))
 
 (def SimulateInboundTransferRequest
   {:account-id "acc.01kprbmgcj35ptc8npmybhh4s8" :amount 1000 :currency "GBP"})

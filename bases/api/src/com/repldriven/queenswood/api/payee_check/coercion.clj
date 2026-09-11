@@ -1,6 +1,6 @@
 (ns com.repldriven.queenswood.api.payee-check.coercion
   (:require
-    [com.repldriven.queenswood.api.coercion :as coercion]))
+    [com.repldriven.queenswood.api-schema.interface :as coercion]))
 
 (def ^:private match-result-enum
   (coercion/enum-coercion {"match" :match-result-match
