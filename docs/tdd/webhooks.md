@@ -30,6 +30,23 @@ discipline the notification schema follows, see
 [ADR-0014](../adr/0014-openapi-3x-compliance.md); retention and purge
 of delivery history; per-tenant tuning of retry and pause behaviour.
 
+The rest of what the PRD asks for is out of scope here and named, so
+nothing it lists is simply absent:
+
+- **The operator's view** — delivery health across tenants, pausing an
+  endpoint, reading any tenant's history — and **the management
+  console**, which the PRD's self-service goal and its pause behaviour
+  both reach through. Both need admin routes, a second security scheme
+  and indexes that answer a cross-tenant question, added to a design
+  that runs to four slices and has not been proved on one domain. The
+  successor is a follow-up TDD, once slice 1 has landed and the records
+  are known to work.
+- **A cash-account-product version being published**, and **a bulk move
+  of accounts completing.** Neither product brick writes a changelog or
+  has an events namespace, and publishing a version is a synchronous
+  status flip today, so each needs a changelog write, an event and a
+  relay runner before a tenant could be told at all.
+
 ## Background
 
 Internally the platform is event-driven and none of it crosses the
@@ -164,7 +181,33 @@ the catalogue, and nothing forces the moves to happen together.
   the runner, which is what ADR-0019 puts there: an intent store and
   calls to the outside. `exclusive-dispatchers-service` gains a relay
   runner per newly relayed store, which is generic configuration.
-  `api-service` gains routes and nothing else.
+  `api-service` gains routes and nothing else. Putting the runner in
+  `exclusive-dispatchers-service` instead would move tenant HTTP
+  delivery — slow endpoints, hostile endpoints, long timeouts — into
+  the JVM that runs every store's changelog runner and the scheduler,
+  where one tenant's outage could stall the dispatchers.
+- **The runner tolerates a second replica**, so that group keeps the
+  freedom ADR-0019 grants it: a runner claiming each row by a
+  conditional transition inside one FDB transaction is not
+  exclusive-dispatcher work. A delivery is claimed by moving it from
+  pending to in-flight and stamping a lease, in the transaction that
+  read it, so a second replica reaching the same due row loses that
+  transaction and sends nothing. What that leaves is written rather
+  than designed away: a lease expiring while the first replica is still
+  inside the call lets a second claim the delivery and send it again,
+  which the notification id makes safe for the tenant to recognise as a
+  repeat.
+- **One consumer instance per relayed event topic**, because mono's
+  `event-processor` kind takes a single `event-channel`. Each is a
+  component in the service's `application.yml` naming that channel and
+  the webhook processor: `cash-accounts-event`, `parties-event` and
+  `idvs-event` for the events that exist, `banks-event`,
+  `payments-event` and `interest-event` as their slices land, and
+  `webhook-endpoints-event` for the component's own endpoint changes.
+  Their consumer groups follow the `<brick>-service-<channel>` shape
+  the existing groups use — `webhook-service-parties-event` and so on —
+  and ADR-0019 requires them to move verbatim if the component is ever
+  regrouped.
 
 A processor commits a transition and its envelope, as ADR-0021 already
 requires. Whether anything listens is invisible to it.
@@ -344,13 +387,35 @@ fields, so a projected account has none left to give.
 ### Delivering
 
 The outbound runner is the ClearBank relay's runner generalised: it
-reads the deliveries that are due, signs and POSTs each one outside any
-FDB transaction, and records the outcome in its own transaction. A 2xx
-marks the delivery delivered. Anything else, a timeout included,
-increments the attempt count and sets the next attempt from a
-geometric schedule. The defaults are a first retry within a minute,
-growing to a few hours apart, and giving up after roughly a day. Past
-the last attempt the delivery is marked failed and kept.
+claims the deliveries that are due, signs and POSTs each one outside
+any FDB transaction, and records the outcome in its own transaction. A
+2xx marks the delivery delivered. Anything else, a timeout included,
+increments the attempt count and sets the next attempt from a geometric
+schedule. The defaults are a first retry within a minute, growing to a
+few hours apart, and giving up after roughly a day. Past the last
+attempt the delivery is marked failed and kept.
+
+The address belongs to a tenant, so the call is guarded five ways.
+Neither existing runner sets any of them: mono's `http-client` passes
+`:timeout` and `:follow-redirects` through to http-kit and the
+ClearBank and Onfido runners leave both unset, neither caps the body it
+reads, and neither bounds its own concurrency.
+
+- **A request timeout.** An endpoint that accepts the connection and
+  then never answers would otherwise hold a drain slot for as long as
+  it liked, against every other tenant's deliveries.
+- **Redirects refused.** A public address answering 302 to a private
+  one would otherwise reach, at delivery, exactly what the address rule
+  refuses at registration.
+- **The host resolved and re-checked at send time**, against that same
+  rule. An address whose DNS moves into a loopback, link-local, private
+  or metadata range after it was registered is refused before the
+  request is made.
+- **A bounded response read.** An endpoint answering an unbounded body
+  would otherwise exhaust the runner's heap, taking every other
+  tenant's deliveries down with it.
+- **Concurrency bounded per endpoint.** One tenant's slow endpoint
+  would otherwise occupy every drain slot the runner has.
 
 On every failure the runner also asks whether the endpoint should be
 paused: no successful delivery for longer than the pause window, a day
@@ -360,11 +425,6 @@ other, and the endpoint store co-commits a changelog envelope for it.
 The relay republishes that, the consumer turns it into a notification,
 and the bank's other enabled endpoints are told. The runner never
 writes a notification itself.
-
-The runner is hosted at one replica. A second replica would sometimes
-pick the same due delivery and send it twice before either records the
-outcome. That is tolerable for the same reason the ClearBank runner
-tolerates it: the receiver has a dedup key, here the notification id.
 
 ### Signing
 
@@ -380,18 +440,90 @@ The secret is minted at registration, stored on the endpoint record,
 and returned once, in the registration response and again in the
 rotation response. No read route returns it.
 
+No test vectors are vendored, and whether the specification publishes a
+vector file rather than per-library tests is unverified. That stays
+open, and the signing test is not blocked on it: failing a published
+file, the vectors are authored from the specification's own pseudocode
+and one signature is cross-checked against a published verification
+library.
+
 ### Registration and reads
 
 Registering an endpoint has none of the four properties ADR-0018 says
-earn a command. Endpoints are synchronous writes: the `api` base calls
-the `webhook` interface directly, as it does for products, and there
-is no `webhook-query` split until reads and writes need one.
+earn a command, and the third is worth arguing rather than asserting,
+because the endpoint store does have a reaction.
 
-The routes live under `/v1/webhook-endpoints`, org-scoped: create,
-list, get, update the address, description and kinds, enable, disable
-and remove an endpoint; rotate its secret; send it a test
-notification; list its deliveries with filters on kind, outcome and
-time; re-send one delivery; re-send every notification in a window.
+- **Multi-record atomicity under contention.** A registration writes
+  one endpoint record. The secret, the count against the limit and the
+  idempotency index all hang off that record, inside the one
+  transaction that writes it.
+- **Idempotency stakes.** A repeat would mint a second endpoint, a
+  second secret and a second count, which is real damage. The unique
+  `[bank_id, idempotency_key]` index removes it without a bus, which is
+  the products precedent ADR-0018 already cites.
+- **Reaction.** The endpoint store's status writes do co-commit a
+  changelog envelope, and the component's own consumer turns them into
+  notifications. What earns a command is another brick having to
+  respond asynchronously; here the reacting brick is the writing brick,
+  so nothing outside the registration's transaction has to be
+  coordinated with it, and the envelope is relayed and heard after it
+  commits exactly as any other is.
+- **Unreliable ingress.** A registration arrives on an authenticated
+  `/v1` request whose reply the caller reads. There is nothing to
+  consume and nothing to acknowledge.
+
+So endpoints are synchronous writes: the `api` base calls the `webhook`
+interface directly, as it does for products, and there is no
+`webhook-query` split until reads and writes need one.
+
+The routes live under `/v1/webhook-endpoints`, org-scoped. Each write
+route declares the idempotency interceptor pair or names its guard in
+the `api` base's `exempt-writes`, so the router coverage test
+[idempotency.md](idempotency.md) requires passes on the first route
+that lands.
+
+- **The pair and a store-level key.** `POST /v1/webhook-endpoints`
+  reads back off `[bank_id, idempotency_key]`.
+  `POST /v1/webhook-endpoints/{endpoint-id}/rotate-secret` keeps the
+  key of the last rotation on the endpoint, as a cash account keeps the
+  key of its last address rotation, so a retry under that key returns
+  the secret the first rotation minted and mints none.
+- **Exempt, as an absolute set.**
+  `PUT /v1/webhook-endpoints/{endpoint-id}` carries the whole editable
+  endpoint — address, description and chosen kinds — so a second
+  application converges on the same record.
+- **Exempt, on a source-state guard.** `POST .../enable`,
+  `POST .../disable` and `DELETE /v1/webhook-endpoints/{endpoint-id}`
+  each leave the status they start from, so a repeat meets
+  `:webhook-endpoint/invalid-status`.
+- **The pair alone.** `POST .../test-notification`,
+  `POST .../deliveries/{delivery-id}/resend` and `POST .../resend` each
+  create a delivery every time they run. Inside the cache window a
+  retry replays the first answer; past it, a second delivery goes out
+  under a notification id the tenant has already seen, which is the
+  repeat the signing convention exists to let it recognise.
+
+Reads take no key: get and list endpoints, and list an endpoint's
+deliveries with filters on kind, outcome and time.
+
+`POST .../enable` takes an optional `since`. Without it the endpoint
+resumes from the next change; with it, every notification for the
+endpoint's chosen kinds from that instant on that has no delivered
+delivery gets a fresh pending one, so re-enabling and asking for the
+gap are one call rather than two with the tenant computing the window.
+
+`POST .../test-notification` answers with the delivery it created — its
+id, its status and its endpoint — and the tenant reads that delivery
+back through the delivery route to see what the endpoint answered. A
+test notification is a notification like any other, with its own id and
+its own attempts.
+
+**Test and live.** A bank's status is `TEST` or `LIVE` on the one bank
+record, and `change-status` flips it, re-pointing the service-account
+client's audience through the identity provider as it goes. An endpoint
+carries no test-or-live flag of its own: it belongs to a bank and hears
+what that bank's records do, so moving a bank between the two is
+`bank-status-changed` and nothing on the endpoint.
 
 Address validation is a domain rule: HTTPS only, and an address whose
 host resolves to a loopback, link-local, private or metadata range, or
@@ -419,7 +551,8 @@ type in the `schema` brick's `interface.clj`.
   chosen kinds, status (enabled, disabled, paused, removed), the
   current secret, the previous secret and when it expires, when the
   endpoint last succeeded, the idempotency key of the registration
-  that created it, and timestamps. Indexed by bank, with an FDB
+  that created it, the idempotency key of its last secret rotation,
+  and timestamps. Indexed by bank, with an FDB
   `count` index over `[bank_id, endpoint_id]` for the limit check and
   a unique index on `[bank_id, idempotency_key]`. That unique index is
   what makes registration retry-safe: a retried request reads back the
@@ -431,8 +564,9 @@ type in the `schema` brick's `interface.clj`.
   type and id, the envelope fields above, the rendered body, and the
   changelog event id under a unique index.
 - `WebhookDelivery` — delivery id, notification id, endpoint id,
-  status (pending, delivered, failed), attempts, when the next attempt
-  is due, the last response status or error, and timestamps. Indexed
+  status (pending, in-flight, delivered, failed), the lease a claim
+  stamps, attempts, when the next attempt is due, the last response
+  status or error, and timestamps. Indexed
   by status and due time for the runner, and by endpoint and time for
   the delivery history. Kind and outcome are denormalised onto the
   delivery, so the history's filters answer off one index rather than
@@ -498,20 +632,41 @@ scope with that reason.
 The design is proved on cash accounts before anything else is built
 on it. The first slice is:
 
-1. Extract `api-schema` and `cash-account-api` from the base, taking
+1. Give the `api` base a test that walks the exported OpenAPI
+   document, resolves every `$ref` and validates the document against
+   the OpenAPI 3.x schema. `bases/api/test/` holds no OpenAPI test and
+   the pages workflow exports the document and validates nothing, so
+   ADR-0014's CI validation is unmet and step 2 has nothing to confirm
+   against.
+2. Extract `api-schema` and `cash-account-api` from the base, taking
    the `->body` projection with them, and hold it against
    `CashAccount`'s declared keys in the component's own test. Confirm
    the exported OpenAPI document is unchanged.
-2. Build the `webhook` component with one catalogue entry,
+3. Spike the Malli-to-`oneOf`-with-`discriminator` projection. Every
+   `oneOf` in the exported document today is a nullable projection and
+   none carries a discriminator, so the notification component is the
+   first use and the projection is unproven.
+4. Build the `webhook` component with one catalogue entry,
    `cash-account.opened`, its records, its consumer and its
    runner, hosted in `external-adapters-service`.
-3. Add the endpoint and delivery routes, signing, and the policy
+5. Add the endpoint and delivery routes, signing, and the policy
    bounds.
-4. Land the end-to-end scenario: an endpoint at a receiver the test
-   rig hosts, an account opened, a signed notification received whose
-   `data` equals the read route's response — and exactly one
-   notification for that opening, which is what holds the terminal-leg
-   rule against the two entries an opening writes.
+6. Land the end-to-end test in the `webhook` brick's own tests: an
+   opening consumed, a signed notification delivered to a receiver the
+   test starts, and exactly one notification for that opening, which is
+   what holds the terminal-leg rule against the two entries an opening
+   writes.
+
+Running that scenario over HTTP is slice 2 content, because
+`test-api-scenarios` has none of what it needs: it boots the ClearBank
+and Onfido simulators but hosts no receiver and has no verb for one,
+its assertions are matcher-combinators shape markers rather than
+equality, and its only waits are a fixed sleep and a poll of the API.
+Slice 2 adds a receiver verb, an equality assertion between `data` and
+the read route's response, and a delivery-quiescence wait reaching past
+changelog cursor catch-up to the bus hop, the consumer's commit, the
+runner's poll and the HTTP call.
+[scenario-testing.md](scenario-testing.md) describes all three.
 
 Cash accounts go first because their events already exist and are
 relayed, their opening transition is two-phase so "told rather than
@@ -538,15 +693,16 @@ neither.
 
 - **The `webhook` brick** covers its domain rules (address validation,
   lifecycle guards, the pause rule, the retry schedule), its store (the
-  indexes, the dedup key), its signing against the specification's
-  test vectors, its runner against a receiver started in the test, and
-  that its `oneOf` names every resource the catalogue maps to.
-- **The `api` base** keeps a test that the exported document resolves
-  every `$ref` after each extraction, and that each kind is listed in
-  the document's `webhooks` object.
+  indexes, the dedup key), its signing against the vectors above, its
+  runner against a receiver started in the test, and that its `oneOf`
+  names every resource the catalogue maps to.
+- **The `api` base** gains the OpenAPI test in slice 1, run again after
+  each extraction, and holds with it that each kind is listed in the
+  document's `webhooks` object.
 - **API scenarios** in `test-api-scenarios` cover the endpoint
-  lifecycle, secret rotation and the count limit, plus the end-to-end
-  scenario above. Its equality assertion is the design's contract.
+  lifecycle, secret rotation and the count limit from slice 1, and the
+  end-to-end scenario over HTTP from slice 2, whose equality assertion
+  is the design's contract.
 
 ## Alternatives Considered
 
@@ -574,26 +730,58 @@ neither.
 - **Only an extracted domain can be in the catalogue.** Each domain's
   kinds wait on its `<domain>-api` move.
 - **No retention or purge.** Notifications and deliveries accumulate.
-- **One runner replica.** A second replica double-sends before it
-  double-records. Tolerable, not designed away.
+- **A lease can expire mid-send.** A second replica then claims a
+  delivery the first is still sending, and sends it again. The
+  notification id is what makes that a repeat the tenant can recognise
+  rather than a second event.
+- **The dedup key is the changelog event id**, so it is stable for a
+  relayed event and for nothing else, and `occurred-at` is the time the
+  notification was written until the mono `EventEnvelope` change lands.
 - **Order is by topology.** Topics are single-partition today, so
   order holds; the ordering key is declared for when they are not.
 - **Capitalisation bursts.** One notification per account per run,
   with no batching.
 - **Secrets at rest are unencrypted**, as the parties TDD notes for
   personal data.
-- **A pause reaches the console and the bank's other endpoints only.**
-  A single-endpoint tenant has no out-of-band alert.
+- **A pause is told to the bank's other endpoints only.** A
+  single-endpoint tenant has no out-of-band alert, and the console that
+  would carry one is out of scope.
 - **No ownership challenge at registration.** The test notification is
   a manual check.
 - **Rendered at consume time.** Two changes to one record inside the
   relay's lag render the later state in both notifications; the
   envelope's before and after statuses still tell them apart.
-- **Address validation is at registration.** A host that later
-  resolves elsewhere is not re-checked before delivery.
+- **What the delivery guards leave.** A timeout, refused redirects,
+  send-time re-resolution, a bounded read and per-endpoint concurrency
+  still leave an endpoint that answers slowly but inside the timeout on
+  every attempt, and a host that moves between the re-check and the
+  connection.
 - **The payment and interest entries wait on their events.** Until
   those bricks publish transitions, the catalogue delivers account,
-  party, identity-verification and bank changes only.
+  party and identity-verification changes only.
+
+Five things this design reasons from have never been observed. Each is
+stated as unobserved, with what would observe it.
+
+- **A relay redrive.** No test crashes a runner between a publish and
+  its cursor checkpoint, or fails a publish the broker accepted. The
+  relay's own test holds that two publishes of one entry carry one id;
+  the redrive path is observed by a relay test that interrupts a scan
+  and re-runs it from the last checkpoint.
+- **The count of envelopes an opening produces.** The two-entry case is
+  read off the store's co-commit rule rather than shown. Slice 1's
+  end-to-end test counts them.
+- **A read body other than a cash account's, held against its
+  component's declared keys.** The leak is proven for ledger accounts
+  by the chart-of-accounts gap report and inferred everywhere else.
+  Each slice's declared-keys test observes its own domain.
+- **A `oneOf` with a `discriminator`, projected from this base.** Every
+  `oneOf` in the exported document is a nullable projection. Slice 1's
+  spike and its OpenAPI test observe it.
+- **The bank's events, consumed.** `bank-status-changed` and
+  `bank-tier-changed` are written to the bank store's changelog and
+  relayed by no runner, so nothing has ever read one. The bank slice's
+  relay runner and topic are what observe them.
 
 ## References
 
