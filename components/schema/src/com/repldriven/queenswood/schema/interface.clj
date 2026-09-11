@@ -573,10 +573,13 @@
   chart-of-accounts rows leave the first unset and an account that has
   never been rotated leaves the second unset, and downstream read
   sites use `(when (:bban account) ...)` semantics to distinguish
-  customer instruments from GL rows."
+  customer instruments from GL rows. Always drops
+  `gl-control-account-id`: the field is deprecated, kept in the
+  descriptor only so stored meta-data can still evolve, and no read
+  site consults it."
   [input]
   (let [account (cash-accounts/pb->CashAccount input)]
-    (cond-> account
+    (cond-> (dissoc account :gl-control-account-id)
             (= "" (:bban account))
             (dissoc :bban)
 
