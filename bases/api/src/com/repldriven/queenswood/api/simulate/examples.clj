@@ -61,8 +61,9 @@
   {:value {:title "REJECTED"
            :type ":gl/missing-currency-account"
            :status 409
-           :detail (str "Bank has no ledger account for this"
-                        " gl-account-code in this currency")}})
+           :detail (str "Bank has no"
+                        " gl-account-code-cash-at-correspondent"
+                        " ledger account in USD")}})
 
 (def LedgerAccountClosed
   {:value {:title "REJECTED"

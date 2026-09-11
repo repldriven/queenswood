@@ -37,4 +37,6 @@
    :assert {:status 409
             :problem {:type ":gl/missing-currency-account"
                       :title "REJECTED"
-                      :detail [:m/regex ".+"]}}}]}
+                      :detail
+                      [:m/regex
+                       "cash-at-correspondent.*USD"]}}}]}

@@ -474,7 +474,7 @@ transaction. `test-api-scenarios` holds no FDB config and reads
 only the API: the per-currency `:trial-balance` block and each
 control's `:posted-balance` come from `GET /v1/ledger-accounts`,
 the sub-ledger from a cursor-paged walk of
-`GET /v1/cash-accounts?embed=balances`. Both routes scope
+`GET /v1/cash-accounts?embed[balances]=true`. Both routes scope
 themselves to the caller's token, so that runner asserts over
 every bank it holds a token for — `:api/request` mints one from
 each bank-create response — and a bank whose token cannot be

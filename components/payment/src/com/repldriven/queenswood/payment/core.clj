@@ -150,13 +150,6 @@
                      bank-id
                      :gl-account-code-pending-outbound
                      currency)
-                    _ (when (nil? pending-outbound)
-                        (error/reject
-                         :payment/no-pending-outbound-account
-                         {:message
-                          (str "Bank has no 1200 pending-outbound"
-                               " account in its chart of accounts")
-                          :bank-id bank-id}))
                     today-count (q/count-outbound-by-org-business-day
                                  txn
                                  bank-id

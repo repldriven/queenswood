@@ -46,13 +46,6 @@
              bank-id
              :gl-account-code-cash-at-correspondent
              currency)
-       _ (when (nil? cash)
-           (error/fail
-            :payment/no-cash-at-correspondent-account
-            {:message
-             (str "Bank has no 1100 cash-at-correspondent account"
-                  " in its chart of accounts")
-             :bank-id bank-id}))
        policies (policy/get-effective-policies
                  txn
                  {:bank-id bank-id})
@@ -111,22 +104,11 @@
              bank-id
              :gl-account-code-cash-at-correspondent
              currency)
-       _ (when (nil? cash)
-           (error/fail :payment/no-cash-at-correspondent-account
-                       {:message
-                        (str "Bank has no 1100 cash-at-correspondent"
-                             " account in its chart of accounts")
-                        :bank-id bank-id}))
        suspense (ledger-accounts/find-by-code
                  txn
                  bank-id
                  :gl-account-code-suspense
                  currency)
-       _ (when (nil? suspense)
-           (error/fail :payment/no-suspense-account
-                       {:message
-                        "Bank has no 2500 suspense account in its chart"
-                        :bank-id bank-id}))
        transaction (domain/inbound-suspense->transaction
                     data
                     bank-id
@@ -156,12 +138,6 @@
              bank-id
              :gl-account-code-cash-at-correspondent
              currency)
-       _ (when (nil? cash)
-           (error/fail :payment/no-cash-at-correspondent-account
-                       {:message
-                        (str "Bank has no 1100 cash-at-correspondent"
-                             " account in its chart of accounts")
-                        :bank-id bank-id}))
        transaction (domain/inbound-release->transaction
                     held
                     account
@@ -245,23 +221,11 @@
                 bank-id
                 :gl-account-code-pending-outbound
                 currency)
-       _ (when (nil? pending)
-           (error/fail :payment/no-pending-outbound-account
-                       {:message
-                        (str "Bank has no 1200 account during "
-                             "outbound settlement")
-                        :bank-id bank-id}))
        cash (ledger-accounts/find-by-code
              txn
              bank-id
              :gl-account-code-cash-at-correspondent
              currency)
-       _ (when (nil? cash)
-           (error/fail :payment/no-cash-at-correspondent-account
-                       {:message
-                        (str "Bank has no 1100 account during "
-                             "outbound settlement")
-                        :bank-id bank-id}))
        debtor-account (cash-accounts/get-account
                        txn
                        bank-id
@@ -426,12 +390,6 @@
                 bank-id
                 :gl-account-code-pending-outbound
                 currency)
-       _ (when (nil? pending)
-           (error/fail :payment/no-pending-outbound-account
-                       {:message
-                        (str "Bank has no 1200 account during "
-                             "outbound reversal")
-                        :bank-id bank-id}))
        debtor-account (cash-accounts/get-account
                        txn
                        bank-id

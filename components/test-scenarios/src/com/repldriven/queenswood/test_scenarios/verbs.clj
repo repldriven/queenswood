@@ -687,7 +687,6 @@
   ;; is likewise pending, so available drops while posted is
   ;; untouched. Nothing reaches a posted bucket, so the transfer
   ;; disturbs neither standing invariant until the scheme settles.
-  ;;
   (let [real-id (id-mapping/real id-mapping model-id)
         bank-id (bank-id-for-account banks accounts model-id)
         pending-outbound

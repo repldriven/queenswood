@@ -107,8 +107,10 @@
   `:currency`, the triple that found nothing."
   [bank-id gl-account-code currency]
   (error/reject :gl/missing-currency-account
-                {:message (str "Bank has no ledger account for this"
-                               " gl-account-code in this currency")
+                {:message (str "Bank has no "
+                               (name gl-account-code)
+                               " ledger account in "
+                               currency)
                  :bank-id bank-id
                  :gl-account-code gl-account-code
                  :currency currency}))
