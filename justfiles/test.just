@@ -6,6 +6,10 @@ test: docker-start
 test-all: docker-start
     clojure -M:poly test :all :dev
 
+# Check the working tree's FDB record meta-data evolves from the last stable-* tag's
+test-schema-evolution:
+    clojure -M:poly test brick:migrator :dev
+
 # Parse schemathesis JUnit report; optionally filter by status class: 2xx, 4xx, 5xx (or just 2, 4, 5)
 schemathesis-check filter="":
     #!/usr/bin/env python3

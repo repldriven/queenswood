@@ -17,7 +17,7 @@ message Pet {
 
 // Owner and Toy exist to exercise scanning and merging over keys that
 // share a leading element. Their primary keys are declared in the test
-// system's record-types map rather than annotated here, because the
+// system's meta-data declaration rather than annotated here, because the
 // point is the shape of the key: Owner is one row per owner, Toy is
 // several, so a scan of toys under a household has a key tail of more
 // than one element.

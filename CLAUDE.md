@@ -64,6 +64,10 @@ topic.
   See [tdd/transaction-processing.md](docs/tdd/transaction-processing.md),
   [tdd/payments.md](docs/tdd/payments.md), and
   [ADR-0021](docs/adr/0021-changelog-relay.md).
+- **Schema evolution** — the declared meta-data `version`, `added`
+  and `modified` per index, former indexes, deprecating a proto field
+  rather than removing it, and the guard against the last `stable-*`
+  tag. See [schema-evolution.md](docs/recipes/code/schema-evolution.md).
 - **Processor bricks** — paired `bank-X-processor` base and
   `bank-X` component (commands / core / domain / store /
   events), the `txn-or-config` threading convention, FDB

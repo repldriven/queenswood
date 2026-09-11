@@ -24,6 +24,25 @@ multiple stores runs inside a single FDB transaction — the mechanism
 multi-record atomicity depends on.
 See [ADR-0002](../../../docs/adr/0002-foundationdb-record-layer.md).
 
+## Record meta-data evolves by declared versions
+
+`fdb-record-types.yml` declares the meta-data `version`, every index
+its `added` and `modified` versions, and under a store's
+`former-indexes` the indexes removed from it. Every change to a record
+type, primary key or index bumps `version`; an index whose key, type or
+uniqueness changed keeps its name and its `added` and takes the new
+version as `modified`; a new index takes it as both; a removed or
+renamed index becomes a former entry with its `name`, `added` and
+`removed`, and its name is never reused. A proto field, once written,
+is deprecated with its tag kept and dropped in the record conversion —
+never removed or reserved. The migrator saves with a validator that
+allows index rebuilds and refuses everything else: a change at the
+stored version, or older meta-data than the store's, fails the Job
+rather than being skipped. Run `just test-schema-evolution` before
+pushing — it validates the working tree's meta-data as an evolution of
+the last `stable-*` tag's.
+See [schema-evolution](../../../docs/recipes/code/schema-evolution.md).
+
 ## System components are declared in YAML, registered in Clojure
 
 Component lifecycle runs through `donut.system`, with two layers per
