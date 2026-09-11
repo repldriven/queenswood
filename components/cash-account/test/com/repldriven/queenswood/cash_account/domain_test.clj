@@ -100,6 +100,100 @@
         (is (= :cash-account/party-status (error/kind result)))
         (is (= status (:status (error/payload result))))))))
 
+(defn- version-with-schemes
+  [schemes]
+  (assoc (version-allowing ["GBP"]) :allowed-payment-address-schemes schemes))
+
+(def ^:private scan-version
+  (version-with-schemes [:payment-address-scheme-scan]))
+
+(def ^:private allow-open [(policy-allowing :cash-account-action-open)])
+
+(defn- counts
+  "The two counts core reads before an open: the bank's total and the
+  subtotal for this product type, account type and currency."
+  [total subtotal]
+  {:cash-account {#{:bank-id} total
+                  #{:bank-id :product-type :account-type :currency} subtotal}})
+
+(defn- open-account-past-the-guards
+  "An open whose version, currency and party all pass, so the result
+  is whatever the policies or the address allocation say."
+  [product-version aggregates policies]
+  (SUT/open-account (assoc open-data :currency "GBP")
+                    product-version
+                    open-as-of
+                    (party-with :party-status-active)
+                    (constantly "12345678")
+                    aggregates
+                    policies))
+
+(deftest open-account-payment-scheme-test
+  (testing "a version allowing no scheme cannot be addressed"
+    (let [result (open-account-past-the-guards (version-with-schemes [])
+                                               (counts 0 0)
+                                               allow-open)]
+      (is (error/rejection? result))
+      (is (= :cash-account/no-payment-schemes (error/kind result)))))
+  (testing "a scheme the fountain cannot allocate is named"
+    (let [result (open-account-past-the-guards (version-with-schemes
+                                                [:payment-address-scheme-iban])
+                                               (counts 0 0)
+                                               allow-open)]
+      (is (error/rejection? result))
+      (is (= :cash-account/unsupported-scheme (error/kind result)))))
+  (testing "and a scan scheme takes its number from the fountain"
+    (let [result
+          (open-account-past-the-guards scan-version (counts 0 0) allow-open)]
+      (is (= :cash-account-status-opening (:account-status result)))
+      (is (= "04000412345678" (:bban result))))))
+
+(defn- count-limit
+  [bound filters]
+  {:kind {:cash-account (if filters {:filters filters} {})}
+   :bound {:kind {:max {:aggregate {:kind {:count
+                                           {:value bound
+                                            :window
+                                            :time-window-instant}}}}}}
+   :reason "Test bound"})
+
+(defn- allow-open-within
+  [& limits]
+  [(assoc (policy-allowing :cash-account-action-open) :limits (vec limits))])
+
+(deftest open-account-total-count-limit-test
+  (let [two-in-total (allow-open-within (count-limit 2 nil))]
+    (testing "the bank's total admits an open up to the bound"
+      (let [result (open-account-past-the-guards scan-version
+                                                 (counts 1 1)
+                                                 two-in-total)]
+        (is (= :cash-account-status-opening (:account-status result)))))
+    (testing "and refuses the open past it"
+      (let [result (open-account-past-the-guards scan-version
+                                                 (counts 2 2)
+                                                 two-in-total)]
+        (is (error/rejection? result))
+        (is (= :policy/limit-exceeded (error/kind result)))))))
+
+(deftest open-account-filtered-count-limit-test
+  (let [term-deposit
+        (assoc scan-version :product-type :product-type-sub-ledger-term-deposit)
+        one-term-deposit
+        (allow-open-within
+         (count-limit 1
+                      [{:product-type :product-type-sub-ledger-term-deposit}]))]
+    (testing "a limit filtered by product type bites on that type's subtotal"
+      (let [result (open-account-past-the-guards term-deposit
+                                                 (counts 5 1)
+                                                 one-term-deposit)]
+        (is (error/rejection? result))
+        (is (= :policy/limit-exceeded (error/kind result)))))
+    (testing "and leaves another product type alone at the same counts"
+      (let [result (open-account-past-the-guards scan-version
+                                                 (counts 5 1)
+                                                 one-term-deposit)]
+        (is (= :cash-account-status-opening (:account-status result)))))))
+
 (deftest close-account-source-state-guard-test
   (testing
     "closing an account that is neither opened nor suspended is

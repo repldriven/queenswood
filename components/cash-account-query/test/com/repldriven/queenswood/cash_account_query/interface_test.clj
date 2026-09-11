@@ -4,24 +4,21 @@
   place its behaviour shows: which index answers a lookup, whether a
   lookup is scoped by bank, and what the merged scan pairs.
 
-  Accounts are seeded through the write bricks' own interfaces rather
-  than written straight to the store, so every row here has the shape
-  an opened account really has — including its balances."
+  Rows are written straight into the two stores this brick reads, in
+  the shape the write bricks leave them. Reaching the same rows by
+  driving the write bricks is a scenario's job."
   (:require
     [com.repldriven.queenswood.fdb.interface :as fdb]
     [com.repldriven.queenswood.testcontainers.interface]
 
     [com.repldriven.queenswood.cash-account-query.interface :as SUT]
 
-    [com.repldriven.queenswood.balance-query.interface :as balance-query]
-    [com.repldriven.queenswood.cash-account-product.interface :as products]
-    [com.repldriven.queenswood.cash-account.interface :as cash-accounts]
-    [com.repldriven.queenswood.party.interface :as parties]
+    [com.repldriven.queenswood.schema.interface :as schema]
 
-    [com.repldriven.mono.error.interface :refer [let-nom>]]
     [com.repldriven.mono.system.interface :as system]
     [com.repldriven.mono.test-system.interface :refer
      [with-test-system nom-test>]]
+    [com.repldriven.mono.utility.interface :as utility]
 
     [clojure.test :refer [deftest is testing]]))
 
@@ -29,105 +26,87 @@
 
 (def ^:private sort-code "040404")
 
+;; must match cash-account.store/store-name and balance.store/store-name
+;; — the two stores this brick reads
+(def ^:private accounts-store "cash-accounts")
+(def ^:private balances-store "balances")
+
 (defn- fdb-config
   [sys]
   {:record-db (system/instance sys [:fdb :record-db])
    :record-store (system/instance sys [:fdb :store])})
 
-(def ^:private current-template
-  {:template-id "tpl.query-current"
-   :name "Query Current"
-   :product-type :product-type-sub-ledger-current
-   :balance-sheet-side :balance-sheet-side-liability
-   :iso-cash-account-type :iso-cash-account-type-cacc
-   :allowed-currencies ["GBP"]
-   :allowed-payment-address-schemes [:payment-address-scheme-scan]
-   :balance-products [{:balance-type :balance-type-default
-                       :balance-status :balance-status-posted}]})
+(defn- account
+  "An opened current account as `cash-account.store` leaves it. The
+  bban is the unique index, so `account-number` is unique per test."
+  [bank-id account-id party-id version-id account-number]
+  (let [now (utility/now)]
+    {:bank-id bank-id
+     :account-id account-id
+     :account-type :account-type-business
+     :party-id party-id
+     :product-id "prd.query"
+     :version-id version-id
+     :product-type :product-type-sub-ledger-current
+     :name account-id
+     :currency "GBP"
+     :account-status :cash-account-status-opened
+     :payment-addresses [{:scheme :payment-address-scheme-scan
+                          :scan {:sort-code sort-code
+                                 :account-number account-number}}]
+     :bban (str sort-code account-number)
+     :created-at now
+     :updated-at now}))
 
-(def ^:private bucketless-template
-  "A template declaring an empty bucket list rather than none at all.
-  `opening-balances` falls back to a default posted bucket only when
-  the version declares nothing, so an account opened on this one is
-  written with no balance rows — the merged scan's absent-right side."
-  (assoc current-template
-         :template-id "tpl.query-bucketless"
-         :name "Query Bucketless"
-         :balance-products []))
+(defn- balance
+  "A bucket as `balance.store` opens it, before any leg."
+  [bank-id account-id balance-status]
+  (let [now (utility/now)]
+    {:bank-id bank-id
+     :account-id account-id
+     :product-type :product-type-sub-ledger-current
+     :balance-type :balance-type-default
+     :balance-status balance-status
+     :currency "GBP"
+     :credit 0
+     :debit 0
+     :credit-carry 0
+     :created-at now
+     :updated-at now}))
 
-(defn- published-version
-  "A published v1 of a new product on `template-id`."
-  [config bank-id template-id product-name]
-  (let-nom>
-    [draft (products/new-product config
-                                 bank-id
-                                 {:name product-name
-                                  :template-id template-id
-                                  :currency "GBP"
-                                  :effective-from 20089})
-     published (products/publish config
-                                 bank-id
-                                 (:product-id draft)
-                                 (:version-id draft))]
-    published))
-
-(defn- active-party
-  [config bank-id display-name]
-  (let-nom>
-    [party (parties/new-party config
-                              {:bank-id bank-id
-                               :type :party-type-organization
-                               :display-name display-name})
-     _ (parties/seed-active-party config bank-id (:party-id party))]
-    party))
-
-(defn- opened-account
-  [config bank-id party version account-name]
-  (let-nom>
-    [account (cash-accounts/new-account config
-                                        {:bank-id bank-id
-                                         :party-id (:party-id party)
-                                         :product-id (:product-id version)
-                                         :currency "GBP"
-                                         :sort-code sort-code
-                                         :name account-name})
-     _ (cash-accounts/seed-opened-account config
-                                          bank-id
-                                          (:account-id account))]
-    account))
+(defn- seed
+  "Write `accounts` and `balances` in one transaction."
+  [config accounts balances]
+  (fdb/transact config
+                (fn [txn]
+                  (let [acc-store (fdb/open txn accounts-store)
+                        bal-store (fdb/open txn balances-store)]
+                    (doseq [a accounts]
+                      (fdb/save-record acc-store (schema/CashAccount->java a)))
+                    (doseq [b balances]
+                      (fdb/save-record bal-store (schema/Balance->java b)))
+                    nil))
+                :test/seed
+                "Failed to seed rows"))
 
 (deftest get-account-by-bban-resolves-across-banks-test
   (with-test-system
    [sys config-file]
-   (let [config (fdb-config sys)]
-     (nom-test> [_ (products/new-template config current-template)
-                 version-a (published-version config
-                                              "bnk_bban_a"
-                                              "tpl.query-current"
-                                              "A Current")
-                 version-b (published-version config
-                                              "bnk_bban_b"
-                                              "tpl.query-current"
-                                              "B Current")
-                 party-a (active-party config "bnk_bban_a" "Holder A")
-                 party-b (active-party config "bnk_bban_b" "Holder B")
-                 account-a
-                 (opened-account config "bnk_bban_a" party-a version-a "A")
-                 account-b
-                 (opened-account config "bnk_bban_b" party-b version-b "B")
+   (let [config (fdb-config sys)
+         account-a (account "bnk_bban_a" "acc.a" "pty.a" "prv.1" "10000001")
+         account-b (account "bnk_bban_b" "acc.b" "pty.b" "prv.1" "10000002")]
+     (nom-test> [_ (seed config [account-a account-b] [])
                  _ (testing "the unique index answers with the account"
                      (nom-test> [found (SUT/get-account-by-bban config
                                                                 (:bban
                                                                  account-a))
-                                 _ (is (= (:account-id account-a)
-                                          (:account-id found)))
+                                 _ (is (= "acc.a" (:account-id found)))
                                  _ (is (= "bnk_bban_a" (:bank-id found)))]))
                  _ (testing "and takes no bank, so it reaches another bank's"
                      (nom-test> [found (SUT/get-account-by-bban config
                                                                 (:bban
                                                                  account-b))
-                                 _ (is (= (:account-id account-b)
-                                          (:account-id found)))
+                                 _ (is (= "acc.b" (:account-id found)))
                                  _ (is (= "bnk_bban_b" (:bank-id found)))]))
                  _ (testing "a bban nobody holds is nil, not a rejection"
                      (nom-test> [found (SUT/get-account-by-bban
@@ -139,24 +118,24 @@
   (with-test-system
    [sys config-file]
    (let [config (fdb-config sys)
-         bank-id "bnk_party_lookup"]
-     (nom-test> [_ (products/new-template config current-template)
-                 version (published-version config
-                                            bank-id
-                                            "tpl.query-current"
-                                            "Current")
-                 holder (active-party config bank-id "Holder")
-                 other (active-party config bank-id "Other Holder")
-                 first-account
-                 (opened-account config bank-id holder version "First")
-                 second-account
-                 (opened-account config bank-id holder version "Second")
-                 _ (opened-account config bank-id other version "Other")
-                 found
-                 (SUT/find-accounts-by-party config bank-id (:party-id holder))
-                 _ (testing "every account that party holds, and no other's"
-                     (is (= #{(:account-id first-account)
-                              (:account-id second-account)}
+         bank-id "bnk_party_lookup"
+         other-bank-id "bnk_party_lookup_other"]
+     (nom-test> [_
+                 (seed
+                  config
+                  [(account bank-id "acc.first" "pty.holder" "prv.1" "20000001")
+                   (account bank-id
+                            "acc.second" "pty.holder"
+                            "prv.1" "20000002")
+                   (account bank-id "acc.other" "pty.other" "prv.1" "20000003")
+                   (account other-bank-id
+                            "acc.elsewhere" "pty.holder"
+                            "prv.1" "20000004")]
+                  [])
+                 found (SUT/find-accounts-by-party config bank-id "pty.holder")
+                 _ (testing
+                     "every account that party holds at this bank, no other's"
+                     (is (= #{"acc.first" "acc.second"}
                             (set (map :account-id found)))))
                  none (SUT/find-accounts-by-party config bank-id "pty.nobody")
                  _ (is (= [] none))]))))
@@ -166,45 +145,22 @@
    [sys config-file]
    (let [config (fdb-config sys)
          bank-id "bnk_version_count"]
-     (nom-test> [_ (products/new-template config current-template)
-                 first-version (published-version config
-                                                  bank-id
-                                                  "tpl.query-current"
-                                                  "First Product")
-                 second-version (published-version config
-                                                   bank-id
-                                                   "tpl.query-current"
-                                                   "Second Product")
-                 party (active-party config bank-id "Holder")
-                 _
-                 (opened-account config bank-id party first-version "On first")
-                 _ (testing "an open on one version moves that version's count"
-                     (nom-test> [first-count (SUT/count-by-version
-                                              config
-                                              bank-id
-                                              (:version-id first-version))
-                                 _ (is (= 1 first-count))
-                                 second-count (SUT/count-by-version
-                                               config
-                                               bank-id
-                                               (:version-id second-version))
-                                 _ (is (= 0 second-count))]))
-                 _ (opened-account config
-                                   bank-id
-                                   party
-                                   second-version
-                                   "On second")
-                 _ (testing "and not another's"
-                     (nom-test> [first-count (SUT/count-by-version
-                                              config
-                                              bank-id
-                                              (:version-id first-version))
-                                 _ (is (= 1 first-count))
-                                 second-count (SUT/count-by-version
-                                               config
-                                               bank-id
-                                               (:version-id second-version))
-                                 _ (is (= 1 second-count))]))]))))
+     (nom-test> [_ (seed
+                    config
+                    [(account bank-id "acc.1" "pty.1" "prv.first" "30000001")
+                     (account bank-id "acc.2" "pty.1" "prv.first" "30000002")
+                     (account bank-id "acc.3" "pty.1" "prv.second" "30000003")
+                     (account "bnk_version_count_other"
+                              "acc.4" "pty.1"
+                              "prv.first" "30000004")]
+                    [])
+                 on-first (SUT/count-by-version config bank-id "prv.first")
+                 on-second (SUT/count-by-version config bank-id "prv.second")
+                 on-none (SUT/count-by-version config bank-id "prv.unused")
+                 _ (testing "each version counts its own accounts at this bank"
+                     (is (= 2 on-first))
+                     (is (= 1 on-second))
+                     (is (= 0 on-none)))]))))
 
 (def ^:private real-merge-scan fdb/merge-scan)
 
@@ -239,51 +195,29 @@
    (let [config (fdb-config sys)
          bank-id "bnk_merged_scan"
          other-bank-id "bnk_merged_scan_other"]
-     (nom-test> [_ (products/new-template config current-template)
-                 _ (products/new-template config bucketless-template)
-                 version (published-version config
-                                            bank-id
-                                            "tpl.query-current"
-                                            "Current")
-                 bucketless (published-version config
-                                               bank-id
-                                               "tpl.query-bucketless"
-                                               "Bucketless")
-                 other-version (published-version config
-                                                  other-bank-id
-                                                  "tpl.query-current"
-                                                  "Other Current")
-                 party (active-party config bank-id "Holder")
-                 other-party (active-party config other-bank-id "Other Holder")
-                 first-account
-                 (opened-account config bank-id party version "First")
-                 second-account
-                 (opened-account config bank-id party version "Second")
-                 empty-account
-                 (opened-account config bank-id party bucketless "No buckets")
-                 other-account (opened-account config
-                                               other-bank-id
-                                               other-party
-                                               other-version
-                                               "Other")
+     (nom-test> [_
+                 (seed
+                  config
+                  [(account bank-id "acc.one" "pty.1" "prv.1" "40000001")
+                   (account bank-id "acc.two" "pty.1" "prv.1" "40000002")
+                   (account bank-id "acc.none" "pty.1" "prv.1" "40000003")
+                   (account other-bank-id
+                            "acc.other" "pty.2"
+                            "prv.1" "40000004")]
+                  [(balance bank-id "acc.one" :balance-status-posted)
+                   (balance bank-id "acc.two" :balance-status-posted)
+                   (balance bank-id "acc.two" :balance-status-pending-outgoing)
+                   (balance other-bank-id "acc.other" :balance-status-posted)])
                  expected (account-balance-counts config bank-id)
                  _ (testing "every account the bank holds is visited once"
-                     (is (= #{(:account-id first-account)
-                              (:account-id second-account)
-                              (:account-id empty-account)}
+                     (is (= #{"acc.one" "acc.two" "acc.none"}
                             (set (keys expected)))))
-                 _ (testing "an account with no balances arrives with none"
-                     (is (= 0 (get expected (:account-id empty-account))))
-                     (is (= 1 (get expected (:account-id first-account)))))
+                 _ (testing "paired with every bucket it has, or with none"
+                     (is (= 1 (get expected "acc.one")))
+                     (is (= 2 (get expected "acc.two")))
+                     (is (= 0 (get expected "acc.none"))))
                  _ (testing "and another bank's rows are not read"
-                     (is (not (contains? expected
-                                         (:account-id other-account)))))
-                 stored (balance-query/list-balances config
-                                                     bank-id
-                                                     (:account-id
-                                                      empty-account))
-                 _ (is (empty? stored)
-                       "the account really has no balance rows to pair")
+                     (is (not (contains? expected "acc.other"))))
                  _ (doseq [size [1 2 100]]
                      (testing (str "page size " size " reduces to the same")
                        (with-redefs [fdb/merge-scan (paged-merge-scan size)]
@@ -295,26 +229,15 @@
   (with-test-system
    [sys config-file]
    (let [config (fdb-config sys)
-         bank-id "bnk_cursor_paging"]
-     (nom-test> [_ (products/new-template config current-template)
-                 version (published-version config
-                                            bank-id
-                                            "tpl.query-current"
-                                            "Current")
-                 party (active-party config bank-id "Holder")
-                 opened (reduce (fn [acc n]
-                                  (let [account (opened-account config
-                                                                bank-id
-                                                                party
-                                                                version
-                                                                (str "Account "
-                                                                     n))]
-                                    (if (map? account)
-                                      (conj acc (:account-id account))
-                                      (reduced account))))
-                                []
-                                (range 5))
-                 _ (is (= 5 (count opened)))
+         bank-id "bnk_cursor_paging"
+         ids (mapv (fn [n] (str "acc.page." n)) (range 5))]
+     (nom-test> [_ (seed
+                    config
+                    (map-indexed
+                     (fn [n id]
+                       (account bank-id id "pty.1" "prv.1" (str "5000000" n)))
+                     ids)
+                    [])
                  _ (testing "paging two at a time walks every account once"
                      (let [walked (loop [cursor nil
                                          seen []]
@@ -331,4 +254,4 @@
                                         (recur next-cursor seen)
                                         seen)))]
                        (is (= 5 (count walked)))
-                       (is (= (set opened) (set walked)))))]))))
+                       (is (= (set ids) (set walked)))))]))))
