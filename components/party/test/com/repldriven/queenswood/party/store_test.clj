@@ -1,4 +1,4 @@
-(ns ^:eftest/synchronized com.repldriven.queenswood.party.store-test
+(ns com.repldriven.queenswood.party.store-test
   "The store side of the create-party idempotency key: the unique
   index the retry hits, and the read-back that turns that violation
   into the original party."

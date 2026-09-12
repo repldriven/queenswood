@@ -1,4 +1,5 @@
-(ns com.repldriven.queenswood.api.cash-account.queries-test
+(ns ^:eftest/synchronized
+    com.repldriven.queenswood.api.cash-account.queries-test
   "The read handlers' response shape: a 200 carrying the account as
   `cash-account-api` projects it, a list wrapped under
   `:cash-accounts`, and a 404 taken off the query brick's rejection
@@ -8,7 +9,8 @@
   The query brick is redefined here rather than started, because
   `get-account` and `get-accounts` are the whole boundary these
   handlers have: no FoundationDB is touched, so the namespace needs no
-  system and no `^:eftest/synchronized`."
+  system. The redefinitions are shared state between its tests, so
+  they run one at a time."
   (:require
     [com.repldriven.queenswood.api.cash-account.queries :as SUT]
 

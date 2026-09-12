@@ -1,4 +1,4 @@
-(ns ^:eftest/synchronized com.repldriven.queenswood.webhook.events-test
+(ns com.repldriven.queenswood.webhook.events-test
   "The consumer against a real record store: which leg of a two-phase
   change produces a notification (AC-07), what a redelivered envelope
   produces (AC-08), what the stored body carries (AC-09) and what the

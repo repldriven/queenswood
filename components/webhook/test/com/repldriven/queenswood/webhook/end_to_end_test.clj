@@ -1,4 +1,4 @@
-(ns ^:eftest/synchronized com.repldriven.queenswood.webhook.end-to-end-test
+(ns com.repldriven.queenswood.webhook.end-to-end-test
   "One account opening, from the changelog entries it writes to the
   signed POST a tenant's receiver answers (REQ-031, AC-07).
 

@@ -1,4 +1,4 @@
-(ns ^:eftest/synchronized com.repldriven.queenswood.company.interface-test
+(ns com.repldriven.queenswood.company.interface-test
   (:require
     [com.repldriven.queenswood.fdb.interface]
     [com.repldriven.queenswood.testcontainers.interface]

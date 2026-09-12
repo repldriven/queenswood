@@ -1,4 +1,4 @@
-(ns ^:eftest/synchronized com.repldriven.queenswood.webhook.store-test
+(ns com.repldriven.queenswood.webhook.store-test
   "The four webhook record types against a real record store (AC-06):
   each one round-trips, every index the record-type YAML declares
   answers, a second write under a taken unique key is refused, and the

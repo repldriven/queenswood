@@ -1,4 +1,4 @@
-(ns ^:eftest/synchronized com.repldriven.queenswood.test-scenarios.property-test
+(ns com.repldriven.queenswood.test-scenarios.property-test
   "Fugato-driven model-equality property test. The same runner that
   drives EDN scenarios drives generated command sequences here; on
   each trial, the model end-state and the projected real-system end-

@@ -1,4 +1,4 @@
-(ns ^:eftest/synchronized com.repldriven.queenswood.cash-account.interface-test
+(ns com.repldriven.queenswood.cash-account.interface-test
   "The rotation retry, against a real store: `rotate-address` driven
   twice under one idempotency key allocates one set of addresses. The
   domain-level guards live in `domain-test`; this is the part only a

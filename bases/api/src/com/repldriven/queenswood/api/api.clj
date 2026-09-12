@@ -281,17 +281,18 @@
                    (add-interceptor-before-coerce
                     shared.interceptors/nest-bracket-query-params))))
 
-(defn app
-  [ctx]
-  (let [compiled (router ctx)
-        bare (auth/bare-security-routes compiled)
+(defn enforceable-router
+  "Returns `compiled` when `authorize` can enforce every security gate
+  its route table declares, and throws naming each route it cannot: a
+  route that demands a token without naming roles has no gate anyone
+  can read, and one that writes its gate under a method key has a gate
+  `authorize` never sees. Neither may be served. A programming error
+  in this base's route table, caught while the router is built — not
+  an anomaly at a boundary, so it throws."
+  [compiled]
+  (let [bare (auth/bare-security-routes compiled)
         method-level (auth/method-security-routes compiled)]
     (when (or (seq bare) (seq method-level))
-      ;; A route that demands a token without naming roles has no gate
-      ;; anyone can read; one that writes its gate under a method key
-      ;; has a gate `authorize` never sees. Neither may be served. A
-      ;; programming error in this base's route table, caught while the
-      ;; router is built — not an anomaly at a boundary, so it throws.
       ;; nosemgrep: no-raw-throw
       (throw (ex-info (str "Route table declares a security gate this "
                            "service cannot enforce."
@@ -304,6 +305,11 @@
                                   (str/join ", " method-level)
                                   ".")))
                       {:bare bare :method-level method-level})))
+    compiled))
+
+(defn app
+  [ctx]
+  (let [compiled (enforceable-router (router ctx))]
     (http/ring-handler compiled
                        (ring/routes (server/standard-openapi-ui-handler)
                                     (server/standard-default-handler))

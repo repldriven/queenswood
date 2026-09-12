@@ -1,4 +1,4 @@
-(ns ^:eftest/synchronized com.repldriven.queenswood.webhook.deliveries-test
+(ns com.repldriven.queenswood.webhook.deliveries-test
   "The two delivery-side rules that need a delivered delivery to be
   visible: what a re-enable asking for the gap backfills, and what a
   window re-sends (AC-18).

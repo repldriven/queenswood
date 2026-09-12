@@ -1,4 +1,4 @@
-(ns ^:eftest/synchronized com.repldriven.queenswood.cash-account.events-test
+(ns com.repldriven.queenswood.cash-account.events-test
   (:require
     [com.repldriven.queenswood.testcontainers.interface]
 

@@ -1,4 +1,4 @@
-(ns ^:eftest/synchronized com.repldriven.queenswood.webhook.outbound-test
+(ns com.repldriven.queenswood.webhook.outbound-test
   "The delivery runner against a receiver this test starts and a real
   record store: the outcomes and their attempt rows (AC-11), the claim
   that makes a second pass send nothing (AC-12), the four bounds on the

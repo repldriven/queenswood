@@ -1,5 +1,4 @@
-(ns ^:eftest/synchronized
-    com.repldriven.queenswood.clearbank-relay.interface-test
+(ns com.repldriven.queenswood.clearbank-relay.interface-test
   (:require
     [com.repldriven.queenswood.testcontainers.interface]
 

@@ -183,6 +183,9 @@ jobs:
           # JAVA_TOOL_OPTIONS because the subprocess is the one that throws.
           JAVA_TOOL_OPTIONS=-Dclojure.main.report=stderr \
             clojure -X:deps prep :aliases '[:dev]'
+          # The runner parallelises vars as well as namespaces; the permit
+          # is what bounds how many test systems are up at once.
+          export TEST_SYSTEM_PERMITS=$(nproc)
           if [[ "${{ matrix.project }}" == "dev" ]]; then
             clojure -M:poly test project:dev \
               brick:test-scenarios:test-model:test-projections:test-api-scenarios \

@@ -1,4 +1,4 @@
-(ns ^:eftest/synchronized com.repldriven.queenswood.party.interface-test
+(ns com.repldriven.queenswood.party.interface-test
   "The dispatcher's unknown-command rejection, and the one write path
   whose behaviour only a store can show: a create retried under the
   key that made the party gets that party back. Happy-path command

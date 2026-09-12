@@ -1,4 +1,4 @@
-(ns ^:eftest/synchronized com.repldriven.queenswood.idempotency.core-test
+(ns com.repldriven.queenswood.idempotency.core-test
   (:require
     [com.repldriven.queenswood.fdb.interface]
     [com.repldriven.queenswood.testcontainers.interface]

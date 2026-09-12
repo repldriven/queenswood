@@ -1,4 +1,4 @@
-(ns ^:eftest/synchronized com.repldriven.queenswood.fdb.metadata-evolution-test
+(ns com.repldriven.queenswood.fdb.metadata-evolution-test
   "The meta-data save the four webhook stores have to survive. The
   declaration carries a version, each index the version it was added and
   last modified at, and the Record Layer refuses a save that moves an

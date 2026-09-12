@@ -1,5 +1,4 @@
-(ns ^:eftest/synchronized
-    com.repldriven.queenswood.changelog-relay.interface-test
+(ns com.repldriven.queenswood.changelog-relay.interface-test
   (:require
     [com.repldriven.queenswood.testcontainers.interface]
 

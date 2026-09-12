@@ -6,8 +6,7 @@
   `-rotate-secret`, and the request carries no store at all. That the
   guard's anomaly comes back rather than a failure from the view read
   is the evidence that `let-nom>` short-circuits before it — no
-  FoundationDB is touched, so the namespace needs no system and no
-  `^:eftest/synchronized`."
+  FoundationDB is touched, so the namespace needs no system."
   (:require
     [com.repldriven.queenswood.api.bank.commands :as SUT]
 
