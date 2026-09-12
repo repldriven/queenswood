@@ -60,30 +60,27 @@
   (testing "a route-level gate is where it belongs"
     (is (= [] (auth/method-security-routes (http/router (table ["org"])))))))
 
-(deftest app-refuses-a-bare-security-scheme-test
-  (let [thrown (with-redefs [com.repldriven.queenswood.api.api/routes
-                             (fn [_] (table []))]
-                 (try (SUT/app {:interceptors []})
-                      nil
-                      (catch clojure.lang.ExceptionInfo e e)))]
-    (is (some? thrown) "app must refuse to build")
+(deftest router-refuses-a-bare-security-scheme-test
+  (let [thrown (try (SUT/enforceable-router (http/router (table [])))
+                    nil
+                    (catch clojure.lang.ExceptionInfo e e))]
+    (is (some? thrown) "the router must refuse to build")
     (is (str/includes? (ex-message thrown) bare-path)
         "the message names the offending route")
     (is (str/includes? (ex-message thrown) "Scheme with no roles")
         "the message says which of the two refusals it is")
     (is (= {:bare [bare-path] :method-level []} (ex-data thrown)))))
 
-(deftest app-refuses-a-method-level-security-scheme-test
+(deftest router-refuses-a-method-level-security-scheme-test
   ;; A gate written under `:post` is advertised by the generated
   ;; OpenAPI and read by nobody: `authorize` sees the route-level data
   ;; only, so the route would serve with no token required. The build
   ;; refuses it even though the scheme names a role.
-  (let [thrown (with-redefs [com.repldriven.queenswood.api.api/routes
-                             (fn [_] (method-table ["admin"]))]
-                 (try (SUT/app {:interceptors []})
-                      nil
-                      (catch clojure.lang.ExceptionInfo e e)))]
-    (is (some? thrown) "app must refuse to build")
+  (let [thrown (try (SUT/enforceable-router (http/router (method-table
+                                                          ["admin"])))
+                    nil
+                    (catch clojure.lang.ExceptionInfo e e))]
+    (is (some? thrown) "the router must refuse to build")
     (is (str/includes? (ex-message thrown) bare-path)
         "the message names the offending route")
     (is (str/includes? (ex-message thrown) "Security under a method key")

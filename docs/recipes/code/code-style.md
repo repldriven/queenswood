@@ -109,8 +109,7 @@ A test namespace — same spine, with the SUT occupying the
 internal slot and `clojure.test` last:
 
 ```clojure
-(ns ^:eftest/synchronized
-    com.repldriven.queenswood.ledger-account.interface-test
+(ns com.repldriven.queenswood.ledger-account.interface-test
   (:require
     [com.repldriven.queenswood.fdb.interface]
     [com.repldriven.queenswood.testcontainers.interface]

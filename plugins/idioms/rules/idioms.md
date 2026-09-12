@@ -42,9 +42,13 @@ a policy on record — makes the case a scenario, and a service
 project's `:test` alias is never widened so the namespace loads; the
 rare exception carries `;; enforce-idioms: brick-test-scope -- <reason>`
 on the line above the require. Run `just test` as the default, and
-one brick with `project:dev brick:<name> :all`. Manage system
-lifecycle with `with-test-system`, mark namespaces that boot
-infrastructure `^:eftest/synchronized`, keep per-brick config at
+one brick with `project:dev brick:<name> :all`; a raw
+`clojure -M:poly test` needs `TEST_SYSTEM_PERMITS` and the processor
+cap set as `just test` sets them. Manage system lifecycle with
+`with-test-system`, which holds a permit while its system is up;
+mark a namespace whose tests share state, such as a `with-redefs`,
+`^:eftest/synchronized` so its vars run one at a time, and never one
+that only boots infrastructure; keep per-brick config at
 `test-resources/<brick>/application-test.yml`, and assert
 anomaly-freeness with `nom-test>`. Never `use-fixtures`.
 See [testing](../../../docs/recipes/test/testing.md).

@@ -1,4 +1,4 @@
-(ns ^:eftest/synchronized com.repldriven.queenswood.fdb.meta-data-test
+(ns com.repldriven.queenswood.fdb.meta-data-test
   "The rules a meta-data save is held to against a store holding data,
   on the pets schema: what the migrator refuses, and what it saves."
   (:require

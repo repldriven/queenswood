@@ -1,5 +1,4 @@
-(ns ^:eftest/synchronized
-    com.repldriven.queenswood.uk-companies-house-adapter.interface-test
+(ns com.repldriven.queenswood.uk-companies-house-adapter.interface-test
   "Round-trips a lookup-company command over the bus: the dispatcher
   serialises the request, the adapter fetches from the Companies House
   simulator and caches to FDB, and the reply comes back on the response

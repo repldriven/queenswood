@@ -1,4 +1,4 @@
-(ns ^:eftest/synchronized com.repldriven.queenswood.onfido-relay.interface-test
+(ns com.repldriven.queenswood.onfido-relay.interface-test
   (:require
     [com.repldriven.queenswood.testcontainers.interface]
 

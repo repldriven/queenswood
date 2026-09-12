@@ -1,6 +1,6 @@
 ;; Single source of the mono runtime coordinate. Projects reference this by
 ;; :local/root as ext/mono; bump the tag/sha here on upgrade.
 {:deps {com.repldriven/mono {:git/url "https://github.com/repldriven/mono.git"
-                             :git/tag "v0.0.22"
-                             :git/sha "3890d1a31c8692f9d640bc647030963247fdb41b"
+                             :git/tag "v0.0.23"
+                             :git/sha "907aaac9b3e7e8f9c845ac03e7e57a78a26d6890"
                              :deps/root "projects/mono-lib"}}}

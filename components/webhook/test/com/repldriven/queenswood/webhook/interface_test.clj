@@ -1,4 +1,4 @@
-(ns ^:eftest/synchronized com.repldriven.queenswood.webhook.interface-test
+(ns com.repldriven.queenswood.webhook.interface-test
   "The endpoint lifecycle against a real record store: the policy
   refusals evaluated against the seeded policies (AC-21), the
   unique-key read-back that makes a retried registration answer with

@@ -1,4 +1,4 @@
-(ns com.repldriven.queenswood.build.build-test
+(ns ^:eftest/synchronized com.repldriven.queenswood.build.build-test
   (:require
     [com.repldriven.queenswood.build.build :as SUT]
 

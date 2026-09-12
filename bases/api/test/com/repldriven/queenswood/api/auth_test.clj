@@ -1,4 +1,4 @@
-(ns com.repldriven.queenswood.api.auth-test
+(ns ^:eftest/synchronized com.repldriven.queenswood.api.auth-test
   (:require
     [com.repldriven.queenswood.api.auth :as SUT]
 

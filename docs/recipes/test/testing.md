@@ -191,21 +191,34 @@ The classpath URL pattern
 `with-test-system` expects; load mechanics are covered by
 [system-configurations.md](../code/system-configurations.md).
 
-### eftest synchronization
+### The runner's parallelism, and what bounds it
 
-The test runner is eftest, which runs tests in parallel out of
-process. Tests that boot expensive infrastructure
-(testcontainers, the message bus, FDB) should be marked with
-`^:eftest/synchronized` on the namespace to keep too many from
-overwhelming CPU and memory:
+The test runner is eftest, run out of process by mono's
+`external-test-runner`. It runs namespaces in parallel, and the vars
+within each namespace in parallel on a pool sized by the JVM's
+processor count. Two settings bound what that boots:
+
+- `with-test-system` holds one of `TEST_SYSTEM_PERMITS` permits from
+  start to stop, so at most that many test systems, each with its own
+  FDB container, are up at once in the JVM. Unset, nothing waits.
+- `JDK_JAVA_OPTIONS=-XX:ActiveProcessorCount=<n>` caps every pool
+  that sizes itself from the processor count.
+
+`just test` and `just test-all` set both to Docker's CPU count. A raw
+`clojure -M:poly test` needs them set the same way, or a run against a
+Docker VM with fewer CPUs than the host can stop making progress
+without failing.
+
+`^:eftest/synchronized` on a namespace runs that file's vars one at a
+time. It is for a file whose tests share state, such as a `with-redefs`
+of one var across tests or a global HTTP fake, and not for a file that
+boots infrastructure, which the permit bounds:
 
 ```clojure
 (ns ^:eftest/synchronized
-  com.repldriven.mono.processor.interface-test
+  com.repldriven.queenswood.api.auth-test
   ...)
 ```
-
-Pure-function tests don't need the marker.
 
 ## Rules
 
@@ -224,8 +237,14 @@ Pure-function tests don't need the marker.
   migrator's guard, whatever changed.
 - Run one brick with `project:dev brick:<name> :all`.
 - Manage system lifecycle in tests with `with-test-system`.
-- Mark namespaces that boot infrastructure with
-  `^:eftest/synchronized`.
+- Set `TEST_SYSTEM_PERMITS` and the processor cap as `just test` does
+  when running `clojure -M:poly test` directly.
+- Mark a namespace whose tests share state, such as a `with-redefs`,
+  with `^:eftest/synchronized`; a namespace that only boots
+  infrastructure carries no marker.
+- Inject a collaborator rather than `with-redefs` a var another
+  namespace calls: the redefinition is JVM-wide, and namespaces run in
+  parallel whatever the marker says.
 - Place per-brick test config at
   `test-resources/<brick>/application-test.yml`.
 - Use `nom-test>` for assertions over anomaly-returning calls.
@@ -293,10 +312,18 @@ projections leak into production code, the test concern leaks
 into production. Both rules look pedantic; both pay off when
 a real bug surfaces and the property finds it.
 
-eftest synchronization is about resource starvation. Spinning
-up ten testcontainers in parallel doesn't make tests faster —
-it makes them flakier. The synchronized marker keeps
-parallelism on cheap tests where it actually helps.
+The permit is about resource starvation. Spinning up ten FDB
+containers at once doesn't make tests faster — it makes them
+flakier, and against a Docker VM with fewer CPUs than the JVM sees
+the run stops making progress without failing. A bound taken where
+the system is booted counts exactly what needs bounding, whatever
+the runner's mode. The synchronized marker serialises a file's vars,
+which only shared state needs; a file marked to bound its boots
+runs slower for nothing. It serialises nothing beyond that file: a
+`with-redefs` of a var another namespace calls, an interface fn a
+handler reaches or `fdb/merge-scan` under a paging test, is visible
+to that namespace's tests while they run alongside, and the marker
+cannot stop it. An injected collaborator can.
 
 ## References
 

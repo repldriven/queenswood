@@ -1,4 +1,4 @@
-(ns com.repldriven.queenswood.api.webhook.writes-test
+(ns ^:eftest/synchronized com.repldriven.queenswood.api.webhook.writes-test
   "The webhook writes as a caller reaches them: a request built by
   hand, routed, coerced, handled, and coerced back through the
   response schema the route declares.

@@ -1,4 +1,4 @@
-TEST_OPTS := "JDK_JAVA_OPTIONS=\"-XX:ActiveProcessorCount=$(n=$(docker info --format '{{.NCPU}}' 2>/dev/null); if [ \"${n:-0}\" -gt 0 ] 2>/dev/null; then echo \"$n\"; else nproc 2>/dev/null || sysctl -n hw.ncpu; fi)\""
+TEST_OPTS := "n=$(docker info --format '{{.NCPU}}' 2>/dev/null); if ! [ \"${n:-0}\" -gt 0 ] 2>/dev/null; then n=$(nproc 2>/dev/null || sysctl -n hw.ncpu); fi; JDK_JAVA_OPTIONS=\"-XX:ActiveProcessorCount=$n\" TEST_SYSTEM_PERMITS=\"$n\""
 
 # Test the changed bricks in the development project
 test:

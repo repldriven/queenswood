@@ -1,5 +1,4 @@
-(ns ^:eftest/synchronized
-    com.repldriven.queenswood.onfido-adapter.interface-test
+(ns com.repldriven.queenswood.onfido-adapter.interface-test
   (:require
     [com.repldriven.queenswood.fdb.interface]
     [com.repldriven.queenswood.testcontainers.interface]
