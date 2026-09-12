@@ -6,8 +6,7 @@
   The lifecycle and the policy refusals live in `interface-test`; the
   pure rules live in `domain-test`."
   (:require
-    [com.repldriven.queenswood.fdb.interface]
-    [com.repldriven.queenswood.testcontainers.interface]
+    [com.repldriven.queenswood.webhook.test-system]
 
     [com.repldriven.queenswood.webhook.store :as SUT]
 

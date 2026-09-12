@@ -7,8 +7,7 @@
   The pure rules are asserted in `domain-test`; the record types and
   their indexes in `store-test`."
   (:require
-    [com.repldriven.queenswood.fdb.interface]
-    [com.repldriven.queenswood.testcontainers.interface]
+    [com.repldriven.queenswood.webhook.test-system]
 
     [com.repldriven.queenswood.webhook.interface :as SUT]
 

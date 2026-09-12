@@ -1,3 +1,21 @@
 system:
+  avro: !include system/avro.yml
   fdb: !include system/fdb-test.yml
+  # The consumer is subscribed to a relayed event channel, so this rig
+  # needs a bus. The in-process channel backend keeps FDB the only
+  # container; the delivery semantics the consumer relies on are the
+  # broker's and are covered where real Kafka runs.
+  message-bus: !include webhook/message-bus-test.yml
   policies: !include system/policy-test.yml
+  webhook:
+    event-processor-impl: !system/component
+      system/component-kind: webhook/event-processor
+      record-db: !system/ref fdb.record-db
+      record-store: !system/ref fdb.store
+      schemas: !system/ref avro.serde
+
+    event-consumer: !system/component
+      system/component-kind: event-processor/event-processor
+      bus: !system/ref message-bus.bus
+      processor: !system/local-ref event-processor-impl
+      event-channel: !keyword cash-accounts-event

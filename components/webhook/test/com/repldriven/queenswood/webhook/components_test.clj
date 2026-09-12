@@ -10,6 +10,8 @@
   (:require
     [com.repldriven.queenswood.webhook.components :as SUT]
 
+    [com.repldriven.queenswood.webhook.catalogue :as catalogue]
+
     [com.repldriven.queenswood.cash-account-api.interface :as cash-account-api]
 
     [clojure.test :refer [deftest is testing]]
@@ -69,3 +71,20 @@
              (set (keys entries))))
       (is (= [:ref "WebhookNotificationData"] (:data entries)))
       (is (= [:ref "WebhookResourceType"] (:resource-type entries))))))
+
+(defn- unmapped-types
+  [entries]
+  (into #{}
+        (remove (set (keys SUT/resource-components)))
+        (map :resource-type entries)))
+
+(deftest the-catalogue-projects-every-resource-it-names-test
+  (testing
+    "every entry names a resource type the union carries a
+           member for, so a catalogued kind always has somewhere to
+           project its data"
+    (is (= #{} (unmapped-types catalogue/entries))))
+  (testing "an entry naming a type with no member is named, not ignored"
+    (is (= #{"Party"}
+           (unmapped-types (conj catalogue/entries
+                                 {:resource-type "Party"}))))))
