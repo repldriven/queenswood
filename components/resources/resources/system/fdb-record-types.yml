@@ -5,7 +5,7 @@
 # its record type arrived on as since, and a store lists the indexes
 # removed from it under former-indexes with the versions they were added
 # and removed at. See docs/recipes/code/schema-evolution.md.
-version: 51
+version: 52
 stores:
   assertions:
     record-type: Assertion
@@ -216,11 +216,10 @@ stores:
         added: 48
         modified: 48
         field: bank_id
+    former-indexes:
       - name: Membership_by_user_and_bank
         added: 49
-        modified: 49
-        fields: [user_id, bank_id]
-        unique: true
+        removed: 52
   banks:
     record-type: Bank
     indexes:
@@ -446,3 +445,26 @@ stores:
         added: 51
         modified: 51
         fields: [delivery_id, attempted_at]
+  invitations:
+    record-type: Invitation
+    since: 52
+    primary-key: [bank_id, invitation_id]
+    indexes:
+      - name: Invitation_by_bank
+        added: 52
+        modified: 52
+        field: bank_id
+      - name: Invitation_by_email
+        added: 52
+        modified: 52
+        field: email_lower
+      - name: Invitation_by_token_hash
+        added: 52
+        modified: 52
+        field: token_hash
+        unique: true
+  access-events:
+    record-type: AccessEvent
+    since: 52
+    primary-key: [bank_id, access_event_id]
+    indexes: []

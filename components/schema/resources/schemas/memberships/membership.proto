@@ -3,19 +3,24 @@ syntax = "proto2";
 package com.repldriven.queenswood.schemas.memberships;
 
 import "record_metadata_options.proto";
+import "schemas/memberships/actor.proto";
 
 option java_outer_classname = "MembershipProto";
 
-// Membership -- joins a User to a Bank with a role.
-// Designed for N:M (a User can join many Orgs) but the MVP only
-// creates ROLE_OWNER memberships from the onboarding flow.
-// Additional roles (admin/developer/viewer) reserved for future use.
+// Membership -- joins a User to a Bank with a role. A User may hold
+// memberships of many Banks.
 enum Role {
   ROLE_UNKNOWN = 0;
   ROLE_OWNER = 1;
-  // ROLE_ADMIN = 2;     -- reserved for future
-  // ROLE_DEVELOPER = 3; -- reserved for future
-  // ROLE_VIEWER = 4;    -- reserved for future
+  ROLE_ADMIN = 2;
+  ROLE_DEVELOPER = 3;
+  ROLE_VIEWER = 4;
+}
+
+enum MembershipStatus {
+  MEMBERSHIP_STATUS_UNKNOWN = 0;
+  MEMBERSHIP_STATUS_ACTIVE = 1;
+  MEMBERSHIP_STATUS_ENDED = 2;
 }
 
 message Membership {
@@ -27,4 +32,11 @@ message Membership {
   required Role role = 4;
   required int64 created_at = 5;
   required int64 updated_at = 6;
+  // Optional, not required: rows written before a membership could end
+  // carry none of these, and a row without a status is active.
+  optional MembershipStatus status = 7;
+  optional int64 ended_at = 8;
+  optional Actor ended_by = 9;
+  // The invitation accepted to create this membership.
+  optional string invitation_id = 10;
 }
