@@ -24,6 +24,7 @@
     [com.repldriven.queenswood.fdb.system.components :as components]
 
     [com.repldriven.mono.env.interface :as env]
+    [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.system.interface :as system]
     [com.repldriven.mono.test-system.interface :refer [with-test-system]]
     [com.repldriven.mono.utility.interface :as utility]
@@ -118,6 +119,18 @@
   [^RecordMetaData md]
   (set (keys (.getRecordTypes md))))
 
+(defn- since-versions
+  [^RecordMetaData md names]
+  (into {}
+        (map (fn [name] [name
+                         (.getSinceVersion (get (.getRecordTypes md)
+                                                name))]))
+        names))
+
+(defn- reason
+  [anomaly]
+  (pr-str (dissoc (error/payload anomaly) :exception :stack-trace)))
+
 (deftest saving-webhook-stores-over-previous-meta-data-test
   (with-test-system
    [sys "classpath:fdb/application-test.yml"]
@@ -141,7 +154,9 @@
        (testing "the keyspace starts on meta-data that predates them"
          (is (empty? (set/intersection webhook-record-types
                                        (record-type-names before)))))
-       (migrate-meta-data! record-db path current)
+       (let [migrated (migrate-meta-data! record-db path current)]
+         (testing "the migrate saved rather than refusing the save"
+           (is (not (error/anomaly? migrated)) (reason migrated))))
        (let [after (stored-meta-data record-db path)]
          (testing "the migrate applied, rather than logging already-current"
            (is (< (.getVersion before) (.getVersion after))))
@@ -152,6 +167,11 @@
          (testing "so are their indexes"
            (is (= webhook-indexes
                   (set/intersection webhook-indexes (index-names after)))))
+         (testing
+           "and each new record type carries the version it arrived on,
+                  without which the Record Layer refuses the save"
+           (is (= (zipmap webhook-record-types (repeat (get current "version")))
+                  (since-versions after webhook-record-types))))
          (testing
            "and every index the previous meta-data defined keeps
                   the version it was added on, which is what the Record

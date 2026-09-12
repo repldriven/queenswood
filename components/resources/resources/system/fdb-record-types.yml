@@ -1,9 +1,10 @@
 !strs
 # The meta-data version, bumped on every change below. Each index
 # carries the version it was added at and the version its key last
-# changed at, and a store lists the indexes removed from it under
-# former-indexes with the versions they were added and removed at.
-# See docs/recipes/code/schema-evolution.md.
+# changed at, a store added after the first version carries the version
+# its record type arrived on as since, and a store lists the indexes
+# removed from it under former-indexes with the versions they were added
+# and removed at. See docs/recipes/code/schema-evolution.md.
 version: 51
 stores:
   assertions:
@@ -396,6 +397,7 @@ stores:
         field: status
   webhook-endpoints:
     record-type: WebhookEndpoint
+    since: 51
     primary-key: [bank_id, endpoint_id]
     indexes:
       - name: WebhookEndpoint_count_by_bank
@@ -410,6 +412,7 @@ stores:
         unique: true
   webhook-notifications:
     record-type: WebhookNotification
+    since: 51
     primary-key: [bank_id, notification_id]
     indexes:
       - name: WebhookNotification_by_changelog_event_id
@@ -423,6 +426,7 @@ stores:
         fields: [bank_id, created_at]
   webhook-deliveries:
     record-type: WebhookDelivery
+    since: 51
     primary-key: [bank_id, delivery_id]
     indexes:
       - name: WebhookDelivery_by_status_due
@@ -435,6 +439,7 @@ stores:
         fields: [endpoint_id, created_at]
   webhook-delivery-attempts:
     record-type: WebhookDeliveryAttempt
+    since: 51
     primary-key: [bank_id, attempt_id]
     indexes:
       - name: WebhookDeliveryAttempt_by_delivery
