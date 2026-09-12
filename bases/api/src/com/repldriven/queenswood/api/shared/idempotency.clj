@@ -59,7 +59,24 @@
     retry is refused 409 `migration/invalid-status`."
    [:post "/v1/cash-account-migrations/{migration-id}/cancel"]
    "Source-state guard. Only a live migration may be cancelled; a
-    retry is refused 409 `migration/invalid-status`."})
+    retry is refused 409 `migration/invalid-status`."
+   [:put "/v1/webhook-endpoints/{endpoint-id}"]
+   "Absolute set. The body names the whole endpoint — address,
+    description and chosen kinds — so a retry converges."
+   [:post "/v1/webhook-endpoints/{endpoint-id}/enable"]
+   "Source-state guard. Only a disabled or paused endpoint may be
+    enabled; a retry finds it enabled and is refused 409
+    `webhook-endpoint/invalid-status`. The optional `since` backfills
+    only what has never been delivered, so a retry inside the same
+    window adds nothing."
+   [:post "/v1/webhook-endpoints/{endpoint-id}/disable"]
+   "Source-state guard. Only an enabled or paused endpoint may be
+    disabled; a retry finds it disabled and is refused 409
+    `webhook-endpoint/invalid-status`."
+   [:delete "/v1/webhook-endpoints/{endpoint-id}"]
+   "Source-state guard. Only a live endpoint may be removed; a retry
+    finds it removed and is refused 409
+    `webhook-endpoint/invalid-status`."})
 
 (def ^:private shared-responses
   {400 (ErrorResponse [#'examples/BadRequest #'examples/MissingIdempotencyKey

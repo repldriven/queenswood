@@ -68,10 +68,11 @@
     [com.repldriven.queenswood.api.tier.routes :as tier]
     [com.repldriven.queenswood.api.transaction.components :as
      transaction.components]
+    [com.repldriven.queenswood.api.webhook.routes :as webhook]
 
     [com.repldriven.queenswood.api-schema.interface :as api-schema]
     [com.repldriven.queenswood.cash-account-api.interface :as cash-account-api]
-    [com.repldriven.queenswood.webhook.interface :as webhook]
+    [com.repldriven.queenswood.webhook.interface :as webhook-api]
 
     [com.repldriven.mono.server.interface :as server]
     [com.repldriven.mono.telemetry.interface :as telemetry]
@@ -139,7 +140,7 @@
                                simulate.components/registry
                                tier.components/registry
                                transaction.components/registry
-                               webhook/registry)}}))
+                               webhook-api/registry)}}))
 
 (defn- routes
   [ctx]
@@ -180,7 +181,7 @@
                     policy.examples/registry
                     simulate.examples/registry
                     tier.examples/registry
-                    webhook/examples)}}
+                    webhook-api/examples)}}
        :handler (server/standard-openapi-handler)}}]
     (into [""
            {:interceptors (concat telemetry/trace-span
@@ -216,7 +217,8 @@
            payment/routes
            policy/routes
            simulate/routes
-           tier/routes))]))
+           tier/routes
+           webhook/routes))]))
 
 (defn- add-interceptor-before-coerce
   "Splices `icept` into the router's global interceptor chain just

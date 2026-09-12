@@ -2,10 +2,13 @@
   "The endpoint lifecycle against a real record store: the policy
   refusals evaluated against the seeded policies (AC-21), the
   unique-key read-back that makes a retried registration answer with
-  the endpoint it already created, and the transitions end to end.
+  the endpoint it already created, the transitions end to end, and the
+  delivery side a tenant drives — a test notification, a re-send, and
+  the history's filters (AC-18).
 
   The pure rules are asserted in `domain-test`; the record types and
-  their indexes in `store-test`."
+  their indexes in `store-test`; the backfill a re-enable asks for, in
+  `deliveries-test`, which seeds the delivered delivery it turns on."
   (:require
     [com.repldriven.queenswood.webhook.test-system]
 
@@ -214,3 +217,130 @@
         after (SUT/get-endpoints config bank-id)
         _ (testing "and the store still holds only what it admitted"
             (is (= micro-endpoint-limit (count (:endpoints after)))))]))))
+
+(deftest a-test-notification-answers-with-its-delivery-test
+  (with-test-system
+   [sys config-file]
+   (let [config (fdb-config sys)
+         bank-id "bnk.test.notification"]
+     (nom-test> [registered (register config
+                                      bank-id
+                                      (endpoint-data "ik-test-notification")
+                                      allow-manage)
+                 id (:endpoint-id registered)
+                 delivery (SUT/test-notification config
+                                                 bank-id
+                                                 id
+                                                 {:policies allow-manage})
+                 _ (testing "the answer is the delivery it created"
+                     (is (re-find #"^whd\." (:delivery-id delivery)))
+                     (is (= :webhook-delivery-status-pending
+                            (:status delivery)))
+                     (is (= id (:endpoint-id delivery)))
+                     (is (= "webhook.test" (:kind delivery))))
+                 history (SUT/get-deliveries config bank-id id)
+                 _ (testing "and the history holds it"
+                     (is (= [(:delivery-id delivery)]
+                            (mapv :delivery-id (:deliveries history)))))
+                 resent (SUT/resend config
+                                    bank-id
+                                    id
+                                    (:delivery-id delivery)
+                                    {:policies allow-manage})
+                 _ (testing
+                     "a re-send is a new delivery of the same notification"
+                     (is (not= (:delivery-id delivery) (:delivery-id resent)))
+                     (is (= (:notification-id delivery)
+                            (:notification-id resent)))
+                     (is (= :webhook-delivery-status-pending (:status resent))))
+                 after (SUT/get-deliveries config bank-id id)
+                 _ (testing "and leaves the first where it was"
+                     (is (= 2 (count (:deliveries after)))))]))))
+
+(deftest the-delivery-history-filters-test
+  (with-test-system
+   [sys config-file]
+   (let [config (fdb-config sys)
+         bank-id "bnk.delivery.filters"]
+     (nom-test> [registered (register config
+                                      bank-id
+                                      (endpoint-data "ik-delivery-filters")
+                                      allow-manage)
+                 id (:endpoint-id registered)
+                 delivery (SUT/test-notification config
+                                                 bank-id
+                                                 id
+                                                 {:policies allow-manage})
+                 matching (SUT/get-deliveries config
+                                              bank-id
+                                              id
+                                              {:kind "webhook.test"
+                                               :outcome
+                                               :webhook-delivery-status-pending
+                                               :from 0})
+                 _ (testing "a filter every field satisfies admits the delivery"
+                     (is (= [(:delivery-id delivery)]
+                            (mapv :delivery-id (:deliveries matching)))))
+                 other-kind (SUT/get-deliveries config
+                                                bank-id
+                                                id
+                                                {:kind "cash-account.opened"})
+                 other-outcome (SUT/get-deliveries
+                                config
+                                bank-id
+                                id
+                                {:outcome :webhook-delivery-status-delivered})
+                 later (SUT/get-deliveries config
+                                           bank-id
+                                           id
+                                           {:from (inc (:created-at delivery))})
+                 _ (testing "and each filter on its own excludes it"
+                     (is (empty? (:deliveries other-kind)))
+                     (is (empty? (:deliveries other-outcome)))
+                     (is (empty? (:deliveries later))))]))))
+
+(deftest a-delivery-reached-under-the-wrong-endpoint-is-not-found-test
+  (with-test-system
+   [sys config-file]
+   (let [config (fdb-config sys)
+         bank-id "bnk.delivery.scoping"]
+     (nom-test> [first-endpoint (register config
+                                          bank-id
+                                          (endpoint-data "ik-scope-1")
+                                          allow-manage)
+                 second-endpoint (register config
+                                           bank-id
+                                           (endpoint-data "ik-scope-2")
+                                           allow-manage)
+                 delivery (SUT/test-notification config
+                                                 bank-id
+                                                 (:endpoint-id first-endpoint)
+                                                 {:policies allow-manage})
+                 _ (let [refused (SUT/resend config
+                                             bank-id
+                                             (:endpoint-id second-endpoint)
+                                             (:delivery-id delivery)
+                                             {:policies allow-manage})]
+                     (testing "the delivery is addressed under its own endpoint"
+                       (is (= :webhook-delivery/not-found
+                              (error/kind refused)))))]))))
+
+(deftest a-disabled-endpoint-takes-no-test-notification-test
+  (with-test-system
+   [sys config-file]
+   (let [config (fdb-config sys)
+         bank-id "bnk.test.disabled"]
+     (nom-test> [registered (register config
+                                      bank-id
+                                      (endpoint-data "ik-test-disabled")
+                                      allow-manage)
+                 id (:endpoint-id registered)
+                 _ (SUT/disable config bank-id id {:policies allow-manage})
+                 _ (let [refused (SUT/test-notification config
+                                                        bank-id
+                                                        id
+                                                        {:policies
+                                                         allow-manage})]
+                     (testing "a tenant that stopped the calls is not sent one"
+                       (is (= :webhook-endpoint/invalid-status
+                              (error/kind refused)))))]))))

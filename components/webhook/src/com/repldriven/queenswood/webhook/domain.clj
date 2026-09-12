@@ -3,9 +3,12 @@
     [com.repldriven.queenswood.policy.interface :as policy]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
+    [com.repldriven.mono.json.interface :as json]
     [com.repldriven.mono.utility.interface :as utility]
 
-    [clojure.string :as str]))
+    [clojure.string :as str])
+  (:import
+    (java.nio.charset StandardCharsets)))
 
 ;; ---------------------------------------------------------------------------
 ;; Address validation
@@ -459,3 +462,147 @@
                                 :next-attempt-at (+ now delay))
                          :last-response-status status
                          :last-error error))))
+
+;; ---------------------------------------------------------------------------
+;; Notifications and their deliveries
+
+(def
+  ^{:doc
+    "The kind a test notification carries. It belongs to no catalogue
+  entry: nothing in the bank produces it, and a tenant asks for it."}
+  test-notification-kind
+  "webhook.test")
+
+(def ^:private test-change-kind "test")
+
+(def ^:private test-resource-type "WebhookEndpoint")
+
+(defn notification-body
+  "The bytes a delivery sends: the envelope's own fields with the
+  projected resource under `data`. Rendered once and stored on the row,
+  so every delivery and every re-send of the notification sends the
+  same bytes."
+  [row data]
+  (let-nom>
+    [encoded (json/write-str
+              (utility/assoc-some
+               {:notification-id (:notification-id row)
+                :kind (:kind row)
+                :change-kind (:change-kind row)
+                :occurred-at (:occurred-at row)
+                :bank-id (:bank-id row)
+                :resource-type (:resource-type row)
+                :resource-id (:resource-id row)
+                :correlation-id (:correlation-id row)
+                :data data}
+               :status-before (:status-before row)
+               :status-after (:status-after row)
+               :idempotency-key (:idempotency-key row)))]
+    (.getBytes ^String encoded StandardCharsets/UTF_8)))
+
+(defn test-notification
+  "A notification of the test kind, carrying the endpoint it is sent to
+  as its resource, so its `data` projects onto the same union member
+  every other notification does.
+
+  Its changelog event id is minted rather than relayed: the unique
+  index over that field is what stops a redelivered relay event writing
+  a second notification, and a test notification answers to no relayed
+  event."
+  [endpoint data now]
+  (let-nom>
+    [row {:bank-id (:bank-id endpoint)
+          :notification-id (utility/generate-id "whn")
+          :kind test-notification-kind
+          :change-kind test-change-kind
+          :resource-type test-resource-type
+          :resource-id (:endpoint-id endpoint)
+          :occurred-at now
+          :correlation-id (str (utility/uuidv7))
+          :changelog-event-id (str (utility/uuidv7))
+          :created-at now}
+     body (notification-body row data)]
+    (assoc row :body body)))
+
+(defn new-delivery
+  "A pending delivery of `notification` to `endpoint`, due now. A
+  re-send takes this same shape: it is a new delivery of the same
+  notification, so the attempts already recorded stay where they are."
+  [notification endpoint now]
+  {:bank-id (:bank-id notification)
+   :delivery-id (utility/generate-id "whd")
+   :notification-id (:notification-id notification)
+   :endpoint-id (:endpoint-id endpoint)
+   :status delivery-pending
+   :kind (:kind notification)
+   :next-attempt-at now
+   :created-at now
+   :updated-at now})
+
+(defn ensure-delivery-found
+  "Reject when the store answered with no delivery, or with one
+  belonging to another endpoint — the delivery is addressed under its
+  endpoint, so one reached under the wrong endpoint is not there. The
+  store returns `nil` rather than rejecting, so absence becomes a
+  rejection here."
+  [delivery bank-id endpoint-id delivery-id]
+  (if (and delivery (= endpoint-id (:endpoint-id delivery)))
+    delivery
+    (error/reject :webhook-delivery/not-found
+                  {:message "Webhook delivery not found"
+                   :bank-id bank-id
+                   :endpoint-id endpoint-id
+                   :delivery-id delivery-id})))
+
+(defn ensure-notification-found
+  "Reject when the delivery named a notification the store no longer
+  holds. A re-send needs the bytes the original signed, so there is
+  nothing to send without it."
+  [notification bank-id notification-id]
+  (if notification
+    notification
+    (error/reject :webhook-delivery/not-found
+                  {:message "Webhook notification not found"
+                   :bank-id bank-id
+                   :notification-id notification-id})))
+
+(defn ensure-deliverable
+  "Reject an endpoint a tenant may not ask for a delivery to. Only an
+  enabled endpoint may be sent to: a tenant that disabled or was paused
+  has said stop calling, and a removed endpoint is gone. Asking for a
+  delivery is managing the endpoint, so it takes the same capability
+  every other tenant transition does."
+  [endpoint policies]
+  (let-nom>
+    [_ (ensure-status endpoint #{enabled})
+     _ (check-capability :webhook-endpoint-action-manage policies)]
+    endpoint))
+
+(defn delivered-delivery?
+  [delivery]
+  (= delivery-delivered (:status delivery)))
+
+(defn matches-filters?
+  "Whether a delivery passes the history's filters — its kind, its
+  status as the outcome the tenant sees, and the window its creation
+  falls in. An absent filter admits everything."
+  [delivery {:keys [kind outcome from to]}]
+  (let [created-at (:created-at delivery)]
+    (and (or (nil? kind) (= kind (:kind delivery)))
+         (or (nil? outcome) (= outcome (:status delivery)))
+         (or (nil? from) (>= created-at from))
+         (or (nil? to) (<= created-at to)))))
+
+(defn within-window?
+  "Whether a notification was created inside `[from, to]`. An absent
+  `to` leaves the window open at the top."
+  [notification from to]
+  (let [created-at (:created-at notification)]
+    (and (>= created-at from) (or (nil? to) (<= created-at to)))))
+
+(defn chosen?
+  "Whether an endpoint has chosen a notification's kind. An endpoint
+  that chose no kinds has chosen all of them."
+  [endpoint kind]
+  (let [kinds (:kinds endpoint)]
+    (or (empty? kinds) (contains? (set kinds) kind))))

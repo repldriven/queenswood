@@ -1,33 +1,24 @@
 (ns com.repldriven.queenswood.webhook.events
   (:require
     [com.repldriven.queenswood.webhook.catalogue :as catalogue]
+    [com.repldriven.queenswood.webhook.domain :as domain]
     [com.repldriven.queenswood.webhook.store :as store]
 
     [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
-    [com.repldriven.mono.json.interface :as json]
     [com.repldriven.mono.log.interface :as log]
     [com.repldriven.mono.processor.interface :as processor]
     [com.repldriven.mono.utility.interface :as utility]
 
-    [clojure.string :as str])
-  (:import
-    (java.nio.charset StandardCharsets)))
+    [clojure.string :as str]))
 
 (def ^:private enabled :webhook-endpoint-status-enabled)
-
-(def ^:private pending :webhook-delivery-status-pending)
 
 (def ^:private endpoint-page-size
   "How many endpoints one scan of a bank's list reads. How many a bank
   may hold is a policy limit rather than a constant, so the scan pages
   to the end rather than assuming one page reaches it."
   100)
-
-(defn- subscribed?
-  [endpoint kind]
-  (let [kinds (:kinds endpoint)]
-    (or (empty? kinds) (contains? (set kinds) kind))))
 
 (defn- enabled-endpoints
   "Every enabled endpoint of `bank-id` that has chosen `kind`. An
@@ -46,7 +37,7 @@
         (let [found (into found
                           (filter (fn [endpoint]
                                     (and (= enabled (:status endpoint))
-                                         (subscribed? endpoint kind))))
+                                         (domain/chosen? endpoint kind))))
                           (:endpoints page))]
           (if-let [next-cursor (:after page)]
             (recur next-cursor found)
@@ -80,48 +71,13 @@
      :idempotency-key (:idempotency-key record)
      :correlation-id (correlation-id envelope))))
 
-(defn- notification-body
-  "The bytes a delivery sends: the envelope's own fields with the
-  projected resource under `data`. Rendered once and stored on the row,
-  so every delivery and every re-send of the notification sends the
-  same bytes."
-  [row data]
-  (let-nom>
-    [encoded (json/write-str
-              (utility/assoc-some
-               {:notification-id (:notification-id row)
-                :kind (:kind row)
-                :change-kind (:change-kind row)
-                :occurred-at (:occurred-at row)
-                :bank-id (:bank-id row)
-                :resource-type (:resource-type row)
-                :resource-id (:resource-id row)
-                :correlation-id (:correlation-id row)
-                :data data}
-               :status-before (:status-before row)
-               :status-after (:status-after row)
-               :idempotency-key (:idempotency-key row)))]
-    (.getBytes ^String encoded StandardCharsets/UTF_8)))
-
-(defn- delivery-row
-  [notification endpoint now]
-  {:bank-id (:bank-id notification)
-   :delivery-id (utility/generate-id "whd")
-   :notification-id (:notification-id notification)
-   :endpoint-id (:endpoint-id endpoint)
-   :status pending
-   :kind (:kind notification)
-   :next-attempt-at now
-   :created-at now
-   :updated-at now})
-
 (defn- save-deliveries
   [txn notification endpoints now]
   (reduce (fn [_ endpoint]
             (let [res (store/save-delivery txn
-                                           (delivery-row notification
-                                                         endpoint
-                                                         now))]
+                                           (domain/new-delivery notification
+                                                                endpoint
+                                                                now))]
               (if (error/anomaly? res) (reduced res) nil)))
           nil
           endpoints))
@@ -148,7 +104,8 @@
                              :resource-id resource-id}))
           endpoints (enabled-endpoints txn bank-id (:kind entry))
           row (notification-row entry envelope data record now)
-          body (notification-body row ((:project entry) record))
+          body (domain/notification-body row
+                                         ((:project entry) record))
           row (assoc row :body body)
           _ (store/save-notification txn row)
           _ (save-deliveries txn row endpoints now)]

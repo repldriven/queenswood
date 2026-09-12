@@ -25,8 +25,10 @@
   a `oneOf` discriminated on `resource-type`, so a resource gaining a
   field gains it in its notifications with no second schema to keep.
 
-  The delivery side — notifications, deliveries and their attempts —
-  is persisted by this brick but not yet exposed here."
+  The delivery side is exposed here too: a test notification, a
+  re-send of one delivery or of every notification in a window, and
+  the endpoint's delivery history with the filters the history
+  route takes."
   (:require
     [com.repldriven.queenswood.webhook.system]
 
@@ -118,7 +120,12 @@
   - txn: FDB transaction or config map.
   - bank-id: owning bank id.
   - endpoint-id: endpoint id.
-  - opts (optional): map; `:policies` overrides policy resolution."
+  - opts (optional): map; `:policies` overrides policy resolution, and
+    `:since` — an epoch-ms instant — asks for the gap as well as the
+    resumption: every notification from that instant on that this
+    endpoint has chosen and has never had delivered gets a fresh
+    pending delivery, written in the transaction the enable commits
+    in."
   ([txn bank-id endpoint-id]
    (core/enable txn bank-id endpoint-id))
   ([txn bank-id endpoint-id opts]
@@ -212,6 +219,104 @@
   [address resolved-addresses platform-hosts]
   (domain/check-address address resolved-addresses platform-hosts))
 
+(defn test-notification
+  "Send a test notification to an enabled endpoint: one notification of
+  the `webhook.test` kind carrying the endpoint as its resource, and
+  one pending delivery of it. Returns that delivery — its id, its
+  status and its endpoint — which the tenant reads back through the
+  delivery history to see what the endpoint answered.
+
+  Every call creates a delivery. Repetition is the caller's to bound,
+  through the idempotency pair the route declares.
+
+  Args:
+  - txn: FDB transaction or config map.
+  - bank-id: owning bank id.
+  - endpoint-id: endpoint id.
+  - opts (optional): map; `:policies` overrides policy resolution."
+  ([txn bank-id endpoint-id]
+   (core/test-notification txn bank-id endpoint-id))
+  ([txn bank-id endpoint-id opts]
+   (core/test-notification txn bank-id endpoint-id opts)))
+
+(defn resend
+  "Send one delivery's notification again, as a new delivery to the
+  same endpoint. The earlier delivery and its attempts are left where
+  they are — a re-send is a new journey, not a reset of the old one.
+  Returns the new delivery or an anomaly.
+
+  Args:
+  - txn: FDB transaction or config map.
+  - bank-id: owning bank id.
+  - endpoint-id: the endpoint the delivery belongs to; one reached
+    under any other is `:webhook-delivery/not-found`.
+  - delivery-id: the delivery to send again.
+  - opts (optional): map; `:policies` overrides policy resolution."
+  ([txn bank-id endpoint-id delivery-id]
+   (core/resend txn bank-id endpoint-id delivery-id))
+  ([txn bank-id endpoint-id delivery-id opts]
+   (core/resend txn bank-id endpoint-id delivery-id opts)))
+
+(defn resend-window
+  "Send every notification the endpoint has chosen from a window again,
+  one new pending delivery each. Returns `{:deliveries [...]}` or an
+  anomaly. Unlike `enable`'s `:since`, this re-sends what was already
+  delivered too: it answers a tenant that lost what it received rather
+  than one that never received it.
+
+  Args:
+  - txn: FDB transaction or config map.
+  - bank-id: owning bank id.
+  - endpoint-id: endpoint id.
+  - data: `:from` (required) and `:to`, epoch-ms bounds over when the
+    notification was created. An absent `:to` leaves the window open.
+  - opts (optional): map; `:policies` overrides policy resolution."
+  ([txn bank-id endpoint-id data]
+   (core/resend-window txn bank-id endpoint-id data))
+  ([txn bank-id endpoint-id data opts]
+   (core/resend-window txn bank-id endpoint-id data opts)))
+
+(defn get-deliveries
+  "An endpoint's delivery history, in creation order. Returns
+  `{:deliveries [...]}` or an anomaly.
+
+  Args:
+  - txn: FDB transaction or config map.
+  - bank-id: owning bank id.
+  - endpoint-id: endpoint id.
+  - filters (optional): `:kind`, `:outcome` — a delivery status
+    keyword — and `:from` / `:to` over the delivery's creation. An
+    absent filter admits everything."
+  ([txn bank-id endpoint-id]
+   (core/get-deliveries txn bank-id endpoint-id))
+  ([txn bank-id endpoint-id filters]
+   (core/get-deliveries txn bank-id endpoint-id filters)))
+
+;; ---
+;; the resources as the API publishes them
+;; ---
+
+(defn ->body
+  "Project a stored endpoint onto the keys `WebhookEndpoint` declares,
+  in the shape a read route returns. The secret, the rotated-away
+  secret and the two idempotency keys are not among them, so none of
+  them can reach a body through it.
+
+  Args:
+  - endpoint: an endpoint as this brick hands it back."
+  [endpoint]
+  (components/->endpoint-body endpoint))
+
+(defn ->delivery-body
+  "Project a stored delivery onto the keys `WebhookDelivery` declares.
+  The runner's claim — its lease and the replica holding it — is not
+  among them.
+
+  Args:
+  - delivery: a delivery as this brick hands it back."
+  [delivery]
+  (components/->delivery-body delivery))
+
 ;; ---
 ;; the notification resource
 ;; ---
@@ -234,3 +339,35 @@
   feeding the document's `components/examples` section."}
   examples
   examples/registry)
+
+;; ---
+;; rejection examples
+;; ---
+
+(def
+  ^{:doc
+    "RFC 9457 body for an endpoint that does not exist — 404,
+  `:webhook-endpoint/not-found`."}
+  WebhookEndpointNotFound
+  examples/WebhookEndpointNotFound)
+
+(def
+  ^{:doc
+    "RFC 9457 body for a delivery that does not exist — 404,
+  `:webhook-delivery/not-found`."}
+  WebhookDeliveryNotFound
+  examples/WebhookDeliveryNotFound)
+
+(def
+  ^{:doc
+    "RFC 9457 body for an address the platform refuses to call — 422,
+  `:webhook-endpoint/invalid-address`."}
+  WebhookEndpointInvalidAddress
+  examples/WebhookEndpointInvalidAddress)
+
+(def
+  ^{:doc
+    "RFC 9457 body for an endpoint whose status forbids the transition
+  — 409, `:webhook-endpoint/invalid-status`."}
+  WebhookEndpointInvalidStatus
+  examples/WebhookEndpointInvalidStatus)
