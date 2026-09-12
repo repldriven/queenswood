@@ -8,7 +8,8 @@
   reads the gate from each method's compiled endpoint, so a read and a
   write on one path are enforced at their own levels, and every
   organisation operation in the real route table is gated `org:viewer`
-  on a read and `org:developer` on a write."
+  on a read and `org:developer` on a write, the people writes excepted,
+  which are gated `org:admin`."
   (:require
     [com.repldriven.queenswood.api.api :as SUT]
 
@@ -74,6 +75,8 @@
 
 (def ^:private developer #{:user auth/org-viewer auth/org-developer})
 
+(def ^:private admin #{:user auth/org-viewer auth/org-developer auth/org-admin})
+
 (def ^:private read-methods #{:get})
 
 (def ^:private write-methods #{:post :put :patch :delete})
@@ -98,6 +101,13 @@
 (defn- roles
   [security]
   (into #{} (comp (mapcat vals) cat) security))
+
+(defn- people-write?
+  "True for a write on the bank's members or invitations."
+  [{:keys [path method]}]
+  (boolean (and (write-methods method)
+                (or (str/starts-with? path "/v1/members")
+                    (str/starts-with? path "/v1/invitations")))))
 
 (defn- org-operation?
   [{:keys [security]}]
@@ -241,9 +251,14 @@
       (is (= [(gate "org:developer" "admin")]
              (map :security
                   (filter (fn [op] (= inbound-transfer (:path op))) ops)))))
+    (testing "the people writes name org:admin"
+      (let [people (filter people-write? org-ops)]
+        (is (seq people))
+        (doseq [{:keys [path method security]} people]
+          (is (= (gate "org:admin") security) (str (name method) " " path)))))
     (testing "every other org read names org:viewer and write org:developer"
-      (doseq [{:keys [path method security]} org-ops
-              :when (not= inbound-transfer path)]
+      (doseq [{:keys [path method security] :as op} org-ops
+              :when (and (not= inbound-transfer path) (not (people-write? op)))]
         (is (= (if (read-methods method)
                  (gate "org:viewer")
                  (gate "org:developer"))
@@ -259,7 +274,8 @@
 
 (deftest real-route-table-enforces-each-org-operation-test
   (let [router (real-router)]
-    (doseq [{:keys [path method]} (filter org-operation? (operations router))
+    (doseq [{:keys [path method] :as op} (filter org-operation?
+                                                 (operations router))
             :let [match (r/match-by-path router (concrete-path path))
                   label (str (name method) " " path)]]
       (is (= path (:template match)) label)
@@ -268,7 +284,13 @@
           (if (read-methods method)
             (is (nil? (:response ctx)) label)
             (is (refused? ctx) label))))
-      (testing "a service credential's levels pass every operation"
+      (testing
+        "a service credential's levels pass every operation but the people
+        writes, which an admin passes"
+        (let [ctx (authorize router (concrete-path path) method developer)]
+          (if (people-write? op)
+            (is (refused? ctx) label)
+            (is (nil? (:response ctx)) label)))
         (is (nil? (:response
-                   (authorize router (concrete-path path) method developer)))
+                   (authorize router (concrete-path path) method admin)))
             label)))))

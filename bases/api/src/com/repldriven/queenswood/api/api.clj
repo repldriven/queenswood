@@ -3,6 +3,9 @@
     [com.repldriven.queenswood.api.auth :as auth]
     [com.repldriven.queenswood.api.examples :as examples]
 
+    [com.repldriven.queenswood.api.access.components :as access.components]
+    [com.repldriven.queenswood.api.access.examples :as access.examples]
+    [com.repldriven.queenswood.api.access.routes :as access]
     [com.repldriven.queenswood.api.balance.components :as balance.components]
     [com.repldriven.queenswood.api.balance.examples :as balance.examples]
     [com.repldriven.queenswood.api.balance.routes :as balance]
@@ -116,6 +119,7 @@
          {:unique-vector api-schema/unique-vector-schema
           :unique-vector-lax api-schema/unique-vector-lax-schema
           "ErrorResponse" api-schema/ErrorResponseSchema}
+         access.components/registry
          balance.components/registry
          bank.components/registry
          cash-account-api/registry
@@ -198,6 +202,7 @@
          :parameters shared.parameters/registry
          :examples (merge
                     examples/registry
+                    access.examples/registry
                     balance.examples/registry
                     bank.examples/registry
                     cash-account-api/examples
@@ -237,6 +242,7 @@
                              [#'examples/Contention
                               #'examples/Timeout])}}]
           (concat
+           access/routes
            balance/routes
            bank/routes
            cash-account/routes

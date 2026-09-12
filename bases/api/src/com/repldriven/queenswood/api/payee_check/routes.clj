@@ -24,7 +24,9 @@
      {:get {:summary "List payee checks"
             :openapi {:operationId "ListPayeeChecks"
                       :security [{"bearerAuth" ["org:viewer"]}]
-                      :parameters ^:replace [shared.parameters/ref-page]}
+                      :parameters ^:replace
+                                  [shared.parameters/ref-page
+                                   shared.parameters/ref-bank-id-header]}
             :parameters {:query list-query-schema}
             :responses {200 {:body [:ref "PayeeCheckList"]}}
             :handler queries/list-checks}
@@ -33,7 +35,8 @@
                        :security [{"bearerAuth" ["org:developer"]}]
                        :requestBody {:required true}
                        :parameters ^:replace
-                                   [shared.parameters/ref-idempotency-key]}
+                                   [shared.parameters/ref-bank-id-header
+                                    shared.parameters/ref-idempotency-key]}
              :interceptors [server/require-idempotency-key
                             bank-idempotency/cache-response]
              :parameters {:body [:ref "PayeeCheckRequest"]}
@@ -44,7 +47,8 @@
     ["/{check-id}"
      {:parameters {:path {:check-id [:ref "CheckId"]}}}
      [""
-      {:openapi {:security [{"bearerAuth" ["org:viewer"]}]}
+      {:openapi {:security [{"bearerAuth" ["org:viewer"]}]
+                 :parameters [shared.parameters/ref-bank-id-header]}
        :get {:summary "Retrieve a payee check"
              :openapi {:operationId "GetPayeeCheck"}
              :responses {200 {:body [:ref "PayeeCheck"]}

@@ -36,7 +36,8 @@
     [""
      {:get {:summary "Retrieve cash-account migrations"
             :openapi {:operationId "RetrieveCashAccountMigrations"
-                      :security [{"bearerAuth" ["org:viewer"]}]}
+                      :security [{"bearerAuth" ["org:viewer"]}]
+                      :parameters [shared.parameters/ref-bank-id-header]}
             :responses {200 {:body [:ref "MigrationList"]}}
             :handler queries/list-migrations}
       :post {:summary "Author a cash-account migration"
@@ -44,7 +45,8 @@
                        :security [{"bearerAuth" ["org:developer"]}]
                        :requestBody {:required true}
                        :parameters ^:replace
-                                   [shared.parameters/ref-idempotency-key]}
+                                   [shared.parameters/ref-bank-id-header
+                                    shared.parameters/ref-idempotency-key]}
              :interceptors [server/require-idempotency-key
                             bank-idempotency/cache-response]
              :parameters {:body [:ref "MigrationCreate"]}
@@ -62,14 +64,16 @@
     ["/{migration-id}"
      {:parameters {:path {:migration-id [:ref "MigrationId"]}}}
      [""
-      {:openapi {:security [{"bearerAuth" ["org:viewer"]}]}
+      {:openapi {:security [{"bearerAuth" ["org:viewer"]}]
+                 :parameters [shared.parameters/ref-bank-id-header]}
        :get {:summary "Retrieve a cash-account migration"
              :openapi {:operationId "RetrieveCashAccountMigration"}
              :responses {200 {:body [:ref "Migration"]}
                          404 (ErrorResponse [#'MigrationNotFound])}
              :handler queries/get-migration}}]
      ["/approve"
-      {:openapi {:security [{"bearerAuth" ["org:developer"]}]}
+      {:openapi {:security [{"bearerAuth" ["org:developer"]}]
+                 :parameters [shared.parameters/ref-bank-id-header]}
        :post {:summary "Approve a cash-account migration"
               :openapi {:operationId "ApproveCashAccountMigration"}
               :responses {200 {:body [:ref "Migration"]}
@@ -78,7 +82,8 @@
                           422 (ErrorResponse [#'NoticeRequired])}
               :handler handlers/approve-migration}}]
      ["/cancel"
-      {:openapi {:security [{"bearerAuth" ["org:developer"]}]}
+      {:openapi {:security [{"bearerAuth" ["org:developer"]}]
+                 :parameters [shared.parameters/ref-bank-id-header]}
        :post {:summary "Cancel a cash-account migration"
               :openapi {:operationId "CancelCashAccountMigration"}
               :responses {200 {:body [:ref "Migration"]}
@@ -89,7 +94,8 @@
       [""
        {:get {:summary "Retrieve a migration's previews"
               :openapi {:operationId "RetrieveCashAccountMigrationPreviews"
-                        :security [{"bearerAuth" ["org:viewer"]}]}
+                        :security [{"bearerAuth" ["org:viewer"]}]
+                        :parameters [shared.parameters/ref-bank-id-header]}
               :responses {200 {:body [:ref "MigrationRunList"]}
                           404 (ErrorResponse [#'MigrationNotFound])}
               :handler queries/list-runs}
@@ -98,6 +104,7 @@
                          :security [{"bearerAuth" ["org:developer"]}]
                          :parameters ^:replace
                                      [shared.parameters/ref-migration-id
+                                      shared.parameters/ref-bank-id-header
                                       shared.parameters/ref-idempotency-key]}
                :interceptors [server/require-idempotency-key
                               bank-idempotency/cache-response]
@@ -110,14 +117,16 @@
       ["/{run-id}"
        {:parameters {:path {:run-id [:ref "MigrationRunId"]}}}
        [""
-        {:openapi {:security [{"bearerAuth" ["org:viewer"]}]}
+        {:openapi {:security [{"bearerAuth" ["org:viewer"]}]
+                   :parameters [shared.parameters/ref-bank-id-header]}
          :get {:summary "Retrieve a migration preview"
                :openapi {:operationId "RetrieveCashAccountMigrationPreview"}
                :responses {200 {:body [:ref "MigrationRun"]}
                            404 (ErrorResponse [#'RunNotFound])}
                :handler queries/get-run}}]
        ["/accounts"
-        {:openapi {:security [{"bearerAuth" ["org:viewer"]}]}
+        {:openapi {:security [{"bearerAuth" ["org:viewer"]}]
+                   :parameters [shared.parameters/ref-bank-id-header]}
          :get {:summary "Retrieve a preview's per-account verdicts"
                :openapi {:operationId
                          "RetrieveCashAccountMigrationPreviewAccounts"}

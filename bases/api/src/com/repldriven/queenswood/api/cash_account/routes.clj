@@ -34,7 +34,8 @@
                       :security [{"bearerAuth" ["org:viewer"]}]
                       :parameters ^:replace
                                   [shared.parameters/ref-page
-                                   shared.parameters/ref-embed]}
+                                   shared.parameters/ref-embed
+                                   shared.parameters/ref-bank-id-header]}
             :parameters {:query list-cash-accounts-query-schema}
             :responses {200 {:body [:ref "CashAccountList"]}}
             :handler queries/list-cash-accounts}
@@ -43,7 +44,8 @@
                        :security [{"bearerAuth" ["org:developer"]}]
                        :requestBody {:required true}
                        :parameters ^:replace
-                                   [shared.parameters/ref-idempotency-key]}
+                                   [shared.parameters/ref-bank-id-header
+                                    shared.parameters/ref-idempotency-key]}
              :interceptors [server/require-idempotency-key
                             bank-idempotency/cache-response]
              :parameters {:body [:ref "CreateCashAccountRequest"]}
@@ -62,13 +64,15 @@
              :openapi {:operationId "RetrieveCashAccount"
                        :parameters ^:replace
                                    [shared.parameters/ref-account-id
-                                    shared.parameters/ref-embed]}
+                                    shared.parameters/ref-embed
+                                    shared.parameters/ref-bank-id-header]}
              :parameters {:query get-cash-account-query-schema}
              :responses {200 {:body [:ref "CashAccount"]}
                          404 (ErrorResponse [#'CashAccountNotFound])}
              :handler queries/get-cash-account}}]
      ["/transactions"
-      {:openapi {:security [{"bearerAuth" ["org:viewer"]}]}
+      {:openapi {:security [{"bearerAuth" ["org:viewer"]}]
+                 :parameters [shared.parameters/ref-bank-id-header]}
        :get {:summary "Retrieve account transactions"
              :openapi {:operationId "RetrieveAccountTransactions"}
              :responses {200 {:body [:ref "TransactionList"]}
@@ -80,6 +84,7 @@
               :openapi {:operationId "CloseCashAccount"
                         :parameters ^:replace
                                     [shared.parameters/ref-account-id
+                                     shared.parameters/ref-bank-id-header
                                      shared.parameters/ref-idempotency-key]}
               :interceptors [server/require-idempotency-key
                              bank-idempotency/cache-response]
@@ -96,6 +101,7 @@
               :openapi {:operationId "SuspendCashAccount"
                         :parameters ^:replace
                                     [shared.parameters/ref-account-id
+                                     shared.parameters/ref-bank-id-header
                                      shared.parameters/ref-idempotency-key]}
               :interceptors [server/require-idempotency-key
                              bank-idempotency/cache-response]
@@ -111,6 +117,7 @@
               :openapi {:operationId "ResumeCashAccount"
                         :parameters ^:replace
                                     [shared.parameters/ref-account-id
+                                     shared.parameters/ref-bank-id-header
                                      shared.parameters/ref-idempotency-key]}
               :interceptors [server/require-idempotency-key
                              bank-idempotency/cache-response]
@@ -126,6 +133,7 @@
               :openapi {:operationId "RotateCashAccountAddress"
                         :parameters ^:replace
                                     [shared.parameters/ref-account-id
+                                     shared.parameters/ref-bank-id-header
                                      shared.parameters/ref-idempotency-key]}
               :interceptors [server/require-idempotency-key
                              bank-idempotency/cache-response]

@@ -20,7 +20,8 @@
   [["/jobs"
     {:openapi {:tags ["Jobs"]}}
     [""
-     {:openapi {:security [{"bearerAuth" ["org:viewer"]}]}
+     {:openapi {:security [{"bearerAuth" ["org:viewer"]}]
+                :parameters [shared.parameters/ref-bank-id-header]}
       :get {:summary "Retrieve scheduled jobs"
             :openapi {:operationId "RetrieveJobs"}
             :responses {200 {:body [:ref "JobList"]}}
@@ -28,14 +29,16 @@
     ["/{job-id}"
      {:parameters {:path {:job-id [:ref "JobId"]}}}
      [""
-      {:openapi {:security [{"bearerAuth" ["org:viewer"]}]}
+      {:openapi {:security [{"bearerAuth" ["org:viewer"]}]
+                 :parameters [shared.parameters/ref-bank-id-header]}
        :get {:summary "Retrieve a scheduled job"
              :openapi {:operationId "RetrieveJob"}
              :responses {200 {:body [:ref "Job"]}
                          404 (ErrorResponse [#'JobNotFound])}
              :handler queries/get-job}}]
      ["/schedule"
-      {:openapi {:security [{"bearerAuth" ["org:developer"]}]}
+      {:openapi {:security [{"bearerAuth" ["org:developer"]}]
+                 :parameters [shared.parameters/ref-bank-id-header]}
        :put {:summary "Update a job's schedule (cadence, time, enabled)"
              :openapi {:operationId "UpdateJobSchedule"
                        :requestBody {:required true}}
@@ -49,7 +52,8 @@
       [""
        {:get {:summary "Retrieve a job's runs"
               :openapi {:operationId "RetrieveJobRuns"
-                        :security [{"bearerAuth" ["org:viewer"]}]}
+                        :security [{"bearerAuth" ["org:viewer"]}]
+                        :parameters [shared.parameters/ref-bank-id-header]}
               :responses {200 {:body [:ref "RunList"]}
                           404 (ErrorResponse [#'JobNotFound])}
               :handler queries/list-runs}
@@ -58,6 +62,7 @@
                          :security [{"bearerAuth" ["org:developer"]}]
                          :parameters ^:replace
                                      [shared.parameters/ref-job-id
+                                      shared.parameters/ref-bank-id-header
                                       shared.parameters/ref-idempotency-key]}
                :interceptors [server/require-idempotency-key
                               bank-idempotency/cache-response]
@@ -70,7 +75,8 @@
       ["/{run-id}"
        {:parameters {:path {:run-id [:ref "RunId"]}}}
        [""
-        {:openapi {:security [{"bearerAuth" ["org:viewer"]}]}
+        {:openapi {:security [{"bearerAuth" ["org:viewer"]}]
+                   :parameters [shared.parameters/ref-bank-id-header]}
          :get {:summary "Retrieve a job run"
                :openapi {:operationId "RetrieveJobRun"}
                :responses {200 {:body [:ref "Run"]}

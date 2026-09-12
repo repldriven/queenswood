@@ -35,7 +35,9 @@
      {:get {:summary "List the bank's webhook endpoints"
             :openapi {:operationId "ListWebhookEndpoints"
                       :security [{"bearerAuth" ["org:viewer"]}]
-                      :parameters ^:replace [shared.parameters/ref-page]}
+                      :parameters ^:replace
+                                  [shared.parameters/ref-page
+                                   shared.parameters/ref-bank-id-header]}
             :parameters {:query list-endpoints-query-schema}
             :responses {200 {:description "The bank's webhook endpoints."
                              :body [:ref "WebhookEndpointList"]}}
@@ -47,7 +49,8 @@
                        :security [{"bearerAuth" ["org:developer"]}]
                        :requestBody {:required true}
                        :parameters ^:replace
-                                   [shared.parameters/ref-idempotency-key]}
+                                   [shared.parameters/ref-bank-id-header
+                                    shared.parameters/ref-idempotency-key]}
              :interceptors [server/require-idempotency-key
                             bank-idempotency/cache-response]
              :parameters {:body [:ref "WebhookEndpointRequest"]}
@@ -64,7 +67,8 @@
      [""
       {:get {:summary "Retrieve a webhook endpoint"
              :openapi {:operationId "RetrieveWebhookEndpoint"
-                       :security [{"bearerAuth" ["org:viewer"]}]}
+                       :security [{"bearerAuth" ["org:viewer"]}]
+                       :parameters [shared.parameters/ref-bank-id-header]}
              :responses {200 {:description "The endpoint."
                               :body [:ref "WebhookEndpoint"]}
                          404 (ErrorResponse [#'WebhookEndpointNotFound])}
@@ -73,6 +77,7 @@
                            "and chosen kinds")
              :openapi {:operationId "UpdateWebhookEndpoint"
                        :security [{"bearerAuth" ["org:developer"]}]
+                       :parameters [shared.parameters/ref-bank-id-header]
                        :requestBody {:required true}}
              :parameters {:body [:ref "WebhookEndpointRequest"]}
              :responses {200 {:description "The endpoint as replaced."
@@ -85,14 +90,16 @@
                               "rather than a deletion, so its "
                               "deliveries stay readable)")
                 :openapi {:operationId "RemoveWebhookEndpoint"
-                          :security [{"bearerAuth" ["org:developer"]}]}
+                          :security [{"bearerAuth" ["org:developer"]}]
+                          :parameters [shared.parameters/ref-bank-id-header]}
                 :responses
                 {204 {:description "The endpoint was removed. No body."}
                  404 (ErrorResponse [#'WebhookEndpointNotFound])
                  409 (ErrorResponse [#'WebhookEndpointInvalidStatus])}
                 :handler handlers/remove-endpoint}}]
      ["/enable"
-      {:openapi {:security [{"bearerAuth" ["org:developer"]}]}
+      {:openapi {:security [{"bearerAuth" ["org:developer"]}]
+                 :parameters [shared.parameters/ref-bank-id-header]}
        :post {:summary (str "Enable a disabled or paused endpoint, "
                             "optionally asking for the gap since an "
                             "instant")
@@ -105,7 +112,8 @@
                           409 (ErrorResponse [#'WebhookEndpointInvalidStatus])}
               :handler handlers/enable}}]
      ["/disable"
-      {:openapi {:security [{"bearerAuth" ["org:developer"]}]}
+      {:openapi {:security [{"bearerAuth" ["org:developer"]}]
+                 :parameters [shared.parameters/ref-bank-id-header]}
        :post {:summary "Disable an enabled or paused endpoint"
               :openapi {:operationId "DisableWebhookEndpoint"}
               :responses {200 {:description "The disabled endpoint."
@@ -120,6 +128,7 @@
               :openapi {:operationId "RotateWebhookEndpointSecret"
                         :parameters ^:replace
                                     [shared.parameters/ref-endpoint-id
+                                     shared.parameters/ref-bank-id-header
                                      shared.parameters/ref-idempotency-key]}
               :interceptors [server/require-idempotency-key
                              bank-idempotency/cache-response]
@@ -139,6 +148,7 @@
               :openapi {:operationId "SendWebhookTestNotification"
                         :parameters ^:replace
                                     [shared.parameters/ref-endpoint-id
+                                     shared.parameters/ref-bank-id-header
                                      shared.parameters/ref-idempotency-key]}
               :interceptors [server/require-idempotency-key
                              bank-idempotency/cache-response]
@@ -158,6 +168,7 @@
                         :requestBody {:required true}
                         :parameters ^:replace
                                     [shared.parameters/ref-endpoint-id
+                                     shared.parameters/ref-bank-id-header
                                      shared.parameters/ref-idempotency-key]}
               :interceptors [server/require-idempotency-key
                              bank-idempotency/cache-response]
@@ -178,7 +189,8 @@
                        :parameters ^:replace
                                    [shared.parameters/ref-endpoint-id
                                     shared.parameters/ref-delivery-filter
-                                    shared.parameters/ref-page]}
+                                    shared.parameters/ref-page
+                                    shared.parameters/ref-bank-id-header]}
              :parameters {:query list-deliveries-query-schema}
              :responses {200 {:description "The endpoint's deliveries."
                               :body [:ref "WebhookDeliveryList"]}
@@ -192,6 +204,7 @@
                         :parameters ^:replace
                                     [shared.parameters/ref-endpoint-id
                                      shared.parameters/ref-delivery-id
+                                     shared.parameters/ref-bank-id-header
                                      shared.parameters/ref-idempotency-key]}
               :interceptors [server/require-idempotency-key
                              bank-idempotency/cache-response]

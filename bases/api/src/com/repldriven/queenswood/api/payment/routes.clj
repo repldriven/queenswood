@@ -25,7 +25,8 @@
              :openapi {:operationId "SubmitInternalPayment"
                        :requestBody {:required true}
                        :parameters ^:replace
-                                   [shared.parameters/ref-idempotency-key]}
+                                   [shared.parameters/ref-bank-id-header
+                                    shared.parameters/ref-idempotency-key]}
              :interceptors [server/require-idempotency-key
                             bank-idempotency/cache-response]
              :parameters {:body [:ref "SubmitInternalPaymentRequest"]}
@@ -40,7 +41,8 @@
     ["/internal/{payment-id}"
      {:parameters {:path {:payment-id [:ref "PaymentId"]}}}
      [""
-      {:openapi {:security [{"bearerAuth" ["org:viewer"]}]}
+      {:openapi {:security [{"bearerAuth" ["org:viewer"]}]
+                 :parameters [shared.parameters/ref-bank-id-header]}
        :get {:summary "Retrieve an internal payment"
              :openapi {:operationId "RetrieveInternalPayment"}
              :responses {200 {:body [:ref "InternalPayment"]}
@@ -52,7 +54,8 @@
              :openapi {:operationId "SubmitOutboundPayment"
                        :requestBody {:required true}
                        :parameters ^:replace
-                                   [shared.parameters/ref-idempotency-key]}
+                                   [shared.parameters/ref-bank-id-header
+                                    shared.parameters/ref-idempotency-key]}
              :interceptors [server/require-idempotency-key
                             bank-idempotency/cache-response]
              :parameters {:body [:ref "SubmitOutboundPaymentRequest"]}
@@ -67,7 +70,8 @@
     ["/outbound/{payment-id}"
      {:parameters {:path {:payment-id [:ref "PaymentId"]}}}
      [""
-      {:openapi {:security [{"bearerAuth" ["org:viewer"]}]}
+      {:openapi {:security [{"bearerAuth" ["org:viewer"]}]
+                 :parameters [shared.parameters/ref-bank-id-header]}
        :get {:summary "Retrieve an outbound payment"
              :openapi {:operationId "RetrieveOutboundPayment"}
              :responses {200 {:body [:ref "OutboundPayment"]}

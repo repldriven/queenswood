@@ -26,7 +26,8 @@
   [["/cash-account-product-templates"
     {:openapi {:tags ["Cash Account Products"]}}
     [""
-     {:openapi {:security [{"bearerAuth" ["org:viewer"]}]}
+     {:openapi {:security [{"bearerAuth" ["org:viewer"]}]
+                :parameters [shared.parameters/ref-bank-id-header]}
       :get {:summary (str "List per-product-type templates (the menu of "
                           "balance-sheet-side, balance-products, "
                           "allowed-currencies, and "
@@ -41,7 +42,9 @@
      {:get {:summary "List products with their version histories inline"
             :openapi {:operationId "ListCashAccountProducts"
                       :security [{"bearerAuth" ["org:viewer"]}]
-                      :parameters ^:replace [shared.parameters/ref-page]}
+                      :parameters ^:replace
+                                  [shared.parameters/ref-page
+                                   shared.parameters/ref-bank-id-header]}
             :parameters {:query list-products-query-schema}
             :responses {200 {:body [:ref "CashAccountProductList"]}}
             :handler queries/list-products}
@@ -50,7 +53,8 @@
                        :security [{"bearerAuth" ["org:developer"]}]
                        :requestBody {:required true}
                        :parameters ^:replace
-                                   [shared.parameters/ref-idempotency-key]}
+                                   [shared.parameters/ref-bank-id-header
+                                    shared.parameters/ref-idempotency-key]}
              :interceptors [server/require-idempotency-key
                             bank-idempotency/cache-response]
              :parameters {:body [:ref "CashAccountProductRequest"]}
@@ -62,7 +66,8 @@
              :handler handlers/create-product}}]
     ["/{product-id}" {:parameters {:path {:product-id [:ref "ProductId"]}}}
      [""
-      {:openapi {:security [{"bearerAuth" ["org:viewer"]}]}
+      {:openapi {:security [{"bearerAuth" ["org:viewer"]}]
+                 :parameters [shared.parameters/ref-bank-id-header]}
        :get {:summary "Retrieve a product with its version history inline"
              :openapi {:operationId "RetrieveCashAccountProduct"}
              :responses {200 {:body [:ref "CashAccountProduct"]
@@ -70,7 +75,8 @@
                          404 (ErrorResponse [#'ProductNotFound])}
              :handler queries/get-product}}]
      ["/versions"
-      {:openapi {:security [{"bearerAuth" ["org:developer"]}]}
+      {:openapi {:security [{"bearerAuth" ["org:developer"]}]
+                 :parameters [shared.parameters/ref-bank-id-header]}
        :post {:summary "Open a new draft version (requires no existing draft)"
               :openapi {:operationId "OpenCashAccountProductDraft"
                         :requestBody {:required true}}
@@ -89,6 +95,7 @@
        {:get {:summary "Retrieve a specific version"
               :openapi {:operationId "RetrieveCashAccountProductVersion"
                         :security [{"bearerAuth" ["org:viewer"]}]
+                        :parameters [shared.parameters/ref-bank-id-header]
                         :headers {"ETag" {:schema {:type "string"}}
                                   "Cache-Control" {:schema {:type "string"}}}}
               :responses {200 {:body [:ref "CashAccountProductVersion"]}
@@ -97,6 +104,7 @@
         :put {:summary "Update the draft version (draft state only)"
               :openapi {:operationId "UpdateCashAccountProductDraft"
                         :security [{"bearerAuth" ["org:developer"]}]
+                        :parameters [shared.parameters/ref-bank-id-header]
                         :requestBody {:required true}}
               :parameters {:body [:ref "CashAccountProductDraftRequest"]}
               :responses {200 {:body [:ref "CashAccountProductVersion"]
@@ -108,13 +116,15 @@
               :handler handlers/update-draft}
         :delete {:summary "Discard the draft version (draft state only)"
                  :openapi {:operationId "DiscardCashAccountProductDraft"
-                           :security [{"bearerAuth" ["org:developer"]}]}
+                           :security [{"bearerAuth" ["org:developer"]}]
+                           :parameters [shared.parameters/ref-bank-id-header]}
                  :responses {204 {}
                              404 (ErrorResponse [#'VersionNotFound])
                              409 (ErrorResponse [#'VersionImmutable])}
                  :handler handlers/discard-draft}}]
       ["/publish"
-       {:openapi {:security [{"bearerAuth" ["org:developer"]}]}
+       {:openapi {:security [{"bearerAuth" ["org:developer"]}]
+                  :parameters [shared.parameters/ref-bank-id-header]}
         :post {:summary "Publish the draft version (draft state only)"
                :openapi {:operationId "PublishCashAccountProductDraft"}
                :responses {200 {:body [:ref "CashAccountProductVersion"]

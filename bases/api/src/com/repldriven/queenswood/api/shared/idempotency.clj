@@ -76,7 +76,24 @@
    [:delete "/v1/webhook-endpoints/{endpoint-id}"]
    "Source-state guard. Only a live endpoint may be removed; a retry
     finds it removed and is refused 409
-    `webhook-endpoint/invalid-status`."})
+    `webhook-endpoint/invalid-status`."
+   [:post "/v1/me/invitations/{invitation-id}/accept"]
+   "Source-state guard. Only a pending invitation may be accepted; a
+    retry finds it accepted and is refused `invitation/invalid-status`."
+   [:post "/v1/me/invitations/{invitation-id}/decline"]
+   "Source-state guard. Only a pending invitation may be declined; a
+    retry finds it declined and is refused `invitation/invalid-status`."
+   [:post "/v1/me/memberships/{membership-id}/leave"]
+   "Source-state guard. Only an active membership may be ended; a retry
+    finds it ended and is refused `membership/invalid-status`."
+   [:post "/v1/members/{membership-id}/change-role"]
+   "Absolute set. The body names the role, so a retry converges."
+   [:post "/v1/members/{membership-id}/remove"]
+   "Source-state guard. Only an active membership may be ended; a retry
+    finds it ended and is refused `membership/invalid-status`."
+   [:post "/v1/invitations/{invitation-id}/withdraw"]
+   "Source-state guard. Only a pending invitation may be withdrawn; a
+    retry finds it withdrawn and is refused `invitation/invalid-status`."})
 
 (def ^:private shared-responses
   {400 (ErrorResponse [#'examples/BadRequest #'examples/MissingIdempotencyKey

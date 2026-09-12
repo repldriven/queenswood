@@ -30,6 +30,7 @@
                         :requestBody {:required true}
                         :parameters ^:replace
                                     [shared.parameters/ref-bank-id
+                                     shared.parameters/ref-bank-id-header
                                      shared.parameters/ref-idempotency-key]}
               :parameters {:body [:ref "SimulateInboundTransferRequest"]}
               :interceptors [server/require-idempotency-key

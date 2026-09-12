@@ -27,7 +27,9 @@
      {:get {:summary "Retrieve parties"
             :openapi {:operationId "RetrieveParties"
                       :security [{"bearerAuth" ["org:viewer"]}]
-                      :parameters ^:replace [shared.parameters/ref-page]}
+                      :parameters ^:replace
+                                  [shared.parameters/ref-page
+                                   shared.parameters/ref-bank-id-header]}
             :parameters {:query list-parties-query-schema}
             :responses {200 {:body [:ref "PartyList"]}}
             :handler queries/list-parties}
@@ -36,7 +38,8 @@
                        :security [{"bearerAuth" ["org:developer"]}]
                        :requestBody {:required true}
                        :parameters ^:replace
-                                   [shared.parameters/ref-idempotency-key]}
+                                   [shared.parameters/ref-bank-id-header
+                                    shared.parameters/ref-idempotency-key]}
              :interceptors [server/require-idempotency-key
                             bank-idempotency/cache-response]
              :parameters {:body [:ref "CreatePartyRequest"]}
@@ -52,7 +55,8 @@
              :openapi {:operationId "RetrieveParty"
                        :parameters ^:replace
                                    [shared.parameters/ref-party-id
-                                    shared.parameters/ref-party-embed]}
+                                    shared.parameters/ref-party-embed
+                                    shared.parameters/ref-bank-id-header]}
              :parameters {:query get-party-query-schema}
              :responses {200 {:body [:ref "PartyDetail"]}
                          404 (ErrorResponse [#'PartyNotFound])}
@@ -63,6 +67,7 @@
               :openapi {:operationId "SuspendParty"
                         :parameters ^:replace
                                     [shared.parameters/ref-party-id
+                                     shared.parameters/ref-bank-id-header
                                      shared.parameters/ref-idempotency-key]}
               :interceptors [server/require-idempotency-key
                              bank-idempotency/cache-response]
@@ -78,6 +83,7 @@
               :openapi {:operationId "ResumeParty"
                         :parameters ^:replace
                                     [shared.parameters/ref-party-id
+                                     shared.parameters/ref-bank-id-header
                                      shared.parameters/ref-idempotency-key]}
               :interceptors [server/require-idempotency-key
                              bank-idempotency/cache-response]
@@ -93,6 +99,7 @@
               :openapi {:operationId "CloseParty"
                         :parameters ^:replace
                                     [shared.parameters/ref-party-id
+                                     shared.parameters/ref-bank-id-header
                                      shared.parameters/ref-idempotency-key]}
               :interceptors [server/require-idempotency-key
                              bank-idempotency/cache-response]
@@ -110,6 +117,7 @@
                         :requestBody {:required true}
                         :parameters ^:replace
                                     [shared.parameters/ref-party-id
+                                     shared.parameters/ref-bank-id-header
                                      shared.parameters/ref-idempotency-key]}
               :interceptors [server/require-idempotency-key
                              bank-idempotency/cache-response]
