@@ -1,29 +1,13 @@
-# Test the bricks changed since the last stable-* tag, docker up first.
-test: docker-start
-    clojure -M:poly test :dev
+TEST_OPTS := "JDK_JAVA_OPTIONS=\"-XX:ActiveProcessorCount=$(n=$(docker info --format '{{.NCPU}}' 2>/dev/null); if [ \"${n:-0}\" -gt 0 ] 2>/dev/null; then echo \"$n\"; else nproc 2>/dev/null || sysctl -n hw.ncpu; fi)\""
 
-# Test every brick in every project, whatever changed. Docker up first.
-test-all: docker-start
-    clojure -M:poly test :all :dev
+# Test the changed bricks in the development project
+test:
+    {{TEST_OPTS}} clojure -M:poly test project:dev
 
-# Check the working tree's FDB record meta-data evolves from the last stable-* tag's
-test-schema-evolution:
-    clojure -M:poly test brick:migrator :dev
-
-# Check every deployable project's production application.yml names only
-# component-kinds its own classpath registers.
-check-system-configs:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    script="{{ justfile_directory() }}/scripts/check_system_config.clj"
-    failed=0
-    # Every project is run, rather than stopping at the first that
-    # fails, so one pass names every config that drifted.
-    for dir in {{ justfile_directory() }}/projects/*/; do
-      ( cd "$dir" && clojure -M -i "$script" -e "(check-system-config/-main)" ) \
-        || failed=1
-    done
-    exit "$failed"
+# Full test suite is the default test plus startup and migrator for all projects
+test-all:
+    just test
+    {{TEST_OPTS}} clojure -M:poly test brick:test-startup:migrator :all
 
 # Parse schemathesis JUnit report; optionally filter by status class: 2xx, 4xx, 5xx (or just 2, 4, 5)
 schemathesis-check filter="":

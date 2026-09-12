@@ -38,7 +38,7 @@ gastown-setup:
 # Named separately from `test` so the lane has a stable entry point:
 # retune `test` and the factory needs no edit.
 
-# Run the full suite, bringing docker up first.
+# Run the test default.
 gastown-test:
     nix develop . --command just test
 

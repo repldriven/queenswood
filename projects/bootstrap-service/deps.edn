@@ -10,7 +10,8 @@
     ext/mono-test-runner {:local/root "../../deps/mono-test-runner"}
     component/test-resources {:local/root "../../components/test-resources"}
     component/testcontainers {:local/root "../../components/testcontainers"}
-    component/test-schema {:local/root "../../components/test-schema"}}}}
+    component/test-schema {:local/root "../../components/test-schema"}
+    component/test-startup {:local/root "../../components/test-startup"}}}}
  ;; The whole closure of what the Job seeds: policies and the four
  ;; cash-account-product templates, over FDB. `cash-account-product` is
  ;; here for its `system.clj`, which registers the

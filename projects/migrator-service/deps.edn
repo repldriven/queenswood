@@ -10,6 +10,8 @@
                                {:local/root "../../components/testcontainers"}
                                component/test-schema
                                {:local/root "../../components/test-schema"}
+                               component/test-startup
+                               {:local/root "../../components/test-startup"}
                                component/test-resources
                                {:local/root
                                 "../../components/test-resources"}}}}

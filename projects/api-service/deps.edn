@@ -10,7 +10,8 @@
     ext/mono-test-runner {:local/root "../../deps/mono-test-runner"}
     component/test-resources {:local/root "../../components/test-resources"}
     component/testcontainers {:local/root "../../components/testcontainers"}
-    component/test-schema {:local/root "../../components/test-schema"}}}}
+    component/test-schema {:local/root "../../components/test-schema"}
+    component/test-startup {:local/root "../../components/test-startup"}}}}
  :deps {ext/mono {:local/root "../../deps/mono"}
         component/fdb {:local/root "../../components/fdb"}
         component/api-schema {:local/root "../../components/api-schema"}

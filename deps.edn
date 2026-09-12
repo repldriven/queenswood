@@ -53,6 +53,7 @@
     components/test-scenarios {:local/root "components/test-scenarios"}
     components/test-model {:local/root "components/test-model"}
     components/test-projections {:local/root "components/test-projections"}
+    components/test-startup {:local/root "components/test-startup"}
     components/payee-check {:local/root "components/payee-check"}
     components/payment {:local/root "components/payment"}
     components/payment-query {:local/root "components/payment-query"}
@@ -60,18 +61,23 @@
     components/user {:local/root "components/user"}
     components/webhook {:local/root "components/webhook"}
     bases/api {:local/root "bases/api"}
-    bases/clearbank-simulator {:local/root "bases/clearbank-simulator"}
+    bases/bootstrap {:local/root "bases/bootstrap"}
     bases/clearbank-adapter {:local/root "bases/clearbank-adapter"}
-    bases/onfido-simulator {:local/root "bases/onfido-simulator"}
+    bases/clearbank-simulator {:local/root "bases/clearbank-simulator"}
+    bases/exclusive-dispatchers {:local/root "bases/exclusive-dispatchers"}
+    bases/external-adapters {:local/root "bases/external-adapters"}
+    bases/financial-processors {:local/root "bases/financial-processors"}
+    bases/migrator {:local/root "bases/migrator"}
+    bases/monolith {:local/root "bases/monolith"}
     bases/onfido-adapter {:local/root "bases/onfido-adapter"}
+    bases/onfido-simulator {:local/root "bases/onfido-simulator"}
+    bases/operational-processors {:local/root
+                                  "bases/operational-processors"}
     bases/uk-companies-house-adapter {:local/root
                                       "bases/uk-companies-house-adapter"}
     bases/uk-companies-house-simulator {:local/root
-                                        "bases/uk-companies-house-simulator"}
-    bases/exclusive-dispatchers {:local/root "bases/exclusive-dispatchers"}
-    bases/external-adapters {:local/root "bases/external-adapters"}
-    bases/monolith {:local/root "bases/monolith"}}
-   :extra-paths ["development/src" "development/resources"]
+                                        "bases/uk-companies-house-simulator"}}
+   :extra-paths ["development/src"]
    :jvm-opts
    ["-Dclojure.tools.logging.factory=clojure.tools.logging.impl/slf4j-factory"]}
   :test {:extra-deps {ext/mono {:local/root "deps/mono-test"}
@@ -110,6 +116,7 @@
                        "components/test-scenarios/test-resources"
                        "components/test-model/test"
                        "components/test-projections/test"
+                       "components/test-startup/test"
                        "components/test-resources/test-resources"
                        "components/payment/test"
                        "components/payment/test-resources"
@@ -127,19 +134,20 @@
                        "components/onfido-relay/test"
                        "components/onfido-relay/test-resources"
                        "bases/api/test"
-                       "bases/clearbank-simulator/test"
-                       "bases/clearbank-simulator/test-resources"
                        "bases/clearbank-adapter/test"
                        "bases/clearbank-adapter/test-resources"
-                       "bases/onfido-simulator/test"
-                       "bases/onfido-simulator/test-resources"
+                       "bases/clearbank-simulator/test"
+                       "bases/clearbank-simulator/test-resources"
+                       "bases/migrator/test"
+                       "bases/monolith/test-resources"
                        "bases/onfido-adapter/test"
                        "bases/onfido-adapter/test-resources"
+                       "bases/onfido-simulator/test"
+                       "bases/onfido-simulator/test-resources"
                        "bases/uk-companies-house-adapter/test"
                        "bases/uk-companies-house-adapter/test-resources"
                        "bases/uk-companies-house-simulator/test"
-                       "bases/uk-companies-house-simulator/test-resources"
-                       "bases/monolith/test-resources"]}
+                       "bases/uk-companies-house-simulator/test-resources"]}
   :format/zprint {:extra-deps {zprint/zprint {:mvn/version "1.3.0"}}
                   :main-opts ["-m" "zprint.main"]}
   :lint/clj-kondo {:extra-deps {clj-kondo/clj-kondo {:mvn/version "2026.07.24"}}

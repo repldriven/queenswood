@@ -217,9 +217,9 @@ block, it belongs under `system/`.
   strings to refs.
 
 - Check a change to a project's `application.yml` with
-  `just check-system-configs`, which loads every deployable
-  project's production config against its own classpath and
-  fails on a `system/component-kind` nothing registers.
+  `just test-all`, whose `test-startup` component loads every
+  deployable project's production config against its own classpath
+  and fails on a `system/component-kind` nothing registers.
 
 **SHOULD:**
 

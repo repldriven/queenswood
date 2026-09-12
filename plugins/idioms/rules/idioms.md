@@ -41,10 +41,10 @@ fixture that needs another write brick — a party, a product version,
 a policy on record — makes the case a scenario, and a service
 project's `:test` alias is never widened so the namespace loads; the
 rare exception carries `;; enforce-idioms: brick-test-scope -- <reason>`
-on the line above the require. Run a brick with `brick:<name> :dev`,
-in every project that hosts it. Manage system lifecycle with
-`with-test-system`, mark namespaces that boot infrastructure
-`^:eftest/synchronized`, keep per-brick config at
+on the line above the require. Run `just test` as the default, and
+one brick with `project:dev brick:<name> :all`. Manage system
+lifecycle with `with-test-system`, mark namespaces that boot
+infrastructure `^:eftest/synchronized`, keep per-brick config at
 `test-resources/<brick>/application-test.yml`, and assert
 anomaly-freeness with `nom-test>`. Never `use-fixtures`.
 See [testing](../../../docs/recipes/test/testing.md).

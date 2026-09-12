@@ -321,38 +321,18 @@ rule (and its source recipe/ADR, kept in sync by the
 ## Common commands
 
 ```bash
-# Run the bricks changed since the last stable-* tag (what `just test`
-# and so the Gas City lane run). With no such tag reachable the
-# comparison falls back to the initial commit and everything runs.
-# `:dev` is what reaches the scenario bricks: they belong to the
-# development project alone, which polylith excludes without it.
-clojure -M:poly test :dev
+# Run the tests.
+just test
 
-# The full run: every brick in every service project, and the
-# development project with it, so the scenarios run too. This is what
-# `just test-all` does (and it starts docker first). When something
-# says "the full suite", this is the command. The two narrower forms
-# below each drop a dimension, so neither stands in for it.
-clojure -M:poly test :all :dev
+# Run the full suite.
+just test-all
 
-# Every service project's matrix, without the development project —
-# so no scenario bricks.
-clojure -M:poly test :all
+# Run tests for one or more bricks:
+clojure -M:poly test brick:<brick-name> project:dev :all
+clojure -M:poly test brick:<brick1>:<brick2> project:dev :all
 
-# The development project alone. It carries every brick, scenarios
-# included, but tests each one against dev's dependency set only: a
-# test dependency a service project lacks still fails only there.
-clojure -M:poly test project:dev :all
-
-# Run tests for one or more bricks, in every project that hosts them
-# plus the development project. Never restrict to project:dev alone: it
-# carries every brick, so a test dependency a service project lacks
-# only fails there.
-clojure -M:poly test brick:<brick-name> :dev
-clojure -M:poly test brick:<brick1>:<brick2> :dev
-
-# Code generation prep (add :force true after a schema change)
-clj -X:deps prep :aliases '[:dev]'
+# Regenerate code after a schema change.
+just force-prep
 
 # Install the git hooks. .envrc already does this on entering the
 # primary checkout, so this is the fallback for a clone with no direnv.

@@ -274,6 +274,21 @@
                             old
                             new))))
 
+(defn validate-save
+  [^RecordMetaData old ^RecordMetaData new]
+  (let [old-version (.getVersion old)
+        new-version (.getVersion new)]
+    (cond (< old-version new-version)
+          (validate-evolution old new)
+          (= old-version new-version)
+          (validate-unchanged old new)
+          :else
+          (error/fail :fdb/meta-data-evolution
+                      {:message
+                       "stored meta-data is newer than this code's"
+                       :old-version old-version
+                       :new-version new-version}))))
+
 (defn- meta-data-store
   ^FDBMetaDataStore [ctx path]
   (doto (FDBMetaDataStore. ctx (keyspace/path path))
@@ -308,19 +323,7 @@
                        path
                        (some-> old
                                describe))
-             (cond
-              (nil? old)
-              (do (.saveRecordMetaData ms meta-data) :saved)
-
-              (< (.getVersion old) new-version)
-              (or (validate-evolution old meta-data)
-                  (do (.saveRecordMetaData ms meta-data) :saved))
-
-              (= (.getVersion old) new-version)
-              (or (validate-unchanged old meta-data) :current)
-
-              :else
-              (error/fail :fdb/meta-data-evolution
-                          {:message "stored meta-data is newer than this code's"
-                           :old-version (.getVersion old)
-                           :new-version new-version})))))))
+             (or (when old (validate-save old meta-data))
+                 (if (and old (= (.getVersion old) new-version))
+                   :current
+                   (do (.saveRecordMetaData ms meta-data) :saved))))))))

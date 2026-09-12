@@ -147,7 +147,7 @@
         (let [old (meta-data (str dir) include-path)
               new (meta-data root include-path)]
           (when-not (or (error/anomaly? old) (error/anomaly? new))
-            (let [result (fdb/validate-meta-data-evolution old new)]
+            (let [result (fdb/validate-meta-data-save old new)]
               (is (nil? result)
                   (pr-str (dissoc (error/payload result)
                            :exception

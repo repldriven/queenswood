@@ -30,29 +30,61 @@ System tests manage lifecycle explicitly with `with-test-system`
 
 ### Running tests
 
-The full run is every service project's matrix plus the development
-project, which is where the scenario bricks live:
+The default is `just test`, which is what the Gas City lane runs:
+
+```bash
+clojure -M:poly test project:dev
+```
+
+It tests the bricks changed since the last `stable-*` tag in the
+development project, which carries every brick. A brick counts as
+changed when any of its files changed, or when a brick it depends on,
+directly or through others, changed, so a change to `schema` or `fdb`
+runs nearly everything. A change to the record meta-data declaration
+alone selects nothing: it lives in `resources`, a brick nothing
+depends on in polylith's graph.
+
+The full suite is `just test-all`: the default, then, whatever
+changed, the start-up check in every service project and the
+migrator's tests, its schema-evolution guard among them, in
+migrator-service:
+
+```bash
+clojure -M:poly test brick:test-startup:migrator :all
+```
+
+`brick:` with `:all` forces those bricks, and without `:dev` the
+development project is skipped. `test-startup` is a test-only
+component every service project pulls in through its `:test` alias,
+beside `test-resources` and `testcontainers`, so poly runs its one
+test once per project on that project's classpath. The test finds its
+project from where `application.yml` sits on the classpath, loads the
+entry base the project is named after, parses that config with the
+default profile and builds the system definitions without starting
+anything, so a library the project lacks, a require missing from a
+base's `system.clj`, or a component-kind nothing registered fails
+there in seconds. In the development project no such config is on the
+classpath and the test has nothing to check.
+
+Every brick in every service project, the per-project matrix, is CI's
+run and has no recipe:
 
 ```bash
 clojure -M:poly test :all :dev
 ```
 
-`just test-all` is that command with docker started first. Nothing
-narrower is "all tests": `:all` on its own omits the development
-project and so every scenario, and `project:dev` on its own tests each
-brick against dev's dependency set only.
+What it adds to the full suite is each brick's tests against every
+service project's own resolution of library versions.
 
-Specific bricks (one or more, colon-separated), in every project
-that hosts them plus the development project:
+One or more bricks, whether changed or not, in the development
+project:
 
 ```bash
-clojure -M:poly test brick:<brick-name> :dev
-clojure -M:poly test brick:balance:cash-account :dev
+clojure -M:poly test project:dev brick:<brick-name> :all
+clojure -M:poly test project:dev brick:balance:cash-account :all
 ```
 
-Never restrict a brick run to `project:dev` alone. The development
-project carries every brick, so a test dependency a service project
-lacks fails only in that project, and only when its tests run.
+No test recipe starts docker; `just docker-start` does, once.
 
 ### Choosing a test form
 
@@ -186,8 +218,11 @@ Pure-function tests don't need the marker.
   crosses a brick boundary or drives the command pipeline.
 - Pin the HTTP contract as an EDN scenario in
   `test-api-scenarios`, never in a brick's `interface_test.clj`.
-- Run a brick's tests with `brick:<name> :dev`, in every project
-  that hosts it, never in `project:dev` alone.
+- Run `just test` as the default, the changed bricks in the
+  development project, and `just test-all` as the full suite: the
+  default plus the start-up check of every service project and the
+  migrator's guard, whatever changed.
+- Run one brick with `project:dev brick:<name> :all`.
 - Manage system lifecycle in tests with `with-test-system`.
 - Mark namespaces that boot infrastructure with
   `^:eftest/synchronized`.
