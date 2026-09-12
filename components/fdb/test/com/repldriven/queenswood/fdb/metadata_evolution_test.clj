@@ -1,25 +1,26 @@
 (ns ^:eftest/synchronized com.repldriven.queenswood.fdb.metadata-evolution-test
-  "The meta-data save a new record type has to survive. `build-meta-data`
-  sets no explicit version — `addIndex` stamps each index in iteration
-  order, so the version is the index count — and `meta-store` treats the
-  Record Layer's \"must increase\" rejection as already-current, so a save
-  that should have applied and did not says nothing. Against an empty
-  cluster every save is a first save and neither shows, so this seeds a
-  keyspace with the meta-data as it stood before the webhook stores and
-  then runs the real migrate over it.
+  "The meta-data save the four webhook stores have to survive. The
+  declaration carries a version, each index the version it was added and
+  last modified at, and the Record Layer refuses a save that moves an
+  existing index's added version or changes a key under the same name.
+  Against an empty cluster every save is a first save and neither rule
+  bites, so this seeds a keyspace with the meta-data as it stood before
+  the webhook stores and then runs the real migrate over it.
 
   The seed is built from a descriptor whose `RecordTypeUnion` has the four
   webhook fields removed: the Record Layer refuses to build meta-data for
   a union record type with no primary key, so the previous state cannot be
-  expressed as the current descriptor with four YAML entries dropped.
+  expressed as the current descriptor with four declaration entries
+  dropped.
 
-  The bank's descriptor and record types are named as strings and read off
+  The bank's descriptor and declaration are named as strings and read off
   the classpath, the way `system/fdb.yml` names them, so this checks the
   bank's own schema without `fdb` requiring the bricks that hold it."
   (:require
     [com.repldriven.queenswood.testcontainers.interface]
 
     [com.repldriven.queenswood.fdb.keyspace :as keyspace]
+    [com.repldriven.queenswood.fdb.meta-data :as meta-data]
     [com.repldriven.queenswood.fdb.system.components :as components]
 
     [com.repldriven.mono.env.interface :as env]
@@ -54,9 +55,18 @@
     "WebhookNotification_by_bank_created" "WebhookDelivery_by_status_due"
     "WebhookDelivery_by_endpoint_created" "WebhookDeliveryAttempt_by_delivery"})
 
-(defn- record-types
+(defn- declaration
   []
   (:record-types (env/config "classpath:fdb/record-types-test.yml" :default)))
+
+(defn- without-webhooks
+  "The declaration as it stood before the webhook stores: their entries
+  dropped and the version back to the one that preceded the bump adding
+  them."
+  [{:strs [version stores] :as decl}]
+  (assoc decl
+         "version" (dec version)
+         "stores" (apply dissoc stores webhook-stores)))
 
 (defn- union-without-webhooks
   [^Descriptors$FileDescriptor file-desc]
@@ -71,16 +81,6 @@
      (.build builder)
      (into-array Descriptors$FileDescriptor (.getDependencies file-desc)))))
 
-(defn- meta-data
-  [^Descriptors$FileDescriptor file-desc types]
-  (let [builder (.setRecords (RecordMetaData/newBuilder) file-desc)]
-    (#'components/set-primary-keys builder types)
-    (doseq [{:strs [record-type indexes]} (#'components/union-ordered
-                                           file-desc
-                                           types)]
-      (#'components/add-indexes builder record-type indexes))
-    (.build builder)))
-
 (defn- seed-meta-data!
   [record-db path meta]
   (.run record-db
@@ -91,12 +91,12 @@
           nil)))
 
 (defn- migrate-meta-data!
-  [record-db path types]
+  [record-db path decl]
   ((:system/start components/meta-store)
    {:system/config {:record-db record-db
                     :path path
                     :descriptor descriptor
-                    :record-types types
+                    :metadata decl
                     :migrate true}}))
 
 (defn- stored-meta-data
@@ -123,15 +123,20 @@
    [sys "classpath:fdb/application-test.yml"]
    (let [record-db (system/instance sys [:fdb :record-db])
          path (str "meta-evolution-" (utility/uuidv7))
-         current (record-types)
-         previous (apply dissoc current webhook-stores)]
-     (testing "the record-type YAML declares the four stores"
-       (is (= (count webhook-stores) (- (count current) (count previous)))))
+         current (declaration)
+         previous (without-webhooks current)]
+     (testing "the declaration declares the four stores"
+       (is (= (count webhook-stores)
+              (- (count (get current "stores"))
+                 (count (get previous "stores"))))))
+     (testing "and bumped its version to carry them"
+       (is (= (inc (get previous "version")) (get current "version"))))
      (seed-meta-data! record-db
                       path
-                      (meta-data (union-without-webhooks
-                                  (#'components/resolve-descriptor descriptor))
-                                 previous))
+                      (#'meta-data/build*
+                       (union-without-webhooks (meta-data/file-descriptor
+                                                descriptor))
+                       previous))
      (let [before (stored-meta-data record-db path)]
        (testing "the keyspace starts on meta-data that predates them"
          (is (empty? (set/intersection webhook-record-types
@@ -153,4 +158,3 @@
                   Layer refuses a save for moving"
            (let [was (index-versions before)]
              (is (= was (select-keys (index-versions after) (keys was)))))))))))
-
