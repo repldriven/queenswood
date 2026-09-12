@@ -32,6 +32,7 @@
   (:require
     [com.repldriven.queenswood.webhook.system]
 
+    [com.repldriven.queenswood.webhook.catalogue :as catalogue]
     [com.repldriven.queenswood.webhook.components :as components]
     [com.repldriven.queenswood.webhook.core :as core]
     [com.repldriven.queenswood.webhook.domain :as domain]
@@ -339,6 +340,15 @@
   feeding the document's `components/examples` section."}
   examples
   examples/registry)
+
+(def
+  ^{:doc
+    "Every public kind the bank publishes, as `{:kind :resource-type}`
+  in catalogue order. The `api` base lists one entry per kind under the
+  exported document's `webhooks` object, so a kind added to the
+  catalogue is published in the document by the same edit."}
+  published-kinds
+  (mapv #(select-keys % [:kind :resource-type]) catalogue/entries))
 
 ;; ---
 ;; rejection examples

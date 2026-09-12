@@ -50,7 +50,8 @@
    :ledger-account/closed 409
    :party/invalid-status 409
    :party/open-accounts 409
-   :policy/limit-exceeded 429})
+   :policy/limit-exceeded 429
+   :webhook-endpoint/invalid-status 409})
 
 (def ^:private error-status-overrides
   "Statuses for error anomalies the storage layer and the external

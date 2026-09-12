@@ -68,6 +68,7 @@
     [com.repldriven.queenswood.api.tier.routes :as tier]
     [com.repldriven.queenswood.api.transaction.components :as
      transaction.components]
+    [com.repldriven.queenswood.api.webhook.document :as webhook.document]
     [com.repldriven.queenswood.api.webhook.routes :as webhook]
 
     [com.repldriven.queenswood.api-schema.interface :as api-schema]
@@ -80,6 +81,7 @@
     [clojure.string :as str]
 
     [malli.core :as m]
+    [malli.json-schema :as mjs]
     [malli.transform :as mt]
     [reitit.coercion.malli :as malli-coercion]
     [reitit.http :as http]
@@ -105,6 +107,36 @@
                        api-transformer
                        (when default-values (mt/default-value-transformer))))))
 
+(def ^:private schema-registry
+  "Every named schema the document may reference, each domain's
+  registry merged into malli's own. The coercion resolves
+  `[:ref \"X\"]` through it, and `notification-schemas` projects the
+  notification out of it."
+  (merge (m/default-schemas)
+         {:unique-vector api-schema/unique-vector-schema
+          :unique-vector-lax api-schema/unique-vector-lax-schema
+          "ErrorResponse" api-schema/ErrorResponseSchema}
+         balance.components/registry
+         bank.components/registry
+         cash-account-api/registry
+         cash-account-migration.components/registry
+         cash-account-product.components/registry
+         companies.components/registry
+         jobs.components/registry
+         ledger-account.components/registry
+         me.components/registry
+         oauth.components/registry
+         onboarding.components/registry
+         party.components/registry
+         payee-check.components/registry
+         payment.components/registry
+         policy.components/registry
+         api-schema/registry
+         simulate.components/registry
+         tier.components/registry
+         transaction.components/registry
+         webhook-api/registry))
+
 (def ^:private coercion
   (malli-coercion/create
    {:transformers {:body {:default (->provider (mt/json-transformer))}
@@ -116,31 +148,33 @@
     ;; never reject them. We want 400s for unexpected fields on both
     ;; query-params and request bodies.
     :strip-extra-keys false
-    :options {:registry (merge (m/default-schemas)
-                               {:unique-vector api-schema/unique-vector-schema
-                                :unique-vector-lax
-                                api-schema/unique-vector-lax-schema
-                                "ErrorResponse" api-schema/ErrorResponseSchema}
-                               balance.components/registry
-                               bank.components/registry
-                               cash-account-api/registry
-                               cash-account-migration.components/registry
-                               cash-account-product.components/registry
-                               companies.components/registry
-                               jobs.components/registry
-                               ledger-account.components/registry
-                               me.components/registry
-                               oauth.components/registry
-                               onboarding.components/registry
-                               party.components/registry
-                               payee-check.components/registry
-                               payment.components/registry
-                               policy.components/registry
-                               api-schema/registry
-                               simulate.components/registry
-                               tier.components/registry
-                               transaction.components/registry
-                               webhook-api/registry)}}))
+    :options {:registry schema-registry}}))
+
+(def ^:private notification-schemas
+  "The notification's JSON Schema and every schema it reaches, keyed as
+  `components/schemas` keys them. Reitit fills that key from the route
+  schemas it transforms and then replaces it wholesale, so a schema
+  only the `webhooks` object references reaches the document after its
+  handler has run."
+  (delay (:definitions (mjs/transform [:ref "WebhookNotification"]
+                                      {:registry schema-registry
+                                       ::mjs/definitions-path
+                                       "#/components/schemas/"}))))
+
+(defn- openapi-handler
+  "The standard handler, with the notification's schemas merged under
+  the ones reitit collected, so the `webhooks` object's `$ref`
+  resolves."
+  []
+  (let [handler (server/standard-openapi-handler)
+        with-notification (fn [response]
+                            (update-in response
+                                       [:body :components :schemas]
+                                       #(merge @notification-schemas %)))]
+    (fn
+      ([request] (with-notification (handler request)))
+      ([request respond raise]
+       (handler request (comp respond with-notification) raise)))))
 
 (defn- routes
   [ctx]
@@ -181,8 +215,9 @@
                     policy.examples/registry
                     simulate.examples/registry
                     tier.examples/registry
-                    webhook-api/examples)}}
-       :handler (server/standard-openapi-handler)}}]
+                    webhook-api/examples)}
+        :webhooks webhook.document/webhooks}
+       :handler (openapi-handler)}}]
     (into [""
            {:interceptors (concat telemetry/trace-span
                                   (:interceptors ctx))}]

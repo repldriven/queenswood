@@ -35,8 +35,11 @@
     :description
     "The HTTPS URL the bank calls. A non-HTTPS address, and one whose
     host resolves into a loopback, link-local, private, unique-local,
-    carrier-grade-NAT or unspecified range, is refused."}
-   #"^https://[^\s]{1,2000}$"])
+    carrier-grade-NAT or unspecified range, is refused — by the domain
+    rule, as 422 `webhook-endpoint/invalid-address`, so the scheme is
+    not pinned here: a pattern refusing it would answer 400 instead and
+    the rule would never run."}
+   #"^[a-zA-Z][a-zA-Z0-9+.-]*://[^\s]{1,2000}$"])
 
 (def WebhookSigningSecret
   [:re
