@@ -42,6 +42,7 @@
         {"name": "created_at", "type": {"type": "long", "logicalType": "timestamp-millis"}},
         {"name": "updated_at", "type": {"type": "long", "logicalType": "timestamp-millis"}}
       ]
-    }], "default": null}
+    }], "default": null},
+    {"name": "owner_invitation_id", "type": ["null", "string"], "default": null}
   ]
 }
