@@ -8,26 +8,31 @@
   ;; only, so :necessary suppresses false-positive warnings.
   "operational-processors-service" {:alias "ops"
                                     :necessary ["resources"
-                                                "schema" "test-resources"]}
+                                                "schema" "test-resources"
+                                                "test-startup"]}
   "financial-processors-service" {:alias "fin"
                                   :necessary ["resources"
-                                              "schema" "test-resources"]}
+                                              "schema" "test-resources"
+                                              "test-startup"]}
   "api-service" {:alias "api"
                  :necessary ["resources"
-                             "schema" "test-resources"]}
+                             "schema" "test-resources" "test-startup"]}
   "bootstrap-service" {:alias "bbs"
                        :necessary ["resources" "schema"
-                                   "test-resources"]}
+                                   "test-resources" "test-startup"]}
   "migrator-service" {:alias "mig"
                       :necessary ["resources" "schema"
-                                  "test-resources"]}
+                                  "test-resources" "test-startup"]}
   "exclusive-dispatchers-service" {:alias "exd"
                                    :necessary ["resources"
-                                               "schema" "test-resources"]}
+                                               "schema" "test-resources"
+                                               "test-startup"]}
   "external-adapters-service" {:alias "ext"
                                :necessary ["resources"
-                                           "schema" "test-resources"]}
-  "monolith-service" {:alias "mon" :necessary ["resources" "test-resources"]}}
+                                           "schema" "test-resources"
+                                           "test-startup"]}
+  "monolith-service" {:alias "mon" :necessary ["resources" "test-resources"
+  "test-startup"]}}
  :tag-patterns {:release "v[0-9]*" :stable "stable-*"}
  :test {:create-test-runner
         com.repldriven.mono.external-test-runner.core/create}

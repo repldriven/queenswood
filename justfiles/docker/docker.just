@@ -1,6 +1,6 @@
 # Start Docker via Colima
 docker-start:
-    colima status 2>/dev/null || colima start --arch aarch64 --vm-type vz --vz-rosetta --cpu 6 --memory 24 --disk 100
+    colima status 2>/dev/null || colima start --arch aarch64 --vm-type vz --vz-rosetta --cpu 9 --memory 24 --disk 100
     # Raise inotify limits — kind nodes plus per-pod kubectl/curl
     # polling exhaust the defaults (128 instances, 8192 watches)
     # and surface as "too many open files" in init containers.

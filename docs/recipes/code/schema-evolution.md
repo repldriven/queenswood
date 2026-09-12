@@ -51,15 +51,17 @@ everything else, and the guard runs the same validator between the last
 5. Keep a proto field that is no longer wanted, with its tag, marked
    `[deprecated = true]`, and drop it in the record conversion.
 
-6. Run the guard:
+6. Run the full suite:
 
    ```bash
-   just test-schema-evolution
+   just test-all
    ```
 
-   It builds the meta-data from the last `stable-*` tag's declaration
-   and protos, then from the working tree's, and validates the second
-   as an evolution of the first. The output ends in `0 failures`.
+   The migrator's guard runs on every `just test-all`, whatever
+   changed. It builds the meta-data from the last `stable-*` tag's
+   declaration and protos, then from the working tree's, and validates
+   the second as an evolution of the first. The output ends in
+   `0 failures`.
 
 7. Run the tests of every brick whose store changed.
 
@@ -78,8 +80,8 @@ everything else, and the guard runs the same validator between the last
   — `added` moved on an index the store already holds. Put it back.
 - **`field removed from message descriptor`** — a proto field was
   removed or its tag reserved. Restore it and deprecate it.
-- **`meta-data changed without a version bump`, from the migrator** —
-  the declaration differs from what is stored at the same version.
+- **`meta-data changed without a version bump`** — the declaration
+  differs from the tag's, or from what is stored, at the same version.
   Bump `version` and mark what changed.
 - **`stored meta-data is newer than this code's`, from the migrator** —
   an older image is deploying over a store that has moved on. Deploy
@@ -94,8 +96,8 @@ everything else, and the guard runs the same validator between the last
 **MUST:**
 
 - Bump `version` in the declaration on every change to a record type,
-  primary key or index, and run `just test-schema-evolution` before
-  pushing.
+  primary key or index. `just test-all` runs the guard whatever
+  changed.
 - Set `modified` to the new version on an index whose key, type or
   uniqueness changed, keeping its name and its `added`.
 - Give a new index `added` and `modified` equal to the new version.

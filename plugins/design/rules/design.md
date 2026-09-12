@@ -38,9 +38,9 @@ is deprecated with its tag kept and dropped in the record conversion —
 never removed or reserved. The migrator saves with a validator that
 allows index rebuilds and refuses everything else: a change at the
 stored version, or older meta-data than the store's, fails the Job
-rather than being skipped. Run `just test-schema-evolution` before
-pushing — it validates the working tree's meta-data as an evolution of
-the last `stable-*` tag's.
+rather than being skipped. `just test-all` runs the migrator's guard
+whatever changed, validating the working tree's meta-data as an
+evolution of the last `stable-*` tag's.
 See [schema-evolution](../../../docs/recipes/code/schema-evolution.md).
 
 ## System components are declared in YAML, registered in Clojure

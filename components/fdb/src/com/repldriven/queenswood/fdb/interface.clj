@@ -310,6 +310,14 @@
   [old new]
   (meta-data/validate-evolution old new))
 
+(defn validate-meta-data-save
+  "Nil when `save-meta-data` would land `new` over a store holding `old`,
+  or find it current: a higher version passing the evolution rules, or
+  the same version with nothing changed. Otherwise the anomaly the save
+  would return."
+  [old new]
+  (meta-data/validate-save old new))
+
 (defn load-meta-data
   "The meta-data persisted at path, nil where none is, or an anomaly."
   [record-db path]
