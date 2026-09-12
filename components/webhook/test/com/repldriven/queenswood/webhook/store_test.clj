@@ -1,7 +1,9 @@
 (ns ^:eftest/synchronized com.repldriven.queenswood.webhook.store-test
   "The four webhook record types against a real record store (AC-06):
   each one round-trips, every index the record-type YAML declares
-  answers, and a second write under a taken unique key is refused.
+  answers, a second write under a taken unique key is refused, and the
+  claim scan reaches a row whose lease expired behind a pending
+  backlog that could fill the batch on its own.
 
   The lifecycle and the policy refusals live in `interface-test`; the
   pure rules live in `domain-test`."
@@ -233,3 +235,41 @@
                  attempts (SUT/find-attempts-by-delivery config "whd.1")
                  _ (testing "the delivery index holds every attempt, in order"
                      (is (= ["wha.1" "wha.2"] (mapv :attempt-id attempts))))]))))
+
+(deftest a-pending-backlog-does-not-starve-the-reclaim-test
+  (with-test-system
+   [sys config-file]
+   (let [config (fdb-config sys)
+         bank-id "bnk.store.claim"
+         now 1700000000100
+         stranded (assoc (delivery bank-id
+                                   "whd.stranded"
+                                   "whe.stranded"
+                                   :webhook-delivery-status-in-flight
+                                   1700000000000 1700000000000)
+                         :claim-lease-expires-at (dec now)
+                         :claimed-by "runner.died")]
+     (nom-test> [_ (SUT/save-delivery config stranded)
+                 _ (SUT/save-delivery config
+                                      (delivery bank-id
+                                                "whd.pending.1"
+                                                "whe.1"
+                                                :webhook-delivery-status-pending
+                                                1700000000001 1700000000001))
+                 _ (SUT/save-delivery config
+                                      (delivery bank-id
+                                                "whd.pending.2"
+                                                "whe.2"
+                                                :webhook-delivery-status-pending
+                                                1700000000002 1700000000002))
+                 claimed (SUT/claim-due-deliveries config
+                                                   {:now now
+                                                    :claimed-by "runner.live"
+                                                    :lease-ms 60000
+                                                    :limit 2
+                                                    :per-endpoint-limit 1})
+                 _ (testing "a batch the pending rows could fill on their own"
+                     (is (= 2 (count claimed))))
+                 _ (testing "still carries the row whose lease expired"
+                     (is (contains? (set (mapv :delivery-id claimed))
+                                    "whd.stranded")))]))))

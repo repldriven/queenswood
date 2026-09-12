@@ -305,6 +305,10 @@
   row loses this transaction and claims nothing, so a due delivery is
   sent once.
 
+  Rows whose claim lease has expired are scanned before the pending
+  ones, so a pending backlog of more than `:limit` rows cannot starve
+  the recovery.
+
   Returns the claimed deliveries as they were written.
 
   Args:
@@ -335,9 +339,10 @@
                            (filter #(claimable? % now))
                            (filter within-endpoint-limit?)
                            (take limit))
-                     (concat (deliveries-with-status store delivery-pending)
+                     (concat (deliveries-with-status store
+                                                     delivery-in-flight)
                              (deliveries-with-status store
-                                                     delivery-in-flight)))]
+                                                     delivery-pending)))]
        (reduce (fn [claimed delivery]
                  (let [row (assoc delivery
                                   :status delivery-in-flight

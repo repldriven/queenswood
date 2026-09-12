@@ -81,11 +81,10 @@
                               "rather than a deletion, so its "
                               "deliveries stay readable)")
                 :openapi {:operationId "RemoveWebhookEndpoint"}
-                :responses {204 {:description
-                                 (str "The endpoint was removed. No " "body.")}
-                            404 (ErrorResponse [#'WebhookEndpointNotFound])
-                            409 (ErrorResponse
-                                 [#'WebhookEndpointInvalidStatus])}
+                :responses
+                {204 {:description "The endpoint was removed. No body."}
+                 404 (ErrorResponse [#'WebhookEndpointNotFound])
+                 409 (ErrorResponse [#'WebhookEndpointInvalidStatus])}
                 :handler handlers/remove-endpoint}}]
      ["/enable"
       {:post {:summary (str "Enable a disabled or paused endpoint, "
