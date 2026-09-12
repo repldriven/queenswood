@@ -24,6 +24,17 @@
 
 (def ^:private provider (identity-provider/local-provider {:issuer issuer}))
 
+(def ^:private all-levels (set SUT/org-levels))
+
+(def ^:private viewer-gate [{"bearerAuth" ["org:viewer"]}])
+
+(def ^:private not-a-member "The caller is not a member of this bank")
+
+(def ^:private name-the-bank "Name the bank in the Bank-Id header")
+
+(def ^:private no-bank
+  "This route acts on the caller's bank and the token names none")
+
 (defn- sign-token
   "Sign `claims` with the provider's own key, so the test can present
   claims the provider itself would never mint."
@@ -39,34 +50,54 @@
                :header {:kid (:kid provider) :alg "RS256" :typ "JWT"}})))
 
 (defn- request
-  [token]
-  (cond-> {:identity-providers [provider]
-           :expected-audiences [audience]
-           :user-client-ids [console-client-id]}
-          token
-          (assoc :headers {"authorization" (str "Bearer " token)})))
+  ([token] (request token nil))
+  ([token bank-id]
+   (cond-> {:identity-providers [provider]
+            :expected-audiences [audience]
+            :user-client-ids [console-client-id]}
+           token
+           (assoc-in [:headers "authorization"] (str "Bearer " token))
+           bank-id
+           (assoc-in [:headers "bank-id"] bank-id))))
 
 (defn- authenticate
-  [token]
-  ((:enter SUT/authenticate) {:request (request token)}))
+  ([token] (authenticate token nil))
+  ([token bank-id]
+   ((:enter SUT/authenticate) {:request (request token bank-id)})))
 
 (defn- authenticated-auth
-  [claims]
-  (get-in (authenticate (sign-token claims)) [:request :auth]))
+  ([claims] (authenticated-auth claims nil))
+  ([claims bank-id]
+   (get-in (authenticate (sign-token claims) bank-id) [:request :auth])))
+
+(defn- authorize-as
+  "Run `authorize` over a GET whose compiled endpoint data carries
+  `security`, as the principal `auth`."
+  [auth security]
+  ((:enter SUT/authorize)
+   {:request (cond-> {:request-method :get
+                      :reitit.core/match {:result {:get {:data {:openapi {}}}}}}
+                     security
+                     (assoc-in [:reitit.core/match :result :get :data :openapi
+                                :security]
+                      security)
+                     auth
+                     (assoc :auth auth))}))
 
 (defn- authorize
   ([roles security] (authorize roles security "bnk.test"))
   ([roles security bank-id]
-   ((:enter SUT/authorize)
-    {:request (cond-> {:reitit.core/match {:data {:openapi {}}}}
-                      security
-                      (assoc-in [:reitit.core/match :data :openapi :security]
-                       security)
-                      roles
-                      (assoc :auth
-                             (cond-> {:roles roles}
-                                     bank-id
-                                     (assoc :bank-id bank-id))))})))
+   (authorize-as (when roles
+                   (cond-> {:roles roles}
+                           bank-id
+                           (assoc :bank-id bank-id)))
+                 security)))
+
+(defn- refused-with?
+  [ctx detail]
+  (and (= 403 (get-in ctx [:response :status]))
+       (= "auth/forbidden" (get-in ctx [:response :body :type]))
+       (= detail (get-in ctx [:response :body :detail]))))
 
 (def ^:private user-row
   {:user-id "usr-1"
@@ -75,7 +106,34 @@
    :email "ada@example.test"
    :name "Ada Lovelace"})
 
-(def ^:private membership-row {:user-id "usr-1" :bank-id "bank-abc"})
+(def ^:private membership-row
+  {:membership-id "mem.abc"
+   :user-id "usr-1"
+   :bank-id "bank-abc"
+   :role :role-owner})
+
+(def ^:private viewer-row
+  {:membership-id "mem.xyz"
+   :user-id "usr-1"
+   :bank-id "bank-xyz"
+   :role :role-viewer})
+
+(def ^:private user-claims
+  {:azp console-client-id
+   :sub "sub-1"
+   :aud [audience]
+   :email "ada@example.test"
+   :name "Ada Lovelace"})
+
+(def ^:private operator-claims
+  (assoc user-claims :realm_access {:roles ["admin"]}))
+
+(defmacro ^:private with-memberships
+  "Run `body` as `user-row` holding the active `rows`."
+  [rows & body]
+  `(with-redefs [users/upsert-by-sub (fn [_txn# _claims#] user-row)
+                 memberships/list-active-by-user (fn [_txn# _user-id#] ~rows)]
+     ~@body))
 
 (deftest authenticate-test
   (testing "no bearer leaves the context unchanged"
@@ -109,9 +167,23 @@
       (is (= :service (:principal-type auth)))
       (is (= "bank-abc" (:principal-id auth)))
       (is (= "bank-abc" (:bank-id auth)))
-      (is (= #{:org} (:roles auth)))
+      (is (= #{:org SUT/org-viewer SUT/org-developer} (:roles auth)))
+      (is (nil? (:bank-refused auth)))
       (is (some? (:token-jti auth)))))
-  (testing "the admin realm role adds admin and clears bank-id"
+  (testing "a service principal naming its own bank keeps it"
+    (let [auth (authenticated-auth
+                {:azp "bank-abc" :sub "bank-abc" :aud [audience]}
+                "bank-abc")]
+      (is (= "bank-abc" (:bank-id auth)))
+      (is (nil? (:bank-refused auth)))))
+  (testing "a service principal naming another bank is refused"
+    (let [auth (authenticated-auth
+                {:azp "bank-abc" :sub "bank-abc" :aud [audience]}
+                "bank-xyz")]
+      (is (nil? (:bank-id auth)))
+      (is (true? (:bank-refused auth)))
+      (is (refused-with? (authorize-as auth viewer-gate) not-a-member))))
+  (testing "the admin realm role adds admin and every level, and no bank"
     (let [auth (authenticated-auth {:azp "queenswood-admin"
                                     :sub "queenswood-admin"
                                     :aud [audience]
@@ -119,28 +191,159 @@
       (is (= :service (:principal-type auth)))
       (is (= "queenswood-admin" (:principal-id auth)))
       (is (nil? (:bank-id auth)))
-      (is (= #{:org :admin} (:roles auth)))))
+      (is (= (into #{:org :admin} all-levels) (:roles auth)))))
+  (testing "the admin client takes the header's bank"
+    (let [auth (authenticated-auth {:azp "queenswood-admin"
+                                    :sub "queenswood-admin"
+                                    :aud [audience]
+                                    :realm_access {:roles ["admin"]}}
+                                   "bank-xyz")]
+      (is (= "queenswood-admin" (:principal-id auth)))
+      (is (= "bank-xyz" (:bank-id auth)))
+      (is (nil? (:bank-refused auth)))
+      (is (nil? (:response (authorize-as auth viewer-gate))))))
   (testing "a user client id yields a user principal"
+    (with-memberships [membership-row]
+                      (let [auth (authenticated-auth user-claims)]
+                        (is (= :user (:principal-type auth)))
+                        (is (= "usr-1" (:principal-id auth)))
+                        (is (= issuer (:issuer auth)))
+                        (is (= "sub-1" (:sub auth)))
+                        (is (= user-row (:user auth)))
+                        (is (= [membership-row] (:memberships auth)))))))
+
+(deftest bank-id-header-test
+  (testing "a member naming their bank takes it and the level held there"
+    (with-memberships [membership-row viewer-row]
+                      (let [auth (authenticated-auth user-claims "bank-xyz")]
+                        (is (= "bank-xyz" (:bank-id auth)))
+                        (is (= viewer-row (:membership auth)))
+                        (is (= [membership-row viewer-row] (:memberships auth)))
+                        (is (= #{:user :org SUT/org-viewer} (:roles auth)))
+                        (is (nil? (:bank-refused auth)))
+                        (is (nil? (:response (authorize-as auth
+                                                           viewer-gate)))))))
+  (testing "a member naming another bank is refused on an org operation"
+    (with-memberships
+     [membership-row]
+     (let [auth (authenticated-auth user-claims "bank-other")]
+       (is (nil? (:bank-id auth)))
+       (is (nil? (:membership auth)))
+       (is (= #{:user} (:roles auth)))
+       (is (true? (:bank-refused auth)))
+       (is (refused-with? (authorize-as auth viewer-gate) not-a-member))
+       (is (refused-with? (authorize-as auth [{"bearerAuth" ["org"]}])
+                          not-a-member))
+       (testing "and not on a user operation such as /v1/me"
+         (is (nil? (:response (authorize-as auth
+                                            [{"bearerAuth" ["user"]}]))))))))
+  (testing "no header with one active membership takes it"
+    (with-memberships [membership-row]
+                      (let [auth (authenticated-auth user-claims)]
+                        (is (= "bank-abc" (:bank-id auth)))
+                        (is (= membership-row (:membership auth)))
+                        (is (= (into #{:user :org} all-levels) (:roles auth)))
+                        (is (nil? (:response (authorize-as auth
+                                                           viewer-gate)))))))
+  (testing "no header with no membership takes no bank"
+    (with-memberships []
+                      (let [auth (authenticated-auth user-claims)]
+                        (is (nil? (:bank-id auth)))
+                        (is (nil? (:membership auth)))
+                        (is (= #{:user} (:roles auth)))
+                        (is (nil? (:bank-refused auth))))))
+  (testing "no header with two active memberships takes no bank"
+    (with-memberships
+     [membership-row viewer-row]
+     (let [auth (authenticated-auth user-claims)]
+       (is (nil? (:bank-id auth)))
+       (is (nil? (:membership auth)))
+       (is (= #{:user} (:roles auth)))
+       (is (nil? (:bank-refused auth)))
+       (testing "and is refused on an org operation, told to name the bank"
+         (is (refused-with? (authorize-as auth viewer-gate) name-the-bank))
+         (is (refused-with? (authorize-as auth [{"bearerAuth" ["org"]}])
+                            name-the-bank)))
+       (testing "and without that detail where admin is also a gate"
+         (is (refused-with?
+              (authorize-as auth [{"bearerAuth" ["org:developer" "admin"]}])
+              "Insufficient privileges"))))))
+  (testing "an operator with no header holds every level and no bank"
+    (with-memberships
+     []
+     (let [auth (authenticated-auth operator-claims)]
+       (is (nil? (:bank-id auth)))
+       (is (= (into #{:user :admin :org} all-levels) (:roles auth)))
+       (is (nil? (:bank-refused auth)))
+       (is (refused-with? (authorize-as auth viewer-gate) no-bank)))))
+  (testing "an operator with a header acts on that bank"
+    (with-memberships
+     []
+     (let [auth (authenticated-auth operator-claims "bank-xyz")]
+       (is (= "bank-xyz" (:bank-id auth)))
+       (is (nil? (:membership auth)))
+       (is (= (into #{:user :admin :org} all-levels) (:roles auth)))
+       (is (nil? (:bank-refused auth)))
+       (is (nil? (:response (authorize-as auth viewer-gate)))))))
+  (testing "an ended membership resolves no bank"
     (with-redefs [users/upsert-by-sub (fn [_txn _claims] user-row)
                   memberships/list-by-user (fn [_txn _user-id]
-                                             [membership-row])]
-      (let [auth (authenticated-auth {:azp console-client-id
-                                      :sub "sub-1"
-                                      :aud [audience]
-                                      :email "ada@example.test"
-                                      :name "Ada Lovelace"})]
-        (is (= :user (:principal-type auth)))
-        (is (= "usr-1" (:principal-id auth)))
-        (is (= issuer (:issuer auth)))
-        (is (= "sub-1" (:sub auth)))
-        (is (= user-row (:user auth)))
-        (is (= [membership-row] (:memberships auth)))
-        (is (= "bank-abc" (:bank-id auth)))
-        (is (= #{:user :org} (:roles auth)))))))
+                                             [(assoc membership-row
+                                                     :status
+                                                     :membership-status-ended)])
+                  memberships/list-active-by-user (fn [_txn _user-id] [])]
+      (testing "named in the header"
+        (let [auth (authenticated-auth user-claims "bank-abc")]
+          (is (nil? (:bank-id auth)))
+          (is (nil? (:membership auth)))
+          (is (= [] (:memberships auth)))
+          (is (refused-with? (authorize-as auth viewer-gate) not-a-member))))
+      (testing "with no header"
+        (let [auth (authenticated-auth user-claims)]
+          (is (nil? (:bank-id auth)))
+          (is (= #{:user} (:roles auth))))))))
+
+(deftest levels-test
+  (testing "each role carries exactly its level and those below"
+    (doseq [[role expected] {:role-viewer #{SUT/org-viewer}
+                             :role-developer #{SUT/org-viewer SUT/org-developer}
+                             :role-admin #{SUT/org-viewer SUT/org-developer
+                                           SUT/org-admin}
+                             :role-owner all-levels}]
+      (testing (name role)
+        (with-memberships [(assoc membership-row :role role)]
+                          (is (= (into #{:user :org} expected)
+                                 (:roles (authenticated-auth user-claims))))))))
+  (testing "a service principal carries viewer and developer only"
+    (is (= #{SUT/org-viewer SUT/org-developer}
+           (into #{}
+                 (filter all-levels)
+                 (:roles (authenticated-auth {:azp "bank-abc"
+                                              :sub "bank-abc"
+                                              :aud [audience]}))))))
+  (testing "an operator with a header carries all four"
+    (with-memberships []
+                      (is (= all-levels
+                             (into #{}
+                                   (filter all-levels)
+                                   (:roles (authenticated-auth operator-claims
+                                                               "bank-xyz")))))))
+  (testing "a level passes a gate at or below it and is refused one above"
+    (let [developer #{:user SUT/org-viewer SUT/org-developer}]
+      (is (nil? (:response (authorize developer viewer-gate))))
+      (is (nil? (:response (authorize developer
+                                      [{"bearerAuth" ["org:developer"]}]))))
+      (is (refused-with? (authorize developer [{"bearerAuth" ["org:admin"]}])
+                         "Insufficient privileges"))))
+  (testing "org levels and no bank are refused an org-only route"
+    (is (refused-with? (authorize #{:user SUT/org-viewer} viewer-gate nil)
+                       no-bank))))
 
 (deftest authorize-test
   (testing "a route without security passes"
-    (let [ctx {:request {:reitit.core/match {:data {:openapi {}}}
+    (let [ctx {:request {:request-method :get
+                         :reitit.core/match {:result {:get {:data {:openapi
+                                                                   {}}}}}
                          :auth {:roles #{:org}}}}]
       (is (= ctx ((:enter SUT/authorize) ctx)))))
   (testing "an empty role set is 401 auth/unauthenticated"
@@ -154,7 +357,18 @@
   (testing "an intersecting set passes"
     (let [ctx (authorize #{:user :org} [{"bearerAuth" ["org"]}])]
       (is (nil? (:response ctx)))
-      (is (= #{:user :org} (get-in ctx [:request :auth :roles]))))))
+      (is (= #{:user :org} (get-in ctx [:request :auth :roles])))))
+  (testing "the gate is read from the request method's endpoint"
+    (let [ctx ((:enter SUT/authorize)
+               {:request
+                {:request-method :post
+                 :reitit.core/match
+                 {:result {:get {:data {:openapi {:security viewer-gate}}}
+                           :post {:data {:openapi {:security
+                                                   [{"bearerAuth"
+                                                     ["org:developer"]}]}}}}}
+                 :auth {:roles #{:user SUT/org-viewer} :bank-id "bnk.test"}}})]
+      (is (refused-with? ctx "Insufficient privileges")))))
 
 (deftest required-roles-test
   (testing "explicit roles become the required set"
@@ -177,13 +391,6 @@
                (re-find (re-pattern (str "(?s)" sub)) message)))
         (log-test/the-log)))
 
-(def ^:private user-claims
-  {:azp console-client-id
-   :sub "sub-1"
-   :aud [audience]
-   :email "ada@example.test"
-   :name "Ada Lovelace"})
-
 (deftest user-store-failure-test
   (testing
     "an upsert that cannot reach the store answers 503, not a
@@ -193,8 +400,8 @@
                                          (error/fail :fdb/timeout
                                                      {:message
                                                       "Transaction timed out"}))
-                   memberships/list-by-user (fn [_txn _user-id]
-                                              [membership-row])]
+                   memberships/list-active-by-user (fn [_txn _user-id]
+                                                     [membership-row])]
        (let [ctx (authenticate (sign-token user-claims))]
          (is (= 503 (get-in ctx [:response :status])))
          (is (nil? (get-in ctx [:request :auth])))
@@ -206,7 +413,7 @@
            reported the same way"
     (log-test/with-log
      (with-redefs [users/upsert-by-sub (fn [_txn _claims] user-row)
-                   memberships/list-by-user
+                   memberships/list-active-by-user
                    (fn [_txn _user-id]
                      (error/fail :fdb/timeout
                                  {:message "Transaction timed out"}))]
@@ -231,4 +438,9 @@
            refused the same way"
     (let [ctx (authorize #{:user :admin :org} [{"bearerAuth" ["org"]}] nil)]
       (is (= 403 (get-in ctx [:response :status])))
-      (is (= "auth/forbidden" (get-in ctx [:response :body :type]))))))
+      (is (= "auth/forbidden" (get-in ctx [:response :body :type])))))
+  (testing "an operator's levels and no bank pass a level gate beside admin"
+    (let [ctx (authorize (into #{:user :admin} all-levels)
+                         [{"bearerAuth" ["org:developer" "admin"]}]
+                         nil)]
+      (is (nil? (:response ctx))))))

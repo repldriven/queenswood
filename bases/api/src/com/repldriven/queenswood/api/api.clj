@@ -283,16 +283,16 @@
 
 (defn enforceable-router
   "Returns `compiled` when `authorize` can enforce every security gate
-  its route table declares, and throws naming each route it cannot: a
-  route that demands a token without naming roles has no gate anyone
-  can read, and one that writes its gate under a method key has a gate
-  `authorize` never sees. Neither may be served. A programming error
-  in this base's route table, caught while the router is built — not
-  an anomaly at a boundary, so it throws."
+  its compiled operations carry, and throws naming each route it cannot:
+  an operation that demands a token without naming roles has no gate
+  anyone can read, and one whose gate names two organisation levels has
+  had a method's level stacked on its route's. Neither may be served. A
+  programming error in this base's route table, caught while the router
+  is built — not an anomaly at a boundary, so it throws."
   [compiled]
   (let [bare (auth/bare-security-routes compiled)
-        method-level (auth/method-security-routes compiled)]
-    (when (or (seq bare) (seq method-level))
+        stacked (auth/stacked-level-routes compiled)]
+    (when (or (seq bare) (seq stacked))
       ;; nosemgrep: no-raw-throw
       (throw (ex-info (str "Route table declares a security gate this "
                            "service cannot enforce."
@@ -300,11 +300,11 @@
                              (str " Scheme with no roles: "
                                   (str/join ", " bare)
                                   "."))
-                           (when (seq method-level)
-                             (str " Security under a method key: "
-                                  (str/join ", " method-level)
+                           (when (seq stacked)
+                             (str " Gate naming more than one org level: "
+                                  (str/join ", " stacked)
                                   ".")))
-                      {:bare bare :method-level method-level})))
+                      {:bare bare :stacked stacked})))
     compiled))
 
 (defn app
