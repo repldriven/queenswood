@@ -179,6 +179,16 @@
                    :status (:status membership)
                    :allowed allowed})))
 
+(defn- invitation-not-found
+  [invitation-id]
+  (error/reject :invitation/not-found
+                {:message "Invitation not found"
+                 :invitation-id invitation-id}))
+
+(defn ensure-invitation-found
+  [invitation invitation-id]
+  (or invitation (invitation-not-found invitation-id)))
+
 (defn check-recipient
   [invitation {:keys [token-hash email email-verified?]}]
   (when-not (or (and (some? token-hash)
@@ -186,9 +196,7 @@
                 (and (true? email-verified?)
                      (some? email)
                      (= (str/lower-case email) (:email-lower invitation))))
-    (error/reject :invitation/not-found
-                  {:message "Invitation not found"
-                   :invitation-id (:invitation-id invitation)})))
+    (invitation-not-found (:invitation-id invitation))))
 
 (defn new-membership
   [{:keys [user-id bank-id role invitation-id]} now]
