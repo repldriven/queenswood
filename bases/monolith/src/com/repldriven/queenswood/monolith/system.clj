@@ -21,6 +21,7 @@
     [com.repldriven.queenswood.uk-companies-house-adapter.interface]
     [com.repldriven.queenswood.uk-companies-house-simulator.interface]
     [com.repldriven.queenswood.user.interface]
+    [com.repldriven.queenswood.webhook.interface]
 
     [com.repldriven.mono.command-processor.interface]
     [com.repldriven.mono.event-processor.interface]

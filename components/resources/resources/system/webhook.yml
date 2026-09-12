@@ -1,0 +1,19 @@
+event-processor-impl: !system/component
+  system/component-kind: webhook/event-processor
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  schemas: !system/ref avro.serde
+
+event-consumer: !system/component
+  system/component-kind: event-processor/event-processor
+  bus: !system/ref message-bus.bus
+  processor: !system/local-ref event-processor-impl
+  event-channel: !keyword cash-accounts-event
+
+# The runner mints its own id when none is given, so a second replica
+# claims a disjoint batch rather than the same one, and the group keeps
+# the replica freedom ADR-0019 grants it.
+outbound-runner: !system/component
+  system/component-kind: webhook/outbound-runner
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store

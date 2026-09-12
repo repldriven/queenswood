@@ -19,9 +19,11 @@
  :deps
  {ext/mono {:local/root "../../deps/mono"}
   component/fdb {:local/root "../../components/fdb"}
+  component/api-schema {:local/root "../../components/api-schema"}
   component/balance {:local/root "../../components/balance"}
   component/balance-domain {:local/root "../../components/balance-domain"}
   component/balance-query {:local/root "../../components/balance-query"}
+  component/cash-account-api {:local/root "../../components/cash-account-api"}
   component/cash-account-query {:local/root
                                 "../../components/cash-account-query"}
   component/clearbank-relay {:local/root "../../components/clearbank-relay"}
@@ -36,6 +38,7 @@
   component/resources {:local/root "../../components/resources"}
   component/schema {:local/root "../../components/schema"}
   component/transaction {:local/root "../../components/transaction"}
+  component/webhook {:local/root "../../components/webhook"}
   base/clearbank-adapter {:local/root "../../bases/clearbank-adapter"}
   base/clearbank-simulator {:local/root "../../bases/clearbank-simulator"}
   base/onfido-adapter {:local/root "../../bases/onfido-adapter"}
