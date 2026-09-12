@@ -1,0 +1,31 @@
+system:
+  avro: !include system/avro.yml
+  fdb: !include system/fdb-test.yml
+  message-bus: !include webhook/message-bus-test.yml
+  policies: !include system/policy-test.yml
+  receiver: !include webhook/receiver-test.yml
+  webhook:
+    # Every address a test can bind a receiver to is one the runner's
+    # own rule refuses, so the check is a slot the test fills rather
+    # than the default `outbound/address-refusal`.
+    address-check: !system/required-component
+
+    event-processor-impl: !system/component
+      system/component-kind: webhook/event-processor
+      record-db: !system/ref fdb.record-db
+      record-store: !system/ref fdb.store
+      schemas: !system/ref avro.serde
+
+    event-consumer: !system/component
+      system/component-kind: event-processor/event-processor
+      bus: !system/ref message-bus.bus
+      processor: !system/local-ref event-processor-impl
+      event-channel: !keyword cash-accounts-event
+
+    outbound-runner: !system/component
+      system/component-kind: webhook/outbound-runner
+      record-db: !system/ref fdb.record-db
+      record-store: !system/ref fdb.store
+      address-check: !system/ref webhook.address-check
+      runner-id: end-to-end
+      poll-ms: 50

@@ -3,7 +3,7 @@
     [com.repldriven.queenswood.api.cash-account-migration.coercion :as coercion]
     [com.repldriven.queenswood.api.cash-account-migration.examples :as examples]
 
-    [com.repldriven.queenswood.api.schema :as schema :refer
+    [com.repldriven.queenswood.api-schema.interface :as schema :refer
      [components-registry]]))
 
 (def MigrationId (schema/id-schema "MigrationId" "mig" examples/MigrationId))

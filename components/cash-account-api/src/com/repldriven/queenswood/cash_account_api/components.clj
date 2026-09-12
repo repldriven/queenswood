@@ -1,9 +1,9 @@
-(ns com.repldriven.queenswood.api.cash-account.components
+(ns com.repldriven.queenswood.cash-account-api.components
   (:require
-    [com.repldriven.queenswood.api.cash-account.coercion :as coercion]
-    [com.repldriven.queenswood.api.cash-account.examples :as examples]
+    [com.repldriven.queenswood.cash-account-api.coercion :as coercion]
+    [com.repldriven.queenswood.cash-account-api.examples :as examples]
 
-    [com.repldriven.queenswood.api.schema :as schema :refer
+    [com.repldriven.queenswood.api-schema.interface :as schema :refer
      [components-registry]]))
 
 (def CashAccountId
@@ -59,10 +59,11 @@
    [:retired-at [:ref "Timestamp"]]])
 
 (def cash-account-keys
-  "Every key `CashAccount` declares. The read routes project a stored
-  account through these, so a record field the component does not
-  declare cannot reach a response body."
   (into [] (comp (filter vector?) (map first)) CashAccount))
+
+(defn ->body
+  [account]
+  (select-keys account cash-account-keys))
 
 (def CreateCashAccountRequest
   [:map {:json-schema/example examples/CreateCashAccountRequest}
@@ -96,3 +97,24 @@
     #'CreateCashAccountRequest #'CreateCashAccountResponse #'CashAccountList
     #'CloseCashAccountResponse #'SuspendCashAccountResponse
     #'ResumeCashAccountResponse #'RotateCashAccountAddressResponse]))
+
+(def ^:private embedded-keys
+  "The `CashAccount` keys a read route fills only when the caller asks
+  for them with `embed`. `Balance` and `Transaction` are published by
+  their own resources, so a surface outside the API base cannot resolve
+  them: `->wire-body` carries neither, and a consumer wanting either
+  follows the account's links."
+  #{:balances :transactions})
+
+(def ^:private CashAccountWire
+  (into []
+        (remove (fn [entry]
+                  (and (vector? entry) (embedded-keys (first entry)))))
+        CashAccount))
+
+(def ^:private encode-account
+  (schema/api-encoder CashAccountWire (merge schema/registry registry)))
+
+(defn ->wire-body
+  [account]
+  (encode-account (apply dissoc (->body account) embedded-keys)))

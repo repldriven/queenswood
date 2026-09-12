@@ -1,0 +1,20 @@
+{
+  "type": "record",
+  "name": "WebhookEndpointStatusChanged",
+  "namespace": "com.repldriven.queenswood.webhooks",
+  "fields": [
+    {"name": "bank_id",     "type": "string"},
+    {"name": "endpoint_id", "type": "string"},
+    {"name": "status_before",
+     "type": ["null", {"type": "enum",
+                       "name": "WebhookEndpointStatus",
+                       "symbols": ["WEBHOOK_ENDPOINT_STATUS_UNKNOWN",
+                                   "WEBHOOK_ENDPOINT_STATUS_ENABLED",
+                                   "WEBHOOK_ENDPOINT_STATUS_DISABLED",
+                                   "WEBHOOK_ENDPOINT_STATUS_PAUSED",
+                                   "WEBHOOK_ENDPOINT_STATUS_REMOVED"]}],
+     "default": null},
+    {"name": "status_after",
+     "type": "com.repldriven.queenswood.webhooks.WebhookEndpointStatus"}
+  ]
+}

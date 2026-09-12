@@ -1,6 +1,6 @@
 (ns com.repldriven.queenswood.api.cash-account-migration.coercion
   (:require
-    [com.repldriven.queenswood.api.coercion :as coercion]))
+    [com.repldriven.queenswood.api-schema.interface :as coercion]))
 
 (def ^:private status-enum
   (coercion/enum-coercion {"draft" :cash-account-migration-status-draft

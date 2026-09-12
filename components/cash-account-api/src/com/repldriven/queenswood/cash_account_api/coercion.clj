@@ -1,6 +1,6 @@
-(ns com.repldriven.queenswood.api.cash-account.coercion
+(ns com.repldriven.queenswood.cash-account-api.coercion
   (:require
-    [com.repldriven.queenswood.api.coercion :as coercion]))
+    [com.repldriven.queenswood.api-schema.interface :as coercion]))
 
 (def ^:private cash-account-status-enum
   (coercion/enum-coercion {"opening" :cash-account-status-opening

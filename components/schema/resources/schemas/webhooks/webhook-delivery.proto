@@ -1,0 +1,45 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schemas.webhooks;
+
+import "record_metadata_options.proto";
+
+option java_outer_classname = "WebhookDeliveryProto";
+
+enum WebhookDeliveryStatus {
+  WEBHOOK_DELIVERY_STATUS_UNKNOWN = 0;
+  WEBHOOK_DELIVERY_STATUS_PENDING = 1;
+  WEBHOOK_DELIVERY_STATUS_IN_FLIGHT = 2;
+  WEBHOOK_DELIVERY_STATUS_DELIVERED = 3;
+  WEBHOOK_DELIVERY_STATUS_FAILED = 4;
+}
+
+// One notification's journey to one endpoint. A re-send is a new
+// delivery of the same notification, not a reset of this one.
+message WebhookDelivery {
+  option (com.apple.foundationdb.record.record).usage = RECORD;
+
+  required string bank_id = 1;
+  required string delivery_id = 2;
+  required string notification_id = 3;
+  required string endpoint_id = 4;
+  required WebhookDeliveryStatus status = 5;
+  // Set when a runner claims the delivery. A claim whose lease has
+  // passed is reclaimable, so a runner that died mid-flight strands
+  // nothing.
+  optional int64 claim_lease_expires_at = 6;
+  optional string claimed_by = 7;
+  // Optional, not required: protojure omits a zero int on the wire and
+  // a missing proto2 required field fails the Java parse that bridges
+  // into FDB. A delivery starts with no attempts.
+  optional int32 attempts = 8;
+  optional int64 next_attempt_at = 9;
+  optional int32 last_response_status = 10;
+  optional string last_error = 11;
+  // Denormalised from the notification so the delivery history's kind
+  // and outcome filters answer off this row rather than a join.
+  required string kind = 12;
+  optional string outcome = 13;
+  required int64 created_at = 14;
+  optional int64 updated_at = 15;
+}

@@ -1,0 +1,35 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schemas.webhooks;
+
+import "record_metadata_options.proto";
+
+option java_outer_classname = "WebhookNotificationProto";
+
+// One notification the bank produced from a relayed domain event. The
+// rendered body is stored rather than re-rendered, so every delivery and
+// every re-send of it signs the same bytes.
+message WebhookNotification {
+  option (com.apple.foundationdb.record.record).usage = RECORD;
+
+  required string bank_id = 1;
+  required string notification_id = 2;
+  required string kind = 3;
+  required string change_kind = 4;
+  required string resource_type = 5;
+  required string resource_id = 6;
+  optional string status_before = 7;
+  optional string status_after = 8;
+  // The key of the request that caused the change, read off the loaded
+  // record before projection.
+  optional string idempotency_key = 9;
+  optional string correlation_id = 10;
+  // When the consumer wrote this notification, which is the relay's lag
+  // later than the commit that caused it.
+  required int64 occurred_at = 11;
+  required bytes body = 12;
+  // Unique-indexed, so a redelivered relay event produces no second
+  // notification.
+  required string changelog_event_id = 13;
+  required int64 created_at = 14;
+}

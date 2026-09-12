@@ -302,23 +302,27 @@
              ;; Events too, since the outbox and changelog carry the
              ;; writer's traceparent.
              (is (pos? (joined "process-event")))
-             ;; Scoped to one event name rather than every
-             ;; `process-event` span. Rigs share a Kafka
-             ;; testcontainer — same broker, same topics, same group
-             ;; ids — so this exporter also collects events another
-             ;; rig published. Those carry no traceparent and can
-             ;; never join, which swamps a ratio taken over the whole
-             ;; set once a second rig publishes the same event.
-             ;;
-             ;; cash-account-status-changed is this rig's alone (no
-             ;; other rig wires cash-accounts) and every one is caused
-             ;; by an API request, so the property is exact: all of
-             ;; them join, not most.
+             ;; Scoped to one event name, and within it to the spans
+             ;; that arrived under a traceparent. Rigs share one Kafka
+             ;; testcontainer, and while this rig is up its test SDK is
+             ;; the JVM's default tracer, so this exporter also collects
+             ;; spans another rig opened: `webhook`'s tests publish
+             ;; cash-account-status-changed on a local bus from an
+             ;; envelope they build by hand. Those carry no traceparent,
+             ;; so the span is a root whose trace holds no server span
+             ;; and can never join. Every one of this rig's is caused by
+             ;; an API request and carries the writer's, so the property
+             ;; is exact over the carried ones: all of them join, not
+             ;; most. The `pos?` floor still catches total loss; the
+             ;; partial case, one event that lost its traceparent on the
+             ;; way, is what the filter gives up.
              (let [event-attr (fn [^SpanData s]
                                 (.get (.getAttributes s)
                                       (AttributeKey/stringKey "event")))
+                   carried? (fn [^SpanData s]
+                              (.isValid (.getParentSpanContext s)))
                    of-event (fn [n]
-                              (filter #(= n (event-attr %))
+                              (filter #(and (= n (event-attr %)) (carried? %))
                                       (named "process-event")))
                    account-events (of-event "cash-account-status-changed")]
                (is (pos? (count account-events)))

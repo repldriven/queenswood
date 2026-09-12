@@ -3,10 +3,8 @@
     [com.repldriven.queenswood.api.bank.coercion :as coercion]
     [com.repldriven.queenswood.api.bank.examples :as examples]
 
-    [com.repldriven.queenswood.api.schema :as schema :refer
+    [com.repldriven.queenswood.api-schema.interface :refer
      [components-registry]]))
-
-(def BankId (schema/id-schema "BankId" "bnk" examples/BankId))
 
 (def BankStatus
   (coercion/bank-status-enum-schema {:json-schema/example "test"}))
@@ -80,7 +78,7 @@
 (def ChangeBankStatusResponse [:ref "Bank"])
 
 (def registry
-  (components-registry [#'BankId #'BankStatus #'CreateBankRequest #'Bank
-                        #'BankList #'CompanyBinding #'CreateBankResponse
+  (components-registry [#'BankStatus #'CreateBankRequest #'Bank #'BankList
+                        #'CompanyBinding #'CreateBankResponse
                         #'ChangeBankTierRequest #'ChangeBankTierResponse
                         #'ChangeBankStatusRequest #'ChangeBankStatusResponse]))

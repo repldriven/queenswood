@@ -2,7 +2,7 @@
   (:require
     [com.repldriven.queenswood.api.onboarding.examples :as examples]
 
-    [com.repldriven.queenswood.api.schema :as schema :refer
+    [com.repldriven.queenswood.api-schema.interface :as schema :refer
      [components-registry]]))
 
 (def OnboardingRequest

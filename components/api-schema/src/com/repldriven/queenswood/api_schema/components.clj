@@ -1,10 +1,8 @@
-(ns com.repldriven.queenswood.api.shared.components
-  "Cross-cutting malli schemas shared across API surfaces — timestamps,
-  date / country / currency primitives, payment address fragments, and
-  the idempotency-key header. Registered globally in `api.clj` so any
-  `[:ref \"X\"]` resolves the same definition everywhere."
+(ns com.repldriven.queenswood.api-schema.components
   (:require
-    [com.repldriven.queenswood.api.schema :refer [components-registry]]
+    [com.repldriven.queenswood.api-schema.coercion :refer [enum-coercion]]
+    [com.repldriven.queenswood.api-schema.schema :refer
+     [components-registry id-schema]]
 
     [malli.core :as m]
     [malli.json-schema :as mjs])
@@ -383,10 +381,45 @@
     :encode/api (fn [ms] (when (pos? ms) (str (Instant/ofEpochMilli ms))))
     :json-schema {:type "string" :format "date-time"}}])
 
+(def id-examples
+  {"BankId" "bnk.01kprbmgcj35ptc8npmybhh4s7"
+   "PartyId" "pty.01kprbmgcj35ptc8npmybhh4s9"
+   "ProductId" "prd.01kprbmgcj35ptc8npmybhh4se"
+   "VersionId" "prv.01kprbmgcj35ptc8npmybhh4sf"})
+
+(def BankId (id-schema "BankId" "bnk" (id-examples "BankId")))
+
+(def PartyId (id-schema "PartyId" "pty" (id-examples "PartyId")))
+
+(def ProductId (id-schema "ProductId" "prd" (id-examples "ProductId")))
+
+(def VersionId (id-schema "VersionId" "prv" (id-examples "VersionId")))
+
+(def product-type-enum
+  (enum-coercion {"current" :product-type-sub-ledger-current
+                  "savings" :product-type-sub-ledger-savings
+                  "term-deposit" :product-type-sub-ledger-term-deposit
+                  "own-funds" :product-type-sub-ledger-own-funds}
+                 :product-type-unknown))
+
+(def payment-address-scheme-enum
+  (enum-coercion {"scan" :payment-address-scheme-scan
+                  "iban" :payment-address-scheme-iban
+                  "swift" :payment-address-scheme-swift
+                  "ach" :payment-address-scheme-ach}
+                 :payment-address-scheme-unknown))
+
+(def ProductType
+  ((:enum-schema product-type-enum) {:json-schema/example "current"}))
+
+(def PaymentAddressScheme
+  ((:enum-schema payment-address-scheme-enum) {:json-schema/example "scan"}))
+
 (def registry
   (components-registry
-   [#'AccountNumber #'Amount #'Bban #'BusinessDay #'CountryCode #'Country3Code
-    #'Currency #'CurrencyCode #'Date #'DateOfBirth #'EmbedQuery #'IdempotencyKey
-    #'MinorUnits #'Name #'PaymentMinorUnits #'NationalIdentifierValue
-    #'PageQuery #'SignedAmount #'SignedBasisPoints #'SignedMinorUnits #'SortCode
-    #'Timestamp]))
+   [#'AccountNumber #'Amount #'Bban #'BankId #'BusinessDay #'CountryCode
+    #'Country3Code #'Currency #'CurrencyCode #'Date #'DateOfBirth #'EmbedQuery
+    #'IdempotencyKey #'MinorUnits #'Name #'PartyId #'PaymentAddressScheme
+    #'PaymentMinorUnits #'NationalIdentifierValue #'PageQuery #'ProductId
+    #'ProductType #'SignedAmount #'SignedBasisPoints #'SignedMinorUnits
+    #'SortCode #'Timestamp #'VersionId]))

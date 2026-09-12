@@ -3,23 +3,13 @@
     [com.repldriven.queenswood.api.cash-account-product.coercion :as coercion]
     [com.repldriven.queenswood.api.cash-account-product.examples :as examples]
 
-    [com.repldriven.queenswood.api.schema :as schema :refer
+    [com.repldriven.queenswood.api-schema.interface :as schema :refer
      [components-registry]]))
-
-(def ProductId (schema/id-schema "ProductId" "prd" examples/ProductId))
-
-(def VersionId (schema/id-schema "VersionId" "prv" examples/VersionId))
 
 (def TemplateId (schema/id-schema "TemplateId" "tpl" examples/TemplateId))
 
-(def ProductType
-  (coercion/product-type-enum-schema {:json-schema/example "current"}))
-
 (def BalanceSheetSide
   (coercion/balance-sheet-side-enum-schema {:json-schema/example "liability"}))
-
-(def PaymentAddressScheme
-  (coercion/payment-address-scheme-enum-schema {:json-schema/example "scan"}))
 
 (def VersionStatus
   (coercion/version-status-enum-schema {:json-schema/example "draft"}))
@@ -96,8 +86,7 @@
 
 (def registry
   (components-registry
-   [#'ProductId #'VersionId #'TemplateId #'ProductType #'BalanceSheetSide
-    #'PaymentAddressScheme #'VersionStatus #'CashAccountProductRequest
+   [#'TemplateId #'BalanceSheetSide #'VersionStatus #'CashAccountProductRequest
     #'CashAccountProductDraftRequest #'CashAccountProductVersion
     #'CashAccountProduct #'CashAccountProductListLinks #'CashAccountProductList
     #'CashAccountProductTemplate #'CashAccountProductTemplateList]))

@@ -214,6 +214,20 @@ http://{{ include "queenswood.keycloakServiceName" . }}:8080
 {{- end -}}
 
 {{- /*
+The platform's own published hostnames, comma-separated, which no
+tenant's webhook address may point at. The three the Gateway
+terminates on, because those are what a tenant could reach the
+installation by.
+*/ -}}
+{{- define "queenswood.webhookPlatformHosts" -}}
+{{- $hosts := list -}}
+{{- range (list $.Values.gateway.host $.Values.gateway.consoleHost $.Values.gateway.apiHost) -}}
+{{- if . -}}{{- $hosts = append $hosts . -}}{{- end -}}
+{{- end -}}
+{{ join "," (uniq $hosts) }}
+{{- end -}}
+
+{{- /*
 Keycloak's published hostname. The subdomain is fixed -- Keycloak is at
 `keycloak.` wherever it runs -- and the domain is supplied, because
 where this installation lives is not the chart's to know.

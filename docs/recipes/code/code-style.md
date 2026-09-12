@@ -139,9 +139,11 @@ both populated — `bank`'s own files, then the rest of `api`:
      [BankLimitExceeded BankNotFound BankInvalidStatus BankUnknownTier]]
     [com.repldriven.queenswood.api.bank.queries :as queries]
 
-    [com.repldriven.queenswood.api.schema :refer [ErrorResponse]]
     [com.repldriven.queenswood.api.shared.parameters :as
-     shared.parameters]))
+     shared.parameters]
+
+    [com.repldriven.queenswood.api-schema.interface :refer
+     [ErrorResponse]]))
 ```
 
 In **component interface tests**, alias the SUT (system under

@@ -1,0 +1,7 @@
+handler: !system/required-component
+
+jetty-adapter: !system/component
+  system/component-kind: server/jetty-adapter
+  handler: !system/ref receiver.handler
+  options:
+    port: 0

@@ -1,3 +1,5 @@
-{:aliases {:test {:extra-deps {} :extra-paths ["test"]}}
+{:aliases {:test {:extra-deps {com.networknt/json-schema-validator
+                               {:mvn/version "3.0.7"}}
+                  :extra-paths ["test" "test-resources"]}}
  :deps {}
  :paths ["src" "resources"]}

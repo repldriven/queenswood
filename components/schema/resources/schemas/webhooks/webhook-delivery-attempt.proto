@@ -1,0 +1,24 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schemas.webhooks;
+
+import "record_metadata_options.proto";
+
+option java_outer_classname = "WebhookDeliveryAttemptProto";
+
+// One HTTP call made for a delivery. Attempts survive as rows rather
+// than as a counter, so an operator disputing a delivery can read what
+// each call answered.
+message WebhookDeliveryAttempt {
+  option (com.apple.foundationdb.record.record).usage = RECORD;
+
+  required string bank_id = 1;
+  required string attempt_id = 2;
+  required string delivery_id = 3;
+  required int64 attempted_at = 4;
+  // One of the two is set: a response arrived, or the call failed
+  // before one did.
+  optional int32 response_status = 5;
+  optional string error = 6;
+  optional int64 duration_ms = 7;
+}

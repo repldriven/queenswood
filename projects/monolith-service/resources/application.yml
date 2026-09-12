@@ -43,6 +43,7 @@ system:
   transactions: !include system/transaction.yml
   idv: !include system/idv.yml
   payee-checks: !include system/payee-check.yml
+  webhook: !include system/webhook.yml
   policies: !include system/policy.yml
   cash-account-product-templates: !include system/cash-account-product-templates.yml
   banks-dispatcher: !include system/bank-dispatcher.yml
@@ -98,6 +99,10 @@ system:
       avro: !system/ref avro.serde
       record-db: !system/ref fdb.record-db
       record-store: !system/ref fdb.meta-store
+      # The platform's own published hosts, which no tenant webhook
+      # address may name. Comma-separated, because an environment
+      # variable carries a string.
+      platform-hosts: !env WEBHOOK_PLATFORM_HOSTS
     jetty-adapter: !system/component
       system/component-kind: server/jetty-adapter
       handler: !system/ref server.handler

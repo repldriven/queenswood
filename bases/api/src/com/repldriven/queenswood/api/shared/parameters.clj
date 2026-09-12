@@ -19,7 +19,7 @@
   Routes that need both a path param and a query/header override must
   include `ref-account-id` / `ref-bank-id` alongside the other refs."
   (:require
-    [com.repldriven.queenswood.api.shared.components :as shared.components]
+    [com.repldriven.queenswood.api-schema.interface :as api-schema]
 
     [malli.json-schema :as mjs]))
 
@@ -32,7 +32,7 @@
   {:name "Idempotency-Key"
    :in "header"
    :required true
-   :schema (mjs/transform shared.components/IdempotencyKey)
+   :schema (mjs/transform api-schema/IdempotencyKey)
    :example "01jsx6k7h0abfdv8qpm2ytn3we"})
 
 (def PageQuery
@@ -164,6 +164,40 @@
    :required true
    :schema {:$ref "#/components/schemas/BalanceStatus"}})
 
+(def EndpointId
+  {:name "endpoint-id"
+   :in "path"
+   :required true
+   :schema {:$ref "#/components/schemas/WebhookEndpointId"}})
+
+(def DeliveryId
+  {:name "delivery-id"
+   :in "path"
+   :required true
+   :schema {:$ref "#/components/schemas/WebhookDeliveryId"}})
+
+(def DeliveryFilterQuery
+  "`filter` query parameter on an endpoint's delivery history.
+  deepObject-styled so clients send
+  `filter[kind]=cash-account.opened&filter[outcome]=failed`. `from` and
+  `to` bound when the delivery was created."
+  {:name "filter"
+   :in "query"
+   :required false
+   :style "deepObject"
+   :explode true
+   :schema {:type "object"
+            :additionalProperties false
+            :properties {:kind {:type "string" :description "Notification kind"}
+                         :outcome {:$ref
+                                   "#/components/schemas/WebhookDeliveryStatus"}
+                         :from {:type "string"
+                                :format "date-time"
+                                :description "Earliest delivery creation"}
+                         :to {:type "string"
+                              :format "date-time"
+                              :description "Latest delivery creation"}}}})
+
 (def PartyEmbedQuery
   "`embed` query parameter for optional sub-resource embedding on the
   party detail endpoint. deepObject-styled so clients send
@@ -193,6 +227,9 @@
 (def ref-party-id {:$ref "#/components/parameters/PartyId"})
 (def ref-job-id {:$ref "#/components/parameters/JobId"})
 (def ref-migration-id {:$ref "#/components/parameters/MigrationId"})
+(def ref-endpoint-id {:$ref "#/components/parameters/EndpointId"})
+(def ref-delivery-id {:$ref "#/components/parameters/DeliveryId"})
+(def ref-delivery-filter {:$ref "#/components/parameters/DeliveryFilterQuery"})
 
 (def registry
   "Map of OpenAPI parameter component name → parameter object. Merged
@@ -213,4 +250,7 @@
    "PolicyId" PolicyId
    "BalanceType" BalanceType
    "Currency" Currency
-   "BalanceStatus" BalanceStatus})
+   "BalanceStatus" BalanceStatus
+   "EndpointId" EndpointId
+   "DeliveryId" DeliveryId
+   "DeliveryFilterQuery" DeliveryFilterQuery})

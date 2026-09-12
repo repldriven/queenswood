@@ -13,9 +13,12 @@
     component/test-schema {:local/root "../../components/test-schema"}}}}
  :deps {ext/mono {:local/root "../../deps/mono"}
         component/fdb {:local/root "../../components/fdb"}
+        component/api-schema {:local/root "../../components/api-schema"}
         component/balance {:local/root "../../components/balance"}
         component/balance-domain {:local/root "../../components/balance-domain"}
         component/balance-query {:local/root "../../components/balance-query"}
+        component/cash-account-api
+        {:local/root "../../components/cash-account-api"}
         component/cash-account {:local/root "../../components/cash-account"}
         component/cash-account-query {:local/root
                                       "../../components/cash-account-query"}
@@ -41,6 +44,7 @@
         component/schema {:local/root "../../components/schema"}
         component/transaction {:local/root "../../components/transaction"}
         component/user {:local/root "../../components/user"}
+        component/webhook {:local/root "../../components/webhook"}
         base/api {:local/root "../../bases/api"}
         org.clojure/clojure {:mvn/version "1.12.5"}
         pin/clojure-core-async {:local/root "../../deps/clojure-core-async"}}

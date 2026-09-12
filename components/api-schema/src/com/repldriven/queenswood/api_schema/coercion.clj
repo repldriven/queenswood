@@ -1,9 +1,17 @@
-(ns com.repldriven.queenswood.api.coercion)
+(ns com.repldriven.queenswood.api-schema.coercion
+  (:require
+    [malli.core :as m]
+    [malli.transform :as mt]))
+
+(def ^:private api-transformer (mt/transformer {:name :api}))
+
+(defn api-encoder
+  [schema registry]
+  (m/encoder schema
+             {:registry (merge (m/default-schemas) registry)}
+             api-transformer))
 
 (defn enum-coercion
-  "Builds decoder, encoder, and json-schema from a
-  string-to-keyword mapping. When unknown-key is provided,
-  the encoder maps it to :unknown."
   ([m] (enum-coercion m nil))
   ([m unknown-key]
    (let [decode-m (merge m (update-keys m keyword))

@@ -1,6 +1,7 @@
 (ns com.repldriven.queenswood.api.cash-account-product.examples
   (:require
-    [com.repldriven.queenswood.api.schema :refer [examples-registry]]))
+    [com.repldriven.queenswood.api-schema.interface :as schema :refer
+     [examples-registry]]))
 
 (def ProductNotFound
   {:value {:title "REJECTED"
@@ -43,8 +44,8 @@
                       #'VersionImmutable #'CurrencyNotAllowed
                       #'TemplateMismatch]))
 
-(def ProductId "prd.01kprbmgcj35ptc8npmybhh4se")
-(def VersionId "prv.01kprbmgcj35ptc8npmybhh4sf")
+(def ProductId (schema/id-examples "ProductId"))
+(def VersionId (schema/id-examples "VersionId"))
 (def TemplateId "tpl.00000000000000000000000001")
 
 (def CashAccountProductVersion

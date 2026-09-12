@@ -12,9 +12,11 @@
     org.clojure/clojure {:mvn/version "1.12.5"}
     pin/clojure-core-async {:local/root "deps/clojure-core-async"}
     djblue/portal {:mvn/version "0.67.1"}
+    components/api-schema {:local/root "components/api-schema"}
     components/balance {:local/root "components/balance"}
     components/balance-domain {:local/root "components/balance-domain"}
     components/balance-query {:local/root "components/balance-query"}
+    components/cash-account-api {:local/root "components/cash-account-api"}
     components/cash-account-migration
     {:local/root "components/cash-account-migration"}
     components/cash-account-product {:local/root
@@ -56,6 +58,7 @@
     components/payment-query {:local/root "components/payment-query"}
     components/transaction {:local/root "components/transaction"}
     components/user {:local/root "components/user"}
+    components/webhook {:local/root "components/webhook"}
     bases/api {:local/root "bases/api"}
     bases/clearbank-simulator {:local/root "bases/clearbank-simulator"}
     bases/clearbank-adapter {:local/root "bases/clearbank-adapter"}
@@ -112,6 +115,8 @@
                        "components/payment/test-resources"
                        "components/transaction/test"
                        "components/transaction/test-resources"
+                       "components/webhook/test"
+                       "components/webhook/test-resources"
                        "components/testcontainers/test"
                        "components/fdb/test"
                        "components/fdb/test-resources"
