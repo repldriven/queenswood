@@ -22,6 +22,12 @@
   [{:keys [record-db record-store]}]
   {:record-db record-db :record-store record-store})
 
+(defn- address-opts
+  "The hosts a tenant's address may not name, as the deployment
+  configured them. Only the two writes that take an address read it."
+  [{:keys [platform-hosts]}]
+  {:platform-hosts platform-hosts})
+
 (defn- endpoint-uri
   [{:keys [endpoint-id]}]
   (str "/v1/webhook-endpoints/" endpoint-id))
@@ -83,7 +89,8 @@
         {:keys [body]} parameters]
     (respond (webhook/register (config request)
                                bank-id
-                               (with-idempotency-key body request))
+                               (with-idempotency-key body request)
+                               (address-opts request))
              registered)))
 
 (defn update-endpoint
@@ -94,7 +101,8 @@
     (respond (webhook/update-endpoint (config request)
                                       bank-id
                                       (:endpoint-id path)
-                                      body)
+                                      body
+                                      (address-opts request))
              ok)))
 
 (defn enable

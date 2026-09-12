@@ -274,3 +274,41 @@
   (merge endpoint-registry
          (components-registry [#'WebhookNotification #'WebhookNotificationData
                                #'WebhookResourceType])))
+
+;; ---------------------------------------------------------------------------
+;; Rendering a notification in the spelling the document declares
+
+(def ^:private wire-registry
+  (merge {:unique-vector-lax schema/unique-vector-lax-schema}
+         schema/registry
+         registry))
+
+(defn- without-key
+  [map-schema k]
+  (into []
+        (remove (fn [entry] (and (vector? entry) (= k (first entry)))))
+        map-schema))
+
+(def ^:private encode-envelope-fields
+  (schema/api-encoder (without-key WebhookNotification :data) wire-registry))
+
+(def ^:private encode-endpoint
+  (schema/api-encoder WebhookEndpoint wire-registry))
+
+(defn encode-envelope
+  "The notification's own fields in the spelling the document declares
+  — the timestamp as ISO-8601, the resource type as its wire string.
+  `data` is left where it is: each resource's own projection encodes
+  it, against a registry this brick cannot resolve."
+  [row]
+  (let [data (:data row)]
+    (cond-> (encode-envelope-fields (dissoc row :data))
+            (contains? row :data)
+            (assoc :data data))))
+
+(defn ->wire-endpoint-body
+  "Project a stored endpoint and encode it as a read route would. The
+  test notification carries an endpoint as its resource, so it reaches
+  a tenant in the same spelling `GET /v1/webhook-endpoints/{id}` sends."
+  [endpoint]
+  (encode-endpoint (->endpoint-body endpoint)))

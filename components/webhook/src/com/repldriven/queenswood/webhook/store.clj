@@ -273,19 +273,47 @@
    :webhook-endpoint/save-status
    "Failed to save webhook endpoint status change"))
 
+(def ^:private delivery-pending :webhook-delivery-status-pending)
+(def ^:private delivery-in-flight :webhook-delivery-status-in-flight)
+
+(defn- deliveries-with-status
+  [store status]
+  (fdb/query-records store
+                     "WebhookDelivery"
+                     "status"
+                     (fdb/enum-value store
+                                     "WebhookDelivery"
+                                     "status"
+                                     (schema/webhook-delivery-status->int
+                                      status))
+                     {:index "WebhookDelivery_by_status_due"}))
+
+(defn- claimable?
+  "Whether a row may be claimed now: a pending one whose next attempt
+  has come, or an in-flight one whose lease has passed — the runner
+  holding it died between the claim commit and the outcome commit, and
+  nothing else would ever look at the row again."
+  [{:keys [status next-attempt-at claim-lease-expires-at]} now]
+  (if (= delivery-in-flight status)
+    (<= (or claim-lease-expires-at 0) now)
+    (<= (or next-attempt-at 0) now)))
+
 (defn claim-due-deliveries
   "Claim the deliveries that are due, in the transaction that read
-  them: each moves from pending to in-flight and carries a lease and
-  the claiming runner. A second replica reading the same row loses this
-  transaction and claims nothing, so a due delivery is sent once.
+  them: each takes a lease and the claiming runner, and moves to
+  in-flight if it was not already. A second replica reading the same
+  row loses this transaction and claims nothing, so a due delivery is
+  sent once.
 
   Returns the claimed deliveries as they were written.
 
   Args:
   - txn: FDB transaction or config map.
   - opts:
-    - `:now` — epoch-ms; a delivery is due when its next attempt is at
-      or before this, and one that has never been attempted has none.
+    - `:now` — epoch-ms; a pending delivery is due when its next
+      attempt is at or before this, and one that has never been
+      attempted has none. An in-flight delivery is due again when its
+      claim lease is at or before this.
     - `:claimed-by` — the runner's id, stamped on the row.
     - `:lease-ms` — how long the claim holds.
     - `:limit` — how many to claim in this pass.
@@ -296,16 +324,6 @@
    txn
    (fn [txn]
      (let [store (fdb/open txn deliveries-store-name)
-           pending (fdb/query-records
-                    store
-                    "WebhookDelivery"
-                    "status"
-                    (fdb/enum-value store
-                                    "WebhookDelivery"
-                                    "status"
-                                    (schema/webhook-delivery-status->int
-                                     :webhook-delivery-status-pending))
-                    {:index "WebhookDelivery_by_status_due"})
            taken (volatile! {})
            within-endpoint-limit?
            (fn [{:keys [endpoint-id]}]
@@ -314,13 +332,15 @@
                true))
            due (into []
                      (comp (map schema/pb->WebhookDelivery)
-                           (filter #(<= (or (:next-attempt-at %) 0) now))
+                           (filter #(claimable? % now))
                            (filter within-endpoint-limit?)
                            (take limit))
-                     pending)]
+                     (concat (deliveries-with-status store delivery-pending)
+                             (deliveries-with-status store
+                                                     delivery-in-flight)))]
        (reduce (fn [claimed delivery]
                  (let [row (assoc delivery
-                                  :status :webhook-delivery-status-in-flight
+                                  :status delivery-in-flight
                                   :claim-lease-expires-at (+ now lease-ms)
                                   :claimed-by claimed-by
                                   :updated-at now)

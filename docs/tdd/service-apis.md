@@ -212,6 +212,15 @@ named components, declared security, examples on every
 operation, complete response coverage. ADR-0014 captures the
 discipline.
 
+`just export-openapi <path>` writes the document as the route
+surface stands; `just openapi-diff <ref>` writes it twice — once
+from `ref`'s tree and once from the working tree — and prints
+the difference, which is how a change to a shared component or
+an error shape is read before it ships. A route family that
+lands without a `description` on each of its responses shows up
+in `openapi_test`'s `standing-gaps` instead, which fails only
+when a class grows.
+
 ### Interceptor chain
 
 Two layers compose into the chain a request flows through.

@@ -189,10 +189,8 @@
    :schema {:type "object"
             :additionalProperties false
             :properties {:kind {:type "string" :description "Notification kind"}
-                         :outcome {:type "string"
-                                   :enum ["pending" "in-flight" "delivered"
-                                          "failed"]
-                                   :description "Delivery outcome"}
+                         :outcome {:$ref
+                                   "#/components/schemas/WebhookDeliveryStatus"}
                          :from {:type "string"
                                 :format "date-time"
                                 :description "Earliest delivery creation"}

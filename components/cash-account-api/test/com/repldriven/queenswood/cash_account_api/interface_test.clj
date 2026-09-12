@@ -1,7 +1,8 @@
 (ns com.repldriven.queenswood.cash-account-api.interface-test
   "`->body` is the only thing standing between a stored cash account and
   a response body, so what it lets through is held to what `CashAccount`
-  declares.
+  declares. `->wire-body` is that projection in the spelling a route
+  sends it, which is what a surface outside the API base renders.
 
   The expected key set is read back out of the published registry rather
   than off the projection's own selection: a projection that selected
@@ -73,3 +74,20 @@
            than arriving nil"
     (let [body (SUT/->body (dissoc stored-account :bban))]
       (is (not (contains? body :bban))))))
+
+(deftest ->wire-body-spells-the-record-as-the-route-does-test
+  (let [body (SUT/->wire-body stored-account)]
+    (testing "every enum reaches the wire as the string CashAccount admits"
+      (is (= "opened" (name (:account-status body))))
+      (is (= "personal" (name (:account-type body))))
+      (is (= "current" (name (:product-type body))))
+      (is (= "scan" (name (:scheme (first (:payment-addresses body)))))))
+    (testing "and every timestamp as ISO-8601"
+      (is (= "2023-11-14T22:13:20Z" (:created-at body)))
+      (is (= "2023-11-14T22:13:20.001Z" (:updated-at body))))
+    (testing "the two stored idempotency keys still do not reach a body"
+      (is (not (contains? body :idempotency-key)))
+      (is (not (contains? body :last-rotation-idempotency-key))))
+    (testing "and the embedded collections are not carried"
+      (is (not (contains? body :balances)))
+      (is (not (contains? body :transactions))))))

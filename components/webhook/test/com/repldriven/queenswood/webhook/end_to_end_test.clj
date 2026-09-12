@@ -314,10 +314,13 @@
                    _ (testing
                        "whose data is the account as its read route renders it"
                        (let [sent (json/read-str body :key-fn keyword)
-                             projected (cash-account-api/->body record)]
+                             projected (cash-account-api/->wire-body record)]
                          (is (= (json/read-str (json/write-str projected)
                                                :key-fn
                                                keyword)
                                 (:data sent)))
+                         (is (= "opened" (:account-status (:data sent))))
+                         (is (string? (:created-at (:data sent))))
+                         (is (string? (:occurred-at sent)))
                          (is (= kind (:kind sent)))
                          (is (= account-id (:resource-id sent)))))])))))

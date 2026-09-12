@@ -291,29 +291,37 @@
         record (cash-account-query/find-account config bank-id account-id)
         body (body->map notification)
         _ (testing "data is the resource's own projection, field for field"
-            (let [projected (cash-account-api/->body record)
+            (let [projected (cash-account-api/->wire-body record)
                   round-tripped
                   (json/read-str (json/write-str projected) :key-fn keyword)]
               (is (= round-tripped (:data body)))))
         _ (testing "and carries no key the projection drops"
             (is (some? (:idempotency-key record))
                 "the record holds one, so dropping it is a choice")
-            (is (nil? (:idempotency-key (cash-account-api/->body record))))
+            (is (nil? (:idempotency-key (cash-account-api/->wire-body record))))
             (is (nil? (:idempotency-key (:data body)))))
         _ (testing "while the keys it keeps are all there"
             (is (= (:bban seeded) (:bban (:data body))))
             (is (= account-id (:account-id (:data body)))))
         _
         (testing
-          "the projection is the record's own spelling, not the
-                   wire's — pinned here because AC-09 asks for the read
-                   route's body and `->body` is only half of it: the
-                   route encodes enums and timestamps through
-                   `:encode/api` afterwards, and this slice has no
-                   `CashAccount` encoder outside the `api` base"
-          (is (= "cash-account-status-opened" (:account-status (:data body))))
-          (is (= "account-type-business" (:account-type (:data body))))
-          (is (int? (:created-at (:data body)))))]))))
+          "and is spelled as the read route spells it — the enums as
+                   the strings `CashAccount` admits and the timestamps
+                   as ISO-8601, which is what AC-09 asks for and what a
+                   client generated from the document accepts"
+          (is (= "opened" (:account-status (:data body))))
+          (is (= "business" (:account-type (:data body))))
+          (is (= "current" (:product-type (:data body))))
+          (is (string? (:created-at (:data body))))
+          (is (some? (re-matches #"\d{4}-\d{2}-\d{2}T.*"
+                                 (:created-at (:data body))))))
+        _ (testing "and the envelope's own timestamp with it"
+            (is (string? (:occurred-at body)))
+            (is (some? (re-matches #"\d{4}-\d{2}-\d{2}T.*"
+                                   (:occurred-at body)))))
+        _ (testing "while the embedded collections are not carried"
+            (is (nil? (:balances (:data body))))
+            (is (nil? (:transactions (:data body)))))]))))
 
 (deftest the-envelope-carries-every-published-field-test
   (with-test-system

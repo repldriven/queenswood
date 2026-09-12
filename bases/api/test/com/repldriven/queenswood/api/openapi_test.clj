@@ -151,9 +151,10 @@
   by the number of validation errors that class accounts for.
 
   - `:response-missing-description` — a Response Object must carry
-    `description` and none of the document's do, because neither
-    `schema/ErrorResponse` nor a route's own `:responses` entry sets
-    one.
+    `description`. `schema/ErrorResponse` sets one for every error
+    response in the document, and the webhook routes set one on each
+    of their own; the remainder are the 2xx entries of the route
+    families that have not set theirs yet.
   - `:responses-cascade`, `:paths-cascade` — `unevaluatedProperties`
     reported against the Responses Object and against `paths` for each
     child the line above failed. Consequences, not faults of their
@@ -166,12 +167,13 @@
 
   ADR-0014 wants every one of these at zero. Closing them changes the
   exported document, so it belongs to the work that owns the routes
-  rather than to this harness. Lower a number as its class shrinks, and
-  raise it when a route family lands before its class is closed — the
-  webhook routes account for the last such rise."
-  {:response-missing-description 603
-   :responses-cascade 603
-   :paths-cascade 68
+  rather than to this harness. Lower a number as its class shrinks; a
+  route family that lands without closing its own share of a class
+  raises one, which is a gap the family owns rather than a licence the
+  harness grants."
+  {:response-missing-description 71
+   :responses-cascade 71
+   :paths-cascade 59
    :example-payload-not-under-value 31
    :operation-stray-key 1})
 

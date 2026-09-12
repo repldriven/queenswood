@@ -17,3 +17,8 @@ outbound-runner: !system/component
   system/component-kind: webhook/outbound-runner
   record-db: !system/ref fdb.record-db
   record-store: !system/ref fdb.meta-store
+  # The platform's own published hosts, which no tenant address may
+  # name. Comma-separated, because an environment variable carries a
+  # string; unset leaves the rule with nothing to refuse and the
+  # address ranges still apply.
+  platform-hosts: !env WEBHOOK_PLATFORM_HOSTS

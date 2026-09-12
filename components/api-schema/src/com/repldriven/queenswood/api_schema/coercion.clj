@@ -1,4 +1,15 @@
-(ns com.repldriven.queenswood.api-schema.coercion)
+(ns com.repldriven.queenswood.api-schema.coercion
+  (:require
+    [malli.core :as m]
+    [malli.transform :as mt]))
+
+(def ^:private api-transformer (mt/transformer {:name :api}))
+
+(defn api-encoder
+  [schema registry]
+  (m/encoder schema
+             {:registry (merge (m/default-schemas) registry)}
+             api-transformer))
 
 (defn enum-coercion
   ([m] (enum-coercion m nil))

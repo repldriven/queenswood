@@ -194,19 +194,6 @@
   ([txn bank-id endpoint-id data opts]
    (core/rotate-secret txn bank-id endpoint-id data opts)))
 
-(defn should-pause?
-  "Whether a failing delivery should pause its endpoint: no successful
-  delivery inside the pause window, across at least the minimum
-  attempts. Pure — the delivery runner asks before calling `pause`.
-
-  Args:
-  - last-success-at: epoch-ms of the endpoint's last success, or nil
-    when it has never succeeded.
-  - now: epoch-ms.
-  - attempts: how many attempts the failing delivery has made."
-  [last-success-at now attempts]
-  (domain/should-pause? last-success-at now attempts))
-
 (defn check-address
   "Whether an address may be called: nil when it may, a
   `:webhook-endpoint/invalid-address` rejection when it may not. Pure,

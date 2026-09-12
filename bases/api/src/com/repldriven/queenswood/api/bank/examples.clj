@@ -5,7 +5,7 @@
     [com.repldriven.queenswood.api.party.examples :as
      party-examples]
 
-    [com.repldriven.queenswood.api-schema.interface :refer
+    [com.repldriven.queenswood.api-schema.interface :as schema :refer
      [examples-registry]]
     [com.repldriven.queenswood.cash-account-api.interface :as
      cash-account-examples]))
@@ -38,7 +38,7 @@
   (examples-registry [#'BankLimitExceeded #'BankNotFound #'BankInvalidStatus
                       #'BankUnknownTier]))
 
-(def BankId "bnk.01kprbmgcj35ptc8npmybhh4s7")
+(def BankId (schema/id-examples "BankId"))
 
 (def ClientSecret "k7DqGZ-Wt0aIqcPyQs8FdVx3y9rNJ4hLp1m6BvE-AtQ")
 

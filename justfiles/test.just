@@ -10,6 +10,21 @@ test-all: docker-start
 test-schema-evolution:
     clojure -M:poly test brick:migrator :dev
 
+# Check every deployable project's production application.yml names only
+# component-kinds its own classpath registers.
+check-system-configs:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    script="{{ justfile_directory() }}/scripts/check_system_config.clj"
+    failed=0
+    # Every project is run, rather than stopping at the first that
+    # fails, so one pass names every config that drifted.
+    for dir in {{ justfile_directory() }}/projects/*/; do
+      ( cd "$dir" && clojure -M -i "$script" -e "(check-system-config/-main)" ) \
+        || failed=1
+    done
+    exit "$failed"
+
 # Parse schemathesis JUnit report; optionally filter by status class: 2xx, 4xx, 5xx (or just 2, 4, 5)
 schemathesis-check filter="":
     #!/usr/bin/env python3

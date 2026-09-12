@@ -97,3 +97,24 @@
     #'CreateCashAccountRequest #'CreateCashAccountResponse #'CashAccountList
     #'CloseCashAccountResponse #'SuspendCashAccountResponse
     #'ResumeCashAccountResponse #'RotateCashAccountAddressResponse]))
+
+(def ^:private embedded-keys
+  "The `CashAccount` keys a read route fills only when the caller asks
+  for them with `embed`. `Balance` and `Transaction` are published by
+  their own resources, so a surface outside the API base cannot resolve
+  them: `->wire-body` carries neither, and a consumer wanting either
+  follows the account's links."
+  #{:balances :transactions})
+
+(def ^:private CashAccountWire
+  (into []
+        (remove (fn [entry]
+                  (and (vector? entry) (embedded-keys (first entry)))))
+        CashAccount))
+
+(def ^:private encode-account
+  (schema/api-encoder CashAccountWire (merge schema/registry registry)))
+
+(defn ->wire-body
+  [account]
+  (encode-account (apply dissoc (->body account) embedded-keys)))

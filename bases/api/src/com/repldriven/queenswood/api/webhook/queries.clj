@@ -18,7 +18,10 @@
 
 (defn- paginate
   "Windows a seq of items already in ascending `id-key` order, using
-  `page[after|before|size]` cursor semantics. `size` caps the page."
+  `page[after|before|size]` cursor semantics. `size` caps the page.
+
+  For the delivery history alone: an endpoint list pages through the
+  store's own cursor scan, and only deliveries are read whole."
   [items id-key {:keys [after before size]}]
   (let [limit (cursor/clamp-size size)]
     (cond
@@ -47,8 +50,8 @@
         :after (when (> (count items) limit) (id-key (last page)))}))))
 
 (defn- listing
-  "One 200 body for both lists: the window's items, and the cursor
-  links when there is a page either side of it."
+  "One 200 body for the delivery history: the window's items, and the
+  cursor links when there is a page either side of it."
   [items id-key project path page]
   (let [{:keys [after before size]} page
         {windowed :page next-cursor :after prev-cursor :before}
@@ -70,14 +73,26 @@
   (let [{:keys [auth parameters]} request
         {:keys [bank-id]} auth
         {:keys [page]} (:query parameters)
-        result (webhook/get-endpoints (config request) bank-id)]
+        {:keys [after before size]} page
+        after-id (cursor/decode after)
+        before-id (cursor/decode before)
+        size (cursor/clamp-size size)
+        opts (utility/assoc-some {:limit size}
+                                 :after after-id
+                                 :before before-id)
+        result (webhook/get-endpoints (config request) bank-id opts)]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
-      (listing (:endpoints result)
-               :endpoint-id
-               webhook/->body
-               "/v1/webhook-endpoints"
-               page))))
+      (let [{:keys [endpoints] next-cursor :after prev-cursor :before} result
+            links (when (seq endpoints)
+                    (cursor/build-links "/v1/webhook-endpoints"
+                                        size
+                                        (when after-id prev-cursor)
+                                        next-cursor))]
+        {:status 200
+         :body (utility/assoc-seq {:items (mapv webhook/->body endpoints)}
+                                  :links
+                                  links)}))))
 
 (defn get-endpoint
   [request]

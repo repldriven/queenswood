@@ -4,8 +4,9 @@
   shapes are built from, the examples those shapes and the rejection
   bodies carry, the enum schemas that coerce an account's status and
   type between wire strings and internal keywords, the OpenAPI `links`
-  a `CashAccount` response advertises, and the projection that turns a
-  stored account into a response body.
+  a `CashAccount` response advertises, and the two projections that
+  turn a stored account into a response body — one in the record's own
+  spelling, one in the wire's.
 
   Anything published about a cash account is projected here, so a
   second surface — a webhook notification carrying the same resource —
@@ -41,6 +42,22 @@
   - account: a cash account as the query brick hands it back."
   [account]
   (components/->body account))
+
+(defn ->wire-body
+  "Project a stored account and encode it as a read route would: enums
+  as their wire strings, timestamps as ISO-8601. The bytes a surface
+  outside the API base renders — a webhook notification carrying the
+  account — so a `CashAccount` reaches a client in one spelling however
+  it arrives.
+
+  The two embedded collections a read route fills on `embed`
+  — `balances` and `transactions` — are not carried; a consumer follows
+  the account's links for either.
+
+  Args:
+  - account: a cash account as the query brick hands it back."
+  [account]
+  (components/->wire-body account))
 
 ;; ---
 ;; coercion

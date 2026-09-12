@@ -2,14 +2,13 @@
   (:require
     [com.repldriven.queenswood.webhook.components :as components]
     [com.repldriven.queenswood.webhook.domain :as domain]
+    [com.repldriven.queenswood.webhook.signing :as signing]
     [com.repldriven.queenswood.webhook.store :as store]
 
     [com.repldriven.queenswood.policy.interface :as policy]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
-    [com.repldriven.mono.utility.interface :as utility]
-
-    [clojure.string :as str])
+    [com.repldriven.mono.utility.interface :as utility])
   (:import
     (java.net InetAddress)
     (java.security SecureRandom)
@@ -20,8 +19,6 @@
   HMAC-SHA256 with it, so a secret shorter than the digest would be the
   weak half of the pair."
   32)
-
-(def ^:private secret-prefix "whsec_")
 
 (def ^:private default-previous-secret-ttl-ms
   "How long a rotated-away secret stays accepted, so a tenant that has
@@ -37,35 +34,32 @@
   []
   (let [bytes (byte-array secret-bytes)]
     (.nextBytes random bytes)
-    (str secret-prefix
+    (str signing/secret-prefix
          (.encodeToString (.withoutPadding (Base64/getUrlEncoder)) bytes))))
 
-(defn- resolved
+(defn resolved
   "The host's addresses as the platform sees them now, as a vector of
   textual addresses. A host that resolves to nothing — or that cannot
   be resolved at all — answers with an empty vector, which the address
   rule refuses: an unreachable address is the tenant's to hear about,
-  not an infrastructure anomaly to surface."
+  not an infrastructure anomaly to surface.
+
+  The delivery runner re-resolves through this immediately before each
+  request, so an address whose DNS has moved into a range no tenant may
+  be reached on is refused at send time as it would have been at
+  registration."
   [address]
-  (let [host (some-> address
-                     (str/replace #"^[a-zA-Z]+://" "")
-                     (str/split #"[/:?#]" 2)
-                     first)
-        result (error/try-nom
+  (let [result (error/try-nom
                 :webhook-endpoint/resolve
                 "Failed to resolve webhook address"
                 (mapv #(.getHostAddress ^InetAddress %)
-                      (InetAddress/getAllByName host)))]
+                      (InetAddress/getAllByName (domain/host-of address))))]
     (if (error/anomaly? result) [] result)))
 
 (defn- get-policies
   [txn bank-id opts]
   (or (:policies opts)
       (policy/get-effective-policies txn {:bank-id bank-id})))
-
-(defn- platform-hosts
-  [opts]
-  (set (:platform-hosts opts)))
 
 (defn- or-already-registered
   "On a uniqueness violation — a retried registration carrying an
@@ -119,7 +113,7 @@
                                           data
                                           (mint-secret)
                                           addresses
-                                          (platform-hosts opts)
+                                          (:platform-hosts opts)
                                           existing-count
                                           policies)
             _ (store/save-endpoint txn endpoint)]
@@ -148,7 +142,7 @@
                      (domain/update-endpoint existing
                                              data
                                              addresses
-                                             (platform-hosts opts)
+                                             (:platform-hosts opts)
                                              policies)))))))
 
 (defn- save-deliveries
@@ -229,6 +223,17 @@
         _ (store/save-endpoint-status txn updated (:status existing))]
        updated))))
 
+(defn record-success
+  "Stamp the moment a delivery to this endpoint succeeded. The endpoint
+  is re-read inside the transaction and only that field changed, so a
+  tenant edit that landed while the call was in flight is not written
+  back over."
+  [txn bank-id endpoint-id now]
+  (transition txn
+              bank-id
+              endpoint-id
+              (fn [_txn existing] (domain/record-success existing now))))
+
 (defn remove-endpoint
   ([txn bank-id endpoint-id]
    (remove-endpoint txn bank-id endpoint-id {}))
@@ -282,7 +287,7 @@
           [endpoint (load-deliverable txn bank-id endpoint-id opts)
            notification (domain/test-notification
                          endpoint
-                         (components/->endpoint-body endpoint)
+                         (components/->wire-endpoint-body endpoint)
                          now)
            _ (store/save-notification txn notification)
            delivery (domain/new-delivery notification endpoint now)

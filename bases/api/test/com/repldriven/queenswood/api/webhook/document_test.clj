@@ -24,6 +24,7 @@
     [com.repldriven.mono.json.interface :as json]
     [com.repldriven.mono.test-system.interface :refer [nom-test>]]
 
+    [clojure.string]
     [clojure.test :refer [deftest is testing]]))
 
 (def ^:private notification-ref "#/components/schemas/WebhookNotification")
@@ -94,6 +95,17 @@
                       ["discriminator"
                        "propertyName"])))
        (is (seq (get union "oneOf"))))
+     _
+     (testing
+       "whose mapping names a component the document declares,
+                          which `$ref` resolution does not check: a
+                          mapping value is not a `$ref` key"
+       (let [mapping (get-in union ["discriminator" "mapping"])]
+         (is (= "#/components/schemas/CashAccount" (get mapping "CashAccount")))
+         (doseq [[resource-type pointer] mapping]
+           (testing resource-type
+             (is (contains? schemas
+                            (last (clojure.string/split pointer #"/"))))))))
      _ (testing "and the envelope reaches it by reference"
          (is (= "#/components/schemas/WebhookNotificationData"
                 (get-in schemas

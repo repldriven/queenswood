@@ -1,5 +1,7 @@
 (ns com.repldriven.queenswood.webhook.domain
   (:require
+    [com.repldriven.queenswood.webhook.components :as components]
+
     [com.repldriven.queenswood.policy.interface :as policy]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
@@ -125,6 +127,32 @@
                  :address address
                  :reason reason}))
 
+(defn host-of
+  "The host an address names, lower-cased, or nil. The one reading of
+  an address's host: the rule that decides whether a host may be
+  reached and the resolution that finds its addresses must agree about
+  which host they were given."
+  [address]
+  (some-> address
+          (str/replace #"^[a-zA-Z]+://" "")
+          (str/split #"[/:?#]" 2)
+          first
+          str/lower-case))
+
+(defn host-set
+  "The hosts a tenant may not point at, as a lower-cased set. A
+  deployment supplies them as a list in its system configuration or as
+  one comma-separated string, which is the only shape an environment
+  variable can carry."
+  [hosts]
+  (into #{}
+        (comp (mapcat (fn [host]
+                        (if (string? host) (str/split host #",") [host])))
+              (map str/trim)
+              (remove str/blank?)
+              (map str/lower-case))
+        (if (string? hosts) [hosts] hosts)))
+
 (defn check-address
   "Refuse an address that is not HTTPS, whose host is one of the
   platform's own, or that resolves into a range no tenant may be
@@ -138,16 +166,12 @@
                        (str/split #"://" 2)
                        first
                        str/lower-case)
-        host (some-> address
-                     (str/replace #"^[a-zA-Z]+://" "")
-                     (str/split #"[/:?#]" 2)
-                     first
-                     str/lower-case)]
+        host (host-of address)]
     (cond
      (not= allowed-scheme scheme)
      (invalid-address address "scheme is not https")
 
-     (contains? (set platform-hosts) host)
+     (contains? (host-set platform-hosts) host)
      (invalid-address address "host is the platform's own")
 
      (empty? resolved-addresses)
@@ -217,6 +241,14 @@
   (and (>= (or attempts 0) pause-minimum-attempts)
        (or (nil? last-success-at)
            (> (- now last-success-at) pause-window-ms))))
+
+(defn record-success
+  "The endpoint as a delivered outcome leaves it: the moment of the
+  success, which is what `should-pause?` measures its window from. The
+  tenant's own `updated-at` is left alone — a delivery succeeding is
+  not an edit to the endpoint."
+  [endpoint now]
+  (assoc endpoint :last-success-at now))
 
 ;; ---------------------------------------------------------------------------
 ;; Capability + limit checks
@@ -410,8 +442,8 @@
 (def
   ^{:doc
     "How long a runner's claim on a delivery holds. A claim whose lease
-  has passed is reclaimable, so a runner that died mid-flight strands
-  nothing."}
+  has passed is taken again by the next pass, so a runner that died
+  between the claim commit and the outcome commit strands nothing."}
   claim-lease-ms
   60000)
 
@@ -479,25 +511,28 @@
 
 (defn notification-body
   "The bytes a delivery sends: the envelope's own fields with the
-  projected resource under `data`. Rendered once and stored on the row,
-  so every delivery and every re-send of the notification sends the
-  same bytes."
+  projected resource under `data`, both in the spelling the published
+  document declares. Rendered once and stored on the row, so every
+  delivery and every re-send of the notification sends the same bytes.
+
+  `data` arrives already encoded by its own resource's projection."
   [row data]
   (let-nom>
     [encoded (json/write-str
-              (utility/assoc-some
-               {:notification-id (:notification-id row)
-                :kind (:kind row)
-                :change-kind (:change-kind row)
-                :occurred-at (:occurred-at row)
-                :bank-id (:bank-id row)
-                :resource-type (:resource-type row)
-                :resource-id (:resource-id row)
-                :correlation-id (:correlation-id row)
-                :data data}
-               :status-before (:status-before row)
-               :status-after (:status-after row)
-               :idempotency-key (:idempotency-key row)))]
+              (components/encode-envelope
+               (utility/assoc-some
+                {:notification-id (:notification-id row)
+                 :kind (:kind row)
+                 :change-kind (:change-kind row)
+                 :occurred-at (:occurred-at row)
+                 :bank-id (:bank-id row)
+                 :resource-type (:resource-type row)
+                 :resource-id (:resource-id row)
+                 :correlation-id (:correlation-id row)
+                 :data data}
+                :status-before (:status-before row)
+                :status-after (:status-after row)
+                :idempotency-key (:idempotency-key row))))]
     (.getBytes ^String encoded StandardCharsets/UTF_8)))
 
 (defn test-notification

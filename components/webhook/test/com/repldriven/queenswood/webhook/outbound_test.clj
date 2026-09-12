@@ -26,6 +26,7 @@
     [clojure.string :as str]
     [clojure.test :refer [deftest is testing]])
   (:import
+    (java.io ByteArrayInputStream)
     (java.nio.charset StandardCharsets)))
 
 (def ^:private config-file "classpath:webhook/outbound-test.yml")
@@ -71,7 +72,8 @@
 (defn- seed
   "One enabled endpoint pointing at `path` on the receiver, one
   notification, and one delivery due now. Returns the three ids."
-  [config base-url path {:keys [bank-id attempts last-success-at]}]
+  [config base-url path
+   {:keys [bank-id attempts last-success-at status claim-lease-expires-at]}]
   (let [suffix (str (utility/uuidv7))
         endpoint-id (str "whe." suffix)
         notification-id (str "whn." suffix)
@@ -103,17 +105,19 @@
                                                     StandardCharsets/UTF_8)
                                    :changelog-event-id (str "cle." suffix)
                                    :created-at now})
-       _ (store/save-delivery config
-                              (utility/assoc-some
-                               {:bank-id bank-id
-                                :delivery-id delivery-id
-                                :notification-id notification-id
-                                :endpoint-id endpoint-id
-                                :status :webhook-delivery-status-pending
-                                :kind "cash-account.opened"
-                                :created-at now}
-                               :attempts
-                               attempts))])
+       _ (store/save-delivery
+          config
+          (utility/assoc-some
+           {:bank-id bank-id
+            :delivery-id delivery-id
+            :notification-id notification-id
+            :endpoint-id endpoint-id
+            :status (or status :webhook-delivery-status-pending)
+            :kind "cash-account.opened"
+            :created-at now}
+           :attempts attempts
+           :claim-lease-expires-at claim-lease-expires-at
+           :claimed-by (when claim-lease-expires-at "runner-that-died")))])
     {:endpoint-id endpoint-id
      :notification-id notification-id
      :delivery-id delivery-id}))
@@ -137,7 +141,7 @@
                      (system/instance sys [:receiver :jetty-adapter]))]
        (testing "a 2xx marks the delivery delivered, with one attempt row"
          (let [bank-id "bnk.deliver.ok"
-               {:keys [delivery-id]}
+               {:keys [delivery-id endpoint-id]}
                (seed config base-url "/ok" {:bank-id bank-id})]
            (SUT/drain-once config)
            (nom-test> [delivery (delivery-of config bank-id delivery-id)
@@ -149,7 +153,10 @@
                        _ (is (= 200 (:response-status (first rows))))
                        _ (is (some? (:duration-ms (first rows))))
                        _ (is (str/blank? (:claimed-by delivery))
-                             "the claim is released with the outcome")])))
+                             "the claim is released with the outcome")
+                       endpoint (store/find-endpoint config bank-id endpoint-id)
+                       _ (is (pos? (:last-success-at endpoint))
+                             "the success the pause window measures from")])))
        (testing "a 500 keeps it pending, with the next attempt inside a minute"
          (let [bank-id "bnk.deliver.fail"
                {:keys [delivery-id]}
@@ -206,6 +213,49 @@
                      _ (is (= 1 (count rows)))
                      _ (is (= 1 (:attempts delivery)))]))))))
 
+(deftest reclaims-a-stranded-claim-test
+  (let [seen (atom [])]
+    (with-test-system
+     [sys
+      [config-file
+       #(assoc-in % [:system/defs :receiver :handler] (receiver seen))]]
+     (let [config (runner-config sys)
+           base-url (server/http-local-url
+                     (system/instance sys [:receiver :jetty-adapter]))
+           now (utility/now)]
+       (testing "an in-flight claim whose lease has passed is sent once"
+         (let [bank-id "bnk.claim.stranded"
+               {:keys [delivery-id]} (seed config
+                                           base-url
+                                           "/ok"
+                                           {:bank-id bank-id
+                                            :status
+                                            :webhook-delivery-status-in-flight
+                                            :claim-lease-expires-at (- now 1)})]
+           (SUT/drain-once config)
+           (SUT/drain-once config)
+           (nom-test> [delivery (delivery-of config bank-id delivery-id)
+                       rows (attempts-of config delivery-id)
+                       _ (is (= :webhook-delivery-status-delivered
+                                (:status delivery)))
+                       _ (is (= 1 (count rows))
+                             "reclaimed once, not once per pass")])))
+       (testing "one whose lease still holds is left to the runner holding it"
+         (let [bank-id "bnk.claim.held"
+               {:keys [delivery-id]}
+               (seed config
+                     base-url
+                     "/ok"
+                     {:bank-id bank-id
+                      :status :webhook-delivery-status-in-flight
+                      :claim-lease-expires-at (+ now domain/claim-lease-ms)})]
+           (SUT/drain-once config)
+           (nom-test> [delivery (delivery-of config bank-id delivery-id)
+                       rows (attempts-of config delivery-id)
+                       _ (is (= :webhook-delivery-status-in-flight
+                                (:status delivery)))
+                       _ (is (= [] rows))])))))))
+
 (deftest bounded-call-test
   (let [seen (atom [])]
     (with-test-system
@@ -248,7 +298,12 @@
        (testing "an oversized body does not exhaust the reader"
          (let [bank-id "bnk.bound.big"
                {:keys [delivery-id]}
-               (seed config base-url "/big" {:bank-id bank-id})]
+               (seed config base-url "/big" {:bank-id bank-id})
+               stream (ByteArrayInputStream. (.getBytes oversized-body
+                                                        StandardCharsets/UTF_8))
+               read (#'SUT/read-bounded stream)]
+           (is (= domain/max-response-bytes read)
+               "the reader stops at the bound rather than at the body's end")
            (SUT/drain-once config)
            (nom-test> [delivery (delivery-of config bank-id delivery-id)
                        rows (attempts-of config delivery-id)
@@ -309,6 +364,21 @@
                               (:attempts delivery)))
                      _ (is (= :webhook-endpoint-status-paused
                               (:status endpoint)))]))
+       (testing "an endpoint that succeeded inside the window is not paused"
+         (let [fresh-bank "bnk.pause.recent"
+               {fresh-endpoint :endpoint-id}
+               (seed config
+                     base-url
+                     "/fail"
+                     {:bank-id fresh-bank
+                      :attempts (dec domain/pause-minimum-attempts)
+                      :last-success-at (- (utility/now)
+                                          (quot domain/pause-window-ms 2))})]
+           (SUT/drain-once config)
+           (nom-test> [endpoint
+                       (store/find-endpoint config fresh-bank fresh-endpoint)
+                       _ (is (= :webhook-endpoint-status-enabled
+                                (:status endpoint)))])))
        (testing "the pause co-committed its changelog entry"
          (nom-test> [_ (fdb/process-changelog
                         (:record-db config)

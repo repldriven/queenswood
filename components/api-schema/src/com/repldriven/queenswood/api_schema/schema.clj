@@ -23,9 +23,14 @@
    [:status int?]
    [:detail {:optional true} string?]])
 
+(def error-response-description
+  (str "The request was rejected. The body is an RFC 9457 "
+       "problem-details object naming what was refused."))
+
 (defn ErrorResponse
   [examples]
-  {:content {"application/json"
+  {:description error-response-description
+   :content {"application/json"
              {:schema [:ref "ErrorResponse"]
               :examples (reduce (fn [m v]
                                   (let [v' (vname v)]

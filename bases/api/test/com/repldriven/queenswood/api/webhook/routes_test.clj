@@ -118,21 +118,29 @@
                 (response-ref document base "get" "200"))))]))
 
 (deftest the-history-documents-the-filters-it-takes-test
-  (nom-test> [document (json/read-str @exported)
-              parameters (get-in document
-                                 ["paths" (str base "/{endpoint-id}/deliveries")
-                                  "get"
-                                  "parameters"])
-              referenced (into #{} (map #(get % "$ref")) parameters)
-              _ (testing "the route names the endpoint, the filter and the page"
-                  (is (= #{"#/components/parameters/EndpointId"
-                           "#/components/parameters/DeliveryFilterQuery"
-                           "#/components/parameters/PageQuery"}
-                         referenced)))
-              filters (get-in document
-                              ["components" "parameters" "DeliveryFilterQuery"
-                               "schema"
-                               "properties"])
-              _ (testing "and the filter takes a kind, an outcome and a window"
-                  (is (= #{"kind" "outcome" "from" "to"}
-                         (set (keys filters)))))]))
+  (nom-test>
+    [document (json/read-str @exported)
+     parameters (get-in document
+                        ["paths" (str base "/{endpoint-id}/deliveries")
+                         "get"
+                         "parameters"])
+     referenced (into #{} (map #(get % "$ref")) parameters)
+     _ (testing "the route names the endpoint, the filter and the page"
+         (is (= #{"#/components/parameters/EndpointId"
+                  "#/components/parameters/DeliveryFilterQuery"
+                  "#/components/parameters/PageQuery"}
+                referenced)))
+     filters (get-in document
+                     ["components" "parameters" "DeliveryFilterQuery"
+                      "schema"
+                      "properties"])
+     _ (testing "and the filter takes a kind, an outcome and a window"
+         (is (= #{"kind" "outcome" "from" "to"} (set (keys filters)))))
+     _
+     (testing
+       "whose outcome refers to the status component rather
+                        than restating its values, so a fifth status
+                        cannot be advertised in one place and not the
+                        other"
+       (is (= {"$ref" "#/components/schemas/WebhookDeliveryStatus"}
+              (get filters "outcome"))))]))

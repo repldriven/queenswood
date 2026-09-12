@@ -1,6 +1,6 @@
 (ns com.repldriven.queenswood.api.party.examples
   (:require
-    [com.repldriven.queenswood.api-schema.interface :refer
+    [com.repldriven.queenswood.api-schema.interface :as schema :refer
      [examples-registry]]))
 
 (def PartyNotFound
@@ -40,7 +40,7 @@
 
 (def Party
   {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
-   :party-id "pty.01kprbmgcj35ptc8npmybhh4s9"
+   :party-id (schema/id-examples "PartyId")
    :type :person
    :display-name "Arthur Phillip Dent"
    :status :pending

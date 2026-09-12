@@ -56,10 +56,23 @@
    :enter (fn [ctx]
             (assoc-in ctx [:request :auth] {:bank-id bank-id :roles #{:org}}))})
 
+(def ^:private platform-hosts
+  "What the deployment's `WEBHOOK_PLATFORM_HOSTS` reaches the handler
+  as: one comma-separated string on the request, put there by the
+  server's component-injecting interceptors."
+  "console.example.test,hooks.example.com")
+
+(def ^:private configured
+  {:name ::configured
+   :enter (fn [ctx] (assoc-in ctx [:request :platform-hosts] platform-hosts))})
+
 (def ^:private handler (delay (api/app {:interceptors [authenticated]})))
 
+(def ^:private platform-handler
+  (delay (api/app {:interceptors [authenticated configured]})))
+
 (defn- call
-  [method uri {:keys [body idempotency-key]}]
+  [method uri {:keys [body idempotency-key platform]}]
   (let [headers (cond-> {"accept" "application/json"}
                         body
                         (assoc "content-type" "application/json")
@@ -72,7 +85,7 @@
                                (ByteArrayInputStream.
                                 (.getBytes ^String (json/write-str body)
                                            "UTF-8"))))
-        response (@handler request)]
+        response ((if platform @platform-handler @handler) request)]
     (cond-> response
             (:body response)
             (update :body #(json/read-str (slurp %) :key-fn keyword)))))
@@ -94,10 +107,14 @@
 
 (defn- register-double
   "Mints one endpoint per idempotency key, reading the first back when
-  the key repeats, and asks the domain rule about the address first."
+  the key repeats, and asks the domain rule about the address first.
+  `opts` is where the handler passes the hosts the deployment refuses,
+  so the double applies them as the component would."
   [state resolved]
-  (fn [_ _bank-id {:keys [idempotency-key] :as data}]
-    (or (webhook/check-address (:address data) resolved #{})
+  (fn [_ _bank-id {:keys [idempotency-key] :as data} opts]
+    (or (webhook/check-address (:address data)
+                               resolved
+                               (:platform-hosts opts))
         (if-let [seen (get-in @state [:by-key idempotency-key])]
           (get-in @state [:endpoints seen])
           (let [id (nth minted (count (:endpoints @state)))
@@ -111,8 +128,10 @@
 
 (defn- update-double
   [state resolved]
-  (fn [_ _bank-id id data]
-    (or (webhook/check-address (:address data) resolved #{})
+  (fn [_ _bank-id id data opts]
+    (or (webhook/check-address (:address data)
+                               resolved
+                               (:platform-hosts opts))
         (let [endpoint (stored id data)]
           (swap! state assoc-in [:endpoints id] endpoint)
           endpoint))))
@@ -233,6 +252,36 @@
                                           (key-for 4))]
       (is (= 422 status) "the rejection default, with no override entry")
       (is (= ":webhook-endpoint/invalid-address" (:type body))))))
+
+(deftest the-deployments-own-hosts-reach-the-write-test
+  (testing "the configured hosts refuse an address naming one of them"
+    (with-redefs [webhook/register (register-double (new-state) routable)]
+      (let [{:keys [status body]}
+            (call :post
+                  base
+                  {:body {:address "https://hooks.example.com/queenswood"}
+                   :idempotency-key (key-for 5)
+                   :platform true})]
+        (is (= 422 status))
+        (is (= ":webhook-endpoint/invalid-address" (:type body))))))
+  (testing "and admit an address naming none of them"
+    (with-redefs [webhook/register (register-double (new-state) routable)]
+      (let [{:keys [status]} (call :post
+                                   base
+                                   {:body {:address
+                                           "https://tenant.example/queenswood"}
+                                    :idempotency-key (key-for 6)
+                                    :platform true})]
+        (is (= 201 status)))))
+  (testing "and an update takes the same set"
+    (with-redefs [webhook/update-endpoint (update-double (new-state) routable)]
+      (let [{:keys [status body]}
+            (call :put
+                  (str base "/" endpoint-id)
+                  {:body {:address "https://console.example.test/hook"}
+                   :platform true})]
+        (is (= 422 status))
+        (is (= ":webhook-endpoint/invalid-address" (:type body)))))))
 
 (deftest a-transition-from-the-wrong-state-is-409-test
   (with-redefs [webhook/disable (fn [& _]

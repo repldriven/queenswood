@@ -43,8 +43,8 @@
     publishes it.
   - `:load` — `(fn [txn bank-id resource-id])`, the resource's own
     query brick, called inside the consumer's transaction.
-  - `:project` — the resource's `->body`, the projection its read route
-    returns."}
+  - `:project` — the resource's `->wire-body`, the projection its read
+    route returns, encoded as the route encodes it."}
   entries
   [{:kind "cash-account.opened"
     :event "cash-account-status-changed"
@@ -55,7 +55,7 @@
     :resource-id-key :account-id
     :status-name cash-account-status-name
     :load cash-account-query/find-account
-    :project cash-account-api/->body}])
+    :project cash-account-api/->wire-body}])
 
 (defn covers-event?
   "Whether any entry is produced by this relayed event. Asked before

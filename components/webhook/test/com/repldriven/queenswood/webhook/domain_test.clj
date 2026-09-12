@@ -86,6 +86,30 @@
     (is (= :webhook-endpoint/invalid-address (error/kind result)))
     (is (= "host is the platform's own" (:reason (error/payload result))))))
 
+(deftest the-host-is-read-one-way-test
+  (testing "scheme, port, path, query and fragment are all stripped"
+    (is (= "example.test" (SUT/host-of "https://example.test")))
+    (is (= "example.test" (SUT/host-of "https://EXAMPLE.test:8443/h?a=1#f")))
+    (is (nil? (SUT/host-of nil))))
+  (testing "the rule and the resolution agree about the host they were given"
+    (is (some? (SUT/check-address "https://API.Queenswood.test:8443/hooks"
+                                  public-address
+                                  #{"api.queenswood.test"}))
+        "a host the platform owns is refused however it was spelled")))
+
+(deftest platform-hosts-take-either-shape-test
+  (testing "a collection, a comma-separated string, and neither"
+    (is (= #{"a.test" "b.test"} (SUT/host-set ["a.test" "B.test"])))
+    (is (= #{"a.test" "b.test"} (SUT/host-set " a.test , B.test ,")))
+    (is (= #{} (SUT/host-set nil)))
+    (is (= #{} (SUT/host-set ""))))
+  (testing "a deployment's comma-separated value refuses its own host"
+    (let [result (SUT/check-address
+                  "https://api.queenswood.test/hooks"
+                  public-address
+                  "console.queenswood.test,api.queenswood.test")]
+      (is (= :webhook-endpoint/invalid-address (error/kind result))))))
+
 (deftest address-refuses-a-host-that-resolves-to-nothing-test
   (let [result (SUT/check-address "https://tenant.example/hooks" [] #{})]
     (is (= :webhook-endpoint/invalid-address (error/kind result)))
@@ -219,6 +243,20 @@
       (is (false? (SUT/should-pause? (- now SUT/pause-window-ms)
                                      now
                                      SUT/pause-minimum-attempts))))))
+
+(deftest record-success-stamps-the-window-test
+  (let [endpoint {:endpoint-id "whe.1"
+                  :status :webhook-endpoint-status-enabled
+                  :updated-at 1}
+        now 1700000000000
+        updated (SUT/record-success endpoint now)]
+    (is (= now (:last-success-at updated)))
+    (is (= 1 (:updated-at updated))
+        "a delivery succeeding is not an edit to the endpoint")
+    (is (false? (SUT/should-pause? (:last-success-at updated)
+                                   now
+                                   SUT/pause-minimum-attempts))
+        "and is what holds the pause window open")))
 
 (deftest retry-schedule-test
   (testing "the first retry is inside a minute"

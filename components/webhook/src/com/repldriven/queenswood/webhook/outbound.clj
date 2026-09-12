@@ -8,12 +8,9 @@
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.http-client.interface :as http]
     [com.repldriven.mono.log.interface :as log]
-    [com.repldriven.mono.utility.interface :as utility]
-
-    [clojure.string :as str])
+    [com.repldriven.mono.utility.interface :as utility])
   (:import
-    (java.io InputStream)
-    (java.net InetAddress)))
+    (java.io InputStream)))
 
 (def ^:private default-poll-ms 200)
 
@@ -21,23 +18,6 @@
   "How many due deliveries one pass claims. The per-endpoint bound is
   what keeps one tenant from taking them all."
   32)
-
-(defn- resolved
-  "The host's addresses as the platform sees them now. Re-resolved
-  immediately before the request, so an address whose DNS has moved
-  into a range no tenant may be reached on is refused at send time as
-  it would have been at registration."
-  [address]
-  (let [host (some-> address
-                     (str/replace #"^[a-zA-Z]+://" "")
-                     (str/split #"[/:?#]" 2)
-                     first)
-        result (error/try-nom
-                :webhook-endpoint/resolve
-                "Failed to resolve webhook address"
-                (mapv #(.getHostAddress ^InetAddress %)
-                      (InetAddress/getAllByName host)))]
-    (if (error/anomaly? result) [] result)))
 
 (defn- read-bounded
   "At most `domain/max-response-bytes` of `stream`. The rest is
@@ -93,6 +73,19 @@
                       :response-status (:status outcome)
                       :error (:error outcome)))
 
+(defn- record-success
+  "Stamp the endpoint's last success, so the pause rule's window has a
+  moment to measure from. A failure here leaves the endpoint reading as
+  though it had never succeeded, which is what pauses it early."
+  [config endpoint now]
+  (let [res (core/record-success config
+                                 (:bank-id endpoint)
+                                 (:endpoint-id endpoint)
+                                 now)]
+    (when (error/anomaly? res)
+      (log/error "Webhook endpoint success not recorded"
+                 {:endpoint-id (:endpoint-id endpoint) :anomaly res}))))
+
 (defn- pause-endpoint
   "Pause the endpoint through the same transition every caller takes,
   so the guard runs against the record as it stands now and the write
@@ -111,7 +104,7 @@
   it answers, so an address whose DNS has moved into a range no tenant
   may be reached on is refused before the request is made."
   [address platform-hosts]
-  (domain/check-address address (resolved address) platform-hosts))
+  (domain/check-address address (core/resolved address) platform-hosts))
 
 (defn- outcome-of
   "What the call answered, or why it was never made. An address the
@@ -161,11 +154,12 @@
                                             outcome
                                             now
                                             (- now started)))]
-        (when (and (not (domain/delivered? (:status outcome)))
-                   (domain/should-pause? (:last-success-at endpoint)
-                                         now
-                                         (:attempts updated)))
-          (pause-endpoint config endpoint))
+        (if (domain/delivered? (:status outcome))
+          (record-success config endpoint now)
+          (when (domain/should-pause? (:last-success-at endpoint)
+                                      now
+                                      (:attempts updated))
+            (pause-endpoint config endpoint)))
         updated))))
 
 (defn drain-once

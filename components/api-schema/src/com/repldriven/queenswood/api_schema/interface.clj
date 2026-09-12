@@ -2,9 +2,11 @@
   "Schema and coercion primitives shared by every API surface: the
   registry builders that turn vars into malli registries and OpenAPI
   `components` sections, the prefixed-id schema, the error-response
-  shape, the enum coercion builder, the two `:unique-vector` collection
+  shape, the enum coercion builder, the encoder that renders a body in
+  the spelling a route would, the two `:unique-vector` collection
   schemas, and the registry of cross-cutting schemas — timestamps,
-  dates, country and currency primitives, amounts, names, and the
+  dates, country and currency primitives, amounts, names, the entity
+  ids and product enums more than one resource carries, and the
   `page` / `embed` query objects. Requiring this namespace registers
   the `:unique-vector` and `:unique-vector-lax` OpenAPI projections."
   (:require
@@ -84,6 +86,20 @@
   ([m] (coercion/enum-coercion m))
   ([m unknown-key] (coercion/enum-coercion m unknown-key)))
 
+(defn api-encoder
+  "A function encoding a value through the `:encode/api` properties
+  `schema` and everything it references carry — the same transform the
+  API's response coercion applies on the way out. A surface rendering a
+  body outside a route uses it to emit the bytes the route would:
+  timestamps as ISO-8601, enums as their wire strings.
+
+  Args:
+  - schema: the malli schema to encode through.
+  - registry: registry resolving every `[:ref \"X\"]` the schema
+    reaches. Malli's own default schemas are merged in."
+  [schema registry]
+  (coercion/api-encoder schema registry))
+
 (def
   ^{:doc
     "Malli collection schema `:unique-vector` — a sequential
@@ -106,11 +122,21 @@
   ^{:doc
     "Malli registry of the cross-cutting schemas every API
   surface shares — timestamps, dates, country and currency primitives,
-  amounts, names, and the `page` / `embed` query objects. Merged into
+  amounts, names, the entity ids and product enums more than one
+  resource carries, and the `page` / `embed` query objects. Merged into
   the coercion registry in `api.clj`, so `[:ref \"X\"]` resolves the
   same definition on every route."}
   registry
   components/registry)
+
+(def
+  ^{:doc
+    "The example ids the shared `BankId`, `PartyId`, `ProductId` and
+  `VersionId` schemas advertise, keyed by the schema's name. A resource
+  example takes its own id from here, so the document cannot show one
+  id on a schema and another on the example beside it."}
+  id-examples
+  components/id-examples)
 
 (def
   ^{:doc
