@@ -18,8 +18,8 @@ In scope: the `bank` command processor and the `bank-query` read
 brick; the status enum and the tier label; the multi-brick atomic
 create flow (service-account client, org party, ledger chart,
 own-funds house accounts, tier bindings, scheduled jobs, owner
-membership); the tier and status changes; the enrich-on-read
-pattern.
+membership, the bank-created access event and the owner invitation);
+the tier and status changes; the enrich-on-read pattern.
 
 Out of scope: the service-account and JWT mechanics — see
 [authentication.md](authentication.md); each foundational brick's
@@ -27,7 +27,8 @@ own rules — party creation [parties.md](parties.md), the ledger
 chart [chart-of-accounts.md](chart-of-accounts.md), product
 publish [cash-account-products.md](cash-account-products.md),
 account opening [cash-accounts.md](cash-accounts.md), policy
-bindings [policy-evaluation.md](policy-evaluation.md).
+bindings [policy-evaluation.md](policy-evaluation.md), memberships,
+invitations and access events [access.md](access.md).
 
 ## Background
 
@@ -157,15 +158,22 @@ yet.
 
 `new-bank txn bank-name bank-status tier currencies opts` runs
 the following inside one FDB transaction. A step marked with an
-`opts` key runs only when the caller supplies that key.
+`opts` key runs only when the caller supplies that key. The actor
+is `opts`' `:actor`; a command sent before `create-bank` carried
+one acts as the membership's user, a member, or else as an
+operator with principal id `unknown`.
 
 1. **Require an identity-provider** — `opts` must carry
    `:identity-provider`, or the command is rejected
    `:bank/missing-identity-provider` before anything else.
-2. **Check sole membership** *(`:membership`)* — the user must
-   not already belong to a bank, or `:membership/already-exists`.
-   It runs before any write, so a redelivered onboarding command
-   aborts cleanly.
+2. **Guard a redelivery** *(`:idempotency-key`)* — the command
+   envelope's `:id`, which a retry reuses, is counted under the
+   actor's principal id with `fdb/allocate-counter`, and a count
+   above one is rejected `:bank/already-exists`. The count commits
+   only with the bank and is read before the identity-provider
+   call, so a redelivered or retried command aborts with no second
+   bank, client or membership. A person may own any number of
+   banks.
 3. **Resolve platform policies** — `policy/get-effective-policies
    txn {}` with empty selectors, since the bank does not exist
    yet. `opts` may override with `:policies`. These are threaded
@@ -204,11 +212,19 @@ the following inside one FDB transaction. A step marked with an
     `{:kind {:bank {:bank-id <new-id>}}}`.
 13. **Seed the scheduled jobs** — `scheduler/seed-jobs`,
     idempotent on `[bank-id job-id]`.
-14. **Create the owner membership** *(`:membership`)* — last, in
-    the same transaction.
+14. **Create the owner membership** *(`:membership`)*.
+15. **Record the bank-created access event** —
+    `membership/record-bank-created` in the actor's name, naming
+    the owner membership when there is one.
+16. **Invite the owner** *(`:owner-invitation`)* —
+    `membership/invite` with role owner, the actor, the given token
+    hash and a fixed reason, writing a pending invitation and its
+    invitation-created event. A token hash another invitation holds
+    fails the transaction.
 
-The return value is `{:bank {…} :membership <map-or-nil>}`: the
-flat record, not the enriched view. The api handler mints the
+The return value is
+`{:bank {…} :membership <map-or-nil> :owner-invitation-id <id-or-nil>}`:
+the flat record, not the enriched view. The api handler mints the
 credential with `rotate-secret` after the reply and loads the
 view from `bank-query`.
 

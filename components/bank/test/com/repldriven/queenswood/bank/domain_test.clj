@@ -1,9 +1,9 @@
 (ns com.repldriven.queenswood.bank.domain-test
-  "Pure-function tests for the rejection paths of bank provisioning:
-  `:bank/unknown-tier` when the tier resolves to no policies,
-  `:onboarding/company-not-active` when the bound company snapshot is
-  not active, and `:membership/already-exists` from the sole-membership
-  check core runs inside the provisioning transaction."
+  "Pure-function tests for bank provisioning: `:bank/unknown-tier` when
+  the tier resolves to no policies, `:onboarding/company-not-active`
+  when the bound company snapshot is not active, the actor a create
+  records when its command carries none, and `:bank/already-exists`
+  when a key has already created a bank."
   (:require
     [com.repldriven.queenswood.bank.domain :as SUT]
 
@@ -82,13 +82,27 @@
       (is (error/rejection? r))
       (is (= :onboarding/company-not-active (error/kind r))))))
 
-(deftest check-sole-membership-test
-  (testing "nil when the user has no memberships"
-    (is (nil? (SUT/check-sole-membership "usr.1" []))))
-  (testing "rejects when the user already belongs to a bank"
-    (let [r (SUT/check-sole-membership "usr.1" [{:bank-id "bnk.1"}])]
+(deftest creation-actor-test
+  (let [operator {:kind :actor-kind-operator :principal-id "queenswood-admin"}]
+    (testing "the command's actor when it carries one"
+      (is (= operator (SUT/creation-actor operator {:user-id "usr.1"}))))
+    (testing "the membership's user as a member when the command has none"
+      (is (= {:kind :actor-kind-member :principal-id "usr.1"}
+             (SUT/creation-actor nil {:user-id "usr.1" :role :role-owner}))))
+    (testing "an unknown operator when there is neither"
+      (is (= {:kind :actor-kind-operator :principal-id "unknown"}
+             (SUT/creation-actor nil nil))))))
+
+(deftest check-first-creation-test
+  (testing "nil for the first creation under a key"
+    (is (nil? (SUT/check-first-creation "ik-bank-00000001" 1))))
+  (testing "nil when the command carries no key"
+    (is (nil? (SUT/check-first-creation nil nil))))
+  (testing "rejects a second creation under a key"
+    (let [r (SUT/check-first-creation "ik-bank-00000001" 2)]
       (is (error/rejection? r))
-      (is (= :membership/already-exists (error/kind r))))))
+      (is (= :bank/already-exists (error/kind r)))
+      (is (= "ik-bank-00000001" (:idempotency-key (error/payload r)))))))
 
 (def ^:private test-bank {:bank-id "bnk.1" :status :bank-status-live})
 
