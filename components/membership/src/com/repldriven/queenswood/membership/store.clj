@@ -1,9 +1,7 @@
 (ns com.repldriven.queenswood.membership.store
   (:require
     [com.repldriven.queenswood.fdb.interface :as fdb]
-    [com.repldriven.queenswood.schema.interface :as schema]
-
-    [com.repldriven.mono.error.interface :as error]))
+    [com.repldriven.queenswood.schema.interface :as schema]))
 
 (def ^:private store-name "memberships")
 
@@ -22,12 +20,9 @@
   [txn membership-id]
   (fdb/transact txn
                 (fn [txn]
-                  (if-let [record (fdb/load-record (fdb/open txn store-name)
-                                                   membership-id)]
-                    (schema/pb->Membership record)
-                    (error/reject :membership/not-found
-                                  {:message "Membership not found"
-                                   :membership-id membership-id})))
+                  (some-> (fdb/load-record (fdb/open txn store-name)
+                                           membership-id)
+                          schema/pb->Membership))
                 :membership/get
                 "Failed to load membership"))
 
