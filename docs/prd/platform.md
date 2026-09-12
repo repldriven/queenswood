@@ -17,24 +17,49 @@ PRDs go deep on individual product surfaces.
 
 ## Users and stakeholders
 
-Three roles.
+Five personas. Every PRD names its readers from this list, so the same
+word means the same person everywhere.
 
-**Tenant engineer / fintech product team.** The primary user.
-Integrates the Queenswood API into a banking-product backend.
-Cares about: contract clarity, OpenAPI fidelity, policy
-customisation, idempotency guarantees, error handling.
+**Platform operator.** Runs the platform itself — creates organisations
+for customers, moves them between tiers and between test and live,
+authors and binds policies, schedules interest, watches delivery health,
+and recovers a locked-out organisation. Signs in to the operator app, or
+acts through back-office automation. A member of no organisation. Today
+this is a single-operator role; Queenswood is a research-grade platform,
+not a production SaaS.
 
-**End customer.** The human or business holding accounts
-through a tenant's product. Interacts with Queenswood
-indirectly via the tenant's customer-facing app. Cares about:
-balance visibility, payment correctness, interest accrual,
-trust.
+**Customer team.** The people at a customer who run its relationship
+with the platform — a founder, an operations lead, finance and support
+staff, and engineers acting as themselves. Sign in to the console with
+their own identity and hold a role in each organisation they belong to,
+so every act is attributable to a name. Cares about: getting colleagues
+in, never being one departure from lock-out, seeing what their role
+allows, and knowing who did what.
 
-**Platform admin / Queenswood operator.** Runs the platform
-itself — mints tenants, configures platform-level policies,
-operates the infrastructure. Today this is a single-operator
-role; Queenswood is a research-grade platform, not a
-production SaaS.
+**Customer engineering team.** The engineers who build the customer's
+integration, and the systems they build, which act with the
+organisation's credential and are, to the platform, the organisation.
+Cares about: contract clarity, OpenAPI fidelity, a sandbox that behaves
+like live, safe re-submission, error handling, and handling the
+credential safely. The same human is often on both customer teams. The
+difference is whether they are acting as a person in the console or as
+the organisation through its credential.
+
+**End customer.** The human or business holding accounts through a
+customer's product. Interacts with Queenswood indirectly via the
+customer's app, and is a party, never someone who signs in. Cares about:
+balance visibility, payment correctness, interest accrual, trust.
+
+**Compliance and risk.** The reviewer who asks after the fact — at the
+customer, at the platform, or auditing either. Reaches the platform
+through a viewer's role, an operator's view or exported records, and
+changes nothing. Cares about: who had access to what and when, which
+rules were in force, whether a change was authorised, and nothing
+happening silently.
+
+The clearing partner and the identity verification provider are
+counterparties, not personas. They appear as stakeholders where a PRD
+integrates with them, and nobody reads a PRD as one.
 
 ## Goals
 
@@ -107,38 +132,44 @@ What Queenswood deliberately does not provide.
 
 ## Functional scope
 
-The platform is delivered through seven capabilities, each
-covered by its own PRD.
+The platform is delivered through these capabilities, each covered by
+its own PRD.
 
 - **Onboarding** — multi-tenant tenancy creation:
   organisation setup, credential issuance, default product and
   bookkeeping accounts bootstrapped in one transaction.
-  Forthcoming PRD: [onboarding](onboarding.md).
+  PRD: [onboarding](onboarding.md).
 - **Parties and identity** — customer registration with
   national identifiers and person identifications; identity
   verification that activates a person party for transacting.
-  Forthcoming PRD: [parties](parties.md).
+  PRD: [parties](parties.md).
 - **Cash account products** — versioned product templates
   defining account terms. Drafts mutable; published versions
-  immutable. Forthcoming PRD:
+  immutable. PRD:
   [cash-account-products](cash-account-products.md).
 - **Cash accounts** — accounts opened against a published
   product version, owned by an active party, in a chosen
-  currency, with payment addresses. Forthcoming PRD:
+  currency, with payment addresses. PRD:
   [cash-accounts](cash-accounts.md).
 - **Payments** — internal transfers (instant), inbound UK
   Faster Payments (settlement notification from the scheme),
   outbound UK Faster Payments (submission via scheme
   adapter). All safe to re-submit — duplicates are
-  recognised and skipped. Forthcoming PRD:
+  recognised and skipped. PRD:
   [payments](payments.md).
 - **Interest** — daily accrual with fractional carry;
   capitalisation at the operator's chosen cadence.
-  Forthcoming PRD: [interest](interest.md).
+  PRD: [interest](interest.md).
 - **Authorization and policies** — capabilities and limits as
   data, bindings scoped to tenants. Curative permits let a
-  customer self-correct out of breach. Forthcoming PRD:
+  customer self-correct out of breach. PRD:
   [policies](policies.md).
+- **Access** — the people who operate an organisation: signing in,
+  invitations, roles, removal, working across organisations, and
+  operator recovery. PRD: [access](access.md).
+- **Webhooks** — the platform telling a customer's systems that a
+  record changed, signed and retried until acknowledged. PRD:
+  [webhooks](webhooks.md).
 
 ## User journeys
 
@@ -149,9 +180,9 @@ end.
 
 ```mermaid
 sequenceDiagram
-    participant A as Platform admin
+    participant A as Platform operator
     participant Q as Queenswood
-    participant T as Tenant engineer
+    participant T as Customer engineer
 
     A->>Q: create organisation (name, type, tier, currencies)
     Q->>Q: mint credential, party, default product,<br/>accounts, policy bindings
@@ -177,7 +208,7 @@ issued.
 
 ```mermaid
 sequenceDiagram
-    participant T as Tenant engineer
+    participant T as Customer engineer
     participant Q as Queenswood
     participant I as IDV provider<br/>(or simulator)
     participant E as End customer<br/>(via tenant's app)
@@ -200,7 +231,7 @@ active status the next time they read the party.
 
 ```mermaid
 sequenceDiagram
-    participant T as Tenant engineer
+    participant T as Customer engineer
     participant Q as Queenswood
 
     T->>Q: open account (party, product, currency)
@@ -304,11 +335,13 @@ Things deliberately left unresolved or future work.
 
 ## References
 
-- **Per-capability PRDs** (forthcoming):
-  [onboarding](onboarding.md), [parties](parties.md),
+- **Per-capability PRDs**:
+  [onboarding](onboarding.md), [access](access.md),
+  [parties](parties.md),
   [cash-account-products](cash-account-products.md),
   [cash-accounts](cash-accounts.md), [payments](payments.md),
-  [interest](interest.md), [policies](policies.md).
+  [interest](interest.md), [policies](policies.md),
+  [webhooks](webhooks.md).
 - **Engineering view** — the corresponding TDDs at
   [docs/tdd/](../tdd/) describe how these capabilities are
   built.

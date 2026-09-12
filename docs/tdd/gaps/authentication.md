@@ -333,8 +333,7 @@ In order:
 - [service-apis.md](../service-apis.md) — Service APIs
 - [transaction-processing.md](../transaction-processing.md) —
   Transaction processing
-- [users.md](../../prd/users.md) — Users
-- [memberships.md](../../prd/memberships.md) — Memberships
+- [access.md](../../prd/access.md) — Access
 - [onboarding.md](../../prd/onboarding.md) — Onboarding
 - [platform.md](../../prd/platform.md) — Platform
 - [ADR-0001](../../adr/0001-reuse-mono-as-upstream.md) — Reuse mono as

@@ -16,24 +16,19 @@ composed into the rule set that governs each tenant.
 
 ## Users and stakeholders
 
-**Platform admin / Queenswood operator.** The author of
-policies. Decides which capabilities tenants get and which
-limits apply to them, packages those decisions into
-policies, and binds the policies to tenants (or tenant
-groups). Cares about: the rule set being legible and
-editable, the deny outcome being explicit, the audit
+**Platform operator.** The author of policies. Decides which capabilities
+tenants get and which limits apply to them, packages those decisions into
+policies, and binds the policies to tenants (or tenant groups). Cares about: the
+rule set being legible and editable, the deny outcome being explicit, the audit
 trail of who has what.
 
-**Tenant engineer.** Sees the *effects* of policies —
-calls to the banking API succeed or are denied based on
-the rules in force for their tenant. Cares about: the
-denial reason being clear enough to act on, the limits in
-force matching what they expect from the tier they signed
-up under.
+**Customer engineering team.** Sees the *effects* of policies — calls to the
+banking API succeed or are denied based on the rules in force for their tenant.
+Cares about: the denial reason being clear enough to act on, the limits in force
+matching what they expect from the tier they signed up under.
 
-**Compliance / risk function.** Reviews the rule set in
-force. Cares about: the rules being centrally listable
-and inspectable, changes being observable, the policy
+**Compliance and risk.** Reviews the rule set in force. Cares about: the rules
+being centrally listable and inspectable, changes being observable, the policy
 catalogue not silently drifting.
 
 **End customer.** Doesn't see policies directly, but
@@ -264,9 +259,9 @@ reason to their end customer, or take action themselves
 
 ```mermaid
 sequenceDiagram
-    participant O as Platform admin
+    participant O as Platform operator
     participant Q as Queenswood
-    participant T as Tenant engineer
+    participant T as Customer engineer
 
     O->>Q: create policy<br/>(capabilities + limits)
     Q-->>O: policy
@@ -286,7 +281,7 @@ in addition to whatever was already bound.
 
 ```mermaid
 sequenceDiagram
-    participant T as Tenant engineer
+    participant T as Customer engineer
     participant Q as Queenswood
 
     Note over T,Q: tenant has 9,999 accounts —<br/>limit is 10,000
@@ -328,7 +323,7 @@ back into compliance.
 
 ```mermaid
 sequenceDiagram
-    participant O as Platform admin
+    participant O as Platform operator
     participant Q as Queenswood
 
     O->>Q: read policy
@@ -350,7 +345,7 @@ re-enabled at any time.
 
 ```mermaid
 sequenceDiagram
-    participant O as Platform admin
+    participant O as Platform operator
     participant Q as Queenswood
 
     O->>Q: create tenant (tier = "test")

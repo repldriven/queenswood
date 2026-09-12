@@ -2,7 +2,7 @@
   "Platform-identity User: a human operator of Queenswood, 1:1 with
   an OIDC (issuer, sub) pair from whichever IdP is federated. Kept
   strictly separate from Party (a customer in the banking domain) --
-  see docs/prd/users.md. Memberships (`bank-membership`) join Users
+  see docs/prd/access.md. Memberships (`bank-membership`) join Users
   to Organizations with a Role."
   (:require
     [com.repldriven.queenswood.user.core :as core]))

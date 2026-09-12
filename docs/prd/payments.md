@@ -15,13 +15,11 @@ double-processing.
 
 ## Users and stakeholders
 
-**Tenant engineer.** Submits internal and outbound payments
-on behalf of end customers, observes inbound payments
-landing on customer accounts, and reconciles. Cares about:
-the outbound flow being predictable (intent accepted now,
-settlement confirmed shortly after), Confirmation of Payee
-being available for outbound, idempotency being safe to
-rely on for retries.
+**Customer engineering team.** Submits internal and outbound payments on behalf
+of end customers, observes inbound payments landing on customer accounts, and
+reconciles. Cares about: the outbound flow being predictable (intent accepted
+now, settlement confirmed shortly after), Confirmation of Payee being available
+for outbound, idempotency being safe to rely on for retries.
 
 **End customer.** The party whose account is debited or
 credited. Doesn't interact with the platform directly but
@@ -30,10 +28,9 @@ Cares (implicitly) about: payments landing when expected,
 the available balance reflecting in-flight outbound
 payments, no double-debits or double-credits.
 
-**Platform admin / Queenswood operator.** Operates the
-scheme integration — the adapter that talks to the bank's
-clearing partner for UK FPS, and the simulator that stands
-in for it during development.
+**Platform operator.** Operates the scheme integration — the adapter that talks
+to the bank's clearing partner for UK FPS, and the simulator that stands in for
+it during development.
 
 **Clearing partner.** The third party that fronts UK
 Faster Payments for the platform. Receives outbound payment
@@ -243,7 +240,7 @@ the duplicate as a no-op.
 
 ```mermaid
 sequenceDiagram
-    participant T as Tenant engineer
+    participant T as Customer engineer
     participant Q as Queenswood
 
     T->>Q: submit internal transfer<br/>(debtor, creditor, amount, reference)
@@ -258,7 +255,7 @@ balance change on both sides immediately.
 
 ```mermaid
 sequenceDiagram
-    participant T as Tenant engineer
+    participant T as Customer engineer
     participant Q as Queenswood
     participant S as Clearing partner
 
@@ -281,7 +278,7 @@ the account.
 
 ```mermaid
 sequenceDiagram
-    participant T as Tenant engineer
+    participant T as Customer engineer
     participant Q as Queenswood
     participant S as Clearing partner
 
@@ -303,7 +300,7 @@ sequenceDiagram
     participant P as Payer's bank
     participant S as Clearing partner
     participant Q as Queenswood
-    participant T as Tenant engineer
+    participant T as Customer engineer
 
     P->>S: Faster Payment to account address
     S->>Q: settlement notification (amount, address)
@@ -324,7 +321,7 @@ reconciliation rather than discarded.
 sequenceDiagram
     participant S as Clearing partner
     participant Q as Queenswood
-    participant T as Tenant engineer
+    participant T as Customer engineer
 
     S->>Q: inbound held for screening
     Q->>Q: record held<br/>(account not yet credited)
@@ -348,7 +345,7 @@ the sender instead, the account is never touched.
 
 ```mermaid
 sequenceDiagram
-    participant T as Tenant engineer
+    participant T as Customer engineer
     participant Q as Queenswood
     participant S as Clearing partner
 
@@ -367,7 +364,7 @@ to decide whether to send.
 
 ```mermaid
 sequenceDiagram
-    participant T as Tenant engineer
+    participant T as Customer engineer
     participant Q as Queenswood
 
     T->>Q: submit outbound payment (key=K)

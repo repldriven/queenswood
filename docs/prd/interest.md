@@ -19,19 +19,16 @@ funds, capitalisation appearing on their account at the
 expected cadence, the rate matching what they signed up
 for.
 
-**Tenant engineer / tenant product team.** Defines the
-rate as part of the cash account product. Decides the
-capitalisation cadence for the products they offer (in
-co-ordination with the operator who runs the daily and
-capitalisation jobs). Cares about: rate fidelity (the
-account earns what the product says), no surprises around
-rounding or lost pennies, the audit trail being intact.
+**Customer engineering team.** Defines the rate as part of the cash account
+product. Decides the capitalisation cadence for the products they offer (in
+co-ordination with the operator who runs the daily and capitalisation jobs).
+Cares about: rate fidelity (the account earns what the product says), no
+surprises around rounding or lost pennies, the audit trail being intact.
 
-**Platform admin / Queenswood operator.** Schedules the
-daily accrual run and the capitalisation runs. Owns the
-operational side: making sure the daily job fires every
-day, sequencing capitalisation at the agreed cadence,
-operating the bank's settlement account.
+**Platform operator.** Schedules the daily accrual run and the capitalisation
+runs. Owns the operational side: making sure the daily job fires every day,
+sequencing capitalisation at the agreed cadence, operating the bank's settlement
+account.
 
 ## Goals
 
@@ -306,7 +303,7 @@ spendable balance and is now available to spend.
 
 ```mermaid
 sequenceDiagram
-    participant T as Tenant engineer
+    participant T as Customer engineer
     participant Q as Queenswood
 
     Note over T,Q: existing accounts on product v1 (5% APR)
