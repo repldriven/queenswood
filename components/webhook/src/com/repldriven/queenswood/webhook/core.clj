@@ -31,10 +31,14 @@
 (def ^:private ^SecureRandom random (SecureRandom.))
 
 (defn- mint-secret
+  "A fresh signing secret. Encoded without padding: `=` is outside the
+  alphabet `WebhookSigningSecret` declares, so a padded secret fails
+  the registration response's own schema."
   []
   (let [bytes (byte-array secret-bytes)]
     (.nextBytes random bytes)
-    (str secret-prefix (.encodeToString (Base64/getUrlEncoder) bytes))))
+    (str secret-prefix
+         (.encodeToString (.withoutPadding (Base64/getUrlEncoder)) bytes))))
 
 (defn- resolved
   "The host's addresses as the platform sees them now, as a vector of

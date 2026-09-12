@@ -1,0 +1,109 @@
+{:name "Tenant runs a webhook endpoint through its lifecycle"
+ :tags #{:api :webhook-endpoints :happy}
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-webhook-lifecycle-bank-001"}
+             :body {:name "Webhook Lifecycle Org"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :org-0
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :org-0 :client-id]
+         :client-secret [:ref :org-0 :client-secret]
+         :status :live}
+   :as :org-0-token}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/webhook-endpoints"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-webhook-lifecycle-endpoint-001"}
+             :body {:address "https://93.184.216.34/hooks"
+                    :description "Tenant hooks"
+                    :kinds ["cash-account.opened"]}}
+   :as :endpoint-0
+   :assert {:status 201
+            :body {:endpoint {:endpoint-id [:m/regex "^whe\\."]
+                              :address "https://93.184.216.34/hooks"
+                              :description "Tenant hooks"
+                              :kinds ["cash-account.opened"]
+                              :status "enabled"}}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/webhook-endpoints/{endpoint-id}"
+             :path-params {:endpoint-id
+                           [:ref :endpoint-0 :endpoint :endpoint-id]}
+             :auth :org-0-token}
+   :assert {:status 200
+            :body {:endpoint-id [:ref :endpoint-0 :endpoint :endpoint-id]
+                   :address "https://93.184.216.34/hooks"
+                   :status "enabled"}}}
+  {:command :api/request
+   :request {:method :get :path "/v1/webhook-endpoints" :auth :org-0-token}
+   :assert {:status 200
+            :body {:items
+                   [:m/embeds
+                    [{:endpoint-id [:ref :endpoint-0 :endpoint :endpoint-id]
+                      :status "enabled"}]]}}}
+  {:command :api/request
+   :request {:method :put
+             :path "/v1/webhook-endpoints/{endpoint-id}"
+             :path-params {:endpoint-id
+                           [:ref :endpoint-0 :endpoint :endpoint-id]}
+             :auth :org-0-token
+             :body {:address "https://93.184.216.34/hooks-v2"
+                    :description "Tenant hooks, moved"
+                    :kinds ["cash-account.opened"]}}
+   :assert {:status 200
+            :body {:address "https://93.184.216.34/hooks-v2"
+                   :description "Tenant hooks, moved"
+                   :status "enabled"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/webhook-endpoints/{endpoint-id}/disable"
+             :path-params {:endpoint-id
+                           [:ref :endpoint-0 :endpoint :endpoint-id]}
+             :auth :org-0-token}
+   :assert {:status 200 :body {:status "disabled"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/webhook-endpoints/{endpoint-id}/enable"
+             :path-params {:endpoint-id
+                           [:ref :endpoint-0 :endpoint :endpoint-id]}
+             :auth :org-0-token
+             :body {}}
+   :assert {:status 200 :body {:status "enabled"}}}
+  ;; Enabling what is already enabled is the wrong-state transition:
+  ;; `domain.clj`'s source-state guard refuses it and the API maps that
+  ;; refusal to 409.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/webhook-endpoints/{endpoint-id}/enable"
+             :path-params {:endpoint-id
+                           [:ref :endpoint-0 :endpoint :endpoint-id]}
+             :auth :org-0-token
+             :body {}}
+   :assert {:status 409
+            :problem {:type ":webhook-endpoint/invalid-status"}}}
+  {:command :api/request
+   :request {:method :delete
+             :path "/v1/webhook-endpoints/{endpoint-id}"
+             :path-params {:endpoint-id
+                           [:ref :endpoint-0 :endpoint :endpoint-id]}
+             :auth :org-0-token}
+   :assert {:status 204}}]
+ :then
+ ;; Removal is a terminal status rather than a deletion, so the
+ ;; endpoint stays readable and its deliveries with it.
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/webhook-endpoints/{endpoint-id}"
+             :path-params {:endpoint-id
+                           [:ref :endpoint-0 :endpoint :endpoint-id]}
+             :auth :org-0-token}
+   :assert {:status 200 :body {:status "removed"}}}]}

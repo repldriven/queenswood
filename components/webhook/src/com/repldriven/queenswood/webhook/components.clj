@@ -6,7 +6,9 @@
     [com.repldriven.queenswood.api-schema.interface :as schema :refer
      [components-registry]]
     [com.repldriven.queenswood.cash-account-api.interface :as
-     cash-account-api]))
+     cash-account-api]
+
+    [clojure.string :as str]))
 
 ;; ---------------------------------------------------------------------------
 ;; The endpoint and delivery resources
@@ -79,9 +81,16 @@
 (defn ->endpoint-body
   "Project a stored endpoint onto the keys `WebhookEndpoint` declares.
   The secret, the rotated-away secret and the two idempotency keys are
-  not among them, so none of them can reach a body through this."
+  not among them, so none of them can reach a body through this.
+
+  A description the tenant never set reads back off the record as the
+  empty string, which the declared optional shape does not accept, so a
+  blank one is dropped rather than projected."
   [endpoint]
-  (select-keys endpoint endpoint-keys))
+  (let [projected (select-keys endpoint endpoint-keys)]
+    (cond-> projected
+            (str/blank? (:description projected))
+            (dissoc :description))))
 
 (def WebhookEndpointRequest
   [:map {:closed true :json-schema/example examples/WebhookEndpointRequest}
