@@ -132,10 +132,6 @@
                  _ (is (= :webhook-endpoint-status-disabled (:status disabled)))
                  enabled (SUT/enable config bank-id id {:policies allow-manage})
                  _ (is (= :webhook-endpoint-status-enabled (:status enabled)))
-                 paused (SUT/pause config bank-id id)
-                 _ (is (= :webhook-endpoint-status-paused (:status paused)))
-                 resumed (SUT/enable config bank-id id {:policies allow-manage})
-                 _ (is (= :webhook-endpoint-status-enabled (:status resumed)))
                  updated (SUT/update-endpoint config
                                               bank-id
                                               id

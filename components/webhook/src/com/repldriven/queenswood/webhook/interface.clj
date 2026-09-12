@@ -1,7 +1,7 @@
 (ns com.repldriven.queenswood.webhook.interface
   "Webhook endpoints: a tenant's registered destinations for webhook
   notifications, and the lifecycle over them — register, read, update,
-  enable, disable, pause, remove and rotate the secret.
+  enable, disable, remove and rotate the secret.
 
   A registration earns no command. It writes one endpoint record, the
   reacting brick is the writing brick, and it arrives on a request
@@ -145,18 +145,6 @@
    (core/disable txn bank-id endpoint-id))
   ([txn bank-id endpoint-id opts]
    (core/disable txn bank-id endpoint-id opts)))
-
-(defn pause
-  "Pause an enabled endpoint — the platform's own transition, taken by
-  the delivery runner on a failure `should-pause?` admits, so it takes
-  no capability check. Returns the updated endpoint or an anomaly.
-
-  Args:
-  - txn: FDB transaction or config map.
-  - bank-id: owning bank id.
-  - endpoint-id: endpoint id."
-  [txn bank-id endpoint-id]
-  (core/pause txn bank-id endpoint-id))
 
 (defn remove-endpoint
   "Move an endpoint to removed — a terminal status, not a deletion, so
