@@ -1,0 +1,10 @@
+- effect: !keyword effect-allow
+  reason: "Allow registering webhook endpoints"
+  kind:
+    webhook-endpoint:
+      action: !keyword webhook-endpoint-action-register
+- effect: !keyword effect-allow
+  reason: "Allow managing webhook endpoints"
+  kind:
+    webhook-endpoint:
+      action: !keyword webhook-endpoint-action-manage

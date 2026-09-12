@@ -48,6 +48,11 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-schemes-payment-command-dlq
           acks: all
+      cash-accounts-event-dlq:
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          topic: topic-cash-accounts-event-dlq
+          acks: all
     # The group.ids name the per-adapter services this one absorbed.
     # They are carried over verbatim: a consumer group identifies the
     # consumer role, not the pod hosting it, and renaming one
@@ -77,6 +82,15 @@ system:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           group.id: uk-companies-house-adapter-service-companies-command
+      cash-accounts-event:
+        schemas: !system/local-ref schemas
+        schema: !keyword event
+        topics: [topic-cash-accounts-event]
+        dead-letter-producer: !system/local-ref producers.cash-accounts-event-dlq
+        max-redeliveries: 5
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          group.id: webhook-service-cash-accounts-event
     message-bus-producers: !system/component
       system/component-kind: kafka/message-bus-producers
       schemes-payment-command-response:
@@ -100,6 +114,9 @@ system:
       companies-command:
         consumer: !system/local-ref consumers.companies-command
         timeout: 500
+      cash-accounts-event:
+        consumer: !system/local-ref consumers.cash-accounts-event
+        timeout: 500
   message-bus: !include system/message-bus.yml
   fdb: !include system/fdb.yml
   avro: !include system/avro.yml
@@ -112,3 +129,4 @@ system:
   onfido-adapter: !include system/onfido-adapter.yml
   uk-companies-house-simulator-server: !include system/uk-companies-house-simulator-server.yml
   uk-companies-house-adapter: !include system/uk-companies-house-adapter.yml
+  webhook: !include system/webhook.yml

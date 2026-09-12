@@ -26,10 +26,12 @@ The declaration in
 [fdb-record-types.yml](/components/resources/resources/system/fdb-record-types.yml)
 carries the meta-data `version`, and each index the version it was
 `added` at and the version its key last changed at, `modified`. A store
-lists the indexes removed from it under `former-indexes`. The migrator
-saves with a validator that allows index rebuilds and refuses
-everything else, and the guard runs the same validator between the last
-`stable-*` tag's meta-data and the working tree's.
+whose record type arrived after the first version carries that version
+as `since`. A store lists the indexes removed from it under
+`former-indexes`. The migrator saves with a validator that allows index
+rebuilds and refuses everything else, and the guard runs the same
+validator between the last `stable-*` tag's meta-data and the working
+tree's.
 
 ### Prerequisites
 
@@ -39,19 +41,22 @@ everything else, and the guard runs the same validator between the last
 
 1. Bump `version` at the top of the declaration by one.
 
-2. On each index whose key, type or uniqueness changed, set `modified`
+2. On each store added, set `since` to the new version, leaving the
+   record type's own proto free of a `since_version` option.
+
+3. On each index whose key, type or uniqueness changed, set `modified`
    to the new version, leaving its name and its `added` alone.
 
-3. On each index added, set `added` and `modified` to the new version.
+4. On each index added, set `added` and `modified` to the new version.
 
-4. For each index removed or renamed, add an entry under its store's
+5. For each index removed or renamed, add an entry under its store's
    `former-indexes` carrying its `name`, its `added`, and `removed` at
    the new version. A rename is a former entry and a new index.
 
-5. Keep a proto field that is no longer wanted, with its tag, marked
+6. Keep a proto field that is no longer wanted, with its tag, marked
    `[deprecated = true]`, and drop it in the record conversion.
 
-6. Run the full suite:
+7. Run the full suite:
 
    ```bash
    just test-all
@@ -63,10 +68,17 @@ everything else, and the guard runs the same validator between the last
    the second as an evolution of the first. The output ends in
    `0 failures`.
 
-7. Run the tests of every brick whose store changed.
+8. Run the tests of every brick whose store changed.
 
 ## Failures
 
+- **`new record type is missing since version`** — a store was added
+  and its `since` was not. Set it to the new version.
+- **`record type has since version of N which is greater than the
+  meta-data version M`** — a `since` outran the declaration's `version`,
+  or a proto carries a `since_version` option left from the build that
+  numbered the meta-data by its index count. Delete the option and
+  declare `since`.
 - **`index key expression changed`, naming an index** — its key changed
   and `modified` did not. Set `modified` to the new version.
 - **`index missing in new meta-data`** — an index was removed or
@@ -101,6 +113,8 @@ everything else, and the guard runs the same validator between the last
 - Set `modified` to the new version on an index whose key, type or
   uniqueness changed, keeping its name and its `added`.
 - Give a new index `added` and `modified` equal to the new version.
+- Give a store added after the first version a `since` equal to the new
+  version, declared there rather than as a proto option.
 - List a removed or renamed index under its store's `former-indexes`
   with its `name`, its `added` and the version it was removed at.
 - Deprecate a proto field that is no longer wanted, keeping its tag,
@@ -110,8 +124,8 @@ everything else, and the guard runs the same validator between the last
 
 - Remove a proto field, or reserve its tag, once a record has been
   written with it.
-- Change an index's `added`, or give a new index a former index's
-  name.
+- Change an index's `added`, a record type's `since`, or give a new
+  index a former index's name.
 - Rename an index in place of bumping `modified`.
 - Clear a store's meta-data to make a refused save land.
 
@@ -127,10 +141,12 @@ and a change that kept the count was never saved at all. No test could
 see any of it, because a test store is empty and every save into it is
 the first.
 
-The Record Layer holds a save to five rules, and the declaration gives
-each one something to check. The version must rise. A record type may
-gain fields and never lose one, since a stored record may carry any
-field ever written. An index keeps the version it was added at, and its
+The Record Layer holds a save to six rules, and the declaration gives
+each one something to check. The version must rise. A record type that
+appears must name the version it appeared on, so a store opened at an
+earlier one knows it can hold none. A record type may gain fields and
+never lose one, since a stored record may carry any field ever
+written. An index keeps the version it was added at, and its
 key may change only with `modified` raised, which is what a store reads
 to know the index needs rebuilding. An index that disappears must be
 listed as former, with its versions, so a store can delete what it

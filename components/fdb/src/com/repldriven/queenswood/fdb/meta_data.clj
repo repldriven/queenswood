@@ -71,23 +71,31 @@
             (conj (problem path "removed precedes added")))))
 
 (defn- store-problems
-  [[store-name {:strs [record-type indexes former-indexes]}]]
-  (cond-> []
-          (not (string? record-type))
-          (conj (problem [store-name] "needs a record-type"))
+  [version [store-name {:strs [record-type since indexes former-indexes]}]]
+  (cond->
+   []
+   (not (string? record-type))
+   (conj (problem [store-name] "needs a record-type"))
 
-          (not (sequential? indexes))
-          (conj (problem [store-name]
-                         "needs an indexes list, even an empty one"))
+   (and (some? since) (not (pos-int? since)))
+   (conj (problem [store-name] "needs a positive since version"))
 
-          (sequential? indexes)
-          (into (mapcat #(index-problems store-name %) indexes))
+   (and (pos-int? since) (pos-int? version) (> since version))
+   (conj (problem [store-name]
+                  "since version is after the meta-data version"))
 
-          (and (some? former-indexes) (not (sequential? former-indexes)))
-          (conj (problem [store-name] "former-indexes must be a list"))
+   (not (sequential? indexes))
+   (conj (problem [store-name]
+                  "needs an indexes list, even an empty one"))
 
-          (sequential? former-indexes)
-          (into (mapcat #(former-index-problems store-name %) former-indexes))))
+   (sequential? indexes)
+   (into (mapcat #(index-problems store-name %) indexes))
+
+   (and (some? former-indexes) (not (sequential? former-indexes)))
+   (conj (problem [store-name] "former-indexes must be a list"))
+
+   (sequential? former-indexes)
+   (into (mapcat #(former-index-problems store-name %) former-indexes))))
 
 (defn- problems
   [{:strs [version stores]}]
@@ -99,7 +107,7 @@
           (conj (problem ["stores"] "needs a stores map"))
 
           (map? stores)
-          (into (mapcat store-problems stores))))
+          (into (mapcat #(store-problems version %) stores))))
 
 (defn- fan-type
   [fan-out]
@@ -145,6 +153,15 @@
   [{:strs [name added removed]}]
   (FormerIndex. name (int added) (int removed) name))
 
+(defn- set-since-version
+  "The meta-data version a record type was introduced at. The Record
+  Layer refuses to evolve meta-data that gained a record type carrying
+  none, and refuses a stored one that moves, so a store declares it once
+  and never again."
+  [builder record-type since]
+  (when since
+    (.setSinceVersion (.getRecordType builder record-type) (int since))))
+
 (defn- set-primary-key
   [builder record-type primary-key]
   (when primary-key
@@ -158,9 +175,10 @@
   [file-desc {:strs [version stores]}]
   (let [builder (.setRecords (RecordMetaData/newBuilder)
                              ^Descriptors$FileDescriptor file-desc)]
-    (doseq [[_ {:strs [record-type primary-key indexes former-indexes]}]
+    (doseq [[_ {:strs [record-type primary-key since indexes former-indexes]}]
             stores]
       (set-primary-key builder record-type primary-key)
+      (set-since-version builder record-type since)
       (doseq [index indexes]
         (.addIndex builder ^String record-type (->index index)))
       (doseq [former former-indexes]

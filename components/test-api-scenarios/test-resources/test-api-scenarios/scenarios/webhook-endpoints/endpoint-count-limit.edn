@@ -1,0 +1,59 @@
+{:name "Micro tier caps webhook endpoints at its seeded count"
+ :tags #{:api :webhook-endpoints :policy :unhappy}
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-webhook-cap-bank-001"}
+             :body {:name "Webhook Cap Org"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :org-0
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :org-0 :client-id]
+         :client-secret [:ref :org-0 :client-secret]
+         :status :live}
+   :as :org-0-token}
+  ;; One registration per endpoint the seed allows. The count is the
+  ;; one in policies/micro/restricted/limits/webhook-endpoints.yml, so
+  ;; changing the seed changes how many steps belong here.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/webhook-endpoints"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-webhook-cap-endpoint-001"}
+             :body {:address "https://93.184.216.34/hooks-1"
+                    :kinds ["cash-account.opened"]}}
+   :as :endpoint-0
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/webhook-endpoints"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-webhook-cap-endpoint-002"}
+             :body {:address "https://93.184.216.34/hooks-2"
+                    :kinds ["cash-account.opened"]}}
+   :as :endpoint-1
+   :assert {:status 201}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/webhook-endpoints"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-webhook-cap-endpoint-003"}
+             :body {:address "https://93.184.216.34/hooks-3"
+                    :kinds ["cash-account.opened"]}}
+   :assert {:status 429 :problem {:type ":policy/limit-exceeded"}}}]
+ :then
+ ;; The refusal came before any write, so the bank holds what it held.
+ [{:command :api/request
+   :request {:method :get :path "/v1/webhook-endpoints" :auth :org-0-token}
+   :assert {:status 200
+            :body {:items
+                   [:m/embeds
+                    [{:endpoint-id [:ref :endpoint-0 :endpoint :endpoint-id]}
+                     {:endpoint-id
+                      [:ref :endpoint-1 :endpoint :endpoint-id]}]]}}}]}

@@ -1,6 +1,7 @@
 (ns com.repldriven.queenswood.api.me.examples
   (:require
-    [com.repldriven.queenswood.api.schema :refer [examples-registry]]))
+    [com.repldriven.queenswood.api-schema.interface :refer
+     [examples-registry]]))
 
 (def UserId "usr.01kprbmgcj35ptc8npmybhh4s7")
 

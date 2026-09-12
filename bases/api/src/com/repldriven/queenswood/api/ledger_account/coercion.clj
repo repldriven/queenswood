@@ -1,6 +1,6 @@
 (ns com.repldriven.queenswood.api.ledger-account.coercion
   (:require
-    [com.repldriven.queenswood.api.coercion :as coercion]))
+    [com.repldriven.queenswood.api-schema.interface :as coercion]))
 
 (def ^:private gl-account-type-enum
   (coercion/enum-coercion {"asset" :gl-account-type-asset

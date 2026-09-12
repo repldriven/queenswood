@@ -29,11 +29,13 @@ See [ADR-0002](../../../docs/adr/0002-foundationdb-record-layer.md).
 `fdb-record-types.yml` declares the meta-data `version`, every index
 its `added` and `modified` versions, and under a store's
 `former-indexes` the indexes removed from it. Every change to a record
-type, primary key or index bumps `version`; an index whose key, type or
-uniqueness changed keeps its name and its `added` and takes the new
-version as `modified`; a new index takes it as both; a removed or
-renamed index becomes a former entry with its `name`, `added` and
-`removed`, and its name is never reused. A proto field, once written,
+type, primary key or index bumps `version`; a store added after the
+first version takes it as `since`, declared there and never as a proto
+`since_version` option; an index whose key, type or uniqueness changed
+keeps its name and its `added` and takes the new version as `modified`;
+a new index takes it as both; a removed or renamed
+index becomes a former entry with its `name`, `added` and `removed`, and
+its name is never reused. A proto field, once written,
 is deprecated with its tag kept and dropped in the record conversion —
 never removed or reserved. The migrator saves with a validator that
 allows index rebuilds and refuses everything else: a change at the

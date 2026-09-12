@@ -2,7 +2,9 @@
   (:require
     [com.repldriven.queenswood.api.bank.examples :as bank-examples]
     [com.repldriven.queenswood.api.me.examples :as me-examples]
-    [com.repldriven.queenswood.api.schema :refer [examples-registry]]))
+
+    [com.repldriven.queenswood.api-schema.interface :refer
+     [examples-registry]]))
 
 (def OnboardingRequest {:company-number "SC998137" :bank-name "Galactic Bank"})
 

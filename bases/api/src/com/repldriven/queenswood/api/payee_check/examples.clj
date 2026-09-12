@@ -1,6 +1,7 @@
 (ns com.repldriven.queenswood.api.payee-check.examples
   (:require
-    [com.repldriven.queenswood.api.schema :refer [examples-registry]]))
+    [com.repldriven.queenswood.api-schema.interface :refer
+     [examples-registry]]))
 
 (def PayeeCheckRequest
   {:creditor-name "Arthur Dent"

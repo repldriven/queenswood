@@ -6,10 +6,10 @@
     [com.repldriven.queenswood.api.simulate.handlers :as handlers]
 
     [com.repldriven.queenswood.api.bank.examples :refer [BankNotFound]]
-    [com.repldriven.queenswood.api.schema :refer [ErrorResponse]]
     [com.repldriven.queenswood.api.shared.idempotency :as shared.idempotency]
     [com.repldriven.queenswood.api.shared.parameters :as shared.parameters]
 
+    [com.repldriven.queenswood.api-schema.interface :refer [ErrorResponse]]
     [com.repldriven.queenswood.idempotency.interface :as bank-idempotency]
 
     [com.repldriven.mono.server.interface :as server]))

@@ -1,16 +1,17 @@
 (ns com.repldriven.queenswood.api.cash-account.routes
   (:require
     [com.repldriven.queenswood.api.cash-account.commands :as commands]
-    [com.repldriven.queenswood.api.cash-account.examples :refer
-     [CashAccountNotFound ProductNotPublished InvalidCurrency PartyNotFound
-      ProductNotFound CashAccountInvalidStatus CashAccountNonZeroBalance]]
-    [com.repldriven.queenswood.api.cash-account.links :as links]
     [com.repldriven.queenswood.api.cash-account.queries :as queries]
 
-    [com.repldriven.queenswood.api.schema :refer [ErrorResponse]]
     [com.repldriven.queenswood.api.shared.idempotency :as shared.idempotency]
     [com.repldriven.queenswood.api.shared.parameters :as shared.parameters]
 
+    [com.repldriven.queenswood.api-schema.interface :refer [ErrorResponse]]
+    [com.repldriven.queenswood.cash-account-api.interface :as cash-account-api
+     :refer
+     [CashAccountNotFound ProductNotPublished InvalidCurrency
+      PartyNotFound ProductNotFound CashAccountInvalidStatus
+      CashAccountNonZeroBalance]]
     [com.repldriven.queenswood.idempotency.interface :as bank-idempotency]
 
     [com.repldriven.mono.server.interface :as server]))
@@ -46,7 +47,7 @@
              :parameters {:body [:ref "CreateCashAccountRequest"]}
              :responses (shared.idempotency/with-responses
                          {200 {:body [:ref "CreateCashAccountResponse"]
-                               :openapi {:links links/from-account}}
+                               :openapi {:links cash-account-api/from-account}}
                           404 (ErrorResponse [#'PartyNotFound
                                               #'ProductNotFound])
                           422 (ErrorResponse [#'ProductNotPublished
@@ -79,7 +80,7 @@
                              bank-idempotency/cache-response]
               :responses (shared.idempotency/with-responses
                           {200 {:body [:ref "CloseCashAccountResponse"]
-                                :openapi {:links links/from-account}}
+                                :openapi {:links cash-account-api/from-account}}
                            404 (ErrorResponse [#'CashAccountNotFound])
                            409 (ErrorResponse [#'CashAccountInvalidStatus
                                                #'CashAccountNonZeroBalance])})
@@ -94,7 +95,7 @@
                              bank-idempotency/cache-response]
               :responses (shared.idempotency/with-responses
                           {200 {:body [:ref "SuspendCashAccountResponse"]
-                                :openapi {:links links/from-account}}
+                                :openapi {:links cash-account-api/from-account}}
                            404 (ErrorResponse [#'CashAccountNotFound])
                            409 (ErrorResponse [#'CashAccountInvalidStatus])})
               :handler commands/suspend-cash-account}}]
@@ -108,7 +109,7 @@
                              bank-idempotency/cache-response]
               :responses (shared.idempotency/with-responses
                           {200 {:body [:ref "ResumeCashAccountResponse"]
-                                :openapi {:links links/from-account}}
+                                :openapi {:links cash-account-api/from-account}}
                            404 (ErrorResponse [#'CashAccountNotFound])
                            409 (ErrorResponse [#'CashAccountInvalidStatus])})
               :handler commands/resume-cash-account}}]
@@ -122,7 +123,7 @@
                              bank-idempotency/cache-response]
               :responses (shared.idempotency/with-responses
                           {200 {:body [:ref "RotateCashAccountAddressResponse"]
-                                :openapi {:links links/from-account}}
+                                :openapi {:links cash-account-api/from-account}}
                            404 (ErrorResponse [#'CashAccountNotFound])
                            409 (ErrorResponse [#'CashAccountInvalidStatus])})
               :handler commands/rotate-cash-account-address}}]]]])

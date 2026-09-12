@@ -32,6 +32,7 @@
     [com.repldriven.queenswood.schemas.transactions :as transactions]
     [com.repldriven.queenswood.schemas.types :as types]
     [com.repldriven.queenswood.schemas.users :as users]
+    [com.repldriven.queenswood.schemas.webhooks :as webhooks]
 
     [protojure.protobuf :as proto])
   (:import
@@ -89,7 +90,12 @@
      UserProto$UserStatus)
     (com.repldriven.queenswood.schemas.memberships
      MembershipProto$Membership
-     MembershipProto$Role)))
+     MembershipProto$Role)
+    (com.repldriven.queenswood.schemas.webhooks
+     WebhookDeliveryProto$WebhookDelivery
+     WebhookDeliveryAttemptProto$WebhookDeliveryAttempt
+     WebhookEndpointProto$WebhookEndpoint
+     WebhookNotificationProto$WebhookNotification)))
 
 (def ^{:doc "Parse Balance protobuf bytes into a Clojure map."} pb->Balance
   balances/pb->Balance)
@@ -977,3 +983,93 @@
   - role: `:role-*` keyword."
   [role]
   (MembershipProto$Role/forNumber (role->int role)))
+
+(def ^{:doc "Parse WebhookEndpoint protobuf bytes into a Clojure map."}
+     pb->WebhookEndpoint
+  webhooks/pb->WebhookEndpoint)
+
+(defn WebhookEndpoint->pb
+  "Serialise a WebhookEndpoint map to protobuf bytes.
+
+  Args:
+  - m: WebhookEndpoint map matching the generated schema."
+  [m]
+  (proto/->pb (webhooks/new-WebhookEndpoint m)))
+
+(defn WebhookEndpoint->java
+  "Parse a WebhookEndpoint map into the generated Java protobuf class.
+
+  Args:
+  - m: WebhookEndpoint map matching the generated schema."
+  [m]
+  (WebhookEndpointProto$WebhookEndpoint/parseFrom (WebhookEndpoint->pb m)))
+
+(def ^{:doc "Parse WebhookNotification protobuf bytes into a Clojure map."}
+     pb->WebhookNotification
+  webhooks/pb->WebhookNotification)
+
+(defn WebhookNotification->pb
+  "Serialise a WebhookNotification map to protobuf bytes.
+
+  Args:
+  - m: WebhookNotification map matching the generated schema."
+  [m]
+  (proto/->pb (webhooks/new-WebhookNotification m)))
+
+(defn WebhookNotification->java
+  "Parse a WebhookNotification map into the generated Java protobuf class.
+
+  Args:
+  - m: WebhookNotification map matching the generated schema."
+  [m]
+  (WebhookNotificationProto$WebhookNotification/parseFrom
+   (WebhookNotification->pb m)))
+
+(def ^{:doc "Parse WebhookDelivery protobuf bytes into a Clojure map."}
+     pb->WebhookDelivery
+  webhooks/pb->WebhookDelivery)
+
+(defn WebhookDelivery->pb
+  "Serialise a WebhookDelivery map to protobuf bytes.
+
+  Args:
+  - m: WebhookDelivery map matching the generated schema."
+  [m]
+  (proto/->pb (webhooks/new-WebhookDelivery m)))
+
+(defn WebhookDelivery->java
+  "Parse a WebhookDelivery map into the generated Java protobuf class.
+
+  Args:
+  - m: WebhookDelivery map matching the generated schema."
+  [m]
+  (WebhookDeliveryProto$WebhookDelivery/parseFrom (WebhookDelivery->pb m)))
+
+(def ^{:doc "Parse WebhookDeliveryAttempt protobuf bytes into a Clojure map."}
+     pb->WebhookDeliveryAttempt
+  webhooks/pb->WebhookDeliveryAttempt)
+
+(defn WebhookDeliveryAttempt->pb
+  "Serialise a WebhookDeliveryAttempt map to protobuf bytes.
+
+  Args:
+  - m: WebhookDeliveryAttempt map matching the generated schema."
+  [m]
+  (proto/->pb (webhooks/new-WebhookDeliveryAttempt m)))
+
+(defn WebhookDeliveryAttempt->java
+  "Parse a WebhookDeliveryAttempt map into the generated Java protobuf class.
+
+  Args:
+  - m: WebhookDeliveryAttempt map matching the generated schema."
+  [m]
+  (WebhookDeliveryAttemptProto$WebhookDeliveryAttempt/parseFrom
+   (WebhookDeliveryAttempt->pb m)))
+
+(def ^{:doc "Map of WebhookEndpointStatus label to protobuf int value."}
+     webhook-endpoint-status->int
+  webhooks/WebhookEndpointStatus-label2val)
+
+(def ^{:doc "Map of WebhookDeliveryStatus label to protobuf int value."}
+     webhook-delivery-status->int
+  webhooks/WebhookDeliveryStatus-label2val)

@@ -52,3 +52,5 @@ transaction-held: schemas/schemes/payments/transaction-held.avsc.json
 
 company: schemas/company/company.avsc.json
 lookup-company: schemas/company/lookup-company.avsc.json
+
+webhook-endpoint-status-changed: schemas/webhooks/endpoint-status-changed.avsc.json

@@ -3,7 +3,8 @@
     [com.repldriven.queenswood.api.balance.coercion :as coercion]
     [com.repldriven.queenswood.api.balance.examples :as examples]
 
-    [com.repldriven.queenswood.api.schema :refer [components-registry]]))
+    [com.repldriven.queenswood.api-schema.interface :refer
+     [components-registry]]))
 
 (def BalanceType
   (coercion/balance-type-enum-schema {:json-schema/example "default"}))

@@ -3,7 +3,7 @@
     [com.repldriven.queenswood.api.payee-check.coercion :as coercion]
     [com.repldriven.queenswood.api.payee-check.examples :as examples]
 
-    [com.repldriven.queenswood.api.schema :as schema :refer
+    [com.repldriven.queenswood.api-schema.interface :as schema :refer
      [components-registry]]))
 
 (def CheckId (schema/id-schema "CheckId" "chk" examples/CheckId))

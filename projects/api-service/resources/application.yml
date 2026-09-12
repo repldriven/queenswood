@@ -260,6 +260,10 @@ system:
       avro: !system/ref avro.serde
       record-db: !system/ref fdb.record-db
       record-store: !system/ref fdb.meta-store
+      # The platform's own published hosts, which no tenant webhook
+      # address may name. Comma-separated, because an environment
+      # variable carries a string.
+      platform-hosts: !env WEBHOOK_PLATFORM_HOSTS
     jetty-adapter: !system/component
       system/component-kind: server/jetty-adapter
       handler: !system/ref server.handler

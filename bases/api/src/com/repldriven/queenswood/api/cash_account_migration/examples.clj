@@ -1,6 +1,7 @@
 (ns com.repldriven.queenswood.api.cash-account-migration.examples
   (:require
-    [com.repldriven.queenswood.api.schema :refer [examples-registry]]))
+    [com.repldriven.queenswood.api-schema.interface :refer
+     [examples-registry]]))
 
 (def MigrationNotFound
   {:value {:title "REJECTED"

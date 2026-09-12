@@ -1,6 +1,7 @@
 (ns com.repldriven.queenswood.api.balance.examples
   (:require
-    [com.repldriven.queenswood.api.schema :refer [examples-registry]]))
+    [com.repldriven.queenswood.api-schema.interface :refer
+     [examples-registry]]))
 
 (def BalanceNotFound
   {:value {:title "REJECTED"

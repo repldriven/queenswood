@@ -216,6 +216,11 @@ block, it belongs under `system/`.
   `!system/ref` is intended; the resolver will not promote
   strings to refs.
 
+- Check a change to a project's `application.yml` with
+  `just test-all`, whose `test-startup` component loads every
+  deployable project's production config against its own classpath
+  and fails on a `system/component-kind` nothing registers.
+
 **SHOULD:**
 
 - Split large configurations into per-group sub-files via

@@ -2,7 +2,8 @@
   (:require
     [com.repldriven.queenswood.api.tier.examples :as examples]
 
-    [com.repldriven.queenswood.api.schema :refer [components-registry]]))
+    [com.repldriven.queenswood.api-schema.interface :refer
+     [components-registry]]))
 
 (def Tier
   [:map {:closed true :json-schema/example examples/Tier}

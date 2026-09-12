@@ -1,6 +1,6 @@
 (ns com.repldriven.queenswood.api.payment.coercion
   (:require
-    [com.repldriven.queenswood.api.coercion :as coercion]))
+    [com.repldriven.queenswood.api-schema.interface :as coercion]))
 
 (def ^:private outbound-payment-status-enum
   (coercion/enum-coercion {"pending" :outbound-payment-status-pending

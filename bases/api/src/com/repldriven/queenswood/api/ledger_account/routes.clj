@@ -4,7 +4,7 @@
      [LedgerAccountNotFound]]
     [com.repldriven.queenswood.api.ledger-account.queries :as queries]
 
-    [com.repldriven.queenswood.api.schema :refer [ErrorResponse]]))
+    [com.repldriven.queenswood.api-schema.interface :refer [ErrorResponse]]))
 
 (def routes
   [["/ledger-accounts"

@@ -192,11 +192,13 @@ the catalogue, and nothing forces the moves to happen together.
   exclusive-dispatcher work. A delivery is claimed by moving it from
   pending to in-flight and stamping a lease, in the transaction that
   read it, so a second replica reaching the same due row loses that
-  transaction and sends nothing. What that leaves is written rather
-  than designed away: a lease expiring while the first replica is still
-  inside the call lets a second claim the delivery and send it again,
-  which the notification id makes safe for the tenant to recognise as a
-  repeat.
+  transaction and sends nothing. A pass also takes an in-flight row
+  whose lease has passed, which is what a runner that died between the
+  claim commit and the outcome commit leaves behind. What that leaves
+  is written rather than designed away: a lease expiring while the
+  first replica is still inside the call lets a second claim the
+  delivery and send it again, which the notification id makes safe for
+  the tenant to recognise as a repeat.
 - **One consumer instance per relayed event topic**, because mono's
   `event-processor` kind takes a single `event-channel`. Each is a
   component in the service's `application.yml` naming that channel and
@@ -530,6 +532,13 @@ host resolves to a loopback, link-local, private or metadata range, or
 to the platform's own hosts, is refused. The check runs at
 registration and at update.
 
+The platform's own hosts are a deployment fact rather than a constant:
+`WEBHOOK_PLATFORM_HOSTS` carries them comma-separated into both halves
+of the rule — the API handler's writes and the delivery runner's
+send-time re-check — and the chart fills it from the hostnames the
+Gateway terminates on. Unset, the host half of the rule has nothing to
+refuse and the address ranges still apply.
+
 Policy bounds follow the products precedent: a `:webhook-endpoint`
 capability with register and manage actions, and a count limit per
 bank, both evaluated before the write.
@@ -748,6 +757,17 @@ neither.
   would carry one is out of scope.
 - **No ownership challenge at registration.** The test notification is
   a manual check.
+- **A rejection's fields reach the caller as prose.** The 409 body is
+  the API's RFC 9457 shape — `title`, `type`, `status`, `detail` — for
+  every entity, so the `:endpoint-id`, `:status` and `:allowed` the
+  rejection carries are readable in the log and the `type`, not as
+  fields of the body. Changing that is an API-wide change to the
+  rejection mapper.
+- **The consumer acknowledges an anomaly.** `event-processor` acks
+  when the handler returns one, so a resource the event named but the
+  store no longer holds, and a storage failure, are acknowledged
+  rather than redelivered. REQ-013 names the kind, so the redrive the
+  DLQ would give is not reached for either.
 - **Rendered at consume time.** Two changes to one record inside the
   relay's lag render the later state in both notifications; the
   envelope's before and after statuses still tell them apart.

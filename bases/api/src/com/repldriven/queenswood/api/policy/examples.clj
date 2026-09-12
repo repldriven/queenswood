@@ -1,6 +1,6 @@
 (ns com.repldriven.queenswood.api.policy.examples
   (:require
-    [com.repldriven.queenswood.api.schema :refer
+    [com.repldriven.queenswood.api-schema.interface :refer
      [examples-registry]]))
 
 (def PolicyNotFound

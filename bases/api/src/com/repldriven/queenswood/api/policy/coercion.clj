@@ -1,6 +1,6 @@
 (ns com.repldriven.queenswood.api.policy.coercion
   (:require
-    [com.repldriven.queenswood.api.coercion :as coercion]))
+    [com.repldriven.queenswood.api-schema.interface :as coercion]))
 
 (def ^:private policy-category-enum
   (coercion/enum-coercion {"standard" :policy-category-standard

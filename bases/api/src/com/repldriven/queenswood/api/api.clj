@@ -2,7 +2,6 @@
   (:require
     [com.repldriven.queenswood.api.auth :as auth]
     [com.repldriven.queenswood.api.examples :as examples]
-    [com.repldriven.queenswood.api.schema :as schema]
 
     [com.repldriven.queenswood.api.balance.components :as balance.components]
     [com.repldriven.queenswood.api.balance.examples :as balance.examples]
@@ -10,10 +9,6 @@
     [com.repldriven.queenswood.api.bank.components :as bank.components]
     [com.repldriven.queenswood.api.bank.examples :as bank.examples]
     [com.repldriven.queenswood.api.bank.routes :as bank]
-    [com.repldriven.queenswood.api.cash-account.components :as
-     cash-account.components]
-    [com.repldriven.queenswood.api.cash-account.examples :as
-     cash-account.examples]
     [com.repldriven.queenswood.api.cash-account.routes :as cash-account]
     [com.repldriven.queenswood.api.cash-account-migration.components :as
      cash-account-migration.components]
@@ -63,7 +58,6 @@
     [com.repldriven.queenswood.api.policy.components :as policy.components]
     [com.repldriven.queenswood.api.policy.examples :as policy.examples]
     [com.repldriven.queenswood.api.policy.routes :as policy]
-    [com.repldriven.queenswood.api.shared.components :as shared.components]
     [com.repldriven.queenswood.api.shared.interceptors :as shared.interceptors]
     [com.repldriven.queenswood.api.shared.parameters :as shared.parameters]
     [com.repldriven.queenswood.api.simulate.components :as simulate.components]
@@ -74,6 +68,12 @@
     [com.repldriven.queenswood.api.tier.routes :as tier]
     [com.repldriven.queenswood.api.transaction.components :as
      transaction.components]
+    [com.repldriven.queenswood.api.webhook.document :as webhook.document]
+    [com.repldriven.queenswood.api.webhook.routes :as webhook]
+
+    [com.repldriven.queenswood.api-schema.interface :as api-schema]
+    [com.repldriven.queenswood.cash-account-api.interface :as cash-account-api]
+    [com.repldriven.queenswood.webhook.interface :as webhook-api]
 
     [com.repldriven.mono.server.interface :as server]
     [com.repldriven.mono.telemetry.interface :as telemetry]
@@ -81,6 +81,7 @@
     [clojure.string :as str]
 
     [malli.core :as m]
+    [malli.json-schema :as mjs]
     [malli.transform :as mt]
     [reitit.coercion.malli :as malli-coercion]
     [reitit.http :as http]
@@ -106,6 +107,36 @@
                        api-transformer
                        (when default-values (mt/default-value-transformer))))))
 
+(def ^:private schema-registry
+  "Every named schema the document may reference, each domain's
+  registry merged into malli's own. The coercion resolves
+  `[:ref \"X\"]` through it, and `notification-schemas` projects the
+  notification out of it."
+  (merge (m/default-schemas)
+         {:unique-vector api-schema/unique-vector-schema
+          :unique-vector-lax api-schema/unique-vector-lax-schema
+          "ErrorResponse" api-schema/ErrorResponseSchema}
+         balance.components/registry
+         bank.components/registry
+         cash-account-api/registry
+         cash-account-migration.components/registry
+         cash-account-product.components/registry
+         companies.components/registry
+         jobs.components/registry
+         ledger-account.components/registry
+         me.components/registry
+         oauth.components/registry
+         onboarding.components/registry
+         party.components/registry
+         payee-check.components/registry
+         payment.components/registry
+         policy.components/registry
+         api-schema/registry
+         simulate.components/registry
+         tier.components/registry
+         transaction.components/registry
+         webhook-api/registry))
+
 (def ^:private coercion
   (malli-coercion/create
    {:transformers {:body {:default (->provider (mt/json-transformer))}
@@ -117,31 +148,33 @@
     ;; never reject them. We want 400s for unexpected fields on both
     ;; query-params and request bodies.
     :strip-extra-keys false
-    :options {:registry (merge (m/default-schemas)
-                               {:unique-vector
-                                shared.components/unique-vector-schema
-                                :unique-vector-lax
-                                shared.components/unique-vector-lax-schema
-                                "ErrorResponse" schema/ErrorResponseSchema}
-                               balance.components/registry
-                               bank.components/registry
-                               cash-account.components/registry
-                               cash-account-migration.components/registry
-                               cash-account-product.components/registry
-                               companies.components/registry
-                               jobs.components/registry
-                               ledger-account.components/registry
-                               me.components/registry
-                               oauth.components/registry
-                               onboarding.components/registry
-                               party.components/registry
-                               payee-check.components/registry
-                               payment.components/registry
-                               policy.components/registry
-                               shared.components/registry
-                               simulate.components/registry
-                               tier.components/registry
-                               transaction.components/registry)}}))
+    :options {:registry schema-registry}}))
+
+(def ^:private notification-schemas
+  "The notification's JSON Schema and every schema it reaches, keyed as
+  `components/schemas` keys them. Reitit fills that key from the route
+  schemas it transforms and then replaces it wholesale, so a schema
+  only the `webhooks` object references reaches the document after its
+  handler has run."
+  (delay (:definitions (mjs/transform [:ref "WebhookNotification"]
+                                      {:registry schema-registry
+                                       ::mjs/definitions-path
+                                       "#/components/schemas/"}))))
+
+(defn- openapi-handler
+  "The standard handler, with the notification's schemas merged under
+  the ones reitit collected, so the `webhooks` object's `$ref`
+  resolves."
+  []
+  (let [handler (server/standard-openapi-handler)
+        with-notification (fn [response]
+                            (update-in response
+                                       [:body :components :schemas]
+                                       #(merge @notification-schemas %)))]
+    (fn
+      ([request] (with-notification (handler request)))
+      ([request respond raise]
+       (handler request (comp respond with-notification) raise)))))
 
 (defn- routes
   [ctx]
@@ -167,7 +200,7 @@
                     examples/registry
                     balance.examples/registry
                     bank.examples/registry
-                    cash-account.examples/registry
+                    cash-account-api/examples
                     cash-account-migration.examples/registry
                     cash-account-product.examples/registry
                     jobs.examples/registry
@@ -181,8 +214,10 @@
                     payment.examples/registry
                     policy.examples/registry
                     simulate.examples/registry
-                    tier.examples/registry)}}
-       :handler (server/standard-openapi-handler)}}]
+                    tier.examples/registry
+                    webhook-api/examples)}
+        :webhooks webhook.document/webhooks}
+       :handler (openapi-handler)}}]
     (into [""
            {:interceptors (concat telemetry/trace-span
                                   (:interceptors ctx))}]
@@ -192,13 +227,13 @@
                                   (:interceptors ctx)
                                   [auth/authenticate
                                    auth/authorize])
-            :responses {400 (schema/ErrorResponse [#'examples/BadRequest])
-                        401 (schema/ErrorResponse [#'examples/Unauthorized])
-                        403 (schema/ErrorResponse [#'examples/Forbidden])
-                        500 (schema/ErrorResponse
+            :responses {400 (api-schema/ErrorResponse [#'examples/BadRequest])
+                        401 (api-schema/ErrorResponse [#'examples/Unauthorized])
+                        403 (api-schema/ErrorResponse [#'examples/Forbidden])
+                        500 (api-schema/ErrorResponse
                              [#'examples/InternalServerError
                               #'examples/BadResponse])
-                        503 (schema/ErrorResponse
+                        503 (api-schema/ErrorResponse
                              [#'examples/Contention
                               #'examples/Timeout])}}]
           (concat
@@ -217,7 +252,8 @@
            payment/routes
            policy/routes
            simulate/routes
-           tier/routes))]))
+           tier/routes
+           webhook/routes))]))
 
 (defn- add-interceptor-before-coerce
   "Splices `icept` into the router's global interceptor chain just

@@ -3,10 +3,8 @@
     [com.repldriven.queenswood.api.party.coercion :as coercion]
     [com.repldriven.queenswood.api.party.examples :as examples]
 
-    [com.repldriven.queenswood.api.schema :as schema :refer
+    [com.repldriven.queenswood.api-schema.interface :refer
      [components-registry]]))
-
-(def PartyId (schema/id-schema "PartyId" "pty" examples/PartyId))
 
 (def PartyType
   (coercion/party-type-enum-schema {:json-schema/example "person"}))
@@ -134,7 +132,7 @@
 
 (def registry
   (components-registry
-   [#'PartyId #'PartyType #'PartyStatus #'IdentifierType #'Party #'PartyDetail
+   [#'PartyType #'PartyStatus #'IdentifierType #'Party #'PartyDetail
     #'PartyEmbedQuery #'NationalIdentifier #'Address #'CreatePartyRequest
     #'CreatePartyResponse #'PartyList #'MergePartyRequest #'MergePartyResponse
     #'SuspendPartyResponse #'ResumePartyResponse #'ClosePartyResponse]))

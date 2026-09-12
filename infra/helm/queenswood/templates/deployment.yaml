@@ -145,6 +145,8 @@ spec:
               value: {{ $svcName | quote }}
             - name: KAFKA_BOOTSTRAP_SERVERS
               value: {{ include "queenswood.kafkaBootstrapServers" $ | quote }}
+            - name: WEBHOOK_PLATFORM_HOSTS
+              value: {{ include "queenswood.webhookPlatformHosts" $ | quote }}
             - name: FDB_CLUSTER_FILE
               value: "/etc/fdb/fdb.cluster"
             - name: OTEL_ENDPOINT

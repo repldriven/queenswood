@@ -31,6 +31,10 @@ import "schemas/person-identification/person-identification.proto";
 import "schemas/policies/policy.proto";
 import "schemas/transactions/transaction.proto";
 import "schemas/users/user.proto";
+import "schemas/webhooks/webhook-delivery.proto";
+import "schemas/webhooks/webhook-delivery-attempt.proto";
+import "schemas/webhooks/webhook-endpoint.proto";
+import "schemas/webhooks/webhook-notification.proto";
 
 option java_outer_classname = "SchemaProto";
 
@@ -79,4 +83,8 @@ message RecordTypeUnion {
   optional com.repldriven.queenswood.schemas.cash_account_migrations.CashAccountMigration _CashAccountMigration = 36;
   optional com.repldriven.queenswood.schemas.cash_account_migrations.CashAccountMigrationRun _CashAccountMigrationRun = 37;
   optional com.repldriven.queenswood.schemas.cash_account_migrations.CashAccountMigrationAccountRun _CashAccountMigrationAccountRun = 38;
+  optional com.repldriven.queenswood.schemas.webhooks.WebhookEndpoint _WebhookEndpoint = 39;
+  optional com.repldriven.queenswood.schemas.webhooks.WebhookNotification _WebhookNotification = 40;
+  optional com.repldriven.queenswood.schemas.webhooks.WebhookDelivery _WebhookDelivery = 41;
+  optional com.repldriven.queenswood.schemas.webhooks.WebhookDeliveryAttempt _WebhookDeliveryAttempt = 42;
 }
