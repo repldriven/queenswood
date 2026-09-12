@@ -43,6 +43,7 @@ system:
   transactions: !include system/transaction.yml
   idv: !include system/idv.yml
   payee-checks: !include system/payee-check.yml
+  webhook: !include system/webhook.yml
   policies: !include system/policy.yml
   cash-account-product-templates: !include system/cash-account-product-templates.yml
   banks-dispatcher: !include system/bank-dispatcher.yml
