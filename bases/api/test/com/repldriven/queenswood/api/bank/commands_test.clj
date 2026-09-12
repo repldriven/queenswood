@@ -25,10 +25,12 @@
   "A request whose provider rotates to `secret`, and that carries
   neither `:record-db` nor `:record-store`."
   [secret]
-  {:identity-provider (reify
-                       protocol/IdentityProvider
-                         (-rotate-secret [_ id]
-                           {:client-id id :client-secret secret}))})
+  {:identity-provider
+   #_{:clj-kondo/ignore [:missing-protocol-method]}
+   (reify
+    protocol/IdentityProvider
+      (-rotate-secret [_ id]
+        {:client-id id :client-secret secret}))})
 
 (deftest bank-with-secret-refuses-a-missing-credential-test
   (doseq [[label secret] [["a nil secret" nil] ["a blank secret" ""]]]
