@@ -13,6 +13,7 @@
     [com.repldriven.mono.test-system.interface :refer [with-test-system]]
     [com.repldriven.mono.utility.interface :as utility]
 
+    [clojure.string :as str]
     [clojure.test :refer [deftest is testing]]))
 
 (def ^:private store-name "clearbank-outbox")
@@ -129,3 +130,44 @@
          (is (= (:event-id second-entry) (:id other)))
          (is (not= (:id redrive-1) (:id other))
              "two entries must not share an identifier"))))))
+
+(deftest an-empty-entry-id-keeps-the-minted-id-test
+  (with-test-system
+   [sys "classpath:changelog-relay/application-test.yml"]
+   (let [bus (system/instance sys [:message-bus :bus])
+         handler (system/instance sys [:relay-handler :handler])
+         published (atom [])
+         empty-event-id ""
+         ;; One entry covers both shapes an absent id can take:
+         ;; protojure writes no field for an empty value, so `""` and an
+         ;; omitted `event_id` are the same bytes and both decode to
+         ;; `""`.
+         entry-bytes (schema/ChangelogEvent->pb
+                      {:event-id empty-event-id
+                       :dedup-key (str (utility/uuidv7))
+                       :event-name "relay-empty-id-test"
+                       :payload (.getBytes "avro-payload-bytes")
+                       :correlation-id "corr-1"
+                       :causation-id "caus-1"
+                       :created-at (utility/now)})]
+     (message-bus/subscribe bus
+                            :relay-test-event
+                            (fn [e] (swap! published conj e)))
+     (handler nil entry-bytes)
+     (handler nil entry-bytes)
+     (is (wait-for #(= 2 (count @published)) 5000)
+         "both publishes must reach the bus")
+     (let [[first-publish second-publish] @published]
+       (testing
+         "an entry whose event_id is the empty string leaves each
+         publish's minted id in place"
+         (is (not (str/blank? (:id first-publish)))
+             "the first publish must carry an identifier")
+         (is (not (str/blank? (:id second-publish)))
+             "the second publish must carry an identifier")
+         (is (not= empty-event-id (:id first-publish))
+             "the entry's empty id must not reach the envelope")
+         (is (not= empty-event-id (:id second-publish))
+             "the entry's empty id must not reach the envelope")
+         (is (not= (:id first-publish) (:id second-publish))
+             "two publishes of one id-less entry must not share an id"))))))
