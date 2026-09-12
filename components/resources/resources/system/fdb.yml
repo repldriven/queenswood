@@ -28,7 +28,7 @@ keyspace-prefix: !system/component
 store: !system/component
   system/component-kind: fdb/store
   descriptor: com.repldriven.queenswood.schemas.schemas.SchemaProto
-  record-types: !include system/fdb-record-types.yml
+  metadata: !include system/fdb-record-types.yml
   keyspace-prefix: !system/local-ref keyspace-prefix
 
 # Single component-kind for both modes. `migrate: true` (set by
@@ -41,6 +41,6 @@ meta-store: !system/component
   record-db: !system/local-ref record-db
   path: meta
   descriptor: com.repldriven.queenswood.schemas.schemas.SchemaProto
-  record-types: !include system/fdb-record-types.yml
+  metadata: !include system/fdb-record-types.yml
   keyspace-prefix: !system/local-ref keyspace-prefix
   migrate: !env FDB_MIGRATE

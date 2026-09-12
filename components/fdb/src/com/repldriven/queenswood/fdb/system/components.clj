@@ -1,10 +1,9 @@
 (ns com.repldriven.queenswood.fdb.system.components
-  (:refer-clojure :exclude [name])
   (:require
-    [com.repldriven.queenswood.fdb.check :as check]
     [com.repldriven.queenswood.fdb.keyspace :as keyspace]
+    [com.repldriven.queenswood.fdb.meta-data :as meta-data]
 
-    [com.repldriven.mono.error.interface :refer [try-nom]]
+    [com.repldriven.mono.error.interface :as error :refer [nom->> try-nom]]
     [com.repldriven.mono.log.interface :as log]
     [com.repldriven.mono.system.interface :as system]
     [com.repldriven.mono.utility.interface :as utility]
@@ -12,20 +11,12 @@
     [clojure.string :as str])
   (:import
     (com.apple.foundationdb FDB)
-    (com.apple.foundationdb.record RecordMetaData)
-    (com.apple.foundationdb.record.metadata Index
-                                            IndexOptions
-                                            IndexTypes
-                                            Key$Expressions)
-    (com.apple.foundationdb.record.metadata.expressions GroupingKeyExpression
-                                                        KeyExpression$FanType)
     (com.apple.foundationdb.record.provider.foundationdb APIVersion
                                                          FDBDatabaseFactory
                                                          FDBMetaDataStore
                                                          FDBRecordStore)
     (java.io File)
-    (java.util.concurrent Executors TimeUnit)
-    (java.util.function Function)))
+    (java.util.concurrent Executors TimeUnit)))
 
 ;; ---
 ;; defaults
@@ -154,137 +145,41 @@
    :system/instance-schema some?})
 
 ;; ---
-;; metadata
-;; ---
-
-(defn- set-primary-key
-  [b record-type primary-key]
-  (when primary-key
-    (let [expr (if (= 1 (count primary-key))
-                 (Key$Expressions/field (first primary-key))
-                 (Key$Expressions/concatenateFields ^java.util.List
-                                                    primary-key))]
-      (.setPrimaryKey (.getRecordType b record-type) expr))))
-
-(defn- set-primary-keys
-  [b record-types]
-  (doseq [{:strs [record-type primary-key]} (vals record-types)]
-    (set-primary-key b record-type primary-key)))
-
-(defn- key-expression
-  [{:strs [field fields fan-out nest]}]
-  (cond
-   fields
-   (Key$Expressions/concatenateFields ^java.util.List fields)
-
-   nest
-   (.nest (Key$Expressions/field field
-                                 (if fan-out
-                                   KeyExpression$FanType/FanOut
-                                   KeyExpression$FanType/None))
-          (key-expression nest))
-
-   :else
-   (Key$Expressions/field field
-                          (if fan-out
-                            KeyExpression$FanType/FanOut
-                            KeyExpression$FanType/None))))
-
-(def ^:private index-type->str {"count" IndexTypes/COUNT "sum" IndexTypes/SUM})
-
-(defn- add-indexes
-  [builder record-type indexes]
-  (doseq [{:strs [name unique type] :as idx-cfg} indexes]
-    (let [expr (key-expression idx-cfg)
-          idx-type (get index-type->str type "value")
-          ;; COUNT groups by every field (0 grouped columns, count entries
-          ;; per group). SUM groups by all but the last field and sums that
-          ;; trailing value column (1 grouped column).
-          grouped-expr (condp = idx-type
-                         IndexTypes/COUNT (GroupingKeyExpression. expr 0)
-                         IndexTypes/SUM (GroupingKeyExpression. expr 1)
-                         expr)
-          opts (if unique
-                 IndexOptions/UNIQUE_OPTIONS
-                 IndexOptions/EMPTY_OPTIONS)]
-      (.addIndex builder
-                 record-type
-                 (Index. name
-                         grouped-expr
-                         idx-type
-                         opts)))))
-
-(defn- resolve-descriptor
-  [class-name]
-  (let [clazz (Class/forName class-name)
-        method (.getMethod clazz "getDescriptor" (into-array Class []))]
-    (.invoke method nil (into-array Object []))))
-
-(defn- union-field-numbers
-  [file-desc]
-  (into {}
-        (map (fn [field] [(.getName (.getMessageType field))
-                          (.getNumber field)]))
-        (.getFields (.findMessageTypeByName file-desc "RecordTypeUnion"))))
-
-(defn- union-ordered
-  "Record-type configs in `RecordTypeUnion` field-number order.
-  `addIndex` stamps each index with the builder's running version, so the
-  order stores are visited in is what fixes every index's added version,
-  and the Record Layer refuses a save that moves one. Declaration order
-  cannot supply it: the config reader re-reads the record types as a hash
-  map, so a new entry lands wherever its hash falls and shifts every index
-  after it. Union field numbers do not move — an existing record type
-  keeps its number and a new one takes the next free one — so visiting in
-  that order leaves every existing index's version where it was. A record
-  type absent from the union sorts last, by name."
-  [file-desc record-types]
-  (let [numbers (union-field-numbers file-desc)]
-    (sort-by (juxt #(get numbers (get % "record-type") Integer/MAX_VALUE)
-                   #(get % "record-type"))
-             (vals record-types))))
-
-(defn- build-meta-data
-  [descriptor record-types]
-  (let [file-desc (resolve-descriptor descriptor)
-        builder (-> (RecordMetaData/newBuilder)
-                    (.setRecords file-desc))]
-    (set-primary-keys builder record-types)
-    (doseq [{:strs [record-type indexes]} (union-ordered file-desc
-                                                         record-types)]
-      (add-indexes builder record-type indexes))
-    (.build builder)))
-
-;; ---
 ;; store
 ;; ---
 
-(def store
+(def
+  ^{:doc
+    "Opens record stores against meta-data built in process from the
+  descriptor and the declaration, without persisting it."}
+  store
   {:system/start
    (fn [{:system/keys [config instance]}]
      (or instance
-         (let [{:keys [descriptor record-types keyspace-prefix]} config
-               meta (build-meta-data descriptor record-types)
-               store-names (set (keys record-types))]
-           (with-meta (fn [ctx store-name]
-                        (when-not (store-names store-name)
-                          ;; nosemgrep: no-raw-throw
-                          (throw (ex-info "Unknown record store"
-                                          {:store store-name})))
-                        (-> (FDBRecordStore/newBuilder)
-                            (.setMetaDataProvider meta)
-                            (.setContext ctx)
-                            (.setKeySpacePath (keyspace/path (keyspace/scoped
-                                                              keyspace-prefix
-                                                              store-name)))
-                            .createOrOpen))
-                      {:keyspace-prefix keyspace-prefix}))))
+         (let [{:keys [descriptor metadata keyspace-prefix]} config
+               meta (meta-data/build descriptor metadata)
+               store-names (set (keys (get metadata "stores")))]
+           (if (error/anomaly? meta)
+             meta
+             (with-meta (fn [ctx store-name]
+                          (when-not (store-names store-name)
+                            ;; nosemgrep: no-raw-throw
+                            (throw (ex-info "Unknown record store"
+                                            {:store store-name})))
+                          (-> (FDBRecordStore/newBuilder)
+                              (.setMetaDataProvider meta)
+                              (.setContext ctx)
+                              (.setKeySpacePath (keyspace/path (keyspace/scoped
+                                                                keyspace-prefix
+                                                                store-name)))
+                              .createOrOpen))
+                        {:keyspace-prefix keyspace-prefix})))))
    :system/config {:descriptor system/required-component
-                   :record-types system/required-component
+                   :metadata system/required-component
                    :keyspace-prefix nil}
    :system/config-schema [:map
                           [:descriptor string?]
-                          [:record-types map?]
+                          [:metadata map?]
                           [:keyspace-prefix {:optional true}
                            [:maybe string?]]]
    :system/instance-schema fn?})
@@ -321,43 +216,35 @@
   ^{:doc
     "Opens record stores against meta-data persisted in FDB.
   With `migrate` unset, opens for reads only. With `migrate` set, first
-  persists the record meta-data — a save made idempotent by treating the
-  Record Layer's \"meta-data version must increase\" rejection as a no-op,
-  so a genuine schema upgrade has to bump that version on the builder
-  explicitly."}
+  persists the record meta-data built from the descriptor and the
+  declaration: saved when its version exceeds the stored one and the
+  evolution validator accepts it, a no-op when the stored meta-data is
+  at the same version and identical, and otherwise a failure to start,
+  which is what makes a change without a version bump visible."}
   meta-store
   {:system/start
    (fn [{:system/keys [config instance]}]
      (or
       instance
-      (let [{:keys [record-db path descriptor record-types migrate
-                    keyspace-prefix]}
+      (let [{:keys [record-db path descriptor metadata migrate keyspace-prefix]}
             config
-            ks-path (keyspace/path (keyspace/scoped keyspace-prefix path))
-            file-desc (resolve-descriptor descriptor)]
-        (when (truthy-flag? migrate)
-          (log/info "FDB meta-store migrating metadata to:" path)
-          (try
-            (.run record-db
-                  ^Function
-                  (fn [ctx]
-                    (let [ms (FDBMetaDataStore. ctx ks-path)
-                          meta-data (build-meta-data descriptor record-types)]
-                      (.saveRecordMetaData ms meta-data))
-                    nil))
-            (catch Exception e
-              (if (check/meta-data-already-current? e)
-                (log/info
-                 "FDB meta-data already persisted at >= current version; skipping save")
-                ;; nosemgrep: no-raw-throw
-                (throw e)))))
-        (with-meta (fn [ctx store-name]
-                     (open-meta-store ctx
-                                      ks-path
-                                      file-desc
-                                      (keyspace/scoped keyspace-prefix
-                                                       store-name)))
-                   {:keyspace-prefix keyspace-prefix}))))
+            scoped-path (keyspace/scoped keyspace-prefix path)
+            file-desc (meta-data/file-descriptor descriptor)
+            migrated (when (truthy-flag? migrate)
+                       (log/info "FDB meta-store migrating meta-data at:"
+                                 scoped-path)
+                       (nom->> (meta-data/build descriptor metadata)
+                               (meta-data/save record-db scoped-path)))]
+        (if (error/anomaly? migrated)
+          migrated
+          (do (when migrated (log/info "FDB meta-data at" scoped-path migrated))
+              (with-meta (fn [ctx store-name]
+                           (open-meta-store ctx
+                                            (keyspace/path scoped-path)
+                                            file-desc
+                                            (keyspace/scoped keyspace-prefix
+                                                             store-name)))
+                         {:keyspace-prefix keyspace-prefix}))))))
    :system/config {:record-db system/required-component
                    :path system/required-component
                    :descriptor system/required-component
@@ -366,7 +253,7 @@
                           [:record-db some?]
                           [:path string?]
                           [:descriptor string?]
-                          [:record-types {:optional true} [:maybe map?]]
+                          [:metadata {:optional true} [:maybe map?]]
                           [:keyspace-prefix {:optional true}
                            [:maybe string?]]
                           [:migrate {:optional true}

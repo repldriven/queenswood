@@ -1,4 +1,4 @@
-_record-types: &record-types !include system/fdb-record-types.yml
+_metadata: &metadata !include system/fdb-record-types.yml
 
 container: !system/component
   system/component-kind: fdb/container
@@ -30,7 +30,7 @@ keyspace-prefix: !system/component
 store: !system/component
   system/component-kind: fdb/store
   descriptor: com.repldriven.queenswood.schemas.schemas.SchemaProto
-  record-types: *record-types
+  metadata: *metadata
   keyspace-prefix: !system/local-ref keyspace-prefix
 
 meta-store: !system/component
@@ -38,7 +38,7 @@ meta-store: !system/component
   record-db: !system/local-ref record-db
   path: meta
   descriptor: com.repldriven.queenswood.schemas.schemas.SchemaProto
-  record-types: *record-types
+  metadata: *metadata
   keyspace-prefix: !system/local-ref keyspace-prefix
   # Persist the test schema into the testcontainer FDB at start so
   # the monolith's downstream record-store consumers can read it

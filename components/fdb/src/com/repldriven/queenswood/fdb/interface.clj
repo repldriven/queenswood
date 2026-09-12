@@ -13,6 +13,7 @@
     [com.repldriven.queenswood.fdb.counter :as counter]
     [com.repldriven.queenswood.fdb.kv :as kv]
     [com.repldriven.queenswood.fdb.merge :as merge]
+    [com.repldriven.queenswood.fdb.meta-data :as meta-data]
     [com.repldriven.queenswood.fdb.record :as record]
     [com.repldriven.queenswood.fdb.scan :as scan]
     [com.repldriven.queenswood.fdb.transact :as transact]))
@@ -297,6 +298,49 @@
                             (swap! cache assoc store-name s)
                             s)))
                     (:keyspace-prefix (meta open-store-fn)))))
+
+;; ---
+;; meta-data
+;; ---
+
+(defn build-meta-data
+  "Builds Record Layer meta-data from a descriptor — the name of a
+  generated outer class, or a `Descriptors$FileDescriptor` — and a
+  declaration in the shape of `fdb-record-types.yml`: a `version`, and
+  under `stores` each record store's record type, primary key, indexes
+  carrying the `added` and `modified` versions the Record Layer keeps
+  per index, and the `former-indexes` removed from it. Returns the
+  meta-data, or an anomaly listing each field missing or malformed."
+  [descriptor declaration]
+  (meta-data/build descriptor declaration))
+
+(defn describe-meta-data
+  "The version, and every index and former index with its versions and
+  key, as a map — what a log line reports and a test compares."
+  [meta-data]
+  (meta-data/describe meta-data))
+
+(defn validate-meta-data-evolution
+  "Nil when `new` may replace `old` in a store holding data, under the
+  rules `save-meta-data` applies: a higher version, no field removed, an
+  index whose key changed carrying a higher `modified`, a removed index
+  listed as former. Otherwise an anomaly carrying the Record Layer's
+  reason and the index it names."
+  [old new]
+  (meta-data/validate-evolution old new))
+
+(defn load-meta-data
+  "The meta-data persisted at path, nil where none is, or an anomaly."
+  [record-db path]
+  (meta-data/load record-db path))
+
+(defn save-meta-data
+  "Persists meta-data at path, returning `:saved`, or `:current` when
+  the stored meta-data is at the same version and identical. Returns an
+  anomaly when the stored version is higher, or equal with any change,
+  or lower with a change the evolution rules refuse."
+  [record-db path meta-data]
+  (meta-data/save record-db path meta-data))
 
 ;; ---
 ;; checks
