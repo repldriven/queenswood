@@ -17,14 +17,6 @@ enum WebhookEndpointStatus {
 // A tenant's registered destination for webhook notifications.
 message WebhookEndpoint {
   option (com.apple.foundationdb.record.record).usage = RECORD;
-  // The meta-data version these four record types are introduced on.
-  // Without it the Record Layer refuses a save that adds a record type
-  // to an existing store — "new record type is missing since version" —
-  // and `build-meta-data` has nowhere else to say it: it sets no explicit
-  // version, so the version is the index count, 50 before these stores
-  // and 57 with them. Provisional until read off a deployed instance's
-  // stored meta-data.
-  option (com.apple.foundationdb.record.record).since_version = 57;
 
   required string bank_id = 1;
   required string endpoint_id = 2;

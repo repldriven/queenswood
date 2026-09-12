@@ -18,8 +18,6 @@ enum WebhookDeliveryStatus {
 // delivery of the same notification, not a reset of this one.
 message WebhookDelivery {
   option (com.apple.foundationdb.record.record).usage = RECORD;
-  // See webhook-endpoint.proto for what this number is and why it is here.
-  option (com.apple.foundationdb.record.record).since_version = 57;
 
   required string bank_id = 1;
   required string delivery_id = 2;
