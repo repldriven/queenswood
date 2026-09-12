@@ -14,10 +14,9 @@ identity that every movement of money references.
 
 ## Users and stakeholders
 
-**Tenant engineer.** Opens and closes accounts on behalf
-of their end customers, looks accounts up, and reads them.
-Cares about: open succeeding only when the customer is
-properly set up, the assigned payment address being usable
+**Customer engineering team.** Opens and closes accounts on behalf of their end
+customers, looks accounts up, and reads them. Cares about: open succeeding only
+when the customer is properly set up, the assigned payment address being usable
 immediately, the eventual close being final.
 
 **End customer.** The party who holds the account. Doesn't
@@ -27,11 +26,9 @@ surface. Cares (implicitly) about: the account being open
 when expected, balances and statements being correct, the
 sort code and account number staying stable.
 
-**Platform admin / Queenswood operator.** Sets the
-policies that cap how many accounts a tenant can open, of
-which type, in which currency. Issues each bank its own
-clearing identity — the sort code its accounts' payment
-addresses are built from.
+**Platform operator.** Sets the policies that cap how many accounts a tenant can
+open, of which type, in which currency. Issues each bank its own clearing
+identity — the sort code its accounts' payment addresses are built from.
 
 ## Goals
 
@@ -259,7 +256,7 @@ API.
 
 ```mermaid
 sequenceDiagram
-    participant T as Tenant engineer
+    participant T as Customer engineer
     participant Q as Queenswood
 
     Note over T,Q: customer's party already active
@@ -281,7 +278,7 @@ moment later the account is opened and ready to use.
 
 ```mermaid
 sequenceDiagram
-    participant T as Tenant engineer
+    participant T as Customer engineer
     participant Q as Queenswood
 
     T->>Q: open account (party, product, "GBP")
@@ -305,7 +302,7 @@ anything; the account simply credits.
 
 ```mermaid
 sequenceDiagram
-    participant T as Tenant engineer
+    participant T as Customer engineer
     participant Q as Queenswood
 
     Note over T: customer asks to close their account

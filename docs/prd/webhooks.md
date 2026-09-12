@@ -13,21 +13,20 @@ can be found and sent again.
 
 ## Users and stakeholders
 
-**Tenant engineer.** The primary user. Registers endpoints, chooses
-what each receives, checks signatures, and builds the tenant's own
-reactions — updating a customer's balance screen, releasing goods,
-reconciling a ledger. Cares about: never missing a change, never
-acting on a forged or stale delivery, telling a repeat from a new
-change, and recovering cleanly after an outage of their own.
+**Customer engineering team.** The primary user. Registers endpoints, chooses
+what each receives, checks signatures, and builds the tenant's own reactions —
+updating a customer's balance screen, releasing goods, reconciling a ledger.
+Cares about: never missing a change, never acting on a forged or stale delivery,
+telling a repeat from a new change, and recovering cleanly after an outage of
+their own.
 
 **End customer.** Never sees a webhook, but feels its absence. With
 one, the tenant's app can say "your payment has arrived" moments after
 it does, rather than whenever the app next happened to look.
 
-**Platform admin / Queenswood operator.** Watches delivery health
-across tenants, pauses an endpoint whose failures are consuming
-delivery capacity, and answers "did we tell them?" when a tenant
-disputes what it was told.
+**Platform operator.** Watches delivery health across tenants, pauses an
+endpoint whose failures are consuming delivery capacity, and answers "did we
+tell them?" when a tenant disputes what it was told.
 
 ## Goals
 
@@ -265,7 +264,7 @@ the tenant was told and when.
 
 ```mermaid
 sequenceDiagram
-    participant T as Tenant engineer
+    participant T as Customer engineer
     participant Q as Queenswood
     participant E as Tenant's endpoint
 
@@ -286,7 +285,7 @@ signature check works, before anything real depends on it.
 
 ```mermaid
 sequenceDiagram
-    participant T as Tenant engineer
+    participant T as Customer engineer
     participant Q as Queenswood
     participant S as Clearing partner
     participant E as Tenant's endpoint
@@ -314,7 +313,7 @@ as "failed".
 sequenceDiagram
     participant Q as Queenswood
     participant E as Tenant's endpoint
-    participant T as Tenant engineer
+    participant T as Customer engineer
 
     Q->>E: delivery
     E-->>Q: error
@@ -338,7 +337,7 @@ identifier, and the tenant recognises it as done.
 
 ```mermaid
 sequenceDiagram
-    participant T as Tenant engineer
+    participant T as Customer engineer
     participant Q as Queenswood
     participant I as IDV provider
     participant E as Tenant's endpoint

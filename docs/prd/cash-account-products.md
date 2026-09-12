@@ -15,27 +15,23 @@ the customers who signed up to the old ones.
 
 ## Users and stakeholders
 
-**Tenant engineer / tenant product team.** The author of
-products. Drafts new products, iterates on the terms,
-publishes them, and (when terms change) opens new versions.
-Cares about: the freedom to design products that match the
-tenant's commercial offering, the certainty that publishing
-is final, the ability to evolve terms over time without
-disturbing existing customers.
+**Customer engineering team.** The author of products. Drafts new products,
+iterates on the terms, publishes them, and (when terms change) opens new
+versions. Cares about: the freedom to design products that match the tenant's
+commercial offering, the certainty that publishing is final, the ability to
+evolve terms over time without disturbing existing customers.
 
 **End customer.** Doesn't see the product directly, but
 holds an account opened under a particular version of one.
 Cares (implicitly) about: the terms they signed up to
 remaining the terms they continue to receive.
 
-**Compliance / risk function within the tenant.** Reviews
-product terms before publication. Cares about: the
-draft → published gate being explicit and observable, the
-audit history of version changes being intact.
+**Compliance and risk, at the customer.** Reviews product terms before
+publication. Cares about: the draft → published gate being explicit and
+observable, the audit history of version changes being intact.
 
-**Platform admin / Queenswood operator.** Sets policies
-that bound what products a tenant can offer (e.g. capping
-the number of products, restricting product types).
+**Platform operator.** Sets policies that bound what products a tenant can offer
+(e.g. capping the number of products, restricting product types).
 
 ## Goals
 
@@ -207,7 +203,7 @@ see [policies](policies.md).
 
 ```mermaid
 sequenceDiagram
-    participant T as Tenant engineer
+    participant T as Customer engineer
     participant Q as Queenswood
 
     T->>Q: create product (name, template, currency, rate, dates)
@@ -229,7 +225,7 @@ new accounts open under v1 and inherit those terms.
 
 ```mermaid
 sequenceDiagram
-    participant T as Tenant engineer
+    participant T as Customer engineer
     participant Q as Queenswood
 
     Note over T,Q: v1 is published — some accounts already exist
@@ -251,7 +247,7 @@ sign up to the new terms.
 
 ```mermaid
 sequenceDiagram
-    participant T as Tenant engineer
+    participant T as Customer engineer
     participant Q as Queenswood
 
     T->>Q: open new draft on product

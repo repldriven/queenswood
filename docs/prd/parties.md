@@ -13,11 +13,10 @@ movement of money.
 
 ## Users and stakeholders
 
-**Tenant engineer.** Calls the banking API to register
-parties on behalf of their end customers. Cares about: the
-flow from creation to active being predictable, KYC failure
-modes being legible, the active state being something they
-can react to or poll for.
+**Customer engineering team.** Calls the banking API to register parties on
+behalf of their end customers. Cares about: the flow from creation to active
+being predictable, KYC failure modes being legible, the active state being
+something they can react to or poll for.
 
 **End customer.** The natural human (or the business) on
 whose behalf a party is registered. Doesn't interact with
@@ -25,10 +24,9 @@ Queenswood directly — they go through the tenant's
 customer-facing surface — but their personal data ends up
 in the party record.
 
-**Platform admin / Queenswood operator.** Indirectly
-involved. Operates the platform that runs IDV and stores PII;
-needs the model to support the compliance posture the
-platform takes on.
+**Platform operator.** Indirectly involved. Operates the platform that runs IDV
+and stores PII; needs the model to support the compliance posture the platform
+takes on.
 
 ## Goals
 
@@ -198,7 +196,7 @@ banking API.
 
 ```mermaid
 sequenceDiagram
-    participant T as Tenant engineer
+    participant T as Customer engineer
     participant Q as Queenswood
     participant I as IDV provider<br/>(or simulator)
 
@@ -225,7 +223,7 @@ they read the party.
 
 ```mermaid
 sequenceDiagram
-    participant T as Tenant engineer
+    participant T as Customer engineer
     participant Q as Queenswood
 
     T->>Q: register organisation party (name, identifiers)
@@ -249,7 +247,7 @@ bootstrap — see [onboarding](onboarding.md).
 
 ```mermaid
 sequenceDiagram
-    participant T as Tenant engineer
+    participant T as Customer engineer
     participant Q as Queenswood
     participant S as Scheme adapter
 
