@@ -30,10 +30,11 @@
 
 (def routes
   [["/webhook-endpoints"
-    {:openapi {:tags ["Webhooks"] :security [{"bearerAuth" ["org"]}]}}
+    {:openapi {:tags ["Webhooks"]}}
     [""
      {:get {:summary "List the bank's webhook endpoints"
             :openapi {:operationId "ListWebhookEndpoints"
+                      :security [{"bearerAuth" ["org:viewer"]}]
                       :parameters ^:replace [shared.parameters/ref-page]}
             :parameters {:query list-endpoints-query-schema}
             :responses {200 {:description "The bank's webhook endpoints."
@@ -43,6 +44,7 @@
                            "response but rotation that carries the "
                            "signing secret)")
              :openapi {:operationId "RegisterWebhookEndpoint"
+                       :security [{"bearerAuth" ["org:developer"]}]
                        :requestBody {:required true}
                        :parameters ^:replace
                                    [shared.parameters/ref-idempotency-key]}
@@ -61,7 +63,8 @@
      {:parameters {:path {:endpoint-id [:ref "WebhookEndpointId"]}}}
      [""
       {:get {:summary "Retrieve a webhook endpoint"
-             :openapi {:operationId "RetrieveWebhookEndpoint"}
+             :openapi {:operationId "RetrieveWebhookEndpoint"
+                       :security [{"bearerAuth" ["org:viewer"]}]}
              :responses {200 {:description "The endpoint."
                               :body [:ref "WebhookEndpoint"]}
                          404 (ErrorResponse [#'WebhookEndpointNotFound])}
@@ -69,6 +72,7 @@
        :put {:summary (str "Replace the endpoint's address, description "
                            "and chosen kinds")
              :openapi {:operationId "UpdateWebhookEndpoint"
+                       :security [{"bearerAuth" ["org:developer"]}]
                        :requestBody {:required true}}
              :parameters {:body [:ref "WebhookEndpointRequest"]}
              :responses {200 {:description "The endpoint as replaced."
@@ -80,14 +84,16 @@
        :delete {:summary (str "Remove the endpoint (a terminal status "
                               "rather than a deletion, so its "
                               "deliveries stay readable)")
-                :openapi {:operationId "RemoveWebhookEndpoint"}
+                :openapi {:operationId "RemoveWebhookEndpoint"
+                          :security [{"bearerAuth" ["org:developer"]}]}
                 :responses
                 {204 {:description "The endpoint was removed. No body."}
                  404 (ErrorResponse [#'WebhookEndpointNotFound])
                  409 (ErrorResponse [#'WebhookEndpointInvalidStatus])}
                 :handler handlers/remove-endpoint}}]
      ["/enable"
-      {:post {:summary (str "Enable a disabled or paused endpoint, "
+      {:openapi {:security [{"bearerAuth" ["org:developer"]}]}
+       :post {:summary (str "Enable a disabled or paused endpoint, "
                             "optionally asking for the gap since an "
                             "instant")
               :openapi {:operationId "EnableWebhookEndpoint"
@@ -99,7 +105,8 @@
                           409 (ErrorResponse [#'WebhookEndpointInvalidStatus])}
               :handler handlers/enable}}]
      ["/disable"
-      {:post {:summary "Disable an enabled or paused endpoint"
+      {:openapi {:security [{"bearerAuth" ["org:developer"]}]}
+       :post {:summary "Disable an enabled or paused endpoint"
               :openapi {:operationId "DisableWebhookEndpoint"}
               :responses {200 {:description "The disabled endpoint."
                                :body [:ref "WebhookEndpoint"]}
@@ -107,7 +114,8 @@
                           409 (ErrorResponse [#'WebhookEndpointInvalidStatus])}
               :handler handlers/disable}}]
      ["/rotate-secret"
-      {:post {:summary (str "Mint a new signing secret, keeping the "
+      {:openapi {:security [{"bearerAuth" ["org:developer"]}]}
+       :post {:summary (str "Mint a new signing secret, keeping the "
                             "current one accepted until it expires")
               :openapi {:operationId "RotateWebhookEndpointSecret"
                         :parameters ^:replace
@@ -125,7 +133,8 @@
                 409 (ErrorResponse [#'WebhookEndpointInvalidStatus])})
               :handler handlers/rotate-secret}}]
      ["/test-notification"
-      {:post {:summary (str "Send a test notification, answering with "
+      {:openapi {:security [{"bearerAuth" ["org:developer"]}]}
+       :post {:summary (str "Send a test notification, answering with "
                             "the delivery it created")
               :openapi {:operationId "SendWebhookTestNotification"
                         :parameters ^:replace
@@ -142,7 +151,8 @@
                 409 (ErrorResponse [#'WebhookEndpointInvalidStatus])})
               :handler handlers/test-notification}}]
      ["/resend"
-      {:post {:summary (str "Send every notification in a window again, "
+      {:openapi {:security [{"bearerAuth" ["org:developer"]}]}
+       :post {:summary (str "Send every notification in a window again, "
                             "one new delivery each")
               :openapi {:operationId "ResendWebhookNotifications"
                         :requestBody {:required true}
@@ -161,7 +171,8 @@
                 409 (ErrorResponse [#'WebhookEndpointInvalidStatus])})
               :handler handlers/resend-window}}]
      ["/deliveries"
-      {:get {:summary (str "List the endpoint's deliveries, filtered by "
+      {:openapi {:security [{"bearerAuth" ["org:viewer"]}]}
+       :get {:summary (str "List the endpoint's deliveries, filtered by "
                            "kind, outcome and time")
              :openapi {:operationId "ListWebhookDeliveries"
                        :parameters ^:replace
@@ -174,7 +185,8 @@
                          404 (ErrorResponse [#'WebhookEndpointNotFound])}
              :handler queries/list-deliveries}}]
      ["/deliveries/{delivery-id}/resend"
-      {:parameters {:path {:delivery-id [:ref "WebhookDeliveryId"]}}
+      {:openapi {:security [{"bearerAuth" ["org:developer"]}]}
+       :parameters {:path {:delivery-id [:ref "WebhookDeliveryId"]}}
        :post {:summary "Send one delivery's notification again"
               :openapi {:operationId "ResendWebhookDelivery"
                         :parameters ^:replace

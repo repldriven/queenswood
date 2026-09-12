@@ -70,13 +70,8 @@
 
 (def ^:private service-levels #{org-viewer org-developer})
 
-(def
-  ^{:private true
-    :doc
-    "The scopes that gate an organisation's own operations: the levels,
-  and the `org` gate they replace."}
-  org-scopes
-  (conj (set org-levels) :org))
+(def ^{:private true :doc "The organisation levels, as a set."} org-scopes
+  (set org-levels))
 
 (defn- requested-bank-id
   "The bank the `Bank-Id` header names, or nil when it names none."
@@ -106,9 +101,8 @@
     (util/assoc-some
      {:principal-type :service
       :principal-id (:azp claims)
-      :roles (conj (into (if is-admin? (set org-levels) service-levels)
-                         (disj realm-roles :org))
-                   :org)
+      :roles (into (if is-admin? (set org-levels) service-levels)
+                   (disj realm-roles :org))
       :token-jti (:jti claims)}
      :bank-id
      (cond is-admin?
@@ -180,9 +174,7 @@
           :memberships memberships
           :roles (cond-> (into #{:user} levels)
                          is-admin?
-                         (conj :admin)
-                         (seq levels)
-                         (conj :org))
+                         (conj :admin))
           :token-jti (:jti claims)}
          :bank-id
          (if is-admin? requested (:bank-id membership))
@@ -301,6 +293,19 @@
   [router]
   (paths-where bare-security? router))
 
+(defn- bare-org?
+  "True when `security` names the bare `org` role."
+  [security]
+  (boolean (some (fn [entry] (some #{"org"} (mapcat val entry))) security)))
+
+(defn bare-org-routes
+  "The paths in `router` with an operation whose gate names the bare
+  `org` role. `org` is no level, so it says nothing about what a member
+  may do; every organisation gate names `org:viewer`, `org:developer`,
+  `org:admin` or `org:owner`, and no principal carries `org`."
+  [router]
+  (paths-where bare-org? router))
+
 (defn- required-roles
   "The role set a route requires, read off its OpenAPI security. A
   route that names no scheme requires nothing and answers nil;
@@ -314,7 +319,7 @@
 (defn- stacked-levels?
   "True when `security` names more than one organisation level."
   [security]
-  (< 1 (count (filter (set org-levels) (required-roles security)))))
+  (< 1 (count (filter org-scopes (required-roles security)))))
 
 (defn stacked-level-routes
   "The paths in `router` with an operation whose gate names more than

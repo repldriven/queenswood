@@ -27,10 +27,11 @@
 
 (def routes
   [["/cash-accounts"
-    {:openapi {:tags ["Cash Accounts"] :security [{"bearerAuth" ["org"]}]}}
+    {:openapi {:tags ["Cash Accounts"]}}
     [""
      {:get {:summary "Retrieve cash accounts"
             :openapi {:operationId "RetrieveCashAccounts"
+                      :security [{"bearerAuth" ["org:viewer"]}]
                       :parameters ^:replace
                                   [shared.parameters/ref-page
                                    shared.parameters/ref-embed]}
@@ -39,6 +40,7 @@
             :handler queries/list-cash-accounts}
       :post {:summary "Open a new cash account"
              :openapi {:operationId "CreateCashAccount"
+                       :security [{"bearerAuth" ["org:developer"]}]
                        :requestBody {:required true}
                        :parameters ^:replace
                                    [shared.parameters/ref-idempotency-key]}
@@ -55,7 +57,8 @@
              :handler commands/open-cash-account}}]
     ["/{account-id}" {:parameters {:path {:account-id [:ref "CashAccountId"]}}}
      [""
-      {:get {:summary "Retrieve a cash account"
+      {:openapi {:security [{"bearerAuth" ["org:viewer"]}]}
+       :get {:summary "Retrieve a cash account"
              :openapi {:operationId "RetrieveCashAccount"
                        :parameters ^:replace
                                    [shared.parameters/ref-account-id
@@ -65,13 +68,15 @@
                          404 (ErrorResponse [#'CashAccountNotFound])}
              :handler queries/get-cash-account}}]
      ["/transactions"
-      {:get {:summary "Retrieve account transactions"
+      {:openapi {:security [{"bearerAuth" ["org:viewer"]}]}
+       :get {:summary "Retrieve account transactions"
              :openapi {:operationId "RetrieveAccountTransactions"}
              :responses {200 {:body [:ref "TransactionList"]}
                          404 (ErrorResponse [#'CashAccountNotFound])}
              :handler queries/list-transactions}}]
      ["/close"
-      {:post {:summary "Close a cash account"
+      {:openapi {:security [{"bearerAuth" ["org:developer"]}]}
+       :post {:summary "Close a cash account"
               :openapi {:operationId "CloseCashAccount"
                         :parameters ^:replace
                                     [shared.parameters/ref-account-id
@@ -86,7 +91,8 @@
                                                #'CashAccountNonZeroBalance])})
               :handler commands/close-cash-account}}]
      ["/suspend"
-      {:post {:summary "Suspend a cash account"
+      {:openapi {:security [{"bearerAuth" ["org:developer"]}]}
+       :post {:summary "Suspend a cash account"
               :openapi {:operationId "SuspendCashAccount"
                         :parameters ^:replace
                                     [shared.parameters/ref-account-id
@@ -100,7 +106,8 @@
                            409 (ErrorResponse [#'CashAccountInvalidStatus])})
               :handler commands/suspend-cash-account}}]
      ["/resume"
-      {:post {:summary "Resume a suspended cash account"
+      {:openapi {:security [{"bearerAuth" ["org:developer"]}]}
+       :post {:summary "Resume a suspended cash account"
               :openapi {:operationId "ResumeCashAccount"
                         :parameters ^:replace
                                     [shared.parameters/ref-account-id
@@ -114,7 +121,8 @@
                            409 (ErrorResponse [#'CashAccountInvalidStatus])})
               :handler commands/resume-cash-account}}]
      ["/rotate-address"
-      {:post {:summary "Rotate a cash account's payment address"
+      {:openapi {:security [{"bearerAuth" ["org:developer"]}]}
+       :post {:summary "Rotate a cash account's payment address"
               :openapi {:operationId "RotateCashAccountAddress"
                         :parameters ^:replace
                                     [shared.parameters/ref-account-id

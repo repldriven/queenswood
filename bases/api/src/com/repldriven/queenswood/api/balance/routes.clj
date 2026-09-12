@@ -9,7 +9,7 @@
 
 (def routes
   [["/cash-accounts/{account-id}/balances"
-    {:openapi {:tags ["Balances"] :security [{"bearerAuth" ["org"]}]}
+    {:openapi {:tags ["Balances"] :security [{"bearerAuth" ["org:viewer"]}]}
      :parameters {:path {:account-id [:ref "CashAccountId"]}}}
     [""
      {:get {:summary "Retrieve account balances"

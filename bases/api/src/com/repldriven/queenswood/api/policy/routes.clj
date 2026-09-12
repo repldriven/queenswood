@@ -22,14 +22,14 @@
                          404 (ErrorResponse [#'PolicyNotFound])}
              :handler queries/get-policy}}]]]
    ["/me/policies"
-    {:openapi {:tags ["Policies"] :security [{"bearerAuth" ["org"]}]}}
+    {:openapi {:tags ["Policies"] :security [{"bearerAuth" ["org:viewer"]}]}}
     [""
      {:get {:summary "List the policies effective for my bank"
             :openapi {:operationId "ListEffectivePolicies"}
             :responses {200 {:body [:ref "PolicyList"]}}
             :handler queries/list-effective-policies}}]]
    ["/me/effective-policies"
-    {:openapi {:tags ["Policies"] :security [{"bearerAuth" ["org"]}]}}
+    {:openapi {:tags ["Policies"] :security [{"bearerAuth" ["org:viewer"]}]}}
     [""
      {:get {:summary "Resolve my effective policies into one decision set"
             :openapi {:operationId "GetEffectivePolicies"}

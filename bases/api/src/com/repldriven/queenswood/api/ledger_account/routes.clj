@@ -8,7 +8,8 @@
 
 (def routes
   [["/ledger-accounts"
-    {:openapi {:tags ["Ledger Accounts"] :security [{"bearerAuth" ["org"]}]}}
+    {:openapi {:tags ["Ledger Accounts"]
+               :security [{"bearerAuth" ["org:viewer"]}]}}
     [""
      {:get {:summary "Retrieve ledger accounts"
             :openapi {:operationId "RetrieveLedgerAccounts"}

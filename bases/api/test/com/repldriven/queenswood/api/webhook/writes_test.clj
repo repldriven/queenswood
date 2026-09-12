@@ -12,12 +12,13 @@
   kinds the component raises, so the statuses come off `errors.clj`'s
   table.
 
-  The stub credential names a bank and the `org` role and no
-  `:principal-id`. `cache-response` claims nothing without one, so
+  The stub credential names a bank and a service credential's two
+  levels, `org:viewer` and `org:developer`, and no `:principal-id`. `cache-response` claims nothing without one, so
   what answers a repeated create is the component's own read-back off
   the idempotency key — the mechanism REQ-026 names."
   (:require
     [com.repldriven.queenswood.api.api :as api]
+    [com.repldriven.queenswood.api.auth :as auth]
 
     [com.repldriven.queenswood.webhook.interface :as webhook]
 
@@ -54,7 +55,9 @@
 (def ^:private authenticated
   {:name ::authenticated
    :enter (fn [ctx]
-            (assoc-in ctx [:request :auth] {:bank-id bank-id :roles #{:org}}))})
+            (assoc-in ctx
+             [:request :auth]
+             {:bank-id bank-id :roles #{auth/org-viewer auth/org-developer}}))})
 
 (def ^:private platform-hosts
   "What the deployment's `WEBHOOK_PLATFORM_HOSTS` reaches the handler

@@ -19,16 +19,18 @@
 
 (def routes
   [["/payee-checks"
-    {:openapi {:tags ["CoP"] :security [{"bearerAuth" ["org"]}]}}
+    {:openapi {:tags ["CoP"]}}
     [""
      {:get {:summary "List payee checks"
             :openapi {:operationId "ListPayeeChecks"
+                      :security [{"bearerAuth" ["org:viewer"]}]
                       :parameters ^:replace [shared.parameters/ref-page]}
             :parameters {:query list-query-schema}
             :responses {200 {:body [:ref "PayeeCheckList"]}}
             :handler queries/list-checks}
       :post {:summary "Create a payee check"
              :openapi {:operationId "CreatePayeeCheck"
+                       :security [{"bearerAuth" ["org:developer"]}]
                        :requestBody {:required true}
                        :parameters ^:replace
                                    [shared.parameters/ref-idempotency-key]}
@@ -42,7 +44,8 @@
     ["/{check-id}"
      {:parameters {:path {:check-id [:ref "CheckId"]}}}
      [""
-      {:get {:summary "Retrieve a payee check"
+      {:openapi {:security [{"bearerAuth" ["org:viewer"]}]}
+       :get {:summary "Retrieve a payee check"
              :openapi {:operationId "GetPayeeCheck"}
              :responses {200 {:body [:ref "PayeeCheck"]}
                          404 (ErrorResponse [#'PayeeCheckNotFound])}

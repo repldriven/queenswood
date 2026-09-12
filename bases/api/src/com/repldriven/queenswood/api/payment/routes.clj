@@ -18,9 +18,10 @@
 
 (def routes
   [["/payments"
-    {:openapi {:tags ["Payments"] :security [{"bearerAuth" ["org"]}]}}
+    {:openapi {:tags ["Payments"]}}
     ["/internal"
-     {:post {:summary "Submit an internal payment"
+     {:openapi {:security [{"bearerAuth" ["org:developer"]}]}
+      :post {:summary "Submit an internal payment"
              :openapi {:operationId "SubmitInternalPayment"
                        :requestBody {:required true}
                        :parameters ^:replace
@@ -39,13 +40,15 @@
     ["/internal/{payment-id}"
      {:parameters {:path {:payment-id [:ref "PaymentId"]}}}
      [""
-      {:get {:summary "Retrieve an internal payment"
+      {:openapi {:security [{"bearerAuth" ["org:viewer"]}]}
+       :get {:summary "Retrieve an internal payment"
              :openapi {:operationId "RetrieveInternalPayment"}
              :responses {200 {:body [:ref "InternalPayment"]}
                          404 (ErrorResponse [#'PaymentNotFound])}
              :handler queries/get-internal-payment}}]]
     ["/outbound"
-     {:post {:summary "Submit an outbound payment"
+     {:openapi {:security [{"bearerAuth" ["org:developer"]}]}
+      :post {:summary "Submit an outbound payment"
              :openapi {:operationId "SubmitOutboundPayment"
                        :requestBody {:required true}
                        :parameters ^:replace
@@ -64,7 +67,8 @@
     ["/outbound/{payment-id}"
      {:parameters {:path {:payment-id [:ref "PaymentId"]}}}
      [""
-      {:get {:summary "Retrieve an outbound payment"
+      {:openapi {:security [{"bearerAuth" ["org:viewer"]}]}
+       :get {:summary "Retrieve an outbound payment"
              :openapi {:operationId "RetrieveOutboundPayment"}
              :responses {200 {:body [:ref "OutboundPayment"]}
                          404 (ErrorResponse [#'PaymentNotFound])}

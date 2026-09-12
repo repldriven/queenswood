@@ -194,7 +194,7 @@
            :scheme :bearer
            :bearerFormat "JWT"
            :description
-           "JWT issued by the Queenswood Keycloak realm. Two shapes are accepted: a service JWT minted by an organization's service-account client (`azp` is the org id, default role `org`) and a user JWT minted by the `queenswood-console` SPA via Authorization Code + PKCE (`azp` is `queenswood-console`, role `user`; once the human has completed `/v1/onboarding/me` they also carry `org`). Admin-only routes require an `admin` realm role."}}
+           "JWT issued by the Queenswood Keycloak realm. Two shapes are accepted: a service JWT minted by an organization's service-account client (`azp` is the org id) and a user JWT minted by the `queenswood-console` SPA via Authorization Code + PKCE (`azp` is `queenswood-console`). Each operation's gate names one or more of six roles: `user`, any signed-in person; `admin`, a Queenswood operator; and the organisation levels `org:viewer`, `org:developer`, `org:admin` and `org:owner`, where a member holds the level of their role in the bank the `Bank-Id` header names and every level below it. A service JWT carries `org:viewer` and `org:developer` for its own bank."}}
          :parameters shared.parameters/registry
          :examples (merge
                     examples/registry
@@ -285,14 +285,16 @@
   "Returns `compiled` when `authorize` can enforce every security gate
   its compiled operations carry, and throws naming each route it cannot:
   an operation that demands a token without naming roles has no gate
-  anyone can read, and one whose gate names two organisation levels has
-  had a method's level stacked on its route's. Neither may be served. A
-  programming error in this base's route table, caught while the router
-  is built — not an anomaly at a boundary, so it throws."
+  anyone can read, one whose gate names two organisation levels has had
+  a method's level stacked on its route's, and one gated by the bare
+  `org` role admits no principal. None may be served. A programming
+  error in this base's route table, caught while the router is built —
+  not an anomaly at a boundary, so it throws."
   [compiled]
   (let [bare (auth/bare-security-routes compiled)
-        stacked (auth/stacked-level-routes compiled)]
-    (when (or (seq bare) (seq stacked))
+        stacked (auth/stacked-level-routes compiled)
+        bare-org (auth/bare-org-routes compiled)]
+    (when (or (seq bare) (seq stacked) (seq bare-org))
       ;; nosemgrep: no-raw-throw
       (throw (ex-info (str "Route table declares a security gate this "
                            "service cannot enforce."
@@ -303,8 +305,12 @@
                            (when (seq stacked)
                              (str " Gate naming more than one org level: "
                                   (str/join ", " stacked)
+                                  "."))
+                           (when (seq bare-org)
+                             (str " Bare org gate: "
+                                  (str/join ", " bare-org)
                                   ".")))
-                      {:bare bare :stacked stacked})))
+                      {:bare bare :stacked stacked :bare-org bare-org})))
     compiled))
 
 (defn app

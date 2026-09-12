@@ -167,7 +167,8 @@
       (is (= :service (:principal-type auth)))
       (is (= "bank-abc" (:principal-id auth)))
       (is (= "bank-abc" (:bank-id auth)))
-      (is (= #{:org SUT/org-viewer SUT/org-developer} (:roles auth)))
+      (is (= #{SUT/org-viewer SUT/org-developer} (:roles auth))
+          "the realm's `org` role is not carried")
       (is (nil? (:bank-refused auth)))
       (is (some? (:token-jti auth)))))
   (testing "a service principal naming its own bank keeps it"
@@ -191,7 +192,7 @@
       (is (= :service (:principal-type auth)))
       (is (= "queenswood-admin" (:principal-id auth)))
       (is (nil? (:bank-id auth)))
-      (is (= (into #{:org :admin} all-levels) (:roles auth)))))
+      (is (= (into #{:admin} all-levels) (:roles auth)))))
   (testing "the admin client takes the header's bank"
     (let [auth (authenticated-auth {:azp "queenswood-admin"
                                     :sub "queenswood-admin"
@@ -219,7 +220,7 @@
                         (is (= "bank-xyz" (:bank-id auth)))
                         (is (= viewer-row (:membership auth)))
                         (is (= [membership-row viewer-row] (:memberships auth)))
-                        (is (= #{:user :org SUT/org-viewer} (:roles auth)))
+                        (is (= #{:user SUT/org-viewer} (:roles auth)))
                         (is (nil? (:bank-refused auth)))
                         (is (nil? (:response (authorize-as auth
                                                            viewer-gate)))))))
@@ -232,8 +233,6 @@
        (is (= #{:user} (:roles auth)))
        (is (true? (:bank-refused auth)))
        (is (refused-with? (authorize-as auth viewer-gate) not-a-member))
-       (is (refused-with? (authorize-as auth [{"bearerAuth" ["org"]}])
-                          not-a-member))
        (testing "and not on a user operation such as /v1/me"
          (is (nil? (:response (authorize-as auth
                                             [{"bearerAuth" ["user"]}]))))))))
@@ -242,7 +241,7 @@
                       (let [auth (authenticated-auth user-claims)]
                         (is (= "bank-abc" (:bank-id auth)))
                         (is (= membership-row (:membership auth)))
-                        (is (= (into #{:user :org} all-levels) (:roles auth)))
+                        (is (= (into #{:user} all-levels) (:roles auth)))
                         (is (nil? (:response (authorize-as auth
                                                            viewer-gate)))))))
   (testing "no header with no membership takes no bank"
@@ -261,28 +260,26 @@
        (is (= #{:user} (:roles auth)))
        (is (nil? (:bank-refused auth)))
        (testing "and is refused on an org operation, told to name the bank"
-         (is (refused-with? (authorize-as auth viewer-gate) name-the-bank))
-         (is (refused-with? (authorize-as auth [{"bearerAuth" ["org"]}])
-                            name-the-bank)))
+         (is (refused-with? (authorize-as auth viewer-gate) name-the-bank)))
        (testing "and without that detail where admin is also a gate"
          (is (refused-with?
               (authorize-as auth [{"bearerAuth" ["org:developer" "admin"]}])
               "Insufficient privileges"))))))
   (testing "an operator with no header holds every level and no bank"
-    (with-memberships
-     []
-     (let [auth (authenticated-auth operator-claims)]
-       (is (nil? (:bank-id auth)))
-       (is (= (into #{:user :admin :org} all-levels) (:roles auth)))
-       (is (nil? (:bank-refused auth)))
-       (is (refused-with? (authorize-as auth viewer-gate) no-bank)))))
+    (with-memberships []
+                      (let [auth (authenticated-auth operator-claims)]
+                        (is (nil? (:bank-id auth)))
+                        (is (= (into #{:user :admin} all-levels) (:roles auth)))
+                        (is (nil? (:bank-refused auth)))
+                        (is (refused-with? (authorize-as auth viewer-gate)
+                                           no-bank)))))
   (testing "an operator with a header acts on that bank"
     (with-memberships
      []
      (let [auth (authenticated-auth operator-claims "bank-xyz")]
        (is (= "bank-xyz" (:bank-id auth)))
        (is (nil? (:membership auth)))
-       (is (= (into #{:user :admin :org} all-levels) (:roles auth)))
+       (is (= (into #{:user :admin} all-levels) (:roles auth)))
        (is (nil? (:bank-refused auth)))
        (is (nil? (:response (authorize-as auth viewer-gate)))))))
   (testing "an ended membership resolves no bank"
@@ -312,7 +309,7 @@
                              :role-owner all-levels}]
       (testing (name role)
         (with-memberships [(assoc membership-row :role role)]
-                          (is (= (into #{:user :org} expected)
+                          (is (= (into #{:user} expected)
                                  (:roles (authenticated-auth user-claims))))))))
   (testing "a service principal carries viewer and developer only"
     (is (= #{SUT/org-viewer SUT/org-developer}
@@ -344,10 +341,10 @@
     (let [ctx {:request {:request-method :get
                          :reitit.core/match {:result {:get {:data {:openapi
                                                                    {}}}}}
-                         :auth {:roles #{:org}}}}]
+                         :auth {:roles #{SUT/org-viewer}}}}]
       (is (= ctx ((:enter SUT/authorize) ctx)))))
   (testing "an empty role set is 401 auth/unauthenticated"
-    (let [ctx (authorize nil [{"bearerAuth" ["org"]}])]
+    (let [ctx (authorize nil viewer-gate)]
       (is (= 401 (get-in ctx [:response :status])))
       (is (= "auth/unauthenticated" (get-in ctx [:response :body :type])))))
   (testing "a disjoint role set is 403 auth/forbidden"
@@ -355,9 +352,9 @@
       (is (= 403 (get-in ctx [:response :status])))
       (is (= "auth/forbidden" (get-in ctx [:response :body :type])))))
   (testing "an intersecting set passes"
-    (let [ctx (authorize #{:user :org} [{"bearerAuth" ["org"]}])]
+    (let [ctx (authorize #{:user SUT/org-viewer} viewer-gate)]
       (is (nil? (:response ctx)))
-      (is (= #{:user :org} (get-in ctx [:request :auth :roles])))))
+      (is (= #{:user SUT/org-viewer} (get-in ctx [:request :auth :roles])))))
   (testing "the gate is read from the request method's endpoint"
     (let [ctx ((:enter SUT/authorize)
                {:request
@@ -373,10 +370,11 @@
 (deftest required-roles-test
   (testing "explicit roles become the required set"
     (testing "a principal holding one of them passes"
-      (let [ctx (authorize #{:admin} [{"bearerAuth" ["org" "admin"]}])]
+      (let [ctx (authorize #{:admin}
+                           [{"bearerAuth" ["org:developer" "admin"]}])]
         (is (nil? (:response ctx)))))
     (testing "a principal holding none of them is refused"
-      (let [ctx (authorize #{:user} [{"bearerAuth" ["org" "admin"]}])]
+      (let [ctx (authorize #{:user} [{"bearerAuth" ["org:developer" "admin"]}])]
         (is (= 403 (get-in ctx [:response :status])))))))
 
 (defn- logged-messages
@@ -424,19 +422,21 @@
 
 (deftest org-without-bank-test
   (testing "an admin with no membership is refused on an org-only route"
-    (let [ctx (authorize #{:org :admin} [{"bearerAuth" ["org"]}] nil)]
+    (let [ctx (authorize #{SUT/org-viewer :admin} viewer-gate nil)]
       (is (= 403 (get-in ctx [:response :status])))
       (is (= "auth/forbidden" (get-in ctx [:response :body :type])))))
-  (testing "the same principal passes a route declaring org and admin"
-    (let [ctx (authorize #{:org :admin} [{"bearerAuth" ["org" "admin"]}] nil)]
+  (testing "the same principal passes a route declaring a level and admin"
+    (let [ctx (authorize #{SUT/org-viewer :admin}
+                         [{"bearerAuth" ["org:viewer" "admin"]}]
+                         nil)]
       (is (nil? (:response ctx)))))
   (testing "a member carrying a bank passes an org-only route"
-    (let [ctx (authorize #{:org} [{"bearerAuth" ["org"]}] "bnk.test")]
+    (let [ctx (authorize #{SUT/org-viewer} viewer-gate "bnk.test")]
       (is (nil? (:response ctx)))))
   (testing
-    "an ops-realm admin user carries org and no bank, so it is
+    "an ops-realm admin user carries every level and no bank, so it is
            refused the same way"
-    (let [ctx (authorize #{:user :admin :org} [{"bearerAuth" ["org"]}] nil)]
+    (let [ctx (authorize (into #{:user :admin} all-levels) viewer-gate nil)]
       (is (= 403 (get-in ctx [:response :status])))
       (is (= "auth/forbidden" (get-in ctx [:response :body :type])))))
   (testing "an operator's levels and no bank pass a level gate beside admin"

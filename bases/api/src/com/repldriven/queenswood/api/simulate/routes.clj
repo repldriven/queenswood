@@ -21,10 +21,10 @@
      {:parameters {:path {:bank-id [:ref "BankId"]}}}
      ["/inbound-transfer"
       ;; Sandbox affordance: a bank tenant funds its own bank from the
-      ;; console, so this route alone drops to the org tier (accrue /
+      ;; console, so this route alone drops to `org:developer` (accrue and
       ;; capitalize stay admin-only). The handler holds the tenant
-      ;; boundary; `admin` joins `org`, carrying no bank of its own.
-      {:openapi {:security ^:replace [{"bearerAuth" ["org" "admin"]}]}
+      ;; boundary; `admin` joins the level, carrying no bank of its own.
+      {:openapi {:security ^:replace [{"bearerAuth" ["org:developer" "admin"]}]}
        :post {:summary "Simulate an inbound transfer"
               :openapi {:operationId "SimulateInboundTransfer"
                         :requestBody {:required true}
