@@ -89,11 +89,14 @@ and carries a fingerprint of the request it was claimed for:
   `POST /v1/cash-accounts`. Scopes the key independently per
   endpoint, so the same key can be used across different routes.
 - **idempotency_key** — the client-supplied header value.
-- **fingerprint** — a SHA-256 of the request `:uri` and the decoded
-  body, with every map in the body sorted by key first, so two
-  bodies differing only in field order hash the same. The `:uri`
-  rather than the template, because two resources share one
-  template.
+- **fingerprint** — a SHA-256 of the request `:uri`, the decoded
+  body, and the bank the principal resolved to when it resolved one,
+  with every map in the body sorted by key first, so two bodies
+  differing only in field order hash the same. The `:uri` rather than
+  the template, because two resources share one template. The bank,
+  because a user or the operator names it in the `Bank-Id` header
+  rather than the path, so one key and body sent under two banks is
+  two requests.
 
 A request whose principal, operation and key match a live entry
 whose fingerprint differs is refused with a 422 of type
@@ -303,7 +306,7 @@ out as a plain map instead, which is all a replay needs.
 | `body` | string | optional EDN (completed only) |
 | `created_at` | int64 | epoch ms |
 | `expires_at` | int64 | epoch ms |
-| `fingerprint` | string | optional SHA-256 of path and body |
+| `fingerprint` | string | optional SHA-256 of path, body and bank |
 
 Primary key: `[principal_id, operation, idempotency_key]`. No
 secondary indexes.

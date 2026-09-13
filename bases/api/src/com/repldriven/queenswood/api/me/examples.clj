@@ -30,6 +30,6 @@
    :created-at "2026-05-18T09:15:00Z"
    :updated-at "2026-05-18T09:15:00Z"})
 
-(def Me {:user User :memberships [Membership]})
+(def Me {:user User :memberships [Membership] :operator false})
 
-(def registry (examples-registry [#'User #'Membership #'Me]))
+(def registry (examples-registry [#'User #'Membership]))

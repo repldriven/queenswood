@@ -1,0 +1,127 @@
+{:name "The operator hands a bank to a new owner with a reason, and history shows it"
+ :tags #{:access :api :happy}
+ ;; A departed founder is the bank's only owner. The operator meets the
+ ;; never-ownerless rule as a member does, so the founder cannot be
+ ;; removed until the operator's owner invitation has been accepted.
+ :given
+ [{:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "recovery-founder"
+   :password "recovery-founder"
+   :as :founder-token}
+  {:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "recovery-owner"
+   :password "recovery-owner"
+   :as :owner-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-access-recovery-bank-001"}
+             :body {:name "Recovery Bank"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]
+                    :owner-email "recovery-founder@queenswood.local"}}
+   :as :bank
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :bank :owner-invitation
+                                           :invitation :invitation-id]}
+             :auth :founder-token
+             :headers {:invitation-token [:ref :bank :owner-invitation :token]}}
+   :as :founder-membership
+   :assert {:status 201 :body {:role "owner"}}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/members/{membership-id}/remove"
+             :path-params {:membership-id [:ref :founder-membership
+                                           :membership-id]}
+             :auth :admin
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 409 :problem {:type ":membership/last-owner"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/invitations"
+             :auth :admin
+             :headers {:bank-id [:ref :bank :bank-id]
+                       :idempotency-key "ik-access-recovery-invite-001"}
+             :body {:email "recovery-owner@queenswood.local" :role "owner"}}
+   :assert {:status 422 :problem {:type ":invitation/reason-required"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/invitations"
+             :auth :admin
+             :headers {:bank-id [:ref :bank :bank-id]
+                       :idempotency-key "ik-access-recovery-invite-002"}
+             :body {:email "recovery-owner@queenswood.local"
+                    :role "owner"
+                    :reason "The founder has left and asked for a handover"}}
+   :as :invitation
+   :assert {:status 201
+            :body {:invitation {:role "owner"
+                                :reason
+                                "The founder has left and asked for a handover"
+                                :invited-by {:kind "operator"
+                                             :principal-id
+                                             "queenswood-admin"}}
+                   :token [:m/regex "^[A-Za-z0-9_-]{43}$"]}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :invitation :invitation
+                                           :invitation-id]}
+             :auth :owner-token}
+   :as :owner-membership
+   :assert {:status 201 :body {:role "owner"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/members/{membership-id}/remove"
+             :path-params {:membership-id [:ref :founder-membership
+                                           :membership-id]}
+             :auth :admin
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :body {:reason "Handed over to the new owner"}}
+   :assert {:status 204}}]
+ :then
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/members"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 200
+            :body {:items [{:membership-id [:ref :owner-membership
+                                            :membership-id]
+                            :role "owner"
+                            :invited-by {:kind "operator"
+                                         :principal-id "queenswood-admin"}}]}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/access-events"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :query-params {"page[size]" 3}}
+   :assert
+   {:status 200
+    :body {:items [{:kind "member-removed"
+                    :actor {:kind "operator" :principal-id "queenswood-admin"}
+                    :subject-user-id [:ref :founder-membership :user-id]
+                    :role-before "owner"
+                    :reason "Handed over to the new owner"}
+                   {:kind "invitation-accepted"
+                    :actor {:kind "member"
+                            :principal-id [:ref :owner-membership :user-id]}}
+                   {:kind "invitation-created"
+                    :actor {:kind "operator" :principal-id "queenswood-admin"}
+                    :email "recovery-owner@queenswood.local"
+                    :role-after "owner"
+                    :reason "The founder has left and asked for a handover"}]}}}
+  {:command :api/request
+   :request {:method :get :path "/v1/me" :auth :founder-token}
+   :assert {:status 200 :body {:memberships []}}}]}

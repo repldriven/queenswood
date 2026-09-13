@@ -3,13 +3,17 @@
     [com.repldriven.queenswood.api.balance.examples :refer [BalanceNotFound]]
     [com.repldriven.queenswood.api.balance.queries :as queries]
 
+    [com.repldriven.queenswood.api.shared.parameters :as shared.parameters]
+
     [com.repldriven.queenswood.api-schema.interface :refer [ErrorResponse]]
     [com.repldriven.queenswood.cash-account-api.interface :refer
      [CashAccountNotFound]]))
 
 (def routes
   [["/cash-accounts/{account-id}/balances"
-    {:openapi {:tags ["Balances"] :security [{"bearerAuth" ["org"]}]}
+    {:openapi {:tags ["Balances"]
+               :security [{"bearerAuth" ["org:viewer"]}]
+               :parameters [shared.parameters/ref-bank-id-header]}
      :parameters {:path {:account-id [:ref "CashAccountId"]}}}
     [""
      {:get {:summary "Retrieve account balances"

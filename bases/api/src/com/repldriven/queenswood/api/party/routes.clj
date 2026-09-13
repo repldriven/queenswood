@@ -22,19 +22,24 @@
   [:map {:closed true} [:embed {:optional true} [:ref "PartyEmbedQuery"]]])
 
 (def routes
-  [["/parties" {:openapi {:tags ["Parties"] :security [{"bearerAuth" ["org"]}]}}
+  [["/parties" {:openapi {:tags ["Parties"]}}
     [""
      {:get {:summary "Retrieve parties"
             :openapi {:operationId "RetrieveParties"
-                      :parameters ^:replace [shared.parameters/ref-page]}
+                      :security [{"bearerAuth" ["org:viewer"]}]
+                      :parameters ^:replace
+                                  [shared.parameters/ref-page
+                                   shared.parameters/ref-bank-id-header]}
             :parameters {:query list-parties-query-schema}
             :responses {200 {:body [:ref "PartyList"]}}
             :handler queries/list-parties}
       :post {:summary "Create a new party"
              :openapi {:operationId "CreateParty"
+                       :security [{"bearerAuth" ["org:developer"]}]
                        :requestBody {:required true}
                        :parameters ^:replace
-                                   [shared.parameters/ref-idempotency-key]}
+                                   [shared.parameters/ref-bank-id-header
+                                    shared.parameters/ref-idempotency-key]}
              :interceptors [server/require-idempotency-key
                             bank-idempotency/cache-response]
              :parameters {:body [:ref "CreatePartyRequest"]}
@@ -45,20 +50,24 @@
              :handler commands/create-party}}]
     ["/{party-id}" {:parameters {:path {:party-id [:ref "PartyId"]}}}
      [""
-      {:get {:summary "Retrieve a party"
+      {:openapi {:security [{"bearerAuth" ["org:viewer"]}]}
+       :get {:summary "Retrieve a party"
              :openapi {:operationId "RetrieveParty"
                        :parameters ^:replace
                                    [shared.parameters/ref-party-id
-                                    shared.parameters/ref-party-embed]}
+                                    shared.parameters/ref-party-embed
+                                    shared.parameters/ref-bank-id-header]}
              :parameters {:query get-party-query-schema}
              :responses {200 {:body [:ref "PartyDetail"]}
                          404 (ErrorResponse [#'PartyNotFound])}
              :handler queries/get-party}}]
      ["/suspend"
-      {:post {:summary "Suspend a party"
+      {:openapi {:security [{"bearerAuth" ["org:developer"]}]}
+       :post {:summary "Suspend a party"
               :openapi {:operationId "SuspendParty"
                         :parameters ^:replace
                                     [shared.parameters/ref-party-id
+                                     shared.parameters/ref-bank-id-header
                                      shared.parameters/ref-idempotency-key]}
               :interceptors [server/require-idempotency-key
                              bank-idempotency/cache-response]
@@ -69,10 +78,12 @@
                            409 (ErrorResponse [#'PartyInvalidStatus])})
               :handler commands/suspend-party}}]
      ["/resume"
-      {:post {:summary "Resume a suspended party"
+      {:openapi {:security [{"bearerAuth" ["org:developer"]}]}
+       :post {:summary "Resume a suspended party"
               :openapi {:operationId "ResumeParty"
                         :parameters ^:replace
                                     [shared.parameters/ref-party-id
+                                     shared.parameters/ref-bank-id-header
                                      shared.parameters/ref-idempotency-key]}
               :interceptors [server/require-idempotency-key
                              bank-idempotency/cache-response]
@@ -83,10 +94,12 @@
                            409 (ErrorResponse [#'PartyInvalidStatus])})
               :handler commands/resume-party}}]
      ["/close"
-      {:post {:summary "Close a party"
+      {:openapi {:security [{"bearerAuth" ["org:developer"]}]}
+       :post {:summary "Close a party"
               :openapi {:operationId "CloseParty"
                         :parameters ^:replace
                                     [shared.parameters/ref-party-id
+                                     shared.parameters/ref-bank-id-header
                                      shared.parameters/ref-idempotency-key]}
               :interceptors [server/require-idempotency-key
                              bank-idempotency/cache-response]
@@ -98,11 +111,13 @@
                                                #'PartyOpenAccounts])})
               :handler commands/close-party}}]
      ["/merge"
-      {:post {:summary "Merge a party into another"
+      {:openapi {:security [{"bearerAuth" ["org:developer"]}]}
+       :post {:summary "Merge a party into another"
               :openapi {:operationId "MergeParty"
                         :requestBody {:required true}
                         :parameters ^:replace
                                     [shared.parameters/ref-party-id
+                                     shared.parameters/ref-bank-id-header
                                      shared.parameters/ref-idempotency-key]}
               :interceptors [server/require-idempotency-key
                              bank-idempotency/cache-response]

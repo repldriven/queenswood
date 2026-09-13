@@ -1,0 +1,40 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schemas.memberships;
+
+import "record_metadata_options.proto";
+import "schemas/memberships/actor.proto";
+import "schemas/memberships/membership.proto";
+
+option java_outer_classname = "InvitationProto";
+
+enum InvitationStatus {
+  INVITATION_STATUS_UNKNOWN = 0;
+  INVITATION_STATUS_PENDING = 1;
+  INVITATION_STATUS_ACCEPTED = 2;
+  INVITATION_STATUS_DECLINED = 3;
+  INVITATION_STATUS_WITHDRAWN = 4;
+  INVITATION_STATUS_EXPIRED = 5;
+}
+
+// An offer of a role in a bank, addressed to an email.
+message Invitation {
+  option (com.apple.foundationdb.record.record).usage = RECORD;
+
+  required string invitation_id = 1;
+  required string bank_id = 2;
+  // As typed, for display.
+  required string email = 3;
+  // Lower-cased, for lookup.
+  required string email_lower = 4;
+  required Role role = 5;
+  required InvitationStatus status = 6;
+  // SHA-256 of the token, hex. The token itself is never stored.
+  required string token_hash = 7;
+  required int64 expires_at = 8;
+  required Actor invited_by = 9;
+  optional string reason = 10;
+  optional string accepted_by_user_id = 11;
+  required int64 created_at = 12;
+  required int64 updated_at = 13;
+}

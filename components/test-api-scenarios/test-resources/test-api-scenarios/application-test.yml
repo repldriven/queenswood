@@ -30,6 +30,7 @@ system:
   payments: !include system/payment.yml
   payments-dispatcher: !include system/payment-dispatcher.yml
   policies: !include system/policy-test.yml
+  scenario-policies: !include test-api-scenarios/policy-test.yml
   server: !include test-api-scenarios/server-test.yml
   telemetry: !include system/telemetry.yml
   transactions: !include system/transaction.yml

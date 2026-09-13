@@ -25,6 +25,19 @@
                 :bank/allocate-sort-code
                 "Failed to allocate sort code"))
 
+(defn count-creations
+  [txn principal-id idempotency-key]
+  (fdb/transact txn
+                (fn [txn]
+                  (fdb/allocate-counter txn
+                                        store-name
+                                        "bank"
+                                        "creations"
+                                        principal-id
+                                        idempotency-key))
+                :bank/count-creations
+                "Failed to count bank creations"))
+
 (defn create
   [txn bank]
   (fdb/transact txn

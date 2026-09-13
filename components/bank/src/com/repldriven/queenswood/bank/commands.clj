@@ -11,15 +11,18 @@
   (if (error/anomaly? result)
     result
     (let [{:keys [schemas]} config
-          {:keys [bank membership]} result]
+          {:keys [bank membership owner-invitation-id]} result]
       {:status "ACCEPTED"
        :payload (avro/serialize (schemas "bank")
-                                (assoc bank :membership membership))})))
+                                (assoc bank
+                                       :membership membership
+                                       :owner-invitation-id
+                                       owner-invitation-id))})))
 
 (defn- create-bank
   [config data]
   (let [{:keys [name status tier currencies audience company-binding
-                membership]}
+                membership owner-invitation actor idempotency-key]}
         data]
     (->response config
                 (core/new-bank config
@@ -30,7 +33,10 @@
                                {:identity-provider (:identity-provider config)
                                 :audience audience
                                 :company-binding company-binding
-                                :membership membership}))))
+                                :membership membership
+                                :owner-invitation owner-invitation
+                                :actor actor
+                                :idempotency-key idempotency-key}))))
 
 (defn- change-bank-tier
   [config data]
@@ -60,7 +66,7 @@
 
 (defn- dispatch
   [config message]
-  (let [{:keys [command payload]} message
+  (let [{:keys [command id payload]} message
         handler (get command-handlers command)]
     (if (nil? handler)
       (error/reject :bank/unknown-command
@@ -71,7 +77,8 @@
           (error/fail :bank/process-command
                       {:message "No schema found for command"
                        :command command})
-          (let-nom> [data (avro/deserialize-same schema payload)]
+          (let-nom> [raw (avro/deserialize-same schema payload)
+                     data (assoc raw :idempotency-key id)]
             (handler config data)))))))
 
 (defrecord BankProcessor [config]

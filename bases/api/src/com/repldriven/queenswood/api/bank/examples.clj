@@ -1,5 +1,6 @@
 (ns com.repldriven.queenswood.api.bank.examples
   (:require
+    [com.repldriven.queenswood.api.access.examples :as access-examples]
     [com.repldriven.queenswood.api.balance.examples :as
      balance-examples]
     [com.repldriven.queenswood.api.party.examples :as
@@ -59,7 +60,11 @@
 (def BankList {:banks [Bank]})
 
 (def CreateBankRequest
-  {:name "Galactic Bank" :status :test :tier "micro" :currencies ["GBP"]})
+  {:name "Galactic Bank"
+   :status :test
+   :tier "micro"
+   :currencies ["GBP"]
+   :owner-email "zaphod@example.com"})
 
 (def ChangeBankTierRequest {:tier "growth"})
 
@@ -76,5 +81,15 @@
    :registered-office-address
    "42 Improbability Way, London, QZ1 9ZX, United Kingdom"})
 
+(def ^:private owner-invitation
+  {:invitation (assoc access-examples/Invitation
+                      :bank-id BankId
+                      :email "zaphod@example.com"
+                      :role :owner
+                      :reason "Owner of a new bank"
+                      :invited-by {:kind :operator
+                                   :principal-id "queenswood-admin"})
+   :token access-examples/InvitationToken})
+
 (def CreateBankResponse
-  (assoc Bank :client-secret ClientSecret :company-binding CompanyBinding))
+  (assoc Bank :client-secret ClientSecret :owner-invitation owner-invitation))

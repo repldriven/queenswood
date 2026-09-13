@@ -44,6 +44,7 @@
   component/scheduler {:local/root "../../components/scheduler"}
   component/schema {:local/root "../../components/schema"}
   component/transaction {:local/root "../../components/transaction"}
+  component/user {:local/root "../../components/user"}
   base/operational-processors {:local/root "../../bases/operational-processors"}
   org.clojure/clojure {:mvn/version "1.12.5"}
   pin/clojure-core-async {:local/root "../../deps/clojure-core-async"}}

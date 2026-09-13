@@ -4,11 +4,15 @@
      [LedgerAccountNotFound]]
     [com.repldriven.queenswood.api.ledger-account.queries :as queries]
 
+    [com.repldriven.queenswood.api.shared.parameters :as shared.parameters]
+
     [com.repldriven.queenswood.api-schema.interface :refer [ErrorResponse]]))
 
 (def routes
   [["/ledger-accounts"
-    {:openapi {:tags ["Ledger Accounts"] :security [{"bearerAuth" ["org"]}]}}
+    {:openapi {:tags ["Ledger Accounts"]
+               :security [{"bearerAuth" ["org:viewer"]}]
+               :parameters [shared.parameters/ref-bank-id-header]}}
     [""
      {:get {:summary "Retrieve ledger accounts"
             :openapi {:operationId "RetrieveLedgerAccounts"}

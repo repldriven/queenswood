@@ -1,0 +1,41 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schemas.memberships;
+
+import "record_metadata_options.proto";
+import "schemas/memberships/actor.proto";
+import "schemas/memberships/membership.proto";
+
+option java_outer_classname = "AccessEventProto";
+
+enum AccessEventKind {
+  ACCESS_EVENT_KIND_UNKNOWN = 0;
+  ACCESS_EVENT_KIND_BANK_CREATED = 1;
+  ACCESS_EVENT_KIND_INVITATION_CREATED = 2;
+  ACCESS_EVENT_KIND_INVITATION_RESENT = 3;
+  ACCESS_EVENT_KIND_INVITATION_ACCEPTED = 4;
+  ACCESS_EVENT_KIND_INVITATION_DECLINED = 5;
+  ACCESS_EVENT_KIND_INVITATION_WITHDRAWN = 6;
+  ACCESS_EVENT_KIND_ROLE_CHANGED = 7;
+  ACCESS_EVENT_KIND_MEMBER_REMOVED = 8;
+  ACCESS_EVENT_KIND_MEMBER_LEFT = 9;
+}
+
+// One change to who can reach a bank, and at what role. Each field
+// below kind and actor is set only where the kind has one.
+message AccessEvent {
+  option (com.apple.foundationdb.record.record).usage = RECORD;
+
+  required string bank_id = 1;
+  required string access_event_id = 2;
+  required AccessEventKind kind = 3;
+  required Actor actor = 4;
+  optional string subject_user_id = 5;
+  optional string membership_id = 6;
+  optional string invitation_id = 7;
+  optional string email = 8;
+  optional Role role_before = 9;
+  optional Role role_after = 10;
+  optional string reason = 11;
+  required int64 occurred_at = 12;
+}

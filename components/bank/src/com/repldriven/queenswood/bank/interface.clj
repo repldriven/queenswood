@@ -1,8 +1,9 @@
 (ns com.repldriven.queenswood.bank.interface
   "Bank write side: provisions a bank with a service-account client,
   an organization party, a default chart of bank-owned ledger accounts
-  per currency, tier-specific policy bindings, and (onboarding) the
-  owner membership — all in one transaction.
+  per currency, tier-specific policy bindings, the bank-created access
+  event, and, when asked, the owner membership and a pending owner
+  invitation — all in one transaction.
 
   Reads live in `bank-bank-query`; `bank-api` requires the query
   brick, not this one — bank creation reaches the processor as a
@@ -15,11 +16,14 @@
 (defn new-bank
   "Provision a new bank with a service-account client, an organization
   party, and a default chart of ledger accounts per currency, and bind
-  the tier policies to it. When `:membership` is supplied, also create
-  the owner membership in the same transaction. Returns
-  `{:bank {…} :membership <map-or-nil>}` or an anomaly. The
-  service-account secret is not returned — callers needing one mint it
-  via `identity-provider/rotate-secret` after creation.
+  the tier policies to it, recording a bank-created access event in the
+  actor's name. When `:membership` is supplied, also create the owner
+  membership, and when `:owner-invitation` is supplied, a pending owner
+  invitation in the actor's name, in the same transaction. Returns
+  `{:bank {…} :membership <map-or-nil> :owner-invitation-id <id-or-nil>}`
+  or an anomaly. The service-account secret is not returned — callers
+  needing one mint it via `identity-provider/rotate-secret` after
+  creation.
 
   Args:
   - txn: FDB transaction or db handle.
@@ -37,10 +41,18 @@
     confirmed legal-entity snapshot to bind the bank to (onboarding) —
     creation is rejected `:onboarding/company-not-active` unless its
     `:company-status` is active; `:membership` (map, optional) is
-    `{:user-id … :role …}` for the owner membership — rejected
-    `:membership/already-exists` when the user already belongs to a
-    bank; `:policies` overrides the platform policies used for the
-    capability check."
+    `{:user-id … :role …}` for the owner membership, and a user may own
+    any number of banks; `:owner-invitation` (map, optional) is
+    `{:email … :token-hash …}` for the owner invitation, refused as
+    `membership/invite` refuses it, and a token hash another invitation
+    holds fails the transaction; `:actor` (map, optional) is
+    `{:kind … :principal-id …}`, and when absent the membership's user
+    acts as a member, or else an operator with principal id `unknown`;
+    `:idempotency-key` (string, optional) is the command envelope's id,
+    and a second create under one key by one principal is rejected
+    `:bank/already-exists` before the identity-provider is called;
+    `:policies` overrides the platform policies used for the capability
+    check."
   [txn bank-name bank-status tier currencies opts]
   (core/new-bank txn
                  bank-name

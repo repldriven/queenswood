@@ -38,6 +38,27 @@
                                   "name": "Role",
                                   "symbols": ["ROLE_UNKNOWN", "ROLE_OWNER"]}}
       ]
+    }], "default": null},
+    {"name": "owner_invitation", "type": ["null", {
+      "type": "record",
+      "name": "OwnerInvitationSpec",
+      "doc": "Pending owner invitation to create atomically with the bank (operator path)",
+      "fields": [
+        {"name": "email",      "type": "string"},
+        {"name": "token_hash", "type": "string"}
+      ]
+    }], "default": null},
+    {"name": "actor", "type": ["null", {
+      "type": "record",
+      "name": "ActorSpec",
+      "doc": "Who created the bank, recorded on its access events; absent on a command sent before the field existed",
+      "fields": [
+        {"name": "kind", "type": {"type": "enum",
+                                  "name": "ActorKind",
+                                  "symbols": ["ACTOR_KIND_MEMBER",
+                                              "ACTOR_KIND_OPERATOR"]}},
+        {"name": "principal_id", "type": "string"}
+      ]
     }], "default": null}
   ]
 }

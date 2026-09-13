@@ -141,13 +141,31 @@
             nil
             bindings)))
 
+(def ^:private owner-invitation-reason
+  "The reason recorded on the owner invitation a create writes."
+  "Owner of a new bank")
+
+(defn- new-owner-invitation
+  [txn bank-id actor owner-invitation]
+  (when owner-invitation
+    (let [{:keys [email token-hash]} owner-invitation]
+      (memberships/invite txn
+                          bank-id
+                          {:email email :role :role-owner}
+                          {:actor actor
+                           :token-hash token-hash
+                           :reason owner-invitation-reason}))))
+
 (defn new-bank
   [txn bank-name bank-status tier currencies opts]
   (store/transact
    txn
    (fn [txn]
-     (let [{:keys [identity-provider company-binding membership]} opts
-           {:keys [user-id role]} membership]
+     (let [{:keys [identity-provider company-binding membership owner-invitation
+                   idempotency-key]}
+           opts
+           {:keys [user-id role]} membership
+           actor (domain/creation-actor (:actor opts) membership)]
        (let-nom>
          [_
           (when-not identity-provider
@@ -156,12 +174,13 @@
              {:message
               "A bank requires an identity-provider to issue its service-account client"
               :bank-name bank-name}))
-          ;; Sole-membership check first, so a redelivered onboarding
-          ;; command aborts before any write.
-          existing (if membership
-                     (memberships/list-by-user txn user-id)
-                     [])
-          _ (domain/check-sole-membership user-id existing)
+          ;; Before the identity-provider call, so a redelivered command
+          ;; aborts with no second client.
+          creations (when idempotency-key
+                      (store/count-creations txn
+                                             (:principal-id actor)
+                                             idempotency-key))
+          _ (domain/check-first-creation idempotency-key creations)
           policies (or (:policies opts)
                        (policy/get-effective-policies txn {}))
           sort-code (store/allocate-sort-code txn)
@@ -210,8 +229,16 @@
                   (memberships/new-membership txn
                                               {:user-id user-id
                                                :bank-id bank-id
-                                               :role role}))]
-         {:bank bank :membership owner})))
+                                               :role role}))
+          ;; The bank-created event before the invitation, so its id is
+          ;; the older and the history reads the two in order.
+          _ (memberships/record-bank-created txn
+                                             bank-id
+                                             {:actor actor :membership owner})
+          invitation (new-owner-invitation txn bank-id actor owner-invitation)]
+         {:bank bank
+          :membership owner
+          :owner-invitation-id (:invitation-id invitation)})))
    :bank/create
    "Failed to create bank"))
 

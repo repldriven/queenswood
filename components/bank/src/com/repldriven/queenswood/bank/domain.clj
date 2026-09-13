@@ -5,13 +5,29 @@
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.utility.interface :as utility]))
 
-(defn check-sole-membership
-  [user-id existing]
-  (when (seq existing)
-    (error/reject :membership/already-exists
-                  {:message "User already belongs to a bank"
-                   :user-id user-id
-                   :bank-id (:bank-id (first existing))})))
+(def ^:private unknown-principal-id
+  "The principal id recorded for an operator's create sent before
+  commands carried an actor."
+  "unknown")
+
+(defn creation-actor
+  [actor membership]
+  (cond
+   (some? actor)
+   actor
+
+   (some? membership)
+   {:kind :actor-kind-member :principal-id (:user-id membership)}
+
+   :else
+   {:kind :actor-kind-operator :principal-id unknown-principal-id}))
+
+(defn check-first-creation
+  [idempotency-key creations]
+  (when (and (some? creations) (< 1 creations))
+    (error/reject :bank/already-exists
+                  {:message "A bank was already created by this command"
+                   :idempotency-key idempotency-key})))
 
 (defn new-bank
   [bank-name bank-status sort-code tier company-binding tier-policies policies]

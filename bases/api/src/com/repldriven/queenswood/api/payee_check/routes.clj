@@ -19,19 +19,24 @@
 
 (def routes
   [["/payee-checks"
-    {:openapi {:tags ["CoP"] :security [{"bearerAuth" ["org"]}]}}
+    {:openapi {:tags ["CoP"]}}
     [""
      {:get {:summary "List payee checks"
             :openapi {:operationId "ListPayeeChecks"
-                      :parameters ^:replace [shared.parameters/ref-page]}
+                      :security [{"bearerAuth" ["org:viewer"]}]
+                      :parameters ^:replace
+                                  [shared.parameters/ref-page
+                                   shared.parameters/ref-bank-id-header]}
             :parameters {:query list-query-schema}
             :responses {200 {:body [:ref "PayeeCheckList"]}}
             :handler queries/list-checks}
       :post {:summary "Create a payee check"
              :openapi {:operationId "CreatePayeeCheck"
+                       :security [{"bearerAuth" ["org:developer"]}]
                        :requestBody {:required true}
                        :parameters ^:replace
-                                   [shared.parameters/ref-idempotency-key]}
+                                   [shared.parameters/ref-bank-id-header
+                                    shared.parameters/ref-idempotency-key]}
              :interceptors [server/require-idempotency-key
                             bank-idempotency/cache-response]
              :parameters {:body [:ref "PayeeCheckRequest"]}
@@ -42,7 +47,9 @@
     ["/{check-id}"
      {:parameters {:path {:check-id [:ref "CheckId"]}}}
      [""
-      {:get {:summary "Retrieve a payee check"
+      {:openapi {:security [{"bearerAuth" ["org:viewer"]}]
+                 :parameters [shared.parameters/ref-bank-id-header]}
+       :get {:summary "Retrieve a payee check"
              :openapi {:operationId "GetPayeeCheck"}
              :responses {200 {:body [:ref "PayeeCheck"]}
                          404 (ErrorResponse [#'PayeeCheckNotFound])}

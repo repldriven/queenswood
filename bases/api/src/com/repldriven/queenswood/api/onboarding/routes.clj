@@ -1,7 +1,7 @@
 (ns com.repldriven.queenswood.api.onboarding.routes
   (:require
     [com.repldriven.queenswood.api.onboarding.examples :refer
-     [AlreadyOnboarded CompanyNotActive CompanyNotFound]]
+     [CompanyNotActive CompanyNotFound]]
     [com.repldriven.queenswood.api.onboarding.handlers :as handlers]
 
     [com.repldriven.queenswood.api.shared.idempotency :as shared.idempotency]
@@ -27,6 +27,5 @@
              :responses (shared.idempotency/with-responses
                          {201 {:body [:ref "OnboardingResponse"]}
                           404 (ErrorResponse [#'CompanyNotFound])
-                          409 (ErrorResponse [#'AlreadyOnboarded])
                           422 (ErrorResponse [#'CompanyNotActive])})
              :handler handlers/onboard}}]]])

@@ -30,11 +30,16 @@
 
 (defn- fingerprint
   "A hash of the request this key is being claimed for: the `:uri`,
-  which distinguishes two resources under one path template, and the
-  decoded body, which distinguishes two requests to one resource. A
-  route with no body hashes the path alone."
+  which distinguishes two resources under one path template, the
+  decoded body, which distinguishes two requests to one resource, and
+  the bank the principal resolved to, when it resolved one, which
+  distinguishes one request sent to two banks. A route with no body
+  hashes the path and the bank alone."
   [request]
-  (let [material (pr-str [(:uri request) (canonical (:body-params request))])
+  (let [{:keys [uri body-params auth]} request
+        material (pr-str (cond-> [uri (canonical body-params)]
+                                 (:bank-id auth)
+                                 (conj (:bank-id auth))))
         digest (.digest (MessageDigest/getInstance "SHA-256")
                         (.getBytes ^String material "UTF-8"))]
     ;; A Java byte is signed, so mask before formatting or every byte

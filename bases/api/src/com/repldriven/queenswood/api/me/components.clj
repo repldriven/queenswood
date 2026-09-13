@@ -47,7 +47,8 @@
 (def Me
   [:map {:json-schema/example examples/Me}
    [:user [:ref "User"]]
-   [:memberships [:vector [:ref "Membership"]]]])
+   [:memberships [:vector [:ref "Membership"]]]
+   [:operator boolean?]])
 
 (def registry
   (components-registry [#'UserId #'MembershipId #'IdentityProvider #'UserStatus

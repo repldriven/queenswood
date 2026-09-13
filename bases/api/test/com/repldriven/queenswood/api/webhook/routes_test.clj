@@ -125,10 +125,12 @@
                          "get"
                          "parameters"])
      referenced (into #{} (map #(get % "$ref")) parameters)
-     _ (testing "the route names the endpoint, the filter and the page"
+     _ (testing
+         "the route names the endpoint, the filter, the page and the bank"
          (is (= #{"#/components/parameters/EndpointId"
                   "#/components/parameters/DeliveryFilterQuery"
-                  "#/components/parameters/PageQuery"}
+                  "#/components/parameters/PageQuery"
+                  "#/components/parameters/BankIdHeader"}
                 referenced)))
      filters (get-in document
                      ["components" "parameters" "DeliveryFilterQuery"

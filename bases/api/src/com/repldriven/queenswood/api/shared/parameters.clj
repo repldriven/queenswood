@@ -98,6 +98,43 @@
    :required true
    :schema {:$ref "#/components/schemas/BankId"}})
 
+(def BankIdHeader
+  "`components.parameters` entry for the `Bank-Id` header, which names
+  the bank an organisation operation acts on. Every operation gated by
+  an organisation level lists it. A person with one active membership,
+  and a service credential, may leave it out."
+  {:name "Bank-Id"
+   :in "header"
+   :required false
+   :description (str "The bank the call acts on. Required of a person "
+                     "holding more than one active membership.")
+   :schema {:$ref "#/components/schemas/BankId"}})
+
+(def InvitationToken
+  "`components.parameters` entry for the `Invitation-Token` header: the
+  token an invitation's link carries, one of the two proofs a recipient
+  may present. It travels in a header so it never reaches an access
+  log."
+  {:name "Invitation-Token"
+   :in "header"
+   :required false
+   :description (str "The token from the invitation's link. Without it, "
+                     "the signed-in person's verified email must be the "
+                     "invited address.")
+   :schema {:type "string" :minLength 1 :maxLength 200}})
+
+(def InvitationId
+  {:name "invitation-id"
+   :in "path"
+   :required true
+   :schema {:$ref "#/components/schemas/InvitationId"}})
+
+(def MembershipId
+  {:name "membership-id"
+   :in "path"
+   :required true
+   :schema {:$ref "#/components/schemas/MembershipId"}})
+
 (def PartyId
   {:name "party-id"
    :in "path"
@@ -224,6 +261,10 @@
 (def ref-party-embed {:$ref "#/components/parameters/PartyEmbedQuery"})
 (def ref-account-id {:$ref "#/components/parameters/AccountId"})
 (def ref-bank-id {:$ref "#/components/parameters/BankId"})
+(def ref-bank-id-header {:$ref "#/components/parameters/BankIdHeader"})
+(def ref-invitation-token {:$ref "#/components/parameters/InvitationToken"})
+(def ref-invitation-id {:$ref "#/components/parameters/InvitationId"})
+(def ref-membership-id {:$ref "#/components/parameters/MembershipId"})
 (def ref-party-id {:$ref "#/components/parameters/PartyId"})
 (def ref-job-id {:$ref "#/components/parameters/JobId"})
 (def ref-migration-id {:$ref "#/components/parameters/MigrationId"})
@@ -240,6 +281,10 @@
    "PartyEmbedQuery" PartyEmbedQuery
    "AccountId" AccountId
    "BankId" BankId
+   "BankIdHeader" BankIdHeader
+   "InvitationToken" InvitationToken
+   "InvitationId" InvitationId
+   "MembershipId" MembershipId
    "PartyId" PartyId
    "JobId" JobId
    "MigrationId" MigrationId

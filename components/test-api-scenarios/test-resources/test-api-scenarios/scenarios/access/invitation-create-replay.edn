@@ -1,0 +1,72 @@
+{:name "Inviting twice under one key creates one invitation and one token"
+ :tags #{:access :api :idempotency :happy}
+ ;; The second call is answered from the cache: the same invitation and
+ ;; the same token, marked as a replay. A second run of the handler
+ ;; would have minted a fresh token and been refused as an invitation
+ ;; already pending.
+ :given
+ [{:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "replay-owner"
+   :password "replay-owner"
+   :as :owner-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-access-replay-bank-001"}
+             :body {:name "Replay Invitation Bank"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]
+                    :owner-email "replay-owner@queenswood.local"}}
+   :as :bank
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :bank :owner-invitation
+                                           :invitation :invitation-id]}
+             :auth :owner-token
+             :headers {:invitation-token [:ref :bank :owner-invitation :token]}}
+   :assert {:status 201 :body {:role "owner"}}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/invitations"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]
+                       :idempotency-key "ik-access-replay-invite-001"}
+             :body {:email "replay-invitee@example.test" :role "developer"}}
+   :as :first
+   :assert {:status 201
+            :headers {:idempotent-replayed [:m/absent]}
+            :body {:invitation {:invitation-id [:m/regex "^inv\\."]}
+                   :token [:m/regex "^[A-Za-z0-9_-]{43}$"]}}}]
+ :then
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/invitations"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]
+                       :idempotency-key "ik-access-replay-invite-001"}
+             :body {:email "replay-invitee@example.test" :role "developer"}}
+   :assert {:status 201
+            :headers {:idempotent-replayed "true"}
+            :body {:invitation {:invitation-id [:ref :first :invitation
+                                                :invitation-id]}
+                   :token [:ref :first :token]}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/invitations"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 200
+            :body {:items [:m/in-any-order
+                           [{:email "replay-owner@queenswood.local"
+                             :status "accepted"}
+                            {:invitation-id [:ref :first :invitation
+                                             :invitation-id]
+                             :email "replay-invitee@example.test"
+                             :status "pending"}]]}}}]}

@@ -17,6 +17,8 @@ import "schemas/interest/interest-run.proto";
 import "schemas/ledger-accounts/ledger-account.proto";
 import "schemas/scheduler/scheduler-job.proto";
 import "schemas/scheduler/scheduler-run.proto";
+import "schemas/memberships/access-event.proto";
+import "schemas/memberships/invitation.proto";
 import "schemas/memberships/membership.proto";
 import "schemas/banks/bank.proto";
 import "schemas/onfido/outbox.proto";
@@ -87,4 +89,6 @@ message RecordTypeUnion {
   optional com.repldriven.queenswood.schemas.webhooks.WebhookNotification _WebhookNotification = 40;
   optional com.repldriven.queenswood.schemas.webhooks.WebhookDelivery _WebhookDelivery = 41;
   optional com.repldriven.queenswood.schemas.webhooks.WebhookDeliveryAttempt _WebhookDeliveryAttempt = 42;
+  optional com.repldriven.queenswood.schemas.memberships.Invitation _Invitation = 43;
+  optional com.repldriven.queenswood.schemas.memberships.AccessEvent _AccessEvent = 44;
 }

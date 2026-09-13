@@ -3,6 +3,9 @@
     [com.repldriven.queenswood.api.auth :as auth]
     [com.repldriven.queenswood.api.examples :as examples]
 
+    [com.repldriven.queenswood.api.access.components :as access.components]
+    [com.repldriven.queenswood.api.access.examples :as access.examples]
+    [com.repldriven.queenswood.api.access.routes :as access]
     [com.repldriven.queenswood.api.balance.components :as balance.components]
     [com.repldriven.queenswood.api.balance.examples :as balance.examples]
     [com.repldriven.queenswood.api.balance.routes :as balance]
@@ -116,6 +119,7 @@
          {:unique-vector api-schema/unique-vector-schema
           :unique-vector-lax api-schema/unique-vector-lax-schema
           "ErrorResponse" api-schema/ErrorResponseSchema}
+         access.components/registry
          balance.components/registry
          bank.components/registry
          cash-account-api/registry
@@ -194,10 +198,11 @@
            :scheme :bearer
            :bearerFormat "JWT"
            :description
-           "JWT issued by the Queenswood Keycloak realm. Two shapes are accepted: a service JWT minted by an organization's service-account client (`azp` is the org id, default role `org`) and a user JWT minted by the `queenswood-console` SPA via Authorization Code + PKCE (`azp` is `queenswood-console`, role `user`; once the human has completed `/v1/onboarding/me` they also carry `org`). Admin-only routes require an `admin` realm role."}}
+           "JWT issued by the Queenswood Keycloak realm. Two shapes are accepted: a service JWT minted by an organization's service-account client (`azp` is the org id) and a user JWT minted by the `queenswood-console` SPA via Authorization Code + PKCE (`azp` is `queenswood-console`). Each operation's gate names one or more of six roles: `user`, any signed-in person; `admin`, a Queenswood operator; and the organisation levels `org:viewer`, `org:developer`, `org:admin` and `org:owner`, where a member holds the level of their role in the bank the `Bank-Id` header names and every level below it. A service JWT carries `org:viewer` and `org:developer` for its own bank."}}
          :parameters shared.parameters/registry
          :examples (merge
                     examples/registry
+                    access.examples/registry
                     balance.examples/registry
                     bank.examples/registry
                     cash-account-api/examples
@@ -237,6 +242,7 @@
                              [#'examples/Contention
                               #'examples/Timeout])}}]
           (concat
+           access/routes
            balance/routes
            bank/routes
            cash-account/routes
@@ -283,16 +289,18 @@
 
 (defn enforceable-router
   "Returns `compiled` when `authorize` can enforce every security gate
-  its route table declares, and throws naming each route it cannot: a
-  route that demands a token without naming roles has no gate anyone
-  can read, and one that writes its gate under a method key has a gate
-  `authorize` never sees. Neither may be served. A programming error
-  in this base's route table, caught while the router is built — not
-  an anomaly at a boundary, so it throws."
+  its compiled operations carry, and throws naming each route it cannot:
+  an operation that demands a token without naming roles has no gate
+  anyone can read, one whose gate names two organisation levels has had
+  a method's level stacked on its route's, and one gated by the bare
+  `org` role admits no principal. None may be served. A programming
+  error in this base's route table, caught while the router is built —
+  not an anomaly at a boundary, so it throws."
   [compiled]
   (let [bare (auth/bare-security-routes compiled)
-        method-level (auth/method-security-routes compiled)]
-    (when (or (seq bare) (seq method-level))
+        stacked (auth/stacked-level-routes compiled)
+        bare-org (auth/bare-org-routes compiled)]
+    (when (or (seq bare) (seq stacked) (seq bare-org))
       ;; nosemgrep: no-raw-throw
       (throw (ex-info (str "Route table declares a security gate this "
                            "service cannot enforce."
@@ -300,11 +308,15 @@
                              (str " Scheme with no roles: "
                                   (str/join ", " bare)
                                   "."))
-                           (when (seq method-level)
-                             (str " Security under a method key: "
-                                  (str/join ", " method-level)
+                           (when (seq stacked)
+                             (str " Gate naming more than one org level: "
+                                  (str/join ", " stacked)
+                                  "."))
+                           (when (seq bare-org)
+                             (str " Bare org gate: "
+                                  (str/join ", " bare-org)
                                   ".")))
-                      {:bare bare :method-level method-level})))
+                      {:bare bare :stacked stacked :bare-org bare-org})))
     compiled))
 
 (defn app

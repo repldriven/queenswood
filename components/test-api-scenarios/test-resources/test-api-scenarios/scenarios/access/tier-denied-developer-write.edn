@@ -1,0 +1,95 @@
+{:name "A write the tier refuses and a write the role refuses answer different types"
+ :tags #{:access :api :auth :policy :unhappy}
+ ;; The bank is on the `no-webhooks` tier, whose policy refuses
+ ;; registering a webhook endpoint. The developer passes the gate and
+ ;; is refused by the policy; demoted to viewer, the same write is
+ ;; refused at the edge before the policy is read. Both are 403, and
+ ;; the type names which refused.
+ :given
+ [{:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "tier-owner"
+   :password "tier-owner"
+   :as :owner-token}
+  {:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "tier-developer"
+   :password "tier-developer"
+   :as :developer-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-access-tier-bank-001"}
+             :body {:name "No Webhooks Bank"
+                    :status "live"
+                    :tier "no-webhooks"
+                    :currencies ["GBP"]
+                    :owner-email "tier-owner@queenswood.local"}}
+   :as :bank
+   :assert {:status 201 :body {:tier "no-webhooks"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :bank :owner-invitation
+                                           :invitation :invitation-id]}
+             :auth :owner-token
+             :headers {:invitation-token [:ref :bank :owner-invitation :token]}}
+   :assert {:status 201 :body {:role "owner"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/invitations"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]
+                       :idempotency-key "ik-access-tier-invite-001"}
+             :body {:email "tier-developer@queenswood.local"
+                    :role "developer"}}
+   :as :invitation
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :invitation :invitation
+                                           :invitation-id]}
+             :auth :developer-token}
+   :as :developer-membership
+   :assert {:status 201 :body {:role "developer"}}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/webhook-endpoints"
+             :auth :developer-token
+             :headers {:bank-id [:ref :bank :bank-id]
+                       :idempotency-key "ik-access-tier-endpoint-001"}
+             :body {:address "https://93.184.216.34/hooks"
+                    :description "Refused hooks"
+                    :kinds ["cash-account.opened"]}}
+   :assert {:status 403 :problem {:type ":policy/denied"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/members/{membership-id}/change-role"
+             :path-params {:membership-id [:ref :developer-membership
+                                           :membership-id]}
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :body {:role "viewer"}}
+   :assert {:status 200 :body {:role "viewer"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/webhook-endpoints"
+             :auth :developer-token
+             :headers {:bank-id [:ref :bank :bank-id]
+                       :idempotency-key "ik-access-tier-endpoint-002"}
+             :body {:address "https://93.184.216.34/hooks"
+                    :description "Refused hooks"
+                    :kinds ["cash-account.opened"]}}
+   :assert {:status 403 :problem {:type "auth/forbidden"}}}]
+ :then
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/webhook-endpoints"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 200 :body {:items []}}}]}

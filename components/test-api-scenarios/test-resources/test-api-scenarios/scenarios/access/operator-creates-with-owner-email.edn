@@ -1,0 +1,118 @@
+{:name "The operator creates a bank with an owner email, and the invitee owns it"
+ :tags #{:access :api :banks :happy}
+ ;; The bank has no member until the invitee accepts, so the operator's
+ ;; member list is empty and the owner is shown as invited by the
+ ;; operator. The token is on the create response and on no read.
+ :given
+ [{:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "handover-owner"
+   :password "handover-owner"
+   :as :owner-token}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-access-handover-bank-001"}
+             :body {:name "Handover Bank"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]
+                    :owner-email "handover-owner@queenswood.local"}}
+   :as :bank
+   :assert {:status 201
+            :body {:client-id [:m/regex "^bnk\\."]
+                   :client-secret [:m/non-empty]
+                   :owner-invitation
+                   {:invitation {:bank-id [:ref :bank :bank-id]
+                                 :email "handover-owner@queenswood.local"
+                                 :role "owner"
+                                 :status "pending"
+                                 :reason "Owner of a new bank"
+                                 :invited-by {:kind "operator"
+                                              :principal-id
+                                              "queenswood-admin"}}
+                    :token [:m/regex "^[A-Za-z0-9_-]{43}$"]}}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/members"
+             :auth :admin
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 200 :body {:items []}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/invitations"
+             :auth :admin
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 200
+            :body {:items [{:invitation-id [:ref :bank :owner-invitation
+                                            :invitation :invitation-id]
+                            :status "pending"
+                            :token [:m/absent]
+                            :token-hash [:m/absent]}]}}}
+  {:command :api/request
+   :request {:method :get :path "/v1/me/invitations" :auth :owner-token}
+   :assert {:status 200
+            :body {:items [{:invitation-id [:ref :bank :owner-invitation
+                                            :invitation :invitation-id]
+                            :bank-name "Handover Bank"
+                            :role "owner"
+                            :invited-by {:kind "operator"
+                                         :principal-id "queenswood-admin"}
+                            :token [:m/absent]
+                            :token-hash [:m/absent]}]}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :bank :owner-invitation
+                                           :invitation :invitation-id]}
+             :auth :owner-token
+             :headers {:invitation-token [:ref :bank :owner-invitation :token]}}
+   :as :owner-membership
+   :assert {:status 201
+            :body {:bank-id [:ref :bank :bank-id]
+                   :bank-name "Handover Bank"
+                   :role "owner"}}}]
+ :then
+ [{:command :api/request
+   :request {:method :get :path "/v1/me" :auth :owner-token}
+   :assert {:status 200
+            :body {:memberships [{:membership-id [:ref :owner-membership
+                                                  :membership-id]
+                                  :bank-id [:ref :bank :bank-id]
+                                  :role "owner"}]
+                   :operator false}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/members"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 200
+            :body {:items [{:membership-id [:ref :owner-membership
+                                            :membership-id]
+                            :email "handover-owner@queenswood.local"
+                            :role "owner"
+                            :created-organisation false
+                            :invited-by {:kind "operator"
+                                         :principal-id "queenswood-admin"}}]}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/access-events"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 200
+            :body {:items [{:kind "invitation-accepted"
+                            :actor {:kind "member"
+                                    :principal-id
+                                    [:ref :owner-membership :user-id]}
+                            :role-after "owner"}
+                           {:kind "invitation-created"
+                            :actor {:kind "operator"
+                                    :principal-id "queenswood-admin"}
+                            :email "handover-owner@queenswood.local"
+                            :role-after "owner"}
+                           {:kind "bank-created"
+                            :actor {:kind "operator"
+                                    :principal-id "queenswood-admin"}}]}}}]}

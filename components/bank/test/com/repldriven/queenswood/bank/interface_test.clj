@@ -1,13 +1,14 @@
 (ns ^:eftest/synchronized com.repldriven.queenswood.bank.interface-test
   "Unknown-command dispatch stays pure; the FDB-backed cases cover
-  what the API scenario suite can't see — that the owner membership
-  commits atomically with the bank, that a duplicate onboarding
-  aborts the whole transaction, that a failure after the last write
-  rolls every earlier write back, that a tier change rebinds the
-  underlying `PolicyBinding` records rather than just stamping
-  `:tier`, and that a bank resolves from the sort code it was
-  allocated. Happy-path admin creation over the bus is covered by
-  banks/*.edn in bank-test-api-scenarios."
+  what the API scenario suite can't see — that the owner membership,
+  the bank-created access event and the owner invitation commit
+  atomically with the bank, that a command delivered twice creates one
+  bank and one client, that a failure after the last write rolls every
+  earlier write back, that a tier change rebinds the underlying
+  `PolicyBinding` records rather than just stamping `:tier`, and that a
+  bank resolves from the sort code it was allocated. Happy-path admin
+  creation over the bus is covered by banks/*.edn in
+  bank-test-api-scenarios."
   (:require
     [com.repldriven.queenswood.fdb.interface :as fdb]
     [com.repldriven.queenswood.testcontainers.interface]
@@ -26,12 +27,14 @@
     [com.repldriven.queenswood.scheduler.interface :as scheduler]
     [com.repldriven.queenswood.schema.interface :as schema]
 
+    [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.identity-provider.interface :as identity-provider]
     [com.repldriven.mono.system.interface :as system]
     [com.repldriven.mono.test-system.interface :refer
      [with-test-system nom-test>]]
 
+    [clojure.java.io :as io]
     [clojure.set :as set]
     [clojure.test :refer [deftest is testing]]))
 
@@ -39,6 +42,52 @@
   [sys]
   {:record-db (system/instance sys [:fdb :record-db])
    :record-store (system/instance sys [:fdb :store])})
+
+(def ^:private operator
+  {:kind :actor-kind-operator :principal-id "queenswood-admin"})
+
+(defn- create-bank
+  [config idp bank-name opts]
+  (SUT/new-bank config
+                bank-name
+                :bank-status-test
+                "micro"
+                ["GBP"]
+                (assoc opts :identity-provider idp)))
+
+(defn- owner-invitation
+  [email]
+  {:email email :token-hash (:token-hash (memberships/new-invitation-token))})
+
+;; `with-redefs` alters a root binding, so a stub here is visible to
+;; every namespace beside this one — the API scenarios provision banks
+;; through this same seam. Each stub consults a thread-local, so another
+;; thread gets the real function.
+(def ^:private ^:dynamic *created-bank-id* nil)
+
+(def ^:private ^:dynamic *fail-bank-created?* false)
+
+(def ^:private ^:dynamic *clients-created* nil)
+
+(def ^:private real-record-bank-created memberships/record-bank-created)
+
+(def ^:private real-create-service-account
+  identity-provider/create-service-account)
+
+(defn- probed-record-bank-created
+  [txn-or-config bank-id opts]
+  (if-let [created *created-bank-id*]
+    (do (reset! created bank-id)
+        (if *fail-bank-created?*
+          (error/fail :test/injected {:message "Injected after every write"})
+          (real-record-bank-created txn-or-config bank-id opts)))
+    (real-record-bank-created txn-or-config bank-id opts)))
+
+(defn- counted-create-service-account
+  [idp opts]
+  (when-let [created *clients-created*]
+    (swap! created inc))
+  (real-create-service-account idp opts))
 
 (deftest unknown-command-test
   (testing "dispatch rejects command names not in the handler registry"
@@ -48,43 +97,230 @@
       (is (error/rejection? result))
       (is (= :bank/unknown-command (error/kind result))))))
 
+(deftest create-bank-schema-test
+  (let [create-schema (avro/json->schema
+                       (slurp (io/resource
+                               "schemas/banks/create-bank.avsc.json")))
+        bank-schema (avro/json->schema
+                     (slurp (io/resource "schemas/banks/bank.avsc.json")))]
+    (testing "a create-bank map without the new keys encodes and decodes"
+      (nom-test> [bytes (avro/serialize create-schema
+                                        {:name "Old Shape Bank"
+                                         :status :bank-status-test
+                                         :tier "micro"
+                                         :currencies ["GBP"]})
+                  decoded (avro/deserialize-same create-schema bytes)
+                  _ (is (= "Old Shape Bank" (:name decoded)))
+                  _ (is (nil? (:owner-invitation decoded)))
+                  _ (is (nil? (:actor decoded)))]))
+    (testing "the owner invitation and actor decode as the brick reads them"
+      (nom-test> [bytes (avro/serialize create-schema
+                                        {:name "New Shape Bank"
+                                         :status :bank-status-test
+                                         :tier "micro"
+                                         :currencies ["GBP"]
+                                         :owner-invitation {:email
+                                                            "owner@example.com"
+                                                            :token-hash "ab12"}
+                                         :actor operator})
+                  decoded (avro/deserialize-same create-schema bytes)
+                  _ (is (= {:email "owner@example.com" :token-hash "ab12"}
+                           (:owner-invitation decoded)))
+                  _ (is (= operator (:actor decoded)))]))
+    (testing "a bank reply without an owner invitation id encodes and decodes"
+      (nom-test> [bytes (avro/serialize bank-schema
+                                        {:bank-id "bnk.schema"
+                                         :name "Reply Bank"
+                                         :status :bank-status-test
+                                         :created-at 1
+                                         :updated-at 1
+                                         :sort-code "000001"})
+                  decoded (avro/deserialize-same bank-schema bytes)
+                  _ (is (= "bnk.schema" (:bank-id decoded)))
+                  _ (is (nil? (:owner-invitation-id decoded)))]))))
+
 (deftest new-bank-with-membership-test
   (with-test-system
    [sys "classpath:bank/application-test.yml"]
    (let [config (fdb-config sys)
          idp (identity-provider/local-provider {})
-         user-id "usr.test-onboard"]
-     (testing "creates the bank and owner membership in one transaction"
-       (nom-test> [{:keys [bank membership]} (SUT/new-bank
-                                              config
-                                              "Acme Bank"
-                                              :bank-status-test
-                                              "micro"
-                                              ["GBP"]
-                                              {:identity-provider idp
-                                               :membership {:user-id user-id
-                                                            :role :role-owner}})
-                   _ (is (re-find #"^bnk\." (:bank-id bank)))
+         user-id "usr.test-onboard"
+         membership {:user-id user-id :role :role-owner}]
+     (testing
+       "creates the bank, owner membership and bank-created event in one
+        transaction, the person as actor"
+       (nom-test> [{:keys [bank membership owner-invitation-id]}
+                   (create-bank config idp "Acme Bank" {:membership membership})
+                   bank-id (:bank-id bank)
+                   _ (is (re-find #"^bnk\." bank-id))
                    _ (is (= user-id (:user-id membership)))
-                   _ (is (= (:bank-id bank) (:bank-id membership)))
+                   _ (is (= bank-id (:bank-id membership)))
                    _ (is (= :role-owner (:role membership)))
+                   _ (is (nil? owner-invitation-id))
+                   {:keys [access-events]}
+                   (memberships/list-access-events config bank-id)
+                   _ (is (= [:access-event-kind-bank-created]
+                            (mapv :kind access-events)))
+                   _ (is (= {:kind :actor-kind-member :principal-id user-id}
+                            (:actor (first access-events))))
+                   _ (is (= (:membership-id membership)
+                            (:membership-id (first access-events))))
+                   invitations (memberships/list-invitations-by-bank config
+                                                                     bank-id)
+                   _ (is (empty? invitations))
                    listed (memberships/list-by-user config user-id)
                    _ (is (= 1 (count listed)))]))
-     (testing "a second bank for the same user aborts with no writes"
-       (let [r (SUT/new-bank config
-                             "Acme Again"
-                             :bank-status-test
-                             "micro"
-                             ["GBP"]
-                             {:identity-provider idp
-                              :membership {:user-id user-id
-                                           :role :role-owner}})]
-         (is (error/rejection? r))
-         (is (= :membership/already-exists (error/kind r)))
-         (nom-test> [listed (memberships/list-by-user config user-id)
-                     _ (is (= 1 (count listed)))
-                     banks (bank-query/get-banks config)
-                     _ (is (not-any? #(= "Acme Again" (:name %)) banks))]))))))
+     (testing
+       "a second bank for the same user commits a second owner membership"
+       (nom-test> [{:keys [bank membership]} (create-bank config
+                                                          idp
+                                                          "Acme Again"
+                                                          {:membership
+                                                           membership})
+                   _ (is (= (:bank-id bank) (:bank-id membership)))
+                   listed (memberships/list-by-user config user-id)
+                   _ (is (= 2 (count listed)))
+                   _ (is (= 2 (count (set (map :bank-id listed)))))
+                   _ (is (every? #(= :role-owner (:role %)) listed))])))))
+
+(deftest new-bank-with-owner-invitation-test
+  (with-test-system
+   [sys "classpath:bank/application-test.yml"]
+   (let [config (fdb-config sys)
+         idp (identity-provider/local-provider {})
+         invitation (owner-invitation "Owner@Example.com")]
+     (testing
+       "writes one bank-created event and one pending owner invitation, both
+        in the operator's name"
+       (nom-test> [{:keys [bank membership owner-invitation-id]}
+                   (create-bank config
+                                idp
+                                "Invited Bank"
+                                {:owner-invitation invitation :actor operator})
+                   bank-id (:bank-id bank)
+                   _ (is (nil? membership))
+                   _ (is (re-find #"^inv\." owner-invitation-id))
+                   invitations (memberships/list-invitations-by-bank config
+                                                                     bank-id)
+                   _ (is (= [owner-invitation-id]
+                            (mapv :invitation-id invitations)))
+                   _ (is (= :invitation-status-pending
+                            (:status (first invitations))))
+                   _ (is (= :role-owner (:role (first invitations))))
+                   _ (is (= "Owner@Example.com" (:email (first invitations))))
+                   _ (is (= operator (:invited-by (first invitations))))
+                   {:keys [access-events]}
+                   (memberships/list-access-events config bank-id)
+                   _ (testing "newest first, so the bank-created event is older"
+                       (is (= [:access-event-kind-invitation-created
+                               :access-event-kind-bank-created]
+                              (mapv :kind access-events))))
+                   _ (is (every? #(= operator (:actor %)) access-events))]))
+     (testing
+       "an owner invitation reusing a taken token hash aborts the create, and
+        no bank, event or membership remains"
+       (let [created (atom nil)
+             user-id "usr.taken-hash"
+             r (with-redefs [memberships/record-bank-created
+                             probed-record-bank-created]
+                 (binding [*created-bank-id* created]
+                   (create-bank config
+                                idp
+                                "Taken Hash Bank"
+                                {:owner-invitation
+                                 (assoc invitation :email "other@example.com")
+                                 :membership {:user-id user-id
+                                              :role :role-owner}
+                                 :actor operator})))
+             bank-id @created]
+         (is (error/anomaly? r))
+         (is (some? bank-id) "the create reached the owner invitation")
+         (is (= :bank/not-found
+                (error/kind (bank-query/get-bank config bank-id))))
+         (nom-test> [{:keys [access-events]}
+                     (memberships/list-access-events config bank-id)
+                     _ (is (empty? access-events))
+                     invitations (memberships/list-invitations-by-bank config
+                                                                       bank-id)
+                     _ (is (empty? invitations))
+                     listed (memberships/list-by-user config user-id)
+                     _ (is (empty? listed))])))
+     (testing
+       "a create with neither actor nor membership records an unknown operator"
+       (nom-test> [{:keys [bank owner-invitation-id]}
+                   (create-bank config idp "Actorless Bank" {})
+                   _ (is (nil? owner-invitation-id))
+                   {:keys [access-events]}
+                   (memberships/list-access-events config (:bank-id bank))
+                   _ (is (= [{:kind :actor-kind-operator
+                              :principal-id "unknown"}]
+                            (mapv :actor access-events)))
+                   invitations
+                   (memberships/list-invitations-by-bank config (:bank-id bank))
+                   _ (is (empty? invitations))])))))
+
+(deftest create-bank-delivered-twice-test
+  (with-test-system
+   [sys "classpath:bank/application-test.yml"]
+   (let [schema-for (fn [path] (avro/json->schema (slurp (io/resource path))))
+         schemas {"create-bank" (schema-for
+                                 "schemas/banks/create-bank.avsc.json")
+                  "bank" (schema-for "schemas/banks/bank.avsc.json")}
+         idp (identity-provider/local-provider {})
+         config (assoc (fdb-config sys) :schemas schemas :identity-provider idp)
+         user-id "usr.delivered-twice"
+         message (fn [id data]
+                   {:command "create-bank"
+                    :id id
+                    :payload (avro/serialize (schemas "create-bank") data)})
+         data {:name "Twice Bank"
+               :status :bank-status-test
+               :tier "micro"
+               :currencies ["GBP"]
+               :membership {:user-id user-id :role :role-owner}
+               :actor {:kind :actor-kind-member :principal-id user-id}}
+         clients (atom 0)
+         deliver (fn [msg]
+                   (with-redefs [identity-provider/create-service-account
+                                 counted-create-service-account]
+                     (binding [*clients-created* clients]
+                       (#'commands/dispatch config msg))))]
+     (testing "the same command id delivered twice writes one bank and client"
+       (let [first-reply (deliver (message "ik-bank-twice-0001" data))
+             second-reply (deliver (message "ik-bank-twice-0001" data))]
+         (is (= "ACCEPTED" (:status first-reply)))
+         (is (error/rejection? second-reply))
+         (is (= :bank/already-exists (error/kind second-reply)))
+         (is (= 1 @clients))
+         (nom-test> [banks (bank-query/get-banks config)
+                     _ (is (= 1
+                              (count (filter #(= "Twice Bank" (:name %))
+                                             banks))))
+                     listed (memberships/list-by-user config user-id)
+                     _ (is (= 1 (count listed)))])))
+     (testing "another command id from the same person creates another bank"
+       (let [reply (deliver (message "ik-bank-twice-0002" data))]
+         (is (= "ACCEPTED" (:status reply)))
+         (is (= 2 @clients))))
+     (testing
+       "the command's actor and owner invitation reach new-bank, and the reply
+        carries the invitation id"
+       (let [reply (deliver (message "ik-bank-twice-0003"
+                                     (-> data
+                                         (dissoc :membership)
+                                         (assoc :name "Twice Invited Bank"
+                                                :actor operator
+                                                :owner-invitation
+                                                (owner-invitation
+                                                 "twice@example.com")))))]
+         (is (= "ACCEPTED" (:status reply)))
+         (nom-test> [{:keys [bank-id owner-invitation-id]}
+                     (avro/deserialize-same (schemas "bank") (:payload reply))
+                     invitations (memberships/list-invitations-by-bank config
+                                                                       bank-id)
+                     _ (is (= [owner-invitation-id]
+                              (mapv :invitation-id invitations)))
+                     _ (is (= operator (:invited-by (first invitations))))]))))))
 
 (deftest new-bank-unknown-tier-test
   (with-test-system
@@ -103,22 +339,6 @@
          (nom-test> [banks (bank-query/get-banks config)
                      _ (is (not-any? #(= "Unknown Tier Bank" (:name %)) banks))]))))))
 
-;; `with-redefs` alters a root binding, so a stub here is visible to
-;; every namespace beside this one — the API scenarios provision banks
-;; through this same seam. The stub consults a thread-local, so another
-;; thread gets the real function.
-(def ^:private ^:dynamic *rollback-probe* nil)
-
-(def ^:private real-new-membership memberships/new-membership)
-
-(defn- stubbed-new-membership
-  [txn-or-config m]
-  (if-let [created *rollback-probe*]
-    (do (reset! created (:bank-id m))
-        (error/fail :test/injected
-                    {:message "Injected after every write"}))
-    (real-new-membership txn-or-config m)))
-
 (deftest new-bank-rolls-back-on-failure-test
   (with-test-system
    [sys "classpath:bank/application-test.yml"]
@@ -127,12 +347,15 @@
          user-id "usr.rollback"
          created (atom nil)]
      (testing "a failure after the last write leaves nothing behind"
-       ;; The owner membership is `new-bank`'s final write, so failing
-       ;; there leaves every other write — the seeded jobs included —
-       ;; behind the rollback. `fdb/transact` rolls its transaction
-       ;; back when the body returns an anomaly; this is the evidence.
-       (let [r (with-redefs [memberships/new-membership stubbed-new-membership]
-                 (binding [*rollback-probe* created]
+       ;; The bank-created event is `new-bank`'s final write when no owner
+       ;; invitation is given, so failing there leaves every other write —
+       ;; the seeded jobs and the owner membership included — behind the
+       ;; rollback. `fdb/transact` rolls its transaction back when the body
+       ;; returns an anomaly; this is the evidence.
+       (let [r (with-redefs [memberships/record-bank-created
+                             probed-record-bank-created]
+                 (binding [*created-bank-id* created
+                           *fail-bank-created?* true]
                    (SUT/new-bank config
                                  "Rollback Bank"
                                  :bank-status-test
@@ -169,7 +392,10 @@
                      jobs (scheduler/list-jobs config bank-id)
                      _ (is (empty? jobs))
                      listed (memberships/list-by-user config user-id)
-                     _ (is (empty? listed))]))))))
+                     _ (is (empty? listed))
+                     {:keys [access-events]}
+                     (memberships/list-access-events config bank-id)
+                     _ (is (empty? access-events))]))))))
 
 (deftest change-tier-test
   (with-test-system

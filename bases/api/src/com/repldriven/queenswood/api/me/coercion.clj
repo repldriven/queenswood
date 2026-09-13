@@ -18,6 +18,10 @@
 (def user-status-enum-schema (:enum-schema user-status-enum))
 
 (def ^:private role-enum
-  (coercion/enum-coercion {"owner" :role-owner} :role-unknown))
+  (coercion/enum-coercion {"owner" :role-owner
+                           "admin" :role-admin
+                           "developer" :role-developer
+                           "viewer" :role-viewer}
+                          :role-unknown))
 
 (def role-enum-schema (:enum-schema role-enum))

@@ -18,22 +18,28 @@
 
 (def routes
   [["/jobs"
-    {:openapi {:tags ["Jobs"] :security [{"bearerAuth" ["org"]}]}}
+    {:openapi {:tags ["Jobs"]}}
     [""
-     {:get {:summary "Retrieve scheduled jobs"
+     {:openapi {:security [{"bearerAuth" ["org:viewer"]}]
+                :parameters [shared.parameters/ref-bank-id-header]}
+      :get {:summary "Retrieve scheduled jobs"
             :openapi {:operationId "RetrieveJobs"}
             :responses {200 {:body [:ref "JobList"]}}
             :handler queries/list-jobs}}]
     ["/{job-id}"
      {:parameters {:path {:job-id [:ref "JobId"]}}}
      [""
-      {:get {:summary "Retrieve a scheduled job"
+      {:openapi {:security [{"bearerAuth" ["org:viewer"]}]
+                 :parameters [shared.parameters/ref-bank-id-header]}
+       :get {:summary "Retrieve a scheduled job"
              :openapi {:operationId "RetrieveJob"}
              :responses {200 {:body [:ref "Job"]}
                          404 (ErrorResponse [#'JobNotFound])}
              :handler queries/get-job}}]
      ["/schedule"
-      {:put {:summary "Update a job's schedule (cadence, time, enabled)"
+      {:openapi {:security [{"bearerAuth" ["org:developer"]}]
+                 :parameters [shared.parameters/ref-bank-id-header]}
+       :put {:summary "Update a job's schedule (cadence, time, enabled)"
              :openapi {:operationId "UpdateJobSchedule"
                        :requestBody {:required true}}
              :parameters {:body [:ref "JobScheduleUpdate"]}
@@ -45,14 +51,18 @@
      ["/runs"
       [""
        {:get {:summary "Retrieve a job's runs"
-              :openapi {:operationId "RetrieveJobRuns"}
+              :openapi {:operationId "RetrieveJobRuns"
+                        :security [{"bearerAuth" ["org:viewer"]}]
+                        :parameters [shared.parameters/ref-bank-id-header]}
               :responses {200 {:body [:ref "RunList"]}
                           404 (ErrorResponse [#'JobNotFound])}
               :handler queries/list-runs}
         :post {:summary "Force-start the job now"
                :openapi {:operationId "StartJobRun"
+                         :security [{"bearerAuth" ["org:developer"]}]
                          :parameters ^:replace
                                      [shared.parameters/ref-job-id
+                                      shared.parameters/ref-bank-id-header
                                       shared.parameters/ref-idempotency-key]}
                :interceptors [server/require-idempotency-key
                               bank-idempotency/cache-response]
@@ -65,7 +75,9 @@
       ["/{run-id}"
        {:parameters {:path {:run-id [:ref "RunId"]}}}
        [""
-        {:get {:summary "Retrieve a job run"
+        {:openapi {:security [{"bearerAuth" ["org:viewer"]}]
+                   :parameters [shared.parameters/ref-bank-id-header]}
+         :get {:summary "Retrieve a job run"
                :openapi {:operationId "RetrieveJobRun"}
                :responses {200 {:body [:ref "Run"]}
                            404 (ErrorResponse [#'RunNotFound])}

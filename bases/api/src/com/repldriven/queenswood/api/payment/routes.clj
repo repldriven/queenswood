@@ -18,13 +18,15 @@
 
 (def routes
   [["/payments"
-    {:openapi {:tags ["Payments"] :security [{"bearerAuth" ["org"]}]}}
+    {:openapi {:tags ["Payments"]}}
     ["/internal"
-     {:post {:summary "Submit an internal payment"
+     {:openapi {:security [{"bearerAuth" ["org:developer"]}]}
+      :post {:summary "Submit an internal payment"
              :openapi {:operationId "SubmitInternalPayment"
                        :requestBody {:required true}
                        :parameters ^:replace
-                                   [shared.parameters/ref-idempotency-key]}
+                                   [shared.parameters/ref-bank-id-header
+                                    shared.parameters/ref-idempotency-key]}
              :interceptors [server/require-idempotency-key
                             bank-idempotency/cache-response]
              :parameters {:body [:ref "SubmitInternalPaymentRequest"]}
@@ -39,17 +41,21 @@
     ["/internal/{payment-id}"
      {:parameters {:path {:payment-id [:ref "PaymentId"]}}}
      [""
-      {:get {:summary "Retrieve an internal payment"
+      {:openapi {:security [{"bearerAuth" ["org:viewer"]}]
+                 :parameters [shared.parameters/ref-bank-id-header]}
+       :get {:summary "Retrieve an internal payment"
              :openapi {:operationId "RetrieveInternalPayment"}
              :responses {200 {:body [:ref "InternalPayment"]}
                          404 (ErrorResponse [#'PaymentNotFound])}
              :handler queries/get-internal-payment}}]]
     ["/outbound"
-     {:post {:summary "Submit an outbound payment"
+     {:openapi {:security [{"bearerAuth" ["org:developer"]}]}
+      :post {:summary "Submit an outbound payment"
              :openapi {:operationId "SubmitOutboundPayment"
                        :requestBody {:required true}
                        :parameters ^:replace
-                                   [shared.parameters/ref-idempotency-key]}
+                                   [shared.parameters/ref-bank-id-header
+                                    shared.parameters/ref-idempotency-key]}
              :interceptors [server/require-idempotency-key
                             bank-idempotency/cache-response]
              :parameters {:body [:ref "SubmitOutboundPaymentRequest"]}
@@ -64,7 +70,9 @@
     ["/outbound/{payment-id}"
      {:parameters {:path {:payment-id [:ref "PaymentId"]}}}
      [""
-      {:get {:summary "Retrieve an outbound payment"
+      {:openapi {:security [{"bearerAuth" ["org:viewer"]}]
+                 :parameters [shared.parameters/ref-bank-id-header]}
+       :get {:summary "Retrieve an outbound payment"
              :openapi {:operationId "RetrieveOutboundPayment"}
              :responses {200 {:body [:ref "OutboundPayment"]}
                          404 (ErrorResponse [#'PaymentNotFound])}

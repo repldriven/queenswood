@@ -104,6 +104,8 @@
                        "components/interest/test-resources"
                        "components/ledger-account/test"
                        "components/ledger-account/test-resources"
+                       "components/membership/test"
+                       "components/membership/test-resources"
                        "components/party/test"
                        "components/party/test-resources"
                        "components/policy/test"

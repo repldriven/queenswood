@@ -1,0 +1,117 @@
+{:name "An invitation is not found without its token or a verified matching email"
+ :tags #{:access :api :auth :unhappy}
+ ;; Two people fail the proof. A verified stranger sends a token that
+ ;; is not the invitation's. The invitee's address matches, but the
+ ;; realm holds it unverified, so the token's `email_verified` claim is
+ ;; false. Each is answered as though the invitation did not exist; the
+ ;; right token then admits the unverified invitee.
+ :given
+ [{:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "proof-owner"
+   :password "proof-owner"
+   :as :owner-token}
+  {:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "proof-stranger"
+   :password "proof-stranger"
+   :as :stranger-token}
+  {:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "proof-unverified"
+   :password "proof-unverified"
+   :as :unverified-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-access-proof-bank-001"}
+             :body {:name "Proof Bank"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]
+                    :owner-email "proof-owner@queenswood.local"}}
+   :as :bank
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :bank :owner-invitation
+                                           :invitation :invitation-id]}
+             :auth :owner-token
+             :headers {:invitation-token [:ref :bank :owner-invitation :token]}}
+   :assert {:status 201 :body {:role "owner"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/invitations"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]
+                       :idempotency-key "ik-access-proof-invite-001"}
+             :body {:email "proof-unverified@queenswood.local" :role "viewer"}}
+   :as :invitation
+   :assert {:status 201}}]
+ :when
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/me/invitations/{invitation-id}"
+             :path-params {:invitation-id [:ref :invitation :invitation
+                                           :invitation-id]}
+             :auth :stranger-token
+             :headers {:invitation-token
+                       "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}}
+   :assert {:status 404 :problem {:type ":invitation/not-found"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :invitation :invitation
+                                           :invitation-id]}
+             :auth :stranger-token
+             :headers {:invitation-token
+                       "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}}
+   :assert {:status 404 :problem {:type ":invitation/not-found"}}}
+  {:command :api/request
+   :request {:method :get :path "/v1/me/invitations" :auth :unverified-token}
+   :assert {:status 200 :body {:items []}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/me/invitations/{invitation-id}"
+             :path-params {:invitation-id [:ref :invitation :invitation
+                                           :invitation-id]}
+             :auth :unverified-token}
+   :assert {:status 404 :problem {:type ":invitation/not-found"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :invitation :invitation
+                                           :invitation-id]}
+             :auth :unverified-token}
+   :assert {:status 404 :problem {:type ":invitation/not-found"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/decline"
+             :path-params {:invitation-id [:ref :invitation :invitation
+                                           :invitation-id]}
+             :auth :unverified-token}
+   :assert {:status 404 :problem {:type ":invitation/not-found"}}}]
+ :then
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/invitations"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 200
+            :body {:items [:m/embeds
+                           [{:invitation-id [:ref :invitation :invitation
+                                             :invitation-id]
+                             :status "pending"}]]}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :invitation :invitation
+                                           :invitation-id]}
+             :auth :unverified-token
+             :headers {:invitation-token [:ref :invitation :token]}}
+   :assert {:status 201 :body {:role "viewer"}}}]}

@@ -1,0 +1,22 @@
+# A tier whose policy refuses a write a developer can reach, so a
+# scenario can show a policy refusal beside a role's. The platform and
+# micro tiers allow every write a route exposes.
+no-webhooks: !system/component
+  system/component-kind: policies/policy
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  policy:
+    policy-id: pol.00000000000000000000000004
+    name: No-webhooks policy
+    description: No-webhooks tier - refuses registering webhook endpoints
+    enabled: true
+    labels: !strs
+      tier: no-webhooks
+    category: !keyword policy-category-restricted
+    capabilities:
+      - effect: !keyword effect-deny
+        reason: "No-webhooks tier - deny registering webhook endpoints"
+        kind:
+          webhook-endpoint:
+            action: !keyword webhook-endpoint-action-register
+    limits: []

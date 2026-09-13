@@ -15,12 +15,6 @@
                 :company-binding bank-examples/CompanyBinding)
    :membership me-examples/Membership})
 
-(def AlreadyOnboarded
-  {:value {:title "REJECTED"
-           :type ":membership/already-exists"
-           :status 409
-           :detail "User already belongs to a bank"}})
-
 (def CompanyNotActive
   {:value {:title "REJECTED"
            :type ":onboarding/company-not-active"
@@ -35,4 +29,4 @@
 
 (def registry
   (examples-registry [#'OnboardingRequest #'OnboardingResponse
-                      #'AlreadyOnboarded #'CompanyNotActive #'CompanyNotFound]))
+                      #'CompanyNotActive #'CompanyNotFound]))
