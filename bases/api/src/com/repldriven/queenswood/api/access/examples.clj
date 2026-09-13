@@ -139,7 +139,33 @@
            :status 422
            :detail "An operator's invitation needs a reason"}})
 
+(def InvitationAlreadyMember
+  {:value {:title "REJECTED"
+           :type ":invitation/already-member"
+           :status 409
+           :detail "That address belongs to a member already"}})
+
+(def InvitationInvalidStatus
+  {:value {:title "REJECTED"
+           :type ":invitation/invalid-status"
+           :status 409
+           :detail "Invitation is not in a state that allows this"}})
+
+(def MembershipInvalidStatus
+  {:value {:title "REJECTED"
+           :type ":membership/invalid-status"
+           :status 409
+           :detail "Membership is not in a state that allows this"}})
+
+(def MembershipLastOwner
+  {:value {:title "REJECTED"
+           :type ":membership/last-owner"
+           :status 409
+           :detail "Make someone else an owner first"}})
+
 (def registry
   (examples-registry [#'InvitationNotFound #'MembershipNotFound #'RoleNotGranted
                       #'InvitationAlreadyExists #'MembershipAlreadyExists
-                      #'ReasonRequired]))
+                      #'ReasonRequired #'InvitationAlreadyMember
+                      #'InvitationInvalidStatus #'MembershipInvalidStatus
+                      #'MembershipLastOwner]))

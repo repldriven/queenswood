@@ -251,9 +251,11 @@
                (all-or-anomaly #(invitation txn %) found))
              items)))
 
-(defn- with-token
-  [token]
-  (fn [invitation] {:invitation (->invitation invitation nil) :token token}))
+(defn invitation-with-token
+  "The invitation as the bank's members see it, beside the plaintext
+  token whose hash it stores."
+  [invitation token]
+  {:invitation (->invitation invitation nil) :token token})
 
 (defn invite
   [request]
@@ -268,7 +270,7 @@
                                                       :token-hash token-hash}
                                                      :reason
                                                      reason))
-             (comp created (with-token token)))))
+             (comp created #(invitation-with-token % token)))))
 
 (defn withdraw-invitation
   [request]
@@ -296,7 +298,7 @@
                                                       :token-hash token-hash}
                                                      :reason
                                                      (:reason body)))
-             (comp ok (with-token token)))))
+             (comp ok #(invitation-with-token % token)))))
 
 (defn list-access-events
   [request]

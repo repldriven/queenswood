@@ -1,8 +1,9 @@
 (ns com.repldriven.queenswood.api.access.routes
   (:require
     [com.repldriven.queenswood.api.access.examples :refer
-     [InvitationAlreadyExists InvitationNotFound MembershipAlreadyExists
-      MembershipNotFound ReasonRequired RoleNotGranted]]
+     [InvitationAlreadyExists InvitationAlreadyMember InvitationInvalidStatus
+      InvitationNotFound MembershipAlreadyExists MembershipInvalidStatus
+      MembershipLastOwner MembershipNotFound ReasonRequired RoleNotGranted]]
     [com.repldriven.queenswood.api.access.handlers :as handlers]
 
     [com.repldriven.queenswood.api.shared.idempotency :as shared.idempotency]
@@ -55,7 +56,8 @@
               :responses {201 {:description "The membership created."
                                :body [:ref "Membership"]}
                           404 (ErrorResponse [#'InvitationNotFound])
-                          409 (ErrorResponse [#'MembershipAlreadyExists])}
+                          409 (ErrorResponse [#'InvitationInvalidStatus
+                                              #'MembershipAlreadyExists])}
               :handler handlers/accept-invitation}}]
      ["/decline"
       {:post {:summary "Decline an invitation"
@@ -65,7 +67,8 @@
                                      shared.parameters/ref-invitation-token]}
               :responses {200 {:description "The declined invitation."
                                :body [:ref "RecipientInvitation"]}
-                          404 (ErrorResponse [#'InvitationNotFound])}
+                          404 (ErrorResponse [#'InvitationNotFound])
+                          409 (ErrorResponse [#'InvitationInvalidStatus])}
               :handler handlers/decline-invitation}}]]]
    ["/me/memberships/{membership-id}/leave"
     {:openapi {:tags ["Access"] :security (gate "user")}
@@ -73,7 +76,9 @@
      :post {:summary "Leave a bank, ending the caller's own membership"
             :openapi {:operationId "LeaveMembership"}
             :responses {204 {:description "The membership was ended. No body."}
-                        404 (ErrorResponse [#'MembershipNotFound])}
+                        404 (ErrorResponse [#'MembershipNotFound])
+                        409 (ErrorResponse [#'MembershipInvalidStatus
+                                            #'MembershipLastOwner])}
             :handler handlers/leave}}]
    ["/members"
     {:openapi {:tags ["Access"]}}
@@ -97,7 +102,9 @@
               :responses {200 {:description "The member with the new role."
                                :body [:ref "Member"]}
                           403 (ErrorResponse [#'RoleNotGranted])
-                          404 (ErrorResponse [#'MembershipNotFound])}
+                          404 (ErrorResponse [#'MembershipNotFound])
+                          409 (ErrorResponse [#'MembershipInvalidStatus
+                                              #'MembershipLastOwner])}
               :handler handlers/change-role}}]
      ["/remove"
       {:openapi {:security (gate "org:admin")
@@ -108,7 +115,9 @@
         :parameters {:body optional-reason}
         :responses {204 {:description "The membership was ended. No body."}
                     403 (ErrorResponse [#'RoleNotGranted])
-                    404 (ErrorResponse [#'MembershipNotFound])}
+                    404 (ErrorResponse [#'MembershipNotFound])
+                    409 (ErrorResponse [#'MembershipInvalidStatus
+                                        #'MembershipLastOwner])}
         :handler handlers/remove-member}}]]]
    ["/invitations"
     {:openapi {:tags ["Access"]}}
@@ -137,7 +146,8 @@
                                                  "token its link carries.")
                                :body [:ref "InvitationWithToken"]}
                           403 (ErrorResponse [#'RoleNotGranted])
-                          409 (ErrorResponse [#'InvitationAlreadyExists])
+                          409 (ErrorResponse [#'InvitationAlreadyExists
+                                              #'InvitationAlreadyMember])
                           422 (ErrorResponse [#'ReasonRequired])})
              :handler handlers/invite}}]
     ["/{invitation-id}"
@@ -152,7 +162,8 @@
               :responses {200 {:description "The withdrawn invitation."
                                :body [:ref "Invitation"]}
                           403 (ErrorResponse [#'RoleNotGranted])
-                          404 (ErrorResponse [#'InvitationNotFound])}
+                          404 (ErrorResponse [#'InvitationNotFound])
+                          409 (ErrorResponse [#'InvitationInvalidStatus])}
               :handler handlers/withdraw-invitation}}]
      ["/resend"
       {:openapi {:security (gate "org:admin")}
@@ -173,7 +184,8 @@
                                                   "carries.")
                                 :body [:ref "InvitationWithToken"]}
                            403 (ErrorResponse [#'RoleNotGranted])
-                           404 (ErrorResponse [#'InvitationNotFound])})
+                           404 (ErrorResponse [#'InvitationNotFound])
+                           409 (ErrorResponse [#'InvitationInvalidStatus])})
               :handler handlers/resend-invitation}}]]]
    ["/access-events"
     {:openapi {:tags ["Access"] :security (gate "org:viewer")}

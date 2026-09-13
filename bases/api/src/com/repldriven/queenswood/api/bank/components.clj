@@ -14,7 +14,8 @@
    [:name [:ref "Name"]]
    [:status [:ref "BankStatus"]]
    [:tier [:ref "Name"]]
-   [:currencies [:unique-vector {:min 1} [:ref "Currency"]]]])
+   [:currencies [:unique-vector {:min 1} [:ref "Currency"]]]
+   [:owner-email {:optional true} [:ref "EmailAddress"]]])
 
 (def Bank
   [:map {:json-schema/example examples/Bank}
@@ -61,6 +62,7 @@
    [:accounts [:vector [:ref "CashAccount"]]]
    [:client-id [:ref "BankId"]]
    [:client-secret string?]
+   [:owner-invitation {:optional true} [:ref "InvitationWithToken"]]
    [:company-binding {:optional true} [:ref "CompanyBinding"]]
    [:created-at [:ref "Timestamp"]]
    [:updated-at [:ref "Timestamp"]]])

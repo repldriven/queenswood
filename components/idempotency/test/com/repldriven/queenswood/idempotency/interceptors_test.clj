@@ -39,6 +39,33 @@
            :auth {:principal-id principal}
            :body-params body})))
 
+(def ^:private operator "queenswood-admin")
+
+(def ^:private invitations-template "/v1/invitations")
+
+(defn- invitation-request
+  "A request to create an invitation, sent by the operator under the bank
+  `bank-id` names."
+  [config key bank-id]
+  (merge config
+         {:request-method :post
+          :uri invitations-template
+          :reitit.core/match {:template invitations-template}
+          :headers {"idempotency-key" key}
+          :auth {:principal-id operator :bank-id bank-id}
+          :body-params {:email "c.babbage@example.com" :role :role-developer}}))
+
+(defn- inviting
+  "A handler minting a fresh invitation id and token on each call, and
+  counting its own invocations."
+  [calls]
+  (fn [request]
+    (let [n (swap! calls inc)]
+      {:status 201
+       :body {:invitation {:invitation-id (str "inv." n)
+                           :bank-id (get-in request [:auth :bank-id])}
+              :token (str "token-" n)}})))
+
 (defn- responding
   "A handler counting its own invocations."
   [calls]
@@ -223,3 +250,39 @@
                                            operation
                                            key
                                            "any-fingerprint"))))))))
+
+(deftest one-key-under-two-banks-is-not-replayed-test
+  (with-test-system
+   [sys "classpath:idempotency/application-test.yml"]
+   (let [config (config sys)
+         key "idem-icept-two-banks-01"
+         calls (atom 0)
+         handler (inviting calls)
+         first-response (run (invitation-request config key "bnk.a") handler)
+         other-bank (run (invitation-request config key "bnk.b") handler)]
+     (testing "the first bank's invitation is created"
+       (is (= 201 (:status first-response)))
+       (is (= "bnk.a" (get-in first-response [:body :invitation :bank-id]))))
+     (testing "the same key and body under another bank replays nothing"
+       (is (= 422 (:status other-bank)))
+       (is (= "mono/idempotency-key-reused" (get-in other-bank [:body :type])))
+       (is (nil? (get-in other-bank [:body :token])))
+       (is (nil? (get-in other-bank [:headers "Idempotent-Replayed"]))))
+     (testing "the handler did not run for the second bank"
+       (is (= 1 @calls))))))
+
+(deftest a-repeated-invitation-answers-the-first-test
+  (with-test-system
+   [sys "classpath:idempotency/application-test.yml"]
+   (let [config (config sys)
+         key "idem-icept-invitation-1"
+         calls (atom 0)
+         handler (inviting calls)
+         first-response (run (invitation-request config key "bnk.a") handler)
+         replay (run (invitation-request config key "bnk.a") handler)]
+     (testing "the repeat answers the first invitation and its token"
+       (is (= 201 (:status replay)))
+       (is (= (:body first-response) (:body replay)))
+       (is (= "token-1" (get-in replay [:body :token])))
+       (is (= "true" (get-in replay [:headers "Idempotent-Replayed"]))))
+     (testing "no second invitation was minted" (is (= 1 @calls))))))

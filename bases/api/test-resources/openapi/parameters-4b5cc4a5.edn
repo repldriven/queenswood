@@ -1,0 +1,136 @@
+{"DELETE /v1/cash-account-products/{product-id}/versions/{version-id}"
+ #{["path" "product-id"] ["path" "version-id"]}
+ "DELETE /v1/webhook-endpoints/{endpoint-id}"
+ #{["path" "endpoint-id"]}
+ "GET /v1/cash-account-migrations/{migration-id}"
+ #{["path" "migration-id"]}
+ "GET /v1/cash-account-migrations/{migration-id}/previews"
+ #{["path" "migration-id"]}
+ "GET /v1/cash-account-migrations/{migration-id}/previews/{run-id}"
+ #{["path" "migration-id"] ["path" "run-id"]}
+ "GET /v1/cash-account-migrations/{migration-id}/previews/{run-id}/accounts"
+ #{["path" "migration-id"] ["path" "run-id"]}
+ "GET /v1/cash-account-products"
+ #{["query" "page"]}
+ "GET /v1/cash-account-products/{product-id}"
+ #{["path" "product-id"]}
+ "GET /v1/cash-account-products/{product-id}/versions/{version-id}"
+ #{["path" "product-id"] ["path" "version-id"]}
+ "GET /v1/cash-accounts"
+ #{["query" "embed"] ["query" "page"]}
+ "GET /v1/cash-accounts/{account-id}"
+ #{["path" "account-id"] ["query" "embed"]}
+ "GET /v1/cash-accounts/{account-id}/balances"
+ #{["path" "account-id"]}
+ "GET /v1/cash-accounts/{account-id}/balances/{balance-type}/{currency}/{balance-status}"
+ #{["path" "account-id"] ["path" "balance-status"] ["path" "balance-type"] ["path" "currency"]}
+ "GET /v1/cash-accounts/{account-id}/transactions"
+ #{["path" "account-id"]}
+ "GET /v1/companies/{company-number}"
+ #{["path" "company-number"]}
+ "GET /v1/jobs/{job-id}"
+ #{["path" "job-id"]}
+ "GET /v1/jobs/{job-id}/runs"
+ #{["path" "job-id"]}
+ "GET /v1/jobs/{job-id}/runs/{run-id}"
+ #{["path" "job-id"] ["path" "run-id"]}
+ "GET /v1/ledger-accounts/{account-id}"
+ #{["path" "account-id"]}
+ "GET /v1/ledger-accounts/{account-id}/balances"
+ #{["path" "account-id"]}
+ "GET /v1/parties"
+ #{["query" "page"]}
+ "GET /v1/parties/{party-id}"
+ #{["path" "party-id"] ["query" "embed"]}
+ "GET /v1/payee-checks"
+ #{["query" "page"]}
+ "GET /v1/payee-checks/{check-id}"
+ #{["path" "check-id"]}
+ "GET /v1/payments/internal/{payment-id}"
+ #{["path" "payment-id"]}
+ "GET /v1/payments/outbound/{payment-id}"
+ #{["path" "payment-id"]}
+ "GET /v1/policies/{policy-id}"
+ #{["path" "policy-id"]}
+ "GET /v1/webhook-endpoints"
+ #{["query" "page"]}
+ "GET /v1/webhook-endpoints/{endpoint-id}"
+ #{["path" "endpoint-id"]}
+ "GET /v1/webhook-endpoints/{endpoint-id}/deliveries"
+ #{["path" "endpoint-id"] ["query" "filter"] ["query" "page"]}
+ "POST /v1/banks"
+ #{["header" "Idempotency-Key"]}
+ "POST /v1/banks/{bank-id}/change-status"
+ #{["path" "bank-id"]}
+ "POST /v1/banks/{bank-id}/change-tier"
+ #{["path" "bank-id"]}
+ "POST /v1/cash-account-migrations"
+ #{["header" "Idempotency-Key"]}
+ "POST /v1/cash-account-migrations/{migration-id}/approve"
+ #{["path" "migration-id"]}
+ "POST /v1/cash-account-migrations/{migration-id}/cancel"
+ #{["path" "migration-id"]}
+ "POST /v1/cash-account-migrations/{migration-id}/previews"
+ #{["header" "Idempotency-Key"] ["path" "migration-id"]}
+ "POST /v1/cash-account-products"
+ #{["header" "Idempotency-Key"]}
+ "POST /v1/cash-account-products/{product-id}/versions"
+ #{["path" "product-id"]}
+ "POST /v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+ #{["path" "product-id"] ["path" "version-id"]}
+ "POST /v1/cash-accounts"
+ #{["header" "Idempotency-Key"]}
+ "POST /v1/cash-accounts/{account-id}/close"
+ #{["header" "Idempotency-Key"] ["path" "account-id"]}
+ "POST /v1/cash-accounts/{account-id}/resume"
+ #{["header" "Idempotency-Key"] ["path" "account-id"]}
+ "POST /v1/cash-accounts/{account-id}/rotate-address"
+ #{["header" "Idempotency-Key"] ["path" "account-id"]}
+ "POST /v1/cash-accounts/{account-id}/suspend"
+ #{["header" "Idempotency-Key"] ["path" "account-id"]}
+ "POST /v1/jobs/{job-id}/runs"
+ #{["header" "Idempotency-Key"] ["path" "job-id"]}
+ "POST /v1/onboarding/me"
+ #{["header" "Idempotency-Key"]}
+ "POST /v1/parties"
+ #{["header" "Idempotency-Key"]}
+ "POST /v1/parties/{party-id}/close"
+ #{["header" "Idempotency-Key"] ["path" "party-id"]}
+ "POST /v1/parties/{party-id}/merge"
+ #{["header" "Idempotency-Key"] ["path" "party-id"]}
+ "POST /v1/parties/{party-id}/resume"
+ #{["header" "Idempotency-Key"] ["path" "party-id"]}
+ "POST /v1/parties/{party-id}/suspend"
+ #{["header" "Idempotency-Key"] ["path" "party-id"]}
+ "POST /v1/payee-checks"
+ #{["header" "Idempotency-Key"]}
+ "POST /v1/payments/internal"
+ #{["header" "Idempotency-Key"]}
+ "POST /v1/payments/outbound"
+ #{["header" "Idempotency-Key"]}
+ "POST /v1/simulate/banks/{bank-id}/accrue"
+ #{["header" "Idempotency-Key"] ["path" "bank-id"]}
+ "POST /v1/simulate/banks/{bank-id}/capitalize"
+ #{["header" "Idempotency-Key"] ["path" "bank-id"]}
+ "POST /v1/simulate/banks/{bank-id}/inbound-transfer"
+ #{["header" "Idempotency-Key"] ["path" "bank-id"]}
+ "POST /v1/webhook-endpoints"
+ #{["header" "Idempotency-Key"]}
+ "POST /v1/webhook-endpoints/{endpoint-id}/deliveries/{delivery-id}/resend"
+ #{["header" "Idempotency-Key"] ["path" "delivery-id"] ["path" "endpoint-id"]}
+ "POST /v1/webhook-endpoints/{endpoint-id}/disable"
+ #{["path" "endpoint-id"]}
+ "POST /v1/webhook-endpoints/{endpoint-id}/enable"
+ #{["path" "endpoint-id"]}
+ "POST /v1/webhook-endpoints/{endpoint-id}/resend"
+ #{["header" "Idempotency-Key"] ["path" "endpoint-id"]}
+ "POST /v1/webhook-endpoints/{endpoint-id}/rotate-secret"
+ #{["header" "Idempotency-Key"] ["path" "endpoint-id"]}
+ "POST /v1/webhook-endpoints/{endpoint-id}/test-notification"
+ #{["header" "Idempotency-Key"] ["path" "endpoint-id"]}
+ "PUT /v1/cash-account-products/{product-id}/versions/{version-id}"
+ #{["path" "product-id"] ["path" "version-id"]}
+ "PUT /v1/jobs/{job-id}/schedule"
+ #{["path" "job-id"]}
+ "PUT /v1/webhook-endpoints/{endpoint-id}"
+ #{["path" "endpoint-id"]}}

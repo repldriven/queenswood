@@ -3,7 +3,10 @@
   route REQ-023 and REQ-024 name is compiled at its method, path and
   gate, every operation an organisation level gates documents the
   `Bank-Id` header by `$ref` exactly once (AC-17), and the invitation
-  token is declared on `InvitationWithToken` and on nothing else.
+  token is declared on `InvitationWithToken` and on nothing else, which
+  only writes answer: invitation create, resend, the operator's bank
+  create, and onboarding, whose `bank` shares `CreateBankResponse` and
+  never carries it (AC-07, the base half).
 
   No system is booted. The router is compiled from an empty
   interceptor context, and the document is built the way `export-spec`
@@ -17,6 +20,7 @@
 
     [reitit.core :as r]
 
+    [clojure.string :as str]
     [clojure.test :refer [deftest is testing]]))
 
 (def ^:private user-routes
@@ -134,3 +138,55 @@
               _ (testing "the Role component lists the four roles"
                   (is (= #{"owner" "admin" "developer" "viewer"}
                          (set (get-in schemas ["Role" "enum"])))))]))
+
+(defn- schema-refs
+  [node]
+  (cond
+   (map? node)
+   (into (if-let [ref (get node "$ref")]
+           [ref]
+           [])
+         (mapcat schema-refs (vals node)))
+
+   (sequential? node)
+   (mapcat schema-refs node)
+
+   :else
+   []))
+
+(defn- reaches?
+  "Whether `node` names the schema `target`, directly or through the
+  components its `$ref`s name."
+  [document target node]
+  (loop [pending (schema-refs node)
+         seen #{}]
+    (if-let [[ref & more] (seq pending)]
+      (cond
+       (= ref target)
+       true
+
+       (contains? seen ref)
+       (recur more seen)
+
+       :else
+       (recur (concat more
+                      (schema-refs (get-in document
+                                           (rest (str/split ref #"/")))))
+              (conj seen ref)))
+      false)))
+
+(deftest only-create-and-resend-answer-the-token-test
+  (nom-test> [document (json/read-str @exported)
+              target "#/components/schemas/InvitationWithToken"
+              answering (into #{}
+                              (for
+                                [[path item] (get document "paths")
+                                 [method operation] item
+                                 :when (reaches? document
+                                                 target
+                                                 (get operation "responses"))]
+                                [method path]))
+              _ (is (= #{["post" "/v1/invitations"]
+                         ["post" "/v1/invitations/{invitation-id}/resend"]
+                         ["post" "/v1/banks"] ["post" "/v1/onboarding/me"]}
+                       answering))]))
