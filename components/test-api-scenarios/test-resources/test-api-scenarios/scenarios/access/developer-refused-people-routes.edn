@@ -1,0 +1,120 @@
+{:name "A developer reads the bank's people and is refused changing them"
+ :tags #{:access :api :auth :unhappy}
+ ;; The people routes that write are gated `org:admin`, which a
+ ;; developer's levels miss, so each refusal is the edge's, whatever
+ ;; the target.
+ :given
+ [{:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "developer-owner"
+   :password "developer-owner"
+   :as :owner-token}
+  {:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "developer-developer"
+   :password "developer-developer"
+   :as :developer-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-access-developer-bank-001"}
+             :body {:name "Developer Bank"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]
+                    :owner-email "developer-owner@queenswood.local"}}
+   :as :bank
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :bank :owner-invitation
+                                           :invitation :invitation-id]}
+             :auth :owner-token
+             :headers {:invitation-token [:ref :bank :owner-invitation :token]}}
+   :as :owner-membership
+   :assert {:status 201 :body {:role "owner"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/invitations"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]
+                       :idempotency-key "ik-access-developer-invite-001"}
+             :body {:email "developer-developer@queenswood.local"
+                    :role "developer"}}
+   :as :invitation
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :invitation :invitation
+                                           :invitation-id]}
+             :auth :developer-token}
+   :as :developer-membership
+   :assert {:status 201 :body {:role "developer"}}}]
+ :when
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/members"
+             :auth :developer-token
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 200}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/access-events"
+             :auth :developer-token
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 200}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/invitations"
+             :auth :developer-token
+             :headers {:bank-id [:ref :bank :bank-id]
+                       :idempotency-key "ik-access-developer-invite-002"}
+             :body {:email "developer-guest@example.test" :role "viewer"}}
+   :assert {:status 403
+            :problem {:type "auth/forbidden"
+                      :detail "Insufficient privileges"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/members/{membership-id}/change-role"
+             :path-params {:membership-id [:ref :owner-membership
+                                           :membership-id]}
+             :auth :developer-token
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :body {:role "viewer"}}
+   :assert {:status 403 :problem {:type "auth/forbidden"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/members/{membership-id}/remove"
+             :path-params {:membership-id [:ref :owner-membership
+                                           :membership-id]}
+             :auth :developer-token
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :body {:reason "Not permitted"}}
+   :assert {:status 403 :problem {:type "auth/forbidden"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/invitations/{invitation-id}/withdraw"
+             :path-params {:invitation-id [:ref :invitation :invitation
+                                           :invitation-id]}
+             :auth :developer-token
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 403 :problem {:type "auth/forbidden"}}}]
+ :then
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/members"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 200
+            :body {:items [:m/in-any-order
+                           [{:membership-id [:ref :owner-membership
+                                             :membership-id]
+                             :role "owner"}
+                            {:membership-id [:ref :developer-membership
+                                             :membership-id]
+                             :role "developer"}]]}}}]}

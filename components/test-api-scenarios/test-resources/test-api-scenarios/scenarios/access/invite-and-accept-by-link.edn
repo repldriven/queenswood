@@ -1,0 +1,150 @@
+{:name
+ "An invitee signed in under another address accepts by the invitation's token"
+ :tags #{:access :api :happy}
+ ;; The invitation names an address the invitee does not sign in with,
+ ;; so the token is the only proof that reaches it: the invitee's own
+ ;; invitation list stays empty, and the bank's list records both
+ ;; addresses once it is accepted.
+ :given
+ [{:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "link-owner"
+   :password "link-owner"
+   :as :owner-token}
+  {:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "link-invitee"
+   :password "link-invitee"
+   :as :invitee-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-access-link-bank-001"}
+             :body {:name "Link Bank"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]
+                    :owner-email "link-owner@queenswood.local"}}
+   :as :bank
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :bank :owner-invitation
+                                           :invitation :invitation-id]}
+             :auth :owner-token
+             :headers {:invitation-token [:ref :bank :owner-invitation :token]}}
+   :as :owner-membership
+   :assert {:status 201 :body {:role "owner"}}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/invitations"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]
+                       :idempotency-key "ik-access-link-invite-001"}
+             :body {:email "link-invitee@example.test" :role "developer"}}
+   :as :invitation
+   :assert {:status 201
+            :body {:invitation {:email "link-invitee@example.test"
+                                :role "developer"
+                                :status "pending"
+                                :invited-by {:kind "member"
+                                             :principal-id
+                                             [:ref :owner-membership :user-id]}}
+                   :token [:m/regex "^[A-Za-z0-9_-]{43}$"]}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/invitations"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]
+                       :idempotency-key "ik-access-link-invite-002"}
+             :body {:email "Link-Invitee@example.test" :role "viewer"}}
+   :assert {:status 409 :problem {:type ":invitation/already-exists"}}}
+  {:command :api/request
+   :request {:method :get :path "/v1/me/invitations" :auth :invitee-token}
+   :assert {:status 200 :body {:items []}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/me/invitations/{invitation-id}"
+             :path-params {:invitation-id [:ref :invitation :invitation
+                                           :invitation-id]}
+             :auth :invitee-token
+             :headers {:invitation-token [:ref :invitation :token]}}
+   :assert {:status 200
+            :body {:email "link-invitee@example.test"
+                   :bank-name "Link Bank"
+                   :role "developer"
+                   :status "pending"
+                   :token [:m/absent]}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :invitation :invitation
+                                           :invitation-id]}
+             :auth :invitee-token
+             :headers {:invitation-token [:ref :invitation :token]}}
+   :as :accepted
+   :assert {:status 201
+            :body {:bank-id [:ref :bank :bank-id]
+                   :role "developer"
+                   :bank-name "Link Bank"}}}]
+ :then
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :invitation :invitation
+                                           :invitation-id]}
+             :auth :invitee-token
+             :headers {:invitation-token [:ref :invitation :token]}}
+   :assert {:status 409 :problem {:type ":invitation/invalid-status"}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/invitations"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 200
+            :body {:items [:m/embeds
+                           [{:invitation-id [:ref :invitation :invitation
+                                             :invitation-id]
+                             :email "link-invitee@example.test"
+                             :accepted-email "link-invitee@queenswood.local"
+                             :accepted-by-user-id [:ref :accepted :user-id]
+                             :status "accepted"}]]}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/members"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 200
+            :body {:items [:m/embeds
+                           [{:membership-id [:ref :accepted :membership-id]
+                             :email "link-invitee@queenswood.local"
+                             :invited-email "link-invitee@example.test"
+                             :role "developer"
+                             :created-organisation false
+                             :invited-by {:kind "member"
+                                          :principal-id
+                                          [:ref :owner-membership :user-id]}}]]}}}
+  ;; A second address reaches the invitee by token too, but a person
+  ;; already holding a membership of the bank takes no second one.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/invitations"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]
+                       :idempotency-key "ik-access-link-invite-003"}
+             :body {:email "link-invitee.second@example.test" :role "viewer"}}
+   :as :second-invitation
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :second-invitation :invitation
+                                           :invitation-id]}
+             :auth :invitee-token
+             :headers {:invitation-token [:ref :second-invitation :token]}}
+   :assert {:status 409 :problem {:type ":membership/already-exists"}}}]}

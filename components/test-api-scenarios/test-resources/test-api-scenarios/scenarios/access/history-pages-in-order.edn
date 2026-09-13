@@ -1,0 +1,159 @@
+{:name "The access history pages newest first, and its pages add up to the list"
+ :tags #{:access :api :happy}
+ ;; Seven events at two a page: the bank's creation and the owner's
+ ;; invitation (one transaction), the owner's acceptance, then a
+ ;; member's invitation, acceptance, role change and removal. The
+ ;; unpaged read is the reference each page is compared against.
+ :given
+ [{:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "history-owner"
+   :password "history-owner"
+   :as :owner-token}
+  {:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "history-member"
+   :password "history-member"
+   :as :member-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-access-history-bank-001"}
+             :body {:name "History Bank"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]
+                    :owner-email "history-owner@queenswood.local"}}
+   :as :bank
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :bank :owner-invitation
+                                           :invitation :invitation-id]}
+             :auth :owner-token
+             :headers {:invitation-token [:ref :bank :owner-invitation :token]}}
+   :as :owner-membership
+   :assert {:status 201 :body {:role "owner"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/invitations"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]
+                       :idempotency-key "ik-access-history-invite-001"}
+             :body {:email "history-member@queenswood.local"
+                    :role "developer"
+                    :reason "Joining the platform team"}}
+   :as :invitation
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :invitation :invitation
+                                           :invitation-id]}
+             :auth :member-token}
+   :as :member-membership
+   :assert {:status 201 :body {:role "developer"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/members/{membership-id}/change-role"
+             :path-params {:membership-id [:ref :member-membership
+                                           :membership-id]}
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :body {:role "admin" :reason "Leads the platform team"}}
+   :assert {:status 200 :body {:role "admin"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/members/{membership-id}/remove"
+             :path-params {:membership-id [:ref :member-membership
+                                           :membership-id]}
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :body {:reason "Left the company"}}
+   :assert {:status 204}}]
+ :when
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/access-events"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :as :all
+   :assert
+   {:status 200
+    :body
+    {:items [{:kind "member-removed"
+              :actor {:kind "member"
+                      :principal-id [:ref :owner-membership :user-id]}
+              :subject-user-id [:ref :member-membership :user-id]
+              :membership-id [:ref :member-membership :membership-id]
+              :role-before "admin"
+              :reason "Left the company"}
+             {:kind "role-changed"
+              :actor {:kind "member"
+                      :principal-id [:ref :owner-membership :user-id]}
+              :subject-user-id [:ref :member-membership :user-id]
+              :role-before "developer"
+              :role-after "admin"
+              :reason "Leads the platform team"}
+             {:kind "invitation-accepted"
+              :actor {:kind "member"
+                      :principal-id [:ref :member-membership :user-id]}
+              :subject-user-id [:ref :member-membership :user-id]
+              :invitation-id [:ref :invitation :invitation :invitation-id]}
+             {:kind "invitation-created"
+              :actor {:kind "member"
+                      :principal-id [:ref :owner-membership :user-id]}
+              :invitation-id [:ref :invitation :invitation :invitation-id]
+              :email "history-member@queenswood.local"
+              :role-after "developer"
+              :reason "Joining the platform team"}
+             {:kind "invitation-accepted"
+              :subject-user-id [:ref :owner-membership :user-id]}
+             {:kind "invitation-created"
+              :actor {:kind "operator" :principal-id "queenswood-admin"}}
+             {:kind "bank-created"
+              :actor {:kind "operator" :principal-id "queenswood-admin"}}]
+     :links [:m/absent]}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/access-events"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :query-params {"page[size]" 2}}
+   :as :page-1
+   :assert {:status 200
+            :body {:items [:m/equals
+                           [[:ref :all :items 0] [:ref :all :items 1]]]
+                   :links {:next [:m/regex "^/v1/access-events\\?"]}}}}
+  {:command :api/request
+   :request {:method :get
+             :url [:ref :page-1 :links :next]
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :as :page-2
+   :assert {:status 200
+            :body {:items [:m/equals
+                           [[:ref :all :items 2] [:ref :all :items 3]]]
+                   :links {:next [:m/regex ".+"]}}}}
+  {:command :api/request
+   :request {:method :get
+             :url [:ref :page-2 :links :next]
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :as :page-3
+   :assert {:status 200
+            :body {:items [:m/equals
+                           [[:ref :all :items 4] [:ref :all :items 5]]]
+                   :links {:next [:m/regex ".+"]}}}}
+  {:command :api/request
+   :request {:method :get
+             :url [:ref :page-3 :links :next]
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 200
+            :body {:items [:m/equals [[:ref :all :items 6]]]
+                   :links {:next [:m/absent]}}}}]}

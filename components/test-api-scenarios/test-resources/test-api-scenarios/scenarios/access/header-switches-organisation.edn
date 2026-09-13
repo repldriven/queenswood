@@ -1,0 +1,170 @@
+{:name
+ "One person owns one bank and views another, and the header picks between them"
+ :tags #{:access :api :auth :unhappy}
+ ;; Bank A is the person's own, bank B's owner invites them as a
+ ;; viewer, and bank C has no member at all. The same bearer is used
+ ;; throughout, so what changes each answer is `Bank-Id` alone.
+ :given
+ [{:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "multi-person"
+   :password "multi-person"
+   :as :person-token}
+  {:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "multi-owner"
+   :password "multi-owner"
+   :as :owner-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-access-multi-bank-a-001"}
+             :body {:name "Multi Bank A"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]
+                    :owner-email "multi-person@queenswood.local"}}
+   :as :bank-a
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :bank-a :owner-invitation
+                                           :invitation :invitation-id]}
+             :auth :person-token
+             :headers {:invitation-token [:ref :bank-a :owner-invitation
+                                          :token]}}
+   :as :a-membership
+   :assert {:status 201 :body {:role "owner"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-access-multi-bank-b-001"}
+             :body {:name "Multi Bank B"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]
+                    :owner-email "multi-owner@queenswood.local"}}
+   :as :bank-b
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :bank-b :owner-invitation
+                                           :invitation :invitation-id]}
+             :auth :owner-token
+             :headers {:invitation-token [:ref :bank-b :owner-invitation
+                                          :token]}}
+   :as :b-owner-membership
+   :assert {:status 201 :body {:role "owner"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/invitations"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank-b :bank-id]
+                       :idempotency-key "ik-access-multi-invite-001"}
+             :body {:email "multi-person@queenswood.local" :role "viewer"}}
+   :as :b-invitation
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :b-invitation :invitation
+                                           :invitation-id]}
+             :auth :person-token}
+   :assert {:status 201 :body {:role "viewer"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-access-multi-bank-c-001"}
+             :body {:name "Multi Bank C"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :bank-c
+   :assert {:status 201 :body {:owner-invitation [:m/absent]}}}]
+ :when
+ [{:command :api/request
+   :request {:method :get :path "/v1/me" :auth :person-token}
+   :assert {:status 200
+            :body {:memberships [:m/in-any-order
+                                 [{:bank-id [:ref :bank-a :bank-id]
+                                   :bank-name "Multi Bank A"
+                                   :role "owner"}
+                                  {:bank-id [:ref :bank-b :bank-id]
+                                   :bank-name "Multi Bank B"
+                                   :role "viewer"}]]}}}
+  {:command :api/request
+   :request {:method :get :path "/v1/cash-accounts" :auth :person-token}
+   :assert {:status 403
+            :problem {:type "auth/forbidden"
+                      :detail "Name the bank in the Bank-Id header"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :person-token
+             :headers {:bank-id [:ref :bank-a :bank-id]
+                       :idempotency-key "ik-access-multi-product-a-001"}
+             :body {:name "Multi Current Account"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-01-01"}}
+   :assert {:status 201 :body {:status "draft"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :person-token
+             :headers {:bank-id [:ref :bank-b :bank-id]
+                       :idempotency-key "ik-access-multi-product-b-001"}
+             :body {:name "Multi Current Account"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-01-01"}}
+   :assert {:status 403
+            :problem {:type "auth/forbidden"
+                      :detail "Insufficient privileges"}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts"
+             :auth :person-token
+             :headers {:bank-id [:ref :bank-b :bank-id]}}
+   :assert {:status 200}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts"
+             :auth :person-token
+             :headers {:bank-id [:ref :bank-c :bank-id]}}
+   :assert {:status 403
+            :problem {:type "auth/forbidden"
+                      :detail "The caller is not a member of this bank"}}}]
+ :then
+ ;; An owner of A naming A may change roles in A only: a membership of
+ ;; B is not found there, rather than refused as someone else's.
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/members/{membership-id}/change-role"
+             :path-params {:membership-id [:ref :b-owner-membership
+                                           :membership-id]}
+             :auth :person-token
+             :headers {:bank-id [:ref :bank-a :bank-id]}
+             :body {:role "viewer"}}
+   :assert {:status 404 :problem {:type ":membership/not-found"}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/members"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank-b :bank-id]}}
+   :assert {:status 200
+            :body {:items [:m/in-any-order
+                           [{:membership-id [:ref :b-owner-membership
+                                             :membership-id]
+                             :role "owner"}
+                            {:email "multi-person@queenswood.local"
+                             :role "viewer"}]]}}}]}

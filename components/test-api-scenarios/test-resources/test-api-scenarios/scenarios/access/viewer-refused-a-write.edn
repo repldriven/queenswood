@@ -1,0 +1,88 @@
+{:name "A viewer reads the bank and is refused a write at the edge"
+ :tags #{:access :api :auth :unhappy}
+ ;; The refused body is well formed, so the 403 is the gate's and not
+ ;; the request coercion's, which runs before it.
+ :given
+ [{:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "viewer-owner"
+   :password "viewer-owner"
+   :as :owner-token}
+  {:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "viewer-viewer"
+   :password "viewer-viewer"
+   :as :viewer-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-access-viewer-bank-001"}
+             :body {:name "Viewer Bank"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]
+                    :owner-email "viewer-owner@queenswood.local"}}
+   :as :bank
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :bank :owner-invitation
+                                           :invitation :invitation-id]}
+             :auth :owner-token
+             :headers {:invitation-token [:ref :bank :owner-invitation :token]}}
+   :assert {:status 201 :body {:role "owner"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/invitations"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]
+                       :idempotency-key "ik-access-viewer-invite-001"}
+             :body {:email "viewer-viewer@queenswood.local" :role "viewer"}}
+   :as :invitation
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :invitation :invitation
+                                           :invitation-id]}
+             :auth :viewer-token}
+   :assert {:status 201 :body {:role "viewer"}}}]
+ :when
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts"
+             :auth :viewer-token
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 200}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :viewer-token
+             :headers {:bank-id [:ref :bank :bank-id]
+                       :idempotency-key "ik-access-viewer-open-001"}
+             :body {:party-id [:ref :bank :party :party-id]
+                    :name "Refused Account"
+                    :currency "GBP"
+                    :product-id [:ref :bank :accounts 0 :product-id]}}
+   :assert {:status 403
+            :problem {:type "auth/forbidden"
+                      :detail "Insufficient privileges"}}}]
+ :then
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/members"
+             :auth :viewer-token
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 200}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/invitations"
+             :auth :viewer-token
+             :headers {:bank-id [:ref :bank :bank-id]
+                       :idempotency-key "ik-access-viewer-invite-002"}
+             :body {:email "viewer-guest@example.test" :role "viewer"}}
+   :assert {:status 403 :problem {:type "auth/forbidden"}}}]}

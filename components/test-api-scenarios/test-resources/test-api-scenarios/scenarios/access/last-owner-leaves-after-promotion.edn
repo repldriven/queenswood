@@ -1,0 +1,120 @@
+{:name "The last owner is refused leaving, and leaves once an admin is promoted"
+ :tags #{:access :api :unhappy}
+ :given
+ [{:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "last-owner"
+   :password "last-owner"
+   :as :owner-token}
+  {:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "last-admin"
+   :password "last-admin"
+   :as :admin-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-access-last-bank-001"}
+             :body {:name "Last Owner Bank"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]
+                    :owner-email "last-owner@queenswood.local"}}
+   :as :bank
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :bank :owner-invitation
+                                           :invitation :invitation-id]}
+             :auth :owner-token
+             :headers {:invitation-token [:ref :bank :owner-invitation :token]}}
+   :as :owner-membership
+   :assert {:status 201 :body {:role "owner"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/invitations"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]
+                       :idempotency-key "ik-access-last-invite-001"}
+             :body {:email "last-admin@queenswood.local" :role "admin"}}
+   :as :invitation
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :invitation :invitation
+                                           :invitation-id]}
+             :auth :admin-token}
+   :as :admin-membership
+   :assert {:status 201 :body {:role "admin"}}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/me/memberships/{membership-id}/leave"
+             :path-params {:membership-id [:ref :owner-membership
+                                           :membership-id]}
+             :auth :owner-token}
+   :assert {:status 409
+            :problem {:type ":membership/last-owner"
+                      :detail "Make someone else an owner first"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/members/{membership-id}/change-role"
+             :path-params {:membership-id [:ref :admin-membership
+                                           :membership-id]}
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :body {:role "owner" :reason "Taking over the bank"}}
+   :assert {:status 200
+            :body {:membership-id [:ref :admin-membership :membership-id]
+                   :role "owner"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/memberships/{membership-id}/leave"
+             :path-params {:membership-id [:ref :owner-membership
+                                           :membership-id]}
+             :auth :owner-token}
+   :assert {:status 204}}]
+ :then
+ [{:command :api/request
+   :request {:method :get :path "/v1/me" :auth :owner-token}
+   :assert {:status 200 :body {:memberships []}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/memberships/{membership-id}/leave"
+             :path-params {:membership-id [:ref :owner-membership
+                                           :membership-id]}
+             :auth :owner-token}
+   :assert {:status 409 :problem {:type ":membership/invalid-status"}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/members"
+             :auth :admin-token
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 200
+            :body {:items [{:membership-id [:ref :admin-membership
+                                            :membership-id]
+                            :role "owner"}]}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/access-events"
+             :auth :admin-token
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :query-params {"page[size]" 2}}
+   :assert {:status 200
+            :body {:items [{:kind "member-left"
+                            :actor {:kind "member"
+                                    :principal-id
+                                    [:ref :owner-membership :user-id]}
+                            :membership-id [:ref :owner-membership
+                                            :membership-id]
+                            :role-before "owner"}
+                           {:kind "role-changed"
+                            :subject-user-id [:ref :admin-membership :user-id]
+                            :role-before "admin"
+                            :role-after "owner"
+                            :reason "Taking over the bank"}]}}}]}

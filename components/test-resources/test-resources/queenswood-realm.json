@@ -244,6 +244,18 @@
             "access.token.claim": "true",
             "id.token.claim": "true"
           }
+        },
+        {
+          "name": "email-verified",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "config": {
+            "user.attribute": "emailVerified",
+            "claim.name": "email_verified",
+            "jsonType.label": "boolean",
+            "access.token.claim": "true",
+            "id.token.claim": "true"
+          }
         }
       ]
     }
@@ -290,6 +302,411 @@
         {
           "type": "password",
           "value": "member",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "link-owner",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "link-owner@queenswood.local",
+      "firstName": "Link",
+      "lastName": "Owner",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "link-owner",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "link-invitee",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "link-invitee@queenswood.local",
+      "firstName": "Link",
+      "lastName": "Invitee",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "link-invitee",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "match-owner",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "match-owner@queenswood.local",
+      "firstName": "Match",
+      "lastName": "Owner",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "match-owner",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "match-invitee",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "match-invitee@queenswood.local",
+      "firstName": "Match",
+      "lastName": "Invitee",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "match-invitee",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "viewer-owner",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "viewer-owner@queenswood.local",
+      "firstName": "Viewer",
+      "lastName": "Owner",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "viewer-owner",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "viewer-viewer",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "viewer-viewer@queenswood.local",
+      "firstName": "Viewer",
+      "lastName": "Viewer",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "viewer-viewer",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "developer-owner",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "developer-owner@queenswood.local",
+      "firstName": "Developer",
+      "lastName": "Owner",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "developer-owner",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "developer-developer",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "developer-developer@queenswood.local",
+      "firstName": "Developer",
+      "lastName": "Developer",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "developer-developer",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "inviting-owner",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "inviting-owner@queenswood.local",
+      "firstName": "Inviting",
+      "lastName": "Owner",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "inviting-owner",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "inviting-admin",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "inviting-admin@queenswood.local",
+      "firstName": "Inviting",
+      "lastName": "Admin",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "inviting-admin",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "last-owner",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "last-owner@queenswood.local",
+      "firstName": "Last",
+      "lastName": "Owner",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "last-owner",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "last-admin",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "last-admin@queenswood.local",
+      "firstName": "Last",
+      "lastName": "Admin",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "last-admin",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "removed-owner",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "removed-owner@queenswood.local",
+      "firstName": "Removed",
+      "lastName": "Owner",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "removed-owner",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "removed-member",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "removed-member@queenswood.local",
+      "firstName": "Removed",
+      "lastName": "Member",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "removed-member",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "multi-person",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "multi-person@queenswood.local",
+      "firstName": "Multi",
+      "lastName": "Person",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "multi-person",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "multi-owner",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "multi-owner@queenswood.local",
+      "firstName": "Multi",
+      "lastName": "Owner",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "multi-owner",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "handover-owner",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "handover-owner@queenswood.local",
+      "firstName": "Handover",
+      "lastName": "Owner",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "handover-owner",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "recovery-founder",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "recovery-founder@queenswood.local",
+      "firstName": "Recovery",
+      "lastName": "Founder",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "recovery-founder",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "recovery-owner",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "recovery-owner@queenswood.local",
+      "firstName": "Recovery",
+      "lastName": "Owner",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "recovery-owner",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "history-owner",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "history-owner@queenswood.local",
+      "firstName": "History",
+      "lastName": "Owner",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "history-owner",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "history-member",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "history-member@queenswood.local",
+      "firstName": "History",
+      "lastName": "Member",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "history-member",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "replay-owner",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "replay-owner@queenswood.local",
+      "firstName": "Replay",
+      "lastName": "Owner",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "replay-owner",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "tier-owner",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "tier-owner@queenswood.local",
+      "firstName": "Tier",
+      "lastName": "Owner",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "tier-owner",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "tier-developer",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "tier-developer@queenswood.local",
+      "firstName": "Tier",
+      "lastName": "Developer",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "tier-developer",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "proof-owner",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "proof-owner@queenswood.local",
+      "firstName": "Proof",
+      "lastName": "Owner",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "proof-owner",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "proof-stranger",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "proof-stranger@queenswood.local",
+      "firstName": "Proof",
+      "lastName": "Stranger",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "proof-stranger",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "proof-unverified",
+      "enabled": true,
+      "emailVerified": false,
+      "email": "proof-unverified@queenswood.local",
+      "firstName": "Proof",
+      "lastName": "Unverified",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "proof-unverified",
           "temporary": false
         }
       ]

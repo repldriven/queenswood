@@ -1,0 +1,87 @@
+{:name "An invitee signed in under the invited address accepts without a token"
+ :tags #{:access :api :happy}
+ ;; The invitation is typed with capitals, and the invitee's verified
+ ;; email matches it lower-cased, so the invitation shows in the
+ ;; invitee's own list and no `Invitation-Token` is sent.
+ :given
+ [{:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "match-owner"
+   :password "match-owner"
+   :as :owner-token}
+  {:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "match-invitee"
+   :password "match-invitee"
+   :as :invitee-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-access-match-bank-001"}
+             :body {:name "Match Bank"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]
+                    :owner-email "match-owner@queenswood.local"}}
+   :as :bank
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :bank :owner-invitation
+                                           :invitation :invitation-id]}
+             :auth :owner-token
+             :headers {:invitation-token [:ref :bank :owner-invitation :token]}}
+   :as :owner-membership
+   :assert {:status 201 :body {:role "owner"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/invitations"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]
+                       :idempotency-key "ik-access-match-invite-001"}
+             :body {:email "Match-Invitee@queenswood.local" :role "developer"}}
+   :as :invitation
+   :assert {:status 201}}]
+ :when
+ [{:command :api/request
+   :request {:method :get :path "/v1/me/invitations" :auth :invitee-token}
+   :assert {:status 200
+            :body {:items [{:invitation-id [:ref :invitation :invitation
+                                            :invitation-id]
+                            :bank-id [:ref :bank :bank-id]
+                            :bank-name "Match Bank"
+                            :role "developer"
+                            :status "pending"
+                            :expires-at [:m/any]
+                            :invited-by {:kind "member"
+                                         :principal-id
+                                         [:ref :owner-membership :user-id]}}]}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :invitation :invitation
+                                           :invitation-id]}
+             :auth :invitee-token}
+   :as :accepted
+   :assert {:status 201
+            :body {:bank-id [:ref :bank :bank-id] :role "developer"}}}]
+ :then
+ [{:command :api/request
+   :request {:method :get :path "/v1/me/invitations" :auth :invitee-token}
+   :assert {:status 200 :body {:items []}}}
+  {:command :api/request
+   :request {:method :get :path "/v1/me" :auth :invitee-token}
+   :assert {:status 200
+            :body {:memberships [{:membership-id [:ref :accepted :membership-id]
+                                  :bank-id [:ref :bank :bank-id]
+                                  :bank-name "Match Bank"
+                                  :role "developer"}]
+                   :operator false}}}
+  ;; One membership, so no `Bank-Id` is needed to name the bank.
+  {:command :api/request
+   :request {:method :get :path "/v1/cash-accounts" :auth :invitee-token}
+   :assert {:status 200}}]}
