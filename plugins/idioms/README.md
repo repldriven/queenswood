@@ -9,18 +9,15 @@ Clojure repo; a design rule is meaningless outside this system.
 ## Rules
 
 - **[idioms](rules/idioms.md)** — the always-loaded conventions for
-  writing Queenswood Clojure: return anomalies instead of throwing
-  across a boundary, take IDs and timestamps from `utility`, drive
-  tests with `with-test-system`, cross a brick boundary only through
-  `interface.clj`, and comment the *why* not the *what*.
+  writing Queenswood Clojure on top of mono's `idioms` rule: which
+  test form a case takes, what a brick's tests may require, and the
+  test recipes. Anomalies, `utility` helpers, require order, code style
+  and comments are mono's rule, imported beside this one.
 
 Rules are guidance — they shape how code gets written. Enforcement is
-separate and deterministic: the `no-raw-throw` semgrep rule
-(`.config/semgrep/semgrep.yml`) runs in the pre-commit hook, so a
-regression is caught by the linter, not by asking an agent to look.
-
-Planned: dedicated code-style rules (requires/naming/`cond->`) and a
-kebab-case-keys rule, split out if this file ever grows unwieldy.
+separate and deterministic: the semgrep rules and the
+`brick-test-scope` guardrail run in the pre-commit hook, so a regression
+is caught by the linter, not by asking an agent to look.
 
 ## Evals
 

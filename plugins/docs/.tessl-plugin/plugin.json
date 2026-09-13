@@ -1,6 +1,6 @@
 {
   "name": "queenswood/docs",
   "version": "0.1.0",
-  "description": "Writing or checking docs under docs/ — wrap-80, mermaid, link hygiene, tone, and the PRD-vs-TDD register split. Built and evaluated with Tessl.",
+  "description": "Writing a PRD in the product register, on top of mono's docs rule. Built and evaluated with Tessl.",
   "private": true
 }

@@ -60,6 +60,11 @@ jobs:
       - name: Check pinned versions
         run: ./scripts/check-versions.sh
 
+      # Lays mono's share down at the pinned sha and refuses a path this
+      # tree tracks, so an ADR number used in both repositories fails here.
+      - name: Import mono's share
+        run: ./scripts/mono-import.sh && ./scripts/mono-import.sh --check
+
   discover:
     needs: changes
     if: needs.changes.outputs.clojure == 'true'
@@ -246,6 +251,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+
+      # The console bundles docs/, part of which is mono's.
+      - name: Import mono's share
+        run: ./scripts/mono-import.sh
 
       # Matches the build stage of infra/docker/console/Dockerfile.
       # package-manager-cache defaults on and shells out to the runner's

@@ -139,13 +139,16 @@ with a doc that goes deep:
   interface returns a value or an anomaly and never raises. Three kinds
   separate a fault from a refusal from a forbidden call, which is how
   the API picks a status family without inspecting a payload.
-  See [ADR-0005](docs/adr/0005-error-handling-with-anomalies.md).
+  See
+  [ADR-0005](https://github.com/repldriven/mono/blob/main/docs/adr/0005-error-handling-with-anomalies.md).
 - **System-as-data.** Test and production share one bootstrap path, and
   what a given process runs is decided by its configuration rather than
   its code: the same bricks start as a modular monolith in one JVM or as
   separate services.
-  See [ADR-0007](docs/adr/0007-system-as-data.md) and the
-  [slides](docs/slides/systems-as-data/slides.md).
+  See
+  [ADR-0007](https://github.com/repldriven/mono/blob/main/docs/adr/0007-system-as-data.md)
+  and the
+  [slides](https://github.com/repldriven/mono/blob/main/docs/slides/systems-as-data/slides.md).
 - **FoundationDB Record Layer.** Multi-record ACID across stores in one
   transaction, so creating a bank writes its party, ledger chart, house
   accounts and policy bindings, or none of them. Changelog entries are
@@ -175,11 +178,16 @@ decisions in between:
 - **[docs/adr/](docs/adr/)** — the decisions, each with the context
   that forced it and the consequences accepted. Kept as a record, so
   one that has been superseded says so rather than being rewritten.
+  The decisions mono owns are laid down beside these by
+  `just mono-import`, at the sha the dependency pins.
 - **[docs/recipes/](docs/recipes/)** — task-oriented guides in a fixed
   shape (Problem, Solution, Rules, Discussion, References) for the
-  things you do repeatedly in this codebase.
-- **[docs/slides/](docs/slides/)** — a slidev walk-through of how
-  systems-as-data assembles a running system.
+  things you do repeatedly in this codebase. The recipes mono owns —
+  writing to its bricks, and testing against them — are laid down
+  beside these by the same import.
+- **[docs/slides/](https://github.com/repldriven/mono/tree/main/docs/slides)**
+  — mono's slidev walk-through of how systems-as-data assembles a
+  running system, laid down here by the same import.
 
 These are not only for people. Nearly every ADR and recipe carries a
 label binding it to a rule plugin, and the rules an agent loads on every
@@ -344,4 +352,4 @@ documented in the
 
 For the workspace layout, see `components/`, `bases/`, and
 `projects/`. Brick conventions are documented in
-[recipes/components](docs/recipes/code/components.md).
+[recipes/components](https://github.com/repldriven/mono/blob/main/docs/recipes/code/components.md).

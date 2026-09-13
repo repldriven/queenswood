@@ -12,13 +12,15 @@ shared infra lives in the dependency as `com.repldriven.mono.*`. See
 
 CLAUDE.md is the routing layer. Every `docs/recipes/*.md` and
 `docs/adr/*.md` file below is labeled `<!-- tessl-plugin: <name> -->`,
-and that plugin's rule (always loaded via `AGENTS.md`) already
-distills its `## Rules` / `## Decision` — you don't need to open the
-doc to rediscover that. Open it for the *why* behind the rule instead:
-Context, Consequences, Discussion. `docs/tdd/`, `docs/prd/`,
-`docs/plan/` and `docs/compliance/` docs are the exception — nothing
-distills them, so open those in full before non-trivial work on their
-topic.
+and that plugin's rule (always loaded via `AGENTS.md`) already distills
+its `## Rules` / `## Decision` — you don't need to open the doc to
+rediscover that. Open it for the *why* behind the rule instead: Context,
+Consequences, Discussion. The ADRs and recipes mono owns sit beside
+Queenswood's under `docs/`, laid down by `just mono-import` at the
+pinned sha, and distilled by mono's plugins rather than these.
+`docs/tdd/`, `docs/prd/`, `docs/plan/` and `docs/compliance/` docs are
+the exception — nothing distills them, so open those in full before
+non-trivial work on their topic.
 
 ### Code
 
@@ -75,12 +77,20 @@ topic.
   `domain.clj`.
   See [tdd/processor-bricks.md](docs/tdd/processor-bricks.md).
 - **Bases and projects** — entry points, per-service projects,
-  the development project that includes everything.
-  See [bases.md](docs/recipes/code/bases.md) and
-  [projects.md](docs/recipes/code/projects.md).
+  the development project that includes everything; the two
+  aggregators and the composed bases inside them; the `pin/`
+  shims under `deps/`.
+  See [bases.md](docs/recipes/code/bases.md),
+  [aggregator-bases.md](docs/recipes/code/aggregator-bases.md),
+  [projects.md](docs/recipes/code/projects.md) and
+  [library-pins.md](docs/recipes/code/library-pins.md).
 - **System configurations** — YAML system definitions, profiles,
-  `!system/component` / `!system/ref` / `!env`.
-  See [system-configurations.md](docs/recipes/code/system-configurations.md).
+  `!system/component` / `!system/ref` / `!env`; a service project's
+  `application.yml`, and the shared groups it includes rather than
+  copies.
+  See [system-configurations.md](docs/recipes/code/system-configurations.md)
+  and
+  [service-configurations.md](docs/recipes/code/service-configurations.md).
 - **Service APIs** — Reitit + Sieppari + Muuntaja, RFC 9457
   problem details, two-tier auth, OpenAPI assembly. The API style
   is resource-based, not CRUD-shaped.
@@ -99,7 +109,8 @@ topic.
 - **General testing** — `with-test-system`, `nom-test>`, no
   `use-fixtures`, what a brick's own tests may require and what
   makes a case a scenario, brick-level vs project-level test runs.
-  See [testing.md](docs/recipes/test/testing.md).
+  See [testing.md](docs/recipes/test/testing.md) and
+  [test-system.md](docs/recipes/test/test-system.md).
 - **Testcontainers** — FDB and Pulsar containers, reuse, image
   selection. See
   [testcontainers.md](docs/recipes/test/testcontainers.md).
@@ -118,7 +129,8 @@ topic.
   overclaim, no competitor names, PRDs use product language and
   describe what users do via "the banking API" rather than
   naming operations. See
-  [writing-docs.md](docs/recipes/practices/writing-docs.md).
+  [writing-docs.md](docs/recipes/practices/writing-docs.md) and
+  [writing-prds.md](docs/recipes/practices/writing-prds.md).
 
 ### Operations
 
@@ -285,9 +297,15 @@ topic.
   it, where a constant or a helper is declared, and what a comment in a
   body is for. See
   [justfile-recipes.md](docs/recipes/practices/justfile-recipes.md).
-- **Pre-commit hooks** — zprint, clj-kondo, before-commit
-  formatting. See
+- **Git hooks** — what `pre-commit`, `commit-msg` and `post-checkout`
+  run, in what order, and how to arm them. See
+  [git-hooks.md](docs/recipes/practices/git-hooks.md) and
   [ADR-0012](docs/adr/0012-pre-commit-hooks.md).
+- **mono's share of the tree** — what `just mono-import` lays down at
+  the pinned sha, when it runs, and what a refusal or a missing file
+  means. See
+  [mono-import.md](docs/recipes/practices/mono-import.md) and
+  [ADR-0001](docs/adr/0001-reuse-mono-as-upstream.md).
 
 ### Domain reference
 
@@ -334,11 +352,19 @@ clojure -M:poly test brick:<brick1>:<brick2> project:dev :all
 # Regenerate code after a schema change.
 just force-prep
 
+# Lay down mono's share of the tree (its ADRs, recipes, slides, plugins,
+# hook library, semgrep rules and justfiles) at the sha
+# deps/mono-dev/deps.edn pins. .envrc
+# already does this on entering the primary checkout, and post-checkout
+# does it for every new worktree; run it again after a bump.
+just mono-import
+
 # Install the git hooks. .envrc already does this on entering the
 # primary checkout, so this is the fallback for a clone with no direnv.
-# A hook is a copy, not a symlink, so anything edited under
-# scripts/hooks/ needs it again. post-checkout is among them, which is
-# what gives every new worktree its .tessl/ rules.
+# The recipe is one of the imported ones, so mono-import comes first. A
+# hook is a copy, not a symlink, so anything edited under scripts/hooks/
+# needs it again. post-checkout is among them, which is what gives every
+# new worktree its .mono/ share and .tessl/ rules.
 just install-hooks
 ```
 

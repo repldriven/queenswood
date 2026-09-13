@@ -1,6 +1,6 @@
 {
   "name": "queenswood/workflow",
   "version": "0.1.0",
-  "description": "Development-workflow automation: git flow, and keeping Tessl rules in sync with docs/recipes and ADRs",
+  "description": "Development-workflow automation on top of mono's workflow rule: the git hooks as Queenswood composes them, and mono's share of the tree",
   "private": true
 }

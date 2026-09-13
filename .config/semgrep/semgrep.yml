@@ -1,64 +1,8 @@
-# Queenswood lint rules for semgrep (generic/token mode — Clojure has no
-# first-class semgrep parser). Run over changed .clj/.cljc by the
-# pre-commit hook; see scripts/hooks/pre-commit.
-#
-# What belongs here rather than in scripts/hooks/enforce-idioms.sh: a rule
-# decidable from one file's tokens plus its path. Semgrep gives those a
-# per-site `nosemgrep` opt-out, so a legitimate exception is marked where
-# it lives instead of pushing the whole rule down to advisory. A rule
-# needing cross-file knowledge — a count across the tree, a declaration
-# matched to a reference elsewhere, or the name of the brick the file sits
-# in — cannot be expressed here and stays in enforce-idioms.sh.
+# Queenswood's semgrep rules, run after mono's (imported to
+# .mono/.config/semgrep/semgrep.yml) by the pre-commit hook and by
+# `just lint-branch`. What is here needs this workspace's namespaces or
+# brick layout; a rule any Polylith workspace could run is mono's.
 rules:
-  - id: no-raw-throw
-    languages: [generic]
-    severity: ERROR
-    message: >-
-      Raw `throw`: exceptions must not escape a brick boundary — an
-      interface returns a value or an anomaly, never raises (ADR-0005,
-      recipes/code/error-handling.md). Convert exceptions at library edges
-      with `error/try-nom` / `error/nom->`, or reject via
-      `error/reject`. If a throw is genuinely required (startup fatal,
-      InterruptedException rethrow, boundary conversion, test), mark it
-      on the same line with `; nosemgrep: no-raw-throw — <reason>`.
-    patterns:
-      - pattern: (throw ...)
-    paths:
-      include:
-        - "*.clj"
-        - "*.cljc"
-
-  - id: no-raw-time-id
-    languages: [generic]
-    severity: ERROR
-    message: >-
-      Raw time/id primitive: IDs and timestamps come from the `utility`
-      brick (recipes/code/common-helpers.md, recipes/code/code-style.md). Use
-      `utility/uuidv7` or `utility/generate-id` for identifiers,
-      `utility/now` for epoch millis, `utility/now-rfc3339` for an
-      RFC-3339 string, `utility/today` for an epoch-day. Calling the
-      JDK directly puts a second, untestable clock in the system. If a
-      raw call is genuinely required, mark it on the line above with
-      `;; nosemgrep: no-raw-time-id — <reason>`.
-    pattern-regex: '\((?:random-uuid|(?:java\.util\.)?UUID/randomUUID|(?:java\.time\.)?Instant/now|System/currentTimeMillis)\)'
-    paths:
-      include:
-        - "*.clj"
-        - "*.cljc"
-
-  - id: no-use-fixtures
-    languages: [generic]
-    severity: ERROR
-    message: >-
-      `use-fixtures`: tests manage system lifecycle with
-      `with-test-system`, which scopes setup to the test that needs it
-      instead of to every test in the namespace
-      (recipes/test/testing.md). Assert anomaly-freeness with `nom-test>`.
-    pattern-regex: '\buse-fixtures\b'
-    paths:
-      include:
-        - "**/test/**"
-
   - id: fdb-outside-store
     languages: [generic]
     severity: ERROR
@@ -118,30 +62,3 @@ rules:
     paths:
       include:
         - "**/watcher.clj"
-
-  - id: main-outside-a-base
-    languages: [generic]
-    severity: ERROR
-    message: >-
-      `-main` or `:gen-class` outside `bases/`: a base owns the
-      application entry point, and components are libraries it composes
-      (recipes/code/bases.md, recipes/code/components.md).
-    pattern-regex: '\((?:defn -main[^a-zA-Z0-9_-]|:gen-class\))'
-    paths:
-      include:
-        - "/components/**"
-
-  - id: message-bus-backend-direct
-    languages: [generic]
-    severity: ERROR
-    message: >-
-      Broker client referenced directly: the message bus stays behind
-      the `message-bus` brick's `Producer` / `Consumer` protocols, which
-      is what lets a deployment swap Kafka for Pulsar or for the local
-      channels backend without touching a component (ADR-0003). Consume
-      the wrapper brick's interface, never the library (ADR-0011).
-    pattern-regex: 'org\.apache\.(?:kafka|pulsar)'
-    paths:
-      include:
-        - "*.clj"
-        - "*.cljc"

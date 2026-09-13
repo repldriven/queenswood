@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # PostToolUse hook for Edit/Write/MultiEdit on markdown files
 # in the doc-quality scope. Runs the same check-docs script
-# the skill uses and surfaces findings to the agent.
+# the installed skill uses and surfaces findings to the agent.
 #
 # Stdin: JSON with the tool-use event. We inspect
 # `tool_input.file_path` (Edit/Write) or `tool_input.edits[*].file_path`
@@ -60,10 +60,14 @@ done <<< "$paths"
 
 [ "$touched_in_scope" -eq 0 ] && exit 0
 
-# Run the check-docs script. Capture and report only when
-# at least one section FAILed — keep silent on a clean run
-# so the hook doesn't spam after every edit.
-out="$(bash .claude/skills/check-docs/checks.sh 2>&1)"
+# Run the check-docs script, which mono's docs plugin installs as
+# a skill; a tree that has not installed the plugins has no script
+# and stays silent. Capture and report only when at least one
+# section FAILed — keep silent on a clean run so the hook doesn't
+# spam after every edit.
+script=.claude/skills/tessl__check-docs/checks.sh
+[ -f "$script" ] || exit 0
+out="$(bash "$script" 2>&1)"
 
 if printf '%s' "$out" | grep -q '^FAIL — '; then
   echo "doc-quality findings (after $(printf '%s' "$paths" | tr '\n' ' '))"

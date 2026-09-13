@@ -61,7 +61,7 @@ The brick's `deps.edn` declares `:deps/prep-lib` and a
 
 The protobuf and record-layer coordinates come from the `deps/`
 shims rather than being written here — see
-[projects.md](projects.md#library-pinning) for why the versions
+[library-pins.md](library-pins.md) for why the versions
 live in one place and which of them need an `:exclusions` entry
 to hold. `pin/fdb` appears twice because an alias's `:deps` key
 replaces the project's rather than extending it: `b/javac` builds

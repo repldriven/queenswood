@@ -1,59 +1,34 @@
 # Queenswood Polylith framework
 
-How to use Polylith itself in this workspace — the brick shape, the
-boundary discipline, and the assemblies built from bricks. Independent
-of Queenswood's own architecture; would apply to any Polylith
-workspace built the same way.
+How Queenswood uses Polylith beyond mono's `framework` rule — the
+aggregator bases that compose several bases into one process, and the
+library versions pinned under `deps/`.
 
-## Cross a brick boundary only through `interface.clj`
+## Aggregator bases are the one base-on-base exception
 
-Reach another component through its `interface.clj`; bases don't have
-one, and the single base that composes other bases (`monolith`)
-reaches them via `.system` / `.api`, never `interface.clj`. Never
-require another unit's `.core` / `.store` / `.domain`; if the symbol
-you need isn't on the interface, add it there first. That reaching
-happens from your own component's `core`/`domain`/`store`/etc. — never
-from your own `interface.clj`, which requires only this component's
-own local namespaces (plus `clojure.core`) and nothing from any other
-brick, not even the `error`/`utility` wrapper bricks. Wrap every
-third-party library in exactly one brick and consume the wrapper,
-never the library — and never list a component in `deps.edn`.
-See [components](../../../docs/recipes/code/components.md),
-[bases](../../../docs/recipes/code/bases.md),
-[ADR-0011](../../../docs/adr/0011-one-component-per-third-party-library.md).
+Bases never depend on other bases, except a designated multi-base
+aggregator — `monolith` (the whole bank, for local dev and end-to-end
+tests) and `external-adapters` (every vendor adapter and its simulator)
+— on the bases it composes. A base that only ever appears inside an
+aggregator is a composed base: it has no project and no `-main`, and
+carries an `interface.clj` that bare-requires its own `system`
+namespace and exposes what the aggregator wires in (typically `app`).
+An aggregator reaches a composed base by that interface and nothing
+else — `.api` is reserved for a base that has none. `poly` still treats
+it as a base, so `enforce-idioms.sh` enforces this, not Polylith. A
+base never owns a store: it may bare-require `fdb.interface` from its
+`system.clj` to register FDB component-kinds and nothing more, and
+`store-in-a-base` in `enforce-idioms.sh` blocks the rest.
+See [aggregator-bases](../../../docs/recipes/code/aggregator-bases.md).
 
-## Bases are application entry points
+## Library versions are pinned once, under `deps/`
 
-A base owns `-main` and `(:gen-class)` in its entry namespace, parses
-CLI args, builds the system definition, and starts it. It accesses
-components the same way any component reaches a peer — through
-`interface.clj` — and bare-requires every brick whose system
-multimethods need to extend at startup. Bases never depend on other
-bases and share nothing between them except through components; the
-one bounded exception is a designated multi-base aggregator
-(`monolith`, `external-adapters`), which composes other bases into one
-in-process system. A base that only ever appears inside an aggregator
-is a composed base: it has no project, so it has no `-main` of its
-own, and it carries an `interface.clj` that bare-requires its own
-`system` namespace and exposes what the aggregator wires in
-(typically `app`). An aggregator reaches a composed base by that
-interface and nothing else — `.api` is reserved for a base that has
-none. `poly` still treats it as a base, so the idioms hook enforces
-this, not Polylith. A base never owns a store: persistence belongs in
-a component, and a base may bare-require `fdb.interface` from its
-`system.clj` to register FDB component-kinds and nothing more —
-`component → base` is disallowed, so state behind an entry point
-would be unreachable by every component.
-See [bases](../../../docs/recipes/code/bases.md).
-
-## Projects are pure config
-
-A project in `projects/` is a `deps.edn` listing its components and
-bases as `:local/root` paths — nothing else. Projects carry no
-Clojure source and never define `-main` (a base does that); a
-deployable project points its `:build` alias at `bases/build`. A
-project MAY carry a `resources/` folder for deployment-scoped files
-(`application.yml`, `logback.xml` / `logback-test.xml`, an optional
-`bank/` subfolder of domain-scoped includes). Projects never depend
-on other projects.
-See [projects](../../../docs/recipes/code/projects.md).
+Pin a library several bricks or projects share in one shim under
+`deps/`, referenced as `pin/<name>` — `pin/protojure`, `pin/fdb`,
+`pin/clojure-core-async` — never declared in a brick or project
+directly. Pinning down needs the competing copy excluded where it
+enters, which is what `pin/protojure` and `pin/fdb` do. Every project
+repeats `org.clojure/clojure`, and `just check-versions` asserts the
+copies against the root `deps.edn`. Renovate owns the bumps.
+Commands: `just check-versions`.
+See [library-pins](../../../docs/recipes/code/library-pins.md).

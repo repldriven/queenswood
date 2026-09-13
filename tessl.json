@@ -19,6 +19,21 @@
     },
     "queenswood/workflow": {
       "source": "file:./plugins/workflow"
+    },
+    "mono/design": {
+      "source": "file:./.mono/plugins/design"
+    },
+    "mono/framework": {
+      "source": "file:./.mono/plugins/framework"
+    },
+    "mono/idioms": {
+      "source": "file:./.mono/plugins/idioms"
+    },
+    "mono/workflow": {
+      "source": "file:./.mono/plugins/workflow"
+    },
+    "mono/docs": {
+      "source": "file:./.mono/plugins/docs"
     }
   }
 }

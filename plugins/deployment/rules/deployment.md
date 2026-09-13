@@ -1034,30 +1034,3 @@ changes the report and nothing else. Never assume a scan ran as you: it
 authenticates through ADC, which may be impersonating something else
 entirely.
 See [security-scanning](../../../docs/recipes/infra/security-scanning.md).
-
-## A recipe fails loudly or not at all
-
-Under `set -e`, `cmd && break`, `[[ test ]] && cmd` and a bare `VAR=$(cmd)`
-whose command may fail each end the recipe rather than the line, so never
-write them there, and never read an instant exit with no output as anything
-other than `set -e` aborting before the recipe's first `echo`. Consume a
-failure you expect instead — `if cmd; then break; fi`, or `|| true` where
-emptiness is handled explicitly — and capture a command's output into a
-variable before piping it, so a denial is not read as an empty result. Use
-whatever the caller supplied and discover only what they did not: never add a
-lookup for a value the caller already named, since discovery fails where an
-argument would have worked. Pass the identity a recipe acts as rather than
-discovering it, and stop rather than guessing where none is given. Declare an
-overridable variable with `env_var_or_default`, and put a recipe in the
-justfile for the domain it acts on, prefixed with that domain's name — the
-prefix is what groups it in `just --list`, and the file is where somebody
-looks for one they half-remember. Declare a constant in the file that reads
-it, and in `vars.just` where more than one does or where it has to agree with
-one already there; put a private helper with the domain it is about, whoever
-calls it. Order a file as constants, private helpers, then recipes in the
-order they are run, with the ad-hoc ones last, and give every recipe a
-one-line comment naming its parameters and the values a fixed parameter takes
-— that line is what `just --list` shows. Never comment a recipe body except
-where a reader would otherwise make an edit that breaks it: why it is that way
-belongs in the recipe under `docs/`.
-See [justfile-recipes](../../../docs/recipes/practices/justfile-recipes.md).
