@@ -116,11 +116,13 @@ and exactly the pinned tree. The second is GitHub's archive of the sha,
 fetched once into the user cache, for a tree without a JVM — the CI
 jobs that bundle `docs/` into the console take this path.
 
-The ADRs, the recipes and the deck land where Queenswood's own would, so every
-relative link under `docs/`, in CLAUDE.md and in the rule files resolves
-without change. Everything else lands under `.mono/`, where nothing
-tracked can be overwritten: mono's plugins carry the same names as
-Queenswood's, and `install-hooks` must not shadow the tracked hooks.
+The ADRs, the recipes and the deck land where Queenswood's own would, so a
+relative link under `docs/`, in CLAUDE.md and in the rule files resolves without
+change, except one from an imported recipe to a mono document outside those
+subtrees: the PRD and TDD its writing recipes cite as worked examples resolve in
+mono alone. Everything else lands under `.mono/`, where nothing tracked can be
+overwritten: mono's plugins carry the same names as Queenswood's, and
+`install-hooks` must not shadow the tracked hooks.
 
 `docs/slides/` and `.mono/` are wholly mono's and sit in `.gitignore`.
 The ADRs and recipes share `docs/adr/` and `docs/recipes/` with

@@ -1,6 +1,0 @@
-{
-  "name": "queenswood/docs",
-  "version": "0.1.0",
-  "description": "Writing a PRD in the product register, on top of mono's docs rule. Built and evaluated with Tessl.",
-  "private": true
-}

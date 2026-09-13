@@ -12,10 +12,9 @@ file distils it.
 - **test/** — how tests drive the system; mono's recipes for the test
   system and the containers it runs against sit beside it.
 - **practices/** — working on the repository itself: the git hooks as
-  this repository composes them, mono's share of the tree, cloud
-  identifiers and naming, and how a PRD is written; mono's recipes for
-  git flow, justfile recipes and how these documents are written sit
-  beside them.
+  this repository composes them, mono's share of the tree, and cloud
+  identifiers and naming; mono's recipes for git flow, justfile
+  recipes and how each kind of document is written sit beside them.
 - **infra/** — everything that runs the bank somewhere: the cloud
   foundation, Crossplane and Argo, credentials and sign-in, the chart,
   and the recovery runbooks.

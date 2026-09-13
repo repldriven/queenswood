@@ -124,12 +124,15 @@ non-trivial work on their topic.
 
 ### Writing docs
 
-- **Markdown formatting, mermaid, tone, PRD register** — wrap at
-  80, link hygiene, no semicolons in mermaid labels, no maturity
-  overclaim, no competitor names, PRDs use product language and
-  describe what users do via "the banking API" rather than
-  naming operations. See
-  [writing-docs.md](docs/recipes/practices/writing-docs.md) and
+- **Markdown formatting, mermaid, tone, and what each kind of
+  document is made of** — wrap at 80, link hygiene, no semicolons in
+  mermaid labels, no maturity overclaim, no competitor names; then the
+  shape of a recipe, an ADR and a TDD, and the shape and product
+  register of a PRD. See
+  [writing-docs.md](docs/recipes/practices/writing-docs.md),
+  [writing-recipes.md](docs/recipes/practices/writing-recipes.md),
+  [writing-adrs.md](docs/recipes/practices/writing-adrs.md),
+  [writing-tdds.md](docs/recipes/practices/writing-tdds.md) and
   [writing-prds.md](docs/recipes/practices/writing-prds.md).
 
 ### Operations
