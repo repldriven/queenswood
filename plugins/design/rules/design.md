@@ -1,9 +1,9 @@
 # Queenswood system design
 
 How Queenswood specifically is built on top of Polylith and mono —
-persistence, system wiring, reactive state, messaging, the API
-surface, and how work gets packaged for deployment. Queenswood's own
-architectural choices, not portable Polylith or Clojure conventions.
+persistence, system wiring, reactive state, the API surface, and how
+work gets packaged for deployment. Queenswood's own architectural
+choices, not portable Polylith or Clojure conventions.
 
 ## Queenswood consumes `mono` as a pinned dependency
 
@@ -45,33 +45,20 @@ whatever changed, validating the working tree's meta-data as an
 evolution of the last `stable-*` tag's.
 See [schema-evolution](../../../docs/recipes/code/schema-evolution.md).
 
-## System components are declared in YAML, registered in Clojure
+## A service's `application.yml` includes shared groups, never copies
 
-Component lifecycle runs through `donut.system`, with two layers per
-component kind. Implementation registers via `system/defcomponents`
-(start/stop fns, config schema, instance schema) from `system.clj`,
-or `system/core.clj` aggregating a `system/` folder once a brick has
-two or more definition clusters — never called directly from
-`interface.clj`. A brick's `interface.clj` bare-requires that system
-namespace, in the bracketed unaliased form, so multimethods extend on
-load. Declaration lives separately, in a YAML system file with a
-top-level `system:` key: each component instance uses
-`!system/component` naming a registered `system/component-kind`; a
-slot the bootstrap must inject is `!system/required-component`,
-resolved before `system/start`. Reference another component with
-`!system/ref` / `!system/local-ref` — a bare string is never promoted
-to a ref, and an unregistered kind fails to start. Don't bake an
-environment name into a shared resource component or its config.
-A group that exists under `components/resources/resources/system/` is
-included, never inlined as a copy: an inlined block has no `!include`
-for `config-includes-resolve` to follow, and nothing loads a project's
-production `application.yml`, so it can name a deleted component-kind
-and still pass every check. Tests consolidate system-component bare
-requires for a base or project into one `test/.../system.clj` namespace
-rather than repeating them per file.
-See [ADR-0007](../../../docs/adr/0007-system-as-data.md),
-[system-components](../../../docs/recipes/code/system-components.md),
-[system-configurations](../../../docs/recipes/code/system-configurations.md).
+A service's system definition lives in its project's
+`resources/application.yml`, with domain-scoped includes under
+`resources/bank/`. A group that exists under
+`components/resources/resources/system/` is included, never inlined as
+a copy: an inlined block has no `!include` for `config-includes-resolve`
+to follow, and nothing loads a project's production `application.yml`,
+so it can name a deleted component-kind and still pass every check.
+Check a change with `just test-all`, whose `test-startup` component
+loads every deployable project's production config against its own
+classpath and fails on a `system/component-kind` nothing registers.
+Commands: `just test-all`.
+See [service-configurations](../../../docs/recipes/code/service-configurations.md).
 
 ## React to a changelog, don't orchestrate across bricks
 
@@ -96,23 +83,6 @@ acts only on its own records, the webhook component excepted: it reads
 across domains through each catalogued domain's `*-query` brick, so a
 notification body equals what that domain's read route returns.
 See [ADR-0021](../../../docs/adr/0021-changelog-relay.md).
-
-## The message bus stays behind an abstraction
-
-Keep the message bus behind an abstraction — the `message-bus`
-brick's `Producer` / `Consumer` protocols, never a backend directly.
-Two implementations ship: `pulsar` for production, and a
-Clojure-channels `local` backend for tests and small-footprint
-deployments.
-See [ADR-0003](../../../docs/adr/0003-message-bus-abstraction.md).
-
-## Messaging payloads are Avro
-
-Command and event payloads on the message bus are Avro, via
-Lancaster. Schemas live in `schema` alongside the protobuf
-record definitions; producers and consumers bind to a schema at
-registration, so a mismatch is caught at startup, not in production.
-See [ADR-0004](../../../docs/adr/0004-avro-for-message-payloads.md).
 
 ## A write earns command status, or stays synchronous
 
@@ -227,32 +197,15 @@ minimal reproducer. Hand-authored EDN scenarios share the same
 runner and projections.
 See [ADR-0009](../../../docs/adr/0009-model-equality-property-testing.md).
 
-## Testcontainer infrastructure follows the three-layer pattern
-
-Testcontainer-backed infrastructure follows a three-layer pattern:
-the container itself, an extractor that reads runtime values (host,
-port, cluster-file-path) from the started container — living in the
-relevant brick's `system/` folder, never in `testcontainers` itself
-— and the high-level component, which consumes extracted values
-exactly as it would a production literal and never branches on
-whether it's running against a container. The `testcontainers` brick
-may call builder-pattern setup methods during construction, never
-library methods against a started container.
-See [testcontainers](../../../docs/recipes/test/testcontainers.md).
-
 ## Bank-specific code generation follows the shared prep-lib pattern
 
 Code generation from a source artefact (currently protobuf record
-definitions for `schema`) uses Clojure's standard
-`:deps/prep-lib` mechanism, never a build-system plugin or a custom
-run-script. Each brick's `deps.edn` declares `:deps/prep-lib` with an
-`:fn` entry point and an `:ensure` path marking prep as up-to-date; a
-co-located `build.clj` implements the generation, delegating to
-`bases/build` so other bricks can reuse it. Generated code lands in
-a `gen/` folder with its own `.gitignore` (`*` / `!.gitignore`) —
-never committed. Regeneration is deliberate:
-`clj -X:deps prep :aliases '[:dev]'`; after a source-schema change,
-`:force true` is required — the `:ensure` marker doesn't detect
-staleness on its own.
-See [ADR-0010](../../../docs/adr/0010-code-generation-via-prep-lib.md),
-[code-generation](../../../docs/recipes/code/code-generation.md).
+definitions for `schema`) uses Clojure's standard `:deps/prep-lib`
+mechanism, never a build-system plugin or a custom run-script. A
+`build.clj` co-located in the brick delegates the work to
+`bases/build`, where new generation logic goes first so other bricks
+can reuse it. Generated code lands in a `gen/` folder with its own
+`.gitignore` (`*` / `!.gitignore`) — never committed. After a
+source-schema change `:force true` is required — the prep marker is
+stale on its own.
+See [code-generation](../../../docs/recipes/code/code-generation.md).

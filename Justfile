@@ -1,4 +1,7 @@
 set shell := ["zsh", "-cu"]
+# The imported tessl.just declares TESSL_PLUGIN_ROOTS; the definition
+# below it here is the one that wins, and this setting is what lets it.
+set allow-duplicate-variables
 
 DOMAIN_ALIASES := ""
 DOCKER_REGISTRY := "ghcr.io/repldriven/queenswood"
@@ -48,8 +51,22 @@ import 'justfiles/docker/docker.just'
 import 'justfiles/deploy.just'
 import 'justfiles/run.just'
 import 'justfiles/telemetry.just'
-import 'justfiles/tessl.just'
 import 'justfiles/test.just'
 import 'justfiles/dev.just'
+import 'justfiles/mono.just'
 import 'justfiles/docs.just'
-import 'justfiles/gastown.just'
+
+# Optional: `just mono-import` has to be runnable before it exists.
+import? '.mono/justfiles/gas.just'
+import? '.mono/justfiles/hooks.just'
+import? '.mono/justfiles/lint.just'
+import? '.mono/justfiles/nvd.just'
+import? '.mono/justfiles/tessl.just'
+
+# Queenswood's plugins, then mono's imported ones.
+TESSL_PLUGIN_ROOTS := env_var_or_default("TESSL_PLUGIN_ROOTS", "plugins .mono/plugins")
+
+# mono's semgrep rules, then Queenswood's; and the guardrails only this
+# workspace has.
+SEMGREP_CONFIGS := env_var_or_default("SEMGREP_CONFIGS", ".mono/.config/semgrep/semgrep.yml .config/semgrep/semgrep.yml")
+GUARDRAILS := env_var_or_default("GUARDRAILS", "scripts/hooks/enforce-idioms.sh")

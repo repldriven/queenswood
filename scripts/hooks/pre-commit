@@ -1,34 +1,29 @@
 #!/usr/bin/env bash
 set -e
 
-# First, and over every staged file rather than only Clojure: this
-# repository is public, and a Google Cloud account identifier cannot be
-# unpublished once pushed. Names are wanted, account numbers are not.
+# Format and lint are mono's, sourced from the imported hook library. A
+# worktree whose post-checkout could not import gets one more try here.
+lib=.mono/scripts/hooks/lib.sh
+if [ ! -f "$lib" ] && [ -f scripts/mono-import.sh ]; then
+  bash scripts/mono-import.sh >/dev/null 2>&1 || true
+fi
+if [ ! -f "$lib" ]; then
+  echo "pre-commit: $lib is missing — run: just mono-import" >&2
+  exit 1
+fi
+. "$lib"
+
 echo "Checking for cloud account identifiers..."
 bash scripts/hooks/check-cloud-ids.sh --staged
 
-files=$(git diff --cached --name-only --diff-filter=ACM \
-  | grep -E '\.(clj|cljc|cljs)$' \
-  | grep -Ev '(^|/)evals/' \
-  | while read -r f; do [ -f "$f" ] && echo "$f"; done)
+files=$(hook_staged_clojure_files)
 
 if [ -n "$files" ]; then
-  echo "Formatting Clojure files..."
-  echo "$files" | xargs clojure -M:format/zprint '{:search-config? true}' -w
-  echo "$files" | xargs git add
+  hook_format "$files"
+  hook_lint "$files"
 
-  echo "Linting Clojure files..."
-  echo "$files" | xargs clojure -M:lint/clj-kondo --lint
+  hook_semgrep "$files" .mono/.config/semgrep/semgrep.yml .config/semgrep/semgrep.yml
 
-  # No raw throws must escape a brick boundary (ADR-0005). Any (throw ...)
-  # needs an explicit `;; nosemgrep: no-raw-throw` opt-out at the site;
-  # a new unmarked throw fails the commit. See .config/semgrep/semgrep.yml.
-  echo "Scanning for unmarked throws..."
-  echo "$files" | xargs semgrep --config .config/semgrep/semgrep.yml --error --disable-version-check
-
-  # Deterministic guardrails grep can decide (use-fixtures, cross-unit
-  # imports, query-only bank-api reads block; raw-time-id and comment
-  # bloat warn). Staged scope so it gates only what's being committed.
   echo "Checking Queenswood guardrails..."
   bash scripts/hooks/enforce-idioms.sh --staged
 fi
@@ -37,11 +32,9 @@ helm_files=$(git diff --cached --name-only --diff-filter=ACM \
   | grep -E '^infra/helm/queenswood/' || true)
 
 if [ -n "$helm_files" ]; then
-  # Skip `helm dependency update` — it adds ~5s of network I/O. The
-  # developer's local `charts/` is populated by any prior `just helm-*`
-  # recipe; if it isn't, helm template will fail fast with a clear
-  # "missing in charts/ directory" message and they can run
-  # `just helm-validate` once to sync.
+  # `helm dependency update` is skipped: a prior `just helm-*` recipe
+  # populates charts/, and without one `helm template` fails naming the
+  # missing chart.
   echo "Validating Helm chart..."
   helm lint infra/helm/queenswood >/dev/null
   helm template queenswood infra/helm/queenswood \

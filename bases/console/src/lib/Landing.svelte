@@ -68,25 +68,25 @@
       title: "A pure model runs beside the real system.",
       href: "https://github.com/repldriven/queenswood/blob/main/docs/tdd/scenario-testing.md",
       body: "Tests pass only when the two agree. Property-based testing via fugato plus hand-authored EDN scenarios, sharing one runner." },
-    { key: "adr-0005", kicker: "ADR · 0005",
-      title: "Anomalies, not exceptions.",
-      href: "https://github.com/repldriven/queenswood/blob/main/docs/adr/0005-error-handling-with-anomalies.md",
-      body: "Three semantic kinds — error, rejection, unauthorized — mapping directly to HTTP status families at every component interface." },
-    { key: "adr-0007", kicker: "ADR · 0007",
-      title: "System-as-data.",
-      href: "https://github.com/repldriven/queenswood/blob/main/docs/adr/0007-system-as-data.md",
-      body: "donut.system + YAML. Components are records, profiles are values, testcontainers and production share one bootstrap path." },
+    { key: "adr-0018", kicker: "ADR · 0018",
+      title: "A write earns command status, or stays synchronous.",
+      href: "https://github.com/repldriven/queenswood/blob/main/docs/adr/0018-command-writes-are-earned.md",
+      body: "A write goes over the bus to a processor only when it needs multi-record atomicity under contention, has idempotency stakes, other bricks must react to it, or it arrives from unreliable ingress. Everything else is a direct write." },
+    { key: "adr-0019", kicker: "ADR · 0019",
+      title: "Processors are composed at deployment time.",
+      href: "https://github.com/repldriven/queenswood/blob/main/docs/adr/0019-processor-packaging.md",
+      body: "One thin base per service group; a project's <code>application.yml</code> alone decides which processors a JVM hosts. Grouped by boundary, not throughput — financial and operational processors never share a JVM." },
     { key: "adr-0002", kicker: "ADR · 0002",
       title: "The changelog is the outbox.",
       href: "https://github.com/repldriven/queenswood/blob/main/docs/adr/0002-foundationdb-record-layer.md",
       body: "FoundationDB Record Layer gives multi-record ACID by default; the transactional outbox pattern falls out of the storage engine — no separate table." },
     { key: "adr-0001", kicker: "ADR · 0001",
-      title: "A domain fork of mono.",
+      title: "mono is upstream, not a fork.",
       href: "https://github.com/repldriven/queenswood/blob/main/docs/adr/0001-reuse-mono-as-upstream.md",
-      body: "Infrastructure bricks live in the workspace, not as a library. Pulled upstream via <code>git merge upstream/main</code>; bank-specific code stays close." },
+      body: "Shared infrastructure comes from mono as a git dependency pinned to a tag and sha; the workspace holds only the bank's own bricks. Upgrading mono is a one-line bump in two shims under <code>deps/</code>." },
     { key: "recipe-tc", kicker: "Recipe · testcontainers",
       title: "REPL on the inside.",
-      href: "https://github.com/repldriven/queenswood/blob/main/docs/recipes/test/testcontainers.md",
+      href: "https://github.com/repldriven/mono/blob/main/docs/recipes/test/testcontainers.md",
       body: "Start a REPL, evaluate a comment block, and the whole system — FDB, Pulsar, HTTP, Keycloak — boots inside Testcontainers. The dev loop is the system.",
       variant: "feature" },
   ];
@@ -100,8 +100,8 @@
   import tddPolicy from "../../../../docs/tdd/policy-evaluation.md?raw";
   import tddInterest from "../../../../docs/tdd/interest.md?raw";
   import tddScenario from "../../../../docs/tdd/scenario-testing.md?raw";
-  import adr0005 from "../../../../docs/adr/0005-error-handling-with-anomalies.md?raw";
-  import adr0007 from "../../../../docs/adr/0007-system-as-data.md?raw";
+  import adr0018 from "../../../../docs/adr/0018-command-writes-are-earned.md?raw";
+  import adr0019 from "../../../../docs/adr/0019-processor-packaging.md?raw";
   import adr0002 from "../../../../docs/adr/0002-foundationdb-record-layer.md?raw";
   import adr0001 from "../../../../docs/adr/0001-reuse-mono-as-upstream.md?raw";
   import recipeTC from "../../../../docs/recipes/test/testcontainers.md?raw";
@@ -127,15 +127,15 @@
       path: "docs/tdd/scenario-testing.md",
       label: "TDD · scenario-testing",
     },
-    "adr-0005": {
-      raw: adr0005,
-      path: "docs/adr/0005-error-handling-with-anomalies.md",
-      label: "ADR · 0005",
+    "adr-0018": {
+      raw: adr0018,
+      path: "docs/adr/0018-command-writes-are-earned.md",
+      label: "ADR · 0018",
     },
-    "adr-0007": {
-      raw: adr0007,
-      path: "docs/adr/0007-system-as-data.md",
-      label: "ADR · 0007",
+    "adr-0019": {
+      raw: adr0019,
+      path: "docs/adr/0019-processor-packaging.md",
+      label: "ADR · 0019",
     },
     "adr-0002": {
       raw: adr0002,

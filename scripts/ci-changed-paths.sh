@@ -67,12 +67,16 @@ WORKSPACE='^(bases/|components/|deps/|projects/|deps\.edn$|workspace\.edn$|versi
 # exactly these three subtrees into the image build.
 BUNDLED_DOCS='^docs/(adr|tdd|recipes)/'
 
+# mono's share of docs/ comes from the sha deps/mono-dev/deps.edn pins, laid
+# down by scripts/mono-import.sh, so either changing changes the bundle.
+MONO_IMPORT='^(deps/mono-dev/|scripts/mono-import\.sh$)'
+
 # Runs the polylith matrix. `development/` carries project:dev's extra
 # paths, and scripts/ holds the hooks and check-versions.sh.
 bucket clojure "$WORKSPACE|^(development/|scripts/)|^\.github/workflows/test\.yml$" "$clojure_files"
 
 # Builds the console bundle and the ui showcase.
-bucket js "$CONSOLE_TREES|$BUNDLED_DOCS|^infra/docker/console/|^\.github/workflows/test\.yml$"
+bucket js "$CONSOLE_TREES|$BUNDLED_DOCS|$MONO_IMPORT|^infra/docker/console/|^\.github/workflows/test\.yml$"
 
 bucket helm '^infra/helm/|^\.github/workflows/test\.yml$'
 
@@ -81,4 +85,4 @@ bucket helm '^infra/helm/|^\.github/workflows/test\.yml$'
 bucket services "$WORKSPACE|^infra/docker/(service/|bake\.hcl$)|^\.github/workflows/release-images\.yml$" "$clojure_files"
 
 # Goes into the console image.
-bucket console "$CONSOLE_TREES|$BUNDLED_DOCS|^infra/docker/console/|^infra/docker/bake\.hcl$|^\.github/workflows/release-images\.yml$"
+bucket console "$CONSOLE_TREES|$BUNDLED_DOCS|$MONO_IMPORT|^infra/docker/console/|^infra/docker/bake\.hcl$|^\.github/workflows/release-images\.yml$"

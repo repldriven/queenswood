@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
-# Lay down the Tessl rules a fresh checkout does not carry.
+# Lay down what a fresh checkout does not carry: mono's share of the
+# tree, then the Tessl rules.
 #
-# `.tessl/` is gitignored, so a new worktree has no RULES.md and the
-# `@.tessl/RULES.md` import in AGENTS.md resolves to nothing. Memory is
-# read before any session hook runs, so the repair has to happen when the
-# worktree is created rather than when an agent opens it -- which is what
-# this hook is. Gas City makes a worktree per work item with
-# `git worktree add`, and that fires post-checkout in the new tree.
+# `.mono/` and `.tessl/` are gitignored, so a new worktree has neither
+# until something puts them there, and the `@.tessl/RULES.md` import in
+# AGENTS.md resolves to nothing. Memory is read before any session hook
+# runs, so the repair has to happen when the worktree is created rather
+# than when an agent opens it -- which is what this hook is. Gas City
+# makes a worktree per work item with `git worktree add`, and that fires
+# post-checkout in the new tree.
 #
 # Args: $1 previous HEAD, $2 new HEAD, $3 1 for a branch/worktree
 # checkout, 0 for a file checkout.
 #
-# Advisory: a missing tool or a failed install never fails the checkout.
+# Advisory: a missing tool or a failed step never fails the checkout.
 
 set -u
 
@@ -20,9 +22,22 @@ set -u
 root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 cd "$root" || exit 0
 
-# Already installed. The common case: every `git switch` in a worktree
-# that has been through here once.
-[ -f .tessl/RULES.md ] && exit 0
+# A checkout of a commit from before the import existed has nothing to
+# lay down.
+[ -f scripts/mono-import.sh ] || exit 0
+
+# Bash only, so no dev shell; offline when the tools.deps checkout for
+# the pinned sha is already there.
+if ! imported=$(bash scripts/mono-import.sh 2>/dev/null); then
+  echo "post-checkout: mono import failed in $root; run just mono-import." >&2
+  exit 0
+fi
+
+# The common case: rules present and nothing moved -- every `git switch`
+# in a worktree that has been through here once.
+if [ -f .tessl/RULES.md ] && [ -z "$imported" ]; then
+  exit 0
+fi
 
 # A checkout of a commit from before the plugins existed has nothing to
 # install, and tessl.json is what names them.

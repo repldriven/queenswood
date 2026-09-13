@@ -17,20 +17,36 @@ how Queenswood is built on top of that framework.
 
 | Plugin | Reach for it when… | Status |
 |--------|--------------------|--------|
-| **[idioms](idioms/)** — `queenswood/idioms` | writing any Queenswood Clojure: anomalies-not-exceptions, `utility` helpers, kebab-case keys, style | **live** (rule: `idioms`) |
-| **[framework](framework/)** — `queenswood/framework` | using Polylith itself: bases, components, projects, `interface.clj` discipline, one-brick-per-library | **live** (rule: `framework`) |
+| **[idioms](idioms/)** — `queenswood/idioms` | writing Queenswood Clojure on top of mono's idioms: which test form a case takes, what a brick's tests may require | **live** (rule: `idioms`) |
+| **[framework](framework/)** — `queenswood/framework` | Queenswood's Polylith conventions on top of mono's: the aggregator bases, the `pin/` shims under `deps/` | **live** (rule: `framework`) |
 | **[design](design/)** — `queenswood/design` | how the system is built, brick to topology: the processor pattern, CQRS split, changelog-as-outbox, transaction boundaries, system-as-data | **live** (rule: `design`) |
-| **[workflow](workflow/)** — `queenswood/workflow` | committing, branching, PRs, the dev loop, keeping Tessl rules in sync with their source docs | **live** (skill: `sync-rules-from-docs`, rule: `workflow`) |
-| **[docs](docs/)** — `queenswood/docs` | writing or checking docs (wrap-80, mermaid, tone, PRD register) | **live** (rule: `docs`) |
+| **[workflow](workflow/)** — `queenswood/workflow` | committing, branching, PRs, the git hooks, mono's share of the tree | **live** (rule: `workflow`) |
+| **[docs](docs/)** — `queenswood/docs` | writing a PRD in the product register, on top of mono's docs rule and its `check-docs` skill | **live** (rule: `docs`) |
 | **security** — `queenswood/security` | secrets, auth, SAST, security review | planned |
 | **[deployment](deployment/)** — `queenswood/deployment` | deploying / running the cluster (Helm, Tilt, kind, Crossplane) | **live** (rule: `deployment`) |
 
-Decision rule when a new skill or rule wants a home: *would it help on
-any Clojure repo → `idioms`; is it Polylith-the-tool, not
+Decision rule when a new skill or rule wants a home: *would it hold in
+any workspace built on mono → a mono recipe, distilled by mono's plugin
+of the same name and imported here; would it help on any Clojure repo
+but only this one has it → `idioms`; is it Polylith-the-tool, not
 Queenswood-specific → `framework`; is it how Queenswood specifically is
 built on top of Polylith → `design`.* Keep `design` whole (low-level
 system wiring and high-level topology are one body of knowledge); split
 it only if it ever bloats context.
+
+## Two roots
+
+mono's plugins — `mono/design`, `mono/framework`, `mono/idioms` and
+`mono/workflow`, the last carrying the `sync-rules-from-docs` skill —
+are laid down under `.mono/plugins/` by `just mono-import` at the sha
+`deps/mono-dev/deps.edn` pins, and installed beside these by the same
+recipes: `TESSL_PLUGIN_ROOTS` names both roots. `plugins/profiles`
+names the plugins each profile links, as `<workspace>/<plugin>`, mono's
+first so the general rule precedes the Queenswood specialisation.
+`just tessl-plugins-install` installs every plugin under both roots and
+lays the active profile down in `.tessl/RULES.md`;
+`just tessl-plugins-check` reports an installed copy behind its source;
+`just tessl-profile name=<profile>` switches.
 
 ## Toolchain
 

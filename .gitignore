@@ -102,6 +102,12 @@ infra/helm/boot-management-plane/charts/*.tgz
 .agents/
 .github/skills/
 
+# mono's share of the tree, laid down by `just mono-import` at the sha
+# deps/mono-dev/deps.edn pins. Its ADRs land in docs/adr/ and are excluded
+# per file from .git/info/exclude, which the import maintains.
+.mono/
+docs/slides/
+
 # Scanner output. prowler writes a run's JSON, CSV and HTML here every
 # time, and a scan result is a moment rather than a fact about the repo.
 output/

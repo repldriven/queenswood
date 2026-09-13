@@ -53,6 +53,19 @@ superset, rooted at `projects/mono-test-lib`, which adds `test-system` and
 superset, so the root is swapped by symbol. Upgrading mono is a one-line
 tag/sha bump in those two shims.
 
+The pin carries more than code. mono's ADRs and recipes, its slide deck, its
+Tessl plugins, the hook library its `pre-commit` is composed from, the semgrep
+rules it runs and the justfiles that install hooks and plugins are laid down
+in this tree by `just mono-import` at the sha a third shim, `deps/mono-dev`,
+pins — untracked, excluded from git, and never edited here. That shim is on no
+classpath, so the practices can move ahead of or behind the code when a
+release changes only one of them. They land where Queenswood's own would: the
+ADRs in `docs/adr/`, the recipes in `docs/recipes/`, the deck in
+`docs/slides/`, the rest under `.mono/`. The two repositories share one ADR
+number space and one recipe namespace, and the import refuses to overwrite a
+path this tree tracks, so a number or a filename used twice fails rather than
+shadows.
+
 Because domain bricks no longer share a workspace with mono's infra, they
 carry no distinguishing prefix — a component is just a component. External
 infra namespaces stay `com.repldriven.mono.*`; Queenswood's own bricks are
@@ -78,6 +91,9 @@ Easier:
 - **Clean separation.** `com.repldriven.mono.*` on the classpath is
   external infra; `com.repldriven.queenswood.*` is ours. The boundary is
   the namespace root, enforced by where the code physically lives.
+- **Docs and rules cannot drift from the code.** What an agent loads
+  and what a reader opens for a mono decision is the copy at the pinned
+  sha, laid down by the same bump that changes the classpath.
 
 Harder:
 
@@ -89,3 +105,8 @@ Harder:
 - **Two repos to navigate.** Infra source lives in the mono checkout under
   `~/.gitlibs`, not the workspace. CLAUDE.md and this ADR set should keep
   that navigable.
+- **A fresh tree needs an import** before the links, hooks and rules
+  that lean on mono's share work. `.envrc`, `post-checkout` and the hook
+  itself each run it, and `just mono-check` says whether it happened.
+- **GitHub renders a link to an imported doc as a 404**, since the file
+  is not in this repository. `readme.md` links mono's copies instead.

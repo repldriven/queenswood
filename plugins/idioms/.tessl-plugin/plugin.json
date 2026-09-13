@@ -1,6 +1,6 @@
 {
   "name": "queenswood/idioms",
   "version": "0.1.0",
-  "description": "How to write idiomatic Queenswood Clojure — the portable code conventions (anomalies not exceptions, utility helpers, kebab-case keys, brick-boundary imports) that apply to any namespace in the workspace. Built and evaluated with Tessl.",
+  "description": "How to write idiomatic Queenswood Clojure on top of mono's idioms \u2014 which test form a case takes, what a brick's tests may require, and the test recipes. Built and evaluated with Tessl.",
   "private": true
 }
