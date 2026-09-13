@@ -68,7 +68,10 @@ list_tree() {
   local src=$1 subtree=$2
   [ -e "$src/$subtree" ] || return 0
   if [ -e "$src/.git" ]; then
-    git -C "$src" ls-files -- "$subtree"
+    # A git hook exports GIT_DIR, which would point this at the tree
+    # being imported into rather than the source.
+    (unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
+     git -C "$src" ls-files -- "$subtree")
   else
     (cd "$src" && find "$subtree" -type f)
   fi

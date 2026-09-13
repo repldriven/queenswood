@@ -21,7 +21,6 @@ how Queenswood is built on top of that framework.
 | **[framework](framework/)** — `queenswood/framework` | Queenswood's Polylith conventions on top of mono's: the aggregator bases, the `pin/` shims under `deps/` | **live** (rule: `framework`) |
 | **[design](design/)** — `queenswood/design` | how the system is built, brick to topology: the processor pattern, CQRS split, changelog-as-outbox, transaction boundaries, system-as-data | **live** (rule: `design`) |
 | **[workflow](workflow/)** — `queenswood/workflow` | committing, branching, PRs, the git hooks, mono's share of the tree | **live** (rule: `workflow`) |
-| **[docs](docs/)** — `queenswood/docs` | writing a PRD in the product register, on top of mono's docs rule and its `check-docs` skill | **live** (rule: `docs`) |
 | **security** — `queenswood/security` | secrets, auth, SAST, security review | planned |
 | **[deployment](deployment/)** — `queenswood/deployment` | deploying / running the cluster (Helm, Tilt, kind, Crossplane) | **live** (rule: `deployment`) |
 
@@ -36,9 +35,10 @@ it only if it ever bloats context.
 
 ## Two roots
 
-mono's plugins — `mono/design`, `mono/framework`, `mono/idioms` and
-`mono/workflow`, the last carrying the `sync-rules-from-docs` skill —
-are laid down under `.mono/plugins/` by `just mono-import` at the sha
+mono's plugins — `mono/design`, `mono/docs`, `mono/framework`,
+`mono/idioms` and `mono/workflow`, with `docs` carrying the `check-docs`
+skill and `workflow` the `sync-rules-from-docs` skill — are laid down
+under `.mono/plugins/` by `just mono-import` at the sha
 `deps/mono-dev/deps.edn` pins, and installed beside these by the same
 recipes: `TESSL_PLUGIN_ROOTS` names both roots. `plugins/profiles`
 names the plugins each profile links, as `<workspace>/<plugin>`, mono's

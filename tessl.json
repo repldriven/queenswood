@@ -14,9 +14,6 @@
     "queenswood/deployment": {
       "source": "file:./plugins/deployment"
     },
-    "queenswood/docs": {
-      "source": "file:./plugins/docs"
-    },
     "queenswood/workflow": {
       "source": "file:./plugins/workflow"
     },
