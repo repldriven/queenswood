@@ -88,7 +88,8 @@
                       :role :owner
                       :reason "Owner of a new bank"
                       :invited-by {:kind :operator
-                                   :principal-id "queenswood-admin"})
+                                   :principal-id "queenswood-admin"
+                                   :name "Queenswood"})
    :token access-examples/InvitationToken})
 
 (def CreateBankResponse
