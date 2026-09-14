@@ -15,7 +15,8 @@
 
 (def invitee-membership-id "mem.01kprbpdwa9q5n2t7vwsx84a3n")
 
-(def Actor {:kind :member :principal-id me-examples/UserId})
+(def Actor
+  {:kind :member :principal-id me-examples/UserId :name "Ada Lovelace"})
 
 (def Member
   {:membership-id me-examples/MembershipId
@@ -91,6 +92,7 @@
    :kind :role-changed
    :actor Actor
    :subject-user-id invitee-user-id
+   :subject-name "Charles Babbage"
    :membership-id invitee-membership-id
    :role-before :developer
    :role-after :admin

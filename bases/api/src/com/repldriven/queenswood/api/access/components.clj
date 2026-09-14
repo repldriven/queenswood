@@ -41,9 +41,14 @@
    {:json-schema/example examples/Actor
     :description
     "Who made a change: a member by user id, or an operator by user id or
-    client id."}
+    client id. A member, or an operator signed in as a user, is named from
+    their user record whether or not still a member, by their email when
+    the record has no name; the platform's own client is named
+    `Queenswood`. To the person an invitation was sent to, an inviter with
+    no name on record is named by the organisation."}
    [:kind [:ref "ActorKind"]]
-   [:principal-id string?]])
+   [:principal-id string?]
+   [:name string?]])
 
 (def Member
   [:map
@@ -136,12 +141,14 @@
     "One change to who may act for the bank. An invitation's events name
     the invitation, its address and its role as `role-after`; a
     membership's name the member, the membership and `role-before`, and a
-    role change `role-after`."}
+    role change `role-after`. `subject-name` names the member from their
+    user record, and is absent when they have none."}
    [:access-event-id [:ref "AccessEventId"]]
    [:bank-id [:ref "BankId"]]
    [:kind [:ref "AccessEventKind"]]
    [:actor [:ref "Actor"]]
    [:subject-user-id {:optional true} [:ref "UserId"]]
+   [:subject-name {:optional true} string?]
    [:membership-id {:optional true} [:ref "MembershipId"]]
    [:invitation-id {:optional true} [:ref "InvitationId"]]
    [:email {:optional true} string?]
