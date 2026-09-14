@@ -1,0 +1,104 @@
+{:name "An owner resends an invitation, and only the fresh token accepts"
+ :tags #{:access :api :happy}
+ ;; No realm user holds the invited address, so the invitee's own
+ ;; verified email proves nothing and each answer is the token's alone.
+ :given
+ [{:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "resend-owner"
+   :password "resend-owner"
+   :as :owner-token}
+  {:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "resend-invitee"
+   :password "resend-invitee"
+   :as :invitee-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-access-owner-resends-invitation-001"}
+             :body {:name "Resend Bank"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]
+                    :owner-email "resend-owner@queenswood.local"}}
+   :as :bank
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :bank :owner-invitation
+                                           :invitation :invitation-id]}
+             :auth :owner-token
+             :headers {:invitation-token [:ref :bank :owner-invitation :token]}}
+   :as :owner-membership
+   :assert {:status 201 :body {:role "owner"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/invitations"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]
+                       :idempotency-key "ik-access-owner-resends-invitation-002"}
+             :body {:email "resend-invitee@example.test" :role "developer"}}
+   :as :invitation
+   :assert {:status 201}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/invitations/{invitation-id}/resend"
+             :path-params {:invitation-id [:ref :invitation :invitation
+                                           :invitation-id]}
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]
+                       :idempotency-key "ik-access-owner-resends-invitation-003"}}
+   :as :resent
+   :assert {:status 200
+            :body {:invitation {:invitation-id [:ref :invitation :invitation
+                                                :invitation-id]
+                                :email "resend-invitee@example.test"
+                                :status "pending"}
+                   :token [:m/all-of
+                           [:m/regex "^[A-Za-z0-9_-]{43}$"]
+                           [:m/mismatch [:ref :invitation :token]]]}}}]
+ :then
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/me/invitations/{invitation-id}"
+             :path-params {:invitation-id [:ref :invitation :invitation
+                                           :invitation-id]}
+             :auth :invitee-token
+             :headers {:invitation-token [:ref :invitation :token]}}
+   :assert {:status 404 :problem {:type ":invitation/not-found"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :invitation :invitation
+                                           :invitation-id]}
+             :auth :invitee-token
+             :headers {:invitation-token [:ref :invitation :token]}}
+   :assert {:status 404 :problem {:type ":invitation/not-found"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :invitation :invitation
+                                           :invitation-id]}
+             :auth :invitee-token
+             :headers {:invitation-token [:ref :resent :token]}}
+   :assert {:status 201
+            :body {:bank-id [:ref :bank :bank-id] :role "developer"}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/access-events"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 200
+            :body {:items [:m/embeds
+                           [{:kind "invitation-resent"
+                             :actor {:kind "member"
+                                     :principal-id
+                                     [:ref :owner-membership :user-id]}
+                             :invitation-id [:ref :invitation :invitation
+                                             :invitation-id]}]]}}}]}

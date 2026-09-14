@@ -267,6 +267,32 @@
                                        :active-memberships []}
                                       now))))))
 
+(deftest unchanged-role-test
+  (let [owner-m (membership "mem.1" "usr.owner" :role-owner)
+        admin-m (membership "mem.2" "usr.admin" :role-admin)
+        active [owner-m admin-m]]
+    (testing "an owner setting a member to its current role gets it back"
+      (let [result (SUT/change-role admin-m
+                                    :role-admin
+                                    {:actor (:owner actors)
+                                     :active-memberships active}
+                                    now)]
+        (is (= admin-m result))
+        (is (= 1 (:updated-at result)))))
+    (testing "an admin naming owner on an owner is still not granted"
+      (is (not-granted? (SUT/change-role owner-m
+                                         :role-owner
+                                         {:actor (:admin actors)
+                                          :active-memberships active}
+                                         now))))
+    (testing "an ended membership is still refused on its status"
+      (is (rejected? :membership/invalid-status
+                     (SUT/change-role
+                      (assoc admin-m :status :membership-status-ended)
+                      :role-admin
+                      {:actor (:owner actors) :active-memberships active}
+                      now))))))
+
 (deftest invitation-guard-test
   (let [pending (invitation :invitation-status-pending (+ now day-ms))
         lapsed (invitation :invitation-status-pending (- now day-ms))
