@@ -54,6 +54,18 @@
    :bank-id bank-id
    :roles (into #{:admin} auth/org-levels)})
 
+(def ^:private subject-id "usr.01kprbmgcj35ptc8npmybhh4sp")
+
+(def ^:private people
+  {user-id {:user-id user-id :name "Ada Lovelace" :email "ada@example.com"}
+   subject-id
+   {:user-id subject-id :name "Charles Babbage" :email "charles@example.com"}})
+
+(defn- find-person
+  [_ id]
+  (or (get people id)
+      (error/reject :user/not-found {:message "User not found" :user-id id})))
+
 (def ^:private ^:dynamic *stand-ins* {})
 
 (defn- standing-in
@@ -84,7 +96,8 @@
 (defn- invite-as
   [auth]
   (let [seen (atom nil)]
-    (standing-in {#'memberships/invite (fn [_ _ _ opts]
+    (standing-in {#'users/find-by-id find-person
+                  #'memberships/invite (fn [_ _ _ opts]
                                          (reset! seen opts)
                                          (invitation opts))}
                  (fn []
@@ -115,8 +128,9 @@
           {:keys [token]} (:body response)]
       (is (string? token))
       (is (= (:token-hash opts) (memberships/token-hash token)))
-      (is (= {:kind :actor-kind-member :principal-id user-id}
-             (get-in response [:body :invitation :invited-by]))))))
+      (is (=
+           {:kind :actor-kind-member :principal-id user-id :name "Ada Lovelace"}
+           (get-in response [:body :invitation :invited-by]))))))
 
 (deftest a-recipient-proves-by-token-or-verified-email-test
   (let [seen (atom nil)
@@ -124,6 +138,7 @@
         claims {:email "Charles@Example.com" :email_verified true}]
     (standing-in
      {#'banks/get-bank (fn [_ _] {:name "Ada's Bank"})
+      #'users/find-by-id find-person
       #'memberships/find-invitation-for-recipient
       (fn [_ _ proof]
         (reset! seen proof)
@@ -338,3 +353,114 @@
            (is (not-any? #{:token :token-hash}
                          (mapcat keys
                           (filter map? (tree-seq coll? seq body)))))))))))
+
+(def ^:private operator-actor
+  {:kind :actor-kind-operator :principal-id "queenswood-admin"})
+
+(def ^:private member-actor
+  {:kind :actor-kind-member :principal-id user-id :role :role-admin})
+
+(def ^:private history
+  [{:access-event-id "aev.01kprbmgcj35ptc8npmybhh4sn"
+    :bank-id bank-id
+    :kind :access-event-kind-member-removed
+    :actor operator-actor
+    :subject-user-id subject-id
+    :membership-id membership-id
+    :role-before :role-developer
+    :occurred-at 1779350400000}
+   {:access-event-id "aev.01kprbmgcj35ptc8npmybhh4sr"
+    :bank-id bank-id
+    :kind :access-event-kind-role-changed
+    :actor member-actor
+    :subject-user-id subject-id
+    :membership-id membership-id
+    :role-before :role-viewer
+    :role-after :role-developer
+    :occurred-at 1779350300000}
+   {:access-event-id "aev.01kprbmgcj35ptc8npmybhh4ss"
+    :bank-id bank-id
+    :kind :access-event-kind-invitation-created
+    :actor member-actor
+    :invitation-id invitation-id
+    :occurred-at 1779350200000}])
+
+(defn- counted
+  "`f` beside an atom counting its calls by the user id they name."
+  [f]
+  (let [calls (atom {})]
+    {:calls calls
+     :f (fn [txn id] (swap! calls update id (fnil inc 0)) (f txn id))}))
+
+(deftest every-access-actor-is-named-test
+  (let [named-stand-ins (assoc stand-ins
+                               #'users/find-by-id
+                               find-person
+                               #'memberships/list-access-events
+                               (fn [& _] {:access-events history}))]
+    (standing-in
+     named-stand-ins
+     (fn []
+       (testing "invite names its inviter"
+         (is (= {:kind :actor-kind-member
+                 :principal-id user-id
+                 :name "Ada Lovelace"}
+                (get-in (SUT/invite request) [:body :invitation :invited-by]))))
+       (testing "a withdrawal names its inviter"
+         (is (= "Ada Lovelace"
+                (get-in (SUT/withdraw-invitation request)
+                        [:body :invited-by :name]))))
+       (testing "the invitation list names each inviter"
+         (is (= ["Ada Lovelace"]
+                (map (comp :name :invited-by)
+                     (get-in (SUT/list-invitations request) [:body :items])))))
+       (testing "the member list names each inviter"
+         (is (= ["Ada Lovelace"]
+                (map (comp :name :invited-by)
+                     (get-in (SUT/list-members request) [:body :items])))))
+       (testing "a recipient's read names the inviter"
+         (is (= "Ada Lovelace"
+                (get-in (SUT/get-my-invitation recipient)
+                        [:body :invited-by :name]))))))
+    (testing "the platform's client is named as the platform"
+      (standing-in
+       (assoc named-stand-ins
+              #'memberships/withdraw
+              (fn [& _] (assoc stored-invitation :invited-by operator-actor)))
+       (fn []
+         (is (= "Queenswood"
+                (get-in (SUT/withdraw-invitation request)
+                        [:body :invited-by :name]))))))
+    (testing "a recipient never reads an inviter's email"
+      (standing-in
+       (assoc named-stand-ins
+              #'users/find-by-id
+              (fn [_ _] {:user-id user-id :name "" :email "ada@example.com"}))
+       (fn []
+         (doseq [response [(SUT/get-my-invitation recipient)
+                           (SUT/list-my-invitations recipient)
+                           (SUT/decline-invitation recipient)]]
+           (is (not-any? #{"ada@example.com"} (strings (:body response))))
+           (is (= #{"Ada's Bank"}
+                  (set (map (comp :name :invited-by)
+                            (let [{:keys [body]} response]
+                              (or (:items body) [body]))))))))))
+    (testing "a history page names each actor and subject"
+      (let [{:keys [calls f]} (counted find-person)]
+        (standing-in
+         (assoc named-stand-ins #'users/find-by-id f)
+         (fn []
+           (let [{:keys [status body]} (SUT/list-access-events request)
+                 [removed changed created] (:items body)]
+             (is (= 200 status))
+             (is (= "Queenswood" (get-in removed [:actor :name])))
+             (is (= "Charles Babbage" (:subject-name removed)))
+             (is (= "Ada Lovelace" (get-in changed [:actor :name])))
+             (is (= {:kind :actor-kind-member
+                     :principal-id user-id
+                     :name "Ada Lovelace"}
+                    (:actor created)))
+             (is (not (contains? created :subject-name))
+                 "no subject, no subject name")
+             (is (= {"queenswood-admin" 1 user-id 1 subject-id 1} @calls)
+                 "each distinct id is looked up once"))))))))
