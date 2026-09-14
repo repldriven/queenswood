@@ -17,6 +17,17 @@
    [:currencies [:unique-vector {:min 1} [:ref "Currency"]]]
    [:owner-email {:optional true} [:ref "EmailAddress"]]])
 
+(def Owner
+  [:map
+   {:json-schema/example examples/Owner
+    :description
+    "An owner of the bank: an active membership with the owner role, with
+    the name and email its user record holds."}
+   [:membership-id [:ref "MembershipId"]]
+   [:user-id [:ref "UserId"]]
+   [:name {:optional true} string?]
+   [:email {:optional true} string?]])
+
 (def Bank
   [:map {:json-schema/example examples/Bank}
    [:bank-id [:ref "BankId"]]
@@ -26,6 +37,15 @@
    [:tier {:optional true} [:ref "Name"]]
    [:party [:ref "Party"]]
    [:accounts [:vector [:ref "CashAccount"]]]
+   ;; Optional because `Bank` is also the body of the tier and status
+   ;; changes, which carry no owners and which response coercion would
+   ;; refuse if the field were required.
+   [:owners {:optional true}
+    [:vector
+     {:description
+      "The bank's owners. Present on every bank `GET /v1/banks` returns,
+      and empty when the bank has no active owner."}
+     [:ref "Owner"]]]
    [:client-id [:ref "BankId"]]
    [:created-at [:ref "Timestamp"]]
    [:updated-at [:ref "Timestamp"]]])
@@ -80,7 +100,7 @@
 (def ChangeBankStatusResponse [:ref "Bank"])
 
 (def registry
-  (components-registry [#'BankStatus #'CreateBankRequest #'Bank #'BankList
-                        #'CompanyBinding #'CreateBankResponse
+  (components-registry [#'BankStatus #'CreateBankRequest #'Owner #'Bank
+                        #'BankList #'CompanyBinding #'CreateBankResponse
                         #'ChangeBankTierRequest #'ChangeBankTierResponse
                         #'ChangeBankStatusRequest #'ChangeBankStatusResponse]))

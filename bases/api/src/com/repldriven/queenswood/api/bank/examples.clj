@@ -43,6 +43,9 @@
 
 (def ClientSecret "k7DqGZ-Wt0aIqcPyQs8FdVx3y9rNJ4hLp1m6BvE-AtQ")
 
+(def Owner
+  (select-keys access-examples/Member [:membership-id :user-id :name :email]))
+
 (def Bank
   {:bank-id BankId
    :name "Galactic Bank"
@@ -55,6 +58,7 @@
    :accounts [(assoc cash-account-examples/CashAccount
                      :balances
                      [balance-examples/Balance])]
+   :owners [Owner]
    :client-id BankId})
 
 (def BankList {:banks [Bank]})
@@ -93,4 +97,6 @@
    :token access-examples/InvitationToken})
 
 (def CreateBankResponse
-  (assoc Bank :client-secret ClientSecret :owner-invitation owner-invitation))
+  (-> Bank
+      (dissoc :owners)
+      (assoc :client-secret ClientSecret :owner-invitation owner-invitation)))
