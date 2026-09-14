@@ -292,6 +292,21 @@ a body holding one could be written and never read back, and the
 replay it was written for would answer 503. Each record is written
 out as a plain map instead, which is all a replay needs.
 
+A route may name paths into the response body that the entry leaves
+out, by declaring `idempotency/cache-response-omitting` with them in
+place of `cache-response`. The first response carries them, and a
+replay under the same key does not:
+
+- `POST /v1/invitations` and
+  `POST /v1/invitations/{invitation-id}/resend` omit `[:token]`.
+- `POST /v1/banks` omits `[:owner-invitation :token]`. The client
+  secret stays in the entry.
+
+The token is the invitation's credential and the bank keeps only its
+hash, so a replay omits it rather than holding the plaintext for 24 h.
+A caller who lost the first response resends the invitation, which
+mints a fresh token.
+
 ### Proto and FDB schema
 
 `Idempotency` proto fields:
@@ -323,6 +338,9 @@ A protected route declares both interceptors, in this order:
 :interceptors [server/require-idempotency-key
                idempotency/cache-response]
 ```
+
+`cache-response-omitting` shares `cache-response`'s name, so a route
+declaring it declares the pair.
 
 A write route that declares neither must appear in `exempt-writes`
 in the `api` base, keyed by the `[method template]` pair the
@@ -399,6 +417,9 @@ from.
   `PUT /v1/cash-account-products/{product-id}/versions/{version-id}`,
   whose body names the whole draft and which is refused
   `product/version-immutable` once the version has published.
+  `POST /v1/members/{membership-id}/change-role` is one too: the body
+  names the role, so a second application converges and records
+  nothing.
 - Source-state guards:
   `POST /v1/cash-account-products/{product-id}/versions` (a second
   open finds the draft the first made and is refused

@@ -132,6 +132,8 @@ FDB record-type registrations:
 
 #### `Membership`
 
+Superseded by [access.md](access.md).
+
 Lives in `components/schema/resources/schemas/
 memberships/`. Keyed by `membership-id` (ULID, prefix `mem`).
 The (user, organisation) pair is a unique secondary index
@@ -201,6 +203,8 @@ chart-resources sibling):
   (`https://console.*.repldriven.com/*`).
 
 ### api auth
+
+Superseded by [access.md](access.md).
 
 The existing authenticate interceptor at
 `bases/api/.../auth.clj` grows a user-JWT branch.

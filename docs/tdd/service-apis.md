@@ -201,7 +201,7 @@ handler returns the spec assembled from:
 - **Security scheme.** One declared at the top: `bearerAuth`,
   `http`/`bearer` with `bearerFormat: JWT`. Routes opt in
   per-operation via `:openapi :security`, naming in the entry
-  the roles a token must carry — `[{"bearerAuth" ["org"]}]`.
+  the roles a token must carry — `[{"bearerAuth" ["org:viewer"]}]`.
 - **Default 4xx/5xx responses on the `/v1` group.** Declared
   once on the route group, inherited by every endpoint
   underneath. Per-endpoint responses extend (4xx domain-
@@ -262,8 +262,8 @@ header carries one of:
 - A Keycloak-issued service JWT minted by an organisation's
   `client_credentials` client. The `queenswood-admin` operator
   client carries the `admin` realm role; the auth interceptor
-  flips its `:organization-id` to the internal-org-id and
-  grants `:admin`.
+  grants `:admin` and every organisation level, and takes the
+  bank a `Bank-Id` header names as its `:bank-id`.
 - A Keycloak-issued user JWT minted by the `console` SPA
   (`queenswood` realm) or the operator SPA (`queenswood-ops`
   realm).
@@ -273,21 +273,32 @@ header carries one of:
 A successful identification attaches `:auth` to the request:
 
 ```clojure
-{:principal-type :service :roles #{:admin :org} :organization-id "..."}
-{:principal-type :user    :roles #{:user :org}  :organization-id "..."}
-{:principal-type :service :roles #{:org}        :organization-id "..."}
+{:principal-type :service :roles #{:admin org-viewer org-developer
+                                   org-admin org-owner}
+ :bank-id "..."}
+{:principal-type :user    :roles #{:user org-viewer org-developer}
+ :bank-id "..."}
+{:principal-type :service :roles #{org-viewer org-developer}
+ :bank-id "..."}
 ```
+
+`org-viewer` and the rest are the organisation levels
+`org:viewer`, `org:developer`, `org:admin` and `org:owner`; a user
+carries the levels their membership's role holds. The
+[authentication TDD](authentication.md) gives each principal in
+full.
 
 `authenticate` only attaches `:auth` if a token verifies; it
 never short-circuits. Routes without `:openapi :security` are
 genuinely public.
 
-`authorize` reads the route's `:openapi :security` (e.g.
-`[{"bearerAuth" ["org"]}]`) and takes the roles named in the
-entry, as keywords, as the allowed set. A route naming the
-scheme with no roles is refused while the router is built: it
-would demand a token and say nothing about what the token must
-carry, leaving nothing to check.
+`authorize` reads the operation's `:openapi :security` (e.g.
+`[{"bearerAuth" ["org:developer"]}]`) and takes the roles named in
+the entry, as keywords, as the allowed set. A route naming the
+scheme with no roles, or the bare `org` gate, is refused while the
+router is built, so the service fails to start: the first would
+demand a token and say nothing about what the token must carry,
+and `org` is no level and no principal carries it.
 
 If no role is attached → terminate 401. If the role isn't in
 the allowed set → terminate 403. Termination uses
@@ -466,6 +477,11 @@ auth boundaries — go here, not into a brick's `interface_test.clj`.
   cache. A revoked or rotated service account keeps any
   already-minted token working until its own `exp`; tighten
   via a shorter Keycloak token lifespan.
+- **A refusal's `type` is spelled two ways.** A refusal from the
+  edge writes its `type` with no leading colon, `auth/forbidden`,
+  while one derived from an anomaly kind carries it,
+  `:membership/role-not-granted`. A client matching on `type`
+  matches each as emitted.
 - **API versioning is `/v1` only.** Adding `/v2` would mean
   either coexistence (running both surfaces during migration)
   or a breaking-change protocol. Neither is automated.
