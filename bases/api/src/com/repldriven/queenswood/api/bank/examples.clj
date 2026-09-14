@@ -58,10 +58,9 @@
    :accounts [(assoc cash-account-examples/CashAccount
                      :balances
                      [balance-examples/Balance])]
-   :owners [Owner]
    :client-id BankId})
 
-(def BankList {:banks [Bank]})
+(def BankList {:banks [(assoc Bank :owners [Owner])]})
 
 (def CreateBankRequest
   {:name "Galactic Bank"
@@ -97,6 +96,4 @@
    :token access-examples/InvitationToken})
 
 (def CreateBankResponse
-  (-> Bank
-      (dissoc :owners)
-      (assoc :client-secret ClientSecret :owner-invitation owner-invitation)))
+  (assoc Bank :client-secret ClientSecret :owner-invitation owner-invitation))

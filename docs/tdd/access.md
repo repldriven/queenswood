@@ -311,7 +311,7 @@ identity providers marks a federated person's email verified, and the
 realm-import Job adds the mapper to a realm that already exists. An
 unverified email proves nothing: `/v1/me/invitations` answers an empty
 list, and a recipient route without the token answers 404
-`invitation/not-found`.
+`:invitation/not-found`.
 
 Guards in `domain.clj`, each the first binding of its `let-nom>`:
 
