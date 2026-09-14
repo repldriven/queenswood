@@ -87,7 +87,8 @@
    "Source-state guard. Only an active membership may be ended; a retry
     finds it ended and is refused 409 `membership/invalid-status`."
    [:post "/v1/members/{membership-id}/change-role"]
-   "Absolute set. The body names the role, so a retry converges."
+   "Absolute set. The body names the role, so a retry converges and
+    records nothing."
    [:post "/v1/members/{membership-id}/remove"]
    "Source-state guard. Only an active membership may be ended; a retry
     finds it ended and is refused 409 `membership/invalid-status`."
