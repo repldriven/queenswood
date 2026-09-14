@@ -6,6 +6,7 @@
     [com.repldriven.queenswood.clearbank-adapter.interface]
     [com.repldriven.queenswood.clearbank-simulator.interface]
     [com.repldriven.queenswood.clearbank-webhook.interface]
+    [com.repldriven.queenswood.email.interface]
     [com.repldriven.queenswood.fdb.interface]
     [com.repldriven.queenswood.idv.interface]
     [com.repldriven.queenswood.interest.interface]
@@ -31,4 +32,5 @@
     [com.repldriven.mono.keycloak.interface]
     [com.repldriven.mono.message-bus.interface]
     [com.repldriven.mono.scheduler.interface]
-    [com.repldriven.mono.server.interface]))
+    [com.repldriven.mono.server.interface]
+    [com.repldriven.mono.smtp.interface]))

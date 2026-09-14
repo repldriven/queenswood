@@ -331,6 +331,45 @@ jaeger:
     limits:
       memory: 1Gi
 
+# -- Outbound email. The services on `consumers` send invitation emails
+# through the SMTP server named here, and every link they carry opens the
+# console at `consoleUrl`.
+mail:
+  consumers:
+    - external-adapters-service
+    - monolith-service
+  # Empty derives it: `https://` and `gateway.consoleHost` when the
+  # gateway is enabled, otherwise the console's port-forward the install
+  # notes print.
+  consoleUrl: ""
+  # A Mailpit catcher in the release, for kind: every email lands in its
+  # inbox and nothing leaves the cluster. When enabled the services send
+  # to it and `smtp` is ignored. Never enable it where invitations must
+  # reach people.
+  catcher:
+    enabled: false
+    image: axllent/mailpit:v1.31.1
+    resources:
+      requests:
+        cpu: 20m
+        memory: 32Mi
+      limits:
+        memory: 128Mi
+  # A submission provider. Google Cloud refuses outbound port 25, so an
+  # installation names one on 587 (`starttls`) or 465 (`tls`). With no
+  # host and no catcher the services still start, and every invitation
+  # email fails and is retried until it is given up on.
+  smtp:
+    host: ""
+    port: 587
+    security: starttls
+    username: ""
+    # The From address, e.g. `Queenswood <noreply@example.com>`.
+    from: ""
+    # A Secret in the release namespace holding the password under
+    # `password`, written by the installation. Empty sends no password.
+    passwordSecret: ""
+
 # -- One-shot migrator Job. Applies FDB record metadata (via
 # fdb/meta-store-write) and creates the Kafka topics. Runs first;
 # bootstrap Job waits on its completion before seeding domain records.

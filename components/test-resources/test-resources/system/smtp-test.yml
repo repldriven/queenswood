@@ -1,0 +1,29 @@
+# Mailpit in a testcontainer, and a client pointed at it. Its web inbox
+# is the container's API URL, which start-up logs.
+container: !system/component
+  system/component-kind: mailpit/container
+
+container-smtp-port: !system/component
+  system/component-kind: mailpit/container-smtp-port
+  container: !system/local-ref container
+  exposed-port: 1025
+
+container-api-port: !system/component
+  system/component-kind: mailpit/container-api-port
+  container: !system/local-ref container
+  exposed-port: 8025
+
+container-api-url: !system/component
+  system/component-kind: mailpit/container-api-url
+  port: !system/local-ref container-api-port
+
+client: !system/component
+  system/component-kind: smtp/client
+  host: localhost
+  port: !system/local-ref container-smtp-port
+  security: !keyword none
+  username: test
+  password: test
+  from:
+    address: noreply@queenswood.local
+    name: Queenswood

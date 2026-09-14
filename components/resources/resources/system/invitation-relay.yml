@@ -1,0 +1,17 @@
+relay-handler: !system/component
+  system/component-kind: changelog-relay/envelope-handler
+  bus: !system/ref message-bus.bus
+  event-channel: !keyword invitations-event
+  store-name: invitations
+
+# One JVM, so the monolith owns the cursor itself rather than deferring
+# to the exclusive dispatchers.
+
+relay-runners: !system/component
+  system/component-kind: changelog-relay/runners
+  invitations:
+    record-db: !system/ref fdb.record-db
+    keyspace-prefix: !system/ref fdb.keyspace-prefix
+    consumer-id: invitations-relay
+    store-name: invitations
+    handler: !system/local-ref relay-handler

@@ -51,6 +51,49 @@ http://{{ .Release.Name }}-jaeger:4318/v1/traces
 {{- end -}}
 
 {{/*
+The SMTP server the mail consumers send through: the in-release Mailpit
+when the catcher is enabled, otherwise `mail.smtp`.
+*/}}
+{{- define "queenswood.smtpHost" -}}
+{{- if .Values.mail.catcher.enabled -}}
+{{ .Release.Name }}-mailpit
+{{- else -}}
+{{ .Values.mail.smtp.host }}
+{{- end -}}
+{{- end -}}
+
+{{- define "queenswood.smtpPort" -}}
+{{- if .Values.mail.catcher.enabled -}}
+1025
+{{- else -}}
+{{ .Values.mail.smtp.port }}
+{{- end -}}
+{{- end -}}
+
+{{- define "queenswood.smtpSecurity" -}}
+{{- if .Values.mail.catcher.enabled -}}
+none
+{{- else -}}
+{{ .Values.mail.smtp.security }}
+{{- end -}}
+{{- end -}}
+
+{{/*
+The console origin an emailed link opens. An explicit mail.consoleUrl
+wins; otherwise the gateway's console host, or the port-forward the
+install notes print.
+*/}}
+{{- define "queenswood.mailConsoleUrl" -}}
+{{- if .Values.mail.consoleUrl -}}
+{{ .Values.mail.consoleUrl }}
+{{- else if and .Values.gateway.enabled .Values.gateway.consoleHost -}}
+https://{{ .Values.gateway.consoleHost }}
+{{- else -}}
+http://localhost:8081
+{{- end -}}
+{{- end -}}
+
+{{/*
 Kafka bootstrap servers. When the in-chart broker is enabled its
 Service is `<release>-kafka` on :9092; otherwise services point at
 an external broker via kafka.bootstrapServers.

@@ -439,6 +439,33 @@ export function resend_invitation(invitation_id, { reason } = {}) {
   });
 }
 
+// An invitation as the person it was sent to sees it. The link's token
+// travels in `Invitation-Token`; without one, the signed-in person's
+// verified email must be the invited address.
+function invitation_token(token) {
+  return token ? { "Invitation-Token": token } : {};
+}
+
+export function get_my_invitation(invitation_id, token) {
+  return request(`/v1/me/invitations/${invitation_id}`, {
+    headers: invitation_token(token),
+  });
+}
+
+export function accept_invitation(invitation_id, token) {
+  return mutate(`/v1/me/invitations/${invitation_id}/accept`, {
+    method: "POST",
+    headers: invitation_token(token),
+  });
+}
+
+export function decline_invitation(invitation_id, token) {
+  return mutate(`/v1/me/invitations/${invitation_id}/decline`, {
+    method: "POST",
+    headers: invitation_token(token),
+  });
+}
+
 // `next` is the previous page's `links.next`; without it, the newest page.
 export function list_access_events({ next, size = 8 } = {}) {
   return request(next ?? `/v1/access-events?page[size]=${size}`);

@@ -6,5 +6,5 @@
 ;; when a release changes only the practices, or only the code. Bump all
 ;; four shims together anyway unless there is a reason not to.
 {:deps {com.repldriven.mono/dev {:git/url "https://github.com/repldriven/mono.git"
-                                 :git/tag "v0.0.29"
-                                 :git/sha "27b6208be7a693baec857065ec82bf110779725a"}}}
+                                 :git/tag "v0.0.30"
+                                 :git/sha "3f0a27ada38cf1ee4c66ad734a3410b8cde150bf"}}}

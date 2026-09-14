@@ -53,6 +53,18 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-cash-accounts-event-dlq
           acks: all
+      invitations-event-dlq:
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          topic: topic-invitations-event-dlq
+          acks: all
+      memberships-command:
+        schemas: !system/local-ref schemas
+        schema: !keyword command
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          topic: topic-memberships-command
+          acks: all
     # The group.ids name the per-adapter services this one absorbed.
     # They are carried over verbatim: a consumer group identifies the
     # consumer role, not the pod hosting it, and renaming one
@@ -91,6 +103,22 @@ system:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           group.id: webhook-service-cash-accounts-event
+      invitations-event:
+        schemas: !system/local-ref schemas
+        schema: !keyword event
+        topics: [topic-invitations-event]
+        dead-letter-producer: !system/local-ref producers.invitations-event-dlq
+        max-redeliveries: 5
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          group.id: email-service-invitations-event
+      memberships-command-response:
+        schemas: !system/local-ref schemas
+        schema: !keyword command-response
+        topics: [topic-memberships-command-response]
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          group.id: email-service-memberships-command-response
     message-bus-producers: !system/component
       system/component-kind: kafka/message-bus-producers
       schemes-payment-command-response:
@@ -103,6 +131,8 @@ system:
         producer: !system/local-ref producers.idv-event
       companies-command-response:
         producer: !system/local-ref producers.companies-command-response
+      memberships-command:
+        producer: !system/local-ref producers.memberships-command
     message-bus-consumers: !system/component
       system/component-kind: kafka/message-bus-consumers
       schemes-payment-command:
@@ -117,6 +147,12 @@ system:
       cash-accounts-event:
         consumer: !system/local-ref consumers.cash-accounts-event
         timeout: 500
+      invitations-event:
+        consumer: !system/local-ref consumers.invitations-event
+        timeout: 500
+      memberships-command-response:
+        consumer: !system/local-ref consumers.memberships-command-response
+        timeout: 500
   message-bus: !include system/message-bus.yml
   fdb: !include system/fdb.yml
   avro: !include system/avro.yml
@@ -130,3 +166,6 @@ system:
   uk-companies-house-simulator-server: !include system/uk-companies-house-simulator-server.yml
   uk-companies-house-adapter: !include system/uk-companies-house-adapter.yml
   webhook: !include system/webhook.yml
+  email: !include system/email.yml
+  memberships-dispatcher: !include system/membership-dispatcher.yml
+  smtp: !include system/smtp.yml

@@ -11,9 +11,10 @@ system:
         - banks-command-response
         - cash-accounts-command
         - cash-accounts-command-response
+        - invitations-event
         - memberships-command
-        - parties-command
         - memberships-command-response
+        - parties-command
         - parties-command-response
         - parties-event
         - transactions-command
@@ -47,6 +48,8 @@ system:
   idv: !include system/idv.yml
   payee-checks: !include system/payee-check.yml
   webhook: !include system/webhook.yml
+  email: !include system/email.yml
+  smtp: !include system/smtp.yml
   policies: !include system/policy.yml
   cash-account-product-templates: !include system/cash-account-product-templates.yml
   banks-dispatcher: !include system/bank-dispatcher.yml
@@ -55,6 +58,7 @@ system:
   companies-dispatcher: !include system/company-dispatcher.yml
   idvs-relay: !include system/idv-relay.yml
   interest-dispatcher: !include system/interest-dispatcher.yml
+  invitations-relay: !include system/invitation-relay.yml
   memberships-dispatcher: !include system/membership-dispatcher.yml
   parties-dispatcher: !include system/party-dispatcher.yml
   parties-relay: !include system/party-relay.yml

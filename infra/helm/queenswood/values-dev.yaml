@@ -9,3 +9,8 @@
 image:
   tag: "dev"
   pullPolicy: Never
+
+# Invitation emails land in Mailpit rather than leaving the cluster.
+mail:
+  catcher:
+    enabled: true

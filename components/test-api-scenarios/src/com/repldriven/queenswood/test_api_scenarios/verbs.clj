@@ -238,6 +238,10 @@
   "Scenario step dispatch. `:api/*` methods drive the bank API over
   HTTP; `:assert/*` methods check the previous response.
 
+  `:mail/await-invitation` waits for the `:nth` email (default the
+  first) to `:to` whose link names `:invitation-id`, and captures its
+  `:invitation-id`, `:token` and `:subject` under `:as`.
+
   `:api/race` sends one request `:count` times at once and asserts the
   idempotency invariant over the answers rather than their timing: see
   its own method."
@@ -344,6 +348,57 @@
          :else
          (do (Thread/sleep ^long interval)
              (recur response)))))))
+
+;; An invitation email's link, `/#/invitations/<id>?token=<token>`.
+(def ^:private invitation-link
+  #"/#/invitations/([^?\s]+)\?token=([A-Za-z0-9_-]+)")
+
+(defn- mail-get
+  [mail-url path]
+  (http/res->edn (http/request {:method :get :url (str mail-url path)})))
+
+(defn- invitation-emails
+  "The invitation links emailed to `to` for `invitation-id`, oldest
+  first, each with the message's subject."
+  [mail-url to invitation-id]
+  (let [query (java.net.URLEncoder/encode (str "to:\"" to "\"") "UTF-8")
+        found (mail-get mail-url (str "/api/v1/search?query=" query))]
+    (into []
+          (keep (fn [{:keys [ID Subject]}]
+                  (let [{:keys [Text]} (mail-get mail-url
+                                                 (str "/api/v1/message/" ID))
+                        [_ id token] (some->> Text
+                                              (re-find invitation-link))]
+                    (when (= invitation-id id)
+                      {:invitation-id id :token token :subject Subject}))))
+          (reverse (:messages found)))))
+
+(defmethod dispatch :mail/await-invitation
+  [{:keys [captures mail-url] :as ctx} step]
+  (let [{:keys [to invitation-id nth timeout-ms as]} (refs/resolve-all captures
+                                                                       step)
+        n (or nth 1)
+        deadline (+ (utility/now) (or timeout-ms default-poll-timeout-ms))]
+    (loop []
+      (let [emails (invitation-emails mail-url to invitation-id)]
+        (cond
+         (<= n (count emails))
+         (cond-> ctx
+                 as
+                 (assoc-in [:captures as] (get emails (dec n))))
+
+         (>= (utility/now) deadline)
+         (do (is false
+                 (str ":mail/await-invitation timed out waiting for email "
+                      n
+                      " to " to
+                      " for " invitation-id
+                      "; found " (count emails)))
+             ctx)
+
+         :else
+         (do (Thread/sleep ^long default-poll-interval-ms)
+             (recur)))))))
 
 (defmethod dispatch :assert/status
   [{:keys [last-response] :as ctx} {[expected] :args}]

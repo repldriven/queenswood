@@ -11,11 +11,13 @@ system:
   clearbank-adapter-server: !include system/clearbank-adapter-server.yml
   clearbank-simulator-server: !include system/clearbank-simulator-server.yml
   companies-dispatcher: !include system/company-dispatcher.yml
+  email: !include system/email.yml
   fdb: !include system/fdb-test.yml
   idv: !include system/idv.yml
   idvs-relay: !include system/idv-relay.yml
   interest: !include system/interest.yml
   interest-dispatcher: !include system/interest-dispatcher.yml
+  invitations-relay: !include system/invitation-relay.yml
   kafka: !include system/kafka-all-test.yml
   keycloak: !include system/keycloak.yml
   keycloak-container: !include system/keycloak-container-test.yml
@@ -34,6 +36,7 @@ system:
   payments-dispatcher: !include system/payment-dispatcher.yml
   policies: !include system/policy-test.yml
   server: !include monolith/server-test.yml
+  smtp: !include system/smtp-test.yml
   telemetry: !include system/telemetry.yml
   transactions: !include system/transaction.yml
   transactions-dispatcher: !include system/transaction-dispatcher.yml

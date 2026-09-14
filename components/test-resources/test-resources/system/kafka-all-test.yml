@@ -157,6 +157,14 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-interest-command-response
       acks: all
+  invitations-event:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword event
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      topic: topic-invitations-event
+      acks: all
   memberships-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -420,6 +428,14 @@ consumers: !system/component
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       group.id: test-interest-command-response
+  invitations-event:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword event
+    topics: [topic-invitations-event]
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      group.id: test-invitations-event
   memberships-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -573,6 +589,8 @@ message-bus-producers: !system/component
     producer: !system/local-ref producers.interest-command
   interest-command-response:
     producer: !system/local-ref producers.interest-command-response
+  invitations-event:
+    producer: !system/local-ref producers.invitations-event
   memberships-command:
     producer: !system/local-ref producers.memberships-command
   parties-command:
@@ -642,6 +660,9 @@ message-bus-consumers: !system/component
     timeout: 500
   interest-command-response:
     consumer: !system/local-ref consumers.interest-command-response
+    timeout: 500
+  invitations-event:
+    consumer: !system/local-ref consumers.invitations-event
     timeout: 500
   memberships-command:
     consumer: !system/local-ref consumers.memberships-command

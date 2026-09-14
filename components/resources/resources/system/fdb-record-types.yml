@@ -5,7 +5,7 @@
 # its record type arrived on as since, and a store lists the indexes
 # removed from it under former-indexes with the versions they were added
 # and removed at. See docs/recipes/code/schema-evolution.md.
-version: 52
+version: 53
 stores:
   assertions:
     record-type: Assertion
@@ -468,3 +468,17 @@ stores:
     since: 52
     primary-key: [bank_id, access_event_id]
     indexes: []
+  email-deliveries:
+    record-type: EmailDelivery
+    since: 53
+    primary-key: [bank_id, delivery_id]
+    indexes:
+      - name: EmailDelivery_by_changelog_event_id
+        added: 53
+        modified: 53
+        field: changelog_event_id
+        unique: true
+      - name: EmailDelivery_by_status_due
+        added: 53
+        modified: 53
+        fields: [status, next_attempt_at]

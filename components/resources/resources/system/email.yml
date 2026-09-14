@@ -1,0 +1,25 @@
+event-processor-impl: !system/component
+  system/component-kind: email/event-processor
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  schemas: !system/ref avro.serde
+
+event-consumer: !system/component
+  system/component-kind: event-processor/event-processor
+  bus: !system/ref message-bus.bus
+  processor: !system/local-ref event-processor-impl
+  event-channel: !keyword invitations-event
+
+# The runner mints its own id when none is given, so a second replica
+# claims a disjoint batch and the group needs no single-replica pin.
+outbound-runner: !system/component
+  system/component-kind: email/outbound-runner
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  schemas: !system/ref avro.serde
+  dispatcher: !system/ref memberships-dispatcher.dispatcher
+  smtp: !system/ref smtp.client
+  console-url: !profile
+    dev: http://localhost:5173
+    test: http://localhost:5173
+    default: !env CONSOLE_URL

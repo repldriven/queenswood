@@ -16,12 +16,22 @@
   import Jobs from "./lib/Jobs.svelte";
   import Policies from "./lib/Policies.svelte";
   import Scenarios from "./lib/Scenarios.svelte";
+  import AcceptInvitation from "./lib/AcceptInvitation.svelte";
+  import {
+    capture_invitation_link,
+    clear_invitation_link,
+  } from "./lib/invitation-link.mjs";
 
   // Unauthenticated surfaces are URL-routed so /#/sign-in is shareable
   // and the marketing landing has a stable home.
   const unauthRoutes = {
     "/": Landing,
     "/sign-in": wrap({ component: SignInPage, props: { onSignIn: sign_in } }),
+    // An emailed invitation link asks for sign-in first, then opens.
+    "/invitations/:id": wrap({
+      component: SignInPage,
+      props: { onSignIn: sign_in },
+    }),
     "*": Landing,
   };
 
@@ -80,18 +90,22 @@
     };
   }
 
-  // Three end states (sign-in / onboarding / app) plus a "loading"
-  // transient while Keycloak runs its silent SSO check and we hit
-  // /v1/me. The state name drives which surface renders.
+  // Four end states (sign-in / invitation / onboarding / app) plus a
+  // "loading" transient while Keycloak runs its silent SSO check and we
+  // hit /v1/me. The state name drives which surface renders. An emailed
+  // invitation link comes before onboarding and the app, whatever the
+  // person already belongs to.
   let stage = $state("loading");
   let user = $state(null);
   let memberships = $state([]);
+  let invitationLink = $state(null);
 
   $effect(() => {
     bootstrap();
   });
 
   async function bootstrap() {
+    invitationLink = capture_invitation_link();
     const session = await ensure_session();
     if (!session.authenticated) {
       stage = "signin";
@@ -111,7 +125,9 @@
     user = body.user;
     memberships = body.memberships ?? [];
     set_bank_id(memberships[0]?.["bank-id"]);
-    if (memberships.length === 0) {
+    if (invitationLink) {
+      stage = "invitation";
+    } else if (memberships.length === 0) {
       stage = "onboarding";
     } else {
       buildAuthRoutes();
@@ -122,6 +138,13 @@
         push("/products");
       }
     }
+  }
+
+  async function handleInvitationDone() {
+    clear_invitation_link();
+    invitationLink = null;
+    history.replaceState(null, "", "#/");
+    await refresh_me();
   }
 
   function handleOnboardComplete(payload) {
@@ -143,6 +166,14 @@
   <div class="splash">Loading…</div>
 {:else if stage === "signin"}
   <Router routes={unauthRoutes} />
+{:else if stage === "invitation"}
+  <AcceptInvitation
+    invitationId={invitationLink.invitationId}
+    token={invitationLink.token}
+    {user}
+    onDone={handleInvitationDone}
+    onSignOut={sign_out}
+  />
 {:else if stage === "onboarding"}
   <Onboarding
     defaultName={defaultOrgName()}

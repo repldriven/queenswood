@@ -1,0 +1,8 @@
+client: !system/component
+  system/component-kind: smtp/client
+  host: !env SMTP_HOST
+  port: !long [!or [!env SMTP_PORT, 587]]
+  security: !keyword [!or [!env SMTP_SECURITY, starttls]]
+  username: !env SMTP_USERNAME
+  password: !env SMTP_PASSWORD
+  from: !env SMTP_FROM
