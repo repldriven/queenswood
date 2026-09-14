@@ -224,6 +224,38 @@ spec:
                 echo "added $3 to '$2' in realm '$1'"
               }
 
+              # The console's `email-verified` mapper, added to a realm
+              # that lacks it. A realm is created once and never
+              # overwritten, so a mapper added to the chart's definition
+              # after that reaches the realm only over the Admin API.
+              # Idempotent: it returns when the client already carries a
+              # mapper of that name.
+              #
+              # $1 realm, $2 client id, $3 the mapper's representation,
+              # read from /chart rather than $src: on a restore $src is
+              # the backup, which may predate the mapper. Empty, for a
+              # realm whose definition has no such client, adds nothing.
+              reconcile_console_mapper() {
+                [ -n "$3" ] || return 0
+                cid=$(api "$KC/admin/realms/$1/clients?clientId=$2" \
+                  | jq -r '.[0].id // ""')
+                if [ -z "$cid" ]; then
+                  echo "no client '$2' in realm '$1'; nothing to reconcile"
+                  return 0
+                fi
+                if api "$KC/admin/realms/$1/clients/$cid/protocol-mappers/models" \
+                     | jq -e 'map(select(.name == "email-verified")) | length > 0' \
+                     >/dev/null; then
+                  return 0
+                fi
+                echo "$3" \
+                  | curl -sf -X POST -H "Authorization: Bearer $TOK" \
+                      -H 'Content-Type: application/json' -d @- \
+                      -o /dev/null \
+                      "$KC/admin/realms/$1/clients/$cid/protocol-mappers/models"
+                echo "added the email-verified mapper to '$2' in realm '$1'"
+              }
+
               # The Google OAuth client id, applied to an existing realm
               # for the same reason: the realm carries a placeholder and
               # is never overwritten, so the id an environment actually
@@ -289,6 +321,11 @@ spec:
                   src="/chart/$realm-realm.json"
                   origin="the chart's committed definition"
                 fi
+                console_mapper=$(jq -c --arg c "$CONSOLE_CLIENT_ID" \
+                  '[(.clients // [])[] | select(.clientId == $c)
+                    | (.protocolMappers // [])[]
+                    | select(.name == "email-verified")][0] // empty' \
+                  "/chart/$realm-realm.json")
 
                 if [ "$(status_of "$realm")" = "200" ]; then
                   if [ -z "$RESTORED_FROM" ]; then
@@ -297,6 +334,8 @@ spec:
                       "$CONSOLE_REDIRECT_URI"
                     reconcile_redirect "$realm" "$OPS_CLIENT_ID" \
                       "$OPS_REDIRECT_URI"
+                    reconcile_console_mapper "$realm" "$CONSOLE_CLIENT_ID" \
+                      "$console_mapper"
                     # Only the realm the console signs in through. The
                     # operator realm's own google provider carries a
                     # literal placeholder secret rather than a vault
@@ -317,6 +356,8 @@ spec:
                     | jq -r '.attributes["queenswood.restoredFrom"] // ""')
                   if [ "$was" = "$RESTORED_FROM" ]; then
                     echo "realm '$realm' already restored from $RESTORED_FROM"
+                    reconcile_console_mapper "$realm" "$CONSOLE_CLIENT_ID" \
+                      "$console_mapper"
                     continue
                   fi
                   echo "FATAL: a restore from $RESTORED_FROM was requested," >&2
@@ -457,6 +498,12 @@ spec:
                   | curl -sf -X PUT -H "Authorization: Bearer $TOK" \
                       -H 'Content-Type: application/json' -d @- \
                       -o /dev/null "$KC/admin/realms/$realm"
+
+                # A completed restore keeps this Job's name, so no re-run
+                # reaches the already-restored branch above: a backup
+                # older than the mapper gains it here or not at all.
+                reconcile_console_mapper "$realm" "$CONSOLE_CLIENT_ID" \
+                  "$console_mapper"
 
                 echo "restored realm '$realm' from $RESTORED_FROM; $total user ids intact"
               done
