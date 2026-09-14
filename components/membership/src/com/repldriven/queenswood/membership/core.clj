@@ -323,14 +323,17 @@
                                       {:actor actor
                                        :active-memberships members}
                                       now)
-          _ (store/save-membership txn changed)
-          _ (store/save-access-event
-             txn
-             (membership-event membership
-                               :access-event-kind-role-changed
-                               actor
-                               {:role-after role :reason reason}
-                               now))]
+          unchanged? (= role (:role membership))
+          _ (when-not unchanged?
+              (store/save-membership txn changed))
+          _ (when-not unchanged?
+              (store/save-access-event
+               txn
+               (membership-event membership
+                                 :access-event-kind-role-changed
+                                 actor
+                                 {:role-after role :reason reason}
+                                 now)))]
          changed)))
    :membership/change-role
    "Failed to change role"))
