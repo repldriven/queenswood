@@ -137,7 +137,9 @@ Resource-manager and identity:
   `recovery` holds what the platform would be rebuilt from, apart so
   that the identity able to destroy a primary cannot reach the copy.
   The plane composes `recovery` and leaves it empty; each instance
-  composes its own bucket in it.
+  composes its own bucket in it. One `d` project, `local`, holds the
+  OAuth client local development signs in through and nothing that runs
+  — see [local-install](../infra/local-install.md).
 - **API enablement** — `svc-qw01-c-<api>`, the API's first label:
   `svc-qw01-c-iam`, `svc-qw01-c-container`. The management project ends
   the name there because there is one of it. An instance keeps its

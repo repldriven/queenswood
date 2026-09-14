@@ -5,10 +5,20 @@
 // vite.config.js does the same locally.
 import { fresh_token } from "./auth.mjs";
 
+// The bank every bank-scoped call acts on, sent as `Bank-Id`. Without it
+// the API resolves the person's only membership, and refuses a person
+// who holds several.
+let bank_id = null;
+
+export function set_bank_id(id) {
+  bank_id = id ?? null;
+}
+
 async function request(path, opts = {}) {
   const token = await fresh_token();
   const headers = {
     "Content-Type": "application/json",
+    ...(bank_id ? { "Bank-Id": bank_id } : {}),
     ...(opts.headers ?? {}),
     Authorization: `Bearer ${token}`,
   };
@@ -365,4 +375,71 @@ export function simulate_inbound_transfer(bank_id, data) {
     method: "POST",
     body: JSON.stringify(data),
   });
+}
+
+// ─── People and access (org-scoped) ───
+//
+// Every level reads the members, invitations and history; changing them
+// needs `org:admin`, and the rules that depend on the target (an admin
+// never acts on an owner, a bank is never ownerless) refuse in the
+// domain. Member and invitation lists are unpaged; the history pages by
+// cursor, and its `links.next` is a ready-made `/v1/...` path. Creating
+// and resending an invitation answer its token, exactly once each.
+
+function with_reason(reason) {
+  return JSON.stringify(reason ? { reason } : {});
+}
+
+export function list_members() {
+  return request("/v1/members");
+}
+
+export function change_member_role(membership_id, { role, reason }) {
+  return mutate(`/v1/members/${membership_id}/change-role`, {
+    method: "POST",
+    body: JSON.stringify(reason ? { role, reason } : { role }),
+  });
+}
+
+export function remove_member(membership_id, { reason } = {}) {
+  return mutate(`/v1/members/${membership_id}/remove`, {
+    method: "POST",
+    body: with_reason(reason),
+  });
+}
+
+export function leave_membership(membership_id) {
+  return mutate(`/v1/me/memberships/${membership_id}/leave`, {
+    method: "POST",
+  });
+}
+
+export function list_invitations() {
+  return request("/v1/invitations");
+}
+
+export function create_invitation({ email, role, reason }) {
+  return mutate("/v1/invitations", {
+    method: "POST",
+    body: JSON.stringify(reason ? { email, role, reason } : { email, role }),
+  });
+}
+
+export function withdraw_invitation(invitation_id, { reason } = {}) {
+  return mutate(`/v1/invitations/${invitation_id}/withdraw`, {
+    method: "POST",
+    body: with_reason(reason),
+  });
+}
+
+export function resend_invitation(invitation_id, { reason } = {}) {
+  return mutate(`/v1/invitations/${invitation_id}/resend`, {
+    method: "POST",
+    body: with_reason(reason),
+  });
+}
+
+// `next` is the previous page's `links.next`; without it, the newest page.
+export function list_access_events({ next, size = 8 } = {}) {
+  return request(next ?? `/v1/access-events?page[size]=${size}`);
 }

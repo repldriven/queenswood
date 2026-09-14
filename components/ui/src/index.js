@@ -134,6 +134,33 @@ export {
   fmtDuration,
 } from "./migrations.js";
 
+// People and access — the role pill, the tabs, tags beside a name, the
+// refusal callout, the reason textarea and the one-time secret panel,
+// plus the ladder and formatting helpers. The page itself lives in
+// console.
+export { default as RolePill } from "./RolePill.svelte";
+export { default as Tabs } from "./Tabs.svelte";
+export { default as Tag } from "./Tag.svelte";
+export { default as Callout } from "./Callout.svelte";
+export { default as Textarea } from "./Textarea.svelte";
+export { default as TokenBox } from "./TokenBox.svelte";
+export {
+  ROLES,
+  ROLE_RANK,
+  ROLE_BLURB,
+  accessEnum,
+  grantableBy,
+  canManagePeople,
+  canActOn,
+  isLastOwner,
+  EVENT_LABEL,
+  EVENT_FAMILY,
+  fmtUtcDate,
+  fmtUtcDateTime,
+  fmtFromNow,
+  expiryUrgency,
+} from "./access.js";
+
 export { default as Field } from "./Field.svelte";
 export { default as Input } from "./Input.svelte";
 export { default as Select } from "./Select.svelte";

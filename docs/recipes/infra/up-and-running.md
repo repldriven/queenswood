@@ -78,6 +78,11 @@ the delegation to it, then the unit: its project, network, cluster,
 database and records for one environment, and then the bank on top of
 it, answering at `https://console.<domain>`.
 
+### 7. Local development
+
+[local-install](local-install.md). The installation's local project, the
+OAuth client in it, and the pair a developer's monolith signs in with.
+
 ## Rules
 
 **MUST:**
@@ -89,6 +94,7 @@ it, answering at `https://console.<domain>`.
 - Start at step 3 where the organisation is established and its apex
   already delegates a name to you.
 - Stop after step 5, which is an installation with no instance on it.
+- Skip step 7 where nobody signs in to a local monolith with Google.
 - Run steps 1 and 2 once for an organisation, and steps 3 to 6 once per
   installation.
 

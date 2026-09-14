@@ -106,7 +106,18 @@
         Scenarios
       </SidenavItem>
     </SidenavGroup>
-    <SidenavGroup title="Compliance">
+    <SidenavGroup title="Organisation">
+      <SidenavItem href="#/people" title="People" current={isCurrent("/people")}>
+        {#snippet icon()}
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <circle cx="6" cy="6" r="2.4" />
+            <path d="M1.8 14c0.7-2.7 2.3-4.2 4.2-4.2S9.5 11.3 10.2 14" />
+            <path d="M10.4 4.1a2.4 2.4 0 0 1 0 4.5" />
+            <path d="M11.6 9.9c1.4 0.4 2.3 1.8 2.7 4.1" />
+          </svg>
+        {/snippet}
+        People
+      </SidenavItem>
       <SidenavItem href="#/policies" title="Policies" current={isCurrent("/policies")}>
         {#snippet icon()}
           <svg viewBox="0 0 16 16" aria-hidden="true">

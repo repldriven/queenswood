@@ -640,6 +640,31 @@ rebuilt environment as evidence the rebuild failed — it is the likelier
 cause and the wrong conclusion.
 See [google-sign-in](../../../docs/recipes/infra/google-sign-in.md).
 
+## Local development signs in through the installation's local project
+
+Render the installation's local project with `just
+queenswood-local-manifest`, which mints `prj-<code>-d-local-<suffix>` once
+and refuses to render over a committed manifest, and commit `local.yml` at
+the top of the installation's directory, since the installation's
+Application is not recursive. It is an `XQueenswoodLocal`, never an
+`XQueenswoodInstance` with env `d`, which would compose a network, a cluster
+and a database for an environment that runs on a developer's machine. Add
+`adopt` beside `projectId` once the project exists and merge it on its own.
+Create the OAuth client by hand in that project, never in an instance's,
+with the redirect URI
+`http://localhost:8090/realms/queenswood/broker/google/endpoint`. Store the
+id at `queenswood/local/dev/auth/clients/ids/google` and the secret at
+`queenswood/local/dev/auth/clients/google`, where `just monolith-start` and
+the dev profile read them, and restart the monolith after storing either:
+the container imports a fresh realm at every start, substituting
+`${QW_LOCAL_GOOGLE_CLIENT_ID:...}`, and nothing reaches a running one. Never
+commit a client id to this repository, since the realm's placeholder is what
+tests sign in against, and never copy the secret into Secret Manager as
+well, where nothing local reads it.
+Commands: `just queenswood-local-manifest`, `just crossplane-conditions`,
+`just monolith-start`.
+See [local-install](../../../docs/recipes/infra/local-install.md).
+
 ## The apex belongs to no installation, and names below it are delegated
 
 Create the apex project outside every folder -- `prj-c-dns-<suffix>`,

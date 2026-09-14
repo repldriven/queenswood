@@ -368,6 +368,51 @@ queenswood-zone-nameservers env label:
     echo >&2
     echo ">>> add these to apex.yml as an NS record, then: just dns-apex-apply" >&2
 
+# Write the installation's local-development project manifest. `project` defaults to a minted id.
+queenswood-local-manifest project="":
+    #!/usr/bin/env zsh
+    set -e
+    ROOT={{ INSTALLATIONS_REPO }}/{{ CODE }}
+    FILE="$ROOT/local.yml"
+    if [[ ! -d "$ROOT" ]]; then
+      echo "no installation at $ROOT" >&2
+      echo "the plane's manifest is committed there first -- see" >&2
+      echo "docs/recipes/infra/management-plane-install.md" >&2
+      exit 1
+    fi
+    if [[ -n "{{ project }}" && ! "{{ project }}" =~ ^prj-{{ CODE }}-d-local-[0-9a-f]{6}$ ]]; then
+      echo "project must be prj-{{ CODE }}-d-local-<six hex>, not {{ project }}" >&2
+      exit 1
+    fi
+    # Committed is the line, not merely present: a plane reads from git,
+    # so an uncommitted file was never applied and the id it holds means
+    # nothing. A committed one may be the only record of a consumed id.
+    if [[ -e "$FILE" ]]; then
+      if git -C {{ INSTALLATIONS_REPO }} rev-parse --git-dir >/dev/null 2>&1 \
+         && git -C {{ INSTALLATIONS_REPO }} cat-file -e \
+              "HEAD:{{ CODE }}/local.yml" 2>/dev/null; then
+        echo "{{ CODE }} already has a committed local project:" >&2
+        echo "  $FILE" >&2
+        echo "edit it" >&2
+        exit 1
+      fi
+      echo ">>> replacing the uncommitted $FILE" >&2
+      echo ">>> nothing was built from it, so the id is minted afresh" >&2
+    fi
+
+    PROJECT="{{ project }}"
+    if [[ -z "$PROJECT" ]]; then
+      PROJECT="prj-{{ CODE }}-d-local-$(openssl rand -hex 3)"
+      echo ">>> naming the project $PROJECT" >&2
+    fi
+
+    CODE="{{ CODE }}" PROJECT="$PROJECT" \
+    python3 -c 'import os,sys,string; sys.stdout.write(string.Template(open(sys.argv[1]).read()).substitute(os.environ))' \
+      infra/platform/templates/local.yml.tmpl > "$FILE"
+
+    echo ">>> wrote $FILE"
+    echo ">>> read it, commit and merge, then create the OAuth client in $PROJECT"
+
 # Render the whole unit for the instance `env`-`label`, from the
 # `spec` set of templates.
 queenswood-instance-manifest env=ENV label=LABEL project="" domain="" spec=SPEC:

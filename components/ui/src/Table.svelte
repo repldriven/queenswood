@@ -67,12 +67,16 @@
 
      Wire toggling in the consumer (one `open` map). Keyboard: the
      expandable Tr is role=button + tabindex=0, so add an Enter/Space
-     handler that mirrors the click. */
+     handler that mirrors the click.
 
-  let { tree = false, children, ...rest } = $props();
+     FLUSH MODE — `<Table flush>` drops the wrapper's border and radius
+     and scrolls sideways when narrow, for a table that fills a Panel
+     under its PanelHead. */
+
+  let { tree = false, flush = false, children, ...rest } = $props();
 </script>
 
-<div class="table-wrap">
+<div class="table-wrap" class:flush>
   <table class="qw-table" class:qw-table--tree={tree} {...rest}>
     {@render children?.()}
   </table>
@@ -84,6 +88,12 @@
     border: 1px solid var(--rule-2);
     border-radius: 6px;
     overflow: hidden;
+  }
+  .table-wrap.flush {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    overflow-x: auto;
   }
   .qw-table {
     width: 100%;

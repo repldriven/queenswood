@@ -22,6 +22,13 @@
        scheduled  violet — never run yet, awaiting first fire
      (a paused schedule reuses `archived`.)
 
+     Invitation states:
+       pending    violet — awaiting the recipient (reuses `pending`)
+       accepted   pine   — the recipient became a member
+       expired    amber  — seven days passed unaccepted
+       withdrawn  gray   — an admin took it back
+       declined   rust   — the recipient turned it down
+
      Text is lowercased visually so callers can pass "Published" or
      "PUBLISHED" interchangeably without worrying about case. */
 
@@ -109,6 +116,24 @@
   .badge.scheduled {
     background: light-dark(oklch(0.92 0.04 270), oklch(0.27 0.05 270));
     color:      light-dark(oklch(0.40 0.08 270), oklch(0.80 0.07 270));
+  }
+
+  /* Invitation states — hue conventions shared with the status tones. */
+  .badge.accepted {
+    background: light-dark(oklch(0.92 0.04 145), oklch(0.26 0.05 145));
+    color:      light-dark(oklch(0.34 0.075 145), oklch(0.82 0.06 145));
+  }
+  .badge.expired {
+    background: light-dark(oklch(0.93 0.055 75), oklch(0.28 0.06 70));
+    color:      light-dark(oklch(0.45 0.105 65), oklch(0.84 0.09 80));
+  }
+  .badge.withdrawn {
+    background: light-dark(oklch(0.92 0.005 70), oklch(0.26 0.005 70));
+    color:      light-dark(oklch(0.45 0.005 70), oklch(0.72 0.005 70));
+  }
+  .badge.declined {
+    background: light-dark(oklch(0.92 0.04 30),  oklch(0.27 0.055 30));
+    color:      light-dark(oklch(0.42 0.115 30), oklch(0.82 0.105 30));
   }
 
   /* running's dot breathes; respect reduced-motion. */
