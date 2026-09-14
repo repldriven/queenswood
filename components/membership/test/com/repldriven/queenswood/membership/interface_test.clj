@@ -1,11 +1,11 @@
 (ns com.repldriven.queenswood.membership.interface-test
   "The access writes against a real record store: what the domain tests
   cannot see because it depends on what a transaction reads. An accept
-  run twice writes one membership; a removal ends a membership and a
-  re-invitation writes a new one; expiry is read, never written; a
-  target outside the actor's reach is not found and nothing is written;
-  and two concurrent writes that would each pass alone conflict, so one
-  is refused on retry (TS-4, REQ-012).
+  run twice writes one membership; a role change repeated writes nothing;
+  a removal ends a membership and a re-invitation writes a new one;
+  expiry is read, never written; a target outside the actor's reach is
+  not found and nothing is written; and two concurrent writes that would
+  each pass alone conflict, so one is refused on retry (TS-4, REQ-012).
 
   The pure rules live in `domain-test`, the records in `store-test`."
   (:require
@@ -335,6 +335,42 @@
                                       config
                                       (:membership-id owner-membership)
                                       {:user-id "usr.removal.owner"})))))]))))
+
+(deftest an-unchanged-role-records-nothing-test
+  (with-test-system
+   [sys config-file]
+   (let [config (fdb-config sys)
+         bank-id "bnk.unchanged"
+         owner (member "usr.unchanged.owner" :role-owner)
+         first-at 1700000000000
+         second-at (+ first-at day-ms)]
+     (nom-test> [_ (SUT/new-membership config
+                                       {:user-id "usr.unchanged.owner"
+                                        :bank-id bank-id})
+                 target (SUT/new-membership config
+                                            {:user-id "usr.unchanged.member"
+                                             :bank-id bank-id
+                                             :role :role-viewer})
+                 changed (SUT/change-role config
+                                          bank-id
+                                          (:membership-id target)
+                                          :role-developer
+                                          {:actor owner :now first-at})
+                 repeated (SUT/change-role config
+                                           bank-id
+                                           (:membership-id target)
+                                           :role-developer
+                                           {:actor owner :now second-at})
+                 _ (testing
+                     "repeating a role change returns the membership as is"
+                     (is (= changed repeated)))
+                 loaded (SUT/find-by-id config (:membership-id target))
+                 history (SUT/list-access-events config bank-id)
+                 _ (testing "and writes neither the membership nor an event"
+                     (is (= first-at (:updated-at loaded)))
+                     (is (= :role-developer (:role loaded)))
+                     (is (= [:access-event-kind-role-changed]
+                            (kinds history))))]))))
 
 (deftest expiry-is-read-and-never-written-test
   (with-test-system
