@@ -1,0 +1,5 @@
+dispatcher: !system/component
+  system/component-kind: command/dispatcher
+  bus: !system/ref message-bus.bus
+  command-channel: !keyword memberships-command
+  command-response-channel: !keyword memberships-command-response

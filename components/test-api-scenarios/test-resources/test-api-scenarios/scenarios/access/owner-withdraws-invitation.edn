@@ -26,10 +26,8 @@
   {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/accept"
-             :path-params {:invitation-id [:ref :bank :owner-invitation
-                                           :invitation :invitation-id]}
-             :auth :owner-token
-             :headers {:invitation-token [:ref :bank :owner-invitation :token]}}
+             :path-params {:invitation-id [:ref :bank :owner-invitation :invitation-id]}
+             :auth :owner-token}
    :as :owner-membership
    :assert {:status 201 :body {:role "owner"}}}
   {:command :api/request
@@ -49,21 +47,18 @@
              :headers {:bank-id [:ref :bank :bank-id]}}
    :assert {:status 200
             :body {:items [:m/embeds
-                           [{:invitation-id [:ref :invitation :invitation
-                                             :invitation-id]
+                           [{:invitation-id [:ref :invitation :invitation-id]
                              :status "pending"}]]}}}]
  :when
  [{:command :api/request
    :request {:method :post
              :path "/v1/invitations/{invitation-id}/withdraw"
-             :path-params {:invitation-id [:ref :invitation :invitation
-                                           :invitation-id]}
+             :path-params {:invitation-id [:ref :invitation :invitation-id]}
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}
              :body {:reason "Sent to the wrong address"}}
    :assert {:status 200
-            :body {:invitation-id [:ref :invitation :invitation
-                                   :invitation-id]
+            :body {:invitation-id [:ref :invitation :invitation-id]
                    :email "withdraw-invitee@example.test"
                    :status "withdrawn"}}}]
  :then
@@ -75,13 +70,11 @@
    :assert {:status 200
             :body {:items [:m/all-of
                            [:m/embeds
-                            [{:invitation-id [:ref :bank :owner-invitation
-                                              :invitation :invitation-id]
+                            [{:invitation-id [:ref :bank :owner-invitation :invitation-id]
                               :status "accepted"}]]
                            [:m/seq-of
                             [:m/mismatch
-                             {:invitation-id [:ref :invitation :invitation
-                                              :invitation-id]}]]]}}}
+                             {:invitation-id [:ref :invitation :invitation-id]}]]]}}}
   {:command :api/request
    :request {:method :get
              :path "/v1/access-events"
@@ -93,8 +86,7 @@
                              :actor {:kind "member"
                                      :principal-id
                                      [:ref :owner-membership :user-id]}
-                             :invitation-id [:ref :invitation :invitation
-                                             :invitation-id]
+                             :invitation-id [:ref :invitation :invitation-id]
                              :email "withdraw-invitee@example.test"
                              :role-after "viewer"
                              :reason "Sent to the wrong address"}]]}}}]}

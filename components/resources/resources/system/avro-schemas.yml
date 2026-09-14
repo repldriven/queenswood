@@ -22,6 +22,18 @@ change-bank-status: schemas/banks/change-bank-status.avsc.json
 bank-status-changed: schemas/banks/bank-status-changed.avsc.json
 bank-tier-changed: schemas/banks/bank-tier-changed.avsc.json
 
+invite: schemas/memberships/invite.avsc.json
+resend-invitation: schemas/memberships/resend-invitation.avsc.json
+withdraw-invitation: schemas/memberships/withdraw-invitation.avsc.json
+accept-invitation: schemas/memberships/accept-invitation.avsc.json
+decline-invitation: schemas/memberships/decline-invitation.avsc.json
+change-role: schemas/memberships/change-role.avsc.json
+remove-member: schemas/memberships/remove-member.avsc.json
+leave-membership: schemas/memberships/leave-membership.avsc.json
+record-invitation-token: schemas/memberships/record-invitation-token.avsc.json
+access-change: schemas/memberships/access-change.avsc.json
+invitation-changed: schemas/memberships/invitation-changed.avsc.json
+
 idv: schemas/idv/idv.avsc.json
 initiate-idv: schemas/idv/initiate-idv.avsc.json
 get-idv: schemas/idv/get-idv.avsc.json

@@ -28,6 +28,7 @@ interceptors: !system/component
   dispatchers:
     banks: !system/ref banks-dispatcher.dispatcher
     cash-accounts: !system/ref cash-accounts-dispatcher.dispatcher
+    memberships: !system/ref memberships-dispatcher.dispatcher
     parties: !system/ref parties-dispatcher.dispatcher
     payments: !system/ref payments-dispatcher.dispatcher
     interest: !system/ref interest-dispatcher.dispatcher

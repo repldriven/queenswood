@@ -32,10 +32,8 @@
   {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/accept"
-             :path-params {:invitation-id [:ref :bank :owner-invitation
-                                           :invitation :invitation-id]}
-             :auth :owner-token
-             :headers {:invitation-token [:ref :bank :owner-invitation :token]}}
+             :path-params {:invitation-id [:ref :bank :owner-invitation :invitation-id]}
+             :auth :owner-token}
    :as :owner-membership
    :assert {:status 201 :body {:role "owner"}}}
   {:command :api/request
@@ -52,8 +50,7 @@
   {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/accept"
-             :path-params {:invitation-id [:ref :invitation :invitation
-                                           :invitation-id]}
+             :path-params {:invitation-id [:ref :invitation :invitation-id]}
              :auth :member-token}
    :as :member-membership
    :assert {:status 201 :body {:role "developer"}}}
@@ -103,11 +100,11 @@
               :actor {:kind "member"
                       :principal-id [:ref :member-membership :user-id]}
               :subject-user-id [:ref :member-membership :user-id]
-              :invitation-id [:ref :invitation :invitation :invitation-id]}
+              :invitation-id [:ref :invitation :invitation-id]}
              {:kind "invitation-created"
               :actor {:kind "member"
                       :principal-id [:ref :owner-membership :user-id]}
-              :invitation-id [:ref :invitation :invitation :invitation-id]
+              :invitation-id [:ref :invitation :invitation-id]
               :email "history-member@queenswood.local"
               :role-after "developer"
               :reason "Joining the platform team"}

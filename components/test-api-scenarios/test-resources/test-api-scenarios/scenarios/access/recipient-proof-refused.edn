@@ -3,8 +3,8 @@
  ;; Two people fail the proof. A verified stranger sends a token that
  ;; is not the invitation's. The invitee's address matches, but the
  ;; realm holds it unverified, so the token's `email_verified` claim is
- ;; false. Each is answered as though the invitation did not exist; the
- ;; right token then admits the unverified invitee.
+ ;; false. Each is answered as though the invitation did not exist, and
+ ;; the invitation stays pending.
  :given
  [{:command :auth/mint-user-token
    :realm :queenswood
@@ -39,10 +39,8 @@
   {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/accept"
-             :path-params {:invitation-id [:ref :bank :owner-invitation
-                                           :invitation :invitation-id]}
-             :auth :owner-token
-             :headers {:invitation-token [:ref :bank :owner-invitation :token]}}
+             :path-params {:invitation-id [:ref :bank :owner-invitation :invitation-id]}
+             :auth :owner-token}
    :assert {:status 201 :body {:role "owner"}}}
   {:command :api/request
    :request {:method :post
@@ -57,8 +55,7 @@
  [{:command :api/request
    :request {:method :get
              :path "/v1/me/invitations/{invitation-id}"
-             :path-params {:invitation-id [:ref :invitation :invitation
-                                           :invitation-id]}
+             :path-params {:invitation-id [:ref :invitation :invitation-id]}
              :auth :stranger-token
              :headers {:invitation-token
                        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}}
@@ -66,8 +63,7 @@
   {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/accept"
-             :path-params {:invitation-id [:ref :invitation :invitation
-                                           :invitation-id]}
+             :path-params {:invitation-id [:ref :invitation :invitation-id]}
              :auth :stranger-token
              :headers {:invitation-token
                        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}}
@@ -78,22 +74,19 @@
   {:command :api/request
    :request {:method :get
              :path "/v1/me/invitations/{invitation-id}"
-             :path-params {:invitation-id [:ref :invitation :invitation
-                                           :invitation-id]}
+             :path-params {:invitation-id [:ref :invitation :invitation-id]}
              :auth :unverified-token}
    :assert {:status 404 :problem {:type ":invitation/not-found"}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/accept"
-             :path-params {:invitation-id [:ref :invitation :invitation
-                                           :invitation-id]}
+             :path-params {:invitation-id [:ref :invitation :invitation-id]}
              :auth :unverified-token}
    :assert {:status 404 :problem {:type ":invitation/not-found"}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/decline"
-             :path-params {:invitation-id [:ref :invitation :invitation
-                                           :invitation-id]}
+             :path-params {:invitation-id [:ref :invitation :invitation-id]}
              :auth :unverified-token}
    :assert {:status 404 :problem {:type ":invitation/not-found"}}}]
  :then
@@ -104,14 +97,5 @@
              :headers {:bank-id [:ref :bank :bank-id]}}
    :assert {:status 200
             :body {:items [:m/embeds
-                           [{:invitation-id [:ref :invitation :invitation
-                                             :invitation-id]
-                             :status "pending"}]]}}}
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/me/invitations/{invitation-id}/accept"
-             :path-params {:invitation-id [:ref :invitation :invitation
-                                           :invitation-id]}
-             :auth :unverified-token
-             :headers {:invitation-token [:ref :invitation :token]}}
-   :assert {:status 201 :body {:role "viewer"}}}]}
+                           [{:invitation-id [:ref :invitation :invitation-id]
+                             :status "pending"}]]}}}]}

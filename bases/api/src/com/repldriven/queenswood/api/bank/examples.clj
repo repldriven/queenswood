@@ -85,15 +85,13 @@
    "42 Improbability Way, London, QZ1 9ZX, United Kingdom"})
 
 (def ^:private owner-invitation
-  {:invitation (assoc access-examples/Invitation
-                      :bank-id BankId
-                      :email "zaphod@example.com"
-                      :role :owner
-                      :reason "Owner of a new bank"
-                      :invited-by {:kind :operator
-                                   :principal-id "queenswood-admin"
-                                   :name "Queenswood"})
-   :token access-examples/InvitationToken})
+  (assoc access-examples/Invitation
+         :bank-id BankId
+         :email "zaphod@example.com"
+         :role :owner
+         :reason "Owner of a new bank"
+         :invited-by
+         {:kind :operator :principal-id "queenswood-admin" :name "Queenswood"}))
 
 (def CreateBankResponse
   (assoc Bank :client-secret ClientSecret :owner-invitation owner-invitation))

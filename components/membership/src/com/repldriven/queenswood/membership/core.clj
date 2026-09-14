@@ -3,36 +3,14 @@
     [com.repldriven.queenswood.membership.domain :as domain]
     [com.repldriven.queenswood.membership.store :as store]
 
+    [com.repldriven.queenswood.membership-query.interface :as q]
     [com.repldriven.queenswood.user.interface :as user]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
-    [com.repldriven.mono.utility.interface :as utility]
+    [com.repldriven.mono.utility.interface :as utility]))
 
-    [clojure.string :as str])
-  (:import
-    (java.security MessageDigest SecureRandom)
-    (java.util Base64)))
-
-(def ^:private token-bytes 32)
-
-(def ^:private ^SecureRandom random (SecureRandom.))
-
-(defn token-hash
-  [token]
-  (when (string? token)
-    (let [digest (.digest (MessageDigest/getInstance "SHA-256")
-                          (.getBytes ^String token "UTF-8"))]
-      ;; A Java byte is signed, so mask before formatting or every byte
-      ;; over 127 renders as eight f-padded characters.
-      (apply str (map #(format "%02x" (bit-and % 0xff)) digest)))))
-
-(defn new-invitation-token
-  []
-  (let [bytes (byte-array token-bytes)]
-    (.nextBytes random bytes)
-    (let [token (.encodeToString (.withoutPadding (Base64/getUrlEncoder))
-                                 bytes)]
-      {:token token :token-hash (token-hash token)})))
+(def ^:private invitation-created "invitation-created")
+(def ^:private invitation-resent "invitation-resent")
 
 (defn- clock
   [opts]
@@ -45,7 +23,7 @@
 (defn- as-read
   [invitation now]
   (-> invitation
-      (assoc :status (domain/effective-status invitation now))
+      (assoc :status (q/effective-status invitation now))
       (dissoc :token-hash)))
 
 (defn- member-email
@@ -87,31 +65,6 @@
                                     details)
                              now)))
 
-(defn- load-invitation
-  [txn bank-id invitation-id]
-  (let-nom> [invitation (store/find-invitation txn bank-id invitation-id)]
-    (domain/ensure-invitation-found invitation invitation-id)))
-
-(defn- load-for-recipient
-  [txn invitation-id {:keys [token-hash email email-verified?] :as proof}]
-  (let-nom>
-    [by-token (when (string? token-hash)
-                (store/find-invitation-by-token-hash txn token-hash))
-     by-email (if (and (true? email-verified?) (string? email))
-                (store/list-invitations-by-email txn (str/lower-case email))
-                [])
-     invitation (domain/ensure-invitation-found
-                 (some #(when (= invitation-id (:invitation-id %)) %)
-                       (cons by-token by-email))
-                 invitation-id)
-     _ (domain/check-recipient invitation proof)]
-    invitation))
-
-(defn- load-membership
-  [txn membership-id]
-  (let-nom> [membership (store/get-membership txn membership-id)]
-    (domain/ensure-found membership membership-id)))
-
 (defn new-membership
   [txn {:keys [user-id bank-id role]}]
   (store/transact
@@ -126,26 +79,6 @@
          membership)))
    :membership/new
    "Failed to create membership"))
-
-(defn list-by-user
-  [txn user-id]
-  (store/list-by-user txn user-id))
-
-(defn list-by-bank
-  [txn bank-id]
-  (store/list-by-bank txn bank-id))
-
-(defn list-active-by-user
-  [txn user-id]
-  (store/list-active-by-user txn user-id))
-
-(defn list-active-by-bank
-  [txn bank-id]
-  (store/list-active-by-bank txn bank-id))
-
-(defn find-by-id
-  [txn membership-id]
-  (load-membership txn membership-id))
 
 (defn record-bank-created
   [txn bank-id {:keys [actor membership reason] :as opts}]
@@ -168,15 +101,15 @@
    "Failed to record bank creation"))
 
 (defn invite
-  [txn bank-id {:keys [email role]} {:keys [actor token-hash reason] :as opts}]
+  [txn bank-id {:keys [email role]} {:keys [actor reason] :as opts}]
   (store/transact
    txn
    (fn [txn]
      (let [now (clock opts)]
        (let-nom>
-         [members (store/list-active-by-bank txn bank-id)
+         [members (q/list-active-by-bank txn bank-id)
           emails (member-emails txn members)
-          invitations (store/list-invitations-by-bank txn bank-id)
+          invitations (q/list-invitations-by-bank txn bank-id {:now now})
           invitation (domain/new-invitation {:bank-id bank-id
                                              :email email
                                              :role role
@@ -184,9 +117,8 @@
                                             {:actor actor
                                              :member-emails emails
                                              :invitations invitations}
-                                            token-hash
                                             now)
-          _ (store/save-invitation txn invitation)
+          _ (store/save-invitation txn invitation invitation-created)
           _ (store/save-access-event
              txn
              (invitation-event invitation
@@ -205,8 +137,10 @@
    (fn [txn]
      (let [now (clock opts)]
        (let-nom>
-         [invitation (load-for-recipient txn invitation-id proof)
-          members (store/list-active-by-bank txn (:bank-id invitation))
+         [invitation (q/get-invitation-record-for-recipient txn
+                                                            invitation-id
+                                                            proof)
+          members (q/list-active-by-bank txn (:bank-id invitation))
           accepted (domain/accept-invitation invitation
                                              user-id
                                              {:active-memberships members}
@@ -238,7 +172,9 @@
    (fn [txn]
      (let [now (clock opts)]
        (let-nom>
-         [invitation (load-for-recipient txn invitation-id proof)
+         [invitation (q/get-invitation-record-for-recipient txn
+                                                            invitation-id
+                                                            proof)
           declined (domain/decline-invitation invitation now)
           _ (store/save-invitation txn declined)
           _ (store/save-access-event
@@ -259,7 +195,7 @@
    (fn [txn]
      (let [now (clock opts)]
        (let-nom>
-         [invitation (load-invitation txn bank-id invitation-id)
+         [invitation (q/get-invitation-record txn bank-id invitation-id)
           withdrawn (domain/withdraw-invitation invitation now)
           _ (domain/check-grant :invite actor {:role (:role invitation)})
           _ (store/save-invitation txn withdrawn)
@@ -275,16 +211,16 @@
    "Failed to withdraw invitation"))
 
 (defn resend
-  [txn bank-id invitation-id {:keys [actor token-hash reason] :as opts}]
+  [txn bank-id invitation-id {:keys [actor reason] :as opts}]
   (store/transact
    txn
    (fn [txn]
      (let [now (clock opts)]
        (let-nom>
-         [invitation (load-invitation txn bank-id invitation-id)
-          resent (domain/resend-invitation invitation token-hash now)
+         [invitation (q/get-invitation-record txn bank-id invitation-id)
+          resent (domain/resend-invitation invitation now)
           _ (domain/check-grant :invite actor {:role (:role invitation)})
-          _ (store/save-invitation txn resent)
+          _ (store/save-invitation txn resent invitation-resent)
           _ (store/save-access-event
              txn
              (invitation-event resent
@@ -295,6 +231,23 @@
          (as-read resent now))))
    :invitation/resend
    "Failed to resend invitation"))
+
+(defn record-invitation-token
+  [txn bank-id invitation-id {:keys [expires-at token-hash] :as opts}]
+  (store/transact
+   txn
+   (fn [txn]
+     (let [now (clock opts)]
+       (let-nom>
+         [invitation (q/get-invitation-record txn bank-id invitation-id)
+          recorded (domain/record-invitation-token invitation
+                                                   expires-at
+                                                   token-hash
+                                                   now)
+          _ (store/save-invitation txn recorded)]
+         (as-read recorded now))))
+   :invitation/record-token
+   "Failed to record invitation token"))
 
 (defn- membership-event
   [membership kind actor details now]
@@ -315,9 +268,9 @@
    (fn [txn]
      (let [now (clock opts)]
        (let-nom>
-         [membership (load-membership txn membership-id)
+         [membership (q/find-by-id txn membership-id)
           _ (domain/check-in-bank membership bank-id)
-          members (store/list-active-by-bank txn bank-id)
+          members (q/list-active-by-bank txn bank-id)
           changed (domain/change-role membership
                                       role
                                       {:actor actor
@@ -345,9 +298,9 @@
    (fn [txn]
      (let [now (clock opts)]
        (let-nom>
-         [membership (load-membership txn membership-id)
+         [membership (q/find-by-id txn membership-id)
           _ (domain/check-in-bank membership bank-id)
-          members (store/list-active-by-bank txn bank-id)
+          members (q/list-active-by-bank txn bank-id)
           ended (domain/end-membership membership
                                        :remove
                                        {:actor actor
@@ -373,9 +326,9 @@
      (let [now (clock opts)
            actor (member-actor user-id)]
        (let-nom>
-         [membership (load-membership txn membership-id)
+         [membership (q/find-by-id txn membership-id)
           _ (domain/check-own membership user-id)
-          members (store/list-active-by-bank txn (:bank-id membership))
+          members (q/list-active-by-bank txn (:bank-id membership))
           ended (domain/end-membership membership
                                        :leave
                                        {:actor actor
@@ -392,43 +345,3 @@
          ended)))
    :membership/leave
    "Failed to leave"))
-
-(defn find-invitation
-  [txn bank-id invitation-id opts]
-  (let [now (clock opts)]
-    (let-nom> [invitation (load-invitation txn bank-id invitation-id)]
-      (as-read invitation now))))
-
-(defn find-invitation-for-recipient
-  [txn invitation-id proof opts]
-  (store/transact
-   txn
-   (fn [txn]
-     (let [now (clock opts)]
-       (let-nom> [invitation (load-for-recipient txn invitation-id proof)]
-         (as-read invitation now))))
-   :invitation/find-for-recipient
-   "Failed to load invitation"))
-
-(defn list-invitations-by-bank
-  [txn bank-id opts]
-  (let [now (clock opts)]
-    (let-nom> [invitations (store/list-invitations-by-bank txn bank-id)]
-      (mapv #(as-read % now) invitations))))
-
-(defn list-pending-invitations-by-email
-  [txn email opts]
-  (if-not (string? email)
-    []
-    (let [now (clock opts)]
-      (let-nom> [invitations (store/list-invitations-by-email
-                              txn
-                              (str/lower-case email))]
-        (into []
-              (comp (map #(as-read % now))
-                    (filter #(= :invitation-status-pending (:status %))))
-              invitations)))))
-
-(defn list-access-events
-  [txn bank-id opts]
-  (store/scan-access-events txn bank-id opts))

@@ -29,6 +29,13 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-cash-accounts-command
           acks: all
+      memberships-command:
+        schemas: !system/local-ref schemas
+        schema: !keyword command
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          topic: topic-memberships-command
+          acks: all
       parties-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
@@ -87,6 +94,13 @@ system:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           group.id: api-service-cash-accounts-command-response
+      memberships-command-response:
+        schemas: !system/local-ref schemas
+        schema: !keyword command-response
+        topics: [topic-memberships-command-response]
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          group.id: api-service-memberships-command-response
       parties-command-response:
         schemas: !system/local-ref schemas
         schema: !keyword command-response
@@ -130,6 +144,8 @@ system:
         producer: !system/local-ref producers.companies-command
       cash-accounts-command:
         producer: !system/local-ref producers.cash-accounts-command
+      memberships-command:
+        producer: !system/local-ref producers.memberships-command
       parties-command:
         producer: !system/local-ref producers.parties-command
       payments-command:
@@ -150,6 +166,9 @@ system:
         timeout: 500
       cash-accounts-command-response:
         consumer: !system/local-ref consumers.cash-accounts-command-response
+        timeout: 500
+      memberships-command-response:
+        consumer: !system/local-ref consumers.memberships-command-response
         timeout: 500
       parties-command-response:
         consumer: !system/local-ref consumers.parties-command-response
@@ -188,6 +207,12 @@ system:
       bus: !system/ref message-bus.bus
       command-channel: !keyword cash-accounts-command
       command-response-channel: !keyword cash-accounts-command-response
+  memberships:
+    dispatcher: !system/component
+      system/component-kind: command/dispatcher
+      bus: !system/ref message-bus.bus
+      command-channel: !keyword memberships-command
+      command-response-channel: !keyword memberships-command-response
   parties:
     dispatcher: !system/component
       system/component-kind: command/dispatcher
@@ -251,6 +276,7 @@ system:
       dispatchers:
         banks: !system/ref banks.dispatcher
         cash-accounts: !system/ref cash-accounts.dispatcher
+        memberships: !system/ref memberships.dispatcher
         parties: !system/ref parties.dispatcher
         payments: !system/ref payments.dispatcher
         interest: !system/ref interest.dispatcher

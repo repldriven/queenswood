@@ -1,17 +1,19 @@
 (ns com.repldriven.queenswood.api.access.handlers
   "Who may act for a bank: the recipient's invitation routes, the bank's
-  people routes and its access history, each a direct call into the
-  `membership` component rather than a command.
+  people routes and its access history. A write is a command to the
+  `membership` processor, whose reply names the records it wrote, read
+  back through `membership-query`.
 
   See [ADR-0018](../../../../../../../docs/adr/0018-command-writes-are-earned.md)."
   (:require
     [com.repldriven.queenswood.api.access.names :as names]
 
+    [com.repldriven.queenswood.api.commands :as commands]
     [com.repldriven.queenswood.api.cursor :as cursor]
     [com.repldriven.queenswood.api.errors :as errors]
 
     [com.repldriven.queenswood.bank-query.interface :as banks]
-    [com.repldriven.queenswood.membership.interface :as memberships]
+    [com.repldriven.queenswood.membership-query.interface :as memberships]
     [com.repldriven.queenswood.user.interface :as users]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
@@ -28,6 +30,19 @@
   (if (error/anomaly? result)
     (errors/anomaly->response result)
     (success result)))
+
+(defn- send-command
+  "Send `command` to the `membership` processor and, when it is accepted,
+  answer `(success change)` with the ids its reply names; otherwise the
+  refusal's response."
+  [request command data success]
+  (let [{:keys [dispatchers]} request
+        result (commands/send (:memberships dispatchers)
+                              request
+                              command
+                              "access-change"
+                              data)]
+    (if (= 200 (:status result)) (success (:body result)) result)))
 
 (defn- actor
   "The principal as an access event records it: an operator when it
@@ -49,6 +64,11 @@
     {:token-hash (memberships/token-hash (get headers "invitation-token"))
      :email (:email claims)
      :email-verified? (true? (:email_verified claims))}))
+
+(defn- proof-data
+  [proof]
+  (let [{:keys [token-hash email email-verified?]} proof]
+    {:token-hash token-hash :email email :email-verified email-verified?}))
 
 (defn- found-or-nil
   [result not-found]
@@ -221,35 +241,46 @@
   (let [{:keys [auth parameters]} request
         {:keys [invitation-id]} (:path parameters)
         txn (config request)]
-    (respond (let-nom> [membership (memberships/accept txn
-                                                       invitation-id
-                                                       (proof request)
-                                                       {:user-id
-                                                        (:principal-id auth)})]
-               (->membership membership (bank-name txn (:bank-id membership))))
-             created)))
+    (send-command
+     request
+     "accept-invitation"
+     {:invitation-id invitation-id
+      :user-id (:principal-id auth)
+      :proof (proof-data (proof request))}
+     (fn [{:keys [membership-id]}]
+       (respond (let-nom> [membership (memberships/find-by-id txn
+                                                              membership-id)]
+                  (->membership membership
+                                (bank-name txn (:bank-id membership))))
+                created)))))
 
 (defn decline-invitation
   [request]
   (let [{:keys [auth parameters]} request
         {:keys [invitation-id]} (:path parameters)
         txn (config request)]
-    (respond (let-nom> [declined (memberships/decline txn
-                                                      invitation-id
-                                                      (proof request)
-                                                      {:user-id
-                                                       (:principal-id auth)})]
-               (recipient-invitation txn declined))
-             ok)))
+    (send-command
+     request
+     "decline-invitation"
+     {:invitation-id invitation-id
+      :user-id (:principal-id auth)
+      :proof (proof-data (proof request))}
+     (fn [{:keys [bank-id]}]
+       (respond (let-nom> [declined (memberships/find-invitation txn
+                                                                 bank-id
+                                                                 invitation-id)]
+                  (recipient-invitation txn declined))
+                ok)))))
 
 (defn leave
   [request]
   (let [{:keys [auth parameters]} request
         {:keys [membership-id]} (:path parameters)]
-    (respond (memberships/leave (config request)
-                                membership-id
-                                {:user-id (:principal-id auth)})
-             no-content)))
+    (send-command request
+                  "leave-membership"
+                  {:membership-id membership-id
+                   :user-id (:principal-id auth)}
+                  no-content)))
 
 (defn list-members
   [request]
@@ -266,30 +297,32 @@
         {:keys [path body]} parameters
         {:keys [role reason]} body
         txn (config request)]
-    (respond (let-nom> [changed (memberships/change-role
-                                 txn
-                                 bank-id
-                                 (:membership-id path)
-                                 role
-                                 (utility/assoc-some {:actor (actor auth)}
-                                                     :reason
-                                                     reason))]
-               (member txn changed))
-             ok)))
+    (send-command
+     request
+     "change-role"
+     {:bank-id bank-id
+      :membership-id (:membership-id path)
+      :role role
+      :actor (actor auth)
+      :reason reason}
+     (fn [{:keys [membership-id]}]
+       (respond (let-nom> [changed (memberships/find-by-id txn
+                                                           membership-id)]
+                  (member txn changed))
+                ok)))))
 
 (defn remove-member
   [request]
   (let [{:keys [auth parameters]} request
         {:keys [bank-id]} auth
         {:keys [path body]} parameters]
-    (respond (memberships/remove-member (config request)
-                                        bank-id
-                                        (:membership-id path)
-                                        (utility/assoc-some {:actor (actor
-                                                                     auth)}
-                                                            :reason
-                                                            (:reason body)))
-             no-content)))
+    (send-command request
+                  "remove-member"
+                  {:bank-id bank-id
+                   :membership-id (:membership-id path)
+                   :actor (actor auth)
+                   :reason (:reason body)}
+                  no-content)))
 
 (defn list-invitations
   [request]
@@ -300,66 +333,59 @@
                (invitations txn found))
              items)))
 
-(defn invitation-with-token
-  "The invitation as the bank's members see it, its inviter named, beside
-  the plaintext token whose hash it stores. An anomaly when the inviter's
-  user record cannot be read."
-  [txn invitation token]
-  (let-nom> [names (inviter-names txn [invitation])]
-    {:invitation (->invitation invitation names nil) :token token}))
+(defn named-invitation
+  "The invitation of `bank-id` as the bank's members see it, its inviter
+  named. An anomaly when it or the inviter's user record cannot be read."
+  [txn bank-id invitation-id]
+  (let-nom> [invitation (memberships/find-invitation txn bank-id invitation-id)
+             names (inviter-names txn [invitation])]
+    (->invitation invitation names nil)))
+
+(defn- invitation-change
+  [request success]
+  (fn [{:keys [bank-id invitation-id]}]
+    (respond (named-invitation (config request) bank-id invitation-id)
+             success)))
 
 (defn invite
   [request]
   (let [{:keys [auth parameters]} request
         {:keys [bank-id]} auth
-        {:keys [email role reason]} (:body parameters)
-        {:keys [token token-hash]} (memberships/new-invitation-token)
-        txn (config request)]
-    (respond (let-nom> [invited (memberships/invite
-                                 txn
-                                 bank-id
-                                 {:email email :role role}
-                                 (utility/assoc-some {:actor (actor auth)
-                                                      :token-hash token-hash}
-                                                     :reason
-                                                     reason))]
-               (invitation-with-token txn invited token))
-             created)))
+        {:keys [email role reason]} (:body parameters)]
+    (send-command request
+                  "invite"
+                  {:bank-id bank-id
+                   :email email
+                   :role role
+                   :actor (actor auth)
+                   :reason reason}
+                  (invitation-change request created))))
 
 (defn withdraw-invitation
   [request]
   (let [{:keys [auth parameters]} request
         {:keys [bank-id]} auth
-        {:keys [path body]} parameters
-        txn (config request)]
-    (respond (let-nom> [withdrawn (memberships/withdraw
-                                   txn
-                                   bank-id
-                                   (:invitation-id path)
-                                   (utility/assoc-some {:actor (actor auth)}
-                                                       :reason
-                                                       (:reason body)))
-                        names (inviter-names txn [withdrawn])]
-               (->invitation withdrawn names nil))
-             ok)))
+        {:keys [path body]} parameters]
+    (send-command request
+                  "withdraw-invitation"
+                  {:bank-id bank-id
+                   :invitation-id (:invitation-id path)
+                   :actor (actor auth)
+                   :reason (:reason body)}
+                  (invitation-change request ok))))
 
 (defn resend-invitation
   [request]
   (let [{:keys [auth parameters]} request
         {:keys [bank-id]} auth
-        {:keys [path body]} parameters
-        {:keys [token token-hash]} (memberships/new-invitation-token)
-        txn (config request)]
-    (respond (let-nom> [resent (memberships/resend
-                                txn
-                                bank-id
-                                (:invitation-id path)
-                                (utility/assoc-some {:actor (actor auth)
-                                                     :token-hash token-hash}
-                                                    :reason
-                                                    (:reason body)))]
-               (invitation-with-token txn resent token))
-             ok)))
+        {:keys [path body]} parameters]
+    (send-command request
+                  "resend-invitation"
+                  {:bank-id bank-id
+                   :invitation-id (:invitation-id path)
+                   :actor (actor auth)
+                   :reason (:reason body)}
+                  (invitation-change request ok))))
 
 (defn- ->access-event
   [access-event names]

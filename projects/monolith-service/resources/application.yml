@@ -11,7 +11,9 @@ system:
         - banks-command-response
         - cash-accounts-command
         - cash-accounts-command-response
+        - memberships-command
         - parties-command
+        - memberships-command-response
         - parties-command-response
         - parties-event
         - transactions-command
@@ -37,6 +39,7 @@ system:
   keycloak: !include system/keycloak.yml
   banks: !include system/bank.yml
   cash-accounts: !include system/cash-account.yml
+  memberships: !include system/membership.yml
   parties: !include system/party.yml
   payments: !include system/payment.yml
   interest: !include system/interest.yml
@@ -52,6 +55,7 @@ system:
   companies-dispatcher: !include system/company-dispatcher.yml
   idvs-relay: !include system/idv-relay.yml
   interest-dispatcher: !include system/interest-dispatcher.yml
+  memberships-dispatcher: !include system/membership-dispatcher.yml
   parties-dispatcher: !include system/party-dispatcher.yml
   parties-relay: !include system/party-relay.yml
   payee-checks-dispatcher: !include system/payee-check-dispatcher.yml
@@ -90,6 +94,7 @@ system:
       dispatchers:
         banks: !system/ref banks-dispatcher.dispatcher
         cash-accounts: !system/ref cash-accounts-dispatcher.dispatcher
+        memberships: !system/ref memberships-dispatcher.dispatcher
         parties: !system/ref parties-dispatcher.dispatcher
         payments: !system/ref payments-dispatcher.dispatcher
         interest: !system/ref interest-dispatcher.dispatcher

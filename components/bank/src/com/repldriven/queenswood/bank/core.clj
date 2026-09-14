@@ -148,13 +148,11 @@
 (defn- new-owner-invitation
   [txn bank-id actor owner-invitation]
   (when owner-invitation
-    (let [{:keys [email token-hash]} owner-invitation]
-      (memberships/invite txn
-                          bank-id
-                          {:email email :role :role-owner}
-                          {:actor actor
-                           :token-hash token-hash
-                           :reason owner-invitation-reason}))))
+    (memberships/invite txn
+                        bank-id
+                        {:email (:email owner-invitation) :role :role-owner}
+                        {:actor actor
+                         :reason owner-invitation-reason})))
 
 (defn new-bank
   [txn bank-name bank-status tier currencies opts]

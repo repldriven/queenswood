@@ -1,10 +1,12 @@
 # Access
 
-> **Status: proposal.** Slice 1 is implemented: the records, the
-> `membership` brick's rules, the `Bank-Id` header, the four levels and
-> the access routes, which Background names. Slice 2, the console, is
-> the build list under Proposed Solution, and "The MVP, in two slices"
-> says what comes first.
+> **Status: proposal.** Slices 1 and 2 are implemented: the records, the
+> `membership` brick's rules, the `Bank-Id` header, the four levels, the
+> access routes and the console's screens bar the accept screen, which
+> Background names. Slice 3 — the `membership` processor and its
+> `membership-query` sibling, the changelog an invitation writes, and
+> the token leaving the API — is the build list under Proposed Solution,
+> and "The MVP, in three slices" says what comes first.
 
 ## Objective
 
@@ -18,22 +20,22 @@ already has, where each write lives, and the order the design is proved
 in.
 
 In scope: the `Membership` record's evolution and the `Invitation` and
-`AccessEvent` records; the `membership` brick's writes and the domain
-rules — who may do what to whom, and never ownerless; the request
+`AccessEvent` records; the `membership` processor's commands, the
+`membership-query` reads and the domain rules — who may do what to
+whom, and never ownerless; the invitation changelog; the request
 header that names the organisation; the role levels on the `api` base's
 gates and the sweep that puts one on every route; the routes under
 `/v1/me`, `/v1/members`, `/v1/invitations` and `/v1/access-events`; the
 owner email on the operator's create call; the console's screens; and
 the tests.
 
-Out of scope: sending the invitation email, which is the
-outbound-communication capability — the API returns the link and the
-console shows it; the operator's own screen, which needs the operator
-realm in a front-end that has none today (see Known Limitations); a
-request to go live raised from the console; token verification, the
-principal shapes and the service-account lifecycle, which
-[authentication.md](authentication.md) covers; and the organisation's
-starting state, which [banks.md](banks.md) covers.
+Out of scope: sending the invitation email and minting the link's token, which
+[outbound-email.md](outbound-email.md) covers from the changelog entry this
+design writes; the operator's own screen, which needs the operator realm in a
+front-end that has none today (see Known Limitations); a request to go live
+raised from the console; token verification, the principal shapes and the
+service-account lifecycle, which [authentication.md](authentication.md) covers;
+and the organisation's starting state, which [banks.md](banks.md) covers.
 
 ## Background
 
@@ -63,6 +65,15 @@ and the console as first built:
   which sends every person through the same Google flow, and the
   console decides what to show from the answer to `/v1/me` alone: no
   membership means the create screen.
+- **The People page.** `People.svelte` and `PeopleDrawer.svelte` under
+  `bases/console/src/lib/`: members, invitations and the history as
+  three tabs, and a drawer that changes roles, removes, leaves, invites,
+  withdraws and resends, showing an invitation's link once in the `ui`
+  brick's `TokenBox`. `api.mjs` sends `Bank-Id` on every call.
+- **Every access write is synchronous.** The `api` base calls the
+  `membership` interface directly for reads and writes alike, one FDB
+  transaction each, and the `bank` processor calls it inside `new-bank`.
+  No membership store writes a changelog entry.
 
 Slice 1 replaced the one-owner, one-organisation flow the deleted users
 and memberships PRDs described:
@@ -204,7 +215,11 @@ in the `schema` brick's `interface.clj`.
   user id that accepted, and timestamps. Indexed by bank, by the
   lower-cased email, and by token hash under a unique index. One
   pending invitation per address per bank is a domain rule inside the
-  transaction, off the bank index.
+  transaction, off the bank index. Until an email is sent the token
+  hash holds the invitation id: the field is `required`, which the
+  evolution validator refuses to relax, the unique index needs a
+  distinct value per invitation, and no SHA-256 hex digest equals an
+  id.
 - **`AccessEvent`** — the history the PRD's "What is recorded" reads:
   event id (prefix `aev`), bank id, kind, the actor, the subject's user
   id, membership id, invitation id and email where each applies, the
@@ -226,57 +241,100 @@ under `memberships` with its `added` and the new version as `removed`.
 `just test-all` runs the migrator's guard against the last `stable-*`
 tag.
 
-Why a history record rather than the changelog: the changelog is
-written for the relay — an Avro payload keyed for a cursor a runner
-tails — and nothing reacts to an access change today. A row per event,
-keyed by bank, is what a list route pages. The invitation store writes
-no changelog envelope in this design; the outbound-communication work
-adds one on create and resend, and a runner for it, which is the hook
-the email sender consumes. See Known Limitations.
+Why a history record beside the changelog rather than the changelog
+alone: the changelog is written for the relay — an Avro payload keyed
+for a cursor a runner tails — and carries only what a reacting brick
+needs. A row per event, keyed by bank, is what a list route pages.
 
-### Synchronous, in one brick
+### A processor and a query brick
 
-Every access write stays synchronous — the `api` base calls the
-`membership` interface directly, as it calls `webhook` and as the auth
-interceptor calls `user` — because none has a property
-[ADR-0018](../adr/0018-command-writes-are-earned.md) says earns a
-command:
+Access writes are commands, because an invitation now has a reader:
+the email adapter reacts to its creation, which is the reaction
+property [ADR-0018](../adr/0018-command-writes-are-earned.md) says
+earns a command, and invitation flows are the trigger that ADR names
+for membership. On the system diagram the API writes only
+`State (Config)`, and a write something reacts to is a processor's
+`State + Changelog`. The domain splits as
+[ADR-0017](../adr/0017-query-write-brick-split.md) and
+[processor-bricks.md](processor-bricks.md) describe:
 
-- **Multi-record atomicity under contention.** An accept writes the
-  invitation, the membership and the event in one FDB transaction, and
-  a role change or removal reads the bank's owners and writes in one.
-  A single transaction is what gives that, and the bus adds nothing to
-  it. Two owners demoting each other at once conflict on the owner
-  reads; one retries, sees the other's write, and is refused.
-- **Idempotency stakes.** A double-submitted accept meets
-  `:invitation/invalid-status` on the second run, a double-submitted
-  invite meets the one-pending rule. Neither mints anything twice.
-- **Reaction.** No brick responds to an access change. The email
-  sender will, and it consumes a changelog envelope when it exists;
-  the write it reacts to stays where it is.
-- **Unreliable ingress.** Every write arrives on an authenticated
-  `/v1` request whose reply the caller reads.
+- **`membership-query`** — `list-by-user`, `list-by-bank`,
+  `list-active-by-user`, `list-active-by-bank`, `find-by-id`,
+  `find-invitation`, `find-invitation-for-recipient`,
+  `list-invitations-by-bank`, `list-pending-invitations-by-email` and
+  `list-access-events`, over the three stores by the same names, and
+  the pure `new-invitation-token` and `token-hash`, so the email adapter
+  and the processor hash alike. The `api` base, `auth.clj` included,
+  requires only this brick, which `enforce-idioms.sh`'s query-only check
+  then holds.
+- **`membership`** — `commands.clj`, `core.clj`, `domain.clj`,
+  `store.clj`, `changelog.clj`, `system.clj` and `interface.clj`,
+  reading through `membership-query` inside its own transaction.
+  `system.clj` registers `membership/processor`, which
+  `system/membership.yml` wraps in `command-processor/command-processor`
+  on `memberships-command` and `memberships-command-response`, and
+  `operational-processors-service` includes. The interface keeps
+  `new-membership`, `record-bank-created` and `invite` for `new-bank`'s
+  transaction.
 
-So there is no `membership-query` split, and the brick keeps its name:
-it owns the three records because an accept writes all three. The
-`bank` brick keeps requiring it for the owner membership and gains the
-owner invitation and the creation event, inside the same transaction.
+The commands are `invite`, `resend-invitation`, `withdraw-invitation`,
+`accept-invitation`, `decline-invitation`, `change-role`,
+`remove-member`, `leave` and `record-invitation-token`, each an Avro
+payload under `schemas/memberships/` registered in
+[avro-schemas.yml](/components/resources/resources/system/avro-schemas.yml),
+each replying with the record it wrote as the Avro `membership` or
+`invitation`. The actor, the bank and the proof are what the base
+establishes and the command carries:
+
+- **The actor** is the principal, as the `Actor` the base builds today.
+- **A recipient's proof** is the hash of the `Invitation-Token` header,
+  hashed in the base, or the verified email off the token, so neither a
+  plaintext token nor a claim the processor cannot check crosses the
+  bus.
+- **The idempotency key** is the request's, on the command envelope,
+  beside the base's idempotency pair on invite and resend.
+
+The atomicity is unchanged. An accept writes the invitation, the
+membership and the event in one FDB transaction, and a role change or
+removal reads the bank's owners and writes in one. Two owners demoting
+each other at once conflict on the owner reads, and one retries, sees
+the other's write and is refused.
+
+`store.clj`'s `save-invitation` takes the changelog entry to co-commit,
+and writes one to the `invitations` changelog for a create or a
+resend — `changelog.clj` builds `invitation-created` and
+`invitation-resent` from
+`schemas/memberships/invitation-changed.avsc.json` — and none for
+another transition, which nothing reacts to. `new-bank` calls `invite`
+with the live transaction, so an owner invitation's entry commits with
+the bank. A `changelog-relay` handler and runner for the `invitations`
+store, consumer id `invitations-relay`, publish to `invitations-event`
+from `exclusive-dispatchers-service`, and `system/membership-relay.yml`
+does the same for the monolith and the test rigs. The topics are
+declared in `kafka-topics.yml` and `kafka-all-test.yml`.
 
 ```mermaid
 graph LR
     SPA["console SPA<br/>Bank-Id on every call"]
     API["api<br/>authenticate resolves bank and level<br/>authorize intersects"]
-    BM["membership<br/>Membership, Invitation, AccessEvent"]
+    BQ["membership-query<br/>reads"]
+    BM["membership processor<br/>Membership, Invitation, AccessEvent"]
     BU["user"]
     BB["bank processor<br/>new-bank writes the owner invitation"]
+    RL["changelog relay"]
+    EM["email adapter"]
     FDB[("FDB")]
 
     SPA -->|"/v1/me/*, /v1/members, /v1/invitations"| API
-    API -->|"reads and writes, one transaction each"| BM
+    API -->|"reads"| BQ
+    API -->|"access commands, over the bus"| BM
     API -->|"upsert on every user request"| BU
     API -->|"create-bank with owner-email, over the bus"| BB
     BB --> BM
-    BM --> FDB
+    BM -->|"state and invitations changelog"| FDB
+    RL -->|"tail invitations changelog"| FDB
+    RL -->|"invitation-created, invitation-resent"| EM
+    BQ --> FDB
     BU --> FDB
 ```
 
@@ -285,19 +343,26 @@ graph LR
 An invitation is a record and a link. The link is the console's own
 URL carrying the invitation id and a token: 32 bytes from
 `SecureRandom`, base64url without padding, as the `webhook` brick mints
-an endpoint secret. The store keeps the token's SHA-256 and the
-plaintext is returned exactly twice, in the response to the create and
-to each resend, for the console to show the inviter while the platform
-cannot send email. The idempotency cache leaves the token out of the
-entry it keeps for either, so a replay under the same key answers the
-invitation without it, and a caller who lost the first response
-resends. The API never learns the console's origin: it returns the id
-and the token, and the console composes the URL.
+an endpoint secret. The link exists only in the email. The email
+adapter mints the token when it sends, and the store keeps the token's
+SHA-256, written by the `record-invitation-token` command
+[outbound-email.md](outbound-email.md) describes. No API response
+carries a token and the API never mints one, so a create and a resend
+answer the invitation alone and the idempotency cache keeps the whole
+response.
+
+Create and resend each write an invitation changelog entry beside the
+record, `invitation-created` and `invitation-resent`, carrying the bank
+id, the invitation id and `expires_at`. That entry is what the email
+adapter reacts to. A resend also resets the token hash, so the link in
+an earlier email stops working as soon as the resend commits, before the
+new email is sent.
 
 The token travels in an `Invitation-Token` header, never in a path,
 so it does not reach an access log. A route that acts on an invitation
 as its recipient accepts two proofs: the header's token hashes to the
-record's, or the token's `email_verified` claim is `true` and its email
+record's — never true before an email is sent — or the token's
+`email_verified` claim is `true` and its email
 matches the invited address lower-cased. Either is enough, so a
 colleague who arrives without the link finds the invitation under
 `/v1/me/invitations`, and one who follows the link with an aliased
@@ -329,9 +394,14 @@ Guards in `domain.clj`, each the first binding of its `let-nom>`:
 - **Withdraw** requires pending, and **resend** pending or expired. Both
   refuse an actor who may not grant the invitation's role
   (`:membership/role-not-granted`), so an admin cannot withdraw or
-  resend an owner invitation. Resend mints a fresh token, which the old
-  one no longer matches, and a fresh `expires_at`, and returns the
-  plaintext.
+  resend an owner invitation. Resend resets the token hash, sets a
+  fresh `expires_at` and writes `invitation-resent`.
+- **Record a token** requires pending and unexpired, and the
+  `expires_at` the changelog entry carried: a resend moves it, so an
+  email for the create that lost a race with a resend is refused
+  `:invitation/superseded` and never sent. It writes the hash, replacing
+  any earlier one, and records no access event, since sending is not an
+  access change.
 - **Expiry** is read, not written: a pending invitation whose
   `expires_at` has passed is expired to every read and every guard. No
   scheduler touches it. Every guard takes `now` as an argument so a
@@ -380,23 +450,23 @@ organisation — and `new-bank` writes the creation event with the person
 as actor beside the owner membership.
 
 **By the operator.** `CreateBankRequest` gains an optional
-`owner-email`. The `api` base mints the token, and the command carries
-the owner email with the token's hash, and the actor, so the plaintext
-never reaches the bus. `new-bank` writes a pending owner invitation in
-the operator's name in the same transaction as the bank, or none when
-the field is absent. The response carries the invitation with its token
-beside the credential: both are handed over once, by the operator,
-until the platform can send email. A replay under the same idempotency
-key carries the invitation and the credential without the token. The
-operator's later grant is the same invitation write —
+`owner-email`, and the command carries it with the actor. `new-bank`
+writes a pending owner invitation in the operator's name in the same
+transaction as the bank, through the `membership` write brick, so its
+`invitation-created` entry commits with the bank and the owner is
+emailed like any invitee. It writes none when the field is absent. The
+response carries the invitation beside the credential, and the
+credential alone is handed over by the operator. The operator's later
+grant is the same invitation write —
 `POST /v1/invitations` with role owner, a reason and the `Bank-Id`
 header — so the handover of a new organisation and the recovery of a
 locked-out one are one code path.
 
-The `create-bank` Avro command schema gains `owner_invitation`, the
-email and token hash, and `actor`, registered in both YAMLs as the
-lifecycle recipe requires. A command sent before `actor` existed
-records the creation as an operator's with principal id `unknown`.
+The `create-bank` Avro command schema carries `owner_invitation`, the email, and
+`actor`, registered in `avro-schemas.yml`. Its `token_hash` becomes a nullable
+field defaulting to null, which the base stops setting and `new-bank` ignores,
+so a command already on the bus still decodes. A command sent before `actor`
+existed records the creation as an operator's with principal id `unknown`.
 
 ### The operator
 
@@ -441,10 +511,10 @@ Under the bank the header names:
   with the invited and, once accepted, the accepting address. Declined
   and withdrawn invitations appear only in the history.
 - `POST /v1/invitations` — `org:admin`. Email, role, optional reason.
-  Answers the invitation and the token.
+  Answers the invitation.
 - `POST /v1/invitations/{invitation-id}/withdraw`,
-  `POST /v1/invitations/{invitation-id}/resend` — `org:admin`. Resend
-  answers a fresh token.
+  `POST /v1/invitations/{invitation-id}/resend` — `org:admin`. Each
+  answers the invitation.
 - `GET /v1/access-events` — `org:viewer`, cursor-paged, newest first.
 
 Every `Actor` a route answers carries `name`, and every `AccessEvent`
@@ -461,9 +531,9 @@ its guard in the base's `exempt-writes`, so the router coverage test
 [idempotency.md](idempotency.md) requires passes:
 
 - **The pair.** `POST /v1/invitations` and `.../resend`, each of which
-  mints a token every time it runs. Past the cache window a retried
-  create meets the one-pending rule and answers 409 rather than a
-  second invitation.
+  emails the invitee every time it runs. Past the cache window a
+  retried create meets the one-pending rule and answers 409 rather than
+  a second invitation, and a retried resend sends a second email.
 - **Exempt, on a source-state guard.** Accept, decline, withdraw,
   remove and leave each leave the state they start from, so a repeat
   meets `invalid-status`.
@@ -514,13 +584,14 @@ waiting;
 choose an organisation, and the switcher in the shell's header; create
 an organisation, as today with the credential shown once; people, with
 members, pending invitations, the history and the actions the person's
-own level allows, read off `/v1/me`; invite, a drawer answering the
-link to copy; and accept an invitation, the route the link lands on,
+own level allows, read off `/v1/me`; invite, a drawer that says the
+invitation has been emailed, with no link and no `TokenBox`; and accept
+an invitation, the route the link lands on,
 with log in in front of it when the person is not signed in. The
 link's id and token ride in the fragment, so they never reach the
 console's nginx log either.
 
-### The MVP, in two slices
+### The MVP, in three slices
 
 The design is proved at the API before a screen is built on it, so the
 scenario suite holds the contract the console then consumes.
@@ -550,6 +621,30 @@ stages, the switcher and the screens. It adds no route: every name the
 console shows, an inviter's, an actor's, a removed member's and an
 owner's, is in a response slice 1 answers.
 
+Slice 3, the split, lands before any email is sent, and ends with every
+access scenario green over the bus:
+
+1. `membership-query`: the reads and the token helpers moved out of
+   `membership`, and every read caller in the `api` base, `bank-query`
+   and the tests pointed at it.
+2. `membership` as a processor: the commands, their Avro payloads and
+   replies, `system/membership.yml`, and the kinds registered from the
+   operational-processors and monolith bases.
+3. The invitation changelog: `invitation-changed.avsc.json`,
+   `changelog.clj`, `save-invitation`'s entry, the relay handler and
+   runner, and the topics.
+4. The token out of the API: `invite`, `resend` and `create-bank` mint
+   nothing, the base's omitted token paths and `create-bank`'s
+   `token_hash` go, a new invitation's token hash is its id, and
+   `record-invitation-token` is added with its guard.
+5. The `api` base: the `memberships` dispatcher, the access handlers
+   sending commands, the recipient proof hashed in the base, and every
+   service and test rig's YAML carrying the new channels.
+6. The console: the invite drawer and the resend action without the
+   `TokenBox`.
+
+The email that follows is [outbound-email.md](outbound-email.md)'s.
+
 ### Tests
 
 - **The `membership` brick** covers the who-may-do-what rules across
@@ -557,17 +652,20 @@ owner's, is in a response slice 1 answers.
   with one owner, two owners and an operator actor; expiry against a
   passed clock; the one-pending and already-member rules; the token
   hash lookup; that an accept run twice writes one membership; that a
-  role change repeated writes one event and leaves `updated-at`; and
-  the resend of an expired invitation, held here because no scenario
-  verb moves the clock.
-- **The `idempotency` brick** holds that a path a route omits is not
-  replayed, and that the stored entry carries no plaintext token.
+  role change repeated writes one event and leaves `updated-at`; the
+  resend of an expired invitation, held here because no scenario verb
+  moves the clock; `record-invitation-token` and an accept by the hash
+  it wrote, with a superseded `expires_at` refused; the command dispatch
+  and its replies; and the `invitations` changelog carrying one entry
+  for a create and one for a resend and none for an accept.
+- **The `membership-query` brick** covers the reads against records the
+  tests write through its own store, and the token hash.
 - **The `api` base** holds that the router refuses a bare `org` gate
   and a stacked level, beside its existing check for a scheme naming no
   roles; that names are looked up once per id, fall back to the email
   and name the platform; that every access actor is named; that the
-  bank list carries owners; that the token routes declare their omitted
-  paths; and that the exported document validates with the new
+  bank list carries owners; that a recipient's token is hashed before
+  it is sent; and that the exported document validates with the
   components.
 - **The realm** test in `test-api-scenarios` holds that every realm
   file's `queenswood-console` client carries the `email-verified`
@@ -575,7 +673,8 @@ owner's, is in a response slice 1 answers.
   Keycloak booted on the deployed realm file.
 - **API scenarios** in `test-api-scenarios/scenarios/access/`, using
   the test realm's human users and its operator: invite and accept by
-  link, and by email match without the link; a viewer refused a write
+  email match, the link's token path being
+  [outbound-email.md](outbound-email.md)'s; a viewer refused a write
   and a developer refused the people routes, each with
   `auth/forbidden`; an admin refused inviting an owner, and refused
   withdrawing and resending one with `:membership/role-not-granted`;
@@ -588,13 +687,11 @@ owner's, is in a response slice 1 answers.
   an owner email and the invitee accepting; the operator, as the admin
   client and as an operator-realm user, granting an owner with a reason
   and the history naming the operator's act; a recipient declining; an
-  owner withdrawing, and resending with the old token refused and the
-  new one accepted; a replayed invite answering no token, then a resend
-  that accepts; the names a recipient and the history read; a role
-  change repeated recording one event; and the history route paging in
-  order. Under `scenarios/banks/`, the bank list's owners before and
-  after the owner accepts, and a replayed create with an owner email
-  answering no token.
+  owner withdrawing, and resending; an invite and a resend answering no
+  token; the names a recipient and the history read; a role change
+  repeated recording one event; and the history route paging in order.
+  Under `scenarios/banks/`, the bank list's owners before and after the
+  owner accepts, and a create with an owner email answering no token.
 
 ## Alternatives Considered
 
@@ -620,6 +717,19 @@ owner's, is in a response slice 1 answers.
   invitation and a membership in one transaction, and a brick acts only
   on its own records.
 - **The history as the changelog.** Above, under Records.
+- **Synchronous writes that also write a changelog.** Rejected: only a
+  processor writes state with a changelog, and a synchronous brick
+  writing one would be the only config write on the system diagram
+  something reacts to.
+- **The link in the API's response**, as an identity platform answers
+  one for its customer to send. Rejected: the invitation brings a person
+  into the console, not into a customer's own product, and a link in
+  the response means the API mints the token, which the email adapter
+  then cannot recover from the hash.
+- **The plaintext token on the changelog entry or the bus**, for the
+  email adapter to read. Rejected: a credential would sit in the
+  changelog store and the broker's retention for as long as either
+  keeps it.
 - **The credential carrying `org:owner`.** Rejected for now: the PRD
   keeps people management with people and the operator, and widening
   the credential is one line in `service-auth` if that changes.
@@ -630,9 +740,10 @@ owner's, is in a response slice 1 answers.
 
 ## Known Limitations
 
-- **No email.** The link is shown to the inviter and handed on by hand.
-  The outbound-communication work adds a changelog envelope on create
-  and resend, a relay runner, and a consumer that sends.
+- **No invitation without mail.** An installation with no mail server
+  configured records invitations that nobody receives, except an
+  invitee who signs in with the invited address verified and finds it
+  under `/v1/me/invitations`.
 - **Expiry is lazy.** No row is written expired, so the history never
   shows an expiry event; the invitation itself shows the state.
 - **The last-used organisation is per browser.** Local storage, not
@@ -677,10 +788,16 @@ owner's, is in a response slice 1 answers.
   rejection mapping.
 - [ADR-0014](../adr/0014-openapi-3x-compliance.md) — OpenAPI 3.x
   compliance.
+- [outbound-email.md](outbound-email.md) — the email adapter that
+  reacts to the invitation changelog and records the token.
+- [processor-bricks.md](processor-bricks.md) — the processor and query
+  brick shape the split follows.
+- [ADR-0017](../adr/0017-query-write-brick-split.md) — Query and write
+  brick split, the `membership-query` sibling.
 - [ADR-0018](../adr/0018-command-writes-are-earned.md) — Command writes
-  are earned, why every access write is synchronous.
-- [ADR-0021](../adr/0021-changelog-relay.md) — Changelog relay, the
-  hook the email sender will consume.
+  are earned, reaction being the property access writes earn.
+- [ADR-0021](../adr/0021-changelog-relay.md) — Changelog relay, which
+  carries the invitation entries to the email adapter.
 - [schema-evolution](../recipes/code/schema-evolution.md) — the
   declaration steps for the evolved and new stores.
 - [lifecycle-transitions](../recipes/code/lifecycle-transitions.md) —

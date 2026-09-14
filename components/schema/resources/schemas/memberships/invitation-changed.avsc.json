@@ -1,0 +1,20 @@
+{
+  "type": "record",
+  "name": "InvitationChanged",
+  "namespace": "com.repldriven.mono.memberships",
+  "doc": "An invitation created or sent again, to be emailed",
+  "fields": [
+    {
+      "name": "bank_id",
+      "type": "string"
+    },
+    {
+      "name": "invitation_id",
+      "type": "string"
+    },
+    {
+      "name": "expires_at",
+      "type": "long"
+    }
+  ]
+}

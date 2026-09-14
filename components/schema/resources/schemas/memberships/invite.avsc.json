@@ -1,0 +1,71 @@
+{
+  "type": "record",
+  "name": "Invite",
+  "namespace": "com.repldriven.mono.memberships",
+  "doc": "Invite an address to a bank with a role",
+  "fields": [
+    {
+      "name": "bank_id",
+      "type": "string"
+    },
+    {
+      "name": "email",
+      "type": "string"
+    },
+    {
+      "name": "role",
+      "type": {
+        "type": "enum",
+        "name": "Role",
+        "symbols": [
+          "ROLE_UNKNOWN",
+          "ROLE_OWNER",
+          "ROLE_ADMIN",
+          "ROLE_DEVELOPER",
+          "ROLE_VIEWER"
+        ]
+      }
+    },
+    {
+      "name": "actor",
+      "type": {
+        "type": "record",
+        "name": "ActorSpec",
+        "fields": [
+          {
+            "name": "kind",
+            "type": {
+              "type": "enum",
+              "name": "ActorKind",
+              "symbols": [
+                "ACTOR_KIND_UNKNOWN",
+                "ACTOR_KIND_MEMBER",
+                "ACTOR_KIND_OPERATOR"
+              ]
+            }
+          },
+          {
+            "name": "principal_id",
+            "type": "string"
+          },
+          {
+            "name": "role",
+            "type": [
+              "null",
+              "com.repldriven.mono.memberships.Role"
+            ],
+            "default": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "reason",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    }
+  ]
+}

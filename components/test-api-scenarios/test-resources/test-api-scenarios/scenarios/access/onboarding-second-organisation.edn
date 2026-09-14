@@ -26,11 +26,8 @@
   {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/accept"
-             :path-params {:invitation-id [:ref :first-bank :owner-invitation
-                                           :invitation :invitation-id]}
-             :auth :person-token
-             :headers {:invitation-token [:ref :first-bank :owner-invitation
-                                          :token]}}
+             :path-params {:invitation-id [:ref :first-bank :owner-invitation :invitation-id]}
+             :auth :person-token}
    :as :first-membership
    :assert {:status 201 :body {:role "owner"}}}
   {:command :api/request

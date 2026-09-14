@@ -36,6 +36,14 @@
     partitions: 1
   - topic: topic-interest-command-response
     partitions: 1
+  - topic: topic-invitations-event
+    partitions: 1
+  - topic: topic-memberships-command
+    partitions: 1
+  - topic: topic-memberships-command-dlq
+    partitions: 1
+  - topic: topic-memberships-command-response
+    partitions: 1
   - topic: topic-parties-command
     partitions: 1
   - topic: topic-parties-command-dlq

@@ -31,10 +31,8 @@
   {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/accept"
-             :path-params {:invitation-id [:ref :bank :owner-invitation
-                                           :invitation :invitation-id]}
-             :auth :founder-token
-             :headers {:invitation-token [:ref :bank :owner-invitation :token]}}
+             :path-params {:invitation-id [:ref :bank :owner-invitation :invitation-id]}
+             :auth :founder-token}
    :as :founder-membership
    :assert {:status 201 :body {:role "owner"}}}
   {:command :api/request
@@ -69,18 +67,16 @@
                     :reason "The founder has left and asked for a handover"}}
    :as :invitation
    :assert {:status 201
-            :body {:invitation {:role "owner"
-                                :reason
-                                "The founder has left and asked for a handover"
-                                :invited-by {:kind "operator"
-                                             :principal-id "queenswood-admin"
-                                             :name "Queenswood"}}
-                   :token [:m/regex "^[A-Za-z0-9_-]{43}$"]}}}
+            :body {:role "owner"
+                   :reason "The founder has left and asked for a handover"
+                   :invited-by {:kind "operator"
+                                :principal-id "queenswood-admin"
+                                :name "Queenswood"}
+                   :token [:m/absent]}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/accept"
-             :path-params {:invitation-id [:ref :invitation :invitation
-                                           :invitation-id]}
+             :path-params {:invitation-id [:ref :invitation :invitation-id]}
              :auth :owner-token}
    :as :owner-membership
    :assert {:status 201 :body {:role "owner"}}}

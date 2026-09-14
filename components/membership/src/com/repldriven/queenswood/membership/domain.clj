@@ -1,5 +1,6 @@
 (ns com.repldriven.queenswood.membership.domain
   (:require
+    [com.repldriven.queenswood.membership-query.interface :as q]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.utility.interface :as utility]
 
@@ -81,10 +82,6 @@
                 {:message "Membership not found"
                  :membership-id membership-id}))
 
-(defn ensure-found
-  [membership membership-id]
-  (or membership (membership-not-found membership-id)))
-
 (defn check-in-bank
   [membership bank-id]
   (when-not (= bank-id (:bank-id membership))
@@ -143,17 +140,11 @@
 (def ^:private withdrawn :invitation-status-withdrawn)
 (def ^:private expired :invitation-status-expired)
 
-(defn effective-status
-  [invitation now]
-  (let [{:keys [status expires-at]} invitation]
-    (if (and (= pending status) expires-at (<= expires-at now))
-      expired
-      status)))
-
 (defn check-no-pending
   [invitations email-lower now]
   (when-let [invitation (some #(when (and (= email-lower (:email-lower %))
-                                          (= pending (effective-status % now)))
+                                          (= pending
+                                             (q/effective-status % now)))
                                  %)
                               invitations)]
     (error/reject :invitation/already-exists
@@ -162,7 +153,7 @@
 
 (defn ensure-invitation-status
   [invitation allowed now]
-  (let [status (effective-status invitation now)]
+  (let [status (q/effective-status invitation now)]
     (when-not (contains? allowed status)
       (error/reject :invitation/invalid-status
                     {:message "Invitation is not in a state that allows this"
@@ -178,25 +169,6 @@
                    :membership-id (:membership-id membership)
                    :status (:status membership)
                    :allowed allowed})))
-
-(defn- invitation-not-found
-  [invitation-id]
-  (error/reject :invitation/not-found
-                {:message "Invitation not found"
-                 :invitation-id invitation-id}))
-
-(defn ensure-invitation-found
-  [invitation invitation-id]
-  (or invitation (invitation-not-found invitation-id)))
-
-(defn check-recipient
-  [invitation {:keys [token-hash email email-verified?]}]
-  (when-not (or (and (some? token-hash)
-                     (= token-hash (:token-hash invitation)))
-                (and (true? email-verified?)
-                     (some? email)
-                     (= (str/lower-case email) (:email-lower invitation))))
-    (invitation-not-found (:invitation-id invitation))))
 
 (defn new-membership
   [{:keys [user-id bank-id role invitation-id]} now]
@@ -237,22 +209,22 @@
 (defn new-invitation
   [{:keys [bank-id email role reason]}
    {:keys [actor member-emails invitations]}
-   token-hash
    now]
   (let [email-lower (some-> email
-                            str/lower-case)]
+                            str/lower-case)
+        invitation-id (utility/generate-id "inv")]
     (let-nom>
       [_ (check-grant :invite actor {:role role})
        _ (check-reason actor reason)
        _ (check-not-member-email member-emails email-lower)
        _ (check-no-pending invitations email-lower now)]
-      (utility/assoc-some {:invitation-id (utility/generate-id "inv")
+      (utility/assoc-some {:invitation-id invitation-id
                            :bank-id bank-id
                            :email email
                            :email-lower email-lower
                            :role role
                            :status pending
-                           :token-hash token-hash
+                           :token-hash invitation-id
                            :expires-at (+ now invitation-lifetime-ms)
                            :invited-by (actor-record actor)
                            :created-at now
@@ -283,13 +255,25 @@
     (assoc invitation :status withdrawn :updated-at now)))
 
 (defn resend-invitation
-  [invitation token-hash now]
+  [invitation now]
   (let-nom>
     [_ (ensure-invitation-status invitation #{pending expired} now)]
     (assoc invitation
            :status pending
-           :token-hash token-hash
+           :token-hash (:invitation-id invitation)
            :expires-at (+ now invitation-lifetime-ms)
+           :updated-at now)))
+
+(defn record-invitation-token
+  [invitation expires-at token-hash now]
+  (let-nom> [_ (ensure-invitation-status invitation #{pending} now)
+             _
+             (when-not (= expires-at (:expires-at invitation))
+               (error/reject :invitation/superseded
+                             {:message "The invitation was sent again since"
+                              :invitation-id (:invitation-id invitation)}))]
+    (assoc invitation
+           :token-hash token-hash
            :updated-at now)))
 
 (defn new-access-event

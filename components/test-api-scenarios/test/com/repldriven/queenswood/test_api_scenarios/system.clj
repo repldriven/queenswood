@@ -17,6 +17,7 @@
     [com.repldriven.queenswood.idv.interface]
     [com.repldriven.queenswood.idv.system]
     [com.repldriven.queenswood.interest.interface]
+    [com.repldriven.queenswood.membership.interface]
     [com.repldriven.queenswood.onfido-adapter.interface]
     [com.repldriven.queenswood.onfido-simulator.interface]
     [com.repldriven.queenswood.party.interface]

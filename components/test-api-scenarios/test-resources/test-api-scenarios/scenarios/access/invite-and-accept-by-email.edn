@@ -31,10 +31,8 @@
   {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/accept"
-             :path-params {:invitation-id [:ref :bank :owner-invitation
-                                           :invitation :invitation-id]}
-             :auth :owner-token
-             :headers {:invitation-token [:ref :bank :owner-invitation :token]}}
+             :path-params {:invitation-id [:ref :bank :owner-invitation :invitation-id]}
+             :auth :owner-token}
    :as :owner-membership
    :assert {:status 201 :body {:role "owner"}}}
   {:command :api/request
@@ -50,8 +48,7 @@
  [{:command :api/request
    :request {:method :get :path "/v1/me/invitations" :auth :invitee-token}
    :assert {:status 200
-            :body {:items [{:invitation-id [:ref :invitation :invitation
-                                            :invitation-id]
+            :body {:items [{:invitation-id [:ref :invitation :invitation-id]
                             :bank-id [:ref :bank :bank-id]
                             :bank-name "Match Bank"
                             :role "developer"
@@ -63,8 +60,7 @@
   {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/accept"
-             :path-params {:invitation-id [:ref :invitation :invitation
-                                           :invitation-id]}
+             :path-params {:invitation-id [:ref :invitation :invitation-id]}
              :auth :invitee-token}
    :as :accepted
    :assert {:status 201

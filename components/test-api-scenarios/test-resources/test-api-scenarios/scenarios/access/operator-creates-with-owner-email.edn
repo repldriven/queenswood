@@ -2,7 +2,7 @@
  :tags #{:access :api :banks :happy}
  ;; The bank has no member until the invitee accepts, so the operator's
  ;; member list is empty and the owner is shown as invited by the
- ;; operator. The token is on the create response and on no read.
+ ;; operator. No response carries a token: the owner's link is emailed.
  :given
  [{:command :auth/mint-user-token
    :realm :queenswood
@@ -26,15 +26,14 @@
             :body {:client-id [:m/regex "^bnk\\."]
                    :client-secret [:m/non-empty]
                    :owner-invitation
-                   {:invitation {:bank-id [:ref :bank :bank-id]
-                                 :email "handover-owner@queenswood.local"
-                                 :role "owner"
-                                 :status "pending"
-                                 :reason "Owner of a new bank"
-                                 :invited-by {:kind "operator"
-                                              :principal-id
-                                              "queenswood-admin"}}
-                    :token [:m/regex "^[A-Za-z0-9_-]{43}$"]}}}}
+                   {:bank-id [:ref :bank :bank-id]
+                    :email "handover-owner@queenswood.local"
+                    :role "owner"
+                    :status "pending"
+                    :reason "Owner of a new bank"
+                    :invited-by {:kind "operator"
+                                 :principal-id "queenswood-admin"}
+                    :token [:m/absent]}}}}
   {:command :api/request
    :request {:method :get
              :path "/v1/members"
@@ -47,16 +46,14 @@
              :auth :admin
              :headers {:bank-id [:ref :bank :bank-id]}}
    :assert {:status 200
-            :body {:items [{:invitation-id [:ref :bank :owner-invitation
-                                            :invitation :invitation-id]
+            :body {:items [{:invitation-id [:ref :bank :owner-invitation :invitation-id]
                             :status "pending"
                             :token [:m/absent]
                             :token-hash [:m/absent]}]}}}
   {:command :api/request
    :request {:method :get :path "/v1/me/invitations" :auth :owner-token}
    :assert {:status 200
-            :body {:items [{:invitation-id [:ref :bank :owner-invitation
-                                            :invitation :invitation-id]
+            :body {:items [{:invitation-id [:ref :bank :owner-invitation :invitation-id]
                             :bank-name "Handover Bank"
                             :role "owner"
                             :invited-by {:kind "operator"
@@ -66,10 +63,8 @@
   {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/accept"
-             :path-params {:invitation-id [:ref :bank :owner-invitation
-                                           :invitation :invitation-id]}
-             :auth :owner-token
-             :headers {:invitation-token [:ref :bank :owner-invitation :token]}}
+             :path-params {:invitation-id [:ref :bank :owner-invitation :invitation-id]}
+             :auth :owner-token}
    :as :owner-membership
    :assert {:status 201
             :body {:bank-id [:ref :bank :bank-id]

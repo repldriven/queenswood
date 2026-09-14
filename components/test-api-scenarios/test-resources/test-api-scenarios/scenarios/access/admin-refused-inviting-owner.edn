@@ -32,10 +32,8 @@
   {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/accept"
-             :path-params {:invitation-id [:ref :bank :owner-invitation
-                                           :invitation :invitation-id]}
-             :auth :owner-token
-             :headers {:invitation-token [:ref :bank :owner-invitation :token]}}
+             :path-params {:invitation-id [:ref :bank :owner-invitation :invitation-id]}
+             :auth :owner-token}
    :as :owner-membership
    :assert {:status 201 :body {:role "owner"}}}
   {:command :api/request
@@ -50,8 +48,7 @@
   {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/accept"
-             :path-params {:invitation-id [:ref :invitation :invitation
-                                           :invitation-id]}
+             :path-params {:invitation-id [:ref :invitation :invitation-id]}
              :auth :admin-token}
    :assert {:status 201 :body {:role "admin"}}}]
  :when
@@ -80,7 +77,7 @@
                        :idempotency-key "ik-access-inviting-invite-003"}
              :body {:email "inviting-guest@example.test" :role "developer"}}
    :assert {:status 201
-            :body {:invitation {:role "developer" :status "pending"}}}}]
+            :body {:role "developer" :status "pending"}}}]
  :then
  ;; The admin's own address belongs to a member, so it takes no
  ;; invitation.

@@ -118,9 +118,9 @@
   {:name "Invitation-Token"
    :in "header"
    :required false
-   :description (str "The token from the invitation's link. Without it, "
-                     "the signed-in person's verified email must be the "
-                     "invited address.")
+   :description (str "The token from the link in the invitation email. "
+                     "Without it, the signed-in person's verified email "
+                     "must be the invited address.")
    :schema {:type "string" :minLength 1 :maxLength 200}})
 
 (def InvitationId

@@ -4,7 +4,7 @@
     [com.repldriven.queenswood.api.errors :as errors]
 
     [com.repldriven.queenswood.bank-query.interface :as banks]
-    [com.repldriven.queenswood.membership.interface :as memberships]
+    [com.repldriven.queenswood.membership-query.interface :as memberships]
     [com.repldriven.queenswood.user.interface :as users]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]))

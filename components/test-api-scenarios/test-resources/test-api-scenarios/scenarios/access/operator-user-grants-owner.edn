@@ -46,19 +46,16 @@
                     :reason "The founder asked to be set up as owner"}}
    :as :invitation
    :assert {:status 201
-            :body {:invitation {:role "owner"
-                                :invited-by {:kind "operator"
-                                             :principal-id
-                                             [:ref :ops-me :user :user-id]
-                                             :name [:ref :ops-me :user :name]}}
-                   :token [:m/regex "^[A-Za-z0-9_-]{43}$"]}}}
+            :body {:role "owner"
+                   :invited-by {:kind "operator"
+                                :principal-id [:ref :ops-me :user :user-id]
+                                :name [:ref :ops-me :user :name]}
+                   :token [:m/absent]}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/accept"
-             :path-params {:invitation-id [:ref :invitation :invitation
-                                           :invitation-id]}
-             :auth :founder-token
-             :headers {:invitation-token [:ref :invitation :token]}}
+             :path-params {:invitation-id [:ref :invitation :invitation-id]}
+             :auth :founder-token}
    :as :founder-membership
    :assert {:status 201 :body {:role "owner"}}}]
  :then
@@ -77,8 +74,7 @@
                     :actor {:kind "operator"
                             :principal-id [:ref :ops-me :user :user-id]
                             :name [:ref :ops-me :user :name]}
-                    :invitation-id [:ref :invitation :invitation
-                                    :invitation-id]
+                    :invitation-id [:ref :invitation :invitation-id]
                     :email "opsgrant-founder@queenswood.local"
                     :role-after "owner"
                     :reason "The founder asked to be set up as owner"}]}}}]}

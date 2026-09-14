@@ -1,0 +1,54 @@
+{
+  "type": "record",
+  "name": "AcceptInvitation",
+  "namespace": "com.repldriven.mono.memberships",
+  "doc": "Accept an invitation as its recipient",
+  "fields": [
+    {
+      "name": "invitation_id",
+      "type": "string"
+    },
+    {
+      "name": "user_id",
+      "type": "string"
+    },
+    {
+      "name": "proof",
+      "type": {
+        "type": "record",
+        "name": "RecipientProof",
+        "fields": [
+          {
+            "name": "token_hash",
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": null
+          },
+          {
+            "name": "email",
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": null
+          },
+          {
+            "name": "email_verified",
+            "type": "boolean",
+            "default": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "reason",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    }
+  ]
+}

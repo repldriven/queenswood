@@ -319,7 +319,7 @@
                          (get-in request ["properties" "owner-email" "$ref"])))
                   (is (not-any? #{"owner-email"} (get request "required"))))
               _ (testing "the response answers the optional owner invitation"
-                  (is (= "#/components/schemas/InvitationWithToken"
+                  (is (= "#/components/schemas/Invitation"
                          (get-in response
                                  ["properties" "owner-invitation" "$ref"])))
                   (is (not-any? #{"owner-invitation"}

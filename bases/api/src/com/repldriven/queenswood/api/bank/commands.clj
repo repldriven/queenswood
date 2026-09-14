@@ -5,7 +5,6 @@
     [com.repldriven.queenswood.api.errors :as errors]
 
     [com.repldriven.queenswood.bank-query.interface :as banks]
-    [com.repldriven.queenswood.membership.interface :as memberships]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.identity-provider.interface :as identity-provider]
@@ -59,22 +58,18 @@
 
 (defn- owner-invitation
   "The owner invitation the create wrote, loaded by the id its reply
-  names, beside the plaintext token the base kept. Nil when the create
-  wrote none."
-  [request bank-id invitation-id token]
+  names. Nil when the create wrote none."
+  [request bank-id invitation-id]
   (when invitation-id
     (let [{:keys [record-db record-store]} request
           txn {:record-db record-db :record-store record-store}]
-      (let-nom>
-        [invitation (memberships/find-invitation txn bank-id invitation-id)]
-        (access-handlers/invitation-with-token txn invitation token)))))
+      (access-handlers/named-invitation txn bank-id invitation-id))))
 
 (defn create-bank-data
   "The create-bank command payload for an operator's request: the body
   with its status's audience and the principal as an operator actor, and
-  for an `owner-email` the owner invitation carrying `token-hash`, so the
-  plaintext token never reaches the command."
-  [request token-hash]
+  for an `owner-email` the owner invitation."
+  [request]
   (let [{:keys [auth parameters audiences-by-status]} request
         {:keys [body]} parameters
         {:keys [status owner-email]} body]
@@ -88,14 +83,11 @@
             :actor {:kind :actor-kind-operator
                     :principal-id (:principal-id auth)})
      :owner-invitation
-     (when owner-email {:email owner-email :token-hash token-hash}))))
+     (when owner-email {:email owner-email}))))
 
 (defn create-bank
   [request]
-  (let [{:keys [owner-email]} (get-in request [:parameters :body])
-        {:keys [token token-hash]} (when owner-email
-                                     (memberships/new-invitation-token))
-        result (send-create-bank request (create-bank-data request token-hash))]
+  (let [result (send-create-bank request (create-bank-data request))]
     (if (not= 200 (:status result))
       result
       (let [{:keys [bank-id owner-invitation-id]} (:body result)
@@ -103,8 +95,7 @@
                    [bank (bank-with-secret request bank-id)
                     invitation (owner-invitation request
                                                  bank-id
-                                                 owner-invitation-id
-                                                 token)]
+                                                 owner-invitation-id)]
                    (utility/assoc-some bank :owner-invitation invitation))]
         (if (error/anomaly? bank)
           (errors/anomaly->response bank)

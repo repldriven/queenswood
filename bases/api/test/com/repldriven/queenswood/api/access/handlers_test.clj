@@ -3,20 +3,19 @@
   (REQ-028): an operator — a principal carrying `admin` — by its id, and
   anyone else as a member with the role of the membership the call
   resolved to. A recipient's proof is the `Invitation-Token` header's
-  hash and the token's email with its `email_verified` claim, and
-  `GET /v1/me/invitations` lists nothing for an email that claim does not
-  verify.
+  hash, never the token, and the token's email with its `email_verified`
+  claim, and `GET /v1/me/invitations` lists nothing for an email that
+  claim does not verify.
 
-  Each refusal the `membership` component gives reaches the status the
-  exported document gives it, with an example naming its kind (AC-19,
-  the handler half). A 43-character token is answered by create and
-  resend, and by no other access route, which also never answers the
-  hash the store holds (AC-07, the base half).
+  Each refusal the `membership` processor replies with reaches the status
+  the exported document gives it, with an example naming its kind (AC-19,
+  the handler half). No access route answers a token or the hash the
+  store holds (AC-07, the base half).
 
-  The `membership`, `user` and `bank-query` components are stood in for,
-  so no system is booted. A stand-in answers only on the test's own
-  thread: a scenario running beside this namespace reaches the real
-  function."
+  The command send and its Avro coding, and the `membership-query`,
+  `user` and `bank-query` components, are stood in for, so no system is
+  booted. A stand-in answers only on the test's own thread: a scenario
+  running beside this namespace reaches the real function."
   (:require
     [com.repldriven.queenswood.api.access.handlers :as SUT]
 
@@ -24,9 +23,11 @@
     [com.repldriven.queenswood.api.auth :as auth]
 
     [com.repldriven.queenswood.bank-query.interface :as banks]
-    [com.repldriven.queenswood.membership.interface :as memberships]
+    [com.repldriven.queenswood.membership-query.interface :as memberships]
     [com.repldriven.queenswood.user.interface :as users]
 
+    [com.repldriven.mono.avro.interface :as avro]
+    [com.repldriven.mono.command.interface :as command]
     [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.json.interface :as json]
     [com.repldriven.mono.test-system.interface :refer [nom-test>]]
@@ -81,68 +82,108 @@
                         stand-ins)
     (fn [] (binding [*stand-ins* stand-ins] (f)))))
 
+(def ^:private change
+  {:bank-id bank-id :membership-id membership-id :invitation-id invitation-id})
+
+(defn- commanding
+  "Stand-ins answering every command with `reply`, called with the command
+  name and the payload the handler sent, and recording each send in
+  `sent`. Avro coding passes the data through unchanged."
+  [sent reply]
+  {#'avro/serialize (fn [_ data] data)
+   #'avro/deserialize-same (fn [_ payload] payload)
+   #'command/send (fn [_ envelope _]
+                    (let [{:keys [command payload]} envelope]
+                      (swap! sent conj [command payload])
+                      (reply command payload)))})
+
+(defn- accepted
+  [_ _]
+  {:status "ACCEPTED" :payload change})
+
+(def ^:private schemas
+  (zipmap ["invite" "resend-invitation" "withdraw-invitation"
+           "accept-invitation" "decline-invitation" "change-role"
+           "remove-member" "leave-membership" "access-change"]
+          (repeat ::schema)))
+
+(defn- with-avro
+  [request]
+  (assoc request :avro schemas :dispatchers {:memberships ::dispatcher}))
+
 (defn- invitation
-  [opts]
+  [actor]
   {:invitation-id invitation-id
    :bank-id bank-id
    :email "c.babbage@example.com"
    :role :role-developer
    :status :invitation-status-pending
    :expires-at 1779955200000
-   :invited-by (:actor opts)
+   :invited-by actor
    :created-at 1779350400000
    :updated-at 1779350400000})
 
 (defn- invite-as
   [auth]
-  (let [seen (atom nil)]
-    (standing-in {#'users/find-by-id find-person
-                  #'memberships/invite (fn [_ _ _ opts]
-                                         (reset! seen opts)
-                                         (invitation opts))}
+  (let [sent (atom [])
+        actor (if (contains? (:roles auth) :admin)
+                {:kind :actor-kind-operator :principal-id "queenswood-admin"}
+                {:kind :actor-kind-member :principal-id user-id})]
+    (standing-in (merge (commanding sent accepted)
+                        {#'users/find-by-id find-person
+                         #'memberships/find-invitation
+                         (fn [& _] (invitation actor))})
                  (fn []
                    (let [response (SUT/invite
-                                   {:auth auth
-                                    :parameters {:body {:email
-                                                        "c.babbage@example.com"
-                                                        :role :role-developer
-                                                        :reason "A reason"}}})]
-                     {:response response :opts @seen})))))
+                                   (with-avro
+                                    {:auth auth
+                                     :parameters
+                                     {:body {:email "c.babbage@example.com"
+                                             :role :role-developer
+                                             :reason "A reason"}}}))]
+                     {:response response :sent @sent})))))
 
 (deftest a-people-write-records-the-principal-as-actor-test
   (testing "a member acts with the role the call resolved to"
-    (let [{:keys [response opts]} (invite-as member-auth)]
+    (let [{:keys [response sent]} (invite-as member-auth)
+          [[command data]] sent]
       (is (= 201 (:status response)))
+      (is (= "invite" command))
       (is (= {:kind :actor-kind-member :principal-id user-id :role :role-admin}
-             (:actor opts)))
-      (is (= "A reason" (:reason opts)))))
+             (:actor data)))
+      (is (= {:bank-id bank-id
+              :email "c.babbage@example.com"
+              :role :role-developer
+              :reason "A reason"}
+             (dissoc data :actor)))))
   (testing "a principal carrying admin acts as the operator"
-    (let [{:keys [response opts]} (invite-as operator-auth)]
+    (let [{:keys [response sent]} (invite-as operator-auth)
+          [[_ data]] sent]
       (is (= 201 (:status response)))
       (is (= {:kind :actor-kind-operator :principal-id "queenswood-admin"}
-             (:actor opts)))))
-  (testing
-    "the response carries the invitation, its actor, and the token
-            whose hash was stored"
-    (let [{:keys [response opts]} (invite-as member-auth)
-          {:keys [token]} (:body response)]
-      (is (string? token))
-      (is (= (:token-hash opts) (memberships/token-hash token)))
+             (:actor data)))))
+  (testing "the response is the invitation the reply names, its actor named"
+    (let [{:keys [response]} (invite-as member-auth)]
+      (is (= invitation-id (get-in response [:body :invitation-id])))
       (is (=
            {:kind :actor-kind-member :principal-id user-id :name "Ada Lovelace"}
-           (get-in response [:body :invitation :invited-by]))))))
+           (get-in response [:body :invited-by]))))))
 
-(deftest a-recipient-proves-by-token-or-verified-email-test
+(deftest a-recipient-proves-by-token-hash-or-verified-email-test
   (let [seen (atom nil)
+        sent (atom [])
         {:keys [token token-hash]} (memberships/new-invitation-token)
         claims {:email "Charles@Example.com" :email_verified true}]
     (standing-in
-     {#'banks/get-bank (fn [_ _] {:name "Ada's Bank"})
-      #'users/find-by-id find-person
-      #'memberships/find-invitation-for-recipient
-      (fn [_ _ proof]
-        (reset! seen proof)
-        (invitation {:actor {:kind :actor-kind-member :principal-id user-id}}))}
+     (merge (commanding sent accepted)
+            {#'banks/get-bank (fn [_ _] {:name "Ada's Bank"})
+             #'users/find-by-id find-person
+             #'memberships/find-by-id
+             (fn [& _] {:membership-id membership-id :bank-id bank-id})
+             #'memberships/find-invitation-for-recipient
+             (fn [_ _ proof]
+               (reset! seen proof)
+               (invitation {:kind :actor-kind-member :principal-id user-id}))})
      (fn []
        (SUT/get-my-invitation {:auth {:claims claims}
                                :headers {"invitation-token" token}
@@ -157,7 +198,21 @@
                                                    invitation-id}}})
        (is
         (= {:token-hash nil :email "Charles@Example.com" :email-verified? false}
-           @seen))))))
+           @seen))
+       (testing "an accept sends the token's hash and never the token"
+         (SUT/accept-invitation
+          (with-avro {:auth {:principal-id user-id :claims claims}
+                      :headers {"invitation-token" token}
+                      :parameters {:path {:invitation-id invitation-id}}}))
+         (let [[[command data]] @sent]
+           (is (= "accept-invitation" command))
+           (is (= {:invitation-id invitation-id
+                   :user-id user-id
+                   :proof {:token-hash token-hash
+                           :email "Charles@Example.com"
+                           :email-verified true}}
+                  data))
+           (is (not (some #{token} (tree-seq coll? seq data))))))))))
 
 (deftest my-invitations-need-a-verified-email-test
   (let [called (atom false)]
@@ -180,50 +235,33 @@
 (def ^:private request
   "One request carrying every path parameter and body field an access
   write reads."
-  {:auth member-auth
-   :parameters
-   {:path {:membership-id membership-id :invitation-id invitation-id}
-    :body
-    {:email "c.babbage@example.com" :role :role-developer :reason "A reason"}}})
+  (with-avro {:auth member-auth
+              :parameters {:path {:membership-id membership-id
+                                  :invitation-id invitation-id}
+                           :body {:email "c.babbage@example.com"
+                                  :role :role-developer
+                                  :reason "A reason"}}}))
 
 (def ^:private refusals
-  "Each kind the `membership` component refuses with, against a write
-  that can meet it: the component fn standing in, the handler, the
-  route's `[method path]` and the status the kind maps to."
-  [[(error/reject :membership/last-owner
-                  {:message "Make someone else an owner first"})
-    #'memberships/change-role SUT/change-role
+  "Each kind the `membership` processor refuses with, against a write that
+  can meet it: the handler, the route's `[method path]` and the status
+  the kind maps to."
+  [[:membership/last-owner SUT/change-role
     ["post" "/v1/members/{membership-id}/change-role"] 409]
-   [(error/reject :membership/invalid-status
-                  {:message "Membership is not in a state that allows this"})
-    #'memberships/remove-member SUT/remove-member
+   [:membership/invalid-status SUT/remove-member
     ["post" "/v1/members/{membership-id}/remove"] 409]
-   [(error/reject :invitation/invalid-status
-                  {:message "Invitation is not in a state that allows this"})
-    #'memberships/withdraw SUT/withdraw-invitation
+   [:invitation/invalid-status SUT/withdraw-invitation
     ["post" "/v1/invitations/{invitation-id}/withdraw"] 409]
-   [(error/reject :invitation/already-member
-                  {:message "That address belongs to a member already"})
-    #'memberships/invite SUT/invite ["post" "/v1/invitations"] 409]
-   [(error/reject :invitation/already-exists
-                  {:message "That address has a pending invitation"})
-    #'memberships/invite SUT/invite ["post" "/v1/invitations"] 409]
-   [(error/reject :membership/already-exists
-                  {:message "Already a member of this bank"})
-    #'memberships/accept SUT/accept-invitation
+   [:invitation/already-member SUT/invite ["post" "/v1/invitations"] 409]
+   [:invitation/already-exists SUT/invite ["post" "/v1/invitations"] 409]
+   [:membership/already-exists SUT/accept-invitation
     ["post" "/v1/me/invitations/{invitation-id}/accept"] 409]
-   [(error/reject :invitation/reason-required
-                  {:message "An operator's invitation needs a reason"})
-    #'memberships/invite SUT/invite ["post" "/v1/invitations"] 422]
-   [(error/reject :invitation/not-found {:message "Invitation not found"})
-    #'memberships/resend SUT/resend-invitation
+   [:invitation/reason-required SUT/invite ["post" "/v1/invitations"] 422]
+   [:invitation/not-found SUT/resend-invitation
     ["post" "/v1/invitations/{invitation-id}/resend"] 404]
-   [(error/reject :membership/not-found {:message "Membership not found"})
-    #'memberships/leave SUT/leave
+   [:membership/not-found SUT/leave
     ["post" "/v1/me/memberships/{membership-id}/leave"] 404]
-   [(error/unauthorized :membership/role-not-granted
-                        {:message "Your role does not allow this"})
-    #'memberships/remove-member SUT/remove-member
+   [:membership/role-not-granted SUT/remove-member
     ["post" "/v1/members/{membership-id}/remove"] 403]])
 
 (defn- documented-types
@@ -242,23 +280,25 @@
 
 (deftest each-refusal-reaches-its-documented-status-test
   (nom-test> [document (json/read-str @exported)
-              _
-              (doseq [[anomaly component-fn handler operation status] refusals
-                      :let [kind (str (error/kind anomaly))]]
-                (testing kind
-                  (let [response (standing-in {component-fn (fn [& _] anomaly)}
-                                              #(handler request))]
-                    (is (= status (:status response)))
-                    (is (= status (get-in response [:body :status])))
-                    (is (= kind (get-in response [:body :type]))
-                        "the type keeps the kind's leading colon")
-                    (is (= (if (error/unauthorized? anomaly)
-                             "UNAUTHORIZED"
-                             "REJECTED")
-                           (get-in response [:body :title])))
-                    (is (contains? (documented-types document operation status)
-                                   kind)
-                        (str "documented at " status " on " operation)))))]))
+              _ (doseq [[kind handler operation status] refusals
+                        :let [reason (str kind)]]
+                  (testing reason
+                    (let [response (standing-in (commanding
+                                                 (atom [])
+                                                 (fn [_ _]
+                                                   {:status "REJECTED"
+                                                    :reason reason
+                                                    :message "Refused"}))
+                                                #(handler request))]
+                      (is (= status (:status response)))
+                      (is (= status (get-in response [:body :status])))
+                      (is (= reason (get-in response [:body :type]))
+                          "the type keeps the kind's leading colon")
+                      (is (= "REJECTED" (get-in response [:body :title])))
+                      (is (contains?
+                           (documented-types document operation status)
+                           reason)
+                          (str "documented at " status " on " operation)))))]))
 
 (def ^:private stored-hash
   "A hash as the store holds it, on every invitation and membership a
@@ -266,7 +306,7 @@
   (:token-hash (memberships/new-invitation-token)))
 
 (def ^:private stored-invitation
-  (assoc (invitation {:actor {:kind :actor-kind-member :principal-id user-id}})
+  (assoc (invitation {:kind :actor-kind-member :principal-id user-id})
          :token-hash
          stored-hash))
 
@@ -282,30 +322,27 @@
    :updated-at 1779350400000})
 
 (def ^:private stand-ins
-  {#'banks/get-bank (fn [_ _] {:name "Ada's Bank"})
-   #'users/find-by-id
-   (fn [_ _]
-     {:user-id user-id :name "Charles Babbage" :email "charles@example.com"})
-   #'memberships/invite (fn [& _] stored-invitation)
-   #'memberships/resend (fn [& _] stored-invitation)
-   #'memberships/withdraw (fn [& _] stored-invitation)
-   #'memberships/accept (fn [& _] stored-membership)
-   #'memberships/decline (fn [& _] stored-invitation)
-   #'memberships/change-role (fn [& _] stored-membership)
-   #'memberships/find-invitation (fn [& _] stored-invitation)
-   #'memberships/find-invitation-for-recipient (fn [& _] stored-invitation)
-   #'memberships/list-active-by-bank (fn [& _] [stored-membership])
-   #'memberships/list-invitations-by-bank (fn [& _] [stored-invitation])
-   #'memberships/list-pending-invitations-by-email (fn [& _]
-                                                     [stored-invitation])
-   #'memberships/list-access-events
-   (fn [& _]
-     {:access-events [{:access-event-id "aev.01kprbmgcj35ptc8npmybhh4sn"
-                       :bank-id bank-id
-                       :kind :access-event-kind-invitation-created
-                       :actor {:kind :actor-kind-member :principal-id user-id}
-                       :invitation-id invitation-id
-                       :occurred-at 1779350400000}]})})
+  (merge
+   (commanding (atom []) accepted)
+   {#'banks/get-bank (fn [_ _] {:name "Ada's Bank"})
+    #'users/find-by-id
+    (fn [_ _]
+      {:user-id user-id :name "Charles Babbage" :email "charles@example.com"})
+    #'memberships/find-by-id (fn [& _] stored-membership)
+    #'memberships/find-invitation (fn [& _] stored-invitation)
+    #'memberships/find-invitation-for-recipient (fn [& _] stored-invitation)
+    #'memberships/list-active-by-bank (fn [& _] [stored-membership])
+    #'memberships/list-invitations-by-bank (fn [& _] [stored-invitation])
+    #'memberships/list-pending-invitations-by-email (fn [& _]
+                                                      [stored-invitation])
+    #'memberships/list-access-events
+    (fn [& _]
+      {:access-events [{:access-event-id "aev.01kprbmgcj35ptc8npmybhh4sn"
+                        :bank-id bank-id
+                        :kind :access-event-kind-invitation-created
+                        :actor {:kind :actor-kind-member :principal-id user-id}
+                        :invitation-id invitation-id
+                        :occurred-at 1779350400000}]})}))
 
 (def ^:private token-shape #"^[A-Za-z0-9_-]{43}$")
 
@@ -323,20 +360,14 @@
          {:principal-id user-id
           :claims {:email "c.babbage@example.com" :email_verified true}}))
 
-(deftest the-token-is-answered-by-create-and-resend-only-test
+(deftest no-access-route-answers-a-token-test
   (standing-in
    stand-ins
    (fn []
-     (doseq [[label handler] [["create" SUT/invite]
-                              ["resend" SUT/resend-invitation]]]
-       (testing (str label " answers a 43-character token")
-         (let [{:keys [body]} (handler request)
-               {:keys [token]} body]
-           (is (re-matches token-shape (str token)))
-           (is (= [token] (tokens body)) "and no other token-shaped string")
-           (is (not-any? #{stored-hash} (strings body))))))
      (doseq [[label handler req]
-             [["the member list" SUT/list-members request]
+             [["a create" SUT/invite request]
+              ["a resend" SUT/resend-invitation request]
+              ["the member list" SUT/list-members request]
               ["the invitation list" SUT/list-invitations request]
               ["the access history" SUT/list-access-events request]
               ["a change of role" SUT/change-role request]
@@ -405,7 +436,7 @@
          (is (= {:kind :actor-kind-member
                  :principal-id user-id
                  :name "Ada Lovelace"}
-                (get-in (SUT/invite request) [:body :invitation :invited-by]))))
+                (get-in (SUT/invite request) [:body :invited-by]))))
        (testing "a withdrawal names its inviter"
          (is (= "Ada Lovelace"
                 (get-in (SUT/withdraw-invitation request)
@@ -425,7 +456,7 @@
     (testing "the platform's client is named as the platform"
       (standing-in
        (assoc named-stand-ins
-              #'memberships/withdraw
+              #'memberships/find-invitation
               (fn [& _] (assoc stored-invitation :invited-by operator-actor)))
        (fn []
          (is (= "Queenswood"

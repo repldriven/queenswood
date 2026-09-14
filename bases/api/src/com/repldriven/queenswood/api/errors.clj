@@ -47,11 +47,15 @@
    :interest/no-settlement 404
    :invitation/already-member 409
    :invitation/invalid-status 409
+   :invitation/superseded 409
    :gl/missing-currency-account 409
    :ledger-account/invalid-status 409
    :ledger-account/closed 409
    :membership/invalid-status 409
    :membership/last-owner 409
+   ;; The `membership` processor sends its unauthorized refusal back as a
+   ;; rejection, which a command response can carry.
+   :membership/role-not-granted 403
    :party/invalid-status 409
    :party/open-accounts 409
    :policy/limit-exceeded 429

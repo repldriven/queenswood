@@ -40,6 +40,7 @@
   component/interest {:local/root "../../components/interest"}
   component/ledger-account {:local/root "../../components/ledger-account"}
   component/membership {:local/root "../../components/membership"}
+  component/membership-query {:local/root "../../components/membership-query"}
   component/onfido-webhook {:local/root "../../components/onfido-webhook"}
   component/onfido-relay {:local/root "../../components/onfido-relay"}
   component/party {:local/root "../../components/party"}

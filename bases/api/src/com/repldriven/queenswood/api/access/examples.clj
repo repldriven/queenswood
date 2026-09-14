@@ -9,8 +9,6 @@
 
 (def AccessEventId "aev.01kprbmgcj35ptc8npmybhh4sn")
 
-(def InvitationToken "mZzGQMQVkb1hnhQq6hXAZEOHjWHnjB8aHdRJAJw3hMw")
-
 (def invitee-user-id "usr.01kprbmgcj35ptc8npmybhh4sp")
 
 (def invitee-membership-id "mem.01kprbpdwa9q5n2t7vwsx84a3n")
@@ -52,8 +50,6 @@
    :reason "Joining the payments team"
    :created-at "2026-05-18T10:00:00Z"
    :updated-at "2026-05-18T10:00:00Z"})
-
-(def InvitationWithToken {:invitation Invitation :token InvitationToken})
 
 (def accepted-invitation
   (assoc Invitation

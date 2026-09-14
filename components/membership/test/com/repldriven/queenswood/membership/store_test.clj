@@ -3,15 +3,21 @@
   membership written before it had a status reads back active, an
   invitation and an access event round-trip, every invitation index
   answers, a second invitation under a taken token hash is refused, and
-  one bank's history pages newest first without repeats or gaps.
+  one bank's history pages newest first without repeats or gaps. An
+  invitation saved under an event name co-commits one changelog entry,
+  and one saved without writes none. Reads go through
+  `membership-query`.
 
   The transactions live in `interface-test`; the pure rules in
   `domain-test`."
   (:require
-    [com.repldriven.queenswood.fdb.interface]
+    [com.repldriven.queenswood.fdb.interface :as fdb]
     [com.repldriven.queenswood.testcontainers.interface]
 
     [com.repldriven.queenswood.membership.store :as SUT]
+    [com.repldriven.queenswood.membership-query.interface :as q]
+    [com.repldriven.queenswood.schema.interface :as schema]
+    [com.repldriven.mono.error.interface :as error]
 
     [com.repldriven.mono.system.interface :as system]
     [com.repldriven.mono.test-system.interface :refer
@@ -27,6 +33,8 @@
 
 (def ^:private config-file "classpath:membership/application-test.yml")
 
+(def ^:private created-at 1700000000000)
+
 (def ^:private owner-actor {:kind :actor-kind-member :principal-id "usr.owner"})
 
 (defn- invitation
@@ -40,8 +48,8 @@
    :token-hash token-hash
    :expires-at 1700604800000
    :invited-by owner-actor
-   :created-at 1700000000000
-   :updated-at 1700000000000})
+   :created-at created-at
+   :updated-at created-at})
 
 (defn- access-event
   [bank-id access-event-id]
@@ -68,14 +76,14 @@
                                          :role :role-admin
                                          :created-at 1700000000000
                                          :updated-at 1700000000000})
-                 loaded (SUT/get-membership config "mem.legacy")
+                 loaded (q/find-by-id config "mem.legacy")
                  _ (testing
                      "a membership saved without fields 7 to 10 reads active"
                      (is (= :membership-status-active (:status loaded)))
                      (is (= :role-admin (:role loaded)))
                      (is (not (contains? loaded :ended-at)))
                      (is (not (contains? loaded :invitation-id))))
-                 active (SUT/list-active-by-bank config bank-id)
+                 active (q/list-active-by-bank config bank-id)
                  _ (testing "and counts as active"
                      (is (= ["mem.legacy"] (mapv :membership-id active))))
                  _ (SUT/save-membership config
@@ -83,9 +91,9 @@
                                                :status :membership-status-ended
                                                :ended-at 1700000001000
                                                :ended-by owner-actor))
-                 active (SUT/list-active-by-bank config bank-id)
-                 listed (SUT/list-by-bank config bank-id)
-                 by-user (SUT/list-active-by-user config "usr.legacy")
+                 active (q/list-active-by-bank config bank-id)
+                 listed (q/list-by-bank config bank-id)
+                 by-user (q/list-active-by-user config "usr.legacy")
                  _ (testing "an ended membership is listed but not active"
                      (is (= [] active))
                      (is (= [] by-user))
@@ -104,14 +112,14 @@
                                                :reason "Joining the team"
                                                :accepted-by-user-id
                                                "usr.accepted"))
-                 loaded (SUT/find-invitation config bank-id "inv.store.1")
+                 loaded (q/get-invitation-record config bank-id "inv.store.1")
                  _ (testing "an invitation round-trips through the trio"
                      (is (= (assoc pending
                                    :reason "Joining the team"
                                    :accepted-by-user-id "usr.accepted")
                             loaded)))
                  _ (SUT/save-invitation config pending)
-                 loaded (SUT/find-invitation config bank-id "inv.store.1")
+                 loaded (q/get-invitation-record config bank-id "inv.store.1")
                  _ (testing
                      "an invitation without its optional fields omits them"
                      (is (= pending loaded)))
@@ -130,27 +138,36 @@
                     (invitation "bnk.store.elsewhere"
                                 "inv.store.4" "invitee@example.com"
                                 :invitation-status-pending "hash-4"))
-                 missing (SUT/find-invitation config
-                                              "bnk.store.elsewhere"
-                                              "inv.store.1")
                  _ (testing "the primary key includes the bank"
-                     (is (nil? missing)))
-                 by-bank (SUT/list-invitations-by-bank config bank-id)
+                     (is (= :invitation/not-found
+                            (error/kind (q/get-invitation-record
+                                         config
+                                         "bnk.store.elsewhere"
+                                         "inv.store.1")))))
+                 by-bank (q/list-invitations-by-bank config bank-id)
                  _ (testing
                      "by bank answers every status but declined and withdrawn"
                      (is (= #{"inv.store.1" "inv.store.3"}
                             (set (map :invitation-id by-bank)))))
-                 by-email (SUT/list-invitations-by-email config
-                                                         "invitee@example.com")
+                 by-email (q/list-pending-invitations-by-email
+                           config
+                           "INVITEE@example.com"
+                           {:now created-at})
                  _ (testing "by lower-cased email answers across banks"
                      (is (= #{"inv.store.1" "inv.store.4"}
                             (set (map :invitation-id by-email)))))
-                 by-hash (SUT/find-invitation-by-token-hash config "hash-3")
+                 by-hash (q/get-invitation-record-for-recipient config
+                                                                "inv.store.3"
+                                                                {:token-hash
+                                                                 "hash-3"})
                  _ (testing "by token hash answers the one invitation"
                      (is (= "inv.store.3" (:invitation-id by-hash))))
-                 unknown (SUT/find-invitation-by-token-hash config "hash-9")
-                 _ (testing "an unknown token hash answers nil"
-                     (is (nil? unknown)))]))))
+                 _ (testing "an unknown token hash is not found"
+                     (is (= :invitation/not-found
+                            (error/kind (q/get-invitation-record-for-recipient
+                                         config
+                                         "inv.store.3"
+                                         {:token-hash "hash-9"})))))]))))
 
 (deftest taken-token-hash-is-refused-test
   (with-test-system
@@ -172,8 +189,45 @@
        (testing "a second invitation under a taken token hash is refused"
          (is (SUT/uniqueness-violation? result))
          (is (not (str/includes? (pr-str result) token-hash))))
-       (nom-test> [kept (SUT/find-invitation config bank-id "inv.token.2")
-                   _ (testing "and nothing is written" (is (nil? kept)))])))))
+       (testing "and nothing is written"
+         (is (= :invitation/not-found
+                (error/kind
+                 (q/get-invitation-record config bank-id "inv.token.2")))))))))
+
+(deftest invitation-changelog-carries-created-and-resent-only-test
+  (with-test-system
+   [sys config-file]
+   (let [config (fdb-config sys)
+         bank-id "bnk.store.changelog"
+         seen (atom [])
+         pending (invitation bank-id
+                             "inv.changelog.1" "changelog@example.com"
+                             :invitation-status-pending "inv.changelog.1")]
+     (nom-test> [_ (SUT/save-invitation config pending "invitation-created")
+                 _ (SUT/save-invitation
+                    config
+                    (assoc pending :expires-at 1700700000000)
+                    "invitation-resent")
+                 _ (SUT/save-invitation
+                    config
+                    (assoc pending :status :invitation-status-accepted))
+                 _ (fdb/process-changelog
+                    (:record-db config)
+                    "membership-changelog-read-back"
+                    "invitations"
+                    (fn [_ctx bytes]
+                      (swap! seen conj (schema/pb->ChangelogEvent bytes)))
+                    {:deduplicate? false
+                     :keyspace-prefix
+                     (system/instance sys [:fdb :keyspace-prefix])})
+                 _
+                 (testing
+                   "a create and a resend each write one entry, an accept none"
+                   (is (= ["invitation-created" "invitation-resent"]
+                          (mapv :event-name @seen)))
+                   (is (= ["inv.changelog.1:1700604800000"
+                           "inv.changelog.1:1700700000000"]
+                          (mapv :dedup-key @seen))))]))))
 
 (deftest access-events-page-newest-first-test
   (with-test-system
@@ -183,7 +237,7 @@
          ids (mapv #(format "aev.01J00000000000000000000%03d" %) (range 5))]
      (nom-test> [_ (SUT/save-access-event config
                                           (access-event bank-id (first ids)))
-                 loaded (SUT/scan-access-events config bank-id {})
+                 loaded (q/list-access-events config bank-id {})
                  _ (testing "an access event round-trips through the trio"
                      (is (= [(access-event bank-id (first ids))]
                             (:access-events loaded))))
@@ -193,15 +247,15 @@
                                           (access-event
                                            "bnk.store.other"
                                            "aev.01J00000000000000000000999"))
-                 first-page (SUT/scan-access-events config bank-id {:limit 2})
-                 second-page (SUT/scan-access-events
-                              config
-                              bank-id
-                              {:limit 2 :after (:after first-page)})
-                 last-page (SUT/scan-access-events
-                            config
-                            bank-id
-                            {:limit 2 :after (:after second-page)})
+                 first-page (q/list-access-events config bank-id {:limit 2})
+                 second-page (q/list-access-events config
+                                                   bank-id
+                                                   {:limit 2
+                                                    :after (:after first-page)})
+                 last-page (q/list-access-events config
+                                                 bank-id
+                                                 {:limit 2
+                                                  :after (:after second-page)})
                  _ (testing
                      "one bank's events scan newest first, a page at a time"
                      (is (= (take 2 (rseq ids))

@@ -82,7 +82,7 @@
    [:accounts [:vector [:ref "CashAccount"]]]
    [:client-id [:ref "BankId"]]
    [:client-secret string?]
-   [:owner-invitation {:optional true} [:ref "InvitationWithToken"]]
+   [:owner-invitation {:optional true} [:ref "Invitation"]]
    [:company-binding {:optional true} [:ref "CompanyBinding"]]
    [:created-at [:ref "Timestamp"]]
    [:updated-at [:ref "Timestamp"]]])

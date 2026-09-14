@@ -1,8 +1,8 @@
-{:name "A recipient declines an invitation with its token"
+{:name "A recipient declines an invitation by their verified email"
  :tags #{:access :api :happy}
- ;; The invitation names an address the recipient does not sign in with,
- ;; so the token is the proof that reaches it, and it still reads the
- ;; invitation once declined.
+ ;; The invitation names the address the recipient signs in with, so
+ ;; their verified email is the proof that reaches it, and it still reads
+ ;; the invitation once declined.
  :given
  [{:command :auth/mint-user-token
    :realm :queenswood
@@ -35,10 +35,8 @@
   {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/accept"
-             :path-params {:invitation-id [:ref :bank :owner-invitation
-                                           :invitation :invitation-id]}
-             :auth :owner-token
-             :headers {:invitation-token [:ref :bank :owner-invitation :token]}}
+             :path-params {:invitation-id [:ref :bank :owner-invitation :invitation-id]}
+             :auth :owner-token}
    :as :owner-membership
    :assert {:status 201 :body {:role "owner"}}}
   {:command :api/request
@@ -47,20 +45,17 @@
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]
                        :idempotency-key "ik-access-recipient-declines-002"}
-             :body {:email "decline-invitee@example.test" :role "developer"}}
+             :body {:email "decline-invitee@queenswood.local" :role "developer"}}
    :as :invitation
    :assert {:status 201}}]
  :when
  [{:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/decline"
-             :path-params {:invitation-id [:ref :invitation :invitation
-                                           :invitation-id]}
-             :auth :invitee-token
-             :headers {:invitation-token [:ref :invitation :token]}}
+             :path-params {:invitation-id [:ref :invitation :invitation-id]}
+             :auth :invitee-token}
    :assert {:status 200
-            :body {:invitation-id [:ref :invitation :invitation
-                                   :invitation-id]
+            :body {:invitation-id [:ref :invitation :invitation-id]
                    :bank-id [:ref :bank :bank-id]
                    :role "developer"
                    :status "declined"}}}]
@@ -68,21 +63,16 @@
  [{:command :api/request
    :request {:method :get
              :path "/v1/me/invitations/{invitation-id}"
-             :path-params {:invitation-id [:ref :invitation :invitation
-                                           :invitation-id]}
-             :auth :invitee-token
-             :headers {:invitation-token [:ref :invitation :token]}}
+             :path-params {:invitation-id [:ref :invitation :invitation-id]}
+             :auth :invitee-token}
    :assert {:status 200
-            :body {:invitation-id [:ref :invitation :invitation
-                                   :invitation-id]
+            :body {:invitation-id [:ref :invitation :invitation-id]
                    :status "declined"}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/accept"
-             :path-params {:invitation-id [:ref :invitation :invitation
-                                           :invitation-id]}
-             :auth :invitee-token
-             :headers {:invitation-token [:ref :invitation :token]}}
+             :path-params {:invitation-id [:ref :invitation :invitation-id]}
+             :auth :invitee-token}
    :assert {:status 409 :problem {:type ":invitation/invalid-status"}}}
   {:command :api/request
    :request {:method :get
@@ -97,7 +87,6 @@
                                      [:ref :invitee-me :user :user-id]}
                              :subject-user-id [:ref :invitee-me :user
                                                :user-id]
-                             :invitation-id [:ref :invitation :invitation
-                                             :invitation-id]
-                             :email "decline-invitee@example.test"
+                             :invitation-id [:ref :invitation :invitation-id]
+                             :email "decline-invitee@queenswood.local"
                              :role-after "developer"}]]}}}]}
