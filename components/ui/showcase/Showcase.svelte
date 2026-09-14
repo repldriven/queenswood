@@ -22,6 +22,7 @@
     PolicyMatrix, CATEGORY_TONE,
     Field, Input, Select,
     Panel, PanelHead, Chip, ToastHost, toast,
+    RolePill, Tabs, Tag, Callout, Textarea, TokenBox,
     ProductPicker, VersionList, MigrationStatusBadge,
     Card, CardHeader, CardBody, CardFooter, CodeCard,
     ProgressSpine, BankStateBand, SceneCard, RawCalls, TaskPipeline,
@@ -55,11 +56,14 @@
     { id: "panels",         label: "Panels" },
     { id: "chips",          label: "Chips" },
     { id: "toast",          label: "Toast" },
+    { id: "access",         label: "People and access" },
     { id: "migrations",     label: "Migration pickers" },
   ];
 
   // Migration primitive demos
   let chipFilter = $state("all");
+  let accessTab = $state("members");
+  let accessReason = $state("Joining the payments team");
   let pickerOpen = $state(false);
   let pickedProduct = $state("prd.instant-access-savings");
   let sourceVersions = $state(["prv.v2", "prv.v3"]);
@@ -624,6 +628,15 @@
         <Badge tone="neutral">neutral</Badge>
       </div>
 
+      <p class="lead">Invitation states: <code>pending</code>, <code>accepted</code>, <code>expired</code>, <code>withdrawn</code> and <code>declined</code>.</p>
+      <div class="badge-row">
+        <Badge tone="pending">pending</Badge>
+        <Badge tone="accepted">accepted</Badge>
+        <Badge tone="expired">expired</Badge>
+        <Badge tone="withdrawn">withdrawn</Badge>
+        <Badge tone="declined">declined</Badge>
+      </div>
+
       <p class="lead">Cash-account lifecycle, mapped onto those tones via <code>AccountStatusBadge</code>.</p>
       <div class="badge-row">
         <AccountStatusBadge status="opened" />
@@ -1179,6 +1192,48 @@
         <Button variant="ghost" onclick={() => toast("Saved — preview discarded because the scope changed")}>
           Toast, no detail
         </Button>
+      </div>
+    </section>
+
+    <section id="access" class="section">
+      <div class="section-head">
+        <h2>People and access</h2>
+        <p class="lead"><code>&lt;RolePill&gt;</code> names a role, toned by reach up the ladder. <code>&lt;Tag&gt;</code> marks a name — you, the member who created the organisation, an operator — and presses nothing, unlike <code>&lt;Chip&gt;</code>. <code>&lt;Tabs&gt;</code> switches panels and carries a count. <code>&lt;Callout&gt;</code> is the shape every API refusal takes, with the problem's type on a mono line. <code>&lt;Textarea&gt;</code> counts toward its limit, and <code>&lt;TokenBox&gt;</code> holds a secret the API answers once.</p>
+      </div>
+      <div class="stack">
+        <div class="row">
+          <RolePill role="owner" />
+          <RolePill role="admin" />
+          <RolePill role="developer" />
+          <RolePill role="viewer" />
+          <Tag tone="you">you</Tag>
+          <Tag tone="founder">created organisation</Tag>
+          <Tag tone="operator">operator</Tag>
+        </div>
+        <Tabs
+          label="People"
+          bind:value={accessTab}
+          tabs={[
+            { id: "members", label: "Members", count: 5 },
+            { id: "invitations", label: "Invitations", count: "3 pending" },
+            { id: "history", label: "History", count: "8+" },
+          ]}
+        />
+        <Callout tone="danger" title="Make someone else an owner first" type="409 · :membership/last-owner">
+          Ada Lovelace is this organisation’s only owner. Grant the owner role to another member, then change this one.
+        </Callout>
+        <Callout tone="warn" title="You won’t see this again">
+          Queenswood keeps only a hash of the link’s token, so it can’t be shown twice.
+        </Callout>
+        <Callout tone="info">
+          The link expires seven days after it is sent.
+        </Callout>
+        <Textarea bind:value={accessReason} maxlength={500} placeholder="Kept on the record." />
+        <TokenBox
+          label="The link — shown once"
+          base="https://console.example/#/invitations/accept"
+          secret="?i=inv.01kprbmgcj35ptc8npmybhh4sm&t=mZzGQMQVkb1hnhQq6hXAZEOHjWHnjB8aHdRJAJw3hMw"
+        />
       </div>
     </section>
 

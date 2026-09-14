@@ -2,7 +2,7 @@
   import Router, { push } from "svelte-spa-router";
   import { wrap } from "svelte-spa-router/wrap";
   import { ensure_session, sign_in, sign_out, token_claims } from "./lib/auth.mjs";
-  import { get_me } from "./lib/api.mjs";
+  import { get_me, set_bank_id } from "./lib/api.mjs";
   import Landing from "./lib/Landing.svelte";
   import SignInPage from "./lib/SignInPage.svelte";
   import Onboarding from "./lib/Onboarding.svelte";
@@ -11,6 +11,7 @@
   import Accounts from "./lib/Accounts.svelte";
   import Migrations from "./lib/Migrations.svelte";
   import Parties from "./lib/Parties.svelte";
+  import People from "./lib/People.svelte";
   import LedgerAccounts from "./lib/LedgerAccounts.svelte";
   import Jobs from "./lib/Jobs.svelte";
   import Policies from "./lib/Policies.svelte";
@@ -62,6 +63,10 @@
         component: Scenarios,
         props: { user, memberships },
       }),
+      "/people": wrap({
+        component: People,
+        props: { user, memberships, onAccessChanged: refresh_me },
+      }),
       "/policies": wrap({
         component: Policies,
         props: { user, memberships },
@@ -105,6 +110,7 @@
     }
     user = body.user;
     memberships = body.memberships ?? [];
+    set_bank_id(memberships[0]?.["bank-id"]);
     if (memberships.length === 0) {
       stage = "onboarding";
     } else {
@@ -121,6 +127,7 @@
   function handleOnboardComplete(payload) {
     user = payload.user;
     memberships = [payload.membership];
+    set_bank_id(payload.membership?.["bank-id"]);
     buildAuthRoutes();
     stage = "app";
     push("/products");

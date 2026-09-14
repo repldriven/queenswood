@@ -49,8 +49,8 @@ export function ensure_session() {
   if (!init_promise) {
     if (!kc) {
       console.warn(
-        "console: Keycloak URL not configured. Set VITE_KEYCLOAK_URL " +
-        "in .env.local (see .env.example) or window.__env.keycloakUrl in " +
+        "console: Keycloak URL not configured. Start with " +
+        "`just console-start`, or set window.__env.keycloakUrl in " +
         "/env.js. The sign-in button is inert until this is fixed.",
       );
       init_promise = Promise.resolve({

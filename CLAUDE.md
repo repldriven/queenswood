@@ -272,6 +272,10 @@ non-trivial work on their topic.
   URI Google refuses only after the user has left, and why the realm's
   placeholder pair reaches it by two different routes. See
   [google-sign-in.md](docs/recipes/infra/google-sign-in.md).
+- **Google sign-in for local development** — the installation's local
+  project and the kind that composes it, where the client is created,
+  and how its id and secret reach the monolith's Keycloak. See
+  [local-install](docs/recipes/infra/local-install.md).
 - **The apex, and the names below it** — why the zone a registrar
   points at belongs to no installation, lives in a project at the
   organisation, and is declared in git rather than composed; and why

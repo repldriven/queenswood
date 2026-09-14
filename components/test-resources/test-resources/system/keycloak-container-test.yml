@@ -34,6 +34,18 @@ container: !system/component
   # `local/dev` is the platform and the profile this file already names,
   # so the cloud environments sit under `queenswood/gcp/<env>/` and the
   # two never collide on a shared `dev`.
+  # Google IdP client id, the public half of the pair above. Keycloak
+  # substitutes ${QW_LOCAL_GOOGLE_CLIENT_ID:...} in the realm at import,
+  # so `dev` passes the host's value through and falls back to the
+  # realm's placeholder when there is none -- an empty value would
+  # replace the placeholder with nothing. `just monolith-start` sets it
+  # from `queenswood/local/dev/auth/clients/ids/google`; tests leave it
+  # unset. The client lives in the installation's local project -- see
+  # docs/recipes/infra/local-install.md.
+  env: !profile
+    dev:
+      QW_LOCAL_GOOGLE_CLIENT_ID: !or [!env QW_LOCAL_GOOGLE_CLIENT_ID, "REPLACE-ME-GOOGLE-CLIENT-ID"]
+    default: {}
   vault-dir: !profile
     dev: /opt/keycloak/data/vault
     default: ~

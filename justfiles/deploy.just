@@ -162,7 +162,7 @@ kind-down:
 # Run a local dev Keycloak in Docker (foreground; Ctrl+C tears it down)
 keycloak-up:
     # Listens on host :8090 to match VITE_KEYCLOAK_URL in
-    # bases/console/.env.example. 8090 (not 8081) keeps the
+    # `just console-start`. 8090 (not 8081) keeps the
     # port out of the way of monolith, which binds 8081 for
     # the clearbank-simulator dev component. Admin console
     # at http://localhost:8090/admin (admin / admin). Realm JSON

@@ -1,0 +1,136 @@
+apiVersion: apiextensions.crossplane.io/v2
+kind: CompositeResourceDefinition
+metadata:
+  name: xqueenswoodlocals.queenswood.repldriven.com
+spec:
+  scope: Namespaced
+  group: queenswood.repldriven.com
+  names:
+    kind: XQueenswoodLocal
+    plural: xqueenswoodlocals
+  defaultCompositionRef:
+    name: xqueenswoodlocal.gcp
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          description: |
+            The cloud half of running Queenswood on a developer's
+            machine: a project in the installation's folder that holds
+            the Google OAuth client the local Keycloak signs in
+            through, and the right to create that client.
+
+            Not an instance. An instance is an environment of the bank
+            and composes a network, a cluster and a database to run it;
+            nothing here runs anything, because the bank runs on the
+            developer's machine. What that machine cannot have locally
+            is a client Google will redirect to, and a client lives in
+            a project.
+
+            Its own kind rather than an XQueenswoodInstance with env d,
+            which would compose everything an environment is. See
+            ADR-0024 on a composite being a unit of replacement.
+
+            The tier and label are fixed rather than chosen: the
+            project is prj-<code>-d-local, one per installation. The
+            client itself is created by hand in the console -- Google
+            exposes no API for a web client with a chosen redirect URI
+            -- so what this composes is where it lives and who may make
+            it. See ADR-0025.
+          properties:
+            spec:
+              type: object
+              required:
+                - code
+                - projectId
+              properties:
+                code:
+                  type: string
+                  pattern: '^[a-z0-9]{4}$'
+                  description: |
+                    The installation's four-character code -- the same
+                    string the plane's manifest carries. Every name
+                    derives from it, and it is how this finds the
+                    folder it belongs in and the installation's
+                    EnvironmentConfig without being told either. See
+                    ADR-0023.
+                projectId:
+                  type: string
+                  pattern: '^prj-[a-z0-9]{4}-d-local-[0-9a-f]{6}$'
+                  description: |
+                    The project's id, generated once and then carried
+                    here. A project id is consumed permanently and
+                    cannot be undeleted into usefulness, so a composite
+                    that invented one on every reconcile would strand
+                    the last.
+
+                    prj-<code>-d-local-<suffix>, the suffix six hex
+                    characters because a project id is globally
+                    unique.
+                adopt:
+                  type: string
+                  pattern: '^projects/prj-[a-z0-9]{4}-d-local-[0-9a-f]{6}$'
+                  description: |
+                    An existing project to take over, written
+                    projects/<id> -- the prefixed form Crossplane
+                    records as the external name.
+
+                    Separate from projectId because creation and
+                    adoption cannot share a field: GCP answers
+                    permission denied, never not found, for a project
+                    id you do not own, so an external name set before
+                    the project exists makes the first observation fail
+                    and creation never follows.
+                billingAccountId:
+                  type: string
+                  description: |
+                    The billing account to charge, where this project is
+                    charged somewhere other than the rest of the
+                    installation. Normally absent: the account comes
+                    from the installation's EnvironmentConfig, and this
+                    overrides it.
+
+                    Nothing in the project bills today. It is linked
+                    anyway, because an unbilled project refuses the
+                    first API that does, and the refusal names quota
+                    rather than billing.
+                access:
+                  type: object
+                  default: {}
+                  description: |
+                    Who may create the OAuth client, where that is
+                    somebody other than the installation's platform
+                    admins. Normally absent: the mapping comes from the
+                    installation's EnvironmentConfig, and this
+                    overrides it.
+                  properties:
+                    platformAdmin:
+                      type: array
+                      description: |
+                        Principals granted roles/oauthconfig.editor in
+                        this project, as whole IAM member strings.
+
+                        Creating the client is a console act with no
+                        API behind it, so the right sits with a person
+                        rather than an identity. With platformAdmin
+                        rather than platformViewer, because creating a
+                        client mints a credential that speaks for this
+                        installation to Google.
+
+                        Empty binds nothing, which leaves a project
+                        nobody can make the client in.
+                      items:
+                        type: string
+                        pattern: '^(user|group|serviceAccount|domain):.+$'
+            status:
+              type: object
+              properties:
+                projectId:
+                  type: string
+                  description: |
+                    The project as Crossplane records it,
+                    projects/<id>. Read back rather than committed, and
+                    what `adopt` is copied from once it appears.

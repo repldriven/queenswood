@@ -1,10 +1,7 @@
 <script>
-  /* Parties page — the parties (organizations and people) that hold a
-     role at the organisation: directors, beneficial owners,
-     signatories, customers. Approving / rejecting happens in the ops
-     console (separate app), so there are no per-row actions here —
-     clicking a row opens the read drawer; the drawer's Edit button
-     switches to the form. */
+  /* Parties page — the bank's customers and the bank's own
+     organization. Clicking a row opens the read drawer; the drawer's
+     Edit button switches to the form. */
 
   import {
     PageHeader,
@@ -93,11 +90,11 @@
 <PageHeader
   {kicker}
   title="Parties"
-  sub="The organizations and people who hold a role at your organization — directors, beneficial owners, signatories, customers. Submit and update their details; reviewers approve or reject them in the ops console."
+  sub="Your customers, and your bank's own organization. Your customer stays pending until identity verification passes; your bank's organization is active from the start."
 >
   {#snippet actions()}
     <Button variant="ghost" onclick={load}>Refresh</Button>
-    <Button variant="primary" onclick={openCreate}>Onboard Person</Button>
+    <Button variant="primary" onclick={openCreate}>Onboard Customer</Button>
   {/snippet}
 </PageHeader>
 
@@ -110,7 +107,7 @@
 {:else if parties.length === 0}
   <div class="empty">
     <p>No parties yet.</p>
-    <p class="hint">Click <strong>Onboard Person</strong> to add your first one.</p>
+    <p class="hint">Click <strong>Onboard Customer</strong> to add your first one.</p>
   </div>
 {:else}
   <Table>
@@ -130,7 +127,7 @@
         <Tr onclick={() => openRead(p)} class="row-clickable">
           <Td mono muted>{p["party-id"]}</Td>
           <Td emphasized>{p["display-name"]}</Td>
-          <Td>{p.type ?? ""}</Td>
+          <Td>{p.type === "person" ? "customer" : (p.type ?? "")}</Td>
           <Td><Badge tone={toneFor(p.status)}>{p.status}</Badge></Td>
           <Td muted>{formatRelative(p["created-at"])}</Td>
           <Td muted>{formatRelative(p["updated-at"])}</Td>

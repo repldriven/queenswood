@@ -194,7 +194,7 @@
 
   const kickerFor = $derived(
     mode === "read"
-      ? `${isOrg ? "Organization" : "Person"} · ${shortId(target?.["party-id"])}`
+      ? `${isOrg ? "Organization" : "Your customer"} · ${shortId(target?.["party-id"])}`
       : mode === "edit"
         ? "Edit"
         : "Identify",
@@ -202,10 +202,10 @@
 
   const titleFor = $derived(
     mode === "read"
-      ? (target?.["display-name"] ?? (isOrg ? "Organization" : "Person"))
+      ? (target?.["display-name"] ?? (isOrg ? "Organization" : "Your customer"))
       : mode === "edit"
-        ? "Edit person"
-        : "Onboard Person",
+        ? "Edit customer"
+        : "Onboard Customer",
   );
 
   const subFor = $derived(

@@ -1,0 +1,173 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xqueenswoodlocal.gcp
+spec:
+  compositeTypeRef:
+    apiVersion: queenswood.repldriven.com/v1alpha1
+    kind: XQueenswoodLocal
+  mode: Pipeline
+  pipeline:
+    # =======================================================================
+    # The installation's billing account and access mapping, merged into
+    # the pipeline's context where the steps below read them. Required,
+    # so an installation with no config is a composite that says so
+    # rather than a project that comes up unbilled and looks fine.
+    # =======================================================================
+    - step: environment
+      functionRef:
+        name: function-environment-configs
+      input:
+        apiVersion: environmentconfigs.fn.crossplane.io/v1beta1
+        kind: Input
+        spec:
+          policy:
+            resolution: Required
+          environmentConfigs:
+            - type: Selector
+              selector:
+                mode: Single
+                matchLabels:
+                  - type: FromCompositeFieldPath
+                    key: installation
+                    valueFromFieldPath: spec.code
+    - step: patch-and-transform
+      functionRef:
+        name: function-patch-and-transform
+      input:
+        apiVersion: pt.fn.crossplane.io/v1beta1
+        kind: Resources
+        resources:
+          # ===================================================================
+          # Withholds Delete, as an instance project does. Nothing here
+          # rebuilds from its declaration: the OAuth client inside it is
+          # a console act, so losing the project is losing the client,
+          # and the id is spent whether or not the project survives.
+          # ===================================================================
+          - name: local-project
+            base:
+              apiVersion: cloudplatform.gcp.m.upbound.io/v1beta1
+              kind: Project
+              metadata:
+                namespace: crossplane-system
+              spec:
+                managementPolicies:
+                  - Observe
+                  - Create
+                  - Update
+                  - LateInitialize
+                providerConfigRef:
+                  kind: ClusterProviderConfig
+                  name: default
+                forProvider:
+                  # No default VPC: nothing here runs, and the org
+                  # policy says the same thing.
+                  autoCreateNetwork: false
+                  # Provider-side, and already the default.
+                  deletionPolicy: PREVENT
+            patches:
+              # prj-<code>-d-local, without the id's suffix: the
+              # Kubernetes name is the one another resource spells, and
+              # the suffix belongs to the globally-unique id alone.
+              - fromFieldPath: spec.code
+                toFieldPath: metadata.name
+                policy:
+                  fromFieldPath: Required
+                transforms:
+                  - type: string
+                    string:
+                      type: Format
+                      fmt: "prj-%s-d-local"
+              # Adoption only, and skipped when absent, so a first run
+              # creates and a rebuild takes over what is already there.
+              - fromFieldPath: spec.adopt
+                toFieldPath: metadata.annotations[crossplane.io/external-name]
+              - fromFieldPath: spec.projectId
+                toFieldPath: spec.forProvider.projectId
+                policy:
+                  fromFieldPath: Required
+              - fromFieldPath: spec.code
+                toFieldPath: spec.forProvider.name
+                transforms:
+                  - type: string
+                    string:
+                      type: Format
+                      fmt: "prj-%s-d-local"
+              # The installation's account, then this manifest's if it
+              # names one: a later patch wins when its source is set and
+              # is skipped when it is absent.
+              - type: FromEnvironmentFieldPath
+                fromFieldPath: billingAccountId
+                toFieldPath: spec.forProvider.billingAccount
+              - fromFieldPath: spec.billingAccountId
+                toFieldPath: spec.forProvider.billingAccount
+              # The folder the subsidiary composed, by the name the
+              # naming rule fixes. A managed-resource reference, so
+              # Crossplane orders the two and neither composite knows the
+              # other exists.
+              - fromFieldPath: spec.code
+                toFieldPath: spec.forProvider.folderIdRef.name
+                transforms:
+                  - type: string
+                    string:
+                      type: Format
+                      fmt: "fldr-%s"
+              # The prefixed id lands in the external-name annotation
+              # before it appears anywhere in status.atProvider.
+              - type: ToCompositeFieldPath
+                fromFieldPath: metadata.annotations[crossplane.io/external-name]
+                toFieldPath: status.projectId
+    # =======================================================================
+    # Who may create the OAuth client. Templated because the number of
+    # principals varies with the installation, and named from a hash of
+    # the member rather than its index, so removing one from the middle
+    # of the list renames nothing else.
+    #
+    # No API enablement: nothing composed here calls an API inside the
+    # project, and neither does creating a client in the console.
+    # =======================================================================
+    - step: access
+      functionRef:
+        name: function-go-templating
+      input:
+        apiVersion: gotemplating.fn.crossplane.io/v1beta1
+        kind: GoTemplate
+        source: Inline
+        inline:
+          template: |
+            {{- $xr := .observed.composite.resource }}
+            {{- $name := printf "%s-d-local" $xr.spec.code }}
+            {{- $project := $xr.spec.projectId }}
+            {{- $envAccess := dig "access" dict (index .context "apiextensions.crossplane.io/environment" | default dict) }}
+            {{- $ownAccess := dig "access" dict $xr.spec }}
+            {{- range $member := dig "platformAdmin" (dig "platformAdmin" (list) $envAccess) $ownAccess }}
+            {{- $slug := sha256sum $member | trunc 8 }}
+            ---
+            apiVersion: cloudplatform.gcp.m.upbound.io/v1beta1
+            kind: ProjectIAMMember
+            metadata:
+              name: {{ $name }}-oauth-config-{{ $slug }}
+              namespace: crossplane-system
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: local-oauth-config-{{ $slug }}
+            spec:
+              # With Delete: a principal dropped from the mapping has to
+              # lose the binding in GCP, not merely the resource naming
+              # it.
+              managementPolicies:
+                - Observe
+                - Create
+                - Update
+                - LateInitialize
+                - Delete
+              providerConfigRef:
+                kind: ClusterProviderConfig
+                name: default
+              forProvider:
+                project: {{ $project }}
+                role: roles/oauthconfig.editor
+                member: {{ $member | quote }}
+            {{- end }}
+    - step: auto-ready
+      functionRef:
+        name: function-auto-ready

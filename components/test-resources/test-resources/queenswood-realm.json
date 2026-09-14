@@ -114,7 +114,7 @@
       "addReadTokenRoleOnCreate": false,
       "firstBrokerLoginFlowAlias": "first broker login",
       "config": {
-        "clientId": "REPLACE-ME-GOOGLE-CLIENT-ID",
+        "clientId": "${QW_LOCAL_GOOGLE_CLIENT_ID:REPLACE-ME-GOOGLE-CLIENT-ID}",
         "clientSecret": "${vault.google-client-secret}",
         "syncMode": "IMPORT",
         "useJwksUrl": "true"

@@ -4,10 +4,13 @@ console-start:
     # Sign in as `dev` / `dev` (seeded in the queenswood realm).
     # Pair with `just monolith-start` (or `just keycloak-up`)
     # so the SPA can reach Keycloak on localhost:8090 and api
-    # on localhost:8080.
+    # on localhost:8080. Pass VITE_KEYCLOAK_IDP_HINT=google in the
+    # environment to skip Keycloak's own login form.
     set -e
     cd {{ justfile_directory() }}
-    [[ -f bases/console/.env.local ]] || cp bases/console/.env.example bases/console/.env.local
+    export VITE_KEYCLOAK_URL=http://localhost:8090
+    export VITE_KEYCLOAK_REALM=queenswood
+    export VITE_KEYCLOAK_CLIENT_ID=queenswood-console
     echo "console: sign in as 'dev' / 'dev' once Keycloak is reachable."
     corepack yarn install
     corepack yarn workspace console dev
@@ -27,4 +30,13 @@ ui-showcase:
 
 # Run the monolith against its test application.yml, teeing stdout/stderr to server.log
 monolith-start:
+    #!/usr/bin/env zsh
+    set -e
+    cd {{ justfile_directory() }}
+    if OUT=$(pass show queenswood/local/dev/auth/clients/ids/google 2>/dev/null); then
+      ID="${OUT%%$'\n'*}"
+      if [[ -n "$ID" ]]; then
+        export QW_LOCAL_GOOGLE_CLIENT_ID="$ID"
+      fi
+    fi
     clj -M{{ DOMAIN_ALIASES }}:dev:test -e "(require 'com.repldriven.queenswood.testcontainers.interface)" -m com.repldriven.queenswood.monolith.main -c "classpath:monolith/application-test.yml" -p "dev" 2>&1 | tee server.log

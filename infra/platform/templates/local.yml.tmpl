@@ -1,0 +1,17 @@
+# The project local development signs in through, rendered by `just
+# queenswood-local-manifest` and committed at the top of the
+# installation's directory -- the Application that syncs it does not
+# recurse.
+#
+# It holds the Google OAuth client a developer's Keycloak redirects
+# through, which is created by hand once the project exists. Nothing
+# here runs. Add adopt beside projectId once the project exists.
+apiVersion: queenswood.repldriven.com/v1alpha1
+kind: XQueenswoodLocal
+metadata:
+  name: ${CODE}-d-local
+  namespace: crossplane-system
+spec:
+  code: "${CODE}"
+  # Minted once and carried here. A project id is consumed permanently.
+  projectId: "${PROJECT}"

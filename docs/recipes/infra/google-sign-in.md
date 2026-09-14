@@ -107,6 +107,10 @@ theirs, which is the worst place to discover a typo.
 
 ### 3. One client per environment
 
+Local development counts as one, with a client in the installation's
+local project and a `localhost` redirect URI — see
+[local-install](local-install.md).
+
 Not one shared across them. Revoking or rotating the client a
 development environment uses must not touch the one real customers
 sign in through, and a client still in Google's Testing mode is a
