@@ -10,7 +10,7 @@
 
 (def OnboardingResponse
   {:user me-examples/User
-   :bank (assoc bank-examples/Bank
+   :bank (assoc (dissoc bank-examples/Bank :owners)
                 :client-secret bank-examples/ClientSecret
                 :company-binding bank-examples/CompanyBinding)
    :membership me-examples/Membership})
