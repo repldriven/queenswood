@@ -1,0 +1,64 @@
+{:name "A person who owns one bank onboards a second and holds both"
+ :tags #{:access :api :me :onboarding :happy}
+ ;; WEYLAND-YUTANI CORP LTD is `active` in the Companies House
+ ;; simulator's examples, so only the person's existing membership could
+ ;; refuse the onboarding.
+ :given
+ [{:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "second-org-person"
+   :password "second-org-person"
+   :as :person-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key
+                       "ik-access-onboarding-second-organisation-001"}
+             :body {:name "First Org Bank"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]
+                    :owner-email "second-org-person@queenswood.local"}}
+   :as :first-bank
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :first-bank :owner-invitation
+                                           :invitation :invitation-id]}
+             :auth :person-token
+             :headers {:invitation-token [:ref :first-bank :owner-invitation
+                                          :token]}}
+   :as :first-membership
+   :assert {:status 201 :body {:role "owner"}}}
+  {:command :api/request
+   :request {:method :get :path "/v1/me" :auth :person-token}
+   :assert {:status 200
+            :body {:memberships [{:bank-id [:ref :first-bank :bank-id]
+                                  :role "owner"}]}}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/onboarding/me"
+             :auth :person-token
+             :headers {:idempotency-key
+                       "ik-access-onboarding-second-organisation-002"}
+             :body {:company-number "WY002122"
+                    :bank-name "Weyland-Yutani Bank"}}
+   :as :onboarded
+   :assert {:status 201 :body {:membership {:role "owner"}}}}]
+ :then
+ [{:command :api/request
+   :request {:method :get :path "/v1/me" :auth :person-token}
+   :assert {:status 200
+            :body {:memberships [:m/in-any-order
+                                 [{:membership-id [:ref :first-membership
+                                                   :membership-id]
+                                   :bank-id [:ref :first-bank :bank-id]
+                                   :bank-name "First Org Bank"
+                                   :role "owner"}
+                                  {:bank-id [:ref :onboarded :bank :bank-id]
+                                   :bank-name "Weyland-Yutani Bank"
+                                   :role "owner"}]]}}}]}
