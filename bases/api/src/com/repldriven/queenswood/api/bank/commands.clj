@@ -67,7 +67,7 @@
           txn {:record-db record-db :record-store record-store}]
       (let-nom>
         [invitation (memberships/find-invitation txn bank-id invitation-id)]
-        (access-handlers/invitation-with-token invitation token)))))
+        (access-handlers/invitation-with-token txn invitation token)))))
 
 (defn create-bank-data
   "The create-bank command payload for an operator's request: the body
