@@ -1,0 +1,51 @@
+{:name "The bank list shows a bank's owner once the owner invitation is accepted"
+ :tags #{:api :banks :access :happy}
+ ;; Every scenario shares the bank list, so each read embeds the bank
+ ;; this file created rather than asserting the list's length. A pending
+ ;; owner invitation is not an owner.
+ :given
+ [{:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "owners-invitee"
+   :password "owners-invitee"
+   :as :invitee-token}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-banks-bank-list-owners-001"}
+             :body {:name "Owners Bank"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]
+                    :owner-email "owners-invitee@queenswood.local"}}
+   :as :bank
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :get :path "/v1/banks" :auth :admin}
+   :assert {:status 200
+            :body {:banks [:m/embeds
+                           [{:bank-id [:ref :bank :bank-id] :owners []}]]}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :bank :owner-invitation
+                                           :invitation :invitation-id]}
+             :auth :invitee-token
+             :headers {:invitation-token [:ref :bank :owner-invitation :token]}}
+   :as :owner-membership
+   :assert {:status 201 :body {:role "owner"}}}]
+ :then
+ [{:command :api/request
+   :request {:method :get :path "/v1/banks" :auth :admin}
+   :assert {:status 200
+            :body {:banks [:m/embeds
+                           [{:bank-id [:ref :bank :bank-id]
+                             :owners [{:membership-id [:ref :owner-membership
+                                                       :membership-id]
+                                       :user-id [:ref :owner-membership
+                                                 :user-id]
+                                       :email
+                                       "owners-invitee@queenswood.local"}]}]]}}}]}
