@@ -1,9 +1,12 @@
-{:name "Inviting twice under one key creates one invitation and one token"
+{:name
+ "Inviting twice under one key creates one invitation, and the replay carries no token"
  :tags #{:access :api :idempotency :happy}
- ;; The second call is answered from the cache: the same invitation and
- ;; the same token, marked as a replay. A second run of the handler
- ;; would have minted a fresh token and been refused as an invitation
- ;; already pending.
+ ;; The second call is answered from the cache: the same invitation,
+ ;; marked as a replay, without the token, which the cache never
+ ;; stores. A caller who lost the first response resends the
+ ;; invitation for a fresh one. The invitation is addressed to an
+ ;; address no realm user holds, so the invitee's own verified email
+ ;; proves nothing and each accept is the token's alone.
  :given
  [{:command :auth/mint-user-token
    :realm :queenswood
@@ -11,6 +14,12 @@
    :username "replay-owner"
    :password "replay-owner"
    :as :owner-token}
+  {:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "replay-invitee"
+   :password "replay-invitee"
+   :as :invitee-token}
   {:command :api/request
    :request {:method :post
              :path "/v1/banks"
@@ -55,8 +64,10 @@
    :assert {:status 201
             :headers {:idempotent-replayed "true"}
             :body {:invitation {:invitation-id [:ref :first :invitation
-                                                :invitation-id]}
-                   :token [:ref :first :token]}}}
+                                                :invitation-id]
+                                :email "replay-invitee@example.test"
+                                :status "pending"}
+                   :token [:m/absent]}}}
   {:command :api/request
    :request {:method :get
              :path "/v1/invitations"
@@ -69,4 +80,37 @@
                             {:invitation-id [:ref :first :invitation
                                              :invitation-id]
                              :email "replay-invitee@example.test"
-                             :status "pending"}]]}}}]}
+                             :status "pending"}]]}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/invitations/{invitation-id}/resend"
+             :path-params {:invitation-id [:ref :first :invitation
+                                           :invitation-id]}
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]
+                       :idempotency-key "ik-access-invitation-create-replay-001"}}
+   :as :resent
+   :assert {:status 200
+            :headers {:idempotent-replayed [:m/absent]}
+            :body {:invitation {:invitation-id [:ref :first :invitation
+                                                :invitation-id]}
+                   :token [:m/all-of
+                           [:m/regex "^[A-Za-z0-9_-]{43}$"]
+                           [:m/mismatch [:ref :first :token]]]}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :first :invitation
+                                           :invitation-id]}
+             :auth :invitee-token
+             :headers {:invitation-token [:ref :first :token]}}
+   :assert {:status 404 :problem {:type ":invitation/not-found"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :first :invitation
+                                           :invitation-id]}
+             :auth :invitee-token
+             :headers {:invitation-token [:ref :resent :token]}}
+   :assert {:status 201
+            :body {:bank-id [:ref :bank :bank-id] :role "developer"}}}]}

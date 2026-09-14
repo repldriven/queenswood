@@ -1,0 +1,48 @@
+{:name
+ "Creating a bank with an owner twice under one key replays the invitation without its token"
+ :tags #{:api :banks :access :idempotency :happy}
+ ;; The replay carries the bank, its client secret and the owner
+ ;; invitation, and leaves out only the invitation's token, which the
+ ;; cache never stores.
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key
+                       "ik-banks-create-bank-replay-owner-email-001"}
+             :body {:name "Replayed Owner Bank"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]
+                    :owner-email "replayed-owner@example.test"}}
+   :as :bank-0
+   :assert {:status 201
+            :headers {:idempotent-replayed [:m/absent]}
+            :body {:client-secret [:m/non-empty]
+                   :owner-invitation {:invitation {:invitation-id
+                                                   [:m/regex "^inv\\."]}
+                                      :token [:m/regex
+                                              "^[A-Za-z0-9_-]{43}$"]}}}}]
+ :then
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key
+                       "ik-banks-create-bank-replay-owner-email-001"}
+             :body {:name "Replayed Owner Bank"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]
+                    :owner-email "replayed-owner@example.test"}}
+   :assert {:status 201
+            :headers {:idempotent-replayed "true"}
+            :body {:bank-id [:ref :bank-0 :bank-id]
+                   :client-secret [:ref :bank-0 :client-secret]
+                   :owner-invitation
+                   {:invitation {:invitation-id [:ref :bank-0 :owner-invitation
+                                                 :invitation :invitation-id]
+                                 :email "replayed-owner@example.test"
+                                 :role "owner"}
+                    :token [:m/absent]}}}}]}
