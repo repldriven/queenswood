@@ -139,7 +139,8 @@
                                    [shared.parameters/ref-bank-id-header
                                     shared.parameters/ref-idempotency-key]}
              :interceptors [server/require-idempotency-key
-                            bank-idempotency/cache-response]
+                            (bank-idempotency/cache-response-omitting
+                             [[:token]])]
              :parameters {:body [:ref "CreateInvitationRequest"]}
              :responses (shared.idempotency/with-responses
                          {201 {:description (str "The invitation and the "
@@ -176,7 +177,8 @@
                                      shared.parameters/ref-bank-id-header
                                      shared.parameters/ref-idempotency-key]}
               :interceptors [server/require-idempotency-key
-                             bank-idempotency/cache-response]
+                             (bank-idempotency/cache-response-omitting
+                              [[:token]])]
               :parameters {:body optional-reason}
               :responses (shared.idempotency/with-responses
                           {200 {:description (str "The invitation and the "

@@ -1,0 +1,125 @@
+{:name "Access responses name the inviter, the removed member and the platform"
+ :tags #{:access :api :happy}
+ ;; Each name is captured from the person's own `GET /v1/me`, so the
+ ;; assertion is that the access response names them as their user record
+ ;; does. The operator's client has no user record, so the bank's creation
+ ;; is the platform's.
+ :given
+ [{:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "names-owner"
+   :password "names-owner"
+   :as :owner-token}
+  {:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "names-invitee"
+   :password "names-invitee"
+   :as :invitee-token}
+  {:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "names-member"
+   :password "names-member"
+   :as :member-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key
+                       "ik-access-names-in-access-responses-001"}
+             :body {:name "Names Bank"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]
+                    :owner-email "names-owner@queenswood.local"}}
+   :as :bank
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :bank :owner-invitation
+                                           :invitation :invitation-id]}
+             :auth :owner-token
+             :headers {:invitation-token [:ref :bank :owner-invitation :token]}}
+   :as :owner-membership
+   :assert {:status 201 :body {:role "owner"}}}
+  {:command :api/request
+   :request {:method :get :path "/v1/me" :auth :owner-token}
+   :as :owner-me
+   :assert {:status 200 :body {:user {:name [:m/non-empty]}}}}
+  {:command :api/request
+   :request {:method :get :path "/v1/me" :auth :member-token}
+   :as :member-me
+   :assert {:status 200 :body {:user {:name [:m/non-empty]}}}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/invitations"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]
+                       :idempotency-key
+                       "ik-access-names-in-access-responses-002"}
+             :body {:email "names-invitee@queenswood.local" :role "developer"}}
+   :as :invitation
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/me/invitations/{invitation-id}"
+             :path-params {:invitation-id [:ref :invitation :invitation
+                                           :invitation-id]}
+             :auth :invitee-token
+             :headers {:invitation-token [:ref :invitation :token]}}
+   :assert {:status 200
+            :body {:invitation-id [:ref :invitation :invitation
+                                   :invitation-id]
+                   :invited-by {:kind "member"
+                                :principal-id [:ref :owner-membership :user-id]
+                                :name [:ref :owner-me :user :name]}}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/invitations"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]
+                       :idempotency-key
+                       "ik-access-names-in-access-responses-003"}
+             :body {:email "names-member@queenswood.local" :role "developer"}}
+   :as :member-invitation
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :member-invitation :invitation
+                                           :invitation-id]}
+             :auth :member-token}
+   :as :member-membership
+   :assert {:status 201 :body {:role "developer"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/members/{membership-id}/remove"
+             :path-params {:membership-id [:ref :member-membership
+                                           :membership-id]}
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :body {:reason "Left the company"}}
+   :assert {:status 204}}]
+ :then
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/access-events"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert
+   {:status 200
+    :body {:items [:m/embeds
+                   [{:kind "member-removed"
+                     :actor {:kind "member"
+                             :principal-id [:ref :owner-membership :user-id]
+                             :name [:ref :owner-me :user :name]}
+                     :subject-user-id [:ref :member-membership :user-id]
+                     :subject-name [:ref :member-me :user :name]}
+                    {:kind "bank-created"
+                     :actor {:kind "operator"
+                             :principal-id "queenswood-admin"
+                             :name "Queenswood"}}]]}}}]}

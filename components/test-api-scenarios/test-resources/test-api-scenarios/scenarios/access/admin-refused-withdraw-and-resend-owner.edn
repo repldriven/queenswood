@@ -1,0 +1,109 @@
+{:name "An admin is refused withdrawing and resending an owner invitation"
+ :tags #{:access :api :auth :unhappy}
+ ;; An admin passes the `org:admin` gate on both routes, so each refusal
+ ;; depends on the invitation's role and comes from the rule rather than
+ ;; the edge: its type carries the domain kind, not `auth/forbidden`.
+ :given
+ [{:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "guard-owner"
+   :password "guard-owner"
+   :as :owner-token}
+  {:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "guard-admin"
+   :password "guard-admin"
+   :as :admin-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key
+                       "ik-access-admin-refused-withdraw-and-resend-owner-001"}
+             :body {:name "Guard Bank"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]
+                    :owner-email "guard-owner@queenswood.local"}}
+   :as :bank
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :bank :owner-invitation
+                                           :invitation :invitation-id]}
+             :auth :owner-token
+             :headers {:invitation-token [:ref :bank :owner-invitation :token]}}
+   :assert {:status 201 :body {:role "owner"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/invitations"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]
+                       :idempotency-key
+                       "ik-access-admin-refused-withdraw-and-resend-owner-002"}
+             :body {:email "guard-admin@queenswood.local" :role "admin"}}
+   :as :admin-invitation
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :admin-invitation :invitation
+                                           :invitation-id]}
+             :auth :admin-token}
+   :assert {:status 201 :body {:role "admin"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/invitations"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]
+                       :idempotency-key
+                       "ik-access-admin-refused-withdraw-and-resend-owner-003"}
+             :body {:email "guard-invitee@example.test" :role "owner"}}
+   :as :owner-invitation
+   :assert {:status 201 :body {:invitation {:role "owner" :status "pending"}}}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/invitations/{invitation-id}/withdraw"
+             :path-params {:invitation-id [:ref :owner-invitation :invitation
+                                           :invitation-id]}
+             :auth :admin-token
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 403 :problem {:type ":membership/role-not-granted"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/invitations/{invitation-id}/resend"
+             :path-params {:invitation-id [:ref :owner-invitation :invitation
+                                           :invitation-id]}
+             :auth :admin-token
+             :headers {:bank-id [:ref :bank :bank-id]
+                       :idempotency-key
+                       "ik-access-admin-refused-withdraw-and-resend-owner-004"}}
+   :assert {:status 403 :problem {:type ":membership/role-not-granted"}}}]
+ :then
+ ;; Neither refusal wrote: the invitation is still pending under the
+ ;; token the owner was given.
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/invitations"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 200
+            :body {:items [:m/embeds
+                           [{:invitation-id [:ref :owner-invitation :invitation
+                                             :invitation-id]
+                             :role "owner"
+                             :status "pending"}]]}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/access-events"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :query-params {"page[size]" 1}}
+   :assert {:status 200
+            :body {:items [{:kind "invitation-created"
+                            :invitation-id [:ref :owner-invitation :invitation
+                                            :invitation-id]}]}}}]}

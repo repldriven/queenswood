@@ -124,38 +124,49 @@ After verification, the principal type is decided purely by the
 
 ```clojure
 {:principal-type :service
- :principal-id   (:azp claims)              ; == client_id
- :bank-id        (when-not admin? (:azp claims))
- :roles          (into #{:org} realm-roles) ; realm_access.roles
+ :principal-id   (:azp claims)                 ; == client_id
+ :roles          (into levels realm-roles)     ; realm_access.roles
+ :bank-id        (:azp claims)
  :token-jti      (:jti claims)}
 ```
 
 `client_id == bank-id`, so a bank's service token attributes
-directly to that bank. The shared `queenswood-admin` operator
-client carries the `admin` realm role and therefore no
-`:bank-id` (admin routes are platform-wide).
+directly to that bank, and `levels` is a service principal's, given
+under "Roles and route authorization". A `Bank-Id` header naming
+another bank leaves the principal no `:bank-id` and marks it
+`:bank-refused`. The shared `queenswood-admin` operator client carries
+the `admin` realm role, so it holds an operator's levels and its
+`:bank-id` is the bank the header names, or none.
 
 **User principal.** The user path **upserts a `user` row**
 keyed on `(iss, sub)` on every request (idempotent; refreshes
 email / name / avatar from the OIDC profile claims), looks up the
-user's memberships, and builds:
+user's active memberships, and builds:
 
 ```clojure
 {:principal-type :user
  :principal-id   (:user-id user)
  :issuer (:iss claims) :sub (:sub claims)
  :user user :claims claims :memberships memberships
- :roles (cond-> #{:user}
-                admin?            (conj :admin :org)
-                (seq memberships) (conj :org))
- :token-jti (:jti claims)
- :bank-id   (:bank-id (first memberships))}   ; when a member
+ :membership membership                        ; when one resolves
+ :roles (cond-> (into #{:user} levels)
+                admin? (conj :admin))
+ :bank-id (if admin? requested (:bank-id membership))
+ :token-jti (:jti claims)}
 ```
 
+`membership` is the active membership in the bank the `Bank-Id`
+header names or, with no header, the person's only active membership.
+None resolves when the header names a bank the person holds no active
+membership in, which also marks the principal `:bank-refused`, or when
+there is no header and the person holds several or none. `levels` is
+the levels that membership's role carries, or an operator's when the
+realm roles include `admin`. An operator's `:bank-id` is `requested`,
+the bank the header names, or none.
+
 A brand-new human with no memberships still authenticates as
-`:user` (reaching `/me` and onboarding routes) and gains `:org`
-scope once a membership exists. `:bank-id` comes from the first
-membership.
+`:user` (reaching `/me` and onboarding routes) and holds no level
+until a membership exists.
 
 **The store write is on every user request, so its failure is a
 failure mode of authentication itself.** An anomaly from the upsert or
@@ -168,58 +179,76 @@ with no identity.
 
 ### Roles and route authorization
 
-The role vocabulary is `:user`, `:org`, `:admin`. (`:service` is
-a *principal-type*, not a role — service principals carry `:org`,
-plus `:admin` if their realm roles say so.)
+The role vocabulary is `:user`, `:admin` and four organisation
+levels, lowest first: `org:viewer`, `org:developer`, `org:admin` and
+`org:owner`. A membership's role carries its own level and every level
+below it: a viewer `org:viewer`, a developer that and `org:developer`,
+an admin those and `org:admin`, an owner all four. A service principal
+carries `org:viewer` and `org:developer`, and an operator `:admin` and
+all four. (`:service` is a *principal-type*, not a role.) `org:admin`
+is an organisation's role; `admin` alone is the platform's operator.
 
-The rule: **platform-wide resources under `admin`, a tenant's own
-resources under `org`, identity routes under `user`.** Banks, tiers,
-policy administration and the simulator are platform-wide; cash
-accounts, parties, payments and balances belong to a tenant; `/me`
-and onboarding are about who the caller is.
+The rule: **platform-wide resources under `admin`, identity routes
+under `user`, and an organisation's own data under a level: its reads
+`org:viewer`, its writes `org:developer`, its people routes
+`org:admin`.** Banks, tiers, policy administration and the simulator
+are platform-wide; `/me` and onboarding are about who the caller is. A
+route reading or writing one tenant's data takes a level whatever its
+path suggests, so `/me/policies` is `org:viewer`. `org:owner` gates no
+route; the rules only an owner satisfies are described in
+[access.md](access.md).
 
-**Every route names its roles.** A route declares them in its OpenAPI
-security, `:security [{"bearerAuth" ["admin"]}]`, written on the route
-rather than under a method key. There is no bare form: a scheme that
-names no roles is refused when the router is built, with the route's
+**Every route names its roles.** A route or a method declares them in
+its OpenAPI security, `:security [{"bearerAuth" ["org:viewer"]}]`, and
+`authorize` enforces the operation's own: the method's data merged over
+the route's, which is also what the generated OpenAPI documents. Three
+gates are refused when the router is built, with each offending route's
 path in the message, so the service fails to start rather than serving
-a gate nobody can read. A method-level declaration is refused the same
-way — `authorize` reads the match's route-level data, so a gate written
-under `:post` would be advertised by the generated OpenAPI and enforced
-by nobody. A route whose `:security` is `[]` names no scheme, requires
-nothing and is public by design — the OAuth routes are the only ones.
+a gate it cannot enforce:
+
+- **A scheme with no roles**, `{"bearerAuth" []}`, which demands a
+  token and says nothing about what the token must carry.
+- **A bare `org` gate.** `org` is no level, and no principal carries
+  it.
+- **A method level stacked on a route level.** Reitit concatenates a
+  method's `:security` onto its route's unless the method's vector is
+  marked `^:replace`, so the operation would name two levels and admit
+  the lower.
+
+A route whose `:security` is `[]` names no scheme, requires nothing
+and is public by design — the OAuth routes are the only ones.
 
 `authorize` then:
 
-- passes through if the route names no scheme;
+- passes through if the operation names no scheme;
 - returns **401** (`auth/unauthenticated`) if the principal's
   role set is empty (no valid token);
+- returns **403** (`auth/forbidden`) if the gate names a level and the
+  principal is `:bank-refused`, or if the gate names only levels and a
+  principal with no `:bank-id` holds more than one active membership,
+  with a detail saying to name the bank in `Bank-Id`;
 - returns **403** (`auth/forbidden`) if roles are present but
   don't intersect the route's required roles.
 
-**An `org`-gated route acts on the principal's bank.** A principal
-that satisfies the gate only through `:org` and carries no `:bank-id`
-has nothing for the route to act on, and is refused **403**
-(`auth/forbidden`) rather than served against a nil bank. The admin
-service account and an ops-realm admin user are both such principals.
+**An organisation-gated route acts on the principal's bank.** A
+principal that satisfies the gate only through organisation levels and
+carries no `:bank-id` has nothing for the route to act on, and is
+refused **403** (`auth/forbidden`) rather than served against a nil
+bank. An operator that sends no `Bank-Id` header is such a principal.
 A route an admin may call on *any* bank takes the bank from its path
-and declares `admin` alongside `org`, which widens the intersection
-past `#{:org}` and opts out of the rule.
+and declares `admin` alongside a level, which widens the intersection
+past the levels and opts out of the rule.
 
-The exceptions to the three-way split, each deliberate:
+The exceptions, each deliberate:
 
-- The **simulator's inbound transfer** is `["org" "admin"]`, so a
-  tenant can fund its own sandbox. Its handler holds the tenant
+- The **simulator's inbound transfer** is `org:developer` and `admin`,
+  so a tenant can fund its own sandbox. Its handler holds the tenant
   boundary itself: the path's bank must be the principal's, unless the
   principal is an admin, and a foreign bank is refused 403 before the
   bank is looked up — so the answer says nothing about another tenant.
-  The rest of `/simulate` stays `["admin"]`.
-- The **companies** routes are `["user"]`, because a human completing
+  The rest of `/simulate` stays `admin`.
+- The **companies** routes are `user`, because a human completing
   onboarding uses them before any membership exists.
-- **Jobs**, **ledger accounts**, **cash-account migrations**,
-  **cash-account products**, **payee checks**, **`/me/policies`** and
-  **`/me/effective-policies`** are `["org"]`: each reads or writes one
-  tenant's own data, whatever its path suggests.
 
 ### Service-account lifecycle
 
@@ -380,14 +409,15 @@ minted *by* it are admin principals at this API's edge.
   did it," not which caller. Human operators do carry per-user
   identity via the user path.
 - **Authorization is role-set only.** Routes gate on a principal's
-  roles (`:user` / `:org` / `:admin`) intersecting the route's
-  required roles. There is no resource scoping ("read-only", "only
-  these accounts") — finer granularity would extend `authorize`.
+  roles (`:user`, `:admin` and the four organisation levels)
+  intersecting the route's required roles. There is no resource
+  scoping ("only these accounts") — finer granularity would extend
+  `authorize`.
 - **The admin operator identity is shared.** `queenswood-admin` is
-  one service account carrying the `admin` realm role and no
-  `:bank-id`; back-office automation attributes to "the admin
-  client," not a person. Human Queenswood operators sign in
-  through `queenswood-app` and do carry per-user identity.
+  one service account carrying the `admin` realm role; back-office
+  automation attributes to "the admin client," not a person. Human
+  Queenswood operators sign in through `queenswood-app` and do carry
+  per-user identity.
 
 ## References
 

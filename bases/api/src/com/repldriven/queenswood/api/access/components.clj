@@ -28,7 +28,8 @@
     :description
     "The token an invitation's link carries. Returned when the invitation
     is created and each time it is resent, and by nothing else; the bank
-    keeps only its hash."}
+    keeps only its hash. A replay under the same idempotency key omits it,
+    so a caller who lost the first response resends the invitation."}
    #"^[A-Za-z0-9_-]{43}$"])
 
 (def EmailAddress
@@ -41,9 +42,14 @@
    {:json-schema/example examples/Actor
     :description
     "Who made a change: a member by user id, or an operator by user id or
-    client id."}
+    client id. A member, or an operator signed in as a user, is named from
+    their user record whether or not still a member, by their email when
+    the record has no name; the platform's own client is named
+    `Queenswood`. To the person an invitation was sent to, an inviter with
+    no name on record is named by the organisation."}
    [:kind [:ref "ActorKind"]]
-   [:principal-id string?]])
+   [:principal-id string?]
+   [:name string?]])
 
 (def Member
   [:map
@@ -90,7 +96,7 @@
 (def InvitationWithToken
   [:map {:closed true :json-schema/example examples/InvitationWithToken}
    [:invitation [:ref "Invitation"]]
-   [:token [:ref "InvitationToken"]]])
+   [:token {:optional true} [:ref "InvitationToken"]]])
 
 (def Invitations
   [:map {:json-schema/example examples/Invitations}
@@ -136,12 +142,14 @@
     "One change to who may act for the bank. An invitation's events name
     the invitation, its address and its role as `role-after`; a
     membership's name the member, the membership and `role-before`, and a
-    role change `role-after`."}
+    role change `role-after`. `subject-name` names the member from their
+    user record, and is absent when they have none."}
    [:access-event-id [:ref "AccessEventId"]]
    [:bank-id [:ref "BankId"]]
    [:kind [:ref "AccessEventKind"]]
    [:actor [:ref "Actor"]]
    [:subject-user-id {:optional true} [:ref "UserId"]]
+   [:subject-name {:optional true} string?]
    [:membership-id {:optional true} [:ref "MembershipId"]]
    [:invitation-id {:optional true} [:ref "InvitationId"]]
    [:email {:optional true} string?]

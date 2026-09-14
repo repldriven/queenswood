@@ -218,7 +218,9 @@
                     actor
                     {:target-role (:role membership) :new-role new-role})
      _ (check-not-last-owner active-memberships membership new-role)]
-    (assoc membership :role new-role :updated-at now)))
+    (if (= new-role (:role membership))
+      membership
+      (assoc membership :role new-role :updated-at now))))
 
 (defn end-membership
   [membership action {:keys [actor active-memberships]} now]

@@ -1,10 +1,10 @@
 # Access
 
-> **Status: proposal.** The `user` and `membership` bricks, the user
-> path of the auth interceptors, the onboarding route and the console's
-> sign-in flow exist and are named as such in Background. Everything
-> under Proposed Solution is the build list, and "The MVP, in two
-> slices" says what comes first.
+> **Status: proposal.** Slice 1 is implemented: the records, the
+> `membership` brick's rules, the `Bank-Id` header, the four levels and
+> the access routes, which Background names. Slice 2, the console, is
+> the build list under Proposed Solution, and "The MVP, in two slices"
+> says what comes first.
 
 ## Objective
 
@@ -37,48 +37,54 @@ starting state, which [banks.md](banks.md) covers.
 
 ## Background
 
-What exists is the one-owner, one-organisation flow the deleted users
-and memberships PRDs described.
+What exists is slice 1, the API, as the sections below describe it,
+and the console as first built:
 
-- **Two bricks, one write each.** `user` upserts a `User` keyed on the
-  OIDC issuer and subject, on every authenticated user request, from
-  the auth interceptor. `membership` creates a `Membership` from
-  exactly one place: inside `new-bank`'s transaction in the `bank`
-  processor, when the onboarding route passes one. Neither store writes
-  a changelog. The `Role` enum holds owner, with admin, developer and
-  viewer commented out at their reserved numbers. A membership has no
-  status and no end, and a unique index on user and bank refuses a
-  second membership for the pair.
-- **The principal's bank is the first membership's.** `user-auth` lists
-  the person's memberships and takes `:bank-id` off the first. The
-  console reads the first membership too, and its request wrapper sends
-  the bearer and nothing else about which organisation a call is for.
-- **Every gate is one of three words.** A route declares `user`, `org`
-  or `admin` in its OpenAPI security, and `authorize` intersects that
-  with the principal's roles. `org` is granted by holding any
-  membership, whatever its role, so a member reads and writes
-  everything the organisation can. A principal that carries `org`
-  without a bank is refused an `org` route with a detail saying so.
-- **One organisation per person.** The onboarding route answers 409
-  when the person already holds a membership, and `new-bank` re-checks
-  it inside its transaction.
-- **The operator's create call names no person.** `CreateBankRequest`
-  carries name, status, tier and currencies. The operator app that
-  once minted per-organisation tokens was removed, so an operator today
-  is a `queenswood-admin` service token or an operator-realm user token
-  at the API, with no screen.
-- **Refusals already carry their source.** A policy refusal is
-  `policy/denied` or `policy/limit-exceeded` in the problem's `type`;
-  an edge refusal is `auth/forbidden`. Both are 403 and the `type`
-  tells them apart.
+- **The records.** `Membership`, `Invitation`, `AccessEvent` and the
+  `Actor` they share, under `schemas/memberships/`, declared at meta-data
+  version 52 in
+  [fdb-record-types.yml](/components/resources/resources/system/fdb-record-types.yml).
+- **The `membership` brick.** The rules in `domain.clj` and one FDB
+  transaction per write in `core.clj`. `user` still upserts a `User` on
+  every authenticated user request.
+- **The `api` base.** `auth.clj` resolves the `Bank-Id` header and the
+  levels, the router refuses the gates it cannot enforce, the access
+  routes live under `access/`, `access/names.clj` names every person a
+  response refers to, and `bank/queries.clj` lists each bank's owners.
+- **The realm.** The `email-verified` mapper on the `queenswood-console`
+  client in
+  [keycloak-realm.json](/components/resources/resources/keycloak-realm.json),
+  and the realm-import Job in
+  [job-realm-import.yaml](/infra/helm/queenswood/templates/job-realm-import.yaml)
+  that adds it to a realm already running.
+- **The scenarios.** Under `test-api-scenarios/scenarios/access/`, with
+  the bank list's under `scenarios/banks/`.
 - **One door on the console.** The sign-in screen has one button,
   which sends every person through the same Google flow, and the
   console decides what to show from the answer to `/v1/me` alone: no
   membership means the create screen.
 
-The bank's owner membership, the sole-membership check and the 409 are
-in [banks.md](banks.md); the user-JWT path and the `:org` grant are in
-[authentication.md](authentication.md).
+Slice 1 replaced the one-owner, one-organisation flow the deleted users
+and memberships PRDs described:
+
+- **The principal's bank was the first membership's.** `user-auth`
+  listed the person's memberships and took `:bank-id` off the first.
+- **Every gate was one of three words.** A route declared `user`, `org`
+  or `admin`, and `org` was granted by holding any membership, whatever
+  its role, so a member read and wrote everything the organisation
+  could.
+- **One organisation per person.** The onboarding route answered 409
+  when the person already held a membership, and `new-bank` re-checked
+  it inside its transaction.
+- **One role, and no end.** The `Role` enum held owner, with admin,
+  developer and viewer commented out at their reserved numbers. A
+  membership had no status, and a unique index on user and bank refused
+  a second membership for the pair.
+- **The operator's create call named no person.** `CreateBankRequest`
+  carried name, status, tier and currencies.
+
+The membership and principal as first built are in
+[onboarding.md](onboarding.md).
 
 ## Proposed Solution
 
@@ -151,15 +157,27 @@ already records keep their shape with a level in place of `org`: the
 simulator's inbound transfer is `org:developer` and `admin`, and the
 companies routes stay `user`.
 
+The router also refuses a gate naming two organisation levels. Reitit
+concatenates a method's `:security` onto its route's unless the method's
+vector is marked `^:replace`, so a level declared on a method of a gated
+route stacks on the route's, and the operation would admit the lower of
+the two.
+
 `org-without-bank?` generalises: a route satisfied only through org
 levels, by a principal with no bank, is refused with its existing
 detail.
 
-**Which of the two refused.** A role refuses at the edge with
-`auth/forbidden`, or in `domain.clj` with `membership/role-not-granted`
-when the rule depends on the target. A policy refuses with
-`policy/denied` or `policy/limit-exceeded`. The `type` names the one
-that refused, and nothing else changes.
+**Which of the two refused.** The problem's `type` names the one that
+refused, in the spelling a client matches on:
+
+- `auth/forbidden`, 403, when a role refuses at the edge.
+- `:membership/role-not-granted`, 403, when a role refuses in
+  `domain.clj` because the rule depends on the target.
+- `:policy/denied`, 403, or `:policy/limit-exceeded`, 429, when a policy
+  refuses.
+
+An edge refusal's `type` has no leading colon and one rendered from an
+anomaly kind has, as [service-apis.md](service-apis.md) records.
 
 ### Records
 
@@ -268,36 +286,52 @@ An invitation is a record and a link. The link is the console's own
 URL carrying the invitation id and a token: 32 bytes from
 `SecureRandom`, base64url without padding, as the `webhook` brick mints
 an endpoint secret. The store keeps the token's SHA-256 and the
-plaintext is returned exactly twice, in the response to the create
-and to each resend, for the console to show the inviter while the
-platform cannot send email. The API never learns the console's origin:
-it returns the id and the token, and the console composes the URL.
+plaintext is returned exactly twice, in the response to the create and
+to each resend, for the console to show the inviter while the platform
+cannot send email. The idempotency cache leaves the token out of the
+entry it keeps for either, so a replay under the same key answers the
+invitation without it, and a caller who lost the first response
+resends. The API never learns the console's origin: it returns the id
+and the token, and the console composes the URL.
 
 The token travels in an `Invitation-Token` header, never in a path,
 so it does not reach an access log. A route that acts on an invitation
 as its recipient accepts two proofs: the header's token hashes to the
-record's, or the signed-in person's email matches the invited address
-lower-cased. Either is enough, so a colleague who arrives without the
-link finds the invitation under `/v1/me/invitations`, and one who
-follows the link with an aliased address is not turned away. That is
-the PRD's open question answered on the side of recording rather than
-refusing: the accepting user id is written on the invitation and the
-people list shows both addresses.
+record's, or the token's `email_verified` claim is `true` and its email
+matches the invited address lower-cased. Either is enough, so a
+colleague who arrives without the link finds the invitation under
+`/v1/me/invitations`, and one who follows the link with an aliased
+address is not turned away. That is the PRD's open question answered
+on the side of recording rather than refusing: the accepting user id is
+written on the invitation and the people list shows both addresses.
+
+The claim comes from the `email-verified` protocol mapper on the
+`queenswood-console` client. `trustEmail` on the Google and GitHub
+identity providers marks a federated person's email verified, and the
+realm-import Job adds the mapper to a realm that already exists. An
+unverified email proves nothing: `/v1/me/invitations` answers an empty
+list, and a recipient route without the token answers 404
+`:invitation/not-found`.
 
 Guards in `domain.clj`, each the first binding of its `let-nom>`:
 
-- **Create** refuses an address held by an active member
-  (`:invitation/already-member`, 409), an address with a pending
-  invitation in this bank (`:invitation/already-exists`, 409), and a
-  role the actor may not grant — an admin naming owner
-  (`:membership/role-not-granted`, 403 as an unauthorized anomaly).
+- **Create** refuses a role the actor may not grant — an admin naming
+  owner (`:membership/role-not-granted`, 403 as an unauthorized
+  anomaly), an operator's invitation with no reason
+  (`:invitation/reason-required`, 422), an address held by an active
+  member (`:invitation/already-member`, 409), and an address with a
+  pending invitation in this bank (`:invitation/already-exists`, 409).
 - **Accept** requires pending and unexpired, refuses an active member
   of the same bank (`:membership/already-exists`, 409), and writes the
   membership with the invitation's role, the invitation as accepted
   with the accepting user, and the event, in one transaction.
-- **Decline** and **withdraw** require pending.
-- **Resend** requires pending or expired, mints a fresh token and a
-  fresh `expires_at`, and returns the plaintext.
+- **Decline** requires pending.
+- **Withdraw** requires pending, and **resend** pending or expired. Both
+  refuse an actor who may not grant the invitation's role
+  (`:membership/role-not-granted`), so an admin cannot withdraw or
+  resend an owner invitation. Resend mints a fresh token, which the old
+  one no longer matches, and a fresh `expires_at`, and returns the
+  plaintext.
 - **Expiry** is read, not written: a pending invitation whose
   `expires_at` has passed is expired to every read and every guard. No
   scheduler touches it. Every guard takes `now` as an argument so a
@@ -314,7 +348,8 @@ interface and each writing the membership and its event together:
 
 - **Change role** — by an owner, to any role; by an admin, from and to
   admin, developer or viewer. Refused `:membership/role-not-granted`
-  otherwise.
+  otherwise. A change to the role already held runs the same guards,
+  answers the member, and saves nothing and records no event.
 - **Remove** — by an owner, anyone; by an admin, an admin, developer or
   viewer. The membership is ended with the actor and the time, never
   deleted.
@@ -345,18 +380,23 @@ organisation — and `new-bank` writes the creation event with the person
 as actor beside the owner membership.
 
 **By the operator.** `CreateBankRequest` gains an optional
-`owner-email`. The command carries it and the actor, and `new-bank`
-writes a pending owner invitation in the operator's name in the same
-transaction as the bank, or none when the field is absent. The
-response carries the invitation with its token beside the credential:
-both are handed over once, by the operator, until the platform can
-send email. The operator's later grant is the same invitation write —
+`owner-email`. The `api` base mints the token, and the command carries
+the owner email with the token's hash, and the actor, so the plaintext
+never reaches the bus. `new-bank` writes a pending owner invitation in
+the operator's name in the same transaction as the bank, or none when
+the field is absent. The response carries the invitation with its token
+beside the credential: both are handed over once, by the operator,
+until the platform can send email. A replay under the same idempotency
+key carries the invitation and the credential without the token. The
+operator's later grant is the same invitation write —
 `POST /v1/invitations` with role owner, a reason and the `Bank-Id`
 header — so the handover of a new organisation and the recovery of a
 locked-out one are one code path.
 
-The `create-bank` Avro command schema gains the two fields, registered
-in both YAMLs as the lifecycle recipe requires.
+The `create-bank` Avro command schema gains `owner_invitation`, the
+email and token hash, and `actor`, registered in both YAMLs as the
+lifecycle recipe requires. A command sent before `actor` existed
+records the creation as an operator's with principal id `unknown`.
 
 ### The operator
 
@@ -365,12 +405,16 @@ carries the owner level there. The people routes need nothing further:
 the actor on every write is the principal, so `AccessEvent` records the
 operator's kind and id, and the organisation's owners read it in their
 history beside their own changes. A reason is accepted on every people
-write and required on an operator's invitation.
+write.
+
+To a customer, an operator-realm user is named by their user record,
+as a member is, and the `queenswood-admin` client as `Queenswood`.
 
 The operator's overview is the admin bank list: `GET /v1/banks`
 carries each bank's active owners, enriched on read as a bank's party
-and accounts are, and an organisation with none is one whose list is
-empty. The operator's create call and grant are above.
+and accounts are. Each `Owner` is the membership id and user id, with
+the name and email the user record holds, and an organisation with none
+lists `owners: []`. The operator's create call and grant are above.
 
 ### Routes
 
@@ -393,14 +437,24 @@ Under the bank the header names:
   organisation.
 - `POST /v1/members/{membership-id}/change-role`,
   `POST /v1/members/{membership-id}/remove` — `org:admin`.
-- `GET /v1/invitations` — `org:viewer`. Pending and expired, with the
-  invited and, once accepted, the accepting address.
+- `GET /v1/invitations` — `org:viewer`. Pending, expired and accepted,
+  with the invited and, once accepted, the accepting address. Declined
+  and withdrawn invitations appear only in the history.
 - `POST /v1/invitations` — `org:admin`. Email, role, optional reason.
   Answers the invitation and the token.
 - `POST /v1/invitations/{invitation-id}/withdraw`,
   `POST /v1/invitations/{invitation-id}/resend` — `org:admin`. Resend
   answers a fresh token.
 - `GET /v1/access-events` — `org:viewer`, cursor-paged, newest first.
+
+Every `Actor` a route answers carries `name`, and every `AccessEvent`
+with a subject carries `subject-name`, resolved on read in
+`access/names.clj`, each distinct id once per response: the user
+record's name, or its email when the name is blank, or `Queenswood` for
+a principal id with no user record. To a recipient, an inviter with no
+name is named by the organisation, so no actor's email reaches a
+`RecipientInvitation`. A subject with no user record has no
+`subject-name`.
 
 Every write route declares the idempotency interceptor pair or names
 its guard in the base's `exempt-writes`, so the router coverage test
@@ -414,7 +468,7 @@ its guard in the base's `exempt-writes`, so the router coverage test
   remove and leave each leave the state they start from, so a repeat
   meets `invalid-status`.
 - **Exempt, as an absolute set.** Change-role carries the whole role,
-  so a second application converges.
+  so a second application converges and records nothing.
 
 Rejection mapping in the `api` base's override table:
 `:membership/last-owner`, `:membership/invalid-status`,
@@ -481,15 +535,20 @@ Slice 1, the API:
 3. The `bank` brick: the sole-membership check removed, the owner
    invitation and the creation event inside `new-bank`, and the
    command schema's two fields.
-4. The `api` base: the header, the levels, the router check that
-   refuses bare `org`, the sweep of every route file, the new routes
-   and components, the rejection entries, and `owner-email` on the
-   create call.
-5. The scenarios under `test-api-scenarios`, below.
+4. The `api` base: the header, the levels, the router checks that
+   refuse a bare `org` and a stacked level, the sweep of every route
+   file, the new routes and components, the names every access response
+   carries, the bank list's owners, the rejection entries, and
+   `owner-email` on the create call with its token kept out of the
+   idempotency cache.
+5. The realm: the `email-verified` mapper on the console client, and
+   the realm-import Job adding it to a running realm.
+6. The scenarios under `test-api-scenarios`, below.
 
-A gap analysis runs against this TDD once slice 1 lands. Slice 2 is
-the console: log in and sign up, the wrapper, the two stages, the
-switcher and the screens. It adds no route.
+Slice 2 is the console: log in and sign up, the wrapper, the two
+stages, the switcher and the screens. It adds no route: every name the
+console shows, an inviter's, an actor's, a removed member's and an
+owner's, is in a response slice 1 answers.
 
 ### Tests
 
@@ -497,22 +556,45 @@ switcher and the screens. It adds no route.
   every actor level, target role and new role; the ownerless guard
   with one owner, two owners and an operator actor; expiry against a
   passed clock; the one-pending and already-member rules; the token
-  hash lookup; and that an accept run twice writes one membership.
-- **The `api` base** holds that the router refuses a bare `org` gate,
-  beside its existing check for a scheme naming no roles, and that
-  the exported document validates with the new components.
+  hash lookup; that an accept run twice writes one membership; that a
+  role change repeated writes one event and leaves `updated-at`; and
+  the resend of an expired invitation, held here because no scenario
+  verb moves the clock.
+- **The `idempotency` brick** holds that a path a route omits is not
+  replayed, and that the stored entry carries no plaintext token.
+- **The `api` base** holds that the router refuses a bare `org` gate
+  and a stacked level, beside its existing check for a scheme naming no
+  roles; that names are looked up once per id, fall back to the email
+  and name the platform; that every access actor is named; that the
+  bank list carries owners; that the token routes declare their omitted
+  paths; and that the exported document validates with the new
+  components.
+- **The realm** test in `test-api-scenarios` holds that every realm
+  file's `queenswood-console` client carries the `email-verified`
+  mapper, and decodes `email_verified` from a token minted by a
+  Keycloak booted on the deployed realm file.
 - **API scenarios** in `test-api-scenarios/scenarios/access/`, using
   the test realm's human users and its operator: invite and accept by
   link, and by email match without the link; a viewer refused a write
   and a developer refused the people routes, each with
-  `auth/forbidden`; an admin refused inviting an owner; the last owner
-  refused leaving, then leaving once an admin is promoted; a removed
-  person refused on their next call; one person owning one
-  organisation and viewing another, switched by the header, with the
-  header naming a third refused; the operator creating a bank with an
-  owner email and the invitee accepting; the operator granting an
-  owner with a reason and the history showing the operator's act; and
-  the history route paging in order.
+  `auth/forbidden`; an admin refused inviting an owner, and refused
+  withdrawing and resending one with `:membership/role-not-granted`;
+  the last owner refused leaving, then leaving once an admin is
+  promoted; a removed person refused on their next call; one person
+  owning one organisation and viewing another, switched by the header,
+  with the header naming a third refused; a person creating a second
+  organisation through onboarding; a service credential naming another
+  bank refused with `auth/forbidden`; the operator creating a bank with
+  an owner email and the invitee accepting; the operator, as the admin
+  client and as an operator-realm user, granting an owner with a reason
+  and the history naming the operator's act; a recipient declining; an
+  owner withdrawing, and resending with the old token refused and the
+  new one accepted; a replayed invite answering no token, then a resend
+  that accepts; the names a recipient and the history read; a role
+  change repeated recording one event; and the history route paging in
+  order. Under `scenarios/banks/`, the bank list's owners before and
+  after the owner accepts, and a replayed create with an owner email
+  answering no token.
 
 ## Alternatives Considered
 
@@ -555,6 +637,9 @@ switcher and the screens. It adds no route.
   shows an expiry event; the invitation itself shows the state.
 - **The last-used organisation is per browser.** Local storage, not
   the platform.
+- **The deployed console serves one organisation.** Until slice 2 ships
+  it reads the first membership and sends no `Bank-Id`, so a person
+  with two organisations is refused every organisation call with 403.
 - **An operator has no screen.** The console signs in against the
   organisations realm and the operator realm's SPA client has no
   front-end since the operator app was removed. The operator's flows

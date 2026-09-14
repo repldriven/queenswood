@@ -1,0 +1,17 @@
+system:
+  keycloak-container:
+    # No `realm-import-files`: Keycloak 26.0's startup import of the
+    # deployed realm fails on its service-account user ("Session not bound
+    # to a realm"). The test POSTs the file to the Admin API instead, as
+    # the chart's realm-import Job does.
+    container: !system/component
+      system/component-kind: keycloak/container
+
+    container-http-port: !system/component
+      system/component-kind: keycloak/container-http-port
+      container: !system/local-ref container
+      exposed-port: 8080
+
+    container-auth-server-url: !system/component
+      system/component-kind: keycloak/container-auth-server-url
+      port: !system/local-ref container-http-port

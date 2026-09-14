@@ -6,7 +6,10 @@
   token is declared on `InvitationWithToken` and on nothing else, which
   only writes answer: invitation create, resend, the operator's bank
   create, and onboarding, whose `bank` shares `CreateBankResponse` and
-  never carries it (AC-07, the base half).
+  never carries it (AC-07, the base half). The idempotency cache leaves
+  the token out of the entry invitation create, resend and bank create
+  complete, while onboarding, which writes no owner invitation, caches
+  its whole response (AC-5, the base half).
 
   No system is booted. The router is compiled from an empty
   interceptor context, and the document is built the way `export-spec`
@@ -14,6 +17,8 @@
   (:require
     [com.repldriven.queenswood.api.api :as api]
     [com.repldriven.queenswood.api.auth :as auth]
+
+    [com.repldriven.queenswood.idempotency.interface :as bank-idempotency]
 
     [com.repldriven.mono.json.interface :as json]
     [com.repldriven.mono.test-system.interface :refer [nom-test>]]
@@ -138,6 +143,32 @@
               _ (testing "the Role component lists the four roles"
                   (is (= #{"owner" "admin" "developer" "viewer"}
                          (set (get-in schemas ["Role" "enum"])))))]))
+
+(def ^:private omitted-token-paths
+  "The writes whose response carries an invitation token, against the
+  paths their idempotency cache leaves out of its entry."
+  {[:post "/v1/invitations"] [[:token]]
+   [:post "/v1/invitations/{invitation-id}/resend"] [[:token]]
+   [:post "/v1/banks"] [[:owner-invitation :token]]
+   [:post "/v1/onboarding/me"] []})
+
+(defn- cache-interceptor
+  "The idempotency cache interceptor `data` declares, matched by name as
+  `idempotency-coverage-test` matches it."
+  [data]
+  (some (fn [interceptor]
+          (when (= (:name bank-idempotency/cache-response) (:name interceptor))
+            interceptor))
+        (:interceptors data)))
+
+(deftest the-cache-leaves-the-token-out-test
+  (let [ops (operations)]
+    (doseq [[route paths] (sort omitted-token-paths)]
+      (testing (str route)
+        (let [interceptor (cache-interceptor (get ops route))]
+          (is (some? interceptor) "declares the idempotency cache")
+          (is (= paths (:omitted-paths interceptor))
+              "leaving out the token paths its response carries"))))))
 
 (defn- schema-refs
   [node]

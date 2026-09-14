@@ -5,6 +5,8 @@
 
   See [ADR-0018](../../../../../../../docs/adr/0018-command-writes-are-earned.md)."
   (:require
+    [com.repldriven.queenswood.api.access.names :as names]
+
     [com.repldriven.queenswood.api.cursor :as cursor]
     [com.repldriven.queenswood.api.errors :as errors]
 
@@ -57,15 +59,26 @@
   (when user-id
     (found-or-nil (users/find-by-id txn user-id) :user/not-found)))
 
+(defn- lookup
+  [txn]
+  (fn [user-id] (users/find-by-id txn user-id)))
+
 (defn- bank-name
   [txn bank-id]
   (let [bank (banks/get-bank txn bank-id)]
     (when-not (error/anomaly? bank) (:name bank))))
 
-(defn- ->actor [actor] (select-keys actor [:kind :principal-id]))
+(defn- all-or-anomaly
+  [f items]
+  (reduce
+   (fn [results item]
+     (let [result (f item)]
+       (if (error/anomaly? result) (reduced result) (conj results result))))
+   []
+   items))
 
 (defn- ->member
-  [membership user invitation]
+  [membership user invitation names]
   (let [{:keys [membership-id user-id role created-at invitation-id]}
         membership]
     (utility/assoc-some {:membership-id membership-id
@@ -77,10 +90,10 @@
                         :email (:email user)
                         :invitation-id invitation-id
                         :invited-by (some-> (:invited-by invitation)
-                                            ->actor)
+                                            (names/->actor names))
                         :invited-email (:email invitation))))
 
-(defn- member
+(defn- member-records
   [txn membership]
   (let [{:keys [bank-id user-id invitation-id]} membership]
     (let-nom>
@@ -90,7 +103,25 @@
                                                                bank-id
                                                                invitation-id)
                                   :invitation/not-found))]
-      (->member membership user invitation))))
+      {:membership membership :user user :invitation invitation})))
+
+(defn- members
+  [txn memberships]
+  (let-nom> [records (all-or-anomaly (fn [membership]
+                                       (member-records txn membership))
+                                     memberships)
+             names (names/user-names (lookup txn)
+                                     (names/actor-ids
+                                      (map (comp :invited-by :invitation)
+                                           records)))]
+    (mapv (fn [{:keys [membership user invitation]}]
+            (->member membership user invitation names))
+          records)))
+
+(defn- member
+  [txn membership]
+  (let-nom> [found (members txn [membership])]
+    (first found)))
 
 (defn- ->membership
   [membership bank-name]
@@ -101,38 +132,56 @@
                       bank-name))
 
 (defn- ->invitation
-  [invitation accepted-email]
+  [invitation names accepted-email]
   (-> (select-keys invitation
                    [:invitation-id :bank-id :email :role :status :expires-at
                     :reason :accepted-by-user-id :created-at :updated-at])
-      (assoc :invited-by (->actor (:invited-by invitation)))
+      (assoc :invited-by (names/->actor (:invited-by invitation) names))
       (utility/assoc-some :accepted-email accepted-email)))
 
-(defn- invitation
-  [txn invitation]
-  (let-nom> [user (find-user txn (:accepted-by-user-id invitation))]
-    (->invitation invitation (:email user))))
+(defn- inviter-names
+  [txn invitations]
+  (names/user-names (lookup txn)
+                    (names/actor-ids (map :invited-by invitations))))
+
+(defn- invitations
+  [txn found]
+  (let-nom> [accepted (all-or-anomaly (fn [invitation]
+                                        (find-user txn
+                                                   (:accepted-by-user-id
+                                                    invitation)))
+                                      found)
+             names (inviter-names txn found)]
+    (mapv (fn [invitation user] (->invitation invitation names (:email user)))
+          found
+          accepted)))
 
 (defn- ->recipient-invitation
-  [invitation bank-name]
+  [invitation bank-name names]
   (-> (select-keys invitation
                    [:invitation-id :bank-id :email :role :status :expires-at
                     :created-at])
-      (assoc :invited-by (->actor (:invited-by invitation)))
+      (assoc :invited-by
+             (names/->actor (:invited-by invitation)
+                            names
+                            (or bank-name names/platform-name)))
       (utility/assoc-some :bank-name bank-name)))
+
+(defn- recipient-invitations
+  [txn found]
+  (let-nom> [names (names/recipient-names (lookup txn)
+                                          (names/actor-ids (map :invited-by
+                                                                found)))]
+    (mapv (fn [invitation]
+            (->recipient-invitation invitation
+                                    (bank-name txn (:bank-id invitation))
+                                    names))
+          found)))
 
 (defn- recipient-invitation
   [txn invitation]
-  (->recipient-invitation invitation (bank-name txn (:bank-id invitation))))
-
-(defn- all-or-anomaly
-  [f items]
-  (reduce
-   (fn [results item]
-     (let [result (f item)]
-       (if (error/anomaly? result) (reduced result) (conj results result))))
-   []
-   items))
+  (let-nom> [found (recipient-invitations txn [invitation])]
+    (first found)))
 
 (defn- ok [body] {:status 200 :body body})
 
@@ -153,7 +202,7 @@
                           (memberships/list-pending-invitations-by-email
                            txn
                            (:email claims))]
-                 (mapv #(recipient-invitation txn %) invitations))
+                 (recipient-invitations txn invitations))
                items))))
 
 (defn get-my-invitation
@@ -207,7 +256,7 @@
   (let [{:keys [bank-id]} (:auth request)
         txn (config request)]
     (respond (let-nom> [active (memberships/list-active-by-bank txn bank-id)]
-               (all-or-anomaly #(member txn %) active))
+               (members txn active))
              items)))
 
 (defn change-role
@@ -248,57 +297,88 @@
         txn (config request)]
     (respond (let-nom> [found (memberships/list-invitations-by-bank txn
                                                                     bank-id)]
-               (all-or-anomaly #(invitation txn %) found))
+               (invitations txn found))
              items)))
 
 (defn invitation-with-token
-  "The invitation as the bank's members see it, beside the plaintext
-  token whose hash it stores."
-  [invitation token]
-  {:invitation (->invitation invitation nil) :token token})
+  "The invitation as the bank's members see it, its inviter named, beside
+  the plaintext token whose hash it stores. An anomaly when the inviter's
+  user record cannot be read."
+  [txn invitation token]
+  (let-nom> [names (inviter-names txn [invitation])]
+    {:invitation (->invitation invitation names nil) :token token}))
 
 (defn invite
   [request]
   (let [{:keys [auth parameters]} request
         {:keys [bank-id]} auth
         {:keys [email role reason]} (:body parameters)
-        {:keys [token token-hash]} (memberships/new-invitation-token)]
-    (respond (memberships/invite (config request)
+        {:keys [token token-hash]} (memberships/new-invitation-token)
+        txn (config request)]
+    (respond (let-nom> [invited (memberships/invite
+                                 txn
                                  bank-id
                                  {:email email :role role}
                                  (utility/assoc-some {:actor (actor auth)
                                                       :token-hash token-hash}
                                                      :reason
-                                                     reason))
-             (comp created #(invitation-with-token % token)))))
+                                                     reason))]
+               (invitation-with-token txn invited token))
+             created)))
 
 (defn withdraw-invitation
   [request]
   (let [{:keys [auth parameters]} request
         {:keys [bank-id]} auth
-        {:keys [path body]} parameters]
-    (respond (memberships/withdraw (config request)
+        {:keys [path body]} parameters
+        txn (config request)]
+    (respond (let-nom> [withdrawn (memberships/withdraw
+                                   txn
                                    bank-id
                                    (:invitation-id path)
                                    (utility/assoc-some {:actor (actor auth)}
                                                        :reason
                                                        (:reason body)))
-             (comp ok #(->invitation % nil)))))
+                        names (inviter-names txn [withdrawn])]
+               (->invitation withdrawn names nil))
+             ok)))
 
 (defn resend-invitation
   [request]
   (let [{:keys [auth parameters]} request
         {:keys [bank-id]} auth
         {:keys [path body]} parameters
-        {:keys [token token-hash]} (memberships/new-invitation-token)]
-    (respond (memberships/resend (config request)
-                                 bank-id
-                                 (:invitation-id path)
-                                 (utility/assoc-some {:actor (actor auth)
-                                                      :token-hash token-hash}
-                                                     :reason
-                                                     (:reason body)))
-             (comp ok #(invitation-with-token % token)))))
+        {:keys [token token-hash]} (memberships/new-invitation-token)
+        txn (config request)]
+    (respond (let-nom> [resent (memberships/resend
+                                txn
+                                bank-id
+                                (:invitation-id path)
+                                (utility/assoc-some {:actor (actor auth)
+                                                     :token-hash token-hash}
+                                                    :reason
+                                                    (:reason body)))]
+               (invitation-with-token txn resent token))
+             ok)))
+
+(defn- ->access-event
+  [access-event names]
+  (-> access-event
+      (update :actor names/->actor names)
+      (utility/assoc-some :subject-name
+                          (get names (:subject-user-id access-event)))))
+
+(defn- named-access-events
+  [txn found]
+  (let [{:keys [access-events]} found]
+    (let-nom> [names (names/user-names
+                      (lookup txn)
+                      (concat (names/actor-ids (map :actor access-events))
+                              (keep :subject-user-id access-events)))]
+      (assoc found
+             :access-events
+             (mapv (fn [access-event] (->access-event access-event names))
+                   access-events)))))
 
 (defn list-access-events
   [request]
@@ -308,17 +388,19 @@
         {:keys [after before size]} page
         after-id (cursor/decode after)
         before-id (cursor/decode before)
-        size (cursor/clamp-size size)]
+        size (cursor/clamp-size size)
+        txn (config request)]
     (respond
-     (memberships/list-access-events (config request)
-                                     bank-id
-                                     (utility/assoc-some {:limit size}
-                                                         :after after-id
-                                                         :before
-                                                         before-id))
+     (let-nom> [found (memberships/list-access-events
+                       txn
+                       bank-id
+                       (utility/assoc-some {:limit size}
+                                           :after after-id
+                                           :before before-id))]
+       (named-access-events txn found))
      (fn [{:keys [access-events] next-cursor :after prev-cursor :before}]
        (ok (utility/assoc-seq
-            {:items (mapv #(update % :actor ->actor) access-events)}
+            {:items access-events}
             :links
             (when (seq access-events)
               (cursor/build-links access-events-path
