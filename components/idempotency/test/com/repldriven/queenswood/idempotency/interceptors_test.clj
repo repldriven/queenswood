@@ -71,9 +71,21 @@
   [calls]
   (fn [_request] (swap! calls inc) {:status 200 :body {:name "First"}}))
 
+(defn- inviting-an-owner
+  "A handler creating a bank with an owner invitation, minting a fresh
+  token on each call, and counting its own invocations."
+  [calls]
+  (fn [_request]
+    (let [n (swap! calls inc)]
+      {:status 201
+       :body {:bank {:bank-id "bnk.a"}
+              :owner-invitation {:invitation-id (str "inv." n)
+                                 :token (str "token-" n)}}})))
+
 (defn- run
-  [request handler]
-  (sieppari/execute [SUT/cache-response handler] request))
+  ([request handler] (run SUT/cache-response request handler))
+  ([interceptor request handler]
+   (sieppari/execute [interceptor handler] request)))
 
 (defn- logged?
   [needle]
@@ -286,3 +298,63 @@
        (is (= "token-1" (get-in replay [:body :token])))
        (is (= "true" (get-in replay [:headers "Idempotent-Replayed"]))))
      (testing "no second invitation was minted" (is (= 1 @calls))))))
+
+(deftest an-omitted-path-is-not-replayed-test
+  (with-test-system
+   [sys "classpath:idempotency/application-test.yml"]
+   (let [config (config sys)
+         key "idem-icept-omitted-0001"
+         calls (atom 0)
+         handler (inviting calls)
+         interceptor (SUT/cache-response-omitting [[:token]])
+         first-response
+         (run interceptor (invitation-request config key "bnk.a") handler)
+         replay
+         (run interceptor (invitation-request config key "bnk.a") handler)
+         entry
+         (store/lookup config operator (str "POST " invitations-template) key)]
+     (testing "the interceptor says what it leaves out"
+       (is (= [[:token]] (:omitted-paths interceptor))))
+     (testing "the first response carries the token"
+       (is (= 201 (:status first-response)))
+       (is (= "token-1" (get-in first-response [:body :token]))))
+     (testing "the replay carries the invitation and no token"
+       (is (= 201 (:status replay)))
+       (is (= (get-in first-response [:body :invitation])
+              (get-in replay [:body :invitation])))
+       (is (not (contains? (:body replay) :token)))
+       (is (= "true" (get-in replay [:headers "Idempotent-Replayed"]))))
+     (testing "the stored entry holds no token"
+       (is (= "completed" (:state entry)))
+       (is (not (.contains ^String (:body entry) "token-1"))))
+     (testing "no second invitation was minted" (is (= 1 @calls))))))
+
+(deftest an-omitted-path-under-an-absent-parent-test
+  (with-test-system
+   [sys "classpath:idempotency/application-test.yml"]
+   (let [config (config sys)
+         interceptor (SUT/cache-response-omitting [[:owner-invitation :token]])]
+     (testing "a body without the parent replays unchanged"
+       (let [key "idem-icept-no-parent-01"
+             calls (atom 0)
+             handler (inviting calls)
+             first-response
+             (run interceptor (invitation-request config key "bnk.a") handler)
+             replay
+             (run interceptor (invitation-request config key "bnk.a") handler)]
+         (is (= (:body first-response) (:body replay)))
+         (is (not (contains? (:body replay) :owner-invitation)))
+         (is (= 1 @calls))))
+     (testing "a body with the parent replays it without the token"
+       (let [key "idem-icept-parent-0001"
+             calls (atom 0)
+             handler (inviting-an-owner calls)
+             first-response
+             (run interceptor (invitation-request config key "bnk.a") handler)
+             replay
+             (run interceptor (invitation-request config key "bnk.a") handler)]
+         (is (= "token-1"
+                (get-in first-response [:body :owner-invitation :token])))
+         (is (= {:invitation-id "inv.1"}
+                (get-in replay [:body :owner-invitation])))
+         (is (= 1 @calls)))))))

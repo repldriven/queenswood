@@ -28,7 +28,8 @@
     :description
     "The token an invitation's link carries. Returned when the invitation
     is created and each time it is resent, and by nothing else; the bank
-    keeps only its hash."}
+    keeps only its hash. A replay under the same idempotency key omits it,
+    so a caller who lost the first response resends the invitation."}
    #"^[A-Za-z0-9_-]{43}$"])
 
 (def EmailAddress
@@ -95,7 +96,7 @@
 (def InvitationWithToken
   [:map {:closed true :json-schema/example examples/InvitationWithToken}
    [:invitation [:ref "Invitation"]]
-   [:token [:ref "InvitationToken"]]])
+   [:token {:optional true} [:ref "InvitationToken"]]])
 
 (def Invitations
   [:map {:json-schema/example examples/Invitations}

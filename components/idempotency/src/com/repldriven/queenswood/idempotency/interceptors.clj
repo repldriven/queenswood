@@ -105,8 +105,28 @@
                   :anomaly (error/kind released)}))
     released))
 
-(def cache-response
-  "Idempotency cache with concurrent-request protection.
+(defn- omit
+  "`body` with each of `paths` removed. A one-key path is dissociated
+  from the body; a longer one from its parent, and only when the parent
+  is present, so a body without it gains no empty map."
+  [body paths]
+  (reduce (fn [body path]
+            (let [parent (butlast path)
+                  k (last path)]
+              (cond
+               (empty? parent)
+               (dissoc body k)
+               (some? (get-in body parent))
+               (update-in body parent dissoc k)
+               :else
+               body)))
+          body
+          paths))
+
+(defn cache-response-omitting
+  "Idempotency cache with concurrent-request protection, leaving each
+  of `paths`, a vector of key paths into the response body, out of the
+  entry it completes. The interceptor carries them as `:omitted-paths`.
 
   `:enter` runs an atomic FDB check-and-set. Four outcomes and a
   failure:
@@ -122,9 +142,10 @@
 
   `:leave` finalises the claim:
 
-  - cacheable status (2xx/4xx) → write `completed` entry; a failed
-                                  write is logged and released, and
-                                  the handler's own response stands
+  - cacheable status (2xx/4xx) → write `completed` entry, its body
+                                  without `paths`; a failed write is
+                                  logged and released, and the
+                                  handler's own response stands
   - 5xx                        → drop the `pending` marker so the
                                   request can be retried immediately
 
@@ -136,7 +157,9 @@
   Place at the route level AFTER `server/require-idempotency-key`
   so the header is known valid; auth has already run by the time
   any route-level interceptor fires."
+  [paths]
   {:name ::cache-response
+   :omitted-paths paths
    :enter (fn [ctx]
             (let [request (:request ctx)
                   {:keys [headers auth record-db record-store]} request
@@ -199,7 +222,10 @@
                                                operation
                                                key
                                                fingerprint
-                                               response)]
+                                               (update response
+                                                       :body
+                                                       omit
+                                                       paths))]
                     (when (error/anomaly? written)
                       (log/error "idempotency completion failed"
                                  {:principal-id principal-id
@@ -220,3 +246,5 @@
                                 operation
                                 key))
               ctx))})
+
+(def cache-response (cache-response-omitting []))
