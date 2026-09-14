@@ -106,7 +106,9 @@
   membership of another bank as `:membership/not-found`, an ended one
   as `:membership/invalid-status`, a change the actor's role does not
   allow as `:membership/role-not-granted` (unauthorized), and a demotion
-  of the bank's last active owner as `:membership/last-owner`.
+  of the bank's last active owner as `:membership/last-owner`. After the
+  same refusals, a role equal to the current one returns the membership
+  unchanged and writes neither the membership nor an event.
 
   Args:
   - txn: FDB transaction or config.
