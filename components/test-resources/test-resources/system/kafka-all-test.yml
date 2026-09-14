@@ -157,6 +157,14 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-interest-command-response
       acks: all
+  memberships-command:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword command
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      topic: topic-memberships-command
+      acks: all
   parties-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -165,11 +173,25 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-parties-command
       acks: all
+  memberships-command-dlq:
+    _: !system/local-ref topics
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      topic: topic-memberships-command-dlq
+      acks: all
   parties-command-dlq:
     _: !system/local-ref topics
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-parties-command-dlq
+      acks: all
+  memberships-command-response:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword command-response
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      topic: topic-memberships-command-response
       acks: all
   parties-command-response:
     _: !system/local-ref topics
@@ -398,6 +420,16 @@ consumers: !system/component
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       group.id: test-interest-command-response
+  memberships-command:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword command
+    topics: [topic-memberships-command]
+    dead-letter-producer: !system/local-ref producers.memberships-command-dlq
+    max-redeliveries: 5
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      group.id: test-memberships-command
   parties-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -408,6 +440,14 @@ consumers: !system/component
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       group.id: test-parties-command
+  memberships-command-response:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword command-response
+    topics: [topic-memberships-command-response]
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      group.id: test-memberships-command-response
   parties-command-response:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -533,8 +573,12 @@ message-bus-producers: !system/component
     producer: !system/local-ref producers.interest-command
   interest-command-response:
     producer: !system/local-ref producers.interest-command-response
+  memberships-command:
+    producer: !system/local-ref producers.memberships-command
   parties-command:
     producer: !system/local-ref producers.parties-command
+  memberships-command-response:
+    producer: !system/local-ref producers.memberships-command-response
   parties-command-response:
     producer: !system/local-ref producers.parties-command-response
   parties-event:
@@ -599,8 +643,14 @@ message-bus-consumers: !system/component
   interest-command-response:
     consumer: !system/local-ref consumers.interest-command-response
     timeout: 500
+  memberships-command:
+    consumer: !system/local-ref consumers.memberships-command
+    timeout: 500
   parties-command:
     consumer: !system/local-ref consumers.parties-command
+    timeout: 500
+  memberships-command-response:
+    consumer: !system/local-ref consumers.memberships-command-response
     timeout: 500
   parties-command-response:
     consumer: !system/local-ref consumers.parties-command-response

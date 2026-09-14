@@ -15,6 +15,13 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-banks-command-response
           acks: all
+      memberships-command-response:
+        schemas: !system/local-ref schemas
+        schema: !keyword command-response
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          topic: topic-memberships-command-response
+          acks: all
       parties-command-response:
         schemas: !system/local-ref schemas
         schema: !keyword command-response
@@ -40,6 +47,11 @@ system:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-banks-command-dlq
+          acks: all
+      memberships-command-dlq:
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          topic: topic-memberships-command-dlq
           acks: all
       parties-command-dlq:
         conf:
@@ -77,6 +89,15 @@ system:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           group.id: bank-service-banks-command
+      memberships-command:
+        schemas: !system/local-ref schemas
+        schema: !keyword command
+        topics: [topic-memberships-command]
+        dead-letter-producer: !system/local-ref producers.memberships-command-dlq
+        max-redeliveries: 5
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          group.id: membership-service-memberships-command
       parties-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
@@ -133,6 +154,8 @@ system:
       system/component-kind: kafka/message-bus-producers
       banks-command-response:
         producer: !system/local-ref producers.banks-command-response
+      memberships-command-response:
+        producer: !system/local-ref producers.memberships-command-response
       parties-command-response:
         producer: !system/local-ref producers.parties-command-response
       cash-accounts-command-response:
@@ -143,6 +166,9 @@ system:
       system/component-kind: kafka/message-bus-consumers
       banks-command:
         consumer: !system/local-ref consumers.banks-command
+        timeout: 500
+      memberships-command:
+        consumer: !system/local-ref consumers.memberships-command
         timeout: 500
       parties-command:
         consumer: !system/local-ref consumers.parties-command
@@ -167,6 +193,7 @@ system:
   avro: !include system/avro.yml
   keycloak: !include system/keycloak.yml
   banks: !include system/bank.yml
+  memberships: !include system/membership.yml
   parties: !include system/party.yml
   cash-accounts: !include system/cash-account.yml
   idv: !include system/idv.yml

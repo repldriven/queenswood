@@ -45,7 +45,7 @@
       "doc": "Pending owner invitation to create atomically with the bank (operator path)",
       "fields": [
         {"name": "email",      "type": "string"},
-        {"name": "token_hash", "type": "string"}
+        {"name": "token_hash", "type": ["null", "string"], "default": null}
       ]
     }], "default": null},
     {"name": "actor", "type": ["null", {

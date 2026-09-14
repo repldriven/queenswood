@@ -32,10 +32,8 @@
   {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/accept"
-             :path-params {:invitation-id [:ref :bank :owner-invitation
-                                           :invitation :invitation-id]}
-             :auth :owner-token
-             :headers {:invitation-token [:ref :bank :owner-invitation :token]}}
+             :path-params {:invitation-id [:ref :bank :owner-invitation :invitation-id]}
+             :auth :owner-token}
    :assert {:status 201 :body {:role "owner"}}}
   {:command :api/request
    :request {:method :post
@@ -50,8 +48,7 @@
   {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/accept"
-             :path-params {:invitation-id [:ref :admin-invitation :invitation
-                                           :invitation-id]}
+             :path-params {:invitation-id [:ref :admin-invitation :invitation-id]}
              :auth :admin-token}
    :assert {:status 201 :body {:role "admin"}}}
   {:command :api/request
@@ -63,29 +60,26 @@
                        "ik-access-admin-refused-withdraw-and-resend-owner-003"}
              :body {:email "guard-invitee@example.test" :role "owner"}}
    :as :owner-invitation
-   :assert {:status 201 :body {:invitation {:role "owner" :status "pending"}}}}]
+   :assert {:status 201 :body {:role "owner" :status "pending"}}}]
  :when
  [{:command :api/request
    :request {:method :post
              :path "/v1/invitations/{invitation-id}/withdraw"
-             :path-params {:invitation-id [:ref :owner-invitation :invitation
-                                           :invitation-id]}
+             :path-params {:invitation-id [:ref :owner-invitation :invitation-id]}
              :auth :admin-token
              :headers {:bank-id [:ref :bank :bank-id]}}
    :assert {:status 403 :problem {:type ":membership/role-not-granted"}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/invitations/{invitation-id}/resend"
-             :path-params {:invitation-id [:ref :owner-invitation :invitation
-                                           :invitation-id]}
+             :path-params {:invitation-id [:ref :owner-invitation :invitation-id]}
              :auth :admin-token
              :headers {:bank-id [:ref :bank :bank-id]
                        :idempotency-key
                        "ik-access-admin-refused-withdraw-and-resend-owner-004"}}
    :assert {:status 403 :problem {:type ":membership/role-not-granted"}}}]
  :then
- ;; Neither refusal wrote: the invitation is still pending under the
- ;; token the owner was given.
+ ;; Neither refusal wrote: the invitation is still pending.
  [{:command :api/request
    :request {:method :get
              :path "/v1/invitations"
@@ -93,8 +87,7 @@
              :headers {:bank-id [:ref :bank :bank-id]}}
    :assert {:status 200
             :body {:items [:m/embeds
-                           [{:invitation-id [:ref :owner-invitation :invitation
-                                             :invitation-id]
+                           [{:invitation-id [:ref :owner-invitation :invitation-id]
                              :role "owner"
                              :status "pending"}]]}}}
   {:command :api/request
@@ -105,5 +98,4 @@
              :query-params {"page[size]" 1}}
    :assert {:status 200
             :body {:items [{:kind "invitation-created"
-                            :invitation-id [:ref :owner-invitation :invitation
-                                            :invitation-id]}]}}}]}
+                            :invitation-id [:ref :owner-invitation :invitation-id]}]}}}]}

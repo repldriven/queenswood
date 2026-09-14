@@ -6,7 +6,7 @@
        remove    remove a member, or leave when the member is you
        invite    invite someone by email
        refused   an invitation the API refused, with a way back to the form
-       token     the link an invite or resend answered, shown once
+       sent      an invitation just emailed, by an invite or a resend
        withdraw  withdraw a pending invitation
 
      The drawer makes the writes itself and tells the page through
@@ -24,7 +24,6 @@
     Tag,
     Callout,
     Textarea,
-    TokenBox,
     toast,
     accessEnum,
     ROLE_BLURB,
@@ -174,7 +173,7 @@
     busy = false;
     if (res.status >= 200 && res.status < 300) {
       onChanged?.({ tab: "invitations" });
-      onNavigate?.("token", { issued: { ...res.body, resend: false } });
+      onNavigate?.("sent", { issued: { invitation: res.body, resend: false } });
     } else {
       refusal = { res, email: email.trim(), role: inviteRole };
       keepInvite = true;
@@ -203,10 +202,6 @@
     }
   }
 
-  const linkBase = $derived(
-    `${location.origin}${location.pathname}#/invitations/accept`,
-  );
-
   const refusalCopy = $derived.by(() => {
     if (!refusal) return null;
     const type = refusal.res.body?.type;
@@ -224,7 +219,7 @@
       remove: isMe ? "Leave organisation" : "Remove member",
       invite: "Invite",
       refused: "Invite",
-      token: issued?.resend ? "Resent" : "Invitation sent",
+      sent: issued?.resend ? "Resent" : "Invitation sent",
       withdraw: "Withdraw",
     }[mode],
   );
@@ -236,7 +231,7 @@
       remove: nameOf(member),
       invite: `Invite someone to ${bankName}`,
       refused: "Invitation refused",
-      token: issued?.invitation?.email ?? "",
+      sent: issued?.invitation?.email ?? "",
       withdraw: invitation?.email ?? "",
     }[mode],
   );
@@ -409,7 +404,7 @@
       <dt>Role</dt>
       <dd><RolePill role={refusal.role} /></dd>
     </dl>
-  {:else if mode === "token" && issued}
+  {:else if mode === "sent" && issued}
     {@const inv = issued.invitation}
     {@const invRole = accessEnum(inv.role)}
     <div class="status-row">
@@ -417,22 +412,11 @@
       <Badge tone="pending">pending</Badge>
     </div>
 
-    {#if issued.token}
-      <TokenBox
-        label="The link — shown once"
-        base={linkBase}
-        secret={`?i=${inv["invitation-id"]}&t=${issued.token}`}
-      />
-      <Callout tone="warn" title="You won’t see this again">
-        Queenswood keeps only a hash of the link’s token, so it can’t be shown twice. If you lose it, resend the invitation for a fresh link — the old one stops working.
-      </Callout>
-    {:else}
-      <Callout tone="warn" title="No link in this response">
-        The link is answered once, and this response was a replay. Resend the invitation for a fresh link.
-      </Callout>
-    {/if}
+    <Callout tone="info" title="On its way">
+      We’re emailing {inv.email} a link to accept. It works for seven days.
+    </Callout>
     {#if issued.resend}
-      <Callout tone="info">The previous link no longer works, and the seven days start again.</Callout>
+      <Callout tone="info">The link in any earlier email no longer works, and the seven days start again.</Callout>
     {/if}
 
     <dl class="detail-list">
@@ -507,7 +491,7 @@
         <Button variant="line" onclick={backToInvite}>Back to the invitation</Button>
         <span class="grow"></span>
         <Button variant="ghost" onclick={() => onClose?.()}>Close</Button>
-      {:else if mode === "token"}
+      {:else if mode === "sent"}
         <span class="grow"></span>
         <Button variant="primary" onclick={() => onClose?.()}>Done</Button>
       {:else if mode === "withdraw"}

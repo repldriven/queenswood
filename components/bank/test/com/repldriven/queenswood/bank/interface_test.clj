@@ -22,6 +22,7 @@
     [com.repldriven.queenswood.cash-account-query.interface :as cash-accounts]
     [com.repldriven.queenswood.ledger-account.interface :as ledger-accounts]
     [com.repldriven.queenswood.membership.interface :as memberships]
+    [com.repldriven.queenswood.membership-query.interface :as q]
     [com.repldriven.queenswood.party-query.interface :as party-query]
     [com.repldriven.queenswood.policy.interface :as policy]
     [com.repldriven.queenswood.scheduler.interface :as scheduler]
@@ -57,7 +58,7 @@
 
 (defn- owner-invitation
   [email]
-  {:email email :token-hash (:token-hash (memberships/new-invitation-token))})
+  {:email email})
 
 ;; `with-redefs` alters a root binding, so a stub here is visible to
 ;; every namespace beside this one — the API scenarios provision banks
@@ -120,11 +121,10 @@
                                          :tier "micro"
                                          :currencies ["GBP"]
                                          :owner-invitation {:email
-                                                            "owner@example.com"
-                                                            :token-hash "ab12"}
+                                                            "owner@example.com"}
                                          :actor operator})
                   decoded (avro/deserialize-same create-schema bytes)
-                  _ (is (= {:email "owner@example.com" :token-hash "ab12"}
+                  _ (is (= {:email "owner@example.com"}
                            (:owner-invitation decoded)))
                   _ (is (= operator (:actor decoded)))]))
     (testing "a bank reply without an owner invitation id encodes and decodes"
@@ -157,18 +157,16 @@
                    _ (is (= bank-id (:bank-id membership)))
                    _ (is (= :role-owner (:role membership)))
                    _ (is (nil? owner-invitation-id))
-                   {:keys [access-events]}
-                   (memberships/list-access-events config bank-id)
+                   {:keys [access-events]} (q/list-access-events config bank-id)
                    _ (is (= [:access-event-kind-bank-created]
                             (mapv :kind access-events)))
                    _ (is (= {:kind :actor-kind-member :principal-id user-id}
                             (:actor (first access-events))))
                    _ (is (= (:membership-id membership)
                             (:membership-id (first access-events))))
-                   invitations (memberships/list-invitations-by-bank config
-                                                                     bank-id)
+                   invitations (q/list-invitations-by-bank config bank-id)
                    _ (is (empty? invitations))
-                   listed (memberships/list-by-user config user-id)
+                   listed (q/list-by-user config user-id)
                    _ (is (= 1 (count listed)))]))
      (testing
        "a second bank for the same user commits a second owner membership"
@@ -178,7 +176,7 @@
                                                           {:membership
                                                            membership})
                    _ (is (= (:bank-id bank) (:bank-id membership)))
-                   listed (memberships/list-by-user config user-id)
+                   listed (q/list-by-user config user-id)
                    _ (is (= 2 (count listed)))
                    _ (is (= 2 (count (set (map :bank-id listed)))))
                    _ (is (every? #(= :role-owner (:role %)) listed))])))))
@@ -200,8 +198,7 @@
                    bank-id (:bank-id bank)
                    _ (is (nil? membership))
                    _ (is (re-find #"^inv\." owner-invitation-id))
-                   invitations (memberships/list-invitations-by-bank config
-                                                                     bank-id)
+                   invitations (q/list-invitations-by-bank config bank-id)
                    _ (is (= [owner-invitation-id]
                             (mapv :invitation-id invitations)))
                    _ (is (= :invitation-status-pending
@@ -209,54 +206,36 @@
                    _ (is (= :role-owner (:role (first invitations))))
                    _ (is (= "Owner@Example.com" (:email (first invitations))))
                    _ (is (= operator (:invited-by (first invitations))))
-                   {:keys [access-events]}
-                   (memberships/list-access-events config bank-id)
+                   {:keys [access-events]} (q/list-access-events config bank-id)
                    _ (testing "newest first, so the bank-created event is older"
                        (is (= [:access-event-kind-invitation-created
                                :access-event-kind-bank-created]
                               (mapv :kind access-events))))
                    _ (is (every? #(= operator (:actor %)) access-events))]))
-     (testing
-       "an owner invitation reusing a taken token hash aborts the create, and
-        no bank, event or membership remains"
-       (let [created (atom nil)
-             user-id "usr.taken-hash"
-             r (with-redefs [memberships/record-bank-created
-                             probed-record-bank-created]
-                 (binding [*created-bank-id* created]
-                   (create-bank config
-                                idp
-                                "Taken Hash Bank"
-                                {:owner-invitation
-                                 (assoc invitation :email "other@example.com")
-                                 :membership {:user-id user-id
-                                              :role :role-owner}
-                                 :actor operator})))
-             bank-id @created]
-         (is (error/anomaly? r))
-         (is (some? bank-id) "the create reached the owner invitation")
-         (is (= :bank/not-found
-                (error/kind (bank-query/get-bank config bank-id))))
-         (nom-test> [{:keys [access-events]}
-                     (memberships/list-access-events config bank-id)
-                     _ (is (empty? access-events))
-                     invitations (memberships/list-invitations-by-bank config
-                                                                       bank-id)
-                     _ (is (empty? invitations))
-                     listed (memberships/list-by-user config user-id)
-                     _ (is (empty? listed))])))
+     (testing "the owner invitation's creation is on the invitations changelog"
+       (let [seen (atom [])]
+         (nom-test> [_ (fdb/process-changelog
+                        (:record-db config)
+                        "bank-owner-invitation-read-back"
+                        "invitations"
+                        (fn [_ctx bytes]
+                          (swap! seen conj (schema/pb->ChangelogEvent bytes)))
+                        {:deduplicate? false
+                         :keyspace-prefix
+                         (system/instance sys [:fdb :keyspace-prefix])})
+                     _ (is (= ["invitation-created"] (mapv :event-name @seen)))])))
      (testing
        "a create with neither actor nor membership records an unknown operator"
        (nom-test> [{:keys [bank owner-invitation-id]}
                    (create-bank config idp "Actorless Bank" {})
                    _ (is (nil? owner-invitation-id))
                    {:keys [access-events]}
-                   (memberships/list-access-events config (:bank-id bank))
+                   (q/list-access-events config (:bank-id bank))
                    _ (is (= [{:kind :actor-kind-operator
                               :principal-id "unknown"}]
                             (mapv :actor access-events)))
-                   invitations
-                   (memberships/list-invitations-by-bank config (:bank-id bank))
+                   invitations (q/list-invitations-by-bank config
+                                                           (:bank-id bank))
                    _ (is (empty? invitations))])))))
 
 (deftest create-bank-delivered-twice-test
@@ -296,7 +275,7 @@
                      _ (is (= 1
                               (count (filter #(= "Twice Bank" (:name %))
                                              banks))))
-                     listed (memberships/list-by-user config user-id)
+                     listed (q/list-by-user config user-id)
                      _ (is (= 1 (count listed)))])))
      (testing "another command id from the same person creates another bank"
        (let [reply (deliver (message "ik-bank-twice-0002" data))]
@@ -316,8 +295,7 @@
          (is (= "ACCEPTED" (:status reply)))
          (nom-test> [{:keys [bank-id owner-invitation-id]}
                      (avro/deserialize-same (schemas "bank") (:payload reply))
-                     invitations (memberships/list-invitations-by-bank config
-                                                                       bank-id)
+                     invitations (q/list-invitations-by-bank config bank-id)
                      _ (is (= [owner-invitation-id]
                               (mapv :invitation-id invitations)))
                      _ (is (= operator (:invited-by (first invitations))))]))))))
@@ -391,10 +369,10 @@
                      _ (is (empty? bindings))
                      jobs (scheduler/list-jobs config bank-id)
                      _ (is (empty? jobs))
-                     listed (memberships/list-by-user config user-id)
+                     listed (q/list-by-user config user-id)
                      _ (is (empty? listed))
-                     {:keys [access-events]}
-                     (memberships/list-access-events config bank-id)
+                     {:keys [access-events]} (q/list-access-events config
+                                                                   bank-id)
                      _ (is (empty? access-events))]))))))
 
 (deftest change-tier-test

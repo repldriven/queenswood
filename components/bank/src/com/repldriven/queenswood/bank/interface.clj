@@ -43,9 +43,8 @@
     `:company-status` is active; `:membership` (map, optional) is
     `{:user-id … :role …}` for the owner membership, and a user may own
     any number of banks; `:owner-invitation` (map, optional) is
-    `{:email … :token-hash …}` for the owner invitation, refused as
-    `membership/invite` refuses it, and a token hash another invitation
-    holds fails the transaction; `:actor` (map, optional) is
+    `{:email …}` for the owner invitation, refused as
+    `membership/invite` refuses it; `:actor` (map, optional) is
     `{:kind … :principal-id …}`, and when absent the membership's user
     acts as a member, or else an operator with principal id `unknown`;
     `:idempotency-key` (string, optional) is the command envelope's id,

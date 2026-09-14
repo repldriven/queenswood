@@ -1,0 +1,24 @@
+{
+  "type": "record",
+  "name": "RecordInvitationToken",
+  "namespace": "com.repldriven.mono.memberships",
+  "doc": "Record the hash of the token an invitation email carries",
+  "fields": [
+    {
+      "name": "bank_id",
+      "type": "string"
+    },
+    {
+      "name": "invitation_id",
+      "type": "string"
+    },
+    {
+      "name": "expires_at",
+      "type": "long"
+    },
+    {
+      "name": "token_hash",
+      "type": "string"
+    }
+  ]
+}

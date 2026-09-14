@@ -23,10 +23,6 @@ credential its systems hold, and its move from test to live. The line
 between them is the moment a person presses create. Everything up to it
 is here, and what the press produces is onboarding's.
 
-Invitations, and so most of what follows, wait on the platform being
-able to send email, which it cannot. The outbound-communication issue
-tracks that.
-
 ## Users and stakeholders
 
 **Customer team.** The people at the customer who run its relationship
@@ -107,10 +103,9 @@ customers are parties and never sign in either — [parties](parties.md).
 
 ## Non-goals
 
-- **Sending the email.** Delivering an invitation is the
-  outbound-communication capability, and this PRD says only what the
-  email carries. Until it exists an inviter passes the invitation on
-  themselves, as Invitations describes.
+- **How email is delivered.** The mail provider, the sending domain and
+  what happens to a message that bounces are the platform's to decide.
+  This PRD says only what an invitation email carries.
 - **Identity providers beyond Google.** Others are reserved and not
   wired. A second provider needs configuration at the federation broker
   and a sign-in screen that offers the choice.
@@ -231,9 +226,9 @@ that already belongs to a member is refused.
 
 The platform sends the invitation by email: the organisation's name, who
 sent it, the role, and a link to accept it that stops working when the
-invitation expires or is withdrawn. Until the platform can send email,
-the console shows the inviter the same link to pass on by a channel of
-their own. The invitation is the link. Email is its delivery.
+invitation expires or is withdrawn. The link appears only in that email.
+Nobody else is shown it, the inviter included, so an invitation reaches
+the address it names or nobody.
 
 An invitation is pending until one of four things happens:
 
@@ -249,8 +244,8 @@ An invitation is pending until one of four things happens:
 - **Withdrawn.** An owner or admin withdraws it, and the link stops
   working.
 - **Expired.** Nothing happened within its lifetime of seven days. An
-  owner or admin sends it again, which starts a fresh lifetime with a
-  fresh link.
+  owner or admin sends it again, which emails a fresh link with a fresh
+  lifetime. The link in any earlier email stops working.
 
 A signed-in person also sees any pending invitation addressed to the
 email they signed in with, so an invitee who arrives at the console
@@ -365,8 +360,8 @@ sections above:
   invitations with expiry, the history of changes, and the invite,
   change-role, remove and withdraw actions the viewer's own role
   allows.
-- **Invite** — an address, a role, and the link to copy while the
-  platform cannot send it.
+- **Invite** — an address and a role, and word that the invitation is on
+  its way.
 - **Accept an invitation** — what the link lands on: the organisation,
   the role, who invited, accept or decline, with sign-in in front of it
   when the person is not signed in.
@@ -408,9 +403,7 @@ sequenceDiagram
 
 The founder signs up as today, then invites a colleague with a role. The
 colleague signs in with their own identity, accepts, and is inside the
-same organisation with what a developer may do. Until the platform can
-send email, the founder copies the link from the console and sends it
-themselves.
+same organisation with what a developer may do.
 
 ### 2. An operator creates an organisation and hands it over
 
@@ -530,8 +523,8 @@ role held there.
   only through the operator is open.
 - **Telling people about access changes.** An owner is not told when a
   colleague accepts, declines or is removed, nor when an operator acts
-  on their organisation. Each is an email, and waits on the same
-  capability as invitations.
+  on their organisation. Each would be an email like an invitation, and
+  none is designed.
 - **Joining by domain.** Letting anyone who signs in with the company's
   email domain join as a viewer without an invitation.
 - **Two-person rule.** Whether a change to who owns an organisation
@@ -566,7 +559,9 @@ role held there.
 - **Platform context**: [platform](platform.md) — the persona set this
   PRD's readers come from.
 - **Engineering view**: [tdd/access](../tdd/access.md) for the design
-  that serves this PRD; [tdd/onboarding](../tdd/onboarding.md) for the
+  that serves this PRD;
+  [tdd/outbound-email](../tdd/outbound-email.md) for how an invitation
+  is emailed; [tdd/onboarding](../tdd/onboarding.md) for the
   records and the console flow as built;
   [tdd/authentication](../tdd/authentication.md) for how a signed-in
   person is told apart from an organisation's systems and from an

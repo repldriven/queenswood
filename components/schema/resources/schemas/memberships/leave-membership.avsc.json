@@ -1,0 +1,24 @@
+{
+  "type": "record",
+  "name": "LeaveMembership",
+  "namespace": "com.repldriven.mono.memberships",
+  "doc": "End the caller's own membership",
+  "fields": [
+    {
+      "name": "membership_id",
+      "type": "string"
+    },
+    {
+      "name": "user_id",
+      "type": "string"
+    },
+    {
+      "name": "reason",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    }
+  ]
+}

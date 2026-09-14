@@ -130,8 +130,7 @@
             :responses {200 {:description "The bank's invitations."
                              :body [:ref "Invitations"]}}
             :handler handlers/list-invitations}
-      :post {:summary (str "Invite a person to the bank, answering the "
-                           "invitation and its token")
+      :post {:summary "Invite a person to the bank by email"
              :openapi {:operationId "CreateInvitation"
                        :security (gate "org:admin")
                        :requestBody {:required true}
@@ -139,13 +138,12 @@
                                    [shared.parameters/ref-bank-id-header
                                     shared.parameters/ref-idempotency-key]}
              :interceptors [server/require-idempotency-key
-                            (bank-idempotency/cache-response-omitting
-                             [[:token]])]
+                            bank-idempotency/cache-response]
              :parameters {:body [:ref "CreateInvitationRequest"]}
              :responses (shared.idempotency/with-responses
-                         {201 {:description (str "The invitation and the "
-                                                 "token its link carries.")
-                               :body [:ref "InvitationWithToken"]}
+                         {201 {:description (str "The invitation, whose link "
+                                                 "is emailed to the address.")
+                               :body [:ref "Invitation"]}
                           403 (ErrorResponse [#'RoleNotGranted])
                           409 (ErrorResponse [#'InvitationAlreadyExists
                                               #'InvitationAlreadyMember])
@@ -168,8 +166,8 @@
               :handler handlers/withdraw-invitation}}]
      ["/resend"
       {:openapi {:security (gate "org:admin")}
-       :post {:summary (str "Resend a pending or expired invitation under a "
-                            "fresh token")
+       :post {:summary (str "Resend a pending or expired invitation, "
+                            "emailing a fresh link")
               :openapi {:operationId "ResendInvitation"
                         :requestBody {:required false}
                         :parameters ^:replace
@@ -177,14 +175,12 @@
                                      shared.parameters/ref-bank-id-header
                                      shared.parameters/ref-idempotency-key]}
               :interceptors [server/require-idempotency-key
-                             (bank-idempotency/cache-response-omitting
-                              [[:token]])]
+                             bank-idempotency/cache-response]
               :parameters {:body optional-reason}
               :responses (shared.idempotency/with-responses
-                          {200 {:description (str "The invitation and the "
-                                                  "fresh token its link "
-                                                  "carries.")
-                                :body [:ref "InvitationWithToken"]}
+                          {200 {:description (str "The invitation, with a "
+                                                  "fresh expiry.")
+                                :body [:ref "Invitation"]}
                            403 (ErrorResponse [#'RoleNotGranted])
                            404 (ErrorResponse [#'InvitationNotFound])
                            409 (ErrorResponse [#'InvitationInvalidStatus])})

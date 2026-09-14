@@ -1,9 +1,8 @@
-{:name
- "Creating a bank with an owner twice under one key replays the invitation without its token"
+{:name "Creating a bank with an owner twice under one key replays the invitation"
  :tags #{:api :banks :access :idempotency :happy}
  ;; The replay carries the bank, its client secret and the owner
- ;; invitation, and leaves out only the invitation's token, which the
- ;; cache never stores.
+ ;; invitation. Neither answer carries a token, which only the owner's
+ ;; invitation email does.
  :when
  [{:command :api/request
    :request {:method :post
@@ -20,10 +19,8 @@
    :assert {:status 201
             :headers {:idempotent-replayed [:m/absent]}
             :body {:client-secret [:m/non-empty]
-                   :owner-invitation {:invitation {:invitation-id
-                                                   [:m/regex "^inv\\."]}
-                                      :token [:m/regex
-                                              "^[A-Za-z0-9_-]{43}$"]}}}}]
+                   :owner-invitation {:invitation-id [:m/regex "^inv\\."]
+                                      :token [:m/absent]}}}}]
  :then
  [{:command :api/request
    :request {:method :post
@@ -41,8 +38,7 @@
             :body {:bank-id [:ref :bank-0 :bank-id]
                    :client-secret [:ref :bank-0 :client-secret]
                    :owner-invitation
-                   {:invitation {:invitation-id [:ref :bank-0 :owner-invitation
-                                                 :invitation :invitation-id]
-                                 :email "replayed-owner@example.test"
-                                 :role "owner"}
+                   {:invitation-id [:ref :bank-0 :owner-invitation :invitation-id]
+                    :email "replayed-owner@example.test"
+                    :role "owner"
                     :token [:m/absent]}}}}]}

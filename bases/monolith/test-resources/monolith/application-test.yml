@@ -19,6 +19,8 @@ system:
   kafka: !include system/kafka-all-test.yml
   keycloak: !include system/keycloak.yml
   keycloak-container: !include system/keycloak-container-test.yml
+  memberships: !include system/membership.yml
+  memberships-dispatcher: !include system/membership-dispatcher.yml
   message-bus: !include system/message-bus-test.yml
   onfido-adapter: !include system/onfido-adapter.yml
   onfido-adapter-relay: !include system/onfido-adapter-relay.yml

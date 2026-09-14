@@ -191,7 +191,7 @@
     const res = await resend_invitation(invitation["invitation-id"]);
     if (res.status >= 200 && res.status < 300) {
       load();
-      openDrawer("token", { issued: { ...res.body, resend: true } });
+      openDrawer("sent", { issued: { invitation: res.body, resend: true } });
     } else {
       toast("Could not resend", `${res.status} · ${res.body?.type ?? "HTTP"}`);
     }

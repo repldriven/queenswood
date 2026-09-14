@@ -384,7 +384,7 @@ export function simulate_inbound_transfer(bank_id, data) {
 // never acts on an owner, a bank is never ownerless) refuse in the
 // domain. Member and invitation lists are unpaged; the history pages by
 // cursor, and its `links.next` is a ready-made `/v1/...` path. Creating
-// and resending an invitation answer its token, exactly once each.
+// and resending an invitation answer the invitation, and email its link.
 
 function with_reason(reason) {
   return JSON.stringify(reason ? { reason } : {});

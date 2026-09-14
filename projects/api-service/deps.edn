@@ -31,7 +31,7 @@
         {:local/root "../../components/cash-account-product-query"}
         component/idempotency {:local/root "../../components/idempotency"}
         component/ledger-account {:local/root "../../components/ledger-account"}
-        component/membership {:local/root "../../components/membership"}
+        component/membership-query {:local/root "../../components/membership-query"}
         component/bank-query {:local/root "../../components/bank-query"}
         component/interest {:local/root "../../components/interest"}
         component/scheduler {:local/root "../../components/scheduler"}

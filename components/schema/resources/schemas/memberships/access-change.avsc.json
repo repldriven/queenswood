@@ -1,0 +1,32 @@
+{
+  "type": "record",
+  "name": "AccessChange",
+  "namespace": "com.repldriven.mono.memberships",
+  "doc": "The records an access command wrote, by id",
+  "fields": [
+    {
+      "name": "bank_id",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "membership_id",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "invitation_id",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    }
+  ]
+}

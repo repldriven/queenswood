@@ -27,8 +27,7 @@
                        :parameters ^:replace
                                    [shared.parameters/ref-idempotency-key]}
              :interceptors [server/require-idempotency-key
-                            (bank-idempotency/cache-response-omitting
-                             [[:owner-invitation :token]])]
+                            bank-idempotency/cache-response]
              :parameters {:body [:ref "CreateBankRequest"]}
              :responses (shared.idempotency/with-responses
                          {201 {:body [:ref "CreateBankResponse"]}

@@ -1,0 +1,12 @@
+processor: !system/component
+  system/component-kind: membership/processor
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  schemas: !system/ref avro.serde
+
+command-processor: !system/component
+  system/component-kind: command-processor/command-processor
+  bus: !system/ref message-bus.bus
+  processor: !system/local-ref processor
+  command-channel: !keyword memberships-command
+  command-response-channel: !keyword memberships-command-response

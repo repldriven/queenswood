@@ -147,7 +147,6 @@
                    (SUT/new-invitation
                     {:bank-id "bnk.1" :email "a@example.test" :role :role-owner}
                     {:actor operator-actor}
-                    "hash-1"
                     now)))))
 
 (deftest check-in-bank-test
@@ -159,15 +158,6 @@
         (is (rejected? :membership/not-found result))
         (is (= "mem.1" (:membership-id (error/payload result))))
         (is (not (mentions? result "bnk.1")))))))
-
-(deftest ensure-found-test
-  (let [m (membership "mem.1" "usr.1" :role-viewer)]
-    (testing "a loaded membership is returned"
-      (is (= m (SUT/ensure-found m "mem.1"))))
-    (testing "no membership is not found"
-      (let [result (SUT/ensure-found nil "mem.9")]
-        (is (rejected? :membership/not-found result))
-        (is (= "mem.9" (:membership-id (error/payload result))))))))
 
 (deftest check-own-test
   (let [m (membership "mem.1" "usr.1" :role-viewer)]
@@ -320,15 +310,14 @@
           (is (not (mentions? result "hash-1"))))))
     (doseq [[status inv] terminal]
       (testing (str "resend refuses " (name status) " with its payload")
-        (let [result (SUT/resend-invitation inv "hash-2" now)]
+        (let [result (SUT/resend-invitation inv now)]
           (is (rejected? :invitation/invalid-status result))
           (is (= {:invitation-id "inv.1"
                   :status status
                   :allowed #{:invitation-status-pending
                              :invitation-status-expired}}
                  (dissoc (error/payload result) :message)))
-          (is (not (mentions? result "hash-1")))
-          (is (not (mentions? result "hash-2"))))))
+          (is (not (mentions? result "hash-1"))))))
     (testing "accept, decline and withdraw move a pending invitation"
       (is (= {:status :invitation-status-accepted
               :accepted-by-user-id "usr.new"
@@ -343,8 +332,8 @@
       (is (= :invitation-status-withdrawn
              (:status (SUT/withdraw-invitation pending now)))))
     (testing "resend renews a pending invitation"
-      (let [resent (SUT/resend-invitation pending "hash-2" now)]
-        (is (= "hash-2" (:token-hash resent)))
+      (let [resent (SUT/resend-invitation pending now)]
+        (is (= "inv.1" (:token-hash resent)))
         (is (= (+ now SUT/invitation-lifetime-ms) (:expires-at resent)))))))
 
 (deftest one-active-membership-test
@@ -383,16 +372,14 @@
             input
             {:bank-id "bnk.1" :email "ADA@example.test" :role :role-viewer}]
         (is (rejected? :invitation/already-exists
-                       (SUT/new-invitation input ctx "hash-2" now)))
+                       (SUT/new-invitation input ctx now)))
         (is (rejected? :invitation/already-member
                        (SUT/new-invitation
                         input
                         (assoc ctx :member-emails ["ada@example.test"])
-                        "hash-2"
                         now)))
         (is (not-granted? (SUT/new-invitation (assoc input :role :role-owner)
                                               (assoc ctx :actor (:admin actors))
-                                              "hash-2"
                                               now)))))))
 
 (deftest expiry-test
@@ -400,19 +387,6 @@
         pending (invitation :invitation-status-pending expires-at)]
     (testing "the lifetime is seven days"
       (is (= (* 7 day-ms) SUT/invitation-lifetime-ms)))
-    (testing "a pending invitation reads pending before its expiry"
-      (is (= :invitation-status-pending
-             (SUT/effective-status pending (dec expires-at)))))
-    (testing "a pending invitation reads expired from its expiry on"
-      (is (= :invitation-status-expired
-             (SUT/effective-status pending expires-at)))
-      (is (= :invitation-status-expired
-             (SUT/effective-status pending (+ expires-at day-ms)))))
-    (testing "an answered invitation keeps its status past expiry"
-      (is (= :invitation-status-accepted
-             (SUT/effective-status
-              (assoc pending :status :invitation-status-accepted)
-              (+ expires-at day-ms)))))
     (testing "accept past expiry is refused as expired"
       (let [result (SUT/accept-invitation pending
                                           "usr.new"
@@ -422,35 +396,35 @@
         (is (= :invitation-status-expired (:status (error/payload result))))))
     (testing "resend of an expired invitation is allowed and renews it"
       (let [later (+ expires-at (* 2 day-ms))
-            resent (SUT/resend-invitation pending "hash-2" later)]
+            resent (SUT/resend-invitation pending later)]
         (is (not (error/anomaly? resent)))
         (is (= :invitation-status-pending (:status resent)))
         (is (= (+ later SUT/invitation-lifetime-ms) (:expires-at resent)))
-        (is (= "hash-2" (:token-hash resent)))
-        (is (= :invitation-status-pending
-               (SUT/effective-status resent later)))))))
+        (is (= "inv.1" (:token-hash resent)))))))
 
-(deftest check-recipient-test
-  (let [inv (invitation :invitation-status-pending (+ now day-ms))]
-    (testing "a matching token hash is proof"
-      (is (nil? (SUT/check-recipient inv {:token-hash "hash-1"}))))
-    (testing "a verified email matching in any case is proof"
-      (is (nil? (SUT/check-recipient inv
-                                     {:email "ADA@example.TEST"
-                                      :email-verified? true}))))
-    (doseq [[label proof] [["a wrong token hash" {:token-hash "hash-9"}]
-                           ["an unverified matching email"
-                            {:email "ada@example.test" :email-verified? false}]
-                           ["a matching email with no verified claim"
-                            {:email "ada@example.test"}]
-                           ["a verified email of someone else"
-                            {:email "bob@example.test" :email-verified? true}]
-                           ["no proof at all" {}]]]
-      (testing (str label " is not found")
-        (let [result (SUT/check-recipient inv proof)]
-          (is (rejected? :invitation/not-found result))
-          (is (not (mentions? result "hash-1")))
-          (is (not (mentions? result "hash-9"))))))))
+(deftest record-invitation-token-test
+  (let [expires-at (+ now day-ms)
+        pending (invitation :invitation-status-pending expires-at)]
+    (testing "a pending invitation takes the hash, replacing the earlier one"
+      (is (= (assoc pending :token-hash "hash-2" :updated-at now)
+             (SUT/record-invitation-token pending expires-at "hash-2" now))))
+    (testing "an invitation sent again since is superseded"
+      (let [result
+            (SUT/record-invitation-token pending (dec expires-at) "hash-2" now)]
+        (is (rejected? :invitation/superseded result))
+        (is (not (mentions? result "hash-2")))))
+    (testing "an expired invitation is refused"
+      (is
+       (rejected?
+        :invitation/invalid-status
+        (SUT/record-invitation-token pending expires-at "hash-2" expires-at))))
+    (testing "an answered invitation is refused"
+      (is (rejected? :invitation/invalid-status
+                     (SUT/record-invitation-token
+                      (assoc pending :status :invitation-status-withdrawn)
+                      expires-at
+                      "hash-2"
+                      now))))))
 
 (deftest constructors-test
   (testing "new-membership builds an active membership at now"
@@ -479,7 +453,6 @@
                 :role :role-owner
                 :reason "Founder handover"}
                {:actor operator-actor :member-emails [] :invitations []}
-               "hash-1"
                now)]
       (is (re-find #"^inv\." (:invitation-id inv)))
       (is (= {:bank-id "bnk.1"
@@ -487,7 +460,7 @@
               :email-lower "ada@example.test"
               :role :role-owner
               :status :invitation-status-pending
-              :token-hash "hash-1"
+              :token-hash (:invitation-id inv)
               :expires-at (+ now SUT/invitation-lifetime-ms)
               :invited-by {:kind :actor-kind-operator :principal-id "ops.1"}
               :reason "Founder handover"
@@ -500,7 +473,6 @@
                                    :role :role-viewer
                                    :reason ""}
                                   {:actor (:admin actors)}
-                                  "hash-1"
                                   now)]
       (is (not (contains? inv :reason)))
       (is (= {:kind :actor-kind-member :principal-id "usr.role-admin"}

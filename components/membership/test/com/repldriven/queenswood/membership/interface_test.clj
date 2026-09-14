@@ -13,6 +13,7 @@
     [com.repldriven.queenswood.testcontainers.interface]
 
     [com.repldriven.queenswood.membership.interface :as SUT]
+    [com.repldriven.queenswood.membership-query.interface :as q]
 
     [com.repldriven.queenswood.user.interface :as user]
 
@@ -50,18 +51,32 @@
   [result s]
   (str/includes? (pr-str result) s))
 
+(defn- record-token
+  "Record a fresh token on `invitation`, as the email adapter does before
+  it sends, answering the invitation with the plaintext `:token`."
+  ([config invitation] (record-token config invitation {}))
+  ([config invitation opts]
+   (let [{:keys [bank-id invitation-id expires-at]} invitation
+         {:keys [token token-hash]} (q/new-invitation-token)
+         result (SUT/record-invitation-token config
+                                             bank-id
+                                             invitation-id
+                                             (assoc opts
+                                                    :expires-at expires-at
+                                                    :token-hash token-hash))]
+     (if (error/anomaly? result) result (assoc result :token token))))
+
+)
+
 (defn- invite
   [config bank-id actor email role]
-  (let [{:keys [token token-hash]} (SUT/new-invitation-token)
-        result (SUT/invite config
-                           bank-id
-                           {:email email :role role}
-                           {:actor actor :token-hash token-hash})]
-    (if (error/anomaly? result) result (assoc result :token token))))
+  (let [result
+        (SUT/invite config bank-id {:email email :role role} {:actor actor})]
+    (if (error/anomaly? result) result (record-token config result))))
 
 (defn- token-proof
   [invitation]
-  {:token-hash (SUT/token-hash (:token invitation))})
+  {:token-hash (q/token-hash (:token invitation))})
 
 (defn- kinds
   [page]
@@ -69,13 +84,13 @@
 
 (deftest token-test
   (testing "a token is 43 characters of base64url and its hash hex SHA-256"
-    (let [{:keys [token token-hash]} (SUT/new-invitation-token)]
+    (let [{:keys [token token-hash]} (q/new-invitation-token)]
       (is (re-matches #"[A-Za-z0-9_-]{43}" token))
       (is (re-matches #"[0-9a-f]{64}" token-hash))
-      (is (= token-hash (SUT/token-hash token)))
-      (is (not= token (:token (SUT/new-invitation-token))))))
+      (is (= token-hash (q/token-hash token)))
+      (is (not= token (:token (q/new-invitation-token))))))
   (testing "a missing token hashes to nil rather than throwing"
-    (is (nil? (SUT/token-hash nil)))))
+    (is (nil? (q/token-hash nil)))))
 
 (deftest accept-run-twice-writes-one-membership-test
   (with-test-system
@@ -116,15 +131,14 @@
                        (is (= :invitation-status-accepted
                               (:status (error/payload again))))
                        (is (not (mentions? again (:token invitation))))))
-                 members (SUT/list-active-by-bank config bank-id)
+                 members (q/list-active-by-bank config bank-id)
                  _ (testing "and the bank holds one membership for the invitee"
                      (is (= 1
                             (count (filter #(= "usr.accept.invitee"
                                                (:user-id %))
                                            members)))))
-                 accepted (SUT/find-invitation config
-                                               bank-id
-                                               (:invitation-id invitation))
+                 accepted
+                 (q/find-invitation config bank-id (:invitation-id invitation))
                  _ (testing
                      "the invitation reads accepted by the person who accepted"
                      (is (= :invitation-status-accepted (:status accepted)))
@@ -134,14 +148,14 @@
                  by-email
                  (invite config bank-id owner "second@example.com" :role-viewer)
                  _ (testing "an unverified email does not reach an invitation"
-                     (let [stranger (SUT/find-invitation-for-recipient
+                     (let [stranger (q/find-invitation-for-recipient
                                      config
                                      (:invitation-id by-email)
                                      {:email "second@example.com"
                                       :email-verified? false})]
                        (is (error/rejection? stranger))
                        (is (refused? :invitation/not-found stranger))))
-                 seen (SUT/find-invitation-for-recipient
+                 seen (q/find-invitation-for-recipient
                        config
                        (:invitation-id by-email)
                        {:email "Second@Example.com" :email-verified? true})
@@ -152,7 +166,7 @@
                                {:email "second@example.com"
                                 :email-verified? true}
                                {:user-id "usr.accept.second"})
-                 history (SUT/list-access-events config bank-id)
+                 history (q/list-access-events config bank-id)
                  _ (testing "every write recorded its event, newest first"
                      (is (= [:access-event-kind-invitation-accepted
                              :access-event-kind-invitation-created
@@ -199,8 +213,7 @@
               (is (refused? :invitation/already-exists result))
               (is (not (mentions? result (:token first-invitation))))
               (is (not (mentions? result
-                                  (SUT/token-hash (:token
-                                                   first-invitation)))))))
+                                  (q/token-hash (:token first-invitation)))))))
         _ (testing "an admin inviting an owner is not granted"
             (let [result (invite config
                                  bank-id
@@ -216,33 +229,29 @@
                                   operator
                                   "handover@example.com"
                                   :role-owner))))
-        {:keys [token-hash]} (SUT/new-invitation-token)
-        granted (SUT/invite
-                 config
-                 bank-id
-                 {:email "handover@example.com" :role :role-owner}
-                 {:actor operator :token-hash token-hash :reason "Locked out"})
+        granted (SUT/invite config
+                            bank-id
+                            {:email "handover@example.com" :role :role-owner}
+                            {:actor operator :reason "Locked out"})
         _ (testing "and records the reason when given one"
             (is (= "Locked out" (:reason granted))))
-        _
-        (testing "an admin may neither withdraw nor resend an owner invitation"
-          (let [admin (member "usr.invite.admin" :role-admin)
-                withdrawn (SUT/withdraw config
-                                        bank-id
-                                        (:invitation-id granted)
-                                        {:actor admin})
-                resent (SUT/resend config
-                                   bank-id
-                                   (:invitation-id granted)
-                                   {:actor admin
-                                    :token-hash (:token-hash
-                                                 (SUT/new-invitation-token))})]
-            (is (refused? :membership/role-not-granted withdrawn))
-            (is (refused? :membership/role-not-granted resent))))
-        still (SUT/find-invitation config bank-id (:invitation-id granted))
+        _ (testing
+            "an admin may neither withdraw nor resend an owner invitation"
+            (let [admin (member "usr.invite.admin" :role-admin)
+                  withdrawn (SUT/withdraw config
+                                          bank-id
+                                          (:invitation-id granted)
+                                          {:actor admin})
+                  resent (SUT/resend config
+                                     bank-id
+                                     (:invitation-id granted)
+                                     {:actor admin})]
+              (is (refused? :membership/role-not-granted withdrawn))
+              (is (refused? :membership/role-not-granted resent))))
+        still (q/find-invitation config bank-id (:invitation-id granted))
         _ (testing "and the owner invitation is untouched"
             (is (= :invitation-status-pending (:status still))))
-        listed (SUT/list-invitations-by-bank config bank-id)
+        listed (q/list-invitations-by-bank config bank-id)
         _ (testing "the bank lists its two pending invitations"
             (is (= #{"new@example.com" "handover@example.com"}
                    (set (map :email listed))))
@@ -276,7 +285,7 @@
                                           (:membership-id joined)
                                           {:actor owner
                                            :reason "Left the company"})
-                 loaded (SUT/find-by-id config (:membership-id joined))
+                 loaded (q/find-by-id config (:membership-id joined))
                  _ (testing "a removed membership reads ended, by whom and when"
                      (is (= :membership-status-ended (:status ended)))
                      (is (= :membership-status-ended (:status loaded)))
@@ -284,7 +293,7 @@
                      (is (= {:kind :actor-kind-member
                              :principal-id "usr.removal.owner"}
                             (:ended-by loaded))))
-                 active (SUT/list-active-by-user config "usr.removal.member")
+                 active (q/list-active-by-user config "usr.removal.member")
                  _ (testing "and is no longer active" (is (= [] active)))
                  _ (testing
                      "a second removal is refused on the membership's status"
@@ -302,7 +311,7 @@
                                       (:invitation-id again)
                                       (token-proof again)
                                       {:user-id "usr.removal.member"})
-                 listed (SUT/list-by-user config "usr.removal.member")
+                 listed (q/list-by-user config "usr.removal.member")
                  _
                  (testing
                    "re-invited and accepting, the person holds a new membership"
@@ -311,7 +320,7 @@
                             [(:membership-id rejoined)
                              :membership-status-active]}
                           (set (map (juxt :membership-id :status) listed)))))
-                 history (SUT/list-access-events config bank-id)
+                 history (q/list-access-events config bank-id)
                  change (first (filter #(= :access-event-kind-role-changed
                                            (:kind %))
                                        (:access-events history)))
@@ -327,7 +336,7 @@
                             ((juxt :role-before :reason :subject-user-id)
                              removal))))
                  _ (testing "the last owner may not leave"
-                     (let [owner-membership (first (SUT/list-active-by-user
+                     (let [owner-membership (first (q/list-active-by-user
                                                     config
                                                     "usr.removal.owner"))]
                        (is (refused? :membership/last-owner
@@ -364,8 +373,8 @@
                  _ (testing
                      "repeating a role change returns the membership as is"
                      (is (= changed repeated)))
-                 loaded (SUT/find-by-id config (:membership-id target))
-                 history (SUT/list-access-events config bank-id)
+                 loaded (q/find-by-id config (:membership-id target))
+                 history (q/list-access-events config bank-id)
                  _ (testing "and writes neither the membership nor an event"
                      (is (= first-at (:updated-at loaded)))
                      (is (= :role-developer (:role loaded)))
@@ -379,31 +388,29 @@
          bank-id "bnk.expiry"
          owner (member "usr.expiry.owner" :role-owner)
          created-at 1700000000000
-         later (+ created-at (* 8 day-ms))
-         {:keys [token token-hash]} (SUT/new-invitation-token)
-         proof {:token-hash token-hash}]
-     (nom-test> [invitation
-                 (SUT/invite
-                  config
-                  bank-id
-                  {:email "late@example.com" :role :role-viewer}
-                  {:actor owner :token-hash token-hash :now created-at})
+         later (+ created-at (* 8 day-ms))]
+     (nom-test> [created (SUT/invite config
+                                     bank-id
+                                     {:email "late@example.com"
+                                      :role :role-viewer}
+                                     {:actor owner :now created-at})
+                 invitation (record-token config created {:now created-at})
+                 {:keys [token]} invitation
+                 token-hash (q/token-hash token)
+                 proof {:token-hash token-hash}
                  id (:invitation-id invitation)
                  _ (testing
                      "an invitation expires seven days after it is created"
                      (is (= (+ created-at (* 7 day-ms))
                             (:expires-at invitation))))
-                 expired (SUT/find-invitation config bank-id id {:now later})
+                 expired (q/find-invitation config bank-id id {:now later})
                  by-bank
-                 (SUT/list-invitations-by-bank config bank-id {:now later})
-                 by-recipient (SUT/find-invitation-for-recipient config
-                                                                 id
-                                                                 proof
-                                                                 {:now later})
-                 pending (SUT/list-pending-invitations-by-email
-                          config
-                          "late@example.com"
-                          {:now later})
+                 (q/list-invitations-by-bank config bank-id {:now later})
+                 by-recipient
+                 (q/find-invitation-for-recipient config id proof {:now later})
+                 pending (q/list-pending-invitations-by-email config
+                                                              "late@example.com"
+                                                              {:now later})
                  _ (testing "past expires-at, every read says expired"
                      (is (= :invitation-status-expired (:status expired)))
                      (is (= [:invitation-status-expired]
@@ -430,30 +437,26 @@
                               (:status (error/payload result))))
                        (is (not (mentions? result token)))
                        (is (not (mentions? result token-hash)))))
-                 stored
-                 (SUT/find-invitation config bank-id id {:now created-at})
+                 stored (q/find-invitation config bank-id id {:now created-at})
                  _ (testing "while the row itself is still pending"
                      (is (= :invitation-status-pending (:status stored))))
-                 fresh (SUT/new-invitation-token)
-                 resent (SUT/resend config
-                                    bank-id
-                                    id
-                                    {:actor owner
-                                     :token-hash (:token-hash fresh)
-                                     :now later})
+                 resent (SUT/resend config bank-id id {:actor owner :now later})
                  _ (testing "resend succeeds with a later expires-at"
                      (is (= :invitation-status-pending (:status resent)))
                      (is (= (+ later (* 7 day-ms)) (:expires-at resent))))
                  _ (testing "and the previous token no longer reaches it"
                      (is (refused? :invitation/not-found
-                                   (SUT/find-invitation-for-recipient
-                                    config
-                                    id
-                                    proof
-                                    {:now later}))))
+                                   (q/find-invitation-for-recipient config
+                                                                    id
+                                                                    proof
+                                                                    {:now
+                                                                     later}))))
+                 fresh (record-token config
+                                     (assoc resent :bank-id bank-id)
+                                     {:now later})
                  membership (SUT/accept config
                                         id
-                                        {:token-hash (:token-hash fresh)}
+                                        (token-proof fresh)
                                         {:user-id "usr.expiry.late"
                                          :now (inc later)})
                  _ (testing "while the fresh one accepts"
@@ -495,9 +498,9 @@
                                                     "bnk.reach.a" "mem.unknown"
                                                     :role-viewer {:actor
                                                                   owner-a}))))
-                 loaded (SUT/find-by-id config (:membership-id target))
-                 history-a (SUT/list-access-events config "bnk.reach.a")
-                 history-b (SUT/list-access-events config "bnk.reach.b")
+                 loaded (q/find-by-id config (:membership-id target))
+                 history-a (q/list-access-events config "bnk.reach.a")
+                 history-b (q/list-access-events config "bnk.reach.b")
                  _ (testing "and nothing is written"
                      (is (= target loaded))
                      (is (= [] (:access-events history-a)))
@@ -546,8 +549,8 @@
                      (is (= 1 (count (remove error/anomaly? results))))
                      (is (= [:membership/last-owner]
                             (map error/kind (filter error/anomaly? results)))))
-                 members (SUT/list-active-by-bank config bank-id)
-                 history (SUT/list-access-events config bank-id)
+                 members (q/list-active-by-bank config bank-id)
+                 history (q/list-access-events config bank-id)
                  _
                  (testing "and the bank keeps one owner and one event"
                    (is (= [:role-admin :role-owner] (sort (map :role members))))
@@ -585,6 +588,6 @@
                      (is (= 1 (count (remove error/anomaly? results))))
                      (is (= [:membership/already-exists]
                             (map error/kind (filter error/anomaly? results)))))
-                 held (SUT/list-active-by-user config "usr.race.one")
+                 held (q/list-active-by-user config "usr.race.one")
                  _ (testing "and the person holds one membership of the bank"
                      (is (= 1 (count held))))]))))

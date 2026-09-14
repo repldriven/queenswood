@@ -32,11 +32,8 @@
   {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/accept"
-             :path-params {:invitation-id [:ref :bank-a :owner-invitation
-                                           :invitation :invitation-id]}
-             :auth :person-token
-             :headers {:invitation-token [:ref :bank-a :owner-invitation
-                                          :token]}}
+             :path-params {:invitation-id [:ref :bank-a :owner-invitation :invitation-id]}
+             :auth :person-token}
    :as :a-membership
    :assert {:status 201 :body {:role "owner"}}}
   {:command :api/request
@@ -54,11 +51,8 @@
   {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/accept"
-             :path-params {:invitation-id [:ref :bank-b :owner-invitation
-                                           :invitation :invitation-id]}
-             :auth :owner-token
-             :headers {:invitation-token [:ref :bank-b :owner-invitation
-                                          :token]}}
+             :path-params {:invitation-id [:ref :bank-b :owner-invitation :invitation-id]}
+             :auth :owner-token}
    :as :b-owner-membership
    :assert {:status 201 :body {:role "owner"}}}
   {:command :api/request
@@ -73,8 +67,7 @@
   {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/accept"
-             :path-params {:invitation-id [:ref :b-invitation :invitation
-                                           :invitation-id]}
+             :path-params {:invitation-id [:ref :b-invitation :invitation-id]}
              :auth :person-token}
    :assert {:status 201 :body {:role "viewer"}}}
   {:command :api/request

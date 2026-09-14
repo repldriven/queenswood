@@ -39,6 +39,7 @@
     components/interest {:local/root "components/interest"}
     components/ledger-account {:local/root "components/ledger-account"}
     components/membership {:local/root "components/membership"}
+    components/membership-query {:local/root "components/membership-query"}
     components/bank {:local/root "components/bank"}
     components/bank-query {:local/root "components/bank-query"}
     components/party {:local/root "components/party"}
@@ -106,6 +107,7 @@
                        "components/ledger-account/test-resources"
                        "components/membership/test"
                        "components/membership/test-resources"
+                       "components/membership-query/test"
                        "components/party/test"
                        "components/party/test-resources"
                        "components/policy/test"

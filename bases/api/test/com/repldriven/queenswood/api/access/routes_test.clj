@@ -2,14 +2,10 @@
   "The access surface as the router and the document carry it: every
   route REQ-023 and REQ-024 name is compiled at its method, path and
   gate, every operation an organisation level gates documents the
-  `Bank-Id` header by `$ref` exactly once (AC-17), and the invitation
-  token is declared on `InvitationWithToken` and on nothing else, which
-  only writes answer: invitation create, resend, the operator's bank
-  create, and onboarding, whose `bank` shares `CreateBankResponse` and
-  never carries it (AC-07, the base half). The idempotency cache leaves
-  the token out of the entry invitation create, resend and bank create
-  complete, while onboarding, which writes no owner invitation, caches
-  its whole response (AC-5, the base half).
+  `Bank-Id` header by `$ref` exactly once (AC-17), and no response shape
+  declares the invitation token or its hash, so invitation create and
+  resend answer the invitation itself (AC-07, the base half). Their
+  idempotency cache, and bank create's, keeps the whole response.
 
   No system is booted. The router is compiled from an empty
   interceptor context, and the document is built the way `export-spec`
@@ -24,8 +20,6 @@
     [com.repldriven.mono.test-system.interface :refer [nom-test>]]
 
     [reitit.core :as r]
-
-    [clojure.string :as str]
     [clojure.test :refer [deftest is testing]]))
 
 (def ^:private user-routes
@@ -116,7 +110,7 @@
           ["paths" path method "responses" status "content" "application/json"
            "schema" "$ref"]))
 
-(deftest only-invitation-with-token-carries-the-token-test
+(deftest no-shape-carries-the-token-test
   (nom-test> [document (json/read-str @exported)
               schemas (get-in document ["components" "schemas"])
               declaring (fn [property]
@@ -127,15 +121,14 @@
                                                          property)
                                           schema-name)))
                                 schemas))
-              _ (testing "the token is declared on one shape"
-                  (is (= #{"InvitationWithToken"} (declaring "token"))))
-              _ (testing "and its hash on none"
+              _ (testing "neither the token nor its hash is declared"
+                  (is (empty? (declaring "token")))
                   (is (empty? (declaring "token-hash"))))
-              _ (testing "create and resend answer with it"
+              _ (testing "create and resend answer the invitation"
                   (is (=
-                       "#/components/schemas/InvitationWithToken"
+                       "#/components/schemas/Invitation"
                        (response-ref document "/v1/invitations" "post" "201")))
-                  (is (= "#/components/schemas/InvitationWithToken"
+                  (is (= "#/components/schemas/Invitation"
                          (response-ref document
                                        "/v1/invitations/{invitation-id}/resend"
                                        "post"
@@ -143,14 +136,6 @@
               _ (testing "the Role component lists the four roles"
                   (is (= #{"owner" "admin" "developer" "viewer"}
                          (set (get-in schemas ["Role" "enum"])))))]))
-
-(def ^:private omitted-token-paths
-  "The writes whose response carries an invitation token, against the
-  paths their idempotency cache leaves out of its entry."
-  {[:post "/v1/invitations"] [[:token]]
-   [:post "/v1/invitations/{invitation-id}/resend"] [[:token]]
-   [:post "/v1/banks"] [[:owner-invitation :token]]
-   [:post "/v1/onboarding/me"] []})
 
 (defn- cache-interceptor
   "The idempotency cache interceptor `data` declares, matched by name as
@@ -161,63 +146,13 @@
             interceptor))
         (:interceptors data)))
 
-(deftest the-cache-leaves-the-token-out-test
+(deftest the-cache-keeps-the-whole-response-test
   (let [ops (operations)]
-    (doseq [[route paths] (sort omitted-token-paths)]
+    (doseq [route [[:post "/v1/invitations"]
+                   [:post "/v1/invitations/{invitation-id}/resend"]
+                   [:post "/v1/banks"]]]
       (testing (str route)
         (let [interceptor (cache-interceptor (get ops route))]
           (is (some? interceptor) "declares the idempotency cache")
-          (is (= paths (:omitted-paths interceptor))
-              "leaving out the token paths its response carries"))))))
-
-(defn- schema-refs
-  [node]
-  (cond
-   (map? node)
-   (into (if-let [ref (get node "$ref")]
-           [ref]
-           [])
-         (mapcat schema-refs (vals node)))
-
-   (sequential? node)
-   (mapcat schema-refs node)
-
-   :else
-   []))
-
-(defn- reaches?
-  "Whether `node` names the schema `target`, directly or through the
-  components its `$ref`s name."
-  [document target node]
-  (loop [pending (schema-refs node)
-         seen #{}]
-    (if-let [[ref & more] (seq pending)]
-      (cond
-       (= ref target)
-       true
-
-       (contains? seen ref)
-       (recur more seen)
-
-       :else
-       (recur (concat more
-                      (schema-refs (get-in document
-                                           (rest (str/split ref #"/")))))
-              (conj seen ref)))
-      false)))
-
-(deftest only-create-and-resend-answer-the-token-test
-  (nom-test> [document (json/read-str @exported)
-              target "#/components/schemas/InvitationWithToken"
-              answering (into #{}
-                              (for
-                                [[path item] (get document "paths")
-                                 [method operation] item
-                                 :when (reaches? document
-                                                 target
-                                                 (get operation "responses"))]
-                                [method path]))
-              _ (is (= #{["post" "/v1/invitations"]
-                         ["post" "/v1/invitations/{invitation-id}/resend"]
-                         ["post" "/v1/banks"] ["post" "/v1/onboarding/me"]}
-                       answering))]))
+          (is (empty? (:omitted-paths interceptor))
+              "leaving nothing out of its entry"))))))
