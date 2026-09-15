@@ -24,12 +24,17 @@
   component/balance {:local/root "../../components/balance"}
   component/balance-domain {:local/root "../../components/balance-domain"}
   component/balance-query {:local/root "../../components/balance-query"}
+  component/bank-query {:local/root "../../components/bank-query"}
   component/cash-account-api {:local/root "../../components/cash-account-api"}
+  component/cash-account-product-query
+  {:local/root "../../components/cash-account-product-query"}
   component/cash-account-query {:local/root
                                 "../../components/cash-account-query"}
   component/clearbank-relay {:local/root "../../components/clearbank-relay"}
   component/clearbank-webhook {:local/root "../../components/clearbank-webhook"}
   component/company {:local/root "../../components/company"}
+  component/email {:local/root "../../components/email"}
+  component/membership-query {:local/root "../../components/membership-query"}
   component/onfido-relay {:local/root "../../components/onfido-relay"}
   component/onfido-webhook {:local/root "../../components/onfido-webhook"}
   component/party-query {:local/root "../../components/party-query"}
@@ -39,6 +44,7 @@
   component/resources {:local/root "../../components/resources"}
   component/schema {:local/root "../../components/schema"}
   component/transaction {:local/root "../../components/transaction"}
+  component/user {:local/root "../../components/user"}
   component/webhook {:local/root "../../components/webhook"}
   base/clearbank-adapter {:local/root "../../bases/clearbank-adapter"}
   base/clearbank-simulator {:local/root "../../bases/clearbank-simulator"}

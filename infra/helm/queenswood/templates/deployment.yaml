@@ -179,6 +179,34 @@ spec:
             - name: KEYCLOAK_OPS_EXPECTED_ISSUER
               value: {{ . | quote }}
             {{- end }}
+            {{- if has $svcName $.Values.mail.consumers }}
+            - name: SMTP_HOST
+              value: {{ include "queenswood.smtpHost" $ | quote }}
+            - name: SMTP_PORT
+              value: {{ include "queenswood.smtpPort" $ | quote }}
+            - name: SMTP_SECURITY
+              value: {{ include "queenswood.smtpSecurity" $ | quote }}
+            {{- if and (not $.Values.mail.catcher.enabled) $.Values.mail.smtp.username }}
+            - name: SMTP_USERNAME
+              value: {{ $.Values.mail.smtp.username | quote }}
+            {{- end }}
+            {{- if and (not $.Values.mail.catcher.enabled) $.Values.mail.smtp.passwordSecret }}
+            - name: SMTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.mail.smtp.passwordSecret }}
+                  key: password
+            {{- end }}
+            {{- if and (not $.Values.mail.catcher.enabled) $.Values.mail.smtp.from }}
+            - name: SMTP_FROM
+              value: {{ $.Values.mail.smtp.from | quote }}
+            {{- else if $.Values.mail.catcher.enabled }}
+            - name: SMTP_FROM
+              value: "Queenswood <noreply@queenswood.local>"
+            {{- end }}
+            - name: CONSOLE_URL
+              value: {{ include "queenswood.mailConsoleUrl" $ | quote }}
+            {{- end }}
             {{- range $k, $v := $svc.extraEnv }}
             - name: {{ $k }}
               value: {{ tpl $v $ | quote }}

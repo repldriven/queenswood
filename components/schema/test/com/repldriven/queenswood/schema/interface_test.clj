@@ -161,3 +161,33 @@
                  :actor {:kind :actor-kind-operator :principal-id "ops"}
                  :occurred-at 1700000000000}]
       (is (= event (SUT/pb->AccessEvent (SUT/AccessEvent->pb event)))))))
+
+(deftest email-delivery-record-round-trip-test
+  (testing "a pending delivery carries no claim, attempt or message id"
+    (let [delivery {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
+                    :delivery-id "eml.01kprbmgcj35ptc8npmybhh4t7"
+                    :kind :email-kind-invitation
+                    :invitation-id "inv.01kprbmgcj35ptc8npmybhh4t2"
+                    :expires-at 1700604800000
+                    :changelog-event-id "01kprbmgcj35ptc8npmybhh4t8"
+                    :status :email-delivery-status-pending
+                    :next-attempt-at 1700000000000
+                    :created-at 1700000000000
+                    :updated-at 1700000000000}]
+      (is (= delivery (SUT/pb->EmailDelivery (SUT/EmailDelivery->pb delivery))))
+      (is (some? (SUT/EmailDelivery->java delivery)))))
+  (testing "a sent delivery carries its attempts and message id"
+    (let [delivery {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
+                    :delivery-id "eml.01kprbmgcj35ptc8npmybhh4t7"
+                    :kind :email-kind-invitation
+                    :invitation-id "inv.01kprbmgcj35ptc8npmybhh4t2"
+                    :expires-at 1700604800000
+                    :changelog-event-id "01kprbmgcj35ptc8npmybhh4t8"
+                    :status :email-delivery-status-sent
+                    :attempts 2
+                    :last-error "connection refused"
+                    :message-id "<abc@queenswood.local>"
+                    :created-at 1700000000000
+                    :updated-at 1700000060000}]
+      (is (= delivery
+             (SUT/pb->EmailDelivery (SUT/EmailDelivery->pb delivery)))))))

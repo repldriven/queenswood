@@ -1,12 +1,12 @@
 # Access
 
-> **Status: proposal.** Slices 1 and 2 are implemented: the records, the
-> `membership` brick's rules, the `Bank-Id` header, the four levels, the
-> access routes and the console's screens bar the accept screen, which
-> Background names. Slice 3 — the `membership` processor and its
-> `membership-query` sibling, the changelog an invitation writes, and
-> the token leaving the API — is the build list under Proposed Solution,
-> and "The MVP, in three slices" says what comes first.
+> **Status: proposal.** The three slices are implemented: the records,
+> the `membership` processor and its `membership-query` sibling, the
+> changelog an invitation writes, the `Bank-Id` header, the four levels,
+> the access routes, and the console's screens with the accept screen an
+> emailed link opens. Background describes slice 1 as first built,
+> Proposed Solution is the design, and "The MVP, in three slices" gives
+> the order.
 
 ## Objective
 

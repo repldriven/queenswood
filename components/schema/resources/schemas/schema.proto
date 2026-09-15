@@ -11,6 +11,7 @@ import "schemas/cash-account-migrations/cash-account-migration-run.proto";
 import "schemas/cash-account-products/account-product.proto";
 import "schemas/cash-accounts/account.proto";
 import "schemas/company/company.proto";
+import "schemas/emails/email-delivery.proto";
 import "schemas/idempotency/idempotency.proto";
 import "schemas/idv/idv.proto";
 import "schemas/interest/interest-run.proto";
@@ -91,4 +92,5 @@ message RecordTypeUnion {
   optional com.repldriven.queenswood.schemas.webhooks.WebhookDeliveryAttempt _WebhookDeliveryAttempt = 42;
   optional com.repldriven.queenswood.schemas.memberships.Invitation _Invitation = 43;
   optional com.repldriven.queenswood.schemas.memberships.AccessEvent _AccessEvent = 44;
+  optional com.repldriven.queenswood.schemas.emails.EmailDelivery _EmailDelivery = 45;
 }

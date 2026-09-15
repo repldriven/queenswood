@@ -1,0 +1,51 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schemas.emails;
+
+import "record_metadata_options.proto";
+
+option java_outer_classname = "EmailDeliveryProto";
+
+enum EmailKind {
+  EMAIL_KIND_UNKNOWN = 0;
+  EMAIL_KIND_INVITATION = 1;
+}
+
+enum EmailDeliveryStatus {
+  EMAIL_DELIVERY_STATUS_UNKNOWN = 0;
+  EMAIL_DELIVERY_STATUS_PENDING = 1;
+  EMAIL_DELIVERY_STATUS_IN_FLIGHT = 2;
+  EMAIL_DELIVERY_STATUS_SENT = 3;
+  EMAIL_DELIVERY_STATUS_SUPERSEDED = 4;
+  EMAIL_DELIVERY_STATUS_FAILED = 5;
+}
+
+// The intent to send one email, written before the send. The recipient
+// is read from what the email is about when it is sent, never stored.
+message EmailDelivery {
+  option (com.apple.foundationdb.record.record).usage = RECORD;
+
+  required string bank_id = 1;
+  required string delivery_id = 2;
+  required EmailKind kind = 3;
+  // The invitation an invitation email is for, and the expires_at the
+  // event carried, which a resend replaces.
+  optional string invitation_id = 4;
+  optional int64 expires_at = 5;
+  // The changelog entry the delivery was written for, unique, so a
+  // redelivered event writes nothing twice.
+  required string changelog_event_id = 6;
+  required EmailDeliveryStatus status = 7;
+  optional int64 claim_lease_expires_at = 8;
+  optional string claimed_by = 9;
+  // Optional, not required: protojure omits a zero int on the wire and
+  // a missing proto2 required field fails the Java parse that bridges
+  // into FDB. A delivery starts with no attempts.
+  optional int32 attempts = 10;
+  optional int64 next_attempt_at = 11;
+  optional string last_error = 12;
+  // The Message-ID the mail server was handed.
+  optional string message_id = 13;
+  required int64 created_at = 14;
+  required int64 updated_at = 15;
+}

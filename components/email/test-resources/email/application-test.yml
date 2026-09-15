@@ -1,0 +1,9 @@
+system:
+  avro: !include system/avro.yml
+  fdb: !include system/fdb-test.yml
+  email:
+    event-processor-impl: !system/component
+      system/component-kind: email/event-processor
+      record-db: !system/ref fdb.record-db
+      record-store: !system/ref fdb.store
+      schemas: !system/ref avro.serde

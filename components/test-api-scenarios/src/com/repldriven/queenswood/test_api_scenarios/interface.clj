@@ -40,13 +40,16 @@
     for `:auth/sign-token`, which mints tokens the realm would never
     issue. The caller generates one for the whole run rather than one
     per scenario; RSA key generation is not free.
+  - `:mail-url` (optional) — the mail catcher's API URL, for
+    `:mail/await-invitation`.
   - `:run-id` (optional) — caller-supplied tag for log lines.
 
   The fresh `:captures` map isolates scenarios from each other so
   one boot can serve many, and the fresh `:banks` map limits the
   standing invariants to the banks this scenario created."
-  [{:keys [base-url admin-token token-endpoints signing-key run-id]}]
+  [{:keys [base-url admin-token token-endpoints signing-key mail-url run-id]}]
   {:base-url base-url
+   :mail-url mail-url
    :admin-token admin-token
    :token-endpoints token-endpoints
    :signing-key signing-key

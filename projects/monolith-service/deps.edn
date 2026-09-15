@@ -35,6 +35,7 @@
   component/changelog-relay {:local/root "../../components/changelog-relay"}
   component/clearbank-relay {:local/root "../../components/clearbank-relay"}
   component/company {:local/root "../../components/company"}
+  component/email {:local/root "../../components/email"}
   component/idempotency {:local/root "../../components/idempotency"}
   component/idv {:local/root "../../components/idv"}
   component/interest {:local/root "../../components/interest"}

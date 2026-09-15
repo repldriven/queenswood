@@ -1,4 +1,10 @@
 Queenswood {{ .Chart.Version }} installed as {{ .Release.Name }} in {{ .Release.Namespace }}.
+{{- if not (or .Values.mail.catcher.enabled .Values.mail.smtp.host) }}
+
+Mail: no SMTP server is named, so no invitation email will be sent.
+Set mail.smtp.host (and its credential), or mail.catcher.enabled for a
+dev cluster.
+{{- end }}
 
 {{- if and .Values.gateway.enabled .Values.gateway.gcp.enabled }}
 
@@ -47,6 +53,9 @@ port-forward).
 {{- if .Values.jaeger.enabled }}
   kubectl -n {{ .Release.Namespace }} port-forward svc/{{ .Release.Name }}-jaeger 16686:16686
 {{- end }}
+{{- if .Values.mail.catcher.enabled }}
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ .Release.Name }}-mailpit 8025:8025
+{{- end }}
 
 Then open:
   http://localhost:8080/scalar       (bank-api OpenAPI)
@@ -55,6 +64,9 @@ Then open:
 {{- end }}
 {{- if .Values.jaeger.enabled }}
   http://localhost:16686             (Jaeger -- pick a service, Find Traces to see spans)
+{{- end }}
+{{- if .Values.mail.catcher.enabled }}
+  http://localhost:8025              (Mailpit -- every invitation email the platform sends)
 {{- end }}
 {{- if and .Values.console.enabled .Values.jaeger.enabled }}
 

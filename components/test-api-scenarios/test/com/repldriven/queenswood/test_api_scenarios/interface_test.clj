@@ -246,7 +246,8 @@
            base-url (server/http-local-url jetty)
            admin-token (mint-admin-token base-url)
            endpoints (token-endpoints sys)
-           key-pair (signing-key)]
+           key-pair (signing-key)
+           mail-url (system/instance sys [:smtp :container-api-url])]
        ;; The seam remembers which ids it has already lost, and it
        ;; outlives the system this boot tears down. Clearing it here
        ;; keeps a second run in the same JVM — a REPL re-run — losing
@@ -265,6 +266,7 @@
                                                :admin-token admin-token
                                                :token-endpoints endpoints
                                                :signing-key key-pair
+                                               :mail-url mail-url
                                                :run-id (str (util/uuidv7))})
                                              resource-path)
                          _ (log/info "api scenario complete" {:file relative})]))))

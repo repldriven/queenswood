@@ -16,6 +16,7 @@
     [com.repldriven.queenswood.schemas.changelog :as changelog]
     [com.repldriven.queenswood.schemas.clearbank :as clearbank]
     [com.repldriven.queenswood.schemas.company :as company]
+    [com.repldriven.queenswood.schemas.emails :as emails]
     [com.repldriven.queenswood.schemas.idempotency :as idempotency]
     [com.repldriven.queenswood.schemas.idv :as idv]
     [com.repldriven.queenswood.schemas.interest :as interest]
@@ -48,6 +49,8 @@
     (com.repldriven.queenswood.schemas.cash_accounts
      CashAccountProto$CashAccount)
     (com.repldriven.queenswood.schemas.company CompanyProto$Company)
+    (com.repldriven.queenswood.schemas.emails
+     EmailDeliveryProto$EmailDelivery)
     (com.repldriven.queenswood.schemas.idempotency IdempotencyProto$Idempotency)
     (com.repldriven.queenswood.schemas.idv IdvProto$Idv)
     (com.repldriven.queenswood.schemas.interest
@@ -1229,3 +1232,42 @@
 (def ^{:doc "Map of WebhookDeliveryStatus label to protobuf int value."}
      webhook-delivery-status->int
   webhooks/WebhookDeliveryStatus-label2val)
+
+(def ^:private email-delivery-unset
+  {:attempts 0
+   :claim-lease-expires-at 0
+   :claimed-by ""
+   :expires-at 0
+   :invitation-id ""
+   :last-error ""
+   :message-id ""
+   :next-attempt-at 0})
+
+(defn pb->EmailDelivery
+  "Parse EmailDelivery protobuf bytes into a Clojure map. Each optional
+  field is present only when set.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (without-unset (emails/pb->EmailDelivery input) email-delivery-unset))
+
+(defn EmailDelivery->pb
+  "Serialise an EmailDelivery map to protobuf bytes.
+
+  Args:
+  - m: EmailDelivery map matching the generated schema."
+  [m]
+  (proto/->pb (emails/new-EmailDelivery m)))
+
+(defn EmailDelivery->java
+  "Parse an EmailDelivery map into the generated Java protobuf class.
+
+  Args:
+  - m: EmailDelivery map matching the generated schema."
+  [m]
+  (EmailDeliveryProto$EmailDelivery/parseFrom (EmailDelivery->pb m)))
+
+(def ^{:doc "Map of EmailDeliveryStatus label to protobuf int value."}
+     email-delivery-status->int
+  emails/EmailDeliveryStatus-label2val)

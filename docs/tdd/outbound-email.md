@@ -1,11 +1,13 @@
 # Outbound email
 
-> **Status: proposal.** Nothing that sends email exists. What the design
-> reuses — mono's `smtp` brick and its Mailpit catcher, the changelog
-> relay, the webhook brick's claimed-intent runner, the command
-> dispatcher — exists and is named as such in Background. Everything
-> under Proposed Solution is the build list, and "The first slice" says
-> what comes first.
+> **Status: proposal.** The records, the `email` brick, its wiring into
+> `external-adapters-service` and the monolith, Mailpit in the monolith's
+> dev profile, the scenario rig and the kind cluster, the chart's SMTP
+> values, and the console's accept screen are implemented. No
+> installation names a mail server yet: its credential, sending domain
+> and recipe are the build list left. What the design reuses is named in
+> Background, Proposed Solution is the build list, and "The first slice"
+> says what comes first.
 
 ## Objective
 
@@ -186,28 +188,42 @@ the `smtp/client`'s.
 included by `external-adapters-service` and `monolith-service`:
 
 - `event-processor-impl` and `event-consumer` on `invitations-event`,
-  consumer group `email-service-invitations-event`.
+  consumer group `email-service-invitations-event`, with a dead-letter
+  topic.
 - `outbound-runner`, with its id minted per replica, so the group
   needs no single-replica pin under
-  [ADR-0019](../adr/0019-processor-packaging.md).
-- `dispatcher` for `memberships-command` and its reply topic.
-- `smtp`, an `smtp/client` from `!env SMTP_HOST`, `SMTP_PORT`,
-  `SMTP_SECURITY`, `SMTP_USERNAME`, `SMTP_PASSWORD` and `SMTP_FROM`.
-- `console-url` from `!env CONSOLE_URL`.
+  [ADR-0019](../adr/0019-processor-packaging.md). It takes the
+  dispatcher of the shared `system/membership-dispatcher.yml` group,
+  the client of the `smtp` group, and `console-url`, which is
+  `http://localhost:5173` under the dev and test profiles and
+  `!env CONSOLE_URL` otherwise.
 
-The `external-adapters` base bare-requires the `email` interface, and
-the project's `deps.edn` lists the brick.
+`system/smtp.yml` is the `smtp` group: an `smtp/client` from
+`!env SMTP_HOST`, `SMTP_PORT` (587 when unset), `SMTP_SECURITY`
+(`starttls` when unset, or `tls` or `none`), `SMTP_USERNAME`,
+`SMTP_PASSWORD` and `SMTP_FROM`. The monolith, which
+has no exclusive dispatchers, relays the invitations changelog itself
+from `system/invitation-relay.yml`, under the same `invitations-relay`
+consumer id. The `external-adapters` base bare-requires the `email`
+interface, and the project's `deps.edn` lists the brick and the query
+bricks it reads through.
 
 ### A mail server locally
 
-- **The monolith's dev profile** includes mono's Mailpit group under
-  `smtp` in place of the environment-driven client, and logs the
-  container's API URL at start, which is also its web inbox.
+- **The monolith's dev profile** includes `system/smtp-test.yml` from
+  `test-resources` under `smtp` in place of the environment-driven
+  client: a Mailpit container and a client from
+  `noreply@queenswood.local`. The monolith logs the container's API URL
+  at start, which is also its web inbox. The API scenarios' rig
+  includes the same group.
 - **The kind cluster.** A `mailpit.yaml` template, rendered when
   `mail.catcher.enabled`, runs `axllent/mailpit` with a Service on 1025
-  and 8025 and an HTTPRoute for the inbox. `values-dev.yaml` and
-  `values-monolith.yaml` enable it and point `SMTP_HOST` at the
-  Service with `SMTP_SECURITY` `none`.
+  and 8025, its inbox reached by the port-forward the install notes
+  print, as Jaeger's is. `values-dev.yaml`, which both kind recipes
+  layer, enables it, and the services on `mail.consumers` then send to
+  the Service with `SMTP_SECURITY` `none`. The emailed link opens
+  `mail.consoleUrl`, or the gateway's console host, or the console's
+  port-forward on 8081.
 
 ### A mail server at an installation
 
@@ -215,11 +231,14 @@ Google Cloud refuses outbound port 25 and allows submission on 587 and
 465, so an installation names a submission provider:
 
 - **Values.** `mail.smtp.host`, `port`, `security`, `username` and
-  `from` in the installation's values, rendered into
-  `external-adapters-service`'s environment.
+  `from` in the installation's values, rendered into the environment of
+  the services on `mail.consumers`. With no host and no catcher the
+  services start, the install notes say no email will be sent, and
+  every delivery fails and is kept.
 - **The credential.** The provider's password in Secret Manager, read
   by an `ExternalSecret` on the destination cluster into the Secret
-  that fills `SMTP_PASSWORD`, as
+  `mail.smtp.passwordSecret` names, under `password`, which fills
+  `SMTP_PASSWORD`, as
   [external-secrets](../recipes/infra/external-secrets.md) describes.
 - **The sending domain.** The provider's SPF, DKIM and DMARC records in
   the installation's zone. A provider with no API for its DKIM keys
@@ -253,11 +272,15 @@ Google Cloud refuses outbound port 25 and allows submission on 587 and
   a superseded `expires_at`, an expired and a non-pending invitation,
   and replacing an earlier hash.
 - **API scenarios** in `test-api-scenarios/scenarios/access/`, with
-  Mailpit in the scenario system and a verb that reads the latest
-  message to an address: invite and accept with the emailed token;
-  resend, with the first email's token refused and the second's
-  accepted; withdraw before the send, with no email; and the operator's
-  create with an owner email reaching the owner.
+  Mailpit in the scenario system and a `:mail/await-invitation` verb
+  that waits for the nth email to an address naming an invitation and
+  captures its token: the operator's create reaching the owner, who
+  accepts with the emailed token, and an invitee signed in under
+  another address accepting the same way; and resend, with the first
+  email's token refused and the second's accepted. A withdrawal before
+  the send is covered by the brick's supersession rules rather than a
+  scenario, since the runner may send before a scenario's withdrawal
+  lands.
 
 ## Alternatives Considered
 
