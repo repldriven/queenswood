@@ -3,11 +3,11 @@
 > **Status: proposal.** The records, the `email` brick, its wiring into
 > `external-adapters-service` and the monolith, Mailpit in the monolith's
 > dev profile, the scenario rig and the kind cluster, the chart's SMTP
-> values, and the console's accept screen are implemented. No
-> installation names a mail server yet: its credential, sending domain
-> and recipe are the build list left. What the design reuses is named in
-> Background, Proposed Solution is the build list, and "The first slice"
-> says what comes first.
+> values, the console's accept screen, and an instance's SMTP entry,
+> `ExternalSecret`, values and recipe are implemented. No installation
+> has sent an email yet: following the recipe is what is left. What the
+> design reuses is named in Background, Proposed Solution is the build
+> list, and "The first slice" says what comes first.
 
 ## Objective
 
@@ -235,16 +235,22 @@ Google Cloud refuses outbound port 25 and allows submission on 587 and
   the services on `mail.consumers`. With no host and no catcher the
   services start, the install notes say no email will be sent, and
   every delivery fails and is kept.
-- **The credential.** The provider's password in Secret Manager, read
-  by an `ExternalSecret` on the destination cluster into the Secret
-  `mail.smtp.passwordSecret` names, under `password`, which fills
-  `SMTP_PASSWORD`, as
+- **The credential.** The provider's password in
+  `sec-<code>-<env>-<label>-smtp`, a container the instance composite
+  makes in the instance's project, read by the config chart's `smtp`
+  `ExternalSecret` into `queenswood-smtp` under `password`, which
+  `mail.smtp.passwordSecret` names and which fills `SMTP_PASSWORD`, as
   [external-secrets](../recipes/infra/external-secrets.md) describes.
+  The `ExternalSecret` renders only with `mail.smtp.enabled`, off in the
+  unit templates until the entry holds a version.
 - **The sending domain.** The provider's SPF, DKIM and DMARC records in
-  the installation's zone. A provider with no API for its DKIM keys
-  makes this a recipe rather than a kind, as
+  the instance's zone, through `spec.records` on its `XPublicZone`. A
+  provider with no API for its DKIM keys makes this a recipe rather
+  than a kind, as
   [ADR-0025](../adr/0025-building-blocks-and-what-cannot-be-one.md)
-  says.
+  says, and
+  [outbound-email-install](../recipes/infra/outbound-email-install.md)
+  is that recipe.
 
 ### The first slice
 
@@ -336,5 +342,7 @@ Google Cloud refuses outbound port 25 and allows submission on 587 and
   carries the invitation to the adapter.
 - [external-secrets](../recipes/infra/external-secrets.md) — the SMTP
   credential at an installation.
+- [outbound-email-install](../recipes/infra/outbound-email-install.md)
+  — naming a mail server at an instance.
 - [RFC 6409](https://www.rfc-editor.org/rfc/rfc6409) — Message
   Submission for Mail, the port and protocol the adapter uses.

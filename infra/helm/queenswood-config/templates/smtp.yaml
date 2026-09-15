@@ -1,0 +1,32 @@
+{{- if .Values.mail.smtp.enabled }}
+{{- /*
+  The submission provider's SMTP password, fetched rather than placed.
+  The queenswood chart reads it as `password` from the Secret its
+  `mail.smtp.passwordSecret` names, so the two names have to agree.
+
+  The entry is a container the instance composite made and a version a
+  person writes into it from the credential the provider issued. Off
+  until that version exists: a Secret that never materialises holds
+  every mail consumer in CreateContainerConfigError.
+
+  Wave 2, behind the store it names.
+*/}}
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: smtp
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: {{ include "queenswood-config.instance" . | quote }}
+  target:
+    name: {{ .Values.mail.smtp.secretName | quote }}
+  data:
+    - secretKey: password
+      remoteRef:
+        key: {{ printf "sec-%s-smtp" (include "queenswood-config.instance" .) | quote }}
+{{- end }}

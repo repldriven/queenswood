@@ -33,6 +33,12 @@ spec:
         # second store. The backup key lives there because it has to
         # survive whatever loses the instance.
         recoveryProjectId: "${RECOVERY}"
+        # The SMTP password, from sec-${INSTANCE}-smtp. Enabled with
+        # mail.smtp in values.yml, once the entry holds a version: see
+        # the outbound-email-install recipe.
+        mail:
+          smtp:
+            enabled: false
   syncPolicy:
     automated:
       prune: true

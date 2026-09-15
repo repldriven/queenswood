@@ -138,6 +138,14 @@ expects — `<realm>_<key>` — so the realm's committed
 `${vault.google-client-secret}` resolves. Rotatable. See
 [google-sign-in](google-sign-in.md).
 
+**`sec-<code>-<env>-<label>-smtp`**, on an instance. A single string:
+the submission provider's SMTP password, materialised under `password`
+into the Secret the bank's `mail.smtp.passwordSecret` names. The
+`ExternalSecret` renders only with `mail.smtp.enabled` in the config
+chart, since a Secret that never arrives holds every mail consumer in
+`CreateContainerConfigError`. Rotatable. See
+[outbound-email-install](outbound-email-install.md).
+
 **`sec-<code>-<env>-<label>-keycloak-admin`**, on an instance. Two
 properties in one entry — `username` and `password` — materialised as
 the `kubernetes.io/basic-auth` Secret the `Keycloak` resource names in

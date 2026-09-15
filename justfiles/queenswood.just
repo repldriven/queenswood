@@ -548,6 +548,17 @@ queenswood-instance-google-secret env=ENV label=LABEL file="":
     PROJECT=$(just _instance-project "{{ env }}" "{{ label }}")
     just gcp-secret-version "sec-$INSTANCE-google-oauth" "$PROJECT" "{{ file }}"
 
+# Put the submission provider's SMTP password in `env`-`label`'s entry,
+# from `file` or the prompt. The provider issues it in its own console.
+queenswood-instance-smtp-secret env=ENV label=LABEL file="":
+    #!/usr/bin/env zsh
+    set -e
+    if ! INSTANCE=$(just _queenswood-instance "{{ env }}" "{{ label }}"); then
+      exit 1
+    fi
+    PROJECT=$(just _instance-project "{{ env }}" "{{ label }}")
+    just gcp-secret-version "sec-$INSTANCE-smtp" "$PROJECT" "{{ file }}"
+
 # Generate the bootstrap admin `env`-`label`'s Keycloak database is
 # created with, and put it in that instance's entry. Once per database,
 # unless `supersede` says otherwise.

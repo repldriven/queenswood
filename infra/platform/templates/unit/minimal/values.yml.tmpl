@@ -43,6 +43,20 @@ keycloak:
 keycloakOperator:
   enabled: true
 
+# Invitation emails, through a submission provider. Empty sends nothing.
+# host, username and passwordSecret are set together, with
+# mail.smtp.enabled in config.yml: see the outbound-email-install
+# recipe. passwordSecret is queenswood-smtp, which the config chart
+# writes from sec-${INSTANCE}-smtp.
+mail:
+  smtp:
+    host: ""
+    port: 587
+    security: starttls
+    username: ""
+    from: "Queenswood <noreply@${DOMAIN}>"
+    passwordSecret: ""
+
 # The public front door. consoleRedirectUri stays unset: a realm is
 # imported once and never overwritten, so a value here reaches an
 # existing realm not at all.

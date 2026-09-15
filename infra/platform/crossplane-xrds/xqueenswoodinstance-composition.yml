@@ -555,6 +555,52 @@ spec:
                 toFieldPath: metadata.annotations[crossplane.io/external-name]
               - fromFieldPath: spec.projectId
                 toFieldPath: spec.forProvider.project
+          # The container for the submission provider's SMTP password,
+          # the same shape as the two above: declared here, written by a
+          # person from a credential the provider issued, never in git.
+          # No Delete: a rebuilt container is an empty one, and every
+          # invitation email fails until somebody notices.
+          - name: instance-smtp-secret
+            base:
+              apiVersion: secretmanager.gcp.m.upbound.io/v1beta1
+              kind: Secret
+              metadata:
+                namespace: crossplane-system
+              spec:
+                managementPolicies:
+                  - Observe
+                  - Create
+                  - Update
+                  - LateInitialize
+                providerConfigRef:
+                  kind: ClusterProviderConfig
+                  name: default
+                forProvider:
+                  replication:
+                    auto: {}
+            patches:
+              - type: CombineFromComposite
+                combine:
+                  variables:
+                    - fromFieldPath: spec.code
+                    - fromFieldPath: spec.env
+                    - fromFieldPath: spec.label
+                  strategy: string
+                  string:
+                    fmt: "sec-%s-%s-%s-smtp"
+                toFieldPath: metadata.name
+              - type: CombineFromComposite
+                combine:
+                  variables:
+                    - fromFieldPath: spec.code
+                    - fromFieldPath: spec.env
+                    - fromFieldPath: spec.label
+                  strategy: string
+                  string:
+                    fmt: "sec-%s-%s-%s-smtp"
+                toFieldPath: metadata.annotations[crossplane.io/external-name]
+              - fromFieldPath: spec.projectId
+                toFieldPath: spec.forProvider.project
           # ===================================================================
           # The database, and what a private-IP one needs before it can
           # exist: the range this VPC lends Google, the peering that
