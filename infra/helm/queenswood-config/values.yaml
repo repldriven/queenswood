@@ -48,6 +48,15 @@ keycloak:
     enabled: true
     secretName: queenswood-keycloak-bootstrap-admin
 
+mail:
+  # The submission provider's password, materialised from
+  # sec-<instance>-smtp under `password`. The name has to match the
+  # queenswood chart's `mail.smtp.passwordSecret`. Enable once the entry
+  # holds a version.
+  smtp:
+    enabled: false
+    secretName: queenswood-smtp
+
 fdb:
   backup:
     # Its own Secret, mounted beside the one holding the pair FDB

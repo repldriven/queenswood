@@ -665,6 +665,46 @@ Commands: `just queenswood-local-manifest`, `just crossplane-conditions`,
 `just monolith-start`.
 See [local-install](../../../docs/recipes/infra/local-install.md).
 
+## An instance sends from its own domain, and its password is written first
+
+Send from the instance's own domain and publish the provider's DKIM
+records, its return-path CNAME or SPF include, and a DMARC record in
+the instance's zone, through
+`spec.records` in `<label>.zone.yml`, one entry per name and type with
+every value for that pair in its `rrdatas`. Never use port 25, which
+Google Cloud refuses; use 587 with `starttls` or 465 with `tls`. Write
+the password with `just queenswood-instance-smtp-secret`, as the
+instance's own secrets admin, before enabling `mail.smtp` in the unit's
+`config.yml`, and set `mail.smtp.host`, `username` and `passwordSecret`
+in `values.yml` in the same merge. `passwordSecret` names a Secret that
+never arrives otherwise, and every mail consumer waits in
+`CreateContainerConfigError`. Never enable `mail.catcher` on an instance
+whose invitations must reach people, and never publish `p=quarantine`
+or `p=reject` before a delivered email reads `dmarc=pass`. An instance
+may be left with no mail server, its invitations pending and every send
+given up on.
+Commands: `just queenswood-instance-smtp-secret`, `just
+crossplane-conditions`, `just argo-apps-status`.
+See [outbound-email-install](../../../docs/recipes/infra/outbound-email-install.md).
+
+## Postmark sends as a server per instance, through an SMTP token
+
+Create one Postmark server per instance, named `<code>-<env>-<label>`,
+and send through its transactional stream, never a Broadcasts stream.
+Add the instance's domain as a domain rather than an address, and
+publish its DKIM TXT and its `pm-bounces` Return-Path CNAME in the
+instance's zone, never an SPF include — the Return-Path is what SPF is
+checked against. Use an SMTP token's access key and secret key as the
+username and the password, written with `just
+queenswood-instance-smtp-secret`, never the Server API Token, which
+carries the whole API. Delete the domain Postmark created from the
+signup address: mail sent as it is signed by Postmark rather than by
+the domain, and a strict DMARC policy at the apex has it rejected. Add
+DMARC Digests' `rua=` address to the instance's `_dmarc` record where
+reports should say when `p=quarantine` is safe.
+Commands: `just queenswood-instance-smtp-secret`.
+See [smtp-postmark](../../../docs/recipes/infra/smtp-postmark.md).
+
 ## The apex belongs to no installation, and names below it are delegated
 
 Create the apex project outside every folder -- `prj-c-dns-<suffix>`,

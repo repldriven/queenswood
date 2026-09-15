@@ -381,6 +381,8 @@ standing an instance up.
 
 ## References
 
+- [outbound-email-install](outbound-email-install.md) — the mail server
+  an instance's invitation emails go through, once it serves.
 - [management-plane-install](management-plane-install.md) — building
   the plane this runs on, and the manifest it reads.
 - [google-sign-in](google-sign-in.md) — the console acts and the Admin

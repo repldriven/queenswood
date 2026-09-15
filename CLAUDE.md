@@ -276,6 +276,14 @@ non-trivial work on their topic.
   project and the kind that composes it, where the client is created,
   and how its id and secret reach the monolith's Keycloak. See
   [local-install](docs/recipes/infra/local-install.md).
+- **Outbound email at an instance** — the submission provider, its
+  password's entry, the SPF, DKIM and DMARC records in the instance's
+  zone, and the two values files enabled in one merge. See
+  [outbound-email-install](docs/recipes/infra/outbound-email-install.md).
+- **Postmark** — one server per instance, an SMTP token rather than the
+  API token, the Return-Path CNAME in place of an SPF include, and the
+  signup domain deleted. See
+  [smtp-postmark](docs/recipes/infra/smtp-postmark.md).
 - **The apex, and the names below it** — why the zone a registrar
   points at belongs to no installation, lives in a project at the
   organisation, and is declared in git rather than composed; and why

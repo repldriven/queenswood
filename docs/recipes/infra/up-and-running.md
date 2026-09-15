@@ -76,7 +76,9 @@ the cluster it built, and the throwaway one is discarded.
 [instance-deploy](instance-deploy.md). The instance's own DNS zone and
 the delegation to it, then the unit: its project, network, cluster,
 database and records for one environment, and then the bank on top of
-it, answering at `https://console.<domain>`.
+it, answering at `https://console.<domain>`. Then
+[outbound-email-install](outbound-email-install.md), for the invitation
+emails it sends.
 
 ### 7. Local development
 
