@@ -103,7 +103,12 @@ argo-health-checks ctx=MGMT_CTX:
 argo-health-kinds ctx=MGMT_CTX:
     #!/usr/bin/env zsh
     set -e
-    # What the copies in argocd-cm.yaml list. Update alongside them.
+    # What Argo's own scripts list, transcribed from
+    # resource_customizations/_.crossplane.io/_/health.lua and its
+    # upbound twin at the release the plane runs -- a `_` path segment
+    # being how that tree spells the wildcard a directory name cannot
+    # carry. Nothing here overrides them any more, so a kind this check
+    # reports missing is one to raise upstream rather than to add below.
     # Plain variables rather than an associative array: a zsh subscript
     # containing a `*` is taken as a pattern and matches nothing.
     LISTED_CROSSPLANE="Composition CompositionRevision DeploymentRuntimeConfig

@@ -833,13 +833,14 @@ Application above it. Give an environment's Applications a parent of
 their own before registering a check for `argoproj.io/Application`.
 When writing a check, read `Synced` before `Ready`, in a pass of its
 own, and patch the script that checks a status-less kind rather than
-one kind — there are several, in both groups. Delete the
-`*.crossplane.io/*` and `*.upbound.io/*` entries from
-`infra/helm/management-plane/templates/argocd-cm.yaml`, and point
-`LISTED_CROSSPLANE` and `LISTED_UPBOUND` in `justfiles/argo.just` at
-Argo's own lists, once a release carrying `argoproj/argo-cd#29382` is
-the one the plane runs; keeping them is defensible only for a kind
-upstream still does not list.
+one kind — there are several, in both groups. Raise a status-less kind
+upstream rather than overriding Argo's own scripts in the chart, which
+assess `*.crossplane.io/*` and `*.upbound.io/*` from 3.5.3 on:
+`LISTED_CROSSPLANE` and `LISTED_UPBOUND` in `justfiles/argo.just` are
+transcribed from those scripts, and an override is defensible only for
+a kind upstream does not list and has to be deleted again when it does.
+Read a managed resource reported Healthy while it provisions as a plane
+older than 3.5.3 before reading anything into a green estate.
 Commands: `just argo-health-checks`, `just argo-health-kinds`.
 See [argocd-health](../../../docs/recipes/infra/argocd-health.md).
 
@@ -888,7 +889,12 @@ object as not found — and pin `--version` to the same object's
 release's values with what it is given, so an upgrade without the file
 resets them to the chart's defaults, and never upgrade Argo with a
 values file that omits `extraObjects`. `--reuse-values` is for a
-release with values and no drift to preserve. Render both chart
+release with values and no drift to preserve. Pass `--force-conflicts`,
+re-reading `--version` from the composed `Release` after the merge
+rather than carrying it over from an earlier attempt: Helm applies
+server-side from 4.0, and Argo owns the fields it declares in
+`argocd-cm`, so an upgrade is otherwise refused as a conflict with
+`argocd-controller` — the field comes back to Argo on its next sync. Render both chart
 versions against the running values before merging a version change,
 and read the release notes for the versions it crosses. Confirm
 `management-plane` still exists before anything else on an Argo

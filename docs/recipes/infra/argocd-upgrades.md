@@ -161,7 +161,7 @@ merge that drift into the composition, and start again.
 helm repo add argo https://argoproj.github.io/argo-helm
 helm repo update argo
 helm --kube-context "$QW_CODE-mgmt" upgrade argocd argo/argo-cd \
-  --version "$VERSION" -n argocd -f "$VALUES"
+  --version "$VERSION" -n argocd -f "$VALUES" --force-conflicts
 ```
 
 ### 6. Verify, in this order
@@ -205,6 +205,17 @@ helm --kube-context "$QW_CODE-mgmt" history argocd -n argocd
 helm --kube-context "$QW_CODE-mgmt" rollback argocd <revision> -n argocd
 ```
 
+**A `helm upgrade` refused with `conflict occurred while applying
+object argocd/argocd-cm`, naming `argocd-controller` and a field under
+`.data`.** Two managers write that ConfigMap: the chart through Helm,
+and the management-plane chart through Argo, which applies with
+`ServerSideApply=true` and owns whatever it declares —
+`resource.customizations` and `resource.exclusions`. Helm applies
+server-side from 4.0, so it refuses to overwrite another manager's
+field rather than silently taking it. `--force-conflicts` in step 5 is
+what proceeds; Argo reclaims the field on its next sync, so the end
+state is what the composition says either way.
+
 **A `helm upgrade` refused with `invalid ownership metadata`.** A
 resource in the release was applied by hand — during an incident, say —
 and Helm will not adopt one it did not create. Annotate it back into
@@ -223,7 +234,10 @@ gets deleted may be carrying state.
 - Spell the kind as `release.helm.m.crossplane.io`. The short name
   resolves to provider-helm's cluster-scoped `Release` and reports
   the object as not found.
-- Pin `--version` to the same object's `chart.version`.
+- Pin `--version` to the same object's `chart.version`, re-read after
+  the merge rather than carried over from an earlier attempt.
+- Pass `--force-conflicts`, since Helm applies server-side and Argo
+  owns the fields it declares in `argocd-cm`.
 - Render both chart versions against the running values before
   merging a version change, and read the Argo CD release notes for
   the app versions it crosses.
