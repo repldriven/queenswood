@@ -35,8 +35,8 @@ actually runs:
 
 ```bash
 # the version now, and the one being moved to
-export FROM=10.2.1
-export TO=10.4.0
+export FROM=10.4.0
+export TO=10.9.1
 
 helm repo add argo https://argoproj.github.io/argo-helm
 helm repo update argo
