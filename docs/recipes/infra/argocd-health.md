@@ -4,8 +4,11 @@
 
 ## Status
 
-**Verified**, 2026-08-28, on this installation's plane: step 1 gave the
-five groups, no exact keys, and step 2 reported nothing missing.
+**Verified**, 2026-09-16, on this installation's plane, running Argo CD
+3.5.3: step 2 reported nothing missing against Argo's own lists, and
+step 1 gave no exact keys. Step 1's three groups are what it reports
+once the chart that drops the two overrides has synced; it gave five
+before that.
 
 ## Problem
 
@@ -33,15 +36,16 @@ export QW_CODE=qw01
 just argo-health-checks "$QW_CODE-mgmt"
 ```
 
-`GROUPS` exactly these five, and nothing else:
+`GROUPS` exactly these three, and nothing else:
 
 ```
 platform.repldriven.com/*:
 queenswood.repldriven.com/*:
 argoproj.io/Application:
-"*.crossplane.io/*":
-"*.upbound.io/*":
 ```
+
+Argo's own scripts assess `*.crossplane.io/*` and `*.upbound.io/*` from
+3.5.3 on, so neither appears here.
 
 `EXACT KEYS` `none`.
 
@@ -70,10 +74,12 @@ whatever an earlier generation wrote.
 **A kind named under `missing from` in step 2.** It carries no status
 and no list names it, so it reports Healthy today from the nil branch
 and goes `Progressing` for ever once the precedence is corrected,
-taking its Application with it. Add it to `has_no_conditions` in
-`infra/helm/management-plane/templates/argocd-cm.yaml` and to
-`LISTED_CROSSPLANE` or `LISTED_UPBOUND` in `justfiles/argo.just`, and
-upstream.
+taking its Application with it. Nothing here overrides Argo's scripts,
+so the fix is upstream, in
+`resource_customizations/_.crossplane.io/_/health.lua` or its upbound
+twin; add it to `LISTED_CROSSPLANE` or `LISTED_UPBOUND` in
+`justfiles/argo.just` when the release carrying it is the one the plane
+runs.
 
 **An Application `Healthy` over a composite that never composed.** Argo
 assesses a resource by its API group, and a group it has no check for
@@ -82,9 +88,10 @@ Application applying a composite that fails to compose is
 indistinguishable from one that worked.
 
 **A managed resource `Healthy` while it is still provisioning.** A
-plane running Argo's compiled-in scripts rather than the chart's copies
-does this to every managed resource, and the composite above it looks
-finished the moment it was applied. Step 1 is what tells the two apart.
+plane on an Argo CD older than 3.5.3 does this to every managed
+resource, and the composite above it looks finished the moment it was
+applied. The plane's version is what tells them apart, so read it before
+reading anything into a green estate.
 
 **A parent whose waves gate nothing.** The waves are doing what waves
 do. `Application` has no health check of its own: Argo removed the
@@ -125,13 +132,9 @@ status matters.
 
 **SHOULD:**
 
-- Delete the `*.crossplane.io/*` and `*.upbound.io/*` entries from
-  `infra/helm/management-plane/templates/argocd-cm.yaml`, and point
-  `LISTED_CROSSPLANE` and `LISTED_UPBOUND` in
-  `justfiles/argo.just` at Argo's own lists, once a release carrying
-  `argoproj/argo-cd#29382`
-  is the one the plane runs. Keeping them is defensible only for a
-  kind upstream still does not list.
+- Raise a status-less kind upstream rather than overriding Argo's
+  scripts in the chart. An override is defensible only for a kind
+  upstream does not list, and it has to be deleted again when it does.
 
 ## Discussion
 
@@ -159,23 +162,15 @@ fixed: correcting the precedence without completing the list turns a
 silent success into a permanent `Progressing`. Which is why
 `argoproj/argo-cd#29382` fixes both halves at once.
 
-**The copies, and what deletes them.** Until that reaches a release
-this plane runs, the chart carries corrected copies of the two scripts,
-as `*.crossplane.io/*` and `*.upbound.io/*`, transcribed from the PR
-rather than adapted so the diff against upstream stays readable while
-somebody checks whether it has landed. Upstream they are
+**Where the lists live now.** 3.5.3 carries that fix, so the chart
+overrides neither group and step 2 diffs against Argo's own lists:
+`LISTED_CROSSPLANE` and `LISTED_UPBOUND` in `justfiles/argo.just` are
+transcribed from
 `resource_customizations/_.crossplane.io/_/health.lua` and its upbound
-twin: a `_` path segment is how that tree spells the wildcard a
-directory name cannot carry, so `_.crossplane.io/_` is the
-`*.crossplane.io/*` entry here. A ConfigMap key cannot express that
-wildcard at all, which is why every entry sits in one
-`resource.customizations` block rather than in five dotted keys.
-
-They are meant to be deleted. When a release carrying the fix is the
-one this plane runs, remove both entries from
-`infra/helm/management-plane/templates/argocd-cm.yaml` and point
-`LISTED_CROSSPLANE` and `LISTED_UPBOUND` in `justfiles/argo.just` at
-the upstream lists, so step 2 diffs against Argo's again.
+twin, where a `_` path segment is how that tree spells the wildcard a
+directory name cannot carry. A ConfigMap key cannot express that
+wildcard at all, which is why the entries that remain sit in one
+`resource.customizations` block rather than in dotted keys.
 
 **What step 2 does not read.** Managed resources. upjet gives every one
 of them a status, so none can be status-less, and their CRDs are large
