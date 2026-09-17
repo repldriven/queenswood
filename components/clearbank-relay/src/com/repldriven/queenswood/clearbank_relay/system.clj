@@ -12,7 +12,11 @@
    :system/config {:record-db system/required-component
                    :record-store system/required-component
                    :clearbank-url system/required-component
+                   :schemas system/required-component
                    :max-attempts nil
+                   :initial-backoff-ms nil
+                   :max-backoff-ms nil
+                   :post-fn nil
                    :poll-ms nil}
    :system/instance-schema map?})
 

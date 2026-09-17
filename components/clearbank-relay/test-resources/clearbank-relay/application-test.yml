@@ -1,4 +1,5 @@
 system:
+  avro: !include system/avro.yml
   fdb: !include system/fdb-test.yml
   message-bus: !include clearbank-relay/message-bus-test.yml
   relay-handler:
