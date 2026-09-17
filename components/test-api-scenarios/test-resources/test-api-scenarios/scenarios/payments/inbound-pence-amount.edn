@@ -1,0 +1,117 @@
+{:name "An inbound of 0.29 credits exactly 29 pence"
+ :tags #{:api :inbound :payments :happy}
+ ;; The ClearBank simulator's inbound payment carries its amount in pounds,
+ ;; and the adapter converts the webhook's Amount to minor units. 0.29 is
+ ;; the value a floating-point conversion truncates to 28, so an empty
+ ;; account's posted balance must land on 29 exactly. Balances are in
+ ;; pence.
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-ipa-create-bank-001"}
+             :body {:name "Inbound Pence Amount"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :bank-0
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :bank-0 :client-id]
+         :client-secret [:ref :bank-0 :client-secret]
+         :status :live}
+   :as :bank-0-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-ipa-create-prod-001"}
+             :body {:name "Current"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-01-01"}}
+   :as :current-draft
+   :assert {:status 201 :body {:status "draft"}}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :current-draft :product-id]
+                  :version-id [:ref :current-draft :version-id]}
+    :auth :bank-0-token}
+   :assert {:status 200 :body {:status "published"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-ipa-create-party"}
+             :body {:type "person"
+                    :display-name "Trillian Astra"
+                    :given-name "Trillian"
+                    :family-name "Astra"
+                    :date-of-birth "1960-03-11"
+                    :nationality "GB"
+                    :address {:building-number "7"
+                              :street "Islington Row"
+                              :town "London"
+                              :postcode "N1 8QH"
+                              :country "GBR"}
+                    :national-identifier {:type "national-insurance"
+                                          :value "TN555932A"
+                                          :issuing-country "GB"}}}
+   :as :trillian
+   :assert {:status 200 :body {:status "pending"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}"
+             :path-params {:party-id [:ref :trillian :party-id]}
+             :auth :bank-0-token}
+   :until {:status 200 :body {:status "active"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-ipa-open-creditor"}
+             :body {:party-id [:ref :trillian :party-id]
+                    :name "Trillian Current"
+                    :currency "GBP"
+                    :product-id [:ref :current-draft :product-id]}}
+   :as :creditor
+   :assert {:status 200 :body {:account-status "opening"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :creditor :account-id]}
+             :auth :bank-0-token}
+   :until {:status 200 :body {:account-status "opened"}}
+   :as :creditor}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :creditor :account-id]}
+             :auth :bank-0-token}
+   :assert {:status 200
+            :body {:posted-balance {:value 0 :currency "GBP"}}}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :base :clearbank-simulator
+             :path "/simulate/inbound-payment"
+             :body {:bban [:ref :creditor :bban]
+                    :amount 0.29
+                    :currency "GBP"
+                    :reference "Pence amount"
+                    :debtor-name "Pence Sender"}}
+   :assert {:status 202}}]
+ :then
+ [{:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :creditor :account-id]}
+             :auth :bank-0-token}
+   :until {:status 200
+           :body {:posted-balance {:value 29 :currency "GBP"}
+                  :available-balance {:value 29 :currency "GBP"}}}
+   :timeout-ms 10000}]}
