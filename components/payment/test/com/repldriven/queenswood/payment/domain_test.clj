@@ -357,6 +357,137 @@
       (is (error/anomaly? result))
       (is (= :payment/currency-mismatch (error/kind result))))))
 
+(defn- inbound-count-capped
+  [cap]
+  [{:enabled true
+    :capabilities [{:effect :effect-allow
+                    :kind {:inbound-payment
+                           {:action :inbound-payment-action-receive}}}]
+    :limits [{:kind {:inbound-payment {}}
+              :bound {:kind {:max {:aggregate
+                                   {:kind {:count {:value cap
+                                                   :window
+                                                   :time-window-daily}}}}}}}]}])
+
+(defn- inbound-count
+  [n]
+  {:inbound-payment {#{:bank-id :business-day} n}})
+
+(deftest check-inbound-acceptance-test
+  (let [data {:currency "GBP" :amount 100}
+        creditor (account "creditor" "GBP")]
+    (testing "an acceptable inbound passes"
+      (is (nil? (SUT/check-inbound-acceptance data
+                                              creditor
+                                              (allow-all)
+                                              (inbound-count 0)))))
+    (testing "a currency the creditor account does not hold is refused"
+      (let [result (SUT/check-inbound-acceptance {:currency "EUR" :amount 100}
+                                                 creditor
+                                                 (allow-all)
+                                                 (inbound-count 0))]
+        (is (SUT/refused? result))
+        (is (= :payment/currency-mismatch (error/kind result)))))
+    (testing "no receive capability is refused"
+      (let [result
+            (SUT/check-inbound-acceptance data creditor [] (inbound-count 0))]
+        (is (SUT/refused? result))
+        (is (= :policy/denied (error/kind result)))))
+    (testing "an inbound past the daily count is refused"
+      (let [result (SUT/check-inbound-acceptance data
+                                                 creditor
+                                                 (inbound-count-capped 2)
+                                                 (inbound-count 2))]
+        (is (SUT/refused? result))
+        (is (= :policy/limit-exceeded (error/kind result)))))
+    (testing "a failure is not a refusal"
+      (is (not (SUT/refused? (error/fail :payment/settle-inbound
+                                         {:message "Failed"})))))))
+
+(deftest inbound-release->transaction-test
+  (let [held {:payment-id "pmt-held"
+              :bank-id "bank"
+              :currency "GBP"
+              :amount 700
+              :business-day 20000}
+        creditor (account "creditor" "GBP")]
+    (testing "an accepted release credits the creditor from 1100"
+      (let [tx (SUT/inbound-release->transaction held
+                                                 creditor
+                                                 "1100"
+                                                 (allow-all)
+                                                 (inbound-count 0))]
+        (is (= "release-in-pmt-held" (:idempotency-key tx)))
+        (is (= {:account-id "1100" :amount 700}
+               (select-keys (side tx :leg-side-debit) [:account-id :amount])))
+        (is (= {:account-id "creditor" :amount 700}
+               (select-keys (side tx :leg-side-credit) [:account-id :amount])))
+        (is (balanced? tx))))
+    (testing "a release past the daily count is refused"
+      (let [result (SUT/inbound-release->transaction held
+                                                     creditor
+                                                     "1100"
+                                                     (inbound-count-capped 2)
+                                                     (inbound-count 2))]
+        (is (SUT/refused? result))
+        (is (= :policy/limit-exceeded (error/kind result)))))
+    (testing "a release without the receive capability is refused"
+      (let [result (SUT/inbound-release->transaction held
+                                                     creditor
+                                                     "1100"
+                                                     []
+                                                     (inbound-count 0))]
+        (is (SUT/refused? result))
+        (is (= :policy/denied (error/kind result)))))))
+
+(deftest release-count-test
+  (let [held {:business-day 20000}]
+    (testing "a release on the held day leaves the held record uncounted"
+      (is (= 2 (SUT/release-count 3 held 20000))))
+    (testing "a release on a later day counts every inbound of that day"
+      (is (= 3 (SUT/release-count 3 held 20001))))))
+
+(deftest suspended-from-held-test
+  (let [held {:payment-id "pmt-held"
+              :creditor-account-id "creditor"
+              :scheme-transaction-id "held-placeholder"
+              :payment-status :inbound-payment-status-held
+              :updated-at 1700000000000}
+        suspended (SUT/suspended-from-held held "stx-9" "txn-9")]
+    (is (= :inbound-payment-status-suspended (:payment-status suspended)))
+    (is (= "stx-9" (:scheme-transaction-id suspended)))
+    (is (= "txn-9" (:transaction-id suspended)))
+    (is (= "creditor" (:creditor-account-id suspended)))
+    (is (>= (:updated-at suspended) (:updated-at held)))))
+
+(deftest select-hold-to-return-test
+  (let [hold-a {:payment-id "pmt-a"}
+        hold-b {:payment-id "pmt-b"}]
+    (testing "no open hold selects nothing"
+      (is (nil? (SUT/select-hold-to-return [] "e2e-1"))))
+    (testing "one open hold is selected"
+      (is (= hold-a (SUT/select-hold-to-return [hold-a] "e2e-1"))))
+    (testing "two open holds fail, naming the id and both candidates"
+      (let [result (SUT/select-hold-to-return [hold-a hold-b] "e2e-1")]
+        (is (error/error? result))
+        (is (= :payment/ambiguous-hold (error/kind result)))
+        (is (= {:end-to-end-id "e2e-1" :payment-ids ["pmt-a" "pmt-b"]}
+               (select-keys (error/payload result)
+                            [:end-to-end-id :payment-ids])))
+        (is (string? (:message (error/payload result))))))))
+
+(deftest settleable-outbound?-test
+  (testing "pending and held settle"
+    (is (SUT/settleable-outbound? {:payment-status
+                                   :outbound-payment-status-pending}))
+    (is (SUT/settleable-outbound? {:payment-status
+                                   :outbound-payment-status-held})))
+  (testing "completed and failed do not"
+    (doseq [status [:outbound-payment-status-completed
+                    :outbound-payment-status-failed]]
+      (is (not (SUT/settleable-outbound? {:payment-status status}))
+          (str status " is not settleable")))))
+
 (deftest completed-outbound-payment-test
   (testing "flips :payment-status to completed"
     (let [pending {:payment-id "pmt-1"
@@ -371,6 +502,54 @@
         (is (= 250 (:amount completed))))
       (testing "bumps :updated-at past the original"
         (is (>= (:updated-at completed) (:updated-at pending)))))))
+
+(def ^:private sweep-thresholds
+  {:republish-after-ms 900000 :report-after-ms 86400000})
+
+(defn- outbound
+  [payment-id payment-status created-at]
+  {:payment-id payment-id
+   :bank-id "bnk.sweep"
+   :payment-status payment-status
+   :created-at created-at})
+
+(deftest sweep-actions-test
+  (let [created-at 1700000000000
+        past-republish (+ created-at 900001)
+        past-report (+ created-at 86400001)
+        young-pending
+        (outbound "pmt.young" :outbound-payment-status-pending past-republish)
+        old-pending
+        (outbound "pmt.pending" :outbound-payment-status-pending created-at)
+        old-held (outbound "pmt.held" :outbound-payment-status-held created-at)
+        old-completed
+        (outbound "pmt.completed" :outbound-payment-status-completed created-at)
+        old-failed
+        (outbound "pmt.failed" :outbound-payment-status-failed created-at)
+        payments [young-pending old-pending old-held old-completed old-failed]]
+    (testing "past the republish threshold, an old pending republishes"
+      (let [{:keys [republish report]}
+            (SUT/sweep-actions payments past-republish sweep-thresholds)]
+        (is (= ["pmt.pending"] (mapv :payment-id republish)))
+        (is (= [] report))))
+    (testing "past the report threshold, old pending and held report"
+      (let [{:keys [republish report]}
+            (SUT/sweep-actions payments past-report sweep-thresholds)]
+        (is (= ["pmt.young" "pmt.pending"] (mapv :payment-id republish)))
+        (is (= [{:payment-id "pmt.pending"
+                 :bank-id "bnk.sweep"
+                 :payment-status :outbound-payment-status-pending
+                 :age-ms 86400001}
+                {:payment-id "pmt.held"
+                 :bank-id "bnk.sweep"
+                 :payment-status :outbound-payment-status-held
+                 :age-ms 86400001}]
+               report))))
+    (testing "a young pending payment gives nothing"
+      (is (= {:republish [] :report []}
+             (SUT/sweep-actions [young-pending]
+                                past-republish
+                                sweep-thresholds))))))
 
 (defn- ts
   "Epoch-millis from an ISO-8601 instant string."

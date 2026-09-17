@@ -120,16 +120,6 @@
                                                   bank-id
                                                   idempotency-key))
 
-(defn get-held-inbound-by-end-to-end-id
-  "Return the open `held` InboundPayment for `end-to-end-id`, or nil. A
-  read primitive for the write sibling's hold/settle/return handlers.
-
-  Args:
-  - txn: FDB handle or open transaction.
-  - end-to-end-id: the scheme's end-to-end identifier."
-  [txn end-to-end-id]
-  (store/get-held-inbound-by-end-to-end-id txn end-to-end-id))
-
 (defn find-open-holds
   "Return every `held` InboundPayment for `end-to-end-id`, oldest first.
   The end-to-end id is not unique: one can carry holds for several
