@@ -259,6 +259,13 @@ and the anomaly propagates back through the command pipeline
 to the API edge, where the error mapping (service-apis TDD)
 turns `:unauthorized/policy-*` into 403.
 
+An inbound payment is the exception. Its money has already
+arrived, so a refusal parks it rather than rejecting it: the
+payment event processor posts the receipt to the bank's 2500
+suspense and records a `suspended` InboundPayment, on
+settlement and on the release of a hold alike. See
+[payments.md](payments.md).
+
 ### Why declarative beats imperative here
 
 - **Visible.** A list of policies is a list of rules. You

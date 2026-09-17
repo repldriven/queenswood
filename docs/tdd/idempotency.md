@@ -369,6 +369,11 @@ processor's index outlives the cache entry.
   `POST /v1/cash-account-migrations` and
   `POST /v1/simulate/banks/{bank-id}/inbound-transfer`, each read
   back off a unique index headed by `bank_id`.
+- On the two payment routes the index also catches a redelivered
+  command, which the payment processor answers with the original
+  payment as ACCEPTED. A retry under a different key is a new request
+  to both layers, and creates a second payment. See
+  [payments.md](payments.md).
 - `POST /v1/cash-accounts/{account-id}/rotate-address` keeps the key
   of the last rotation on the account rather than in an index. A
   retry under that key returns the address the first rotation
