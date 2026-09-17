@@ -1,0 +1,148 @@
+{:name "An outbound refused in the submission response fails and is reversed"
+ :tags #{:api :outbound :payments :unhappy}
+ ;; ClearBank can answer a submission 202 with a per-instruction response
+ ;; other than Accepted. The simulator does so for a creditor sort code of
+ ;; 999998, and fires no webhook. The relay fails the intent on that
+ ;; attempt and writes a transaction-rejected event coded
+ ;; CB_SubmissionRefused, so the payment brick reverses the reservation
+ ;; and the payment reads "failed". The debtor is funded through the
+ ;; simulator's inbound payment, whose amount is in pounds. Balances are
+ ;; in pence.
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-osr-create-bank-001"}
+             :body {:name "Outbound Submission Refused"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :bank-0
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :bank-0 :client-id]
+         :client-secret [:ref :bank-0 :client-secret]
+         :status :live}
+   :as :bank-0-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-osr-create-prod-001"}
+             :body {:name "Current"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-01-01"}}
+   :as :current-draft
+   :assert {:status 201 :body {:status "draft"}}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :current-draft :product-id]
+                  :version-id [:ref :current-draft :version-id]}
+    :auth :bank-0-token}
+   :assert {:status 200 :body {:status "published"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-osr-create-party"}
+             :body {:type "person"
+                    :display-name "Slartibartfast Magrathea"
+                    :given-name "Slartibartfast"
+                    :family-name "Magrathea"
+                    :date-of-birth "1950-06-01"
+                    :nationality "GB"
+                    :address {:building-number "12"
+                              :street "Fjord Lane"
+                              :town "Cottington"
+                              :postcode "CT12 5XY"
+                              :country "GBR"}
+                    :national-identifier {:type "national-insurance"
+                                          :value "TN555933A"
+                                          :issuing-country "GB"}}}
+   :as :slartibartfast
+   :assert {:status 200 :body {:status "pending"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}"
+             :path-params {:party-id [:ref :slartibartfast :party-id]}
+             :auth :bank-0-token}
+   :until {:status 200 :body {:status "active"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-osr-open-debtor"}
+             :body {:party-id [:ref :slartibartfast :party-id]
+                    :name "Slartibartfast Current"
+                    :currency "GBP"
+                    :product-id [:ref :current-draft :product-id]}}
+   :as :debtor
+   :assert {:status 200 :body {:account-status "opening"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :debtor :account-id]}
+             :auth :bank-0-token}
+   :until {:status 200 :body {:account-status "opened"}}
+   :as :debtor}
+  {:command :api/request
+   :request {:method :post
+             :base :clearbank-simulator
+             :path "/simulate/inbound-payment"
+             :body {:bban [:ref :debtor :bban]
+                    :amount 1000
+                    :currency "GBP"
+                    :reference "Submission refused funding"
+                    :debtor-name "Funding Sender"}}
+   :assert {:status 202}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :debtor :account-id]}
+             :auth :bank-0-token}
+   :until {:status 200
+           :body {:available-balance {:value 100000 :currency "GBP"}}}
+   :timeout-ms 10000}]
+ :when
+ ;; Outbound £25 to a creditor whose sort code (999998) the simulator
+ ;; refuses. The submission reserves the amount before the relay sends it.
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/payments/outbound"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-osr-outbound-001"}
+             :body {:debtor-account-id [:ref :debtor :account-id]
+                    :creditor-bban "99999800000001"
+                    :creditor-name "Refused Creditor"
+                    :currency "GBP"
+                    :amount 2500
+                    :scheme "fps"
+                    :reference "Submission refused"}}
+   :as :payment
+   :assert {:status 200 :body {:payment-status "pending"}}}]
+ :then
+ ;; The payment fails with the refusal code, and the £25 returns to the
+ ;; debtor's available balance, which was never posted away.
+ [{:command :api/poll
+   :request {:method :get
+             :path "/v1/payments/outbound/{payment-id}"
+             :path-params {:payment-id [:ref :payment :payment-id]}
+             :auth :bank-0-token}
+   :until {:status 200
+           :body {:payment-status "failed"
+                  :cancellation-code "CB_SubmissionRefused"}}
+   :timeout-ms 10000}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :debtor :account-id]}
+             :auth :bank-0-token}
+   :until {:status 200
+           :body {:posted-balance {:value 100000 :currency "GBP"}
+                  :available-balance {:value 100000 :currency "GBP"}}}
+   :timeout-ms 10000}]}
