@@ -48,6 +48,11 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-payments-command-dlq
           acks: all
+      schemes-payments-event-dlq:
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          topic: topic-schemes-payments-event-dlq
+          acks: all
       transactions-command-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
@@ -78,6 +83,8 @@ system:
         schemas: !system/local-ref schemas
         schema: !keyword event
         topics: [topic-schemes-payments-event]
+        dead-letter-producer: !system/local-ref producers.schemes-payments-event-dlq
+        max-redeliveries: 5
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           group.id: payment-service-schemes-payments-event
