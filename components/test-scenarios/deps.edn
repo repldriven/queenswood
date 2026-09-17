@@ -2,5 +2,6 @@
  :deps {io.vouch/fugato {:git/url
                          "https://github.com/vouch-opensource/fugato.git"
                          :git/sha "4c1f687bca84f1f7777f347acdaafd49c182eae0"}
-        metosin/malli {:mvn/version "0.20.1"}}
+        metosin/malli {:mvn/version "0.20.1"}
+        pin/clojure-core-async {:local/root "../../deps/clojure-core-async"}}
  :aliases {:test {:extra-paths ["test" "test-resources"] :extra-deps {}}}}

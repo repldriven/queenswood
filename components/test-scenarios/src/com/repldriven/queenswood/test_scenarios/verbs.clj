@@ -2,6 +2,7 @@
   (:require
     [com.repldriven.queenswood.test-scenarios.id-mapping :as id-mapping]
     [com.repldriven.queenswood.test-scenarios.invariants :as invariants]
+    [com.repldriven.queenswood.test-scenarios.observer :as observer]
     [com.repldriven.queenswood.test-scenarios.quiescence :as quiescence]
 
     [com.repldriven.queenswood.balance-query.interface :as balances-query]
@@ -24,13 +25,16 @@
     [com.repldriven.queenswood.party-query.interface :as party-query]
     [com.repldriven.queenswood.party.interface :as party]
     [com.repldriven.queenswood.payee-check.interface :as payee-check]
+    [com.repldriven.queenswood.payment-query.interface :as payment-query]
     [com.repldriven.queenswood.payment.interface :as payment]
     [com.repldriven.queenswood.policy.interface :as policy]
     [com.repldriven.queenswood.scheduler.interface :as scheduler]
     [com.repldriven.queenswood.test-projections.interface :as projections]
     [com.repldriven.queenswood.transaction.interface :as transactions]
 
+    [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.error.interface :as error]
+    [com.repldriven.mono.event.interface :as event]
     [com.repldriven.mono.utility.interface :as utility]
 
     [clojure.test :refer [is]]))
@@ -107,6 +111,12 @@
 (defn- model-id-for-next-payment
   [next-payment-id]
   (keyword (str "pmt-" next-payment-id)))
+
+(defn- end-to-end-id
+  "A keyword names an end-to-end id unique to this run, so a scenario can
+  refer to one it made up; a string is taken as it is."
+  [{:keys [run-id]} e2e-ref]
+  (if (keyword? e2e-ref) (str "scen-e2e-" run-id "-" (name e2e-ref)) e2e-ref))
 
 (def ^:private product-type->template-id
   "Maps the internal product-type kind to the stable id of the platform
@@ -626,9 +636,11 @@
 
 (defmethod dispatch :hold-inbound
   [{:keys [bank accounts next-inbound-id run-id] :as ctx}
-   {[model-acct amount] :args}]
+   {[model-acct amount e2e-ref] :args}]
   (let [bban (get-in accounts [model-acct :bban])
-        e2e (str "scen-held-" run-id "-" next-inbound-id)
+        e2e (if e2e-ref
+              (end-to-end-id ctx e2e-ref)
+              (str "scen-held-" run-id "-" next-inbound-id))
         result (payment/hold-inbound bank
                                      {:end-to-end-id e2e
                                       :scheme "FPS"
@@ -750,6 +762,15 @@
         (update :counter inc)
         (track result))))
 
+(def ^:private external-creditor-bban
+  "A creditor BBAN no bank in the run holds, which the simulator settles."
+  "040004000000001")
+
+(def ^:private refused-creditor-bban
+  "A creditor BBAN under sort code 999998, which the simulator refuses at
+  submission, so the payment is rejected rather than settled."
+  "99999800000001")
+
 (defmethod dispatch :outbound-payment
   [{:keys [bank counter id-mapping banks accounts run-id next-payment-id]
     :as ctx} {args :args}]
@@ -763,7 +784,7 @@
         [model-acct amount creditor-bban creditor-name]
         (case (count args)
           2 (let [[a amt] args]
-              [a amt "040004000000001"
+              [a amt external-creditor-bban
                (str "Scenario External Creditor " counter)])
           3 (let [[a c amt] args]
               [a amt (get-in accounts [c :bban])
@@ -821,6 +842,72 @@
         (update :counter inc)
         (track result))))
 
+(defn- submit-external-outbound
+  [{:keys [bank counter id-mapping banks accounts run-id]} model-acct amount
+   creditor-bban]
+  (let [model-bank (get-in accounts [model-acct :bank])]
+    (payment/submit-outbound
+     bank
+     {:idempotency-key (str "scen-pay-" run-id "-" counter)
+      :bank-id (get-in banks [model-bank :real-id])
+      :debtor-account-id (id-mapping/real id-mapping model-acct)
+      :scheme "FPS"
+      :currency "GBP"
+      :amount amount
+      :reference (str "scenario payment " counter)
+      :creditor-bban creditor-bban
+      :creditor-name (str "Scenario External Creditor " counter)})))
+
+(defn- record-payment
+  [{:keys [next-payment-id] :as ctx} result]
+  (let [real-pmt-id (:payment-id result)]
+    (cond-> ctx
+            real-pmt-id
+            (-> (assoc-in [:payments
+                           (model-id-for-next-payment next-payment-id)]
+                          {:real-id real-pmt-id})
+                (update :next-payment-id inc)))))
+
+(defmethod dispatch :outbound-payment-redelivered
+  [{:keys [bank] :as ctx} {[model-acct amount] :args}]
+  (let [first-result
+        (submit-external-outbound ctx model-acct amount external-creditor-bban)
+        result (if (error/anomaly? first-result)
+                 first-result
+                 (submit-external-outbound ctx
+                                           model-acct
+                                           amount
+                                           external-creditor-bban))
+        _ (when-let [payment-id (:payment-id result)]
+            (quiescence/wait-for-outbound-completed bank payment-id))]
+    (-> ctx
+        (record-payment result)
+        (update :counter inc)
+        (track result))))
+
+(defmethod dispatch :outbound-payment-pending
+  [ctx {[model-acct amount] :args}]
+  (let [result
+        (submit-external-outbound ctx model-acct amount refused-creditor-bban)]
+    (-> ctx
+        (record-payment result)
+        (update :counter inc)
+        (track result))))
+
+(defmethod dispatch :reject-outbound-payment
+  [{:keys [bank payments] :as ctx} {[model-pmt] :args}]
+  (let [real-pmt-id (get-in payments [model-pmt :real-id])
+        result (payment/reject-outbound bank
+                                        {:end-to-end-id real-pmt-id
+                                         :scheme "FPS"
+                                         :debit-credit-code
+                                         :debit-credit-code-debit
+                                         :cancellation-code "SCENARIO_REJECTED"
+                                         :timestamp-rejected (utility/now)})]
+    (-> ctx
+        (update :counter inc)
+        (track result))))
+
 (defmethod dispatch :wait
   [ctx {[duration-ms] :args}]
   (Thread/sleep ^long duration-ms)
@@ -860,6 +947,23 @@
                  :debtor-name "Scenario Settler"
                  :reference (str "scenario settlement " counter)
                  :timestamp-settled (utility/now)})]
+    (-> ctx
+        (update :counter inc)
+        (track result))))
+
+(defmethod dispatch :publish-scheme-event
+  [{:keys [bank] :as ctx} {[event-name data] :args}]
+  (let [{:keys [bus schemas]} bank
+        data
+        (update data :end-to-end-id (fn [e2e-ref] (end-to-end-id ctx e2e-ref)))
+        result (error/let-nom> [payload (avro/serialize (get schemas event-name)
+                                                        data)]
+                 (event/publish
+                  bus
+                  (assoc (event/envelope event-name nil (str (utility/uuidv7)))
+                         :payload
+                         payload)
+                  {:event-channel :schemes-payments-event}))]
     (-> ctx
         (update :counter inc)
         (track result))))
@@ -1097,6 +1201,136 @@
         actual (- (:credit balance 0) (:debit balance 0))]
     (is (= expected actual)
         (str "GL " (name gl-account-code) " balance for " model-bank))
+    ctx))
+
+(def ^:private observed-deadline-ms
+  "How long an assertion waits for a Kafka observer, whose consumer polls
+  every 500 ms, to see what it expects."
+  10000)
+
+(defn- decode-message
+  "Decode `bytes` as an envelope under `envelope-schemas`' `envelope-name`,
+  then its payload by the name the envelope carries at `name-key`. Returns
+  the payload with that name assoc'd at `name-key`, or an anomaly."
+  [envelope-schemas schemas envelope-name name-key bytes]
+  (error/let-nom>
+    [envelope (avro/deserialize-same (get envelope-schemas envelope-name)
+                                     bytes)
+     message-name (get envelope name-key)
+     data (avro/deserialize-same (get schemas message-name)
+                                 (:payload envelope))]
+    (assoc data name-key message-name)))
+
+(defn- scheme-command-count
+  [{:keys [bank scheme-commands envelope-schemas]} payment-id]
+  (->> (observer/records scheme-commands)
+       (map (fn [bytes]
+              (decode-message envelope-schemas
+                              (:schemas bank)
+                              "command"
+                              :command
+                              bytes)))
+       (filter (fn [command]
+                 (and (= "submit-payment" (:command command))
+                      (= payment-id (:end-to-end-id command)))))
+       count))
+
+(defmethod dispatch :assert-scheme-commands
+  [{:keys [scheme-commands payments] :as ctx} {[model-pmt expected] :args}]
+  (let [payment-id (get-in payments [model-pmt :real-id])
+        actual (quiescence/wait-for-count
+                (fn [] (scheme-command-count ctx payment-id))
+                expected
+                observed-deadline-ms)]
+    (is (some? scheme-commands) "the runner has no scheme command observer")
+    (is (= expected actual) (str "submit-payment commands for " model-pmt))
+    ctx))
+
+(defn- intent-count
+  [bank dedup-key]
+  (fdb/transact bank
+                (fn [txn]
+                  (count (fdb/query-records
+                          (fdb/open txn "clearbank-outbound-intents")
+                          "ClearbankOutboundIntent"
+                          "dedup_key"
+                          dedup-key
+                          {:index "ClearbankOutboundIntent_by_dedup_key"})))
+                :scenario/intents
+                "Failed to count outbound intents"))
+
+(defmethod dispatch :assert-intents
+  [{:keys [bank payments] :as ctx} {[model-pmt expected] :args}]
+  (let [payment-id (get-in payments [model-pmt :real-id])
+        actual (quiescence/wait-for-count (fn [] (intent-count bank payment-id))
+                                          expected
+                                          observed-deadline-ms)]
+    (is (= expected actual) (str "outbound intents for " model-pmt))
+    ctx))
+
+(defmethod dispatch :assert-dead-lettered
+  [{:keys [bank dead-letters envelope-schemas] :as ctx}
+   {[e2e-ref timeout-ms] :args}]
+  (let [e2e (end-to-end-id ctx e2e-ref)
+        dead-lettered (fn []
+                        (->> (observer/records dead-letters)
+                             (map (fn [bytes]
+                                    (decode-message envelope-schemas
+                                                    (:schemas bank)
+                                                    "event"
+                                                    :event
+                                                    bytes)))
+                             (filter (fn [data] (= e2e (:end-to-end-id data))))
+                             count))
+        actual (quiescence/wait-for-count dead-lettered 1 timeout-ms)]
+    (is (some? dead-letters) "the runner has no dead-letter observer")
+    (is (and (number? actual) (pos? actual))
+        (str "no event for end-to-end id "
+             e2e
+             " reached the dead-letter topic within "
+             timeout-ms
+             "ms"))
+    ctx))
+
+(def ^:private inbound-payment-statuses
+  [:inbound-payment-status-settled
+   :inbound-payment-status-suspended
+   :inbound-payment-status-held
+   :inbound-payment-status-returned])
+
+(defn- inbound-statuses
+  "The statuses of the inbound payments carrying `e2e` in the run's banks,
+  narrowed to those crediting `account-id` when it is non-nil. Returns a
+  vector, or the first anomaly a read returns."
+  [bank banks e2e account-id]
+  (reduce
+   (fn [statuses [bank-id status]]
+     (let [payments (payment-query/list-inbound-payments bank bank-id status)]
+       (if (error/anomaly? payments)
+         (reduced payments)
+         (into statuses
+               (comp (filter (fn [p]
+                               (and (= e2e (:end-to-end-id p))
+                                    (or (nil? account-id)
+                                        (= account-id
+                                           (:creditor-account-id p))))))
+                     (map :payment-status))
+               payments))))
+   []
+   (for [{bank-id :real-id} (vals banks)
+         status inbound-payment-statuses]
+     [bank-id status])))
+
+(defmethod dispatch :assert-inbound-status
+  [{:keys [bank banks id-mapping] :as ctx}
+   {[e2e-ref expected model-acct] :args}]
+  (let [e2e (end-to-end-id ctx e2e-ref)
+        account-id (when model-acct (id-mapping/real id-mapping model-acct))
+        actual (inbound-statuses bank banks e2e account-id)]
+    (is (= [expected] actual)
+        (str "inbound payments for end-to-end id "
+             e2e
+             (when model-acct (str " crediting " model-acct))))
     ctx))
 
 (defn- interest-payable-net

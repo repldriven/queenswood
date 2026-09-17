@@ -7,6 +7,7 @@
   (:require
     [com.repldriven.queenswood.test-scenarios.id-mapping :as id-mapping]
     [com.repldriven.queenswood.test-scenarios.invariants :as invariants]
+    [com.repldriven.queenswood.test-scenarios.observer :as observer]
     [com.repldriven.queenswood.test-scenarios.quiescence :as quiescence]
     [com.repldriven.queenswood.test-scenarios.scenario :as scenario]
     [com.repldriven.queenswood.test-scenarios.verbs :as verbs]
@@ -23,27 +24,65 @@
   resolved per-bank at verb-dispatch time from the chart of
   accounts.
 
+  The verbs that read a Kafka topic (`:assert-scheme-commands`,
+  `:assert-dead-lettered`) need the observers; without them those
+  assertions fail.
+
   Args:
-  - bank: FDB config map (`:record-db` / `:record-store`)."
-  [bank]
-  {:bank bank
-   :identity-provider (identity-provider/local-provider {})
-   :id-mapping id-mapping/init
-   :banks {}
-   :products {}
-   :migrations {}
-   :parties {}
-   :accounts {}
-   :payments {}
-   :next-model-id 0
-   :next-bank-id 0
-   :next-product-id 0
-   :next-party-id 0
-   :next-payment-id 0
-   :next-inbound-id 0
-   :run-id (str (util/uuidv7))
-   :counter 0
-   :outcomes []})
+  - bank: FDB config map (`:record-db` / `:record-store`), carrying the
+    `:bus` and `:schemas` the payment verbs publish with.
+  - observers (optional map):
+    - `:scheme-commands` — an observer, from `start-observer`, of
+      `topic-schemes-payment-command`.
+    - `:dead-letters` — an observer of
+      `topic-schemes-payments-event-dlq`.
+    - `:envelope-schemas` — the serde the Kafka envelopes are written
+      with, `\"command\"` and `\"event\"`."
+  ([bank] (fresh-context bank {}))
+  ([bank {:keys [scheme-commands dead-letters envelope-schemas]}]
+   {:bank bank
+    :scheme-commands scheme-commands
+    :dead-letters dead-letters
+    :envelope-schemas envelope-schemas
+    :identity-provider (identity-provider/local-provider {})
+    :id-mapping id-mapping/init
+    :banks {}
+    :products {}
+    :migrations {}
+    :parties {}
+    :accounts {}
+    :payments {}
+    :next-model-id 0
+    :next-bank-id 0
+    :next-product-id 0
+    :next-party-id 0
+    :next-payment-id 0
+    :next-inbound-id 0
+    :run-id (str (util/uuidv7))
+    :counter 0
+    :outcomes []}))
+
+(defn start-observer
+  "Collect every record on a Kafka consumer's topics, from the earliest
+  offset, until `stop-observer`. The records are kept as the raw bytes
+  that arrived. One observer serves a whole run: a stopped consumer is
+  closed and cannot be read again in the same system.
+
+  Args:
+  - consumer: a started `kafka/consumer` component bound to no bus.
+
+  Returns the observer, for `fresh-context`."
+  [consumer]
+  (observer/start consumer))
+
+(defn stop-observer
+  "Stop an observer's consumer. Call it before the system stops. Returns
+  nil.
+
+  Args:
+  - observer: from `start-observer`."
+  [observer]
+  (observer/stop observer))
 
 (defn run-commands
   "Dispatch each command in `commands` against the real bank,

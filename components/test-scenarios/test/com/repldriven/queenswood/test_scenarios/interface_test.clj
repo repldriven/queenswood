@@ -47,6 +47,22 @@
    :schemas (system/instance sys [:avro :serde])
    :scheme-payment-command-channel :schemes-payment-command})
 
+(defn- start-observers
+  [sys]
+  {:scheme-commands (SUT/start-observer
+                     (system/instance sys
+                                      [:kafka :consumers
+                                       :schemes-payment-command-observer]))
+   :dead-letters (SUT/start-observer
+                  (system/instance sys
+                                   [:kafka :consumers
+                                    :schemes-payments-event-dlq]))
+   :envelope-schemas (system/instance sys [:kafka :schemas])})
+
+(defn- stop-observers
+  [{:keys [scheme-commands dead-letters]}]
+  (SUT/stop-observer scheme-commands)
+  (SUT/stop-observer dead-letters))
 
 (defn- scenario-files
   []
@@ -98,7 +114,9 @@
                        model-state)})
 
 (def ^:private assertion-verbs
-  #{:assert-balance :assert-outcome :assert-no-anomaly :assert-rejection-kind})
+  #{:assert-balance :assert-dead-lettered :assert-inbound-status :assert-intents
+    :assert-no-anomaly :assert-outcome :assert-rejection-kind
+    :assert-scheme-commands})
 
 (defn- run-with-model-check
   "Folds `steps` through the runner *and* the model in lock-step.
@@ -113,8 +131,8 @@
   Returns `{:ctx :model-eq-checks :modelled :asserts :unmodelled
             :tracking-cut-off?}` so the caller can log a per-scenario
   summary."
-  [scenario-name bank steps]
-  (loop [ctx (SUT/fresh-context bank)
+  [scenario-name bank observers steps]
+  (loop [ctx (SUT/fresh-context bank observers)
          model-state model/init-state
          remaining steps
          tracking? true
@@ -166,23 +184,27 @@
     (log/info "scenarios starting" {:count (count files)})
     (with-test-system
      [sys ["classpath:test-scenarios/application-test.yml" patch-handlers]]
-     (doseq [f files]
-       (let [resource-path (str "test-scenarios/scenarios/" (.getName f))]
-         (nom-test> [loaded (SUT/from-resource resource-path)
-                     steps (SUT/steps loaded)
-                     _ (log/info "scenario running"
-                                 {:file (.getName f)
-                                  :name (:name loaded)
-                                  :steps (count steps)})
-                     stats (testing (:name loaded)
-                             (run-with-model-check (:name loaded)
-                                                   (fdb-config sys)
-                                                   steps))
-                     _ (log/info "scenario complete"
-                                 {:file (.getName f)
-                                  :model-eq-checks (:model-eq-checks stats)
-                                  :modelled (:modelled stats)
-                                  :asserts (:asserts stats)
-                                  :unmodelled (:unmodelled stats)
-                                  :tracking-cut-off-at (:tracking-cut-off-at
-                                                        stats)})]))))))
+     (let [observers (start-observers sys)]
+       (try
+         (doseq [f files]
+           (let [resource-path (str "test-scenarios/scenarios/" (.getName f))]
+             (nom-test> [loaded (SUT/from-resource resource-path)
+                         steps (SUT/steps loaded)
+                         _ (log/info "scenario running"
+                                     {:file (.getName f)
+                                      :name (:name loaded)
+                                      :steps (count steps)})
+                         stats (testing (:name loaded)
+                                 (run-with-model-check (:name loaded)
+                                                       (fdb-config sys)
+                                                       observers
+                                                       steps))
+                         _ (log/info "scenario complete"
+                                     {:file (.getName f)
+                                      :model-eq-checks (:model-eq-checks stats)
+                                      :modelled (:modelled stats)
+                                      :asserts (:asserts stats)
+                                      :unmodelled (:unmodelled stats)
+                                      :tracking-cut-off-at (:tracking-cut-off-at
+                                                            stats)})])))
+         (finally (stop-observers observers)))))))

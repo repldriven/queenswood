@@ -532,6 +532,12 @@ consumers: !system/component
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       group.id: test-schemes-payment-command
+  schemes-payment-command-observer:
+    _: !system/local-ref topics
+    topics: [topic-schemes-payment-command]
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      group.id: test-schemes-payment-command-observer
   schemes-payment-command-response:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
