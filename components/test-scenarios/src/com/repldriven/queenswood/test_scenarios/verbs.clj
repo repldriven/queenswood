@@ -609,10 +609,12 @@
 
 (defmethod dispatch :inbound-transfer
   [{:keys [bank accounts next-inbound-id run-id] :as ctx}
-   {[model-acct amount] :args}]
+   {[model-acct amount e2e-ref] :args}]
   (let [bban (get-in accounts [model-acct :bban])
         marker (keyword (str "in-" next-inbound-id))
-        stx-id (str "scen-in-" run-id "-" (name marker))
+        stx-id (if e2e-ref
+                 (end-to-end-id ctx e2e-ref)
+                 (str "scen-in-" run-id "-" (name marker)))
         result (payment/settle-inbound
                 bank
                 {:scheme-transaction-id stx-id
@@ -1331,6 +1333,14 @@
         (str "inbound payments for end-to-end id "
              e2e
              (when model-acct (str " crediting " model-acct))))
+    ctx))
+
+(defmethod dispatch :assert-outbound-status
+  [{:keys [bank payments] :as ctx} {[model-pmt expected] :args}]
+  (let [payment-id (get-in payments [model-pmt :real-id])
+        payment (payment-query/get-outbound-payment bank payment-id)]
+    (is (= expected (:payment-status payment))
+        (str "outbound payment status for " model-pmt))
     ctx))
 
 (defn- interest-payable-net
