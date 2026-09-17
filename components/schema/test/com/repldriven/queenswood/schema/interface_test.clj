@@ -7,7 +7,9 @@
   proto — which is what these round-trips are for.
 
   The access records read back what was written, and a membership
-  written before a membership could end reads as active.
+  written before a membership could end reads as active. An inbound
+  payment reads back its creditor account and transaction only when it
+  carries them.
 
   A `transaction-rejected` written with the current schema is read by a
   consumer still on the schema at `stable-20260916112610`, which is the
@@ -91,6 +93,38 @@
                                                       rotated-account))]
       (is (= [{:address payment-address :retired-at 1700000000500}]
              (:retired-payment-addresses body))))))
+
+(def ^:private suspended-inbound
+  "An inbound as `payment/domain` parks it: no creditor account and, until
+  a suspense posting, no transaction."
+  {:payment-id "pmt.01kprbmgcj35ptc8npmybhh4s5"
+   :scheme-transaction-id "01a0b01c-5496-7d64-a052-ad4c57e5d0ef"
+   :end-to-end-id "01a0b01c-546b-76ac-9462-53eec8a61307"
+   :scheme "FasterPayments"
+   :bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
+   :business-day 20713
+   :currency "GBP"
+   :amount 2500
+   :payment-status :inbound-payment-status-suspended
+   :created-at 1700000000000
+   :updated-at 1700000000000})
+
+(deftest inbound-payment-record-round-trip-test
+  (testing "a record with no creditor account or transaction reads neither"
+    (let [payment (SUT/pb->InboundPayment (SUT/InboundPayment->pb
+                                           suspended-inbound))]
+      (is (= :inbound-payment-status-suspended (:payment-status payment)))
+      (is (not (contains? payment :creditor-account-id)))
+      (is (not (contains? payment :transaction-id)))))
+  (testing "a settled record keeps both"
+    (let [payment (SUT/pb->InboundPayment
+                   (SUT/InboundPayment->pb
+                    (assoc suspended-inbound
+                           :payment-status :inbound-payment-status-settled
+                           :creditor-account-id "acc.01kprbmgcj35ptc8npmybhh4s8"
+                           :transaction-id "txn.01kprbmgcj35ptc8npmybhh4t2")))]
+      (is (= "acc.01kprbmgcj35ptc8npmybhh4s8" (:creditor-account-id payment)))
+      (is (= "txn.01kprbmgcj35ptc8npmybhh4t2" (:transaction-id payment))))))
 
 (def ^:private owner
   {:membership-id "mem.01kprbmgcj35ptc8npmybhh4t0"

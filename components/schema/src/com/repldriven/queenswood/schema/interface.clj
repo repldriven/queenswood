@@ -647,10 +647,23 @@
   [m]
   (LedgerAccountProto$LedgerAccount/parseFrom (LedgerAccount->pb m)))
 
-(def ^{:doc "Parse InboundPayment protobuf bytes into a Clojure
-  map."}
-     pb->InboundPayment
-  payments/pb->InboundPayment)
+(defn pb->InboundPayment
+  "Parse InboundPayment protobuf bytes into a Clojure map. Strips the
+  optional `creditor-account-id` and `transaction-id` when they
+  deserialise as the proto2 empty-string default: a suspended inbound
+  credits no account, and a held or returned one posts no transaction,
+  so each key is present only when the record carries a real id.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (let [payment (payments/pb->InboundPayment input)]
+    (cond-> payment
+            (= "" (:creditor-account-id payment))
+            (dissoc :creditor-account-id)
+
+            (= "" (:transaction-id payment))
+            (dissoc :transaction-id))))
 
 (defn InboundPayment->pb
   "Serialise an InboundPayment map to protobuf bytes.
