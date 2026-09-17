@@ -14,3 +14,6 @@ event-processor: !system/component
   business-day-cutoff:
     zone: Europe/London
     hour-of-day: 17
+bus: !system/component
+  system/component-kind: message-bus/local-bus
+  channels: [schemes-payment-command]
