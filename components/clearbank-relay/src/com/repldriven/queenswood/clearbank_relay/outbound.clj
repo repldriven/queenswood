@@ -108,6 +108,13 @@
                           :created-at now}))))
 
 (defn- relay-one
+  "Make the outbound FPS call for one intent OUTSIDE any FDB
+  transaction, then record one of four outcomes: an accepted submission
+  marks the intent sent, a refusal fails it immediately, a transport
+  failure at the attempt cap fails it too, and any earlier transport
+  failure parks it for another attempt one backoff step further out. A
+  retried POST is safe — ClearBank dedupes on endToEndIdentification —
+  which is what lets the schedule retry at all."
   [config now intent]
   (let [{:keys [clearbank-url max-attempts post-fn]} config
         {:keys [intent-id dedup-key request]} intent

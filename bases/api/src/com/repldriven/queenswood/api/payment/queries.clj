@@ -47,35 +47,6 @@
   [request]
   (read-payment payments/find-inbound-payment request))
 
-(defn- paginate
-  [items {:keys [after before size]}]
-  (let [limit (cursor/clamp-size size)]
-    (cond
-     after
-     (let [rest-items (drop-while (fn [item]
-                                    (not (neg? (compare (:payment-id item)
-                                                        after))))
-                                  items)
-           page (vec (take limit rest-items))]
-       {:page page
-        :before (when (seq page) (:payment-id (first page)))
-        :after (when (> (count rest-items) limit) (:payment-id (last page)))})
-
-     before
-     (let [later (take-while (fn [item]
-                               (pos? (compare (:payment-id item) before)))
-                             items)
-           page (vec (take-last limit later))]
-       {:page page
-        :before (when (> (count later) limit) (:payment-id (first page)))
-        :after (when (seq page) (:payment-id (last page)))})
-
-     :else
-     (let [page (vec (take limit items))]
-       {:page page
-        :before nil
-        :after (when (> (count items) limit) (:payment-id (last page)))}))))
-
 (defn- inbound-path
   [status]
   (str "/v1/payments/inbound?status="
@@ -92,10 +63,12 @@
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       (let [{windowed :page next-cursor :after prev-cursor :before}
-            (paginate result
-                      {:after (cursor/decode after)
-                       :before (cursor/decode before)
-                       :size size})
+            (cursor/paginate result
+                             :payment-id
+                             :desc
+                             {:after (cursor/decode after)
+                              :before (cursor/decode before)
+                              :size size})
             links (when (seq windowed)
                     (cursor/build-links (inbound-path status)
                                         (cursor/clamp-size size)

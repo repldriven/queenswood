@@ -648,11 +648,12 @@
   (LedgerAccountProto$LedgerAccount/parseFrom (LedgerAccount->pb m)))
 
 (defn pb->InboundPayment
-  "Parse InboundPayment protobuf bytes into a Clojure map. Strips the
-  optional `creditor-account-id` and `transaction-id` when they
-  deserialise as the proto2 empty-string default: a suspended inbound
-  credits no account, and a held or returned one posts no transaction,
-  so each key is present only when the record carries a real id.
+  "Parse InboundPayment protobuf bytes into a Clojure map, stripping
+  every optional string that deserialises as the proto2 empty-string
+  default so each key is present only when the record carries a real
+  value: a suspended inbound credits no account, a held or returned one
+  posts no transaction, and the scheme supplies `debtor-name` and
+  `reference` only when the debtor's bank sent them.
 
   Args:
   - input: protobuf bytes."
@@ -663,7 +664,13 @@
             (dissoc :creditor-account-id)
 
             (= "" (:transaction-id payment))
-            (dissoc :transaction-id))))
+            (dissoc :transaction-id)
+
+            (= "" (:debtor-name payment))
+            (dissoc :debtor-name)
+
+            (= "" (:reference payment))
+            (dissoc :reference))))
 
 (defn InboundPayment->pb
   "Serialise an InboundPayment map to protobuf bytes.
@@ -687,10 +694,27 @@
      inbound-payment-status->int
   payments/InboundPaymentStatus-label2val)
 
-(def ^{:doc "Parse OutboundPayment protobuf bytes into a Clojure
-  map."}
-     pb->OutboundPayment
-  payments/pb->OutboundPayment)
+(defn pb->OutboundPayment
+  "Parse OutboundPayment protobuf bytes into a Clojure map, stripping
+  every optional string that deserialises as the proto2 empty-string
+  default so each key is present only when the record carries a real
+  value: a payment the caller sent no `reference` for carries none, and
+  only a failed one carries a `cancellation-code` and
+  `cancellation-reason`.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (let [payment (payments/pb->OutboundPayment input)]
+    (cond-> payment
+            (= "" (:reference payment))
+            (dissoc :reference)
+
+            (= "" (:cancellation-code payment))
+            (dissoc :cancellation-code)
+
+            (= "" (:cancellation-reason payment))
+            (dissoc :cancellation-reason))))
 
 (defn OutboundPayment->pb
   "Serialise an OutboundPayment map to protobuf bytes.
@@ -714,10 +738,19 @@
      outbound-payment-status->int
   payments/OutboundPaymentStatus-label2val)
 
-(def ^{:doc "Parse InternalPayment protobuf bytes into a Clojure
-  map."}
-     pb->InternalPayment
-  payments/pb->InternalPayment)
+(defn pb->InternalPayment
+  "Parse InternalPayment protobuf bytes into a Clojure map, stripping
+  the optional `reference` when it deserialises as the proto2
+  empty-string default, so the key is present only on a transfer the
+  caller gave one.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (let [payment (payments/pb->InternalPayment input)]
+    (cond-> payment
+            (= "" (:reference payment))
+            (dissoc :reference))))
 
 (defn InternalPayment->pb
   "Serialise an InternalPayment map to protobuf bytes.
