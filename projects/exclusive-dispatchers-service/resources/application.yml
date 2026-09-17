@@ -5,6 +5,7 @@ system:
     schemas: !system/component
       system/component-kind: avro/serde
       schemas:
+        command: schemas/command/command-envelope.avsc.json
         event: schemas/event/event-envelope.avsc.json
     producers: !system/component
       system/component-kind: kafka/producers
@@ -43,6 +44,13 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-parties-event
           acks: all
+      schemes-payment-command:
+        schemas: !system/local-ref schemas
+        schema: !keyword command
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          topic: topic-schemes-payment-command
+          acks: all
       schemes-payments-event:
         schemas: !system/local-ref schemas
         schema: !keyword event
@@ -62,6 +70,8 @@ system:
         producer: !system/local-ref producers.invitations-event
       parties-event:
         producer: !system/local-ref producers.parties-event
+      schemes-payment-command:
+        producer: !system/local-ref producers.schemes-payment-command
       schemes-payments-event:
         producer: !system/local-ref producers.schemes-payments-event
     # This service only produces. `message-bus/bus` requires a consumers
@@ -158,4 +168,5 @@ system:
       record-store: !system/ref fdb.meta-store
       schemas: !system/ref avro.serde
       scheduler: !system/ref scheduler.scheduler
+  payment-sweep: !include system/payment-outbound-sweep.yml
   telemetry: !include system/telemetry.yml

@@ -503,6 +503,54 @@
       (testing "bumps :updated-at past the original"
         (is (>= (:updated-at completed) (:updated-at pending)))))))
 
+(def ^:private sweep-thresholds
+  {:republish-after-ms 900000 :report-after-ms 86400000})
+
+(defn- outbound
+  [payment-id payment-status created-at]
+  {:payment-id payment-id
+   :bank-id "bnk.sweep"
+   :payment-status payment-status
+   :created-at created-at})
+
+(deftest sweep-actions-test
+  (let [created-at 1700000000000
+        past-republish (+ created-at 900001)
+        past-report (+ created-at 86400001)
+        young-pending
+        (outbound "pmt.young" :outbound-payment-status-pending past-republish)
+        old-pending
+        (outbound "pmt.pending" :outbound-payment-status-pending created-at)
+        old-held (outbound "pmt.held" :outbound-payment-status-held created-at)
+        old-completed
+        (outbound "pmt.completed" :outbound-payment-status-completed created-at)
+        old-failed
+        (outbound "pmt.failed" :outbound-payment-status-failed created-at)
+        payments [young-pending old-pending old-held old-completed old-failed]]
+    (testing "past the republish threshold, an old pending republishes"
+      (let [{:keys [republish report]}
+            (SUT/sweep-actions payments past-republish sweep-thresholds)]
+        (is (= ["pmt.pending"] (mapv :payment-id republish)))
+        (is (= [] report))))
+    (testing "past the report threshold, old pending and held report"
+      (let [{:keys [republish report]}
+            (SUT/sweep-actions payments past-report sweep-thresholds)]
+        (is (= ["pmt.young" "pmt.pending"] (mapv :payment-id republish)))
+        (is (= [{:payment-id "pmt.pending"
+                 :bank-id "bnk.sweep"
+                 :payment-status :outbound-payment-status-pending
+                 :age-ms 86400001}
+                {:payment-id "pmt.held"
+                 :bank-id "bnk.sweep"
+                 :payment-status :outbound-payment-status-held
+                 :age-ms 86400001}]
+               report))))
+    (testing "a young pending payment gives nothing"
+      (is (= {:republish [] :report []}
+             (SUT/sweep-actions [young-pending]
+                                past-republish
+                                sweep-thresholds))))))
+
 (defn- ts
   "Epoch-millis from an ISO-8601 instant string."
   ^long [s]

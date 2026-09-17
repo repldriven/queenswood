@@ -418,6 +418,32 @@
   [payment]
   (contains? settleable-outbound-statuses (:payment-status payment)))
 
+(def ^:private reportable-outbound-statuses
+  #{:outbound-payment-status-pending :outbound-payment-status-held})
+
+(defn republishable-outbound?
+  [payment]
+  (= :outbound-payment-status-pending (:payment-status payment)))
+
+(defn sweep-actions
+  [payments now {:keys [republish-after-ms report-after-ms]}]
+  (let [age-ms (fn [payment] (- now (:created-at payment)))]
+    {:republish (filterv (fn [payment]
+                           (and (republishable-outbound? payment)
+                                (> (age-ms payment) republish-after-ms)))
+                         payments)
+     :report (into []
+                   (comp (filter (fn [payment]
+                                   (and (contains? reportable-outbound-statuses
+                                                   (:payment-status payment))
+                                        (> (age-ms payment) report-after-ms))))
+                         (map (fn [payment]
+                                {:payment-id (:payment-id payment)
+                                 :bank-id (:bank-id payment)
+                                 :payment-status (:payment-status payment)
+                                 :age-ms (age-ms payment)})))
+                   payments)}))
+
 (defn completed-outbound-payment
   [payment]
   (assoc payment
