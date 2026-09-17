@@ -128,23 +128,34 @@
        :reference
        reference))))
 
-(defn inbound-payment->transaction
-  [data creditor-account suspense-account-id policies aggregates]
-  (let [{:keys [scheme-transaction-id currency amount reference]} data
-        {creditor-account-id :account-id bank-id :bank-id}
-        creditor-account]
+(defn check-inbound-acceptance
+  [data creditor-account policies aggregates]
+  (let [{:keys [currency]} data]
     (let-nom>
       [_ (ensure-currency-matches currency creditor-account)
        _ (check-capability policies
                            :inbound-payment
                            :inbound-payment-action-receive)
        _ (check-daily-count policies :inbound-payment aggregates)]
+      nil)))
+
+(defn refused?
+  [result]
+  (or (error/rejection? result) (error/unauthorized? result)))
+
+(defn inbound-payment->transaction
+  [data creditor-account cash-account-id policies aggregates]
+  (let [{:keys [scheme-transaction-id currency amount reference]} data
+        {creditor-account-id :account-id bank-id :bank-id}
+        creditor-account]
+    (let-nom>
+      [_ (check-inbound-acceptance data creditor-account policies aggregates)]
       (utility/assoc-some
        {:bank-id bank-id
         :idempotency-key scheme-transaction-id
         :transaction-type :transaction-type-inbound-transfer
         :currency currency
-        :legs [{:account-id suspense-account-id
+        :legs [{:account-id cash-account-id
                 :balance-type :balance-type-default
                 :balance-status :balance-status-posted
                 :side :leg-side-debit
@@ -259,28 +270,35 @@
      :reference
      reference)))
 
+(defn release-count
+  [today-count held business-day]
+  (if (= business-day (:business-day held))
+    (dec today-count)
+    today-count))
+
 (defn inbound-release->transaction
   "DEBIT 1100 cash-at-correspondent / CREDIT creditor — settle a held inbound
-  on release. No policy/capability checks: the payment was already accepted
-  when it was held."
-  [held creditor-account cash-at-correspondent-id]
+  on release, once it passes the checks a settlement runs."
+  [held creditor-account cash-at-correspondent-id policies aggregates]
   (let [{:keys [bank-id currency amount payment-id]} held
         {creditor-account-id :account-id} creditor-account]
-    {:bank-id bank-id
-     :idempotency-key (str "release-in-" payment-id)
-     :transaction-type :transaction-type-inbound-transfer
-     :currency currency
-     :legs [{:account-id cash-at-correspondent-id
-             :balance-type :balance-type-default
-             :balance-status :balance-status-posted
-             :side :leg-side-debit
-             :amount amount}
-            {:account-id creditor-account-id
-             :product-type (:product-type creditor-account)
-             :balance-type :balance-type-default
-             :balance-status :balance-status-posted
-             :side :leg-side-credit
-             :amount amount}]}))
+    (let-nom>
+      [_ (check-inbound-acceptance held creditor-account policies aggregates)]
+      {:bank-id bank-id
+       :idempotency-key (str "release-in-" payment-id)
+       :transaction-type :transaction-type-inbound-transfer
+       :currency currency
+       :legs [{:account-id cash-at-correspondent-id
+               :balance-type :balance-type-default
+               :balance-status :balance-status-posted
+               :side :leg-side-debit
+               :amount amount}
+              {:account-id creditor-account-id
+               :product-type (:product-type creditor-account)
+               :balance-type :balance-type-default
+               :balance-status :balance-status-posted
+               :side :leg-side-credit
+               :amount amount}]})))
 
 (defn settled-from-held
   "Transition a held inbound to `settled` on release: stamp the real scheme
@@ -291,6 +309,24 @@
          :scheme-transaction-id scheme-transaction-id
          :transaction-id transaction-id
          :updated-at (utility/now)))
+
+(defn suspended-from-held
+  [held scheme-transaction-id transaction-id]
+  (assoc held
+         :payment-status :inbound-payment-status-suspended
+         :scheme-transaction-id scheme-transaction-id
+         :transaction-id transaction-id
+         :updated-at (utility/now)))
+
+(defn select-hold-to-return
+  [holds end-to-end-id]
+  (case (count holds)
+    0 nil
+    1 (first holds)
+    (error/fail :payment/ambiguous-hold
+                {:message "More than one open hold carries the end-to-end id"
+                 :end-to-end-id end-to-end-id
+                 :payment-ids (mapv :payment-id holds)})))
 
 (defn returned-inbound-payment
   "Transition a held inbound to `returned` on decline — the funds went back
@@ -374,6 +410,13 @@
       :updated-at now}
      :reference
      reference)))
+
+(def ^:private settleable-outbound-statuses
+  #{:outbound-payment-status-pending :outbound-payment-status-held})
+
+(defn settleable-outbound?
+  [payment]
+  (contains? settleable-outbound-statuses (:payment-status payment)))
 
 (defn completed-outbound-payment
   [payment]
