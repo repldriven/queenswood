@@ -1,25 +1,15 @@
 (ns com.repldriven.queenswood.payment-query.interface
   "Read-side (query) surface for payments: load internal, outbound and
-  inbound payment records within a bank, or unscoped for the event
-  processors, look them up by idempotency key, match open holds by
-  end-to-end id, list them by status, and count/sum by business day.
+  inbound payment records within a bank, or outbound and inbound
+  unscoped for the event processors, look them up by idempotency key,
+  match open holds by end-to-end id, list them by status, and count/sum
+  by business day.
   `payment-query` is the only payment brick `api` (and other readers) may
   require — it exposes no writes. Submission and settlement live in
   `payment` (command and event processors), which reuses these reads
   inside its own transactions."
   (:require
     [com.repldriven.queenswood.payment-query.store :as store]))
-
-(defn get-internal-payment
-  "Load an internal payment by id.
-
-  Args:
-  - txn: FDB handle or open transaction.
-  - payment-id: the payment's id.
-
-  Returns the payment map or nil."
-  [txn payment-id]
-  (store/get-internal-payment txn payment-id))
 
 (defn find-internal-payment
   "Load `bank-id`'s internal payment by id. Another bank's payment reads

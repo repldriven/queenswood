@@ -235,6 +235,14 @@
                               :format "date-time"
                               :description "Latest delivery creation"}}}})
 
+(def InboundPaymentStatusQuery
+  "`status` query parameter on the inbound payment list: the one status
+  the list returns."
+  {:name "status"
+   :in "query"
+   :required true
+   :schema {:$ref "#/components/schemas/InboundPaymentStatus"}})
+
 (def PartyEmbedQuery
   "`embed` query parameter for optional sub-resource embedding on the
   party detail endpoint. deepObject-styled so clients send
@@ -271,6 +279,8 @@
 (def ref-endpoint-id {:$ref "#/components/parameters/EndpointId"})
 (def ref-delivery-id {:$ref "#/components/parameters/DeliveryId"})
 (def ref-delivery-filter {:$ref "#/components/parameters/DeliveryFilterQuery"})
+(def ref-inbound-payment-status
+  {:$ref "#/components/parameters/InboundPaymentStatusQuery"})
 
 (def registry
   "Map of OpenAPI parameter component name → parameter object. Merged
@@ -298,4 +308,5 @@
    "BalanceStatus" BalanceStatus
    "EndpointId" EndpointId
    "DeliveryId" DeliveryId
-   "DeliveryFilterQuery" DeliveryFilterQuery})
+   "DeliveryFilterQuery" DeliveryFilterQuery
+   "InboundPaymentStatusQuery" InboundPaymentStatusQuery})

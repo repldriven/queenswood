@@ -25,17 +25,6 @@
   [payments]
   (vec (sort-by :payment-id (fn [a b] (compare b a)) payments)))
 
-(defn get-internal-payment
-  [txn payment-id]
-  (fdb/transact
-   txn
-   (fn [txn]
-     (some-> (fdb/load-record (fdb/open txn internal-payments-store-name)
-                              payment-id)
-             schema/pb->InternalPayment))
-   :payment/get-internal-payment
-   "Failed to get internal payment"))
-
 (defn find-internal-payment
   [txn bank-id payment-id]
   (fdb/transact
