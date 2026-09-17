@@ -28,6 +28,7 @@
   component/balance {:local/root "../../components/balance"}
   component/balance-domain {:local/root "../../components/balance-domain"}
   component/balance-query {:local/root "../../components/balance-query"}
+  component/bank-query {:local/root "../../components/bank-query"}
   component/cash-account {:local/root "../../components/cash-account"}
   component/cash-account-migration
   {:local/root "../../components/cash-account-migration"}
@@ -39,6 +40,8 @@
   component/interest {:local/root "../../components/interest"}
   component/ledger-account {:local/root "../../components/ledger-account"}
   component/party-query {:local/root "../../components/party-query"}
+  component/payment {:local/root "../../components/payment"}
+  component/payment-query {:local/root "../../components/payment-query"}
   component/person-identification {:local/root
                                    "../../components/person-identification"}
   component/policy {:local/root "../../components/policy"}

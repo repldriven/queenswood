@@ -1,0 +1,7 @@
+runner: !system/component
+  system/component-kind: payment/outbound-sweep
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  schemas: !system/ref avro.serde
+  bus: !system/ref message-bus.bus
+  scheme-payment-command-channel: !keyword schemes-payment-command

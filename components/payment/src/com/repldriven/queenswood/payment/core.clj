@@ -91,41 +91,46 @@
    q/find-internal-payment-by-idempotency-key))
 
 (defn- publish-scheme-command
-  [config payment data]
+  [config payment debtor-bban]
   (let [{:keys [bus schemas scheme-payment-command-channel]} config
-        {:keys [payment-id]} payment
-        {:keys [bank-id debtor-account-id
-                creditor-bban creditor-name
+        {:keys [payment-id creditor-bban creditor-name
                 currency amount reference]}
-        data
-        debtor-account (cash-accounts/get-account
-                        config
-                        bank-id
-                        debtor-account-id)
-        bban (when-not (error/anomaly? debtor-account)
-               (:bban debtor-account))
+        payment
         schema (get schemas "submit-payment")]
     (when (and bus schema scheme-payment-command-channel)
-      (let [payload (avro/serialize schema
-                                    {:payment-id payment-id
-                                     :end-to-end-id payment-id
-                                     :debtor-bban bban
-                                     :creditor-bban creditor-bban
-                                     :creditor-name creditor-name
-                                     :amount amount
-                                     :currency currency
-                                     :reference reference})]
-        (if (error/anomaly? payload)
-          (log/error "Failed to serialize submit-payment"
-                     payload)
-          (let [envelope {:command "submit-payment"
-                          :id (str (utility/uuidv7))
-                          :correlation-id (str (utility/uuidv7))
-                          :causation-id payment-id
-                          :payload payload}]
-            (message-bus/send bus
-                              scheme-payment-command-channel
-                              envelope)))))))
+      (let [result (let-nom>
+                     [payload (avro/serialize schema
+                                              {:payment-id payment-id
+                                               :end-to-end-id payment-id
+                                               :debtor-bban debtor-bban
+                                               :creditor-bban creditor-bban
+                                               :creditor-name creditor-name
+                                               :amount amount
+                                               :currency currency
+                                               :reference reference})]
+                     (message-bus/send bus
+                                       scheme-payment-command-channel
+                                       {:command "submit-payment"
+                                        :id (str (utility/uuidv7))
+                                        :correlation-id (str (utility/uuidv7))
+                                        :causation-id payment-id
+                                        :payload payload}))]
+        (when (error/anomaly? result)
+          (log/error "Failed to publish submit-payment"
+                     {:payment-id payment-id :anomaly result}))
+        result))))
+
+(defn republish-pending
+  [config payment]
+  (let [{:keys [payment-id bank-id debtor-account-id]} payment
+        debtor-account (cash-accounts/get-account config
+                                                  bank-id
+                                                  debtor-account-id)]
+    (if (error/anomaly? debtor-account)
+      (do (log/error "Failed to read the debtor account to republish"
+                     {:payment-id payment-id :anomaly debtor-account})
+          debtor-account)
+      (publish-scheme-command config payment (:bban debtor-account)))))
 
 (defn submit-outbound
   [config data]
@@ -186,13 +191,16 @@
                                                          business-day
                                                          transaction-id)
                     _ (store/save-outbound-payment txn payment)]
-                   payment))))
-        result (or-already-submitted
-                config
-                data
-                raw
-                q/find-outbound-payment-by-idempotency-key)]
-    (when (and (not (store/uniqueness-violation? raw))
-               (not (error/anomaly? result)))
-      (publish-scheme-command config result data))
-    result))
+                   {:payment payment :debtor-bban (:bban debtor-account)}))))]
+    (if (store/uniqueness-violation? raw)
+      (let-nom> [existing (or-already-submitted
+                           config
+                           data
+                           raw
+                           q/find-outbound-payment-by-idempotency-key)]
+        (when (domain/republishable-outbound? existing)
+          (republish-pending config existing))
+        existing)
+      (let-nom> [{:keys [payment debtor-bban]} raw]
+        (publish-scheme-command config payment debtor-bban)
+        payment))))

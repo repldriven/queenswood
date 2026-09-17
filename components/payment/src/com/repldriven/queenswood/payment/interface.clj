@@ -5,7 +5,9 @@
   the customer legs for inbound payments. Hold events mark an outbound
   payment held while the scheme screens it; rejection events reverse the
   in-flight legs (1200 → debtor) and flip the payment to failed. Returns
-  the payment map or an anomaly.
+  the payment map or an anomaly. The `payment/outbound-sweep` component
+  republishes the scheme command for an outbound payment left pending and
+  logs one left pending or held past a day, changing no record.
 
   Reads live in `payment-query`; this brick reuses them inside its own
   transactions. `api` requires the query brick, not this one — submissions
@@ -36,8 +38,14 @@
   "Submit an outbound payment: verify the debtor, debit the customer
   account, credit the bank's 1200 pending-outbound GL account,
   persist the OutboundPayment as pending, and publish a
-  `submit-payment` command for the scheme adapter. The bank's 1200
-  account is resolved per-bank from the chart of accounts at runtime.
+  `submit-payment` command for the scheme adapter, carrying the debtor
+  BBAN read in the submitting transaction. The bank's 1200 account is
+  resolved per-bank from the chart of accounts at runtime.
+
+  A failed publish is logged at ERROR and still returns the committed
+  payment. A redelivered submit, whose idempotency key is already
+  recorded, returns the existing payment and republishes its scheme
+  command when that payment is still pending.
 
   Args:
   - config: FDB handle plus :bus, :schemas,
