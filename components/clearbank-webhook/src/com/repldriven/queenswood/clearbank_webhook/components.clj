@@ -115,12 +115,48 @@
    [:Payload [:ref "InboundCopRequestReceivedPayload"]]
    [:Nonce int?]])
 
+(def AssessmentFailureInstruction
+  [:map
+   {:json-schema/example examples/AssessmentFailureInstruction}
+   [:EndToEndId string?]
+   [:Reasons {:optional true} [:maybe [:sequential string?]]]])
+
+(def PaymentMessageAssessmentFailedPayload
+  [:map
+   {:json-schema/example examples/PaymentMessageAssessmentFailedPayload}
+   [:MessageId {:optional true} [:maybe string?]]
+   [:PaymentMethodType {:optional true} [:maybe string?]]
+   [:AssessmentFailure {:optional true}
+    [:maybe [:sequential [:ref "AssessmentFailureInstruction"]]]]
+   [:AssesmentFailure {:optional true}
+    [:maybe [:sequential [:ref "AssessmentFailureInstruction"]]]]])
+
+(def PaymentMessageAssessmentFailedWebhook
+  [:map
+   {:json-schema/example examples/PaymentMessageAssessmentFailedWebhook}
+   [:Type
+    [:enum "PaymentMessageAssessmentFailed"
+     "PaymentMessageAssesmentFailed"]]
+   [:Version int?]
+   [:Payload [:ref "PaymentMessageAssessmentFailedPayload"]]
+   [:Nonce int?]])
+
+(def WebhookRejected
+  [:map
+   {:json-schema/example examples/WebhookRejected}
+   [:type string?]
+   [:title string?]
+   [:status int?]
+   [:detail {:optional true} [:maybe string?]]])
+
 (def component-registry
   (components-registry
    [#'AccountInfo #'CounterpartAccountInfo #'TransactionSettledPayload
     #'TransactionRejectedPayload #'TransactionSettledWebhook
     #'TransactionRejectedWebhook #'InboundCopAccountDetails
-    #'InboundCopRequestReceivedPayload #'InboundCopRequestReceivedWebhook]))
+    #'InboundCopRequestReceivedPayload #'InboundCopRequestReceivedWebhook
+    #'AssessmentFailureInstruction #'PaymentMessageAssessmentFailedPayload
+    #'PaymentMessageAssessmentFailedWebhook #'WebhookRejected]))
 
 (def example-registry
   (examples-registry
@@ -128,4 +164,9 @@
     #'examples/TransactionSettledPayload #'examples/TransactionRejectedPayload
     #'examples/AccountInfo #'examples/CounterpartAccountInfo
     #'examples/InboundCopRequestReceivedWebhook
-    #'examples/InboundCopRequestReceivedPayload]))
+    #'examples/InboundCopRequestReceivedPayload
+    #'examples/AssessmentFailureInstruction
+    #'examples/PaymentMessageAssessmentFailedWebhook
+    #'examples/PaymentMessageAssesmentFailedWebhook
+    #'examples/PaymentMessageAssessmentFailedPayload
+    #'examples/WebhookRejected]))

@@ -27,7 +27,8 @@
            :endToEndIdentification end-to-end-id}
           :amount
           {:currency currency
-           :instructedAmount (/ amount 100.0)}
+           :instructedAmount (.movePointLeft (BigDecimal/valueOf (long amount))
+                                             2)}
           :creditor
           {:name creditor-name}
           :creditorAccount
