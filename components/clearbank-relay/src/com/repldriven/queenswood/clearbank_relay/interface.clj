@@ -4,7 +4,10 @@
   outbox store's changelog — and the shared
   `changelog-relay/envelope-handler` publishes it to the message bus
   at-least-once. This decouples 'webhook received' from 'downstream
-  told' so they cannot diverge."
+  told' so they cannot diverge. The outbound runner relays each pending
+  intent's FPS request with exponential backoff, and fails an intent the
+  scheme refuses, or one still failing at its last attempt, into a
+  `transaction-rejected` event written to the same outbox."
   (:require
     [com.repldriven.queenswood.clearbank-relay.system]
 

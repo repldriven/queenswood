@@ -26,7 +26,10 @@
            (when (pos? (or webhook-delay-ms 0))
              (Thread/sleep webhook-delay-ms))
            (if (= "return" outcome)
-             (webhook/fire-inbound-transaction-returned config sort-code e2e-id)
+             (webhook/fire-inbound-transaction-returned config
+                                                        sort-code
+                                                        e2e-id
+                                                        body)
              (webhook/fire-transaction-settled config
                                                sort-code
                                                e2e-id
