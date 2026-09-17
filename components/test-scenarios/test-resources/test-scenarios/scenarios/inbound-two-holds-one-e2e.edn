@@ -1,0 +1,27 @@
+{:name "Two holds share an end-to-end id — settling one leaves the other held"
+ :tags #{:held :inbound :transfers}
+ ;; A hold is matched by end-to-end id, creditor and amount, so a second
+ ;; account's hold on the same id and amount is recorded rather than
+ ;; taken as already recorded. Settling acct-0's releases only acct-0's
+ ;; hold: acct-0 is credited and its hold `settled`, while acct-1's hold
+ ;; stays `held` and acct-1 holds nothing.
+ :given [{:command :create-bank :args []}
+         {:command :create-person-party :args [:bank-0]}
+         {:command :open-account :args [:bank-0 :party-1 :prod-0]}]
+ :when [{:command :hold-inbound :args [:acct-0 1000 :e2e-shared]}
+        {:command :hold-inbound :args [:acct-1 1000 :e2e-shared]}
+        {:command :assert-inbound-status
+         :args [:e2e-shared :inbound-payment-status-held :acct-0]}
+        {:command :assert-inbound-status
+         :args [:e2e-shared :inbound-payment-status-held :acct-1]}
+        {:command :release-inbound :args [:acct-0]}]
+ :then [{:command :assert-no-anomaly :args []}
+        {:command :assert-inbound-status
+         :args [:e2e-shared :inbound-payment-status-settled :acct-0]}
+        {:command :assert-inbound-status
+         :args [:e2e-shared :inbound-payment-status-held :acct-1]}
+        {:command :assert-balance :args [:acct-0 1000]}
+        {:command :assert-balance :args [:acct-1 0]}
+        {:command :assert-gl-balance
+         :args [:bank-0 :gl-account-code-customer-deposits-current "GBP"
+                1000]}]}

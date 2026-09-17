@@ -1,0 +1,16 @@
+{:name "A redelivered submit republishes the scheme command — one intent"
+ :tags #{:idempotency :outbound :payments}
+ ;; The second submit carries the first's idempotency key and finds its
+ ;; payment still `pending`, so it answers with that payment and
+ ;; publishes the scheme command again. The adapter records one intent
+ ;; per end-to-end id, so the two commands make one ClearBank submission,
+ ;; one settlement and one debit.
+ :given [{:command :create-bank :args []}
+         {:command :inbound-transfer :args [:acct-0 1000]}]
+ :when [{:command :outbound-payment-redelivered :args [:acct-0 250]}]
+ :then [{:command :assert-no-anomaly :args []}
+        {:command :assert-scheme-commands :args [:pmt-0 2]}
+        {:command :assert-intents :args [:pmt-0 1]}
+        {:command :assert-outbound-status
+         :args [:pmt-0 :outbound-payment-status-completed]}
+        {:command :assert-balance :args [:acct-0 750]}]}
