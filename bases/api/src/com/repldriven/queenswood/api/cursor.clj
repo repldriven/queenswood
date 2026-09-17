@@ -1,4 +1,6 @@
 (ns com.repldriven.queenswood.api.cursor
+  (:require
+    [clojure.string :as str])
   (:import
     (java.util Base64)))
 
@@ -40,18 +42,23 @@
 (defn build-links
   "Builds a `:next` / `:prev` HATEOAS links map for a cursor-paginated
   list endpoint. `base` is the resource path (e.g.
-  `\"/v1/cash-accounts\"`); `before-id` / `after-id` are raw ids that
-  will be cursor-encoded into the emitted URLs. Either id may be nil
-  to omit the corresponding link."
+  `\"/v1/cash-accounts\"`), and may carry a query of its own (e.g.
+  `\"/v1/payments/inbound?status=held\"`), which the page parameters
+  follow; `before-id` / `after-id` are raw ids that will be
+  cursor-encoded into the emitted URLs. Either id may be nil to omit
+  the corresponding link."
   [base size before-id after-id]
-  (cond-> {}
-          after-id
-          (assoc :next
-                 (str base
-                      "?page[after]=" (encode after-id)
-                      "&page[size]=" size))
-          before-id
-          (assoc :prev
-                 (str base
-                      "?page[before]=" (encode before-id)
-                      "&page[size]=" size))))
+  (let [separator (if (str/includes? base "?") "&" "?")]
+    (cond-> {}
+            after-id
+            (assoc :next
+                   (str base
+                        separator
+                        "page[after]=" (encode after-id)
+                        "&page[size]=" size))
+            before-id
+            (assoc :prev
+                   (str base
+                        separator
+                        "page[before]=" (encode before-id)
+                        "&page[size]=" size)))))
