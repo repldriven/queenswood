@@ -670,6 +670,10 @@
   (InboundPaymentProto$InboundPayment/parseFrom
    (InboundPayment->pb m)))
 
+(def ^{:doc "Map of InboundPaymentStatus label to protobuf int value."}
+     inbound-payment-status->int
+  payments/InboundPaymentStatus-label2val)
+
 (def ^{:doc "Parse OutboundPayment protobuf bytes into a Clojure
   map."}
      pb->OutboundPayment
@@ -692,6 +696,10 @@
   [m]
   (OutboundPaymentProto$OutboundPayment/parseFrom
    (OutboundPayment->pb m)))
+
+(def ^{:doc "Map of OutboundPaymentStatus label to protobuf int value."}
+     outbound-payment-status->int
+  payments/OutboundPaymentStatus-label2val)
 
 (def ^{:doc "Parse InternalPayment protobuf bytes into a Clojure
   map."}

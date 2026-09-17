@@ -17,7 +17,6 @@
     {"name": "cancellation_code",   "type": "string"},
     {"name": "cancellation_reason", "type": ["null", "string"], "default": null},
     {"name": "is_return",           "type": ["null", "boolean"], "default": null},
-    {"name": "timestamp_rejected",  "type": {"type": "long", "logicalType": "timestamp-millis"}},
-    {"name": "creditor_bban",       "type": ["null", "string"], "default": null}
+    {"name": "timestamp_rejected",  "type": {"type": "long", "logicalType": "timestamp-millis"}}
   ]
 }

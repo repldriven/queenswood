@@ -132,6 +132,48 @@
          _
          (is (= whiskers (utility/record->map retrieved)))]))))
 
+(defn- test-query-records-compound
+  [sys pet-store]
+  (let [clover
+        {:pet-id "pet-30" :name "Clover" :species "rabbit" :age-months 12}
+        thumper
+        {:pet-id "pet-31" :name "Thumper" :species "rabbit" :age-months 12}
+        hazel {:pet-id "pet-32" :name "Hazel" :species "rabbit" :age-months 30}
+        config {:record-db (system/instance sys [:fdb :record-db])
+                :record-store pet-store}
+        filters [["species" "rabbit"] ["age_months" 12]]]
+    (testing "can query every record matching all field values"
+      (nom-test>
+        [_
+         (SUT/transact config
+                       (fn [txn]
+                         (let [store (SUT/open txn "pets")]
+                           (run! (fn [pet]
+                                   (SUT/save-record store
+                                                    (test-schema/Pet->java
+                                                     pet)))
+                                 [clover thumper hazel]))))
+         results
+         (SUT/transact config
+                       (fn [txn]
+                         (SUT/query-records-compound (SUT/open txn "pets")
+                                                     "Pet"
+                                                     filters)))
+         _
+         (is (= #{clover thumper}
+                (set (map (fn [record]
+                            (utility/record->map (test-schema/pb->Pet record)))
+                          results))))
+         indexed
+         (SUT/transact config
+                       (fn [txn]
+                         (SUT/query-records-compound (SUT/open txn "pets")
+                                                     "Pet"
+                                                     filters
+                                                     {:index "species_idx"})))
+         _
+         (is (= 2 (count indexed)))]))))
+
 (deftest kv-test
   (with-test-system [sys "classpath:fdb/application-test.yml"]
                     (test-str-kv sys)
@@ -142,6 +184,7 @@
                     (let [pet-store (system/instance sys [:fdb :pet-store])]
                       (test-record-layer sys pet-store)
                       (test-query-records sys pet-store)
+                      (test-query-records-compound sys pet-store)
                       (test-record-layer-consumer sys pet-store))))
 
 (deftest meta-store-test
@@ -150,4 +193,5 @@
                                                      [:fdb :pet-meta-store])]
                       (test-record-layer sys pet-store)
                       (test-query-records sys pet-store)
+                      (test-query-records-compound sys pet-store)
                       (test-record-layer-consumer sys pet-store))))

@@ -136,6 +136,13 @@
            first
            record->bytes)))
 
+(defn query-compound
+  ([store record-type filters]
+   (query-compound store record-type filters nil))
+  ([store record-type filters opts]
+   (mapv record->bytes
+         (execute-query store (and-query record-type filters opts)))))
+
 (defn query-one-compound
   ([store record-type filters]
    (query-one-compound store record-type filters nil))

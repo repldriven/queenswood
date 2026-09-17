@@ -43,4 +43,5 @@ message ClearbankOutboundIntent {
   optional int64  attempts = 6;
   optional int64  created_at = 7;
   optional int64  sent_at = 8;
+  optional int64  next_attempt_at = 9; // epoch millis, absent means due now
 }

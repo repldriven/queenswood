@@ -116,6 +116,7 @@
                        "components/policy/test"
                        "components/policy/test-resources"
                        "components/schema/test"
+                       "components/schema/test-resources"
                        "components/scheduler/test"
                        "components/test-api-scenarios/test"
                        "components/test-api-scenarios/test-resources"

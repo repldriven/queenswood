@@ -87,6 +87,15 @@
   ([store record-type field value opts]
    (record/query-one store record-type field value opts)))
 
+(defn query-records-compound
+  "Queries an open FDBRecordStore where all [field value]
+  pairs match. Returns a vector of serialized byte arrays.
+  opts supports :index to pin the planner to a named index."
+  ([store record-type filters]
+   (record/query-compound store record-type filters))
+  ([store record-type filters opts]
+   (record/query-compound store record-type filters opts)))
+
 (defn query-record-compound
   "Queries an open FDBRecordStore where all [field value]
   pairs match, capping the planner at one result. Returns

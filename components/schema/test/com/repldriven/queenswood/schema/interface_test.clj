@@ -7,7 +7,11 @@
   proto — which is what these round-trips are for.
 
   The access records read back what was written, and a membership
-  written before a membership could end reads as active."
+  written before a membership could end reads as active.
+
+  A `transaction-rejected` written with the current schema is read by a
+  consumer still on the schema at `stable-20260916112610`, which is the
+  order a deploy puts them in."
   (:require
     [com.repldriven.queenswood.schema.interface :as SUT]
 
@@ -191,3 +195,35 @@
                     :updated-at 1700000060000}]
       (is (= delivery
              (SUT/pb->EmailDelivery (SUT/EmailDelivery->pb delivery)))))))
+
+(def ^:private transaction-rejected-schema
+  (avro/json->schema
+   (slurp (io/resource
+           "schemas/schemes/payments/transaction-rejected.avsc.json"))))
+
+(def ^:private stable-transaction-rejected-schema
+  (avro/json->schema
+   (slurp (io/resource
+           "schema/transaction-rejected-stable-20260916112610.avsc.json"))))
+
+(def ^:private returned-inbound
+  {:end-to-end-id "e2e.01kprbmgcj35ptc8npmybhh4t9"
+   :scheme "FasterPayments"
+   :debit-credit-code :debit-credit-code-credit
+   :cancellation-code "HELD_DECLINED"
+   :cancellation-reason "Account closed"
+   :is-return true
+   :timestamp-rejected 1700000000000})
+
+(deftest transaction-rejected-schema-test
+  (is (not (error/anomaly? transaction-rejected-schema)) "the schema parses")
+  (let [event (avro/serialize
+               transaction-rejected-schema
+               (assoc returned-inbound :creditor-bban "04000412345678"))]
+    (testing "a reader on the stable schema reads the fields it knows"
+      (let [body (avro/deserialize-same stable-transaction-rejected-schema
+                                        event)]
+        (is (= returned-inbound body))))
+    (testing "a reader on the current schema reads the creditor BBAN"
+      (let [body (avro/deserialize-same transaction-rejected-schema event)]
+        (is (= "04000412345678" (:creditor-bban body)))))))
