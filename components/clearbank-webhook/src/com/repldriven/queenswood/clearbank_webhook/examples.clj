@@ -64,3 +64,32 @@
 
 (def InboundCopRequestReceivedPayload
   (:Payload InboundCopRequestReceivedWebhook))
+
+(def AssessmentFailureInstruction
+  {:EndToEndId "pmt.01kprbmgcj35ptc8npmybhh4s6"
+   :Reasons ["Creditor sort code is not reachable"]})
+
+(def PaymentMessageAssessmentFailedWebhook
+  {:Type "PaymentMessageAssessmentFailed"
+   :Version 1
+   :Payload {:MessageId "5f1d2c3b-8a4e-4f6a-9b7c-2d1e0f3a4b5c"
+             :PaymentMethodType "FasterPayments"
+             :AssessmentFailure [AssessmentFailureInstruction]}
+   :Nonce 123456789})
+
+(def PaymentMessageAssessmentFailedPayload
+  (:Payload PaymentMessageAssessmentFailedWebhook))
+
+(def PaymentMessageAssesmentFailedWebhook
+  {:Type "PaymentMessageAssesmentFailed"
+   :Version 1
+   :Payload {:MessageId "5f1d2c3b-8a4e-4f6a-9b7c-2d1e0f3a4b5c"
+             :PaymentMethodType "FasterPayments"
+             :AssesmentFailure [AssessmentFailureInstruction]}
+   :Nonce 123456789})
+
+(def WebhookRejected
+  {:type ":payment/invalid-scheme-amount"
+   :title "REJECTED"
+   :status 400
+   :detail "Amount is not a non-negative two-place decimal"})
