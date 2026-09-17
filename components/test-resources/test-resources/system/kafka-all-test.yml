@@ -291,6 +291,12 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-schemes-payments-event
       acks: all
+  schemes-payments-event-dlq:
+    _: !system/local-ref topics
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      topic: topic-schemes-payments-event-dlq
+      acks: all
   transactions-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -539,9 +545,17 @@ consumers: !system/component
     schemas: !system/local-ref schemas
     schema: !keyword event
     topics: [topic-schemes-payments-event]
+    dead-letter-producer: !system/local-ref producers.schemes-payments-event-dlq
+    max-redeliveries: 5
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       group.id: test-schemes-payments-event
+  schemes-payments-event-dlq:
+    _: !system/local-ref topics
+    topics: [topic-schemes-payments-event-dlq]
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      group.id: test-schemes-payments-event-dlq
   transactions-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
