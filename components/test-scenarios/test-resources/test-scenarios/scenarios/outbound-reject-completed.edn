@@ -1,0 +1,37 @@
+{:name "Rejecting a completed outbound fails and moves no money"
+ :tags #{:outbound :payments :unhappy}
+ ;; A rejection that arrives after the scheme settled has nothing to
+ ;; reverse: the handler fails, so the event is redelivered and
+ ;; dead-lettered rather than committed past, and every balance stays
+ ;; where settlement left it. Inbound DEBIT 1100 / CREDIT customer,
+ ;; settlement DEBIT customer / CREDIT 1100, so 1100 nets to -750 and
+ ;; the current-account control to 750.
+ :given [{:command :create-bank :args []}
+         {:command :inbound-transfer :args [:acct-0 1000]}
+         {:command :outbound-payment :args [:acct-0 250]}
+         {:command :assert-no-anomaly :args []}
+         {:command :assert-scheme-commands :args [:pmt-0 1]}
+         {:command :assert-intents :args [:pmt-0 1]}
+         {:command :assert-balance :args [:acct-0 750]}
+         {:command :assert-gl-balance
+          :args [:bank-0 :gl-account-code-cash-at-correspondent "GBP" -750]}
+         {:command :assert-gl-balance
+          :args [:bank-0 :gl-account-code-pending-outbound "GBP" 0]}
+         {:command :assert-gl-balance
+          :args [:bank-0 :gl-account-code-suspense "GBP" 0]}
+         {:command :assert-gl-balance
+          :args [:bank-0 :gl-account-code-customer-deposits-current "GBP"
+                 750]}]
+ :when [{:command :reject-outbound-payment :args [:pmt-0]}]
+ :then [{:command :assert-outcome :args [:denied]}
+        {:command :assert-rejection-kind :args [:payment/reject-outbound]}
+        {:command :assert-balance :args [:acct-0 750]}
+        {:command :assert-gl-balance
+         :args [:bank-0 :gl-account-code-cash-at-correspondent "GBP" -750]}
+        {:command :assert-gl-balance
+         :args [:bank-0 :gl-account-code-pending-outbound "GBP" 0]}
+        {:command :assert-gl-balance
+         :args [:bank-0 :gl-account-code-suspense "GBP" 0]}
+        {:command :assert-gl-balance
+         :args [:bank-0 :gl-account-code-customer-deposits-current "GBP"
+                750]}]}

@@ -1,0 +1,19 @@
+{:name "An inbound hold and its settlement share an end-to-end id — one credit"
+ :tags #{:held :inbound :transfers}
+ ;; The hold and the settlement that releases it carry one end-to-end id
+ ;; and different scheme transaction ids. The settlement releases the
+ ;; hold rather than recording a second inbound: one record, settled,
+ ;; and the account credited once.
+ :given [{:command :create-bank :args []}]
+ :when [{:command :hold-inbound :args [:acct-0 1000 :e2e-shared]}
+        {:command :assert-inbound-status
+         :args [:e2e-shared :inbound-payment-status-held]}
+        {:command :assert-balance :args [:acct-0 0]}
+        {:command :release-inbound :args [:acct-0]}]
+ :then [{:command :assert-no-anomaly :args []}
+        {:command :assert-inbound-status
+         :args [:e2e-shared :inbound-payment-status-settled :acct-0]}
+        {:command :assert-balance :args [:acct-0 1000]}
+        {:command :assert-gl-balance
+         :args [:bank-0 :gl-account-code-customer-deposits-current "GBP"
+                1000]}]}

@@ -42,13 +42,18 @@
     per scenario; RSA key generation is not free.
   - `:mail-url` (optional) — the mail catcher's API URL, for
     `:mail/await-invitation`.
+  - `:clearbank-simulator-url` (optional) — root URL of the booted
+    ClearBank simulator, which a step's `:base :clearbank-simulator`
+    sends its request to, as `/simulate/inbound-payment` needs.
   - `:run-id` (optional) — caller-supplied tag for log lines.
 
   The fresh `:captures` map isolates scenarios from each other so
   one boot can serve many, and the fresh `:banks` map limits the
   standing invariants to the banks this scenario created."
-  [{:keys [base-url admin-token token-endpoints signing-key mail-url run-id]}]
+  [{:keys [base-url admin-token token-endpoints signing-key mail-url
+           clearbank-simulator-url run-id]}]
   {:base-url base-url
+   :clearbank-simulator-url clearbank-simulator-url
    :mail-url mail-url
    :admin-token admin-token
    :token-endpoints token-endpoints

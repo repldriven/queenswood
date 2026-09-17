@@ -247,7 +247,11 @@
            admin-token (mint-admin-token base-url)
            endpoints (token-endpoints sys)
            key-pair (signing-key)
-           mail-url (system/instance sys [:smtp :container-api-url])]
+           mail-url (system/instance sys [:smtp :container-api-url])
+           clearbank-simulator-url
+           (server/http-local-url (system/instance sys
+                                                   [:clearbank-simulator-server
+                                                    :jetty-adapter]))]
        ;; The seam remembers which ids it has already lost, and it
        ;; outlives the system this boot tears down. Clearing it here
        ;; keeps a second run in the same JVM — a REPL re-run — losing
@@ -267,6 +271,8 @@
                                                :token-endpoints endpoints
                                                :signing-key key-pair
                                                :mail-url mail-url
+                                               :clearbank-simulator-url
+                                               clearbank-simulator-url
                                                :run-id (str (util/uuidv7))})
                                              resource-path)
                          _ (log/info "api scenario complete" {:file relative})]))))

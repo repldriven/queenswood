@@ -1,0 +1,166 @@
+{:name "Two outbound submissions with one body and two keys make two payments"
+ :tags #{:api :idempotency :outbound :payments :happy}
+ ;; The idempotency key, not the body, identifies a submission. A caller
+ ;; that retries with a new key has asked for a second payment and gets
+ ;; one: two payment ids, both settled, and the debtor debited twice.
+ ;; The debtor is funded through the ClearBank simulator's inbound
+ ;; payment, whose amount is in pounds. Balances are in pence.
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-otk-create-bank-001"}
+             :body {:name "Outbound Two Keys"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :bank-0
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :bank-0 :client-id]
+         :client-secret [:ref :bank-0 :client-secret]
+         :status :live}
+   :as :bank-0-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-otk-create-prod-001"}
+             :body {:name "Current"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-01-01"}}
+   :as :current-draft
+   :assert {:status 201 :body {:status "draft"}}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :current-draft :product-id]
+                  :version-id [:ref :current-draft :version-id]}
+    :auth :bank-0-token}
+   :assert {:status 200 :body {:status "published"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-otk-create-party"}
+             :body {:type "person"
+                    :display-name "Zaphod Beeblebrox"
+                    :given-name "Zaphod"
+                    :family-name "Beeblebrox"
+                    :date-of-birth "1955-02-19"
+                    :nationality "GB"
+                    :address {:building-number "42"
+                              :street "Improbability Drive"
+                              :town "Cottington"
+                              :postcode "CT12 4XY"
+                              :country "GBR"}
+                    :national-identifier {:type "national-insurance"
+                                          :value "TN555931A"
+                                          :issuing-country "GB"}}}
+   :as :zaphod
+   :assert {:status 200 :body {:status "pending"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}"
+             :path-params {:party-id [:ref :zaphod :party-id]}
+             :auth :bank-0-token}
+   :until {:status 200 :body {:status "active"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-otk-open-debtor"}
+             :body {:party-id [:ref :zaphod :party-id]
+                    :name "Zaphod Current"
+                    :currency "GBP"
+                    :product-id [:ref :current-draft :product-id]}}
+   :as :debtor
+   :assert {:status 200 :body {:account-status "opening"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :debtor :account-id]}
+             :auth :bank-0-token}
+   :until {:status 200 :body {:account-status "opened"}}
+   :as :debtor}
+  {:command :api/request
+   :request {:method :post
+             :base :clearbank-simulator
+             :path "/simulate/inbound-payment"
+             :body {:bban [:ref :debtor :bban]
+                    :amount 1000
+                    :currency "GBP"
+                    :reference "Two keys funding"
+                    :debtor-name "Funding Sender"}}
+   :assert {:status 202}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :debtor :account-id]}
+             :auth :bank-0-token}
+   :until {:status 200
+           :body {:available-balance {:value 100000 :currency "GBP"}}}
+   :timeout-ms 10000}]
+ :when
+ ;; One body, sent under two keys.
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/payments/outbound"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-otk-outbound-001"}
+             :body {:debtor-account-id [:ref :debtor :account-id]
+                    :creditor-bban "04000400000001"
+                    :creditor-name "Ford Prefect"
+                    :currency "GBP"
+                    :amount 2500
+                    :scheme "fps"
+                    :reference "Two keys"}}
+   :as :payment-a
+   :assert {:status 200}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/payments/outbound"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-otk-outbound-002"}
+             :body {:debtor-account-id [:ref :debtor :account-id]
+                    :creditor-bban "04000400000001"
+                    :creditor-name "Ford Prefect"
+                    :currency "GBP"
+                    :amount 2500
+                    :scheme "fps"
+                    :reference "Two keys"}}
+   :as :payment-b
+   :assert {:status 200
+            :body {:payment-id [:m/mismatch [:ref :payment-a :payment-id]]}}}]
+ :then
+ ;; Both payments exist and settle, and each took its own 25.00.
+ [{:command :api/poll
+   :request {:method :get
+             :path "/v1/payments/outbound/{payment-id}"
+             :path-params {:payment-id [:ref :payment-a :payment-id]}
+             :auth :bank-0-token}
+   :until {:status 200
+           :body {:payment-id [:ref :payment-a :payment-id]
+                  :payment-status "completed"}}
+   :timeout-ms 10000}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/payments/outbound/{payment-id}"
+             :path-params {:payment-id [:ref :payment-b :payment-id]}
+             :auth :bank-0-token}
+   :until {:status 200
+           :body {:payment-id [:ref :payment-b :payment-id]
+                  :payment-status "completed"}}
+   :timeout-ms 10000}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :debtor :account-id]}
+             :auth :bank-0-token}
+   :until {:status 200
+           :body {:available-balance {:value 95000 :currency "GBP"}}}
+   :timeout-ms 10000}]}

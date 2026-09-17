@@ -104,6 +104,18 @@
           :else
           (do (Thread/sleep poll-interval-ms) (recur))))))))
 
+(defn wait-for-count
+  "Poll `count-fn` until it returns an anomaly or at least `target`, or
+  `deadline-ms` passes. Returns the last value `count-fn` returned, so the
+  caller asserts on what was seen rather than on a timeout."
+  [count-fn target deadline-ms]
+  (let [deadline (+ (utility/now) deadline-ms)]
+    (loop []
+      (let [n (count-fn)]
+        (if (or (error/anomaly? n) (>= n target) (>= (utility/now) deadline))
+          n
+          (do (Thread/sleep poll-interval-ms) (recur)))))))
+
 (defn wait
   [_bank]
   :quiescent)
