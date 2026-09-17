@@ -4,7 +4,8 @@
     [com.repldriven.mono.http-client.interface :as http]
     [com.repldriven.mono.json.interface :as json]
     [com.repldriven.mono.log.interface :as log]
-    [com.repldriven.mono.utility.interface :refer [now-rfc3339 uuidv7]]))
+    [com.repldriven.mono.utility.interface :refer
+     [assoc-some now-rfc3339 uuidv7]]))
 
 (defn- nonce
   []
@@ -121,22 +122,24 @@
 
 (defn fire-inbound-transaction-returned
   "Fires a TransactionRejected (Credit) webhook for a held inbound ClearBank
-  declined — the funds go back to the remitting bank."
-  [config sort-code e2e-id]
-  (fire config
-        sort-code
-        "TransactionRejected"
-        {:TransactionId (str (uuidv7))
-         :Status "Rejected"
-         :Scheme "FasterPayments"
-         :EndToEndTransactionId e2e-id
-         :CancellationCode "RR04"
-         :CancellationReason "Held inbound declined"
-         :TimestampModified (now-rfc3339)
-         :DebitCreditCode "Credit"
-         :IsReturn true
-         :Account {}
-         :CounterpartAccount {}}))
+  declined — the funds go back to the remitting bank. `Account` carries
+  the recipient's BBAN when the simulate body has one."
+  [config sort-code e2e-id body]
+  (let [{:keys [bban]} body]
+    (fire config
+          sort-code
+          "TransactionRejected"
+          {:TransactionId (str (uuidv7))
+           :Status "Rejected"
+           :Scheme "FasterPayments"
+           :EndToEndTransactionId e2e-id
+           :CancellationCode "RR04"
+           :CancellationReason "Held inbound declined"
+           :TimestampModified (now-rfc3339)
+           :DebitCreditCode "Credit"
+           :IsReturn true
+           :Account (assoc-some {} :BBAN bban)
+           :CounterpartAccount {}})))
 
 (defn fire-payment-message-assessment-failed
   "Fires a PaymentMessageAssessmentFailed webhook — ClearBank rejected the
