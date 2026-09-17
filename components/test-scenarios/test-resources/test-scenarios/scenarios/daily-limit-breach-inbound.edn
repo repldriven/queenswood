@@ -1,10 +1,11 @@
 {:name "Daily inbound-payment count limit is enforced per org"
- :tags #{:inbound :limit :payments :rejection}
+ :tags #{:inbound :limit :payments :suspense}
  ;; Bind a tight `max 2 inbound-payments per day` policy to org-0,
  ;; then settle two inbound transfers (within cap) and a third
- ;; (over cap). The third must be rejected with
- ;; `:policy/limit-exceeded`; the recipient balance must reflect
- ;; only the two successful credits.
+ ;; (over cap). Money that has arrived is never refused: the third is
+ ;; parked in 2500 suspense rather than rejected, so no step fails, the
+ ;; recipient balance reflects only the two credits, and 2500 holds the
+ ;; third's amount.
  :given
  [{:command :create-bank :args []}
   {:command :bind-policy
@@ -21,5 +22,7 @@
   {:command :inbound-transfer :args [:acct-0 100]}
   {:command :inbound-transfer :args [:acct-0 100]}]
  :when [{:command :inbound-transfer :args [:acct-0 100]}]
- :then [{:command :assert-rejection-kind :args [:policy/limit-exceeded]}
-        {:command :assert-balance :args [:acct-0 200]}]}
+ :then [{:command :assert-no-anomaly :args []}
+        {:command :assert-balance :args [:acct-0 200]}
+        {:command :assert-gl-balance
+         :args [:bank-0 :gl-account-code-suspense "GBP" 100]}]}

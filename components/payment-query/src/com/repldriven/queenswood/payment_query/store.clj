@@ -128,26 +128,6 @@
    :payment/find-inbound-payment
    "Failed to find inbound payment"))
 
-(defn get-held-inbound-by-end-to-end-id
-  "Return the open `held` InboundPayment for `end-to-end-id`, or nil. The
-  end-to-end-id index is non-unique (ClearBank doesn't guarantee inbound
-  uniqueness), so the status filter is what makes this an open-held lookup."
-  [txn end-to-end-id]
-  (fdb/transact
-   txn
-   (fn [txn]
-     (let [record (some-> (fdb/query-record
-                           (fdb/open txn inbound-payments-store-name)
-                           "InboundPayment"
-                           "end_to_end_id"
-                           end-to-end-id
-                           {:index "InboundPayment_by_end_to_end_id"})
-                          schema/pb->InboundPayment)]
-       (when (= :inbound-payment-status-held (:payment-status record))
-         record)))
-   :payment/get-held-inbound
-   "Failed to get held inbound payment"))
-
 (defn- open-holds
   [txn end-to-end-id]
   (->> (fdb/query-records (fdb/open txn inbound-payments-store-name)
