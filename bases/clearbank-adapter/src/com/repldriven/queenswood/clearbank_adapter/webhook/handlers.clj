@@ -48,14 +48,30 @@
             :ok
             descriptors)))
 
+(defn- rejection-response
+  [what rejection]
+  (let [kind (error/kind rejection)
+        {:keys [message] :as payload} (error/payload rejection)]
+    (log/error (str "Refused " what " webhook") (assoc payload :kind kind))
+    {:status 400
+     :body {:type (str kind)
+            :title "REJECTED"
+            :status 400
+            :detail message}}))
+
 (defn- webhook-response
-  "200 with the Nonce echoed when the webhook was durably recorded; 500
-  otherwise so ClearBank redelivers rather than the event being lost."
-  [what result nonce]
-  (if (error/anomaly? result)
-    (do (log/error (str "Failed to record " what " webhook") result)
-        {:status 500 :body {:error "webhook not recorded"}})
-    {:status 200 :body {:Nonce nonce}}))
+  "400 with a problem body, writing nothing, when the payload could not
+  be mapped; 200 with the Nonce echoed when the webhook was durably
+  recorded; 500 otherwise so ClearBank redelivers rather than the event
+  being lost."
+  [request what descriptors nonce]
+  (if (error/rejection? descriptors)
+    (rejection-response what descriptors)
+    (let [result (record-webhook request descriptors)]
+      (if (error/anomaly? result)
+        (do (log/error (str "Failed to record " what " webhook") result)
+            {:status 500 :body {:error "webhook not recorded"}})
+        {:status 200 :body {:Nonce nonce}}))))
 
 (defn transaction-settled
   [_config]
@@ -63,17 +79,19 @@
     (let [{:keys [parameters]} request
           {:keys [body]} parameters
           {:keys [Payload Nonce]} body
-          {:keys [EndToEndTransactionId Scheme DebitCreditCode]} Payload]
+          {:keys [TransactionId EndToEndTransactionId Scheme DebitCreditCode]}
+          Payload]
       (log/info "transaction-settled webhook received"
-                {:e2e-id EndToEndTransactionId
+                {:transaction-id TransactionId
+                 :e2e-id EndToEndTransactionId
                  :scheme Scheme
                  :debit-credit-code DebitCreditCode})
-      (let [descriptors (case DebitCreditCode
+      (webhook-response request
+                        "transaction-settled"
+                        (case DebitCreditCode
                           "Credit" (publisher/inbound-payment-settled Payload)
-                          "Debit" (publisher/outbound-payment-settled Payload))]
-        (webhook-response "transaction-settled"
-                          (record-webhook request descriptors)
-                          Nonce)))))
+                          "Debit" (publisher/outbound-payment-settled Payload))
+                        Nonce))))
 
 (defn transaction-rejected
   [_config]
@@ -81,14 +99,19 @@
     (let [{:keys [parameters]} request
           {:keys [body]} parameters
           {:keys [Payload Nonce]} body
-          {:keys [EndToEndTransactionId CancellationCode]} Payload]
+          {:keys [TransactionId EndToEndTransactionId DebitCreditCode
+                  CancellationCode]}
+          Payload]
       (log/info "transaction-rejected webhook received"
-                {:e2e-id EndToEndTransactionId
+                {:transaction-id TransactionId
+                 :e2e-id EndToEndTransactionId
+                 :debit-credit-code DebitCreditCode
                  :code CancellationCode})
-      (webhook-response "transaction-rejected"
-                        (record-webhook
-                         request
-                         (publisher/outbound-payment-rejected Payload))
+      (webhook-response request
+                        "transaction-rejected"
+                        (case DebitCreditCode
+                          "Credit" (publisher/inbound-payment-rejected Payload)
+                          (publisher/outbound-payment-rejected Payload))
                         Nonce))))
 
 (defn payment-message-assessment-failed
@@ -100,12 +123,10 @@
           {:keys [MessageId]} Payload]
       (log/info "payment-message-assessment-failed webhook received"
                 {:message-id MessageId})
-      (webhook-response
-       "payment-message-assessment-failed"
-       (record-webhook
-        request
-        (publisher/outbound-payment-assessment-failed Payload))
-       Nonce))))
+      (webhook-response request
+                        "payment-message-assessment-failed"
+                        (publisher/outbound-payment-assessment-failed Payload)
+                        Nonce))))
 
 (defn inbound-held-transaction
   [_config]
@@ -115,10 +136,9 @@
           {:keys [Payload Nonce]} body]
       (log/info "inbound-held-transaction webhook received"
                 {:payload Payload})
-      (webhook-response "inbound-held-transaction"
-                        (record-webhook
-                         request
-                         (publisher/inbound-payment-held Payload))
+      (webhook-response request
+                        "inbound-held-transaction"
+                        (publisher/inbound-payment-held Payload)
                         Nonce))))
 
 (defn outbound-held-transaction
@@ -131,10 +151,9 @@
       (log/info "outbound-held-transaction webhook received"
                 {:e2e-id EndToEndTransactionId
                  :scheme Scheme})
-      (webhook-response "outbound-held-transaction"
-                        (record-webhook
-                         request
-                         (publisher/outbound-payment-held Payload))
+      (webhook-response request
+                        "outbound-held-transaction"
+                        (publisher/outbound-payment-held Payload)
                         Nonce))))
 
 (defn- cop-result

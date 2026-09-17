@@ -1,0 +1,5 @@
+command-processor: !system/component
+  system/component-kind: clearbank-adapter/command-processor
+  schemas: !system/ref avro.serde
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store

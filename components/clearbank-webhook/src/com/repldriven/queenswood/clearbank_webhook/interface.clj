@@ -10,9 +10,11 @@
 (def
   ^{:doc
     "Map of ClearBank webhook schema name to Malli schema.
-  Covers TransactionSettled, TransactionRejected, and
-  InboundCopRequestReceived plus their nested account/payload
-  shapes."}
+  Covers TransactionSettled, TransactionRejected,
+  PaymentMessageAssessmentFailed (under either spelling of its
+  instruction list) and InboundCopRequestReceived plus their nested
+  account/payload shapes, and `WebhookRejected`, the RFC 9457 body a
+  webhook the adapter refuses is answered with."}
   component-registry
   components/component-registry)
 

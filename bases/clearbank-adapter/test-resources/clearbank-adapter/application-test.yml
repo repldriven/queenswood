@@ -3,3 +3,4 @@ system:
   fdb: !include system/fdb-test.yml
   message-bus: !include clearbank-adapter/message-bus-test.yml
   server: !include clearbank-adapter/server-test.yml
+  clearbank-adapter: !include clearbank-adapter/clearbank-adapter-test.yml
