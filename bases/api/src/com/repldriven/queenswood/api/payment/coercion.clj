@@ -13,6 +13,21 @@
 (def outbound-payment-status-enum-schema
   (:enum-schema outbound-payment-status-enum))
 
+(def ^:private inbound-payment-status-enum
+  (coercion/enum-coercion {"settled" :inbound-payment-status-settled
+                           "suspended" :inbound-payment-status-suspended
+                           "held" :inbound-payment-status-held
+                           "returned" :inbound-payment-status-returned}
+                          :inbound-payment-status-unknown))
+
+(def inbound-payment-status-enum-schema
+  (:enum-schema inbound-payment-status-enum))
+
+(defn encode-inbound-payment-status
+  [status]
+  (some-> ((:encode inbound-payment-status-enum) status)
+          name))
+
 (def ^:private payment-scheme-enum
   (coercion/enum-coercion {"fps" :payment-scheme-fps} :payment-scheme-unknown))
 

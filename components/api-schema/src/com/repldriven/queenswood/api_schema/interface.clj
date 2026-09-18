@@ -2,12 +2,13 @@
   "Schema and coercion primitives shared by every API surface: the
   registry builders that turn vars into malli registries and OpenAPI
   `components` sections, the prefixed-id schema, the error-response
-  shape, the enum coercion builder, the encoder that renders a body in
-  the spelling a route would, the two `:unique-vector` collection
-  schemas, and the registry of cross-cutting schemas — timestamps,
-  dates, country and currency primitives, amounts, names, the entity
-  ids and product enums more than one resource carries, and the
-  `page` / `embed` query objects. Requiring this namespace registers
+  shape, the success-response shape with named examples, the enum
+  coercion builder, the encoder that renders a body in the spelling a
+  route would, the two `:unique-vector` collection schemas, and the
+  registry of cross-cutting schemas — timestamps, dates, country and
+  currency primitives, amounts, names, the entity ids and product enums
+  more than one resource carries, and the `page` / `embed` query
+  objects. Requiring this namespace registers
   the `:unique-vector` and `:unique-vector-lax` OpenAPI projections."
   (:require
     [com.repldriven.queenswood.api-schema.coercion :as coercion]
@@ -69,6 +70,20 @@
   - examples: sequence of vars, each holding an OpenAPI example map."
   [examples]
   (schema/ErrorResponse examples))
+
+(defn SuccessResponse
+  "Reitit `:responses` entry for one success status: an
+  `application/json` body of `schema` whose `examples` `$ref` the named
+  examples in `components/examples`, so one status can show a body per
+  state of the resource. Response coercion encodes the body through
+  `schema`, as it would a `:body` entry.
+
+  Args:
+  - description: the response's description.
+  - schema: the body's malli schema, typically `[:ref \"Name\"]`.
+  - examples: sequence of vars, each holding an OpenAPI example map."
+  [description schema examples]
+  (schema/SuccessResponse description schema examples))
 
 (defn enum-coercion
   "Builds decoder, encoder, and json-schema from a

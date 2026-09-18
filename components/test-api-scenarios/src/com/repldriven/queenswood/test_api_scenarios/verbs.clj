@@ -115,9 +115,18 @@
                    (java.net.URLEncoder/encode (str v) "UTF-8"))))
        (str/join "&")))
 
+(defn- base-url-for
+  "The root URL a request goes to: the bank API's, or the ClearBank
+  simulator's when the step names `:base :clearbank-simulator`."
+  [{:keys [base-url clearbank-simulator-url]} base]
+  (case base
+    :clearbank-simulator clearbank-simulator-url
+    base-url))
+
 (defn- build-request
-  [{:keys [base-url] :as ctx}
-   {:keys [method url path path-params query-params body form auth headers]}]
+  [ctx
+   {:keys [base method url path path-params query-params body form auth
+           headers]}]
   (let [token (resolve-auth ctx auth)
         base-headers (cond-> {}
                              body
@@ -128,7 +137,7 @@
                              token
                              (assoc "Authorization" (str "Bearer " token)))]
     (cond-> {:method method
-             :url (resolve-url base-url url path path-params)
+             :url (resolve-url (base-url-for ctx base) url path path-params)
              :headers (merge-headers base-headers headers)}
             query-params
             (assoc :query-params query-params)

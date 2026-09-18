@@ -5,7 +5,7 @@
 # its record type arrived on as since, and a store lists the indexes
 # removed from it under former-indexes with the versions they were added
 # and removed at. See docs/recipes/code/schema-evolution.md.
-version: 53
+version: 54
 stores:
   assertions:
     record-type: Assertion
@@ -270,6 +270,10 @@ stores:
         modified: 16
         fields: [bank_id, business_day]
         type: count
+      - name: InboundPayment_by_bank_status_created_at
+        added: 54
+        modified: 54
+        fields: [bank_id, payment_status, created_at]
   outbound-payments:
     record-type: OutboundPayment
     indexes:
@@ -288,6 +292,10 @@ stores:
         modified: 12
         fields: [bank_id, business_day, amount]
         type: sum
+      - name: OutboundPayment_by_status_created_at
+        added: 54
+        modified: 54
+        fields: [payment_status, created_at]
   internal-payments:
     record-type: InternalPayment
     indexes:

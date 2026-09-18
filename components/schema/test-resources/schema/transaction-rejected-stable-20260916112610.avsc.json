@@ -1,0 +1,22 @@
+{
+  "type": "record",
+  "name": "TransactionRejected",
+  "namespace": "com.repldriven.mono.schemes.payments",
+  "fields": [
+    {"name": "end_to_end_id",              "type": "string"},
+    {"name": "scheme",              "type": "string"},
+    {"name": "debit_credit_code",    "type": {
+      "type": "enum",
+      "name": "DebitCreditCode",
+      "symbols": [
+        "DEBIT_CREDIT_CODE_UNKNOWN",
+        "DEBIT_CREDIT_CODE_DEBIT",
+        "DEBIT_CREDIT_CODE_CREDIT"
+      ]
+    }},
+    {"name": "cancellation_code",   "type": "string"},
+    {"name": "cancellation_reason", "type": ["null", "string"], "default": null},
+    {"name": "is_return",           "type": ["null", "boolean"], "default": null},
+    {"name": "timestamp_rejected",  "type": {"type": "long", "logicalType": "timestamp-millis"}}
+  ]
+}

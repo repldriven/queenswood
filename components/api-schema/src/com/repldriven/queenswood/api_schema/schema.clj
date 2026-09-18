@@ -27,16 +27,22 @@
   (str "The request was rejected. The body is an RFC 9457 "
        "problem-details object naming what was refused."))
 
+(defn- example-refs
+  [examples]
+  (reduce (fn [m v]
+            (let [v' (vname v)]
+              (assoc m v' {"$ref" (str "#/components/examples/" v')})))
+          {}
+          examples))
+
 (defn ErrorResponse
   [examples]
   {:description error-response-description
-   :content {"application/json"
-             {:schema [:ref "ErrorResponse"]
-              :examples (reduce (fn [m v]
-                                  (let [v' (vname v)]
-                                    (assoc m
-                                           v'
-                                           {"$ref" (str "#/components/examples/"
-                                                        v')})))
-                                {}
-                                examples)}}})
+   :content {"application/json" {:schema [:ref "ErrorResponse"]
+                                 :examples (example-refs examples)}}})
+
+(defn SuccessResponse
+  [description schema examples]
+  {:description description
+   :content {"application/json" {:schema schema
+                                 :examples (example-refs examples)}}})

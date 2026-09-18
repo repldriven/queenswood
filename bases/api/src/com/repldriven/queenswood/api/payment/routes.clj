@@ -2,19 +2,27 @@
   (:require
     [com.repldriven.queenswood.api.payment.commands :as commands]
     [com.repldriven.queenswood.api.payment.examples :refer
-     [AlreadySubmitted BalanceNotFound InvalidAmount PaymentNotFound]]
+     [BalanceNotFound HeldInboundPayment InboundPaymentList InvalidAmount
+      PaymentNotFound ReturnedInboundPayment SettledInboundPayment
+      SuspendedInboundPayment]]
     [com.repldriven.queenswood.api.payment.links :as links]
     [com.repldriven.queenswood.api.payment.queries :as queries]
 
     [com.repldriven.queenswood.api.shared.idempotency :as shared.idempotency]
     [com.repldriven.queenswood.api.shared.parameters :as shared.parameters]
 
-    [com.repldriven.queenswood.api-schema.interface :refer [ErrorResponse]]
+    [com.repldriven.queenswood.api-schema.interface :refer
+     [ErrorResponse SuccessResponse]]
     [com.repldriven.queenswood.cash-account-api.interface :refer
      [CashAccountNotFound]]
     [com.repldriven.queenswood.idempotency.interface :as bank-idempotency]
 
     [com.repldriven.mono.server.interface :as server]))
+
+(def ^:private list-inbound-query-schema
+  [:map {:closed true}
+   [:status [:ref "InboundPaymentStatus"]]
+   [:page {:optional true} [:ref "PageQuery"]]])
 
 (def routes
   [["/payments"
@@ -35,7 +43,6 @@
                                :openapi {:links links/from-internal-payment}}
                           404 (ErrorResponse [#'CashAccountNotFound
                                               #'BalanceNotFound])
-                          409 (ErrorResponse [#'AlreadySubmitted])
                           422 (ErrorResponse [#'InvalidAmount])})
              :handler commands/submit-internal-payment}}]
     ["/internal/{payment-id}"
@@ -64,7 +71,6 @@
                                :openapi {:links links/from-outbound-payment}}
                           404 (ErrorResponse [#'CashAccountNotFound
                                               #'BalanceNotFound])
-                          409 (ErrorResponse [#'AlreadySubmitted])
                           422 (ErrorResponse [#'InvalidAmount])})
              :handler commands/submit-outbound-payment}}]
     ["/outbound/{payment-id}"
@@ -76,4 +82,33 @@
              :openapi {:operationId "RetrieveOutboundPayment"}
              :responses {200 {:body [:ref "OutboundPayment"]}
                          404 (ErrorResponse [#'PaymentNotFound])}
-             :handler queries/get-outbound-payment}}]]]])
+             :handler queries/get-outbound-payment}}]]
+    ["/inbound"
+     {:openapi {:security [{"bearerAuth" ["org:viewer"]}]}
+      :get {:summary "List inbound payments in a status, newest first"
+            :openapi {:operationId "ListInboundPayments"
+                      :parameters ^:replace
+                                  [shared.parameters/ref-inbound-payment-status
+                                   shared.parameters/ref-page
+                                   shared.parameters/ref-bank-id-header]}
+            :parameters {:query list-inbound-query-schema}
+            :responses {200 (SuccessResponse
+                             "The bank's inbound payments in the status."
+                             [:ref "InboundPaymentList"]
+                             [#'InboundPaymentList])}
+            :handler queries/list-inbound-payments}}]
+    ["/inbound/{payment-id}"
+     {:parameters {:path {:payment-id [:ref "PaymentId"]}}}
+     [""
+      {:openapi {:security [{"bearerAuth" ["org:viewer"]}]
+                 :parameters [shared.parameters/ref-bank-id-header]}
+       :get {:summary "Retrieve an inbound payment"
+             :openapi {:operationId "RetrieveInboundPayment"}
+             :responses {200 (SuccessResponse
+                              "The inbound payment, in any status."
+                              [:ref "InboundPayment"]
+                              [#'SettledInboundPayment
+                               #'SuspendedInboundPayment #'HeldInboundPayment
+                               #'ReturnedInboundPayment])
+                         404 (ErrorResponse [#'PaymentNotFound])}
+             :handler queries/get-inbound-payment}}]]]])

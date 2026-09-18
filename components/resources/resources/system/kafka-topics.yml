@@ -76,6 +76,8 @@
     partitions: 1
   - topic: topic-schemes-payments-event
     partitions: 1
+  - topic: topic-schemes-payments-event-dlq
+    partitions: 1
   - topic: topic-transactions-command
     partitions: 1
   - topic: topic-transactions-command-dlq

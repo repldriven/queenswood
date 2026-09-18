@@ -1,0 +1,229 @@
+{:name "Another bank's payment reads as not found"
+ :tags #{:api :payments :unhappy}
+ ;; A payment read is scoped to the caller's bank. Bank A submits an
+ ;; internal and an outbound payment; bank B's token reads each by id and
+ ;; gets the same 404 body a payment that does not exist answers, and bank
+ ;; A's token reads each with 200. The outbound pays bank A's own savings
+ ;; account by BBAN, so it settles on bank A's books. The debtor is funded
+ ;; through the simulated inbound transfer. All amounts in pence.
+ :given
+ [;; Bank A
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-cbpr-bank-a-001"}
+             :body {:name "Cross Bank Read A"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :bank-a
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :bank-a :client-id]
+         :client-secret [:ref :bank-a :client-secret]
+         :status :live}
+   :as :bank-a-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :bank-a-token
+             :headers {:idempotency-key "ik-cbpr-prod-a-001"}
+             :body {:name "Current"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-01-01"}}
+   :as :product-a
+   :assert {:status 201 :body {:status "draft"}}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :product-a :product-id]
+                  :version-id [:ref :product-a :version-id]}
+    :auth :bank-a-token}
+   :assert {:status 200 :body {:status "published"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth :bank-a-token
+             :headers {:idempotency-key "ik-cbpr-party-a-001"}
+             :body {:type "person"
+                    :display-name "Trillian Astra"
+                    :given-name "Trillian"
+                    :family-name "Astra"
+                    :date-of-birth "1952-03-11"
+                    :nationality "GB"
+                    :address {:building-number "7"
+                              :street "Islington Row"
+                              :town "Cottington"
+                              :postcode "CT12 4XY"
+                              :country "GBR"}
+                    :national-identifier {:type "national-insurance"
+                                          :value "TN556201A"
+                                          :issuing-country "GB"}}}
+   :as :party-a
+   :assert {:status 200 :body {:status "pending"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}"
+             :path-params {:party-id [:ref :party-a :party-id]}
+             :auth :bank-a-token}
+   :until {:status 200 :body {:status "active"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :bank-a-token
+             :headers {:idempotency-key "ik-cbpr-debtor-a-001"}
+             :body {:party-id [:ref :party-a :party-id]
+                    :name "Current"
+                    :currency "GBP"
+                    :product-id [:ref :product-a :product-id]}}
+   :as :debtor-a
+   :assert {:status 200 :body {:account-status "opening"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :debtor-a :account-id]}
+             :auth :bank-a-token}
+   :until {:status 200 :body {:account-status "opened"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :bank-a-token
+             :headers {:idempotency-key "ik-cbpr-creditor-a-001"}
+             :body {:party-id [:ref :party-a :party-id]
+                    :name "Savings"
+                    :currency "GBP"
+                    :product-id [:ref :product-a :product-id]}}
+   :as :creditor-a
+   :assert {:status 200 :body {:account-status "opening"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :creditor-a :account-id]}
+             :auth :bank-a-token}
+   :until {:status 200 :body {:account-status "opened"}}
+   :as :creditor-a}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/simulate/banks/{bank-id}/inbound-transfer"
+             :path-params {:bank-id [:ref :bank-a :bank-id]}
+             :auth :admin
+             :headers {:idempotency-key "ik-cbpr-fund-a-001"}
+             :body {:account-id [:ref :debtor-a :account-id]
+                    :amount 100000
+                    :currency "GBP"}}
+   :assert {:status 200}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :debtor-a :account-id]}
+             :auth :bank-a-token}
+   :until {:status 200
+           :body {:available-balance {:value 100000 :currency "GBP"}}}}
+  ;; Bank B
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-cbpr-bank-b-001"}
+             :body {:name "Cross Bank Read B"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :bank-b
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :bank-b :client-id]
+         :client-secret [:ref :bank-b :client-secret]
+         :status :live}
+   :as :bank-b-token}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/payments/internal"
+             :auth :bank-a-token
+             :headers {:idempotency-key "ik-cbpr-internal-001"}
+             :body {:debtor-account-id [:ref :debtor-a :account-id]
+                    :creditor-account-id [:ref :creditor-a :account-id]
+                    :currency "GBP"
+                    :amount 2500
+                    :reference "Cross bank internal"}}
+   :as :internal
+   :assert {:status 200 :body {:bank-id [:ref :bank-a :bank-id]}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/payments/outbound"
+             :auth :bank-a-token
+             :headers {:idempotency-key "ik-cbpr-outbound-001"}
+             :body {:debtor-account-id [:ref :debtor-a :account-id]
+                    :creditor-bban [:ref :creditor-a :bban]
+                    :creditor-name "Trillian Astra"
+                    :currency "GBP"
+                    :amount 1500
+                    :scheme "fps"
+                    :reference "Cross bank outbound"}}
+   :as :outbound
+   :assert {:status 200 :body {:bank-id [:ref :bank-a :bank-id]}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/payments/outbound/{payment-id}"
+             :path-params {:payment-id [:ref :outbound :payment-id]}
+             :auth :bank-a-token}
+   :until {:status 200 :body {:payment-status "completed"}}
+   :timeout-ms 10000}]
+ :then
+ [;; Bank B reads neither, and cannot tell them from a missing payment.
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/payments/internal/{payment-id}"
+             :path-params {:payment-id [:ref :internal :payment-id]}
+             :auth :bank-b-token}
+   :assert {:status 404
+            :body [:m/equals {:title "REJECTED"
+                              :type "payment/not-found"
+                              :status 404
+                              :detail "Payment not found"}]}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/payments/outbound/{payment-id}"
+             :path-params {:payment-id [:ref :outbound :payment-id]}
+             :auth :bank-b-token}
+   :assert {:status 404
+            :body [:m/equals {:title "REJECTED"
+                              :type "payment/not-found"
+                              :status 404
+                              :detail "Payment not found"}]}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/payments/internal/{payment-id}"
+             :path-params {:payment-id "pmt.01kprbmgcj35ptc8npmybhh4s5"}
+             :auth :bank-a-token}
+   :assert {:status 404
+            :body [:m/equals {:title "REJECTED"
+                              :type "payment/not-found"
+                              :status 404
+                              :detail "Payment not found"}]}}
+  ;; Bank A reads both.
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/payments/internal/{payment-id}"
+             :path-params {:payment-id [:ref :internal :payment-id]}
+             :auth :bank-a-token}
+   :assert {:status 200
+            :body {:payment-id [:ref :internal :payment-id]
+                   :bank-id [:ref :bank-a :bank-id]
+                   :amount 2500
+                   :reference "Cross bank internal"}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/payments/outbound/{payment-id}"
+             :path-params {:payment-id [:ref :outbound :payment-id]}
+             :auth :bank-a-token}
+   :assert {:status 200
+            :body {:payment-id [:ref :outbound :payment-id]
+                   :bank-id [:ref :bank-a :bank-id]
+                   :amount 1500
+                   :payment-status "completed"}}}]}

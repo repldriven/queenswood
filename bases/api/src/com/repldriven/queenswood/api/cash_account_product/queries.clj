@@ -9,47 +9,6 @@
     [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.utility.interface :as utility]))
 
-(defn- paginate
-  "Windows a seq of product aggregates — assumed to already be in
-  descending product-id order, which is what `core/get-products`
-  returns under the store's default `:order :desc` scan — using
-  `page[after|before|size]` cursor semantics.
-
-  In descending display order, `:after cursor` advances further
-  into smaller product-ids; `:before cursor` retreats toward larger
-  ones. `size` caps the page length."
-  [items {:keys [after before size]}]
-  (let [limit (cursor/clamp-size size)]
-    (cond
-     after
-     (let [after-items (drop-while
-                        (fn [{:keys [product-id]}]
-                          (not (neg? (compare product-id after))))
-                        items)
-           page (vec (take limit after-items))]
-       {:page page
-        :before (when (seq page) (:product-id (first page)))
-        :after (when (> (count after-items) limit)
-                 (:product-id (last page)))})
-
-     before
-     (let [before-items (take-while
-                         (fn [{:keys [product-id]}]
-                           (pos? (compare product-id before)))
-                         items)
-           page (vec (take-last limit before-items))]
-       {:page page
-        :before (when (> (count before-items) limit)
-                  (:product-id (first page)))
-        :after (when (seq page) (:product-id (last page)))})
-
-     :else
-     (let [page (vec (take limit items))]
-       {:page page
-        :before nil
-        :after (when (> (count items) limit)
-                 (:product-id (last page)))}))))
-
 (defn list-products
   [request]
   (let [{:keys [record-db record-store auth parameters]} request
@@ -65,8 +24,12 @@
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       (let [{:keys [items]} result
-            windowed (paginate (or items [])
-                               {:after after-id :before before-id :size size})
+            windowed (cursor/paginate (or items [])
+                                      :product-id
+                                      :desc
+                                      {:after after-id
+                                       :before before-id
+                                       :size size})
             {windowed-items :page
              next-cursor :after
              prev-cursor :before}

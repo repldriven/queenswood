@@ -1,0 +1,150 @@
+{:name "An inbound held for screening, then returned, credits no one"
+ :tags #{:api :inbound :payments :unhappy}
+ ;; ClearBank's documented sandbox trigger: an inbound whose debtor name is
+ ;; 6a41a29eafcf455493 is held for screening. The simulator then resolves it
+ ;; by the request's `outcome`, here a return, whose rejection carries the
+ ;; creditor's BBAN. The payment events record the hold `held` and, on the
+ ;; return, move that record to `returned`; no money reaches the bank's
+ ;; books. The simulator's amount is in pounds; balances are in pence.
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-ihret-bank-001"}
+             :body {:name "Inbound Held Returned"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :bank-0
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :bank-0 :client-id]
+         :client-secret [:ref :bank-0 :client-secret]
+         :status :live}
+   :as :bank-0-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-ihret-prod-001"}
+             :body {:name "Current"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-01-01"}}
+   :as :current-draft
+   :assert {:status 201 :body {:status "draft"}}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :current-draft :product-id]
+                  :version-id [:ref :current-draft :version-id]}
+    :auth :bank-0-token}
+   :assert {:status 200 :body {:status "published"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-ihret-party-001"}
+             :body {:type "person"
+                    :display-name "Eddie Shipboard"
+                    :given-name "Eddie"
+                    :family-name "Shipboard"
+                    :date-of-birth "1958-08-08"
+                    :nationality "GB"
+                    :address {:building-number "4"
+                              :street "Magrathea Lane"
+                              :town "Cottington"
+                              :postcode "CT12 4XY"
+                              :country "GBR"}
+                    :national-identifier {:type "national-insurance"
+                                          :value "TN556231A"
+                                          :issuing-country "GB"}}}
+   :as :party
+   :assert {:status 200 :body {:status "pending"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}"
+             :path-params {:party-id [:ref :party :party-id]}
+             :auth :bank-0-token}
+   :until {:status 200 :body {:status "active"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-ihret-open-creditor"}
+             :body {:party-id [:ref :party :party-id]
+                    :name "Eddie Current"
+                    :currency "GBP"
+                    :product-id [:ref :current-draft :product-id]}}
+   :as :creditor
+   :assert {:status 200 :body {:account-status "opening"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :creditor :account-id]}
+             :auth :bank-0-token}
+   :until {:status 200 :body {:account-status "opened"}}
+   :as :creditor}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :base :clearbank-simulator
+             :path "/simulate/inbound-payment"
+             :body {:bban [:ref :creditor :bban]
+                    :amount 25
+                    :currency "GBP"
+                    :reference "Held then returned"
+                    :debtor-name "6a41a29eafcf455493"
+                    :outcome "return"}}
+   :as :inbound
+   :assert {:status 202}}]
+ :then
+ [;; The held record, now returned, is the bank's only returned inbound.
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/payments/inbound"
+             :query-params {"status" "returned"}
+             :auth :bank-0-token}
+   :until {:status 200
+           :body {:items
+                  [{:end-to-end-id [:ref :inbound :endToEndIdentification]
+                    :bank-id [:ref :bank-0 :bank-id]
+                    :creditor-account-id [:ref :creditor :account-id]
+                    :amount 2500
+                    :currency "GBP"
+                    :payment-status "returned"}]}}
+   :timeout-ms 10000
+   :as :returned}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/payments/inbound/{payment-id}"
+             :path-params {:payment-id [:ref :returned :items 0 :payment-id]}
+             :auth :bank-0-token}
+   :assert {:status 200
+            :body {:payment-id [:ref :returned :items 0 :payment-id]
+                   :end-to-end-id [:ref :inbound :endToEndIdentification]
+                   :payment-status "returned"}}}
+  ;; Nothing is left held or settled, and no money reached the creditor.
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/payments/inbound"
+             :query-params {"status" "held"}
+             :auth :bank-0-token}
+   :assert {:status 200 :body {:items []}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/payments/inbound"
+             :query-params {"status" "settled"}
+             :auth :bank-0-token}
+   :assert {:status 200 :body {:items []}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :creditor :account-id]}
+             :auth :bank-0-token}
+   :until {:status 200
+           :body {:available-balance {:value 0 :currency "GBP"}}}
+   :timeout-ms 10000}]}

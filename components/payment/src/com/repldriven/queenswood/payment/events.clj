@@ -32,64 +32,15 @@
      {:message "Inbound payment settlement for non-credit is not permissible"
       :debit-credit-code debit-credit-code})))
 
-(defn- record-inbound-settlement
-  [txn data account business-day]
-  (let [{:keys [account-id bank-id]} account
-        {:keys [currency]} data]
-    ;; Creditor is known (matched via BBAN) so the inbound settles
-    ;; directly to the bank's correspondent cash account; suspense
-    ;; (2500) is reserved for unmatched inbounds — a workflow for
-    ;; a later wave.
-    (let-nom>
-      [cash (ledger-accounts/find-by-code
-             txn
-             bank-id
-             :gl-account-code-cash-at-correspondent
-             currency)
-       policies (policy/get-effective-policies
-                 txn
-                 {:bank-id bank-id})
-       today-count (q/count-inbound-by-org-business-day
-                    txn
-                    bank-id
-                    business-day)
-       aggregates {:inbound-payment
-                   {#{:bank-id :business-day} today-count}}
-       transaction (domain/inbound-payment->transaction
-                    data
-                    account
-                    (:ledger-account-id cash)
-                    policies
-                    aggregates)
-       expanded-legs (ledger-accounts/add-control-legs
-                      txn
-                      bank-id
-                      currency
-                      (:legs transaction))
-       transaction+legs (transactions/record-transaction
-                         txn
-                         (assoc transaction :legs expanded-legs))
-       {:keys [transaction-id transaction-type legs]} transaction+legs
-       _ (balances/apply-legs txn bank-id legs transaction-type)
-       payment (domain/new-inbound-payment data
-                                           account-id
-                                           bank-id
-                                           business-day
-                                           transaction-id)
-       _ (store/save-inbound-payment txn payment)]
-      payment)))
-
 (defn- bban->sort-code
   [bban]
   (when (and bban (>= (count bban) 6)) (subs bban 0 6)))
 
-(defn- record-inbound-suspense
-  "An inbound for a BBAN that matches no account: resolve the owning bank
-  from the BBAN's sort code, then DEBIT 1100 / CREDIT 2500 suspense and
-  persist a `suspended` InboundPayment for later reconciliation. A sort
-  code that matches no bank is genuinely foreign and fails."
-  [txn data business-day]
-  (let [{:keys [creditor-bban currency]} data
+(defn- resolve-suspense-bank
+  "The bank owning an unmatched inbound's BBAN, by its sort code. A sort code
+  that matches no bank is genuinely foreign and fails."
+  [txn data]
+  (let [{:keys [creditor-bban]} data
         sort-code (bban->sort-code creditor-bban)]
     (let-nom>
       [bank (banks/get-bank-by-sort-code txn sort-code)
@@ -97,9 +48,14 @@
            (error/fail :payment/no-bank-for-sort-code
                        {:message "No bank owns the inbound BBAN's sort code"
                         :bban creditor-bban
-                        :sort-code sort-code}))
-       {:keys [bank-id]} bank
-       cash (ledger-accounts/find-by-code
+                        :sort-code sort-code}))]
+      (:bank-id bank))))
+
+(defn- post-to-suspense
+  [txn data bank-id]
+  (let [{:keys [currency]} data]
+    (let-nom>
+      [cash (ledger-accounts/find-by-code
              txn
              bank-id
              :gl-account-code-cash-at-correspondent
@@ -115,21 +71,94 @@
                     (:ledger-account-id cash)
                     (:ledger-account-id suspense))
        recorded (transactions/record-transaction txn transaction)
-       {:keys [transaction-id transaction-type legs]} recorded
-       _ (balances/apply-legs txn bank-id legs transaction-type)
-       payment (domain/suspended-inbound-payment data
+       {:keys [transaction-type legs]} recorded
+       _ (balances/apply-legs txn bank-id legs transaction-type)]
+      recorded)))
+
+(defn- park-in-suspense
+  "Park an inbound in `bank-id`'s 2500 suspense and persist a `suspended`
+  InboundPayment for later reconciliation."
+  [txn data bank-id business-day]
+  (let-nom>
+    [recorded (post-to-suspense txn data bank-id)
+     {:keys [transaction-id]} recorded
+     payment (domain/suspended-inbound-payment data
+                                               bank-id
+                                               business-day
+                                               transaction-id)
+     _ (store/save-inbound-payment txn payment)]
+    payment))
+
+(defn- record-inbound-settlement
+  [txn data account business-day]
+  (let [{:keys [account-id bank-id]} account
+        {:keys [currency]} data]
+    (let-nom>
+      [cash (ledger-accounts/find-by-code
+             txn
+             bank-id
+             :gl-account-code-cash-at-correspondent
+             currency)
+       policies (policy/get-effective-policies
+                 txn
+                 {:bank-id bank-id})
+       today-count (q/count-inbound-by-org-business-day
+                    txn
+                    bank-id
+                    business-day)]
+      (let [aggregates {:inbound-payment
+                        {#{:bank-id :business-day} today-count}}
+            transaction (domain/inbound-payment->transaction
+                         data
+                         account
+                         (:ledger-account-id cash)
+                         policies
+                         aggregates)]
+        (if (domain/refused? transaction)
+          (do (log/infof "Inbound settlement refused, parked in suspense: %s"
+                         {:kind (error/kind transaction)
+                          :account-id account-id})
+              (park-in-suspense txn data bank-id business-day))
+          (let-nom>
+            [_ transaction
+             expanded-legs (ledger-accounts/add-control-legs
+                            txn
+                            bank-id
+                            currency
+                            (:legs transaction))
+             transaction+legs (transactions/record-transaction
+                               txn
+                               (assoc transaction :legs expanded-legs))
+             {:keys [transaction-id transaction-type legs]} transaction+legs
+             _ (balances/apply-legs txn bank-id legs transaction-type)
+             payment (domain/new-inbound-payment data
+                                                 account-id
                                                  bank-id
                                                  business-day
                                                  transaction-id)
-       _ (store/save-inbound-payment txn payment)]
-      payment)))
+             _ (store/save-inbound-payment txn payment)]
+            payment))))))
+
+(defn- suspend-held
+  [txn data held]
+  (let [{:keys [bank-id]} held
+        {:keys [scheme-transaction-id]} data]
+    (let-nom>
+      [recorded (post-to-suspense txn data bank-id)
+       {:keys [transaction-id]} recorded
+       suspended (domain/suspended-from-held held
+                                             scheme-transaction-id
+                                             transaction-id)
+       _ (store/save-inbound-payment txn suspended)]
+      suspended)))
 
 (defn- record-inbound-release
-  "Release a held inbound: post DEBIT 1100 / CREDIT creditor and transition
-  the held record to `settled`. No policy/count checks — the payment was
-  already accepted (and counted) when it was held."
-  [txn data account held]
-  (let [{:keys [bank-id]} account
+  "Release a held inbound once it passes the checks a settlement runs, with
+  today's count excluding the held record itself: post DEBIT 1100 / CREDIT
+  creditor and transition the held record to `settled`. A release the checks
+  refuse is parked in suspense and the held record becomes `suspended`."
+  [txn data account held business-day]
+  (let [{:keys [account-id bank-id]} account
         {:keys [scheme-transaction-id]} data
         {:keys [currency]} held]
     (let-nom>
@@ -138,25 +167,44 @@
              bank-id
              :gl-account-code-cash-at-correspondent
              currency)
-       transaction (domain/inbound-release->transaction
-                    held
-                    account
-                    (:ledger-account-id cash))
-       expanded-legs (ledger-accounts/add-control-legs
-                      txn
-                      bank-id
-                      currency
-                      (:legs transaction))
-       recorded (transactions/record-transaction
+       policies (policy/get-effective-policies
                  txn
-                 (assoc transaction :legs expanded-legs))
-       {:keys [transaction-id transaction-type legs]} recorded
-       _ (balances/apply-legs txn bank-id legs transaction-type)
-       released (domain/settled-from-held held
-                                          scheme-transaction-id
-                                          transaction-id)
-       _ (store/save-inbound-payment txn released)]
-      released)))
+                 {:bank-id bank-id})
+       today-count (q/count-inbound-by-org-business-day
+                    txn
+                    bank-id
+                    business-day)]
+      (let [aggregates {:inbound-payment
+                        {#{:bank-id :business-day}
+                         (domain/release-count today-count held business-day)}}
+            transaction (domain/inbound-release->transaction
+                         held
+                         account
+                         (:ledger-account-id cash)
+                         policies
+                         aggregates)]
+        (if (domain/refused? transaction)
+          (do (log/infof "Inbound release refused, parked in suspense: %s"
+                         {:kind (error/kind transaction)
+                          :account-id account-id})
+              (suspend-held txn data held))
+          (let-nom>
+            [_ transaction
+             expanded-legs (ledger-accounts/add-control-legs
+                            txn
+                            bank-id
+                            currency
+                            (:legs transaction))
+             recorded (transactions/record-transaction
+                       txn
+                       (assoc transaction :legs expanded-legs))
+             {:keys [transaction-id transaction-type legs]} recorded
+             _ (balances/apply-legs txn bank-id legs transaction-type)
+             released (domain/settled-from-held held
+                                                scheme-transaction-id
+                                                transaction-id)
+             _ (store/save-inbound-payment txn released)]
+            released))))))
 
 (defn settle-inbound
   "Settle an inbound ClearBank credit against the creditor resolved by
@@ -165,7 +213,7 @@
   an unmatched BBAN is; a held record for it, if any, stays `held`."
   [config data]
   (let [{:keys [debit-credit-code creditor-bban
-                scheme-transaction-id end-to-end-id]}
+                scheme-transaction-id end-to-end-id amount]}
         data
         business-day (domain/current-business-day
                       (utility/now)
@@ -177,7 +225,11 @@
          [_ (check-debit-credit-code debit-credit-code)
           account (cash-accounts/get-account-by-bban txn creditor-bban)
           settled (q/get-inbound-payment txn scheme-transaction-id)
-          held (q/get-held-inbound-by-end-to-end-id txn end-to-end-id)]
+          held (when account
+                 (q/find-open-hold txn
+                                   end-to-end-id
+                                   (:account-id account)
+                                   amount))]
          (cond
           settled
           (do (log/infof "Inbound payment settlement already processed: %s"
@@ -191,17 +243,18 @@
           (do (log/infof "Inbound settlement to a non-operable account: %s"
                          {:account-id (:account-id account)
                           :account-status (:account-status account)})
-              (record-inbound-suspense txn data business-day))
+              (park-in-suspense txn data (:bank-id account) business-day))
 
           ;; Release of a previously-held inbound — settle it to the
           ;; account and flip the held record to settled.
-          (and held account)
-          (record-inbound-release txn data account held)
+          held
+          (record-inbound-release txn data account held business-day)
 
           ;; No account matches the BBAN — park the funds in 2500 suspense
           ;; rather than losing the receipt (it stays recoverable).
           (nil? account)
-          (record-inbound-suspense txn data business-day)
+          (let-nom> [bank-id (resolve-suspense-bank txn data)]
+            (park-in-suspense txn data bank-id business-day))
 
           :else
           (record-inbound-settlement txn data account business-day))))
@@ -267,6 +320,15 @@
                          payment-id)
               payment)
 
+          (not (domain/settleable-outbound? payment))
+          (do (log/errorf
+               "Outbound payment settlement skipped, not settleable: %s"
+               {:payment-id payment-id
+                :payment-status (:payment-status payment)
+                :cancellation-code (:cancellation-code payment)
+                :scheme-transaction-id (:scheme-transaction-id data)})
+              payment)
+
           :else
           (let-nom>
             [completed (domain/completed-outbound-payment payment)
@@ -313,11 +375,12 @@
 (defn hold-inbound
   "An inbound ClearBank is holding for screening. Record it `held` (creditor
   resolved by BBAN); no money moves — the funds are held at ClearBank, not
-  ours yet. Idempotent on an existing held; a held to an unmatched BBAN, or
-  to a creditor that is not opened, is logged and ignored — the settle that
-  follows finds no held record and parks in suspense."
+  ours yet. Idempotent on an open hold for the same end-to-end id, creditor
+  and amount; a held to an unmatched BBAN, or to a creditor that is not
+  opened, is logged and ignored — the settle that follows finds no held
+  record and parks in suspense."
   [config data]
-  (let [{:keys [creditor-bban end-to-end-id]} data
+  (let [{:keys [creditor-bban end-to-end-id amount]} data
         business-day (domain/current-business-day
                       (utility/now)
                       (:business-day-cutoff config))]
@@ -326,7 +389,11 @@
      (fn [txn]
        (let-nom>
          [account (cash-accounts/get-account-by-bban txn creditor-bban)
-          existing (q/get-held-inbound-by-end-to-end-id txn end-to-end-id)]
+          existing (when account
+                     (q/find-open-hold txn
+                                       end-to-end-id
+                                       (:account-id account)
+                                       amount))]
          (cond
           existing
           (do (log/infof "Inbound hold already recorded: %s" end-to-end-id)
@@ -355,6 +422,18 @@
      :payment/hold-inbound
      "Failed to hold inbound payment")))
 
+(defn- find-hold-to-return
+  [txn data]
+  (let [{:keys [creditor-bban end-to-end-id]} data]
+    (if creditor-bban
+      (let-nom>
+        [account (cash-accounts/get-account-by-bban txn creditor-bban)]
+        (when account
+          (q/find-open-hold txn end-to-end-id (:account-id account) nil)))
+      (let-nom>
+        [holds (q/find-open-holds txn end-to-end-id)]
+        (domain/select-hold-to-return holds end-to-end-id)))))
+
 (defn return-inbound
   "An inbound held transaction ClearBank declined — the funds returned to
   the remitter, so nothing posts on our books. Transition the matching held
@@ -365,7 +444,7 @@
      config
      (fn [txn]
        (let-nom>
-         [held (q/get-held-inbound-by-end-to-end-id txn end-to-end-id)]
+         [held (find-hold-to-return txn data)]
          (if (nil? held)
            (do (log/infof "Inbound return with no held inbound, ignored: %s"
                           end-to-end-id)

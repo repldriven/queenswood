@@ -1,0 +1,41 @@
+{:name "A settlement after a rejection moves no money"
+ :tags #{:outbound :payments :unhappy}
+ ;; The payment goes to the simulator's refusal sort code, so no
+ ;; settlement races the rejection, but the relay also rejects it, before
+ ;; or after the scenario's own rejection. Either order ends `failed` with
+ ;; the reservation released, so the cancellation code is not asserted.
+ ;; The settlement that follows finds a `failed` payment: it is skipped
+ ;; with no status change and no posting. Nothing was ever posted for the
+ ;; payment, so 1100 stays at -1000 and the current-account control at
+ ;; 1000 throughout.
+ :given [{:command :create-bank :args []}
+         {:command :inbound-transfer :args [:acct-0 1000]}
+         {:command :outbound-payment-pending :args [:acct-0 250]}
+         {:command :reject-outbound-payment :args [:pmt-0]}
+         {:command :assert-no-anomaly :args []}
+         {:command :assert-outbound-status
+          :args [:pmt-0 :outbound-payment-status-failed]}
+         {:command :assert-balance :args [:acct-0 1000]}
+         {:command :assert-gl-balance
+          :args [:bank-0 :gl-account-code-cash-at-correspondent "GBP" -1000]}
+         {:command :assert-gl-balance
+          :args [:bank-0 :gl-account-code-pending-outbound "GBP" 0]}
+         {:command :assert-gl-balance
+          :args [:bank-0 :gl-account-code-suspense "GBP" 0]}
+         {:command :assert-gl-balance
+          :args [:bank-0 :gl-account-code-customer-deposits-current "GBP"
+                 1000]}]
+ :when [{:command :settle-outbound-payment :args [:pmt-0]}]
+ :then [{:command :assert-no-anomaly :args []}
+        {:command :assert-outbound-status
+         :args [:pmt-0 :outbound-payment-status-failed]}
+        {:command :assert-balance :args [:acct-0 1000]}
+        {:command :assert-gl-balance
+         :args [:bank-0 :gl-account-code-cash-at-correspondent "GBP" -1000]}
+        {:command :assert-gl-balance
+         :args [:bank-0 :gl-account-code-pending-outbound "GBP" 0]}
+        {:command :assert-gl-balance
+         :args [:bank-0 :gl-account-code-suspense "GBP" 0]}
+        {:command :assert-gl-balance
+         :args [:bank-0 :gl-account-code-customer-deposits-current "GBP"
+                1000]}]}

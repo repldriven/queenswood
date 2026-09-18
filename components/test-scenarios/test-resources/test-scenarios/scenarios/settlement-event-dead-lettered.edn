@@ -1,0 +1,16 @@
+{:name "A settlement event that fails on every attempt is dead-lettered"
+ :tags #{:dead-letter :payments :unhappy}
+ ;; A rejection naming a payment id that does not exist fails in the
+ ;; payment event processor on every delivery. After the consumer's fifth
+ ;; attempt the event is written, as it arrived, to
+ ;; topic-schemes-payments-event-dlq. The end-to-end id is unique to the
+ ;; run, so only this scenario's event can satisfy the assertion.
+ :when [{:command :publish-scheme-event
+         :args ["transaction-rejected"
+                {:end-to-end-id :e2e-no-such-payment
+                 :scheme "FPS"
+                 :debit-credit-code :debit-credit-code-debit
+                 :cancellation-code "SCENARIO_REJECTED"
+                 :timestamp-rejected 1789603200000}]}]
+ :then [{:command :assert-no-anomaly :args []}
+        {:command :assert-dead-lettered :args [:e2e-no-such-payment 30000]}]}

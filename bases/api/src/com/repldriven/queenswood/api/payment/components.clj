@@ -68,7 +68,38 @@
    [:created-at {:optional true} [:maybe [:ref "Timestamp"]]]
    [:updated-at {:optional true} [:maybe [:ref "Timestamp"]]]])
 
+(def InboundPaymentStatus
+  (coercion/inbound-payment-status-enum-schema {:json-schema/example
+                                                "settled"}))
+
+(def InboundPayment
+  [:map {:json-schema/example examples/InboundPayment}
+   [:payment-id [:ref "PaymentId"]]
+   [:bank-id [:ref "BankId"]]
+   [:scheme string?]
+   [:scheme-transaction-id string?]
+   [:end-to-end-id string?]
+   [:creditor-account-id {:optional true} [:maybe [:ref "CashAccountId"]]]
+   [:currency [:ref "Currency"]]
+   [:amount [:ref "MinorUnits"]]
+   [:payment-status [:ref "InboundPaymentStatus"]]
+   [:transaction-id {:optional true} [:maybe [:ref "TransactionId"]]]
+   [:debtor-name {:optional true} [:maybe string?]]
+   [:reference {:optional true} [:maybe string?]]
+   [:business-day [:ref "BusinessDay"]]
+   [:created-at [:ref "Timestamp"]]
+   [:updated-at [:ref "Timestamp"]]])
+
+(def InboundPaymentList
+  [:map {:json-schema/example (:value examples/InboundPaymentList)}
+   [:items [:vector [:ref "InboundPayment"]]]
+   [:links {:optional true}
+    [:map
+     [:next {:optional true} string?]
+     [:prev {:optional true} string?]]]])
+
 (def registry
   (components-registry
    [#'PaymentId #'PaymentScheme #'SubmitInternalPaymentRequest #'InternalPayment
-    #'OutboundPaymentStatus #'SubmitOutboundPaymentRequest #'OutboundPayment]))
+    #'OutboundPaymentStatus #'SubmitOutboundPaymentRequest #'OutboundPayment
+    #'InboundPaymentStatus #'InboundPayment #'InboundPaymentList]))

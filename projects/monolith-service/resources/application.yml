@@ -64,6 +64,7 @@ system:
   parties-relay: !include system/party-relay.yml
   payee-checks-dispatcher: !include system/payee-check-dispatcher.yml
   payments-dispatcher: !include system/payment-dispatcher.yml
+  payment-sweep: !include system/payment-outbound-sweep.yml
   transactions-dispatcher: !include system/transaction-dispatcher.yml
   scheduler:
     scheduler: !system/component
