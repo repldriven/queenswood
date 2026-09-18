@@ -11,7 +11,6 @@
                           :exclusions [org.slf4j/slf4j-nop]}
     org.clojure/clojure {:mvn/version "1.12.5"}
     pin/clojure-core-async {:local/root "deps/clojure-core-async"}
-    djblue/portal {:mvn/version "0.67.1"}
     components/api-schema {:local/root "components/api-schema"}
     components/balance {:local/root "components/balance"}
     components/balance-domain {:local/root "components/balance-domain"}
@@ -171,7 +170,7 @@
                        cider/cider-nrepl {:mvn/version "0.62.2"}}
           :main-opts ["-m" "nrepl.cmdline"
                       "--middleware" "[cider.nrepl/cider-middleware]"]}
-  :poly {:extra-deps {polylith/clj-poly {:mvn/version "0.3.32"}
+  :poly {:extra-deps {polylith/clj-poly {:mvn/version "0.3.33"}
                       ext/mono-test-runner {:local/root
                                             "deps/mono-test-runner"}}
          :main-opts ["-m" "polylith.clj.core.poly-cli.core"]}
