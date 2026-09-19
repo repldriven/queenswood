@@ -1,16 +1,16 @@
 # Demo digital bank
 
-> **Status: proposal.** The customer app exists, in
-> `bases/demo-digital-bank-app`, running on fixture data. The seed, the
-> `demo-digital-bank-core` component, the `demo-digital-bank` base and
-> its service project exist too: a sign-up reaches a registered party,
-> a returning customer signs in, and the me read is served from the
-> platform, proved against a local monolith. The platform capabilities
+> **Status: proposal.** The customer app in
+> `bases/demo-digital-bank-app`, the seed, the `demo-digital-bank-core`
+> component, the `demo-digital-bank` base and its service project exist:
+> a sign-up from the app reaches a registered party, a returning
+> customer signs in, and the app's home is the me read, served from the
+> platform and proved against a local monolith. The platform capabilities
 > the bank calls, the mono bricks it is built from and the local tooling
 > it seeds against exist, and Background names them. Everything else
 > under Proposed Solution is the build list, and "First slice" says
-> which part of it comes next: the app reading the base, which finishes
-> the second slice.
+> which part of it comes next: the payee check, payments, transfers and
+> opening an account, the third slice.
 
 ## Objective
 
@@ -44,11 +44,13 @@ come, which take this one as their pattern.
 ## Background
 
 - **The app.** `bases/demo-digital-bank-app`, a React web app on Vite
-  that renders every screen of the design and runs on the seed data in
-  its `ui.jsx`. Its root holds the state and the mutations — `send`,
-  `transfer` and `openAccount` — that this design moves behind a
-  backend, and the shape of that state is the shape the backend will
-  answer in.
+  that renders every screen of the design. Its edge, `api.js`, calls the
+  base's routes, keeps the session the bank minted across reloads, and
+  maps the me read onto the shape the screens take — pounds from minor
+  units, the fixture's day labels from RFC 3339 — so the screens stay
+  as designed. Its root holds that state and the mutations — `send`,
+  `transfer` and `openAccount` — that this design moves behind the
+  backend next.
 - **The operator's door.** `POST /v1/banks`, an `admin` route that
   creates an organisation with its party, its settlement accounts and
   its service-account client, and returns the credential once. Locally
@@ -154,13 +156,14 @@ the repeat.
 
 The bank mints its own sessions, and the platform's identity server
 plays no part. Sign-up follows the screens: a phone number, a code,
-the person's details, an identity check, a passcode. The code is fixed
-under the dev and test profiles, as the design assumes, and a sender
-for live is a later concern. The details register a party, whose
-verification the bank reads back. The passcode is stored as a salted
-hash. A session is an opaque random id held in the store with an
-expiry, sent by the app as a bearer, and a returning customer opens one
-with their phone number and passcode.
+the person's details, an identity check, a four-digit passcode. The
+code is fixed under the dev and test profiles, as the design assumes,
+and a sender for live is a later concern. The details — name, date of
+birth, address and National Insurance number — register a party while
+the identity scan plays, and the bank reads the verification back. The
+passcode is stored as a salted hash. A session is an opaque random id
+held in the store with an expiry, sent by the app as a bearer, and a
+returning customer opens one with their phone number and passcode.
 
 Isolation is the bank's, on every request: the session resolves to a
 customer, the customer to a party id and the account ids the bank

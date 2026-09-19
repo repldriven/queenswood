@@ -1,6 +1,6 @@
-// Shared pieces: the money formatter, the icon set, the small chrome
-// components every screen uses, and the seed data the app runs on until
-// a backend serves it.
+// Shared pieces: the formatters, the icon set, the small chrome
+// components every screen uses, and the copy the app carries for the
+// products the bank publishes.
 
 // £1,234.56; a negative takes the U+2212 minus, a credit a + when asked.
 export const gbp = (n, { sign = false } = {}) => {
@@ -10,6 +10,39 @@ export const gbp = (n, { sign = false } = {}) => {
   });
   return (n < 0 ? "−" : sign ? "+" : "") + "£" + a;
 };
+
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+
+// "Mon 14 Sep".
+export const dayLabel = (d) =>
+  `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+
+// "Sep 2026", from an RFC 3339 instant.
+export const monthYear = (iso) => {
+  const d = new Date(iso);
+  return `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+};
+
+// "+44 7700 900123", from the E.164 number the bank holds.
+export const phoneLabel = (e164) =>
+  (e164 || "").replace(/^\+44(\d{4})(\d+)$/, "+44 $1 $2");
+
+// "4.10% AER", from basis points.
+export const aer = (bps) => (bps / 100).toFixed(2) + "% AER";
 
 // Inline SVG on a 24 grid, stroke 1.8 to 2.2.
 export const Ic = {
@@ -266,14 +299,23 @@ export function Top({ onBack, title, right, close }) {
   );
 }
 
-export function Field({ label, hint, children }) {
+export function Field({ label, hint, style, children }) {
   return (
-    <div className="field">
+    <div className="field" style={style}>
       {label && <label>{label}</label>}
       {children}
       {hint && <div className="hint">{hint}</div>}
     </div>
   );
+}
+
+// What the bank refused, in red under the thing it refused.
+export function Err({ children, center }) {
+  return children ? (
+    <p className="hint err" style={center ? { textAlign: "center" } : null}>
+      {children}
+    </p>
+  ) : null;
 }
 
 export function Pad({ onKey }) {
@@ -348,145 +390,11 @@ export function Spark({ pts, color = "var(--lime)" }) {
   );
 }
 
-// Fixture data. The shape is the app's own, not the platform's: the
-// backend that replaces this maps the platform's records onto it.
-export const SEED = {
-  user: { first: "Amara", last: "Okafor" },
-  accounts: [
-    {
-      id: "cur",
-      kind: "cur",
-      name: "Everyday",
-      type: "Current account",
-      bal: 2418.62,
-      sort: "04-00-75",
-      num: "31908240",
-      spark: [2900, 2710, 2650, 3120, 2980, 2540, 2418],
-    },
-    {
-      id: "sav",
-      kind: "sav",
-      name: "Rainy Day",
-      type: "Easy-access saver · 4.10% AER",
-      bal: 6200,
-      sort: "04-00-75",
-      num: "31908258",
-      spark: [5200, 5400, 5600, 5800, 6000, 6000, 6200],
-    },
-  ],
-  txns: [
-    {
-      id: 1,
-      acct: "cur",
-      who: "Pret A Manger",
-      cat: "Eating out",
-      amt: -6.85,
-      when: "Today, 08:12",
-      date: "Today",
-    },
-    {
-      id: 2,
-      acct: "cur",
-      who: "TfL Travel",
-      cat: "Transport",
-      amt: -2.8,
-      when: "Today, 07:44",
-      date: "Today",
-    },
-    {
-      id: 3,
-      acct: "cur",
-      who: "Tom Reilly",
-      cat: "Received",
-      amt: 45,
-      when: "Yesterday, 19:20",
-      date: "Yesterday",
-      ref: "Dinner split",
-    },
-    {
-      id: 4,
-      acct: "cur",
-      who: "Sainsbury's",
-      cat: "Groceries",
-      amt: -38.14,
-      when: "Yesterday, 17:02",
-      date: "Yesterday",
-    },
-    {
-      id: 5,
-      acct: "sav",
-      who: "Transfer from Everyday",
-      cat: "Saved",
-      amt: 200,
-      when: "Yesterday, 09:00",
-      date: "Yesterday",
-    },
-    {
-      id: 6,
-      acct: "cur",
-      who: "Transfer to Rainy Day",
-      cat: "Saved",
-      amt: -200,
-      when: "Yesterday, 09:00",
-      date: "Yesterday",
-    },
-    {
-      id: 7,
-      acct: "cur",
-      who: "Octopus Energy",
-      cat: "Bills",
-      amt: -92.3,
-      when: "Mon 14 Sep",
-      date: "Mon 14 Sep",
-    },
-    {
-      id: 8,
-      acct: "cur",
-      who: "Harlow & Co Ltd",
-      cat: "Salary",
-      amt: 2860,
-      when: "Fri 11 Sep",
-      date: "Fri 11 Sep",
-      ref: "SALARY SEP",
-    },
-    {
-      id: 9,
-      acct: "sav",
-      who: "Interest",
-      cat: "Interest earned",
-      amt: 20.49,
-      when: "Tue 1 Sep",
-      date: "Tue 1 Sep",
-    },
-  ],
-  payees: [
-    {
-      id: "p1",
-      name: "Tom Reilly",
-      sort: "20-45-11",
-      num: "77012934",
-      last: "£45.00 · 3 Sep",
-    },
-    {
-      id: "p2",
-      name: "Priya Nair",
-      sort: "60-83-01",
-      num: "10552718",
-      last: "£120.00 · 28 Aug",
-    },
-    {
-      id: "p3",
-      name: "Hackney Council",
-      sort: "30-00-02",
-      num: "00187744",
-      last: "£164.00 · 1 Aug",
-    },
-  ],
-  products: [
-    {
-      id: "cur",
-      kind: "cur",
-      name: "Everyday",
+// The copy the Open screen shows for each kind the bank publishes. The
+// id, the name and the rate are the bank's, from the me read.
+export const productCopy = (kind, rateBps) =>
+  ({
+    cur: {
       blurb: "Spend, get paid, pay bills. No monthly fee.",
       pts: [
         "Sort code and account number in seconds",
@@ -494,23 +402,16 @@ export const SEED = {
         "Card arrives in 3–5 days",
       ],
     },
-    {
-      id: "sav",
-      kind: "sav",
-      name: "Rainy Day",
-      blurb: "Easy-access saver, 4.10% AER variable.",
+    sav: {
+      blurb: `Easy-access saver, ${aer(rateBps)} variable.`,
       pts: ["Withdraw any time", "Interest paid monthly", "From £1"],
     },
-    {
-      id: "fix",
-      kind: "fix",
-      name: "1 Year Fixed",
-      blurb: "Lock in 4.65% AER for 12 months.",
+    fix: {
+      blurb: `Lock in ${aer(rateBps)} for 12 months.`,
       pts: [
         "£1,000 minimum",
         "No withdrawals until maturity",
         "FSCS protected",
       ],
     },
-  ],
-};
+  })[kind] || { blurb: "", pts: [] };

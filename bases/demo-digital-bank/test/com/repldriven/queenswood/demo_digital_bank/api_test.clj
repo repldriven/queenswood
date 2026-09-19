@@ -72,11 +72,14 @@
 (deftest sign-up-and-home-test
   (with-bank
    (fn [base-url]
-     (let [token (sign-up base-url "07700 900123" "246810")]
+     (let [token (sign-up base-url "07700 900123" "2468")]
        (testing "the session reads the home"
          (let [me (call base-url :get "/me" {:token token})]
            (is (= 200 (:status me)) (pr-str me))
-           (is (= {:first "Amara" :last "Okafor" :verification "verified"}
+           (is (= {:first "Amara"
+                   :last "Okafor"
+                   :phone "+447700900123"
+                   :verification "verified"}
                   (dissoc (get-in me [:body :user]) :member-since)))
            (is (= [] (get-in me [:body :accounts])))
            (is (= ["Everyday" "Rainy Day"]
@@ -92,12 +95,12 @@
 (deftest sign-in-and-refusals-test
   (with-bank
    (fn [base-url]
-     (sign-up base-url "07700 900200" "135790")
+     (sign-up base-url "07700 900200" "1357")
      (testing "a returning customer signs in"
        (let [session (call base-url
                            :post
                            "/sign-in"
-                           {:body {:phone "07700 900200" :passcode "135790"}})]
+                           {:body {:phone "07700 900200" :passcode "1357"}})]
          (is (= 201 (:status session)) (pr-str session))
          (is (= 200
                 (:status (call base-url
@@ -110,7 +113,7 @@
                              :post
                              "/sign-in"
                              {:body {:phone "07700 900200"
-                                     :passcode "000000"}})))))
+                                     :passcode "0000"}})))))
      (testing "a malformed body is 400"
        (is (= 400
               (:status (call base-url
@@ -124,7 +127,7 @@
                       base-url
                       :post
                       (str "/sign-up/" (get-in started [:body :id]) "/passcode")
-                      {:body {:passcode "111111"}})]
+                      {:body {:passcode "1111"}})]
          (is (= 409 (:status refused)))
          (is (= ":sign-up/invalid-status" (get-in refused [:body :type])))))
      (testing "an unknown sign-up is 404"

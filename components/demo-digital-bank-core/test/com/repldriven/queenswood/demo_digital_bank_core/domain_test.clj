@@ -114,8 +114,10 @@
 (deftest user-test
   (is (= {:first "Amara"
           :last "Okafor"
+          :phone "+447700900123"
           :verification "verified"
           :member-since "2026-09-19T10:00:00Z"}
-         (SUT/user {:given-name "Amara" :family-name "Okafor"}
-                   {:status "active" :created-at "2026-09-19T10:00:00Z"})))
+         (SUT/user
+          {:given-name "Amara" :family-name "Okafor" :phone "+447700900123"}
+          {:status "active" :created-at "2026-09-19T10:00:00Z"})))
   (is (= "pending" (:verification (SUT/user {} {:status "pending"})))))
