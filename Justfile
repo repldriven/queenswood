@@ -55,6 +55,7 @@ import 'justfiles/test.just'
 import 'justfiles/dev.just'
 import 'justfiles/mono.just'
 import 'justfiles/docs.just'
+import 'justfiles/demo-digital-bank.just'
 
 # Optional: `just mono-import` has to be runnable before it exists.
 import? '.mono/justfiles/gas.just'
