@@ -102,9 +102,11 @@
   "Why the endpoint's address may not be called now, or nil. The host
   is resolved again here and the registration-time rule applied to what
   it answers, so an address whose DNS has moved into a range no tenant
-  may be reached on is refused before the request is made."
-  [address platform-hosts]
-  (domain/check-address address (core/resolved address) platform-hosts))
+  may be reached on is refused before the request is made. `rule` is
+  the deployment's address configuration, the same one registration
+  read."
+  [address platform-hosts rule]
+  (domain/check-address address (core/resolved address) platform-hosts rule))
 
 (defn- outcome-of
   "What the call answered, or why it was never made. An address the
@@ -117,7 +119,9 @@
   rule refuses."
   [config endpoint body message-id now]
   (let [check (or (:address-check config) address-refusal)
-        refused (check (:address endpoint) (:platform-hosts config))]
+        refused (check (:address endpoint)
+                       (:platform-hosts config)
+                       (:address-rule config))]
     (if refused
       {:error (or (:reason (error/payload refused)) "address refused")}
       (let [headers (signing/headers endpoint message-id body now)]

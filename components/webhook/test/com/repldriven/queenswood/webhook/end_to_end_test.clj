@@ -77,10 +77,10 @@
 
   A `reify` rather than a `fn`: starting a system rewraps every `fn` it
   finds in a component definition into a one-argument lifecycle
-  function, and the runner calls this one with two arguments."
+  function, and the runner calls this one with three arguments."
   (reify
    clojure.lang.IFn
-     (invoke [_ _address _platform-hosts] nil)))
+     (invoke [_ _address _platform-hosts _rule] nil)))
 
 (defn- receiver
   "The tenant's endpoint. Each request is kept whole — headers and the

@@ -64,6 +64,68 @@ export const signIn = (phone, passcode) =>
 export const signOut = () => call("POST", "/sign-out");
 export const me = () => call("GET", "/me");
 
+// The bank's event stream: what the customer is told, as they are told
+// it. Read with fetch rather than EventSource, which cannot carry the
+// session as a bearer. Each event's data is a notification —
+// { id, kind, at, headline, detail, account } — handed to onEvent;
+// a stream that drops is opened again after a moment. Returns a
+// function that stops it.
+export function events(onEvent) {
+  let stopped = false;
+  let controller = null;
+  const parse = (block) => {
+    const data = block
+      .split("\n")
+      .filter((l) => l.startsWith("data:"))
+      .map((l) => l.slice(5).trim())
+      .join("\n");
+    if (!data) return null;
+    try {
+      return JSON.parse(data);
+    } catch {
+      return null;
+    }
+  };
+  const open = async () => {
+    while (!stopped) {
+      controller = new AbortController();
+      try {
+        const res = await fetch(base + "/events", {
+          headers: {
+            accept: "text/event-stream",
+            authorization: "Bearer " + session.get(),
+          },
+          signal: controller.signal,
+        });
+        if (res.status === 401) return;
+        if (!res.ok || !res.body) throw new Error(`events ${res.status}`);
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        for (;;) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          let at;
+          while ((at = buffer.indexOf("\n\n")) >= 0) {
+            const event = parse(buffer.slice(0, at));
+            buffer = buffer.slice(at + 2);
+            if (event) onEvent(event);
+          }
+        }
+      } catch {
+        // The stream dropped, or was stopped: either way, fall through.
+      }
+      if (!stopped) await new Promise((r) => setTimeout(r, 3000));
+    }
+  };
+  open();
+  return () => {
+    stopped = true;
+    controller?.abort();
+  };
+}
+
 // A key minted once per submission, so a repeated tap is answered once.
 export const idempotencyKey = () => crypto.randomUUID();
 const minor = (pounds) => Math.round(pounds * 100);

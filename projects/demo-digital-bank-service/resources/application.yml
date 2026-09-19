@@ -21,33 +21,36 @@ system:
       system/component-kind: migrator/migrations
       datasource: !system/ref jdbc.datasource
       changelogs:
-        - demo-digital-bank-core/changelog.sql
+        - demo-digital-bank/changelog.sql
 
-  demo-digital-bank-core:
+  demo-digital-bank:
     store: !system/component
-      system/component-kind: demo-digital-bank-core/store
+      system/component-kind: demo-digital-bank/store
       datasource: !system/ref migrator.migrations
 
     platform: !system/component
-      system/component-kind: demo-digital-bank-core/platform
+      system/component-kind: demo-digital-bank/platform
       url: !env DEMO_DIGITAL_BANK_PLATFORM_URL
       client-id: !env DEMO_DIGITAL_BANK_CLIENT_ID
       client-secret: !env DEMO_DIGITAL_BANK_CLIENT_SECRET
       status: !or [!env DEMO_DIGITAL_BANK_STATUS, test]
 
     bank: !system/component
-      system/component-kind: demo-digital-bank-core/bank
+      system/component-kind: demo-digital-bank/bank
       store: !system/local-ref store
       platform: !system/local-ref platform
       # Until a sender exists, the code every sign-up is asked for.
       sign-up-code: !env DEMO_DIGITAL_BANK_SIGN_UP_CODE
+      # The secret the endpoint's registration returned, under which
+      # the platform signs what it delivers.
+      webhook-secret: !env DEMO_DIGITAL_BANK_WEBHOOK_SECRET
 
   server:
     handler: !system/required-component
 
     interceptors: !system/component
       system/component-kind: server/interceptors
-      bank: !system/ref demo-digital-bank-core.bank
+      bank: !system/ref demo-digital-bank.bank
 
     jetty-adapter: !system/component
       system/component-kind: server/jetty-adapter

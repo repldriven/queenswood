@@ -10,6 +10,9 @@ DEMO_ADMIN_CLIENT_SECRET := "queenswood-admin-test-secret"
 # <name> the secret, beside the local Google client.
 DEMO_PASS := "queenswood/local/dev/auth/clients"
 DEMO_BANK_NAME := "Xepha"
+# Where the platform delivers to: the bank's receiver, on the developer's
+# own machine, which the monolith's dev profile allows an endpoint to be.
+DEMO_WEBHOOK_URL := env_var_or_default("DEMO_WEBHOOK_URL", "http://localhost:8100/webhooks")
 
 # Exchange client credentials at the API's token endpoint for a bearer token. client_id, client_secret, scope: the grant's.
 _demo-digital-bank-token client_id client_secret scope:
@@ -47,10 +50,15 @@ demo-digital-bank-start:
     export DEMO_DIGITAL_BANK_CLIENT_ID="${OUT%%$'\n'*}"
     OUT=$(pass show {{ DEMO_PASS }}/demo-digital-bank)
     export DEMO_DIGITAL_BANK_CLIENT_SECRET="${OUT%%$'\n'*}"
+    if ! OUT=$(pass show {{ DEMO_PASS }}/demo-digital-bank-webhook 2>/dev/null) || [[ -z "$OUT" ]]; then
+      echo "no webhook secret under {{ DEMO_PASS }}/demo-digital-bank-webhook: run just demo-digital-bank-seed again" >&2
+      exit 1
+    fi
+    export DEMO_DIGITAL_BANK_WEBHOOK_SECRET="${OUT%%$'\n'*}"
     export DEMO_API_URL={{ DEMO_API_URL }}
-    clj -M{{ DOMAIN_ALIASES }}:dev:test -e "(require 'com.repldriven.mono.testcontainers.interface)" -m com.repldriven.queenswood.demo-digital-bank.main -c "classpath:demo-digital-bank/application-test.yml" -p "dev" 2>&1 | tee demo-digital-bank.log
+    clj -M{{ DOMAIN_ALIASES }}:dev:test -e "(require 'com.repldriven.mono.testcontainers.interface)" -m com.repldriven.queenswood.demo-digital-bank-api.main -c "classpath:demo-digital-bank-api/application-test.yml" -p "dev" 2>&1 | tee demo-digital-bank.log
 
-# Create the bank's organisation on the local monolith, store its credential in pass, and publish its three products; does only what is not already done, and replaces a credential the platform no longer knows.
+# Create the bank's organisation on the local monolith, store its credential in pass, publish its three products and register its webhook endpoint with the secret in pass; does only what is not already done, and replaces a credential the platform no longer knows.
 demo-digital-bank-seed:
     #!/usr/bin/env zsh
     set -e
@@ -116,6 +124,39 @@ demo-digital-bank-seed:
       fi
       printf '  %-14s %s, %s bps\n' "$NAME" "$PRODUCT" "$BPS"
     done
+    RES=$(curl -sS {{ DEMO_API_URL }}/v1/webhook-endpoints -H "authorization: Bearer $TOKEN")
+    ENDPOINT=$(jq -r --arg a "{{ DEMO_WEBHOOK_URL }}" \
+      '[.items[] | select(.address == $a and .status != "removed")][0]["endpoint-id"] // empty' <<<"$RES")
+    SECRET=""
+    if [[ -n "$ENDPOINT" ]] && OUT=$(pass show {{ DEMO_PASS }}/demo-digital-bank-webhook 2>/dev/null) && [[ -n "$OUT" ]]; then
+      echo "webhook $ENDPOINT at {{ DEMO_WEBHOOK_URL }}, secret from pass"
+    elif [[ -n "$ENDPOINT" ]]; then
+      RES=$(curl -sS -X POST "{{ DEMO_API_URL }}/v1/webhook-endpoints/$ENDPOINT/rotate-secret" \
+        -H "authorization: Bearer $TOKEN" \
+        -H "idempotency-key: demo-digital-bank-webhook-rotate-$(date +%s)")
+      SECRET=$(jq -r '.secret // empty' <<<"$RES")
+      if [[ -z "$SECRET" ]]; then
+        echo "webhook secret rotation refused: $RES" >&2
+        exit 1
+      fi
+      echo "webhook $ENDPOINT at {{ DEMO_WEBHOOK_URL }}, secret rotated: pass held none"
+    else
+      RES=$(curl -sS -X POST {{ DEMO_API_URL }}/v1/webhook-endpoints \
+        -H "authorization: Bearer $TOKEN" \
+        -H 'content-type: application/json' \
+        -H "idempotency-key: demo-digital-bank-webhook-$(date +%s)" \
+        -d '{"address":"{{ DEMO_WEBHOOK_URL }}","description":"The demo digital bank"}')
+      ENDPOINT=$(jq -r '.endpoint["endpoint-id"] // empty' <<<"$RES")
+      SECRET=$(jq -r '.secret // empty' <<<"$RES")
+      if [[ -z "$ENDPOINT" || -z "$SECRET" ]]; then
+        echo "webhook refused: $RES" >&2
+        exit 1
+      fi
+      echo "webhook $ENDPOINT at {{ DEMO_WEBHOOK_URL }}, registered"
+    fi
+    if [[ -n "$SECRET" ]]; then
+      printf '%s\n' "$SECRET" | pass insert -m -f {{ DEMO_PASS }}/demo-digital-bank-webhook >/dev/null
+    fi
 
 # Pay money into one of the bank's accounts from outside, as the bank, through the platform's sandbox affordance. account_id: the platform's; amount: in pence.
 demo-digital-bank-fund account_id amount:

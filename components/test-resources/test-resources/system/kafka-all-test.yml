@@ -366,6 +366,16 @@ consumers: !system/component
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       group.id: test-cash-accounts-event
+  # The webhook consumer's own group on the same topic, so it hears
+  # every account event rather than competing for them.
+  webhook-cash-accounts-event:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword event
+    topics: [topic-cash-accounts-event]
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      group.id: test-webhook-cash-accounts-event
   companies-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -656,6 +666,9 @@ message-bus-consumers: !system/component
     timeout: 500
   cash-accounts-event:
     consumer: !system/local-ref consumers.cash-accounts-event
+    timeout: 500
+  webhook-cash-accounts-event:
+    consumer: !system/local-ref consumers.webhook-cash-accounts-event
     timeout: 500
   companies-command:
     consumer: !system/local-ref consumers.companies-command

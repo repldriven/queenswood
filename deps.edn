@@ -25,8 +25,8 @@
     components/cash-account {:local/root "components/cash-account"}
     components/cash-account-query {:local/root "components/cash-account-query"}
     components/changelog-relay {:local/root "components/changelog-relay"}
-    components/demo-digital-bank-core {:local/root
-                                       "components/demo-digital-bank-core"}
+    components/demo-digital-bank {:local/root
+                                       "components/demo-digital-bank"}
     components/fdb {:local/root "components/fdb"}
     components/testcontainers {:local/root "components/testcontainers"}
     components/test-schema {:local/root "components/test-schema"}
@@ -67,7 +67,7 @@
     bases/bootstrap {:local/root "bases/bootstrap"}
     bases/clearbank-adapter {:local/root "bases/clearbank-adapter"}
     bases/clearbank-simulator {:local/root "bases/clearbank-simulator"}
-    bases/demo-digital-bank {:local/root "bases/demo-digital-bank"}
+    bases/demo-digital-bank-api {:local/root "bases/demo-digital-bank-api"}
     bases/exclusive-dispatchers {:local/root "bases/exclusive-dispatchers"}
     bases/external-adapters {:local/root "bases/external-adapters"}
     bases/financial-processors {:local/root "bases/financial-processors"}
@@ -103,8 +103,8 @@
                        "components/cash-account/test-resources"
                        "components/company/test"
                        "components/company/test-resources"
-                       "components/demo-digital-bank-core/test"
-                       "components/demo-digital-bank-core/test-resources"
+                       "components/demo-digital-bank/test"
+                       "components/demo-digital-bank/test-resources"
                        "components/email/test"
                        "components/email/test-resources"
                        "components/idempotency/test"
@@ -153,8 +153,8 @@
                        "bases/clearbank-adapter/test-resources"
                        "bases/clearbank-simulator/test"
                        "bases/clearbank-simulator/test-resources"
-                       "bases/demo-digital-bank/test"
-                       "bases/demo-digital-bank/test-resources"
+                       "bases/demo-digital-bank-api/test"
+                       "bases/demo-digital-bank-api/test-resources"
                        "bases/migrator/test"
                        "bases/monolith/test-resources"
                        "bases/onfido-adapter/test"

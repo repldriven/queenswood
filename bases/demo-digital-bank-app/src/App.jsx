@@ -53,6 +53,15 @@ export default function App() {
   // The home read again, so what the screens show is what the platform
   // holds.
   const refresh = async () => setS(api.fromMe(await api.me()));
+  // Told, not asked: while the app is open it holds the bank's event
+  // stream, and each notification is said and the home read again.
+  useEffect(() => {
+    if (mode !== "app") return;
+    return api.events((n) => {
+      toast(n.headline);
+      refresh().catch(() => {});
+    });
+  }, [mode]);
   // The mutations: each a call to the bank under the key the screen
   // minted, then the home read. Each throws the bank's refusal for the
   // screen to say.

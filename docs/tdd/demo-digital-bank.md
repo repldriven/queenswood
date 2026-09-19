@@ -1,17 +1,20 @@
 # Demo digital bank
 
 > **Status: proposal.** The customer app in
-> `bases/demo-digital-bank-app`, the seed, the `demo-digital-bank-core`
-> component, the `demo-digital-bank` base and its service project exist:
+> `bases/demo-digital-bank-app`, the seed, the `demo-digital-bank`
+> component, the `demo-digital-bank-api` base and its service project
+> exist:
 > a sign-up from the app reaches a registered party, a returning
-> customer signs in, the app's home is the me read, and opening an
-> account, checking a payee, paying and moving money are calls the app
-> makes to the bank and the bank to the platform, proved against a local
+> customer signs in, the app's home is the me read, opening an account,
+> checking a payee, paying and moving money are calls the app makes to
+> the bank and the bank to the platform, and the platform tells the
+> bank through a webhook the seed registers, which the bank verifies
+> and pushes to the app on an event stream, proved against a local
 > monolith. The platform capabilities the bank calls, the mono bricks it
 > is built from and the local tooling it seeds against exist, and
 > Background names them. Everything else under Proposed Solution is the
-> build list, and "First slice" says which part of it comes next: the
-> receiver and the event stream, the fourth slice.
+> build list, and "First slice" says which part of it comes next:
+> deployment, the fifth slice.
 
 ## Objective
 
@@ -25,7 +28,7 @@ platform does not, how a customer's identity is kept apart from the
 platform's, and how the platform's notifications reach the app.
 
 In scope: the seed that stands the bank up on a local monolith; the
-`demo-digital-bank-core` component, the `demo-digital-bank` base and
+`demo-digital-bank` component, the `demo-digital-bank-api` base and
 its service project; the client it calls the platform through;
 customer sessions and the isolation they carry; the bank's own store;
 the contract with the app; the webhook receiver and the change the
@@ -112,19 +115,22 @@ already there, and creates and publishes each of the three that is
 missing, by name. Run again it does nothing, which is what lets it be
 run without looking first; run against a monolith restarted since, whose
 containers hold nothing of the last one, it finds the credential in
-`pass` refused and creates the organisation again. It registers no
-webhook endpoint yet: the
-platform's address rule refuses a local one, and the notifications
-slice below adds registration alongside the allowance. Beside it,
-`just demo-digital-bank-fund` pays money into one of the bank's accounts
-from outside, through the platform's sandbox affordance, since nothing
-else on a developer's machine does.
+`pass` refused and creates the organisation again. Last it registers
+the bank's webhook endpoint at `DEMO_WEBHOOK_URL`, the receiver below
+on the developer's own machine, and keeps the secret the registration
+returns in `pass` beside the credential; an endpoint already registered
+at that address is left as it is, and one whose secret `pass` no
+longer holds has it rotated, so the bank always starts with a secret
+the platform signs under. Beside it, `just demo-digital-bank-fund` pays
+money into one of the bank's accounts from outside, through the
+platform's sandbox affordance, since nothing else on a developer's
+machine does.
 
 ### The component, the base and its project
 
-`components/demo-digital-bank-core` is the bank: the store, the
+`components/demo-digital-bank` is the bank: the store, the
 customers and their sessions, the platform client and the reads the
-app is served from, behind one `interface.clj`. `bases/demo-digital-bank`
+app is served from, behind one `interface.clj`. `bases/demo-digital-bank-api`
 owns `main.clj` and the routes, and `projects/demo-digital-bank-service`
 holds its `deps.edn` and `resources/application.yml`, on the same
 `system/defcomponents` shape as every service. The configuration it
@@ -191,8 +197,10 @@ changelog under the component's resources. The tables:
   and how much they were last paid.
 - `submissions` — idempotency key, customer id, the app's key, kind, the
   request, and the platform's answer once it has one.
-- `notifications` — the platform's message id, customer id, kind, the
-  record as delivered, and when the customer saw it.
+- `notifications` — the platform's notification id, the delivery it
+  last arrived under, kind, the delivery as received, the customer it
+  resolved to, the record read back, and when the customer was shown
+  it.
 
 No balance, no payment status and no transaction is stored. Locally
 the database is a container beside the monolith's; deployed it is a
@@ -227,30 +235,54 @@ The routes, all under a session except sign-up and sign-in:
 - **Transfers** — a `POST` between two of the customer's accounts.
 - **Events** — a `GET` holding a server-sent event stream open, on
   which the customer's notifications arrive as they are recorded.
+- **Webhooks** — a `POST` under no session: the endpoint the platform
+  delivers to.
 
 The app replaces its seed with the me read, its mutations with the
-calls, and its interstitials with the status the events carry.
+calls, and holds the event stream open while it is open: each
+notification is said, and the home is read again.
 
 ### Being told
 
-One route receives the platform's deliveries. It checks the Standard
+One route receives the platform's deliveries, decoding nothing: the
+signature covers the body byte for byte. It checks the Standard
 Webhooks headers — the message id, the timestamp and the signature,
-HMAC-SHA256 under the endpoint's secret and, during a rotation, either
-of two — refuses a stale timestamp, treats a message id already in
-`notifications` as done, and answers 2xx before doing anything else.
-Then it reads the record back from the platform, writes the
-notification against the customer the record belongs to, and pushes it
-on that customer's event stream.
+HMAC-SHA256 under the endpoint's secret, any one of the signatures the
+header carries being enough, which is what lets the platform rotate
+the secret — refuses a timestamp more than five minutes from now,
+records the delivery under the platform's notification id, and answers
+2xx before doing anything else. A notification already resolved is
+answered `done` and left alone, so a re-send is recognised; one
+recorded but never resolved is taken again. Then, on a thread of its
+own, it reads the record back from the platform for the kinds whose
+resource it can read, writes the notification against the customer the
+record belongs to — an account is a party's, and a party is one
+customer — and pushes it on that customer's event stream.
 
-The platform cannot reach a local receiver as it stands: the address
-rule refuses HTTP and every range a developer's machine answers on.
+The stream is one request held open. It says nothing first, once it is
+subscribed, so nothing recorded from then on is missed; then what the
+customer has not been shown, oldest first, each marked shown as it is
+sent; then each notification as it is recorded, and a comment at each
+keep-alive, fifteen seconds by default, so nothing between the app and
+the bank closes it as idle. The app reads it with `fetch` rather than
+`EventSource`, which cannot carry the session as a bearer, and opens it
+again after a moment when it drops.
+
+The platform could not reach a local receiver as it stood: the address
+rule refused HTTP and every range a developer's machine answers on.
 The change is small and in the platform: the scheme and the blocked
-ranges in `webhook/domain.clj` become configuration the `webhook`
-component reads, defaulting to what the constants say, and the dev
-profile relaxes them. The API handler and the delivery runner already
-share the one rule, so both follow the configuration. With that in
-place the seed registers the endpoint, and the secret it returns joins
-the credential in `pass`.
+ranges in `webhook/domain.clj` are configuration the rule takes beside
+the platform's hosts, `address-rule`, defaulting to what the constants
+say. The API handler reads it from the server's interceptors as
+`webhook-address-rule` and the delivery runner from its own
+configuration, and only the local monolith's dev profile relaxes
+either, in `monolith/server-test.yml` and `monolith/webhook-test.yml`.
+The local monolith also gained the consumer and the runner it never
+hosted, under a channel of the consumer's own,
+`webhook-cash-accounts-event`, since the bus keys a subscription by
+channel name and the cash-account processor already holds
+`cash-accounts-event`: a second subscriber there would compete with it
+for every event rather than hear each one.
 
 ### What the platform does not serve as drawn
 
@@ -274,6 +306,10 @@ the credential in `pass`.
 - **The identity scan.** An interstitial and no call; the check runs
   on the details.
 - **The code.** Fixed under the dev and test profiles.
+- **What a notification says.** The platform delivers a record; the
+  bank composes the line the customer reads from the kind and the
+  record — an account's name, and that it is open — and tells a kind
+  it does not know as the change it names.
 
 ### Deployment
 
@@ -298,7 +334,7 @@ is decided until the local loop works end to end.
 
 ### Tests
 
-- **`demo-digital-bank-core`** — unit tests over the client's token
+- **`demo-digital-bank`** — unit tests over the client's token
   cache and idempotency-key reuse, over session resolution refusing
   another customer's account, over the netting of a payment's legs,
   and over signature verification against a known vector; and
@@ -310,10 +346,16 @@ is decided until the local loop works end to end.
   brick's tests may not boot the platform, and the platform's own
   contract is pinned in `test-api-scenarios`, so the stand-in answers
   in the shapes those scenarios pin, and settles or fails a payment
-  when a test says so.
-- **`demo-digital-bank`** — the routes over HTTP, on the same
+  when a test says so; and, for being told, a delivery signed as the
+  platform signs it taken and the customer told on a stream held open,
+  a re-send answered done, a wrong secret and a malformed envelope
+  refused, a test notification told to nobody, and what was told while
+  no stream was open replayed on the next and then never again.
+- **`demo-digital-bank-api`** — the routes over HTTP, on the same
   container and stand-in: sign-up through to a session, sign-in, the
-  me read, and each submission with its key and its refusals.
+  me read, each submission with its key and its refusals, and a signed
+  delivery reaching a stream the test holds open, with the stale,
+  wrongly signed and unsigned deliveries each answered 401.
 - **The seed recipe** — run twice against a local monolith: the first
   creates, the second reports everything already done.
 - **`demo-digital-bank-app`** — the build in CI, and a walk of the
@@ -359,8 +401,21 @@ is decided until the local loop works end to end.
   or failed payment and no money-arrived screen, which the PRD's
   journeys have. Each needs a screen before it needs a route. A payment
   the scheme refuses leaves the transaction list as its reservation is
-  released, and the customer learns why only once the notifications
-  slice tells them.
+  released, and the customer learns why only once the platform tells
+  the bank.
+- **Only an opening is told.** The platform's catalogue publishes
+  `cash-account.opened` and the test notification and nothing else
+  yet, so a payment settling or failing, money arriving and a
+  verification completing reach no receiver until the payment, party
+  and interest entries land in the platform's catalogue. The receiver
+  takes any kind, tells the customer of the ones it knows in their
+  words, and the rest as the change it names.
+- **Nothing after the answer is retried.** A record the bank cannot
+  read back leaves the notification unresolved, and it is taken again
+  only when the platform delivers it again.
+- **A stream is a thread.** Each open event stream holds one of the
+  server's threads for its life, which is fine for a demo and not for
+  a bank.
 - **A deposit into an account still opening.** The bank reads an
   account back for up to five seconds after opening it before moving
   the deposit, since the platform refuses a payment into an account
@@ -371,8 +426,9 @@ is decided until the local loop works end to end.
   credential, none of which this design touches.
 - **One person per customer.** A customer is one party. A business
   customer is not designed.
-- **A platform change for a demo.** The address-rule allowance is a
-  change in `webhook` carried so a local receiver can be reached.
+- **A platform change for a demo.** The address-rule allowance is
+  configuration in `webhook`, set only under the local monolith's dev
+  profile, carried so a local receiver can be reached.
 - **Undeployed.** Nothing here runs anywhere but a developer's machine
   until the last slice.
 - **A future separation.** Whether the demos move to a repository of

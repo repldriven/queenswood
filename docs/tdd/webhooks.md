@@ -537,7 +537,11 @@ The platform's own hosts are a deployment fact rather than a constant:
 of the rule — the API handler's writes and the delivery runner's
 send-time re-check — and the chart fills it from the hostnames the
 Gateway terminates on. Unset, the host half of the rule has nothing to
-refuse and the address ranges still apply.
+refuse and the address ranges still apply. The scheme and the ranges
+are configuration too, `address-rule`, read by the API handler at
+registration and by the runner at send time and defaulting to the
+constants; only the local monolith's dev profile relaxes them, so a
+receiver on a developer's own machine can be reached.
 
 Policy bounds follow the products precedent: a `:webhook-endpoint`
 capability with register and manage actions, and a count limit per

@@ -1,0 +1,30 @@
+# The webhook consumer and runner, hosted in the local monolith so a
+# registered endpoint is delivered to. The consumer subscribes under a
+# channel of its own: the bus keys a subscription by channel name, and
+# the cash-account processor already holds `cash-accounts-event`, so a
+# second subscriber there would compete with it for every event rather
+# than hear each one. `webhook-cash-accounts-event` reads the same
+# topic under its own consumer group, in kafka-all-test.yml.
+event-processor-impl: !system/component
+  system/component-kind: webhook/event-processor
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  schemas: !system/ref avro.serde
+
+event-consumer: !system/component
+  system/component-kind: event-processor/event-processor
+  bus: !system/ref message-bus.bus
+  processor: !system/local-ref event-processor-impl
+  event-channel: !keyword webhook-cash-accounts-event
+
+outbound-runner: !system/component
+  system/component-kind: webhook/outbound-runner
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  # The same relaxation the server's interceptors carry, so what
+  # registration admitted under dev is not refused at send time.
+  address-rule: !profile
+    dev:
+      allowed-schemes: [http, https]
+      blocked-ranges: []
+    default: {}
