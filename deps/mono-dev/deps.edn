@@ -4,7 +4,7 @@
 ;; sha. Nothing puts it
 ;; on a classpath, so it is free to sit on a different tag from ../mono
 ;; when a release changes only the practices, or only the code. Bump all
-;; four shims together anyway unless there is a reason not to.
+;; five shims together anyway unless there is a reason not to.
 {:deps {com.repldriven.mono/dev {:git/url "https://github.com/repldriven/mono.git"
-                                 :git/tag "v0.0.30"
-                                 :git/sha "3f0a27ada38cf1ee4c66ad734a3410b8cde150bf"}}}
+                                 :git/tag "v0.0.34"
+                                 :git/sha "7bfa640e64532c1e702eebd5b1ad6e4fbcff16d8"}}}

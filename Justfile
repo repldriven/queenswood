@@ -35,7 +35,7 @@ list:
     just --list
 
 import 'justfiles/vars.just'
-import 'justfiles/github.just'
+import 'justfiles/ghcr.just'
 import 'justfiles/build.just'
 import 'justfiles/cloud.just'
 import 'justfiles/gcp.just'
@@ -58,6 +58,7 @@ import 'justfiles/docs.just'
 
 # Optional: `just mono-import` has to be runnable before it exists.
 import? '.mono/justfiles/gas.just'
+import? '.mono/justfiles/gh.just'
 import? '.mono/justfiles/hooks.just'
 import? '.mono/justfiles/lint.just'
 import? '.mono/justfiles/nvd.just'

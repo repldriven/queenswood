@@ -1,9 +1,9 @@
 {:aliases
- {:build {:deps {bases/build {:local/root "../../bases/build"}}
+ {:build {:deps {ext/mono-build {:local/root "../../deps/mono-build"}}
           :exec-args {:lib 'com.repldriven.queenswood/api-service
                       :main com.repldriven.queenswood.api.main
                       :major-minor-version "0.0"}
-          :ns-default com.repldriven.queenswood.build.build}
+          :ns-default com.repldriven.mono.build.build}
   :test
   {:extra-deps
    {ext/mono {:local/root "../../deps/mono-test"}

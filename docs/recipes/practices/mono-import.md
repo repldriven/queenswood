@@ -41,9 +41,9 @@ bumping the pin.
    The output names the pinned sha and the number of files.
 
 3. After a bump, edit the tag and sha in `deps/mono-dev/deps.edn` — and
-   in the three code shims beside it, `mono`, `mono-test` and
-   `mono-test-runner`, unless the release changed only the practices —
-   then:
+   in the four code shims beside it, `mono`, `mono-test`,
+   `mono-test-runner` and `mono-build`, unless the release changed only
+   the practices — then:
 
    ```
    just mono-import
@@ -103,7 +103,7 @@ bumping the pin.
 The import copies seven subtrees out of mono at the pinned sha: the
 ADRs, the recipes, the slide deck, the plugins, the hook scripts, the
 semgrep rules and the justfiles.
-It reads the sha from `deps/mono-dev/deps.edn`, a shim beside the three
+It reads the sha from `deps/mono-dev/deps.edn`, a shim beside the four
 that pin the code, so the practices are a visible dependency with a
 version of their own. Nothing puts that shim on a classpath, which is
 what lets it lead or trail the code shims when a release changes only
