@@ -333,8 +333,8 @@ non-trivial work on their topic.
   transactions-and-balances, webhooks).
 - **Per-capability requirements** — `docs/prd/` has the
   product-shaped requirements (access, cash-account-products,
-  cash-accounts, example-bank, interest, onboarding, parties, payments,
-  platform, policies, webhooks).
+  cash-accounts, demo-digital-bank, interest, onboarding, parties,
+  payments, platform, policies, webhooks).
 - **In-flight implementation plans** — `docs/plan/`.
 
 ## Guardrails

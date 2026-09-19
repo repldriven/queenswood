@@ -35,12 +35,14 @@ fi
 # The JS-bearing bricks. Everything else under bases/ and components/ is
 # Clojure, so these are named once and subtracted below.
 CONSOLE_TREES='^(bases/console/|components/ui/|package\.json$|yarn\.lock$|\.yarnrc\.yml$)'
+# The demos' customer apps: JS bases beside the console, in no image yet.
+DEMO_TREES='^bases/demo-[a-z-]+-app/'
 # Dev-only brick: renders docs/diagrams to committed SVGs, ships nowhere.
 DIAGRAM_TREES='^components/excalidraw/'
 
 # The Clojure workspace: the bricks, projects and pins, with the JS
 # bricks removed. `|| true` because grep exits 1 on no match.
-clojure_files=$(grep -vE "$CONSOLE_TREES|$DIAGRAM_TREES" <<<"$files" || true)
+clojure_files=$(grep -vE "$CONSOLE_TREES|$DEMO_TREES|$DIAGRAM_TREES" <<<"$files" || true)
 
 # any <extended-regex> [file-list] — did anything matching change?
 any() {
@@ -75,8 +77,8 @@ MONO_IMPORT='^(deps/mono-dev/|scripts/mono-import\.sh$)'
 # paths, and scripts/ holds the hooks and check-versions.sh.
 bucket clojure "$WORKSPACE|^(development/|scripts/)|^\.github/workflows/test\.yml$" "$clojure_files"
 
-# Builds the console bundle and the ui showcase.
-bucket js "$CONSOLE_TREES|$BUNDLED_DOCS|$MONO_IMPORT|^infra/docker/console/|^\.github/workflows/test\.yml$"
+# Builds the console bundle, the ui showcase and the demo apps.
+bucket js "$CONSOLE_TREES|$DEMO_TREES|$BUNDLED_DOCS|$MONO_IMPORT|^infra/docker/console/|^\.github/workflows/test\.yml$"
 
 bucket helm '^infra/helm/|^\.github/workflows/test\.yml$'
 
