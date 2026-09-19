@@ -6,7 +6,7 @@
   Three things hold here. The document builds the way `export-spec`
   builds it, without booting a system. Every `$ref` in it resolves
   against the document itself. And it validates against the published
-  OpenAPI 3.1 schema, read from `test-resources/openapi/` with the
+  OpenAPI 3.2 schema, read from `test-resources/openapi/` with the
   validator's remote fetching off, so the check needs no network.
 
   The document does not pass that validation today. What it already
@@ -95,21 +95,21 @@
 ;; --- the document validates ----------------------------------------
 
 (def ^:private oas-schema
-  "https://spec.openapis.org/oas/3.1/schema-base/2025-02-13")
+  "https://spec.openapis.org/oas/3.2/schema-base/2026-08-30")
 
 (def ^:private vendored-schemas
-  "Every schema the OpenAPI 3.1 schema reaches, against its copy under
+  "Every schema the OpenAPI 3.2 schema reaches, against its copy under
   `test-resources/openapi/`. The registry resolves through this map
   alone, so a URI missing from it fails the run rather than being
   fetched."
-  {"https://spec.openapis.org/oas/3.1/schema-base/2025-02-13"
-   "classpath:openapi/oas-3.1-schema-base-2025-02-13.json"
-   "https://spec.openapis.org/oas/3.1/schema/2025-02-13"
-   "classpath:openapi/oas-3.1-schema-2025-02-13.json"
-   "https://spec.openapis.org/oas/3.1/dialect/2024-11-10"
-   "classpath:openapi/oas-3.1-dialect-2024-11-10.json"
-   "https://spec.openapis.org/oas/3.1/meta/2024-11-10"
-   "classpath:openapi/oas-3.1-meta-2024-11-10.json"
+  {"https://spec.openapis.org/oas/3.2/schema-base/2026-08-30"
+   "classpath:openapi/oas-3.2-schema-base-2026-08-30.json"
+   "https://spec.openapis.org/oas/3.2/schema/2026-08-30"
+   "classpath:openapi/oas-3.2-schema-2026-08-30.json"
+   "https://spec.openapis.org/oas/3.2/dialect/2026-02-26"
+   "classpath:openapi/oas-3.2-dialect-2026-02-26.json"
+   "https://spec.openapis.org/oas/3.2/meta/2026-02-26"
+   "classpath:openapi/oas-3.2-meta-2026-02-26.json"
    "https://json-schema.org/draft/2020-12/schema"
    "classpath:openapi/json-schema-2020-12.json"
    "https://json-schema.org/draft/2020-12/meta/core"
@@ -231,7 +231,7 @@
   (let [{:keys [status body]} @exported]
     (is (= 200 status) "an error body must not pass for the document")
     (nom-test> [document (json/read-str body)
-                _ (is (= "3.1.0" (get document "openapi")))
+                _ (is (= "3.2.0" (get document "openapi")))
                 _ (is (seq (get document "paths")))])))
 
 (deftest every-ref-resolves-test

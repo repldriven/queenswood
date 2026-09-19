@@ -1,5 +1,5 @@
 (ns com.repldriven.queenswood.api.webhook.document
-  "The document's top-level `webhooks` object: one OpenAPI 3.1 path
+  "The document's top-level `webhooks` object: one OpenAPI 3.2 path
   item per public kind the bank publishes, each a POST of the
   notification to the tenant's registered address.
 

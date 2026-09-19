@@ -1,5 +1,5 @@
 # Delete orphan container versions from GHCR (multi-arch safe)
-gh-prune-untagged:
+ghcr-prune-untagged:
     #!/usr/bin/env zsh
     set -e
     scopes=$(gh api --include / 2>&1 | awk -F': ' 'tolower($1)=="x-oauth-scopes"{print $2}')
@@ -48,38 +48,3 @@ gh-prune-untagged:
       done
       printf "\n"
     done
-
-# Squash-merge the current branch's PR, bypassing the review rule as org admin
-gh-merge:
-    #!/usr/bin/env zsh
-    set -e
-    # No PR number: gh resolves it from the checked-out branch, which is the
-    # one the editor is showing.
-    pr=$(gh pr view --json number,baseRefName,state,title)
-    num=$(jq -r .number <<<"$pr")
-    base=$(jq -r .baseRefName <<<"$pr")
-    state=$(jq -r .state <<<"$pr")
-    if [[ "$state" != "OPEN" ]]; then
-      echo "PR #$num is $state, nothing to merge."
-      exit 1
-    fi
-    # A PR stacked on another branch merges its parent's commits too, and
-    # strands the rest when the parent lands separately.
-    if [[ "$base" != "main" ]]; then
-      echo "PR #$num targets '$base', not main. Retarget it before merging:"
-      echo "  gh pr edit $num --base main"
-      exit 1
-    fi
-    echo "Merging #$num — $(jq -r .title <<<"$pr")"
-    # --squash because the org ruleset requires linear history; --admin to
-    # bypass the review rule, which a solo author cannot satisfy.
-    gh pr merge "$num" --squash --admin
-    # The squash commit's sha, seven characters, so it reads against the
-    # REV column in docs/recipes/infra/argocd-apps.md without trimming it
-    # by eye. Emptiness is handled below rather than by set -e.
-    sha=$(gh pr view "$num" --json mergeCommit --jq '.mergeCommit.oid' 2>/dev/null) || true
-    if [[ -n "$sha" && "$sha" != "null" ]]; then
-      echo "Merged #$num into main as ${sha:0:7}."
-    else
-      echo "Merged #$num into main."
-    fi

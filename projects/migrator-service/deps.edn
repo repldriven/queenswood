@@ -1,8 +1,8 @@
-{:aliases {:build {:deps {bases/build {:local/root "../../bases/build"}}
+{:aliases {:build {:deps {ext/mono-build {:local/root "../../deps/mono-build"}}
                    :exec-args {:lib 'com.repldriven.queenswood/migrator-service
                                :main com.repldriven.queenswood.migrator.main
                                :major-minor-version "0.0"}
-                   :ns-default com.repldriven.queenswood.build.build}
+                   :ns-default com.repldriven.mono.build.build}
            :test {:extra-deps {ext/mono {:local/root "../../deps/mono-test"}
                                ext/mono-test-runner
                                {:local/root "../../deps/mono-test-runner"}

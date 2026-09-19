@@ -6,10 +6,10 @@
 ;; A separate lib symbol from com.repldriven/mono, so it is free to sit on
 ;; a different tag from ../mono and ../mono-test: the runner is a leaf base
 ;; sharing no components with mono-lib, so two checkouts of the same repo
-;; on the classpath cannot conflict over a brick. Bump all four together
+;; on the classpath cannot conflict over a brick. Bump all five together
 ;; anyway unless there is a reason not to.
 {:deps {com.repldriven.mono/external-test-runner
         {:git/url "https://github.com/repldriven/mono.git"
-         :git/tag "v0.0.30"
-         :git/sha "3f0a27ada38cf1ee4c66ad734a3410b8cde150bf"
+         :git/tag "v0.0.34"
+         :git/sha "7bfa640e64532c1e702eebd5b1ad6e4fbcff16d8"
          :deps/root "bases/external-test-runner"}}}

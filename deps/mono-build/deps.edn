@@ -1,0 +1,13 @@
+;; Single source of the mono build coordinate: the uberjar every project's
+;; :build alias runs. Projects reference this by :local/root as
+;; ext/mono-build; bases/build keeps only protobuf generation, which mono
+;; has no counterpart for.
+;;
+;; A separate lib symbol from com.repldriven/mono, like ../mono-test-runner,
+;; and never on a runtime classpath. Bump all five together unless there is
+;; a reason not to.
+{:deps {com.repldriven.mono/build
+        {:git/url "https://github.com/repldriven/mono.git"
+         :git/tag "v0.0.34"
+         :git/sha "7bfa640e64532c1e702eebd5b1ad6e4fbcff16d8"
+         :deps/root "bases/build"}}}

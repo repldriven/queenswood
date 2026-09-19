@@ -268,7 +268,7 @@ There is no second schema to maintain. When a resource gains a field,
 its notification gains it; the notification's version is the API's
 version. The webhook component assembles the `oneOf` from the
 `<domain>-api` registries it requires, and the document Reitit
-assembles is OpenAPI 3.1, whose top-level `webhooks` object lists each
+assembles is OpenAPI 3.2, whose top-level `webhooks` object lists each
 kind against the notification component.
 
 The consumer renders `data` at consume time, by loading the record

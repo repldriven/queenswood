@@ -42,7 +42,7 @@
                           (nom-test> [res (get "/openapi.json")
                                       _ (is (= 200 (:status res)))
                                       spec (http/res->edn res)
-                                      _ (is (= "3.1.0" (:openapi spec)))]))))))
+                                      _ (is (= "3.2.0" (:openapi spec)))]))))))
 
 (deftest applicants-and-checks-test
   (with-test-system

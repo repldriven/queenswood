@@ -1,10 +1,10 @@
 {:aliases
- {:build {:deps {bases/build {:local/root "../../bases/build"}}
+ {:build {:deps {ext/mono-build {:local/root "../../deps/mono-build"}}
           :exec-args
           {:lib 'com.repldriven.queenswood/exclusive-dispatchers-service
            :main com.repldriven.queenswood.exclusive-dispatchers.main
            :major-minor-version "0.0"}
-          :ns-default com.repldriven.queenswood.build.build}
+          :ns-default com.repldriven.mono.build.build}
   ;; The external test runner (cloverage + eftest) plus the components
   ;; the included bricks' tests require. CI runs every project through
   ;; this runner for coverage; matches the sibling processor projects.
