@@ -1,11 +1,16 @@
 # Demo digital bank
 
 > **Status: proposal.** The customer app exists, in
-> `bases/demo-digital-bank-app`, running on fixture data. The platform
-> capabilities the bank calls, the mono bricks it is built from and the
-> local tooling it seeds against exist too, and Background names them.
-> Everything under Proposed Solution is the build list, and "First
-> slice" says which part of it comes first.
+> `bases/demo-digital-bank-app`, running on fixture data. The seed, the
+> `demo-digital-bank-core` component, the `demo-digital-bank` base and
+> its service project exist too: a sign-up reaches a registered party,
+> a returning customer signs in, and the me read is served from the
+> platform, proved against a local monolith. The platform capabilities
+> the bank calls, the mono bricks it is built from and the local tooling
+> it seeds against exist, and Background names them. Everything else
+> under Proposed Solution is the build list, and "First slice" says
+> which part of it comes next: the app reading the base, which finishes
+> the second slice.
 
 ## Objective
 
@@ -13,17 +18,17 @@ The demo digital bank is a customer engineering solution built inside
 this workspace: the backend a product built on Queenswood needs, and
 the seam between it and the platform. The app is the PRD's. This TDD
 decides what stands behind it: the organisation and products the bank
-runs against, the base that holds the organisation's credential and
-serves the app, the store that holds what the platform does not, how a
-customer's identity is kept apart from the platform's, and how the
-platform's notifications reach the app.
+runs against, the component that holds the organisation's credential
+and the base that serves the app, the store that holds what the
+platform does not, how a customer's identity is kept apart from the
+platform's, and how the platform's notifications reach the app.
 
 In scope: the seed that stands the bank up on a local monolith; the
-`demo-digital-bank` base and its service project; the client it calls
-the platform through; customer sessions and the isolation they carry;
-the bank's own store; the contract with the app; the webhook receiver
-and the change the platform needs to reach a local one; and the order
-of building.
+`demo-digital-bank-core` component, the `demo-digital-bank` base and
+its service project; the client it calls the platform through;
+customer sessions and the isolation they carry; the bank's own store;
+the contract with the app; the webhook receiver and the change the
+platform needs to reach a local one; and the order of building.
 
 Out of scope: the app's screens and copy, which the PRD and the design
 handoff beside the app decide, see
@@ -102,29 +107,36 @@ secret in `pass` as `demo-digital-bank` under the local prefix, mints
 the organisation's own token with the test scope, lists the products
 already there, and creates and publishes each of the three that is
 missing, by name. Run again it does nothing, which is what lets it be
-run without looking first. It registers no webhook endpoint yet: the
+run without looking first; run against a monolith restarted since, whose
+containers hold nothing of the last one, it finds the credential in
+`pass` refused and creates the organisation again. It registers no
+webhook endpoint yet: the
 platform's address rule refuses a local one, and the notifications
 slice below adds registration alongside the allowance.
 
-### The base and its project
+### The component, the base and its project
 
-`bases/demo-digital-bank` owns `main.clj` and the namespaces the rest
-of this design names, and `projects/demo-digital-bank-service` holds
-its `deps.edn` and `resources/application.yml`, on the same
+`components/demo-digital-bank-core` is the bank: the store, the
+customers and their sessions, the platform client and the reads the
+app is served from, behind one `interface.clj`. `bases/demo-digital-bank`
+owns `main.clj` and the routes, and `projects/demo-digital-bank-service`
+holds its `deps.edn` and `resources/application.yml`, on the same
 `system/defcomponents` shape as every service. The configuration it
 reads: the platform's URL, the client id, secret and status, the
 database, and the webhook secret once one exists. Locally the secret
 values come from `pass`, and deployed they arrive the way every other
 service's do.
 
-Everything sits in the one base rather than in components, since the
-app is its only consumer and nothing in the workspace shares it. The
-first thing a second demo would share is the platform client below,
-and that is the moment it becomes a component.
+One component rather than several, since the app is its only consumer
+and nothing in the workspace shares it. A base may not own a store, so
+the store and everything that reads it sit in the component, and the
+base keeps the HTTP surface. The first thing a second demo would share
+is the platform client below, and that is the moment it becomes a
+component of its own.
 
 ### The platform client
 
-`queenswood.clj`, one function per operation the screens need:
+`platform.clj`, one function per operation the screens need:
 registering and reading a party, listing products, opening and reading
 an account, listing its transactions, checking a payee, submitting a
 payment, and moving money. Each goes through mono's `http-client` with
@@ -133,19 +145,19 @@ a bearer token, and each returns an anomaly at the edge, through
 
 The token comes from `/oauth/token` with the client credentials and the
 scope the configured status names, cached until shortly before it
-expires. Every submission carries an `Idempotency-Key` the base mints
+expires. Every submission carries an `Idempotency-Key` the bank mints
 with `utility/uuidv7` and writes to its store before the call is made,
 so a retry after a timeout reuses the key and the platform recognises
 the repeat.
 
 ### Customer identity and isolation
 
-The base mints its own sessions, and the platform's identity server
+The bank mints its own sessions, and the platform's identity server
 plays no part. Sign-up follows the screens: a phone number, a code,
 the person's details, an identity check, a passcode. The code is fixed
 under the dev and test profiles, as the design assumes, and a sender
 for live is a later concern. The details register a party, whose
-verification the base reads back. The passcode is stored as a salted
+verification the bank reads back. The passcode is stored as a salted
 hash. A session is an opaque random id held in the store with an
 expiry, sent by the app as a bearer, and a returning customer opens one
 with their phone number and passcode.
@@ -159,7 +171,7 @@ holds, so nothing below this line can be relied on for it.
 ### The bank's store
 
 Postgres, through mono's `jdbc` and `migrator`, with a Liquibase
-changelog under the base's resources. The tables:
+changelog under the component's resources. The tables:
 
 - `customers` — id, party id, phone, names, passcode hash, created at.
 - `customer_accounts` — customer id, account id, product kind, name.
@@ -226,11 +238,11 @@ the credential in `pass`.
 ### What the platform does not serve as drawn
 
 - **The sparkline.** The last seven daily closing balances, computed
-  by the base from the account's transactions.
+  by the bank from the account's transactions.
 - **The category.** Derived from the kind of record: an outbound
   payment, an inbound one, a transfer between own accounts, or interest.
 - **Member since.** The party's creation time.
-- **The fixed-term minimum.** Enforced by the base from the product
+- **The fixed-term minimum.** Enforced by the bank from the product
   until the platform carries a minimum deposit.
 - **The identity scan.** An interstitial and no call; the check runs
   on the details.
@@ -246,9 +258,10 @@ is decided until the local loop works end to end.
 ### First slice
 
 1. This TDD and the seed recipe, proved against a local monolith.
-2. The base and its project: the system, the store, sessions, sign-up
-   through to a registered party, and the me read served from the
-   platform. The app reads it, and the home screen is real.
+2. The component, the base and its project: the system, the store,
+   sessions, sign-up through to a registered party, and the me read
+   served from the platform. The app reads it, and the home screen is
+   real.
 3. The payee check, payments, transfers and opening an account.
 4. The receiver, the event stream, the address-rule allowance in the
    platform, and endpoint registration in the seed.
@@ -256,15 +269,23 @@ is decided until the local loop works end to end.
 
 ### Tests
 
-- **`demo-digital-bank`** — unit tests over the client's token cache
-  and idempotency-key reuse, over session resolution refusing another
-  customer's account, and over signature verification against a known
-  vector; and `with-test-system` tests against the monolith's test
-  bundle for sign-up to a registered party and the me read.
+- **`demo-digital-bank-core`** — unit tests over the client's token
+  cache and idempotency-key reuse, over session resolution refusing
+  another customer's account, and over signature verification against
+  a known vector; and `with-test-system` tests, against a Postgres
+  container and a stand-in for the platform served in the same
+  process, for sign-up to a registered party and the me read. A
+  brick's tests may not boot the platform, and the platform's own
+  contract is pinned in `test-api-scenarios`, so the stand-in answers
+  in the shapes those scenarios pin.
+- **`demo-digital-bank`** — the routes over HTTP, on the same
+  container and stand-in: sign-up through to a session, sign-in, and
+  the me read.
 - **The seed recipe** — run twice against a local monolith: the first
   creates, the second reports everything already done.
 - **`demo-digital-bank-app`** — the build in CI, and a walk of the
-  screens by hand against the running base.
+  screens by hand against the running base and a local monolith,
+  which is where the real platform is met.
 
 ## Alternatives Considered
 
@@ -279,7 +300,7 @@ is decided until the local loop works end to end.
   ever wanted, wraps the same app.
 - **A Keycloak realm for customers.** Rejected: the screens are a
   phone number, a code and a passcode, which Keycloak's flows do not
-  give without custom authenticators, and a session the base mints is
+  give without custom authenticators, and a session the bank mints is
   a few lines. The platform's identity server keeps its two realms.
 - **A generated client from the OpenAPI document.** Rejected: nothing
   in the Clojure toolchain generates a readable one, and a hand-written
@@ -293,9 +314,11 @@ is decided until the local loop works end to end.
 - **A tunnel for local webhooks.** Rejected: every developer would need
   one, and the address rule as configuration is a smaller change than
   a tunnel in every dev loop.
-- **Components rather than one base.** Taken in part: the base holds
-  everything until a second demo shares something, and the platform
-  client is named as the first thing to move.
+- **Everything in one base.** Rejected: a base may not own a store,
+  since persistence belongs in a component and the pre-commit
+  guardrail refuses a `store.clj` under `bases/`. One component holds
+  the store and everything that reads it, and the base keeps the HTTP
+  surface, until a second demo shares something.
 
 ## Known Limitations
 

@@ -35,15 +35,38 @@ demo-digital-bank-app-start:
     corepack yarn install
     corepack yarn workspace demo-digital-bank-app dev
 
-# Create the bank's organisation on the local monolith, store its credential in pass, and publish its three products; does only what is not already done.
+# Run the bank's backend against a local monolith, its credential from pass and its Postgres in a container, teeing the log to demo-digital-bank.log (port 8100)
+demo-digital-bank-start:
+    #!/usr/bin/env zsh
+    set -e
+    cd {{ justfile_directory() }}
+    if ! OUT=$(pass show {{ DEMO_PASS }}/ids/demo-digital-bank 2>/dev/null) || [[ -z "$OUT" ]]; then
+      echo "no credential under {{ DEMO_PASS }}/demo-digital-bank: run just demo-digital-bank-seed first" >&2
+      exit 1
+    fi
+    export DEMO_DIGITAL_BANK_CLIENT_ID="${OUT%%$'\n'*}"
+    OUT=$(pass show {{ DEMO_PASS }}/demo-digital-bank)
+    export DEMO_DIGITAL_BANK_CLIENT_SECRET="${OUT%%$'\n'*}"
+    export DEMO_API_URL={{ DEMO_API_URL }}
+    clj -M{{ DOMAIN_ALIASES }}:dev:test -e "(require 'com.repldriven.mono.testcontainers.interface)" -m com.repldriven.queenswood.demo-digital-bank.main -c "classpath:demo-digital-bank/application-test.yml" -p "dev" 2>&1 | tee demo-digital-bank.log
+
+# Create the bank's organisation on the local monolith, store its credential in pass, and publish its three products; does only what is not already done, and replaces a credential the platform no longer knows.
 demo-digital-bank-seed:
     #!/usr/bin/env zsh
     set -e
-    if CLIENT_ID=$(pass show {{ DEMO_PASS }}/ids/demo-digital-bank 2>/dev/null | head -1) \
-       && [[ -n "$CLIENT_ID" ]]; then
-      CLIENT_SECRET=$(pass show {{ DEMO_PASS }}/demo-digital-bank | head -1)
-      echo "organisation $CLIENT_ID, from pass"
-    else
+    CLIENT_ID=""
+    if OUT=$(pass show {{ DEMO_PASS }}/ids/demo-digital-bank 2>/dev/null) && [[ -n "$OUT" ]]; then
+      CLIENT_ID="${OUT%%$'\n'*}"
+      OUT=$(pass show {{ DEMO_PASS }}/demo-digital-bank)
+      CLIENT_SECRET="${OUT%%$'\n'*}"
+      if TOKEN=$(just _demo-digital-bank-token "$CLIENT_ID" "$CLIENT_SECRET" queenswood-api-test 2>/dev/null); then
+        echo "organisation $CLIENT_ID, from pass"
+      else
+        echo "organisation $CLIENT_ID in pass is unknown to the platform; creating it again"
+        CLIENT_ID=""
+      fi
+    fi
+    if [[ -z "$CLIENT_ID" ]]; then
       ADMIN=$(just _demo-digital-bank-token {{ DEMO_ADMIN_CLIENT_ID }} {{ DEMO_ADMIN_CLIENT_SECRET }} queenswood-api-test+realm-roles)
       RES=$(curl -sS -X POST {{ DEMO_API_URL }}/v1/banks \
         -H "authorization: Bearer $ADMIN" \
@@ -59,8 +82,8 @@ demo-digital-bank-seed:
       printf '%s\n' "$CLIENT_ID" | pass insert -m -f {{ DEMO_PASS }}/ids/demo-digital-bank >/dev/null
       printf '%s\n' "$CLIENT_SECRET" | pass insert -m -f {{ DEMO_PASS }}/demo-digital-bank >/dev/null
       echo "organisation $CLIENT_ID, created: test, micro, GBP, sort code $(jq -r '.["sort-code"]' <<<"$RES")"
+      TOKEN=$(just _demo-digital-bank-token "$CLIENT_ID" "$CLIENT_SECRET" queenswood-api-test)
     fi
-    TOKEN=$(just _demo-digital-bank-token "$CLIENT_ID" "$CLIENT_SECRET" queenswood-api-test)
     RES=$(curl -sS {{ DEMO_API_URL }}/v1/cash-account-products -H "authorization: Bearer $TOKEN")
     EXISTING=$(jq -r '.items[].versions[].name' <<<"$RES")
     TODAY=$(date +%F)

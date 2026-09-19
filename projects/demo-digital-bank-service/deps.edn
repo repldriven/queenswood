@@ -1,0 +1,25 @@
+;; The demo digital bank, as a deployable service: the bank behind the
+;; customer app, built on mono the way a product built on Queenswood
+;; would be. The postgres driver is named here because mono's `jdbc`
+;; stays driver-agnostic and the deployable chooses.
+{:aliases
+ {:build {:deps {ext/mono-build {:local/root "../../deps/mono-build"}}
+          :exec-args {:lib 'com.repldriven.queenswood/demo-digital-bank-service
+                      :main com.repldriven.queenswood.demo-digital-bank.main
+                      :major-minor-version "0.0"}
+          :ns-default com.repldriven.mono.build.build}
+  :test
+  {:extra-deps
+   {ext/mono {:local/root "../../deps/mono-test"}
+    ext/mono-test-runner {:local/root "../../deps/mono-test-runner"}
+    component/test-resources {:local/root "../../components/test-resources"}
+    component/test-startup {:local/root "../../components/test-startup"}}}}
+ :deps {ext/mono {:local/root "../../deps/mono"}
+        component/demo-digital-bank-core
+        {:local/root "../../components/demo-digital-bank-core"}
+        component/resources {:local/root "../../components/resources"}
+        base/demo-digital-bank {:local/root "../../bases/demo-digital-bank"}
+        org.postgresql/postgresql {:mvn/version "42.7.13"}
+        org.clojure/clojure {:mvn/version "1.12.5"}
+        pin/clojure-core-async {:local/root "../../deps/clojure-core-async"}}
+ :paths ["resources"]}
