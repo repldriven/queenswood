@@ -2,7 +2,17 @@
 // Activity, Me, and opening another account.
 import { useState } from "react";
 import { brand } from "./brand.js";
-import { gbp, Ic, Top, Field, Tabs, Spark, SEED } from "./ui.jsx";
+import {
+  gbp,
+  aer,
+  monthYear,
+  phoneLabel,
+  Ic,
+  Top,
+  Field,
+  Tabs,
+  Spark,
+} from "./ui.jsx";
 
 const initials = (name) =>
   name
@@ -288,7 +298,7 @@ export function Activity({ S, push, go }) {
 export function Me({ S, go, signOut }) {
   const name = `${S.user.first} ${S.user.last}`;
   const rows = [
-    ["Personal details", `${name} · +44 7700 900123`],
+    ["Personal details", `${name} · ${phoneLabel(S.user.phone)}`],
     ["Security", "Passcode, Face ID"],
     ["Cards", "Everyday · ···· 4417"],
     ["Statements & documents", ""],
@@ -306,7 +316,11 @@ export function Me({ S, go, signOut }) {
           </span>
           <div>
             <div style={{ fontSize: 20, fontWeight: 500 }}>{name}</div>
-            <div className="hint">Member since Sep 2026</div>
+            {S.user.memberSince && (
+              <div className="hint">
+                Member since {monthYear(S.user.memberSince)}
+              </div>
+            )}
           </div>
         </div>
         <div className="list">
@@ -344,7 +358,7 @@ export function OpenAccount({ S, pop, openAccount }) {
   const [step, setStep] = useState(0);
   const [dep, setDep] = useState("");
   const owned = S.accounts.map((a) => a.kind);
-  const p = SEED.products.find((x) => x.id === sel);
+  const p = S.products.find((x) => x.id === sel);
   if (step === 2)
     return (
       <div className="scr" data-screen-label="Account opened">
@@ -391,9 +405,9 @@ export function OpenAccount({ S, pop, openAccount }) {
               <span>Rate</span>
               <span>
                 {p.kind === "sav"
-                  ? "4.10% AER variable"
+                  ? `${aer(p.rateBps)} variable`
                   : p.kind === "fix"
-                    ? "4.65% AER fixed"
+                    ? `${aer(p.rateBps)} fixed`
                     : "—"}
               </span>
             </div>
@@ -431,7 +445,7 @@ export function OpenAccount({ S, pop, openAccount }) {
       <div className="body">
         <h1>What would you like to open?</h1>
         <p className="sub">Takes a moment. No credit check for savings.</p>
-        {SEED.products.map((x) => {
+        {S.products.map((x) => {
           const has = owned.includes(x.kind);
           return (
             <button

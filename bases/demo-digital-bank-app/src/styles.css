@@ -252,6 +252,9 @@ h2 {
   font-size: 13px;
   color: var(--muted);
 }
+.hint.err {
+  color: var(--red);
+}
 .card {
   background: var(--card);
   border-radius: 20px;

@@ -257,6 +257,7 @@
   [customer party]
   {:first (:given-name customer)
    :last (:family-name customer)
+   :phone (:phone customer)
    :verification (let [status (some-> (:status party)
                                       name)]
                    (get verifications status status))

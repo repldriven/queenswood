@@ -1,8 +1,11 @@
 // The root: the app's state, its navigation, and the mutations the
-// screens call. Navigation is a mode (onboarding or app), a tab, and a
-// stack of pushed flows above the tab; switching tab clears the stack.
-import { useState } from "react";
-import { gbp, SEED } from "./ui.jsx";
+// screens call. The state is the me read, kept under the session the
+// bank minted. Navigation is a mode (loading, onboarding or app), a tab,
+// and a stack of pushed flows above the tab; switching tab clears the
+// stack.
+import { useState, useEffect } from "react";
+import { gbp } from "./ui.jsx";
+import * as api from "./api.js";
 import Onboarding from "./Onboarding.jsx";
 import {
   Home,
@@ -15,8 +18,10 @@ import {
 import { Pay, Move } from "./Payments.jsx";
 
 export default function App() {
-  const [S, setS] = useState(() => JSON.parse(JSON.stringify(SEED)));
-  const [mode, setMode] = useState("onboarding");
+  const [S, setS] = useState(null);
+  const [mode, setMode] = useState(() =>
+    api.session.get() ? "loading" : "onboarding",
+  );
   const [tab, setTab] = useState("home");
   const [stack, setStack] = useState([]);
   const [msg, setMsg] = useState(null);
@@ -30,6 +35,22 @@ export default function App() {
     setMsg(m);
     setTimeout(() => setMsg(null), 1800);
   };
+  // Read the home under the session held. A session the bank no longer
+  // knows goes back to the welcome screen; anything else is said and
+  // leaves the session for another go.
+  const enter = async () => {
+    try {
+      setS(api.fromMe(await api.me()));
+      setMode("app");
+    } catch (e) {
+      if (e.status === 401) api.session.clear();
+      else toast(e.message);
+      setMode("onboarding");
+    }
+  };
+  useEffect(() => {
+    if (mode === "loading") enter();
+  }, []);
   const stamp = () => {
     const d = new Date();
     return "Today, " + d.toTimeString().slice(0, 5);
@@ -147,14 +168,17 @@ export default function App() {
       };
     });
   const signOut = () => {
+    api.signOut().catch(() => {});
+    api.session.clear();
+    setS(null);
     setMode("onboarding");
     setStack([]);
     setTab("home");
   };
   const top = stack[stack.length - 1];
   let view;
-  if (mode === "onboarding")
-    view = <Onboarding onDone={() => setMode("app")} />;
+  if (mode === "loading") view = <div className="scr" />;
+  else if (mode === "onboarding") view = <Onboarding onDone={enter} />;
   else if (top) {
     const P = {
       S,
