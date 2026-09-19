@@ -449,11 +449,10 @@ savings account shows the payment as a line of its own.
   app carries that as its brand, in one file. Whether Xepha is the name
   the demo keeps is open, and nothing in this PRD depends on it: the
   code is named for the use case, and the brand is configuration.
-- **How a customer signs in.** The bank's sign-in is assumed to run on
-  the identity server the platform already runs, in a space of its own
-  with no path to the platform's, so the demonstration adds no
-  infrastructure. Whether a customer signs in with a password, a
-  federated identity or a passkey, and how they recover a lost one, is
+- **How a customer signs in.** The bank's own systems issue the login,
+  from a phone number, a code and a passcode, and the platform's
+  identity server plays no part; the TDD decides it. How a customer
+  recovers a lost passcode, and how the code reaches a real phone, are
   open.
 - **Where the bank lives.** The app is a base in this repository,
   beside the platform's own console, and its backend will be another.
@@ -503,6 +502,5 @@ savings account shows the payment as a line of its own.
 - [interest](interest.md) — accrual and what a savings account earns.
 - [webhooks](webhooks.md) — how the platform tells the bank.
 - [policies](policies.md) — the bounds the bank's tier sets.
-
-No TDD serves this PRD yet. The design of the app's screens comes
-first, and the TDD follows it.
+- [demo-digital-bank](../tdd/demo-digital-bank.md) — the design behind
+  the app: the bank on the platform, its backend and its store.

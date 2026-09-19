@@ -15,14 +15,6 @@ console-start:
     corepack yarn install
     corepack yarn workspace console dev
 
-# Start the Vite dev server for the demo digital bank's customer app (port 5174)
-demo-digital-bank-app-start:
-    #!/usr/bin/env zsh
-    set -e
-    cd {{ justfile_directory() }}
-    corepack yarn install
-    corepack yarn workspace demo-digital-bank-app dev
-
 # Start the @queenswood/ui showcase (port 5173, or next free)
 ui-showcase:
     #!/usr/bin/env zsh
