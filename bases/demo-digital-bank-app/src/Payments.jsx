@@ -2,6 +2,7 @@
 // money between the customer's own accounts.
 import { useState, useEffect } from "react";
 import { gbp, Ic, Top, Field, Pad } from "./ui.jsx";
+import * as api from "./api.js";
 
 function Amount({ value, onKey, label }) {
   return (
@@ -64,22 +65,89 @@ const initials = (name) =>
     .slice(0, 2)
     .join("");
 
+// What the payee's bank said about the name, in the customer's words,
+// and what they may do about it.
+const COP = {
+  match: {
+    icon: Ic.tick,
+    text: (np) => (
+      <>
+        <b>Name matches.</b> The account is held by {np.name}.
+      </>
+    ),
+    proceed: "Continue",
+  },
+  "close-match": {
+    icon: Ic.lock,
+    text: (np, held) => (
+      <>
+        <b>Close, but not exact.</b> Their bank holds this account as{" "}
+        <b>{held}</b>.
+      </>
+    ),
+    proceed: (held) => `Pay ${held}`,
+  },
+  "no-match": {
+    icon: Ic.lock,
+    text: (np) => (
+      <>
+        <b>Name doesn't match.</b> Their bank says this account isn't held by{" "}
+        {np.name}. Check the details with them before paying.
+      </>
+    ),
+    proceed: "Pay anyway",
+  },
+  unavailable: {
+    icon: Ic.lock,
+    text: () => (
+      <>
+        <b>Couldn't check the name.</b> Their bank didn't answer. Check the
+        details before paying.
+      </>
+    ),
+    proceed: "Pay anyway",
+  },
+};
+
 export function Pay({ S, params, pop, send }) {
   const [step, setStep] = useState(0);
   const [payee, setPayee] = useState(null);
   const [q, setQ] = useState("");
   const [np, setNp] = useState({ name: "", sort: "", num: "" });
+  // "idle", "checking", or what the bank answered: { outcome, nameHeld }.
   const [cop, setCop] = useState("idle");
+  const [err, setErr] = useState(null);
+  const [submission, setSubmission] = useState(null);
   const [amt, key] = useAmt();
   const [ref, setRef] = useState("");
-  const from = S.accounts.find((a) => a.id === (params.from || "cur"));
+  const from =
+    S.accounts.find((a) => a.id === params.from) ||
+    S.accounts.find((a) => a.kind === "cur") ||
+    S.accounts[0];
   const n = +amt || 0;
-  useEffect(() => {
-    if (cop === "checking") {
-      const t = setTimeout(() => setCop("match"), 1300);
-      return () => clearTimeout(t);
+  const check = async () => {
+    setCop("checking");
+    setErr(null);
+    try {
+      setCop(
+        await api.checkPayee({ name: np.name, sort: np.sort, num: np.num }),
+      );
+    } catch (e) {
+      setCop("idle");
+      setErr(e.message);
     }
-  }, [cop]);
+  };
+  // The payee as checked, under the name their bank holds where that is
+  // what the customer chose to pay.
+  const proceed = (name) => {
+    setPayee({ id: "new", name, sort: np.sort, num: np.num });
+    setStep(2);
+  };
+  const review = () => {
+    setSubmission(api.idempotencyKey());
+    setErr(null);
+    setStep(3);
+  };
   const npOk =
     np.name.length > 1 &&
     np.sort.replace(/\D/g, "").length === 6 &&
@@ -92,6 +160,15 @@ export function Pay({ S, params, pop, send }) {
   const list = S.payees.filter((p) =>
     p.name.toLowerCase().includes(q.toLowerCase()),
   );
+  if (!from)
+    return (
+      <div className="scr" data-screen-label="Pay · no account">
+        <Top onBack={pop} title="Pay" close />
+        <div className="body">
+          <div className="card">Open an account to pay someone from it.</div>
+        </div>
+      </div>
+    );
   if (step === 0)
     return (
       <div className="scr" data-screen-label="Pay · choose payee">
@@ -188,57 +265,67 @@ export function Pay({ S, params, pop, send }) {
               className="card"
               style={{
                 background:
-                  cop === "match" ? "rgba(200,245,66,.1)" : "var(--bg-2)",
+                  cop.outcome === "match"
+                    ? "rgba(200,245,66,.1)"
+                    : "var(--bg-2)",
                 display: "flex",
                 gap: 12,
                 alignItems: "center",
               }}
             >
               <span
-                className={cop === "match" ? "pos" : ""}
+                className={cop.outcome === "match" ? "pos" : ""}
                 style={{
                   color: cop === "checking" ? "var(--muted)" : undefined,
                 }}
               >
-                {cop === "match" ? Ic.tick : Ic.lock}
+                {cop === "checking" ? Ic.lock : COP[cop.outcome].icon}
               </span>
               <div style={{ fontSize: 14 }}>
-                {cop === "checking" ? (
-                  "Checking the name with their bank…"
-                ) : (
-                  <>
-                    <b>Name matches.</b> The account is held by {np.name}.
-                  </>
-                )}
+                {cop === "checking"
+                  ? "Checking the name with their bank…"
+                  : COP[cop.outcome].text(np, cop.nameHeld)}
               </div>
             </div>
           )}
+          {err && (
+            <p className="hint err" style={{ marginTop: 8 }}>
+              {err}
+            </p>
+          )}
         </div>
         <div className="foot">
-          {cop === "match" ? (
-            <button
-              className="btn"
-              onClick={() => {
-                const p = {
-                  id: "new",
-                  name: np.name,
-                  sort: np.sort,
-                  num: np.num,
-                };
-                setPayee(p);
-                setStep(2);
-              }}
-            >
-              Continue
-            </button>
-          ) : (
+          {cop === "idle" || cop === "checking" ? (
             <button
               className="btn"
               disabled={!npOk || cop === "checking"}
-              onClick={() => setCop("checking")}
+              onClick={check}
             >
               {cop === "checking" ? "Checking…" : "Check details"}
             </button>
+          ) : cop.outcome === "match" ? (
+            <button className="btn" onClick={() => proceed(np.name)}>
+              Continue
+            </button>
+          ) : (
+            <>
+              <button className="btn" onClick={() => setCop("idle")}>
+                Edit details
+              </button>
+              <button
+                className="btn ghost"
+                style={{ marginTop: 8 }}
+                onClick={() =>
+                  proceed(
+                    cop.outcome === "close-match" ? cop.nameHeld : np.name,
+                  )
+                }
+              >
+                {cop.outcome === "close-match"
+                  ? COP["close-match"].proceed(cop.nameHeld)
+                  : COP[cop.outcome].proceed}
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -273,7 +360,7 @@ export function Pay({ S, params, pop, send }) {
           <button
             className="btn"
             disabled={n <= 0 || n > from.bal}
-            onClick={() => setStep(3)}
+            onClick={review}
           >
             {n > from.bal ? "Not enough in " + from.name : "Review"}
           </button>
@@ -322,10 +409,15 @@ export function Pay({ S, params, pop, send }) {
             Only pay people you know and trust. If someone asked you to move
             money urgently, stop and call us.
           </p>
+          {err && (
+            <p className="hint err" style={{ marginTop: 8 }}>
+              {err}
+            </p>
+          )}
         </div>
         <div className="foot">
           <button className="btn" onClick={() => setStep(4)}>
-            Send {gbp(n)}
+            {err ? "Try again" : `Send ${gbp(n)}`}
           </button>
         </div>
       </div>
@@ -334,9 +426,14 @@ export function Pay({ S, params, pop, send }) {
     return (
       <Confirm
         label="Confirm with Face ID"
-        onDone={() => {
-          send({ from: from.id, payee, amt: n, ref });
-          setStep(5);
+        onDone={async () => {
+          try {
+            await send({ from: from.id, payee, amt: n, ref }, submission);
+            setStep(5);
+          } catch (e) {
+            setErr(e.message);
+            setStep(3);
+          }
         }}
       />
     );
@@ -361,12 +458,15 @@ export function Pay({ S, params, pop, send }) {
 }
 
 export function Move({ S, params, pop, transfer }) {
-  const [fromId, setFrom] = useState(params.from || "cur");
+  const first = params.from || S.accounts[0]?.id;
+  const [fromId, setFrom] = useState(first);
   const [toId, setTo] = useState(
-    () => S.accounts.find((a) => a.id !== (params.from || "cur"))?.id || null,
+    () => S.accounts.find((a) => a.id !== first)?.id || null,
   );
   const [amt, key] = useAmt();
   const [step, setStep] = useState(0);
+  const [err, setErr] = useState(null);
+  const [submission, setSubmission] = useState(null);
   useEffect(() => {
     if (!toId || toId === fromId)
       setTo(S.accounts.find((a) => a.id !== fromId)?.id || null);
@@ -378,13 +478,23 @@ export function Move({ S, params, pop, transfer }) {
     setFrom(toId);
     setTo(fromId);
   };
+  const confirm = () => {
+    setSubmission(api.idempotencyKey());
+    setErr(null);
+    setStep(1);
+  };
   if (step === 1)
     return (
       <Confirm
         label="Moving money…"
-        onDone={() => {
-          transfer({ from: fromId, to: toId, amt: n });
-          setStep(2);
+        onDone={async () => {
+          try {
+            await transfer({ from: fromId, to: toId, amt: n }, submission);
+            setStep(2);
+          } catch (e) {
+            setErr(e.message);
+            setStep(0);
+          }
         }}
       />
     );
@@ -449,6 +559,11 @@ export function Move({ S, params, pop, transfer }) {
               {to && <Pick a={to} lbl="To" />}
             </div>
             <Amount value={amt} onKey={key} label="Amount" />
+            {err && (
+              <p className="hint err" style={{ margin: "8px 8px 0" }}>
+                {err}
+              </p>
+            )}
           </>
         )}
       </div>
@@ -457,7 +572,7 @@ export function Move({ S, params, pop, transfer }) {
           <button
             className="btn"
             disabled={n <= 0 || n > from.bal}
-            onClick={() => setStep(1)}
+            onClick={confirm}
           >
             {n > from.bal
               ? "Not enough in " + from.name

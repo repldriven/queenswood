@@ -2,6 +2,7 @@
 // Activity, Me, and opening another account.
 import { useState } from "react";
 import { brand } from "./brand.js";
+import * as api from "./api.js";
 import {
   gbp,
   aer,
@@ -253,7 +254,11 @@ export function TxnDetail({ S, params, pop }) {
           )}
           <div className="kv">
             <span>Status</span>
-            <span className="pos">Complete</span>
+            {t.status === "pending" ? (
+              <span>Sent, on its way</span>
+            ) : (
+              <span className="pos">Complete</span>
+            )}
           </div>
         </div>
       </div>
@@ -357,8 +362,24 @@ export function OpenAccount({ S, pop, openAccount }) {
   const [sel, setSel] = useState(null);
   const [step, setStep] = useState(0);
   const [dep, setDep] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+  const [submission, setSubmission] = useState(null);
   const owned = S.accounts.map((a) => a.kind);
+  const hasCurrent = owned.includes("cur");
   const p = S.products.find((x) => x.id === sel);
+  const open = async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      await openAccount(p, +dep || 0, submission);
+      setStep(2);
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
   if (step === 2)
     return (
       <div className="scr" data-screen-label="Account opened">
@@ -386,7 +407,7 @@ export function OpenAccount({ S, pop, openAccount }) {
         <div className="body">
           <h1>{p.name}</h1>
           <p className="sub">{p.blurb}</p>
-          {p.kind !== "cur" && (
+          {p.kind !== "cur" && hasCurrent && (
             <Field
               label="Opening deposit from Everyday"
               hint={p.kind === "fix" ? "Minimum £1,000" : "Optional"}
@@ -424,17 +445,25 @@ export function OpenAccount({ S, pop, openAccount }) {
             By opening this account you accept the <a href="#">summary box</a>{" "}
             and <a href="#">terms</a>.
           </p>
+          {p.kind === "fix" && !hasCurrent && (
+            <p className="hint" style={{ marginTop: 8 }}>
+              Open an Everyday account first: a fixed-term account opens with at
+              least £1,000 moved from it.
+            </p>
+          )}
+          {err && (
+            <p className="hint err" style={{ marginTop: 8 }}>
+              {err}
+            </p>
+          )}
         </div>
         <div className="foot">
           <button
             className="btn"
-            disabled={p.kind === "fix" && +dep < 1000}
-            onClick={() => {
-              openAccount(p, +dep || 0);
-              setStep(2);
-            }}
+            disabled={busy || (p.kind === "fix" && +dep < 1000)}
+            onClick={open}
           >
-            Open {p.name}
+            {busy ? "Opening…" : `Open ${p.name}`}
           </button>
         </div>
       </div>
@@ -500,7 +529,15 @@ export function OpenAccount({ S, pop, openAccount }) {
         )}
       </div>
       <div className="foot">
-        <button className="btn" disabled={!sel} onClick={() => setStep(1)}>
+        <button
+          className="btn"
+          disabled={!sel}
+          onClick={() => {
+            setSubmission(api.idempotencyKey());
+            setErr(null);
+            setStep(1);
+          }}
+        >
           Continue
         </button>
       </div>

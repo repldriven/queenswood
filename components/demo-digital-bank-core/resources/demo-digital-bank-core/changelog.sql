@@ -55,3 +55,24 @@ create table submissions (
 );
 
 create index submissions_by_sign_up on submissions (sign_up_id, kind);
+
+--changeset demo-digital-bank:2
+-- The key the app sends with a submission, so a repeated tap replays
+-- the answer the platform already gave rather than paying twice.
+alter table submissions add column client_key text;
+
+create unique index submissions_by_client_key
+  on submissions (customer_id, kind, client_key)
+  where client_key is not null;
+
+create table payees (
+  id                text        primary key,
+  customer_id       text        not null references customers (id),
+  name              text        not null,
+  sort_code         text        not null,
+  account_number    text        not null,
+  last_paid_at      timestamptz,
+  last_paid_amount  bigint,
+  created_at        timestamptz not null default now(),
+  unique (customer_id, sort_code, account_number)
+);

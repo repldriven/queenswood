@@ -13,6 +13,16 @@
 (def IsoDate
   [:re {:json-schema/example "1994-03-12"} #"^[0-9]{4}-[0-9]{2}-[0-9]{2}$"])
 
+(def SortCode
+  [:re {:json-schema/example "04-00-75"} #"^[0-9]{2}-?[0-9]{2}-?[0-9]{2}$"])
+
+(def AccountNumber [:re {:json-schema/example "31908240"} #"^[0-9]{8}$"])
+
+(def Amount
+  [:int {:min 1 :json-schema/example 2500 :description "In minor units"}])
+
+(def Reference [:maybe [:string {:max 18 :json-schema/example "Rent"}]])
+
 (def StartSignUpRequest [:map {:closed true} [:phone Phone]])
 
 (def SignUp
@@ -95,13 +105,87 @@
    [:product-type [:maybe string?]]
    [:rate-bps int?]])
 
+(def Payee
+  [:map
+   [:id string?]
+   [:name string?]
+   [:sort [:maybe string?]]
+   [:num [:maybe string?]]
+   [:last-paid-at [:maybe string?]]
+   [:last-paid-amount [:maybe int?]]])
+
 (def Me
   [:map
    [:user [:ref "User"]]
    [:accounts [:vector [:ref "Account"]]]
    [:txns [:vector [:ref "Transaction"]]]
-   [:payees [:vector any?]]
+   [:payees [:vector [:ref "Payee"]]]
    [:products [:vector [:ref "Product"]]]])
+
+(def PayeeCheckRequest
+  [:map {:closed true}
+   [:name Name]
+   [:sort-code SortCode]
+   [:account-number AccountNumber]])
+
+(def PayeeCheck
+  [:map
+   [:check-id [:maybe string?]]
+   [:outcome [:enum "match" "close-match" "no-match" "unavailable"]]
+   [:name-held [:maybe string?]]])
+
+(def PayeeRef [:map {:closed true} [:id string?]])
+
+(def NewPayee
+  [:map {:closed true}
+   [:name Name]
+   [:sort-code SortCode]
+   [:account-number AccountNumber]])
+
+(def PaymentRequest
+  [:map {:closed true}
+   [:from string?]
+   [:payee [:or [:ref "PayeeRef"] [:ref "NewPayee"]]]
+   [:amount Amount]
+   [:reference {:optional true} Reference]])
+
+(def Payment
+  [:map
+   [:id string?]
+   [:status [:maybe string?]]
+   [:from string?]
+   [:payee [:ref "Payee"]]
+   [:amount int?]
+   [:currency [:maybe string?]]
+   [:reference [:maybe string?]]
+   [:created-at [:maybe string?]]])
+
+(def TransferRequest
+  [:map {:closed true}
+   [:from string?]
+   [:to string?]
+   [:amount Amount]
+   [:reference {:optional true} Reference]])
+
+(def Transfer
+  [:map
+   [:id string?]
+   [:from string?]
+   [:to string?]
+   [:amount int?]
+   [:currency [:maybe string?]]
+   [:reference [:maybe string?]]
+   [:created-at [:maybe string?]]])
+
+(def OpenAccountRequest
+  [:map {:closed true}
+   [:product-id string?]
+   [:name {:optional true} Name]
+   [:deposit {:optional true}
+    [:int {:min 0 :description "In minor units, from the current account"}]]])
+
+(def OpenedAccount
+  [:map [:account [:ref "Account"]] [:deposit [:maybe [:ref "Transfer"]]]])
 
 (def ErrorResponse
   [:map
@@ -116,4 +200,6 @@
           [#'StartSignUpRequest #'SignUp #'CodeRequest #'Address
            #'NationalIdentifier #'DetailsRequest #'PasscodeRequest
            #'SignInRequest #'Session #'User #'Account #'Transaction #'Product
-           #'Me #'ErrorResponse]))
+           #'Payee #'Me #'PayeeCheckRequest #'PayeeCheck #'PayeeRef #'NewPayee
+           #'PaymentRequest #'Payment #'TransferRequest #'Transfer
+           #'OpenAccountRequest #'OpenedAccount #'ErrorResponse]))

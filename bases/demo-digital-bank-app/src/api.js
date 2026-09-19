@@ -3,7 +3,7 @@
 // arrives in minor units and times as RFC 3339; the screens take pounds
 // and the labels the fixture data carried, so the conversion lives here
 // and the screens stay as designed.
-import { dayLabel, productCopy } from "./ui.jsx";
+import { dayLabel, gbp, productCopy } from "./ui.jsx";
 
 const base = import.meta.env.VITE_API_URL || "http://localhost:8100";
 const KEY = "xepha.session";
@@ -31,7 +31,7 @@ export class ApiError extends Error {
   }
 }
 
-async function call(method, path, body) {
+async function call(method, path, body, key) {
   const token = session.get();
   let res;
   try {
@@ -40,6 +40,7 @@ async function call(method, path, body) {
       headers: {
         ...(body ? { "content-type": "application/json" } : {}),
         ...(token ? { authorization: "Bearer " + token } : {}),
+        ...(key ? { "idempotency-key": key } : {}),
       },
       body: body ? JSON.stringify(body) : undefined,
     });
@@ -62,6 +63,53 @@ export const signIn = (phone, passcode) =>
   call("POST", "/sign-in", { phone, passcode });
 export const signOut = () => call("POST", "/sign-out");
 export const me = () => call("GET", "/me");
+
+// A key minted once per submission, so a repeated tap is answered once.
+export const idempotencyKey = () => crypto.randomUUID();
+const minor = (pounds) => Math.round(pounds * 100);
+
+// The payee's name checked against the one their bank holds:
+// { outcome: "match" | "close-match" | "no-match" | "unavailable",
+//   nameHeld }.
+export const checkPayee = async ({ name, sort, num }) => {
+  const r = await call("POST", "/payee-checks", {
+    name,
+    "sort-code": sort,
+    "account-number": num,
+  });
+  return { outcome: r.outcome, nameHeld: r["name-held"] };
+};
+
+// The screens' pounds become minor units on the way out. A payee is one
+// of the customer's by id, or a new name, sort code and account number.
+export const pay = ({ from, payee, amt, ref }, key) =>
+  call(
+    "POST",
+    "/payments",
+    {
+      from,
+      payee:
+        payee.id === "new"
+          ? {
+              name: payee.name,
+              "sort-code": payee.sort,
+              "account-number": payee.num,
+            }
+          : { id: payee.id },
+      amount: minor(amt),
+      ...(ref ? { reference: ref } : {}),
+    },
+    key,
+  );
+export const transfer = ({ from, to, amt }, key) =>
+  call("POST", "/transfers", { from, to, amount: minor(amt) }, key);
+export const openAccount = ({ productId, dep }, key) =>
+  call(
+    "POST",
+    "/accounts",
+    { "product-id": productId, ...(dep ? { deposit: minor(dep) } : {}) },
+    key,
+  );
 
 const pounds = (minor) => minor / 100;
 const KINDS = ["cur", "sav", "fix"];
@@ -105,10 +153,19 @@ export const fromMe = (me) => ({
     who: t.who,
     cat: t.cat,
     amt: pounds(t.amount),
+    status: t.status,
     ...when(t.at),
     ref: t.ref,
   })),
-  payees: me.payees,
+  payees: me.payees.map((p) => ({
+    id: p.id,
+    name: p.name,
+    sort: p.sort,
+    num: p.num,
+    last: p["last-paid-at"]
+      ? `${gbp(pounds(p["last-paid-amount"]))} · ${when(p["last-paid-at"]).date.toLowerCase()}`
+      : "never",
+  })),
   products: me.products
     .map((p) => ({
       id: p.id,

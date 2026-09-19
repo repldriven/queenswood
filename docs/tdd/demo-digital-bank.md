@@ -4,13 +4,14 @@
 > `bases/demo-digital-bank-app`, the seed, the `demo-digital-bank-core`
 > component, the `demo-digital-bank` base and its service project exist:
 > a sign-up from the app reaches a registered party, a returning
-> customer signs in, and the app's home is the me read, served from the
-> platform and proved against a local monolith. The platform capabilities
-> the bank calls, the mono bricks it is built from and the local tooling
-> it seeds against exist, and Background names them. Everything else
-> under Proposed Solution is the build list, and "First slice" says
-> which part of it comes next: the payee check, payments, transfers and
-> opening an account, the third slice.
+> customer signs in, the app's home is the me read, and opening an
+> account, checking a payee, paying and moving money are calls the app
+> makes to the bank and the bank to the platform, proved against a local
+> monolith. The platform capabilities the bank calls, the mono bricks it
+> is built from and the local tooling it seeds against exist, and
+> Background names them. Everything else under Proposed Solution is the
+> build list, and "First slice" says which part of it comes next: the
+> receiver and the event stream, the fourth slice.
 
 ## Objective
 
@@ -48,9 +49,9 @@ come, which take this one as their pattern.
   base's routes, keeps the session the bank minted across reloads, and
   maps the me read onto the shape the screens take — pounds from minor
   units, the fixture's day labels from RFC 3339 — so the screens stay
-  as designed. Its root holds that state and the mutations — `send`,
-  `transfer` and `openAccount` — that this design moves behind the
-  backend next.
+  as designed. Its root holds that state, and each mutation — `send`,
+  `transfer` and `openAccount` — is a call to the bank under a key the
+  screen minted, then the me read again.
 - **The operator's door.** `POST /v1/banks`, an `admin` route that
   creates an organisation with its party, its settlement accounts and
   its service-account client, and returns the credential once. Locally
@@ -114,7 +115,10 @@ containers hold nothing of the last one, it finds the credential in
 `pass` refused and creates the organisation again. It registers no
 webhook endpoint yet: the
 platform's address rule refuses a local one, and the notifications
-slice below adds registration alongside the allowance.
+slice below adds registration alongside the allowance. Beside it,
+`just demo-digital-bank-fund` pays money into one of the bank's accounts
+from outside, through the platform's sandbox affordance, since nothing
+else on a developer's machine does.
 
 ### The component, the base and its project
 
@@ -150,7 +154,11 @@ scope the configured status names, cached until shortly before it
 expires. Every submission carries an `Idempotency-Key` the bank mints
 with `utility/uuidv7` and writes to its store before the call is made,
 so a retry after a timeout reuses the key and the platform recognises
-the repeat.
+the repeat. The app sends a key of its own with each submission, minted
+when the customer reaches the screen that confirms it; the bank keeps it
+beside the key it minted, answers a repeat the platform has already
+answered from its store, and calls the platform under the same key for
+one it has not.
 
 ### Customer identity and isolation
 
@@ -181,8 +189,8 @@ changelog under the component's resources. The tables:
 - `sessions` — id, customer id, expires at.
 - `payees` — id, customer id, name, sort code, account number, and when
   and how much they were last paid.
-- `submissions` — idempotency key, customer id, kind, the request, and
-  the platform's answer once it has one.
+- `submissions` — idempotency key, customer id, the app's key, kind, the
+  request, and the platform's answer once it has one.
 - `notifications` — the platform's message id, customer id, kind, the
   record as delivered, and when the customer saw it.
 
@@ -205,11 +213,17 @@ The routes, all under a session except sign-up and sign-in:
   balances and addresses, the transactions across them newest first,
   the payees, and the products the bank publishes.
 - **Accounts** — a `POST` that opens an account against a product,
-  moves an opening deposit where one is given, and answers the account.
+  waits for the platform to report it opened, moves an opening deposit
+  from the customer's current account where one is given, and answers
+  the account and the deposit. The bank refuses a second account of a
+  kind the customer holds, a fixed-term account below its minimum, and
+  a deposit with no current account to come from.
 - **Payee check** — a `POST` with a name, sort code and account number,
-  answering match, close match with the name held, or no match.
+  answering match, close match with the name held, no match, or
+  unavailable.
 - **Payments** — a `POST` with the account, the payee or a new one, the
-  amount and the reference, answering the payment and its status.
+  amount and the reference, answering the payment and its status. A new
+  payee is kept, and a payee paid again has its last payment recorded.
 - **Transfers** — a `POST` between two of the customer's accounts.
 - **Events** — a `GET` holding a server-sent event stream open, on
   which the customer's notifications arrive as they are recorded.
@@ -244,6 +258,16 @@ the credential in `pass`.
   by the bank from the account's transactions.
 - **The category.** Derived from the kind of record: an outbound
   payment, an inbound one, a transfer between own accounts, or interest.
+- **A payment in flight.** The platform sets the amount aside on
+  submission and posts the outflow at settlement, as legs in two
+  transactions, and releases the reservation in either case. The bank
+  nets the account's `pending-outgoing` legs — each credit releases the
+  earliest debit of its amount — and lists what is still standing as
+  one row with the status `pending`, beside the posted legs.
+- **The payee's name.** A leg carries no counterparty, so an outbound
+  leg is named from the bank's own submissions: the one whose
+  transaction it belongs to, else the latest before it out of the same
+  account for the same amount and reference.
 - **Member since.** The party's creation time.
 - **The fixed-term minimum.** Enforced by the bank from the product
   until the platform carries a minimum deposit.
@@ -265,7 +289,9 @@ is decided until the local loop works end to end.
    sessions, sign-up through to a registered party, and the me read
    served from the platform. The app reads it, and the home screen is
    real.
-3. The payee check, payments, transfers and opening an account.
+3. The payee check, payments, transfers and opening an account, each a
+   route on the base and a call on the platform, and the app's
+   mutations behind them.
 4. The receiver, the event stream, the address-rule allowance in the
    platform, and endpoint registration in the seed.
 5. Deployment, under the deployment recipe's design.
@@ -274,16 +300,20 @@ is decided until the local loop works end to end.
 
 - **`demo-digital-bank-core`** — unit tests over the client's token
   cache and idempotency-key reuse, over session resolution refusing
-  another customer's account, and over signature verification against
-  a known vector; and `with-test-system` tests, against a Postgres
-  container and a stand-in for the platform served in the same
-  process, for sign-up to a registered party and the me read. A
+  another customer's account, over the netting of a payment's legs,
+  and over signature verification against a known vector; and
+  `with-test-system` tests, against a Postgres container and a
+  stand-in for the platform served in the same process, for sign-up to
+  a registered party, the me read, a payee check in each outcome, a
+  payment made once under the app's key and read as pending then
+  posted, an account opened with its deposit, and a transfer. A
   brick's tests may not boot the platform, and the platform's own
   contract is pinned in `test-api-scenarios`, so the stand-in answers
-  in the shapes those scenarios pin.
+  in the shapes those scenarios pin, and settles or fails a payment
+  when a test says so.
 - **`demo-digital-bank`** — the routes over HTTP, on the same
-  container and stand-in: sign-up through to a session, sign-in, and
-  the me read.
+  container and stand-in: sign-up through to a session, sign-in, the
+  me read, and each submission with its key and its refusals.
 - **The seed recipe** — run twice against a local monolith: the first
   creates, the second reports everything already done.
 - **`demo-digital-bank-app`** — the build in CI, and a walk of the
@@ -327,7 +357,15 @@ is decided until the local loop works end to end.
 
 - **Happy path.** The design carries no rejected verification, no held
   or failed payment and no money-arrived screen, which the PRD's
-  journeys have. Each needs a screen before it needs a route.
+  journeys have. Each needs a screen before it needs a route. A payment
+  the scheme refuses leaves the transaction list as its reservation is
+  released, and the customer learns why only once the notifications
+  slice tells them.
+- **A deposit into an account still opening.** The bank reads an
+  account back for up to five seconds after opening it before moving
+  the deposit, since the platform refuses a payment into an account
+  not yet `opened`. Past that the deposit is attempted regardless, and
+  the platform's refusal is the answer while the account stands.
 - **Test only.** The organisation is in test status against simulators.
   Live needs a sender for the code, the real providers, and a live
   credential, none of which this design touches.

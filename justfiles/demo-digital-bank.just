@@ -116,3 +116,26 @@ demo-digital-bank-seed:
       fi
       printf '  %-14s %s, %s bps\n' "$NAME" "$PRODUCT" "$BPS"
     done
+
+# Pay money into one of the bank's accounts from outside, as the bank, through the platform's sandbox affordance. account_id: the platform's; amount: in pence.
+demo-digital-bank-fund account_id amount:
+    #!/usr/bin/env zsh
+    set -e
+    if ! OUT=$(pass show {{ DEMO_PASS }}/ids/demo-digital-bank 2>/dev/null) || [[ -z "$OUT" ]]; then
+      echo "no credential under {{ DEMO_PASS }}/demo-digital-bank: run just demo-digital-bank-seed first" >&2
+      exit 1
+    fi
+    CLIENT_ID="${OUT%%$'\n'*}"
+    OUT=$(pass show {{ DEMO_PASS }}/demo-digital-bank)
+    CLIENT_SECRET="${OUT%%$'\n'*}"
+    TOKEN=$(just _demo-digital-bank-token "$CLIENT_ID" "$CLIENT_SECRET" queenswood-api-test)
+    RES=$(curl -sS -X POST "{{ DEMO_API_URL }}/v1/simulate/banks/$CLIENT_ID/inbound-transfer" \
+      -H "authorization: Bearer $TOKEN" \
+      -H 'content-type: application/json' \
+      -H "idempotency-key: demo-digital-bank-fund-$(date +%s%N)" \
+      -d '{"account-id":"{{ account_id }}","amount":{{ amount }},"currency":"GBP"}')
+    if [[ "$(jq -r '.status // empty' <<<"$RES")" != posted ]]; then
+      echo "funding refused: $RES" >&2
+      exit 1
+    fi
+    echo "{{ amount }} pence into {{ account_id }}: $(jq -r '."transaction-id"' <<<"$RES")"

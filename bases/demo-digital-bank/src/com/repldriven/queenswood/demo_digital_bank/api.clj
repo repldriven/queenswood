@@ -72,6 +72,15 @@
             :responses (assoc errors 201 {:body [:ref "Session"]})
             :handler handlers/sign-in}}]])
 
+(def ^:private idempotency-key
+  "The header a submission carries so a repeated tap is answered once."
+  {:name "Idempotency-Key"
+   :in "header"
+   :required false
+   :schema {:type "string" :maxLength 64}
+   :description
+   "A key the app mints per submission; the same key answers the same."})
+
 (def ^:private session-routes
   [["/sign-out"
     {:openapi {:tags ["Sessions"]}
@@ -84,7 +93,36 @@
      :get {:summary "Everything the home screen shows"
            :openapi {:operationId "RetrieveMe"}
            :responses (assoc errors 200 {:body [:ref "Me"]})
-           :handler handlers/me}}]])
+           :handler handlers/me}}]
+   ["/payee-checks"
+    {:openapi {:tags ["Payments"]}
+     :post {:summary "Check a payee's name with their bank"
+            :openapi {:operationId "CheckPayee"}
+            :parameters {:body [:ref "PayeeCheckRequest"]}
+            :responses (assoc errors 200 {:body [:ref "PayeeCheck"]})
+            :handler handlers/check-payee}}]
+   ["/payments"
+    {:openapi {:tags ["Payments"]}
+     :post {:summary "Pay a payee from one of the customer's accounts"
+            :openapi {:operationId "SubmitPayment"
+                      :parameters [idempotency-key]}
+            :parameters {:body [:ref "PaymentRequest"]}
+            :responses (assoc errors 201 {:body [:ref "Payment"]})
+            :handler handlers/submit-payment}}]
+   ["/transfers"
+    {:openapi {:tags ["Payments"]}
+     :post {:summary "Move money between two of the customer's accounts"
+            :openapi {:operationId "Transfer" :parameters [idempotency-key]}
+            :parameters {:body [:ref "TransferRequest"]}
+            :responses (assoc errors 201 {:body [:ref "Transfer"]})
+            :handler handlers/transfer}}]
+   ["/accounts"
+    {:openapi {:tags ["Accounts"]}
+     :post {:summary "Open an account against one of the bank's products"
+            :openapi {:operationId "OpenAccount" :parameters [idempotency-key]}
+            :parameters {:body [:ref "OpenAccountRequest"]}
+            :responses (assoc errors 201 {:body [:ref "OpenedAccount"]})
+            :handler handlers/open-account}}]])
 
 (defn- routes
   [ctx]

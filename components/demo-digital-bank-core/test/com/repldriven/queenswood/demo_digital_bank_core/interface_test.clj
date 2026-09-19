@@ -93,7 +93,7 @@
                                 (select-keys (:user me) [:first :last])))
                        _ (is (= "verified" (get-in me [:user :verification])))
                        _ (is (= [] (:accounts me)))
-                       _ (is (= ["Everyday" "Rainy Day"]
+                       _ (is (= ["Everyday" "Rainy Day" "1 Year Fixed"]
                                 (map :name (:products me))))]))))
      (testing "a step out of order is refused with what was expected"
        (let [started (SUT/start-sign-up bank {:phone "07700 900124"})
@@ -240,3 +240,227 @@
        (let [refused (SUT/customer-account bank stranger current)]
          (is (error/rejection? refused))
          (is (= :account/not-found (error/kind refused))))))))
+
+(def ^:private one-year-fixed "prd.00000000000000000000000003")
+
+(defn- funded-everyday
+  "An Everyday account for the customer with `balance` on it, seeded
+  into the stand-in and recorded as theirs, answering its id."
+  [bank state customer balance]
+  (let [account-id (util/generate-id "acc")]
+    (stub/seed-account
+     state
+     (assoc (platform-account account-id
+                              (:party-id customer)
+                              "Everyday"
+                              "cur"
+                              everyday
+                              balance)
+            :account-status
+            "opened")
+     [(leg account-id
+           (util/generate-id "txn")
+           "inbound-transfer"
+           "credit"
+           balance
+           3)])
+    (nom-test> [_
+                (SUT/record-account
+                 bank
+                 customer
+                 {:account-id account-id :product-kind "cur" :name "Everyday"})])
+    account-id))
+
+(deftest payee-check-test
+  (with-test-system
+   [sys config]
+   (let [bank (bank sys)
+         customer (customer bank (sign-up bank "07700 900400" details "1111"))
+         check (fn [name]
+                 (SUT/check-payee bank
+                                  customer
+                                  {:name name
+                                   :sort-code "04-00-62"
+                                   :account-number "12345678"}))]
+     (testing "the outcome is the payee's bank's, in the app's words"
+       (nom-test> [matched (check "Arthur Dent")
+                   _ (is (= "match" (:outcome matched)))
+                   _ (is (string? (:check-id matched)))
+                   close (check "COP_CLOSEMATCH Jane A Doe")
+                   _ (is (= "close-match" (:outcome close)))
+                   _ (is (= "Jane A Doe" (:name-held close)))
+                   none (check "COP_NOMATCH")
+                   _ (is (= "no-match" (:outcome none)))
+                   _ (is (nil? (:name-held none)))
+                   down (check "COP_UNAVAILABLE")
+                   _ (is (= "unavailable" (:outcome down)))])))))
+
+(deftest payment-test
+  (with-test-system
+   [sys config]
+   (let [bank (bank sys)
+         state (state sys)
+         customer (customer bank (sign-up bank "07700 900500" details "2222"))
+         stranger (customer bank (sign-up bank "07700 900501" details "3333"))
+         everyday-id (funded-everyday bank state customer 100000)
+         key (str (util/uuidv7))
+         request {:from everyday-id
+                  :payee {:name "Arthur Dent"
+                          :sort-code "04-00-62"
+                          :account-number "12345678"}
+                  :amount 2500
+                  :reference "Towel"}]
+     (testing "a payment to a new payee is sent, set aside, and kept"
+       (nom-test> [payment (SUT/submit-payment bank customer key request)
+                   _ (is (= "pending" (:status payment)))
+                   _ (is (= 2500 (:amount payment)))
+                   _ (is (= "Arthur Dent" (get-in payment [:payee :name])))
+                   _ (is (= "04-00-62" (get-in payment [:payee :sort])))
+                   _ (is (= 2500 (get-in payment [:payee :last-paid-amount])))
+                   me (SUT/me bank customer)
+                   _ (is (= 97500 (:balance (first (:accounts me)))))
+                   _ (is (= 100000 (:posted (first (:accounts me)))))
+                   _ (is (= ["Arthur Dent"] (map :name (:payees me))))
+                   sent (first (:txns me))
+                   _ (is (= "Arthur Dent" (:who sent)))
+                   _ (is (= "pending" (:status sent)))
+                   _ (is (= -2500 (:amount sent)))
+                   _ (is (= "Payment" (:cat sent)))
+                   _ (is (= 2 (count (:txns me))))]))
+     (testing "the same key is the same payment, paid once"
+       (nom-test> [again (SUT/submit-payment bank customer key request)
+                   first-time (SUT/submit-payment bank customer key request)
+                   _ (is (= (:id again) (:id first-time)))
+                   me (SUT/me bank customer)
+                   _ (is (= 97500 (:balance (first (:accounts me)))))
+                   _ (is (= 2 (count (:txns me))))]))
+     (testing "a settled payment reads as one posted row to the payee"
+       (nom-test> [payment (SUT/submit-payment bank customer key request)
+                   _ (stub/settle-outbound state (:id payment))
+                   me (SUT/me bank customer)
+                   _ (is (= 97500 (:balance (first (:accounts me)))))
+                   _ (is (= 97500 (:posted (first (:accounts me)))))
+                   settled (first (:txns me))
+                   _ (is (= "Arthur Dent" (:who settled)))
+                   _ (is (= "posted" (:status settled)))
+                   _ (is (= -2500 (:amount settled)))
+                   _ (is (= 2 (count (:txns me))))
+                   _ (is (= 97500 (last (:spark (first (:accounts me))))))]))
+     (testing "a payee already kept is paid by id, and a failed one vanishes"
+       (nom-test> [me (SUT/me bank customer)
+                   payee-id (:id (first (:payees me)))
+                   payment (SUT/submit-payment bank
+                                               customer
+                                               (str (util/uuidv7))
+                                               {:from everyday-id
+                                                :payee {:id payee-id}
+                                                :amount 1000})
+                   _ (is (= payee-id (get-in payment [:payee :id])))
+                   _ (is (= 1000 (get-in payment [:payee :last-paid-amount])))
+                   _ (stub/fail-outbound state (:id payment))
+                   after (SUT/me bank customer)
+                   _ (is (= 97500 (:balance (first (:accounts after)))))
+                   _ (is (= 2 (count (:txns after))))]))
+     (testing "another customer's account, or payee, is not there"
+       (let [refused (SUT/submit-payment bank stranger nil request)
+             unknown (SUT/submit-payment bank
+                                         customer
+                                         nil
+                                         (assoc request :payee {:id "nope"}))]
+         (is (= :account/not-found (error/kind refused)))
+         (is (= :payee/not-found (error/kind unknown)))))
+     (testing "the platform's refusal comes back with its status"
+       (let [refused (SUT/submit-payment bank
+                                         customer
+                                         nil
+                                         (assoc request :amount 1000000))]
+         (is (error/rejection? refused))
+         (is (= :platform/refused (error/kind refused)))
+         (is (= 422 (:status (error/payload refused)))))))))
+
+(deftest open-account-and-transfer-test
+  (with-test-system
+   [sys config]
+   (let [bank (bank sys)
+         state (state sys)
+         customer (customer bank (sign-up bank "07700 900600" details "4444"))
+         everyday-id (funded-everyday bank state customer 100000)
+         key (str (util/uuidv7))]
+     (testing "a fixed-term account needs its minimum, and a kind held once"
+       (let [small (SUT/open-account bank
+                                     customer
+                                     nil
+                                     {:product-id one-year-fixed
+                                      :deposit 50000})
+             held (SUT/open-account bank customer nil {:product-id everyday})
+             unknown (SUT/open-account bank customer nil {:product-id "nope"})]
+         (is (= :deposit/below-minimum (error/kind small)))
+         (is (= :account/kind-held (error/kind held)))
+         (is (= :product/not-found (error/kind unknown)))))
+     (testing "a savings account opens with its deposit moved from Everyday"
+       (nom-test> [opened (SUT/open-account bank
+                                            customer
+                                            key
+                                            {:product-id rainy-day
+                                             :deposit 20000})
+                   account (:account opened)
+                   _ (is (= "Rainy Day" (:name account)))
+                   _ (is (= "sav" (:kind account)))
+                   _ (is (= "Easy-access saver · 4.10% AER" (:type account)))
+                   _ (is (= "opened" (:status account)))
+                   _ (is (= "04-00-75" (:sort account)))
+                   _ (is (= 20000 (:balance account)))
+                   _ (is (= 20000 (last (:spark account))))
+                   _ (is (= 20000 (get-in opened [:deposit :amount])))
+                   _ (is (= everyday-id (get-in opened [:deposit :from])))
+                   again (SUT/open-account bank
+                                           customer
+                                           key
+                                           {:product-id rainy-day
+                                            :deposit 20000})
+                   _ (is (= (:id account) (get-in again [:account :id])))
+                   me (SUT/me bank customer)
+                   _ (is (= ["Everyday" "Rainy Day"]
+                            (map :name (:accounts me))))
+                   _ (is (= [80000 20000] (map :balance (:accounts me))))
+                   _ (is (= #{"Transfer to Rainy Day" "Transfer from Everyday"}
+                            (set (map :who (take 2 (:txns me))))))
+                   _ (is (= "Opening Rainy Day" (:ref (first (:txns me)))))]))
+     (testing "money moves between the two, once per key"
+       (nom-test> [me (SUT/me bank customer)
+                   rainy-id (:id (second (:accounts me)))
+                   key (str (util/uuidv7))
+                   moved (SUT/transfer bank
+                                       customer
+                                       key
+                                       {:from rainy-id
+                                        :to everyday-id
+                                        :amount 5000
+                                        :reference "Back"})
+                   _ (is (= rainy-id (:from moved)))
+                   _ (is (= everyday-id (:to moved)))
+                   _ (is (= 5000 (:amount moved)))
+                   again (SUT/transfer bank
+                                       customer
+                                       key
+                                       {:from rainy-id
+                                        :to everyday-id
+                                        :amount 5000
+                                        :reference "Back"})
+                   _ (is (= (:id moved) (:id again)))
+                   after (SUT/me bank customer)
+                   _ (is (= [85000 15000] (map :balance (:accounts after))))
+                   _ (is (= "Transfer from Rainy Day"
+                            (:who (first (:txns after)))))]))
+     (testing "a transfer needs two different accounts of the customer's"
+       (let [same (SUT/transfer bank
+                                customer
+                                nil
+                                {:from everyday-id :to everyday-id :amount 1})
+             elsewhere (SUT/transfer
+                        bank
+                        customer
+                        nil
+                        {:from everyday-id :to "acc.nope" :amount 1})]
+         (is (= :transfer/same-account (error/kind same)))
+         (is (= :account/not-found (error/kind elsewhere))))))))

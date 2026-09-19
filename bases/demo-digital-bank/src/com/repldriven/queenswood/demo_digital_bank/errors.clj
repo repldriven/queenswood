@@ -9,13 +9,22 @@
   "The kinds that mean the platform or the store, not the request."
   #{"platform" "jdbc" "http-client"})
 
+(defn- platform-status
+  "The status the platform refused with, where it is one a caller's
+  request earns, so its not-found and conflict stay what they were."
+  [anomaly]
+  (let [status (:status (error/payload anomaly))]
+    (when (and (int? status) (<= 400 status 499) (not= 401 status)) status)))
+
 (defn- status
   [anomaly]
   (let [kind (error/kind anomaly)]
     (cond (error/unauthorized? anomaly)
           401
           (error/rejection? anomaly)
-          (cond (str/ends-with? (name kind) "not-found")
+          (cond (= :platform/refused kind)
+                (or (platform-status anomaly) 422)
+                (str/ends-with? (name kind) "not-found")
                 404
                 (= "invalid-status" (name kind))
                 409
