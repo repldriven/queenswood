@@ -1,14 +1,17 @@
-# Example bank
+# Demo digital bank
 
 ## Objective
 
 Queenswood is the engine room of a bank, and nothing in it is what a
-person opens on their phone. The example bank is that missing half: a
-fictitious retail bank built entirely on the platform, whose customers
+person opens on their phone. The demo digital bank is that missing
+half: a fictitious retail bank built entirely on the platform, whose
+customers
 sign up, get verified, open accounts, see their money, pay people and
-are paid, the way they would at any bank they already use. It exists to
-show what a product built on Queenswood is made of, and to be the
-worked example every other such product can read.
+are paid, the way they would at any bank they already use. It exists
+to show what a product built on Queenswood is made of, and to be the
+worked example every other such product can read. It is the first of a
+family of demos named by use case, so that the brand can change and
+other use cases can sit beside it.
 
 This PRD covers the bank's app — the screens a customer signs in to —
 and the systems behind it that talk to the platform on the customer's
@@ -27,7 +30,7 @@ bank's relationship with the platform use the platform's console, which
 ## Users and stakeholders
 
 The personas are the platform's, from [platform](platform.md). Here the
-example bank is the customer, and its account holders are the end
+demo bank is the customer, and its account holders are the end
 customers.
 
 **End customer.** The person who banks with the bank. Signs in to the
@@ -442,20 +445,21 @@ savings account shows the payment as a line of its own.
 
 ## Open questions
 
-- **The bank's name.** The app needs a name and a look before the first
-  screen is designed. Until one is chosen the bank is "the bank", and
-  nothing in this PRD depends on the name.
+- **The bank's name.** The design work calls the bank Xepha, and the
+  app carries that as its brand, in one file. Whether Xepha is the name
+  the demo keeps is open, and nothing in this PRD depends on it: the
+  code is named for the use case, and the brand is configuration.
 - **How a customer signs in.** The bank's sign-in is assumed to run on
   the identity server the platform already runs, in a space of its own
   with no path to the platform's, so the demonstration adds no
   infrastructure. Whether a customer signs in with a password, a
   federated identity or a passkey, and how they recover a lost one, is
   open.
-- **Where the bank lives.** Assumed to be a repository of its own,
-  consuming the platform's published API description and nothing else
-  of the platform's, so it proves the API stands alone. Whether its
-  systems are written in the platform's language, for speed, or in
-  another, to show the API needs nothing of it, is open.
+- **Where the bank lives.** The app is a base in this repository,
+  beside the platform's own console, and its backend will be another.
+  Whether the demos move to a repository of their own, consuming only
+  the platform's published API description to prove the API stands
+  alone, is open.
 - **Identity documents.** The demonstration collects typed details and
   the simulator decides the outcome. A real provider expects a
   photographed document and a face, captured in the provider's own

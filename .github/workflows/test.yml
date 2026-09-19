@@ -239,9 +239,9 @@ jobs:
           path: target/coverage/${{ matrix.project == 'dev' && 'development' || matrix.project }}/
           retention-days: 7
 
-  # Compiles the console bundle and the ui showcase. These packages carry
-  # no test suite; the build is what catches a component missing from ui's
-  # index.js, or a Svelte template that does not parse.
+  # Compiles the console bundle, the ui showcase and the demo apps. These
+  # packages carry no test suite; the build is what catches a component
+  # missing from ui's index.js, or a template that does not parse.
   js:
     needs: changes
     if: needs.changes.outputs.js == 'true'
@@ -284,6 +284,9 @@ jobs:
 
       - name: Build ui showcase
         run: corepack yarn workspace @queenswood/ui build
+
+      - name: Build demo digital bank app
+        run: corepack yarn workspace demo-digital-bank-app build
 
   helm:
     needs: changes
