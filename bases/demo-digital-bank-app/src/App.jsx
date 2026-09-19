@@ -4,7 +4,6 @@
 // and a stack of pushed flows above the tab; switching tab clears the
 // stack.
 import { useState, useEffect } from "react";
-import { gbp } from "./ui.jsx";
 import * as api from "./api.js";
 import Onboarding from "./Onboarding.jsx";
 import {
@@ -51,122 +50,25 @@ export default function App() {
   useEffect(() => {
     if (mode === "loading") enter();
   }, []);
-  const stamp = () => {
-    const d = new Date();
-    return "Today, " + d.toTimeString().slice(0, 5);
+  // The home read again, so what the screens show is what the platform
+  // holds.
+  const refresh = async () => setS(api.fromMe(await api.me()));
+  // The mutations: each a call to the bank under the key the screen
+  // minted, then the home read. Each throws the bank's refusal for the
+  // screen to say.
+  const send = async (payment, key) => {
+    await api.pay(payment, key);
+    await refresh();
   };
-  // The mutations. Each is what the backend will do instead: they keep
-  // the app's own shape of the world consistent until then.
-  const send = ({ from, payee, amt, ref }) =>
-    setS((s) => ({
-      ...s,
-      accounts: s.accounts.map((a) =>
-        a.id === from
-          ? {
-              ...a,
-              bal: a.bal - amt,
-              spark: [...a.spark.slice(1), a.bal - amt],
-            }
-          : a,
-      ),
-      payees:
-        payee.id === "new"
-          ? [
-              { ...payee, id: "p" + Date.now(), last: gbp(amt) + " · today" },
-              ...s.payees,
-            ]
-          : s.payees,
-      txns: [
-        {
-          id: Date.now(),
-          acct: from,
-          who: payee.name,
-          cat: "Payment",
-          amt: -amt,
-          when: stamp(),
-          date: "Today",
-          ref,
-        },
-        ...s.txns,
-      ],
-    }));
-  const transfer = ({ from, to, amt }) =>
-    setS((s) => {
-      const F = s.accounts.find((a) => a.id === from),
-        T = s.accounts.find((a) => a.id === to);
-      return {
-        ...s,
-        accounts: s.accounts.map((a) =>
-          a.id === from
-            ? { ...a, bal: a.bal - amt }
-            : a.id === to
-              ? { ...a, bal: a.bal + amt }
-              : a,
-        ),
-        txns: [
-          {
-            id: Date.now() + 1,
-            acct: to,
-            who: "Transfer from " + F.name,
-            cat: "Saved",
-            amt,
-            when: stamp(),
-            date: "Today",
-          },
-          {
-            id: Date.now(),
-            acct: from,
-            who: "Transfer to " + T.name,
-            cat: "Saved",
-            amt: -amt,
-            when: stamp(),
-            date: "Today",
-          },
-          ...s.txns,
-        ],
-      };
-    });
-  const openAccount = (p, dep) =>
-    setS((s) => {
-      const acct = {
-        id: p.id + Date.now(),
-        kind: p.kind,
-        name: p.name,
-        type:
-          p.kind === "sav"
-            ? "Easy-access saver · 4.10% AER"
-            : p.kind === "fix"
-              ? "1 Year Fixed · 4.65% AER"
-              : "Current account",
-        bal: dep,
-        sort: "04-00-75",
-        num: "3190" + String(8200 + Math.floor(Math.random() * 700)),
-        spark: [0, 0, 0, 0, 0, 0, dep],
-      };
-      return {
-        ...s,
-        accounts: [
-          ...s.accounts.map((a) =>
-            a.id === "cur" && dep ? { ...a, bal: a.bal - dep } : a,
-          ),
-          acct,
-        ],
-        txns: dep
-          ? [
-              {
-                id: Date.now(),
-                acct: "cur",
-                who: "Transfer to " + p.name,
-                cat: "Saved",
-                amt: -dep,
-                when: stamp(),
-                date: "Today",
-              },
-              ...s.txns,
-            ]
-          : s.txns,
-      };
-    });
+  const transfer = async (move, key) => {
+    await api.transfer(move, key);
+    await refresh();
+  };
+  const openAccount = async (p, dep, key) => {
+    const opened = await api.openAccount({ productId: p.id, dep }, key);
+    await refresh();
+    return opened;
+  };
   const signOut = () => {
     api.signOut().catch(() => {});
     api.session.clear();

@@ -15,10 +15,19 @@
   anomaly, never a throw. A step taken out of order is a
   `:sign-up/invalid-status` rejection carrying `:status` and
   `:allowed`; a wrong code is `:sign-up/invalid-code`; an unknown
-  sign-up or account is `:sign-up/not-found` or `:account/not-found`;
-  a failed sign-in or a dead session is an unauthorized anomaly; and a
-  refusal from the platform is `:platform/refused`, carrying the
-  problem details it answered with.
+  sign-up, account, payee or product is `:sign-up/not-found`,
+  `:account/not-found`, `:payee/not-found` or `:product/not-found`; a
+  failed sign-in or a dead session is an unauthorized anomaly; the
+  bank's own rules refuse as `:account/kind-held`,
+  `:deposit/below-minimum`, `:deposit/no-source-account` and
+  `:transfer/same-account`; and a refusal from the platform is
+  `:platform/refused`, carrying the problem details it answered with.
+
+  A submission — a payment, a transfer, an account opened — takes the
+  key the app sent with it, or nil. Under a key the bank has seen the
+  platform's answer to, it answers the same again; under one it minted
+  an idempotency key for but has no answer to, it calls the platform
+  under that same key, so a repeated tap pays once.
 
   Requiring this namespace registers the brick's system component
   kinds: `store`, `platform` and `bank`."
@@ -140,3 +149,60 @@
   - customer: as `authenticate` answers."
   [bank customer]
   (core/me bank customer))
+
+(defn check-payee
+  "Ask the payee's bank whether the name matches the account, answering
+  `{:check-id :outcome :name-held}`: the outcome `match`,
+  `close-match` with the name held, `no-match`, or `unavailable`.
+
+  Args:
+  - bank: the started bank component.
+  - customer: as `authenticate` answers.
+  - request: `{:name :sort-code :account-number}`, the sort code with
+    or without dashes."
+  [bank customer request]
+  (core/check-payee bank customer request))
+
+(defn submit-payment
+  "Pay a payee from one of the customer's accounts, answering the
+  payment: `{:id :status :from :payee :amount :currency :reference
+  :created-at}`, the status `pending` until the scheme settles it.
+
+  Args:
+  - bank: the started bank component.
+  - customer: as `authenticate` answers.
+  - client-key: the key the app sent, or nil.
+  - request: `{:from :payee :amount :reference}`, the payee either
+    `{:id}` of one of the customer's or `{:name :sort-code
+    :account-number}` of a new one, the amount in minor units."
+  [bank customer client-key request]
+  (core/submit-payment bank customer client-key request))
+
+(defn transfer
+  "Move money between two of the customer's accounts, settled as it is
+  answered: `{:id :from :to :amount :currency :reference :created-at}`.
+
+  Args:
+  - bank: the started bank component.
+  - customer: as `authenticate` answers.
+  - client-key: the key the app sent, or nil.
+  - request: `{:from :to :amount :reference}`, the amount in minor
+    units."
+  [bank customer client-key request]
+  (core/transfer bank customer client-key request))
+
+(defn open-account
+  "Open an account against one of the bank's products, record it as
+  the customer's, and move an opening deposit from their current
+  account where one is given. Answers `{:account :deposit}`, the
+  account as `me` lists it and the deposit as `transfer` answers, or
+  nil where none was moved.
+
+  Args:
+  - bank: the started bank component.
+  - customer: as `authenticate` answers.
+  - client-key: the key the app sent, or nil.
+  - request: `{:product-id :name :deposit}`, the name defaulting to
+    the product's and the deposit, in minor units, to none."
+  [bank customer client-key request]
+  (core/open-account bank customer client-key request))

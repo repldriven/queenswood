@@ -11,6 +11,11 @@
 
 (defn- body [request] (get-in request [:parameters :body]))
 
+(defn- client-key
+  "The key the app sent with a submission, or nil."
+  [request]
+  (get-in request [:headers "idempotency-key"]))
+
 (defn start-sign-up
   [request]
   (let [{:keys [bank]} request]
@@ -54,3 +59,31 @@
   [request]
   (let [{:keys [bank customer]} request]
     (errors/respond 200 (bank/me bank customer))))
+
+(defn check-payee
+  [request]
+  (let [{:keys [bank customer]} request]
+    (errors/respond 200 (bank/check-payee bank customer (body request)))))
+
+(defn submit-payment
+  [request]
+  (let [{:keys [bank customer]} request]
+    (errors/respond 201
+                    (bank/submit-payment bank
+                                         customer
+                                         (client-key request)
+                                         (body request)))))
+
+(defn transfer
+  [request]
+  (let [{:keys [bank customer]} request]
+    (errors/respond
+     201
+     (bank/transfer bank customer (client-key request) (body request)))))
+
+(defn open-account
+  [request]
+  (let [{:keys [bank customer]} request]
+    (errors/respond
+     201
+     (bank/open-account bank customer (client-key request) (body request)))))

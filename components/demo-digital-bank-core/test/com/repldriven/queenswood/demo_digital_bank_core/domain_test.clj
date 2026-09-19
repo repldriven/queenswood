@@ -98,7 +98,8 @@
                     :account-id "sav"
                     :leg-id "in")
           txns (SUT/transactions {"cur" [out] "sav" [in]}
-                                 {"cur" "Everyday" "sav" "Rainy Day"})]
+                                 {"cur" "Everyday" "sav" "Rainy Day"}
+                                 [])]
       (is (= #{"Transfer to Rainy Day" "Transfer from Everyday"}
              (set (map :who txns))))
       (is (= #{"Saved"} (set (map :cat txns))))
@@ -109,7 +110,101 @@
                                                  3 100)
                                             :balance-type
                                             "interest-accrued")]}
-                             {})))))
+                             {}
+                             []))))
+  (testing "a payment in flight is one pending row, to the payee"
+    (let [reserved (assoc (leg "outbound-transfer" "debit" 2500 100)
+                          :leg-id "reserved"
+                          :transaction-id "txn-reserve"
+                          :balance-status "pending-outgoing"
+                          :reference "Towel")
+          payments [{:transaction-id "txn-reserve"
+                     :account-id "acc"
+                     :amount 2500
+                     :reference "Towel"
+                     :name "Arthur Dent"
+                     :created-at (:created-at reserved)}]
+          [sent :as txns] (SUT/transactions {"acc" [reserved]} {} payments)]
+      (is (= 1 (count txns)))
+      (is (= ["Arthur Dent" "pending" -2500 "Payment"]
+             [(:who sent) (:status sent) (:amount sent) (:cat sent)]))
+      (testing "and once settled, one posted row to the same payee"
+        (let [released (assoc (leg "outbound-transfer" "credit" 2500 101)
+                              :leg-id "released"
+                              :transaction-id "txn-settle"
+                              :balance-status "pending-outgoing"
+                              :reference "Towel")
+              posted (assoc (leg "outbound-transfer" "debit" 2500 101)
+                            :leg-id "posted"
+                            :transaction-id "txn-settle"
+                            :status "pending"
+                            :reference "Towel")
+              [settled :as txns] (SUT/transactions {"acc" [reserved released
+                                                           posted]}
+                                                   {}
+                                                   payments)]
+          (is (= 1 (count txns)))
+          (is (= ["Arthur Dent" "posted" -2500]
+                 [(:who settled) (:status settled) (:amount settled)]))))
+      (testing "and once failed, nothing"
+        (let [reversed (assoc (leg "outbound-transfer" "credit" 2500 101)
+                              :leg-id "reversed"
+                              :balance-status "pending-outgoing")]
+          (is (= []
+                 (SUT/transactions {"acc" [reserved reversed]} {} payments)))))
+      (testing "and a payment the bank did not make is a Payment"
+        (is (= "Payment"
+               (:who (first (SUT/transactions {"acc" [reserved]} {} []))))))
+      (testing "and a payment with no reference settles under an empty one"
+        (let [settled (assoc (leg "outbound-transfer" "debit" 500 101)
+                             :transaction-id "txn-settle-2"
+                             :reference "")
+              [row] (SUT/transactions {"acc" [settled]}
+                                      {}
+                                      [{:transaction-id "txn-reserve-2"
+                                        :account-id "acc"
+                                        :amount 500
+                                        :reference nil
+                                        :name "Arthur Dent"
+                                        :created-at (:created-at reserved)}])]
+          (is (= ["Arthur Dent" "posted"] [(:who row) (:status row)])))))))
+
+(deftest payee-check-outcome-test
+  (is (= {:check-id "chk.1" :outcome "close-match" :name-held "Jane A Doe"}
+         (SUT/payee-check-outcome {:check-id "chk.1"
+                                   :result {:match-result "close-match"
+                                            :actual-name "Jane A Doe"}})))
+  (is (= "unavailable"
+         (:outcome (SUT/payee-check-outcome
+                    {:result {:match-result "match-result-unavailable"}})))))
+
+(deftest outbound-payment-request-test
+  (is (= {:debtor-account-id "acc.1"
+          :creditor-bban "04006212345678"
+          :creditor-name "Arthur Dent"
+          :currency "GBP"
+          :amount 2500
+          :scheme "fps"
+          :reference "Towel"}
+         (SUT/outbound-payment-request "acc.1" {:name "Arthur Dent"
+                                                :sort-code "040062"
+                                                :account-number "12345678"}
+                                       2500 " Towel ")))
+  (testing "a blank reference is left off"
+    (is (not (contains? (SUT/internal-payment-request "a" "b" 1 "  ")
+                        :reference)))))
+
+(deftest check-deposit-test
+  (let [fix {:kind "fix" :name "1 Year Fixed"}
+        sav {:kind "sav" :name "Rainy Day"}
+        cur {:account-id "acc.cur" :product-kind "cur"}]
+    (is (= 100000 (SUT/check-deposit fix 100000 cur)))
+    (is (= 0 (SUT/check-deposit sav nil nil)))
+    (is (= :deposit/below-minimum (second (SUT/check-deposit fix 99999 cur))))
+    (is (= :deposit/no-source-account (second (SUT/check-deposit sav 100 nil))))
+    (is (= :account/kind-held
+           (second (SUT/check-account-open [cur] {:kind "cur" :name "E"}))))
+    (is (= sav (SUT/check-account-open [cur] sav)))))
 
 (deftest user-test
   (is (= {:first "Amara"

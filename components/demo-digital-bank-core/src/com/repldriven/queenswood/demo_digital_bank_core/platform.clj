@@ -138,3 +138,45 @@
   (call client
         {:method :get
          :path (str "/v1/cash-accounts/" account-id "/transactions")}))
+
+(defn open-account
+  "Open an account for a party against a product, under
+  `idempotency-key`. The platform answers it `opening`; it is `opened`
+  a moment later, on a read."
+  [client idempotency-key account]
+  (call client
+        {:method :post
+         :path "/v1/cash-accounts"
+         :body account
+         :idempotency-key idempotency-key}))
+
+(defn check-payee
+  "Check a payee's name against the one their bank holds, under
+  `idempotency-key`."
+  [client idempotency-key check]
+  (call client
+        {:method :post
+         :path "/v1/payee-checks"
+         :body check
+         :idempotency-key idempotency-key}))
+
+(defn submit-outbound-payment
+  "Submit a Faster Payment out of one of the bank's accounts, under
+  `idempotency-key`. The platform answers intent accepted, the payment
+  `pending`, with the amount set aside."
+  [client idempotency-key payment]
+  (call client
+        {:method :post
+         :path "/v1/payments/outbound"
+         :body payment
+         :idempotency-key idempotency-key}))
+
+(defn submit-internal-payment
+  "Move money between two of the bank's accounts, under
+  `idempotency-key`. Settled as it is answered."
+  [client idempotency-key payment]
+  (call client
+        {:method :post
+         :path "/v1/payments/internal"
+         :body payment
+         :idempotency-key idempotency-key}))

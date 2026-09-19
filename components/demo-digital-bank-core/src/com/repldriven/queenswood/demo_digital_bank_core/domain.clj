@@ -8,6 +8,13 @@
 
 (def sparkline-days 7)
 
+(def currency "GBP")
+
+(def fixed-term-minimum
+  "The least a fixed-term account opens with, in minor units, until
+  the platform carries a minimum deposit on the product."
+  100000)
+
 (def ^:private sign-up-transitions
   "The status a sign-up must be in for each step to advance it."
   {:code "code-sent" :details "verified" :passcode "registered"})
@@ -27,6 +34,11 @@
           (str "+" digits)
           :else
           (str "+44" digits))))
+
+(defn digits
+  "Only the digits of a sort code or account number as typed."
+  [s]
+  (str/replace (or s "") #"[^0-9]" ""))
 
 (defn check-step
   "The sign-up when `step` may advance it, else an invalid-status
@@ -96,6 +108,114 @@
                    :rate-bps (:interest-rate-bps version 0)})))
         (:items listing)))
 
+(defn find-product
+  "The published product with this id, or a not-found rejection."
+  [products product-id]
+  (or (some (fn [p] (when (= product-id (:id p)) p)) products)
+      (error/reject :product/not-found
+                    {:message "no such product" :product-id product-id})))
+
+(defn check-account-open
+  "The product when the customer holds no account of its kind, else a
+  rejection: the app opens one of each."
+  [held product]
+  (if (some (fn [a] (= (:kind product) (:product-kind a))) held)
+    (error/reject :account/kind-held
+                  {:message (str "you already have a " (:name product))
+                   :product-id (:id product)})
+    product))
+
+(defn deposit-source
+  "The account an opening deposit is moved from: the customer's current
+  account, or nil when they hold none."
+  [held]
+  (some (fn [a] (when (= "cur" (:product-kind a)) a)) held))
+
+(defn check-deposit
+  "The deposit when it may be moved, else a rejection: a fixed-term
+  account opens with at least the minimum, and any deposit needs a
+  current account to come from."
+  [product deposit source]
+  (let [deposit (or deposit 0)]
+    (cond (and (= "fix" (:kind product)) (< deposit fixed-term-minimum))
+          (error/reject :deposit/below-minimum
+                        {:message (str (:name product)
+                                       " opens with at least "
+                                       (quot fixed-term-minimum 100)
+                                       " pounds")
+                         :minimum fixed-term-minimum})
+          (and (pos? deposit) (nil? source))
+          (error/reject :deposit/no-source-account
+                        {:message "open an Everyday account first to fund"})
+          :else
+          deposit)))
+
+(defn account-request
+  "The platform's request to open an account for the party."
+  [party-id product name]
+  {:party-id party-id
+   :name (or name (:name product))
+   :currency currency
+   :product-id (:id product)})
+
+(defn payee-check-request
+  [{:keys [name sort-code account-number]}]
+  {:creditor-name name
+   :account {:sort-code (digits sort-code)
+             :account-number (digits account-number)}
+   :account-type "personal"})
+
+(def ^:private outcomes
+  {"match" "match" "close-match" "close-match" "no-match" "no-match"})
+
+(defn payee-check-outcome
+  "What the payee's bank said, in the app's words: `match`,
+  `close-match` with the name held, `no-match`, or `unavailable`."
+  [check]
+  (let [{:keys [match-result actual-name]} (:result check)
+        held (some-> actual-name
+                     str/trim)]
+    {:check-id (:check-id check)
+     :outcome (get outcomes
+                   (some-> match-result
+                           name)
+                   "unavailable")
+     :name-held (when-not (str/blank? held) held)}))
+
+(defn check-transfer
+  [from to]
+  (if (= from to)
+    (error/reject :transfer/same-account
+                  {:message "choose two different accounts"})
+    to))
+
+(defn- with-reference
+  [request reference]
+  (if (str/blank? reference)
+    request
+    (assoc request :reference (str/trim reference))))
+
+(defn outbound-payment-request
+  "The platform's Faster Payment out of the customer's account to the
+  payee."
+  [account-id payee amount reference]
+  (with-reference {:debtor-account-id account-id
+                   :creditor-bban (str (:sort-code payee)
+                                       (:account-number payee))
+                   :creditor-name (:name payee)
+                   :currency currency
+                   :amount amount
+                   :scheme "fps"}
+                  reference))
+
+(defn internal-payment-request
+  [from to amount reference]
+  (with-reference {:debtor-account-id from
+                   :creditor-account-id to
+                   :currency currency
+                   :amount amount}
+                  reference))
+
 (defn- rate-label
   [rate-bps]
   (format "%.2f%% AER" (/ rate-bps 100.0)))
@@ -116,6 +236,41 @@
     (str/join "-" (re-seq #".." digits))
     digits))
 
+(defn payee
+  "A payee as the app lists them, with when and how much they were
+  last paid."
+  [row]
+  {:id (:id row)
+   :name (:name row)
+   :sort (sort-code (:sort-code row))
+   :num (:account-number row)
+   :last-paid-at (:last-paid-at row)
+   :last-paid-amount (:last-paid-amount row)})
+
+(defn payment
+  "An outbound payment as the app shows it once sent."
+  [platform-payment payee]
+  {:id (:payment-id platform-payment)
+   :status (some-> (:payment-status platform-payment)
+                   name)
+   :from (:debtor-account-id platform-payment)
+   :payee payee
+   :amount (:amount platform-payment)
+   :currency (:currency platform-payment)
+   :reference (:reference platform-payment)
+   :created-at (:created-at platform-payment)})
+
+(defn transfer
+  "A transfer between the customer's own accounts as the app shows it."
+  [platform-payment]
+  {:id (:payment-id platform-payment)
+   :from (:debtor-account-id platform-payment)
+   :to (:creditor-account-id platform-payment)
+   :amount (:amount platform-payment)
+   :currency (:currency platform-payment)
+   :reference (:reference platform-payment)
+   :created-at (:created-at platform-payment)})
+
 (defn- scan-address
   [account]
   (some (fn [address]
@@ -125,19 +280,23 @@
             (:scan address)))
         (:payment-addresses account)))
 
+(defn- named
+  [leg k v]
+  (= v
+     (some-> (get leg k)
+             name)))
+
+(defn- debit? [leg] (named leg :side "debit"))
+
 (defn- signed-amount
   [leg]
-  (if (= "debit"
-         (some-> (:side leg)
-                 name))
-    (- (:amount leg))
-    (:amount leg)))
+  (if (debit? leg) (- (:amount leg)) (:amount leg)))
 
-(defn- default-leg?
-  [leg]
-  (= "default"
-     (some-> (:balance-type leg)
-             name)))
+(defn- default-leg? [leg] (named leg :balance-type "default"))
+
+(defn- posted? [leg] (named leg :balance-status "posted"))
+
+(defn- pending-outgoing? [leg] (named leg :balance-status "pending-outgoing"))
 
 (defn- parse-instant
   [rfc3339]
@@ -148,12 +307,7 @@
   walked back from its posted balance through its posted legs.
   `today` is an epoch-day; legs carry `created-at` as RFC 3339."
   [posted legs today]
-  (let [legs (filter (fn [leg]
-                       (and (default-leg? leg)
-                            (= "posted"
-                               (some-> (:balance-status leg)
-                                       name))))
-                     legs)
+  (let [legs (filter (fn [leg] (and (default-leg? leg) (posted? leg))) legs)
         end-of-day (fn [day] (* day-ms (inc day)))]
     (mapv (fn [day]
             (let [cutoff (end-of-day day)
@@ -164,6 +318,31 @@
               (- posted (reduce + 0 (map signed-amount after)))))
           (range (- today (dec sparkline-days)) (inc today)))))
 
+(defn- outstanding
+  "The money set aside for payments still in flight: each
+  pending-outgoing credit releases the earliest debit of its amount
+  still standing, and what is left is what the customer sees as sent."
+  [legs]
+  (:open
+   (reduce (fn [acc leg]
+             (if (debit? leg)
+               (update acc :open conj leg)
+               (if-let [released (some (fn [open]
+                                         (when (= (:amount open)
+                                                  (:amount leg))
+                                           open))
+                                       (:open acc))]
+                 (update acc
+                         :open
+                         (fn [open]
+                           (vec (remove (fn [o]
+                                          (= (:leg-id o)
+                                             (:leg-id released)))
+                                        open))))
+                 acc)))
+           {:open []}
+           (sort-by :created-at (filter pending-outgoing? legs)))))
+
 (def ^:private categories
   {"outbound-transfer" "Payment"
    "inbound-transfer" "Received"
@@ -172,11 +351,38 @@
    "interest-capital" "Interest earned"
    "fee" "Fees"})
 
+(defn- same-reference?
+  "Whether two references read the same, a missing one and a blank one
+  alike."
+  [a b]
+  (= (str/trim (or a "")) (str/trim (or b ""))))
+
+(defn- payee-of
+  "The payee an outbound leg was to, from the bank's own payments: the
+  one the leg's transaction belongs to, else the latest before it out
+  of the same account for the same amount and reference."
+  [leg payments]
+  (or (some (fn [p]
+              (when (= (:transaction-id p) (:transaction-id leg)) (:name p)))
+            payments)
+      (->> payments
+           (filter (fn [p]
+                     (and (= (:account-id p) (:account-id leg))
+                          (= (:amount p) (:amount leg))
+                          (same-reference? (:reference p) (:reference leg))
+                          (or (nil? (:created-at p))
+                              (<= (parse-instant (:created-at p))
+                                  (parse-instant (:created-at leg)))))))
+           (sort-by :created-at)
+           last
+           :name)))
+
 (defn- who
   "The other side of a leg, as far as the bank can tell: a transfer
-  between the customer's own accounts names the other account, and
-  anything else names its kind until the bank's own records say more."
-  [leg by-transaction names]
+  between the customer's own accounts names the other account, a
+  payment names the payee where the bank made it, and anything else
+  names its kind."
+  [leg by-transaction names payments]
   (let [type (some-> (:transaction-type leg)
                      name)]
     (case type
@@ -185,37 +391,43 @@
                           (when (not= (:leg-id other) (:leg-id leg))
                             (get names (:account-id other))))
                         (get by-transaction (:transaction-id leg)))]
-        (str (if (= "debit"
-                    (some-> (:side leg)
-                            name))
-               "Transfer to "
-               "Transfer from ")
+        (str (if (debit? leg) "Transfer to " "Transfer from ")
              (or other "another account")))
       "inbound-transfer" "Received"
-      "outbound-transfer" "Payment"
+      "outbound-transfer" (or (payee-of leg payments) "Payment")
       "fee" "Fee"
       "Interest")))
 
 (defn transactions
   "The customer's legs across their accounts as the app lists them,
-  newest first. `legs-by-account` maps an account id to its legs, and
-  `names` an account id to the name the customer gave it."
-  [legs-by-account names]
+  newest first: what has posted, with the status `posted`, and what is
+  set aside for a payment still in flight, with the status `pending` —
+  the leg's own balance status, never its transaction's, which an
+  outbound payment's settlement leaves reading pending. `legs-by-account`
+  maps an account id to its legs, `names` an account id to the name
+  the customer gave it, and `payments` is what the bank submitted —
+  `{:transaction-id :account-id :amount :reference :name :created-at}`
+  each."
+  [legs-by-account names payments]
   (let [legs (filter default-leg? (apply concat (vals legs-by-account)))
-        by-transaction (group-by :transaction-id legs)]
-    (->> legs
-         (map (fn [leg]
+        posted (filter posted? legs)
+        pending (mapcat (fn [[_ account-legs]]
+                          (outstanding (filter default-leg? account-legs)))
+                 legs-by-account)
+        by-transaction (group-by :transaction-id posted)]
+    (->> (concat (map (fn [leg] [leg "posted"]) posted)
+                 (map (fn [leg] [leg "pending"]) pending))
+         (map (fn [[leg status]]
                 {:id (:leg-id leg)
                  :acct (:account-id leg)
-                 :who (who leg by-transaction names)
+                 :who (who leg by-transaction names payments)
                  :cat (get categories
                            (some-> (:transaction-type leg)
                                    name)
                            "Other")
                  :amount (signed-amount leg)
                  :currency (:currency leg)
-                 :status (some-> (:status leg)
-                                 name)
+                 :status status
                  :at (:created-at leg)
                  :ref (:reference leg)}))
          (sort-by :at)

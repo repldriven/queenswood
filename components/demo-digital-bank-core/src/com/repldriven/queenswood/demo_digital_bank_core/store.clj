@@ -27,7 +27,15 @@
        " as opened_at"))
 
 (def ^:private submission-columns
-  (str "idempotency_key, sign_up_id, customer_id, kind, request, response, "
+  (str "idempotency_key, sign_up_id, customer_id, client_key, kind, request,"
+       " response, "
+       (stamp "created_at")
+       " as created_at"))
+
+(def ^:private payee-columns
+  (str "id, customer_id, name, sort_code, account_number, last_paid_amount, "
+       (stamp "last_paid_at")
+       " as last_paid_at, "
        (stamp "created_at")
        " as created_at"))
 
@@ -81,13 +89,17 @@
                            " from customers where phone = ?") phone]))
 
 (defn insert-account
+  "Record an account, or answer the row already there when the same
+  account is recorded again."
   [ds {:keys [customer-id account-id product-kind name]}]
   (jdbc/execute-one!
    ds
    [(str "insert into customer_accounts"
          " (customer_id, account_id, product_kind, name)"
-         " values (?, ?, ?, ?) returning "
-         account-columns) customer-id account-id product-kind name]))
+         " values (?, ?, ?, ?)"
+         " on conflict (customer_id, account_id) do update set name = ?"
+         " returning "
+         account-columns) customer-id account-id product-kind name name]))
 
 (defn accounts-by-customer
   [ds customer-id]
@@ -132,15 +144,35 @@
          " from submissions where sign_up_id = ? and kind = ?") sign-up-id
     kind]))
 
+(defn submission-by-client-key
+  [ds customer-id kind client-key]
+  (jdbc/execute-one!
+   ds
+   [(str "select "
+         submission-columns
+         " from submissions where customer_id = ? and kind = ?"
+         " and client_key = ?") customer-id kind client-key]))
+
+(defn answered-submissions
+  "The customer's submissions of `kind` the platform answered, oldest
+  first."
+  [ds customer-id kind]
+  (jdbc/execute!
+   ds
+   [(str "select "
+         submission-columns
+         " from submissions where customer_id = ? and kind = ?"
+         " and response is not null order by created_at") customer-id kind]))
+
 (defn insert-submission
-  [ds {:keys [idempotency-key sign-up-id customer-id kind request]}]
+  [ds {:keys [idempotency-key sign-up-id customer-id client-key kind request]}]
   (jdbc/execute-one!
    ds
    [(str "insert into submissions"
-         " (idempotency_key, sign_up_id, customer_id, kind, request)"
-         " values (?, ?, ?, ?, ?) returning "
-         submission-columns) idempotency-key sign-up-id customer-id kind
-    request]))
+         " (idempotency_key, sign_up_id, customer_id, client_key, kind,"
+         " request) values (?, ?, ?, ?, ?, ?) returning "
+         submission-columns) idempotency-key sign-up-id customer-id client-key
+    kind request]))
 
 (defn answer-submission
   [ds idempotency-key response]
@@ -165,3 +197,43 @@
            " select ?, c.id, to_timestamp(? / 1000.0) from c"
            " returning customer_id") id party-id phone given-name family-name
       passcode-hash (:id session) (:expires-at session)])))
+
+(defn upsert-payee
+  "The customer's payee at this sort code and account number, created
+  under `id` or renamed to `name` where one is already there."
+  [ds {:keys [id customer-id name sort-code account-number]}]
+  (jdbc/execute-one!
+   ds
+   [(str "insert into payees"
+         " (id, customer_id, name, sort_code, account_number)"
+         " values (?, ?, ?, ?, ?)"
+         " on conflict (customer_id, sort_code, account_number)"
+         " do update set name = ? returning "
+         payee-columns) id customer-id name sort-code account-number name]))
+
+(defn payee-by-id
+  [ds customer-id id]
+  (jdbc/execute-one!
+   ds
+   [(str "select "
+         payee-columns
+         " from payees where customer_id = ? and id = ?") customer-id id]))
+
+(defn payees-by-customer
+  "The customer's payees, most recently paid first."
+  [ds customer-id]
+  (jdbc/execute!
+   ds
+   [(str "select "
+         payee-columns
+         " from payees where customer_id = ?"
+         " order by last_paid_at desc nulls last, created_at desc")
+    customer-id]))
+
+(defn record-payee-payment
+  [ds id amount]
+  (jdbc/execute-one!
+   ds
+   [(str "update payees set last_paid_at = now(), last_paid_amount = ?"
+         " where id = ? returning "
+         payee-columns) amount id]))
