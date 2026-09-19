@@ -1,0 +1,23 @@
+handler: !system/required-component
+
+# Every key here becomes a key on the ring request: the bank is how the
+# handlers reach the store and the platform.
+interceptors: !system/component
+  system/component-kind: server/interceptors
+  bank: !system/ref demo-digital-bank-core.bank
+
+jetty-adapter: !system/component
+  system/component-kind: server/jetty-adapter
+  handler: !system/local-ref handler
+  interceptors: !system/local-ref interceptors
+  # The app's Vite dev server, on another origin.
+  cors:
+    origins:
+      - http://localhost:5174
+  # A block of its own, clear of the monolith's 8080-8090: the demos
+  # start at 8100.
+  options: !profile
+    dev:
+      port: 8100
+    default:
+      port: 0

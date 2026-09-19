@@ -26,6 +26,9 @@
   "external-adapters-service" {:alias "ext"
                                :necessary ["resources" "test-resources"
                                            "test-startup"]}
+  "demo-digital-bank-service" {:alias "ddb"
+                               :necessary ["resources" "test-resources"
+                                           "test-startup"]}
   "monolith-service" {:alias "mon"
                       :necessary ["resources" "test-resources"
                                   "test-startup"]}}
