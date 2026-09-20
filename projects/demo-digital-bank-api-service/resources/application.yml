@@ -56,9 +56,12 @@ system:
       system/component-kind: server/jetty-adapter
       handler: !system/local-ref handler
       interceptors: !system/local-ref interceptors
+      # A submission carries the key the app minted, which a preflight
+      # refuses unless it is named here beside the defaults.
       cors:
         origins:
           - !env DEMO_DIGITAL_BANK_APP_ORIGIN
+        request-headers: [Accept, Authorization, Content-Type, Idempotency-Key]
       options:
         port: !long [!or [!env DEMO_DIGITAL_BANK_PORT, 8100]]
 

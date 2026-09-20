@@ -446,3 +446,21 @@
                event (next-event stream 10000)]
            (is (= "whn.00000000000000000000000002" (:id event)) (pr-str event))
            ((:close stream))))))))
+
+(deftest preflight-test
+  (with-bank
+   (fn [base-url _]
+     (testing "the app's origin may send a submission with its key"
+       (let [res (http/request
+                  {:method :options
+                   :url (str base-url "/accounts")
+                   :headers {"origin" "http://localhost:5174"
+                             "access-control-request-method" "POST"
+                             "access-control-request-headers"
+                             "authorization, content-type, idempotency-key"}})
+             allowed (str/lower-case
+                      (get-in res [:headers :access-control-allow-headers] ""))]
+         (is (= 204 (:status res)) (pr-str res))
+         (is (= "http://localhost:5174"
+                (get-in res [:headers :access-control-allow-origin])))
+         (is (str/includes? allowed "idempotency-key") allowed))))))
