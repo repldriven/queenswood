@@ -17,12 +17,14 @@ enum SchedulerTaskKind {
 
 // How often a job runs. A job's editable periodicity is constrained by
 // the intersection of its tasks' allowed periodicities (accrue is
-// daily-only; capitalize allows daily/monthly/yearly).
+// daily-only; capitalize allows daily/monthly/yearly). For an hourly
+// job run_time_minutes is the minute past the hour.
 enum SchedulerPeriodicity {
   SCHEDULER_PERIODICITY_UNKNOWN = 0;
   SCHEDULER_PERIODICITY_DAILY = 1;
   SCHEDULER_PERIODICITY_MONTHLY = 2;
   SCHEDULER_PERIODICITY_YEARLY = 3;
+  SCHEDULER_PERIODICITY_HOURLY = 4;
 }
 
 // For a monthly job, which day of the month it fires on. UNKNOWN is

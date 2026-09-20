@@ -3,7 +3,8 @@
     [com.repldriven.queenswood.api-schema.interface :as coercion]))
 
 (def ^:private periodicity-enum
-  (coercion/enum-coercion {"daily" :scheduler-periodicity-daily
+  (coercion/enum-coercion {"hourly" :scheduler-periodicity-hourly
+                           "daily" :scheduler-periodicity-daily
                            "monthly" :scheduler-periodicity-monthly
                            "yearly" :scheduler-periodicity-yearly}
                           :scheduler-periodicity-unknown))

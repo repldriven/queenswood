@@ -1,10 +1,12 @@
-(ns com.repldriven.queenswood.api.payment.components
+(ns com.repldriven.queenswood.payment-api.components
   (:require
-    [com.repldriven.queenswood.api.payment.coercion :as coercion]
-    [com.repldriven.queenswood.api.payment.examples :as examples]
+    [com.repldriven.queenswood.payment-api.coercion :as coercion]
+    [com.repldriven.queenswood.payment-api.examples :as examples]
 
     [com.repldriven.queenswood.api-schema.interface :as schema :refer
-     [components-registry]]))
+     [components-registry]]
+    [com.repldriven.queenswood.cash-account-api.interface :as
+     cash-account-api]))
 
 (def PaymentId (schema/id-schema "PaymentId" "pmt" examples/PaymentId))
 
@@ -103,3 +105,59 @@
    [#'PaymentId #'PaymentScheme #'SubmitInternalPaymentRequest #'InternalPayment
     #'OutboundPaymentStatus #'SubmitOutboundPaymentRequest #'OutboundPayment
     #'InboundPaymentStatus #'InboundPayment #'InboundPaymentList]))
+
+(defn- declared-keys
+  [component]
+  (into [] (comp (filter vector?) (map first)) component))
+
+(def ^:private outbound-payment-keys (declared-keys OutboundPayment))
+
+(def ^:private inbound-payment-keys (declared-keys InboundPayment))
+
+(def ^:private internal-payment-keys (declared-keys InternalPayment))
+
+(defn ->outbound-body
+  [payment]
+  (select-keys payment outbound-payment-keys))
+
+(defn ->inbound-body
+  [payment]
+  (select-keys payment inbound-payment-keys))
+
+(defn ->internal-body
+  [payment]
+  (select-keys payment internal-payment-keys))
+
+(def ^:private wire-registry
+  "What the wire encoders resolve a `$ref` against: the shared schemas,
+  the account ids a payment names, this brick's own, and a
+  `TransactionId` of its own, since the transaction domain's shapes
+  are still declared inside the API base and a component cannot reach
+  them. The document's `TransactionId` stays the transaction domain's;
+  this one encodes and is published nowhere."
+  (merge schema/registry
+         cash-account-api/registry
+         {"TransactionId" (schema/id-schema "TransactionId"
+                                            "txn"
+                                            "txn.01kprbmgcj35ptc8npmybhh4s9")}
+         registry))
+
+(def ^:private encode-outbound
+  (schema/api-encoder OutboundPayment wire-registry))
+
+(def ^:private encode-inbound (schema/api-encoder InboundPayment wire-registry))
+
+(defn ->outbound-wire-body
+  [payment]
+  (encode-outbound (->outbound-body payment)))
+
+(defn ->inbound-wire-body
+  [payment]
+  (encode-inbound (->inbound-body payment)))
+
+(def ^:private encode-internal
+  (schema/api-encoder InternalPayment wire-registry))
+
+(defn ->internal-wire-body
+  [payment]
+  (encode-internal (->internal-body payment)))

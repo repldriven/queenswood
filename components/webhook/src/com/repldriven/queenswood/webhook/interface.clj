@@ -328,11 +328,15 @@
 (def
   ^{:doc
     "Every public kind the bank publishes, as `{:kind :resource-type}`
-  in catalogue order. The `api` base lists one entry per kind under the
-  exported document's `webhooks` object, so a kind added to the
-  catalogue is published in the document by the same edit."}
+  in catalogue order, once each: a kind several transitions produce
+  has several entries and one name. The `api` base lists one entry per
+  kind under the exported document's `webhooks` object, so a kind
+  added to the catalogue is published in the document by the same
+  edit."}
   published-kinds
-  (mapv #(select-keys % [:kind :resource-type]) catalogue/entries))
+  (into []
+        (comp (map #(select-keys % [:kind :resource-type])) (distinct))
+        catalogue/entries))
 
 ;; ---
 ;; rejection examples

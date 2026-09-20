@@ -25,6 +25,7 @@ system:
         - interest-command-response
         - schemes-payments-event
         - cash-accounts-event
+        - payments-event
         - schemes-payment-command
         - schemes-payment-command-response
         - idv-command
@@ -55,6 +56,7 @@ system:
   banks-dispatcher: !include system/bank-dispatcher.yml
   cash-accounts-dispatcher: !include system/cash-account-dispatcher.yml
   cash-accounts-relay: !include system/cash-account-relay.yml
+  payments-relay: !include system/payment-relay.yml
   companies-dispatcher: !include system/company-dispatcher.yml
   idvs-relay: !include system/idv-relay.yml
   interest-dispatcher: !include system/interest-dispatcher.yml
@@ -66,16 +68,7 @@ system:
   payments-dispatcher: !include system/payment-dispatcher.yml
   payment-sweep: !include system/payment-outbound-sweep.yml
   transactions-dispatcher: !include system/transaction-dispatcher.yml
-  scheduler:
-    scheduler: !system/component
-      system/component-kind: scheduler/scheduler
-  bank-scheduler:
-    runner: !system/component
-      system/component-kind: bank-scheduler/runner
-      record-db: !system/ref fdb.record-db
-      record-store: !system/ref fdb.meta-store
-      schemas: !system/ref avro.serde
-      scheduler: !system/ref scheduler.scheduler
+  scheduler: !include system/scheduler.yml
   telemetry: !include system/telemetry.yml
   server:
     handler: !system/required-component

@@ -47,7 +47,7 @@
     minutesFromHHMM,
   } from "@queenswood/ui";
 
-  const FREQ_LABEL = { daily: "Daily", monthly: "Monthly", yearly: "Annually" };
+  const FREQ_LABEL = { hourly: "Hourly", daily: "Daily", monthly: "Monthly", yearly: "Annually" };
   const freqLabel = (p) => FREQ_LABEL[p] ?? p;
   import {
     list_jobs,

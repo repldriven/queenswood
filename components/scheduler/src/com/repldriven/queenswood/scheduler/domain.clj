@@ -6,15 +6,20 @@
     [clojure.set :as set]))
 
 (def all-periods
+  #{:scheduler-periodicity-hourly :scheduler-periodicity-daily
+    :scheduler-periodicity-monthly :scheduler-periodicity-yearly})
+
+(def daily-or-longer
   #{:scheduler-periodicity-daily :scheduler-periodicity-monthly
     :scheduler-periodicity-yearly})
 
 ;; Per-task periodicity constraints. Accrual must run once per day;
-;; capitalization and account-migration may run on any cadence.
+;; capitalization and account-migration may run on any cadence of a
+;; day or longer. Nothing seeded runs hourly yet.
 (def task-allowed-periods
   {:scheduler-task-kind-accrue #{:scheduler-periodicity-daily}
-   :scheduler-task-kind-capitalize all-periods
-   :scheduler-task-kind-account-migration all-periods})
+   :scheduler-task-kind-capitalize daily-or-longer
+   :scheduler-task-kind-account-migration daily-or-longer})
 
 (defn job-allowed-periods
   "Periodicities a job may use — the intersection of its tasks'
@@ -40,6 +45,20 @@
                    :periodicity periodicity
                    :allowed (job-allowed-periods task-kinds)})))
 
+(defn validate-run-time
+  "Rejects a run time the periodicity cannot place: an hourly job's is
+  the minute past the hour, so sixty or more names no minute, and any
+  other's is minutes past midnight, so a day's worth or more names no
+  time."
+  [periodicity run-time-minutes]
+  (let [limit (if (= :scheduler-periodicity-hourly periodicity) 60 1440)]
+    (when-not (and (nat-int? run-time-minutes) (< run-time-minutes limit))
+      (error/reject :scheduler/run-time-not-allowed
+                    {:message "Run time is outside what the periodicity allows"
+                     :periodicity periodicity
+                     :run-time-minutes run-time-minutes
+                     :limit limit}))))
+
 (defn monthly-day-or-default
   "Normalise a monthly-day to `:first` / `:last`, defaulting an unset or
   unknown value to first."
@@ -50,16 +69,17 @@
 
 (defn ->cron
   "Quartz 6-field cron expression for a periodicity firing at
-  `run-time-minutes` past midnight (UTC). Daily fires every day;
-  monthly on the first or last day (per `monthly-day`, default first —
-  Quartz `L` is the last day of the month); yearly on Jan 1. Seconds are
-  always 0."
+  `run-time-minutes` past midnight (UTC). Hourly fires every hour at
+  that many minutes past it; daily fires every day; monthly on the
+  first or last day (per `monthly-day`, default first — Quartz `L` is
+  the last day of the month); yearly on Jan 1. Seconds are always 0."
   ([periodicity run-time-minutes]
    (->cron periodicity run-time-minutes nil))
   ([periodicity run-time-minutes monthly-day]
    (let [h (quot run-time-minutes 60)
          m (mod run-time-minutes 60)]
      (case periodicity
+       :scheduler-periodicity-hourly (format "0 %d * * * ?" m)
        :scheduler-periodicity-daily (format "0 %d %d * * ?" m h)
        :scheduler-periodicity-monthly
        (format "0 %d %d %s * ?"

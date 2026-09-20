@@ -26,6 +26,8 @@
   component/balance-query {:local/root "../../components/balance-query"}
   component/bank-query {:local/root "../../components/bank-query"}
   component/cash-account-api {:local/root "../../components/cash-account-api"}
+  component/payment-api {:local/root "../../components/payment-api"}
+  component/payment-query {:local/root "../../components/payment-query"}
   component/cash-account-product-query
   {:local/root "../../components/cash-account-product-query"}
   component/cash-account-query {:local/root

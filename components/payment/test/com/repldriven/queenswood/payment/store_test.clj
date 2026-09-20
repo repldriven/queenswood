@@ -1,17 +1,20 @@
 (ns com.repldriven.queenswood.payment.store-test
   (:require
-    [com.repldriven.queenswood.fdb.interface]
+    [com.repldriven.queenswood.fdb.interface :as fdb]
     [com.repldriven.queenswood.testcontainers.interface]
 
     [com.repldriven.queenswood.payment.store :as store]
 
     [com.repldriven.queenswood.payment-query.interface :as q]
+    [com.repldriven.queenswood.schema.interface :as schema]
 
     [com.repldriven.mono.system.interface :as system]
+    [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.test-system.interface :refer
      [with-test-system nom-test>]]
     [com.repldriven.mono.utility.interface :as utility]
 
+    [clojure.string :as str]
     [clojure.test :refer [deftest is testing]]))
 
 (defn- internal-payment
@@ -104,16 +107,19 @@
      (testing "first outbound payment saves"
        (nom-test> [_ (store/save-outbound-payment
                       config
-                      (outbound-payment "pmt.o1" "bnk.test" key))]))
+                      (outbound-payment "pmt.o1" "bnk.test" key)
+                      {:change-kind :outbound-payment-change-kind-submit})]))
      (testing "a second payment reusing the key in the same bank violates"
        (is (store/uniqueness-violation?
             (store/save-outbound-payment
              config
-             (outbound-payment "pmt.o2" "bnk.test" key)))))
+             (outbound-payment "pmt.o2" "bnk.test" key)
+             {:change-kind :outbound-payment-change-kind-submit}))))
      (testing "the same key from another bank saves"
        (nom-test> [_ (store/save-outbound-payment
                       config
-                      (outbound-payment "pmt.o3" "bnk.other" key))]))
+                      (outbound-payment "pmt.o3" "bnk.other" key)
+                      {:change-kind :outbound-payment-change-kind-submit})]))
      (testing "read-back is scoped to the bank that wrote the key"
        (nom-test> [found (q/find-outbound-payment-by-idempotency-key config
                                                                      "bnk.test"
@@ -138,14 +144,16 @@
                                                    "pmt.si1"
                                                    "bnk.test"
                                                    "idem-scoped-internal-0001"))
-                   _ (store/save-outbound-payment config
-                                                  (outbound-payment
-                                                   "pmt.so1"
-                                                   "bnk.test"
-                                                   "idem-scoped-outbound-0001"))
-                   _ (store/save-inbound-payment config
-                                                 (inbound-payment {:payment-id
-                                                                   "pmt.sn1"}))]))
+                   _ (store/save-outbound-payment
+                      config
+                      (outbound-payment "pmt.so1"
+                                        "bnk.test"
+                                        "idem-scoped-outbound-0001")
+                      {:change-kind :outbound-payment-change-kind-submit})
+                   _ (store/save-inbound-payment
+                      config
+                      (inbound-payment {:payment-id "pmt.sn1"})
+                      {:change-kind :inbound-payment-change-kind-settle})]))
      (testing "a scoped read answers the payment for its own bank"
        (nom-test> [internal
                    (q/find-internal-payment config "bnk.test" "pmt.si1")
@@ -176,27 +184,30 @@
                  :record-store (system/instance sys [:fdb :store])}
          e2e "e2e.shared"]
      (testing "holds on one end-to-end id save beside a settled one"
-       (nom-test> [_ (store/save-inbound-payment config
-                                                 (inbound-payment
-                                                  {:payment-id "pmt.h1"
-                                                   :end-to-end-id e2e
-                                                   :creditor-account-id "acc.a"
-                                                   :amount 1000
-                                                   :created-at 3000}))
-                   _ (store/save-inbound-payment config
-                                                 (inbound-payment
-                                                  {:payment-id "pmt.h2"
-                                                   :end-to-end-id e2e
-                                                   :creditor-account-id "acc.b"
-                                                   :amount 1000
-                                                   :created-at 2000}))
-                   _ (store/save-inbound-payment config
-                                                 (inbound-payment
-                                                  {:payment-id "pmt.h3"
-                                                   :end-to-end-id e2e
-                                                   :creditor-account-id "acc.a"
-                                                   :amount 2500
-                                                   :created-at 1000}))
+       (nom-test> [_ (store/save-inbound-payment
+                      config
+                      (inbound-payment {:payment-id "pmt.h1"
+                                        :end-to-end-id e2e
+                                        :creditor-account-id "acc.a"
+                                        :amount 1000
+                                        :created-at 3000})
+                      {:change-kind :inbound-payment-change-kind-settle})
+                   _ (store/save-inbound-payment
+                      config
+                      (inbound-payment {:payment-id "pmt.h2"
+                                        :end-to-end-id e2e
+                                        :creditor-account-id "acc.b"
+                                        :amount 1000
+                                        :created-at 2000})
+                      {:change-kind :inbound-payment-change-kind-settle})
+                   _ (store/save-inbound-payment
+                      config
+                      (inbound-payment {:payment-id "pmt.h3"
+                                        :end-to-end-id e2e
+                                        :creditor-account-id "acc.a"
+                                        :amount 2500
+                                        :created-at 1000})
+                      {:change-kind :inbound-payment-change-kind-settle})
                    _ (store/save-inbound-payment
                       config
                       (inbound-payment {:payment-id "pmt.h4"
@@ -205,14 +216,16 @@
                                         :amount 1000
                                         :created-at 500
                                         :payment-status
-                                        :inbound-payment-status-settled}))
-                   _ (store/save-inbound-payment config
-                                                 (inbound-payment
-                                                  {:payment-id "pmt.h5"
-                                                   :end-to-end-id "e2e.other"
-                                                   :creditor-account-id "acc.a"
-                                                   :amount 1000
-                                                   :created-at 100}))]))
+                                        :inbound-payment-status-settled})
+                      {:change-kind :inbound-payment-change-kind-settle})
+                   _ (store/save-inbound-payment
+                      config
+                      (inbound-payment {:payment-id "pmt.h5"
+                                        :end-to-end-id "e2e.other"
+                                        :creditor-account-id "acc.a"
+                                        :amount 1000
+                                        :created-at 100})
+                      {:change-kind :inbound-payment-change-kind-settle})]))
      (testing "every open hold on the end-to-end id, oldest first"
        (nom-test> [holds (q/find-open-holds config e2e)
                    _ (is (= ["pmt.h3" "pmt.h2" "pmt.h1"] (payment-ids holds)))]))
@@ -253,19 +266,23 @@
        (nom-test> [_ (store/save-outbound-payment
                       config
                       (outbound "pmt.p1" "bnk.test"
-                                :outbound-payment-status-pending 3000))
+                                :outbound-payment-status-pending 3000)
+                      {:change-kind :outbound-payment-change-kind-submit})
                    _ (store/save-outbound-payment
                       config
                       (outbound "pmt.p2" "bnk.test"
-                                :outbound-payment-status-pending 1000))
+                                :outbound-payment-status-pending 1000)
+                      {:change-kind :outbound-payment-change-kind-submit})
                    _ (store/save-outbound-payment
                       config
                       (outbound "pmt.p3" "bnk.test"
-                                :outbound-payment-status-completed 2000))
+                                :outbound-payment-status-completed 2000)
+                      {:change-kind :outbound-payment-change-kind-submit})
                    _ (store/save-outbound-payment
                       config
                       (outbound "pmt.p4" "bnk.other"
-                                :outbound-payment-status-pending 2000))]))
+                                :outbound-payment-status-pending 2000)
+                      {:change-kind :outbound-payment-change-kind-submit})]))
      (testing "outbound payments by status span banks, oldest first"
        (nom-test> [pending (q/find-outbound-payments-by-status
                             config
@@ -283,23 +300,28 @@
        (nom-test> [_ (store/save-inbound-payment
                       config
                       (inbound "pmt.l1" "bnk.test"
-                               :inbound-payment-status-suspended 1000))
+                               :inbound-payment-status-suspended 1000)
+                      {:change-kind :inbound-payment-change-kind-settle})
                    _ (store/save-inbound-payment
                       config
                       (inbound "pmt.l2" "bnk.test"
-                               :inbound-payment-status-suspended 2000))
+                               :inbound-payment-status-suspended 2000)
+                      {:change-kind :inbound-payment-change-kind-settle})
                    _ (store/save-inbound-payment
                       config
                       (inbound "pmt.l3" "bnk.test"
-                               :inbound-payment-status-suspended 3000))
+                               :inbound-payment-status-suspended 3000)
+                      {:change-kind :inbound-payment-change-kind-settle})
                    _ (store/save-inbound-payment
                       config
                       (inbound "pmt.l4" "bnk.test"
-                               :inbound-payment-status-settled 4000))
+                               :inbound-payment-status-settled 4000)
+                      {:change-kind :inbound-payment-change-kind-settle})
                    _ (store/save-inbound-payment
                       config
                       (inbound "pmt.l5" "bnk.other"
-                               :inbound-payment-status-suspended 5000))]))
+                               :inbound-payment-status-suspended 5000)
+                      {:change-kind :inbound-payment-change-kind-settle})]))
      (testing "inbound payments list by bank and status, newest first"
        (nom-test> [suspended (q/list-inbound-payments
                               config
@@ -317,3 +339,54 @@
                           "bnk.other"
                           :inbound-payment-status-suspended)
                    _ (is (= ["pmt.l5"] (payment-ids other)))])))))
+
+(deftest a-save-names-its-change-kind-test
+  (with-test-system
+   [sys "classpath:payment/application-test.yml"]
+   (let [config {:record-db (system/instance sys [:fdb :record-db])
+                 :record-store (system/instance sys [:fdb :store])}]
+     (testing "a payment saved with no change kind is refused, not written"
+       (let [result (store/save-outbound-payment config
+                                                 (outbound-payment
+                                                  "pmt.nokind"
+                                                  "bnk.test"
+                                                  "idem-outbound-nokind-0001")
+                                                 {})]
+         (is (error/anomaly? result))
+         (is (= :payment/changelog (error/kind result)))
+         (nom-test> [found
+                     (q/find-outbound-payment config "bnk.test" "pmt.nokind")
+                     _ (is (nil? found))]))))))
+
+(deftest an-internal-save-writes-its-settle-entry-test
+  (with-test-system
+   [sys "classpath:payment/application-test.yml"]
+   (let [record-db (system/instance sys [:fdb :record-db])
+         config {:record-db record-db
+                 :record-store (system/instance sys [:fdb :store])}
+         payment-id (utility/generate-id "pmt")
+         seen (atom [])]
+     (testing "the save co-commits one settle entry for the payment"
+       (nom-test> [_ (store/save-internal-payment config
+                                                  (internal-payment
+                                                   payment-id
+                                                   "bnk.entry"
+                                                   (str "idem-" payment-id)))
+                   _ (fdb/process-changelog
+                      record-db
+                      (str "store-test-" payment-id)
+                      "internal-payments"
+                      (fn [_ entry-bytes]
+                        (swap! seen conj
+                          (schema/pb->ChangelogEvent entry-bytes)))
+                      {:keyspace-prefix
+                       (system/instance sys [:fdb :keyspace-prefix])})
+                   entries (filterv #(= payment-id (:ordering-key %)) @seen)
+                   _ (is (= 1 (count entries)))
+                   entry (first entries)
+                   _ (is (= "internal-payment-settled" (:event-name entry)))
+                   _ (is (= payment-id (:causation-id entry)))
+                   _ (is (str/starts-with?
+                          (:dedup-key entry)
+                          (str payment-id
+                               ":internal-payment-change-kind-settle:")))])))))

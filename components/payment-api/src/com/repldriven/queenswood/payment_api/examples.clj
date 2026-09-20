@@ -1,4 +1,4 @@
-(ns com.repldriven.queenswood.api.payment.examples
+(ns com.repldriven.queenswood.payment-api.examples
   (:require
     [com.repldriven.queenswood.api-schema.interface :refer
      [examples-registry]]))

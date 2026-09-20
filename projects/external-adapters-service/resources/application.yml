@@ -53,6 +53,11 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-cash-accounts-event-dlq
           acks: all
+      payments-event-dlq:
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          topic: topic-payments-event-dlq
+          acks: all
       invitations-event-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
@@ -103,6 +108,15 @@ system:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           group.id: webhook-service-cash-accounts-event
+      payments-event:
+        schemas: !system/local-ref schemas
+        schema: !keyword event
+        topics: [topic-payments-event]
+        dead-letter-producer: !system/local-ref producers.payments-event-dlq
+        max-redeliveries: 5
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          group.id: webhook-service-payments-event
       invitations-event:
         schemas: !system/local-ref schemas
         schema: !keyword event
@@ -146,6 +160,9 @@ system:
         timeout: 500
       cash-accounts-event:
         consumer: !system/local-ref consumers.cash-accounts-event
+        timeout: 500
+      payments-event:
+        consumer: !system/local-ref consumers.payments-event
         timeout: 500
       invitations-event:
         consumer: !system/local-ref consumers.invitations-event

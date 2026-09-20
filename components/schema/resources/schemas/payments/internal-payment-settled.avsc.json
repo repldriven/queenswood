@@ -1,0 +1,47 @@
+{
+  "type": "record",
+  "name": "InternalPaymentSettled",
+  "namespace": "com.repldriven.mono.payments",
+  "fields": [
+    {
+      "name": "bank_id",
+      "type": "string"
+    },
+    {
+      "name": "payment_id",
+      "type": "string"
+    },
+    {
+      "name": "status_before",
+      "type": [
+        "null",
+        {
+          "type": "enum",
+          "name": "InternalPaymentStatus",
+          "symbols": [
+            "INTERNAL_PAYMENT_STATUS_SETTLED"
+          ]
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "status_after",
+      "type": "com.repldriven.mono.payments.InternalPaymentStatus"
+    },
+    {
+      "name": "change_kind",
+      "type": [
+        "null",
+        {
+          "type": "enum",
+          "name": "InternalPaymentChangeKind",
+          "symbols": [
+            "INTERNAL_PAYMENT_CHANGE_KIND_SETTLE"
+          ]
+        }
+      ],
+      "default": null
+    }
+  ]
+}

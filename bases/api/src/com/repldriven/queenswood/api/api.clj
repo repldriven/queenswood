@@ -55,8 +55,6 @@
     [com.repldriven.queenswood.api.payee-check.examples :as
      payee-check.examples]
     [com.repldriven.queenswood.api.payee-check.routes :as payee-check]
-    [com.repldriven.queenswood.api.payment.components :as payment.components]
-    [com.repldriven.queenswood.api.payment.examples :as payment.examples]
     [com.repldriven.queenswood.api.payment.routes :as payment]
     [com.repldriven.queenswood.api.policy.components :as policy.components]
     [com.repldriven.queenswood.api.policy.examples :as policy.examples]
@@ -76,6 +74,7 @@
 
     [com.repldriven.queenswood.api-schema.interface :as api-schema]
     [com.repldriven.queenswood.cash-account-api.interface :as cash-account-api]
+    [com.repldriven.queenswood.payment-api.interface :as payment-api]
     [com.repldriven.queenswood.webhook.interface :as webhook-api]
 
     [com.repldriven.mono.server.interface :as server]
@@ -133,7 +132,7 @@
          onboarding.components/registry
          party.components/registry
          payee-check.components/registry
-         payment.components/registry
+         payment-api/registry
          policy.components/registry
          api-schema/registry
          simulate.components/registry
@@ -216,7 +215,7 @@
                     companies.examples/registry
                     party.examples/registry
                     payee-check.examples/registry
-                    payment.examples/registry
+                    payment-api/examples
                     policy.examples/registry
                     simulate.examples/registry
                     tier.examples/registry

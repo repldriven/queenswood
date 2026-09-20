@@ -104,17 +104,20 @@
                     config
                     (outbound-payment "pmt.pending"
                                       :outbound-payment-status-pending
-                                      created-at))
+                                      created-at)
+                    {:change-kind :outbound-payment-change-kind-submit})
                  _ (store/save-outbound-payment
                     config
                     (outbound-payment "pmt.completed"
                                       :outbound-payment-status-completed
-                                      created-at))
-                 _ (store/save-outbound-payment config
-                                                (outbound-payment
-                                                 "pmt.failed"
-                                                 :outbound-payment-status-failed
-                                                 created-at))
+                                      created-at)
+                    {:change-kind :outbound-payment-change-kind-submit})
+                 _ (store/save-outbound-payment
+                    config
+                    (outbound-payment "pmt.failed"
+                                      :outbound-payment-status-failed
+                                      created-at)
+                    {:change-kind :outbound-payment-change-kind-submit})
                  actions (SUT/sweep-once config now)
                  _ (testing "the sweep reports the pending payment"
                      (is (= ["pmt.pending"]
