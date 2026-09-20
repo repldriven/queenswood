@@ -329,13 +329,19 @@
 
 (deftest address-refusal-test
   (testing "the send-time rule refuses what registration would have"
-    (is (some? (SUT/address-refusal "http://93.184.216.34/hooks" nil))
+    (is (some? (SUT/address-refusal "http://93.184.216.34/hooks" nil nil))
         "a plaintext address")
-    (is (some? (SUT/address-refusal "https://127.0.0.1/hooks" nil))
+    (is (some? (SUT/address-refusal "https://127.0.0.1/hooks" nil nil))
         "an address that resolves into loopback")
     (is (some? (SUT/address-refusal "https://tenant.example/hooks"
-                                    #{"tenant.example"}))
-        "one of the platform's own hosts")))
+                                    #{"tenant.example"}
+                                    nil))
+        "one of the platform's own hosts")
+    (is (nil? (SUT/address-refusal "http://127.0.0.1/hooks"
+                                   nil
+                                   {:allowed-schemes ["http" "https"]
+                                    :blocked-ranges []}))
+        "a local receiver, under the rule a local monolith relaxes")))
 
 (deftest pause-on-repeated-failure-test
   (let [seen (atom [])

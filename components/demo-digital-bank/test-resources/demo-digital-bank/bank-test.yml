@@ -1,0 +1,24 @@
+# The store refs the migrator rather than the datasource: the migrator's
+# instance is the datasource it migrated, and that reference is what
+# orders the schema before the first query.
+store: !system/component
+  system/component-kind: demo-digital-bank/store
+  datasource: !system/ref migrator.migrations
+
+platform: !system/component
+  system/component-kind: demo-digital-bank/platform
+  url: !system/ref platform-stub.http-url
+  client-id: bnk.00000000000000000000000001
+  client-secret: stub-secret
+  status: test
+
+bank: !system/component
+  system/component-kind: demo-digital-bank/bank
+  store: !system/local-ref store
+  platform: !system/local-ref platform
+  sign-up-code: "123456"
+  session-ttl-seconds: 3600
+  # Short, so a test reading a stream sees the keep-alive that follows
+  # what it replays.
+  keep-alive-ms: 250
+  webhook-secret: whsec_ZGVtby1kaWdpdGFsLWJhbmstdGVzdC1zZWNyZXQtMzJi

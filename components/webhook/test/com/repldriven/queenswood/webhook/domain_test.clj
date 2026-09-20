@@ -45,6 +45,38 @@
         (is (error/rejection? result) address)
         (is (= :webhook-endpoint/invalid-address (error/kind result)))))))
 
+(deftest the-rule-is-configuration-where-a-deployment-says-so-test
+  (testing "a rule that names no scheme and no range leaves the constants"
+    (is (some? (SUT/check-address "http://localhost:8100/webhooks"
+                                  ["127.0.0.1"]
+                                  #{}
+                                  {})))
+    (is (some? (SUT/check-address "https://localhost:8100/webhooks"
+                                  ["127.0.0.1"]
+                                  #{}
+                                  nil))))
+  (testing "the local monolith's dev profile admits a local receiver"
+    (let [relaxed {:allowed-schemes ["http" "https"] :blocked-ranges []}]
+      (is (nil? (SUT/check-address "http://localhost:8100/webhooks"
+                                   ["127.0.0.1"]
+                                   #{}
+                                   relaxed)))
+      (is (nil? (SUT/check-address "https://tenant.example/hooks"
+                                   ["10.0.0.7"]
+                                   #{}
+                                   relaxed)))))
+  (testing "a relaxed rule still refuses the platform's own host"
+    (is (some? (SUT/check-address "http://api.queenswood.test/hooks"
+                                  ["127.0.0.1"]
+                                  #{"api.queenswood.test"}
+                                  {:allowed-schemes ["http" "https"]
+                                   :blocked-ranges []}))))
+  (testing "an empty list of schemes admits nothing"
+    (is (some? (SUT/check-address "https://tenant.example/hooks"
+                                  ["203.0.113.4"]
+                                  #{}
+                                  {:allowed-schemes []})))))
+
 (deftest address-ranges-are-refused-test
   (testing "each range a tenant may not be reached on"
     (doseq [[address reason] [["127.0.0.1" "loopback"]
@@ -187,6 +219,7 @@
                                   {:address "https://tenant.example/new"}
                                   public-address
                                   #{}
+                                  nil
                                   permissive-policies)
              (SUT/rotate-secret (endpoint :webhook-endpoint-status-removed)
                                 "whsec_next" 1700000100000
@@ -200,6 +233,7 @@
                                       {:address "http://tenant.example/new"}
                                       ["127.0.0.1"]
                                       #{}
+                                      nil
                                       permissive-policies)]
       (is (= :webhook-endpoint/invalid-status (error/kind result))))))
 

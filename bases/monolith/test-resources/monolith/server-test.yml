@@ -38,6 +38,16 @@ interceptors: !system/component
   avro: !system/ref avro.serde
   record-db: !system/ref fdb.record-db
   record-store: !system/ref fdb.meta-store
+  # The webhook address rule, as registration reads it. Under dev the
+  # scheme and the ranges are relaxed so an endpoint on the developer's
+  # own machine — HTTP, on loopback — may be registered; the runner in
+  # monolith/webhook-test.yml carries the same relaxation, since it
+  # re-runs the rule at send time. Everywhere else the constants apply.
+  webhook-address-rule: !profile
+    dev:
+      allowed-schemes: [http, https]
+      blocked-ranges: []
+    default: {}
 jetty-adapter: !system/component
   system/component-kind: server/jetty-adapter
   handler: !system/ref server.handler

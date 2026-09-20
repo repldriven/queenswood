@@ -113,12 +113,12 @@
   "The reason `address` may not be reached, or nil. An address that
   parses as neither an IPv4 nor an IPv6 literal is refused rather
   than allowed: it is not a form this rule can clear."
-  [address]
+  [address ranges]
   (if (nil? (->bits address))
     "address is not a recognised IP literal"
     (some (fn [[_ _ reason :as range]]
             (when (in-range? address range) reason))
-          blocked-ranges)))
+          ranges)))
 
 (defn- invalid-address
   [address reason]
@@ -160,26 +160,38 @@
 
   `resolved-addresses` are the host's addresses as the caller
   already resolved them — resolution is an effect, and keeping it
-  outside lets the same rule run again at send time."
-  [address resolved-addresses platform-hosts]
-  (let [scheme (some-> address
-                       (str/split #"://" 2)
-                       first
-                       str/lower-case)
-        host (host-of address)]
-    (cond
-     (not= allowed-scheme scheme)
-     (invalid-address address "scheme is not https")
+  outside lets the same rule run again at send time.
 
-     (contains? (host-set platform-hosts) host)
-     (invalid-address address "host is the platform's own")
+  `rule` is the deployment's configuration of the scheme and the
+  ranges: `:allowed-schemes` and `:blocked-ranges`, each replacing
+  the constant where it is present and leaving it where it is not.
+  A local monolith relaxes both under its dev profile, so a receiver
+  on the developer's own machine can be reached; nothing else does."
+  ([address resolved-addresses platform-hosts]
+   (check-address address resolved-addresses platform-hosts nil))
+  ([address resolved-addresses platform-hosts rule]
+   (let [scheme (some-> address
+                        (str/split #"://" 2)
+                        first
+                        str/lower-case)
+         host (host-of address)
+         schemes (set (get rule :allowed-schemes [allowed-scheme]))
+         ranges (get rule :blocked-ranges blocked-ranges)]
+     (cond
+      (not (contains? schemes scheme))
+      (invalid-address address
+                       (str "scheme is not " (str/join " or " (sort schemes))))
 
-     (empty? resolved-addresses)
-     (invalid-address address "host resolves to no address")
+      (contains? (host-set platform-hosts) host)
+      (invalid-address address "host is the platform's own")
 
-     :else
-     (when-let [reason (some blocked-reason resolved-addresses)]
-       (invalid-address address reason)))))
+      (empty? resolved-addresses)
+      (invalid-address address "host resolves to no address")
+
+      :else
+      (when-let [reason (some (fn [resolved] (blocked-reason resolved ranges))
+                              resolved-addresses)]
+        (invalid-address address reason))))))
 
 ;; ---------------------------------------------------------------------------
 ;; Lifecycle guards
@@ -273,14 +285,16 @@
   address, then on the capability, then on the count limit — all
   before the caller writes anything.
 
-  `secret` is minted by the caller: randomness is an effect."
-  [bank-id data secret resolved-addresses platform-hosts existing-count
+  `secret` is minted by the caller: randomness is an effect. `rule`
+  is the deployment's address configuration, as `check-address`
+  takes it."
+  [bank-id data secret resolved-addresses platform-hosts rule existing-count
    policies]
   (let [{:keys [address description kinds idempotency-key]} data
         endpoint-id (utility/generate-id "whe")
         now (utility/now)]
     (let-nom>
-      [_ (check-address address resolved-addresses platform-hosts)
+      [_ (check-address address resolved-addresses platform-hosts rule)
        _ (check-capability :webhook-endpoint-action-register policies)
        _ (check-limit existing-count policies)]
       (utility/assoc-some
@@ -302,11 +316,11 @@
 (defn update-endpoint
   "Replace the editable fields — address, description and kinds — as
   an absolute set, re-running the address rule."
-  [endpoint data resolved-addresses platform-hosts policies]
+  [endpoint data resolved-addresses platform-hosts rule policies]
   (let [{:keys [address description kinds]} data]
     (let-nom>
       [_ (ensure-status endpoint live-statuses)
-       _ (check-address address resolved-addresses platform-hosts)
+       _ (check-address address resolved-addresses platform-hosts rule)
        _ (check-capability :webhook-endpoint-action-manage policies)]
       (utility/assoc-some
        (assoc endpoint

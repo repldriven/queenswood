@@ -13,6 +13,7 @@
    :system/config {:record-db system/required-component
                    :record-store system/required-component
                    :platform-hosts nil
+                   :address-rule nil
                    :address-check nil
                    :runner-id nil
                    :batch-size nil

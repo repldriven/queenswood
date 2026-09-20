@@ -23,10 +23,11 @@
   {:record-db record-db :record-store record-store})
 
 (defn- address-opts
-  "The hosts a tenant's address may not name, as the deployment
-  configured them. Only the two writes that take an address read it."
-  [{:keys [platform-hosts]}]
-  {:platform-hosts platform-hosts})
+  "The hosts a tenant's address may not name and the rule's scheme and
+  ranges, as the deployment configured them. Only the two writes that
+  take an address read them."
+  [{:keys [platform-hosts webhook-address-rule]}]
+  {:platform-hosts platform-hosts :address-rule webhook-address-rule})
 
 (defn- endpoint-uri
   [{:keys [endpoint-id]}]

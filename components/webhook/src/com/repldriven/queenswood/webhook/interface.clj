@@ -62,8 +62,10 @@
       endpoint has chosen; all kinds when absent.
     - `:idempotency-key` — the registering request's key, unique per
       bank.
-  - opts (optional): map; `:policies` overrides policy resolution and
-    `:platform-hosts` names the hosts a tenant may not point at."
+  - opts (optional): map; `:policies` overrides policy resolution,
+    `:platform-hosts` names the hosts a tenant may not point at, and
+    `:address-rule` is the deployment's configuration of the scheme
+    and the ranges, as `check-address` takes it."
   ([txn bank-id data]
    (core/register txn bank-id data))
   ([txn bank-id data opts]
@@ -191,9 +193,16 @@
   Args:
   - address: the endpoint's URL.
   - resolved-addresses: the host's textual IP addresses.
-  - platform-hosts: hosts a tenant may not point at."
-  [address resolved-addresses platform-hosts]
-  (domain/check-address address resolved-addresses platform-hosts))
+  - platform-hosts: hosts a tenant may not point at.
+  - rule (optional): the deployment's configuration of the rule, a
+    map whose `:allowed-schemes` replaces the one scheme the rule
+    otherwise allows and whose `:blocked-ranges` replaces the ranges
+    it otherwise refuses, each only where present. Nil leaves both
+    as the constants say."
+  ([address resolved-addresses platform-hosts]
+   (domain/check-address address resolved-addresses platform-hosts))
+  ([address resolved-addresses platform-hosts rule]
+   (domain/check-address address resolved-addresses platform-hosts rule)))
 
 (defn test-notification
   "Send a test notification to an enabled endpoint: one notification of

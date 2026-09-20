@@ -114,6 +114,7 @@
                                           (mint-secret)
                                           addresses
                                           (:platform-hosts opts)
+                                          (:address-rule opts)
                                           existing-count
                                           policies)
             _ (store/save-endpoint txn endpoint)]
@@ -143,6 +144,7 @@
                                              data
                                              addresses
                                              (:platform-hosts opts)
+                                             (:address-rule opts)
                                              policies)))))))
 
 (defn- save-deliveries
