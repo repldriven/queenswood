@@ -265,8 +265,11 @@ Each inbound save co-commits `inbound-payment-status-changed` the same
 way, with the change kind `settle`, `hold`, `release`, `suspend` or
 `return`, and a second runner over the inbound store republishes it on
 the same channel, where every kind becomes a
-`payment.inbound-status-changed` notification. An internal payment
-writes no entry: it is settled as it is answered.
+`payment.inbound-status-changed` notification. An internal payment's
+save co-commits `internal-payment-settled`, its one transition, with
+the change kind `settle`, and a third runner over the internal store
+republishes it on the same channel as `payment.internal-settled`: the
+account it credits is not the caller, and is told the same way.
 
 ### Internal payment flow
 

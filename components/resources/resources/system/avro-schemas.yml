@@ -58,6 +58,7 @@ submit-internal-payment: schemas/payments/submit-internal-payment.avsc.json
 submit-outbound-payment: schemas/payments/submit-outbound-payment.avsc.json
 outbound-payment-status-changed: schemas/payments/outbound-payment-status-changed.avsc.json
 inbound-payment-status-changed: schemas/payments/inbound-payment-status-changed.avsc.json
+internal-payment-settled: schemas/payments/internal-payment-settled.avsc.json
 
 submit-payment: schemas/schemes/payments/submit-payment.avsc.json
 transaction-settled: schemas/schemes/payments/transaction-settled.avsc.json

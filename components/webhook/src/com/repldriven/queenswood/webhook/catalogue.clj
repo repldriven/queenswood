@@ -27,6 +27,11 @@
 (def ^:private inbound-payment-status-name
   (enum-name-fn (payment-api/inbound-payment-status-enum-schema)))
 
+(def ^:private internal-payment-status-name
+  "An internal payment carries no status on its record, so no read
+  route spells one: its settle entry's one status is spelled here."
+  {:internal-payment-status-settled "settled"})
+
 (defn- outbound-entry
   "One `payment.outbound-status-changed` entry per transition the
   payment brick writes. Submission is not among them: the caller holds
@@ -119,7 +124,19 @@
                   :inbound-payment-status-suspended)
    (inbound-entry :inbound-payment-change-kind-return
                   "return"
-                  :inbound-payment-status-returned)])
+                  :inbound-payment-status-returned)
+   ;; An internal payment is settled as it is saved, and the account it
+   ;; credits is not the caller: the one entry its save writes is told.
+   {:kind "payment.internal-settled"
+    :event "internal-payment-settled"
+    :change-kind :internal-payment-change-kind-settle
+    :published-change-kind "settle"
+    :terminal-status :internal-payment-status-settled
+    :resource-type "InternalPayment"
+    :resource-id-key :payment-id
+    :status-name internal-payment-status-name
+    :load payment-query/find-internal-payment
+    :project payment-api/->internal-wire-body}])
 
 (defn covers-event?
   "Whether any entry is produced by this relayed event. Asked before

@@ -602,3 +602,96 @@
                      (nom-test> [chosen (deliveries config
                                                     (str "whe.p." suffix))
                                  _ (is (= 1 (count chosen)))]))]))))
+
+(def ^:private internal-event-name "internal-payment-settled")
+
+(def ^:private internal-kind "payment.internal-settled")
+
+(def ^:private internal-store
+  "Must match `payment.store`'s store name."
+  "internal-payments")
+
+(defn- internal-payment
+  "An internal payment as `payment.store` leaves it: settled as saved."
+  [bank-id payment-id]
+  (let [now (utility/now)]
+    {:payment-id payment-id
+     :idempotency-key (str "ik-" payment-id)
+     :debtor-account-id "acc.events"
+     :creditor-account-id "acc.events.creditor"
+     :currency "GBP"
+     :amount 1000
+     :transaction-id "txn.events"
+     :reference "Rent"
+     :bank-id bank-id
+     :business-day 20260101
+     :created-at now
+     :updated-at now}))
+
+(defn- seed-internal
+  [config payment]
+  (fdb/transact config
+                (fn [txn]
+                  (fdb/save-record (fdb/open txn internal-store)
+                                   (schema/InternalPayment->java payment))
+                  nil)
+                :test/seed
+                "Failed to seed the payment"))
+
+(defn- internal-envelope
+  [sys {:keys [event-id bank-id payment-id]}]
+  (let [schemas (system/instance sys [:avro :serde])
+        payload (avro/serialize (get schemas internal-event-name)
+                                {:bank-id bank-id
+                                 :payment-id payment-id
+                                 :status-before nil
+                                 :status-after :internal-payment-status-settled
+                                 :change-kind
+                                 :internal-payment-change-kind-settle})]
+    (if (error/anomaly? payload)
+      payload
+      {:id event-id
+       :event internal-event-name
+       :payload payload
+       :causation-id payment-id
+       :correlation-id nil})))
+
+(deftest an-internal-payment-is-told-as-settled-when-saved-test
+  (with-test-system
+   [sys config-file]
+   (let [config (processor-config sys)
+         bank-id "bnk.events.internal"
+         payment-id (utility/generate-id "pmt")
+         suffix (str (utility/uuidv7))]
+     (nom-test> [_ (seed-internal config (internal-payment bank-id payment-id))
+                 _ (store/save-endpoint config
+                                        (endpoint
+                                         bank-id
+                                         (str "whe.i." suffix)
+                                         :webhook-endpoint-status-enabled
+                                         [internal-kind]))
+                 settled (internal-envelope sys
+                                            {:event-id (str "evt.internal."
+                                                            suffix)
+                                             :bank-id bank-id
+                                             :payment-id payment-id})
+                 _ (is (not (error/anomaly? (consume sys settled))))
+                 written (notifications config bank-id)
+                 _ (is (= 1 (count written)))
+                 body (body->map (first written))
+                 _ (testing "carrying the payment as its read route returns it"
+                     (is (= internal-kind (:kind body)))
+                     (is (= "settle" (:change-kind body)))
+                     (is (= "InternalPayment" (:resource-type body)))
+                     (is (= payment-id (:resource-id body)))
+                     (is (not (contains? body :status-before)))
+                     (is (= "settled" (:status-after body)))
+                     (is (= 1000 (get-in body [:data :amount])))
+                     (is (= "acc.events.creditor"
+                            (get-in body [:data :creditor-account-id])))
+                     (is (= (str "ik-" payment-id) (:idempotency-key body)))
+                     (is (not (contains? (:data body) :idempotency-key))))
+                 _ (testing "and one delivery to the endpoint that chose it"
+                     (nom-test> [chosen (deliveries config
+                                                    (str "whe.i." suffix))
+                                 _ (is (= 1 (count chosen)))]))]))))

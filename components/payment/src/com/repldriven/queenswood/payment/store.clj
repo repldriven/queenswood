@@ -15,17 +15,6 @@
 (def transact fdb/transact)
 (def uniqueness-violation? fdb/uniqueness-violation?)
 
-(defn save-internal-payment
-  [txn payment]
-  (fdb/transact
-   txn
-   (fn [txn]
-     (fdb/save-record
-      (fdb/open txn internal-payments-store-name)
-      (schema/InternalPayment->java payment)))
-   :payment/save-internal-payment
-   "Failed to save internal payment"))
-
 (defn- with-record
   "The changelog fields the saved record supplies: its ids, the status
   it now carries, and the time the entry's dedup key is drawn from."
@@ -35,6 +24,32 @@
          :payment-id (:payment-id payment)
          :status-after (:payment-status payment)
          :updated-at (or (:updated-at payment) (:created-at payment))))
+
+(defn save-internal-payment
+  "Save the payment and co-commit its one entry, `settle`, in one
+  transaction: an internal payment carries no status, so the entry is
+  the transition its save is."
+  [txn payment]
+  (fdb/transact
+   txn
+   (fn [txn]
+     (let-nom>
+       [_ (fdb/save-record (fdb/open txn internal-payments-store-name)
+                           (schema/InternalPayment->java payment))
+        entry (changelog/internal-settled
+               (assoc (with-record {:change-kind
+                                    :internal-payment-change-kind-settle
+                                    :status-before nil}
+                                   payment)
+                      :status-after
+                      :internal-payment-status-settled))
+        _ (fdb/write-changelog txn
+                               internal-payments-store-name
+                               (:payment-id payment)
+                               entry)]
+       nil))
+   :payment/save-internal-payment
+   "Failed to save internal payment"))
 
 (defn save-outbound-payment
   "Save the payment and co-commit its changelog entry, one transaction.

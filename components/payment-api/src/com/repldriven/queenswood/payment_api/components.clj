@@ -154,3 +154,10 @@
 (defn ->inbound-wire-body
   [payment]
   (encode-inbound (->inbound-body payment)))
+
+(def ^:private encode-internal
+  (schema/api-encoder InternalPayment wire-registry))
+
+(defn ->internal-wire-body
+  [payment]
+  (encode-internal (->internal-body payment)))

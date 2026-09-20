@@ -311,9 +311,11 @@ either.
   with `change_kind` settle, hold, release, suspend or return,
   `InboundPayment`, by bank and payment id: money arriving, held on
   its way in, released, parked in suspense, or returned.
-- `payment.internal-settled` — not published. An internal payment
-  carries no status and is settled as it is answered, so its caller
-  holds the only transition there is.
+- `payment.internal-settled` — `internal-payment-settled` with
+  `change_kind` settle, `InternalPayment`, by bank and payment id. An
+  internal payment carries no status and is settled as it is saved, so
+  the entry is the one transition there is, and the account it credits,
+  which is not the caller, is told.
 - `interest.capitalised` — the interest brick's per-account
   capitalisation, resolving to the `Transaction` the run posted,
   behind the single-transaction read its slice creates first.
@@ -619,12 +621,13 @@ monolith and the test rigs included.
 
 ### What the processors must publish
 
-The payment brick's outbound and inbound stores co-commit an entry on
-every transition — `outbound-payment-status-changed` and
-`inbound-payment-status-changed`, each carrying the bank and payment
-ids, the statuses before and after and the change kind — and two
-runners relay both stores on the one `payments-event` topic, which the
-webhook consumer subscribes beside `cash-accounts-event`. The interest
+The payment brick's three stores co-commit an entry on every
+transition — `outbound-payment-status-changed`,
+`inbound-payment-status-changed` and `internal-payment-settled`, each
+carrying the bank and payment ids, the statuses before and after and
+the change kind — and three runners relay them on the one
+`payments-event` topic, which the webhook consumer subscribes beside
+`cash-accounts-event`. The interest
 brick's capitalisation per account still needs its event, and the bank
 brick's events exist and need a relay runner and a topic. Each is the
 lifecycle recipe's Avro schema in `avro-schemas.yml`, the store's
