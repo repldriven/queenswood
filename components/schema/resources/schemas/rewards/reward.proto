@@ -1,0 +1,52 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schemas.rewards;
+
+import "record_metadata_options.proto";
+
+option java_outer_classname = "RewardProto";
+
+// What a reward is for. OPENING is paid once to an account for having
+// been opened under a version that promises one.
+enum RewardKind {
+  REWARD_KIND_UNKNOWN = 0;
+  REWARD_KIND_OPENING = 1;
+}
+
+// DUE is a reward a run could not pay and will try again; PAID carries
+// the transaction that paid it.
+enum RewardStatus {
+  REWARD_STATUS_UNKNOWN = 0;
+  REWARD_STATUS_DUE = 1;
+  REWARD_STATUS_PAID = 2;
+}
+
+// A reward paid, or due, to one account. Unique per account and kind, so
+// an account is rewarded for its opening once, whatever version it later
+// migrates onto.
+message Reward {
+  option (com.apple.foundationdb.record.record).usage = RECORD;
+
+  required string bank_id = 1;
+  required string reward_id = 2;
+  required string account_id = 3;
+  required string party_id = 4;
+  required string product_id = 5;
+  required string version_id = 6;
+  required RewardKind kind = 7;
+  // Minor units of `currency`. Required: a reward of nothing is never
+  // written.
+  required int64 amount = 8;
+  required string currency = 9;
+  required RewardStatus status = 10;
+  // Optional, not required: protojure omits an empty string or a zero on
+  // the wire, and a proto2 `required` field missing from the bytes fails
+  // the Java parse used to bridge into FDB. Read sites drop the default
+  // an unset one decodes to.
+  optional string transaction_id = 11;
+  optional string run_id = 12;
+  optional string error = 13;
+  required int64 created_at = 14;
+  required int64 updated_at = 15;
+  optional int64 paid_at = 16;
+}

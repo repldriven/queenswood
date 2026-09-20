@@ -14,12 +14,23 @@
 (def VersionStatus
   (coercion/version-status-enum-schema {:json-schema/example "draft"}))
 
+(def OpeningReward
+  [:map
+   {:closed true
+    :json-schema/example examples/OpeningReward
+    :description
+    "The welcome reward paid once to an account opened under the version,
+    in minor units of the version's currency. Positive, and fixed once
+    the version is published."}
+   [:amount [:ref "MinorUnits"]]])
+
 (def CashAccountProductRequest
   [:map {:closed true :json-schema/example examples/CashAccountProductRequest}
    [:name [:ref "Name"]]
    [:template-id [:ref "TemplateId"]]
    [:currency [:ref "Currency"]]
    [:interest-rate-bps {:optional true} [:ref "SignedBasisPoints"]]
+   [:opening-reward {:optional true} [:ref "OpeningReward"]]
    [:effective-from [:ref "BusinessDay"]]
    [:effective-to {:optional true} [:maybe [:ref "BusinessDay"]]]])
 
@@ -29,6 +40,7 @@
    [:template-id {:optional true} [:ref "TemplateId"]]
    [:currency [:ref "Currency"]]
    [:interest-rate-bps {:optional true} [:ref "SignedBasisPoints"]]
+   [:opening-reward {:optional true} [:ref "OpeningReward"]]
    [:effective-from [:ref "BusinessDay"]]
    [:effective-to {:optional true} [:maybe [:ref "BusinessDay"]]]])
 
@@ -48,6 +60,7 @@
    [:allowed-payment-address-schemes
     [:unique-vector-lax {:min 1} [:ref "PaymentAddressScheme"]]]
    [:interest-rate-bps {:optional true} [:ref "SignedBasisPoints"]]
+   [:opening-reward {:optional true} [:ref "OpeningReward"]]
    [:effective-from {:optional true} [:maybe [:ref "BusinessDay"]]]
    [:effective-to {:optional true} [:maybe [:ref "BusinessDay"]]]
    [:created-at [:ref "Timestamp"]]
@@ -86,7 +99,8 @@
 
 (def registry
   (components-registry
-   [#'TemplateId #'BalanceSheetSide #'VersionStatus #'CashAccountProductRequest
-    #'CashAccountProductDraftRequest #'CashAccountProductVersion
-    #'CashAccountProduct #'CashAccountProductListLinks #'CashAccountProductList
+   [#'TemplateId #'BalanceSheetSide #'VersionStatus #'OpeningReward
+    #'CashAccountProductRequest #'CashAccountProductDraftRequest
+    #'CashAccountProductVersion #'CashAccountProduct
+    #'CashAccountProductListLinks #'CashAccountProductList
     #'CashAccountProductTemplate #'CashAccountProductTemplateList]))

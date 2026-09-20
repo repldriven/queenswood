@@ -43,11 +43,12 @@
 (defn- product-fields
   "Snapshot the derived instrument fields from the resolved `template`
   (product-type, balance-sheet-side, balance buckets, payment-address
-  schemes, iso type) plus the caller's `:interest-rate-bps`, and stamp
-  the originating `:template-id` for provenance. Returns the fields or
-  an anomaly when the caller's currency isn't allowed."
+  schemes, iso type) plus the caller's `:interest-rate-bps` and
+  `:opening-reward`, and stamp the originating `:template-id` for
+  provenance. Returns the fields or an anomaly when the caller's
+  currency isn't allowed."
   [template data]
-  (let [{:keys [currency interest-rate-bps]} data]
+  (let [{:keys [currency interest-rate-bps opening-reward]} data]
     (let-nom>
       [_ (ensure-currency-allowed template currency)]
       (utility/assoc-some
@@ -61,7 +62,9 @@
        :iso-cash-account-type
        (:iso-cash-account-type template)
        :internal
-       (when (:internal template) true)))))
+       (when (:internal template) true)
+       :opening-reward
+       (when opening-reward {:amount (:amount opening-reward)})))))
 
 (defn new-template
   "Build a template record from seed data: stamp a stable `tpl.` id when
@@ -129,16 +132,33 @@
    nil))
 
 ;; ---------------------------------------------------------------------------
+;; Opening reward
+;;
+;; opening-reward, when present, is {:amount n} in minor units of the
+;; version's currency, and n is positive: a version that promises nothing
+;; carries no reward rather than a reward of nothing.
+
+(defn- ensure-reward
+  [opening-reward]
+  (when (and (some? opening-reward)
+             (not (pos? (or (:amount opening-reward) 0))))
+    (error/reject :cash-account-product/invalid-reward
+                  {:message "An opening reward must be a positive amount"
+                   :opening-reward opening-reward})))
+
+;; ---------------------------------------------------------------------------
 ;; Public domain operations
 
 (defn new-version
   [bank-id product-id versions template data policies]
-  (let [{:keys [name currency effective-from effective-to]} data
+  (let [{:keys [name currency effective-from effective-to opening-reward]}
+        data
         now (utility/now)]
     (let-nom>
       [_ (ensure-template-matches template data)
        fields (product-fields template data)
        _ (ensure-effective-window effective-from effective-to)
+       _ (ensure-reward opening-reward)
        _ (check-capability :cash-account-product-action-draft
                            (:product-type template)
                            policies)
@@ -188,12 +208,14 @@
   (let [{:keys [bank-id product-id version-id
                 version-number status created-at]}
         existing
-        {:keys [name currency effective-from effective-to]} data]
+        {:keys [name currency effective-from effective-to opening-reward]}
+        data]
     (let-nom>
       [_ (ensure-draft existing)
        _ (ensure-template-matches template data)
        fields (product-fields template data)
        _ (ensure-effective-window effective-from effective-to)
+       _ (ensure-reward opening-reward)
        _ (check-capability :cash-account-product-action-draft
                            (:product-type template)
                            policies)]

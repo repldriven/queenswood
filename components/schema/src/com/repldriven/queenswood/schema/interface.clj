@@ -29,6 +29,7 @@
     [com.repldriven.queenswood.schemas.person_identification :as
      person-identification]
     [com.repldriven.queenswood.schemas.policies :as policies]
+    [com.repldriven.queenswood.schemas.rewards :as rewards]
     [com.repldriven.queenswood.schemas.scheduler :as scheduler]
     [com.repldriven.queenswood.schemas.transactions :as transactions]
     [com.repldriven.queenswood.schemas.types :as types]
@@ -83,6 +84,7 @@
     (com.repldriven.queenswood.schemas.policies
      PolicyProto$Policy
      PolicyProto$PolicyBinding)
+    (com.repldriven.queenswood.schemas.rewards RewardProto$Reward)
     (com.repldriven.queenswood.schemas.transactions
      TransactionProto$Transaction
      TransactionProto$TransactionLeg
@@ -185,6 +187,11 @@
   (TransactionProto$TransactionType/forNumber
    (transaction-type->int transaction-type)))
 
+(defn- plain-embedded
+  "`pb->` hands an embedded message back as a protojure record, which
+  reitit cannot coerce, so the one under `k` becomes a plain map."
+  [m k]
+  (cond-> m (some? (get m k)) (update k #(into {} %))))
 
 (defn pb->CashAccountProduct
   "Parse CashAccountProduct protobuf bytes into a Clojure map, dropping
@@ -194,13 +201,18 @@
   the `false` default for `internal` so the flag is present only on
   internal products (which never reach a customer response), and the
   empty-string default for `idempotency_key` so only new-product
-  versions carry one (others never took a unique-index entry).
+  versions carry one (others never took a unique-index entry). An
+  `opening-reward` is a plain map, and absent when the version promises
+  none.
 
   Args:
   - input: protobuf bytes."
   [input]
   (let [version (cash-account-products/pb->CashAccountProduct input)]
-    (cond-> version
+    (cond-> (plain-embedded version :opening-reward)
+            (nil? (:opening-reward version))
+            (dissoc :opening-reward)
+
             (zero? (:effective-from version 0))
             (dissoc :effective-from)
 
@@ -1021,10 +1033,6 @@
              (into {} record)
              unset))
 
-(defn- plain-actor
-  [m k]
-  (cond-> m (some? (get m k)) (update k #(into {} %))))
-
 (def ^:private membership-unset {:ended-at 0 :ended-by nil :invitation-id ""})
 
 (defn pb->Membership
@@ -1039,7 +1047,7 @@
   [input]
   (-> (memberships/pb->Membership input)
       (without-unset membership-unset)
-      (plain-actor :ended-by)
+      (plain-embedded :ended-by)
       (update :status
               #(if (= :membership-status-unknown %)
                  :membership-status-active
@@ -1111,7 +1119,7 @@
   [input]
   (-> (memberships/pb->Invitation input)
       (without-unset invitation-unset)
-      (plain-actor :invited-by)))
+      (plain-embedded :invited-by)))
 
 (defn Invitation->pb
   "Serialise an Invitation map to protobuf bytes.
@@ -1163,7 +1171,7 @@
   [input]
   (-> (memberships/pb->AccessEvent input)
       (without-unset access-event-unset)
-      (plain-actor :actor)))
+      (plain-embedded :actor)))
 
 (defn AccessEvent->pb
   "Serialise an AccessEvent map to protobuf bytes. `:kind` is required:
@@ -1325,3 +1333,38 @@
 (def ^{:doc "Map of EmailDeliveryStatus label to protobuf int value."}
      email-delivery-status->int
   emails/EmailDeliveryStatus-label2val)
+
+(def ^:private reward-unset
+  {:transaction-id "" :run-id "" :error "" :paid-at 0})
+
+(defn pb->Reward
+  "Parse Reward protobuf bytes into a Clojure map. `transaction-id`,
+  `run-id`, `error` and `paid-at` are present only when set.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (without-unset (rewards/pb->Reward input) reward-unset))
+
+(defn Reward->pb
+  "Serialise a Reward map to protobuf bytes.
+
+  Args:
+  - m: Reward map matching the generated schema."
+  [m]
+  (proto/->pb (rewards/new-Reward m)))
+
+(defn Reward->java
+  "Parse a Reward map into the generated Java protobuf class.
+
+  Args:
+  - m: Reward map matching the generated schema."
+  [m]
+  (RewardProto$Reward/parseFrom (Reward->pb m)))
+
+(def ^{:doc "Map of RewardKind label to protobuf int value."} reward-kind->int
+  rewards/RewardKind-label2val)
+
+(def ^{:doc "Map of RewardStatus label to protobuf int value."}
+     reward-status->int
+  rewards/RewardStatus-label2val)

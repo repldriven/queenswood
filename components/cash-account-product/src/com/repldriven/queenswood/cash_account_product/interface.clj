@@ -35,6 +35,11 @@
       template edits never change an existing product.
     - `:currency` — ISO 4217 string, single currency per product.
     - `:interest-rate-bps` — optional; defaults to 0.
+    - `:opening-reward` — optional; `{:amount n}`, the welcome reward
+      paid once to an account opened under the version, in minor units
+      of `:currency`. `n` is positive, and the reward is fixed once the
+      version is published, like the rate. Absent, the version promises
+      none.
     - `:effective-from` — epoch-day (required), the date the version
       becomes active.
     - `:effective-to` — optional epoch-day; open-ended when absent.

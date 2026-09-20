@@ -40,4 +40,5 @@
                    :allowed-currencies ["GBP"]
                    :allowed-payment-address-schemes ["scan"]
                    :interest-rate-bps 0
+                   :opening-reward [:m/absent]
                    :effective-from "2026-01-01"}}}]}

@@ -1,8 +1,11 @@
 (ns com.repldriven.queenswood.cash-account-product.domain-test
   "Pure-function tests for the rejection paths surfaced by
   cash-account-product domain operations: `:version-immutable`
-  on update/publish/discard against non-draft versions, and
-  `:draft-already-exists` on new-version when a draft is open.
+  on update/publish/discard against non-draft versions,
+  `:draft-already-exists` on new-version when a draft is open, and
+  `:invalid-reward` on a reward of nothing; and for the opening reward
+  threading through create, new version and update, or staying off a
+  version that never named one.
 
   The template is the resolved record core looks up by id and passes
   in; here it's a fixture map.
@@ -201,3 +204,51 @@
              permissive-policies)]
       (is (error/rejection? r))
       (is (= :cash-account-product/invalid-effective-window (error/kind r))))))
+
+(deftest opening-reward-test
+  (testing "a new version carries the reward it was given"
+    (let [v (SUT/new-version "bnk.1"
+                             "prd.1"
+                             []
+                             template
+                             (assoc good-data :opening-reward {:amount 1000})
+                             permissive-policies)]
+      (is (= {:amount 1000} (:opening-reward v)))))
+  (testing "a version that names no reward carries none"
+    (let [v (SUT/new-version "bnk.1"
+                             "prd.1"
+                             []
+                             template
+                             good-data
+                             permissive-policies)]
+      (is (not (contains? v :opening-reward)))))
+  (testing "a draft's update replaces or removes it"
+    (let [with-reward (SUT/update-version
+                       draft-version
+                       template
+                       (assoc good-data :opening-reward {:amount 2500})
+                       permissive-policies)
+          without (SUT/update-version draft-version
+                                      template
+                                      good-data
+                                      permissive-policies)]
+      (is (= {:amount 2500} (:opening-reward with-reward)))
+      (is (not (contains? without :opening-reward)))))
+  (testing "a reward of nothing, or less, is rejected with :invalid-reward"
+    (doseq [amount [0 -1 nil]]
+      (let [r (SUT/new-version
+               "bnk.1"
+               "prd.1"
+               []
+               template
+               (assoc good-data :opening-reward {:amount amount})
+               permissive-policies)]
+        (is (error/rejection? r))
+        (is (= :cash-account-product/invalid-reward (error/kind r))))))
+  (testing "a published version's reward cannot change"
+    (let [r (SUT/update-version published-version
+                                template
+                                (assoc good-data :opening-reward {:amount 1000})
+                                permissive-policies)]
+      (is (error/rejection? r))
+      (is (= :cash-account-product/version-immutable (error/kind r))))))

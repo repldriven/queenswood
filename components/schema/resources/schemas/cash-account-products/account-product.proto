@@ -44,6 +44,13 @@ enum CashAccountProductStatus {
   CASH_ACCOUNT_PRODUCT_STATUS_DISCARDED = 3;
 }
 
+// A welcome reward paid once to an account opened under a version, in
+// minor units of the version's one currency. A version that promises
+// none carries no OpeningReward at all.
+message OpeningReward {
+  required int64 amount = 1;
+}
+
 // A versioned customer-facing instrument template: drives cash-account
 // opening (allowed balance buckets, payment schemes, interest rate) and the
 // outbound ISO 20022 account-type classification.
@@ -91,6 +98,9 @@ message CashAccountProduct {
   // any other path leaves it unset (protojure drops the empty default, so
   // it takes no unique-index entry).
   optional string idempotency_key = 25;
+  // The reward paid to an account opened under this version. Fixed once
+  // the version is published, like the rate.
+  optional OpeningReward opening_reward = 26;
 }
 
 // A platform-scoped template (no bank_id) that defines the derived instrument

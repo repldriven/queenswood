@@ -47,6 +47,7 @@
 (def ProductId (schema/id-examples "ProductId"))
 (def VersionId (schema/id-examples "VersionId"))
 (def TemplateId "tpl.00000000000000000000000001")
+(def OpeningReward {:amount 1000})
 
 (def CashAccountProductVersion
   {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
@@ -62,6 +63,7 @@
    :balance-products [{:balance-type :default :balance-status :posted}]
    :allowed-payment-address-schemes [:scan]
    :interest-rate-bps 0
+   :opening-reward OpeningReward
    :effective-from "2025-01-01"
    :created-at "2025-01-01T00:00:00Z"
    :updated-at "2025-01-01T00:00:00Z"})
@@ -76,6 +78,7 @@
    :template-id TemplateId
    :currency "GBP"
    :interest-rate-bps 0
+   :opening-reward OpeningReward
    :effective-from "2025-01-01"})
 
 (def CashAccountProductTemplate

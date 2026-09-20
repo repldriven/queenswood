@@ -5,7 +5,7 @@
 # its record type arrived on as since, and a store lists the indexes
 # removed from it under former-indexes with the versions they were added
 # and removed at. See docs/recipes/code/schema-evolution.md.
-version: 54
+version: 55
 stores:
   assertions:
     record-type: Assertion
@@ -490,3 +490,13 @@ stores:
         added: 53
         modified: 53
         fields: [status, next_attempt_at]
+  rewards:
+    record-type: Reward
+    since: 55
+    primary-key: [bank_id, reward_id]
+    indexes:
+      - name: Reward_by_bank_account
+        added: 55
+        modified: 55
+        fields: [bank_id, account_id, kind]
+        unique: true

@@ -32,6 +32,7 @@ import "schemas/payments/internal-payment.proto";
 import "schemas/payments/outbound-payment.proto";
 import "schemas/person-identification/person-identification.proto";
 import "schemas/policies/policy.proto";
+import "schemas/rewards/reward.proto";
 import "schemas/transactions/transaction.proto";
 import "schemas/users/user.proto";
 import "schemas/webhooks/webhook-delivery.proto";
@@ -93,4 +94,5 @@ message RecordTypeUnion {
   optional com.repldriven.queenswood.schemas.memberships.Invitation _Invitation = 43;
   optional com.repldriven.queenswood.schemas.memberships.AccessEvent _AccessEvent = 44;
   optional com.repldriven.queenswood.schemas.emails.EmailDelivery _EmailDelivery = 45;
+  optional com.repldriven.queenswood.schemas.rewards.Reward _Reward = 46;
 }
