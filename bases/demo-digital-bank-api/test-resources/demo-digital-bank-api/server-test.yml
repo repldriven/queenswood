@@ -10,10 +10,13 @@ jetty-adapter: !system/component
   system/component-kind: server/jetty-adapter
   handler: !system/local-ref handler
   interceptors: !system/local-ref interceptors
-  # The app's Vite dev server, on another origin.
+  # The app's Vite dev server, on another origin. A submission carries
+  # the key the app minted, which a preflight refuses unless it is
+  # named here beside the defaults.
   cors:
     origins:
       - http://localhost:5174
+    request-headers: [Accept, Authorization, Content-Type, Idempotency-Key]
   # A block of its own, clear of the monolith's 8080-8090: the demos
   # start at 8100.
   options: !profile
