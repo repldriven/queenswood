@@ -366,8 +366,9 @@ consumers: !system/component
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       group.id: test-cash-accounts-event
-  # The webhook consumer's own group on the same topic, so it hears
-  # every account event rather than competing for them.
+  # The webhook consumer's own group on the same topic: a Kafka channel
+  # is one group member with one subscription, and the cash-account
+  # processor holds `cash-accounts-event`.
   webhook-cash-accounts-event:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas

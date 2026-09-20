@@ -279,10 +279,9 @@ configuration, and only the local monolith's dev profile relaxes
 either, in `monolith/server-test.yml` and `monolith/webhook-test.yml`.
 The local monolith also gained the consumer and the runner it never
 hosted, under a channel of the consumer's own,
-`webhook-cash-accounts-event`, since the bus keys a subscription by
-channel name and the cash-account processor already holds
-`cash-accounts-event`: a second subscriber there would compete with it
-for every event rather than hear each one.
+`webhook-cash-accounts-event`: its bus is Kafka, where a channel is one
+consumer group member with one subscription, and the cash-account
+processor already holds `cash-accounts-event`.
 
 ### What the platform does not serve as drawn
 
