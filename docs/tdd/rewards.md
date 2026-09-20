@@ -251,14 +251,18 @@ anywhere but a forced run:
   and exclusive-dispatchers manifests in place of their inline copies
   and by `monolith/application-test.yml`, so `just monolith-start`
   fires triggers and the demo pays its rewards on the hour.
-- **A sweep.** The runner registers one trigger of its own, every
-  minute, that seeds missing jobs for every bank with
-  `scheduler/seed-jobs`, idempotent on `[bank_id, job_id]`, and
-  registers a trigger for every enabled job that has none, read off
-  `scheduler/next-fire-at`. It never re-registers one that exists,
-  since mono's `schedule` is delete-then-add. A bank created after the
-  runner started, and a job added to `jobs.edn` after the bank, both
-  run within the minute.
+- **A reconcile.** The runner makes the live triggers match the job
+  rows at start and, on a trigger of its own, every minute after: a
+  template a bank has no row for is seeded, and only that one, since
+  `seed-jobs` overwrites what an operator edited; an enabled job with
+  no trigger, or whose cron changed, is registered on a closure that
+  reads its row again at fire time; a disabled one is removed. The
+  runner remembers what it registered, keyed by trigger id, so an
+  unchanged row costs nothing and mono needs no way to ask. A bank
+  created after the runner started, a job added to `jobs.edn` after
+  the bank, and an edit made through the jobs API, which runs in
+  another JVM and reaches no trigger today, all take effect within the
+  minute.
 
 ### The API and the console
 

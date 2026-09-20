@@ -1,0 +1,14 @@
+# The Quartz scheduler and the runner that keeps a trigger per enabled
+# job in step with the job rows, at start and every minute after. Each
+# instance is a scheduler of its own that fires every bank's jobs, so
+# one service includes this: exclusive-dispatchers-service, or the
+# monolith standing in for every service.
+scheduler: !system/component
+  system/component-kind: scheduler/scheduler
+
+runner: !system/component
+  system/component-kind: bank-scheduler/runner
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  schemas: !system/ref avro.serde
+  scheduler: !system/local-ref scheduler

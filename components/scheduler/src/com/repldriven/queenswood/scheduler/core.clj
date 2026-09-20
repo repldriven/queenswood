@@ -11,7 +11,8 @@
     [com.repldriven.mono.utility.interface :as utility]
 
     [clojure.edn :as edn]
-    [clojure.java.io :as io]))
+    [clojure.java.io :as io]
+    [clojure.tools.logging :as log]))
 
 ;; Code-defined registry of preset tasks. Each `:run` takes the FDB+
 ;; interfaces config, the bank id, and an as-of date (epoch-day), and
@@ -49,6 +50,8 @@
 (defn- job-cron
   [job]
   (domain/->cron (:periodicity job) (:run-time-minutes job) (:monthly-day job)))
+
+(declare register!)
 
 (def ^:private default-jobs
   "Default scheduled jobs seeded into every bank at provisioning,
@@ -208,7 +211,8 @@
            enabled (if (some? enabled) enabled (:enabled job))
            monthly-day (or monthly-day (:monthly-day job))]
        (let-nom> [_ (domain/validate-system-edits job edits)
-                  _ (domain/validate-periodicity (:task-kinds job) periodicity)]
+                  _ (domain/validate-periodicity (:task-kinds job) periodicity)
+                  _ (domain/validate-run-time periodicity run-time-minutes)]
          (let [now (utility/now)
                cron (domain/->cron periodicity run-time-minutes monthly-day)
                updated (assoc job
@@ -222,20 +226,24 @@
            (if (error/anomaly? result)
              result
              (do
-               (when-let [sched (:scheduler config)]
-                 (if enabled
-                   (scheduler/schedule
-                    sched
-                    (trigger-id updated)
-                    cron
-                    #(run-job config
-                              bank-id
-                              updated
-                              :scheduler-trigger-source-scheduled))
-                   (scheduler/unschedule sched (trigger-id updated))))
+               (when (:scheduler config)
+                 (register! config updated))
                updated))))))))
 
 ;; --- seeding + trigger registration --------------------------------------
+
+(defn- template->job
+  "A seeded job for `bank-id` from a `jobs.edn` template: the template's
+  fields, the bank, the next fire and the timestamps."
+  [bank-id template now]
+  (let [cron (domain/->cron (:periodicity template)
+                            (:run-time-minutes template)
+                            (:monthly-day template))]
+    (assoc template
+           :bank-id bank-id
+           :next-run-at (scheduler/next-fire-at cron now)
+           :created-at now
+           :updated-at now)))
 
 (defn seed-jobs
   "Seed the bank's default scheduled jobs (FDB only — no triggers).
@@ -243,37 +251,135 @@
   the caller's transaction so a failed row rolls bank creation back."
   [txn bank-id]
   (reduce (fn [_ template]
-            (let [now (utility/now)
-                  cron (domain/->cron (:periodicity template)
-                                      (:run-time-minutes template)
-                                      (:monthly-day template))
-                  job (assoc template
-                             :bank-id bank-id
-                             :next-run-at (scheduler/next-fire-at cron now)
-                             :created-at now
-                             :updated-at now)
-                  result (store/save-job txn job)]
+            (let [result (store/save-job txn
+                                         (template->job bank-id
+                                                        template
+                                                        (utility/now)))]
               (if (error/anomaly? result) (reduced result) nil)))
           nil
           default-jobs))
 
-(defn register-all!
-  "Register a cronut trigger for every enabled job across all banks.
-  Called by the runner at startup. `config` must carry `:scheduler`."
-  [config]
+(defn- seed-missing-jobs
+  "The templates a bank has no row for, seeded. A template added to
+  `jobs.edn` after the bank was created reaches it here, and a row an
+  operator has edited is never overwritten, since only the missing are
+  written. Answers the rows written."
+  [config bank-id jobs]
+  (let [present (set (map :job-id jobs))]
+    (reduce (fn [written template]
+              (if (present (:job-id template))
+                written
+                (let [job (template->job bank-id template (utility/now))
+                      result (store/save-job config job)]
+                  (if (error/anomaly? result)
+                    (do (log/error "Scheduler could not seed a job"
+                                   {:bank-id bank-id
+                                    :job-id (:job-id template)
+                                    :error (error/format-anomaly result)})
+                        written)
+                    (do (log/info "Scheduler seeded a job"
+                                  {:bank-id bank-id :job-id (:job-id job)})
+                        (conj written job))))))
+            []
+            default-jobs)))
+
+(defn- fire
+  "What a trigger runs: the job as its row reads now, not as it read
+  when the trigger was registered, so an edit made elsewhere is honoured
+  at the next fire even before the reconcile that re-registers it. A
+  row that has gone, or been disabled, runs nothing."
+  [config bank-id job-id]
+  (let [job (store/get-job config bank-id job-id)]
+    (cond
+     (error/anomaly? job)
+     (log/error "Scheduler could not load the job to run"
+                {:bank-id bank-id
+                 :job-id job-id
+                 :error (error/format-anomaly job)})
+
+     (nil? job)
+     (log/info "Scheduler skipped a job whose row has gone"
+               {:bank-id bank-id :job-id job-id})
+
+     (not (:enabled job))
+     (log/info "Scheduler skipped a job that is no longer enabled"
+               {:bank-id bank-id :job-id job-id})
+
+     :else
+     (do (log/info "Scheduler running a job"
+                   {:bank-id bank-id :job-id job-id})
+         (run-job config bank-id job :scheduler-trigger-source-scheduled)))))
+
+(defn- register!
+  "Make the live trigger for `job` match its row: registered on the
+  row's cron where the job is enabled, and absent where it is not.
+  `:triggers` remembers what this JVM registered, keyed by trigger id,
+  so an unchanged row costs nothing. A `config` with no `:triggers`
+  registers without remembering, which the next reconcile corrects."
+  [config job]
   (let [sched (:scheduler config)
-        jobs (store/list-all-jobs config)]
+        triggers (:triggers config)
+        id (trigger-id job)
+        want (when (:enabled job) (job-cron job))
+        have (when triggers (get @triggers id))]
+    (cond
+     (and want (not= want have))
+     (let [result (scheduler/schedule sched
+                                      id
+                                      want
+                                      #(fire config
+                                             (:bank-id job)
+                                             (:job-id job)))]
+       (if (error/anomaly? result)
+         (log/error
+          "Scheduler could not register a trigger"
+          {:trigger id :cron want :error (error/format-anomaly result)})
+         (do (log/info "Scheduler registered a trigger"
+                       {:trigger id :cron want})
+             (when triggers (swap! triggers assoc id want)))))
+
+     (and (nil? want) have)
+     (do (scheduler/unschedule sched id)
+         (log/info "Scheduler removed a trigger" {:trigger id})
+         (swap! triggers dissoc id))
+
+     :else
+     nil)))
+
+(defn reconcile!
+  "Make the live triggers match the job rows: seed a job the rows lack
+  for a bank that has any, register a trigger for every enabled job
+  that has none or whose cron changed, and remove one for a job that is
+  disabled. The rows are the truth, wherever they were written — a bank
+  created after this runner started, a job added to `jobs.edn` after
+  the bank, and an edit made through the API in another JVM all reach
+  the live scheduler here. Run at start and every minute after.
+  `config` must carry `:scheduler` and `:triggers`."
+  [config]
+  (let [jobs (store/list-all-jobs config)]
     (if (error/anomaly? jobs)
-      jobs
-      (do
-        (doseq [job (filter :enabled jobs)]
-          (scheduler/schedule
-           sched
-           (trigger-id job)
-           (job-cron job)
-           (fn []
-             (run-job config
-                      (:bank-id job)
-                      job
-                      :scheduler-trigger-source-scheduled))))
+      (log/error "Scheduler could not list the jobs to reconcile"
+                 {:error (error/format-anomaly jobs)})
+      (let [by-bank (group-by :bank-id jobs)
+            seeded (mapcat (fn [[bank-id bank-jobs]]
+                             (seed-missing-jobs config bank-id bank-jobs))
+                    by-bank)]
+        (doseq [job (concat jobs seeded)]
+          (register! config job))
         nil))))
+
+(def ^:private sweep-cron "Every minute, on the minute." "0 * * * * ?")
+
+(defn start!
+  "Reconcile once, then every minute: the runner's start. Answers the
+  config, which is the runner's instance."
+  [config]
+  (reconcile! config)
+  (let [result (scheduler/schedule (:scheduler config)
+                                   "reconcile"
+                                   sweep-cron
+                                   #(reconcile! config))]
+    (when (error/anomaly? result)
+      (log/error "Scheduler could not register its reconcile sweep"
+                 {:error (error/format-anomaly result)})))
+  config)
