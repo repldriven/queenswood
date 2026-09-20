@@ -8,7 +8,7 @@
              :headers {:idempotency-key "ik-opening-reward-bank-001"}
              :body {:name "Opening Reward Test Org"
                     :status "live"
-                    :tier "micro"
+                    :tier "test-scenario"
                     :currencies ["GBP"]}}
    :as :org-0
    :assert {:status 201}}
@@ -59,15 +59,14 @@
                     :effective-from "2026-01-01"}}
    :assert {:status 200 :body {:opening-reward {:amount 2500}}}}
   ;; A reward of nothing is refused: a version that promises none
-  ;; leaves the term off. A second product type, since the micro tier
-  ;; allows one product per type.
+  ;; leaves the term off.
   {:command :api/request
    :request {:method :post
              :path "/v1/cash-account-products"
              :auth :org-0-token
              :headers {:idempotency-key "ik-opening-reward-prod-002"}
-             :body {:name "Nothing Savings"
-                    :template-id "tpl.00000000000000000000000002"
+             :body {:name "Nothing Account"
+                    :template-id "tpl.00000000000000000000000001"
                     :currency "GBP"
                     :interest-rate-bps 0
                     :opening-reward {:amount 0}
