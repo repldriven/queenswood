@@ -4,8 +4,9 @@
   cannot see because it lives in FoundationDB rather than in a pure
   function — the unique idempotency-key index and the read-back that
   turns a retried create into the original version, the key surviving
-  an update, both count indexes, the template store's re-seed, and two
-  concurrent creates against a bank one below its cap.
+  an update, both count indexes, the template store's re-seed, two
+  concurrent creates against a bank one below its cap, and an opening
+  reward read back off the store as it was written.
 
   The domain-level rejection paths live in `domain-test`. HTTP
   behaviour is pinned by cash-account-products/*.edn in
@@ -100,6 +101,37 @@
                  found (q/find-version-by-idempotency-key config bank-id key)
                  _ (testing "the key is indexed against that version"
                      (is (= (:version-id first-version) (:version-id found))))]))))
+
+(deftest opening-reward-reads-back-test
+  (with-test-system
+   [sys config-file]
+   (let [config (fdb-config sys)
+         bank-id "bnk.opening.reward"]
+     (nom-test> [rewarding (SUT/new-product
+                            config
+                            bank-id
+                            (assoc (product-data "Current" current-template-id)
+                                   :opening-reward
+                                   {:amount 1000})
+                            {:policies allow-draft})
+                 plain (SUT/new-product config
+                                        bank-id
+                                        (product-data "Savings"
+                                                      savings-template-id)
+                                        {:policies allow-draft})
+                 read-rewarding (q/get-version config
+                                               bank-id
+                                               (:product-id rewarding)
+                                               (:version-id rewarding))
+                 read-plain (q/get-version config
+                                           bank-id
+                                           (:product-id plain)
+                                           (:version-id plain))
+                 _ (testing "the reward reads back as the map it was written as"
+                     (is (= {:amount 1000} (:opening-reward read-rewarding))))
+                 _ (testing
+                     "and a version that named none reads back without one"
+                     (is (not (contains? read-plain :opening-reward))))]))))
 
 (deftest key-survives-an-update-test
   (with-test-system

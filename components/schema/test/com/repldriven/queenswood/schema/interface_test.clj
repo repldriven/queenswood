@@ -9,7 +9,9 @@
   The access records read back what was written, and a membership
   written before a membership could end reads as active. An inbound
   payment reads back its creditor account and transaction only when it
-  carries them.
+  carries them. A product version reads back its opening reward as a
+  plain map, or without one, and a reward its transaction only once
+  paid.
 
   A `transaction-rejected` written with the current schema is read by a
   consumer still on the schema at `stable-20260916112610`, which is the
@@ -229,6 +231,74 @@
                     :updated-at 1700000060000}]
       (is (= delivery
              (SUT/pb->EmailDelivery (SUT/EmailDelivery->pb delivery)))))))
+
+(def ^:private draft-version
+  "A version as `cash-account-product/domain` builds it at create, with
+  no reward."
+  {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
+   :product-id "prd.01kprbmgcj35ptc8npmybhh4se"
+   :version-id "prv.01kprbmgcj35ptc8npmybhh4sf"
+   :version-number 1
+   :status :cash-account-product-status-draft
+   :product-type :product-type-sub-ledger-current
+   :template-id "tpl.00000000000000000000000001"
+   :balance-sheet-side :balance-sheet-side-liability
+   :name "Current Account"
+   :allowed-currencies ["GBP"]
+   :balance-products [{:balance-type :balance-type-default
+                       :balance-status :balance-status-posted}]
+   :allowed-payment-address-schemes [:payment-address-scheme-scan]
+   :interest-rate-bps 0
+   :effective-from 20089
+   :created-at 1700000000000
+   :updated-at 1700000000000})
+
+(deftest cash-account-product-record-round-trip-test
+  (testing "a version with no reward reads back without one"
+    (let [read (SUT/pb->CashAccountProduct (SUT/CashAccountProduct->pb
+                                            draft-version))]
+      (is (not (contains? read :opening-reward)))
+      (is (some? (SUT/CashAccountProduct->java draft-version)))))
+  (testing "a version's reward reads back as a plain map"
+    (let [version (assoc draft-version :opening-reward {:amount 1000})
+          read (SUT/pb->CashAccountProduct (SUT/CashAccountProduct->pb
+                                            version))]
+      (is (= {:amount 1000} (:opening-reward read)))
+      (is (= 1000
+             (.. (SUT/CashAccountProduct->java version)
+                 getOpeningReward
+                 getAmount))))))
+
+(def ^:private due-reward
+  {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
+   :reward-id "rwd.01kprbmgcj35ptc8npmybhh4t9"
+   :account-id "acc.01kprbmgcj35ptc8npmybhh4s8"
+   :party-id "pty.01kprbmgcj35ptc8npmybhh4s9"
+   :product-id "prd.01kprbmgcj35ptc8npmybhh4se"
+   :version-id "prv.01kprbmgcj35ptc8npmybhh4sf"
+   :kind :reward-kind-opening
+   :amount 1000
+   :currency "GBP"
+   :status :reward-status-due
+   :run-id "run.01kprbmgcj35ptc8npmybhh4ta"
+   :error "house account cannot cover it"
+   :created-at 1700000000000
+   :updated-at 1700000000000})
+
+(deftest reward-record-round-trip-test
+  (testing "a due reward carries no transaction and no paid-at"
+    (is (= due-reward (SUT/pb->Reward (SUT/Reward->pb due-reward))))
+    (is (some? (SUT/Reward->java due-reward))))
+  (testing "a paid reward carries the transaction that paid it"
+    (let [paid (-> due-reward
+                   (dissoc :error)
+                   (assoc :status :reward-status-paid
+                          :transaction-id "txn.01kprbmgcj35ptc8npmybhh4tb"
+                          :paid-at 1700003600000
+                          :updated-at 1700003600000))]
+      (is (= paid (SUT/pb->Reward (SUT/Reward->pb paid))))
+      (is (= (SUT/reward-status->int :reward-status-paid)
+             (.getNumber (.getStatus (SUT/Reward->java paid))))))))
 
 (def ^:private transaction-rejected-schema
   (avro/json->schema

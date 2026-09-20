@@ -1,0 +1,110 @@
+{:name "A version promises an opening reward, fixed once published"
+ :tags #{:api :cash-account-products :lifecycle :happy}
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-opening-reward-bank-001"}
+             :body {:name "Opening Reward Test Org"
+                    :status "live"
+                    :tier "test-scenario"
+                    :currencies ["GBP"]}}
+   :as :org-0
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :org-0 :client-id]
+         :client-secret [:ref :org-0 :client-secret]
+         :status :live}
+   :as :org-0-token}]
+ :when
+ [;; The reward is declared at create, in minor units of the currency.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-opening-reward-prod-001"}
+             :body {:name "Welcome Current Account"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :opening-reward {:amount 1000}
+                    :effective-from "2026-01-01"}}
+   :as :v1
+   :assert {:status 201
+            :body {:status "draft"
+                   :opening-reward {:amount 1000}}}}
+  ;; It reads back with the version.
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/cash-account-products/{product-id}"
+             :path-params {:product-id [:ref :v1 :product-id]}
+             :auth :org-0-token}
+   :assert {:status 200
+            :body {:versions [{:version-id [:ref :v1 :version-id]
+                               :opening-reward {:amount 1000}}]}}}
+  ;; A draft's reward can change.
+  {:command :api/request
+   :request {:method :put
+             :path
+             "/v1/cash-account-products/{product-id}/versions/{version-id}"
+             :path-params {:product-id [:ref :v1 :product-id]
+                           :version-id [:ref :v1 :version-id]}
+             :auth :org-0-token
+             :body {:name "Welcome Current Account"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :opening-reward {:amount 2500}
+                    :effective-from "2026-01-01"}}
+   :assert {:status 200 :body {:opening-reward {:amount 2500}}}}
+  ;; A reward of nothing is refused: a version that promises none
+  ;; leaves the term off.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-opening-reward-prod-002"}
+             :body {:name "Nothing Account"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :opening-reward {:amount 0}
+                    :effective-from "2026-01-01"}}
+   :assert {:status 422
+            :problem {:type ":cash-account-product/invalid-reward"}}}
+  ;; Publishing fixes it.
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :v1 :product-id]
+                  :version-id [:ref :v1 :version-id]}
+    :auth :org-0-token}
+   :assert {:status 200
+            :body {:status "published"
+                   :opening-reward {:amount 2500}}}}
+  {:command :api/request
+   :request {:method :put
+             :path
+             "/v1/cash-account-products/{product-id}/versions/{version-id}"
+             :path-params {:product-id [:ref :v1 :product-id]
+                           :version-id [:ref :v1 :version-id]}
+             :auth :org-0-token
+             :body {:name "Welcome Current Account"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :opening-reward {:amount 5000}
+                    :effective-from "2026-01-01"}}
+   :assert {:status 409
+            :problem {:type ":cash-account-product/version-immutable"}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/cash-account-products/{product-id}"
+             :path-params {:product-id [:ref :v1 :product-id]}
+             :auth :org-0-token}
+   :assert {:status 200
+            :body {:versions [{:version-id [:ref :v1 :version-id]
+                               :status "published"
+                               :opening-reward {:amount 2500}}]}}}]}

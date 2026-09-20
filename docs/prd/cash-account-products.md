@@ -120,6 +120,10 @@ uses it to create a new product, supplying:
   currency, not a list.
 - The interest rate, expressed in basis points (e.g. `550`
   for 5.5% APR). Optional.
+- A welcome reward: an amount in the product's currency,
+  which the bank pays a customer once for opening an account
+  under this version. Optional; a version that names none
+  promises none.
 - The date the version takes effect, and optionally the date
   it stops.
 
