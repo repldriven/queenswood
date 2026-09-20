@@ -101,13 +101,14 @@ Four things the design reuses exist today:
   applied to the bank's own resources, is what the inversion below
   produces.
 
-Two things the catalogue needs do not exist. The payment, interest and
-transaction bricks write no changelog at all, so an outbound payment
-settling or interest being capitalised produces no event anyone could
-hear. The bank brick writes one that no runner relays. The events on
-the bus today are account, party and IDV status changes, the IDV
-completion, and the scheme-level settled, held and rejected events,
-which are the payment processor's input rather than its outcome.
+Two things the catalogue needs do not exist. The interest and
+transaction bricks write no changelog at all, so interest being
+capitalised or a posting landing on an account produces no event
+anyone could hear. The bank brick writes one that no runner relays.
+The events on the bus today are account, party, payment and IDV
+status changes, the IDV completion, and the scheme-level settled, held
+and rejected events, which are the payment processor's input rather
+than its outcome.
 
 Neither inbound receiver verifies a signature. One naming drift
 reached this design: the lifecycle-transitions recipe, the
