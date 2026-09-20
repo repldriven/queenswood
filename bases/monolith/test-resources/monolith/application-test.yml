@@ -34,6 +34,7 @@ system:
   payee-checks: !include system/payee-check-test.yml
   payments: !include system/payment.yml
   payments-dispatcher: !include system/payment-dispatcher.yml
+  payments-relay: !include system/payment-relay.yml
   policies: !include system/policy-test.yml
   server: !include monolith/server-test.yml
   smtp: !include system/smtp-test.yml

@@ -1,0 +1,55 @@
+{
+  "type": "record",
+  "name": "OutboundPaymentStatusChanged",
+  "namespace": "com.repldriven.mono.payments",
+  "fields": [
+    {
+      "name": "bank_id",
+      "type": "string"
+    },
+    {
+      "name": "payment_id",
+      "type": "string"
+    },
+    {
+      "name": "status_before",
+      "type": [
+        "null",
+        {
+          "type": "enum",
+          "name": "OutboundPaymentStatus",
+          "symbols": [
+            "OUTBOUND_PAYMENT_STATUS_UNKNOWN",
+            "OUTBOUND_PAYMENT_STATUS_PENDING",
+            "OUTBOUND_PAYMENT_STATUS_PROCESSING",
+            "OUTBOUND_PAYMENT_STATUS_COMPLETED",
+            "OUTBOUND_PAYMENT_STATUS_FAILED",
+            "OUTBOUND_PAYMENT_STATUS_HELD"
+          ]
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "status_after",
+      "type": "com.repldriven.mono.payments.OutboundPaymentStatus"
+    },
+    {
+      "name": "change_kind",
+      "type": [
+        "null",
+        {
+          "type": "enum",
+          "name": "OutboundPaymentChangeKind",
+          "symbols": [
+            "OUTBOUND_PAYMENT_CHANGE_KIND_SUBMIT",
+            "OUTBOUND_PAYMENT_CHANGE_KIND_HOLD",
+            "OUTBOUND_PAYMENT_CHANGE_KIND_SETTLE",
+            "OUTBOUND_PAYMENT_CHANGE_KIND_FAIL"
+          ]
+        }
+      ],
+      "default": null
+    }
+  ]
+}

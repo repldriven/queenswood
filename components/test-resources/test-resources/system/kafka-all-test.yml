@@ -81,6 +81,14 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-cash-accounts-event
       acks: all
+  payments-event:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword event
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      topic: topic-payments-event
+      acks: all
   companies-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -377,6 +385,22 @@ consumers: !system/component
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       group.id: test-webhook-cash-accounts-event
+  payments-event:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword event
+    topics: [topic-payments-event]
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      group.id: test-payments-event
+  webhook-payments-event:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword event
+    topics: [topic-payments-event]
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      group.id: test-webhook-payments-event
   companies-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -604,6 +628,8 @@ message-bus-producers: !system/component
     producer: !system/local-ref producers.cash-accounts-command-response
   cash-accounts-event:
     producer: !system/local-ref producers.cash-accounts-event
+  payments-event:
+    producer: !system/local-ref producers.payments-event
   companies-command:
     producer: !system/local-ref producers.companies-command
   companies-command-response:
@@ -670,6 +696,12 @@ message-bus-consumers: !system/component
     timeout: 500
   webhook-cash-accounts-event:
     consumer: !system/local-ref consumers.webhook-cash-accounts-event
+    timeout: 500
+  payments-event:
+    consumer: !system/local-ref consumers.payments-event
+    timeout: 500
+  webhook-payments-event:
+    consumer: !system/local-ref consumers.webhook-payments-event
     timeout: 500
   companies-command:
     consumer: !system/local-ref consumers.companies-command

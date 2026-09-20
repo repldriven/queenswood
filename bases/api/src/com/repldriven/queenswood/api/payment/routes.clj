@@ -1,11 +1,6 @@
 (ns com.repldriven.queenswood.api.payment.routes
   (:require
     [com.repldriven.queenswood.api.payment.commands :as commands]
-    [com.repldriven.queenswood.api.payment.examples :refer
-     [BalanceNotFound HeldInboundPayment InboundPaymentList InvalidAmount
-      PaymentNotFound ReturnedInboundPayment SettledInboundPayment
-      SuspendedInboundPayment]]
-    [com.repldriven.queenswood.api.payment.links :as links]
     [com.repldriven.queenswood.api.payment.queries :as queries]
 
     [com.repldriven.queenswood.api.shared.idempotency :as shared.idempotency]
@@ -13,6 +8,10 @@
 
     [com.repldriven.queenswood.api-schema.interface :refer
      [ErrorResponse SuccessResponse]]
+    [com.repldriven.queenswood.payment-api.interface :as links :refer
+     [BalanceNotFound HeldInboundPayment InboundPaymentList InvalidAmount
+      PaymentNotFound ReturnedInboundPayment SettledInboundPayment
+      SuspendedInboundPayment]]
     [com.repldriven.queenswood.cash-account-api.interface :refer
      [CashAccountNotFound]]
     [com.repldriven.queenswood.idempotency.interface :as bank-idempotency]

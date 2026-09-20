@@ -86,7 +86,10 @@
                                                bank-id
                                                business-day
                                                transaction-id)
-     _ (store/save-inbound-payment txn payment)]
+     _ (store/save-inbound-payment
+        txn
+        payment
+        {:change-kind :inbound-payment-change-kind-suspend})]
     payment))
 
 (defn- record-inbound-settlement
@@ -136,7 +139,10 @@
                                                  bank-id
                                                  business-day
                                                  transaction-id)
-             _ (store/save-inbound-payment txn payment)]
+             _ (store/save-inbound-payment
+                txn
+                payment
+                {:change-kind :inbound-payment-change-kind-settle})]
             payment))))))
 
 (defn- suspend-held
@@ -149,7 +155,11 @@
        suspended (domain/suspended-from-held held
                                              scheme-transaction-id
                                              transaction-id)
-       _ (store/save-inbound-payment txn suspended)]
+       _ (store/save-inbound-payment
+          txn
+          suspended
+          {:change-kind :inbound-payment-change-kind-suspend
+           :status-before (:payment-status held)})]
       suspended)))
 
 (defn- record-inbound-release
@@ -203,7 +213,11 @@
              released (domain/settled-from-held held
                                                 scheme-transaction-id
                                                 transaction-id)
-             _ (store/save-inbound-payment txn released)]
+             _ (store/save-inbound-payment
+                txn
+                released
+                {:change-kind :inbound-payment-change-kind-release
+                 :status-before (:payment-status held)})]
             released))))))
 
 (defn settle-inbound
@@ -332,7 +346,11 @@
           :else
           (let-nom>
             [completed (domain/completed-outbound-payment payment)
-             _ (store/save-outbound-payment txn completed)
+             _ (store/save-outbound-payment
+                txn
+                completed
+                {:change-kind :outbound-payment-change-kind-settle
+                 :status-before (:payment-status payment)})
              _ (record-settlement-leg txn payment)]
             (log/infof "Outbound payment settlement now completed: %s"
                        {:payment-id payment-id})
@@ -366,7 +384,11 @@
           :else
           (let-nom>
             [held (domain/held-outbound-payment payment)
-             _ (store/save-outbound-payment txn held)]
+             _ (store/save-outbound-payment
+                txn
+                held
+                {:change-kind :outbound-payment-change-kind-hold
+                 :status-before (:payment-status payment)})]
             (log/infof "Outbound payment now held: %s" {:payment-id payment-id})
             held))))
      :payment/hold-outbound
@@ -416,7 +438,10 @@
                                                      account-id
                                                      bank-id
                                                      business-day)]
-            (let-nom> [_ (store/save-inbound-payment txn payment)]
+            (let-nom> [_ (store/save-inbound-payment
+                          txn
+                          payment
+                          {:change-kind :inbound-payment-change-kind-hold})]
               (log/infof "Inbound now held: %s" {:end-to-end-id end-to-end-id})
               payment)))))
      :payment/hold-inbound
@@ -450,7 +475,11 @@
                           end-to-end-id)
                data)
            (let-nom> [returned (domain/returned-inbound-payment held)
-                      _ (store/save-inbound-payment txn returned)]
+                      _ (store/save-inbound-payment
+                         txn
+                         returned
+                         {:change-kind :inbound-payment-change-kind-return
+                          :status-before (:payment-status held)})]
              (log/infof "Inbound held transaction returned: %s"
                         {:end-to-end-id end-to-end-id})
              returned))))
@@ -525,7 +554,11 @@
             [failed (domain/failed-outbound-payment payment
                                                     cancellation-code
                                                     cancellation-reason)
-             _ (store/save-outbound-payment txn failed)
+             _ (store/save-outbound-payment
+                txn
+                failed
+                {:change-kind :outbound-payment-change-kind-fail
+                 :status-before (:payment-status payment)})
              _ (record-reversal-leg txn payment)]
             (log/infof "Outbound payment rejected and reversed: %s"
                        {:payment-id payment-id

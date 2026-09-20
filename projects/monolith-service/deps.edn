@@ -22,6 +22,7 @@
   component/bank {:local/root "../../components/bank"}
   component/bank-query {:local/root "../../components/bank-query"}
   component/cash-account-api {:local/root "../../components/cash-account-api"}
+  component/payment-api {:local/root "../../components/payment-api"}
   component/cash-account {:local/root "../../components/cash-account"}
   component/cash-account-query {:local/root
                                 "../../components/cash-account-query"}
