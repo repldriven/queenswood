@@ -292,6 +292,21 @@
       ]
     },
     {
+      "username": "xepha",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "xepha@queenswood.local",
+      "firstName": "Xepha",
+      "lastName": "Owner",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "xepha",
+          "temporary": false
+        }
+      ]
+    },
+    {
       "username": "member",
       "enabled": true,
       "emailVerified": true,

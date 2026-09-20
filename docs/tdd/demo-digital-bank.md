@@ -89,6 +89,10 @@ come, which take this one as their pattern.
 - **A service's shape.** A project under `projects/*-service/` plus a
   base owning `main.clj`, imaged from the shared Dockerfile. See
   [deployment](../recipes/infra/deployment.md).
+- **An organisation's owner.** The operator's create call takes an
+  `owner-email`, which writes an owner invitation, and a signed-in user
+  whose verified email matches accepts it under `/v1/me/invitations`
+  with no link. See [access](access.md).
 - **Local secrets.** `pass`, under
   `queenswood/local/dev/auth/clients/`, where `ids/<name>` holds a
   client id and `<name>` its secret, the way the local Google client is
@@ -106,25 +110,27 @@ platform ships, effective from the day they are published:
 - **Rainy Day**, from the savings template, at 410 basis points.
 - **1 Year Fixed**, from the term-deposit template, at 465 basis points.
 
-`just demo-digital-bank-seed`, in `justfiles/demo-digital-bank.just`,
-stands this up against `DEMO_API_URL`. It mints an operator token from
-the dev client, creates the organisation, stores the client id and
-secret in `pass` as `demo-digital-bank` under the local prefix, mints
-the organisation's own token with the test scope, lists the products
-already there, and creates and publishes each of the three that is
-missing, by name. Run again it does nothing, which is what lets it be
-run without looking first; run against a monolith restarted since, whose
-containers hold nothing of the last one, it finds the credential in
-`pass` refused and creates the organisation again. Last it registers
-the bank's webhook endpoint at `DEMO_WEBHOOK_URL`, the receiver below
-on the developer's own machine, and keeps the secret the registration
-returns in `pass` beside the credential; an endpoint already registered
-at that address is left as it is, and one whose secret `pass` no
-longer holds has it rotated, so the bank always starts with a secret
-the platform signs under. Beside it, `just demo-digital-bank-fund` pays
-money into one of the bank's accounts from outside, through the
-platform's sandbox affordance, since nothing else on a developer's
-machine does.
+`just demo-digital-bank-seed`, in `justfiles/demo-digital-bank.just`, stands
+this up against `DEMO_API_URL`. It mints an operator token from the dev client,
+creates the organisation with its owner's email on the call, stores the client
+id and secret in `pass` as `demo-digital-bank` under the local prefix, mints the
+organisation's own token with the test scope, lists the products already there,
+and creates and publishes each of the three that is missing, by name. Run again
+it does nothing, which is what lets it be run without looking first; run against
+a monolith restarted since, whose containers hold nothing of the last one, it
+finds the credential in `pass` refused and creates the organisation again. Last
+it registers the bank's webhook endpoint at `DEMO_WEBHOOK_URL`, the receiver
+below on the developer's own machine, and keeps the secret the registration
+returns in `pass` beside the credential; an endpoint already registered at that
+address is left as it is, and one whose secret `pass` no longer holds has it
+rotated, so the bank always starts with a secret the platform signs under. Last
+of all it signs in as the owner — a user the local realm seeds beside `dev`,
+through the console's public client, which allows the password grant locally —
+and accepts the owner invitation the create call wrote, so the console shows the
+bank to its owner rather than sending a new user to create one; an owner already
+a member is left alone. Beside it, `just demo-digital-bank-fund` pays money into
+one of the bank's accounts from outside, through the platform's sandbox
+affordance, since nothing else on a developer's machine does.
 
 ### The component, the base and its project
 
