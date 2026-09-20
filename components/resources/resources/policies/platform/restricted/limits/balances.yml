@@ -13,6 +13,10 @@
             computed:
               name: available
           transaction-type: !keyword transaction-type-outbound-transfer
+        - kind:
+            computed:
+              name: available
+          transaction-type: !keyword transaction-type-reward
   bound:
     kind:
       min:

@@ -105,6 +105,19 @@
   [txn bank-id idempotency-key]
   (store/find-version-by-idempotency-key txn bank-id idempotency-key))
 
+(defn find-products-by-type
+  "Every version of the bank's products of one product type, off the
+  product-type index, internal ones included — which is how the bank's
+  own-funds house product is reached. Returns a vector of version maps
+  or an anomaly.
+
+  Args:
+  - txn: FDB transaction or db handle.
+  - bank-id: owning bank id.
+  - product-type: product type keyword."
+  [txn bank-id product-type]
+  (store/find-products-by-type txn bank-id product-type))
+
 (defn count-by-org
   "Count distinct products for a bank. A read primitive for the write
   sibling's limit checks."

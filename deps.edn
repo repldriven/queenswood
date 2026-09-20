@@ -51,6 +51,7 @@
                                       "components/person-identification"}
     components/policy {:local/root "components/policy"}
     components/resources {:local/root "components/resources"}
+    components/reward {:local/root "components/reward"}
     components/scheduler {:local/root "components/scheduler"}
     components/schema {:local/root "components/schema"}
     components/test-api-scenarios {:local/root "components/test-api-scenarios"}
@@ -125,6 +126,8 @@
                        "components/party/test-resources"
                        "components/policy/test"
                        "components/policy/test-resources"
+                       "components/reward/test"
+                       "components/reward/test-resources"
                        "components/schema/test"
                        "components/schema/test-resources"
                        "components/scheduler/test"

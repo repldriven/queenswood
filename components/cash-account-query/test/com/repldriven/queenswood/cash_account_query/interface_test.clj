@@ -4,9 +4,10 @@
   place its behaviour shows: which index answers a lookup, whether a
   lookup is scoped by bank, and what the merged scan pairs.
 
-  Rows are written straight into the two stores this brick reads, in
-  the shape the write bricks leave them. Reaching the same rows by
-  driving the write bricks is a scenario's job."
+  Rows are written straight into the stores this brick reads, in the
+  shape the write bricks leave them. Reaching the same rows by driving
+  the write bricks is a scenario's job. The house account is found
+  through the product store as well, so that store is written too."
   (:require
     [com.repldriven.queenswood.fdb.interface :as fdb]
     [com.repldriven.queenswood.testcontainers.interface]
@@ -15,6 +16,7 @@
 
     [com.repldriven.queenswood.schema.interface :as schema]
 
+    [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.system.interface :as system]
     [com.repldriven.mono.test-system.interface :refer
      [with-test-system nom-test>]]
@@ -30,6 +32,7 @@
 ;; — the two stores this brick reads
 (def ^:private accounts-store "cash-accounts")
 (def ^:private balances-store "balances")
+(def ^:private products-store "cash-account-products")
 
 (defn- fdb-config
   [sys]
@@ -255,3 +258,72 @@
                                         seen)))]
                        (is (= 5 (count walked)))
                        (is (= (set ids) (set walked)))))]))))
+
+(defn- own-funds-version
+  "The bank's own-funds product in one currency, as `bank/core` creates
+  and publishes it."
+  [bank-id product-id currency]
+  (let [now (utility/now)]
+    {:bank-id bank-id
+     :product-id product-id
+     :version-id (str "prv." product-id)
+     :version-number 1
+     :status :cash-account-product-status-published
+     :product-type :product-type-sub-ledger-own-funds
+     :balance-sheet-side :balance-sheet-side-liability
+     :name "Bank own funds"
+     :allowed-currencies [currency]
+     :balance-products [{:balance-type :balance-type-default
+                         :balance-status :balance-status-posted}]
+     :internal true
+     :effective-from 20089
+     :created-at now
+     :updated-at now}))
+
+(deftest house-account-test
+  (with-test-system
+   [sys config-file]
+   (let [config (fdb-config sys)
+         bank-id "bnk_house"
+         gbp (own-funds-version bank-id "prd.house.gbp" "GBP")
+         eur (own-funds-version bank-id "prd.house.eur" "EUR")
+         house-gbp (assoc (account bank-id
+                                   "acc.house.gbp"
+                                   "pty.bank"
+                                   (:version-id gbp)
+                                   "10000031")
+                          :product-id "prd.house.gbp"
+                          :product-type :product-type-sub-ledger-own-funds)
+         house-eur (assoc (account bank-id
+                                   "acc.house.eur"
+                                   "pty.bank"
+                                   (:version-id eur)
+                                   "10000032")
+                          :product-id "prd.house.eur"
+                          :product-type :product-type-sub-ledger-own-funds
+                          :currency "EUR")
+         customer
+         (account bank-id "acc.house.cust" "pty.cust" "prv.1" "10000033")]
+     (nom-test> [_ (seed config [house-gbp house-eur customer] [])
+                 _ (fdb/transact config
+                                 (fn [txn]
+                                   (let [store (fdb/open txn products-store)]
+                                     (doseq [v [gbp eur]]
+                                       (fdb/save-record
+                                        store
+                                        (schema/CashAccountProduct->java v)))
+                                     nil))
+                                 :test/seed
+                                 "Failed to seed products")
+                 _
+                 (testing "each currency answers with its own house account"
+                   (nom-test> [found (SUT/house-account config bank-id "GBP")
+                               _ (is (= "acc.house.gbp" (:account-id found)))
+                               found (SUT/house-account config bank-id "EUR")
+                               _ (is (= "acc.house.eur" (:account-id found)))]))
+                 _ (testing
+                     "a currency the bank was not created with is refused"
+                     (let [result (SUT/house-account config bank-id "USD")]
+                       (is (error/rejection? result))
+                       (is (= :cash-account/house-account-not-found
+                              (error/kind result)))))]))))

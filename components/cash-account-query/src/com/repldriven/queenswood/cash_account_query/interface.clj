@@ -69,6 +69,20 @@
   [config bank-id f init]
   (store/reduce-accounts-with-balances config bank-id f init))
 
+(defn house-account
+  "The bank's own-funds house account for `currency`: the account under
+  the own-funds product whose one currency this is, reached through the
+  product-type and product indexes rather than a scan. What a reward is
+  paid from. Rejects `:cash-account/house-account-not-found` where the
+  bank was not created with the currency.
+
+  Args:
+  - txn: FDB transaction or db handle.
+  - bank-id: owning bank id.
+  - currency: ISO 4217 currency string."
+  [txn bank-id currency]
+  (core/house-account txn bank-id currency))
+
 (defn get-account-by-bban
   "Return the account matching the given BBAN, or nil.
 
