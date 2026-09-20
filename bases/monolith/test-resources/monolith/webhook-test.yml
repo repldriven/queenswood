@@ -1,10 +1,10 @@
 # The webhook consumer and runner, hosted in the local monolith so a
 # registered endpoint is delivered to. The consumer subscribes under a
-# channel of its own: the bus keys a subscription by channel name, and
-# the cash-account processor already holds `cash-accounts-event`, so a
-# second subscriber there would compete with it for every event rather
-# than hear each one. `webhook-cash-accounts-event` reads the same
-# topic under its own consumer group, in kafka-all-test.yml.
+# channel of its own: this monolith's bus is Kafka, where a channel is
+# one consumer group member with one subscription, and the cash-account
+# processor already holds `cash-accounts-event`.
+# `webhook-cash-accounts-event` reads the same topic under its own
+# consumer group, in kafka-all-test.yml.
 event-processor-impl: !system/component
   system/component-kind: webhook/event-processor
   record-db: !system/ref fdb.record-db
