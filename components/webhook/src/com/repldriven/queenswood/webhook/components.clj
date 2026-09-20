@@ -7,6 +7,7 @@
      [components-registry]]
     [com.repldriven.queenswood.cash-account-api.interface :as
      cash-account-api]
+    [com.repldriven.queenswood.payment-api.interface :as payment-api]
 
     [clojure.string :as str]))
 
@@ -194,13 +195,16 @@
 
   `WebhookEndpoint` is here for the test notification, which carries
   the endpoint it was sent to and belongs to no catalogue entry."
-  {"CashAccount" "CashAccount" "WebhookEndpoint" "WebhookEndpoint"})
+  {"CashAccount" "CashAccount"
+   "OutboundPayment" "OutboundPayment"
+   "InboundPayment" "InboundPayment"
+   "WebhookEndpoint" "WebhookEndpoint"})
 
 (def resource-registries
   "The registries `resource-components` is held against, merged — the
   `<domain>-api` registry a resource publishes under, and this
   component's own for the endpoint."
-  (merge cash-account-api/registry endpoint-registry))
+  (merge cash-account-api/registry payment-api/registry endpoint-registry))
 
 (defn unknown-resource-types
   [resource->component]

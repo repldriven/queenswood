@@ -16,6 +16,13 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-cash-accounts-event
           acks: all
+      payments-event:
+        schemas: !system/local-ref schemas
+        schema: !keyword event
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          topic: topic-payments-event
+          acks: all
       idv-event:
         schemas: !system/local-ref schemas
         schema: !keyword event
@@ -62,6 +69,8 @@ system:
       system/component-kind: kafka/message-bus-producers
       cash-accounts-event:
         producer: !system/local-ref producers.cash-accounts-event
+      payments-event:
+        producer: !system/local-ref producers.payments-event
       idv-event:
         producer: !system/local-ref producers.idv-event
       idvs-event:
@@ -110,6 +119,11 @@ system:
       bus: !system/ref message-bus.bus
       event-channel: !keyword parties-event
       store-name: parties
+    payments-handler: !system/component
+      system/component-kind: changelog-relay/envelope-handler
+      bus: !system/ref message-bus.bus
+      event-channel: !keyword payments-event
+      store-name: payments
     schemes-payments-handler: !system/component
       system/component-kind: changelog-relay/envelope-handler
       bus: !system/ref message-bus.bus
@@ -158,6 +172,18 @@ system:
         consumer-id: idv-party-watcher
         store-name: parties
         handler: !system/local-ref parties-handler
+      outbound-payments:
+        record-db: !system/ref fdb.record-db
+        keyspace-prefix: !system/ref fdb.keyspace-prefix
+        consumer-id: outbound-payments-relay
+        store-name: outbound-payments
+        handler: !system/local-ref payments-handler
+      inbound-payments:
+        record-db: !system/ref fdb.record-db
+        keyspace-prefix: !system/ref fdb.keyspace-prefix
+        consumer-id: inbound-payments-relay
+        store-name: inbound-payments
+        handler: !system/local-ref payments-handler
   scheduler:
     scheduler: !system/component
       system/component-kind: scheduler/scheduler

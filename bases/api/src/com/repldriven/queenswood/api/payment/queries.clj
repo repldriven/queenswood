@@ -1,10 +1,9 @@
 (ns com.repldriven.queenswood.api.payment.queries
   (:require
-    [com.repldriven.queenswood.api.payment.coercion :as coercion]
-
     [com.repldriven.queenswood.api.cursor :as cursor]
     [com.repldriven.queenswood.api.errors :as errors]
 
+    [com.repldriven.queenswood.payment-api.interface :as coercion]
     [com.repldriven.queenswood.payment-query.interface :as payments]
 
     [com.repldriven.mono.error.interface :as error]

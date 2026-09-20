@@ -19,3 +19,9 @@ system:
       bus: !system/ref message-bus.bus
       processor: !system/local-ref event-processor-impl
       event-channel: !keyword cash-accounts-event
+
+    payments-event-consumer: !system/component
+      system/component-kind: event-processor/event-processor
+      bus: !system/ref message-bus.bus
+      processor: !system/local-ref event-processor-impl
+      event-channel: !keyword payments-event

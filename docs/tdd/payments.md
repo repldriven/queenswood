@@ -210,6 +210,15 @@ A `transaction-rejected` (debit) comes from a scheme decline, an assessment
 failure, or the outbound runner failing the intent (see "The outbound
 runner").
 
+Every save the transitions above make co-commits a changelog entry,
+`outbound-payment-status-changed`, carrying the bank and payment ids,
+the statuses before and after and the change kind — `submit`, `hold`,
+`settle` or `fail` — with the payment id as its ordering key. A relay
+runner over the outbound store republishes each on `payments-event`,
+where the webhook catalogue turns every kind but `submit` into a
+`payment.outbound-status-changed` notification. See
+[webhooks](webhooks.md).
+
 #### Inbound payment
 
 States are `InboundPaymentStatus`: `settled`, `held`, `returned`,
@@ -251,6 +260,13 @@ stateDiagram-v2
 | `settled` / `suspended` | `transaction-settled` (credit) | duplicate scheme-transaction-id | unchanged | idempotent no-op |
 
 `suspended` and `returned` are terminal.
+
+Each inbound save co-commits `inbound-payment-status-changed` the same
+way, with the change kind `settle`, `hold`, `release`, `suspend` or
+`return`, and a second runner over the inbound store republishes it on
+the same channel, where every kind becomes a
+`payment.inbound-status-changed` notification. An internal payment
+writes no entry: it is settled as it is answered.
 
 ### Internal payment flow
 

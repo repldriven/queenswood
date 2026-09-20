@@ -190,7 +190,10 @@
                     payment (domain/new-outbound-payment data
                                                          business-day
                                                          transaction-id)
-                    _ (store/save-outbound-payment txn payment)]
+                    _ (store/save-outbound-payment
+                       txn
+                       payment
+                       {:change-kind :outbound-payment-change-kind-submit})]
                    {:payment payment :debtor-bban (:bban debtor-account)}))))]
     (if (store/uniqueness-violation? raw)
       (let-nom> [existing (or-already-submitted

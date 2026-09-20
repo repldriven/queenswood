@@ -1,0 +1,55 @@
+{
+  "type": "record",
+  "name": "InboundPaymentStatusChanged",
+  "namespace": "com.repldriven.mono.payments",
+  "fields": [
+    {
+      "name": "bank_id",
+      "type": "string"
+    },
+    {
+      "name": "payment_id",
+      "type": "string"
+    },
+    {
+      "name": "status_before",
+      "type": [
+        "null",
+        {
+          "type": "enum",
+          "name": "InboundPaymentStatus",
+          "symbols": [
+            "INBOUND_PAYMENT_STATUS_UNKNOWN",
+            "INBOUND_PAYMENT_STATUS_SETTLED",
+            "INBOUND_PAYMENT_STATUS_SUSPENDED",
+            "INBOUND_PAYMENT_STATUS_HELD",
+            "INBOUND_PAYMENT_STATUS_RETURNED"
+          ]
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "status_after",
+      "type": "com.repldriven.mono.payments.InboundPaymentStatus"
+    },
+    {
+      "name": "change_kind",
+      "type": [
+        "null",
+        {
+          "type": "enum",
+          "name": "InboundPaymentChangeKind",
+          "symbols": [
+            "INBOUND_PAYMENT_CHANGE_KIND_SETTLE",
+            "INBOUND_PAYMENT_CHANGE_KIND_HOLD",
+            "INBOUND_PAYMENT_CHANGE_KIND_RELEASE",
+            "INBOUND_PAYMENT_CHANGE_KIND_SUSPEND",
+            "INBOUND_PAYMENT_CHANGE_KIND_RETURN"
+          ]
+        }
+      ],
+      "default": null
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+# The payment stores' changelogs, relayed on one channel: the outbound
+# and inbound payment stores each keep a cursor, and both republish on
+# `payments-event`, so a consumer subscribes once for every payment
+# transition. Internal payments write no entry: one is settled as it is
+# answered, and its caller holds the answer.
+relay-handler: !system/component
+  system/component-kind: changelog-relay/envelope-handler
+  bus: !system/ref message-bus.bus
+  event-channel: !keyword payments-event
+  store-name: payments
+
+relay-runners: !system/component
+  system/component-kind: changelog-relay/runners
+  outbound-payments:
+    record-db: !system/ref fdb.record-db
+    keyspace-prefix: !system/ref fdb.keyspace-prefix
+    consumer-id: outbound-payments-relay
+    store-name: outbound-payments
+    handler: !system/local-ref relay-handler
+  inbound-payments:
+    record-db: !system/ref fdb.record-db
+    keyspace-prefix: !system/ref fdb.keyspace-prefix
+    consumer-id: inbound-payments-relay
+    store-name: inbound-payments
+    handler: !system/local-ref relay-handler

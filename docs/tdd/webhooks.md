@@ -301,13 +301,18 @@ either.
   `party.identity-status-changed` — `party-status-changed`,
   `idv-completed` and `idv-status-changed`, all resolving to `Party`,
   by bank and party id.
-- `payment.outbound-status-changed` and `payment.internal-settled` —
-  the payment brick's outbound and internal transitions, which do not
-  exist yet, resolving to `OutboundPayment` and `InternalPayment` by
-  payment id.
-- `payment.inbound-status-changed` — the payment brick's inbound
-  transition, behind the `InboundPayment` component and read route its
-  slice creates first.
+- `payment.outbound-status-changed` —
+  `outbound-payment-status-changed` with `change_kind` hold, settle or
+  fail, `OutboundPayment`, by bank and payment id. Told on the status
+  each lands on — `held`, `completed`, `failed` — and not on
+  submission, whose answer the caller already holds.
+- `payment.inbound-status-changed` — `inbound-payment-status-changed`
+  with `change_kind` settle, hold, release, suspend or return,
+  `InboundPayment`, by bank and payment id: money arriving, held on
+  its way in, released, parked in suspense, or returned.
+- `payment.internal-settled` — not published. An internal payment
+  carries no status and is settled as it is answered, so its caller
+  holds the only transition there is.
 - `interest.capitalised` — the interest brick's per-account
   capitalisation, resolving to the `Transaction` the run posted,
   behind the single-transaction read its slice creates first.
@@ -613,10 +618,14 @@ monolith and the test rigs included.
 
 ### What the processors must publish
 
-The catalogue's payment and interest entries need events that do not
-exist: the payment brick's outbound, inbound and internal transitions,
-and the interest brick's capitalisation per account. The bank brick's
-events exist and need a relay runner and a topic. Each is the
+The payment brick's outbound and inbound stores co-commit an entry on
+every transition — `outbound-payment-status-changed` and
+`inbound-payment-status-changed`, each carrying the bank and payment
+ids, the statuses before and after and the change kind — and two
+runners relay both stores on the one `payments-event` topic, which the
+webhook consumer subscribes beside `cash-accounts-event`. The interest
+brick's capitalisation per account still needs its event, and the bank
+brick's events exist and need a relay runner and a topic. Each is the
 lifecycle recipe's Avro schema in `avro-schemas.yml`, the store's
 changelog envelope on the transition, and a runner and topic in
 `exclusive-dispatchers-service`. None of it names a consumer. Each
@@ -780,9 +789,10 @@ neither.
   still leave an endpoint that answers slowly but inside the timeout on
   every attempt, and a host that moves between the re-check and the
   connection.
-- **The payment and interest entries wait on their events.** Until
-  those bricks publish transitions, the catalogue delivers account,
-  party and identity-verification changes only.
+- **The interest entry waits on its event.** Until the interest brick
+  publishes capitalisation, the catalogue delivers account and payment
+  changes only; the party and identity-verification entries wait on
+  their extraction.
 
 Five things this design reasons from have never been observed. Each is
 stated as unobserved, with what would observe it.

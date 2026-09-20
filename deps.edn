@@ -16,6 +16,7 @@
     components/balance-domain {:local/root "components/balance-domain"}
     components/balance-query {:local/root "components/balance-query"}
     components/cash-account-api {:local/root "components/cash-account-api"}
+    components/payment-api {:local/root "components/payment-api"}
     components/cash-account-migration
     {:local/root "components/cash-account-migration"}
     components/cash-account-product {:local/root
@@ -101,6 +102,7 @@
                        "components/cash-account-query/test-resources"
                        "components/cash-account/test"
                        "components/cash-account/test-resources"
+                       "components/payment-api/test"
                        "components/company/test"
                        "components/company/test-resources"
                        "components/demo-digital-bank/test"

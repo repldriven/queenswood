@@ -483,3 +483,122 @@
                  _ (testing "and the delivery it wrote is there to be claimed"
                      (nom-test> [sent (deliveries config endpoint-id)
                                  _ (is (= 1 (count sent)))]))]))))
+
+(def ^:private outbound-event-name "outbound-payment-status-changed")
+
+(def ^:private outbound-kind "payment.outbound-status-changed")
+
+(def ^:private outbound-store
+  "Must match `payment.store`'s store name — the store the consumer's
+  loader reads."
+  "outbound-payments")
+
+(defn- outbound-payment
+  "An outbound payment as `payment.store` leaves it once the scheme has
+  settled it."
+  [bank-id payment-id status]
+  (let [now (utility/now)]
+    {:payment-id payment-id
+     :idempotency-key (str "ik-" payment-id)
+     :scheme "fps"
+     :debtor-account-id "acc.events"
+     :creditor-bban "04000412345678"
+     :creditor-name "Arthur Dent"
+     :currency "GBP"
+     :amount 2500
+     :payment-status status
+     :transaction-id "txn.events"
+     :reference "Towel"
+     :bank-id bank-id
+     :business-day 20260101
+     :created-at now
+     :updated-at now}))
+
+(defn- seed-outbound
+  [config payment]
+  (fdb/transact config
+                (fn [txn]
+                  (fdb/save-record (fdb/open txn outbound-store)
+                                   (schema/OutboundPayment->java payment))
+                  nil)
+                :test/seed
+                "Failed to seed the payment"))
+
+(defn- outbound-envelope
+  [sys
+   {:keys [event-id bank-id payment-id status-before status-after
+           change-kind]}]
+  (let [schemas (system/instance sys [:avro :serde])
+        payload (avro/serialize (get schemas outbound-event-name)
+                                {:bank-id bank-id
+                                 :payment-id payment-id
+                                 :status-before status-before
+                                 :status-after status-after
+                                 :change-kind change-kind})]
+    (if (error/anomaly? payload)
+      payload
+      {:id event-id
+       :event outbound-event-name
+       :payload payload
+       :causation-id payment-id
+       :correlation-id nil})))
+
+(deftest an-outbound-payment-settling-is-told-and-its-submission-is-not-test
+  (with-test-system
+   [sys config-file]
+   (let [config (processor-config sys)
+         bank-id "bnk.events.pay"
+         payment-id (utility/generate-id "pmt")
+         suffix (str (utility/uuidv7))]
+     (nom-test> [_ (seed-outbound config
+                                  (outbound-payment
+                                   bank-id
+                                   payment-id
+                                   :outbound-payment-status-completed))
+                 _ (store/save-endpoint config
+                                        (endpoint
+                                         bank-id
+                                         (str "whe.p." suffix)
+                                         :webhook-endpoint-status-enabled
+                                         [outbound-kind]))
+                 submitted (outbound-envelope
+                            sys
+                            {:event-id (str "evt.submit." suffix)
+                             :bank-id bank-id
+                             :payment-id payment-id
+                             :status-before nil
+                             :status-after :outbound-payment-status-pending
+                             :change-kind :outbound-payment-change-kind-submit})
+                 settled (outbound-envelope
+                          sys
+                          {:event-id (str "evt.settle." suffix)
+                           :bank-id bank-id
+                           :payment-id payment-id
+                           :status-before :outbound-payment-status-pending
+                           :status-after :outbound-payment-status-completed
+                           :change-kind :outbound-payment-change-kind-settle})
+                 _ (testing "the submission has no entry, and writes nothing"
+                     (let [result (consume sys submitted)]
+                       (is (not (error/anomaly? result)))
+                       (nom-test> [written (notifications config bank-id)
+                                   _ (is (= 0 (count written)))])))
+                 _ (testing "the settlement writes one notification"
+                     (is (not (error/anomaly? (consume sys settled)))))
+                 written (notifications config bank-id)
+                 _ (is (= 1 (count written)))
+                 body (body->map (first written))
+                 _ (testing "carrying the payment as its read route returns it"
+                     (is (= outbound-kind (:kind body)))
+                     (is (= "settle" (:change-kind body)))
+                     (is (= "OutboundPayment" (:resource-type body)))
+                     (is (= payment-id (:resource-id body)))
+                     (is (= "pending" (:status-before body)))
+                     (is (= "completed" (:status-after body)))
+                     (is (= "completed" (get-in body [:data :payment-status])))
+                     (is (= "fps" (get-in body [:data :scheme])))
+                     (is (= (str "ik-" payment-id) (:idempotency-key body)))
+                     (is (not (contains? (:data body) :idempotency-key))))
+                 _ (testing "and one delivery to the endpoint that chose it"
+                     (nom-test> [chosen (deliveries config
+                                                    (str "whe.p." suffix))
+                                 _ (is (= 1 (count chosen)))]))]))))

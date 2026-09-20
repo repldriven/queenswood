@@ -1,4 +1,4 @@
-(ns com.repldriven.queenswood.api.payment.links
+(ns com.repldriven.queenswood.payment-api.links
   "OpenAPI 3 `links` objects for payment responses.")
 
 (def from-internal-payment
