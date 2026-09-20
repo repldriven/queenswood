@@ -1,6 +1,6 @@
 ;; The postgres driver is a test dep, matching mono's `jdbc`: a brick stays
 ;; driver-agnostic and the deploying project chooses.
-;; `demo-digital-bank-service` declares it for real.
+;; `demo-digital-bank-api-service` declares it for real.
 {:aliases {:test {:extra-deps {org.postgresql/postgresql {:mvn/version
                                                           "42.7.13"}}
                   :extra-paths ["test" "test-resources"]}}

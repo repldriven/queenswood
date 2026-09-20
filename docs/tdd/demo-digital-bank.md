@@ -131,7 +131,7 @@ machine does.
 `components/demo-digital-bank` is the bank: the store, the
 customers and their sessions, the platform client and the reads the
 app is served from, behind one `interface.clj`. `bases/demo-digital-bank-api`
-owns `main.clj` and the routes, and `projects/demo-digital-bank-service`
+owns `main.clj` and the routes, and `projects/demo-digital-bank-api-service`
 holds its `deps.edn` and `resources/application.yml`, on the same
 `system/defcomponents` shape as every service. The configuration it
 reads: the platform's URL, the client id, secret and status, the

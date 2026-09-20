@@ -4,7 +4,7 @@
 ;; stays driver-agnostic and the deployable chooses.
 {:aliases
  {:build {:deps {ext/mono-build {:local/root "../../deps/mono-build"}}
-          :exec-args {:lib 'com.repldriven.queenswood/demo-digital-bank-service
+          :exec-args {:lib 'com.repldriven.queenswood/demo-digital-bank-api-service
                       :main com.repldriven.queenswood.demo-digital-bank-api.main
                       :major-minor-version "0.0"}
           :ns-default com.repldriven.mono.build.build}
