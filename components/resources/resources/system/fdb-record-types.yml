@@ -5,7 +5,7 @@
 # its record type arrived on as since, and a store lists the indexes
 # removed from it under former-indexes with the versions they were added
 # and removed at. See docs/recipes/code/schema-evolution.md.
-version: 55
+version: 56
 stores:
   assertions:
     record-type: Assertion

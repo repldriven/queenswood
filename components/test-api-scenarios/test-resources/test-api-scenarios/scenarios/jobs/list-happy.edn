@@ -17,11 +17,12 @@
          :status :live}
    :as :org-0-token}]
  :when
- ;; Every bank is seeded two default jobs at provisioning: the
+ ;; Every bank is seeded three default jobs at provisioning: the
  ;; user-owned daily-interest (daily; accrue then capitalize; allowed
- ;; cadence is daily-only since accrue is) and the system-owned
+ ;; cadence is daily-only since accrue is), the system-owned
  ;; account-migration (daily at 00:00; cadence fixed, though its task
- ;; allows any cadence).
+ ;; allows any cadence) and the user-owned hourly-rewards (on the hour;
+ ;; hourly or daily).
  [{:command :api/request
    :request {:method :get :path "/v1/jobs" :auth :org-0-token}
    :assert
@@ -40,4 +41,12 @@
               :kind "system"
               :periodicity "daily"
               :run-time-minutes 0
-              :allowed-periodicities ["daily" "monthly" "yearly"]}]]}}}]}
+              :allowed-periodicities ["daily" "monthly" "yearly"]}
+             {:job-id "hourly-rewards"
+              :name "Hourly rewards"
+              :kind "user"
+              :task-kinds ["reward"]
+              :periodicity "hourly"
+              :allowed-periodicities ["hourly" "daily"]
+              :run-time-minutes 0
+              :enabled true}]]}}}]}

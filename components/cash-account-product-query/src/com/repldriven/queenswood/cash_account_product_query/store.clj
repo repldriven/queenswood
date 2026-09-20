@@ -69,6 +69,26 @@
    :cash-account-product/find-by-idempotency-key
    "Failed to find product version by idempotency key"))
 
+(defn find-products-by-type
+  [txn bank-id product-type]
+  (fdb/transact
+   txn
+   (fn [txn]
+     (let [store (fdb/open txn store-name)]
+       (mapv schema/pb->CashAccountProduct
+             (fdb/query-records-compound
+              store
+              "CashAccountProduct"
+              [["bank_id" bank-id]
+               ["product_type"
+                (fdb/enum-value store
+                                "CashAccountProduct"
+                                "product_type"
+                                (schema/product-type->int product-type))]]
+              {:index "CashAccountProduct_by_bank_product_type"}))))
+   :cash-account-product/find-by-type
+   "Failed to find products by type"))
+
 (defn count-by-org
   [txn bank-id]
   (fdb/transact

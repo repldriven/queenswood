@@ -16,7 +16,8 @@
     "outbound-transfer" :transaction-type-outbound-transfer
     "fee" :transaction-type-fee
     "interest-accrual" :transaction-type-interest-accrual
-    "interest-capital" :transaction-type-interest-capital}
+    "interest-capital" :transaction-type-interest-capital
+    "reward" :transaction-type-reward}
    :transaction-type-unknown))
 
 (def ^:private leg-side-enum

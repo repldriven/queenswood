@@ -1,0 +1,154 @@
+{:name "A reward the house account cannot cover is due until the bank is funded"
+ :tags #{:api :rewards :jobs :lifecycle}
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-reward-deferred-bank-001"}
+             :body {:name "Reward Deferred Test Org"
+                    :status "live"
+                    :tier "test-scenario"
+                    :currencies ["GBP"]}}
+   :as :org-0
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :org-0 :client-id]
+         :client-secret [:ref :org-0 :client-secret]
+         :status :live}
+   :as :org-0-token}
+  ;; A version that promises £10 to every account opened under it.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-reward-deferred-prod-001"}
+             :body {:name "Welcome Current"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :opening-reward {:amount 1000}
+                    :effective-from "2026-01-01"}}
+   :as :product
+   :assert {:status 201 :body {:status "draft"}}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :product :product-id]
+                  :version-id [:ref :product :version-id]}
+    :auth :org-0-token}
+   :assert {:status 200 :body {:status "published"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-reward-deferred-party-001"}
+             :body {:type "person"
+                    :display-name "Arthur Dent"
+                    :given-name "Arthur"
+                    :family-name "Dent"
+                    :date-of-birth "1952-03-11"
+                    :nationality "GB"
+                    :address {:building-number "155"
+                              :street "Country Lane"
+                              :town "Cottington"
+                              :postcode "CT12 4XY"
+                              :country "GBR"}
+                    :national-identifier {:type "national-insurance"
+                                          :value "TN555202A"
+                                          :issuing-country "GB"}}}
+   :as :arthur
+   :assert {:status 200 :body {:status "pending"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}"
+             :path-params {:party-id [:ref :arthur :party-id]}
+             :auth :org-0-token}
+   :until {:status 200 :body {:status "active"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-reward-deferred-acct-001"}
+             :body {:party-id [:ref :arthur :party-id]
+                    :name "Arthur Current"
+                    :currency "GBP"
+                    :product-id [:ref :product :product-id]}}
+   :as :account
+   :assert {:status 200 :body {:account-status "opening"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :account :account-id]}
+             :auth :org-0-token}
+   :until {:status 200 :body {:account-status "opened"}}}]
+ :when
+ [;; The house account holds nothing, so the posting is refused and the reward left due.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/jobs/{job-id}/runs"
+             :path-params {:job-id "hourly-rewards"}
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-reward-deferred-run-001"}}
+   :assert {:status 201
+            :body {:job-id "hourly-rewards"
+                   :trigger-source "forced"
+                   :status "succeeded"
+                   :tasks [{:label "reward"
+                            :status "succeeded"
+                            :records-processed 0
+                            :records-failed 1}]}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :account :account-id]}
+             :auth :org-0-token}
+   :assert {:status 200
+            :body {:available-balance {:value 0 :currency "GBP"}}}}
+  ;; Money from outside into the bank's own-funds house account, which
+  ;; is what a reward is paid from.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/simulate/banks/{bank-id}/inbound-transfer"
+             :path-params {:bank-id [:ref :org-0 :bank-id]}
+             :auth :admin
+             :headers {:idempotency-key "ik-reward-deferred-fund-001"}
+             :body {:account-id [:ref :org-0 :accounts 0 :account-id]
+                    :amount 500000
+                    :currency "GBP"}}
+   :assert {:status 200}}
+  ;; Funded, the next run pays what was due.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/jobs/{job-id}/runs"
+             :path-params {:job-id "hourly-rewards"}
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-reward-deferred-run-002"}}
+   :assert {:status 201
+            :body {:job-id "hourly-rewards"
+                   :trigger-source "forced"
+                   :status "succeeded"
+                   :tasks [{:label "reward"
+                            :status "succeeded"
+                            :records-processed 1
+                            :records-failed 0}]}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :account :account-id]}
+             :auth :org-0-token}
+   :assert {:status 200
+            :body {:available-balance {:value 1000 :currency "GBP"}}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/transactions"
+             :path-params {:account-id [:ref :account :account-id]}
+             :auth :org-0-token}
+   :assert {:status 200
+            :body {:transactions [:m/embeds
+                                  [{:reference "Welcome reward"
+                                    :transaction-type "reward"
+                                    :side "credit"
+                                    :balance-status "posted"
+                                    :amount 1000}]]}}}]}

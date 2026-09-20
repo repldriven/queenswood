@@ -22,4 +22,13 @@
   :periodicity :scheduler-periodicity-daily
   :run-time-minutes 0
   :enabled true
-  :kind :scheduler-job-kind-system}]
+  :kind :scheduler-job-kind-system}
+ ;; Pays the opening reward a version promises to each account opened
+ ;; under it, on the hour. A bank may pause it or move it to daily.
+ {:job-id "hourly-rewards"
+  :name "Hourly rewards"
+  :task-kinds [:scheduler-task-kind-reward]
+  :periodicity :scheduler-periodicity-hourly
+  :run-time-minutes 0
+  :enabled true
+  :kind :scheduler-job-kind-user}]

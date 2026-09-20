@@ -21,6 +21,9 @@
                         :scheduler-periodicity-hourly))))
   (testing "hourly is a periodicity, so a task may allow it"
     (is (contains? SUT/all-periods :scheduler-periodicity-hourly)))
+  (testing "the reward pass runs hourly or daily, and never slower"
+    (is (= #{:scheduler-periodicity-hourly :scheduler-periodicity-daily}
+           (SUT/job-allowed-periods [:scheduler-task-kind-reward]))))
   (testing "a sequence is the intersection — accrue narrows the job to daily"
     (is (= #{:scheduler-periodicity-daily}
            (SUT/job-allowed-periods [:scheduler-task-kind-accrue

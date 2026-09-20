@@ -3,6 +3,8 @@
     [com.repldriven.queenswood.cash-account-query.store :as store]
 
     [com.repldriven.queenswood.balance-query.interface :as balances]
+    [com.repldriven.queenswood.cash-account-product-query.interface :as
+     products]
     [com.repldriven.queenswood.transaction.interface :as transactions]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]))
@@ -66,3 +68,27 @@
 (defn find-accounts-by-party
   [txn bank-id party-id]
   (store/find-accounts-by-party txn bank-id party-id))
+
+(defn house-account
+  [txn bank-id currency]
+  (let-nom>
+    [versions (products/find-products-by-type
+               txn
+               bank-id
+               :product-type-sub-ledger-own-funds)
+     version (or (first (filter #(some #{currency} (:allowed-currencies %))
+                                versions))
+                 (error/reject :cash-account/house-account-not-found
+                               {:message
+                                "The bank holds no own funds in this currency"
+                                :bank-id bank-id
+                                :currency currency}))
+     accounts (store/find-accounts-by-product txn bank-id (:product-id version))
+     account (or (first accounts)
+                 (error/reject :cash-account/house-account-not-found
+                               {:message
+                                "The bank's own-funds product has no account"
+                                :bank-id bank-id
+                                :currency currency
+                                :product-id (:product-id version)}))]
+    account))

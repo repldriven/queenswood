@@ -13,6 +13,7 @@ enum SchedulerTaskKind {
   SCHEDULER_TASK_KIND_ACCRUE = 1;
   SCHEDULER_TASK_KIND_CAPITALIZE = 2;
   SCHEDULER_TASK_KIND_ACCOUNT_MIGRATION = 3;
+  SCHEDULER_TASK_KIND_REWARD = 4;
 }
 
 // How often a job runs. A job's editable periodicity is constrained by

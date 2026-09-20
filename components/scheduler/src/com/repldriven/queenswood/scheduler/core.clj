@@ -5,6 +5,7 @@
 
     [com.repldriven.queenswood.cash-account-migration.interface :as migrations]
     [com.repldriven.queenswood.interest.interface :as interest]
+    [com.repldriven.queenswood.reward.interface :as rewards]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.scheduler.interface :as scheduler]
@@ -35,7 +36,15 @@
    :scheduler-task-kind-account-migration
    {:label "migrate"
     :run (fn [config bank-id as-of-date]
-           (migrations/run-due-migrations config bank-id as-of-date))}})
+           (migrations/run-due-migrations config bank-id as-of-date))}
+   ;; Pays the opening reward a version promises to every account opened
+   ;; under it, once, and retries the ones the house account could not
+   ;; cover last time.
+   :scheduler-task-kind-reward
+   {:label "reward"
+    :run (fn [config bank-id as-of-date]
+           (rewards/pay-due config
+                            {:bank-id bank-id :as-of-date as-of-date}))}})
 
 (defn- task-label
   [task-kind]
