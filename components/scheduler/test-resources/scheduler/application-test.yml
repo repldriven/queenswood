@@ -1,0 +1,4 @@
+system:
+  avro: !include system/avro.yml
+  fdb: !include system/fdb-test.yml
+  scheduler: !include system/scheduler.yml

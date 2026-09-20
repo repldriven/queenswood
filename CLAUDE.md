@@ -328,8 +328,8 @@ non-trivial work on their topic.
   capability or subsystem (access, authentication, banks,
   cash-account-migration, cash-account-products, cash-accounts,
   demo-digital-bank, idempotency, infrastructure, interest, onboarding,
-  outbound-email, parties, payments, policy-evaluation, scenario-testing,
-  service-apis, traceability, transaction-processing,
+  outbound-email, parties, payments, policy-evaluation, rewards,
+  scenario-testing, service-apis, traceability, transaction-processing,
   transactions-and-balances, webhooks).
 - **Per-capability requirements** — `docs/prd/` has the
   product-shaped requirements (access, cash-account-products,

@@ -13,9 +13,14 @@
   (testing "accrue is daily-only"
     (is (= #{:scheduler-periodicity-daily}
            (SUT/job-allowed-periods [:scheduler-task-kind-accrue]))))
-  (testing "capitalize allows daily/monthly/yearly"
-    (is (= SUT/all-periods
-           (SUT/job-allowed-periods [:scheduler-task-kind-capitalize]))))
+  (testing "capitalize allows daily/monthly/yearly, and never hourly"
+    (is (= SUT/daily-or-longer
+           (SUT/job-allowed-periods [:scheduler-task-kind-capitalize])))
+    (is (not (contains? (SUT/job-allowed-periods
+                         [:scheduler-task-kind-capitalize])
+                        :scheduler-periodicity-hourly))))
+  (testing "hourly is a periodicity, so a task may allow it"
+    (is (contains? SUT/all-periods :scheduler-periodicity-hourly)))
   (testing "a sequence is the intersection — accrue narrows the job to daily"
     (is (= #{:scheduler-periodicity-daily}
            (SUT/job-allowed-periods [:scheduler-task-kind-accrue
@@ -33,7 +38,27 @@
       (is (error/rejection? result))
       (is (= :scheduler/periodicity-not-allowed (error/kind result))))))
 
+(deftest validate-run-time-test
+  (testing "an hourly run time is the minute past the hour"
+    (is (nil? (SUT/validate-run-time :scheduler-periodicity-hourly 59))))
+  (testing "sixty minutes past the hour names no minute"
+    (let [result (SUT/validate-run-time :scheduler-periodicity-hourly 60)]
+      (is (error/rejection? result))
+      (is (= :scheduler/run-time-not-allowed (error/kind result)))))
+  (testing "a daily run time is minutes past midnight, under a day"
+    (is (nil? (SUT/validate-run-time :scheduler-periodicity-daily 1439)))
+    (is (error/rejection? (SUT/validate-run-time :scheduler-periodicity-daily
+                                                 1440))))
+  (testing "a negative or missing run time is refused"
+    (is (error/rejection? (SUT/validate-run-time :scheduler-periodicity-daily
+                                                 -1)))
+    (is (error/rejection? (SUT/validate-run-time :scheduler-periodicity-daily
+                                                 nil)))))
+
 (deftest ->cron-test
+  (testing "hourly fires every hour at that minute past it"
+    (is (= "0 15 * * * ?" (SUT/->cron :scheduler-periodicity-hourly 15)))
+    (is (= "0 0 * * * ?" (SUT/->cron :scheduler-periodicity-hourly 0))))
   (testing "run-time-minutes splits into hour/minute; 120 = 02:00"
     (is (= "0 0 2 * * ?" (SUT/->cron :scheduler-periodicity-daily 120))))
   (testing "monthly defaults to the 1st"

@@ -3,8 +3,8 @@
     [com.repldriven.queenswood.scheduler.interface :as scheduler]))
 
 (def ^:private periodicity-order
-  [:scheduler-periodicity-daily :scheduler-periodicity-monthly
-   :scheduler-periodicity-yearly])
+  [:scheduler-periodicity-hourly :scheduler-periodicity-daily
+   :scheduler-periodicity-monthly :scheduler-periodicity-yearly])
 
 (defn- sorted-allowed
   [allowed]

@@ -3,7 +3,10 @@
   capitalize, future account-migration) seeded into a bank at
   provisioning and editable by the operator within task-defined
   periodicity limits. The `:bank-scheduler/runner` system component
-  registers a cronut trigger per enabled job at startup; FDB is the
+  keeps a cronut trigger per enabled job in step with the job rows, at
+  startup and every minute after, so a bank created after it started,
+  a job added to `jobs.edn` after the bank, and an edit made through
+  the API in another JVM all reach the live scheduler; FDB is the
   source of truth for jobs and runs.
 
   `config` throughout is the FDB+interfaces map (`:record-db`,
@@ -17,7 +20,8 @@
 (defn allowed-periodicities
   "The periodicities a job built from `task-kinds` may use — the
   intersection of its tasks' allowed periodicities (accrue is daily-only;
-  capitalize and account-migration allow daily/monthly/yearly). A pure
+  capitalize and account-migration allow daily/monthly/yearly; hourly
+  is a periodicity no seeded task takes yet). A pure
   derivation, surfaced so callers (the API, the console) can constrain
   the cadence picker without duplicating the rule.
 
