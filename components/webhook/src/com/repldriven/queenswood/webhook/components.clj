@@ -198,6 +198,7 @@
   {"CashAccount" "CashAccount"
    "OutboundPayment" "OutboundPayment"
    "InboundPayment" "InboundPayment"
+   "InternalPayment" "InternalPayment"
    "WebhookEndpoint" "WebhookEndpoint"})
 
 (def resource-registries

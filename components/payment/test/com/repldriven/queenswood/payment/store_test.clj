@@ -1,11 +1,12 @@
 (ns com.repldriven.queenswood.payment.store-test
   (:require
-    [com.repldriven.queenswood.fdb.interface]
+    [com.repldriven.queenswood.fdb.interface :as fdb]
     [com.repldriven.queenswood.testcontainers.interface]
 
     [com.repldriven.queenswood.payment.store :as store]
 
     [com.repldriven.queenswood.payment-query.interface :as q]
+    [com.repldriven.queenswood.schema.interface :as schema]
 
     [com.repldriven.mono.system.interface :as system]
     [com.repldriven.mono.error.interface :as error]
@@ -13,6 +14,7 @@
      [with-test-system nom-test>]]
     [com.repldriven.mono.utility.interface :as utility]
 
+    [clojure.string :as str]
     [clojure.test :refer [deftest is testing]]))
 
 (defn- internal-payment
@@ -355,3 +357,36 @@
          (nom-test> [found
                      (q/find-outbound-payment config "bnk.test" "pmt.nokind")
                      _ (is (nil? found))]))))))
+
+(deftest an-internal-save-writes-its-settle-entry-test
+  (with-test-system
+   [sys "classpath:payment/application-test.yml"]
+   (let [record-db (system/instance sys [:fdb :record-db])
+         config {:record-db record-db
+                 :record-store (system/instance sys [:fdb :store])}
+         payment-id (utility/generate-id "pmt")
+         seen (atom [])]
+     (testing "the save co-commits one settle entry for the payment"
+       (nom-test> [_ (store/save-internal-payment config
+                                                  (internal-payment
+                                                   payment-id
+                                                   "bnk.entry"
+                                                   (str "idem-" payment-id)))
+                   _ (fdb/process-changelog
+                      record-db
+                      (str "store-test-" payment-id)
+                      "internal-payments"
+                      (fn [_ entry-bytes]
+                        (swap! seen conj
+                          (schema/pb->ChangelogEvent entry-bytes)))
+                      {:keyspace-prefix
+                       (system/instance sys [:fdb :keyspace-prefix])})
+                   entries (filterv #(= payment-id (:ordering-key %)) @seen)
+                   _ (is (= 1 (count entries)))
+                   entry (first entries)
+                   _ (is (= "internal-payment-settled" (:event-name entry)))
+                   _ (is (= payment-id (:causation-id entry)))
+                   _ (is (str/starts-with?
+                          (:dedup-key entry)
+                          (str payment-id
+                               ":internal-payment-change-kind-settle:")))])))))

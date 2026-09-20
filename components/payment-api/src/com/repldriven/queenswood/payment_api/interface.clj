@@ -87,6 +87,14 @@
   [payment]
   (components/->inbound-wire-body payment))
 
+(defn ->internal-wire-body
+  "As `->outbound-wire-body`, for an internal payment.
+
+  Args:
+  - payment: an internal payment as the query brick hands it back."
+  [payment]
+  (components/->internal-wire-body payment))
+
 ;; ---
 ;; coercion
 ;; ---

@@ -184,6 +184,12 @@ system:
         consumer-id: inbound-payments-relay
         store-name: inbound-payments
         handler: !system/local-ref payments-handler
+      internal-payments:
+        record-db: !system/ref fdb.record-db
+        keyspace-prefix: !system/ref fdb.keyspace-prefix
+        consumer-id: internal-payments-relay
+        store-name: internal-payments
+        handler: !system/local-ref payments-handler
   scheduler:
     scheduler: !system/component
       system/component-kind: scheduler/scheduler

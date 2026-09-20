@@ -13,6 +13,8 @@
 
 (def ^:private inbound-event-name "inbound-payment-status-changed")
 
+(def ^:private internal-event-name "internal-payment-settled")
+
 ;; Loaded from the classpath rather than the injected `avro/serde`: the
 ;; payload schema is a property of this brick, and `store.clj` only ever
 ;; receives a Txn, never the system config the serde arrives in.
@@ -25,6 +27,9 @@
 
 (def ^:private inbound-schema
   (load-schema "schemas/payments/inbound-payment-status-changed.avsc.json"))
+
+(def ^:private internal-schema
+  (load-schema "schemas/payments/internal-payment-settled.avsc.json"))
 
 (defn- entry
   "The shared-envelope changelog bytes for a payment write. `changelog`
@@ -72,3 +77,7 @@
 (defn inbound-changed
   [changelog]
   (entry inbound-event-name inbound-schema changelog))
+
+(defn internal-settled
+  [changelog]
+  (entry internal-event-name internal-schema changelog))
