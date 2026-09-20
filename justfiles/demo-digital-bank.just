@@ -10,6 +10,16 @@ DEMO_ADMIN_CLIENT_SECRET := "queenswood-admin-test-secret"
 # <name> the secret, beside the local Google client.
 DEMO_PASS := "queenswood/local/dev/auth/clients"
 DEMO_BANK_NAME := "Xepha"
+# The bank's owner in the console: a user the local realm seeds beside
+# dev, invited as the organisation is created and accepting as itself.
+# The console's public client allows the password grant locally, which
+# is what lets the seed sign in as the owner without a browser.
+DEMO_KEYCLOAK_URL := env_var_or_default("DEMO_KEYCLOAK_URL", "http://localhost:8090")
+DEMO_REALM := "queenswood"
+DEMO_CONSOLE_CLIENT_ID := "queenswood-console"
+DEMO_OWNER_EMAIL := "xepha@queenswood.local"
+DEMO_OWNER_USERNAME := "xepha"
+DEMO_OWNER_PASSWORD := "xepha"
 # Where the platform delivers to: the bank's receiver, on the developer's
 # own machine, which the monolith's dev profile allows an endpoint to be.
 DEMO_WEBHOOK_URL := env_var_or_default("DEMO_WEBHOOK_URL", "http://localhost:8100/webhooks")
@@ -26,6 +36,23 @@ _demo-digital-bank-token client_id client_secret scope:
     TOKEN=$(jq -r '.access_token // empty' <<<"$RES")
     if [[ -z "$TOKEN" ]]; then
       echo "token refused for {{ client_id }}: $RES" >&2
+      exit 1
+    fi
+    echo "$TOKEN"
+
+# Sign a local realm user in through the console's public client, answering a bearer token. username, password: the user's.
+_demo-digital-bank-user-token username password:
+    #!/usr/bin/env zsh
+    set -e
+    RES=$(curl -sS -X POST {{ DEMO_KEYCLOAK_URL }}/realms/{{ DEMO_REALM }}/protocol/openid-connect/token \
+      -d grant_type=password \
+      -d "client_id={{ DEMO_CONSOLE_CLIENT_ID }}" \
+      -d "username={{ username }}" \
+      -d "password={{ password }}" \
+      -d scope=openid)
+    TOKEN=$(jq -r '.access_token // empty' <<<"$RES")
+    if [[ -z "$TOKEN" ]]; then
+      echo "sign-in refused for {{ username }}: $RES" >&2
       exit 1
     fi
     echo "$TOKEN"
@@ -58,7 +85,7 @@ demo-digital-bank-start:
     export DEMO_API_URL={{ DEMO_API_URL }}
     clj -M{{ DOMAIN_ALIASES }}:dev:test -e "(require 'com.repldriven.mono.testcontainers.interface)" -m com.repldriven.queenswood.demo-digital-bank-api.main -c "classpath:demo-digital-bank-api/application-test.yml" -p "dev" 2>&1 | tee demo-digital-bank.log
 
-# Create the bank's organisation on the local monolith, store its credential in pass, publish its three products and register its webhook endpoint with the secret in pass; does only what is not already done, and replaces a credential the platform no longer knows.
+# Create the bank's organisation on the local monolith with its owner invited, store its credential in pass, publish its three products, register its webhook endpoint with the secret in pass, and accept the owner's invitation as the owner; does only what is not already done, and replaces a credential the platform no longer knows.
 demo-digital-bank-seed:
     #!/usr/bin/env zsh
     set -e
@@ -80,7 +107,7 @@ demo-digital-bank-seed:
         -H "authorization: Bearer $ADMIN" \
         -H 'content-type: application/json' \
         -H "idempotency-key: demo-digital-bank-seed-$(date +%s)" \
-        -d '{"name":"{{ DEMO_BANK_NAME }}","status":"test","tier":"micro","currencies":["GBP"]}')
+        -d '{"name":"{{ DEMO_BANK_NAME }}","status":"test","tier":"micro","currencies":["GBP"],"owner-email":"{{ DEMO_OWNER_EMAIL }}"}')
       CLIENT_ID=$(jq -r '.["client-id"] // empty' <<<"$RES")
       if [[ -z "$CLIENT_ID" ]]; then
         echo "organisation refused: $RES" >&2
@@ -156,6 +183,25 @@ demo-digital-bank-seed:
     fi
     if [[ -n "$SECRET" ]]; then
       printf '%s\n' "$SECRET" | pass insert -m -f {{ DEMO_PASS }}/demo-digital-bank-webhook >/dev/null
+    fi
+    OWNER=$(just _demo-digital-bank-user-token {{ DEMO_OWNER_USERNAME }} {{ DEMO_OWNER_PASSWORD }})
+    RES=$(curl -sS {{ DEMO_API_URL }}/v1/me -H "authorization: Bearer $OWNER")
+    if [[ -n "$(jq -r --arg b "$CLIENT_ID" '.memberships[] | select(."bank-id" == $b) | ."membership-id"' <<<"$RES")" ]]; then
+      echo "owner {{ DEMO_OWNER_EMAIL }} already a member"
+    else
+      RES=$(curl -sS {{ DEMO_API_URL }}/v1/me/invitations -H "authorization: Bearer $OWNER")
+      INVITATION=$(jq -r --arg b "$CLIENT_ID" '[.items[] | select(."bank-id" == $b)][0]["invitation-id"] // empty' <<<"$RES")
+      if [[ -z "$INVITATION" ]]; then
+        echo "no invitation to $CLIENT_ID for {{ DEMO_OWNER_EMAIL }}: the organisation predates its owner, so restart the monolith and seed again" >&2
+        exit 1
+      fi
+      RES=$(curl -sS -X POST "{{ DEMO_API_URL }}/v1/me/invitations/$INVITATION/accept" \
+        -H "authorization: Bearer $OWNER")
+      if [[ "$(jq -r '.role // empty' <<<"$RES")" != owner ]]; then
+        echo "accepting $INVITATION refused: $RES" >&2
+        exit 1
+      fi
+      echo "owner {{ DEMO_OWNER_EMAIL }} accepted $INVITATION: sign in to the console as {{ DEMO_OWNER_USERNAME }}"
     fi
 
 # Pay money into one of the bank's accounts from outside, as the bank, through the platform's sandbox affordance. account_id: the platform's; amount: in pence.
