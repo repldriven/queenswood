@@ -9,9 +9,7 @@
 **Open-source core banking.** Queenswood is the operational core a fintech
 builds a banking product on: accounts, payments, a double-entry ledger,
 interest, rewards, onboarding with identity checks, policies, scheduled jobs, a
-team console and webhooks, behind one API. Throughout, a bank is what the
-platform calls a fintech's organisation: its products, customers, books,
-policies and team, apart from every other's. You bring the banking licence, the
+team console and webhooks, behind one API. You bring the banking licence, the
 clearing partner and the identity provider. The platform is yours to read, to
 run and to change.
 
@@ -35,8 +33,10 @@ Everyday and is paid its welcome reward, and opens a Rainy Day with some of it.
   routes themselves, so what the document says is what the API does. Every write
   takes an idempotency key, so a retried request replays the first answer rather
   than paying twice.
-- **Isolated banks.** Nothing of one bank is visible to another. A bank starts
-  in test and moves to live; tiers set what it may do and how much.
+- **Isolated banks.** A fintech's organisation is a bank on the platform, with
+  its own products, customers, books, policies and team, and nothing of one is
+  visible to another. A bank starts in test and moves to live; tiers set what it
+  may do and how much.
 - **Versioned products, with migrations.** Current, savings and term deposit
   products come from templates. A rate change, a new welcome reward, a new term:
   each is a new version, and the holders of the old one are moved by a migration
