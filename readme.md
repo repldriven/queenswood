@@ -13,18 +13,13 @@ checks, policies, scheduled jobs, a team console and webhooks, behind
 one API. You bring the banking licence, the clearing partner and the
 identity provider. The platform is yours to read, to run and to change.
 
-## Demos
+## Demo
 
-<table>
-  <tr>
-    <td align="center"><strong>A Bank's First Day</strong></td>
-    <td align="center"><strong>Use the Bank</strong></td>
-  </tr>
-  <tr>
-    <td><video src="https://github.com/user-attachments/assets/f112c363-b7ba-4f83-b96a-88219e3bc554" controls></video></td>
-    <td><video src="https://github.com/user-attachments/assets/5f5403c2-3ada-4985-826b-209e1826f550" controls></video></td>
-  </tr>
-</table>
+<video src="https://github.com/user-attachments/assets/f112c363-b7ba-4f83-b96a-88219e3bc554" controls></video>
+
+The console's Scenarios page, run against an empty bank: the eleven
+scenes of [The first day of a bank](#the-first-day-of-a-bank), each
+followed by the page where its effect shows.
 
 ## What a fintech gets
 
