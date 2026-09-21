@@ -60,9 +60,8 @@
          {:keys [path body]} parameters
          {:keys [bank-id]} path
          {:keys [amount currency]} body
-         ;; A simulated inbound is the bank's own money arriving from
-         ;; outside, so it lands in the bank's 1100 cash-at-correspondent
-         ;; (asset up) and credits the house account for the currency,
+         ;; The bank's own money arriving from outside: 1100 cash-at-
+         ;; correspondent up, the house account for the currency credited,
          ;; which rolls up into the 3100 own-funds control. A customer is
          ;; paid from there by an internal payment, as a reward is.
          cash (ledger-accounts/find-by-code
