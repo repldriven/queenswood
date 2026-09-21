@@ -720,6 +720,35 @@
       toasts = toasts.filter((t) => t.id !== id);
     }, 2800);
   }
+
+  // ── autoplay ──────────────────────────────────────────────────────
+  // `#/scenarios?autoplay` resets the sandbox and runs every scene in
+  // order, pausing between them so each one's pipeline and toast get
+  // their moment: what a recording films. The marker in the markup
+  // says where it got to, for whatever is watching.
+  const AUTOPLAY_PAUSE_MS = 3500;
+  let autoplay = $state("off"); // off | running | done | failed
+  async function autoplayAll() {
+    autoplay = "running";
+    reset();
+    await sleep(1200);
+    for (const s of SCENES) {
+      jumpTo(s.id);
+      await sleep(600);
+      await runScene(s.id);
+      if (runStates[s.id]?.failed) {
+        autoplay = "failed";
+        return;
+      }
+      await sleep(AUTOPLAY_PAUSE_MS);
+    }
+    autoplay = "done";
+  }
+  $effect(() => {
+    if (!bankId || autoplay !== "off") return;
+    const query = new URLSearchParams(location.hash.split("?")[1] ?? "");
+    if (query.has("autoplay")) autoplayAll();
+  });
 </script>
 
 <!-- reusable icon snippets -->
@@ -732,6 +761,8 @@
 {#snippet icoPlay()}
   <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3.5 L12.5 8 L5 12.5 Z" /></svg>
 {/snippet}
+
+<span hidden data-autoplay={autoplay}></span>
 
 <PageHeader
   {kicker}
