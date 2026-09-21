@@ -911,7 +911,7 @@
         {:else if statusOf(s.id) === "ready"}
           <div class="scene-cta">
             <Button variant="brand" onclick={() => runScene(s.id)}>{@render icoPlay()}<span>Run this scene</span></Button>
-            <span class="cta-hint">Fires {s.steps.length} steps against the live API · pays off in <span class="mono">{VIEWS[s.view].label}</span></span>
+            <span class="cta-hint">Fires {s.steps.length} steps against the live API</span>
           </div>
         {:else if statusOf(s.id) === "locked"}
           <div class="scene-cta">

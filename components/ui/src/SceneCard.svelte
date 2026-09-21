@@ -55,12 +55,12 @@
     <div class="scene-main">
       <div class="scene-titlerow">
         <span class="scene-title">{title}</span>
-        <span class="payoff-chip">
+        <span class="payoff-chip" title="Shown in {payoffLabel}">
           <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
             <path d="M1.5 8 C3.5 4.5 6 3 8 3 s4.5 1.5 6.5 5 C12.5 11.5 10 13 8 13 s-4.5-1.5-6.5-5 Z" />
             <circle cx="8" cy="8" r="1.8" />
           </svg>
-          pays off in {payoffLabel}
+          {payoffLabel}
         </span>
       </div>
       <p class="scene-story">{story}</p>
