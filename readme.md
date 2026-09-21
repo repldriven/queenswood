@@ -21,6 +21,12 @@ The console's Scenarios page, run against an empty bank: the eleven
 scenes of [Give it a spin](#give-it-a-spin), each followed by the page
 where its effect shows.
 
+<video src="https://github.com/user-attachments/assets/2a4d01fe-3caf-452a-9667-7de984d5bcf4" controls></video>
+
+Then the bank's own app, on the bank those scenes left: a new customer
+signs up, is verified, opens an Everyday and is paid its welcome
+reward, and opens a Rainy Day with some of it.
+
 ## What a fintech gets
 
 - **One API.** One base URL and one OpenAPI 3.x document, generated from the
