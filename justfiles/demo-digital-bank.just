@@ -23,6 +23,8 @@ DEMO_OWNER_PASSWORD := "xepha"
 # Where the platform delivers to: the bank's receiver, on the developer's
 # own machine, which the monolith's dev profile allows an endpoint to be.
 DEMO_WEBHOOK_URL := env_var_or_default("DEMO_WEBHOOK_URL", "http://localhost:8100/webhooks")
+DEMO_BANK_URL := env_var_or_default("DEMO_BANK_URL", "http://localhost:8100")
+DEMO_APP_URL := env_var_or_default("DEMO_APP_URL", "http://localhost:5174")
 
 # Exchange client credentials at the API's token endpoint for a bearer token. client_id, client_secret, scope: the grant's.
 _demo-digital-bank-token client_id client_secret scope:
@@ -115,6 +117,14 @@ _demo-digital-bank-owner-accept client_id:
       fi
       echo "owner {{ DEMO_OWNER_EMAIL }} accepted $INVITATION: sign in to the console as {{ DEMO_OWNER_USERNAME }}"
     fi
+
+
+# List the ids of the bank's opened accounts as a JSON array. token: a bearer for the bank.
+_demo-digital-bank-opened-accounts token:
+    #!/usr/bin/env zsh
+    set -e
+    RES=$(curl -fsS -H "Authorization: Bearer {{ token }}" "{{ DEMO_API_URL }}/v1/cash-accounts")
+    jq -c '[.["cash-accounts"][] | select(.["account-status"] == "opened") | .["account-id"]]' <<<"$RES"
 
 # Start the Vite dev server for the demo digital bank's customer app (port 5174)
 demo-digital-bank-app-start:
@@ -261,3 +271,43 @@ demo-digital-bank-fund amount:
       exit 1
     fi
     echo "{{ amount }} pence into own funds $(jq -r '."account-id"' <<<"$RES"): $(jq -r '."transaction-id"' <<<"$RES")"
+
+# Film a new customer signing up and opening an Everyday and a Rainy Day with Playwright against DEMO_APP_URL (http://localhost:5174), the monolith, the bank and the app already running and the bank seeded; forces the hourly-rewards job as DEMO_OWNER_USERNAME (xepha) once the Everyday opens, so its reward lands; the video lands in target/recordings/demo-digital-bank.webm, a failed take included.
+demo-digital-bank-record-walkthrough:
+    #!/usr/bin/env zsh
+    set -e
+    cd {{ justfile_directory() }}
+    export DEMO_APP_URL={{ DEMO_APP_URL }} DEMO_BANK_URL={{ DEMO_BANK_URL }}
+    TOKEN=$(just _demo-digital-bank-user-token {{ DEMO_OWNER_USERNAME }} {{ DEMO_OWNER_PASSWORD }})
+    JOBS=$(curl -fsS -H "Authorization: Bearer $TOKEN" "{{ DEMO_API_URL }}/v1/jobs")
+    JOB=$(jq -r '[.jobs[] | select((.["job-id"] + " " + .name) | test("hourly-rewards"))][0]["job-id"] // empty' <<<"$JOBS")
+    if [[ -z "$JOB" ]]; then
+      echo "no hourly-rewards job in the bank" >&2
+      exit 1
+    fi
+    BEFORE=$(just _demo-digital-bank-opened-accounts "$TOKEN")
+    corepack yarn workspace demo-digital-bank-app exec playwright install chromium
+    corepack yarn workspace demo-digital-bank-app exec playwright test &
+    PW=$!
+    ACCOUNT=""
+    while [[ -z "$ACCOUNT" ]] && kill -0 $PW 2>/dev/null; do
+      sleep 3
+      NOW=$(just _demo-digital-bank-opened-accounts "$TOKEN" || echo "$BEFORE")
+      ACCOUNT=$(jq -r --argjson before "$BEFORE" '. - $before | .[0] // empty' <<<"$NOW")
+    done
+    TRIES=0
+    while [[ -n "$ACCOUNT" ]] && (( TRIES < 10 )) && kill -0 $PW 2>/dev/null; do
+      curl -fsS -o /dev/null -X POST -H "Authorization: Bearer $TOKEN" -H "Idempotency-Key: $(uuidgen)" "{{ DEMO_API_URL }}/v1/jobs/$JOB/runs"
+      sleep 6
+      REWARDS=$(curl -fsS -H "Authorization: Bearer $TOKEN" "{{ DEMO_API_URL }}/v1/rewards?account-id=$ACCOUNT" || echo '{}')
+      if [[ $(jq '[.items[]? | select(.status == "paid")] | length' <<<"$REWARDS") -gt 0 ]]; then
+        break
+      fi
+      TRIES=$((TRIES + 1))
+    done
+    if wait $PW; then STATUS=0; else STATUS=1; fi
+    mkdir -p target/recordings
+    VIDEO=$(ls -t bases/demo-digital-bank-app/test-results/**/*.webm | head -1)
+    cp "$VIDEO" target/recordings/demo-digital-bank.webm
+    echo "target/recordings/demo-digital-bank.webm"
+    exit $STATUS

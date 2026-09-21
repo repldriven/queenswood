@@ -368,8 +368,11 @@ is decided until the local loop works end to end.
 - **The seed recipe** — run twice against a local monolith: the first
   creates, the second reports everything already done.
 - **`demo-digital-bank-app`** — the build in CI, and a walk of the
-  screens by hand against the running base and a local monolith,
-  which is where the real platform is met.
+  screens against the running base and a local monolith, which is
+  where the real platform is met: by hand, or filmed by
+  `just demo-digital-bank-record-walkthrough`, which signs a new
+  customer up and opens an Everyday and a Rainy Day, forcing the
+  hourly-rewards job so the Everyday's reward lands.
 
 ## Alternatives Considered
 
