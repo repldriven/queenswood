@@ -19,9 +19,9 @@ run and to change.
 
 <video src="https://github.com/user-attachments/assets/f112c363-b7ba-4f83-b96a-88219e3bc554" controls></video>
 
-The console, where a fintech's team runs its bank: the eleven scenes of [Give it
-a spin](#give-it-a-spin), run against an empty bank, each followed by the page
-where its effect shows.
+Queenswood's console, the web app a fintech's team runs its bank from: the
+eleven scenes of [Give it a spin](#give-it-a-spin), run against an empty bank,
+each followed by the page where its effect shows.
 
 <video src="https://github.com/user-attachments/assets/2a4d01fe-3caf-452a-9667-7de984d5bcf4" controls></video>
 
@@ -68,9 +68,9 @@ running.
 
 ## Give it a spin
 
-The console's **Sandbox › Scenarios** page runs eleven scenes against
-an empty bank, live against the API, each building on the one before.
-Each is named for what it does:
+The console, the web app a fintech's team runs its bank from, has a **Sandbox ›
+Scenarios** page that runs eleven scenes against an empty bank, live against the
+API, each building on the one before. Each is named for what it does:
 
 1. **Publish** the three products the bank sells: Everyday, with a £50
    welcome reward, Rainy Day at 4.10% and 1 Year Fixed at 4.65%.
