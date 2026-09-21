@@ -107,7 +107,7 @@
   // The console views each scene "pays off" in.
   const VIEWS = {
     products: { label: "Products", href: "#/products" },
-    people: { label: "People", href: "#/people" },
+    people: { label: "People", href: "#/people?tab=invitations" },
     parties: { label: "Parties", href: "#/parties" },
     accounts: { label: "Accounts", href: "#/accounts" },
     ledger: { label: "Ledger", href: "#/ledger" },
@@ -906,54 +906,79 @@
 {#snippet payoff(s)}
   {#if s.id === "s1"}
     <div class="prod-chips">
-      <div class="prod-chip"><span class="pc-name">Current Account</span><span class="pc-rate">0 bps</span><Badge tone="published">published</Badge><span class="pc-ver">v1</span></div>
-      <div class="prod-chip"><span class="pc-name">Savings</span><span class="pc-rate">3.65%</span><Badge tone="published">published</Badge><span class="pc-ver">v2</span></div>
-      <div class="prod-chip archived"><span class="pc-name">Savings</span><Badge tone="archived">archived</Badge><span class="pc-ver">v1</span></div>
+      <div class="prod-chip"><span class="pc-name">Everyday</span><span class="pc-rate">0 bps · £50 welcome reward</span><Badge tone="published">published</Badge><span class="pc-ver">v1</span></div>
+      <div class="prod-chip"><span class="pc-name">Rainy Day</span><span class="pc-rate">4.10%</span><Badge tone="published">published</Badge><span class="pc-ver">v1</span></div>
+      <div class="prod-chip"><span class="pc-name">1 Year Fixed</span><span class="pc-rate">4.65%</span><Badge tone="published">published</Badge><span class="pc-ver">v1</span></div>
     </div>
+    <div class="tb-tie">{@render icoCheck()}<span>Three products on the shelf. The reward is a term on Everyday's version, fixed now it is published.</span></div>
   {:else if s.id === "s2"}
+    <div class="party-lines">
+      <div class="party-line"><span class="pl-name">trillian@example.test</span><span class="pl-flow"><Badge tone="published">developer</Badge><span class="arr">·</span><Badge tone="archived">pending, resent</Badge></span></div>
+      <div class="party-line"><span class="pl-name">marvin@example.test</span><span class="pl-flow"><Badge tone="published">viewer</Badge><span class="arr">·</span><Badge tone="archived">pending</Badge></span></div>
+    </div>
+    <div class="tb-tie">{@render icoCheck()}<span>Two invitations out, and the access log has an entry for each act, with the name that did it.</span></div>
+  {:else if s.id === "s3"}
     <div class="party-lines">
       <div class="party-line"><span class="pl-name">Arthur Dent</span><span class="pl-flow"><Badge tone="archived">pending</Badge><span class="arr">→</span><Badge tone="published">active</Badge></span></div>
       <div class="party-line"><span class="pl-name">Ford Prefect</span><span class="pl-flow"><Badge tone="archived">pending</Badge><span class="arr">→</span><Badge tone="published">active</Badge></span></div>
       <div class="party-line"><span class="pl-name">Zaphod Beeblebrox</span><span class="pl-flow"><Badge tone="archived">pending</Badge><span class="arr">→</span><Badge tone="rejected">rejected</Badge></span></div>
     </div>
-  {:else if s.id === "s3"}
-    <div class="prod-chips">
-      <div class="prod-chip"><span class="pc-name">Arthur · Current</span><Badge tone="published">opened</Badge></div>
-      <div class="prod-chip"><span class="pc-name">Arthur · Savings</span><Badge tone="published">opened</Badge></div>
-      <div class="prod-chip"><span class="pc-name">Ford · Current</span><Badge tone="published">opened</Badge></div>
-      <div class="prod-chip"><span class="pc-name">Ford · Savings</span><Badge tone="published">opened</Badge></div>
-    </div>
-    <div class="tb-tie">{@render icoCheck()}<span>Four accounts open — each with its own sort code and account number.</span></div>
   {:else if s.id === "s4"}
     <div class="tb">
       <div class="tb-row head"><span>Code</span><span>Account</span><span>Debit</span><span>Credit</span></div>
-      <div class="tb-row"><span class="tb-code">1100</span><span class="tb-acct">Customer cash at bank</span><span class="tb-dr">£2,000.00</span><span class="tb-cr"></span></div>
-      <div class="tb-row"><span class="tb-code">2100</span><span class="tb-acct">Customer account balances</span><span class="tb-dr"></span><span class="tb-cr">£2,000.00</span></div>
-      <div class="tb-row total"><span class="tb-code"></span><span class="tb-acct">Trial balance</span><span class="tb-dr">£2,000.00</span><span class="tb-cr">£2,000.00</span></div>
+      <div class="tb-row"><span class="tb-code">1100</span><span class="tb-acct">Cash at correspondent</span><span class="tb-dr">£50,000.00</span><span class="tb-cr"></span></div>
+      <div class="tb-row"><span class="tb-code">3100</span><span class="tb-acct">Bank own funds</span><span class="tb-dr"></span><span class="tb-cr">£50,000.00</span></div>
+      <div class="tb-row total"><span class="tb-code"></span><span class="tb-acct">Trial balance</span><span class="tb-dr">£50,000.00</span><span class="tb-cr">£50,000.00</span></div>
     </div>
-    <div class="tb-tie">{@render icoCheck()}<span>Two £1,000 credits · debits equal credits — the books tie to the penny.</span></div>
+    <div class="tb-tie">{@render icoCheck()}<span>The bank's own money, in from outside · debits equal credits — the books tie to the penny.</span></div>
   {:else if s.id === "s5"}
-    <div class="pay-lines">
-      <div class="pay-line"><span class="py-amt">£750.00</span><Badge tone="published">settled</Badge><span class="py-desc">Arthur · current → savings · savings <span class="mono">£0 → £750</span></span></div>
-      <div class="pay-line"><span class="py-amt">£350.00</span><Badge tone="published">settled</Badge><span class="py-desc">Ford · current → savings · savings <span class="mono">£0 → £350</span></span></div>
+    <div class="prod-chips">
+      <div class="prod-chip"><span class="pc-name">Arthur · Everyday</span><Badge tone="published">opened</Badge></div>
+      <div class="prod-chip"><span class="pc-name">Ford · Everyday</span><Badge tone="published">opened</Badge></div>
     </div>
-    <div class="tb-tie">{@render icoCheck()}<span>Each customer moved money between their own accounts — debits still equal credits.</span></div>
+    <div class="tb-tie">{@render icoCheck()}<span>Two accounts open, each with its own sort code and account number, and each promised a welcome reward.</span></div>
   {:else if s.id === "s6"}
-    <div class="pay-lines">
-      <div class="pay-line"><span class="py-amt">−£500.00</span><Badge tone="rejected">refused</Badge><span class="py-desc">Arthur · current → savings · current holds only <span class="mono">£250</span></span></div>
-    </div>
-    <div class="tb-tie neutral">{@render icoSpark()}<span><span class="hl">Available balance must stay at or above £0</span> — the platform policy refused the transfer before any money moved. Nothing posted.</span></div>
-  {:else if s.id === "s7"}
     <div class="joblet">
-      <TaskPipeline steps={[{ name: "accrue", status: "ok" }, { name: "capitalise", status: "ok" }]} />
-      <div class="jl-note">The daily-interest job accrues silently, then capitalises — one statement line per funded savings account, and the bank's own entry posted once for the run rather than once per account. See the run in <span class="mono">Jobs</span> and the postings in the <span class="mono">Ledger</span>.</div>
+      <TaskPipeline steps={[{ name: "reward", status: "ok" }]} />
+      <div class="jl-note">The hourly-rewards job stood in for the hour's tick: two accounts owed a reward, two paid, each in a transaction of its own from the bank's own funds. A second run would find both paid and pay nothing.</div>
     </div>
-    <div class="tb-tie">{@render icoCheck()}<span>Interest posting ties to the penny.</span></div>
+    <div class="pay-lines">
+      <div class="pay-line"><span class="py-amt">£50.00</span><Badge tone="published">paid</Badge><span class="py-desc">Arthur · Everyday <span class="mono">£0 → £50</span> · ref <span class="mono">Welcome reward</span></span></div>
+      <div class="pay-line"><span class="py-amt">£50.00</span><Badge tone="published">paid</Badge><span class="py-desc">Ford · Everyday <span class="mono">£0 → £50</span> · ref <span class="mono">Welcome reward</span></span></div>
+    </div>
+    <div class="tb-tie">{@render icoCheck()}<span>Own funds <span class="mono">−£100</span>, customer money <span class="mono">+£100</span> — the books still tie.</span></div>
+  {:else if s.id === "s7"}
+    <div class="pay-lines">
+      <div class="pay-line"><span class="py-amt">£30.00</span><Badge tone="published">settled</Badge><span class="py-desc">Arthur · Everyday → Rainy Day · Rainy Day <span class="mono">£0 → £30</span></span></div>
+    </div>
+    <div class="tb-tie">{@render icoCheck()}<span>Money moved between a customer's own accounts, posted at once — debits still equal credits.</span></div>
   {:else if s.id === "s8"}
     <div class="pay-lines">
+      <div class="pay-line"><span class="py-amt">−£40.00</span><Badge tone="rejected">refused</Badge><span class="py-desc">Arthur · Everyday → Rainy Day · Everyday holds only <span class="mono">£20</span></span></div>
+    </div>
+    <div class="tb-tie neutral">{@render icoSpark()}<span><span class="hl">Available balance must stay at or above £0</span> — the platform policy refused the transfer before any money moved. Nothing posted.</span></div>
+  {:else if s.id === "s9"}
+    <div class="pay-lines">
+      <div class="pay-line"><span class="py-amt">check</span><Badge tone="published">match</Badge><span class="py-desc">Payee check · <span class="mono">Arthur Dent</span> against the account Ford is about to pay</span></div>
       <div class="pay-line"><span class="py-amt">£20.00</span><Badge tone="published">completed</Badge><span class="py-desc">Ford → Arthur · outbound FPS · ref <span class="mono">Beer and nuts</span></span></div>
     </div>
-    <div class="tb-tie">{@render icoCheck()}<span>Ford <span class="mono">−£20</span>, Arthur <span class="mono">+£20</span> — it left over the scheme and arrived back, and the books still tie.</span></div>
+    <div class="tb-tie">{@render icoCheck()}<span>Ford <span class="mono">£50 → £30</span>, Arthur <span class="mono">£20 → £40</span> — it left over the scheme and arrived back, and the books still tie.</span></div>
+  {:else if s.id === "s10"}
+    <div class="prod-chips">
+      <div class="prod-chip"><span class="pc-name">Rainy Day</span><span class="pc-rate">4.10%</span><Badge tone="published">published</Badge><span class="pc-ver">v1</span></div>
+      <div class="prod-chip"><span class="pc-name">Rainy Day</span><span class="pc-rate">4.35%</span><Badge tone="published">published</Badge><span class="pc-ver">v2</span></div>
+    </div>
+    <div class="joblet">
+      <TaskPipeline steps={[{ name: "planned", status: "ok" }, { name: "approved", status: "ok" }, { name: "migrated", status: "ok" }]} />
+      <div class="jl-note">A migration is a statement of intent: planning moves nothing, and neither does approving. The account-migration job moved Arthur's Rainy Day onto v2, and recorded a verdict per account. See it in <span class="mono">Migrations</span>.</div>
+    </div>
+    <div class="tb-tie">{@render icoCheck()}<span>Arthur's Rainy Day now earns 4.35%.</span></div>
+  {:else if s.id === "s11"}
+    <div class="joblet">
+      <TaskPipeline steps={[{ name: "accrue", status: "ok" }, { name: "capitalise", status: "ok" }]} />
+      <div class="jl-note">The daily-interest job accrues silently, then capitalises — one statement line for Rainy Day and the bank's own entry posted once for the run. At 4.35% on £30 a night is a fraction of a penny, and the fraction is carried rather than rounded away. See the run in <span class="mono">Jobs</span> and the postings in the <span class="mono">Ledger</span>.</div>
+    </div>
+    <div class="tb-tie">{@render icoCheck()}<span>Interest posting ties to the penny.</span></div>
   {/if}
 {/snippet}
 
