@@ -4,12 +4,14 @@ import { test, expect } from "@playwright/test";
 // nothing in it yet, opens the Scenarios page in autoplay, and waits
 // for the eleven scenes to run through, each followed by a few seconds
 // on the view where it pays off. The video the fixture records of it
-// is the deliverable as much as the assertion.
+// is the deliverable as much as the assertion, which is why the sign-in
+// is paced for a viewer rather than run as fast as it can go.
 const user = process.env.CONSOLE_USER ?? "xepha";
 const password = process.env.CONSOLE_PASSWORD ?? "xepha";
 
 test("the eleven scenes run through in order", async ({ page }) => {
   await page.goto("/#/sign-in");
+  await page.waitForTimeout(2_000);
   // The third option is Keycloak's own username and password form.
   await page
     .locator("button.opt")
@@ -18,9 +20,11 @@ test("the eleven scenes run through in order", async ({ page }) => {
     .click();
   await page.locator("#username").fill(user);
   await page.locator("#password").fill(password);
+  await page.waitForTimeout(1_500);
   await page.locator("#kc-login").click();
   await page.waitForURL(/#\//);
   await expect(page.getByText("Scenarios")).toBeVisible({ timeout: 60_000 });
+  await page.waitForTimeout(4_000);
 
   // A hash change rather than a navigation, so the signed-in app stays
   // as it is and the page mounts with the flag.

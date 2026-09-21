@@ -747,6 +747,7 @@
   // marker in the markup says where it got to, for whatever is
   // watching.
   const AUTOPLAY_KEY = "queenswood.scenarios.autoplay";
+  const AUTOPLAY_INTRO_MS = 6000; // on the page as a whole, before the first scene
   const AUTOPLAY_PAUSE_MS = 2500; // after a scene, before its view
   const AUTOPLAY_VIEW_MS = 5000; // on the view
   const autoplayWanted = () =>
@@ -795,11 +796,13 @@
   }
   $effect(() => {
     if (!bankId || autoplay !== "off" || !autoplayWanted()) return;
-    if (!autoplayUnderWay()) {
+    const fresh = !autoplayUnderWay();
+    if (fresh) {
       markAutoplay(true);
       reset();
     }
-    autoplayNext();
+    autoplay = "running";
+    sleep(fresh ? AUTOPLAY_INTRO_MS : 0).then(autoplayNext);
   });
 </script>
 
