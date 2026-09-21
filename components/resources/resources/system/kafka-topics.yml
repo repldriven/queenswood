@@ -18,6 +18,10 @@
     partitions: 1
   - topic: topic-payments-event-dlq
     partitions: 1
+  - topic: topic-rewards-event
+    partitions: 1
+  - topic: topic-rewards-event-dlq
+    partitions: 1
   - topic: topic-companies-command
     partitions: 1
   - topic: topic-companies-command-response

@@ -35,6 +35,7 @@ system:
   payments: !include system/payment.yml
   payments-dispatcher: !include system/payment-dispatcher.yml
   payments-relay: !include system/payment-relay.yml
+  rewards-relay: !include system/reward-relay.yml
   policies: !include system/policy-test.yml
   scheduler: !include system/scheduler.yml
   server: !include monolith/server-test.yml

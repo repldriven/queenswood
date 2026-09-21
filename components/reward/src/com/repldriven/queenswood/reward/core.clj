@@ -82,7 +82,9 @@
             (store/save-reward txn
                                (domain/paid reward
                                             (:transaction-id posted)
-                                            (:run-id ctx))))))))
+                                            (:run-id ctx))
+                               {:change-kind :reward-change-kind-pay
+                                :status-before (:status existing)}))))))
    :reward/pay
    "Failed to pay reward"))
 
@@ -107,7 +109,9 @@
                                                  amount
                                                  (:run-id ctx)))
                                             anomaly
-                                            (:run-id ctx))))))
+                                            (:run-id ctx))
+                           {:change-kind :reward-change-kind-defer
+                            :status-before (:status existing)}))))
    :reward/defer
    "Failed to record a deferred reward"))
 

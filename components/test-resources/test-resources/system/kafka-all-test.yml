@@ -89,6 +89,14 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-payments-event
       acks: all
+  rewards-event:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword event
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      topic: topic-rewards-event
+      acks: all
   companies-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -401,6 +409,22 @@ consumers: !system/component
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       group.id: test-webhook-payments-event
+  rewards-event:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword event
+    topics: [topic-rewards-event]
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      group.id: test-rewards-event
+  webhook-rewards-event:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword event
+    topics: [topic-rewards-event]
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      group.id: test-webhook-rewards-event
   companies-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -630,6 +654,8 @@ message-bus-producers: !system/component
     producer: !system/local-ref producers.cash-accounts-event
   payments-event:
     producer: !system/local-ref producers.payments-event
+  rewards-event:
+    producer: !system/local-ref producers.rewards-event
   companies-command:
     producer: !system/local-ref producers.companies-command
   companies-command-response:
@@ -702,6 +728,12 @@ message-bus-consumers: !system/component
     timeout: 500
   webhook-payments-event:
     consumer: !system/local-ref consumers.webhook-payments-event
+    timeout: 500
+  rewards-event:
+    consumer: !system/local-ref consumers.rewards-event
+    timeout: 500
+  webhook-rewards-event:
+    consumer: !system/local-ref consumers.webhook-rewards-event
     timeout: 500
   companies-command:
     consumer: !system/local-ref consumers.companies-command

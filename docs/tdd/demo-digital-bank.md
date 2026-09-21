@@ -313,8 +313,12 @@ processor already holds `cash-accounts-event`.
 - **The code.** Fixed under the dev and test profiles.
 - **What a notification says.** The platform delivers a record; the
   bank composes the line the customer reads from the kind and the
-  record — an account's name, and that it is open — and tells a kind
-  it does not know as the change it names.
+  record — an account's name and that it is open, an amount and that
+  it arrived, a payee and that the payment was sent — and tells a
+  kind it does not know as the change it names. A sender is named only
+  where the scheme names one, so a payment from the bank's own funds
+  reads as money arriving and not as a transfer from an account the
+  customer cannot see.
 
 ### Deployment
 
@@ -408,13 +412,15 @@ is decided until the local loop works end to end.
   the scheme refuses leaves the transaction list as its reservation is
   released, and the customer learns why only once the platform tells
   the bank.
-- **Only an opening is told.** The platform's catalogue publishes
-  `cash-account.opened` and the test notification and nothing else
-  yet, so a payment settling or failing, money arriving and a
-  verification completing reach no receiver until the payment, party
-  and interest entries land in the platform's catalogue. The receiver
-  takes any kind, tells the customer of the ones it knows in their
-  words, and the rest as the change it names.
+- **What is told.** The receiver resolves a customer for an opening,
+  by party, and for a payment or a reward, by the account it lands on
+  — the one credited, or the one debited where the scheme changed a
+  payment the customer sent — so money arriving, a payment sent,
+  failed or held, and a reward paid reach the app. An account the bank
+  opened for nobody, the house account included, is told to nobody. A
+  verification completing reaches no receiver until the party entries
+  land in the platform's catalogue, and a kind the bank does not know
+  is told as the change it names.
 - **Nothing after the answer is retried.** A record the bank cannot
   read back leaves the notification unresolved, and it is taken again
   only when the platform delivers it again.

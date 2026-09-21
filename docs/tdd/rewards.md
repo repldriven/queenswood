@@ -5,9 +5,9 @@
 > as the immutable terms record, the scheduler and its jobs API, the
 > simulate route that puts money into a bank, and the changelog relay
 > that tells an endpoint exist, and Background names them. Everything
-> under Proposed Solution is the build list, and "First slice" says
-> which part of it comes next: the term, the record and the hourly job
-> that pays it.
+> under Proposed Solution is the build list; the term, the record, the
+> hourly job that pays it and the entry, relay and kind that tell the
+> bank are built, and "First slice" says what comes next.
 
 ## Objective
 
@@ -303,11 +303,11 @@ reward's first customer.
    forces the job, polls the balance, and forces it again to pay
    nothing.
 
-Then, under this design: the changelog, relay and `reward.paid`; the
-read routes and the console; and last the simulate route with the
-scenarios, the console scene, the fund recipe and the docs that move
-with it. The demo bank consuming `reward.paid` is
-[demo-digital-bank](demo-digital-bank.md)'s.
+Then, under this design: the changelog, relay, `reward.paid` and the
+read routes, which are built; the console; and last the simulate route
+with the scenarios, the console scene, the fund recipe and the docs
+that move with it. The demo bank consuming `reward.paid` is
+[demo-digital-bank](demo-digital-bank.md)'s, and is built.
 
 ### Tests
 

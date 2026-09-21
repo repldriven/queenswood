@@ -8,6 +8,7 @@
     [com.repldriven.queenswood.cash-account-api.interface :as
      cash-account-api]
     [com.repldriven.queenswood.payment-api.interface :as payment-api]
+    [com.repldriven.queenswood.reward-api.interface :as reward-api]
 
     [clojure.string :as str]))
 
@@ -199,13 +200,17 @@
    "OutboundPayment" "OutboundPayment"
    "InboundPayment" "InboundPayment"
    "InternalPayment" "InternalPayment"
+   "Reward" "Reward"
    "WebhookEndpoint" "WebhookEndpoint"})
 
 (def resource-registries
   "The registries `resource-components` is held against, merged — the
   `<domain>-api` registry a resource publishes under, and this
   component's own for the endpoint."
-  (merge cash-account-api/registry payment-api/registry endpoint-registry))
+  (merge cash-account-api/registry
+         payment-api/registry
+         reward-api/registry
+         endpoint-registry))
 
 (defn unknown-resource-types
   [resource->component]

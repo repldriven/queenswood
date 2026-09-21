@@ -480,12 +480,15 @@
 
 (defn- customer-of
   "The customer a record belongs to, or nil where it belongs to none:
-  an account is a party's, and a party is one customer."
+  an account is a party's, and a party is one customer. A payment or a
+  reward names the account it lands on, which is a customer's or
+  nobody's — the house account, when the bank funds itself."
   [bank kind record]
   (case kind
     "cash-account.opened" (store/customer-by-party-id (ds bank)
                                                       (:party-id record))
-    nil))
+    (some->> (domain/notified-account kind record)
+             (store/customer-by-account-id (ds bank)))))
 
 (defn- tell
   "Read the record back, write the notification against the customer

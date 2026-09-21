@@ -21,6 +21,7 @@
         component/cash-account-api
         {:local/root "../../components/cash-account-api"}
         component/payment-api {:local/root "../../components/payment-api"}
+        component/reward-api {:local/root "../../components/reward-api"}
         component/cash-account {:local/root "../../components/cash-account"}
         component/cash-account-query {:local/root
                                       "../../components/cash-account-query"}
@@ -39,6 +40,7 @@
         component/party-query {:local/root "../../components/party-query"}
         component/payee-check {:local/root "../../components/payee-check"}
         component/payment-query {:local/root "../../components/payment-query"}
+        component/reward-query {:local/root "../../components/reward-query"}
         component/person-identification
         {:local/root "../../components/person-identification"}
         component/policy {:local/root "../../components/policy"}

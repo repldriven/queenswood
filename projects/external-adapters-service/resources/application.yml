@@ -58,6 +58,11 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-payments-event-dlq
           acks: all
+      rewards-event-dlq:
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          topic: topic-rewards-event-dlq
+          acks: all
       invitations-event-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
@@ -117,6 +122,15 @@ system:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           group.id: webhook-service-payments-event
+      rewards-event:
+        schemas: !system/local-ref schemas
+        schema: !keyword event
+        topics: [topic-rewards-event]
+        dead-letter-producer: !system/local-ref producers.rewards-event-dlq
+        max-redeliveries: 5
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          group.id: webhook-service-rewards-event
       invitations-event:
         schemas: !system/local-ref schemas
         schema: !keyword event
@@ -163,6 +177,9 @@ system:
         timeout: 500
       payments-event:
         consumer: !system/local-ref consumers.payments-event
+        timeout: 500
+      rewards-event:
+        consumer: !system/local-ref consumers.rewards-event
         timeout: 500
       invitations-event:
         consumer: !system/local-ref consumers.invitations-event

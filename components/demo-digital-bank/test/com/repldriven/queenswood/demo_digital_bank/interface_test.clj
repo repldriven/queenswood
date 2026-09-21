@@ -641,3 +641,76 @@
            (is (= ["whn.00000000000000000000000005"]
                   (map :id (read-stream bank other)))))))
      (is (not (realized? streaming)) "the first stream is still held open"))))
+
+(defn- internal-payment
+  [payment-id creditor-account-id]
+  {:payment-id payment-id
+   :bank-id "bnk.00000000000000000000000001"
+   :debtor-account-id "acc.house"
+   :creditor-account-id creditor-account-id
+   :currency "GBP"
+   :amount 5000
+   :transaction-id (str "txn." payment-id)
+   :reference "Welcome"
+   :business-day "2026-09-21"
+   :created-at "2026-09-21T10:00:00Z"
+   :updated-at "2026-09-21T10:00:00Z"})
+
+(deftest money-arriving-is-told-to-the-account-holder-test
+  (with-test-system
+   [sys config]
+   (let [bank (bank sys)
+         state (state sys)
+         owner (customer bank (sign-up bank "07700 900700" details "9012"))
+         account-id (funded-everyday bank state owner 0)
+         told (atom [])
+         _ (future (SUT/events bank
+                               owner
+                               (fn [event]
+                                 (when event (swap! told conj event)))))
+         arrived (envelope "whn.00000000000000000000000011"
+                           "payment.internal-settled" "InternalPayment"
+                           "pmt.internal.1" (internal-payment "pmt.internal.1"
+                                                              account-id))
+         rewarded (envelope "whn.00000000000000000000000012"
+                            "reward.paid" "Reward"
+                            "rwd.1" {:reward-id "rwd.1"
+                                     :bank-id "bnk.00000000000000000000000001"
+                                     :account-id account-id
+                                     :party-id (:party-id owner)
+                                     :product-id everyday
+                                     :version-id "prv.1"
+                                     :kind "opening"
+                                     :amount 5000
+                                     :currency "GBP"
+                                     :status "paid"
+                                     :transaction-id "txn.reward.1"
+                                     :paid-at "2026-09-21T11:00:00Z"
+                                     :created-at "2026-09-21T11:00:00Z"
+                                     :updated-at "2026-09-21T11:00:00Z"})
+         nobodys (envelope "whn.00000000000000000000000013"
+                           "payment.internal-settled" "InternalPayment"
+                           "pmt.internal.2" (internal-payment "pmt.internal.2"
+                                                              "acc.nobody"))]
+     (testing "an internal payment into the account is told as money arriving"
+       (nom-test> [taken (receive bank (delivery "whd.11" arrived secret))
+                   _ (is (= "accepted" (:status taken)))])
+       (is (wait-for (fn [] (seq @told))))
+       (is (= {:id "whn.00000000000000000000000011"
+               :kind "payment.internal-settled"
+               :headline "£50.00 arrived"
+               :detail "Welcome"
+               :account account-id}
+              (dissoc (first @told) :at))))
+     (testing "a reward paid to the account is told as the welcome reward"
+       (receive bank (delivery "whd.12" rewarded secret))
+       (is (wait-for (fn [] (= 2 (count @told)))))
+       (is (= "£50.00 welcome reward arrived" (:headline (second @told))))
+       (is (= account-id (:account (second @told)))))
+     (testing "a payment into an account nobody holds is taken, told to nobody"
+       (receive bank (delivery "whd.13" nobodys secret))
+       (is (wait-for
+            (fn []
+              (= "done"
+                 (:status (receive bank (delivery "whd.14" nobodys secret)))))))
+       (is (= 2 (count @told)))))))

@@ -28,6 +28,12 @@ system:
       processor: !system/local-ref event-processor-impl
       event-channel: !keyword payments-event
 
+    rewards-event-consumer: !system/component
+      system/component-kind: event-processor/event-processor
+      bus: !system/ref message-bus.bus
+      processor: !system/local-ref event-processor-impl
+      event-channel: !keyword rewards-event
+
     outbound-runner: !system/component
       system/component-kind: webhook/outbound-runner
       record-db: !system/ref fdb.record-db

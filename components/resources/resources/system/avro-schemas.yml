@@ -60,6 +60,8 @@ outbound-payment-status-changed: schemas/payments/outbound-payment-status-change
 inbound-payment-status-changed: schemas/payments/inbound-payment-status-changed.avsc.json
 internal-payment-settled: schemas/payments/internal-payment-settled.avsc.json
 
+reward-status-changed: schemas/rewards/reward-status-changed.avsc.json
+
 submit-payment: schemas/schemes/payments/submit-payment.avsc.json
 transaction-settled: schemas/schemes/payments/transaction-settled.avsc.json
 transaction-rejected: schemas/schemes/payments/transaction-rejected.avsc.json

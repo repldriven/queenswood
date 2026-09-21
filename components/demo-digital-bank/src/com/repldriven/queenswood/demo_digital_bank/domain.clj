@@ -590,18 +590,74 @@
        :resource-id resource-id
        :data data})))
 
+(defn notified-account
+  "The account a notification is about, or nil for a kind that names
+  none: the account opened, the one a payment credits — the customer
+  who sent one already holds that answer, until the scheme changes
+  it — or the one a reward was paid to."
+  [kind record]
+  (case kind
+    "cash-account.opened" (:account-id record)
+    ("payment.internal-settled" "payment.inbound-status-changed")
+    (:creditor-account-id record)
+    "payment.outbound-status-changed" (:debtor-account-id record)
+    "reward.paid" (:account-id record)
+    nil))
+
+(defn- money
+  "An amount in minor units as the customer reads it: `£50.00`, or the
+  currency's code before the figure for any other."
+  [{:keys [amount currency]}]
+  (let [figure (format "%d.%02d" (quot amount 100) (rem amount 100))]
+    (if (= "GBP" currency) (str "£" figure) (str currency " " figure))))
+
 (defn notification-view
   "A notification as the app is told it: `{:id :kind :at :headline
   :detail :account}`, the headline in the customer's words for the
   kinds the bank knows and a plain statement of the change for the
-  rest."
+  rest. A payment's sender is never named where it is the bank."
   [row record]
   (let [{:keys [id kind received-at]} row
-        base {:id id :kind kind :at received-at :detail nil :account nil}]
+        base {:id id
+              :kind kind
+              :at received-at
+              :detail nil
+              :account (notified-account kind record)}
+        unknown (assoc base :headline (str "Something changed: " kind))
+        from (some->> (:debtor-name record)
+                      (str "From "))]
     (case kind
       "cash-account.opened"
       (assoc base
              :headline (str (or (:name record) "Your account") " is open")
-             :detail "Your new account is ready to use."
-             :account (:account-id record))
-      (assoc base :headline (str "Something changed: " kind)))))
+             :detail "Your new account is ready to use.")
+      "payment.internal-settled"
+      (assoc base
+             :headline (str (money record) " arrived")
+             :detail (:reference record))
+      "payment.inbound-status-changed"
+      (case (:payment-status record)
+        "settled"
+        (assoc base :headline (str (money record) " arrived") :detail from)
+        ("held" "suspended") (assoc base
+                                    :headline (str (money record) " is on hold")
+                                    :detail from)
+        "returned" (assoc base
+                          :headline (str (money record) " was returned")
+                          :detail from)
+        unknown)
+      "payment.outbound-status-changed"
+      (let [to (str "Payment to " (or (:creditor-name record) "your payee"))
+            sent (str (money record)
+                      (some->> (:reference record)
+                               (str ", ")))]
+        (case (:payment-status record)
+          "completed" (assoc base :headline (str to " sent") :detail sent)
+          "failed" (assoc base :headline (str to " failed") :detail sent)
+          "held" (assoc base :headline (str to " is held") :detail sent)
+          unknown))
+      "reward.paid"
+      (assoc base
+             :headline (str (money record) " welcome reward arrived")
+             :detail "Paid for opening your account.")
+      unknown)))

@@ -23,6 +23,13 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-payments-event
           acks: all
+      rewards-event:
+        schemas: !system/local-ref schemas
+        schema: !keyword event
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          topic: topic-rewards-event
+          acks: all
       idv-event:
         schemas: !system/local-ref schemas
         schema: !keyword event
@@ -71,6 +78,8 @@ system:
         producer: !system/local-ref producers.cash-accounts-event
       payments-event:
         producer: !system/local-ref producers.payments-event
+      rewards-event:
+        producer: !system/local-ref producers.rewards-event
       idv-event:
         producer: !system/local-ref producers.idv-event
       idvs-event:
@@ -124,6 +133,11 @@ system:
       bus: !system/ref message-bus.bus
       event-channel: !keyword payments-event
       store-name: payments
+    rewards-handler: !system/component
+      system/component-kind: changelog-relay/envelope-handler
+      bus: !system/ref message-bus.bus
+      event-channel: !keyword rewards-event
+      store-name: rewards
     schemes-payments-handler: !system/component
       system/component-kind: changelog-relay/envelope-handler
       bus: !system/ref message-bus.bus
@@ -190,6 +204,12 @@ system:
         consumer-id: internal-payments-relay
         store-name: internal-payments
         handler: !system/local-ref payments-handler
+      rewards:
+        record-db: !system/ref fdb.record-db
+        keyspace-prefix: !system/ref fdb.keyspace-prefix
+        consumer-id: rewards-relay
+        store-name: rewards
+        handler: !system/local-ref rewards-handler
   scheduler: !include system/scheduler.yml
   payment-sweep: !include system/payment-outbound-sweep.yml
   telemetry: !include system/telemetry.yml
