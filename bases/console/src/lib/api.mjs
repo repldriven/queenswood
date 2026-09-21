@@ -370,6 +370,17 @@ export function get_outbound_payment(payment_id) {
 // accrue/capitalize remain admin-only, so the sandbox runs interest via
 // the bank-tier daily-interest job force-start instead.
 
+export function list_rewards(account_id) {
+  return request(`/v1/rewards?account-id=${encodeURIComponent(account_id)}`);
+}
+
+export function check_payee(data) {
+  return mutate("/v1/payee-checks", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
 export function simulate_inbound_transfer(bank_id, data) {
   return mutate(`/v1/simulate/banks/${bank_id}/inbound-transfer`, {
     method: "POST",

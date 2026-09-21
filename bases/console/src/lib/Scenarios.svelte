@@ -1,23 +1,25 @@
 <script>
   /* Scenarios — a customer-facing SANDBOX that proves the platform
-     works by running real, HTTP-driven scenarios live. Eight scenes tell
-     one continuous story — a bank opening its doors — fired manually in
-     order. State is CUMULATIVE: each scene builds on the last, and the
-     bank-state band accumulates the evidence as scenes complete.
+     works by running real, HTTP-driven scenarios live. Eleven scenes
+     tell one continuous story — a bank opening its doors — fired
+     manually in order. State is CUMULATIVE: each scene builds on the
+     last, and the bank-state band accumulates the evidence as scenes
+     complete.
 
      This runner fires REAL calls against bank-api as the signed-in bank
-     (org tier): products, parties (poll until IDV flips), accounts (a
-     current and a savings each for Arthur and Ford), funding the bank's
-     own funds via the now-org-tier simulate inbound-transfer and the
-     customers from there by internal payment, internal transfers (current
-     → savings), a deliberately overdrawing transfer the non-negative-
-     balance policy refuses, an outbound Faster Payment over the scheme
-     (Ford pays Arthur for beer and nuts), and interest via the bank-tier
-     daily-interest job force-start. Real ids discovered during a run are threaded
-     through `ctx` and persisted, so later scenes reference the entities
-     earlier scenes actually created. Re-running writes real server state;
-     creation steps reuse an existing entity where they can so a re-run
-     doesn't hard-fail. */
+     (org tier): the three products the demo bank sells, the team
+     invited, parties (poll until IDV flips), the bank's own funds
+     topped up through the org-tier simulate inbound-transfer, an
+     Everyday account each for Arthur and Ford, the welcome reward paid
+     by the hourly job, a transfer into a new Rainy Day, an overdraw the
+     non-negative-balance policy refuses, a payee check and an outbound
+     Faster Payment over the scheme (Ford pays Arthur for beer and
+     nuts), a repriced Rainy Day that the migration job moves Arthur
+     onto, and interest via the daily-interest job. Real ids discovered
+     during a run are threaded through `ctx` and persisted, so later
+     scenes reference the entities earlier scenes actually created.
+     Re-running writes real server state; creation steps reuse an
+     existing entity where they can so a re-run doesn't hard-fail. */
 
   import { fly } from "svelte/transition";
   import {
@@ -54,16 +56,18 @@
 
   // ── fixtures ──────────────────────────────────────────────────────
   const TODAY = new Date().toISOString().slice(0, 10);
-  // Platform-seeded product templates (current / savings).
+  // Platform-seeded product templates (current / savings / term).
   const TPL_CURRENT = "tpl.00000000000000000000000001";
   const TPL_SAVINGS = "tpl.00000000000000000000000002";
-  // Amounts in pence.
-  const FUND_EACH = 100000; // £1,000 funded to each current account
-  const ARTHUR_SAVE = 75000; // £750 Arthur current → savings
-  const FORD_SAVE = 35000; // £350 Ford current → savings
-  const OVERDRAW = 50000; // £500 Arthur tries to move with only £250 left
+  const TPL_FIXED = "tpl.00000000000000000000000003";
+  // Amounts in pence. The welcome reward funds the whole story.
+  const FUND_BANK = 5000000; // £50,000 into the bank's own funds
+  const REWARD = 5000; // £50 welcome reward on every Everyday opened
+  const ARTHUR_SAVE = 3000; // £30 Arthur Everyday → Rainy Day
+  const OVERDRAW = 4000; // £40 Arthur tries to move with only £20 left
   const FORD_PAYS = 2000; // £20.00 Ford → Arthur, outbound FPS (beer and nuts)
-  const INTEREST = 110; // £0.75 + £0.35 capitalised across both savers
+  const RAINY_DAY_BPS = 410;
+  const RAINY_DAY_V2_BPS = 435;
 
   const ADDRESS = {
     "building-number": "155",
@@ -95,37 +99,55 @@
       "national-identifier": { type: "national-insurance", value: "TN555103C", "issuing-country": "GB" },
     },
   };
+  const TEAM = {
+    developer: { email: "trillian@example.test", role: "developer" },
+    viewer: { email: "marvin@example.test", role: "viewer" },
+  };
 
   // The console views each scene "pays off" in.
   const VIEWS = {
     products: { label: "Products", href: "#/products" },
+    people: { label: "People", href: "#/people" },
     parties: { label: "Parties", href: "#/parties" },
     accounts: { label: "Accounts", href: "#/accounts" },
     ledger: { label: "Ledger", href: "#/ledger" },
     policies: { label: "Policies", href: "#/policies" },
     jobs: { label: "Jobs", href: "#/jobs" },
+    migrations: { label: "Migrations", href: "#/migrations" },
   };
 
   const SCENES = [
     {
-      id: "s1", num: "01", title: "Stock the shelves", view: "products",
+      id: "s1", num: "01", title: "Publish", view: "products",
       story:
-        "Draft a current account at 0 bps and a savings product at 3.65%, publish them, then revise savings to a new version — the old one auto-archives.",
-      backing: ["create-product-happy", "publish-draft", "open-new-draft-after-publish"],
+        "Draft and publish the three products the bank sells: Everyday at 0 bps with a £50 welcome reward, Rainy Day at 4.10% and 1 Year Fixed at 4.65%. The reward is a term on the version, fixed once published.",
+      backing: ["create-product-happy", "publish-draft", "opening-reward"],
       steps: [
-        { name: "Draft current account (0 bps)", raw: [{ method: "POST", path: "/v1/cash-account-products", tag: "request" }] },
+        { name: "Draft Everyday · 0 bps, £50 welcome reward", raw: [{ method: "POST", path: "/v1/cash-account-products", tag: "request" }] },
         { name: "Publish it", raw: [{ method: "POST", path: "/v1/cash-account-products/{id}/versions/{v}/publish", tag: "request" }] },
-        { name: "Draft savings @ 3.65%", raw: [{ method: "POST", path: "/v1/cash-account-products", tag: "request" }] },
+        { name: "Draft Rainy Day @ 4.10%", raw: [{ method: "POST", path: "/v1/cash-account-products", tag: "request" }] },
         { name: "Publish it", raw: [{ method: "POST", path: "/v1/cash-account-products/{id}/versions/{v}/publish", tag: "request" }] },
-        { name: "Revise savings → v2", raw: [{ method: "POST", path: "/v1/cash-account-products/{id}/versions", tag: "request" }, { method: "POST", path: "/v1/cash-account-products/{id}/versions/2/publish", tag: "request" }] },
-        { name: "Prior version auto-archives", tone: "exception", raw: [{ method: "GET", path: "/v1/cash-account-products/{id}", tag: "poll" }] },
+        { name: "Draft 1 Year Fixed @ 4.65%", raw: [{ method: "POST", path: "/v1/cash-account-products", tag: "request" }] },
+        { name: "Publish it", raw: [{ method: "POST", path: "/v1/cash-account-products/{id}/versions/{v}/publish", tag: "request" }] },
       ],
     },
     {
-      id: "s2", num: "02", title: "Identity decides the account", view: "parties",
+      id: "s2", num: "02", title: "Invite", view: "people",
+      story:
+        "Invite a developer and a viewer to the bank's team, resend the developer's invitation, and read the access log the platform keeps of every one of those acts.",
+      backing: ["invite-and-accept-by-email", "owner-resends-invitation", "history-pages-in-order"],
+      steps: [
+        { name: "Invite Trillian as a developer", raw: [{ method: "POST", path: "/v1/invitations", tag: "request" }] },
+        { name: "Invite Marvin as a viewer", raw: [{ method: "POST", path: "/v1/invitations", tag: "request" }] },
+        { name: "Resend Trillian's invitation", raw: [{ method: "POST", path: "/v1/invitations/{id}/resend", tag: "request" }] },
+        { name: "The access log records each act", raw: [{ method: "GET", path: "/v1/access-events", tag: "request" }] },
+      ],
+    },
+    {
+      id: "s3", num: "03", title: "Verify", view: "parties",
       story:
         "Onboard Arthur Dent and Ford Prefect — their identity checks clear and both go active. Onboard Zaphod Beeblebrox, whose check is rejected, and the platform denies him an account.",
-      backing: ["parties/create-party-happy", "idv-reject-marks-party-rejected"],
+      backing: ["create-person-party", "idv-rejected"],
       steps: [
         { name: "Onboard Arthur Dent", raw: [{ method: "POST", path: "/v1/parties", tag: "request" }] },
         { name: "Identity check clears → active", raw: [{ method: "GET", path: "/v1/parties/{id}", tag: "poll" }] },
@@ -136,77 +158,95 @@
       ],
     },
     {
-      id: "s3", num: "03", title: "Open the accounts", view: "accounts",
+      id: "s4", num: "04", title: "Fund", view: "ledger",
       story:
-        "Open a current and a savings account for both Arthur and Ford — four accounts in all. Each opens, then settles to opened with its own sort-code and account number.",
-      backing: ["cash-accounts/create-account-happy"],
+        "£50,000 arrives from outside into the bank's own funds. The books move — 1100 cash-at-correspondent debited, own funds credited — debits equal credits, to the penny. Customers are paid from here, never from nowhere.",
+      backing: ["simulate/inbound-transfer", "ledger-accounts/post-second-currency"],
       steps: [
-        { name: "Open Arthur's current account", raw: [{ method: "POST", path: "/v1/cash-accounts", tag: "request" }] },
-        { name: "Open Arthur's savings account", raw: [{ method: "POST", path: "/v1/cash-accounts", tag: "request" }] },
-        { name: "Open Ford's current account", raw: [{ method: "POST", path: "/v1/cash-accounts", tag: "request" }] },
-        { name: "Open Ford's savings account", raw: [{ method: "POST", path: "/v1/cash-accounts", tag: "request" }] },
-        { name: "All four settle to opened", raw: [{ method: "GET", path: "/v1/cash-accounts/{id}", tag: "poll" }] },
-      ],
-    },
-    {
-      id: "s4", num: "04", title: "Money in, double-entry out", view: "ledger",
-      story:
-        "£2,000 arrives from outside into the bank's own funds, then the bank pays Arthur and Ford £1,000 each by internal payment. The books move — 1100 cash-at-correspondent debited, own funds credited, then customer balances — debits equal credits, to the penny.",
-      backing: ["simulate/inbound-transfer"],
-      steps: [
-        { name: "Fund the bank · £2,000 into own funds", raw: [{ method: "POST", path: "/v1/simulate/banks/{bank-id}/inbound-transfer", tag: "request" }] },
-        { name: "Pay Arthur and Ford £1,000 each from own funds", raw: [{ method: "POST", path: "/v1/payments/internal", tag: "request" }, { method: "POST", path: "/v1/payments/internal", tag: "request" }] },
-        { name: "Await settlement", raw: [{ method: "GET", path: "/v1/cash-accounts/{id}/balances", tag: "poll" }] },
+        { name: "Fund the bank · £50,000 into own funds", raw: [{ method: "POST", path: "/v1/simulate/banks/{bank-id}/inbound-transfer", tag: "request" }] },
         { name: "Trial balance ties", raw: [{ method: "GET", path: "/v1/ledger-accounts", tag: "request" }] },
       ],
     },
     {
-      id: "s5", num: "05", title: "Customers save", view: "accounts",
+      id: "s5", num: "05", title: "Open", view: "accounts",
       story:
-        "Arthur moves £750 from current to savings; Ford moves £350. Internal transfers settle instantly and the savings balances climb — money moving between a customer's own accounts.",
-      backing: ["intra-bank-internal-transfer"],
+        "Open an Everyday account each for Arthur and Ford. Each opens in two phases and settles to opened; the version promises them a welcome reward the next hour.",
+      backing: ["open-account-happy"],
       steps: [
-        { name: "Arthur saves £750 · current → savings", raw: [{ method: "POST", path: "/v1/payments/internal", tag: "request" }] },
-        { name: "Ford saves £350 · current → savings", raw: [{ method: "POST", path: "/v1/payments/internal", tag: "request" }] },
-        { name: "Savings balances climb", raw: [{ method: "GET", path: "/v1/cash-accounts/{id}/balances", tag: "poll" }] },
+        { name: "Open Arthur's Everyday", raw: [{ method: "POST", path: "/v1/cash-accounts", tag: "request" }] },
+        { name: "Open Ford's Everyday", raw: [{ method: "POST", path: "/v1/cash-accounts", tag: "request" }] },
+        { name: "Both settle to opened", raw: [{ method: "GET", path: "/v1/cash-accounts/{id}", tag: "poll" }] },
       ],
     },
     {
-      id: "s6", num: "06", title: "Policy holds the line", view: "policies",
+      id: "s6", num: "06", title: "Reward", view: "jobs",
       story:
-        "Arthur tries to move £500 to savings — but his current only holds £250. The platform's non-negative-balance policy refuses the transfer before any money moves. Nothing posts; the books are untouched.",
-      backing: ["curative-inbound-when-in-breach"],
+        "Force-start the hourly-rewards job that stands in for the hour's tick. It pays £50 into each Everyday from the bank's own funds, records a reward per account, and would pay nothing a second time.",
+      backing: ["rewards/opening-reward-paid", "rewards/opening-reward-deferred"],
       steps: [
-        { name: "Arthur sends £500 · current → savings", raw: [{ method: "POST", path: "/v1/payments/internal", tag: "request" }] },
+        { name: "Force-start hourly-rewards job", tone: "exception", raw: [{ method: "POST", path: "/v1/jobs/{id}/runs", tag: "request" }] },
+        { name: "Two rewards paid, £50 each", raw: [{ method: "GET", path: "/v1/rewards?account-id={id}", tag: "poll" }] },
+        { name: "Everyday balances read £50", raw: [{ method: "GET", path: "/v1/cash-accounts/{id}/balances", tag: "poll" }] },
+        { name: "Own funds down £100", raw: [{ method: "GET", path: "/v1/ledger-accounts", tag: "request" }] },
+      ],
+    },
+    {
+      id: "s7", num: "07", title: "Move", view: "accounts",
+      story:
+        "Arthur opens a Rainy Day and moves £30 of his reward into it. An internal payment between a customer's own accounts posts at once.",
+      backing: ["internal-payment-happy"],
+      steps: [
+        { name: "Open Arthur's Rainy Day", raw: [{ method: "POST", path: "/v1/cash-accounts", tag: "request" }] },
+        { name: "Arthur moves £30 · Everyday → Rainy Day", raw: [{ method: "POST", path: "/v1/payments/internal", tag: "request" }] },
+        { name: "Rainy Day reads £30", raw: [{ method: "GET", path: "/v1/cash-accounts/{id}/balances", tag: "poll" }] },
+      ],
+    },
+    {
+      id: "s8", num: "08", title: "Refuse", view: "policies",
+      story:
+        "Arthur tries to move £40 with £20 left. The platform's non-negative-balance policy refuses it synchronously and nothing posts — the policy is data, and the console shows the rule that held.",
+      backing: ["policy-daily-limit", "capability-denied-outbound"],
+      steps: [
+        { name: "Arthur sends £40 · Everyday → Rainy Day", raw: [{ method: "POST", path: "/v1/payments/internal", tag: "request" }] },
         { name: "Refused · available must stay ≥ £0", tone: "exception", raw: [{ method: "GET", path: "/v1/me/effective-policies", tag: "request" }] },
-        { name: "Nothing posted · current still £250", raw: [{ method: "GET", path: "/v1/cash-accounts/{id}/balances", tag: "poll" }] },
+        { name: "Nothing posted · Everyday still £20", raw: [{ method: "GET", path: "/v1/cash-accounts/{id}/balances", tag: "poll" }] },
       ],
     },
-    // Outbound must follow the policy scene: s6 asserts Arthur sits at
-    // exactly £250, and this credits him £20. Scene ids are stable keys —
-    // display order is the array order, so s8 sits before s7 here.
     {
-      id: "s8", num: "07", title: "Friends settle up", view: "accounts",
+      id: "s9", num: "09", title: "Pay", view: "accounts",
       story:
-        "Ford pays Arthur £20.00 for beer and nuts — an outbound Faster Payment to Arthur's account number. It leaves Ford's current through the ClearBank scheme path and lands back in Arthur's: money out one door, in another.",
-      backing: ["e2e/full-happy-path", "payments/outbound-held-then-declined"],
+        "Ford checks Arthur's name against the account he is about to pay, then sends £20 by Faster Payments. The scheme settles it and, this being the same bank, it lands as an inbound: Ford −£20, Arthur +£20.",
+      backing: ["payee-check-match", "outbound-fps-happy", "inbound-settled"],
       steps: [
+        { name: "Check the payee · Arthur Dent matches", raw: [{ method: "POST", path: "/v1/payee-checks", tag: "request" }] },
         { name: "Ford pays Arthur £20.00 · outbound FPS", raw: [{ method: "POST", path: "/v1/payments/outbound", tag: "request" }] },
         { name: "Scheme settles → completed", raw: [{ method: "GET", path: "/v1/payments/outbound/{id}", tag: "poll" }] },
         { name: "Ford −£20 · Arthur +£20", raw: [{ method: "GET", path: "/v1/cash-accounts/{id}/balances", tag: "poll" }] },
       ],
     },
     {
-      id: "s7", num: "08", title: "The bank runs itself overnight", view: "jobs",
+      id: "s10", num: "10", title: "Migrate", view: "migrations",
       story:
-        "Force-start the seeded daily-interest job. The accrue → capitalise pipeline gives each funded savings account its statement line and posts the bank's own entry once for the run — and it ties to the penny.",
+        "Reprice Rainy Day to 4.35% as a new version, plan a migration of its holders onto it, approve the plan, and run the account-migration job. Arthur's Rainy Day moves; the old version auto-archives.",
+      backing: ["open-new-draft-after-publish", "cash-account-migrations/commit"],
+      steps: [
+        { name: "Revise Rainy Day → v2 @ 4.35%", raw: [{ method: "POST", path: "/v1/cash-account-products/{id}/versions", tag: "request" }, { method: "POST", path: "/v1/cash-account-products/{id}/versions/{v}/publish", tag: "request" }] },
+        { name: "Plan the migration onto v2", raw: [{ method: "POST", path: "/v1/cash-account-migrations", tag: "request" }] },
+        { name: "Approve it", raw: [{ method: "POST", path: "/v1/cash-account-migrations/{id}/approve", tag: "request" }] },
+        { name: "Force-start account-migration job", tone: "exception", raw: [{ method: "POST", path: "/v1/jobs/{id}/runs", tag: "request" }] },
+        { name: "Arthur's Rainy Day is on v2", raw: [{ method: "GET", path: "/v1/cash-accounts/{id}", tag: "poll" }] },
+      ],
+    },
+    {
+      id: "s11", num: "11", title: "Accrue", view: "jobs",
+      story:
+        "Force-start the daily-interest job that stands in for the night. The accrue → capitalise pipeline gives Rainy Day its statement line at 4.35% and posts the bank's own entry — pence, at a real rate, and ties to the penny.",
       backing: ["scheduler-force-start", "interest-accrual"],
       steps: [
         { name: "Force-start daily-interest job", tone: "exception", raw: [{ method: "POST", path: "/v1/jobs/{id}/runs", tag: "request" }] },
         { name: "Accrue interest", raw: [{ method: "GET", path: "/v1/jobs/{id}/runs/{run}", tag: "poll" }] },
         { name: "Capitalise interest", raw: [{ method: "GET", path: "/v1/jobs/{id}/runs/{run}", tag: "poll" }] },
         { name: "Post the run's ledger entry", raw: [{ method: "GET", path: "/v1/ledger-accounts", tag: "request" }] },
-        { name: "Interest ties to the penny", raw: [{ method: "GET", path: "/v1/ledger-accounts", tag: "request" }] },
       ],
     },
   ];
@@ -216,12 +256,10 @@
 
   // ── persisted state ───────────────────────────────────────────────
   // Versioned keys: bumped whenever scene semantics change so stale
-  // localStorage doesn't strand the runner. v3 re-cut the back half
-  // (four accounts per the happy-path shape, a save scene, a policy
-  // refusal) and rekeyed ctx.accounts; v4 inserts the outbound-payment
-  // scene (Ford pays Arthur), renumbering the scenes after it.
-  const DONE_KEY = "queenswood.scenarios.v4.done";
-  const CTX_KEY = "queenswood.scenarios.v4.ctx";
+  // localStorage doesn't strand the runner. v5 re-cut the story around
+  // the demo bank's products, the welcome reward and the migration.
+  const DONE_KEY = "queenswood.scenarios.v5.done";
+  const CTX_KEY = "queenswood.scenarios.v5.ctx";
   const load = (k, fb) => {
     try {
       const r = localStorage.getItem(k);
@@ -237,7 +275,7 @@
   };
 
   let done = $state(load(DONE_KEY, []));
-  let ctx = $state(load(CTX_KEY, {})); // { products, parties, accounts }
+  let ctx = $state(load(CTX_KEY, {})); // { products, parties, accounts, invitations, migration }
   let runStates = $state({}); // id -> { stepRuns:[{status}], failed? }
   let openIds = $state({});
   let rawOpen = $state({});
@@ -274,15 +312,14 @@
 
   const bank = $derived.by(() => {
     const d = (id) => isDone(id);
-    const productsLive = d("s1") ? 2 : 0;
-    const applicants = d("s2") ? 3 : 0;
-    const activeCustomers = d("s2") ? 2 : 0;
-    const accountsOpen = d("s3") ? 4 : 0;
+    const productsLive = d("s1") ? 3 : 0;
+    const applicants = d("s3") ? 3 : 0;
+    const activeCustomers = d("s3") ? 2 : 0;
+    const accountsOpen = (d("s5") ? 2 : 0) + (d("s7") ? 1 : 0);
     let cash = 0;
-    if (d("s4")) cash += 2 * FUND_EACH; // both currents funded £1,000
-    // Saving (s5) moves money between a customer's own accounts and the
-    // refused overdraw (s6) posts nothing — both leave the total flat.
-    if (d("s7")) cash += INTEREST; // overnight interest capitalised
+    if (d("s6")) cash += 2 * REWARD; // both Everydays rewarded £50
+    // Moving (s7), the refused overdraw (s8) and Ford paying Arthur (s9)
+    // all stay inside the bank; interest (s11) is pence at a real rate.
     return { productsLive, applicants, activeCustomers, accountsOpen, cash };
   });
 
@@ -313,6 +350,7 @@
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const tick = () => sleep(450); // pacing for narration-only steps
   const ok2xx = (r) => r.status >= 200 && r.status < 300;
+  const available = (r) => r.body?.["available-balance"]?.value ?? 0;
 
   async function poll(fn, until, { tries = 30, delay = 600 } = {}) {
     let last;
@@ -328,13 +366,13 @@
   // bank-api restart wipes FDB, orphaning them — so each ensure* verifies
   // the cached entity still exists and recreates it if not, rather than
   // stranding the sandbox on a ghost id (which polls forever / 404s).
+  const productNamed = (list, name) =>
+    (list.body?.items || []).find((p) => (p.versions || []).some((v) => v.name === name));
   async function ensureProduct(kind, body) {
     const cached = ctx.products?.[kind];
     if (cached?.productId) {
       const list = await api.list_cash_account_products();
-      const live = (list.body?.["cash-account-products"] || []).some(
-        (p) => p["product-id"] === cached.productId,
-      );
+      const live = (list.body?.items || []).some((p) => p["product-id"] === cached.productId);
       if (live) return cached;
     }
     const res = await api.create_cash_account_product(body);
@@ -344,11 +382,10 @@
       versionId = res.body["version-id"];
     } else {
       // per-type cap / existing draft on a re-run — reuse it.
-      const list = await api.list_cash_account_products();
-      const found = (list.body?.["cash-account-products"] || []).find((p) => p.name === body.name);
+      const found = productNamed(await api.list_cash_account_products(), body.name);
       if (!found) throw new Error(`create product "${body.name}": ${res.status}`);
       productId = found["product-id"];
-      versionId = found["version-id"];
+      versionId = found.versions[found.versions.length - 1]["version-id"];
     }
     ctx.products = { ...(ctx.products || {}), [kind]: { productId, versionId } };
     persistCtx();
@@ -357,14 +394,32 @@
   async function publishProduct(p) {
     if (p?.versionId) await api.publish_cash_account_product(p.productId, p.versionId);
   }
-  async function reviseSavings(sav, body) {
-    const res = await api.open_cash_account_product_draft(sav.productId, body);
-    if (ok2xx(res)) {
-      const v2 = res.body["version-id"];
-      await api.publish_cash_account_product(sav.productId, v2);
-      ctx.products.savings.versionId = v2;
-      persistCtx();
+  async function reviseProduct(kind, body) {
+    const p = ctx.products[kind];
+    if (p.priorVersionId) return p; // already revised on an earlier run
+    const res = await api.open_cash_account_product_draft(p.productId, body);
+    if (!ok2xx(res)) throw new Error(`revise ${body.name}: ${res.status}`);
+    const v2 = res.body["version-id"];
+    const published = await api.publish_cash_account_product(p.productId, v2);
+    if (!ok2xx(published)) throw new Error(`publish ${body.name} v2: ${published.status}`);
+    ctx.products[kind] = { ...p, priorVersionId: p.versionId, versionId: v2 };
+    persistCtx();
+    return ctx.products[kind];
+  }
+  async function ensureInvitation(key, { email, role }) {
+    const cached = ctx.invitations?.[key];
+    if (cached) return cached;
+    const list = await api.list_invitations();
+    const pending = (list.body?.items || []).find((i) => i.email === email && i.status === "pending");
+    let id = pending?.["invitation-id"];
+    if (!id) {
+      const res = await api.create_invitation({ email, role });
+      if (!ok2xx(res)) throw new Error(`invite ${email}: ${res.status}`);
+      id = res.body["invitation-id"];
     }
+    ctx.invitations = { ...(ctx.invitations || {}), [key]: id };
+    persistCtx();
+    return id;
   }
   async function ensureParty(key, body) {
     const cached = ctx.parties?.[key];
@@ -394,7 +449,7 @@
       accountId = res.body["account-id"];
     } else {
       const list = await api.list_cash_accounts();
-      const found = (list.body?.["cash-accounts"] || []).find(
+      const found = (list.body?.items || list.body?.["cash-accounts"] || []).find(
         (a) => a["party-id"] === body["party-id"] && a["product-id"] === body["product-id"],
       );
       if (!found) throw new Error(`open account ${key}: ${res.status}`);
@@ -410,21 +465,50 @@
     persistCtx();
     return rec;
   }
+  async function forceJob(pattern) {
+    const list = await api.list_jobs();
+    const jobs = list.body?.jobs ?? [];
+    const job = jobs.find((j) => pattern.test(j["job-id"] || j.name || ""));
+    if (!job) throw new Error(`${pattern} job not found`);
+    const r = await api.force_start_job(job["job-id"]);
+    if (!ok2xx(r)) throw new Error(`force-start ${job["job-id"]}: ${r.status}`);
+    return r.body;
+  }
+  const pollRewardPaid = (accountId) =>
+    poll(
+      () => api.list_rewards(accountId),
+      (r) => r.status === 200 && (r.body?.items || []).some((w) => w.status === "paid" && w.amount === REWARD),
+      { tries: 20, delay: 600 },
+    );
 
   // ── the scene programs ────────────────────────────────────────────
-  const PROD_CURRENT = { name: "Current Account", "template-id": TPL_CURRENT, currency: "GBP", "interest-rate-bps": 0, "effective-from": TODAY };
-  const PROD_SAVINGS = { name: "Savings", "template-id": TPL_SAVINGS, currency: "GBP", "interest-rate-bps": 365, "effective-from": TODAY };
+  const PROD_EVERYDAY = { name: "Everyday", "template-id": TPL_CURRENT, currency: "GBP", "interest-rate-bps": 0, "opening-reward": { amount: REWARD }, "effective-from": TODAY };
+  const PROD_RAINY_DAY = { name: "Rainy Day", "template-id": TPL_SAVINGS, currency: "GBP", "interest-rate-bps": RAINY_DAY_BPS, "effective-from": TODAY };
+  const PROD_FIXED = { name: "1 Year Fixed", "template-id": TPL_FIXED, currency: "GBP", "interest-rate-bps": 465, "effective-from": TODAY };
+  const PROD_RAINY_DAY_V2 = { ...PROD_RAINY_DAY, "interest-rate-bps": RAINY_DAY_V2_BPS };
 
   const EXEC = {
     async s1({ step }) {
-      const cur = await step(0, () => ensureProduct("current", PROD_CURRENT));
-      await step(1, () => publishProduct(cur));
-      const sav = await step(2, () => ensureProduct("savings", PROD_SAVINGS));
-      await step(3, () => publishProduct(sav));
-      await step(4, () => reviseSavings(sav, PROD_SAVINGS));
-      await step(5, () => tick());
+      const everyday = await step(0, () => ensureProduct("everyday", PROD_EVERYDAY));
+      await step(1, () => publishProduct(everyday));
+      const rainy = await step(2, () => ensureProduct("rainyDay", PROD_RAINY_DAY));
+      await step(3, () => publishProduct(rainy));
+      const fixed = await step(4, () => ensureProduct("fixed", PROD_FIXED));
+      await step(5, () => publishProduct(fixed));
     },
     async s2({ step }) {
+      const developer = await step(0, () => ensureInvitation("developer", TEAM.developer));
+      await step(1, () => ensureInvitation("viewer", TEAM.viewer));
+      await step(2, async () => {
+        const r = await api.resend_invitation(developer);
+        if (!ok2xx(r)) throw new Error(`resend: ${r.status}`);
+      });
+      await step(3, async () => {
+        const r = await api.list_access_events({ size: 8 });
+        if (!ok2xx(r)) throw new Error(`access events: ${r.status}`);
+      });
+    },
+    async s3({ step }) {
       const arthur = await step(0, () => ensureParty("arthur", PARTY.arthur));
       await step(1, () => pollParty(arthur, "active"));
       const ford = await step(2, () => ensureParty("ford", PARTY.ford));
@@ -432,83 +516,76 @@
       const zaphod = await step(4, () => ensureParty("zaphod", PARTY.zaphod));
       await step(5, () => pollParty(zaphod, "rejected"));
     },
-    async s3({ step }) {
-      const open = (key, party, name, kind) => () =>
-        ensureAccount(key, { "party-id": ctx.parties[party], name, currency: "GBP", "product-id": ctx.products[kind].productId });
-      await step(0, open("arthurCurrent", "arthur", "Arthur Current", "current"));
-      await step(1, open("arthurSavings", "arthur", "Arthur Savings", "savings"));
-      await step(2, open("fordCurrent", "ford", "Ford Current", "current"));
-      await step(3, open("fordSavings", "ford", "Ford Savings", "savings"));
-      await step(4, () => tick());
-    },
     async s4({ step }) {
-      const ac = ctx.accounts.arthurCurrent;
-      const fc = ctx.accounts.fordCurrent;
-      let house;
       await step(0, async () => {
-        const r = await api.simulate_inbound_transfer(bankId, { amount: 2 * FUND_EACH, currency: "GBP" });
+        const r = await api.simulate_inbound_transfer(bankId, { amount: FUND_BANK, currency: "GBP" });
         if (!ok2xx(r)) throw new Error(`fund the bank: ${r.status}`);
-        house = r.body["account-id"];
+        ctx.house = r.body["account-id"];
+        persistCtx();
       });
-      const pay = (acct, who) => async () => {
-        const r = await api.submit_internal_payment({ "debtor-account-id": house, "creditor-account-id": acct.accountId, currency: "GBP", amount: FUND_EACH, reference: `Funding ${who}` });
-        if (!ok2xx(r)) throw new Error(`pay ${who}: ${r.status}`);
-      };
-      await step(1, async () => {
-        await pay(ac, "Arthur")();
-        await pay(fc, "Ford")();
-      });
-      await step(2, () =>
-        poll(() => api.get_cash_account_balances(ac.accountId), (r) => r.status === 200 && (r.body?.["available-balance"]?.value ?? 0) >= FUND_EACH));
-      await step(3, () => api.list_ledger_accounts());
+      await step(1, () => api.list_ledger_accounts());
     },
     async s5({ step }) {
-      const { arthurCurrent, arthurSavings, fordCurrent, fordSavings } = ctx.accounts;
-      const save = (from, to, amount, who) => async () => {
-        const r = await api.submit_internal_payment({ "debtor-account-id": from.accountId, "creditor-account-id": to.accountId, currency: "GBP", amount, reference: `${who} saves` });
-        if (!ok2xx(r)) throw new Error(`${who} save: ${r.status}`);
-      };
-      await step(0, save(arthurCurrent, arthurSavings, ARTHUR_SAVE, "Arthur"));
-      await step(1, save(fordCurrent, fordSavings, FORD_SAVE, "Ford"));
-      await step(2, () =>
-        poll(() => api.get_cash_account_balances(arthurSavings.accountId), (r) => r.status === 200 && (r.body?.["available-balance"]?.value ?? 0) >= ARTHUR_SAVE));
+      const open = (key, party, name, kind) => () =>
+        ensureAccount(key, { "party-id": ctx.parties[party], name, currency: "GBP", "product-id": ctx.products[kind].productId });
+      await step(0, open("arthurEveryday", "arthur", "Arthur Everyday", "everyday"));
+      await step(1, open("fordEveryday", "ford", "Ford Everyday", "everyday"));
+      await step(2, () => tick());
     },
     async s6({ step }) {
-      const ac = ctx.accounts.arthurCurrent;
+      const ae = ctx.accounts.arthurEveryday;
+      const fe = ctx.accounts.fordEveryday;
+      await step(0, () => forceJob(/hourly-rewards/));
+      await step(1, async () => {
+        await pollRewardPaid(ae.accountId);
+        await pollRewardPaid(fe.accountId);
+      });
+      await step(2, () =>
+        poll(() => api.get_cash_account_balances(ae.accountId), (r) => r.status === 200 && available(r) >= REWARD));
+      await step(3, () => api.list_ledger_accounts());
+    },
+    async s7({ step }) {
+      const ae = ctx.accounts.arthurEveryday;
+      const rainy = await step(0, () =>
+        ensureAccount("arthurRainyDay", { "party-id": ctx.parties.arthur, name: "Arthur Rainy Day", currency: "GBP", "product-id": ctx.products.rainyDay.productId }));
+      await step(1, async () => {
+        const r = await api.submit_internal_payment({ "debtor-account-id": ae.accountId, "creditor-account-id": rainy.accountId, currency: "GBP", amount: ARTHUR_SAVE, reference: "Arthur saves" });
+        if (!ok2xx(r)) throw new Error(`Arthur saves: ${r.status}`);
+      });
+      await step(2, () =>
+        poll(() => api.get_cash_account_balances(rainy.accountId), (r) => r.status === 200 && available(r) >= ARTHUR_SAVE));
+    },
+    async s8({ step }) {
+      const ae = ctx.accounts.arthurEveryday;
       await step(0, async () => {
-        // Arthur's current holds £250; £500 out would breach the
+        // Arthur's Everyday holds £20; £40 out would breach the
         // platform non-negative-balance limit. Expect a synchronous 429.
-        const r = await api.submit_internal_payment({ "debtor-account-id": ac.accountId, "creditor-account-id": ctx.accounts.arthurSavings.accountId, currency: "GBP", amount: OVERDRAW, reference: "Overdraw attempt" });
+        const r = await api.submit_internal_payment({ "debtor-account-id": ae.accountId, "creditor-account-id": ctx.accounts.arthurRainyDay.accountId, currency: "GBP", amount: OVERDRAW, reference: "Overdraw attempt" });
         if (r.status !== 429) throw new Error(`expected 429 policy limit, got ${r.status}`);
       });
       await step(1, () => api.list_my_effective_policies());
       await step(2, () =>
-        poll(() => api.get_cash_account_balances(ac.accountId), (r) => r.status === 200 && (r.body?.["available-balance"]?.value ?? 0) === FUND_EACH - ARTHUR_SAVE));
+        poll(() => api.get_cash_account_balances(ae.accountId), (r) => r.status === 200 && available(r) === REWARD - ARTHUR_SAVE));
     },
-    async s7({ step }) {
-      await step(0, async () => {
-        const list = await api.list_jobs();
-        const jobs = list.body?.jobs ?? list.body?.["jobs"] ?? [];
-        const job = jobs.find((j) => /interest/i.test(j.name || j["job-id"] || ""));
-        if (!job) throw new Error("daily-interest job not found");
-        const r = await api.force_start_job(job["job-id"] ?? job.id);
-        if (!ok2xx(r)) throw new Error(`force-start: ${r.status}`);
-      });
-      await step(1, () => tick());
-      await step(2, () => tick());
-      await step(3, () => api.list_ledger_accounts());
-      await step(4, () => tick());
-    },
-    async s8({ step }) {
-      const ford = ctx.accounts.fordCurrent;
-      const arthur = ctx.accounts.arthurCurrent;
+    async s9({ step }) {
+      const ford = ctx.accounts.fordEveryday;
+      const arthur = ctx.accounts.arthurEveryday;
       let paymentId;
+      // Arthur's BBAN is sort-code ++ account-number from the SCAN
+      // address on his Everyday — the scheme delivers there.
+      const bban = arthur.bban ?? (await api.get_cash_account(arthur.accountId)).body?.bban;
+      if (!bban) throw new Error("Arthur's Everyday has no SCAN bban yet");
       await step(0, async () => {
-        // Arthur's BBAN is sort-code ++ account-number from the SCAN
-        // address on his current account — the scheme delivers there.
-        const bban =
-          arthur.bban ?? (await api.get_cash_account(arthur.accountId)).body?.bban;
-        if (!bban) throw new Error("Arthur's current has no SCAN bban yet");
+        const r = await api.check_payee({
+          "creditor-name": "Arthur Dent",
+          account: { "sort-code": bban.slice(0, 6), "account-number": bban.slice(6) },
+          "account-type": "personal",
+        });
+        if (!ok2xx(r)) throw new Error(`payee check: ${r.status}`);
+        const result = r.body?.result?.["match-result"];
+        if (result !== "match") throw new Error(`payee check answered ${result}`);
+      });
+      await step(1, async () => {
         const r = await api.submit_outbound_payment({
           "debtor-account-id": ford.accountId,
           "creditor-bban": bban,
@@ -521,21 +598,54 @@
         if (!ok2xx(r)) throw new Error(`outbound submit: ${r.status}`);
         paymentId = r.body?.["payment-id"];
       });
-      await step(1, () =>
+      await step(2, () =>
         poll(
           () => api.get_outbound_payment(paymentId),
           (r) => r.status === 200 && r.body?.["payment-status"] === "completed",
           { tries: 40, delay: 600 },
         ));
       // Outbound to a same-bank account round-trips back as an inbound:
-      // Ford −£20, Arthur +£20, so Arthur's current climbs to £270.
-      await step(2, () =>
+      // Ford −£20, Arthur +£20, so Arthur's Everyday climbs to £40.
+      await step(3, () =>
         poll(
           () => api.get_cash_account_balances(arthur.accountId),
-          (r) =>
-            r.status === 200 &&
-            (r.body?.["available-balance"]?.value ?? 0) >= FUND_EACH - ARTHUR_SAVE + FORD_PAYS,
+          (r) => r.status === 200 && available(r) >= REWARD - ARTHUR_SAVE + FORD_PAYS,
         ));
+    },
+    async s10({ step }) {
+      const rainy = await step(0, () => reviseProduct("rainyDay", PROD_RAINY_DAY_V2));
+      const migrationId = await step(1, async () => {
+        if (ctx.migration) return ctx.migration;
+        const r = await api.create_cash_account_migration({
+          name: "Rainy Day holders onto v2",
+          "source-product-id": rainy.productId,
+          "target-product-id": rainy.productId,
+          "target-version-id": rainy.versionId,
+          "notified-on": TODAY,
+          "due-on": TODAY,
+        });
+        if (!ok2xx(r)) throw new Error(`plan migration: ${r.status}`);
+        ctx.migration = r.body["migration-id"];
+        persistCtx();
+        return ctx.migration;
+      });
+      await step(2, async () => {
+        const r = await api.approve_cash_account_migration(migrationId);
+        if (!ok2xx(r) && r.status !== 409) throw new Error(`approve: ${r.status}`);
+      });
+      await step(3, () => forceJob(/account-migration/));
+      await step(4, () =>
+        poll(
+          () => api.get_cash_account(ctx.accounts.arthurRainyDay.accountId),
+          (r) => r.status === 200 && r.body?.["version-id"] === rainy.versionId,
+          { tries: 40, delay: 600 },
+        ));
+    },
+    async s11({ step }) {
+      await step(0, () => forceJob(/daily-interest/));
+      await step(1, () => tick());
+      await step(2, () => tick());
+      await step(3, () => api.list_ledger_accounts());
     },
   };
 
@@ -626,7 +736,7 @@
 <PageHeader
   {kicker}
   title="Scenarios"
-  sub="Watch the platform run for real. Eight scenes tell one story — a bank opening its doors — fired in order against the live API. State carries across the whole session, so the books you see are the books the scenarios actually moved."
+  sub="Watch the platform run for real. Eleven scenes tell one story — a bank opening its doors — fired in order against the live API. State carries across the whole session, so the books you see are the books the scenarios actually moved."
 >
   {#snippet titleAside()}
     <span class="cum-chip" title="State carries across scenes — each builds on the last.">
