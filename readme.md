@@ -6,26 +6,29 @@
 
 # Queenswood
 
-**Open-source core banking.** Queenswood is the operational core a
-fintech builds a banking product on: accounts, payments, a
-double-entry ledger, interest, rewards, onboarding with identity
-checks, policies, scheduled jobs, a team console and webhooks, behind
-one API. You bring the banking licence, the clearing partner and the
-identity provider. The platform is yours to read, to run and to change.
+**Open-source core banking.** Queenswood is the operational core a fintech
+builds a banking product on: accounts, payments, a double-entry ledger,
+interest, rewards, onboarding with identity checks, policies, scheduled jobs, a
+team console and webhooks, behind one API. Throughout, a bank is what the
+platform calls a fintech's organisation: its products, customers, books,
+policies and team, apart from every other's. You bring the banking licence, the
+clearing partner and the identity provider. The platform is yours to read, to
+run and to change.
 
 ## Demo
 
 <video src="https://github.com/user-attachments/assets/f112c363-b7ba-4f83-b96a-88219e3bc554" controls></video>
 
-The console's Scenarios page, run against an empty bank: the eleven
-scenes of [Give it a spin](#give-it-a-spin), each followed by the page
+The console, where a fintech's team runs its bank: the eleven scenes of [Give it
+a spin](#give-it-a-spin), run against an empty bank, each followed by the page
 where its effect shows.
 
 <video src="https://github.com/user-attachments/assets/2a4d01fe-3caf-452a-9667-7de984d5bcf4" controls></video>
 
-Then the bank's own app, on the bank those scenes left: a new customer
-signs up, is verified, opens an Everyday and is paid its welcome
-reward, and opens a Rainy Day with some of it.
+Then the product a fintech builds on the platform, here the demo digital bank's
+app, on the bank those scenes left: a new customer signs up, is verified, opens
+an Everyday and is paid its welcome reward, and opens a Rainy Day with some of
+it.
 
 ## What a fintech gets
 
@@ -33,9 +36,8 @@ reward, and opens a Rainy Day with some of it.
   routes themselves, so what the document says is what the API does. Every write
   takes an idempotency key, so a retried request replays the first answer rather
   than paying twice.
-- **Isolated banks.** Each bank is an organisation with its own products,
-  customers, books, policies and team. A bank starts in test and moves to live;
-  tiers set what it may do and how much.
+- **Isolated banks.** Nothing of one bank is visible to another. A bank starts
+  in test and moves to live; tiers set what it may do and how much.
 - **Versioned products, with migrations.** Current, savings and term deposit
   products come from templates. A rate change, a new welcome reward, a new term:
   each is a new version, and the holders of the old one are moved by a migration
@@ -95,18 +97,18 @@ Every scene fires real requests, shows them, and points at the console
 page where its effect is visible. The same story, and a hundred and
 fifty other cases, run as data-driven scenarios in the test suite.
 
-Then use the bank. The demo digital bank is a retail bank built
-entirely on the platform: a customer signs up on their phone, is
-verified, opens Everyday, and the welcome reward arrives with a
-notification while the app is open. Its backend talks to the platform
-the way yours would, and is the worked example for building on it. See
-[demo-digital-bank](docs/prd/demo-digital-bank.md).
+Then the product a fintech builds on it. The demo digital bank is a retail
+banking product built entirely on the platform, and the second video is its app:
+a customer signs up on their phone, is verified, opens Everyday, and the welcome
+reward arrives with a notification while the app is open. Its backend talks to
+the platform the way yours would, and is the worked example for building on it.
+See [demo-digital-bank](docs/prd/demo-digital-bank.md).
 
 ## Who it is for
 
-- **The fintech's team.** The founder, operations, finance and support
-  people who run the bank's relationship with the platform, in the
-  console, each with their own identity and role.
+- **The fintech's team.** The founder, operations, finance and support people
+  who run the fintech's bank in the console, each with their own identity and
+  role.
 - **The fintech's engineers.** The people who build the product on the
   API, and the systems they build, which act as the bank with its
   credential.
