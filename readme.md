@@ -25,10 +25,9 @@ where its effect shows.
 
 <video src="https://github.com/user-attachments/assets/2a4d01fe-3caf-452a-9667-7de984d5bcf4" controls></video>
 
-Then the product a fintech builds on the platform, here the demo digital bank's
-app, on the bank those scenes left: a new customer signs up, is verified, opens
-an Everyday and is paid its welcome reward, and opens a Rainy Day with some of
-it.
+Then the fintech's own banking app and systems, here the demo digital bank's, on
+the bank those scenes left: a new customer signs up, is verified, opens an
+Everyday and is paid its welcome reward, and opens a Rainy Day with some of it.
 
 ## What a fintech gets
 
@@ -97,11 +96,11 @@ Every scene fires real requests, shows them, and points at the console
 page where its effect is visible. The same story, and a hundred and
 fifty other cases, run as data-driven scenarios in the test suite.
 
-Then the product a fintech builds on it. The demo digital bank is a retail
-banking product built entirely on the platform, and the second video is its app:
-a customer signs up on their phone, is verified, opens Everyday, and the welcome
-reward arrives with a notification while the app is open. Its backend talks to
-the platform the way yours would, and is the worked example for building on it.
+Then the fintech's own banking app and systems. The demo digital bank is a
+retail one built entirely on the platform, and the second video is its app: a
+customer signs up on their phone, is verified, opens Everyday, and the welcome
+reward arrives with a notification while the app is open. Its systems talk to
+the platform the way yours would, and are the worked example for building on it.
 See [demo-digital-bank](docs/prd/demo-digital-bank.md).
 
 ## Who it is for
