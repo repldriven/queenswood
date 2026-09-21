@@ -1,10 +1,10 @@
 (ns com.repldriven.queenswood.payment.store-test
   (:require
-    [com.repldriven.queenswood.fdb.interface :as fdb]
-    [com.repldriven.queenswood.testcontainers.interface]
+    [com.repldriven.queenswood.payment.test-system]
 
     [com.repldriven.queenswood.payment.store :as store]
 
+    [com.repldriven.queenswood.fdb.interface :as fdb]
     [com.repldriven.queenswood.payment-query.interface :as q]
     [com.repldriven.queenswood.schema.interface :as schema]
 

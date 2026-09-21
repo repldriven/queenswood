@@ -1,6 +1,6 @@
 (ns com.repldriven.queenswood.payment.sweep-test
   (:require
-    [com.repldriven.queenswood.testcontainers.interface]
+    [com.repldriven.queenswood.payment.test-system]
 
     [com.repldriven.queenswood.payment.store :as store]
     [com.repldriven.queenswood.payment.sweep :as SUT]
