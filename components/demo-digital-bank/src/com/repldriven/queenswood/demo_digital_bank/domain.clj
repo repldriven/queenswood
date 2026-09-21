@@ -355,6 +355,7 @@
    "internal-transfer" "Saved"
    "interest-accrual" "Interest earned"
    "interest-capital" "Interest earned"
+   "reward" "Rewards"
    "fee" "Fees"})
 
 (defn- same-reference?
@@ -386,8 +387,8 @@
 (defn- who
   "The other side of a leg, as far as the bank can tell: a transfer
   between the customer's own accounts names the other account, a
-  payment names the payee where the bank made it, and anything else
-  names its kind."
+  payment names the payee where the bank made it, a reward names what
+  it was for, and anything else names its kind."
   [leg by-transaction names payments]
   (let [type (some-> (:transaction-type leg)
                      name)]
@@ -402,6 +403,7 @@
       "inbound-transfer" "Received"
       "outbound-transfer" (or (payee-of leg payments) "Payment")
       "fee" "Fee"
+      "reward" "Welcome reward"
       "Interest")))
 
 (defn transactions

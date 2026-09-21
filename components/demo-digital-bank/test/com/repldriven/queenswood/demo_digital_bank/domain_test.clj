@@ -107,6 +107,15 @@
              (set (map :who txns))))
       (is (= #{"Saved"} (set (map :cat txns))))
       (is (= #{-20000 20000} (set (map :amount txns))))))
+  (testing "a reward reads as what it was for, never as interest"
+    (let [row (first (SUT/transactions {"cur" [(assoc (leg "reward" "credit"
+                                                           5000 100)
+                                                      :reference
+                                                      "Welcome reward")]}
+                                       {"cur" "Everyday"}
+                                       []))]
+      (is (= ["Welcome reward" "Rewards" 5000 "posted"]
+             [(:who row) (:cat row) (:amount row) (:status row)]))))
   (testing "an accrual on another balance is not a transaction"
     (is (= []
            (SUT/transactions {"sav" [(assoc (leg "interest-accrual" "credit"
