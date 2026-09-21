@@ -18,8 +18,8 @@ identity provider. The platform is yours to read, to run and to change.
 <video src="https://github.com/user-attachments/assets/f112c363-b7ba-4f83-b96a-88219e3bc554" controls></video>
 
 The console's Scenarios page, run against an empty bank: the eleven
-scenes of [The first day of a bank](#the-first-day-of-a-bank), each
-followed by the page where its effect shows.
+scenes of [Give it a spin](#give-it-a-spin), each followed by the page
+where its effect shows.
 
 ## What a fintech gets
 
@@ -59,11 +59,11 @@ API reference:
 or live OpenAPI at [localhost:8080](http://localhost:8080) when
 running.
 
-## The first day of a bank
+## Give it a spin
 
-The console's **Sandbox › Scenarios** page walks a new bank through its
-first day, live against the API, in eleven scenes that build on each
-other. Each is named for what it does:
+The console's **Sandbox › Scenarios** page runs eleven scenes against
+an empty bank, live against the API, each building on the one before.
+Each is named for what it does:
 
 1. **Publish** the three products the bank sells: Everyday, with a £50
    welcome reward, Rainy Day at 4.10% and 1 Year Fixed at 4.65%.
