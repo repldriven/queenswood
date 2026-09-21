@@ -28,38 +28,36 @@ identity provider. The platform is yours to read, to run and to change.
 
 ## What a fintech gets
 
-- **One API for the whole bank.** One base URL and one OpenAPI 3.x
-  document, generated from the routes themselves, so what the document
-  says is what the API does. Every write takes an idempotency key, so a
-  retried request replays the first answer rather than paying twice.
-- **A bank of your own, isolated.** Each bank is an organisation with
-  its own products, customers, books, policies and team. A bank starts
-  in test and moves to live; tiers set what it may do and how much.
-- **Products you version, never edit.** Current, savings and term
-  deposit products come from templates. A rate change, a new welcome
-  reward, a new term: each is a new version, and the holders of the old
-  one are moved by a migration you plan, approve and let the scheduler
-  run.
-- **Money that moves correctly.** Internal transfers post at once. UK
-  Faster Payments go out through a clearing partner, with the payee's
-  name checked first, and come in matched to the account or parked in
-  suspense. Every movement is a double-entry posting in integer minor
-  units, and interest keeps the fraction of a penny it has not paid yet.
-- **Customers who are told.** A webhook endpoint per bank, told when an
-  account opens, a payment settles, is held or fails, money arrives, or
-  a reward is paid. Deliveries are signed, retried, and re-sendable.
-- **Rules as data.** What a bank may do, and up to what limit, is a
-  policy record evaluated when the request arrives, not a conditional
-  compiled into a release. Changing what a bank permits is a write.
-- **A team with names on it.** Invite colleagues as owner, admin,
-  developer or viewer. Every act is attributable to a person or to the
-  bank's own credential, and an access log says who did what.
-- **A sandbox that behaves like live.** Fund your bank with simulated
-  money and run the same code, the same API and the same books your
-  customers will.
-- **Nothing hidden.** The source, the product and design documents, the
-  decisions and the tests, including property tests that hold the
-  running system to a model of it, are all in this repository.
+- **One API.** One base URL and one OpenAPI 3.x document, generated from the
+  routes themselves, so what the document says is what the API does. Every write
+  takes an idempotency key, so a retried request replays the first answer rather
+  than paying twice.
+- **Isolated banks.** Each bank is an organisation with its own products,
+  customers, books, policies and team. A bank starts in test and moves to live;
+  tiers set what it may do and how much.
+- **Versioned products, with migrations.** Current, savings and term deposit
+  products come from templates. A rate change, a new welcome reward, a new term:
+  each is a new version, and the holders of the old one are moved by a migration
+  you plan, approve and let the scheduler run.
+- **Payments on a double-entry ledger.** Internal transfers post at once. UK
+  Faster Payments go out through a clearing partner, with the payee's name
+  checked first, and come in matched to the account or parked in suspense. Every
+  movement is a double-entry posting in integer minor units, and interest keeps
+  the fraction of a penny it has not paid yet.
+- **Webhooks.** A webhook endpoint per bank, told when an account opens, a
+  payment settles, is held or fails, money arrives, or a reward is paid.
+  Deliveries are signed, retried, and re-sendable.
+- **Policies as data.** What a bank may do, and up to what limit, is a policy
+  record evaluated when the request arrives, not a conditional compiled into a
+  release. Changing what a bank permits is a write.
+- **Team roles and an access log.** Invite colleagues as owner, admin, developer
+  or viewer. Every act is attributable to a person or to the bank's own
+  credential, and an access log says who did what.
+- **A sandbox on the live code.** Fund your bank with simulated money and run
+  the same code, the same API and the same books your customers will.
+- **Source, design and tests in one repository.** The source, the product and
+  design documents, the decisions and the tests, including property tests that
+  hold the running system to a model of it, are all here.
 
 API reference:
 [repldriven.github.io/queenswood](https://repldriven.github.io/queenswood/),
