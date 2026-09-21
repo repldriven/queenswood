@@ -15,12 +15,12 @@ run and to change.
 
 ## Demo
 
-<video src="https://github.com/user-attachments/assets/f112c363-b7ba-4f83-b96a-88219e3bc554" controls></video>
+[![The console, taking an empty bank to a night's interest](docs/assets/demo-console.png)](https://github.com/user-attachments/assets/f112c363-b7ba-4f83-b96a-88219e3bc554)
 
 Queenswood's console, the web app a fintech's operators use, taking an empty
 bank from its first products to a night's interest.
 
-<video src="https://github.com/user-attachments/assets/2a4d01fe-3caf-452a-9667-7de984d5bcf4" controls></video>
+[![The demo digital bank's app, a new customer to two open accounts](docs/assets/demo-app.png)](https://github.com/user-attachments/assets/2a4d01fe-3caf-452a-9667-7de984d5bcf4)
 
 Then the fintech's own banking app, the
 [demo digital bank](docs/prd/demo-digital-bank.md), taking a new customer of
