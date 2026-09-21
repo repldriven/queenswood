@@ -10,10 +10,11 @@ import { test, expect } from "@playwright/test";
 const bank = process.env.DEMO_BANK_URL ?? "http://localhost:8100";
 // A number and a National Insurance number no earlier customer signed
 // up with: sign-in resolves a customer by phone, and the platform holds
-// one party per identifier. QQ is a prefix never issued, which is why
-// HMRC's own examples carry it.
+// one party per identifier. 07700 900000 to 900999 is the range Ofcom
+// keeps for fiction, so no take can ring anybody, and QQ is a prefix
+// never issued, which is why HMRC's own examples carry it.
 const stamp = String(Date.now());
-const phone = "7700 9" + stamp.slice(-5);
+const phone = "7700 900" + stamp.slice(-3);
 const nino = "QQ" + stamp.slice(-6) + "C";
 const passcode = "2468";
 const BEAT = 1800;
