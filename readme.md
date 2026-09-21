@@ -6,8 +6,8 @@
 
 # Queenswood
 
-**A bank's engine room, in the open.** Queenswood is the operational
-core a fintech builds a banking product on: accounts, payments, a
+**Open-source core banking.** Queenswood is the operational core a
+fintech builds a banking product on: accounts, payments, a
 double-entry ledger, interest, rewards, onboarding with identity
 checks, policies, scheduled jobs, a team console and webhooks, behind
 one API. You bring the banking licence, the clearing partner and the
