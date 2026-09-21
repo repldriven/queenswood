@@ -23,8 +23,8 @@ bank from its first products to a night's interest.
 <video src="https://github.com/user-attachments/assets/2a4d01fe-3caf-452a-9667-7de984d5bcf4" controls></video>
 
 Then the fintech's own banking app, the
-[demo digital bank](docs/prd/demo-digital-bank.md), on that bank: a customer
-signs up, is verified and opens two accounts.
+[demo digital bank](docs/prd/demo-digital-bank.md), taking a new customer of
+that bank from sign-up to two open accounts.
 
 ## What a fintech gets
 
