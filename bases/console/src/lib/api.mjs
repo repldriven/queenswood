@@ -84,6 +84,9 @@ function product_request_body(data) {
   if (data["interest-rate-bps"]) {
     body["interest-rate-bps"] = data["interest-rate-bps"];
   }
+  if (data["opening-reward"]) {
+    body["opening-reward"] = data["opening-reward"];
+  }
   if (data["effective-from"]) {
     body["effective-from"] = data["effective-from"];
   }
