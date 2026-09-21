@@ -3,11 +3,11 @@
     [com.repldriven.queenswood.api-schema.interface :refer
      [examples-registry]]))
 
-(def SimulateInboundTransferRequest
-  {:account-id "acc.01kprbmgcj35ptc8npmybhh4s8" :amount 1000 :currency "GBP"})
+(def SimulateInboundTransferRequest {:amount 1000 :currency "GBP"})
 
 (def SimulateInboundTransferResponse
-  {:transaction-id "txn.01kprbmgcj35ptc8npmybhh4sb"
+  {:account-id "acc.01kprbmgcj35ptc8npmybhh4s8"
+   :transaction-id "txn.01kprbmgcj35ptc8npmybhh4sb"
    :status "posted"
    :transaction-type "internal-transfer"
    :currency "GBP"

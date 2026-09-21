@@ -21,9 +21,9 @@
    :as :org-0-token}]
  :when
  ;; The bank holds a GBP chart alone, so resolving 1100 in USD finds
- ;; no row. The handler does that before it reads the account or
- ;; builds a leg, so the refusal is the by-role one rather than a
- ;; currency mismatch on the target account.
+ ;; no row. The handler does that before it looks for a house account
+ ;; or builds a leg, so the refusal is the by-role one rather than a
+ ;; missing house account.
  [{:command :api/request
    :request
    {:method :post
@@ -31,8 +31,7 @@
     :path-params {:bank-id [:ref :org-0 :bank-id]}
     :auth :org-0-token
     :headers {:idempotency-key "ik-ledger-accounts-missing-ccy-inbound"}
-    :body {:account-id [:ref :org-0 :accounts 0 :account-id]
-           :amount 250000
+    :body {:amount 250000
            :currency "USD"}}
    :assert {:status 409
             :problem {:type ":gl/missing-currency-account"

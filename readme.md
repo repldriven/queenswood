@@ -6,53 +6,123 @@
 
 # Queenswood
 
-**Core banking, boxed.** You want a modern banking platform without
-building it all yourself, or renting one you can't see inside.
-Queenswood is the operational core: accounts, payments, a double-entry
-ledger, interest, onboarding, policies, and scheduling. The machinery of a bank.
-You bring the banking licence. You contract with identity and
-payment-rails providers, plug them in where supported, or extend the
-platform where not.
+**Open-source core banking.** Queenswood is the operational core a
+fintech builds a banking product on: accounts, payments, a
+double-entry ledger, interest, rewards, onboarding with identity
+checks, policies, scheduled jobs, a team console and webhooks, behind
+one API. You bring the banking licence, the clearing partner and the
+identity provider. The platform is yours to read, to run and to change.
 
-The world runs on banking it never sees. This is that machinery, in the
-open: yours to read, to run, and to change.
+## Demo
 
-## Demos
+<video src="https://github.com/user-attachments/assets/f112c363-b7ba-4f83-b96a-88219e3bc554" controls></video>
 
-<table>
-  <tr>
-    <td align="center"><strong>Spin up a Bank</strong></td>
-    <td align="center"><strong>Use the Bank</strong></td>
-  </tr>
-  <tr>
-    <td><video src="https://github.com/user-attachments/assets/1dcf2a74-b198-4757-b271-84896f0daec8" controls></video></td>
-    <td><video src="https://github.com/user-attachments/assets/5f5403c2-3ada-4985-826b-209e1826f550" controls></video></td>
-  </tr>
-</table>
+The console's Scenarios page, run against an empty bank: the eleven
+scenes of [Give it a spin](#give-it-a-spin), each followed by the page
+where its effect shows.
 
-## What it does
+## What a fintech gets
 
-Everything a bank needs, from the same API:
-
-- **Accounts** — open, close, suspend/resume with sort code addresses
-  and balances
-- **Account products** — current and savings account product versioning
-- **Account migrations** — plan, preview and migrate accounts within a
-  product line
-- **Interest** — accrual, capitalisation and fractional carry
-- **Ledger** — double-entry postings on every money movement
-- **Onboarding & identity** — know-your-customer checks and onboarding
-- **Parties** — customer records, with retrieval and merge
-- **Payee checks** — verify a payee before an outbound payment
-- **Payments** — internal transfers, inbound and outbound payments
-- **Policies** — restrictions and limits as configurable policy
-- **Scheduling** — recurring jobs on an operator cadence
-- **Unlimited banks** — spin-up multiple banks, in test or live
+- **One API.** One base URL and one OpenAPI 3.x document, generated from the
+  routes themselves, so what the document says is what the API does. Every write
+  takes an idempotency key, so a retried request replays the first answer rather
+  than paying twice.
+- **Isolated banks.** Each bank is an organisation with its own products,
+  customers, books, policies and team. A bank starts in test and moves to live;
+  tiers set what it may do and how much.
+- **Versioned products, with migrations.** Current, savings and term deposit
+  products come from templates. A rate change, a new welcome reward, a new term:
+  each is a new version, and the holders of the old one are moved by a migration
+  you plan, approve and let the scheduler run.
+- **Payments on a double-entry ledger.** Internal transfers post at once. UK
+  Faster Payments go out through a clearing partner, with the payee's name
+  checked first, and come in matched to the account or parked in suspense. Every
+  movement is a double-entry posting in integer minor units, and interest keeps
+  the fraction of a penny it has not paid yet.
+- **Webhooks.** A webhook endpoint per bank, told when an account opens, a
+  payment settles, is held or fails, money arrives, or a reward is paid.
+  Deliveries are signed, retried, and re-sendable.
+- **Policies as data.** What a bank may do, and up to what limit, is a policy
+  record evaluated when the request arrives, not a conditional compiled into a
+  release. Changing what a bank permits is a write.
+- **Team roles and an access log.** Invite colleagues as owner, admin, developer
+  or viewer. Every act is attributable to a person or to the bank's own
+  credential, and an access log says who did what.
+- **A sandbox on the live code.** Fund your bank with simulated money and run
+  the same code, the same API and the same books your customers will.
+- **Source, design and tests in one repository.** The source, the product and
+  design documents, the decisions and the tests, including property tests that
+  hold the running system to a model of it, are all here.
 
 API reference:
 [repldriven.github.io/queenswood](https://repldriven.github.io/queenswood/),
 or live OpenAPI at [localhost:8080](http://localhost:8080) when
 running.
+
+## Give it a spin
+
+The console's **Sandbox › Scenarios** page runs eleven scenes against
+an empty bank, live against the API, each building on the one before.
+Each is named for what it does:
+
+1. **Publish** the three products the bank sells: Everyday, with a £50
+   welcome reward, Rainy Day at 4.10% and 1 Year Fixed at 4.65%.
+2. **Invite** a developer and a viewer to the team, and read the access
+   log that records it.
+3. **Verify** two customers, whose identity checks clear, and a third,
+   whose check is rejected.
+4. **Fund** the bank: £50,000 arrives into its own funds and the trial
+   balance ties to the penny.
+5. **Open** an Everyday account for each customer.
+6. **Reward** them: the hourly job pays £50 into each account from the
+   bank's own funds, and that is the money everything after this moves.
+7. **Move** £30 into a new Rainy Day.
+8. **Refuse** a £40 transfer with £20 available. The policy holds and
+   nothing posts.
+9. **Pay** £20 by Faster Payments, the payee's name checked first, and
+   watch it settle.
+10. **Migrate** Rainy Day's holders onto a repriced version, planned,
+    approved and run by the scheduler.
+11. **Accrue** a night's interest at a real rate, and capitalise it.
+
+Every scene fires real requests, shows them, and points at the console
+page where its effect is visible. The same story, and a hundred and
+fifty other cases, run as data-driven scenarios in the test suite.
+
+Then use the bank. The demo digital bank is a retail bank built
+entirely on the platform: a customer signs up on their phone, is
+verified, opens Everyday, and the welcome reward arrives with a
+notification while the app is open. Its backend talks to the platform
+the way yours would, and is the worked example for building on it. See
+[demo-digital-bank](docs/prd/demo-digital-bank.md).
+
+## Who it is for
+
+- **The fintech's team.** The founder, operations, finance and support
+  people who run the bank's relationship with the platform, in the
+  console, each with their own identity and role.
+- **The fintech's engineers.** The people who build the product on the
+  API, and the systems they build, which act as the bank with its
+  credential.
+- **Their customers.** The people and businesses holding accounts
+  through the fintech's product. They see the fintech, never Queenswood.
+- **Compliance and risk.** Whoever asks afterwards who had access to
+  what, which rules were in force, and whether a change was authorised.
+
+## What you bring
+
+- **A banking licence**, or a partner who holds one.
+- **A clearing partner** for Faster Payments. An adapter for one is
+  included, with a simulator that stands in for it locally.
+- **An identity verification provider.** As above: an adapter and a
+  simulator.
+- **Somewhere to run it.** A Helm chart deploys the platform to any
+  Kubernetes cluster, and a Google Cloud blueprint declares an
+  installation as a manifest.
+
+Queenswood has no production miles yet. It is a research-grade
+platform, built in the open, and the documentation says what is done
+and what is not.
 
 ## Architecture
 
@@ -206,30 +276,16 @@ Kafka or Pulsar, FoundationDB) onto any Kubernetes cluster.
 
 ### Run local
 
-**Get a local Kubernetes runtime on macOS**, pick any
-or use what you've got installed:
+**Start a cluster** on macOS, with Colima and kind:
 
-- **OrbStack** — single-app, fastest setup:
+```bash
+brew install colima kind kubectl helm
+colima start --vm-type vz --vz-rosetta --cpu 6 --memory 24
+kind create cluster --name queenswood \
+  --config <(curl -fsSL https://raw.githubusercontent.com/repldriven/queenswood/main/infra/kind/queenswood-config.yaml)
+```
 
-  ```bash
-  brew install orbstack helm kubectl
-  # Open OrbStack, enable Kubernetes in Settings → Kubernetes
-  ```
-
-  Enabling Kubernetes here _is_ the cluster — there's no separate
-  `kind create cluster` step. Skip straight to **Install** below.
-
-- **kind on Colima** — closer to upstream, more configurable:
-
-  ```bash
-  brew install colima kind kubectl helm
-  colima start --vm-type vz --vz-rosetta --cpu 6 --memory 24
-  kind create cluster --name queenswood \
-    --config <(curl -fsSL https://raw.githubusercontent.com/repldriven/queenswood/main/infra/kind/queenswood-config.yaml)
-  ```
-
-**Install** — both paths now have a running cluster, so from here the
-steps are identical:
+**Install** the platform onto it:
 
 ```bash
 helm install queenswood \
@@ -246,10 +302,17 @@ kubectl -n queenswood port-forward svc/queenswood-console     8081:8080
 kubectl -n queenswood port-forward svc/queenswood-jaeger      16686:16686
 ```
 
-In the console, **Sandbox > Scenarios** runs the platform for real
+In the console, **Sandbox › Scenarios** runs the platform for real
 against your cluster — open Jaeger alongside it at
 [localhost:16686](http://localhost:16686) to watch the spans each
 scenario produces.
+
+**Or run it on a laptop**, with no cluster, from a checkout with the
+development environment below active: `just monolith-start` starts the
+platform as one process with its containers, `just console-start`
+serves the console on port 5173, and the demo digital bank is
+`just demo-digital-bank-seed`, `just demo-digital-bank-start` and
+`just demo-digital-bank-app-start`, in that order.
 
 The full quickstart — including tear-down — ships with
 each

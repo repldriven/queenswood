@@ -184,7 +184,7 @@ schemathesis base_url="http://127.0.0.1:8080":
     _post "{{ base_url }}/v1/simulate/organizations/$org_id/inbound-transfer" \
       -H "Authorization: Bearer $ADMIN_TOKEN" \
       -H "Idempotency-Key: $(openssl rand -hex 8)" \
-      -d "{\"account-id\":\"$account_id\",\"amount\":1000000,\"currency\":\"GBP\"}" > /dev/null
+      -d "{\"amount\":1000000,\"currency\":\"GBP\"}" > /dev/null
 
     # --- Payments ---
     echo "Creating payments..."

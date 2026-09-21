@@ -303,11 +303,11 @@ reward's first customer.
    forces the job, polls the balance, and forces it again to pay
    nothing.
 
-Then, under this design: the changelog, relay, `reward.paid` and the
-read routes, which are built; the console; and last the simulate route
-with the scenarios, the console scene, the fund recipe and the docs
-that move with it. The demo bank consuming `reward.paid` is
-[demo-digital-bank](demo-digital-bank.md)'s, and is built.
+Then, under this design: the changelog, relay, `reward.paid`, the read
+routes and the simulate route with the scenarios, the fund recipe and
+the seed that move with it, all built; and the console. The demo bank
+consuming `reward.paid` is [demo-digital-bank](demo-digital-bank.md)'s,
+and is built.
 
 ### Tests
 

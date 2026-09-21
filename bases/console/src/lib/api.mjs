@@ -84,6 +84,9 @@ function product_request_body(data) {
   if (data["interest-rate-bps"]) {
     body["interest-rate-bps"] = data["interest-rate-bps"];
   }
+  if (data["opening-reward"]) {
+    body["opening-reward"] = data["opening-reward"];
+  }
   if (data["effective-from"]) {
     body["effective-from"] = data["effective-from"];
   }
@@ -369,6 +372,17 @@ export function get_outbound_payment(payment_id) {
 // inbound-transfer route is org-tier (a bank can fund its own bank);
 // accrue/capitalize remain admin-only, so the sandbox runs interest via
 // the bank-tier daily-interest job force-start instead.
+
+export function list_rewards(account_id) {
+  return request(`/v1/rewards?account-id=${encodeURIComponent(account_id)}`);
+}
+
+export function check_payee(data) {
+  return mutate("/v1/payee-checks", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
 
 export function simulate_inbound_transfer(bank_id, data) {
   return mutate(`/v1/simulate/banks/${bank_id}/inbound-transfer`, {

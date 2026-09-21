@@ -110,9 +110,21 @@
              :path-params {:bank-id [:ref :bank-0 :bank-id]}
              :auth :admin
              :headers {:idempotency-key "ik-internal-replay-fund-001"}
-             :body {:account-id [:ref :debtor :account-id]
-                    :amount 100000
+             :body {:amount 100000
                     :currency "GBP"}}
+   :as :funded-1
+   :assert {:status 200}}
+  ;; The money reaches the customer from the bank's own funds.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/payments/internal"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-internal-replay-fund-001-pay"}
+             :body {:debtor-account-id [:ref :funded-1 :account-id]
+                    :creditor-account-id [:ref :debtor :account-id]
+                    :currency "GBP"
+                    :amount 100000
+                    :reference "Funding"}}
    :assert {:status 200}}
   {:command :api/poll
    :request {:method :get

@@ -59,11 +59,11 @@
    (let [{:keys [record-db record-store parameters]} request
          {:keys [path body]} parameters
          {:keys [bank-id]} path
-         {:keys [account-id amount currency]} body
-         ;; A simulated inbound is money arriving from another bank for
-         ;; a known account, so it lands in the bank's 1100 cash-at-
-         ;; correspondent (asset up) and credits the target account.
-         ;; Suspense (2500) is reserved for genuinely unmatched inbounds.
+         {:keys [amount currency]} body
+         ;; The bank's own money arriving from outside: 1100 cash-at-
+         ;; correspondent up, the house account for the currency credited,
+         ;; which rolls up into the 3100 own-funds control. A customer is
+         ;; paid from there by an internal payment, as a reward is.
          cash (ledger-accounts/find-by-code
                {:record-db record-db :record-store record-store}
                bank-id
@@ -75,39 +75,42 @@
      (if (error/anomaly? cash)
        (errors/anomaly->response cash)
        (let [txn {:record-db record-db :record-store record-store}
-             account (cash-accounts/get-account txn bank-id account-id)
-             product-type (when (and (map? account)
-                                     (not (error/anomaly? account)))
-                            (:product-type account))
+             house (cash-accounts/house-account txn bank-id currency)
              legs [{:account-id (:ledger-account-id cash)
                     :balance-type :balance-type-default
                     :balance-status :balance-status-posted
                     :side :leg-side-debit
                     :amount amount}
-                   (cond-> {:account-id account-id
-                            :balance-type :balance-type-default
-                            :balance-status :balance-status-posted
-                            :side :leg-side-credit
-                            :amount amount}
-                           product-type
-                           (assoc :product-type product-type))]
-             expanded-legs (ledger-accounts/add-control-legs
-                            txn
-                            bank-id
-                            currency
-                            legs)]
+                   {:account-id (:account-id house)
+                    :balance-type :balance-type-default
+                    :balance-status :balance-status-posted
+                    :side :leg-side-credit
+                    :amount amount
+                    :product-type (:product-type house)}]
+             expanded-legs (if (error/anomaly? house)
+                             house
+                             (ledger-accounts/add-control-legs txn
+                                                               bank-id
+                                                               currency
+                                                               legs))]
          (if (error/anomaly? expanded-legs)
            (errors/anomaly->response expanded-legs)
-           (commands/send
-            (dispatcher request)
-            request
-            "record-transaction"
-            "transaction"
-            {:bank-id bank-id
-             :transaction-type :transaction-type-inbound-transfer
-             :currency currency
-             :reference "Simulated inbound transfer"
-             :legs expanded-legs})))))))
+           (let [response (commands/send
+                           (dispatcher request)
+                           request
+                           "record-transaction"
+                           "transaction"
+                           {:bank-id bank-id
+                            :transaction-type
+                            :transaction-type-inbound-transfer
+                            :currency currency
+                            :reference "Simulated inbound transfer"
+                            :legs expanded-legs})]
+             ;; The caller no longer chooses the account, so the answer
+             ;; names the one credited.
+             (cond-> response
+                     (= 200 (:status response))
+                     (assoc-in [:body :account-id] (:account-id house))))))))))
 
 (defn accrue
   [request]

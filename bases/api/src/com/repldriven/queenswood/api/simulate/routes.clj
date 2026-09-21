@@ -27,7 +27,7 @@
       {:openapi {:security ^:replace
                            [{"bearerAuth" ["org:developer"]}
                             {"bearerAuth" ["admin"]}]}
-       :post {:summary "Simulate an inbound transfer"
+       :post {:summary "Simulate an inbound transfer into the bank's own funds"
               :openapi {:operationId "SimulateInboundTransfer"
                         :requestBody {:required true}
                         :parameters ^:replace

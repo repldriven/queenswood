@@ -117,3 +117,4 @@ docs/plan/gaps/
 
 # Gas City per-machine rig state, written by the factory tooling.
 .gc/
+bases/console/test-results/

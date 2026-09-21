@@ -53,7 +53,13 @@
 
   const INV_FILTERS = ["all", "pending", "expired", "accepted"];
 
-  let tab = $state("members");
+  // `#/people?tab=invitations` opens on that tab, which is how the
+  // scenarios show the invitations they just sent.
+  const tabFromHash = () => {
+    const t = new URLSearchParams(location.hash.split("?")[1] ?? "").get("tab");
+    return ["members", "invitations", "history"].includes(t) ? t : "members";
+  };
+  let tab = $state(tabFromHash());
   let memberQuery = $state("");
   let invFilter = $state("all");
 

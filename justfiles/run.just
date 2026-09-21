@@ -1,3 +1,7 @@
+CONSOLE_URL := env_var_or_default("CONSOLE_URL", "http://localhost:5173")
+CONSOLE_USER := env_var_or_default("CONSOLE_USER", "xepha")
+CONSOLE_PASSWORD := env_var_or_default("CONSOLE_PASSWORD", "xepha")
+
 # Start the Vite dev server for the console org-user SPA (port 5173)
 console-start:
     #!/usr/bin/env zsh
@@ -40,3 +44,17 @@ monolith-start:
       fi
     fi
     clj -M{{ DOMAIN_ALIASES }}:dev:test -e "(require 'com.repldriven.queenswood.testcontainers.interface)" -m com.repldriven.queenswood.monolith.main -c "classpath:monolith/application-test.yml" -p "dev" 2>&1 | tee server.log
+
+# Film the console's eleven scenes with Playwright, signed in as CONSOLE_USER (xepha) against CONSOLE_URL (http://localhost:5173), the monolith and the console already running; the video lands in target/recordings/scenarios.webm, a failed take included.
+console-record-scenarios:
+    #!/usr/bin/env zsh
+    set -e
+    cd {{ justfile_directory() }}
+    export CONSOLE_URL={{ CONSOLE_URL }} CONSOLE_USER={{ CONSOLE_USER }} CONSOLE_PASSWORD={{ CONSOLE_PASSWORD }}
+    corepack yarn workspace console exec playwright install chromium
+    if corepack yarn workspace console exec playwright test; then STATUS=0; else STATUS=1; fi
+    mkdir -p target/recordings
+    VIDEO=$(ls -t bases/console/test-results/**/*.webm | head -1)
+    cp "$VIDEO" target/recordings/scenarios.webm
+    echo "target/recordings/scenarios.webm"
+    exit $STATUS
