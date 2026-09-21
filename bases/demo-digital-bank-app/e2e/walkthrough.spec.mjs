@@ -8,9 +8,12 @@ import { test, expect } from "@playwright/test";
 // waits on the balance rather than on the job. Every screen is held a
 // beat for the viewer, and typed fields are typed.
 const bank = process.env.DEMO_BANK_URL ?? "http://localhost:8100";
-// A number no earlier customer signed up with, since sign-in resolves
-// a customer by phone.
-const phone = "7700 9" + String(Date.now()).slice(-5);
+// A number and a National Insurance number no earlier customer signed
+// up with: sign-in resolves a customer by phone, and the platform holds
+// one party per identifier.
+const stamp = String(Date.now());
+const phone = "7700 9" + stamp.slice(-5);
+const nino = "AB" + stamp.slice(-6) + "C";
 const passcode = "2468";
 const BEAT = 1800;
 
@@ -61,7 +64,7 @@ test("a new customer signs up and opens two accounts", async ({ page }) => {
   await type(page.locator('input.inp[placeholder="Mare Street"]'), "Disaster Area");
   await type(page.locator('input.inp[placeholder="London"]'), "London");
   await type(page.locator('input.inp[placeholder="E8 3RH"]'), "E8 3RH");
-  await type(page.locator('input.inp[placeholder="QQ123456C"]'), "QQ123456C");
+  await type(page.locator('input.inp[placeholder="QQ123456C"]'), nino);
   await page.waitForTimeout(600);
   await button(page, "Continue").click();
   await expect(screen(page, "ID check")).toBeVisible();
