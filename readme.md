@@ -276,30 +276,16 @@ Kafka or Pulsar, FoundationDB) onto any Kubernetes cluster.
 
 ### Run local
 
-**Get a local Kubernetes runtime on macOS**, pick any
-or use what you've got installed:
+**Start a cluster** on macOS, with Colima and kind:
 
-- **OrbStack** — single-app, fastest setup:
+```bash
+brew install colima kind kubectl helm
+colima start --vm-type vz --vz-rosetta --cpu 6 --memory 24
+kind create cluster --name queenswood \
+  --config <(curl -fsSL https://raw.githubusercontent.com/repldriven/queenswood/main/infra/kind/queenswood-config.yaml)
+```
 
-  ```bash
-  brew install orbstack helm kubectl
-  # Open OrbStack, enable Kubernetes in Settings → Kubernetes
-  ```
-
-  Enabling Kubernetes here _is_ the cluster — there's no separate
-  `kind create cluster` step. Skip straight to **Install** below.
-
-- **kind on Colima** — closer to upstream, more configurable:
-
-  ```bash
-  brew install colima kind kubectl helm
-  colima start --vm-type vz --vz-rosetta --cpu 6 --memory 24
-  kind create cluster --name queenswood \
-    --config <(curl -fsSL https://raw.githubusercontent.com/repldriven/queenswood/main/infra/kind/queenswood-config.yaml)
-  ```
-
-**Install** — both paths now have a running cluster, so from here the
-steps are identical:
+**Install** the platform onto it:
 
 ```bash
 helm install queenswood \
