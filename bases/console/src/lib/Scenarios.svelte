@@ -118,7 +118,7 @@
   // Where a scene pays off, more precisely than its view's landing page:
   // the row, account or filter that shows what it did. A scene with more
   // than one is shown each in turn. A scene not listed here lands on its
-  // view.
+  // view. The last scene ends on the Ledger, where the whole day ties.
   const accountHref = (key) => {
     const id = ctx.accounts?.[key]?.accountId;
     return id ? `#/accounts?account=${id}` : VIEWS.accounts.href;
@@ -128,7 +128,7 @@
     s7: () => [accountHref("arthurEveryday"), accountHref("arthurRainyDay")],
     s8: () => ["#/policies?q=balance"],
     s9: () => [accountHref("fordEveryday"), accountHref("arthurEveryday")],
-    s11: () => ["#/jobs?open=daily-interest"],
+    s11: () => ["#/jobs?open=daily-interest", VIEWS.ledger.href],
   };
   const payoffHrefs = (s) => PAYOFF[s.id]?.() ?? [VIEWS[s.view].href];
 
@@ -186,12 +186,12 @@
     {
       id: "s5", num: "05", title: "Open", view: "accounts",
       story:
-        "Open an Everyday account each for Arthur and Ford. Each opens in two phases and settles to opened; the version promises them a welcome reward the next hour.",
+        "Open an Everyday account each for Arthur and Ford. Each is created pending and transitions to opened; the version promises them a welcome reward the next hour.",
       backing: ["open-account-happy"],
       steps: [
         { name: "Open Arthur's Everyday", raw: [{ method: "POST", path: "/v1/cash-accounts", tag: "request" }] },
         { name: "Open Ford's Everyday", raw: [{ method: "POST", path: "/v1/cash-accounts", tag: "request" }] },
-        { name: "Both settle to opened", raw: [{ method: "GET", path: "/v1/cash-accounts/{id}", tag: "poll" }] },
+        { name: "Both transition to opened", raw: [{ method: "GET", path: "/v1/cash-accounts/{id}", tag: "poll" }] },
       ],
     },
     {
