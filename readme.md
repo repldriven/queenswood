@@ -17,9 +17,9 @@ run and to change.
 
 <video src="https://github.com/user-attachments/assets/f112c363-b7ba-4f83-b96a-88219e3bc554" controls></video>
 
-Queenswood's console, the web app a fintech's team runs its bank from: the
-eleven scenes of [Give it a spin](#give-it-a-spin), run against an empty bank,
-each followed by the page where its effect shows.
+Queenswood's console, the web app a fintech's operators use: the eleven scenes
+of [Give it a spin](#give-it-a-spin), run against an empty bank, each followed
+by the page where its effect shows.
 
 <video src="https://github.com/user-attachments/assets/2a4d01fe-3caf-452a-9667-7de984d5bcf4" controls></video>
 
@@ -68,7 +68,7 @@ running.
 
 ## Give it a spin
 
-The console, the web app a fintech's team runs its bank from, has a **Sandbox ›
+The console, the web app a fintech's operators use, has a **Sandbox ›
 Scenarios** page that runs eleven scenes against an empty bank, live against the
 API, each building on the one before. Each is named for what it does:
 
@@ -105,8 +105,8 @@ See [demo-digital-bank](docs/prd/demo-digital-bank.md).
 
 ## Who it is for
 
-- **The fintech's team.** The founder, operations, finance and support people
-  who run the fintech's bank in the console, each with their own identity and
+- **The fintech's operators.** The founder, operations, finance and support
+  people who operate the bank in the console, each with their own identity and
   role.
 - **The fintech's engineers.** The people who build the product on the
   API, and the systems they build, which act as the bank with its
