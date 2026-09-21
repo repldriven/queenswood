@@ -723,31 +723,62 @@
 
   // ── autoplay ──────────────────────────────────────────────────────
   // `#/scenarios?autoplay` resets the sandbox and runs every scene in
-  // order, pausing between them so each one's pipeline and toast get
-  // their moment: what a recording films. The marker in the markup
-  // says where it got to, for whatever is watching.
-  const AUTOPLAY_PAUSE_MS = 3500;
-  let autoplay = $state("off"); // off | running | done | failed
-  async function autoplayAll() {
-    autoplay = "running";
-    reset();
-    await sleep(1200);
-    for (const s of SCENES) {
-      jumpTo(s.id);
-      await sleep(600);
-      await runScene(s.id);
-      if (runStates[s.id]?.failed) {
-        autoplay = "failed";
-        return;
-      }
-      await sleep(AUTOPLAY_PAUSE_MS);
+  // order, and after each one flips to the view where it pays off for a
+  // few seconds before coming back for the next: what a recording
+  // films. Leaving the page unmounts it, so the run itself is not held
+  // here: session storage says one is under way, `done` says how far
+  // it got, and each mount with the flag runs the next scene. The
+  // marker in the markup says where it got to, for whatever is
+  // watching.
+  const AUTOPLAY_KEY = "queenswood.scenarios.autoplay";
+  const AUTOPLAY_PAUSE_MS = 2500; // after a scene, before its view
+  const AUTOPLAY_VIEW_MS = 5000; // on the view
+  const autoplayWanted = () =>
+    new URLSearchParams(location.hash.split("?")[1] ?? "").has("autoplay");
+  const autoplayUnderWay = () => {
+    try {
+      return sessionStorage.getItem(AUTOPLAY_KEY) === "running";
+    } catch {
+      return false;
     }
-    autoplay = "done";
+  };
+  const markAutoplay = (running) => {
+    try {
+      if (running) sessionStorage.setItem(AUTOPLAY_KEY, "running");
+      else sessionStorage.removeItem(AUTOPLAY_KEY);
+    } catch {}
+  };
+  let autoplay = $state("off"); // off | running | done | failed
+  async function autoplayNext() {
+    autoplay = "running";
+    const idx = firstActionableIndex();
+    if (idx < 0) {
+      markAutoplay(false);
+      autoplay = "done";
+      return;
+    }
+    const s = SCENES[idx];
+    jumpTo(s.id);
+    await sleep(800);
+    await runScene(s.id);
+    if (runStates[s.id]?.failed) {
+      markAutoplay(false);
+      autoplay = "failed";
+      return;
+    }
+    await sleep(AUTOPLAY_PAUSE_MS);
+    location.hash = VIEWS[s.view].href;
+    setTimeout(() => {
+      location.hash = "#/scenarios?autoplay";
+    }, AUTOPLAY_VIEW_MS);
   }
   $effect(() => {
-    if (!bankId || autoplay !== "off") return;
-    const query = new URLSearchParams(location.hash.split("?")[1] ?? "");
-    if (query.has("autoplay")) autoplayAll();
+    if (!bankId || autoplay !== "off" || !autoplayWanted()) return;
+    if (!autoplayUnderWay()) {
+      markAutoplay(true);
+      reset();
+    }
+    autoplayNext();
   });
 </script>
 
