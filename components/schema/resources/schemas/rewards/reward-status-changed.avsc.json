@@ -1,0 +1,54 @@
+{
+  "type": "record",
+  "name": "RewardStatusChanged",
+  "namespace": "com.repldriven.mono.rewards",
+  "fields": [
+    {
+      "name": "bank_id",
+      "type": "string"
+    },
+    {
+      "name": "reward_id",
+      "type": "string"
+    },
+    {
+      "name": "account_id",
+      "type": "string"
+    },
+    {
+      "name": "status_before",
+      "type": [
+        "null",
+        {
+          "type": "enum",
+          "name": "RewardStatus",
+          "symbols": [
+            "REWARD_STATUS_UNKNOWN",
+            "REWARD_STATUS_DUE",
+            "REWARD_STATUS_PAID"
+          ]
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "status_after",
+      "type": "com.repldriven.mono.rewards.RewardStatus"
+    },
+    {
+      "name": "change_kind",
+      "type": [
+        "null",
+        {
+          "type": "enum",
+          "name": "RewardChangeKind",
+          "symbols": [
+            "REWARD_CHANGE_KIND_PAY",
+            "REWARD_CHANGE_KIND_DEFER"
+          ]
+        }
+      ],
+      "default": null
+    }
+  ]
+}

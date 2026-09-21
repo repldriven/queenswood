@@ -130,6 +130,35 @@
                                     :side "credit"
                                     :balance-status "posted"
                                     :amount 1000}]]}}}
+  ;; The reward reads back, listed by the account and by its own id, as
+  ;; paid and carrying the transaction that paid it.
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/rewards"
+             :query-params {:account-id [:ref :account :account-id]}
+             :auth :org-0-token}
+   :as :rewards
+   :assert {:status 200
+            :body {:items [{:account-id [:ref :account :account-id]
+                            :kind "opening"
+                            :amount 1000
+                            :currency "GBP"
+                            :status "paid"}]}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/rewards/{reward-id}"
+             :path-params {:reward-id [:ref :rewards :items 0 :reward-id]}
+             :auth :org-0-token}
+   :assert {:status 200
+            :body {:reward-id [:ref :rewards :items 0 :reward-id]
+                   :status "paid"
+                   :transaction-id [:m/regex "^txn\\."]}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/rewards/{reward-id}"
+             :path-params {:reward-id "rwd.00000000000000000000000000"}
+             :auth :org-0-token}
+   :assert {:status 404 :body {:type "reward/not-found"}}}
   ;; A second run finds the reward paid and pays nothing.
   {:command :api/request
    :request {:method :post

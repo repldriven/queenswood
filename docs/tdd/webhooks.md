@@ -105,10 +105,10 @@ Two things the catalogue needs do not exist. The interest and
 transaction bricks write no changelog at all, so interest being
 capitalised or a posting landing on an account produces no event
 anyone could hear. The bank brick writes one that no runner relays.
-The events on the bus today are account, party, payment and IDV
-status changes, the IDV completion, and the scheme-level settled, held
-and rejected events, which are the payment processor's input rather
-than its outcome.
+The events on the bus today are account, party, payment, reward and
+IDV status changes, the IDV completion, and the scheme-level settled,
+held and rejected events, which are the payment processor's input
+rather than its outcome.
 
 Neither inbound receiver verifies a signature. One naming drift
 reached this design: the lifecycle-transitions recipe, the
@@ -316,6 +316,9 @@ either.
   internal payment carries no status and is settled as it is saved, so
   the entry is the one transition there is, and the account it credits,
   which is not the caller, is told.
+- `reward.paid` — `reward-status-changed` with `change_kind` pay,
+  `Reward`, by bank and reward id. A defer, the other kind the entry
+  carries, is the bank's operational problem and is not published.
 - `interest.capitalised` — the interest brick's per-account
   capitalisation, resolving to the `Transaction` the run posted,
   behind the single-transaction read its slice creates first.

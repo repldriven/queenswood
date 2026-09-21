@@ -413,6 +413,32 @@
            (is (= "cash-account.opened" (:kind event)) (pr-str event))
            (is (= "Everyday is open" (:headline event)))
            (is (= everyday (:account event)))))
+       (testing "money landing on the account reaches the stream as arriving"
+         (let [arrived {:notification-id "whn.00000000000000000000000003"
+                        :kind "payment.internal-settled"
+                        :change-kind "settle"
+                        :occurred-at "2026-09-21T10:00:00Z"
+                        :bank-id "bnk.00000000000000000000000001"
+                        :resource-type "InternalPayment"
+                        :resource-id "pmt.00000000000000000000000001"
+                        :status-after "settled"
+                        :correlation-id "01998b6e-0e2e-7c3a-9a1e-5f6d2c4b8a03"
+                        :data {:payment-id "pmt.00000000000000000000000001"
+                               :bank-id "bnk.00000000000000000000000001"
+                               :debtor-account-id "acc.house"
+                               :creditor-account-id everyday
+                               :currency "GBP"
+                               :amount 5000
+                               :transaction-id "txn.00000000000000000000000001"
+                               :reference "Welcome"
+                               :business-day "2026-09-21"
+                               :created-at "2026-09-21T10:00:00Z"}}
+               taken
+               (post-delivery base-url "whd.00000000000000000000000007" arrived)
+               event (next-event stream 10000)]
+           (is (= 202 (:status taken)) (pr-str taken))
+           (is (= "£50.00 arrived" (:headline event)) (pr-str event))
+           (is (= everyday (:account event)))))
        (testing "a re-send of the same notification is done"
          (is (= "done"
                 (get-in (post-delivery base-url

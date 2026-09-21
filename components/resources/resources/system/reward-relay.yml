@@ -1,0 +1,16 @@
+# The rewards store's changelog, relayed on `rewards-event`: a reward
+# paid or deferred, from the one store the pass writes.
+relay-handler: !system/component
+  system/component-kind: changelog-relay/envelope-handler
+  bus: !system/ref message-bus.bus
+  event-channel: !keyword rewards-event
+  store-name: rewards
+
+relay-runners: !system/component
+  system/component-kind: changelog-relay/runners
+  rewards:
+    record-db: !system/ref fdb.record-db
+    keyspace-prefix: !system/ref fdb.keyspace-prefix
+    consumer-id: rewards-relay
+    store-name: rewards
+    handler: !system/local-ref relay-handler

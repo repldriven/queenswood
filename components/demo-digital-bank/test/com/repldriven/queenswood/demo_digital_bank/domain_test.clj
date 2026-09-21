@@ -4,6 +4,7 @@
 
     [com.repldriven.mono.error.interface :as error]
 
+    [clojure.string :as str]
     [clojure.test :refer [deftest is testing]]))
 
 (deftest normalise-phone-test
@@ -106,6 +107,15 @@
              (set (map :who txns))))
       (is (= #{"Saved"} (set (map :cat txns))))
       (is (= #{-20000 20000} (set (map :amount txns))))))
+  (testing "a reward reads as what it was for, never as interest"
+    (let [row (first (SUT/transactions {"cur" [(assoc (leg "reward" "credit"
+                                                           5000 100)
+                                                      :reference
+                                                      "Welcome reward")]}
+                                       {"cur" "Everyday"}
+                                       []))]
+      (is (= ["Welcome reward" "Rewards" 5000 "posted"]
+             [(:who row) (:cat row) (:amount row) (:status row)]))))
   (testing "an accrual on another balance is not a transaction"
     (is (= []
            (SUT/transactions {"sav" [(assoc (leg "interest-accrual" "credit"
@@ -244,17 +254,14 @@
     (is (= {:message-id "whd.01test" :timestamp 1700000000}
            (SUT/verify-delivery secret headers body now))))
   (testing "any one of the signatures the header carries is enough"
-    (is (map? (SUT/verify-delivery secret
-                                   (update headers
-                                           "webhook-signature"
-                                           (fn [s] (str "v1,AAAA " s)))
-                                   body
-                                   now))))
+    (is (map? (SUT/verify-delivery
+               secret
+               (update headers "webhook-signature" (fn [s] (str "v1,AAAA " s)))
+               body
+               now))))
   (testing "a changed body, another secret, and a stale timestamp refuse"
-    (let [refused (SUT/verify-delivery secret
-                                       headers
-                                       (.getBytes "{}" "UTF-8")
-                                       now)]
+    (let [refused
+          (SUT/verify-delivery secret headers (.getBytes "{}" "UTF-8") now)]
       (is (error/unauthorized? refused))
       (is (= :webhook/invalid-signature (error/kind refused))))
     (is (= :webhook/invalid-signature
@@ -270,18 +277,16 @@
                         body
                         (+ now SUT/signature-tolerance-ms 1000))))))
   (testing "a missing header, and a bank with no secret, refuse"
+    (is
+     (= :webhook/unsigned
+        (error/kind
+         (SUT/verify-delivery secret (dissoc headers "webhook-id") body now))))
     (is (= :webhook/unsigned
-           (error/kind (SUT/verify-delivery secret
-                                            (dissoc headers "webhook-id")
-                                            body
-                                            now))))
-    (is (= :webhook/unsigned
-           (error/kind (SUT/verify-delivery secret
-                                            (assoc headers
-                                                   "webhook-timestamp"
-                                                   "soon")
-                                            body
-                                            now))))
+           (error/kind (SUT/verify-delivery
+                        secret
+                        (assoc headers "webhook-timestamp" "soon")
+                        body
+                        now))))
     (is (= :webhook/no-secret
            (error/kind (SUT/verify-delivery nil headers body now))))))
 
@@ -314,4 +319,55 @@
     (is (= "Something changed: party.status-changed"
            (:headline (SUT/notification-view {:id "whn.2"
                                               :kind "party.status-changed"}
-                                             {}))))))
+                                             {})))))
+  (testing "money landing on an account is told as arriving, sender unnamed"
+    (let [told (SUT/notification-view {:id "whn.3"
+                                       :kind "payment.internal-settled"}
+                                      {:debtor-account-id "acc.house"
+                                       :creditor-account-id "acc.1"
+                                       :amount 5000
+                                       :currency "GBP"
+                                       :reference "Welcome"})]
+      (is (= "£50.00 arrived" (:headline told)))
+      (is (= "Welcome" (:detail told)))
+      (is (= "acc.1" (:account told)))
+      (is (not (str/includes? (pr-str told) "acc.house")))))
+  (testing "an inbound payment is told by what the scheme did with it"
+    (let [inbound (fn [status]
+                    (SUT/notification-view
+                     {:id "whn.4" :kind "payment.inbound-status-changed"}
+                     {:creditor-account-id "acc.1"
+                      :amount 12345
+                      :currency "GBP"
+                      :payment-status status
+                      :debtor-name "Ford Prefect"}))]
+      (is (= ["£123.45 arrived" "From Ford Prefect" "acc.1"]
+             ((juxt :headline :detail :account) (inbound "settled"))))
+      (is (= "£123.45 is on hold" (:headline (inbound "held"))))
+      (is (= "£123.45 was returned" (:headline (inbound "returned"))))))
+  (testing "a payment the customer sent is told by its outcome"
+    (let [outbound (fn [status]
+                     (SUT/notification-view
+                      {:id "whn.5" :kind "payment.outbound-status-changed"}
+                      {:debtor-account-id "acc.1"
+                       :creditor-name "Arthur Dent"
+                       :amount 2500
+                       :currency "GBP"
+                       :payment-status status
+                       :reference "Towel"}))]
+      (is (= ["Payment to Arthur Dent sent" "£25.00, Towel" "acc.1"]
+             ((juxt :headline :detail :account) (outbound "completed"))))
+      (is (= "Payment to Arthur Dent failed" (:headline (outbound "failed"))))
+      (is (= "Payment to Arthur Dent is held" (:headline (outbound "held"))))))
+  (testing "a reward is told as the welcome reward it is"
+    (is
+     (= ["£50.00 welcome reward arrived" "acc.1"]
+        ((juxt :headline :account)
+         (SUT/notification-view
+          {:id "whn.6" :kind "reward.paid"}
+          {:account-id "acc.1" :amount 5000 :currency "GBP" :status "paid"})))))
+  (testing "a kind naming no account names no customer either"
+    (is (nil? (SUT/notified-account "webhook.test" {:endpoint-id "whe.1"})))
+    (is (= "acc.1"
+           (SUT/notified-account "payment.outbound-status-changed"
+                                 {:debtor-account-id "acc.1"})))))

@@ -122,16 +122,17 @@ demo-digital-bank-seed:
     RES=$(curl -sS {{ DEMO_API_URL }}/v1/cash-account-products -H "authorization: Bearer $TOKEN")
     EXISTING=$(jq -r '.items[].versions[].name' <<<"$RES")
     TODAY=$(date +%F)
-    for SPEC in "Everyday|tpl.00000000000000000000000001|0" \
-                "Rainy Day|tpl.00000000000000000000000002|410" \
-                "1 Year Fixed|tpl.00000000000000000000000003|465"; do
-      NAME=${SPEC%%|*}; REST=${SPEC#*|}; TEMPLATE=${REST%%|*}; BPS=${REST#*|}
+    for SPEC in "Everyday|tpl.00000000000000000000000001|0|5000" \
+                "Rainy Day|tpl.00000000000000000000000002|410|0" \
+                "1 Year Fixed|tpl.00000000000000000000000003|465|0"; do
+      NAME=${SPEC%%|*}; REST=${SPEC#*|}; TEMPLATE=${REST%%|*}; REST=${REST#*|}; BPS=${REST%%|*}; REWARD=${REST#*|}
       if grep -qFx "$NAME" <<<"$EXISTING"; then
         printf '  %-14s already published\n' "$NAME"
         continue
       fi
-      BODY=$(jq -n --arg n "$NAME" --arg t "$TEMPLATE" --argjson b "$BPS" --arg d "$TODAY" \
-        '{name:$n,"template-id":$t,currency:"GBP","interest-rate-bps":$b,"effective-from":$d}')
+      BODY=$(jq -n --arg n "$NAME" --arg t "$TEMPLATE" --argjson b "$BPS" --arg d "$TODAY" --argjson r "$REWARD" \
+        '{name:$n,"template-id":$t,currency:"GBP","interest-rate-bps":$b,"effective-from":$d}
+         + (if $r > 0 then {"opening-reward":{amount:$r}} else {} end)')
       RES=$(curl -sS -X POST {{ DEMO_API_URL }}/v1/cash-account-products \
         -H "authorization: Bearer $TOKEN" \
         -H 'content-type: application/json' \
@@ -149,7 +150,9 @@ demo-digital-bank-seed:
         echo "publishing $NAME refused: $RES" >&2
         exit 1
       fi
-      printf '  %-14s %s, %s bps\n' "$NAME" "$PRODUCT" "$BPS"
+      SUFFIX=""
+      if (( REWARD > 0 )); then SUFFIX=", $REWARD pence opening reward"; fi
+      printf '  %-14s %s, %s bps%s\n' "$NAME" "$PRODUCT" "$BPS" "$SUFFIX"
     done
     RES=$(curl -sS {{ DEMO_API_URL }}/v1/webhook-endpoints -H "authorization: Bearer $TOKEN")
     ENDPOINT=$(jq -r --arg a "{{ DEMO_WEBHOOK_URL }}" \

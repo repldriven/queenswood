@@ -104,6 +104,17 @@
                            customer-columns
                            " from customers where phone = ?") phone]))
 
+(defn customer-by-account-id
+  "The customer the bank opened `account-id` for, or nil where it
+  opened it for nobody."
+  [ds account-id]
+  (jdbc/execute-one! ds
+                     [(str "select "
+                           customer-columns
+                           " from customers where id ="
+                           " (select customer_id from customer_accounts"
+                           "  where account_id = ?)") account-id]))
+
 (defn insert-account
   "Record an account, or answer the row already there when the same
   account is recorded again."

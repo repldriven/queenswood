@@ -695,3 +695,115 @@
                      (nom-test> [chosen (deliveries config
                                                     (str "whe.i." suffix))
                                  _ (is (= 1 (count chosen)))]))]))))
+
+(def ^:private reward-event-name "reward-status-changed")
+
+(def ^:private reward-kind "reward.paid")
+
+(def ^:private rewards-store
+  "Must match `reward.store`'s store name."
+  "rewards")
+
+(defn- reward
+  "A reward as `reward.store` leaves it once paid."
+  [bank-id reward-id]
+  (let [now (utility/now)]
+    {:bank-id bank-id
+     :reward-id reward-id
+     :account-id "acc.events.rewarded"
+     :party-id "pty.events"
+     :product-id "prd.events"
+     :version-id "prv.events"
+     :kind :reward-kind-opening
+     :amount 5000
+     :currency "GBP"
+     :status :reward-status-paid
+     :transaction-id "txn.events.reward"
+     :run-id "run.events"
+     :paid-at now
+     :created-at now
+     :updated-at now}))
+
+(defn- seed-reward
+  [config reward]
+  (fdb/transact config
+                (fn [txn]
+                  (fdb/save-record (fdb/open txn rewards-store)
+                                   (schema/Reward->java reward))
+                  nil)
+                :test/seed
+                "Failed to seed the reward"))
+
+(defn- reward-envelope
+  [sys
+   {:keys [event-id bank-id reward-id change-kind status-before
+           status-after]}]
+  (let [schemas (system/instance sys [:avro :serde])
+        payload (avro/serialize (get schemas reward-event-name)
+                                {:bank-id bank-id
+                                 :reward-id reward-id
+                                 :account-id "acc.events.rewarded"
+                                 :status-before status-before
+                                 :status-after status-after
+                                 :change-kind change-kind})]
+    (if (error/anomaly? payload)
+      payload
+      {:id event-id
+       :event reward-event-name
+       :payload payload
+       :causation-id reward-id
+       :correlation-id nil})))
+
+(deftest a-reward-is-told-once-paid-and-never-deferred-test
+  (with-test-system
+   [sys config-file]
+   (let [config (processor-config sys)
+         bank-id "bnk.events.reward"
+         reward-id (utility/generate-id "rwd")
+         suffix (str (utility/uuidv7))]
+     (nom-test> [_ (seed-reward config (reward bank-id reward-id))
+                 _ (store/save-endpoint config
+                                        (endpoint
+                                         bank-id
+                                         (str "whe.r." suffix)
+                                         :webhook-endpoint-status-enabled
+                                         [reward-kind]))
+                 deferred (reward-envelope
+                           sys
+                           {:event-id (str "evt.reward.defer." suffix)
+                            :bank-id bank-id
+                            :reward-id reward-id
+                            :change-kind :reward-change-kind-defer
+                            :status-before nil
+                            :status-after :reward-status-due})
+                 _ (is (not (error/anomaly? (consume sys deferred))))
+                 none (notifications config bank-id)
+                 _ (testing "a defer is acknowledged and writes nothing"
+                     (is (empty? none)))
+                 paid (reward-envelope sys
+                                       {:event-id (str "evt.reward.pay." suffix)
+                                        :bank-id bank-id
+                                        :reward-id reward-id
+                                        :change-kind :reward-change-kind-pay
+                                        :status-before :reward-status-due
+                                        :status-after :reward-status-paid})
+                 _ (is (not (error/anomaly? (consume sys paid))))
+                 written (notifications config bank-id)
+                 _ (is (= 1 (count written)))
+                 body (body->map (first written))
+                 _ (testing "carrying the reward as its resource is published"
+                     (is (= reward-kind (:kind body)))
+                     (is (= "pay" (:change-kind body)))
+                     (is (= "Reward" (:resource-type body)))
+                     (is (= reward-id (:resource-id body)))
+                     (is (= "due" (:status-before body)))
+                     (is (= "paid" (:status-after body)))
+                     (is (= 5000 (get-in body [:data :amount])))
+                     (is (= "acc.events.rewarded"
+                            (get-in body [:data :account-id])))
+                     (is (= "paid" (get-in body [:data :status])))
+                     (is (= "run.events" (get-in body [:data :run-id]))))
+                 _ (testing "and one delivery to the endpoint that chose it"
+                     (nom-test> [chosen (deliveries config
+                                                    (str "whe.r." suffix))
+                                 _ (is (= 1 (count chosen)))]))]))))

@@ -4,7 +4,9 @@
     [com.repldriven.queenswood.cash-account-query.interface :as
      cash-account-query]
     [com.repldriven.queenswood.payment-api.interface :as payment-api]
-    [com.repldriven.queenswood.payment-query.interface :as payment-query]))
+    [com.repldriven.queenswood.payment-query.interface :as payment-query]
+    [com.repldriven.queenswood.reward-api.interface :as reward-api]
+    [com.repldriven.queenswood.reward-query.interface :as reward-query]))
 
 (defn- enum-name-fn
   "The public spelling of an enum value, read off the `:encode/api` the
@@ -31,6 +33,9 @@
   "An internal payment carries no status on its record, so no read
   route spells one: its settle entry's one status is spelled here."
   {:internal-payment-status-settled "settled"})
+
+(def ^:private reward-status-name
+  (enum-name-fn (reward-api/reward-status-enum-schema)))
 
 (defn- outbound-entry
   "One `payment.outbound-status-changed` entry per transition the
@@ -136,7 +141,20 @@
     :resource-id-key :payment-id
     :status-name internal-payment-status-name
     :load payment-query/find-internal-payment
-    :project payment-api/->internal-wire-body}])
+    :project payment-api/->internal-wire-body}
+   ;; A reward is told once it is paid. A defer is the bank's
+   ;; operational problem, read from the run and the row, and not the
+   ;; customer's news.
+   {:kind "reward.paid"
+    :event "reward-status-changed"
+    :change-kind :reward-change-kind-pay
+    :published-change-kind "pay"
+    :terminal-status :reward-status-paid
+    :resource-type "Reward"
+    :resource-id-key :reward-id
+    :status-name reward-status-name
+    :load reward-query/find-reward
+    :project reward-api/->wire-body}])
 
 (defn covers-event?
   "Whether any entry is produced by this relayed event. Asked before

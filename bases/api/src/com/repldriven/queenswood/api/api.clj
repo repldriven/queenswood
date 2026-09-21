@@ -60,6 +60,7 @@
     [com.repldriven.queenswood.api.policy.components :as policy.components]
     [com.repldriven.queenswood.api.policy.examples :as policy.examples]
     [com.repldriven.queenswood.api.policy.routes :as policy]
+    [com.repldriven.queenswood.api.reward.routes :as reward]
     [com.repldriven.queenswood.api.shared.interceptors :as shared.interceptors]
     [com.repldriven.queenswood.api.shared.parameters :as shared.parameters]
     [com.repldriven.queenswood.api.simulate.components :as simulate.components]
@@ -76,6 +77,7 @@
     [com.repldriven.queenswood.api-schema.interface :as api-schema]
     [com.repldriven.queenswood.cash-account-api.interface :as cash-account-api]
     [com.repldriven.queenswood.payment-api.interface :as payment-api]
+    [com.repldriven.queenswood.reward-api.interface :as reward-api]
     [com.repldriven.queenswood.webhook.interface :as webhook-api]
 
     [com.repldriven.mono.server.interface :as server]
@@ -133,6 +135,7 @@
          party.components/registry
          payee-check.components/registry
          payment-api/registry
+         reward-api/registry
          policy.components/registry
          api-schema/registry
          simulate.components/registry
@@ -216,6 +219,7 @@
                     party.examples/registry
                     payee-check.examples/registry
                     payment-api/examples
+                    reward-api/examples
                     policy.examples/registry
                     simulate.examples/registry
                     tier.examples/registry
@@ -264,6 +268,7 @@
            payee-check/routes
            payment/routes
            policy/routes
+           reward/routes
            simulate/routes
            tier/routes
            webhook/routes))]))

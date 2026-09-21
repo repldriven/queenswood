@@ -17,6 +17,7 @@
     components/balance-query {:local/root "components/balance-query"}
     components/cash-account-api {:local/root "components/cash-account-api"}
     components/payment-api {:local/root "components/payment-api"}
+    components/reward-api {:local/root "components/reward-api"}
     components/cash-account-migration
     {:local/root "components/cash-account-migration"}
     components/cash-account-product {:local/root
@@ -62,6 +63,7 @@
     components/payee-check {:local/root "components/payee-check"}
     components/payment {:local/root "components/payment"}
     components/payment-query {:local/root "components/payment-query"}
+    components/reward-query {:local/root "components/reward-query"}
     components/transaction {:local/root "components/transaction"}
     components/user {:local/root "components/user"}
     components/webhook {:local/root "components/webhook"}
@@ -105,6 +107,7 @@
                        "components/cash-account/test-resources"
                        "components/scheduler/test-resources"
                        "components/payment-api/test"
+                       "components/reward-api/test"
                        "components/company/test"
                        "components/company/test-resources"
                        "components/demo-digital-bank/test"

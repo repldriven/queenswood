@@ -30,6 +30,22 @@
     [clojure.java.io :as io]
     [clojure.test :refer [deftest is testing]]))
 
+(defn- entries
+  "The rewards changelog entries under `reward-id`, oldest first."
+  [sys reward-id]
+  (let [seen (atom [])]
+    (fdb/process-changelog (system/instance sys [:fdb :record-db])
+                           (str "reward-test-" reward-id)
+                           "rewards"
+                           (fn [_ entry-bytes]
+                             (swap! seen conj
+                               (schema/pb->ChangelogEvent entry-bytes)))
+                           {:deduplicate? false
+                            :keyspace-prefix (system/instance
+                                              sys
+                                              [:fdb :keyspace-prefix])})
+    (filterv #(= reward-id (:ordering-key %)) @seen)))
+
 (def ^:private config-file "classpath:reward/application-test.yml")
 
 (def ^:private sort-code "040404")
@@ -258,4 +274,17 @@
                             (select-keys third-run
                                          [:accounts-processed
                                           :accounts-failed]))))
-                 _ (is (nil? (row config bank-id unrewarded)))]))))
+                 _ (is (nil? (row config bank-id unrewarded)))
+                 written (entries sys (:reward-id paid))
+                 _ (testing "and the bank was told twice: deferred, then paid"
+                     (is (= ["reward-status-changed" "reward-status-changed"]
+                            (mapv :event-name written)))
+                     (is (= [(str (:reward-id paid)
+                                  ":reward-change-kind-defer:"
+                                  (:updated-at due))
+                             (str (:reward-id paid)
+                                  ":reward-change-kind-pay:"
+                                  (:updated-at paid))]
+                            (mapv :dedup-key written)))
+                     (is (= [(:reward-id paid) (:reward-id paid)]
+                            (mapv :causation-id written))))]))))
