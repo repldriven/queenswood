@@ -220,8 +220,7 @@
              :path-params {:bank-id [:ref :bank-0 :bank-id]}
              :auth :admin
              :headers {:idempotency-key "ik-fhp-inbound-settlement"}
-             :body {:account-id [:ref :bank-0 :accounts 0 :account-id]
-                    :amount 5000000
+             :body {:amount 5000000
                     :currency "GBP"}}
    :assert {:status 200}}
   ;; £1,000 reward to each party's current account

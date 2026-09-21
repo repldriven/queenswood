@@ -8,7 +8,6 @@
 (def SimulateInboundTransferRequest
   [:map
    {:closed true :json-schema/example examples/SimulateInboundTransferRequest}
-   [:account-id [:ref "CashAccountId"]]
    [:amount [:ref "PaymentMinorUnits"]]
    [:currency [:ref "Currency"]]])
 
@@ -29,6 +28,7 @@
 
 (def SimulateInboundTransferResponse
   [:map {:json-schema/example examples/SimulateInboundTransferResponse}
+   [:account-id [:ref "CashAccountId"]]
    [:transaction-id [:ref "TransactionId"]]
    [:status [:ref "TransactionStatus"]]
    [:transaction-type [:ref "TransactionType"]]

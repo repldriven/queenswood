@@ -33,9 +33,7 @@
     :path-params {:bank-id [:ref :org-0 :bank-id]}
     :auth :org-0-token
     :headers {:idempotency-key "ik-ledger-accounts-second-ccy-inbound"}
-    :body {:account-id [:ref-find :accounts :cash-accounts :currency "USD"
-                        :account-id]
-           :amount 750000
+    :body {:amount 750000
            :currency "USD"}}
    :assert {:status 200}}
   {:command :api/poll

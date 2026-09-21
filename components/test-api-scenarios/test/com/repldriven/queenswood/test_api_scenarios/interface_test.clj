@@ -180,8 +180,7 @@
                              :status "live"
                              :tier "micro"
                              :currencies ["GBP"]})
-         bank-id (get-in created [:body :bank-id])
-         house-account-id (get-in created [:body :accounts 0 :account-id])]
+         bank-id (get-in created [:body :bank-id])]
      (is (= 201 (:status created)) (pr-str (:body created)))
      (nom-test> [policies (policy/get-effective-policies config {})
                  own-funds (ledger-accounts/find-by-code
@@ -195,20 +194,18 @@
                                                         own-funds)
                                                        {:policies policies})
                  _ (is (= :ledger-account-status-closed (:status closed)))
-                 ;; The house account is an own-funds product, so its
-                 ;; credit leg fans out to the 3100 control just closed.
-                 ;; The customer leg is never recorded without its mirror,
-                 ;; so the posting fails outright rather than landing
-                 ;; single-sided.
+                 ;; The money lands on the house account, an own-funds
+                 ;; product, so its credit leg fans out to the 3100 control
+                 ;; just closed. The customer leg is never recorded without
+                 ;; its mirror, so the posting fails outright rather than
+                 ;; landing single-sided.
                  _ (let [refused (post-json base-url
                                             admin-token
                                             "ik-closed-control-inbound-001"
                                             (str "/v1/simulate/banks/"
                                                  bank-id
                                                  "/inbound-transfer")
-                                            {:account-id house-account-id
-                                             :amount 250000
-                                             :currency "GBP"})]
+                                            {:amount 250000 :currency "GBP"})]
                      (is (= 409 (:status refused)) (pr-str (:body refused)))
                      (is (= ":ledger-account/closed"
                             (get-in refused [:body :type]))))]))))

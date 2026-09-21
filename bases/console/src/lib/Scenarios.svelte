@@ -7,8 +7,9 @@
 
      This runner fires REAL calls against bank-api as the signed-in bank
      (org tier): products, parties (poll until IDV flips), accounts (a
-     current and a savings each for Arthur and Ford), funding via the
-     now-org-tier simulate inbound-transfer, internal transfers (current
+     current and a savings each for Arthur and Ford), funding the bank's
+     own funds via the now-org-tier simulate inbound-transfer and the
+     customers from there by internal payment, internal transfers (current
      → savings), a deliberately overdrawing transfer the non-negative-
      balance policy refuses, an outbound Faster Payment over the scheme
      (Ford pays Arthur for beer and nuts), and interest via the bank-tier
@@ -150,11 +151,11 @@
     {
       id: "s4", num: "04", title: "Money in, double-entry out", view: "ledger",
       story:
-        "Fund both current accounts with an inbound Faster Payment of £1,000 each. The books move — 1100 cash-at-correspondent debited, customer balances credited — debits equal credits, to the penny.",
+        "£2,000 arrives from outside into the bank's own funds, then the bank pays Arthur and Ford £1,000 each by internal payment. The books move — 1100 cash-at-correspondent debited, own funds credited, then customer balances — debits equal credits, to the penny.",
       backing: ["simulate/inbound-transfer"],
       steps: [
-        { name: "Fund Arthur · inbound FPS £1,000", raw: [{ method: "POST", path: "/v1/simulate/banks/{bank-id}/inbound-transfer", tag: "request" }] },
-        { name: "Fund Ford · inbound FPS £1,000", raw: [{ method: "POST", path: "/v1/simulate/banks/{bank-id}/inbound-transfer", tag: "request" }] },
+        { name: "Fund the bank · £2,000 into own funds", raw: [{ method: "POST", path: "/v1/simulate/banks/{bank-id}/inbound-transfer", tag: "request" }] },
+        { name: "Pay Arthur and Ford £1,000 each from own funds", raw: [{ method: "POST", path: "/v1/payments/internal", tag: "request" }, { method: "POST", path: "/v1/payments/internal", tag: "request" }] },
         { name: "Await settlement", raw: [{ method: "GET", path: "/v1/cash-accounts/{id}/balances", tag: "poll" }] },
         { name: "Trial balance ties", raw: [{ method: "GET", path: "/v1/ledger-accounts", tag: "request" }] },
       ],
@@ -443,12 +444,20 @@
     async s4({ step }) {
       const ac = ctx.accounts.arthurCurrent;
       const fc = ctx.accounts.fordCurrent;
-      const fund = (acct) => async () => {
-        const r = await api.simulate_inbound_transfer(bankId, { "account-id": acct.accountId, amount: FUND_EACH, currency: "GBP" });
-        if (!ok2xx(r)) throw new Error(`fund ${acct.accountId}: ${r.status}`);
+      let house;
+      await step(0, async () => {
+        const r = await api.simulate_inbound_transfer(bankId, { amount: 2 * FUND_EACH, currency: "GBP" });
+        if (!ok2xx(r)) throw new Error(`fund the bank: ${r.status}`);
+        house = r.body["account-id"];
+      });
+      const pay = (acct, who) => async () => {
+        const r = await api.submit_internal_payment({ "debtor-account-id": house, "creditor-account-id": acct.accountId, currency: "GBP", amount: FUND_EACH, reference: `Funding ${who}` });
+        if (!ok2xx(r)) throw new Error(`pay ${who}: ${r.status}`);
       };
-      await step(0, fund(ac));
-      await step(1, fund(fc));
+      await step(1, async () => {
+        await pay(ac, "Arthur")();
+        await pay(fc, "Ford")();
+      });
       await step(2, () =>
         poll(() => api.get_cash_account_balances(ac.accountId), (r) => r.status === 200 && (r.body?.["available-balance"]?.value ?? 0) >= FUND_EACH));
       await step(3, () => api.list_ledger_accounts());

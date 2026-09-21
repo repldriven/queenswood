@@ -85,7 +85,7 @@ demo-digital-bank-start:
     export DEMO_API_URL={{ DEMO_API_URL }}
     clj -M{{ DOMAIN_ALIASES }}:dev:test -e "(require 'com.repldriven.mono.testcontainers.interface)" -m com.repldriven.queenswood.demo-digital-bank-api.main -c "classpath:demo-digital-bank-api/application-test.yml" -p "dev" 2>&1 | tee demo-digital-bank.log
 
-# Create the bank's organisation on the local monolith with its owner invited, store its credential in pass, publish its three products, register its webhook endpoint with the secret in pass, and accept the owner's invitation as the owner; does only what is not already done, and replaces a credential the platform no longer knows.
+# Create the bank's organisation on the local monolith with its owner invited, store its credential in pass, publish its three products, fund its own funds with £10,000 once, register its webhook endpoint with the secret in pass, and accept the owner's invitation as the owner; does only what is not already done, and replaces a credential the platform no longer knows.
 demo-digital-bank-seed:
     #!/usr/bin/env zsh
     set -e
@@ -154,6 +154,16 @@ demo-digital-bank-seed:
       if (( REWARD > 0 )); then SUFFIX=", $REWARD pence opening reward"; fi
       printf '  %-14s %s, %s bps%s\n' "$NAME" "$PRODUCT" "$BPS" "$SUFFIX"
     done
+    RES=$(curl -sS -X POST "{{ DEMO_API_URL }}/v1/simulate/banks/$CLIENT_ID/inbound-transfer" \
+      -H "authorization: Bearer $TOKEN" \
+      -H 'content-type: application/json' \
+      -H "idempotency-key: demo-digital-bank-fund-house" \
+      -d '{"amount":1000000,"currency":"GBP"}')
+    if [[ "$(jq -r '.status // empty' <<<"$RES")" != posted ]]; then
+      echo "funding the bank refused: $RES" >&2
+      exit 1
+    fi
+    echo "own funds $(jq -r '."account-id"' <<<"$RES") hold 1000000 pence, which pays the rewards"
     RES=$(curl -sS {{ DEMO_API_URL }}/v1/webhook-endpoints -H "authorization: Bearer $TOKEN")
     ENDPOINT=$(jq -r --arg a "{{ DEMO_WEBHOOK_URL }}" \
       '[.items[] | select(.address == $a and .status != "removed")][0]["endpoint-id"] // empty' <<<"$RES")
@@ -207,8 +217,8 @@ demo-digital-bank-seed:
       echo "owner {{ DEMO_OWNER_EMAIL }} accepted $INVITATION: sign in to the console as {{ DEMO_OWNER_USERNAME }}"
     fi
 
-# Pay money into one of the bank's accounts from outside, as the bank, through the platform's sandbox affordance. account_id: the platform's; amount: in pence.
-demo-digital-bank-fund account_id amount:
+# Pay money into the bank's own funds from outside, as the bank, through the platform's sandbox affordance; a customer is paid from there by an internal payment. amount: in pence.
+demo-digital-bank-fund amount:
     #!/usr/bin/env zsh
     set -e
     if ! OUT=$(pass show {{ DEMO_PASS }}/ids/demo-digital-bank 2>/dev/null) || [[ -z "$OUT" ]]; then
@@ -223,9 +233,9 @@ demo-digital-bank-fund account_id amount:
       -H "authorization: Bearer $TOKEN" \
       -H 'content-type: application/json' \
       -H "idempotency-key: demo-digital-bank-fund-$(date +%s%N)" \
-      -d '{"account-id":"{{ account_id }}","amount":{{ amount }},"currency":"GBP"}')
+      -d '{"amount":{{ amount }},"currency":"GBP"}')
     if [[ "$(jq -r '.status // empty' <<<"$RES")" != posted ]]; then
       echo "funding refused: $RES" >&2
       exit 1
     fi
-    echo "{{ amount }} pence into {{ account_id }}: $(jq -r '."transaction-id"' <<<"$RES")"
+    echo "{{ amount }} pence into own funds $(jq -r '."account-id"' <<<"$RES"): $(jq -r '."transaction-id"' <<<"$RES")"

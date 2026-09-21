@@ -114,8 +114,7 @@
              :path-params {:bank-id [:ref :org-0 :bank-id]}
              :auth :admin
              :headers {:idempotency-key "ik-reward-deferred-fund-001"}
-             :body {:account-id [:ref :org-0 :accounts 0 :account-id]
-                    :amount 500000
+             :body {:amount 500000
                     :currency "GBP"}}
    :assert {:status 200}}
   ;; Funded, the next run pays what was due.

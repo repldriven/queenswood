@@ -25,8 +25,7 @@
              :path-params {:bank-id [:ref :org-0 :bank-id]}
              :auth :admin
              :headers {:idempotency-key "ik-reward-paid-fund-001"}
-             :body {:account-id [:ref :org-0 :accounts 0 :account-id]
-                    :amount 500000
+             :body {:amount 500000
                     :currency "GBP"}}
    :assert {:status 200}}
   ;; A version that promises £10 to every account opened under it.

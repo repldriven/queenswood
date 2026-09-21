@@ -24,10 +24,13 @@
       ;; console, so this route alone drops to `org:developer` (accrue and
       ;; capitalize stay admin-only). The handler holds the tenant
       ;; boundary; `admin` joins the level, carrying no bank of its own.
+      ;; The money lands in the bank's own funds and reaches a customer
+      ;; by an internal payment: a bank funds itself, so there is
+      ;; nothing to choose.
       {:openapi {:security ^:replace
                            [{"bearerAuth" ["org:developer"]}
                             {"bearerAuth" ["admin"]}]}
-       :post {:summary "Simulate an inbound transfer"
+       :post {:summary "Simulate an inbound transfer into the bank's own funds"
               :openapi {:operationId "SimulateInboundTransfer"
                         :requestBody {:required true}
                         :parameters ^:replace
