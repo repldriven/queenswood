@@ -115,6 +115,22 @@
     jobs: { label: "Jobs", href: "#/jobs" },
     migrations: { label: "Migrations", href: "#/migrations" },
   };
+  // Where a scene pays off, more precisely than its view's landing page:
+  // the row, account or filter that shows what it did. A scene with more
+  // than one is shown each in turn. A scene not listed here lands on its
+  // view.
+  const accountHref = (key) => {
+    const id = ctx.accounts?.[key]?.accountId;
+    return id ? `#/accounts?account=${id}` : VIEWS.accounts.href;
+  };
+  const PAYOFF = {
+    s6: () => ["#/jobs?open=hourly-rewards"],
+    s7: () => [accountHref("arthurEveryday"), accountHref("arthurRainyDay")],
+    s8: () => ["#/policies?q=balance"],
+    s9: () => [accountHref("fordEveryday"), accountHref("arthurEveryday")],
+    s11: () => ["#/jobs?open=daily-interest"],
+  };
+  const payoffHrefs = (s) => PAYOFF[s.id]?.() ?? [VIEWS[s.view].href];
 
   const SCENES = [
     {
@@ -767,10 +783,15 @@
       return;
     }
     await sleep(AUTOPLAY_PAUSE_MS);
-    location.hash = VIEWS[s.view].href;
+    const hrefs = payoffHrefs(s);
+    hrefs.forEach((href, i) => {
+      setTimeout(() => {
+        location.hash = href;
+      }, i * AUTOPLAY_VIEW_MS);
+    });
     setTimeout(() => {
       location.hash = "#/scenarios?autoplay";
-    }, AUTOPLAY_VIEW_MS);
+    }, hrefs.length * AUTOPLAY_VIEW_MS);
   }
   $effect(() => {
     if (!bankId || autoplay !== "off" || !autoplayWanted()) return;
@@ -879,7 +900,7 @@
             <div class="payoff-head">
               <span class="ph-ico">{@render icoCheck()}</span>
               <span class="ph-title">Result</span>
-              <a class="see-link" href={VIEWS[s.view].href}>
+              <a class="see-link" href={payoffHrefs(s)[0]}>
                 <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 8 C3.5 4.5 6 3 8 3 s4.5 1.5 6.5 5 C12.5 11.5 10 13 8 13 s-4.5-1.5-6.5-5 Z" /><circle cx="8" cy="8" r="1.8" /></svg>
                 <span>See it in {VIEWS[s.view].label}</span>
                 <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8 H12.5" /><path d="M9 4.5 L12.5 8 L9 11.5" /></svg>

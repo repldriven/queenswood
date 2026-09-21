@@ -66,6 +66,9 @@
   let now = $state(Date.now());
 
   let open = $state({}); // job-id → expanded?
+  // `#/jobs?open=hourly-rewards` lands with that job's row expanded,
+  // which is how the scenarios show the run they forced.
+  const openFromHash = () => new URLSearchParams(location.hash.split("?")[1] ?? "").get("open");
   let busy = $state({}); // job-id → a run/edit is in flight
 
   // Kebab menu (one open at a time) and its anchor rect.
@@ -139,6 +142,8 @@
           return toView(job, runs);
         }),
       );
+      const wanted = openFromHash();
+      if (wanted) for (const j of jobs) if (`${j.id} ${j.name}`.includes(wanted)) open[j.id] = true;
     } catch (err) {
       error = err.message;
       jobs = [];

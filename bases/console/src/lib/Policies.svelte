@@ -24,7 +24,9 @@
   let error = $state(null);
   let effective = $state({ capabilities: [], limits: [] });
 
-  let query = $state("");
+  // `#/policies?q=balance` lands filtered to that row, which is how the
+  // scenarios point at the rule that held.
+  let query = $state(new URLSearchParams(location.hash.split("?")[1] ?? "").get("q") ?? "");
   let showUngoverned = $state(false);
 
   const kicker = $derived(memberships?.[0]?.["bank-name"]);

@@ -26,6 +26,14 @@
   let accounts = $state([]);
   let selectedId = $state(null);
   let query = $state("");
+  // `#/accounts?account=<id>` selects that account, on landing and on a
+  // hash change while the page is up — the scenarios walk from one
+  // account to the next this way.
+  const accountFromHash = () => new URLSearchParams(location.hash.split("?")[1] ?? "").get("account");
+  function selectFromHash() {
+    const id = accountFromHash();
+    if (id && accounts.some((a) => a.id === id)) selectedId = id;
+  }
 
   // Enum values arrive either short ("opened") or as a namespaced
   // keyword (":account-status-opened"); strip a known prefix so either
@@ -119,6 +127,7 @@
         };
       });
       selectedId = accounts[0]?.id ?? null;
+      selectFromHash();
     } catch (err) {
       error = err.message;
       accounts = [];
@@ -129,6 +138,10 @@
 
   $effect(() => {
     load();
+  });
+  $effect(() => {
+    addEventListener("hashchange", selectFromHash);
+    return () => removeEventListener("hashchange", selectFromHash);
   });
 
   function matches(a, q) {
