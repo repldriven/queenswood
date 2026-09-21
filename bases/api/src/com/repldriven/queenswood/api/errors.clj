@@ -145,3 +145,32 @@
   (let [status (anomaly->status anomaly)]
     (when (<= 500 status) (log-server-anomaly anomaly))
     {:status status :body (error-response status anomaly)}))
+
+(defn unauthenticated-response
+  "The 401 an unauthenticated caller receives: what `/v1` carries as
+  `:unauthorized` for `server/require-scopes`, and what a handler that
+  refuses a caller on its own terms answers, in exactly this shape.
+  `anomaly->response` derives `type` from an anomaly kind and so writes a
+  leading colon, which this shape does not carry."
+  ([] (unauthenticated-response nil))
+  ([detail]
+   {:status 401
+    :headers {"content-type" "application/json"}
+    :body (error-response 401
+                          "UNAUTHORIZED"
+                          "auth/unauthenticated"
+                          (or detail "Missing or invalid token"))}))
+
+(defn forbidden-response
+  "The 403 a caller whose scopes miss the route's receives: what `/v1`
+  carries as `:forbidden` for `server/require-scopes`, what `require-bank`
+  answers with its own detail, and what a handler enforcing a tenant
+  boundary of its own answers, indistinguishable from either."
+  ([] (forbidden-response nil))
+  ([detail]
+   {:status 403
+    :headers {"content-type" "application/json"}
+    :body (error-response 403
+                          "FORBIDDEN"
+                          "auth/forbidden"
+                          (or detail "Insufficient privileges"))}))

@@ -1,20 +1,20 @@
 (ns com.repldriven.queenswood.api.auth
-  "Two-path JWT authentication. (1) A Keycloak-issued service JWT
-  minted by a tenant's service-account client (`client_credentials`
-  flow); principal type `:service`. The `queenswood-admin` service
-  account carries the `admin` realm role, which grants `:admin` —
-  giving operators a Keycloak-minted admin bearer in place of a
-  static env-var key. (2) A Keycloak-issued user JWT minted by either
-  the `queenswood-console` SPA against the `queenswood` realm (org
-  admins/members) or the `queenswood-app` SPA against the
-  `queenswood-ops` realm (Queenswood operators); principal type
-  `:user`. JWT verification dispatches across multiple
-  `identity-provider` instances keyed by the unverified `iss` claim,
-  then the verified `azp` claim discriminates user vs service. The
-  user path always upserts a `bank-user` row on first sign-in so
-  every authenticated human has a stable platform-identity record. A
-  `Bank-Id` request header names the bank a call acts on, and a
-  principal's roles carry the organisation level it holds there."
+  "The principal behind a verified token, and the bank it acts on. The
+  credential, its verification against the realm that issued it and the
+  scopes its claims grant are the server brick's: `server/credential`,
+  `server/authenticate-with-provider`, `server/claims->scopes` and
+  `server/require-scopes`. Queenswood's part begins at `:auth-claims`. The
+  verified `azp` claim tells a user JWT, minted by the `queenswood-console`
+  SPA against the `queenswood` realm or the `queenswood-app` SPA against
+  the `queenswood-ops` realm, from a service JWT minted by a tenant's
+  service-account client, of which `queenswood-admin` carries the `admin`
+  realm role and so `:admin`. The user path upserts a `bank-user` row on
+  first sign-in so every authenticated human has a stable platform-identity
+  record. A `Bank-Id` request header names the bank a call acts on, and a
+  principal's roles carry the organisation level it holds there, joining
+  `:auth-scopes` for `server/require-scopes` to enforce. `claims->principal`
+  resolves `:auth` only where nothing before it has, as the server brick's
+  component interceptors leave a key a request already carries."
   (:require
     [com.repldriven.queenswood.api.errors :as errors]
 
@@ -24,45 +24,26 @@
     [com.repldriven.queenswood.user.interface :as users]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
-    [com.repldriven.mono.identity-provider.interface :as identity-provider]
-    [com.repldriven.mono.json.interface :as json]
     [com.repldriven.mono.log.interface :as log]
     [com.repldriven.mono.utility.interface :as util]
 
-    [reitit.core :as r]
     [sieppari.context :as sc]
 
     [clojure.set :as set]
-    [clojure.string :as str])
-  (:import
-    (java.util Base64)))
+    [clojure.string :as str]))
 
-(defn- extract-bearer
-  [request]
-  (some-> (get-in request [:headers "authorization"])
-          (str/split #" " 2)
-          (as-> parts (when (= "Bearer" (first parts)) (second parts)))))
+(def org-viewer "Reads an organisation's data." (keyword "org:viewer"))
 
-(def ^{:doc "The gate on every read of an organisation's own data."} org-viewer
-  (keyword "org:viewer"))
+(def org-developer "Writes an organisation's data." (keyword "org:developer"))
 
-(def ^{:doc "The gate on every write an organisation's own systems make."}
-     org-developer
-  (keyword "org:developer"))
+(def org-admin "Manages an organisation's people." (keyword "org:admin"))
 
-(def ^{:doc "The gate on an organisation's people routes."} org-admin
-  (keyword "org:admin"))
+(def org-owner "Held by an owner alone." (keyword "org:owner"))
 
-(def ^{:doc "The level only an owner holds."} org-owner (keyword "org:owner"))
+(def org-levels "Lowest first." [org-viewer org-developer org-admin org-owner])
 
-(def ^{:doc "The organisation levels, lowest first."} org-levels
-  [org-viewer org-developer org-admin org-owner])
-
-(def
-  ^{:doc
-    "The levels each membership role carries: its own and every level
-  below it."}
-  role->levels
+(def role->levels
+  "The levels a membership role carries: its own and every one below it."
   {:role-viewer #{org-viewer}
    :role-developer #{org-viewer org-developer}
    :role-admin #{org-viewer org-developer org-admin}
@@ -70,8 +51,15 @@
 
 (def ^:private service-levels #{org-viewer org-developer})
 
-(def ^{:private true :doc "The organisation levels, as a set."} org-scopes
-  (set org-levels))
+(def ^:private org-scopes "The levels as a set." (set org-levels))
+
+(def scopes
+  "Every scope a gate may name: the levels, `admin` and `user`."
+  (into #{"admin" "user"} (map name) org-levels))
+
+(def exclusive-scopes
+  "A gate names one level, so a method's stacked on its route's is refused."
+  [(into #{} (map name) org-levels)])
 
 (defn- requested-bank-id
   "The bank the `Bank-Id` header names, or nil when it names none."
@@ -183,188 +171,39 @@
          :bank-refused
          (when (and requested (not is-admin?) (nil? membership)) true))))))
 
-(defn- decode-unverified-payload
-  "Best-effort base64url-decode of a JWT's middle segment into the
-  payload claims map. Returns nil on any failure — callers should
-  treat that the same as an unverifiable token."
-  [^String jwt-string]
-  (try
-    (let [parts (str/split jwt-string #"\." 3)
-          payload-bytes (.decode (Base64/getUrlDecoder)
-                                 ^String (second parts))
-          payload-str (String. payload-bytes "UTF-8")
-          parsed (json/read-str payload-str :key-fn keyword)]
-      (when (map? parsed) parsed))
-    (catch Exception _ nil)))
-
-(defn- unverified-issuer
-  "Pull the `iss` claim out of the JWT payload WITHOUT signature
-  verification — used only to pick which identity-provider should be
-  asked to verify. The verifier still rejects the token if iss
-  doesn't match its expected issuer, so a forged iss can't gain
-  access to a realm whose JWKS it can't satisfy."
-  [jwt-string]
-  (:iss (decode-unverified-payload jwt-string)))
-
-(defn- pick-provider
-  "Find the identity-provider instance whose configured issuer matches
-  the JWT's (unverified) iss claim. Returns nil when none match."
-  [providers iss]
-  (some (fn [p] (when (= iss (identity-provider/get-issuer p)) p))
-        providers))
-
-(def authenticate
-  {:name ::authenticate
-   :enter
-   (fn [ctx]
-     (let [request (:request ctx)
-           token (extract-bearer request)
-           {:keys [user-client-ids identity-providers expected-audiences]}
-           request]
-       (if (nil? token)
-         ctx
-         (let [iss (unverified-issuer token)
-               provider (pick-provider identity-providers iss)
-               claims (when provider
-                        (identity-provider/verify-token
-                         provider
-                         token
-                         {:expected-audiences (set expected-audiences)}))]
-           (cond
-            (nil? provider)
-            (do (log/warn "JWT verification rejected: unknown issuer"
-                          (pr-str iss))
-                ctx)
-
-            (not (map? claims))
-            (do (log/warn "JWT verification rejected:"
-                          (:message (error/payload claims))
-                          "iss:" (pr-str iss))
-                ctx)
-
-            (contains? (set user-client-ids) (:azp claims))
-            (let [auth (user-auth request claims)]
-              (if (error/anomaly? auth)
-                (do (log/warn "User sign-in failed:"
-                              (:message (error/payload auth))
-                              "iss:" (pr-str (:iss claims))
-                              "sub:" (pr-str (:sub claims)))
-                    (sc/terminate ctx (errors/anomaly->response auth)))
-                (assoc-in ctx [:request :auth] auth)))
-
-            :else
-            (assoc-in ctx
-             [:request :auth]
-             (service-auth request claims)))))))})
-
-(defn- bare-security?
-  "True when `security` names a scheme and gives it no roles."
-  [security]
-  (boolean (some (fn [entry] (some empty? (vals entry))) security)))
-
-(defn- operation-securities
-  "Each compiled operation in `router` as its path and the OpenAPI
-  security of its endpoint data: the method's own data meta-merged over
-  the route's, which is what `authorize` enforces and the OpenAPI
-  exporter documents."
-  [router]
-  (for [[path _ methods] (r/compiled-routes router)
-        endpoint (vals methods)
-        :when endpoint]
-    [path (get-in endpoint [:data :openapi :security])]))
-
-(defn- paths-where
-  "The distinct paths in `router` with an operation whose security
-  satisfies `pred`."
-  [pred router]
-  (into []
-        (comp (filter (fn [[_ security]] (pred security)))
-              (map first)
-              (distinct))
-        (operation-securities router)))
-
-(defn bare-security-routes
-  "The paths in `router` with an operation that names a security scheme
-  but gives it no roles — a `{\"bearerAuth\" []}` entry. Such a gate
-  demands a token and says nothing about what the token must carry, so
-  `authorize` would have to guess. An operation whose `:security` is
-  `[]` names no scheme at all and is public by design, so it is not
-  reported."
-  [router]
-  (paths-where bare-security? router))
-
-(defn- bare-org?
-  "True when `security` names the bare `org` role."
-  [security]
-  (boolean (some (fn [entry] (some #{"org"} (mapcat val entry))) security)))
-
-(defn bare-org-routes
-  "The paths in `router` with an operation whose gate names the bare
-  `org` role. `org` is no level, so it says nothing about what a member
-  may do; every organisation gate names `org:viewer`, `org:developer`,
-  `org:admin` or `org:owner`, and no principal carries `org`."
-  [router]
-  (paths-where bare-org? router))
+(def claims->principal
+  {:name ::claims->principal
+   :enter (fn [ctx]
+            (let [{:keys [request]} ctx
+                  {:keys [auth-claims auth user-client-ids]} request]
+              (if (or (nil? auth-claims) (some? auth))
+                ctx
+                (let [auth (if (contains? (set user-client-ids)
+                                          (:azp auth-claims))
+                             (user-auth request auth-claims)
+                             (service-auth request auth-claims))]
+                  (if (error/anomaly? auth)
+                    (do (log/warn "User sign-in failed:" (:message
+                                                          (error/payload auth))
+                                  "iss:" (pr-str (:iss auth-claims))
+                                  "sub:" (pr-str (:sub auth-claims)))
+                        (sc/terminate ctx (errors/anomaly->response auth)))
+                    (-> ctx
+                        (assoc-in [:request :auth] auth)
+                        (update-in [:request :auth-scopes]
+                                   (fnil into #{})
+                                   (map name)
+                                   (:roles auth))))))))})
 
 (defn- required-roles
   "The role set a route requires, read off its OpenAPI security. A
   route that names no scheme requires nothing and answers nil;
   otherwise the roles its scheme names, as keywords. A scheme that
-  names no roles never reaches here — `bare-security-routes` refuses
+  names no roles never reaches here — `server/require-scopes` refuses
   it while the router is being built."
   [security]
   (let [explicit (into #{} (comp (mapcat vals) cat) security)]
     (when (seq explicit) (into #{} (map keyword) explicit))))
-
-(defn- stacked-levels?
-  "True when `security` names more than one organisation level."
-  [security]
-  (< 1 (count (filter org-scopes (required-roles security)))))
-
-(defn stacked-level-routes
-  "The paths in `router` with an operation whose gate names more than
-  one organisation level. Reitit concatenates a method's `:security`
-  onto its route's unless the method's vector is marked `^:replace`, so
-  a level declared under a method key of a gated route stacks on the
-  route's level, and the operation admits the lower of the two."
-  [router]
-  (paths-where stacked-levels? router))
-
-(defn unauthenticated-response
-  "The 401 an unauthenticated caller receives. Public so a handler that
-  refuses a caller on its own terms answers in exactly this shape:
-  `errors/anomaly->response` derives `type` from an anomaly kind and so
-  writes a leading colon, which this shape does not carry."
-  ([] (unauthenticated-response nil))
-  ([detail]
-   {:status 401
-    :headers {"content-type" "application/json"}
-    :body {:title "UNAUTHORIZED"
-           :type "auth/unauthenticated"
-           :status 401
-           :detail (or detail "Missing or invalid token")}}))
-
-(defn forbidden-response
-  "The 403 a caller whose roles miss the route's receives. Public for
-  the same reason as `unauthenticated-response`: a handler enforcing a
-  tenant boundary of its own must be indistinguishable from this
-  interceptor."
-  ([] (forbidden-response nil))
-  ([detail]
-   {:status 403
-    :headers {"content-type" "application/json"}
-    :body {:title "FORBIDDEN"
-           :type "auth/forbidden"
-           :status 403
-           :detail (or detail "Insufficient privileges")}}))
-
-(defn- operation-security
-  "The OpenAPI security of the matched operation: the endpoint data
-  reitit compiled for the request's method."
-  [request]
-  (get-in request
-          [:reitit.core/match :result (:request-method request) :data :openapi
-           :security]))
 
 (defn- bank-refused?
   "True when the principal's `Bank-Id` header named a bank it may not act
@@ -383,52 +222,44 @@
        (nil? (get-in request [:auth :bank-id]))
        (< 1 (count (get-in request [:auth :memberships])))))
 
-(defn- org-without-bank?
-  "An organisation-gated route acts on the principal's bank, so a
-  principal that reaches it through organisation scopes alone and
-  carries no bank has nothing for the route to act on. A route an admin
-  may call on any bank takes the bank from the path and declares `admin`
-  alongside a level, so the intersection holds more than organisation
-  scopes and this does not fire."
+(defn- bank-absent?
+  "True when the principal reaches the operation through organisation
+  scopes alone and carries no bank, so an organisation-gated route has
+  nothing to act on. A route an admin may call on any bank takes the bank
+  from the path and declares `admin` as a second requirement object beside
+  a level, so the scopes required hold more than organisation scopes and
+  this does not fire."
   [roles required request]
   (let [granted (set/intersection roles required)]
     (and (seq granted)
          (every? org-scopes granted)
          (nil? (get-in request [:auth :bank-id])))))
 
-(def authorize
-  {:name ::authorize
-   :enter (fn [ctx]
-            (let [request (:request ctx)
-                  required (required-roles (operation-security request))]
-              (if (nil? required)
-                ctx
-                (let [roles (get-in request [:auth :roles] #{})]
-                  (cond
-                   (empty? roles)
-                   (sc/terminate ctx (unauthenticated-response))
+(def require-bank
+  {:name ::require-bank
+   :compile
+   (fn [data _]
+     (when-some [required (required-roles (get-in data [:openapi :security]))]
+       {:enter (fn [ctx]
+                 (let [{:keys [request]} ctx
+                       roles (get-in request [:auth :roles] #{})]
+                   (cond
+                    (bank-refused? request required)
+                    (sc/terminate ctx
+                                  (errors/forbidden-response
+                                   "The caller is not a member of this bank"))
 
-                   (bank-refused? request required)
-                   (sc/terminate
-                    ctx
-                    (forbidden-response
-                     "The caller is not a member of this bank"))
+                    (bank-unnamed? request required)
+                    (sc/terminate ctx
+                                  (errors/forbidden-response
+                                   "Name the bank in the Bank-Id header"))
 
-                   (bank-unnamed? request required)
-                   (sc/terminate
-                    ctx
-                    (forbidden-response
-                     "Name the bank in the Bank-Id header"))
+                    (bank-absent? roles required request)
+                    (sc/terminate
+                     ctx
+                     (errors/forbidden-response
+                      (str "This route acts on the caller's bank and the"
+                           " token names none")))
 
-                   (empty? (set/intersection roles required))
-                   (sc/terminate ctx (forbidden-response))
-
-                   (org-without-bank? roles required request)
-                   (sc/terminate
-                    ctx
-                    (forbidden-response
-                     (str "This route acts on the caller's bank and the"
-                          " token names none")))
-
-                   :else
-                   ctx)))))})
+                    :else
+                    ctx)))}))})

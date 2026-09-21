@@ -14,6 +14,9 @@
     [com.repldriven.queenswood.api.api :as SUT]
 
     [com.repldriven.queenswood.api.auth :as auth]
+    [com.repldriven.queenswood.api.errors :as errors]
+
+    [com.repldriven.mono.server.interface :as server]
 
     [reitit.core :as r]
     [reitit.http :as http]
@@ -58,13 +61,22 @@
             :handler handler}}]])
 
 (defn- authorize
-  "Run `authorize` over `method` at `path` in `router`, as a principal
-  holding `roles` and a bank."
+  "Run `require-bank` and the gate compiled for `method` at `path` in
+  `router`, as a principal holding `roles` and a bank."
   [router path method roles]
-  ((:enter auth/authorize)
-   {:request {:request-method method
-              :reitit.core/match (r/match-by-path router path)
-              :auth {:roles roles :bank-id "bnk.test"}}}))
+  (let [data (assoc (get-in (r/match-by-path router path)
+                            [:result method :data])
+                    :unauthorized (errors/unauthenticated-response)
+                    :forbidden (errors/forbidden-response))]
+    (reduce (fn [ctx interceptor]
+              (let [compiled ((:compile interceptor) data nil)]
+                (if (or (nil? compiled) (:response ctx))
+                  ctx
+                  ((:enter compiled) ctx))))
+            {:request {:auth {:roles roles :bank-id "bnk.test"}
+                       :auth-claims {:sub "test"}
+                       :auth-scopes (into #{} (map name) roles)}}
+            [auth/require-bank server/require-scopes])))
 
 (defn- refused?
   [ctx]
@@ -118,48 +130,6 @@
   [path]
   (str/replace path #"\{[^}]+\}" "x"))
 
-(deftest bare-security-routes-names-the-offender-test
-  (testing "a scheme with no roles is reported"
-    (is (= [bare-path] (auth/bare-security-routes (http/router (table []))))))
-  (testing "a scheme with roles is not"
-    (is (= []
-           (auth/bare-security-routes (http/router (table ["org:viewer"]))))))
-  (testing "a method-level scheme with no roles is reported"
-    (is (= [bare-path]
-           (auth/bare-security-routes (http/router
-                                       [[bare-path
-                                         {:get {:openapi {:security (gate)}
-                                                :handler handler}}]])))))
-  (testing "a route naming no scheme at all is public by design"
-    (is (= []
-           (auth/bare-security-routes (http/router [[bare-path
-                                                     {:openapi {:security []}
-                                                      :get {:handler
-                                                            handler}}]]))))))
-
-(deftest stacked-level-routes-names-the-offender-test
-  (testing "a method level under a gated route stacks on the route's"
-    (let [router (http/router (stacked-table nil))]
-      (is (= [split-path] (auth/stacked-level-routes router)))
-      (is (= [{"bearerAuth" ["org:viewer"]} {"bearerAuth" ["org:developer"]}]
-             (get-in (r/match-by-path router split-path)
-                     [:result :post :data :openapi :security]))
-          "reitit concatenates the method's vector onto the route's")))
-  (testing "a replacing method level does not"
-    (let [router (http/router (stacked-table {:replace true}))]
-      (is (= [] (auth/stacked-level-routes router)))
-      (is (= (gate "org:developer")
-             (get-in (r/match-by-path router split-path)
-                     [:result :post :data :openapi :security])))))
-  (testing "a level on each method, none on the route, does not"
-    (is (= []
-           (auth/stacked-level-routes
-            (http/router (split-table "org:viewer" "org:developer"))))))
-  (testing "one level beside admin does not"
-    (is (= []
-           (auth/stacked-level-routes (http/router (table ["org:developer"
-                                                           "admin"])))))))
-
 (deftest operations-are-enforced-at-their-own-levels-test
   (testing "a read and a write on one path, each gated under its method"
     (let [router (http/router (split-table "org:viewer" "org:developer"))]
@@ -182,62 +152,39 @@
       (is (refused? (authorize router split-path :post viewer)))
       (is (nil? (:response (authorize router split-path :post developer)))))))
 
-(deftest router-refuses-a-bare-security-scheme-test
-  (let [thrown (try (SUT/enforceable-router (http/router (table [])))
-                    nil
-                    (catch clojure.lang.ExceptionInfo e e))]
-    (is (some? thrown) "the router must refuse to build")
-    (is (str/includes? (ex-message thrown) bare-path)
-        "the message names the offending route")
-    (is (str/includes? (ex-message thrown) "Scheme with no roles")
-        "the message says which of the two refusals it is")
-    (is (= {:bare [bare-path] :stacked [] :bare-org []} (ex-data thrown)))))
+(defn- validated
+  "Nil when a router over `routes` builds with the gate and the vocabulary
+  `/v1` declares, else the ex-data of the refusal."
+  [routes]
+  (try (http/router routes
+                    {:data {:interceptors [server/require-scopes]
+                            :scopes auth/scopes
+                            :exclusive-scopes auth/exclusive-scopes}})
+       nil
+       (catch clojure.lang.ExceptionInfo e (ex-data e))))
 
-(deftest router-refuses-a-stacked-level-gate-test
-  (let [thrown (try (SUT/enforceable-router (http/router (stacked-table nil)))
-                    nil
-                    (catch clojure.lang.ExceptionInfo e e))]
-    (is (some? thrown) "the router must refuse to build")
-    (is (str/includes? (ex-message thrown) split-path)
-        "the message names the offending route")
-    (is (str/includes? (ex-message thrown)
-                       "Gate naming more than one org level")
-        "the message says which of the two refusals it is")
-    (is (= {:bare [] :stacked [split-path] :bare-org []} (ex-data thrown)))))
-
-(deftest bare-org-routes-names-the-offender-test
-  (testing "a route gated by the bare org role is reported"
-    (is (= [bare-path] (auth/bare-org-routes (http/router (table ["org"]))))))
-  (testing "beside admin it is still reported"
-    (is (= [bare-path]
-           (auth/bare-org-routes (http/router (table ["org" "admin"]))))))
-  (testing "a method-level bare org gate is reported"
-    (is (= [split-path]
-           (auth/bare-org-routes (http/router (split-table "org:viewer"
-                                                           "org"))))))
-  (testing "a level is not"
-    (is (= []
-           (auth/bare-org-routes
-            (http/router (split-table "org:viewer" "org:developer")))))))
-
-(deftest router-refuses-a-bare-org-gate-test
-  (let [thrown (try (SUT/enforceable-router (http/router (table ["org"])))
-                    nil
-                    (catch clojure.lang.ExceptionInfo e e))]
-    (is (some? thrown) "the router must refuse to build")
-    (is (str/includes? (ex-message thrown) bare-path)
-        "the message names the offending route")
-    (is (str/includes? (ex-message thrown) "Bare org gate")
-        "the message says which of the refusals it is")
-    (is (= {:bare [] :stacked [] :bare-org [bare-path]} (ex-data thrown)))))
+(deftest validation-refuses-the-gates-this-service-cannot-enforce-test
+  (testing "a scheme with no roles"
+    (is (= #{"bearerAuth"} (:no-scopes (validated (table []))))))
+  (testing "the bare org role, alone or beside admin"
+    (is (= #{"org"} (:unknown-scopes (validated (table ["org"])))))
+    (is (= #{"org"} (:unknown-scopes (validated (table ["org" "admin"]))))))
+  (testing "a method level stacked on its route's, unless the method replaces"
+    (is (= #{"org:viewer" "org:developer"}
+           (:exclusive (validated (stacked-table nil)))))
+    (is (nil? (validated (stacked-table {:replace true})))))
+  (testing "a level on each method, a level beside admin, and a public route"
+    (doseq [routes [(split-table "org:viewer" "org:developer")
+                    (table ["org:developer" "admin"])
+                    [[bare-path
+                      {:openapi {:security []} :get {:handler handler}}]]]]
+      (is (nil? (validated routes)) (pr-str routes)))))
 
 (deftest app-builds-the-real-route-table-test
   (let [handler (SUT/app {:interceptors []})
         router (:reitit.core/router (meta handler))]
     (is (fn? handler))
-    (is (= [] (auth/bare-security-routes router)))
-    (is (= [] (auth/stacked-level-routes router)))
-    (is (= [] (auth/bare-org-routes router)))))
+    (is (some? router) "validation let every gate in the real table through")))
 
 (deftest real-route-table-gates-each-operation-at-its-level-test
   (let [ops (operations (real-router))
@@ -248,7 +195,7 @@
       (is (= []
              (filter (fn [op] (contains? (roles (:security op)) "org")) ops))))
     (testing "the simulator's inbound transfer names org:developer and admin"
-      (is (= [(gate "org:developer" "admin")]
+      (is (= [(into (gate "org:developer") (gate "admin"))]
              (map :security
                   (filter (fn [op] (= inbound-transfer (:path op))) ops)))))
     (testing "the people writes name org:admin"

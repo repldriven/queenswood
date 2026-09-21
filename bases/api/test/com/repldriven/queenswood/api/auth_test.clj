@@ -1,12 +1,14 @@
 (ns ^:eftest/synchronized com.repldriven.queenswood.api.auth-test
   (:require
     [com.repldriven.queenswood.api.auth :as SUT]
+    [com.repldriven.queenswood.api.errors :as errors]
 
     [com.repldriven.queenswood.membership-query.interface :as memberships]
     [com.repldriven.queenswood.user.interface :as users]
 
     [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.identity-provider.interface :as identity-provider]
+    [com.repldriven.mono.server.interface :as server]
     [com.repldriven.mono.utility.interface :as util]
 
     [buddy.sign.jwt :as jwt]
@@ -60,29 +62,50 @@
            bank-id
            (assoc-in [:headers "bank-id"] bank-id))))
 
+(defn- run
+  "Run `interceptors` over `request`, each compiled against `data` where it
+  has a compile step, stopping at the first that terminates."
+  [interceptors data request]
+  (reduce (fn [ctx interceptor]
+            (let [{:keys [compile]} interceptor
+                  interceptor (if compile (compile data nil) interceptor)]
+              (if (or (nil? interceptor) (:response ctx))
+                ctx
+                ((:enter interceptor) ctx))))
+          {:request request}
+          interceptors))
+
+(def ^:private identification
+  [server/credential server/authenticate-with-provider server/claims->scopes
+   SUT/claims->principal])
+
 (defn- authenticate
   ([token] (authenticate token nil))
-  ([token bank-id]
-   ((:enter SUT/authenticate) {:request (request token bank-id)})))
+  ([token bank-id] (run identification {} (request token bank-id))))
 
 (defn- authenticated-auth
   ([claims] (authenticated-auth claims nil))
   ([claims bank-id]
    (get-in (authenticate (sign-token claims) bank-id) [:request :auth])))
 
+(def ^:private gate-data
+  "The route data `/v1` carries for the guard and the gate."
+  {:scopes SUT/scopes
+   :exclusive-scopes SUT/exclusive-scopes
+   :unauthorized (errors/unauthenticated-response)
+   :forbidden (errors/forbidden-response)})
+
 (defn- authorize-as
-  "Run `authorize` over a GET whose compiled endpoint data carries
+  "Run `require-bank` and the gate over an operation whose data carries
   `security`, as the principal `auth`."
   [auth security]
-  ((:enter SUT/authorize)
-   {:request (cond-> {:request-method :get
-                      :reitit.core/match {:result {:get {:data {:openapi {}}}}}}
-                     security
-                     (assoc-in [:reitit.core/match :result :get :data :openapi
-                                :security]
-                      security)
-                     auth
-                     (assoc :auth auth))}))
+  (run [SUT/require-bank server/require-scopes]
+       (cond-> gate-data security (assoc :openapi {:security security}))
+       (cond-> {}
+               auth
+               (assoc :auth auth
+                      :auth-claims {:sub "test"}
+                      :auth-scopes (into #{} (map name) (:roles auth))))))
 
 (defn- authorize
   ([roles security] (authorize roles security "bnk.test"))
@@ -137,8 +160,7 @@
 
 (deftest authenticate-test
   (testing "no bearer leaves the context unchanged"
-    (let [ctx {:request (request nil)}]
-      (is (= ctx ((:enter SUT/authenticate) ctx)))))
+    (is (= {:request (request nil)} (authenticate nil))))
   (testing "an issuer matching no provider sets no auth"
     (let [token (sign-token {:iss "https://identity.test/realms/elsewhere"
                              :azp "bank-abc"
@@ -337,12 +359,9 @@
                        no-bank))))
 
 (deftest authorize-test
-  (testing "a route without security passes"
-    (let [ctx {:request {:request-method :get
-                         :reitit.core/match {:result {:get {:data {:openapi
-                                                                   {}}}}}
-                         :auth {:roles #{SUT/org-viewer}}}}]
-      (is (= ctx ((:enter SUT/authorize) ctx)))))
+  (testing "a route without security compiles neither guard nor gate"
+    (is (nil? ((:compile SUT/require-bank) {:openapi {}} nil)))
+    (is (nil? ((:compile server/require-scopes) {:openapi {}} nil))))
   (testing "an empty role set is 401 auth/unauthenticated"
     (let [ctx (authorize nil viewer-gate)]
       (is (= 401 (get-in ctx [:response :status])))
@@ -354,28 +373,15 @@
   (testing "an intersecting set passes"
     (let [ctx (authorize #{:user SUT/org-viewer} viewer-gate)]
       (is (nil? (:response ctx)))
-      (is (= #{:user SUT/org-viewer} (get-in ctx [:request :auth :roles])))))
-  (testing "the gate is read from the request method's endpoint"
-    (let [ctx ((:enter SUT/authorize)
-               {:request
-                {:request-method :post
-                 :reitit.core/match
-                 {:result {:get {:data {:openapi {:security viewer-gate}}}
-                           :post {:data {:openapi {:security
-                                                   [{"bearerAuth"
-                                                     ["org:developer"]}]}}}}}
-                 :auth {:roles #{:user SUT/org-viewer} :bank-id "bnk.test"}}})]
-      (is (refused-with? ctx "Insufficient privileges")))))
+      (is (= #{:user SUT/org-viewer} (get-in ctx [:request :auth :roles]))))))
 
-(deftest required-roles-test
-  (testing "explicit roles become the required set"
-    (testing "a principal holding one of them passes"
-      (let [ctx (authorize #{:admin}
-                           [{"bearerAuth" ["org:developer" "admin"]}])]
-        (is (nil? (:response ctx)))))
-    (testing "a principal holding none of them is refused"
-      (let [ctx (authorize #{:user} [{"bearerAuth" ["org:developer" "admin"]}])]
-        (is (= 403 (get-in ctx [:response :status])))))))
+(deftest alternative-gates-test
+  (let [either [{"bearerAuth" ["org:developer"]} {"bearerAuth" ["admin"]}]]
+    (testing "a principal holding either requirement passes"
+      (is (nil? (:response (authorize #{:admin} either))))
+      (is (nil? (:response (authorize #{SUT/org-developer} either)))))
+    (testing "a principal holding neither is refused"
+      (is (= 403 (get-in (authorize #{:user} either) [:response :status]))))))
 
 (defn- logged-messages
   []
@@ -420,14 +426,15 @@
          (is (nil? (get-in ctx [:request :auth])))
          (is (warned-naming? issuer "sub-1")))))))
 
-(deftest org-without-bank-test
+(deftest bank-absent-test
   (testing "an admin with no membership is refused on an org-only route"
     (let [ctx (authorize #{SUT/org-viewer :admin} viewer-gate nil)]
       (is (= 403 (get-in ctx [:response :status])))
       (is (= "auth/forbidden" (get-in ctx [:response :body :type])))))
   (testing "the same principal passes a route declaring a level and admin"
     (let [ctx (authorize #{SUT/org-viewer :admin}
-                         [{"bearerAuth" ["org:viewer" "admin"]}]
+                         [{"bearerAuth" ["org:viewer"]}
+                          {"bearerAuth" ["admin"]}]
                          nil)]
       (is (nil? (:response ctx)))))
   (testing "a member carrying a bank passes an org-only route"
@@ -441,6 +448,7 @@
       (is (= "auth/forbidden" (get-in ctx [:response :body :type])))))
   (testing "an operator's levels and no bank pass a level gate beside admin"
     (let [ctx (authorize (into #{:user :admin} all-levels)
-                         [{"bearerAuth" ["org:developer" "admin"]}]
+                         [{"bearerAuth" ["org:developer"]}
+                          {"bearerAuth" ["admin"]}]
                          nil)]
       (is (nil? (:response ctx))))))

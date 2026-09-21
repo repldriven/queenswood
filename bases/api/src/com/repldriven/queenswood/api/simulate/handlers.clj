@@ -1,6 +1,5 @@
 (ns com.repldriven.queenswood.api.simulate.handlers
   (:require
-    [com.repldriven.queenswood.api.auth :as auth]
     [com.repldriven.queenswood.api.commands :as commands]
     [com.repldriven.queenswood.api.errors :as errors]
 
@@ -49,7 +48,7 @@
         {:keys [bank-id]} path]
     (when-not (or (= bank-id (:bank-id auth))
                   (contains? (:roles auth) :admin))
-      (auth/forbidden-response
+      (errors/forbidden-response
        "Token is not this bank's; simulate only your own bank"))))
 
 (defn inbound-transfer

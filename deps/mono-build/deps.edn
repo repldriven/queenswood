@@ -8,6 +8,6 @@
 ;; a reason not to.
 {:deps {com.repldriven.mono/build
         {:git/url "https://github.com/repldriven/mono.git"
-         :git/tag "v0.0.35"
-         :git/sha "565e0ec503e13231c47d8729c35552461f16023c"
+         :git/tag "v0.0.37"
+         :git/sha "26254b462204a8e4b9fa90f35e3ff27cfe746800"
          :deps/root "bases/build"}}}
