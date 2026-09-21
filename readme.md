@@ -6,20 +6,25 @@
 
 # Queenswood
 
-**Open-source core banking.** Queenswood is the operational core a
-fintech builds a banking product on: accounts, payments, a
-double-entry ledger, interest, rewards, onboarding with identity
-checks, policies, scheduled jobs, a team console and webhooks, behind
-one API. You bring the banking licence, the clearing partner and the
-identity provider. The platform is yours to read, to run and to change.
+**Open-source core banking.** Queenswood is the operational core a fintech
+builds a banking product on: accounts, payments, a double-entry ledger,
+interest, rewards, onboarding with identity checks, policies, scheduled jobs, a
+team console and webhooks, behind one API. You bring the banking licence, the
+clearing partner and the identity provider. The platform is yours to read, to
+run and to change.
 
 ## Demo
 
 <video src="https://github.com/user-attachments/assets/f112c363-b7ba-4f83-b96a-88219e3bc554" controls></video>
 
-The console's Scenarios page, run against an empty bank: the eleven
-scenes of [Give it a spin](#give-it-a-spin), each followed by the page
-where its effect shows.
+Queenswood's console, the web app a fintech's operators use, taking an empty
+bank from its first products to a night's interest.
+
+<video src="https://github.com/user-attachments/assets/2a4d01fe-3caf-452a-9667-7de984d5bcf4" controls></video>
+
+Then the fintech's own banking app, the
+[demo digital bank](docs/prd/demo-digital-bank.md), taking a new customer of
+that bank from sign-up to two open accounts.
 
 ## What a fintech gets
 
@@ -27,9 +32,10 @@ where its effect shows.
   routes themselves, so what the document says is what the API does. Every write
   takes an idempotency key, so a retried request replays the first answer rather
   than paying twice.
-- **Isolated banks.** Each bank is an organisation with its own products,
-  customers, books, policies and team. A bank starts in test and moves to live;
-  tiers set what it may do and how much.
+- **Isolated banks.** A fintech's organisation is a bank on the platform, with
+  its own products, customers, books, policies and team, and nothing of one is
+  visible to another. A bank starts in test and moves to live; tiers set what it
+  may do and how much.
 - **Versioned products, with migrations.** Current, savings and term deposit
   products come from templates. A rate change, a new welcome reward, a new term:
   each is a new version, and the holders of the old one are moved by a migration
@@ -59,48 +65,11 @@ API reference:
 or live OpenAPI at [localhost:8080](http://localhost:8080) when
 running.
 
-## Give it a spin
-
-The console's **Sandbox › Scenarios** page runs eleven scenes against
-an empty bank, live against the API, each building on the one before.
-Each is named for what it does:
-
-1. **Publish** the three products the bank sells: Everyday, with a £50
-   welcome reward, Rainy Day at 4.10% and 1 Year Fixed at 4.65%.
-2. **Invite** a developer and a viewer to the team, and read the access
-   log that records it.
-3. **Verify** two customers, whose identity checks clear, and a third,
-   whose check is rejected.
-4. **Fund** the bank: £50,000 arrives into its own funds and the trial
-   balance ties to the penny.
-5. **Open** an Everyday account for each customer.
-6. **Reward** them: the hourly job pays £50 into each account from the
-   bank's own funds, and that is the money everything after this moves.
-7. **Move** £30 into a new Rainy Day.
-8. **Refuse** a £40 transfer with £20 available. The policy holds and
-   nothing posts.
-9. **Pay** £20 by Faster Payments, the payee's name checked first, and
-   watch it settle.
-10. **Migrate** Rainy Day's holders onto a repriced version, planned,
-    approved and run by the scheduler.
-11. **Accrue** a night's interest at a real rate, and capitalise it.
-
-Every scene fires real requests, shows them, and points at the console
-page where its effect is visible. The same story, and a hundred and
-fifty other cases, run as data-driven scenarios in the test suite.
-
-Then use the bank. The demo digital bank is a retail bank built
-entirely on the platform: a customer signs up on their phone, is
-verified, opens Everyday, and the welcome reward arrives with a
-notification while the app is open. Its backend talks to the platform
-the way yours would, and is the worked example for building on it. See
-[demo-digital-bank](docs/prd/demo-digital-bank.md).
-
 ## Who it is for
 
-- **The fintech's team.** The founder, operations, finance and support
-  people who run the bank's relationship with the platform, in the
-  console, each with their own identity and role.
+- **The fintech's operators.** The founder, operations, finance and support
+  people who operate the bank in the console, each with their own identity and
+  role.
 - **The fintech's engineers.** The people who build the product on the
   API, and the systems they build, which act as the bank with its
   credential.
