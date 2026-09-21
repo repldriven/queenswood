@@ -115,6 +115,29 @@
                   :version-id [:ref :v2 :version-id]}
     :auth :org-0-token}
    :assert {:status 200 :body {:status "published"}}}
+  ;; A newer product of another type, so the migration's source is read
+  ;; from the product it names and not from whatever the bank published
+  ;; last.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-commit-prod-002"}
+             :body {:name "Spender"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-01-01"}}
+   :as :other
+   :assert {:status 201 :body {:status "draft"}}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :other :product-id]
+                  :version-id [:ref :other :version-id]}
+    :auth :org-0-token}
+   :assert {:status 200 :body {:status "published"}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/cash-account-migrations"

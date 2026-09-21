@@ -227,7 +227,7 @@
     {
       id: "s10", num: "10", title: "Migrate", view: "migrations",
       story:
-        "Reprice Rainy Day to 4.35% as a new version, plan a migration of its holders onto it, approve the plan, and run the account-migration job. Arthur's Rainy Day moves; the old version auto-archives.",
+        "Reprice Rainy Day to 4.35% as a new version, plan a migration of its holders onto it, approve the plan, and run the account-migration job. Arthur's Rainy Day moves to the new rate.",
       backing: ["open-new-draft-after-publish", "cash-account-migrations/commit"],
       steps: [
         { name: "Revise Rainy Day → v2 @ 4.35%", raw: [{ method: "POST", path: "/v1/cash-account-products/{id}/versions", tag: "request" }, { method: "POST", path: "/v1/cash-account-products/{id}/versions/{v}/publish", tag: "request" }] },

@@ -14,7 +14,7 @@
   version of a product shares one, so which is immaterial — but a
   product with no versions at all is a source that cannot be checked."
   [txn bank-id product-id]
-  (let [versions (products/get-versions txn bank-id product-id)]
+  (let [versions (products/get-versions txn bank-id {:product-id product-id})]
     (cond
      (error/anomaly? versions)
      versions
