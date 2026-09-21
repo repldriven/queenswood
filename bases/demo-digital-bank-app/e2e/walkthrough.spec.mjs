@@ -61,9 +61,9 @@ test("a new customer signs up and opens two accounts", async ({ page }) => {
   await type(page.locator('input.inp[placeholder="Amara"]'), "Hotblack");
   await type(page.locator('input.inp[placeholder="Okafor"]'), "Desiato");
   await type(page.locator('input.inp[placeholder="DD / MM / YYYY"]'), "31101979");
-  await type(page.locator('input.inp[placeholder="12"]'), "1");
-  await type(page.locator('input.inp[placeholder="Mare Street"]'), "Disaster Area");
-  await type(page.locator('input.inp[placeholder="London"]'), "London");
+  await type(page.locator('input.inp[placeholder="12"]'), "42");
+  await type(page.locator('input.inp[placeholder="Mare Street"]'), "Improbability Drive");
+  await type(page.locator('input.inp[placeholder="London"]'), "Disaster Area");
   await type(page.locator('input.inp[placeholder="E8 3RH"]'), "QZ1 9ZX");
   await type(page.locator('input.inp[placeholder="QQ123456C"]'), nino);
   await page.waitForTimeout(600);
