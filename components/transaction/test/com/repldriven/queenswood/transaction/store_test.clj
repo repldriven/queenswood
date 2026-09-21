@@ -1,7 +1,6 @@
 (ns com.repldriven.queenswood.transaction.store-test
   (:require
-    [com.repldriven.queenswood.fdb.interface]
-    [com.repldriven.queenswood.testcontainers.interface]
+    [com.repldriven.queenswood.transaction.test-system]
 
     [com.repldriven.queenswood.transaction.store :as store]
 

@@ -91,14 +91,15 @@ authn-decision cache — the only caches are the JWKS keys
 
 ### Token verification
 
-`authenticate` does not trust the token to pick its verifier
-blindly:
+`server/authenticate-with-provider` does not trust the token to pick
+its verifier blindly:
 
-1. **Read `iss` unverified.** The JWT payload is base64url-decoded
-   *without* a signature check, only to read the issuer.
-2. **Pick the provider** whose `get-issuer` matches that `iss`.
-   Multiple `identity-provider` instances are wired (one per
-   realm); the unverified `iss` only routes *which* verifier runs.
+1. **Read `iss` unverified.** `auth/unverified-claims` base64url-decodes
+   the JWT payload *without* a signature check, only to read the
+   issuer.
+2. **Pick the provider** among the request's `identity-providers` whose
+   `get-issuer` matches that `iss`. One instance is wired per realm; the
+   unverified `iss` only routes *which* verifier runs.
 3. **Verify** via `identity-provider/verify-token`, which (in the
    `keycloak` impl) fetches the signing key by `kid` from JWKS
    (force-refreshing once if the `kid` is unknown, to ride key
@@ -200,11 +201,13 @@ route; the rules only an owner satisfies are described in
 
 **Every route names its roles.** A route or a method declares them in
 its OpenAPI security, `:security [{"bearerAuth" ["org:viewer"]}]`, and
-`authorize` enforces the operation's own: the method's data merged over
-the route's, which is also what the generated OpenAPI documents. Three
-gates are refused when the router is built, with each offending route's
-path in the message, so the service fails to start rather than serving
-a gate it cannot enforce:
+`server/require-scopes` enforces the operation's own: the method's data
+merged over the route's, which is also what the generated OpenAPI
+documents, read as OpenAPI reads it, the requirement objects alternatives
+and the scopes within one all required. Three gates are refused when the
+router is built, against the vocabulary `/v1` declares as `:scopes` and
+`:exclusive-scopes`, so the service fails to start rather than serving a
+gate it cannot enforce:
 
 - **A scheme with no roles**, `{"bearerAuth" []}`, which demands a
   token and says nothing about what the token must carry.
@@ -218,17 +221,16 @@ a gate it cannot enforce:
 A route whose `:security` is `[]` names no scheme, requires nothing
 and is public by design — the OAuth routes are the only ones.
 
-`authorize` then:
+`auth/require-bank` and then `server/require-scopes`:
 
-- passes through if the operation names no scheme;
-- returns **401** (`auth/unauthenticated`) if the principal's
-  role set is empty (no valid token);
-- returns **403** (`auth/forbidden`) if the gate names a level and the
-  principal is `:bank-refused`, or if the gate names only levels and a
-  principal with no `:bank-id` holds more than one active membership,
-  with a detail saying to name the bank in `Bank-Id`;
-- returns **403** (`auth/forbidden`) if roles are present but
-  don't intersect the route's required roles.
+- neither compiles for an operation that names no scheme;
+- the guard returns **403** (`auth/forbidden`) if the gate names a level
+  and the principal is `:bank-refused`, or if the gate names only levels
+  and a principal with no `:bank-id` holds more than one active
+  membership, with a detail saying to name the bank in `Bank-Id`;
+- the gate returns **401** (`auth/unauthenticated`) if no token
+  verified, and **403** (`auth/forbidden`) if the scopes the principal
+  holds miss the operation's.
 
 **An organisation-gated route acts on the principal's bank.** A
 principal that satisfies the gate only through organisation levels and
@@ -236,8 +238,9 @@ carries no `:bank-id` has nothing for the route to act on, and is
 refused **403** (`auth/forbidden`) rather than served against a nil
 bank. An operator that sends no `Bank-Id` header is such a principal.
 A route an admin may call on *any* bank takes the bank from its path
-and declares `admin` alongside a level, which widens the intersection
-past the levels and opts out of the rule.
+and declares `admin` as a second requirement object beside a level,
+which widens what the guard reads as required past the levels and opts
+out of the rule.
 
 The exceptions, each deliberate:
 

@@ -1,6 +1,7 @@
 (ns com.repldriven.queenswood.api.api
   (:require
     [com.repldriven.queenswood.api.auth :as auth]
+    [com.repldriven.queenswood.api.errors :as errors]
     [com.repldriven.queenswood.api.examples :as examples]
 
     [com.repldriven.queenswood.api.access.components :as access.components]
@@ -80,7 +81,6 @@
     [com.repldriven.mono.server.interface :as server]
     [com.repldriven.mono.telemetry.interface :as telemetry]
 
-    [clojure.string :as str]
 
     [malli.core :as m]
     [malli.json-schema :as mjs]
@@ -229,8 +229,16 @@
     (into ["/v1"
            {:interceptors (concat telemetry/trace-span
                                   (:interceptors ctx)
-                                  [auth/authenticate
-                                   auth/authorize])
+                                  [server/credential
+                                   server/authenticate-with-provider
+                                   server/claims->scopes
+                                   auth/claims->principal
+                                   auth/require-bank
+                                   server/require-scopes])
+            :scopes auth/scopes
+            :exclusive-scopes auth/exclusive-scopes
+            :unauthorized (errors/unauthenticated-response)
+            :forbidden (errors/forbidden-response)
             :responses {400 (api-schema/ErrorResponse [#'examples/BadRequest])
                         401 (api-schema/ErrorResponse [#'examples/Unauthorized])
                         403 (api-schema/ErrorResponse [#'examples/Forbidden])
@@ -286,41 +294,9 @@
                    (add-interceptor-before-coerce
                     shared.interceptors/nest-bracket-query-params))))
 
-(defn enforceable-router
-  "Returns `compiled` when `authorize` can enforce every security gate
-  its compiled operations carry, and throws naming each route it cannot:
-  an operation that demands a token without naming roles has no gate
-  anyone can read, one whose gate names two organisation levels has had
-  a method's level stacked on its route's, and one gated by the bare
-  `org` role admits no principal. None may be served. A programming
-  error in this base's route table, caught while the router is built —
-  not an anomaly at a boundary, so it throws."
-  [compiled]
-  (let [bare (auth/bare-security-routes compiled)
-        stacked (auth/stacked-level-routes compiled)
-        bare-org (auth/bare-org-routes compiled)]
-    (when (or (seq bare) (seq stacked) (seq bare-org))
-      ;; nosemgrep: no-raw-throw
-      (throw (ex-info (str "Route table declares a security gate this "
-                           "service cannot enforce."
-                           (when (seq bare)
-                             (str " Scheme with no roles: "
-                                  (str/join ", " bare)
-                                  "."))
-                           (when (seq stacked)
-                             (str " Gate naming more than one org level: "
-                                  (str/join ", " stacked)
-                                  "."))
-                           (when (seq bare-org)
-                             (str " Bare org gate: "
-                                  (str/join ", " bare-org)
-                                  ".")))
-                      {:bare bare :stacked stacked :bare-org bare-org})))
-    compiled))
-
 (defn app
   [ctx]
-  (let [compiled (enforceable-router (router ctx))]
+  (let [compiled (router ctx)]
     (http/ring-handler compiled
                        (ring/routes (server/standard-openapi-ui-handler)
                                     (server/standard-default-handler))

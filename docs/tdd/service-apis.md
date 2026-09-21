@@ -246,8 +246,18 @@ Two layers compose into the chain a request flows through.
     (record-db, record-store, dispatchers, schemas, etc.).
     These attach handles to the request map so handlers can
     use them without global state.
-12. `auth/authenticate` — identifies the caller.
-13. `auth/authorize` — checks permissions.
+12. `server/credential` — puts the `Authorization` credential on the
+    request as `:credential`, its scheme stripped.
+13. `server/authenticate-with-provider` — verifies it through the realm
+    that issued it, chosen by the token's issuer, as `:auth-claims`.
+14. `server/claims->scopes` — the `scope` claim and the realm roles, as
+    `:auth-scopes`.
+15. `auth/claims->principal` — the caller as this API knows it, as
+    `:auth`, its organisation levels added to `:auth-scopes`.
+16. `auth/require-bank` — the `Bank-Id` refusals.
+17. `server/require-scopes` — 401 without claims, 403 when the scopes
+    miss the operation's gate, in this API's shapes; while the router is
+    built it refuses a gate it cannot enforce.
 
 A custom `nest-bracket-query-params` interceptor is spliced
 *just before* `coerce-request`, so it can rewrite
@@ -288,40 +298,48 @@ carries the levels their membership's role holds. The
 [authentication TDD](authentication.md) gives each principal in
 full.
 
-`authenticate` only attaches `:auth` if a token verifies; it
-never short-circuits. Routes without `:openapi :security` are
+`server/authenticate-with-provider` and `auth/claims->principal` attach
+`:auth-claims` and `:auth` only when a token verifies; neither
+short-circuits, and an operation without `:openapi :security` is
 genuinely public.
 
-`authorize` reads the operation's `:openapi :security` (e.g.
-`[{"bearerAuth" ["org:developer"]}]`) and takes the roles named in
-the entry, as keywords, as the allowed set. A route naming the
-scheme with no roles, or the bare `org` gate, is refused while the
-router is built, so the service fails to start: the first would
-demand a token and say nothing about what the token must carry,
-and `org` is no level and no principal carries it.
+`server/require-scopes` reads the operation's `:openapi :security`
+(e.g. `[{"bearerAuth" ["org:developer"]}]`) when the router is built
+and enforces it as OpenAPI reads it: the requirement objects are
+alternatives, and the scopes within one are all required, so a route
+open to a level or to an operator declares two objects. It also
+refuses, while the router is built, a gate it cannot enforce against
+the vocabulary `/v1` declares as `:scopes` and `:exclusive-scopes`: a
+scheme with no roles, the bare `org` gate, or two organisation levels,
+and the service fails to start. The first would demand a token and
+say nothing about what the token must carry, `org` is no level and no
+principal carries it, and a gate holds one level.
 
-If no role is attached → terminate 401. If the role isn't in
-the allowed set → terminate 403. Termination uses
+Without claims → 401. Scopes missing the gate → 403. Both answer in
+this API's shapes, which `/v1` carries as `:unauthorized` and
+`:forbidden`. `auth/require-bank` runs first and answers 403 with its
+own detail where the `Bank-Id` header names a bank the principal may
+not act on, or names none where one is needed. Termination uses
 `sieppari.context/terminate` — never `:response` or `:error`,
 which don't reliably short-circuit (see code-style recipe).
 
 ```mermaid
 sequenceDiagram
     participant C as Client
-    participant A as authenticate
-    participant Z as authorize
+    participant A as authenticate-with-provider, claims->principal
+    participant Z as require-bank, require-scopes
     participant H as Handler
 
     C->>A: Authorization: Bearer ...
-    A->>A: extract / verify
-    A->>Z: ctx with (or without) :auth
-    Z->>Z: route security → allowed roles
-    alt role allowed
+    A->>A: verify, resolve the principal
+    A->>Z: ctx with (or without) :auth-claims and :auth-scopes
+    Z->>Z: operation security → required scopes
+    alt scopes meet the gate
         Z->>H: pass through
         H-->>C: 2xx / 4xx / 5xx
-    else no auth
+    else no claims
         Z-->>C: terminate 401 (RFC 9457)
-    else wrong role
+    else scopes miss
         Z-->>C: terminate 403 (RFC 9457)
     end
 ```

@@ -68,3 +68,20 @@
   (if (error/anomaly? result)
     (anomaly->response result)
     {:status status :body result}))
+
+(def responses
+  "The error responses every route declares, by status."
+  {400 {:body [:ref "ErrorResponse"]}
+   401 {:body [:ref "ErrorResponse"]}
+   404 {:body [:ref "ErrorResponse"]}
+   409 {:body [:ref "ErrorResponse"]}
+   422 {:body [:ref "ErrorResponse"]}
+   503 {:body [:ref "ErrorResponse"]}})
+
+(def unauthenticated-response
+  "The 401 a request with no live session receives: what the routes gated
+  `sessionAuth` carry as `:unauthorized` for `server/require-scopes`, in
+  the problem details the bank's own refusal of a session gives."
+  (anomaly->response (error/unauthorized
+                      :session/invalid
+                      {:message "the session is missing or has expired"})))

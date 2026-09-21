@@ -168,13 +168,14 @@ already records keep their shape with a level in place of `org`: the
 simulator's inbound transfer is `org:developer` and `admin`, and the
 companies routes stay `user`.
 
-The router also refuses a gate naming two organisation levels. Reitit
-concatenates a method's `:security` onto its route's unless the method's
-vector is marked `^:replace`, so a level declared on a method of a gated
-route stacks on the route's, and the operation would admit the lower of
-the two.
+The router also refuses a gate naming two organisation levels, the
+levels being the `:exclusive-scopes` group `server/require-scopes` reads.
+Reitit concatenates a method's `:security` onto its route's unless the
+method's vector is marked `^:replace`, so a level declared on a method of
+a gated route stacks on the route's, and the operation would admit the
+lower of the two.
 
-`org-without-bank?` generalises: a route satisfied only through org
+`bank-absent?` generalises: a route satisfied only through org
 levels, by a principal with no bank, is refused with its existing
 detail.
 

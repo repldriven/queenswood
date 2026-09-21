@@ -1,4 +1,3 @@
 system:
-  cash-account-product-templates: !include system/cash-account-product-templates.yml
   fdb: !include system/fdb-test.yml
   policies: !include system/policy-test.yml

@@ -6,25 +6,29 @@
 
     [com.repldriven.mono.error.interface :as error]
 
-    [sieppari.context :as sc]
+    [sieppari.context :as sc]))
 
-    [clojure.string :as str]))
-
-(defn token
-  "The bearer the request carries, or nil."
-  [request]
-  (some-> (get-in request [:headers "authorization"])
-          (str/split #" " 2)
-          (as-> parts (when (= "Bearer" (first parts)) (second parts)))))
-
-(def session
-  "Resolves the bearer to the customer, put on the request as
-  `:customer`, or answers 401."
-  {:name ::session
+(def credential->customer
+  "Resolves the `:credential` `server/credential` put on the request to
+  the customer whose session it is, as `:customer` for the handlers and
+  as `:auth-claims` for `server/require-scopes`. A session that is
+  missing or has expired sets nothing, and the gate answers 401 in the
+  route data's `:unauthorized`; a store the bank cannot reach is answered
+  as the fault it is."
+  {:name ::credential->customer
    :enter (fn [ctx]
             (let [{:keys [request]} ctx
-                  {:keys [bank]} request
-                  customer (bank/authenticate bank (token request))]
-              (if (error/anomaly? customer)
-                (sc/terminate ctx (errors/anomaly->response customer))
-                (assoc-in ctx [:request :customer] customer))))})
+                  {:keys [bank credential]} request
+                  customer (when credential
+                             (bank/authenticate bank credential))]
+              (cond (nil? customer)
+                    ctx
+                    (error/unauthorized? customer)
+                    ctx
+                    (error/anomaly? customer)
+                    (sc/terminate ctx (errors/anomaly->response customer))
+                    :else
+                    (update ctx
+                            :request assoc
+                            :customer customer
+                            :auth-claims customer))))})
