@@ -12,7 +12,7 @@ customer onboarding with identity checks, products and accounts, payments,
 interest and rewards, a general ledger, policies, end-of-day processing,
 webhooks and an operator console, all of it configured and driven through one
 API. You bring the banking licence, the clearing partner and the identity
-provider. The platform is yours to read, to run and to change.
+provider.
 
 ## Demo
 
@@ -71,12 +71,11 @@ accounts.
   Payments in seconds, with the payee's name checked first. Every movement is
   recorded as matching debits and credits, so the books always balance, down
   to fractions of a penny of interest.
-- **Your providers, plugged in.** Clearing and identity verification each
-  connect through an adapter, and a simulator stands in for each provider, so
-  you can build and test before a contract is signed.
+- **Pluggable providers.** Clearing and identity verification each connect
+  through an adapter, and a simulator stands in for each provider, so you can
+  build and test before a contract is signed.
 - **Real-time notifications.** Your systems are told as it happens when an
-  account opens, money arrives or a payment settles, so your customers can be
-  too.
+  account opens, money arrives or a payment settles.
 - **Rules without a release.** What a bank may do, and the limits it works
   within, are settings checked on every request, so changing them ships no
   code.
@@ -94,11 +93,10 @@ done and what's not.
 
 ## For application engineers
 
-- **One unified API for the whole bank, with full OpenAPI 3.x
-  compliance.** One base URL and one document, not a service per
-  domain, and the document is generated from the routes themselves so
-  it can't drift from what the API does.
-  See [ADR-0013](docs/adr/0013-single-unified-api.md) and
+- **One API, with an OpenAPI 3.x document.** One base URL and one document,
+  not a service per domain, and the document is generated from the routes
+  themselves so it can't drift from what the API does. See
+  [ADR-0013](docs/adr/0013-single-unified-api.md) and
   [ADR-0014](docs/adr/0014-openapi-3x-compliance.md).
 - **Idempotent writes.** Every write takes an idempotency key, so a retried
   request replays the first answer rather than paying twice.
@@ -298,19 +296,17 @@ A work in progress: a blueprint for deploying and managing a Queenswood
 instance on Google Cloud. The pieces below exist and run; the path
 through them is still being worked out.
 
-It's a different kind of thing from the local path rather than a
-larger version of it. No command deploys an installation. An
-installation is a manifest in a private repository, and a management
-plane running Crossplane and Argo CD reconciles the folder, the
-projects, the clusters and the workloads toward what that manifest
-says — so changing what exists means editing the manifest and merging
+No command deploys an installation. An installation is a manifest in a private
+repository, and a management plane running Crossplane and Argo CD reconciles
+the folder, the projects, the clusters and the workloads toward what that
+manifest says — so changing what exists means editing the manifest and merging
 it.
 
-[Up and running](docs/recipes/infra/up-and-running.md)
-is where to start: every recipe from an empty Google account to a bank
-serving traffic, in order, and what each leaves for the next. There are
-two paths through it — from nothing, or from an established
-organisation, where the first steps are somebody else's.
+[Up and running](docs/recipes/infra/up-and-running.md) is where to start:
+every recipe from an empty Google account to a bank serving traffic, in order,
+and what each leaves for the next. There are two paths through it — from
+nothing, or from an established organisation, where someone else has already
+done the first steps.
 
 <a href="docs/diagrams/infrastructure-diagram-light.svg">
   <picture>
@@ -320,22 +316,21 @@ organisation, where the first steps are somebody else's.
   </picture>
 </a>
 
-The tier across the top is durable and never torn down: the management
-project reconciles the installation, the recovery project holds the
-backups and the key they're encrypted under, and the DNS zone outlives
-anything disposable. The instance project below it is rebuilt whenever
-an instance is.
+The tier across the top is durable and never torn down: the management project
+reconciles the installation, the recovery project holds the backups and the
+key they're encrypted under, and the DNS zone stays when an instance goes. The
+instance project below it is rebuilt whenever an instance is.
 
 ## For contributors
 
 ### Nix
 
-Nix is used to manage the many tools and binaries required to
-develop Queenswood. There are several ways to install Nix -
-these aren't prescribed here.
+Nix is used to manage the many tools and binaries required to develop
+Queenswood. Nix can be installed several ways, and this README doesn't
+prescribe one.
 
-Nix flakes with `direnv` ensures everything required is
-on the path automatically whenever you `cd` to it.
+Nix flakes with `direnv` ensure everything required is on the path
+automatically whenever you `cd` to it.
 
 ```bash
 ❯ cd queenswood
