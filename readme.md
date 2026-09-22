@@ -6,12 +6,11 @@
 
 # Queenswood
 
-**Open-source core banking.** Queenswood is the operational core a fintech
-builds a banking product on: accounts, payments, a double-entry ledger,
-interest, rewards, onboarding with identity checks, policies, scheduled jobs, a
-team console and webhooks, behind one API. You bring the banking licence, the
-clearing partner and the identity provider. The platform is yours to read, to
-run and to change.
+**Open-source core banking.** Queenswood is the bank behind a fintech's own app
+and systems: accounts, payments, a double-entry ledger, interest, rewards,
+onboarding with identity checks, policies, scheduled jobs, a team console and
+webhooks, through one API. You bring the banking licence, the clearing partner
+and the identity provider. The platform is yours to read, to run and to change.
 
 ## Demo
 
