@@ -2,30 +2,19 @@ apiVersion: v2
 name: keycloak-operator
 description: |
   Thin Helm-chart wrapper around the official Keycloak Operator's
-  vendored YAML (release tag 26.7.0) — the operator and its
-  ClusterRole/ClusterRoleBinding live under `templates/`, and the
-  two upstream CRDs (`Keycloak`, `KeycloakRealmImport`) live under
-  `crds/` so Helm installs them ahead of the rest. There are no
-  values; it is a subchart of `queenswood`, enabled by
-  `keycloakOperator.enabled`, exactly as `fdb-operator` is.
+  vendored YAML (release tag 26.7.4) — the operator and its
+  ClusterRoles and bindings live under `templates/`, and the four
+  upstream CRDs (`Keycloak`, `KeycloakRealmImport`,
+  `KeycloakOIDCClient`, `KeycloakSAMLClient`) live under `crds/` so
+  Helm installs them ahead of the rest. There are no values; it is a
+  subchart of `queenswood`, enabled by `keycloakOperator.enabled`,
+  exactly as `fdb-operator` is.
 
-  Deviations from upstream's cluster-wide kustomize output:
-    0. Every `namespace: keycloak-operator` is templated to the release
-       namespace. Cluster-wide means the operator *watches* every
-       namespace, not that it may act in one: pods, statefulsets,
-       services and secrets are granted by a namespaced Role in the
-       operator's own namespace, so an operator installed beside the
-       `Keycloak` resource it manages needs no RBAC change, and one
-       installed elsewhere cannot manage it at all.
-
-  Deviations from upstream `kubernetes/kubernetes.yml`:
-    1. The namespace-scoped role becomes a ClusterRole so the
-       operator can manage Keycloak instances cluster-wide.
-    2. Both controller `JOSDK_WATCH_CURRENT` env vars are set to
-       `JOSDK_ALL_NAMESPACES` — the Quarkus operator-sdk sentinel
-       for cluster-wide watch. (`JOSDK_WATCH_ALL_NAMESPACES`, which
-       some upstream docs mention, is silently treated as a literal
-       namespace name and the operator watches nothing.)
+  One deviation from upstream's cluster-wide kustomize output: every
+  `namespace: keycloak-operator` is templated to the release namespace,
+  so the operator runs wherever the chart is installed. The rights it
+  manages a `Keycloak` with are cluster-scoped, so that `Keycloak` may
+  be in any namespace.
 type: application
-version: 0.1.4
-appVersion: "26.7.0"
+version: 0.1.5
+appVersion: "26.7.4"

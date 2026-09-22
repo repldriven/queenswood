@@ -22,7 +22,7 @@ dependencies:
   # fdbOperator below: an operator the chart installs, and a resource
   # of its kind in templates/.
   - name: keycloak-operator
-    version: "0.1.4"
+    version: "0.1.5"
     repository: "file://charts/keycloak-operator"
     alias: keycloakOperator
     condition: keycloakOperator.enabled

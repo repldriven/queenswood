@@ -55,7 +55,7 @@ keycloak:
   # Image for whichever Keycloak this chart runs. One value for both
   # modes: the operator is expected to run the version it manages, so a
   # second pin here would be a second thing to move in step.
-  image: quay.io/keycloak/keycloak:26.7.0
+  image: quay.io/keycloak/keycloak:26.7.4
 
   # Where Keycloak is published. The subdomain is fixed; the domain is
   # supplied, because where this installation lives is not the chart's
