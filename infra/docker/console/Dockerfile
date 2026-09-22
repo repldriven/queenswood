@@ -20,10 +20,13 @@ WORKDIR /repo
 
 # Workspace manifests first for Docker layer caching: yarn install
 # only re-runs when a package.json, the lockfile, or .yarnrc.yml
-# changes. Both workspace members must be present even if this
-# image only builds console — yarn validates the whole graph.
+# changes. Every workspace member the root package.json lists must be
+# present even though this image only builds console: yarn validates
+# the whole graph, and one missing member is a lockfile `--immutable`
+# refuses. The js CI job checks this list against the root's.
 COPY package.json yarn.lock .yarnrc.yml ./
 COPY bases/console/package.json bases/console/
+COPY bases/demo-digital-bank-app/package.json bases/demo-digital-bank-app/
 COPY components/ui/package.json components/ui/
 RUN corepack enable && corepack yarn install --immutable
 

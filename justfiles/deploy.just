@@ -102,15 +102,24 @@ kind-up-monolith tag="dev":
     # re-pull is cheap.
     just helm-install {{ tag }} localhost:5001 "values-dev.yaml values-monolith.yaml" Always
 
-# Create kind cluster and install the chart from ghcr.io/repldriven/queenswood (no local build).
-kind-up-remote tag="latest":
+# Create kind cluster and install the chart from ghcr.io/repldriven/queenswood (no local build). tag: a released version, the newest v* tag fetched when empty.
+kind-up-remote tag="":
     #!/usr/bin/env zsh
     # For the iterative build-test loop, use `kind-up` instead. This
     # path skips the host-side registry + docker buildx; containerd
     # pulls images directly from ghcr on first pod schedule.
     set -e
+    TAG="{{ tag }}"
+    if [[ -z "$TAG" ]]; then
+      TAG=$(git tag --list 'v*' --sort=-v:refname | head -1)
+      TAG="${TAG#v}"
+    fi
+    if [[ -z "$TAG" ]]; then
+      echo "no release tag: git fetch --tags, or pass one" >&2
+      exit 1
+    fi
     kind get clusters | grep -q '^queenswood$' || kind create cluster --name queenswood
-    just helm-install {{ tag }} ghcr.io/repldriven/queenswood
+    just helm-install "$TAG" ghcr.io/repldriven/queenswood
 
 # Push rebuilt images to the kind registry and roll the Deployments.
 kind-redeploy tag="dev" *services:

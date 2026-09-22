@@ -42,6 +42,11 @@
                                           customer-id)]
     (.offer queue event)))
 
+(defn open-count
+  "How many streams the customer holds open."
+  [registry customer-id]
+  (count (get @(:subscribers registry) customer-id)))
+
 (defn next!
   "The subscription's next event, `closed`, or nil once `timeout-ms`
   has passed with nothing."
