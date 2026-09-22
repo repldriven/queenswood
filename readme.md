@@ -261,8 +261,13 @@ kind create cluster --name queenswood \
 helm install queenswood \
   oci://ghcr.io/repldriven/queenswood \
   -n queenswood --create-namespace \
+  -f https://raw.githubusercontent.com/repldriven/queenswood/main/infra/helm/queenswood/values-local.yaml \
   --wait --timeout 10m
 ```
+
+`values-local.yaml` adds the `dev` user, password `dev`, that you sign in to
+the console as. The chart adds no user without it, and refuses it anywhere
+but a local cluster.
 
 **Reach the API, console and tracing web apps**:
 

@@ -19,7 +19,7 @@ helm-install tag="dev" registry="ghcr.io/repldriven/queenswood" values_file="" p
     # `registry` lets `kind-up` point at the local registry so containerd
     # pulls from there. `values_file` layers an extra values file on top
     # of values.yaml -- kind-up passes values-dev.yaml to enable the
-    # bundled dev Keycloak. `pull_policy` overrides image.pullPolicy.
+    # bundled dev Keycloak, and values-local.yaml for its `dev` user. `pull_policy` overrides image.pullPolicy.
     #
     # kind-up sets `Always`, not `IfNotPresent`, so the dev loop works:
     # rebuild an image while the cluster runs, push it to the local
@@ -67,7 +67,7 @@ kind-up tag="dev":
       docker tag {{ DOCKER_REGISTRY }}/$svc:{{ tag }} localhost:5001/$svc:{{ tag }}
       docker push localhost:5001/$svc:{{ tag }}
     done
-    just helm-install {{ tag }} localhost:5001 values-dev.yaml Always
+    just helm-install {{ tag }} localhost:5001 "values-dev.yaml values-local.yaml" Always
 
 # Build/push/install only the modular-monolith on kind (channel bus, no Pulsar)
 kind-up-monolith tag="dev":
@@ -100,7 +100,7 @@ kind-up-monolith tag="dev":
     # IfNotPresent keeps the stale cached image and silently ignores the
     # new push (the `crictl rmi` dance). The registry is local, so the
     # re-pull is cheap.
-    just helm-install {{ tag }} localhost:5001 "values-dev.yaml values-monolith.yaml" Always
+    just helm-install {{ tag }} localhost:5001 "values-dev.yaml values-monolith.yaml values-local.yaml" Always
 
 # Create kind cluster and install the chart from ghcr.io/repldriven/queenswood (no local build). tag: a released version, the newest v* tag fetched when empty.
 kind-up-remote tag="":
@@ -119,7 +119,7 @@ kind-up-remote tag="":
       exit 1
     fi
     kind get clusters | grep -q '^queenswood$' || kind create cluster --name queenswood
-    just helm-install "$TAG" ghcr.io/repldriven/queenswood
+    just helm-install "$TAG" ghcr.io/repldriven/queenswood values-local.yaml
 
 # Push rebuilt images to the kind registry and roll the Deployments.
 kind-redeploy tag="dev" *services:
