@@ -15,14 +15,14 @@ identity provider. The platform is yours to read, to run and to change.
 
 ## Demo
 
-[![The console, taking an empty bank to a night's interest](docs/assets/demo-console.png)](https://github.com/user-attachments/assets/f112c363-b7ba-4f83-b96a-88219e3bc554)
+[![Video: a tour of what a bank can do, in the operator console](docs/assets/demo-console.png)](https://github.com/user-attachments/assets/f112c363-b7ba-4f83-b96a-88219e3bc554)
 
 A tour of what a bank can do, in the operator console: **Publish** products,
 **Invite** operators, **Verify** customers, **Fund** the bank, **Open**
 accounts, **Reward** customers, **Move** money, **Refuse** an overdraft, **Pay**
 someone, **Migrate** accounts and **Accrue** interest.
 
-[![The demo digital bank's app, a new customer to two open accounts](docs/assets/demo-app.png)](https://github.com/user-attachments/assets/2a4d01fe-3caf-452a-9667-7de984d5bcf4)
+[![Video: the same bank from a customer's side, in the demo digital bank's app](docs/assets/demo-app.png)](https://github.com/user-attachments/assets/2a4d01fe-3caf-452a-9667-7de984d5bcf4)
 
 The same bank from a customer's side, in the
 [demo digital bank](docs/prd/demo-digital-bank.md)'s app: sign up and open two
