@@ -29,16 +29,18 @@ The same bank from your customer's side, in the
 [demo digital bank](docs/prd/demo-digital-bank.md)'s app: sign up and open two
 accounts.
 
-## Who it is for
+## How it is used
 
-- **Your operators.** The founder, operations, finance and support people who
-  operate the bank in the console, each with their own identity and role.
-- **Your engineers.** The people who build the product on the API, and the
-  systems they build, which act as the bank with its credential.
-- **Your customers.** The people and businesses holding accounts through your
-  product. They see you, never Queenswood.
-- **Compliance and risk.** Whoever asks afterwards who had access to
-  what, which rules were in force, and whether a change was authorised.
+- **Your product team designs products in the console.** They publish each
+  version and plan the migrations that move holders onto a new one.
+- **Your operators run the bank day to day in the console.** They watch
+  end-of-day processing, look into an account or the ledger when something
+  does not add up, and manage who on the team can do what.
+- **Your engineers build on the API.** Your app and systems act as your bank
+  with its own credential.
+- **Your customers use your app.** They see you, never Queenswood.
+- **Compliance reads the records.** The access log, the policies in force and
+  the ledger say who did what, and under which rules.
 
 ## What you bring
 
