@@ -73,6 +73,26 @@ BUNDLED_DOCS='^docs/(adr|tdd|recipes)/'
 # down by scripts/mono-import.sh, so either changing changes the bundle.
 MONO_IMPORT='^(deps/mono-dev/|scripts/mono-import\.sh$)'
 
+# A release is tested whole. The first green commit on main whose
+# declared version has no tag is the one built, tagged and published, so
+# while the chart's version is untagged every bucket runs, rather than a
+# release inheriting an earlier commit's result through the path filter.
+released() {
+  local tag="refs/tags/v$1"
+  if git remote get-url origin >/dev/null 2>&1; then
+    git ls-remote --exit-code --tags origin "$tag" >/dev/null 2>&1
+  else
+    git show-ref --quiet --verify "$tag"
+  fi
+}
+if [[ "$everything" != "true" ]]; then
+  version=$({ git show "$HEAD:infra/helm/queenswood/Chart.yaml" 2>/dev/null || true; } \
+              | awk '/^version:/ {print $2}')
+  if [[ -n "$version" ]] && ! released "$version"; then
+    everything=true
+  fi
+fi
+
 # Runs the polylith matrix. `development/` carries project:dev's extra
 # paths, and scripts/ holds the hooks and check-versions.sh.
 bucket clojure "$WORKSPACE|^(development/|scripts/)|^\.github/workflows/test\.yml$" "$clojure_files"
@@ -84,7 +104,7 @@ bucket helm '^infra/helm/|^\.github/workflows/test\.yml$'
 
 # Goes into a JVM service image. Not development/ or scripts/: neither is
 # on a service project's classpath.
-bucket services "$WORKSPACE|^infra/docker/(service/|bake\.hcl$)|^\.github/workflows/release-images\.yml$" "$clojure_files"
+bucket services "$WORKSPACE|^infra/docker/(service/|bake\.hcl$)|^\.github/workflows/release\.yml$" "$clojure_files"
 
 # Goes into the console image.
-bucket console "$CONSOLE_TREES|$BUNDLED_DOCS|$MONO_IMPORT|^infra/docker/console/|^infra/docker/bake\.hcl$|^\.github/workflows/release-images\.yml$"
+bucket console "$CONSOLE_TREES|$BUNDLED_DOCS|$MONO_IMPORT|^infra/docker/console/|^infra/docker/bake\.hcl$|^\.github/workflows/release\.yml$"

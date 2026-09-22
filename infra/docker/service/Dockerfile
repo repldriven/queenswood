@@ -81,9 +81,20 @@ COPY . .
 #    alias leaves `create-basis` to fetch the real dependency tree at
 #    uberjar time — which is a concurrent write, on a shared mount,
 #    and it corrupts artifacts mid-download.
+#
+# The prep is retried. tools.deps expands the dependency tree
+# concurrently, and two coordinates from one git repository -- mono's
+# dev bundle and its test runner -- can have one thread validate a tag
+# while the other is still cloning the repository, which reads as
+# `has invalid tag` on a fresh cache. The clone is there by the second
+# attempt. Same family as the Maven race the CI prep step draws.
 RUN --mount=type=cache,id=queenswood-m2,target=/root/.m2,sharing=locked \
     --mount=type=cache,id=queenswood-gitlibs,target=/root/.gitlibs,sharing=locked \
-    clojure -X:deps prep :aliases '[:dev]' :force true \
+    for attempt in 1 2 3; do \
+      if clojure -X:deps prep :aliases '[:dev]' :force true; then break; fi; \
+      if [ "$attempt" = 3 ]; then exit 1; fi; \
+      echo "prep failed on attempt $attempt; retrying" >&2; sleep 5; \
+    done \
  && for p in projects/*/; do \
       (cd "$p" && clojure -P && clojure -P -X:build) || exit 1; \
     done

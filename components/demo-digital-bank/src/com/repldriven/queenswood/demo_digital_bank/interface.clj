@@ -243,3 +243,15 @@
   - emit: a function of one argument."
   [bank customer emit]
   (core/events bank customer emit))
+
+(defn open-streams
+  "How many event streams the bank holds open for the customer. The app
+  closing its end reaches the bank only when the stream's next write
+  fails, a keep-alive later, so this answers what the bank still holds
+  rather than what the app has let go.
+
+  Args:
+  - bank: the started bank component.
+  - customer: as `authenticate` answers."
+  [bank customer]
+  (core/open-streams bank customer))
