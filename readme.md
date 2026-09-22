@@ -33,12 +33,14 @@ accounts.
 
 - **Your product team designs products in the console.** They publish each
   version and plan the migrations that move holders onto a new one.
-- **Your operators run the bank day to day in the console.** They watch
-  end-of-day processing, look into an account or the ledger when something
-  does not add up, and manage who on the team can do what.
 - **Your engineers integrate it into your systems.** They use the parts of the
   API your product needs, and your customers never reach it directly.
+- **Your operators run the bank day to day in the console.** They watch
+  end-of-day processing, look into a customer's account when something does
+  not add up, and manage who on the team can do what.
 - **Your customers use your app.** They see you, never Queenswood.
+- **Your finance team keeps the books in the console.** They read the general
+  ledger, check the trial balance ties, and see what waits in suspense.
 - **Compliance reads the records.** The access log, the policies in force and
   the ledger say who did what, and under which rules.
 
