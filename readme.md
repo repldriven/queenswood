@@ -16,14 +16,14 @@ provider.
 
 ## Demo
 
-[![Video: a tour of what your bank can do, in the operator console](docs/assets/demo-console.png)](https://github.com/user-attachments/assets/d0a877f4-1cba-4275-bee6-db60617214a1)
+[![Video: a tour of what your bank can do, in the operator console](docs/assets/demo-console.png)](https://github.com/user-attachments/assets/2289f4ea-3441-4bb0-8923-14996b80805a)
 
 A tour of what your bank can do, in the operator console: **Publish** products,
 **Invite** operators, **Verify** customers, **Fund** the bank, **Open**
 accounts, **Reward** customers, **Move** money, **Refuse** an overdraft, **Pay**
 someone, **Migrate** accounts and **Accrue** interest.
 
-[![Video: the same bank from your customer's side, in the demo digital bank's app](docs/assets/demo-app.png)](https://github.com/user-attachments/assets/2a4d01fe-3caf-452a-9667-7de984d5bcf4)
+[![Video: the same bank from your customer's side, in the demo digital bank's app](docs/assets/demo-app.png)](https://github.com/user-attachments/assets/673ac5b1-c751-4d85-a29b-4b02859c3c75)
 
 The same bank from your customer's side, in the
 [demo digital bank](docs/prd/demo-digital-bank.md)'s app: sign up and open two
