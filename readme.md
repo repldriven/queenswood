@@ -15,9 +15,9 @@ identity provider. The platform is yours to read, to run and to change.
 
 ## Demo
 
-[![Video: a tour of what a bank can do, in the operator console](docs/assets/demo-console.png)](https://github.com/user-attachments/assets/f112c363-b7ba-4f83-b96a-88219e3bc554)
+[![Video: a tour of what your bank can do, in the operator console](docs/assets/demo-console.png)](https://github.com/user-attachments/assets/f112c363-b7ba-4f83-b96a-88219e3bc554)
 
-A tour of what a bank can do, in the operator console: **Publish** products,
+A tour of what your bank can do, in the operator console: **Publish** products,
 **Invite** operators, **Verify** customers, **Fund** the bank, **Open**
 accounts, **Reward** customers, **Move** money, **Refuse** an overdraft, **Pay**
 someone, **Migrate** accounts and **Accrue** interest.
