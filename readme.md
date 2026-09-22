@@ -6,10 +6,10 @@
 
 # Queenswood
 
-**Open-source core banking.** Whether you are modernising a bank or building
-banking into your product, Queenswood is the core behind your app and systems.
-It provides customer onboarding with identity checks, products and accounts,
-payments, interest and rewards, a general ledger, policies, end-of-day
+**Open-source core banking.** Whether you're modernising a bank or building
+banking into your product, Queenswood runs the banking behind your app and
+systems. It provides customer onboarding with identity checks, products and
+accounts, payments, interest and rewards, a general ledger, policies, end-of-day
 processing, webhooks and an operator console, all of it configured and driven
 through one API. You bring the banking licence, the clearing partner and the
 identity provider. The platform is yours to read, to run and to change.
