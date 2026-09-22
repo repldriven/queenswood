@@ -39,9 +39,10 @@ Release with `just release`, which opens the pull request bumping the
 chart's `version` and `appVersion` together — merging it is the
 release: once that commit's Tests are green the Release workflow builds
 every image at it, tags them with the version, pushes the chart, tags
-the commit `v<version>` and publishes the GitHub release, and a bump
-whose Tests run was cancelled by a later push is released by rerunning
-that run. Pin an instance to a release with `targetRevision:
+the commit `v<version>` and publishes the GitHub release; the first green commit
+on `main` whose declared version has no tag is the one published, so a
+cancelled Tests run or a failed release is picked up by the next green
+push. Pin an instance to a release with `targetRevision:
 v<version>` on both of its unit's Applications; the chart's images
 default to its `appVersion`, so a unit names no image tag, and never
 pull `latest`, which no image carries. Never release from a workflow

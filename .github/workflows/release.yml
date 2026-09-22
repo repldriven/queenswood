@@ -7,12 +7,12 @@ name: Release
 # and publishes the GitHub release. Nothing here runs on a workflow
 # button, and nothing is built for a commit that is not a release.
 #
-# Two conditions, both read at the commit Tests ran on: the tag
-# `v<version>` does not exist yet, and the version line changed in
-# this very commit. The first makes a rerun harmless; the second keeps
-# a release to the commit that declared it, so a later push carrying
-# the same version releases nothing. A bump whose Tests run was
-# cancelled by a later push is released by rerunning that run.
+# One condition, read at the commit Tests ran on: the tag `v<version>`
+# does not exist yet. The first green commit on main whose declared
+# version has no tag is the one published, and the tag it writes is what
+# stops a later run publishing it again -- so a Tests run cancelled by a
+# later push, or a release that failed part way, is picked up by the
+# next green push once whatever failed is fixed.
 on:
   workflow_run:
     workflows: [Tests]
@@ -38,11 +38,10 @@ jobs:
       version: ${{ steps.decide.outputs.version }}
       release: ${{ steps.decide.outputs.release }}
     steps:
-      - name: Checkout the tested commit and its parent
+      - name: Checkout the tested commit
         uses: actions/checkout@v7
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
-          fetch-depth: 2
 
       - name: Decide whether this commit is a release
         id: decide
@@ -56,11 +55,6 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           if git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null; then
             echo "v$version is already released; nothing to do"
-            echo "release=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          if ! git diff HEAD~1 HEAD -- "$CHART" | grep -q '^+version:'; then
-            echo "$CHART's version did not change in this commit; nothing to release"
             echo "release=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi

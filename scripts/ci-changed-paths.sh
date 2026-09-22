@@ -73,13 +73,24 @@ BUNDLED_DOCS='^docs/(adr|tdd|recipes)/'
 # down by scripts/mono-import.sh, so either changing changes the bundle.
 MONO_IMPORT='^(deps/mono-dev/|scripts/mono-import\.sh$)'
 
-# A release is tested whole. The commit that bumps the chart's version is
-# the one built, tagged and published, so every bucket runs at it rather
-# than inheriting the last commit's result through the path filter.
-RELEASE_CHART='^infra/helm/queenswood/Chart\.yaml$'
-if [[ "$everything" != "true" ]] && grep -qE "$RELEASE_CHART" <<<"$files" \
-   && git diff "$merge_base" "$HEAD" -- infra/helm/queenswood/Chart.yaml | grep -q '^+version:'; then
-  everything=true
+# A release is tested whole. The first green commit on main whose
+# declared version has no tag is the one built, tagged and published, so
+# while the chart's version is untagged every bucket runs, rather than a
+# release inheriting an earlier commit's result through the path filter.
+released() {
+  local tag="refs/tags/v$1"
+  if git remote get-url origin >/dev/null 2>&1; then
+    git ls-remote --exit-code --tags origin "$tag" >/dev/null 2>&1
+  else
+    git show-ref --quiet --verify "$tag"
+  fi
+}
+if [[ "$everything" != "true" ]]; then
+  version=$({ git show "$HEAD:infra/helm/queenswood/Chart.yaml" 2>/dev/null || true; } \
+              | awk '/^version:/ {print $2}')
+  if [[ -n "$version" ]] && ! released "$version"; then
+    everything=true
+  fi
 fi
 
 # Runs the polylith matrix. `development/` carries project:dev's extra
