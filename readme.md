@@ -29,7 +29,7 @@ The same bank from your customer's side, in the
 [demo digital bank](docs/prd/demo-digital-bank.md)'s app: sign up and open two
 accounts.
 
-## How it is used
+## How it's used
 
 - **Your product team designs what you offer.** They publish each product
   version in the console, and plan the migrations that move holders onto a new
@@ -39,8 +39,8 @@ accounts.
   as your customers bank with you. They can run the whole platform, console
   and simulators included, [on a laptop](#run-on-a-laptop).
 - **Your operators run the bank day to day in the console.** They watch
-  end-of-day processing, look into a customer's account when something does
-  not add up, and manage who on the team can do what.
+  end-of-day processing, look into a customer's account when something doesn't
+  add up, and manage who on the team can do what.
 - **Your customers use your app.** They see you, never Queenswood.
 - **Your finance team keeps the books in the console.** They read the general
   ledger, check the trial balance ties, and see what waits in suspense.
@@ -63,7 +63,7 @@ accounts.
   to another. A bank starts in test and moves to live; tiers set what it may do
   and how much.
 - **Customer onboarding.** Every new customer is identity-checked as they sign
-  up, and cannot open an account until the check clears.
+  up, and can't open an account until the check clears.
 - **Product changes without a release.** Change a rate, add a welcome reward
   or launch a new term without shipping software. Existing customers move to
   the new terms only when you plan and approve it.
@@ -87,17 +87,17 @@ accounts.
 - **No lock-in.** The source is yours to read, run and change, under the MIT
   licence, on infrastructure you choose.
 
-Queenswood has no production miles yet, but it is built to run in production:
+Queenswood has no production miles yet, but it's built to run in production:
 generated tests check its answers against a model of how a bank should behave,
-scenarios drive the live API end to end, and the documentation says what
-is done and what is not.
+scenarios drive the live API end to end, and the documentation says what's
+done and what's not.
 
 ## For application engineers
 
 - **One unified API for the whole bank, with full OpenAPI 3.x
   compliance.** One base URL and one document, not a service per
   domain, and the document is generated from the routes themselves so
-  it cannot drift from what the API does.
+  it can't drift from what the API does.
   See [ADR-0013](docs/adr/0013-single-unified-api.md) and
   [ADR-0014](docs/adr/0014-openapi-3x-compliance.md).
 - **Idempotent writes.** Every write takes an idempotency key, so a retried
@@ -237,7 +237,7 @@ decisions in between:
 - **[docs/prd/](docs/prd/)** — what each capability is for and who
   uses it, in product language: intended scope, users, and the domain
   rules that follow. Companion to the TDDs' _how_.
-- **[docs/tdd/](docs/tdd/)** — how it is built, one document per
+- **[docs/tdd/](docs/tdd/)** — how it's built, one document per
   capability and subsystem, from the transaction substrate up through
   the API surface.
 - **[docs/adr/](docs/adr/)** — the decisions, each with the context
@@ -254,12 +254,12 @@ decisions in between:
   — mono's slidev walk-through of how systems-as-data assembles a
   running system, laid down here by the same import.
 
-These are not only for people. Nearly every ADR and recipe carries a
+These aren't only for people. Nearly every ADR and recipe carries a
 label binding it to a rule plugin, and the rules an agent loads on every
 task in this repo are regenerated from those documents rather than
-written alongside them, so the guidance cannot quietly drift from the
-decision it came from. It is also why a recipe has a fixed shape: the
-`Rules` block is the part that gets extracted. What is load-bearing is
+written alongside them, so the guidance can't quietly drift from the
+decision it came from. It's also why a recipe has a fixed shape: the
+`Rules` block is the part that gets extracted. What's load-bearing is
 then checked again at commit time, by formatting, linting, and a set of
 repo-specific guardrails.
 
@@ -312,7 +312,7 @@ A work in progress: a blueprint for deploying and managing a Queenswood
 instance on Google Cloud. The pieces below exist and run; the path
 through them is still being worked out.
 
-It is a different kind of thing from the local path rather than a
+It's a different kind of thing from the local path rather than a
 larger version of it. No command deploys an installation. An
 installation is a manifest in a private repository, and a management
 plane running Crossplane and Argo CD reconciles the folder, the
@@ -336,7 +336,7 @@ organisation, where the first steps are somebody else's.
 
 The tier across the top is durable and never torn down: the management
 project reconciles the installation, the recovery project holds the
-backups and the key they are encrypted under, and the DNS zone outlives
+backups and the key they're encrypted under, and the DNS zone outlives
 anything disposable. The instance project below it is rebuilt whenever
 an instance is.
 
@@ -346,7 +346,7 @@ an instance is.
 
 Nix is used to manage the many tools and binaries required to
 develop Queenswood. There are several ways to install Nix -
-these are not prescribed here.
+these aren't prescribed here.
 
 Nix flakes with `direnv` ensures everything required is
 on the path automatically whenever you `cd` to it.
