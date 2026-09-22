@@ -277,6 +277,10 @@ kubectl -n queenswood port-forward svc/queenswood-console     8081:8080
 kubectl -n queenswood port-forward svc/queenswood-jaeger      16686:16686
 ```
 
+Open the console at [localhost:8081](http://localhost:8081) and sign in as
+`dev` / `dev`. Keep the console's forward on 8081: Keycloak issues tokens for
+that address, and the API refuses a token issued for any other.
+
 In the console, **Sandbox › Scenarios** runs the platform for real
 against your cluster — open Jaeger alongside it at
 [localhost:16686](http://localhost:16686) to watch the spans each
