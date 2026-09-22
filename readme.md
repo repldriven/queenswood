@@ -31,8 +31,8 @@ accounts.
 
 ## How it is used
 
-- **Your product team designs what you sell.** They publish each version in the
-  console, and plan the migrations that move holders onto a new one.
+- **Your product team designs what you offer.** They publish each version in
+  the console, and plan the migrations that move holders onto a new one.
 - **Your engineers integrate it into your systems.** They call
   [its API](https://repldriven.github.io/queenswood/), and act on its webhooks
   as your customers bank with you.
