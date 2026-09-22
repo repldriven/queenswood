@@ -20,6 +20,6 @@
         component/resources {:local/root "../../components/resources"}
         base/demo-digital-bank-api {:local/root "../../bases/demo-digital-bank-api"}
         org.postgresql/postgresql {:mvn/version "42.7.13"}
-        org.clojure/clojure {:mvn/version "1.12.5"}
+        org.clojure/clojure {:mvn/version "1.12.6"}
         pin/clojure-core-async {:local/root "../../deps/clojure-core-async"}}
  :paths ["resources"]}
