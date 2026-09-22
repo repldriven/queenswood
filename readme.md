@@ -36,8 +36,8 @@ accounts.
 - **Your operators run the bank day to day in the console.** They watch
   end-of-day processing, look into an account or the ledger when something
   does not add up, and manage who on the team can do what.
-- **Your engineers build on the API.** Your app and systems act as your bank
-  with its own credential.
+- **Your engineers integrate it into your systems.** They use the parts of the
+  API your product needs, and your customers never reach it directly.
 - **Your customers use your app.** They see you, never Queenswood.
 - **Compliance reads the records.** The access log, the policies in force and
   the ledger say who did what, and under which rules.
