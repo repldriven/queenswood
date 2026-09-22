@@ -265,10 +265,6 @@ helm install queenswood \
   --wait --timeout 10m
 ```
 
-`values-local.yaml` adds the `dev` user, password `dev`, that you sign in to
-the console as. The chart adds no user without it, and refuses it anywhere
-but a local cluster.
-
 **Reach the API, console and tracing web apps**:
 
 ```bash
