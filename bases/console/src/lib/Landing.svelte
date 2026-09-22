@@ -53,23 +53,23 @@
   // {@html} because one entry contains inline <code>.
   const PRINCIPLES = [
     { key: "adr-0013", kicker: "ADR · 0013 · 0014",
-      title: "One unified API. OpenAPI is the contract.",
+      title: "One API, with an OpenAPI document.",
       href: "https://github.com/repldriven/queenswood/blob/main/docs/adr/0013-single-unified-api.md",
-      body: "Bank-shaped, not implementation-shaped. The spec drives client generation, validation, and documentation — there is no second source of truth." },
+      body: "Organised by what a bank does, not by how it's built. The document is generated from the routes, and drives validation and the published reference." },
     { key: "tdd-policy", kicker: "TDD · policy-evaluation",
-      title: "Policies as data, not hard-coded rules.",
+      title: "Policies as data.",
       href: "https://github.com/repldriven/queenswood/blob/main/docs/tdd/policy-evaluation.md",
-      body: "Capabilities and limits are records. A curative-permit pattern lets your customers self-correct balances out of breach without a manual override." },
+      body: "Capabilities and limits are records checked on every request. A curative permit lets a breaching action through only when it moves the position back toward compliance." },
     { key: "tdd-interest", kicker: "TDD · interest",
-      title: "Pennies are conserved by construction.",
+      title: "Integer money, remainder kept.",
       href: "https://github.com/repldriven/queenswood/blob/main/docs/tdd/interest.md",
-      body: "Integer micro-unit arithmetic with sub-minor-unit carry. Daily accrual, capitalisation at whatever cadence you choose, and one ledger entry per run rather than per account — ties out exactly." },
+      body: "Integer micro-unit arithmetic with sub-minor-unit carry. Daily accrual, capitalisation at the cadence you choose, and one ledger entry per run rather than per account." },
     { key: "tdd-scenario", kicker: "TDD · scenario-testing",
-      title: "A pure model runs beside the real system.",
+      title: "Tests against a model.",
       href: "https://github.com/repldriven/queenswood/blob/main/docs/tdd/scenario-testing.md",
-      body: "Tests pass only when the two agree. Property-based testing via fugato plus hand-authored EDN scenarios, sharing one runner." },
+      body: "A model runs beside the real system, and a test passes only when the two agree. Generated sequences via fugato and hand-written EDN scenarios share one runner." },
     { key: "adr-0018", kicker: "ADR · 0018",
-      title: "A write earns command status, or stays synchronous.",
+      title: "Commands or direct writes.",
       href: "https://github.com/repldriven/queenswood/blob/main/docs/adr/0018-command-writes-are-earned.md",
       body: "A write goes over the bus to a processor only when it needs multi-record atomicity under contention, has idempotency stakes, other bricks must react to it, or it arrives from unreliable ingress. Everything else is a direct write." },
     { key: "adr-0019", kicker: "ADR · 0019",
@@ -77,17 +77,17 @@
       href: "https://github.com/repldriven/queenswood/blob/main/docs/adr/0019-processor-packaging.md",
       body: "One thin base per service group; a project's <code>application.yml</code> alone decides which processors a JVM hosts. Grouped by boundary, not throughput — financial and operational processors never share a JVM." },
     { key: "adr-0002", kicker: "ADR · 0002",
-      title: "The changelog is the outbox.",
+      title: "Changelogs in the same transaction.",
       href: "https://github.com/repldriven/queenswood/blob/main/docs/adr/0002-foundationdb-record-layer.md",
-      body: "FoundationDB Record Layer gives multi-record ACID by default; the transactional outbox pattern falls out of the storage engine — no separate table." },
+      body: "FoundationDB Record Layer gives multi-record ACID, so a change and its changelog entry commit together, with no separate outbox table." },
     { key: "adr-0001", kicker: "ADR · 0001",
-      title: "mono is upstream, not a fork.",
+      title: "Built on mono.",
       href: "https://github.com/repldriven/queenswood/blob/main/docs/adr/0001-reuse-mono-as-upstream.md",
       body: "Shared infrastructure comes from mono as a git dependency pinned to a tag and sha; the workspace holds only the bank's own bricks. Upgrading mono is a one-line bump in two shims under <code>deps/</code>." },
     { key: "recipe-tc", kicker: "Recipe · testcontainers",
-      title: "REPL on the inside.",
+      title: "A REPL runs the whole system.",
       href: "https://github.com/repldriven/mono/blob/main/docs/recipes/test/testcontainers.md",
-      body: "Start a REPL, evaluate a comment block, and the whole system — FDB, Pulsar, HTTP, Keycloak — boots inside Testcontainers. The dev loop is the system.",
+      body: "Start a REPL, evaluate a comment block, and the whole system — FDB, Pulsar, HTTP, Keycloak — boots inside Testcontainers.",
       variant: "feature" },
   ];
 
@@ -267,22 +267,25 @@
     { name: "Trial balance ties", status: "ok" },
   ];
 
-  // The Scenarios spine that frames the page — a bank opening its doors.
+  // The Scenarios spine that frames the page, part-way through.
   const DEMO_SCENES = [
-    { num: "01", label: "Stock the shelves", status: "done" },
-    { num: "02", label: "Identity decides the account", status: "done" },
-    { num: "03", label: "Open the accounts", status: "done" },
-    { num: "04", label: "Money in, double-entry out", status: "done" },
-    { num: "05", label: "Customers save", status: "running" },
-    { num: "06", label: "Policy holds the line", status: "ready" },
-    { num: "07", label: "Friends settle up", status: "locked" },
-    { num: "08", label: "Runs itself overnight", status: "locked" },
+    { num: "01", label: "Publish", status: "done" },
+    { num: "02", label: "Invite", status: "done" },
+    { num: "03", label: "Verify", status: "done" },
+    { num: "04", label: "Fund", status: "done" },
+    { num: "05", label: "Open", status: "done" },
+    { num: "06", label: "Reward", status: "done" },
+    { num: "07", label: "Move", status: "running" },
+    { num: "08", label: "Refuse", status: "ready" },
+    { num: "09", label: "Pay", status: "locked" },
+    { num: "10", label: "Migrate", status: "locked" },
+    { num: "11", label: "Accrue", status: "locked" },
   ];
   const DEMO_BANK_CELLS = [
-    { figure: 4, unit: "/ 8", label: "Scenes run" },
-    { figure: 2, label: "Products live" },
+    { figure: 6, unit: "/ 11", label: "Scenes run" },
+    { figure: 3, label: "Products live" },
     { figure: 2, unit: "/ 3", label: "Active customers" },
-    { figure: "£2,000.00", label: "Customer money held" },
+    { figure: "£100.00", label: "Customer money held" },
   ];
 </script>
 
@@ -298,11 +301,11 @@
     simulators for development, plug in your own accounts per bank.
   </span>
   <a target="_blank" rel="noreferrer"
-    href="https://github.com/repldriven/queenswood/tree/main/bases/bank-clearbank-adapter"
+    href="https://github.com/repldriven/queenswood/tree/main/bases/clearbank-adapter"
     >ClearBank adapter ↗</a
   >
   <a target="_blank" rel="noreferrer"
-    href="https://github.com/repldriven/queenswood/tree/main/bases/bank-onfido-adapter"
+    href="https://github.com/repldriven/queenswood/tree/main/bases/onfido-adapter"
     >Onfido adapter ↗</a
   >
 </div>
@@ -335,13 +338,14 @@
       <div>
         <span class="eyebrow">Banking platform · v0.1.0</span>
         <h1 class="title">
-          Core banking,<br /><em>modernized.</em>
+          Open-source<br /><em>core banking.</em>
         </h1>
         <p class="lede">
-          Everything a modern fintech needs to operate as a bank — a double-entry
-          ledger, UK Faster Payments, customer KYC, configurable policies, and
-          scheduled interest — under one unified OpenAPI. Use the hosted edition,
-          or self-host the open core. MIT-licensed.
+          Whether you're building a bank or embedding banking into your product,
+          Queenswood runs the banking behind it: customer onboarding with identity
+          checks, products and accounts, payments, a general ledger and
+          end-of-day processing, all configured and driven through one API.
+          MIT-licensed.
         </p>
         <div class="ctas">
           <button class="btn solid" onclick={goSignIn}>Sign in</button>
@@ -418,15 +422,15 @@
 <section class="story">
   <div class="wrap">
     <span class="eyebrow">See it run</span>
-    <h2>A bank opening its <em>doors.</em></h2>
+    <h2>A tour of what your bank <em>can do.</em></h2>
     <p class="lead">
       The console ships a sandbox that fires these capabilities against the live
-      API, in order — eight scenes that build one cumulative story. The screens
+      API, in order — eleven scenes, each building on the one before. The screens
       below are those scenes, rendered with the real components, not mockups.
     </p>
     <div class="spine-wrap">
       <ProgressSpine
-        title="A bank opening its doors"
+        title="What your bank can do"
         progressLabel="scenes run"
         steps={DEMO_SCENES}
       />
@@ -435,7 +439,7 @@
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.4" stroke-opacity="0.4" /><path d="M5.2 8.2 L7.1 10 L10.8 6" /></svg>
         {/snippet}
         {#snippet title()}Books tie — debits equal credits{/snippet}
-        {#snippet sub()}2 customers · £2,000.00 held{/snippet}
+        {#snippet sub()}2 customers · £100.00 held{/snippet}
       </BankStateBand>
     </div>
   </div>
@@ -446,11 +450,11 @@
     <div class="grid">
       <div>
         <span class="num">01 — Products</span>
-        <h3>Stock the <em>shelves.</em></h3>
+        <h3>Publish <em>products.</em></h3>
         <p>
           Define cash-account products — a current account, a savings product —
-          then publish to commit a version. Revise whenever you like; publishing
-          the new version auto-archives the one it supersedes.
+          then publish to commit a version. A revision is a new version beside the
+          old, and a migration moves holders onto it.
         </p>
         <ul>
           <li>Draft → publish → archive, versioned at publish</li>
@@ -490,7 +494,7 @@
     <div class="grid">
       <div>
         <span class="num">02 — Parties &amp; IDV</span>
-        <h3>Identity decides the <em>account.</em></h3>
+        <h3>Verify <em>customers.</em></h3>
         <p>
           Onboard people and organisations. An Onfido identity check runs
           automatically and flips each party to active or rejected — no operator
@@ -533,7 +537,7 @@
     <div class="grid">
       <div>
         <span class="num">03 — Accounts</span>
-        <h3>Open the <em>accounts.</em></h3>
+        <h3>Open <em>accounts.</em></h3>
         <p>
           Each customer account leads with its available balance, then the
           posting history with a running balance — an inbound Faster Payment in,
@@ -587,10 +591,10 @@
     <div class="grid">
       <div>
         <span class="num">04 — Ledger</span>
-        <h3>Money in, <em>double-entry</em> out.</h3>
+        <h3>Fund the <em>bank.</em></h3>
         <p>
-          Funding an account moves the books — cash-at-correspondent debited,
-          customer deposits credited. Every posting is half of a balanced pair,
+          Funding the bank moves the books — cash at correspondent debited,
+          the bank's own funds credited. Every posting is half of a balanced pair,
           accounts decompose into their balances, and the trial balance ties to
           the penny.
         </p>
@@ -655,8 +659,8 @@
   <div class="wrap">
     <div class="grid">
       <div>
-        <span class="num">06 — Policies</span>
-        <h3>Policy holds the <em>line.</em></h3>
+        <span class="num">05 — Policies</span>
+        <h3>Refuse an <em>overdraft.</em></h3>
         <p>
           Capabilities and limits are data, not hard-coded rules. The platform's
           non-negative-balance limit refuses an overdraft before any money
@@ -686,8 +690,8 @@
   <div class="wrap">
     <div class="grid">
       <div>
-        <span class="num">08 — Interest &amp; Jobs</span>
-        <h3>Runs itself <em>overnight.</em></h3>
+        <span class="num">06 — Interest &amp; Jobs</span>
+        <h3>Accrue <em>interest.</em></h3>
         <p>
           A seeded daily job accrues interest with micro-unit precision, then
           capitalises it into the customer's spendable balance — one statement
@@ -720,11 +724,10 @@
   <div class="wrap">
     <span class="eyebrow">Engineering choices</span>
     <h2>
-      The interesting bits — <em>for engineers</em> who'd actually read the docs.
+      The design <em>decisions.</em>
     </h2>
     <p class="lead">
-      Queenswood is opinionated. Key choices that show up everywhere in the
-      codebase, each documented, so you can read on a coffee break.
+      The choices that run through the codebase, each with its document.
     </p>
     <div class="grid">
       {#each PRINCIPLES as p (p.key)}
@@ -754,12 +757,11 @@
     <div class="grid">
       <div>
         <span class="eyebrow muted">Run it locally</span>
-        <h2>One install away from a <em>working bank.</em></h2>
+        <h2>Install the chart, or start a <em>REPL.</em></h2>
         <p>
-          Install the chart, port-forward, open the SPA. Or start a REPL with <code
-            >just repl</code
-          > and bring the whole system up inside Testcontainers. Either way you're
-          posting balanced transfers in minutes.
+          Install the chart, port-forward and open the console. Or start a REPL
+          with <code>just repl</code> and bring the whole system up inside
+          Testcontainers.
         </p>
         <div class="ctas">
           <button class="btn gold" onclick={goSignIn}>Sign in</button>
@@ -794,8 +796,8 @@
           <span class="wm"><Wordmark variant="grotesk" size={14} /></span>
         </a>
         <p class="desc">
-          Core banking, modernised. Bring your own ClearBank and Onfido —
-          open source under MIT, with bundled simulators for development.
+          Open-source core banking, under MIT. Adapters for ClearBank and
+          Onfido, with simulators that stand in for both during development.
         </p>
       </div>
       <div>

@@ -1,8 +1,7 @@
 <script>
   /* Scenarios — a customer-facing SANDBOX that proves the platform
      works by running real, HTTP-driven scenarios live. Eleven scenes
-     tell one continuous story — a bank opening its doors — fired
-     manually in order. State is CUMULATIVE: each scene builds on the
+     tour what a bank can do, fired manually in order. State is CUMULATIVE: each scene builds on the
      last, and the bank-state band accumulates the evidence as scenes
      complete.
 
@@ -714,7 +713,7 @@
     ctx = {};
     persistDone();
     persistCtx();
-    pushToast("Sandbox reset — the bank is closed again");
+    pushToast("Sandbox reset");
   }
 
   // ── navigation ────────────────────────────────────────────────────
@@ -822,7 +821,7 @@
 <PageHeader
   {kicker}
   title="Scenarios"
-  sub="Watch the platform run for real. Eleven scenes tell one story — a bank opening its doors — fired in order against the live API. State carries across the whole session, so the books you see are the books the scenarios actually moved."
+  sub="A tour of what your bank can do: eleven scenes, fired in order against the live API. State carries across the session, so the books you see are the books the scenes moved."
 >
   {#snippet titleAside()}
     <span class="cum-chip" title="State carries across scenes — each builds on the last.">
@@ -839,7 +838,7 @@
 </PageHeader>
 
 <ProgressSpine
-  title="A bank opening its doors"
+  title="What your bank can do"
   steps={spineSteps}
   progressLabel="scenes run"
   onJump={(i) => jumpTo(SCENES[i].id)}
@@ -850,15 +849,15 @@
     {#if done.length === 0}{@render icoSpark()}{:else}{@render icoCheck()}{/if}
   {/snippet}
   {#snippet title()}
-    {#if done.length === 0}The bank hasn't opened yet
-    {:else if nextIdx === -1}The bank is open, funded, and running
+    {#if done.length === 0}No scenes run yet
+    {:else if nextIdx === -1}Every scene run
     {:else}Books tie — debits equal credits{/if}
   {/snippet}
   {#snippet sub()}
     {#if done.length === 0}
-      Run Scene 01 to stock the shelves and watch the platform build a bank, live.
+      Run Scene 01 to publish your bank's products.
     {:else if nextIdx === -1}
-      All eight scenes complete · books tie to the penny
+      All eleven scenes run · the books tie to the penny
     {:else}
       {bank.activeCustomers} customer{bank.activeCustomers === 1 ? "" : "s"} · <span class="mono">{fmtMoney(bank.cash)}</span> held
     {/if}

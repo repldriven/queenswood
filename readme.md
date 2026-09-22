@@ -16,7 +16,7 @@ provider.
 
 ## Demo
 
-[![Video: a tour of what your bank can do, in the operator console](docs/assets/demo-console.png)](https://github.com/user-attachments/assets/f112c363-b7ba-4f83-b96a-88219e3bc554)
+[![Video: a tour of what your bank can do, in the operator console](docs/assets/demo-console.png)](https://github.com/user-attachments/assets/d0a877f4-1cba-4275-bee6-db60617214a1)
 
 A tour of what your bank can do, in the operator console: **Publish** products,
 **Invite** operators, **Verify** customers, **Fund** the bank, **Open**
