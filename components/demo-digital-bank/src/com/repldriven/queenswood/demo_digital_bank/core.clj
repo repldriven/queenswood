@@ -3,13 +3,13 @@
     [com.repldriven.queenswood.demo-digital-bank.domain :as domain]
     [com.repldriven.queenswood.demo-digital-bank.platform :as platform]
     [com.repldriven.queenswood.demo-digital-bank.store :as store]
-    [com.repldriven.queenswood.demo-digital-bank.streams :as streams]
 
     [com.repldriven.mono.auth.interface :as auth]
     [com.repldriven.mono.encryption.interface :as encryption]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.json.interface :as json]
     [com.repldriven.mono.log.interface :as log]
+    [com.repldriven.mono.sse.interface :as sse]
     [com.repldriven.mono.utility.interface :as util])
   (:import
     (java.nio.charset StandardCharsets)))
@@ -36,10 +36,6 @@
 
 (defn- id [] (str (util/uuidv7)))
 
-(defn- sign-up-view
-  [sign-up]
-  (select-keys sign-up [:id :status :party-id]))
-
 (defn- fetch-sign-up
   [bank sign-up-id]
   (let-nom> [sign-up (store/sign-up-by-id (ds bank) sign-up-id)]
@@ -50,21 +46,15 @@
 (defn start-sign-up
   [bank {:keys [phone]}]
   (let-nom> [sign-up (store/insert-sign-up (ds bank)
-                                           {:id (id)
-                                            :phone (domain/normalise-phone
-                                                    phone)
-                                            :status "code-sent"})]
-    (sign-up-view sign-up)))
+                                           (domain/new-sign-up phone))]
+    (domain/sign-up-view sign-up)))
 
 (defn verify-code
   [bank sign-up-id {:keys [code]}]
   (let-nom> [sign-up (fetch-sign-up bank sign-up-id)
-             _ (domain/check-step sign-up :code)
-             _ (domain/check-code sign-up code (:sign-up-code bank))
-             updated (store/update-sign-up (ds bank)
-                                           sign-up-id
-                                           {:status "verified"})]
-    (sign-up-view updated)))
+             verified (domain/verify sign-up code (:sign-up-code bank))
+             updated (store/update-sign-up (ds bank) verified)]
+    (domain/sign-up-view updated)))
 
 (defn- submission
   "The registration's submission, minted before the platform is called
@@ -74,12 +64,10 @@
                                                     (:id sign-up)
                                                     register-party)]
     (or existing
-        (let-nom> [request (json/write-str registration)]
-          (store/insert-submission (ds bank)
-                                   {:idempotency-key (id)
-                                    :sign-up-id (:id sign-up)
-                                    :kind register-party
-                                    :request request})))))
+        (store/insert-submission (ds bank)
+                                 (domain/sign-up-submission sign-up
+                                                            register-party
+                                                            registration)))))
 
 (defn register-details
   "Register the person with the platform, and carry the party onto the
@@ -92,19 +80,13 @@
              party (platform/register-party (:platform bank)
                                             (:idempotency-key submitted)
                                             registration)
-             answer (json/write-str party)
              _ (store/answer-submission (ds bank)
-                                        (:idempotency-key submitted)
-                                        answer)
+                                        (domain/answered submitted party))
              updated (store/update-sign-up (ds bank)
-                                           sign-up-id
-                                           {:status "registered"
-                                            :party-id (:party-id party)
-                                            :given-name (:given-name
-                                                         details)
-                                            :family-name (:family-name
-                                                          details)})]
-    (assoc (sign-up-view updated)
+                                           (domain/registered sign-up
+                                                              details
+                                                              party))]
+    (assoc (domain/sign-up-view updated)
            :verification
            (:verification (domain/user updated party)))))
 
@@ -112,11 +94,11 @@
   [bank customer-id]
   (let-nom> [token (encryption/generate-token "ses")
              hashed (encryption/hash-token token)
-             expires-at (+ (util/now) (* 1000 (:session-ttl-seconds bank)))
              row (store/insert-session (ds bank)
-                                       {:id hashed
-                                        :customer-id customer-id
-                                        :expires-at expires-at})]
+                                       (domain/new-session
+                                        customer-id
+                                        hashed
+                                        (:session-ttl-seconds bank)))]
     {:token token :expires-at (:expires-at row)}))
 
 (defn choose-passcode
@@ -127,21 +109,15 @@
              _ (domain/check-step sign-up :passcode)
              hashed (auth/hash-password passcode)
              token (encryption/generate-token "ses")
-             session-id (encryption/hash-token token)
-             customer-id (id)
-             expires-at (+ (util/now) (* 1000 (:session-ttl-seconds bank)))
-             registered (store/register (ds bank)
-                                        {:id customer-id
-                                         :party-id (:party-id sign-up)
-                                         :phone (:phone sign-up)
-                                         :given-name (:given-name sign-up)
-                                         :family-name (:family-name sign-up)
-                                         :passcode-hash hashed}
-                                        {:id session-id
-                                         :expires-at expires-at})
-             _ (store/update-sign-up (ds bank) sign-up-id {:status "done"})]
+             token-hash (encryption/hash-token token)
+             customer (domain/new-customer sign-up hashed)
+             session (domain/new-session (:id customer)
+                                         token-hash
+                                         (:session-ttl-seconds bank))
+             registered (store/register (ds bank) customer session)
+             _ (store/update-sign-up (ds bank) (domain/finished sign-up))]
     {:token token
-     :expires-at (str (java.time.Instant/ofEpochMilli expires-at))
+     :expires-at (str (java.time.Instant/ofEpochMilli (:expires-at session)))
      :customer-id (:customer-id registered)}))
 
 (def ^:private credentials-invalid
@@ -189,7 +165,7 @@
 (defn record-account
   "Record the account the bank opened for the customer."
   [bank customer account]
-  (store/insert-account (ds bank) (assoc account :customer-id (:id customer))))
+  (store/insert-account (ds bank) (domain/held-account customer account)))
 
 (defn customer-account
   "The account the customer holds under `account-id`, or a not-found
@@ -209,12 +185,6 @@
   (when client-key
     (store/submission-by-client-key (ds bank) (:id customer) kind client-key)))
 
-(defn- answered
-  "The platform's answer a submission carries, or nil while it has none."
-  [submission]
-  (some-> (:response submission)
-          (json/read-str :key-fn keyword)))
-
 (defn- submit
   "A submission to the platform under the key the app sent, where it
   sent one: the answer the platform already gave where there is one,
@@ -223,21 +193,18 @@
   [bank customer kind client-key request call]
   (let-nom> [existing (submitted-under bank customer kind client-key)]
     (if (:response existing)
-      (answered existing)
+      (:response existing)
       (let-nom> [submitted (or existing
-                               (let-nom> [encoded (json/write-str request)]
-                                 (store/insert-submission
-                                  (ds bank)
-                                  {:idempotency-key (id)
-                                   :customer-id (:id customer)
-                                   :client-key client-key
-                                   :kind kind
-                                   :request encoded})))
+                               (store/insert-submission
+                                (ds bank)
+                                (domain/customer-submission customer
+                                                            kind
+                                                            client-key
+                                                            request)))
                  answer (call (:idempotency-key submitted) request)
-                 encoded (json/write-str answer)
                  _ (store/answer-submission (ds bank)
-                                            (:idempotency-key submitted)
-                                            encoded)]
+                                            (domain/answered submitted
+                                                             answer))]
         answer))))
 
 (defn check-payee
@@ -259,13 +226,7 @@
       (or row
           (error/reject :payee/not-found
                         {:message "no such payee" :payee-id payee-id})))
-    (store/upsert-payee (ds bank)
-                        {:id (id)
-                         :customer-id (:id customer)
-                         :name (:name payee)
-                         :sort-code (domain/digits (:sort-code payee))
-                         :account-number (domain/digits
-                                          (:account-number payee))})))
+    (store/upsert-payee (ds bank) (domain/new-payee customer payee))))
 
 (defn submit-payment
   "Pay a payee from one of the customer's accounts."
@@ -286,7 +247,8 @@
                                  (platform/submit-outbound-payment client
                                                                    key
                                                                    request)))
-               paid (store/record-payee-payment (ds bank) (:id payee) amount)]
+               paid (store/record-payee-payment (ds bank)
+                                                (domain/paid payee amount))]
       (domain/payment payment (domain/payee paid)))))
 
 (defn transfer
@@ -343,7 +305,7 @@
                                         customer
                                         open-account-kind
                                         client-key)
-               replay (answered earlier)
+               replay (:response earlier)
                _ (if replay
                    product
                    (domain/check-account-open held product))
@@ -364,11 +326,12 @@
                               request
                               (fn [key request]
                                 (platform/open-account client key request)))
-               recorded (record-account bank
-                                        customer
-                                        {:account-id (:account-id opened)
-                                         :product-kind (:kind product)
-                                         :name (:name request)})
+               recorded (store/insert-account (ds bank)
+                                              (domain/opened-account
+                                               customer
+                                               opened
+                                               product
+                                               request))
                ready (await-opened client (:account-id opened))
                moved (when (pos? deposit)
                        (let-nom> [payment (submit
@@ -376,11 +339,11 @@
                                            customer
                                            opening-deposit-kind
                                            client-key
-                                           (domain/internal-payment-request
-                                            (:account-id source)
-                                            (:account-id opened)
+                                           (domain/opening-deposit-request
+                                            source
+                                            opened
                                             deposit
-                                            (str "Opening " (:name request)))
+                                            request)
                                            (fn [key request]
                                              (platform/submit-internal-payment
                                               client
@@ -398,29 +361,6 @@
                                 product
                                 today)
        :deposit moved})))
-
-(defn- payments
-  "What the bank has paid out for the customer, from its submissions,
-  in the shape the transactions listing names payees from."
-  [bank customer]
-  (let-nom> [rows (store/answered-submissions (ds bank)
-                                              (:id customer)
-                                              submit-payment-kind)]
-    (into []
-          (keep (fn [row]
-                  (let [request (json/read-str (:request row) :key-fn keyword)
-                        answer (json/read-str (:response row)
-                                              :key-fn
-                                              keyword)]
-                    (when-not (or (error/anomaly? request)
-                                  (error/anomaly? answer))
-                      {:transaction-id (:transaction-id answer)
-                       :account-id (:debtor-account-id request)
-                       :amount (:amount request)
-                       :reference (:reference request)
-                       :name (:creditor-name request)
-                       :created-at (:created-at answer)}))))
-          rows)))
 
 (defn me
   "Everything the app's home needs, read from the platform for this
@@ -463,7 +403,10 @@
                          []
                          held)
                payees (store/payees-by-customer (ds bank) (:id customer))
-               paid (payments bank customer)]
+               submitted (store/answered-submissions (ds bank)
+                                                     (:id customer)
+                                                     submit-payment-kind)
+               paid (domain/payments submitted)]
       {:user (domain/user customer party)
        :accounts accounts
        :txns (domain/transactions legs-by-account names paid)
@@ -501,17 +444,13 @@
                                             kind
                                             notification)
                           customer (customer-of bank kind record)
-                          encoded (json/write-str record)
                           resolved (store/resolve-notification
                                     (ds bank)
-                                    (:id row)
-                                    {:customer-id (:id customer)
-                                     :record encoded})]
+                                    (domain/resolved row customer record))]
                  (when customer
-                   (streams/publish! (:streams bank)
-                                     (:id customer)
-                                     (domain/notification-view resolved
-                                                               record)))
+                   (sse/publish! (:streams bank)
+                                 (:id customer)
+                                 (domain/notification-view resolved record)))
                  resolved)]
     (when (error/anomaly? result)
       (log/error (str "notification " (:id row)
@@ -529,64 +468,35 @@
                                               headers
                                               body
                                               (util/now))
-             delivery (json/read-str (String. ^bytes body
-                                              StandardCharsets/UTF_8)
-                                     :key-fn
-                                     keyword)
+             text (String. ^bytes body StandardCharsets/UTF_8)
+             delivery (json/read-str text :key-fn keyword)
              notification (domain/notification delivery)
              row (store/record-notification (ds bank)
-                                            {:id (:id notification)
-                                             :delivery-id (:message-id
-                                                           verified)
-                                             :kind (:kind notification)
-                                             :body (String.
-                                                    ^bytes body
-                                                    StandardCharsets/UTF_8)})]
+                                            (domain/received notification
+                                                             verified
+                                                             text))]
     (when row (future (tell bank row notification)))
     {:notification-id (:id notification) :status (if row "accepted" "done")}))
 
-(defn- replay
-  "What the customer has not been shown, oldest first, each marked
-  shown as it is emitted."
-  [bank customer emit]
+(defn- unseen
+  "What the customer has not been shown, oldest first, as they are told
+  it."
+  [bank customer]
   (let-nom> [rows (store/unseen-notifications (ds bank) (:id customer))]
-    (doseq [row rows]
-      (emit (domain/notification-view row
-                                      (json/read-str (:record row)
-                                                     :key-fn
-                                                     keyword)))
-      (store/mark-seen (ds bank) (:id row)))
-    (into #{} (map :id) rows)))
+    (mapv (fn [row] (domain/notification-view row (:record row))) rows)))
 
 (defn open-streams
   [bank customer]
-  (streams/open-count (:streams bank) (:id customer)))
+  (sse/open-count (:streams bank) (:id customer)))
 
 (defn events
-  "Hold the customer's event stream open: first nil, once the stream is
-  subscribed; then what they have not been shown; then each
-  notification as it is recorded, and nil whenever the keep-alive
-  passes with none. Returns when the bank stops or `emit` throws,
-  which is how the app going away reaches here."
+  "Hold the customer's event stream open: what they have not been shown
+  first, then each notification as it is recorded, each marked shown
+  once emitted."
   [bank customer emit]
-  (let [registry (:streams bank)
-        subscription (streams/subscribe! registry (:id customer))]
-    (try
-      (emit nil)
-      (let-nom> [sent (replay bank customer emit)]
-        (loop [sent sent]
-          (let [event (streams/next! subscription (:keep-alive-ms bank))]
-            (cond (= streams/closed event)
-                  nil
-
-                  (nil? event)
-                  (do (emit nil) (recur sent))
-
-                  (contains? sent (:id event))
-                  (recur sent)
-
-                  :else
-                  (do (emit event)
-                      (store/mark-seen (ds bank) (:id event))
-                      (recur (conj sent (:id event))))))))
-      (finally (streams/unsubscribe! registry subscription)))))
+  (sse/serve (:streams bank)
+             (:id customer)
+             emit
+             {:keep-alive-ms (:keep-alive-ms bank)
+              :pending (fn [_] (unseen bank customer))
+              :on-sent (fn [event] (store/mark-seen (ds bank) (:id event)))}))

@@ -265,14 +265,16 @@ resource it can read, writes the notification against the customer the
 record belongs to — an account is a party's, and a party is one
 customer — and pushes it on that customer's event stream.
 
-The stream is one request held open. It says nothing first, once it is
-subscribed, so nothing recorded from then on is missed; then what the
-customer has not been shown, oldest first, each marked shown as it is
-sent; then each notification as it is recorded, and a comment at each
-keep-alive, fifteen seconds by default, so nothing between the app and
-the bank closes it as idle. The app reads it with `fetch` rather than
-`EventSource`, which cannot carry the session as a bearer, and opens it
-again after a moment when it drops.
+The stream is one request held open, served by mono's `sse` brick, the
+bank supplying what is replayed and marking each notification shown. It
+says nothing first, once it is subscribed, so nothing recorded from
+then on is missed; then what the customer has not been shown, oldest
+first, each marked shown as it is sent; then each notification as it is
+recorded, and a comment at each keep-alive, fifteen seconds by
+default, so nothing between the app and the bank closes it as idle. The
+app reads it with `fetch` rather than `EventSource`, which cannot carry
+the session as a bearer, and opens it again after a moment when it
+drops.
 
 The platform could not reach a local receiver as it stood: the address
 rule refused HTTP and every range a developer's machine answers on.
@@ -434,10 +436,10 @@ is decided until the local loop works end to end.
   its stream reaches the bank only when the stream's next write
   fails, a keep-alive later. A notification told in that window is
   pushed to the stream nobody reads, written into a closed socket,
-  and marked shown, so the next stream does not replay it. The app
-  carrying the last id it saw when it reopens, and the bank marking
-  shown only up to that id, would close the window; the demo
-  accepts it.
+  and marked shown, so the next stream does not replay it. `sse`
+  already hands a reopened stream's `Last-Event-ID` to what it
+  replays; the app sending it, and the bank marking shown only up to
+  that id, would close the window. The demo accepts it.
 - **A deposit into an account still opening.** The bank reads an
   account back for up to five seconds after opening it before moving
   the deposit, since the platform refuses a payment into an account
