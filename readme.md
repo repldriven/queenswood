@@ -17,8 +17,21 @@ to read, to run and to change.
 
 [![The console, taking an empty bank to a night's interest](docs/assets/demo-console.png)](https://github.com/user-attachments/assets/f112c363-b7ba-4f83-b96a-88219e3bc554)
 
-Queenswood's console, the web app a fintech's operators use, taking an empty
-bank from its first products to a night's interest.
+Queenswood's console, the web app a fintech's operators use, on a tour of what a
+bank can do. Eleven scenes run live against the API, each on the bank the one
+before left:
+
+1. **Publish** Everyday, with a £50 welcome reward, Rainy Day and 1 Year Fixed.
+2. **Invite** a developer and a viewer to the team.
+3. **Verify** two customers, and reject a third.
+4. **Fund** the bank with £50,000 of its own money.
+5. **Open** an Everyday for each customer.
+6. **Reward** each with £50 from the bank's own funds.
+7. **Move** £30 into a Rainy Day.
+8. **Refuse** a £40 transfer with £20 available.
+9. **Pay** £20 by Faster Payments, the payee's name checked first.
+10. **Migrate** Rainy Day's holders onto a repriced version.
+11. **Accrue** a night's interest, and capitalise it.
 
 [![The demo digital bank's app, a new customer to two open accounts](docs/assets/demo-app.png)](https://github.com/user-attachments/assets/2a4d01fe-3caf-452a-9667-7de984d5bcf4)
 
