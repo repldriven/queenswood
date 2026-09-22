@@ -52,11 +52,12 @@ accounts.
 - **An identity verification provider.** As above: an adapter and a
   simulator.
 - **Somewhere to run it.** Run it on your own infrastructure, follow the
-  [Google Cloud guide](docs/recipes/infra/up-and-running.md), or wait for a
+  [Google Cloud guide](docs/recipes/infra/up-and-running.md), or wait for our
   managed offering.
 
-Queenswood has no production miles yet. It is a research-grade
-platform, built in the open, and the documentation says what is done
+Queenswood has no production miles yet, but it is built to run in production:
+randomised tests check its answers against a model of how a bank should behave,
+scenarios drive the live API end to end, and the documentation says what is done
 and what is not.
 
 ## What you get
@@ -90,8 +91,8 @@ and what is not.
 - **A sandbox on the live code.** Fund your bank with simulated money and run
   the same code, the same API and the same books your customers will.
 - **Source, design and tests in one repository.** The source, the product and
-  design documents, the decisions and the tests, including property tests that
-  hold the running system to a model of it, are all here.
+  design documents, the decisions and the tests, including randomised tests that
+  check its answers against a model of how a bank should behave, are all here.
 
 API reference:
 [repldriven.github.io/queenswood](https://repldriven.github.io/queenswood/),
