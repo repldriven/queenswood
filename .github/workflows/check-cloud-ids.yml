@@ -44,7 +44,7 @@ jobs:
   text:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       # Through the environment rather than an expression. Every value
       # here is attacker-controlled text, and interpolating any of them
