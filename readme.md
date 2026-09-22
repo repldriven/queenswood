@@ -116,11 +116,22 @@ is done and what is not.
 ### Run on a laptop
 
 With no cluster, from a checkout with the
-[development environment](#nix) active: `just monolith-start` starts the
-platform as one process with its containers, `just console-start` serves the
-console on port 5173, and the demo digital bank is
-`just demo-digital-bank-seed`, `just demo-digital-bank-start` and
-`just demo-digital-bank-app-start`, in that order.
+[development environment](#nix) active. Each `start` holds its terminal, so
+run each in one of its own.
+
+```bash
+# The platform, as one process with its containers.
+just monolith-start
+
+# The console, on http://localhost:5173.
+just console-start
+
+# The demo digital bank: seed it on the platform, then start its backend and
+# its app, on http://localhost:5174.
+just demo-digital-bank-seed
+just demo-digital-bank-start
+just demo-digital-bank-app-start
+```
 
 ## For system architects
 
