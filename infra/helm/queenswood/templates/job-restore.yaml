@@ -47,7 +47,7 @@ spec:
       restartPolicy: OnFailure
       initContainers:
         - name: wait-for-fdb-cluster
-          image: alpine/k8s:1.30.14
+          image: alpine/k8s:1.37.0
           command:
             - sh
             - -c
