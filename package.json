@@ -7,6 +7,6 @@
     "bases/demo-digital-bank-app",
     "components/ui"
   ],
-  "packageManager": "yarn@4.17.1",
+  "packageManager": "yarn@4.18.0",
   "$comment": "The Svelte toolchain (svelte, vite, @sveltejs/vite-plugin-svelte) is declared per workspace member, not here: yarn only exposes a binary to a workspace that declares the package shipping it, so with vite at the root alone `yarn workspace console build` cannot find it. `yarn dedupe --check` in the js CI job holds those ranges to one resolved copy each."
 }
