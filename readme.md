@@ -37,7 +37,7 @@ accounts.
 - **Your engineers integrate it into your systems.** They call
   [its API](https://repldriven.github.io/queenswood/), and act on its webhooks
   as your customers bank with you. They can run the whole platform, console
-  and simulators included, [on a laptop](#run-local).
+  and simulators included, [on a laptop](#run-on-a-laptop).
 - **Your operators run the bank day to day in the console.** They watch
   end-of-day processing, look into a customer's account when something does
   not add up, and manage who on the team can do what.
@@ -60,10 +60,6 @@ accounts.
 
 ## What you get
 
-- **One API.** One base URL and one OpenAPI 3.x document, generated from the
-  routes themselves, so what the document says is what the API does. Every write
-  takes an idempotency key, so a retried request replays the first answer rather
-  than paying twice.
 - **Isolated banks.** Your organisation is a bank on the platform, with its own
   products, customers, books, policies and team, and nothing of one is visible
   to another. A bank starts in test and moves to live; tiers set what it may do
@@ -79,7 +75,6 @@ accounts.
   the fraction of a penny it has not paid yet.
 - **Webhooks.** A webhook endpoint per bank, told when an account opens, a
   payment settles, is held or fails, money arrives, or a reward is paid.
-  Deliveries are signed, retried, and re-sendable.
 - **Policies as data.** What a bank may do, and up to what limit, is a policy
   record evaluated when the request arrives, not a conditional compiled into a
   release. Changing what a bank permits is a write.
@@ -88,15 +83,44 @@ accounts.
   credential, and an access log says who did what.
 - **A sandbox on the live code.** Fund your bank with simulated money and run
   the same code, the same API and the same books your customers will.
-- **Source, design and tests in one repository.** The source, the product and
-  design documents, the decisions and the tests are all here.
 
 Queenswood has no production miles yet, but it is built to run in production:
 generated tests check its answers against a model of how a bank should behave,
 scenarios drive the live API end to end, and the documentation says what
 is done and what is not.
 
-## Architecture
+## For application engineers
+
+- **One unified API for the whole bank, with full OpenAPI 3.x
+  compliance.** One base URL and one document, not a service per
+  domain, and the document is generated from the routes themselves so
+  it cannot drift from what the API does.
+  See [ADR-0013](docs/adr/0013-single-unified-api.md) and
+  [ADR-0014](docs/adr/0014-openapi-3x-compliance.md).
+- **Idempotent writes.** Every write takes an idempotency key, so a retried
+  request replays the first answer rather than paying twice.
+  See [idempotency](docs/tdd/idempotency.md).
+- **Signed webhooks.** Deliveries are signed under the
+  [Standard Webhooks](https://www.standardwebhooks.com/) convention, retried,
+  and re-sendable.
+  See [webhooks](docs/tdd/webhooks.md).
+- **A worked example.** The
+  [demo digital bank](docs/prd/demo-digital-bank.md) is a retail banking app
+  built entirely on the API, with its own backend and store, and the reference
+  for building yours.
+
+### Run on a laptop
+
+With no cluster, from a checkout with the
+[development environment](#nix) active: `just monolith-start` starts the
+platform as one process with its containers, `just console-start` serves the
+console on port 5173, and the demo digital bank is
+`just demo-digital-bank-seed`, `just demo-digital-bank-start` and
+`just demo-digital-bank-app-start`, in that order.
+
+## For system architects
+
+### Architecture
 
 The Message Bus (Kafka or Pulsar) carries commands and events
 between Queenswood's processors and external providers; a distributed
@@ -153,25 +177,11 @@ its changelog record, and relayed to the message bus in order through
 the system-wide changelog relay: processors can and do react to
 external adapter events too.
 
-## What's interesting
+### Design decisions
 
 The engineering decisions that make this codebase worth reading, each
 with a doc that goes deep:
 
-- **One unified API for the whole bank, with full OpenAPI 3.x
-  compliance.** One base URL and one document, not a service per
-  domain, and the document is generated from the routes themselves so
-  it cannot drift from what the API does.
-  See [ADR-0013](docs/adr/0013-single-unified-api.md) and
-  [ADR-0014](docs/adr/0014-openapi-3x-compliance.md).
-- **Policy is data, not code.** Capabilities and limits are records
-  evaluated at runtime, not conditionals compiled into a release, so
-  changing what a bank permits is a write.
-  See [policy-evaluation](docs/tdd/policy-evaluation.md).
-- **Money is integers, and the remainder is kept.** Amounts are
-  integers end to end, never floats, and interest carries the
-  sub-minor-unit remainder between days rather than rounding it away.
-  See [interest](docs/tdd/interest.md).
 - **System-level and model-equality property testing.** Two state
   machines fed the same commands: the real system, and a model that
   imports nothing from it, no database, no protobuf, no shared code.
@@ -206,7 +216,7 @@ with a doc that goes deep:
   ground under a bank moves only when someone decides it should.
   See [ADR-0001](docs/adr/0001-reuse-mono-as-upstream.md).
 
-## Documentation
+### Documentation
 
 The bank is documented end to end — the why, the how, and the
 decisions in between:
@@ -240,13 +250,13 @@ decision it came from. It is also why a recipe has a fixed shape: the
 then checked again at commit time, by formatting, linting, and a set of
 repo-specific guardrails.
 
-## Running
+## For infrastructure engineers
 
 The released Helm chart deploys the entire platform (API,
 processors, adapters/simulators, web console,
 Kafka or Pulsar, FoundationDB) onto any Kubernetes cluster.
 
-### Run local
+### Run on a local cluster
 
 **Start a cluster** on macOS, with Colima and kind:
 
@@ -278,13 +288,6 @@ In the console, **Sandbox › Scenarios** runs the platform for real
 against your cluster — open Jaeger alongside it at
 [localhost:16686](http://localhost:16686) to watch the spans each
 scenario produces.
-
-**Or run it on a laptop**, with no cluster, from a checkout with the
-development environment below active: `just monolith-start` starts the
-platform as one process with its containers, `just console-start`
-serves the console on port 5173, and the demo digital bank is
-`just demo-digital-bank-seed`, `just demo-digital-bank-start` and
-`just demo-digital-bank-app-start`, in that order.
 
 The full quickstart — including tear-down — ships with
 each
@@ -324,7 +327,7 @@ backups and the key they are encrypted under, and the DNS zone outlives
 anything disposable. The instance project below it is rebuilt whenever
 an instance is.
 
-## Developing
+## For contributors
 
 ### Nix
 
@@ -377,7 +380,7 @@ REPL-driven development follows the standard Polylith pattern.
   :-)
 ```
 
-## Built on mono
+### Built on mono
 
 [mono](https://github.com/repldriven/mono) is a Clojure component
 library for distributed systems, built on
