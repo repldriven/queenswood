@@ -127,6 +127,16 @@
         {/snippet}
         Policies
       </SidenavItem>
+      <SidenavItem href="#/bank" title="Bank" current={isCurrent("/bank")}>
+        {#snippet icon()}
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M2 6 L8 2.5 L14 6" />
+            <path d="M3 6.5 V12.5 M6.4 6.5 V12.5 M9.6 6.5 V12.5 M13 6.5 V12.5" />
+            <path d="M2 13.5 H14" />
+          </svg>
+        {/snippet}
+        Bank
+      </SidenavItem>
     </SidenavGroup>
   </Sidenav>
 

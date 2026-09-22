@@ -7,7 +7,12 @@
      the bank is provisioned and bound.
 
      All lookups go through the backend (/v1/companies/...);
-     onboarding re-confirms and snapshots the entity onto the bank. */
+     onboarding re-confirms and snapshots the entity onto the bank.
+
+     `fresh` is the same flow reached from inside the app, from the
+     Bank page's danger zone: a person who already holds a bank
+     starting another, with a way back to the console until the new
+     bank exists. */
 
   import { AppNav } from "@queenswood/ui";
   import { lookup_company, onboard } from "./api.mjs";
@@ -22,7 +27,7 @@
     COMPANY_NUMBER_LENGTH,
   } from "./companies.mjs";
 
-  let { onComplete, onSignOut } = $props();
+  let { onComplete, onSignOut, onCancel, fresh = false } = $props();
 
   const ID_LABEL = "Companies House number";
 
@@ -118,8 +123,12 @@
 
   <main class="wrap">
     <header class="head">
-      <span class="eyebrow">Console · onboarding</span>
-      <h1>Welcome to <em>Queenswood.</em></h1>
+      <span class="eyebrow">Console · {fresh ? "fresh bank" : "onboarding"}</span>
+      {#if fresh}
+        <h1>A fresh <em>bank.</em></h1>
+      {:else}
+        <h1>Welcome to <em>Queenswood.</em></h1>
+      {/if}
       <p class="lede">{LEDES[step]}</p>
     </header>
 
@@ -224,6 +233,11 @@
         </div>
       {/if}
     </section>
+    {#if onCancel && step < 4}
+      <p class="back">
+        <button type="button" class="link" onclick={onCancel}>Back to the console, keeping the bank you have</button>
+      </p>
+    {/if}
   </main>
 </div>
 
@@ -267,6 +281,7 @@
   .hint { font-size: 12.5px; color: var(--fg-muted); line-height: 1.5; }
   .hint code { font-family: var(--mono); font-size: 11px; background: var(--surface-sunk); padding: 1px 5px; border-radius: 3px; }
   .link { background: none; border: none; padding: 0; color: var(--gold-deep); font: inherit; cursor: pointer; text-decoration: underline; }
+  .back { margin: 18px 0 0; text-align: center; font-size: 13px; }
 
   .num-input {
     font-family: var(--mono); height: 52px; font-size: 22px; letter-spacing: 0.28em;
