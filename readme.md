@@ -50,10 +50,8 @@ accounts.
 ## What you bring
 
 - **A banking licence**, or a partner who holds one.
-- **A clearing partner** for Faster Payments. An adapter for one is
-  included, with a simulator that stands in for it locally.
-- **An identity verification provider.** As above: an adapter and a
-  simulator.
+- **A clearing partner** for Faster Payments.
+- **An identity verification provider.**
 - **Somewhere to run it.** Run it on your own infrastructure, follow the
   [Google Cloud guide](docs/recipes/infra/up-and-running.md), or wait for our
   managed offering.
@@ -64,6 +62,8 @@ accounts.
   products, customers, books, policies and team, and nothing of one is visible
   to another. A bank starts in test and moves to live; tiers set what it may do
   and how much.
+- **Customer onboarding.** Every new customer is identity-checked as they sign
+  up, and cannot open an account until the check clears.
 - **Product changes without a release.** Change a rate, add a welcome reward
   or launch a new term without shipping software. Existing customers move to
   the new terms only when you plan and approve it.
@@ -71,6 +71,9 @@ accounts.
   Payments in seconds, with the payee's name checked first. Every movement is
   recorded as matching debits and credits, so the books always balance, down
   to fractions of a penny of interest.
+- **Your providers, plugged in.** Clearing and identity verification each
+  connect through an adapter, and a simulator stands in for each provider, so
+  you can build and test before a contract is signed.
 - **Real-time notifications.** Your systems are told as it happens when an
   account opens, money arrives or a payment settles, so your customers can be
   too.
