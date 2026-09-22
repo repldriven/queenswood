@@ -292,9 +292,12 @@ each
 
 ### Run on Google Cloud
 
-A work in progress: a blueprint for deploying and managing a Queenswood
-instance on Google Cloud. The pieces below exist and run; the path
-through them is still being worked out.
+A blueprint for running Queenswood on Google Cloud, guided by Google's
+[enterprise foundations blueprint](https://cloud.google.com/architecture/security-foundations):
+each installation is a folder of its own, people hold read-only access and
+join an empty group to change anything, the foundations are protected by
+liens rather than convention, and organisation security policies are enforced
+from the first project.
 
 No command deploys an installation. An installation is a manifest in a private
 repository, and a management plane running Crossplane and Argo CD reconciles
