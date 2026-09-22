@@ -10,8 +10,8 @@ description: |
 type: application
 # One number, bumped together by `just release`: the chart is versioned
 # as the images it installs, and a merged bump is what releases both.
-version: 0.0.2
-appVersion: "0.0.2"
+version: 0.0.3
+appVersion: "0.0.3"
 icon: https://avatars.githubusercontent.com/repldriven
 kubeVersion: ">=1.27.0-0"
 
