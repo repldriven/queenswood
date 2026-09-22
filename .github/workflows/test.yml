@@ -22,7 +22,10 @@ jobs:
   # `on.push.paths`: branch protection requires the `tests` check, and a
   # workflow skipped at the trigger never reports it.
   changes:
-    runs-on: ubuntu-latest
+    # Pinned, here and in every workflow: the ubuntu-latest label moves
+    # to Ubuntu 26 on 19 October 2026, and a pinned label moves when a
+    # change says so rather than on a date GitHub picks.
+    runs-on: ubuntu-24.04
 
     outputs:
       clojure: ${{ steps.decide.outputs.clojure }}
@@ -50,7 +53,7 @@ jobs:
   # Ungated — the pins it checks live in Helm values and Dockerfile ARG
   # defaults, not only in deps.edn.
   versions:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     name: check pinned versions
 
     steps:
@@ -68,7 +71,7 @@ jobs:
   discover:
     needs: changes
     if: needs.changes.outputs.clojure == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     outputs:
       projects: ${{ steps.projects.outputs.matrix }}
@@ -91,7 +94,7 @@ jobs:
 
   test:
     needs: discover
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     strategy:
       fail-fast: false
@@ -121,13 +124,13 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Setup Java
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           distribution: "temurin"
           java-version: "21"
 
       - name: Setup Clojure
-        uses: DeLaGuardo/setup-clojure@13.6.1
+        uses: DeLaGuardo/setup-clojure@13.7.0
         with:
           cli: latest
 
@@ -223,7 +226,7 @@ jobs:
       # workflow expression for every entry.
       - name: Report coverage
         if: always()
-        uses: zgosalvez/github-actions-report-lcov@v7.1.0
+        uses: zgosalvez/github-actions-report-lcov@v7.2.1
         with:
           coverage-files: target/coverage/${{ matrix.project == 'dev' && 'development' || matrix.project }}/lcov.info
           minimum-coverage: ${{ matrix.project == 'dev' && 80 || 0 }}
@@ -245,7 +248,7 @@ jobs:
   js:
     needs: changes
     if: needs.changes.outputs.js == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     name: js build
 
     steps:
@@ -261,13 +264,32 @@ jobs:
       # global yarn 1, which refuses a project pinned to yarn 4; corepack
       # below provides the pinned version.
       - name: Setup Node
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v7
         with:
           node-version: 24
           package-manager-cache: false
 
       - name: Enable corepack
         run: corepack enable
+
+      # The console image copies each workspace member's manifest before
+      # `yarn install --immutable`, and a member it does not copy fails
+      # that install as a lockfile yarn would have changed -- which no
+      # test here runs, so the release is where it would surface.
+      - name: Check the console image copies every workspace manifest
+        run: |
+          missing=0
+          for ws in $(jq -r '.workspaces[]' package.json); do
+            if ! grep -qE "^COPY $ws/package\.json " infra/docker/console/Dockerfile; then
+              echo "::error::infra/docker/console/Dockerfile does not COPY $ws/package.json"
+              missing=1
+            fi
+            if ! grep -qE "^!$ws(/package\.json)?$" infra/docker/console/Dockerfile.dockerignore; then
+              echo "::error::infra/docker/console/Dockerfile.dockerignore does not admit $ws/package.json"
+              missing=1
+            fi
+          done
+          exit $missing
 
       # --immutable fails if the lockfile would change.
       - name: Install
@@ -291,7 +313,7 @@ jobs:
   helm:
     needs: changes
     if: needs.changes.outputs.helm == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     name: helm validate
 
     steps:
@@ -336,7 +358,7 @@ jobs:
   tests:
     if: always()
     needs: [versions, test, js, helm]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Check results
         env:
@@ -387,7 +409,7 @@ jobs:
       && needs.tests.result == 'success'
       && github.event_name == 'push'
       && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     permissions:
       contents: write
