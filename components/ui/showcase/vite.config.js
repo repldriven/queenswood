@@ -5,7 +5,7 @@ import { svelte } from "@sveltejs/vite-plugin-svelte";
 // that imports directly from ../src/. Run with `yarn vite` (or
 // `yarn dev` if you wire a script into ui's package.json).
 export default defineConfig({
-  root: __dirname,
+  root: import.meta.dirname,
   plugins: [svelte()],
   server: {
     // Pinned to 5176 so the showcase doesn't compete with console

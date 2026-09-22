@@ -97,11 +97,12 @@
       ]
     },
     {
-      "description": "CI runs `yarn dedupe --check`, and an update that raises a shared transitive dependency leaves the old copy resolved beside the new unless the lockfile is deduplicated after it.",
+      "description": "Every direct npm dependency is declared `^X.Y.Z`, and `bump` raises that floor with each update rather than moving the lockfile alone, so a package two members declare reads as one version in `poly libs`. CI runs `yarn dedupe --check`, and an update that raises a shared transitive dependency leaves the old copy resolved beside the new unless the lockfile is deduplicated after it.",
       "groupName": "npm",
       "matchManagers": [
         "npm"
       ],
+      "rangeStrategy": "bump",
       "postUpdateOptions": [
         "yarnDedupeHighest"
       ]
