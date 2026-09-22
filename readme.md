@@ -31,8 +31,8 @@ accounts.
 
 ## How it is used
 
-- **Your product team designs products in the console.** They publish each
-  version and plan the migrations that move holders onto a new one.
+- **Your product team designs what you sell.** They publish each version in the
+  console, and plan the migrations that move holders onto a new one.
 - **Your engineers integrate it into your systems.** They call
   [its API](https://repldriven.github.io/queenswood/), and act on its webhooks
   as your customers bank with you.
@@ -93,11 +93,6 @@ Queenswood has no production miles yet, but it is built to run in production:
 generated tests check its answers against a model of how a bank should behave,
 scenarios drive the live API end to end, and the documentation says what
 is done and what is not.
-
-API reference:
-[repldriven.github.io/queenswood](https://repldriven.github.io/queenswood/),
-or live OpenAPI at [localhost:8080](http://localhost:8080) when
-running.
 
 ## Architecture
 
