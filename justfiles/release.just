@@ -3,7 +3,7 @@
 # builds and publishes the images and the chart (.github/workflows/release.yml).
 CHART := "infra/helm/queenswood/Chart.yaml"
 
-# Open the pull request that releases `version`, the next patch above origin/main's when empty. Cuts release-<version> off origin/main and refuses a version already tagged.
+# Open the pull request that releases `version`, the next patch above origin/main's when empty. Cuts release-<version> off origin/main, or finishes on it after a failed run, and refuses a version already tagged.
 release version="":
     #!/usr/bin/env zsh
     set -e
@@ -29,7 +29,13 @@ release version="":
       echo "v$VERSION is already released" >&2
       exit 1
     fi
-    just gh-fresh-branch "release-$VERSION"
+    # A rerun after the commit or the push failed: the branch exists with
+    # the edit on it, so redo the edit and finish rather than refusing.
+    if [[ "$(git rev-parse --abbrev-ref HEAD)" == "release-$VERSION" ]]; then
+      echo "already on release-$VERSION; finishing the release"
+    else
+      just gh-fresh-branch "release-$VERSION"
+    fi
     sed -e "s/^version: .*/version: $VERSION/" \
         -e "s/^appVersion: .*/appVersion: \"$VERSION\"/" {{ CHART }} > {{ CHART }}.tmp
     mv {{ CHART }}.tmp {{ CHART }}
