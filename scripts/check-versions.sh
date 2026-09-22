@@ -126,6 +126,15 @@ check "keycloak-operator vendored CRD accepts server schema" "yes" \
       infra/helm/queenswood/charts/keycloak-operator/crds/crd-keycloakrealmimports.yaml \
       && echo yes || echo no)"
 
+# A release is the chart's version, and the images it installs default to
+# its appVersion, so the two are one number `just release` bumps together;
+# a chart whose fields differ would install another release's images.
+qwchart=infra/helm/queenswood/Chart.yaml
+qwversion=$(awk '/^version:/ {print $2}' "$qwchart")
+echo "queenswood chart $qwversion"
+check "queenswood Chart.yaml appVersion" "$qwversion" \
+  "$(sed -n 's/^appVersion: "\(.*\)"$/\1/p' "$qwchart" | head -1)"
+
 # The management plane installs Crossplane onto its own cluster through a
 # composed helm Release, so the chart version is pinned in a Composition --
 # where Renovate cannot see it. Renovate does bump the xp-mp chart's

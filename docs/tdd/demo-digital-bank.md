@@ -430,6 +430,14 @@ is decided until the local loop works end to end.
 - **A stream is a thread.** Each open event stream holds one of the
   server's threads for its life, which is fine for a demo and not for
   a bank.
+- **A drop is noticed a keep-alive late.** The app closing or losing
+  its stream reaches the bank only when the stream's next write
+  fails, a keep-alive later. A notification told in that window is
+  pushed to the stream nobody reads, written into a closed socket,
+  and marked shown, so the next stream does not replay it. The app
+  carrying the last id it saw when it reopens, and the bank marking
+  shown only up to that id, would close the window; the demo
+  accepts it.
 - **A deposit into an account still opening.** The bank reads an
   account back for up to five seconds after opening it before moving
   the deposit, since the platform refuses a payment into an account

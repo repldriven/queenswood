@@ -30,7 +30,7 @@ spec:
         # the rationale (kubelet ConfigMap refresh races + the
         # operator's two-step create-then-populate ConfigMap).
         - name: wait-for-fdb-cluster
-          image: alpine/k8s:1.30.14
+          image: alpine/k8s:1.37.0
           command:
             - sh
             - -c
@@ -66,7 +66,7 @@ spec:
         # Kafka topics, and the policy + product-template seed.
         # Services read those from FDB at startup.
         - name: wait-for-bootstrap
-          image: alpine/k8s:1.30.14
+          image: alpine/k8s:1.37.0
           command:
             - sh
             - -c
@@ -81,7 +81,7 @@ spec:
         # Adapters use this to wait for their simulator before the
         # async webhook registration kicks off.
         - name: wait-for-{{ $dep.service }}
-          image: alpine/k8s:1.30.14
+          image: alpine/k8s:1.37.0
           command:
             - sh
             - -c
@@ -101,7 +101,7 @@ spec:
         {{- end }}
       containers:
         - name: {{ $svcName }}
-          image: "{{ $.Values.image.registry }}/{{ $svcName }}:{{ $.Values.image.tag }}"
+          image: "{{ $.Values.image.registry }}/{{ $svcName }}:{{ include "queenswood.imageTag" $ }}"
           imagePullPolicy: {{ include "queenswood.imagePullPolicy" $ }}
           {{- if and $svc.http $svc.port }}
           ports:

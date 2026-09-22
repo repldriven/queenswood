@@ -14,7 +14,7 @@ imagePullSecrets:
 restartPolicy: OnFailure
 initContainers:
   - name: wait-for-fdb-cluster
-    image: alpine/k8s:1.30.14
+    image: alpine/k8s:1.37.0
     command:
       - sh
       - -c
@@ -48,7 +48,7 @@ initContainers:
   # on safely" -- it would permanently destroy the ability to
   # restore. Failing loudly here is the lesser outcome.
   - name: wait-for-restore
-    image: alpine/k8s:1.30.14
+    image: alpine/k8s:1.37.0
     command:
       - sh
       - -c
@@ -58,7 +58,7 @@ initContainers:
   {{- end }}
 containers:
   - name: migrator
-    image: "{{ .Values.image.registry }}/migrator-service:{{ .Values.image.tag }}"
+    image: "{{ .Values.image.registry }}/migrator-service:{{ include "queenswood.imageTag" . }}"
     imagePullPolicy: {{ include "queenswood.imagePullPolicy" $ }}
     # Override the baked config file so the channel-bus monolith
     # can point the migrator at a Kafka-free config (FDB metadata
