@@ -33,8 +33,8 @@ accounts.
 
 - **Your product team designs products in the console.** They publish each
   version and plan the migrations that move holders onto a new one.
-- **Your engineers integrate it into your systems.** They use the parts of the
-  API your product needs, and your customers never reach it directly.
+- **Your engineers integrate it into your systems.** They call its API, and act
+  on the webhooks it sends as your bank's records change.
 - **Your operators run the bank day to day in the console.** They watch
   end-of-day processing, look into a customer's account when something does
   not add up, and manage who on the team can do what.
