@@ -46,7 +46,7 @@ permissions:
 
 jobs:
   prune:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       # Don't let a single package's failure (e.g. transient API
       # error, or a package that doesn't exist yet on a fresh

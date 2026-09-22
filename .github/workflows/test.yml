@@ -22,7 +22,7 @@ jobs:
   # `on.push.paths`: branch protection requires the `tests` check, and a
   # workflow skipped at the trigger never reports it.
   changes:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     outputs:
       clojure: ${{ steps.decide.outputs.clojure }}
@@ -50,7 +50,7 @@ jobs:
   # Ungated — the pins it checks live in Helm values and Dockerfile ARG
   # defaults, not only in deps.edn.
   versions:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     name: check pinned versions
 
     steps:
@@ -68,7 +68,7 @@ jobs:
   discover:
     needs: changes
     if: needs.changes.outputs.clojure == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     outputs:
       projects: ${{ steps.projects.outputs.matrix }}
@@ -91,7 +91,7 @@ jobs:
 
   test:
     needs: discover
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     strategy:
       fail-fast: false
@@ -245,7 +245,7 @@ jobs:
   js:
     needs: changes
     if: needs.changes.outputs.js == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     name: js build
 
     steps:
@@ -310,7 +310,7 @@ jobs:
   helm:
     needs: changes
     if: needs.changes.outputs.helm == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     name: helm validate
 
     steps:
@@ -355,7 +355,7 @@ jobs:
   tests:
     if: always()
     needs: [versions, test, js, helm]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Check results
         env:
@@ -406,7 +406,7 @@ jobs:
       && needs.tests.result == 'success'
       && github.event_name == 'push'
       && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     permissions:
       contents: write
