@@ -56,9 +56,9 @@ accounts.
   managed offering.
 
 Queenswood has no production miles yet, but it is built to run in production:
-generated tests check its answers against a model of how a bank should behave,
-scenarios drive the live API end to end, and the documentation says what is done
-and what is not.
+generated tests check its answers against a model of how a bank should behave
+and that the books tie after every step, scenarios drive the live API end to
+end, and the documentation says what is done and what is not.
 
 ## What you get
 
