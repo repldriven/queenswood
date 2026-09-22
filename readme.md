@@ -81,8 +81,7 @@ accounts.
   within, are settings checked on every request, so changing them ships no
   code.
 - **An audit trail.** Everyone on your team signs in as themselves with a
-  role, and a log records who did what, which is the answer an auditor asks
-  for.
+  role, and a log records who did what.
 - **A sandbox.** Try everything with simulated money, on the same software
   your customers will use.
 - **No lock-in.** The source is yours to read, run and change, under the MIT
@@ -116,8 +115,7 @@ is done and what is not.
 ### Run on a laptop
 
 With no cluster, from a checkout with the
-[development environment](#nix) active. Each `start` holds its terminal, so
-run each in one of its own.
+[development environment](#nix) active:
 
 ```bash
 # The platform, as one process with its containers.
