@@ -54,7 +54,7 @@ jobs:
       fail-fast: false
       matrix:
         # Images must track the target list in infra/docker/bake.hcl,
-        # charts the loop in release-chart.yml.
+        # charts the one release.yml pushes.
         package:
           - queenswood/migrator-service
           - queenswood/bootstrap-service
