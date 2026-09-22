@@ -1,8 +1,8 @@
 {{- if eq (include "queenswood.keycloakMode" .) "dev" }}
 {{- /*
-  Dev-only Keycloak. Single replica, `start-dev` (embedded H2 DB),
-  with the realm JSON from files/keycloak-realm.json imported at
-  startup. The Service name matches the default
+  Dev-only Keycloak. Single replica, `start-dev` (embedded H2 DB, on
+  a volume), with the realm JSON from files/keycloak-realm.json
+  imported at the first start. The Service name matches the default
   `keycloak.baseUrl` so bank-api's existing config resolves
   without override. `keycloak.mode: operator` runs the
   operator-managed instance instead, on the same Service name.
@@ -26,10 +26,12 @@ data:
   # this template: the operator-mode Job imports the files as they are
   # and reconciles the deployed origins over the Admin API instead.
   realm.json: |-
-{{ include "queenswood.devRealmWithRedirects"
-     (dict "realm" (.Files.Get "files/keycloak-realm.json")
-           "clientId" .Values.keycloak.consoleClientId
-           "uris" .Values.keycloak.dev.consoleRedirectUris) | indent 4 }}
+{{ include "queenswood.devRealmWithUser"
+     (dict "realm" (include "queenswood.devRealmWithRedirects"
+                     (dict "realm" (.Files.Get "files/keycloak-realm.json")
+                           "clientId" .Values.keycloak.consoleClientId
+                           "uris" .Values.keycloak.dev.consoleRedirectUris))
+           "user" .Values.keycloak.dev.user) | indent 4 }}
   realm-ops.json: |-
 {{ include "queenswood.devRealmWithRedirects"
      (dict "realm" (.Files.Get "files/keycloak-realm-ops.json")
@@ -71,6 +73,23 @@ spec:
       protocol: TCP
       name: http
 ---
+# The realms' state, kept across restarts as FoundationDB's is: the
+# certificate the bootstrap Job registers on the admin client, each
+# bank's service-account client and every user's id live here, and
+# FoundationDB's records refer to them. The realm files are imported
+# only when the realm does not yet exist.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-keycloak-dev-data
+  labels:
+    {{- include "queenswood.labels" . | nindent 4 }}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: {{ .Values.keycloak.dev.storage | quote }}
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -80,6 +99,15 @@ metadata:
     app.kubernetes.io/component: keycloak-dev
 spec:
   replicas: 1
+  # H2 locks its file, so a new pod cannot open the database until the
+  # old one has let it go: the old pod stops before the new one starts.
+  # Recreate would say the same, but an existing Deployment carries
+  # rollingUpdate defaults that Recreate refuses on an upgrade.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ .Chart.Name }}
@@ -109,19 +137,19 @@ spec:
               value: "true"
             - name: KC_HTTP_ENABLED
               value: "true"
-            # Trust X-Forwarded-Proto + X-Forwarded-Host from the SPA
-            # nginx so Keycloak generates discovery URLs, redirect
-            # URLs, and the JWT `iss` claim based on the SPA's
-            # public origin (http://localhost:8081 / 8082) rather
-            # than its own in-cluster Service name. HOSTNAME_STRICT
-            # =false relaxes Keycloak's default requirement that
-            # requests match a configured hostname -- safe for the
-            # dev bundle, off in operator mode (the
-            # sets a fixed hostname there).
+            # The issuer, pinned to where the browser reaches Keycloak
+            # through the console's proxy, so a token carries the same
+            # `iss` however it was minted -- see _helpers.tpl for why.
+            # BACKCHANNEL_DYNAMIC lets the services, which reach the
+            # Service instead, be answered on the address they asked.
+            - name: KC_HOSTNAME
+              value: {{ include "queenswood.keycloakIssuer" . | quote }}
+            - name: KC_HOSTNAME_BACKCHANNEL_DYNAMIC
+              value: "true"
+            # Trust X-Forwarded-Proto + X-Forwarded-Host from the
+            # console's nginx.
             - name: KC_PROXY_HEADERS
               value: "xforwarded"
-            - name: KC_HOSTNAME_STRICT
-              value: "false"
             # Run Keycloak under the `/keycloak/` path so the same-
             # origin SPA proxy works without rewriting URLs in the
             # discovery doc. Keycloak doesn't honour X-Forwarded-
@@ -158,6 +186,8 @@ spec:
             - name: realm-import
               mountPath: /opt/keycloak/data/import
               readOnly: true
+            - name: data
+              mountPath: /opt/keycloak/data/h2
             # The queenswood login theme. Two subPath mounts so the
             # theme tree gets the directory shape Keycloak's loader
             # expects (theme.properties at the login/ root,
@@ -184,4 +214,7 @@ spec:
         - name: kc-theme
           configMap:
             name: {{ .Release.Name }}-keycloak-dev-theme
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-keycloak-dev-data
 {{- end }}

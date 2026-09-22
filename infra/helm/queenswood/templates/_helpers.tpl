@@ -234,6 +234,9 @@ through to whichever branch happens to be last.
 {{- if not (has $m (list "dev" "operator" "external")) -}}
 {{- fail (printf "keycloak.mode %q is not one of dev, operator, external" $m) -}}
 {{- end -}}
+{{- if and (ne $m "dev") .Values.keycloak.dev.user.username -}}
+{{- fail (printf "keycloak.dev.user is for keycloak.mode dev, a local cluster, and this release is %q" $m) -}}
+{{- end -}}
 {{ $m }}
 {{- end -}}
 
@@ -299,12 +302,22 @@ what a browser is redirected to; without one, everything that reads a
 token is in this cluster and the Service is. Supplying a domain
 therefore moves the issuer, which is intended -- tokens minted under
 the old one stop verifying.
+
+The dev bundle is the exception. A browser signs in through the
+console's same-origin proxy and every service reaches the Service, so
+Keycloak is reached two ways, and left to derive the issuer from the
+request it names whichever one asked: the console's tokens then carry
+the proxy's origin while the services expect the Service's. The dev
+Keycloak is pinned to where the browser reaches it instead, the one URL
+both sides can agree on.
 */ -}}
 {{- define "queenswood.keycloakIssuer" -}}
 {{- if .Values.keycloak.issuer -}}
 {{ .Values.keycloak.issuer }}
 {{- else if and (eq (include "queenswood.keycloakMode" .) "operator") .Values.keycloak.host.domain -}}
 https://{{ include "queenswood.keycloakHost" . }}
+{{- else if eq (include "queenswood.keycloakMode" .) "dev" -}}
+{{ include "queenswood.consoleKeycloakUrl" . }}
 {{- else -}}
 {{ include "queenswood.keycloakBaseUrl" . }}
 {{- end -}}
@@ -375,6 +388,37 @@ so nothing is round-tripped for nothing.
 {{- end -}}
 {{- end -}}
 {{ set $parsed "clients" $clients | toJson }}
+{{- else -}}
+{{ .realm }}
+{{- end -}}
+{{- end -}}
+
+{{- /*
+A realm JSON with a password user added, for the dev bundle alone.
+
+The committed realms carry no password user: a deployed realm is
+reachable from the internet, and the only sign-in it offers is Google.
+The dev bundle runs on the developer's own machine with no Google
+client, so without one nobody can sign in to its console at all. It
+imports the files at startup, so the user is added here at render time,
+as the redirect URIs are.
+
+Takes `realm` (the file's contents) and `user` (`username`, `password`,
+`email`). Returns the input untouched when `user.username` is empty.
+*/ -}}
+{{- define "queenswood.devRealmWithUser" -}}
+{{- if .user.username -}}
+{{- $parsed := .realm | fromJson -}}
+{{- $user := dict "username" .user.username
+                  "email" .user.email
+                  "emailVerified" true
+                  "enabled" true
+                  "firstName" "Dev"
+                  "lastName" "User"
+                  "credentials" (list (dict "type" "password"
+                                            "value" .user.password
+                                            "temporary" false)) -}}
+{{ set $parsed "users" (append (default (list) $parsed.users) $user) | toJson }}
 {{- else -}}
 {{ .realm }}
 {{- end -}}

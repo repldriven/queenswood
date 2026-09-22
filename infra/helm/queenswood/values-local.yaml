@@ -1,0 +1,12 @@
+# A local cluster's sign-in: the `dev` / `dev` user the console signs in
+# as, added to the dev bundle's realm at render time and so present from
+# the realm's first import. Passed by the readme's install and the kind
+# recipes, and by no deployment -- the render fails if it meets any
+# Keycloak mode but `dev`.
+
+keycloak:
+  dev:
+    user:
+      username: dev
+      password: dev
+      email: dev@queenswood.local

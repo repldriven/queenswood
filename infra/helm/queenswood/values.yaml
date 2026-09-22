@@ -153,6 +153,19 @@ keycloak:
     adminUser: admin
     adminPassword: admin
 
+    # A password user the template adds to the organisation realm at
+    # render time, since the committed realms carry none. Empty adds
+    # nobody, and a username outside dev mode fails the render: a local
+    # cluster names one with values-local.yaml, and no deployment does.
+    user:
+      username: ""
+      password: ""
+      email: ""
+
+    # The H2 database the realms live in, on a volume so a restart keeps
+    # what the platform's records refer to.
+    storage: 1Gi
+
     # The local origins the committed realms no longer carry. The realm
     # pair a deployment imports lists no `localhost` redirect URI, so
     # nothing there widens a deployed realm by accident; the dev bundle
