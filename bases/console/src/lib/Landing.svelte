@@ -338,13 +338,14 @@
       <div>
         <span class="eyebrow">Banking platform · v0.1.0</span>
         <h1 class="title">
-          Core banking,<br /><em>modernized.</em>
+          Open-source<br /><em>core banking.</em>
         </h1>
         <p class="lede">
-          Everything a modern fintech needs to operate as a bank — a double-entry
-          ledger, UK Faster Payments, customer KYC, configurable policies, and
-          scheduled interest — under one unified OpenAPI. Use the hosted edition,
-          or self-host the open core. MIT-licensed.
+          Whether you're building a bank or embedding banking into your product,
+          Queenswood runs the banking behind it: customer onboarding with identity
+          checks, products and accounts, payments, a general ledger and
+          end-of-day processing, all configured and driven through one API.
+          MIT-licensed.
         </p>
         <div class="ctas">
           <button class="btn solid" onclick={goSignIn}>Sign in</button>
