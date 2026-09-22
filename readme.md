@@ -83,6 +83,9 @@ accounts.
   role, and a log records who did what.
 - **A sandbox.** Try everything with simulated money, on the same software
   your customers will use.
+- **Product requirements.** Every capability has a
+  [requirements document](docs/prd/) saying what it's for and who uses it, in
+  product language.
 - **No lock-in.** The source is yours to read, run and change, under the MIT
   licence, on infrastructure you choose.
 
@@ -218,34 +221,23 @@ The main engineering decisions, each with its document:
   happens only when someone bumps the pin. See
   [ADR-0001](docs/adr/0001-reuse-mono-as-upstream.md).
 
-### Documentation
+### Technical documentation
 
 Queenswood's documents live under `docs/`:
 
-- **[docs/prd/](docs/prd/)** — what each capability is for and who uses it, in
-  product language: intended scope, users, and the domain rules that follow.
 - **[docs/tdd/](docs/tdd/)** — how it's built, one document per capability and
   subsystem, from storage up to the API.
 - **[docs/adr/](docs/adr/)** — the decisions, each with the context that
   forced it and the consequences accepted. Kept as a record, so one that has
-  been superseded says so rather than being rewritten. The decisions mono owns
-  are laid down beside these by `just mono-import`, at the sha the dependency
-  pins.
+  been superseded says so rather than being rewritten.
 - **[docs/recipes/](docs/recipes/)** — task-oriented guides in a fixed shape
   (Problem, Solution, Failures, Rules, Discussion) for the things you do
-  repeatedly in this codebase. The recipes mono owns — writing to its bricks,
-  and testing against them — are laid down beside these by the same import.
-- **[docs/slides/](https://github.com/repldriven/mono/tree/main/docs/slides)**
-  — mono's slidev walk-through of how systems-as-data assembles a running
-  system, laid down here by the same import.
+  repeatedly in this codebase.
 
 Nearly every ADR and recipe carries a label binding it to a rule plugin, and
 the rules an agent loads on every task in this repo are regenerated from those
 documents rather than written alongside them, so an agent's rules always match
-the decision they came from. It's also why a recipe has a fixed shape: the
-`Rules` block is the part that gets extracted. The most important rules are
-also checked when you commit, by formatting, linting and repo-specific
-guardrails.
+the decision they came from.
 
 ## For infrastructure engineers
 
