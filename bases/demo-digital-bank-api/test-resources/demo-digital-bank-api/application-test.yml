@@ -60,6 +60,13 @@ system:
       store: !system/local-ref store
       platform: !system/local-ref platform
       sign-up-code: "123456"
+      # Short under test, so a stream the test has closed is noticed a
+      # keep-alive later rather than fifteen seconds later: the bank
+      # learns a stream is gone only when a write to it fails. Nil for
+      # the local loop leaves the component's default.
+      keep-alive-ms: !profile
+        dev: ~
+        default: 250
       # The secret the seed's registration returned, under which the
       # platform signs what it delivers.
       webhook-secret: !profile

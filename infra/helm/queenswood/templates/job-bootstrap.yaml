@@ -128,7 +128,7 @@ initContainers:
   # openssl, because alpine/k8s carries curl, jq, kubectl and helm but
   # not openssl. Only runs where the Secret held nothing.
   - name: generate-admin-client-key
-    image: alpine/openssl:3.5.7
+    image: alpine/openssl:3.5.8
     command:
       - sh
       - -c
@@ -262,7 +262,7 @@ initContainers:
   {{- end }}
 containers:
   - name: bootstrap
-    image: "{{ .Values.image.registry }}/bootstrap-service:{{ .Values.image.tag }}"
+    image: "{{ .Values.image.registry }}/bootstrap-service:{{ include "queenswood.imageTag" . }}"
     imagePullPolicy: {{ include "queenswood.imagePullPolicy" $ }}
     env:
       - name: SERVICE_NAME
@@ -309,8 +309,8 @@ volumes:
 # after migrator-service has applied FDB record metadata + Kafka
 # topics; reads the persisted FDB schema (no Kafka interaction).
 #
-# Job name embeds both .Values.image.tag and .Chart.Version so every
-# helm upgrade -- whether the bump is the image (new app code) or the
+# Job name hashes the pod spec, image tag included, so every helm
+# upgrade -- whether the bump is the image (new app code) or the
 # chart (new template content like added labels) -- creates a fresh
 # Job rather than failing on Job.spec.template immutability; old Jobs
 # age out via ttlSecondsAfterFinished.

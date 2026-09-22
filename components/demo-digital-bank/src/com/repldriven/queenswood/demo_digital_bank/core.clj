@@ -558,6 +558,10 @@
       (store/mark-seen (ds bank) (:id row)))
     (into #{} (map :id) rows)))
 
+(defn open-streams
+  [bank customer]
+  (streams/open-count (:streams bank) (:id customer)))
+
 (defn events
   "Hold the customer's event stream open: first nil, once the stream is
   subscribed; then what they have not been shown; then each
