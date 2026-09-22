@@ -348,7 +348,7 @@ mail:
   # reach people.
   catcher:
     enabled: false
-    image: axllent/mailpit:v1.31.1
+    image: axllent/mailpit:v1.31.2
     resources:
       requests:
         cpu: 20m
