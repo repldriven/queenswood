@@ -6,9 +6,10 @@
 
 # Queenswood
 
-**Open-source core banking.** Queenswood is the bank behind your app and
-systems. It provides customer onboarding with identity checks, products and
-accounts, payments, interest and rewards, a general ledger, policies, end-of-day
+**Open-source core banking.** Whether you are modernising a bank or building
+banking into your product, Queenswood is the core behind your app and systems.
+It provides customer onboarding with identity checks, products and accounts,
+payments, interest and rewards, a general ledger, policies, end-of-day
 processing, webhooks and an operator console, all of it configured and driven
 through one API. You bring the banking licence, the clearing partner and the
 identity provider. The platform is yours to read, to run and to change.
@@ -28,16 +29,16 @@ The same bank from your customer's side, in the
 [demo digital bank](docs/prd/demo-digital-bank.md)'s app: sign up and open two
 accounts.
 
-## What a fintech gets
+## What you get
 
 - **One API.** One base URL and one OpenAPI 3.x document, generated from the
   routes themselves, so what the document says is what the API does. Every write
   takes an idempotency key, so a retried request replays the first answer rather
   than paying twice.
-- **Isolated banks.** A fintech's organisation is a bank on the platform, with
-  its own products, customers, books, policies and team, and nothing of one is
-  visible to another. A bank starts in test and moves to live; tiers set what it
-  may do and how much.
+- **Isolated banks.** Your organisation is a bank on the platform, with its own
+  products, customers, books, policies and team, and nothing of one is visible
+  to another. A bank starts in test and moves to live; tiers set what it may do
+  and how much.
 - **Versioned products, with migrations.** Current, savings and term deposit
   products come from templates. A rate change, a new welcome reward, a new term:
   each is a new version, and the holders of the old one are moved by a migration
@@ -69,14 +70,12 @@ running.
 
 ## Who it is for
 
-- **The fintech's operators.** The founder, operations, finance and support
-  people who operate the bank in the console, each with their own identity and
-  role.
-- **The fintech's engineers.** The people who build the product on the
-  API, and the systems they build, which act as the bank with its
-  credential.
-- **Their customers.** The people and businesses holding accounts
-  through the fintech's product. They see the fintech, never Queenswood.
+- **Your operators.** The founder, operations, finance and support people who
+  operate the bank in the console, each with their own identity and role.
+- **Your engineers.** The people who build the product on the API, and the
+  systems they build, which act as the bank with its credential.
+- **Your customers.** The people and businesses holding accounts through your
+  product. They see you, never Queenswood.
 - **Compliance and risk.** Whoever asks afterwards who had access to
   what, which rules were in force, and whether a change was authorised.
 
