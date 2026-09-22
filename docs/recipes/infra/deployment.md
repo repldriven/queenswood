@@ -202,8 +202,9 @@ just release 0.2.0    # a chosen one
 
 A release is a pull request that bumps `version` and `appVersion` in
 `infra/helm/queenswood/Chart.yaml` to one number, and merging it is
-the release. Once that commit's Tests run is green, the Release
-workflow builds every image at it, tags them with the version, pushes
+the release. The Release workflow runs off every green Tests run on
+`main` and publishes the first commit whose declared version has no
+tag: it builds every image at it, tags them with the version, pushes
 the chart to GHCR at the same version, tags the commit `v<version>`
 and publishes the GitHub release with the quickstart README. The
 chart's images default to its `appVersion`, so a chart is a release
@@ -235,10 +236,11 @@ kind node's containerd, then `helm-install`s the chart.
 
 ## Failures
 
-**A merged version bump released nothing.** The Release workflow runs
-off a green Tests run for that commit, and a later push to `main`
-cancels a Tests run still in flight. Rerun the bump commit's Tests
-run; the release follows.
+**A merged version bump released nothing, or the Release run failed.**
+The workflow publishes the first green commit on `main` whose declared
+version has no tag, so a Tests run cancelled by a later push, or a
+release that failed part way, is picked up by the next green push: fix
+what failed, merge it, and that commit becomes the release.
 
 **Every pod is in `ImagePullBackOff` on a fresh instance.** The unit's
 `values.yml` still says `image.tag: "latest"`, which overrides the
@@ -269,9 +271,10 @@ line, and pin `targetRevision` on both Applications to a release.
 - Release with `just release`, which opens the pull request
   bumping the chart's `version` and `appVersion` together;
   merging it is the release, and the Release workflow builds
-  every image at that commit, tags them with the version,
-  pushes the chart, tags the commit `v<version>` and
-  publishes the GitHub release once its Tests are green.
+  every image at the first green commit on `main` whose
+  declared version has no tag, tags them with the version,
+  pushes the chart, tags that commit `v<version>` and
+  publishes the GitHub release.
 - Pin an instance to a release with `targetRevision:
   v<version>` on both of its unit's Applications. The
   chart's images default to its `appVersion`, so a unit
