@@ -375,4 +375,4 @@ REPL-driven development follows the standard Polylith pattern.
 for building systems on [Polylith](https://polylith.gitbook.io/polylith):
 bricks you test on their own, wired together by configuration and started as
 one. Its components are documented in the
-[mono README](https://github.com/repldriven/mono#mono-components).
+[mono README](https://github.com/repldriven/mono#components).
