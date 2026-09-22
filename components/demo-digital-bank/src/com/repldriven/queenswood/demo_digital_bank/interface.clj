@@ -234,8 +234,9 @@
   notification as the app is told it — `{:id :kind :at :headline
   :detail :account}` — and with nil once the stream is subscribed and
   again whenever the keep-alive passes with nothing to tell. What the
-  customer has not been shown is emitted first. Returns when the bank
-  stops or `emit` throws.
+  customer has not been shown is emitted first, and each is marked shown
+  once `emit` took it. Returns nil when the bank stops, the anomaly when
+  `emit` returns one, and propagates what `emit` throws.
 
   Args:
   - bank: the started bank component.

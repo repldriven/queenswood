@@ -100,8 +100,10 @@
                status (:status res)]
       (cond (<= 200 status 299)
             parsed
+
             (<= 400 status 499)
             (refusal res parsed)
+
             :else
             (error/fail :platform/request
                         {:message (str "the platform answered " status)

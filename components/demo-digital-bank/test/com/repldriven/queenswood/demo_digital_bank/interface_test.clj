@@ -201,10 +201,14 @@
                         rainy-day
                         620000)
       [(leg savings transfer "internal-transfer" "credit" 20000 1)])
-     (nom-test> [_ (SUT/record-account
-                    bank
-                    customer
-                    {:account-id current :product-kind "cur" :name "Everyday"})
+     (nom-test> [recorded (SUT/record-account bank
+                                              customer
+                                              {:account-id current
+                                               :product-kind "cur"
+                                               :name "Everyday"})
+                 _ (testing "a recorded account answers when it was opened"
+                     (is (re-matches #"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{6}Z"
+                                     (:opened-at recorded))))
                  _ (SUT/record-account bank
                                        customer
                                        {:account-id savings

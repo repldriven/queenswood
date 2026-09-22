@@ -1,16 +1,11 @@
 (ns com.repldriven.queenswood.demo-digital-bank.system
   (:require
     [com.repldriven.queenswood.demo-digital-bank.platform :as platform]
-    [com.repldriven.queenswood.demo-digital-bank.streams :as streams]
 
+    [com.repldriven.mono.sse.interface :as sse]
     [com.repldriven.mono.system.interface :as system]))
 
 (def ^:private default-session-ttl-seconds 86400)
-
-(def ^:private default-keep-alive-ms
-  "How long a stream waits for a notification before it says nothing,
-  so a proxy between the app and the bank does not close it as idle."
-  15000)
 
 ;; Instance-is-config, as mono's `jdbc/datasource` does. `:datasource` is
 ;; wired to `migrator.migrations` rather than to `jdbc.datasource`: the
@@ -40,11 +35,11 @@
          (-> config
              (update :session-ttl-seconds
                      (fn [ttl] (or ttl default-session-ttl-seconds)))
-             (update :keep-alive-ms (fn [ms] (or ms default-keep-alive-ms)))
-             (assoc :streams (streams/registry)))))
+             (update :keep-alive-ms (fn [ms] (or ms sse/default-keep-alive-ms)))
+             (assoc :streams (sse/registry)))))
    :system/stop (fn [{:system/keys [instance]}]
                   (some-> (:streams instance)
-                          streams/close!))
+                          sse/close!))
    :system/config {:store system/required-component
                    :platform system/required-component
                    :sign-up-code system/required-component

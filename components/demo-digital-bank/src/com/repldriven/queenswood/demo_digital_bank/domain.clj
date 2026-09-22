@@ -1,6 +1,7 @@
 (ns com.repldriven.queenswood.demo-digital-bank.domain
   (:require
-    [com.repldriven.mono.error.interface :as error]
+    [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
+    [com.repldriven.mono.utility.interface :as util]
 
     [clojure.string :as str])
   (:import
@@ -21,6 +22,8 @@
   the platform carries a minimum deposit on the product."
   100000)
 
+(defn- id [] (str (util/uuidv7)))
+
 (def ^:private sign-up-transitions
   "The status a sign-up must be in for each step to advance it."
   {:code "code-sent" :details "verified" :passcode "registered"})
@@ -32,12 +35,16 @@
   (let [digits (str/replace (or phone "") #"[^0-9+]" "")]
     (cond (str/starts-with? digits "+")
           digits
+
           (str/starts-with? digits "00")
           (str "+" (subs digits 2))
+
           (str/starts-with? digits "0")
           (str "+44" (subs digits 1))
+
           (str/starts-with? digits "44")
           (str "+" digits)
+
           :else
           (str "+44" digits))))
 
@@ -60,11 +67,79 @@
                      :status (:status sign-up)
                      :allowed expected}))))
 
-(defn check-code
+(defn- check-code
   [sign-up code expected]
   (if (= code expected)
     sign-up
     (error/reject :sign-up/invalid-code {:message "the code does not match"})))
+
+(defn new-sign-up
+  [phone]
+  {:id (id) :phone (normalise-phone phone) :status "code-sent"})
+
+(defn sign-up-view
+  [sign-up]
+  (select-keys sign-up [:id :status :party-id]))
+
+(defn verify
+  "The sign-up verified by `code`, or a rejection where it is not
+  waiting for one or the code does not match."
+  [sign-up code expected]
+  (let-nom> [_ (check-step sign-up :code)
+             _ (check-code sign-up code expected)]
+    (assoc sign-up :status "verified")))
+
+(defn registered
+  "The sign-up carrying the party the platform registered for it."
+  [sign-up details party]
+  (assoc sign-up
+         :status "registered"
+         :party-id (:party-id party)
+         :given-name (:given-name details)
+         :family-name (:family-name details)))
+
+(defn finished [sign-up] (assoc sign-up :status "done"))
+
+(defn new-customer
+  "The customer a sign-up becomes, holding only its passcode's hash."
+  [sign-up passcode-hash]
+  {:id (id)
+   :party-id (:party-id sign-up)
+   :phone (:phone sign-up)
+   :given-name (:given-name sign-up)
+   :family-name (:family-name sign-up)
+   :passcode-hash passcode-hash})
+
+(defn new-session
+  "A session under the hash of its token, expiring `ttl-seconds` from
+  now, in epoch milliseconds."
+  [customer-id token-hash ttl-seconds]
+  {:id token-hash
+   :customer-id customer-id
+   :expires-at (+ (util/now) (* 1000 ttl-seconds))})
+
+(defn- new-submission
+  [kind request]
+  {:idempotency-key (id) :kind kind :request request})
+
+(defn sign-up-submission
+  "A request the sign-up makes of the platform, under an idempotency
+  key minted before the call so a repeat reuses it."
+  [sign-up kind request]
+  (assoc (new-submission kind request) :sign-up-id (:id sign-up)))
+
+(defn customer-submission
+  "A request the customer makes of the platform under the key the app
+  sent, with an idempotency key minted before the call so a repeat
+  reuses it."
+  [customer kind client-key request]
+  (assoc (new-submission kind request)
+         :customer-id (:id customer)
+         :client-key client-key))
+
+(defn answered
+  [submission answer]
+  (assoc submission :response answer))
 
 (defn party-registration
   "The platform's registration of a person, from what the sign-up
@@ -150,11 +225,30 @@
                                        (quot fixed-term-minimum 100)
                                        " pounds")
                          :minimum fixed-term-minimum})
+
           (and (pos? deposit) (nil? source))
           (error/reject :deposit/no-source-account
                         {:message "open an Everyday account first to fund"})
+
           :else
           deposit)))
+
+(defn held-account
+  "An account the bank opened for the customer, as it records it."
+  [customer {:keys [account-id product-kind name]}]
+  {:customer-id (:id customer)
+   :account-id account-id
+   :product-kind product-kind
+   :name name})
+
+(defn opened-account
+  "The account the platform opened against the product, as the bank
+  records it."
+  [customer opened product request]
+  (held-account customer
+                {:account-id (:account-id opened)
+                 :product-kind (:kind product)
+                 :name (:name request)}))
 
 (defn account-request
   "The platform's request to open an account for the party."
@@ -163,6 +257,20 @@
    :name (or name (:name product))
    :currency currency
    :product-id (:id product)})
+
+(defn new-payee
+  "The customer's payee from a name, sort code and account number as
+  typed."
+  [customer {:keys [name sort-code account-number]}]
+  {:id (id)
+   :customer-id (:id customer)
+   :name name
+   :sort-code (digits sort-code)
+   :account-number (digits account-number)})
+
+(defn paid
+  [payee amount]
+  (assoc payee :last-paid-amount amount))
 
 (defn payee-check-request
   [{:keys [name sort-code account-number]}]
@@ -221,6 +329,32 @@
                    :currency currency
                    :amount amount}
                   reference))
+
+(defn opening-deposit-request
+  "The platform's payment moving the opening deposit from the source
+  account into the account just opened."
+  [source opened deposit request]
+  (internal-payment-request (:account-id source)
+                            (:account-id opened)
+                            deposit
+                            (str "Opening " (:name request))))
+
+(defn payments
+  "What the bank has paid out, from its answered submissions, in the
+  shape `transactions` names payees from. A submission whose request or
+  answer does not read is left out."
+  [submissions]
+  (into []
+        (keep (fn [{:keys [request response]}]
+                (when-not (or (error/anomaly? request)
+                              (error/anomaly? response))
+                  {:transaction-id (:transaction-id response)
+                   :account-id (:debtor-account-id request)
+                   :amount (:amount request)
+                   :reference (:reference request)
+                   :name (:creditor-name request)
+                   :created-at (:created-at response)})))
+        submissions))
 
 (defn- rate-label
   [rate-bps]
@@ -591,6 +725,21 @@
        :resource-type resource-type
        :resource-id resource-id
        :data data})))
+
+(defn received
+  "A delivery as the bank records it on arrival, before it is resolved
+  to a customer."
+  [notification verified body]
+  {:id (:id notification)
+   :delivery-id (:message-id verified)
+   :kind (:kind notification)
+   :body body})
+
+(defn resolved
+  "The notification carrying the record read back and the customer it
+  belongs to, or no customer where it belongs to none."
+  [row customer record]
+  (assoc row :customer-id (:id customer) :record record))
 
 (defn notified-account
   "The account a notification is about, or nil for a kind that names
