@@ -130,7 +130,7 @@ jobs:
           java-version: "21"
 
       - name: Setup Clojure
-        uses: DeLaGuardo/setup-clojure@13.6.1
+        uses: DeLaGuardo/setup-clojure@13.7.0
         with:
           cli: latest
 
@@ -226,7 +226,7 @@ jobs:
       # workflow expression for every entry.
       - name: Report coverage
         if: always()
-        uses: zgosalvez/github-actions-report-lcov@v7.1.0
+        uses: zgosalvez/github-actions-report-lcov@v7.2.1
         with:
           coverage-files: target/coverage/${{ matrix.project == 'dev' && 'development' || matrix.project }}/lcov.info
           minimum-coverage: ${{ matrix.project == 'dev' && 80 || 0 }}

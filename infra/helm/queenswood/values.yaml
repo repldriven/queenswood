@@ -325,7 +325,7 @@ otel:
 # enabled=false and points otel.endpoint at a real collector.
 jaeger:
   enabled: true
-  image: jaegertracing/jaeger:2.20.0
+  image: jaegertracing/jaeger:2.21.0
   resources:
     requests:
       cpu: 100m
