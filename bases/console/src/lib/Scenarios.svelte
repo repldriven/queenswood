@@ -273,8 +273,12 @@
   // Versioned keys: bumped whenever scene semantics change so stale
   // localStorage doesn't strand the runner. v5 re-cut the story around
   // the demo bank's products, the welcome reward and the migration.
-  const DONE_KEY = "queenswood.scenarios.v5.done";
-  const CTX_KEY = "queenswood.scenarios.v5.ctx";
+  // Keyed by bank as well, so a fresh sandbox bank starts with no
+  // scenes run and switching back finds the old bank's progress where
+  // it was.
+  const bankKey = memberships?.[0]?.["bank-id"];
+  const DONE_KEY = `queenswood.scenarios.v5.done${bankKey ? "." + bankKey : ""}`;
+  const CTX_KEY = `queenswood.scenarios.v5.ctx${bankKey ? "." + bankKey : ""}`;
   const load = (k, fb) => {
     try {
       const r = localStorage.getItem(k);
