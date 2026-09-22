@@ -60,8 +60,8 @@ accounts.
 
 - **Isolated banks.** Your organisation is a bank on the platform, with its own
   products, customers, books, policies and team, and nothing of one is visible
-  to another. A bank starts in test and moves to live; tiers set what it may do
-  and how much.
+  to another. A bank starts in test and moves to live, and its tier binds the
+  policies it works within: its capabilities, and the limits on them.
 - **Customer onboarding.** Every new customer is identity-checked as they sign
   up, and can't open an account until the check clears.
 - **Product changes without a release.** Change a rate, add a welcome reward
@@ -76,9 +76,8 @@ accounts.
   build and test before a contract is signed.
 - **Real-time notifications.** Your systems are told as it happens when an
   account opens, money arrives or a payment settles.
-- **Rules without a release.** What a bank may do, and the limits it works
-  within, are settings checked on every request, so changing them ships no
-  code.
+- **Rules without a release.** Policies are records checked on every request,
+  so changing a capability or a limit ships no code.
 - **An audit trail.** Everyone on your team signs in as themselves with a
   role, and a log records who did what.
 - **A sandbox.** Try everything with simulated money, on the same software
