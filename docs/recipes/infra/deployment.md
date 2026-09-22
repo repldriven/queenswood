@@ -193,6 +193,28 @@ also discards a failed step's cache-mount writes, so one
 blip mid-download throws away everything fetched so far and
 the next attempt starts cold again.
 
+### Releasing
+
+```bash
+just release          # the next patch version
+just release 0.2.0    # a chosen one
+```
+
+A release is a pull request that bumps `version` and `appVersion` in
+`infra/helm/queenswood/Chart.yaml` to one number, and merging it is
+the release. Once that commit's Tests run is green, the Release
+workflow builds every image at it, tags them with the version, pushes
+the chart to GHCR at the same version, tags the commit `v<version>`
+and publishes the GitHub release with the quickstart README. The
+chart's images default to its `appVersion`, so a chart is a release
+of itself and no image tag is set anywhere but the local loop's
+`dev`. Nothing carries `latest`.
+
+An instance is pinned to a release by `targetRevision: v<version>` on
+both of its unit's Applications, `queenswood.yml` and `config.yml`,
+merged in the installations repository. A new render pins the newest
+release tag fetched.
+
 ### Deploying to a remote cluster
 
 ```bash
@@ -210,6 +232,18 @@ just kind-down        # tear it all down
 `kind-up` does the full chain: creates the cluster if
 missing, builds every service image, loads each into the
 kind node's containerd, then `helm-install`s the chart.
+
+## Failures
+
+**A merged version bump released nothing.** The Release workflow runs
+off a green Tests run for that commit, and a later push to `main`
+cancels a Tests run still in flight. Rerun the bump commit's Tests
+run; the release follows.
+
+**Every pod is in `ImagePullBackOff` on a fresh instance.** The unit's
+`values.yml` still says `image.tag: "latest"`, which overrides the
+chart's default and names a tag no image carries any more. Remove the
+line, and pin `targetRevision` on both Applications to a release.
 
 ## Rules
 
@@ -232,8 +266,24 @@ kind node's containerd, then `helm-install`s the chart.
   deployment's `waitFor` list, which adds a
   `wait-for-<dep>` initContainer polling the target's
   `/actuator/health/liveness`.
+- Release with `just release`, which opens the pull request
+  bumping the chart's `version` and `appVersion` together;
+  merging it is the release, and the Release workflow builds
+  every image at that commit, tags them with the version,
+  pushes the chart, tags the commit `v<version>` and
+  publishes the GitHub release once its Tests are green.
+- Pin an instance to a release with `targetRevision:
+  v<version>` on both of its unit's Applications. The
+  chart's images default to its `appVersion`, so a unit
+  names no image tag.
 
 **MUST NOT:**
+
+- Pull `latest`, which no image carries: a tag is a released
+  version, or the local loop's `dev`.
+- Release from a workflow button or by pushing a tag by hand.
+  The tag is what the workflow writes once it has published,
+  and a tag that exists is what stops a rerun releasing twice.
 
 - Delete a `Keycloak` resource while its database survives. The
   operator owns the admin Secret and regenerates the password; the

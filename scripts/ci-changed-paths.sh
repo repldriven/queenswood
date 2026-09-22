@@ -84,7 +84,7 @@ bucket helm '^infra/helm/|^\.github/workflows/test\.yml$'
 
 # Goes into a JVM service image. Not development/ or scripts/: neither is
 # on a service project's classpath.
-bucket services "$WORKSPACE|^infra/docker/(service/|bake\.hcl$)|^\.github/workflows/release-images\.yml$" "$clojure_files"
+bucket services "$WORKSPACE|^infra/docker/(service/|bake\.hcl$)|^\.github/workflows/release\.yml$" "$clojure_files"
 
 # Goes into the console image.
-bucket console "$CONSOLE_TREES|$BUNDLED_DOCS|$MONO_IMPORT|^infra/docker/console/|^infra/docker/bake\.hcl$|^\.github/workflows/release-images\.yml$"
+bucket console "$CONSOLE_TREES|$BUNDLED_DOCS|$MONO_IMPORT|^infra/docker/console/|^infra/docker/bake\.hcl$|^\.github/workflows/release\.yml$"

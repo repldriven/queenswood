@@ -1,0 +1,254 @@
+name: Release
+
+# A release is a merged pull request that bumps the chart's version.
+# `just release` opens it, and this runs once that commit's Tests are
+# green: it builds every image at the commit, tags them with the
+# version, packages and pushes the chart, tags the commit `v<version>`
+# and publishes the GitHub release. Nothing here runs on a workflow
+# button, and nothing is built for a commit that is not a release.
+#
+# Two conditions, both read at the commit Tests ran on: the tag
+# `v<version>` does not exist yet, and the version line changed in
+# this very commit. The first makes a rerun harmless; the second keeps
+# a release to the commit that declared it, so a later push carrying
+# the same version releases nothing. A bump whose Tests run was
+# cancelled by a later push is released by rerunning that run.
+on:
+  workflow_run:
+    workflows: [Tests]
+    types: [completed]
+    branches: [main]
+
+concurrency:
+  group: release-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  CHART: infra/helm/queenswood/Chart.yaml
+  REGISTRY: ghcr.io/${{ github.repository_owner }}/queenswood
+
+jobs:
+  check:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.decide.outputs.version }}
+      release: ${{ steps.decide.outputs.release }}
+    steps:
+      - name: Checkout the tested commit and its parent
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 2
+
+      - name: Decide whether this commit is a release
+        id: decide
+        run: |
+          version=$(awk '/^version:/ {print $2}' "$CHART")
+          app=$(sed -n 's/^appVersion: "\(.*\)"$/\1/p' "$CHART")
+          if [[ -z "$version" || "$version" != "$app" ]]; then
+            echo "::error::$CHART carries version '$version' and appVersion '$app'; just release keeps them equal"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null; then
+            echo "v$version is already released; nothing to do"
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! git diff HEAD~1 HEAD -- "$CHART" | grep -q '^+version:'; then
+            echo "$CHART's version did not change in this commit; nothing to release"
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "releasing $version from $GITHUB_SHA"
+          echo "release=true" >> "$GITHUB_OUTPUT"
+
+  images:
+    needs: check
+    if: needs.check.outputs.release == 'true'
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - arch: amd64
+            runs-on: ubuntu-latest
+            platform: linux/amd64
+          - arch: arm64
+            runs-on: ubuntu-24.04-arm
+            platform: linux/arm64
+    runs-on: ${{ matrix.runs-on }}
+    steps:
+      - name: Checkout the tested commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Import mono's share
+        run: ./scripts/mono-import.sh
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push every image (${{ matrix.arch }})
+        env:
+          TAG: ${{ needs.check.outputs.version }}-${{ matrix.arch }}
+          REVISION: ${{ github.event.workflow_run.head_sha }}
+          SOURCE: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          CREATED="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          export CREATED
+          # No targets named: the bake file's default group is every
+          # service and the console, since a release is a complete set.
+          docker buildx bake \
+            -f infra/docker/bake.hcl \
+            --set "*.platform=${{ matrix.platform }}" \
+            --set "*.output=type=registry,push=true" \
+            --set "*.cache-from=type=gha,scope=release-${{ matrix.arch }}" \
+            --set "*.cache-to=type=gha,scope=release-${{ matrix.arch }},mode=max"
+
+  publish:
+    needs: [check, images]
+    permissions:
+      contents: write       # the tag and the release
+      packages: write       # the multi-arch manifests and the chart
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+      SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - name: Checkout the tested commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Login to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Stitch each image's multi-arch manifest
+        run: |
+          for img in $(ls projects/) console; do
+            docker buildx imagetools create \
+              -t "$REGISTRY/$img:$VERSION" \
+              "$REGISTRY/$img:$VERSION-amd64" \
+              "$REGISTRY/$img:$VERSION-arm64"
+          done
+
+      - name: Install Helm
+        uses: azure/setup-helm@v5
+        with:
+          version: latest
+
+      - name: Package the chart
+        run: |
+          mkdir -p release
+          helm dependency update infra/helm/queenswood
+          helm package infra/helm/queenswood -d release
+          test -f "release/queenswood-$VERSION.tgz"
+
+      - name: Push the chart to GHCR
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | \
+            helm registry login ghcr.io \
+              --username ${{ github.actor }} \
+              --password-stdin
+          helm push "release/queenswood-$VERSION.tgz" \
+            oci://ghcr.io/${{ github.repository_owner }}
+
+      - name: Write the quickstart README
+        run: |
+          cat > release/README.md <<'EOF'
+          # Queenswood — local Kubernetes quickstart
+
+          This release publishes the Helm chart at
+          `oci://ghcr.io/__OWNER__/queenswood:__VERSION__` and the images it
+          installs, tagged `__VERSION__` under `ghcr.io/__OWNER__/queenswood/`.
+          The chart's images default to its own version, so installing the
+          chart is installing the release. It deploys the entire Queenswood
+          platform (API, processors, adapters/simulators, the Svelte
+          front-end, Pulsar, FoundationDB) into a local Kubernetes cluster.
+
+          ## Prerequisites
+
+          - Docker
+          - [kind](https://kind.sigs.k8s.io/)
+          - [Helm](https://helm.sh/) (>= 3.14)
+          - kubectl
+
+          ## Deploy
+
+          1. **Create a local cluster:**
+             ```bash
+             kind create cluster --name queenswood
+             ```
+
+          2. **Install the chart** straight from the OCI registry:
+             ```bash
+             helm install queenswood \
+               oci://ghcr.io/__OWNER__/queenswood --version __VERSION__ \
+               -n queenswood --create-namespace \
+               --wait --timeout 10m
+             ```
+
+          3. **Port-forward** the API and the SPAs
+             (separate terminals):
+             ```bash
+             kubectl -n queenswood port-forward svc/queenswood-api-service 8080:8080
+             kubectl -n queenswood port-forward svc/queenswood-console     8081:8080
+             ```
+             The console reverse-proxies its realm's Keycloak at
+             `/keycloak/*`, so no separate Keycloak port-forward is
+             needed.
+
+          4. **Sign in via Keycloak.** Open
+             <http://localhost:8081> for the organisation console
+             (`console`). It redirects to its same-origin
+             `/keycloak/realms/...` flow; nginx proxies the OAuth
+             dance to the in-cluster Keycloak and proxies `/v1/*` to
+             the in-cluster api-service. Seeded user is `dev` / `dev`
+             (orgs realm). The Keycloak admin console rides the same
+             proxy at <http://localhost:8081/keycloak/admin> with
+             `admin` / `admin`. OpenAPI docs at
+             <http://localhost:8080/scalar>.
+
+          ## Tear down
+
+          ```bash
+          helm uninstall queenswood -n queenswood
+          kind delete cluster --name queenswood
+          ```
+          EOF
+          OWNER="${{ github.repository_owner }}"
+          sed -i "s/__VERSION__/$VERSION/g; s/__OWNER__/$OWNER/g" \
+            release/README.md
+
+      - name: Tag the commit and publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git tag "v$VERSION" "$SHA"
+          git push origin "v$VERSION"
+          gh release create "v$VERSION" \
+            --title "v$VERSION" \
+            --notes-file release/README.md \
+            --target "$SHA" \
+            "release/queenswood-$VERSION.tgz" \
+            release/README.md
+          echo "Released v$VERSION from \`$SHA\`." >> "$GITHUB_STEP_SUMMARY"
