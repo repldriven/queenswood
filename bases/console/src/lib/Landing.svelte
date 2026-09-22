@@ -53,23 +53,23 @@
   // {@html} because one entry contains inline <code>.
   const PRINCIPLES = [
     { key: "adr-0013", kicker: "ADR · 0013 · 0014",
-      title: "One unified API. OpenAPI is the contract.",
+      title: "One API, with an OpenAPI document.",
       href: "https://github.com/repldriven/queenswood/blob/main/docs/adr/0013-single-unified-api.md",
-      body: "Bank-shaped, not implementation-shaped. The spec drives client generation, validation, and documentation — there is no second source of truth." },
+      body: "Organised by what a bank does, not by how it's built. The document is generated from the routes, and drives validation and the published reference." },
     { key: "tdd-policy", kicker: "TDD · policy-evaluation",
-      title: "Policies as data, not hard-coded rules.",
+      title: "Policies as data.",
       href: "https://github.com/repldriven/queenswood/blob/main/docs/tdd/policy-evaluation.md",
-      body: "Capabilities and limits are records. A curative-permit pattern lets your customers self-correct balances out of breach without a manual override." },
+      body: "Capabilities and limits are records checked on every request. A curative permit lets a breaching action through only when it moves the position back toward compliance." },
     { key: "tdd-interest", kicker: "TDD · interest",
-      title: "Pennies are conserved by construction.",
+      title: "Integer money, remainder kept.",
       href: "https://github.com/repldriven/queenswood/blob/main/docs/tdd/interest.md",
-      body: "Integer micro-unit arithmetic with sub-minor-unit carry. Daily accrual, capitalisation at whatever cadence you choose, and one ledger entry per run rather than per account — ties out exactly." },
+      body: "Integer micro-unit arithmetic with sub-minor-unit carry. Daily accrual, capitalisation at the cadence you choose, and one ledger entry per run rather than per account." },
     { key: "tdd-scenario", kicker: "TDD · scenario-testing",
-      title: "A pure model runs beside the real system.",
+      title: "Tests against a model.",
       href: "https://github.com/repldriven/queenswood/blob/main/docs/tdd/scenario-testing.md",
-      body: "Tests pass only when the two agree. Property-based testing via fugato plus hand-authored EDN scenarios, sharing one runner." },
+      body: "A model runs beside the real system, and a test passes only when the two agree. Generated sequences via fugato and hand-written EDN scenarios share one runner." },
     { key: "adr-0018", kicker: "ADR · 0018",
-      title: "A write earns command status, or stays synchronous.",
+      title: "Commands or direct writes.",
       href: "https://github.com/repldriven/queenswood/blob/main/docs/adr/0018-command-writes-are-earned.md",
       body: "A write goes over the bus to a processor only when it needs multi-record atomicity under contention, has idempotency stakes, other bricks must react to it, or it arrives from unreliable ingress. Everything else is a direct write." },
     { key: "adr-0019", kicker: "ADR · 0019",
@@ -77,17 +77,17 @@
       href: "https://github.com/repldriven/queenswood/blob/main/docs/adr/0019-processor-packaging.md",
       body: "One thin base per service group; a project's <code>application.yml</code> alone decides which processors a JVM hosts. Grouped by boundary, not throughput — financial and operational processors never share a JVM." },
     { key: "adr-0002", kicker: "ADR · 0002",
-      title: "The changelog is the outbox.",
+      title: "Changelogs in the same transaction.",
       href: "https://github.com/repldriven/queenswood/blob/main/docs/adr/0002-foundationdb-record-layer.md",
-      body: "FoundationDB Record Layer gives multi-record ACID by default; the transactional outbox pattern falls out of the storage engine — no separate table." },
+      body: "FoundationDB Record Layer gives multi-record ACID, so a change and its changelog entry commit together, with no separate outbox table." },
     { key: "adr-0001", kicker: "ADR · 0001",
-      title: "mono is upstream, not a fork.",
+      title: "Built on mono.",
       href: "https://github.com/repldriven/queenswood/blob/main/docs/adr/0001-reuse-mono-as-upstream.md",
       body: "Shared infrastructure comes from mono as a git dependency pinned to a tag and sha; the workspace holds only the bank's own bricks. Upgrading mono is a one-line bump in two shims under <code>deps/</code>." },
     { key: "recipe-tc", kicker: "Recipe · testcontainers",
-      title: "REPL on the inside.",
+      title: "A REPL runs the whole system.",
       href: "https://github.com/repldriven/mono/blob/main/docs/recipes/test/testcontainers.md",
-      body: "Start a REPL, evaluate a comment block, and the whole system — FDB, Pulsar, HTTP, Keycloak — boots inside Testcontainers. The dev loop is the system.",
+      body: "Start a REPL, evaluate a comment block, and the whole system — FDB, Pulsar, HTTP, Keycloak — boots inside Testcontainers.",
       variant: "feature" },
   ];
 
@@ -301,11 +301,11 @@
     simulators for development, plug in your own accounts per bank.
   </span>
   <a target="_blank" rel="noreferrer"
-    href="https://github.com/repldriven/queenswood/tree/main/bases/bank-clearbank-adapter"
+    href="https://github.com/repldriven/queenswood/tree/main/bases/clearbank-adapter"
     >ClearBank adapter ↗</a
   >
   <a target="_blank" rel="noreferrer"
-    href="https://github.com/repldriven/queenswood/tree/main/bases/bank-onfido-adapter"
+    href="https://github.com/repldriven/queenswood/tree/main/bases/onfido-adapter"
     >Onfido adapter ↗</a
   >
 </div>
@@ -724,11 +724,10 @@
   <div class="wrap">
     <span class="eyebrow">Engineering choices</span>
     <h2>
-      The interesting bits — <em>for engineers</em> who'd actually read the docs.
+      The design <em>decisions.</em>
     </h2>
     <p class="lead">
-      Queenswood is opinionated. Key choices that show up everywhere in the
-      codebase, each documented, so you can read on a coffee break.
+      The choices that run through the codebase, each with its document.
     </p>
     <div class="grid">
       {#each PRINCIPLES as p (p.key)}
@@ -758,12 +757,11 @@
     <div class="grid">
       <div>
         <span class="eyebrow muted">Run it locally</span>
-        <h2>One install away from a <em>working bank.</em></h2>
+        <h2>Install the chart, or start a <em>REPL.</em></h2>
         <p>
-          Install the chart, port-forward, open the SPA. Or start a REPL with <code
-            >just repl</code
-          > and bring the whole system up inside Testcontainers. Either way you're
-          posting balanced transfers in minutes.
+          Install the chart, port-forward and open the console. Or start a REPL
+          with <code>just repl</code> and bring the whole system up inside
+          Testcontainers.
         </p>
         <div class="ctas">
           <button class="btn gold" onclick={goSignIn}>Sign in</button>
@@ -798,8 +796,8 @@
           <span class="wm"><Wordmark variant="grotesk" size={14} /></span>
         </a>
         <p class="desc">
-          Core banking, modernised. Bring your own ClearBank and Onfido —
-          open source under MIT, with bundled simulators for development.
+          Open-source core banking, under MIT. Adapters for ClearBank and
+          Onfido, with simulators that stand in for both during development.
         </p>
       </div>
       <div>
