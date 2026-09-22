@@ -376,7 +376,3 @@ library for distributed systems, built on
 [Polylith](https://polylith.gitbook.io/polylith). Its components are
 documented in the
 [mono README](https://github.com/repldriven/mono#mono-components).
-
-For the workspace layout, see `components/`, `bases/`, and
-`projects/`. Brick conventions are documented in
-[recipes/components](https://github.com/repldriven/mono/blob/main/docs/recipes/code/components.md).
