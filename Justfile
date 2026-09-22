@@ -37,6 +37,7 @@ list:
 import 'justfiles/vars.just'
 import 'justfiles/ghcr.just'
 import 'justfiles/build.just'
+import 'justfiles/release.just'
 import 'justfiles/cloud.just'
 import 'justfiles/gcp.just'
 import 'justfiles/seed.just'

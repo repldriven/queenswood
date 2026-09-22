@@ -3,7 +3,9 @@
 # (e.g. {{ image.registry }}/api-service:{{ image.tag }}).
 image:
   registry: ghcr.io/repldriven/queenswood
-  tag: "0.0.0"
+  # Empty: the chart's own appVersion, which is the release the images
+  # were published under. The local loop sets `dev`.
+  tag: ""
   pullPolicy: IfNotPresent
   pullSecrets: []
 
@@ -217,7 +219,7 @@ keycloak:
     # checks the restored user ids over the same API. No kubectl -- the
     # operator's import CR is not used, so the Job touches no Kubernetes
     # API at all.
-    toolsImage: alpine/k8s:1.30.14
+    toolsImage: alpine/k8s:1.37.0
     gcloudImage: ""
     resources:
       requests:
@@ -348,7 +350,7 @@ mail:
   # reach people.
   catcher:
     enabled: false
-    image: axllent/mailpit:v1.31.1
+    image: axllent/mailpit:v1.31.2
     resources:
       requests:
         cpu: 20m
@@ -592,7 +594,7 @@ fdb:
     # organisation's ban on service-account keys stops being something
     # to get exempted from.
     proxy:
-      image: andrewgaul/s3proxy:4.0.0
+      image: andrewgaul/s3proxy:4.1.1
       # The project the bucket is in, which is the recovery project
       # rather than this instance's. Set per instance.
       projectId: ""

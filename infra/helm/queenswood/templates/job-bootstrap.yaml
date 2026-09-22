@@ -15,7 +15,7 @@ restartPolicy: OnFailure
 serviceAccountName: {{ include "queenswood.bootstrapServiceAccount" . }}
 initContainers:
   - name: wait-for-fdb-cluster
-    image: alpine/k8s:1.30.14
+    image: alpine/k8s:1.37.0
     command:
       - sh
       - -c
@@ -58,7 +58,7 @@ initContainers:
   # addressed there -- a name this chart could only re-derive by
   # holding a copy of everything that goes into the hash.
   - name: wait-for-realm-import
-    image: alpine/k8s:1.30.14
+    image: alpine/k8s:1.37.0
     command:
       - sh
       - -c
@@ -101,7 +101,7 @@ initContainers:
   # orders it ahead of every consumer, including bootstrap's own
   # container.
   - name: read-admin-client-key
-    image: alpine/k8s:1.30.14
+    image: alpine/k8s:1.37.0
     command:
       - sh
       - -c
@@ -128,7 +128,7 @@ initContainers:
   # openssl, because alpine/k8s carries curl, jq, kubectl and helm but
   # not openssl. Only runs where the Secret held nothing.
   - name: generate-admin-client-key
-    image: alpine/openssl:3.5.7
+    image: alpine/openssl:3.5.8
     command:
       - sh
       - -c
@@ -159,7 +159,7 @@ initContainers:
   # becoming the manager of the whole object, which the chart's own
   # server-side apply owns.
   - name: sync-admin-client-key
-    image: alpine/k8s:1.30.14
+    image: alpine/k8s:1.37.0
     env:
       - name: KC_BASE_URL
         value: {{ include "queenswood.keycloakBaseUrl" . | quote }}
@@ -252,7 +252,7 @@ initContainers:
   # Kafka topics — bootstrap reads the persisted FDB schema
   # via fdb/meta-store, so the migration must land first.
   - name: wait-for-migrator
-    image: alpine/k8s:1.30.14
+    image: alpine/k8s:1.37.0
     command:
       - sh
       - -c
@@ -262,7 +262,7 @@ initContainers:
   {{- end }}
 containers:
   - name: bootstrap
-    image: "{{ .Values.image.registry }}/bootstrap-service:{{ .Values.image.tag }}"
+    image: "{{ .Values.image.registry }}/bootstrap-service:{{ include "queenswood.imageTag" . }}"
     imagePullPolicy: {{ include "queenswood.imagePullPolicy" $ }}
     env:
       - name: SERVICE_NAME
@@ -309,8 +309,8 @@ volumes:
 # after migrator-service has applied FDB record metadata + Kafka
 # topics; reads the persisted FDB schema (no Kafka interaction).
 #
-# Job name embeds both .Values.image.tag and .Chart.Version so every
-# helm upgrade -- whether the bump is the image (new app code) or the
+# Job name hashes the pod spec, image tag included, so every helm
+# upgrade -- whether the bump is the image (new app code) or the
 # chart (new template content like added labels) -- creates a fresh
 # Job rather than failing on Job.spec.template immutability; old Jobs
 # age out via ttlSecondsAfterFinished.
