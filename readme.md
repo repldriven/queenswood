@@ -51,9 +51,9 @@ accounts.
   included, with a simulator that stands in for it locally.
 - **An identity verification provider.** As above: an adapter and a
   simulator.
-- **Somewhere to run it.** A Helm chart deploys the platform to any
-  Kubernetes cluster, and a Google Cloud blueprint declares an
-  installation as a manifest.
+- **Somewhere to run it.** Run it on your own infrastructure, follow the
+  [Google Cloud guide](docs/recipes/infra/up-and-running.md), or wait for a
+  managed offering.
 
 Queenswood has no production miles yet. It is a research-grade
 platform, built in the open, and the documentation says what is done
