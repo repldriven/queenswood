@@ -15,13 +15,11 @@ upstream so the CRDs land ahead of the templates that use them.
 
 Tag `26.7.4` of
 [`keycloak/keycloak-k8s-resources`](https://github.com/keycloak/keycloak-k8s-resources/tree/26.7.4/kubernetes),
-`kubernetes/cluster-wide/` — **verbatim, with no deviations**.
-
-Earlier versions of this chart carried four hand-applied patches
-(cluster-scoped roles, cluster-wide watch, a Namespace resource, and a
-namespace rename). Upstream now ships a `cluster-wide/` variant that
-does all of it, including defaulting to the `keycloak-operator`
-namespace this chart installs into, so the patches are gone.
+`kubernetes/cluster-wide/` — verbatim but for one deviation: every
+`namespace: keycloak-operator` is templated to
+`{{ .Release.Namespace }}`, so the operator runs wherever the chart is
+installed. The rights it manages a `Keycloak` with are cluster-scoped,
+so that `Keycloak` may be in any namespace.
 
 ## Refreshing
 
@@ -49,7 +47,10 @@ done
 # The operator, through kustomize with only kubernetes.yml as input so
 # the CRDs are not duplicated into templates/.
 printf 'apiVersion: kustomize.config.k8s.io/v1beta1\nkind: Kustomization\nnamespace: keycloak-operator\nresources:\n  - kubernetes.yml\ntransformers:\n  - |-\n    apiVersion: builtin\n    kind: NamespaceTransformer\n    metadata:\n      name: notImportantHere\n    setRoleBindingSubjects: allServiceAccounts\n    fieldSpecs:\n    - path: metadata/namespace\n      create: true\n' > "$D/kustomization.yml"
-kubectl kustomize "$D"   # prepend the provenance header, then write templates/operator.yaml
+# Template the namespace, prepend the provenance header, then write
+# templates/operator.yaml. The quirk's `namespace: keycloak` stays.
+kubectl kustomize "$D" \
+  | sed 's/^\( *\)namespace: keycloak-operator$/\1namespace: {{ .Release.Namespace }}/'
 ```
 
 **The kustomize step is not optional.** Upstream's raw `kubernetes.yml`

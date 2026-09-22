@@ -1,11 +1,9 @@
 # Cluster-wide install of the official Keycloak Operator.
 #
-# Vendored VERBATIM from keycloak-k8s-resources, tag 26.7.4, as
-# `kubectl kustomize` output over kubernetes/cluster-wide/ -- which
-# upstream now ships and which does what this chart used to patch by
-# hand: ClusterRole/ClusterRoleBinding instead of namespaced Roles,
-# JOSDK_ALL_NAMESPACES on both controllers, no Namespace resource,
-# and namespace `keycloak-operator`. Four deviations became none.
+# Vendored from keycloak-k8s-resources, tag 26.7.4, as `kubectl
+# kustomize` output over kubernetes/cluster-wide/, with one deviation:
+# every `namespace: keycloak-operator` is templated to the release
+# namespace, so the operator runs wherever the chart is installed.
 #
 # The kustomize step is not optional: the raw kubernetes.yml leaves
 # ServiceAccount subjects without a namespace, and upstream's
