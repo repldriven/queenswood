@@ -58,7 +58,7 @@ initContainers:
   {{- end }}
 containers:
   - name: migrator
-    image: "{{ .Values.image.registry }}/migrator-service:{{ .Values.image.tag }}"
+    image: "{{ .Values.image.registry }}/migrator-service:{{ include "queenswood.imageTag" . }}"
     imagePullPolicy: {{ include "queenswood.imagePullPolicy" $ }}
     # Override the baked config file so the channel-bus monolith
     # can point the migrator at a Kafka-free config (FDB metadata

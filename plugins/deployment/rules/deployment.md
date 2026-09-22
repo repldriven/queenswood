@@ -35,6 +35,20 @@ realm it is still serving. Never reset Keycloak's schema while
 FoundationDB survives: the realm rebuilds from the committed JSON with
 fresh user ids, and the records referencing the old ones are orphaned
 silently.
+Release with `just release`, which opens the pull request bumping the
+chart's `version` and `appVersion` together — merging it is the
+release: once that commit's Tests are green the Release workflow builds
+every image at it, tags them with the version, pushes the chart, tags
+the commit `v<version>` and publishes the GitHub release; the first green commit
+on `main` whose declared version has no tag is the one published, so a
+cancelled Tests run or a failed release is picked up by the next green
+push. Pin an instance to a release with `targetRevision:
+v<version>` on both of its unit's Applications; the chart's images
+default to its `appVersion`, so a unit names no image tag, and never
+pull `latest`, which no image carries. Never release from a workflow
+button or by pushing a tag by hand: the tag is what the workflow writes
+once it has published.
+Commands: `just release`, `just kind-up-remote`.
 See [deployment](../../../docs/recipes/infra/deployment.md).
 
 ## A folder is an installation, and its foundations are not deleted

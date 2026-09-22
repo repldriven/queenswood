@@ -2,9 +2,9 @@
 # `just queenswood-instance-manifest`. Every name here is one the instance
 # composite made, restated rather than derived: the chart cannot see
 # cloud-naming, so a prefix changed there would leave the Gateway
-# naming an address that does not exist.
-image:
-  tag: "latest"
+# naming an address that does not exist. No image tag: the chart's
+# images default to its appVersion, the release the unit's Applications
+# pin with targetRevision.
 
 keycloak:
   mode: operator
