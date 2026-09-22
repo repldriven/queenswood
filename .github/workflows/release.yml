@@ -138,7 +138,12 @@ jobs:
 
       - name: Stitch each image's multi-arch manifest
         run: |
-          for img in $(ls projects/) console; do
+          # The images are the bake file's targets, not the projects
+          # directory: the demo bank's API is a project the chart never
+          # deploys, and the bake file leaves it out on purpose.
+          images=$(docker buildx bake -f infra/docker/bake.hcl --print \
+                     | jq -r '.target | keys[]')
+          for img in $images; do
             docker buildx imagetools create \
               -t "$REGISTRY/$img:$VERSION" \
               "$REGISTRY/$img:$VERSION-amd64" \
