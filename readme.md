@@ -35,7 +35,8 @@ accounts.
   the console, and plan the migrations that move holders onto a new one.
 - **Your engineers integrate it into your systems.** They call
   [its API](https://repldriven.github.io/queenswood/), and act on its webhooks
-  as your customers bank with you.
+  as your customers bank with you. They can run the whole platform, console
+  and simulators included, [on a laptop](#run-local).
 - **Your operators run the bank day to day in the console.** They watch
   end-of-day processing, look into a customer's account when something does
   not add up, and manage who on the team can do what.
