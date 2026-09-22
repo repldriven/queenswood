@@ -60,7 +60,11 @@ port-forward).
 Then open:
   http://localhost:8080/scalar       (bank-api OpenAPI)
 {{- if .Values.console.enabled }}
-  http://localhost:8081              (console -- organisation sign-in, sign in as `dev` / `dev`)
+{{- if .Values.keycloak.dev.user.username }}
+  http://localhost:8081              (console -- sign in as `{{ .Values.keycloak.dev.user.username }}`, the password values-local.yaml sets)
+{{- else }}
+  http://localhost:8081              (console -- the realm has no user to sign in as; install with -f values-local.yaml for `dev` / `dev`)
+{{- end }}
 {{- end }}
 {{- if .Values.jaeger.enabled }}
   http://localhost:16686             (Jaeger -- pick a service, Find Traces to see spans)

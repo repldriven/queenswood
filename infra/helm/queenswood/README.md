@@ -19,10 +19,11 @@ Kubernetes:
   Companies House adapters plus their simulators, in one
   JVM on ports 8081-8085
 - **console** (Svelte SPA served via nginx)
-- **Keycloak** with embedded H2 for standalone installs
-  (`keycloak.dev.enabled: true` by default). GKE
-  deployments turn this off and use the operator-driven
-  `keycloak.mode: operator` instead.
+- **Keycloak** with embedded H2 on a volume, for standalone
+  installs (`keycloak.mode: dev`, the default), with no user
+  to sign in as unless `values-local.yaml` adds `dev` /
+  `dev`. GKE deployments use the operator-driven
+  `keycloak.mode: operator` instead, which refuses that file.
 
 ## Quick start
 

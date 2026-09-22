@@ -203,8 +203,11 @@ jobs:
              helm install queenswood \
                oci://ghcr.io/__OWNER__/queenswood --version __VERSION__ \
                -n queenswood --create-namespace \
+               -f https://raw.githubusercontent.com/__OWNER__/queenswood/v__VERSION__/infra/helm/queenswood/values-local.yaml \
                --wait --timeout 10m
              ```
+             `values-local.yaml` adds the `dev` user you sign in as;
+             the chart adds none without it.
 
           3. **Port-forward** the API and the SPAs
              (separate terminals):
@@ -221,11 +224,11 @@ jobs:
              (`console`). It redirects to its same-origin
              `/keycloak/realms/...` flow; nginx proxies the OAuth
              dance to the in-cluster Keycloak and proxies `/v1/*` to
-             the in-cluster api-service. Seeded user is `dev` / `dev`
-             (orgs realm). The Keycloak admin console rides the same
-             proxy at <http://localhost:8081/keycloak/admin> with
-             `admin` / `admin`. OpenAPI docs at
-             <http://localhost:8080/scalar>.
+             the in-cluster api-service. Sign in as `dev` / `dev`,
+             the user `values-local.yaml` adds. The Keycloak admin
+             console rides the same proxy at
+             <http://localhost:8081/keycloak/admin> with `admin` /
+             `admin`. OpenAPI docs at <http://localhost:8080/scalar>.
 
           ## Tear down
 
