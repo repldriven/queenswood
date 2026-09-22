@@ -309,5 +309,6 @@ demo-digital-bank-record-walkthrough:
     mkdir -p target/recordings
     VIDEO=$(ls -t bases/demo-digital-bank-app/test-results/**/*.webm | head -1)
     cp "$VIDEO" target/recordings/demo-digital-bank.webm
+    just _video-lead target/recordings/demo-digital-bank.webm end
     echo "target/recordings/demo-digital-bank.webm"
     exit $STATUS

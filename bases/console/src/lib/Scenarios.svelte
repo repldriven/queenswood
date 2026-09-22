@@ -933,7 +933,7 @@
       <div class="prod-chip"><span class="pc-name">Rainy Day</span><span class="pc-rate">4.10%</span><Badge tone="published">published</Badge><span class="pc-ver">v1</span></div>
       <div class="prod-chip"><span class="pc-name">1 Year Fixed</span><span class="pc-rate">4.65%</span><Badge tone="published">published</Badge><span class="pc-ver">v1</span></div>
     </div>
-    <div class="tb-tie">{@render icoCheck()}<span>Three products on the shelf. The reward is a term on Everyday's version, fixed now it is published.</span></div>
+    <div class="tb-tie">{@render icoCheck()}<span>Three products published. The reward is a term on Everyday's version, fixed now it's published.</span></div>
   {:else if s.id === "s2"}
     <div class="party-lines">
       <div class="party-line"><span class="pl-name">trillian@example.test</span><span class="pl-flow"><Badge tone="published">developer</Badge><span class="arr">·</span><Badge tone="archived">pending, resent</Badge></span></div>

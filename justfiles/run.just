@@ -45,6 +45,22 @@ monolith-start:
     fi
     clj -M{{ DOMAIN_ALIASES }}:dev:test -e "(require 'com.repldriven.queenswood.testcontainers.interface)" -m com.repldriven.queenswood.monolith.main -c "classpath:monolith/application-test.yml" -p "dev" 2>&1 | tee server.log
 
+# Open a take on one of its own frames and cut the blank page it starts on, so a player shows that frame before play. take: the webm, rewritten in place; at: seconds into the take, or end for its last frame.
+_video-lead take at:
+    #!/usr/bin/env zsh
+    set -e
+    DIR=$(mktemp -d)
+    if [[ "{{ at }}" == "end" ]]; then
+      ffmpeg -loglevel error -y -sseof -0.2 -i "{{ take }}" -update 1 "$DIR/lead.png"
+    else
+      ffmpeg -loglevel error -y -ss "{{ at }}" -i "{{ take }}" -frames:v 1 "$DIR/lead.png"
+    fi
+    ffmpeg -loglevel error -y -i "{{ take }}" -loop 1 -framerate 25 -t 0.1 -i "$DIR/lead.png" \
+      -filter_complex "[1:v]setsar=1,format=yuv420p[a];[0:v]trim=start=1,setpts=PTS-STARTPTS,fps=25,setsar=1,format=yuv420p[b];[a][b]concat=n=2:v=1[v]" \
+      -map "[v]" -c:v libvpx -crf 10 -b:v 4M "$DIR/take.webm"
+    mv "$DIR/take.webm" "{{ take }}"
+    rm -rf "$DIR"
+
 # Film the console's eleven scenes with Playwright, signed in as CONSOLE_USER (xepha) against CONSOLE_URL (http://localhost:5173), the monolith and the console already running; the video lands in target/recordings/scenarios.webm, a failed take included.
 console-record-scenarios:
     #!/usr/bin/env zsh
@@ -56,5 +72,6 @@ console-record-scenarios:
     mkdir -p target/recordings
     VIDEO=$(ls -t bases/console/test-results/**/*.webm | head -1)
     cp "$VIDEO" target/recordings/scenarios.webm
+    just _video-lead target/recordings/scenarios.webm 16
     echo "target/recordings/scenarios.webm"
     exit $STATUS

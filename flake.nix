@@ -150,6 +150,7 @@
             pkgs.docker-credential-helpers
             pkgs.envsubst
             fdbBinary
+            pkgs.ffmpeg
             gcloud
             pkgs.jdk21
             pkgs.jq
