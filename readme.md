@@ -187,76 +187,67 @@ events as they do to the platform's own.
 
 ### Design decisions
 
-The engineering decisions that make this codebase worth reading, each
-with a doc that goes deep:
+The main engineering decisions, each with its document:
 
-- **System-level and model-equality property testing.** Two state
-  machines fed the same commands: the real system, and a model that
-  imports nothing from it, no database, no protobuf, no shared code.
-  A divergence shrinks to the shortest sequence that causes it.
-  See [scenario-testing](docs/tdd/scenario-testing.md).
-- **Anomalies, not exceptions, at every component interface.** An
-  interface returns a value or an anomaly and never raises. Three kinds
-  separate a fault from a refusal from a forbidden call, which is how
-  the API picks a status family without inspecting a payload.
-  See
+- **System-level and model-equality property testing.** Two state machines fed
+  the same commands: the real system, and a model that imports nothing from
+  it, no database, no protobuf, no shared code. A divergence shrinks to the
+  shortest sequence that causes it. See
+  [scenario-testing](docs/tdd/scenario-testing.md).
+- **Anomalies, not exceptions, at every component interface.** An interface
+  returns a value or an anomaly and never raises. Three kinds separate a fault
+  from a refusal from a forbidden call, which is how the API picks a status
+  family without inspecting a payload. See
   [ADR-0005](https://github.com/repldriven/mono/blob/main/docs/adr/0005-error-handling-with-anomalies.md).
-- **System-as-data.** Test and production share one bootstrap path, and
-  what a given process runs is decided by its configuration rather than
-  its code: the same bricks start as a modular monolith in one JVM or as
-  separate services.
+- **System-as-data.** Test and production share one bootstrap path, and what a
+  given process runs is decided by its configuration rather than its code: the
+  same bricks start as a modular monolith in one JVM or as separate services.
   See
   [ADR-0007](https://github.com/repldriven/mono/blob/main/docs/adr/0007-system-as-data.md)
   and the
   [slides](https://github.com/repldriven/mono/blob/main/docs/slides/systems-as-data/slides.md).
 - **FoundationDB Record Layer.** Multi-record ACID across stores in one
   transaction, so creating a bank writes its party, ledger chart, house
-  accounts and policy bindings, or none of them. Changelog entries are
-  keyed by versionstamp, so the log is ordered by commit and a relay
-  resumes exactly where it stopped. Counts and sums are kept current as
-  records commit, so reading one costs the same whether a bank has ten
-  accounts or ten million.
+  accounts and policy bindings, or none of them. Changelog entries are keyed
+  by versionstamp, so the log is ordered by commit and a relay resumes exactly
+  where it stopped. Counts and sums are kept current as records commit, so
+  reading one costs the same whether a bank has ten accounts or ten million.
   See [ADR-0002](docs/adr/0002-foundationdb-record-layer.md).
 - **Built on `mono`.** The generic half lives upstream: messaging, identity,
   observability, HTTP, error handling, and the system assembly the bullet
-  above describes. It arrives tested on its own terms and pinned to a tag
-  and a sha, so the suite here proves banking rather than plumbing, and the
-  ground under a bank moves only when someone decides it should.
-  See [ADR-0001](docs/adr/0001-reuse-mono-as-upstream.md).
+  above describes. It arrives tested on its own terms and pinned to a tag and
+  a sha, so the tests here cover banking, not infrastructure, and an upgrade
+  happens only when someone bumps the pin. See
+  [ADR-0001](docs/adr/0001-reuse-mono-as-upstream.md).
 
 ### Documentation
 
-The bank is documented end to end — the why, the how, and the
-decisions in between:
+Queenswood's documents live under `docs/`:
 
-- **[docs/prd/](docs/prd/)** — what each capability is for and who
-  uses it, in product language: intended scope, users, and the domain
-  rules that follow. Companion to the TDDs' _how_.
-- **[docs/tdd/](docs/tdd/)** — how it's built, one document per
-  capability and subsystem, from the transaction substrate up through
-  the API surface.
-- **[docs/adr/](docs/adr/)** — the decisions, each with the context
-  that forced it and the consequences accepted. Kept as a record, so
-  one that has been superseded says so rather than being rewritten.
-  The decisions mono owns are laid down beside these by
-  `just mono-import`, at the sha the dependency pins.
-- **[docs/recipes/](docs/recipes/)** — task-oriented guides in a fixed
-  shape (Problem, Solution, Rules, Discussion, References) for the
-  things you do repeatedly in this codebase. The recipes mono owns —
-  writing to its bricks, and testing against them — are laid down
-  beside these by the same import.
+- **[docs/prd/](docs/prd/)** — what each capability is for and who uses it, in
+  product language: intended scope, users, and the domain rules that follow.
+- **[docs/tdd/](docs/tdd/)** — how it's built, one document per capability and
+  subsystem, from storage up to the API.
+- **[docs/adr/](docs/adr/)** — the decisions, each with the context that
+  forced it and the consequences accepted. Kept as a record, so one that has
+  been superseded says so rather than being rewritten. The decisions mono owns
+  are laid down beside these by `just mono-import`, at the sha the dependency
+  pins.
+- **[docs/recipes/](docs/recipes/)** — task-oriented guides in a fixed shape
+  (Problem, Solution, Failures, Rules, Discussion) for the things you do
+  repeatedly in this codebase. The recipes mono owns — writing to its bricks,
+  and testing against them — are laid down beside these by the same import.
 - **[docs/slides/](https://github.com/repldriven/mono/tree/main/docs/slides)**
-  — mono's slidev walk-through of how systems-as-data assembles a
-  running system, laid down here by the same import.
+  — mono's slidev walk-through of how systems-as-data assembles a running
+  system, laid down here by the same import.
 
-These aren't only for people. Nearly every ADR and recipe carries a
-label binding it to a rule plugin, and the rules an agent loads on every
-task in this repo are regenerated from those documents rather than
-written alongside them, so the guidance can't quietly drift from the
-decision it came from. It's also why a recipe has a fixed shape: the
-`Rules` block is the part that gets extracted. What's load-bearing is
-then checked again at commit time, by formatting, linting, and a set of
-repo-specific guardrails.
+Nearly every ADR and recipe carries a label binding it to a rule plugin, and
+the rules an agent loads on every task in this repo are regenerated from those
+documents rather than written alongside them, so an agent's rules always match
+the decision they came from. It's also why a recipe has a fixed shape: the
+`Rules` block is the part that gets extracted. The most important rules are
+also checked when you commit, by formatting, linting and repo-specific
+guardrails.
 
 ## For infrastructure engineers
 
