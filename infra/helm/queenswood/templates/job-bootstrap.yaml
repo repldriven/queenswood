@@ -128,7 +128,7 @@ initContainers:
   # openssl, because alpine/k8s carries curl, jq, kubectl and helm but
   # not openssl. Only runs where the Secret held nothing.
   - name: generate-admin-client-key
-    image: alpine/openssl:3.5.7
+    image: alpine/openssl:3.5.8
     command:
       - sh
       - -c
