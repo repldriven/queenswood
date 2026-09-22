@@ -73,6 +73,15 @@ BUNDLED_DOCS='^docs/(adr|tdd|recipes)/'
 # down by scripts/mono-import.sh, so either changing changes the bundle.
 MONO_IMPORT='^(deps/mono-dev/|scripts/mono-import\.sh$)'
 
+# A release is tested whole. The commit that bumps the chart's version is
+# the one built, tagged and published, so every bucket runs at it rather
+# than inheriting the last commit's result through the path filter.
+RELEASE_CHART='^infra/helm/queenswood/Chart\.yaml$'
+if [[ "$everything" != "true" ]] && grep -qE "$RELEASE_CHART" <<<"$files" \
+   && git diff "$merge_base" "$HEAD" -- infra/helm/queenswood/Chart.yaml | grep -q '^+version:'; then
+  everything=true
+fi
+
 # Runs the polylith matrix. `development/` carries project:dev's extra
 # paths, and scripts/ holds the hooks and check-versions.sh.
 bucket clojure "$WORKSPACE|^(development/|scripts/)|^\.github/workflows/test\.yml$" "$clojure_files"
