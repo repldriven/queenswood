@@ -29,6 +29,32 @@ The same bank from your customer's side, in the
 [demo digital bank](docs/prd/demo-digital-bank.md)'s app: sign up and open two
 accounts.
 
+## Who it is for
+
+- **Your operators.** The founder, operations, finance and support people who
+  operate the bank in the console, each with their own identity and role.
+- **Your engineers.** The people who build the product on the API, and the
+  systems they build, which act as the bank with its credential.
+- **Your customers.** The people and businesses holding accounts through your
+  product. They see you, never Queenswood.
+- **Compliance and risk.** Whoever asks afterwards who had access to
+  what, which rules were in force, and whether a change was authorised.
+
+## What you bring
+
+- **A banking licence**, or a partner who holds one.
+- **A clearing partner** for Faster Payments. An adapter for one is
+  included, with a simulator that stands in for it locally.
+- **An identity verification provider.** As above: an adapter and a
+  simulator.
+- **Somewhere to run it.** A Helm chart deploys the platform to any
+  Kubernetes cluster, and a Google Cloud blueprint declares an
+  installation as a manifest.
+
+Queenswood has no production miles yet. It is a research-grade
+platform, built in the open, and the documentation says what is done
+and what is not.
+
 ## What you get
 
 - **One API.** One base URL and one OpenAPI 3.x document, generated from the
@@ -67,32 +93,6 @@ API reference:
 [repldriven.github.io/queenswood](https://repldriven.github.io/queenswood/),
 or live OpenAPI at [localhost:8080](http://localhost:8080) when
 running.
-
-## Who it is for
-
-- **Your operators.** The founder, operations, finance and support people who
-  operate the bank in the console, each with their own identity and role.
-- **Your engineers.** The people who build the product on the API, and the
-  systems they build, which act as the bank with its credential.
-- **Your customers.** The people and businesses holding accounts through your
-  product. They see you, never Queenswood.
-- **Compliance and risk.** Whoever asks afterwards who had access to
-  what, which rules were in force, and whether a change was authorised.
-
-## What you bring
-
-- **A banking licence**, or a partner who holds one.
-- **A clearing partner** for Faster Payments. An adapter for one is
-  included, with a simulator that stands in for it locally.
-- **An identity verification provider.** As above: an adapter and a
-  simulator.
-- **Somewhere to run it.** A Helm chart deploys the platform to any
-  Kubernetes cluster, and a Google Cloud blueprint declares an
-  installation as a manifest.
-
-Queenswood has no production miles yet. It is a research-grade
-platform, built in the open, and the documentation says what is done
-and what is not.
 
 ## Architecture
 
