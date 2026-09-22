@@ -219,7 +219,7 @@ keycloak:
     # checks the restored user ids over the same API. No kubectl -- the
     # operator's import CR is not used, so the Job touches no Kubernetes
     # API at all.
-    toolsImage: alpine/k8s:1.30.14
+    toolsImage: alpine/k8s:1.37.0
     gcloudImage: ""
     resources:
       requests:
@@ -350,7 +350,7 @@ mail:
   # reach people.
   catcher:
     enabled: false
-    image: axllent/mailpit:v1.31.1
+    image: axllent/mailpit:v1.31.2
     resources:
       requests:
         cpu: 20m
