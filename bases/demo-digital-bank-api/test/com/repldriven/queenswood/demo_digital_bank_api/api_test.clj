@@ -331,6 +331,23 @@
               :body encoded})]
     {:status (:status res) :body (http/res->edn res)}))
 
+(defn- await-stream-release
+  "Wait until the bank holds no stream open for the session's customer,
+  answering how many it still holds. Closing the app's end reaches the
+  bank only when the stream's next write fails, a keep-alive later; a
+  delivery in that window is pushed to the stream nobody reads, written
+  into a closed socket, and marked shown, and the next stream then has
+  nothing to replay."
+  [sys token timeout-ms]
+  (let [bank (system/instance sys [:demo-digital-bank :bank])
+        customer (bank/authenticate bank token)
+        deadline (+ (util/now) timeout-ms)]
+    (loop []
+      (let [open (bank/open-streams bank customer)]
+        (if (or (zero? open) (> (util/now) deadline))
+          open
+          (do (Thread/sleep 20) (recur)))))))
+
 (defn- open-stream
   "GET the event stream under `token`, answering once its headers have
   arrived: `{:status :reader :close}`."
@@ -464,6 +481,7 @@
            (is (= ":webhook/unsigned" (get-in refused [:body :type])))))
        ((:close stream))
        (testing "what was told while no stream was open arrives on the next"
+         (is (zero? (await-stream-release sys token 5000)))
          (let [later (assoc envelope
                             :notification-id
                             "whn.00000000000000000000000002")

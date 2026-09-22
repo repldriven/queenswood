@@ -8,8 +8,10 @@ description: |
   both are optional, so the chart installs whole on kind and defers to
   whatever a cluster already runs.
 type: application
-version: 0.15.0
-appVersion: "0.0.0"
+# One number, bumped together by `just release`: the chart is versioned
+# as the images it installs, and a merged bump is what releases both.
+version: 0.0.1
+appVersion: "0.0.1"
 icon: https://avatars.githubusercontent.com/repldriven
 kubeVersion: ">=1.27.0-0"
 

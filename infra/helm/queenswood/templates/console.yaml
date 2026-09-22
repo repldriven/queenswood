@@ -28,7 +28,7 @@ spec:
       {{- end }}
       containers:
         - name: console
-          image: "{{ .Values.image.registry }}/console:{{ .Values.image.tag }}"
+          image: "{{ .Values.image.registry }}/console:{{ include "queenswood.imageTag" . }}"
           imagePullPolicy: {{ include "queenswood.imagePullPolicy" $ }}
           ports:
             - name: http

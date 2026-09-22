@@ -3,7 +3,9 @@
 # (e.g. {{ image.registry }}/api-service:{{ image.tag }}).
 image:
   registry: ghcr.io/repldriven/queenswood
-  tag: "0.0.0"
+  # Empty: the chart's own appVersion, which is the release the images
+  # were published under. The local loop sets `dev`.
+  tag: ""
   pullPolicy: IfNotPresent
   pullSecrets: []
 
