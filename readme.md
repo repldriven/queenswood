@@ -58,7 +58,7 @@ accounts.
   [Google Cloud guide](docs/recipes/infra/up-and-running.md), or wait for our
   managed offering.
 
-## What you get
+## For decision-makers
 
 - **Isolated banks.** Your organisation is a bank on the platform, with its own
   products, customers, books, policies and team, and nothing of one is visible
@@ -83,6 +83,8 @@ accounts.
   credential, and an access log says who did what.
 - **A sandbox on the live code.** Fund your bank with simulated money and run
   the same code, the same API and the same books your customers will.
+- **No lock-in.** The source is yours to read, run and change, under the MIT
+  licence, on infrastructure you choose.
 
 Queenswood has no production miles yet, but it is built to run in production:
 generated tests check its answers against a model of how a bank should behave,
