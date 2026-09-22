@@ -1,7 +1,8 @@
 # Where a management plane reconciles its own configuration from. A
-# fork sets these.
+# fork sets these. A new render pins the newest release tag fetched,
+# so nothing starts on a moving branch; QW_SOURCE_REVISION overrides it.
 SOURCE_REPO := "https://github.com/repldriven/queenswood"
-SOURCE_REVISION := "main"
+SOURCE_REVISION := env_var_or_default("QW_SOURCE_REVISION", `git tag --list 'v*' --sort=-v:refname 2>/dev/null | head -1`)
 
 # Where this project sits inside that repository. "." for a fork, a
 # directory for a mirror that vendors it.
@@ -308,6 +309,11 @@ queenswood-installation-manifest parent=PARENT name="" folder="" mgmt="" billing
       ADOPT="folderId: \"$FOLDER\""
     fi
 
+    if [[ -z "{{ SOURCE_REVISION }}" ]]; then
+      echo "no release tag to pin the source to: git fetch --tags, or set QW_SOURCE_REVISION" >&2
+      exit 1
+    fi
+
     CODE="{{ CODE }}" BILLING_LINE="$BILLING_LINE" DOMAIN="$DOMAIN" \
     RECOVERY_BLOCK="$RECOVERY_BLOCK" MGMT="$MGMT" MGMT_ADOPT="$MGMT_ADOPT" \
     SOURCE_REPO="{{ SOURCE_REPO }}" SOURCE_REVISION="{{ SOURCE_REVISION }}" \
@@ -500,6 +506,11 @@ queenswood-instance-manifest env=ENV label=LABEL project="" domain="" spec=SPEC:
                    infra/helm/management-plane/values.yaml | head -1)
     if [[ -z "$ES_VERSION" ]]; then
       echo "no externalSecrets.version in the management-plane values" >&2
+      exit 1
+    fi
+
+    if [[ -z "{{ SOURCE_REVISION }}" ]]; then
+      echo "no release tag to pin the source to: git fetch --tags, or set QW_SOURCE_REVISION" >&2
       exit 1
     fi
 
