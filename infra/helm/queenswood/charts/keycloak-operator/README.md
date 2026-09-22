@@ -13,8 +13,8 @@ upstream so the CRDs land ahead of the templates that use them.
 
 ## Sourced from
 
-Tag `26.7.0` of
-[`keycloak/keycloak-k8s-resources`](https://github.com/keycloak/keycloak-k8s-resources/tree/26.7.0/kubernetes),
+Tag `26.7.4` of
+[`keycloak/keycloak-k8s-resources`](https://github.com/keycloak/keycloak-k8s-resources/tree/26.7.4/kubernetes),
 `kubernetes/cluster-wide/` — **verbatim, with no deviations**.
 
 Earlier versions of this chart carried four hand-applied patches

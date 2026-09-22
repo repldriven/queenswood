@@ -2,7 +2,7 @@ apiVersion: v2
 name: keycloak-operator
 description: |
   Thin Helm-chart wrapper around the official Keycloak Operator's
-  vendored YAML (release tag 26.7.0) — the operator and its
+  vendored YAML (release tag 26.7.4) — the operator and its
   ClusterRole/ClusterRoleBinding live under `templates/`, and the
   two upstream CRDs (`Keycloak`, `KeycloakRealmImport`) live under
   `crds/` so Helm installs them ahead of the rest. There are no
@@ -27,5 +27,5 @@ description: |
        some upstream docs mention, is silently treated as a literal
        namespace name and the operator watches nothing.)
 type: application
-version: 0.1.4
-appVersion: "26.7.0"
+version: 0.1.5
+appVersion: "26.7.4"
