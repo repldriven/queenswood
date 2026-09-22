@@ -145,50 +145,45 @@ database (FoundationDB) manages the data.
   <img alt="Queenswood system diagram" src="docs/diagrams/system-diagram-light.svg">
 </picture>
 
-**Writes as commands, processed in parallel and in order.** Where a write
-needs it, the API puts a command on the bus instead of doing the work itself.
-Processors consume those commands and scale independently of the web tier, so
-the work spreads across as many instances as it takes while a request costs
-the API only an open connection. Commands sharing an ordering key are consumed
-one at a time and in order, however many processors are running — something no
-number of web servers writing directly can give you. Delivery is at-least-once
-and the envelope absorbs a redelivery, so repeating a request replays the
-first outcome rather than doing the work twice. Today the API waits for the
-reply and answers on the same connection; the same split would let it
-acknowledge immediately and return the outcome out of band. A write that needs
-none of this stays a direct call. Processors deploy individually, or bundled
-along lines of responsibility such as financial and operational.
+**Writes as commands, processed in parallel and in order.** The API can put a
+write on the bus as a command instead of doing the work itself. Processors
+consume those commands and scale independently of the web tier, so the work
+spreads across as many instances as it takes while a request costs the API
+only an open connection. Commands sharing an ordering key are consumed one at
+a time and in order, however many processors are running. Delivery is
+at-least-once and a redelivered command is recognised, so repeating a request
+replays the first outcome rather than doing the work twice. Today the API
+waits for the reply and answers on the same connection; the same split would
+let it acknowledge immediately and return the outcome out of band. Other
+writes are direct calls. Processors deploy individually, or bundled along
+lines of responsibility such as financial and operational.
 
 **Reads are queries.** The API read-side loads records directly through a
-separate query surface — no command, no bus, no round-trip. Query bricks
-read and nothing else. Once a domain's writes have earned a command, its
-write brick becomes private to the processor and the API reaches only the
-query side, which the build enforces rather than leaves to habit. A read
-therefore never travels the write path, and a busy or unavailable bus
-does not make the bank unreadable.
+separate query surface — no command, no bus, no round-trip. Query bricks read
+and nothing else. Once a domain's writes go through commands, its write brick
+becomes private to the processor, and the API reaches only the query side. The
+build enforces it. A read therefore never travels the write path, and a busy
+or unavailable bus doesn't make the bank unreadable.
 
-**Processors react, they never call one another.** Where a change has to
-be reacted to, it is recorded in a changelog in the same transaction as
-the write itself, so a change and the news of it cannot diverge. One
-system-wide relay tails those changelogs in order and publishes each
-entry to the message bus as an event, and the processors that care
-subscribe. An event reports what happened and asks nothing of whoever
-reads it, unlike a command. Nor is this event sourcing: the records
-stay the source of truth, and an event exists to cross a boundary
-rather than to rebuild state from.
+**Processors react, they never call one another.** When another part of the
+system has to react to a change, it's recorded in a changelog in the same
+transaction as the write itself, so a change and the news of it can't diverge.
+One system-wide relay tails those changelogs in order and publishes each entry
+to the message bus as an event, and the processors that care subscribe. An
+event says what happened; a command asks for something to be done. The records
+stay the source of truth, and an event carries a change across a boundary.
 
-**External calls are recorded before they are made.** A database write and an
-outbound HTTP call cannot be made atomic: no transaction spans the two,
-and there is no two-phase commit to reach for across someone else's API.
-Committing first risks a call that never happens; calling first risks a
-call that happened but was never recorded. So the adapter commits the
-_intent_ to call, and a separate poller makes the call afterwards,
-retrying each pending intent until it succeeds or exhausts its attempts.
-Webhook events received from an external service are normalized
-by the adapter and written to a deduplicating outbox, atomically with
-its changelog record, and relayed to the message bus in order through
-the system-wide changelog relay: processors can and do react to
-external adapter events too.
+**External calls are recorded before they're made.** A database write and an
+outbound HTTP call can't be made atomic: no transaction spans the two, and
+there's no two-phase commit across another company's API. Committing first
+risks a call that never happens; calling first risks a call that happened but
+was never recorded. So the adapter commits the _intent_ to call, and a
+separate poller makes the call afterwards, retrying each pending intent until
+it succeeds or exhausts its attempts. Webhook events received from an external
+service are normalized by the adapter and written to a deduplicating outbox,
+atomically with its changelog record, and relayed to the message bus in order
+through the system-wide changelog relay, so processors react to a provider's
+events as they do to the platform's own.
 
 ### Design decisions
 
