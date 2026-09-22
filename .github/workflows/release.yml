@@ -33,7 +33,7 @@ env:
 jobs:
   check:
     if: github.event.workflow_run.conclusion == 'success'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       version: ${{ steps.decide.outputs.version }}
       release: ${{ steps.decide.outputs.release }}
@@ -72,7 +72,7 @@ jobs:
       matrix:
         include:
           - arch: amd64
-            runs-on: ubuntu-latest
+            runs-on: ubuntu-24.04
             platform: linux/amd64
           - arch: arm64
             runs-on: ubuntu-24.04-arm
@@ -119,7 +119,7 @@ jobs:
     permissions:
       contents: write       # the tag and the release
       packages: write       # the multi-arch manifests and the chart
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       VERSION: ${{ needs.check.outputs.version }}
       SHA: ${{ github.event.workflow_run.head_sha }}
