@@ -64,25 +64,24 @@ accounts.
   products, customers, books, policies and team, and nothing of one is visible
   to another. A bank starts in test and moves to live; tiers set what it may do
   and how much.
-- **Versioned products, with migrations.** Current, savings and term deposit
-  products come from templates. A rate change, a new welcome reward, a new term:
-  each is a new version, and the holders of the old one are moved by a migration
-  you plan, approve and let the scheduler run.
-- **Payments on a double-entry ledger.** Internal transfers post at once. UK
-  Faster Payments go out through a clearing partner, with the payee's name
-  checked first, and come in matched to the account or parked in suspense. Every
-  movement is a double-entry posting in integer minor units, and interest keeps
-  the fraction of a penny it has not paid yet.
-- **Webhooks.** A webhook endpoint per bank, told when an account opens, a
-  payment settles, is held or fails, money arrives, or a reward is paid.
-- **Policies as data.** What a bank may do, and up to what limit, is a policy
-  record evaluated when the request arrives, not a conditional compiled into a
-  release. Changing what a bank permits is a write.
-- **Team roles and an access log.** Invite colleagues as owner, admin, developer
-  or viewer. Every act is attributable to a person or to the bank's own
-  credential, and an access log says who did what.
-- **A sandbox on the live code.** Fund your bank with simulated money and run
-  the same code, the same API and the same books your customers will.
+- **Product changes without a release.** Change a rate, add a welcome reward
+  or launch a new term without shipping software. Existing customers move to
+  the new terms only when you plan and approve it.
+- **UK payments and books that balance.** Customers pay and are paid by Faster
+  Payments in seconds, with the payee's name checked first. Every movement is
+  recorded as matching debits and credits, so the books always balance, down
+  to fractions of a penny of interest.
+- **Real-time notifications.** Your systems are told as it happens when an
+  account opens, money arrives or a payment settles, so your customers can be
+  too.
+- **Rules without a release.** What a bank may do, and the limits it works
+  within, are settings checked on every request, so changing them ships no
+  code.
+- **An audit trail.** Everyone on your team signs in as themselves with a
+  role, and a log records who did what, which is the answer an auditor asks
+  for.
+- **A sandbox.** Try everything with simulated money, on the same software
+  your customers will use.
 - **No lock-in.** The source is yours to read, run and change, under the MIT
   licence, on infrastructure you choose.
 
