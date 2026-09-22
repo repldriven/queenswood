@@ -269,6 +269,25 @@ jobs:
       - name: Enable corepack
         run: corepack enable
 
+      # The console image copies each workspace member's manifest before
+      # `yarn install --immutable`, and a member it does not copy fails
+      # that install as a lockfile yarn would have changed -- which no
+      # test here runs, so the release is where it would surface.
+      - name: Check the console image copies every workspace manifest
+        run: |
+          missing=0
+          for ws in $(jq -r '.workspaces[]' package.json); do
+            if ! grep -qE "^COPY $ws/package\.json " infra/docker/console/Dockerfile; then
+              echo "::error::infra/docker/console/Dockerfile does not COPY $ws/package.json"
+              missing=1
+            fi
+            if ! grep -qE "^!$ws(/package\.json)?$" infra/docker/console/Dockerfile.dockerignore; then
+              echo "::error::infra/docker/console/Dockerfile.dockerignore does not admit $ws/package.json"
+              missing=1
+            fi
+          done
+          exit $missing
+
       # --immutable fails if the lockfile would change.
       - name: Install
         run: corepack yarn install --immutable

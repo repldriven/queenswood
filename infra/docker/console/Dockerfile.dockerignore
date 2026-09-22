@@ -6,11 +6,14 @@
 # Yarn workspace root manifests. Yarn validates the whole workspace
 # graph at install time, so every workspace member's package.json
 # must be present even though only console + ui source
-# gets COPY-ed below.
+# gets COPY-ed below: a member missing here is a lockfile
+# `--immutable` refuses. The js CI job checks each member the root
+# package.json lists is admitted here and copied by the Dockerfile.
 !package.json
 !yarn.lock
 !.yarnrc.yml
 !bases/console
+!bases/demo-digital-bank-app/package.json
 !components/ui
 !infra/docker/console
 
