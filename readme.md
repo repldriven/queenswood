@@ -371,8 +371,8 @@ REPL-driven development follows the standard Polylith pattern.
 
 ### Built on mono
 
-[mono](https://github.com/repldriven/mono) is a Clojure component
-library for distributed systems, built on
-[Polylith](https://polylith.gitbook.io/polylith). Its components are
-documented in the
+[mono](https://github.com/repldriven/mono) is an opinionated Clojure framework
+for building systems on [Polylith](https://polylith.gitbook.io/polylith):
+bricks you test on their own, wired together by configuration and started as
+one. Its components are documented in the
 [mono README](https://github.com/repldriven/mono#mono-components).
