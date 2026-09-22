@@ -594,7 +594,7 @@ fdb:
     # organisation's ban on service-account keys stops being something
     # to get exempted from.
     proxy:
-      image: andrewgaul/s3proxy:4.0.0
+      image: andrewgaul/s3proxy:4.1.1
       # The project the bucket is in, which is the recovery project
       # rather than this instance's. Set per instance.
       projectId: ""
