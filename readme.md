@@ -56,7 +56,7 @@ accounts.
   managed offering.
 
 Queenswood has no production miles yet, but it is built to run in production:
-randomised tests check its answers against a model of how a bank should behave,
+generated tests check its answers against a model of how a bank should behave,
 scenarios drive the live API end to end, and the documentation says what is done
 and what is not.
 
@@ -91,7 +91,7 @@ and what is not.
 - **A sandbox on the live code.** Fund your bank with simulated money and run
   the same code, the same API and the same books your customers will.
 - **Source, design and tests in one repository.** The source, the product and
-  design documents, the decisions and the tests, including randomised tests that
+  design documents, the decisions and the tests, including generated tests that
   check its answers against a model of how a bank should behave, are all here.
 
 API reference:
