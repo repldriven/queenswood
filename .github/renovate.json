@@ -97,9 +97,13 @@
       ]
     },
     {
+      "description": "CI runs `yarn dedupe --check`, and an update that raises a shared transitive dependency leaves the old copy resolved beside the new unless the lockfile is deduplicated after it.",
       "groupName": "npm",
       "matchManagers": [
         "npm"
+      ],
+      "postUpdateOptions": [
+        "yarnDedupeHighest"
       ]
     },
     {
