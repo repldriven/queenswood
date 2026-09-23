@@ -9,7 +9,7 @@
     bases/build {:local/root "bases/build" :exclusions [org.slf4j/slf4j-nop]}
     ext/mono-test-runner {:local/root "deps/mono-test-runner"
                           :exclusions [org.slf4j/slf4j-nop]}
-    org.clojure/clojure {:mvn/version "1.12.5"}
+    org.clojure/clojure {:mvn/version "1.12.6"}
     pin/clojure-core-async {:local/root "deps/clojure-core-async"}
     components/api-schema {:local/root "components/api-schema"}
     components/balance {:local/root "components/balance"}
