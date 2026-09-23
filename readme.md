@@ -343,10 +343,6 @@ recipe of their own.
 - **Scaling.** Services run as many replicas as you give them, except the
   dispatcher that owns every changelog cursor and scheduled trigger, which
   runs as exactly one.
-- **Delivery guarantees.** A command is acknowledged only once it has
-  committed, and a repeated one is recognised, so a redelivery repeats
-  nothing. Events leave through an outbox and external calls through a
-  recorded intent, so a crash between a write and what follows loses neither.
 - **Environment lifecycle.** An instance is up, draining or down. Down stops
   its compute, node pools at zero and its database stopped, with its data
   untouched, and draining takes an export before it gets there.
