@@ -139,9 +139,8 @@ just demo-digital-bank-app-start
 
 ### Architecture
 
-The Message Bus carries commands and events
-between Queenswood's processors and external providers; a distributed
-database (FoundationDB) manages the data.
+A message bus carries commands and events between Queenswood's processors
+and external providers; a distributed database manages the data.
 
 <picture>
   <source media="(prefers-color-scheme: dark)"  srcset="docs/diagrams/system-diagram-dark.svg">
