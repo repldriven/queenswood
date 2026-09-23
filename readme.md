@@ -328,13 +328,18 @@ instance project below it is rebuilt whenever an instance is.
   account, whose secret can be rotated or revoked. The API verifies every
   token against Keycloak's signing keys and its issuer, and refuses an
   operation whose declared scopes the caller lacks.
+- **GitOps.** Every change to an installation, a release included, is a
+  reviewed pull request, and merging it is what applies it. Argo CD and
+  Crossplane reconcile the cloud toward the merged manifests, a release is a
+  merged version bump that builds and tags the images and chart, and an
+  instance moves to a release when a merge pins it. A pull request never
+  holds a cloud identity.
 - **Privileged access management.** On Google Cloud, nobody holds standing
-  privileges: people hold read-only access, and changing anything by hand
-  means joining an empty break-glass group for that change and leaving again.
-  The
-  identity that bootstraps an installation holds its organisation rights for
-  the bootstrap alone and is closed afterwards. No service-account key exists
-  for any identity. See
+  privileges. People hold read-only access, since GitOps makes every routine
+  change, and the rare change by hand means joining an empty break-glass group
+  for it and leaving again. The identity that bootstraps an installation holds
+  its organisation rights for the bootstrap alone and is closed afterwards. No
+  service-account key exists for any identity. See
   [ADR-0023](docs/adr/0023-installation-naming-and-access.md).
 - **Cloud security.** On Google Cloud, each installation is a folder of its
   own, following Google's
@@ -342,8 +347,7 @@ instance project below it is rebuilt whenever an instance is.
   with organisation policy constraints enforced from the first project.
   Automation owns everything inside the folder, restrained by what its own
   manifests declare — deletion policies, deletion protection and liens — so
-  every restraint is reviewable in a pull request. Changes reach the cloud
-  only from merged manifests, and a pull request never holds a cloud identity.
+  every restraint is reviewable in a pull request.
 - **Secrets and key management.** On Google Cloud, credentials live in Secret
   Manager and reach the cluster through the External Secrets operator under
   Workload Identity, so neither git nor Argo CD ever holds one. The
