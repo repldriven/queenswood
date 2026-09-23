@@ -83,9 +83,9 @@ accounts.
   as an account opening, money arriving or a payment settling.
 - **An audit trail.** Everyone on your team signs in as themselves with a
   role, and a log records who did what.
-- **Product requirements.** Every capability has a
+- **A documentation set.** Every capability has a
   [requirements document](docs/prd/) saying what it's for and who uses it, in
-  product language.
+  product language. All of the documentation says what's done and what's not.
 - **A test suite.** Generated tests check its answers against a model of how
   a bank should behave, and scenarios drive the live API end to end.
 
