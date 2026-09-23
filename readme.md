@@ -86,10 +86,11 @@ accounts.
 - **Product requirements.** Every capability has a
   [requirements document](docs/prd/) saying what it's for and who uses it, in
   product language.
+- **A test suite.** Generated tests check its answers against a model of how
+  a bank should behave, and scenarios drive the live API end to end.
 
-No bank runs Queenswood in production yet. Generated tests check its answers
-against a model of how a bank should behave, scenarios drive the live API end
-to end, and the documentation says what's done and what's not.
+No bank runs Queenswood in production yet, and the documentation says what's
+done and what's not.
 
 ## For application engineers
 
