@@ -190,20 +190,10 @@ atomically with its changelog record, and relayed to the message bus in order
 through the system-wide changelog relay, so processors react to a provider's
 events as they do to the platform's own.
 
-### Design decisions
+### Building blocks
 
-The main engineering decisions, each with its document:
+What Queenswood is built from, each with its document:
 
-- **System-level and model-equality property testing.** Two state machines fed
-  the same commands: the real system, and a model that imports nothing from
-  it, no database, no protobuf, no shared code. A divergence shrinks to the
-  shortest sequence that causes it. See
-  [scenario-testing](docs/tdd/scenario-testing.md).
-- **Anomalies, not exceptions, at every component interface.** An interface
-  returns a value or an anomaly and never raises. Three kinds separate a fault
-  from a refusal from a forbidden call, which is how the API picks a status
-  family without inspecting a payload. See
-  [ADR-0005](https://github.com/repldriven/mono/blob/main/docs/adr/0005-error-handling-with-anomalies.md).
 - **System-as-data.** Test and production share one bootstrap path, and what a
   given process runs is decided by its configuration rather than its code: the
   same bricks start as a modular monolith in one JVM or as separate services.
@@ -211,6 +201,14 @@ The main engineering decisions, each with its document:
   [ADR-0007](https://github.com/repldriven/mono/blob/main/docs/adr/0007-system-as-data.md)
   and the
   [slides](https://github.com/repldriven/mono/blob/main/docs/slides/systems-as-data/slides.md).
+- **Message bus.** Processors send and subscribe through an abstraction that
+  configuration binds to Kafka, Pulsar or in-process channels, so the same
+  processors run on a broker in production and on channels in a test or the
+  monolith. Commands and events travel as Avro, each producer and consumer
+  bound to its schema at startup. See
+  [ADR-0003](https://github.com/repldriven/mono/blob/main/docs/adr/0003-message-bus-abstraction.md)
+  and
+  [ADR-0004](https://github.com/repldriven/mono/blob/main/docs/adr/0004-avro-for-message-payloads.md).
 - **FoundationDB Record Layer.** Multi-record ACID across stores in one
   transaction, so creating a bank writes its party, ledger chart, house
   accounts and policy bindings, or none of them. Changelog entries are keyed
@@ -219,11 +217,10 @@ The main engineering decisions, each with its document:
   reading one costs the same whether a bank has ten accounts or ten million.
   See [ADR-0002](docs/adr/0002-foundationdb-record-layer.md).
 - **Built on `mono`.** The generic half lives upstream: messaging, identity,
-  observability, HTTP, error handling, and the system assembly the bullet
-  above describes. It arrives tested on its own terms and pinned to a tag and
-  a sha, so the tests here cover banking, not infrastructure, and an upgrade
-  happens only when someone bumps the pin. See
-  [ADR-0001](docs/adr/0001-reuse-mono-as-upstream.md).
+  observability, HTTP, error handling and the system assembly. It arrives
+  tested on its own terms and pinned to a tag and a sha, so the tests here
+  cover banking, not infrastructure, and an upgrade happens only when someone
+  bumps the pin. See [ADR-0001](docs/adr/0001-reuse-mono-as-upstream.md).
 
 ### Technical documentation
 
@@ -466,6 +463,15 @@ REPL-driven development follows the standard Polylith pattern.
   (main/stop sys)
   :-)
 ```
+
+### Testing
+
+Beside each brick's own tests, two state machines are fed the same commands:
+the real system, and a model that imports nothing from it, no database, no
+protobuf, no shared code. A divergence shrinks to the shortest sequence that
+causes it. See
+[ADR-0009](docs/adr/0009-model-equality-property-testing.md) and
+[scenario testing](docs/tdd/scenario-testing.md).
 
 ### Built on mono
 
