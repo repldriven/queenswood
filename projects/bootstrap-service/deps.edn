@@ -27,6 +27,6 @@
         component/resources {:local/root "../../components/resources"}
         component/schema {:local/root "../../components/schema"}
         base/bootstrap {:local/root "../../bases/bootstrap"}
-        org.clojure/clojure {:mvn/version "1.12.5"}
+        org.clojure/clojure {:mvn/version "1.12.6"}
         pin/clojure-core-async {:local/root "../../deps/clojure-core-async"}}
  :paths ["resources"]}
