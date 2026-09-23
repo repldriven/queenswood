@@ -79,8 +79,8 @@ accounts.
   Faster Payments in seconds, with the payee's name checked first. Every
   movement is recorded as matching debits and credits, so the books always
   balance, down to fractions of a penny of interest.
-- **Real-time notifications.** Your systems are told as it happens when an
-  account opens, money arrives or a payment settles.
+- **Real-time notifications.** Your systems are told as things happen, such
+  as an account opening, money arriving or a payment settling.
 - **An audit trail.** Everyone on your team signs in as themselves with a
   role, and a log records who did what.
 - **Product requirements.** Every capability has a
