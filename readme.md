@@ -139,7 +139,7 @@ just demo-digital-bank-app-start
 
 ### Architecture
 
-The Message Bus (Kafka or Pulsar) carries commands and events
+The Message Bus carries commands and events
 between Queenswood's processors and external providers; a distributed
 database (FoundationDB) manages the data.
 
