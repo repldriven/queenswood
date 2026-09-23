@@ -320,6 +320,38 @@ reconciles the installation, the recovery project holds the backups and the
 key they're encrypted under, and the DNS zone stays when an instance goes. The
 instance project below it is rebuilt whenever an instance is.
 
+## For SREs
+
+- **Observability.** Every request is traced with OpenTelemetry across the
+  HTTP edge and the message bus, and a correlation id follows a user action
+  through every command, event and processor it touches. Traces are exported
+  over OTLP to any collector, to the bundled Jaeger by default, and logs are
+  structured JSON.
+- **Health checks.** Every service answers liveness and readiness under
+  `/actuator/health`, and its probes use them. A service starts only once
+  the migrations and bootstrap it depends on have completed, and the services
+  it calls are up.
+- **Scheduled jobs.** End-of-day processing and every other job run on a
+  schedule you read and change through the API and the console, and each run
+  is recorded.
+- **Scaling.** Services run as many replicas as you give them, except the
+  dispatcher that owns every changelog cursor and scheduled trigger, which
+  runs as exactly one.
+- **Delivery guarantees.** A command is acknowledged only once it has
+  committed, and a repeated one is recognised, so a redelivery repeats
+  nothing. Events leave through an outbox and external calls through a
+  recorded intent, so a crash between a write and what follows loses neither.
+- **Environment lifecycle.** An instance is up, draining or down. Down stops
+  its compute, node pools at zero and its database stopped, with its data
+  untouched, and draining takes an export before it gets there.
+- **Runbooks.** Restoring
+  [FoundationDB](docs/recipes/infra/fdb-recovery.md), rebuilding an
+  [instance's cluster](docs/recipes/infra/instance-rebuild-cluster.md),
+  replacing the
+  [management plane's cluster](docs/recipes/infra/plane-rebuild-cluster.md)
+  and [debugging an installation](docs/recipes/infra/crossplane-debug.md)
+  are each a recipe of their own.
+
 ## For contributors
 
 ### Nix
