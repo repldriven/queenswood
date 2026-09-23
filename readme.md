@@ -329,8 +329,8 @@ instance project below it is rebuilt whenever an instance is.
   caller lacks.
 - **Machine-to-machine authentication.** A fintech's systems use OAuth 2.0
   client credentials: each bank is issued a client id and secret, which can be
-  rotated or revoked, and exchanges them at the API's token endpoint for an
-  hour-long bearer token bound to the bank and to whether it is in test or
+  rotated or revoked, and exchanges them at the API's token endpoint for a
+  short-lived bearer token bound to the bank and to whether it is in test or
   live.
 - **GitOps.** Every change to an installation, a release included, is a
   reviewed pull request, and merging it is what applies it. Argo CD and
