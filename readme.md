@@ -448,7 +448,7 @@ the decision they came from.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/repldriven/mono/main/docs/assets/logo-dark.svg" />
-  <img src="https://raw.githubusercontent.com/repldriven/mono/main/docs/assets/logo.svg" alt="mono" width="80" align="left" />
+  <img src="https://raw.githubusercontent.com/repldriven/mono/main/docs/assets/logo.svg" alt="mono" width="64" align="left" />
 </picture>
 
 [mono](https://github.com/repldriven/mono) is an opinionated Clojure framework
