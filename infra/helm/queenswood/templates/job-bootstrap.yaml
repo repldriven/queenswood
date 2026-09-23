@@ -13,6 +13,8 @@ imagePullSecrets:
 {{- end }}
 restartPolicy: OnFailure
 serviceAccountName: {{ include "queenswood.bootstrapServiceAccount" . }}
+securityContext:
+  {{- include "queenswood.appPodSecurityContext" . | nindent 2 }}
 initContainers:
   - name: wait-for-fdb-cluster
     image: {{ $.Values.tools.k8s.image | quote }}
@@ -115,6 +117,7 @@ initContainers:
         crt=$(kubectl get secret "$S" \
           -o jsonpath='{.data.admin-client\.crt}' 2>/dev/null || true)
         if [ -n "$pem" ] && [ -n "$crt" ]; then
+          umask 027
           printf '%s' "$pem" | base64 -d > /keys/admin-client.pem
           printf '%s' "$crt" | base64 -d > /keys/admin-client.crt
           touch /keys/.stored
@@ -141,6 +144,7 @@ initContainers:
           -keyout /keys/admin-client.pem \
           -out /keys/admin-client.crt \
           -subj "/CN={{ .Release.Name }}-admin"
+        chmod 0640 /keys/admin-client.pem
         echo "generated a signing pair"
     volumeMounts:
       - name: admin-client-key
@@ -264,6 +268,8 @@ containers:
   - name: bootstrap
     image: "{{ .Values.image.registry }}/bootstrap-service:{{ include "queenswood.imageTag" . }}"
     imagePullPolicy: {{ include "queenswood.imagePullPolicy" $ }}
+    securityContext:
+      {{- include "queenswood.appSecurityContext" . | nindent 6 }}
     env:
       - name: SERVICE_NAME
         value: "bootstrap-service"

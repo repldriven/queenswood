@@ -60,6 +60,8 @@ containers:
   - name: migrator
     image: "{{ .Values.image.registry }}/migrator-service:{{ include "queenswood.imageTag" . }}"
     imagePullPolicy: {{ include "queenswood.imagePullPolicy" $ }}
+    securityContext:
+      {{- include "queenswood.appSecurityContext" . | nindent 6 }}
     # Override the baked config file so the channel-bus monolith
     # can point the migrator at a Kafka-free config (FDB metadata
     # only — no broker to declare topology on).

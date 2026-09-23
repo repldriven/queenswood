@@ -30,6 +30,8 @@ spec:
         - name: console
           image: "{{ .Values.image.registry }}/console:{{ include "queenswood.imageTag" . }}"
           imagePullPolicy: {{ include "queenswood.imagePullPolicy" $ }}
+          securityContext:
+            {{- include "queenswood.appSecurityContext" . | nindent 12 }}
           ports:
             - name: http
               containerPort: {{ .Values.console.port }}

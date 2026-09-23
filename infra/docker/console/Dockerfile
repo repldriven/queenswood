@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.25
+# syntax=docker/dockerfile:1.27
 
 # console: Svelte/Vite frontend for the human sign-in flow.
 #  Stage 1 — build the static bundle with Node from the yarn 4

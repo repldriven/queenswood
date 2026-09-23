@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.25
+# syntax=docker/dockerfile:1.27
 
 # Multi-stage build for any Queenswood service uberjar.
 # Pass PROJECT_NAME (e.g. api-service, cash-account-service)
@@ -24,7 +24,7 @@ ARG PROJECT_NAME
 # work that is byte-identical — and they would each run it, serialised
 # by the lock below. Keeping the arg out until the next stage is what
 # makes this run exactly once.
-FROM --platform=$BUILDPLATFORM clojure:temurin-25-tools-deps-bookworm AS deps
+FROM --platform=$BUILDPLATFORM clojure:temurin-25-tools-deps-trixie AS deps
 ARG BUILDARCH
 WORKDIR /workspace
 
@@ -112,7 +112,7 @@ RUN --mount=type=cache,id=queenswood-m2,target=/root/.m2,sharing=shared \
     clojure -X:build uber :snapshot true \
  && mv target/*.jar target/app.jar
 
-FROM eclipse-temurin:25-jre-noble AS runtime
+FROM eclipse-temurin:25-jre-resolute AS runtime
 ARG PROJECT_NAME
 ARG TARGETARCH
 ARG FDB_VERSION=7.3.75
@@ -120,7 +120,11 @@ ARG FDB_VERSION=7.3.75
 # hadolint ignore=DL3008
 RUN apt-get update \
  && apt-get install -y --no-install-recommends curl ca-certificates dnsutils \
- && rm -rf /var/lib/apt/lists/*
+ && rm -rf /var/lib/apt/lists/* \
+ && groupadd --system --gid 10001 queenswood \
+ && useradd --system --uid 10001 --gid queenswood \
+      --home-dir /nonexistent --no-create-home --shell /usr/sbin/nologin \
+      queenswood
 
 # libfdb_c is required by the FDB Java client at runtime; arch-aware
 # download from the upstream release.
@@ -139,5 +143,9 @@ ENV JAVA_TOOL_OPTIONS="-XX:+ExitOnOutOfMemoryError"
 
 WORKDIR /app
 COPY --from=build /workspace/projects/${PROJECT_NAME}/target/app.jar /app/app.jar
+
+# Numeric, so the kubelet can prove `runAsNonRoot` without a passwd
+# lookup. The chart's `fsGroup` names the same group.
+USER 10001:10001
 
 ENTRYPOINT ["java", "-jar", "/app/app.jar", "-c", "classpath:application.yml", "-p", "default"]

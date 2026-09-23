@@ -24,6 +24,8 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      securityContext:
+        {{- include "queenswood.appPodSecurityContext" $ | nindent 8 }}
       initContainers:
         # Fetch the FDB-operator-written cluster-file via the API
         # and write it to an emptyDir. See job-bootstrap.yaml for
@@ -103,6 +105,8 @@ spec:
         - name: {{ $svcName }}
           image: "{{ $.Values.image.registry }}/{{ $svcName }}:{{ include "queenswood.imageTag" $ }}"
           imagePullPolicy: {{ include "queenswood.imagePullPolicy" $ }}
+          securityContext:
+            {{- include "queenswood.appSecurityContext" $ | nindent 12 }}
           {{- if and $svc.http $svc.port }}
           ports:
             - name: http
