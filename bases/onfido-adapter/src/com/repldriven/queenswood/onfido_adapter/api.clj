@@ -41,7 +41,7 @@
             :openapi {:info {:title "Onfido Adapter"
                              :description
                              "Receives Onfido check.completed webhooks"
-                             :version "1.0.0"}
+                             :version "0.0.3"}
                       :components
                       {:examples onfido-webhook/example-registry}}
             :handler (server/standard-openapi-handler)}}]

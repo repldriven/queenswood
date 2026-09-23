@@ -79,7 +79,7 @@
             :openapi
             {:info {:title "Onfido Simulator"
                     :description "Simulates the Onfido IDV API for testing"
-                    :version "1.0.0"}
+                    :version "0.0.3"}
              :components {:examples (merge applicants-examples
                                            checks-examples
                                            webhooks-examples

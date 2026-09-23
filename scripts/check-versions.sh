@@ -135,6 +135,13 @@ echo "queenswood chart $qwversion"
 check "queenswood Chart.yaml appVersion" "$qwversion" \
   "$(sed -n 's/^appVersion: "\(.*\)"$/\1/p' "$qwchart" | head -1)"
 
+# Every API's OpenAPI document is the release's too: `info.version` in each
+# base's api.clj is the chart's version, written by `just release`.
+for f in $(git ls-files 'bases/*/src/**/api.clj'); do
+  check "$f (info.version)" "$qwversion" \
+    "$(sed -n 's/.*:version "\([0-9][0-9.]*\)".*/\1/p' "$f" | head -1)"
+done
+
 # The management plane installs Crossplane onto its own cluster through a
 # composed helm Release, so the chart version is pinned in a Composition --
 # where Renovate cannot see it. Renovate does bump the xp-mp chart's
