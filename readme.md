@@ -108,10 +108,9 @@ accounts.
 - **Idempotent writes.** Every write takes an idempotency key, so a retried
   request replays the first answer rather than paying twice.
   See [idempotency](docs/tdd/idempotency.md).
-- **Signed webhooks.** Deliveries are signed under the
-  [Standard Webhooks](https://www.standardwebhooks.com/) convention, retried,
-  and re-sendable.
-  See [webhooks](docs/tdd/webhooks.md).
+- **Webhooks.** Deliveries are retried until acknowledged, up to a limit, and
+  each is recorded, so a missed one can be found and sent again. See
+  [webhooks](docs/tdd/webhooks.md).
 - **A worked example.** The
   [demo digital bank](docs/prd/demo-digital-bank.md) is a retail banking app
   built entirely on the API, with its own backend and store, and the reference
@@ -288,12 +287,9 @@ each
 
 ### Run on Google Cloud
 
-A blueprint for running Queenswood on Google Cloud, guided by Google's
-[enterprise foundations blueprint](https://cloud.google.com/architecture/security-foundations):
-each installation is a folder of its own, people hold read-only access and
-make changes only through controlled break-glass groups, the foundations are
-protected by liens rather than convention, and organisation security policies
-are enforced from the first project.
+A blueprint for running Queenswood on Google Cloud, one installation to a
+folder. The controls it applies are listed
+[for security engineers](#for-security-engineers).
 
 No command deploys an installation. An installation is a manifest in a private
 repository, and a management plane running Crossplane and Argo CD reconciles
@@ -330,20 +326,17 @@ recipe of their own.
 
 - **Identity and access management.** People sign in through Keycloak over
   OpenID Connect, each as themselves, with a role in their bank: owner, admin,
-  developer or viewer. The API verifies every token against Keycloak's signing
-  keys and its issuer, and refuses an operation whose declared scopes the
-  caller lacks.
+  developer or viewer, and a bank's own systems act as a principal of their
+  own. The API verifies every token against Keycloak's signing keys and its
+  issuer, and refuses an operation whose declared scopes the caller lacks.
 - **Machine-to-machine authentication.** A fintech's systems use OAuth 2.0
   client credentials: each bank is issued a client id and secret, which can be
   rotated or revoked, and exchanges them at the API's token endpoint for a
   short-lived bearer token bound to the bank and to whether it is in test or
   live.
 - **GitOps.** On Google Cloud, every change to an installation, a release
-  included, is a reviewed pull request, and merging it is what applies it.
-  Argo CD and Crossplane reconcile the cloud toward the merged manifests, a
-  release is a merged version bump that builds and tags the images and chart,
-  and an instance moves to a release when a merge pins it. A pull request
-  never holds a cloud identity.
+  included, is a reviewed pull request, and merging it is what applies it. A
+  pull request never holds a cloud identity.
 - **Privileged access management.** On Google Cloud, nobody holds standing
   privileges. People hold read-only access, since GitOps makes every routine
   change, and an intervention means joining an empty break-glass group for its
@@ -377,11 +370,6 @@ recipe of their own.
   carry both signatures while a secret rotates. Endpoints must be HTTPS, and
   one whose address resolves to a loopback, link-local, private or metadata
   range is refused at registration and again at every send.
-- **Audit logging.** Every person and every bank's systems act as a principal
-  of their own, and a log records who did what.
-- **Backup and recovery.** FoundationDB is backed up continuously, and a
-  restore is proven by counting what it restored, never by a job's exit
-  status. See [recovering FoundationDB](docs/recipes/infra/fdb-recovery.md).
 - **Compliance.** A [register of obligations](docs/compliance/readme.md) maps
   what DORA, the CIS Controls, GDPR, NIS2 and ISO 22301 require to the recipe
   that meets each, gaps included.
@@ -406,9 +394,11 @@ recipe of their own.
 - **Environment lifecycle.** An instance is up, draining or down. Down stops
   its compute, node pools at zero and its database stopped, with its data
   untouched, and draining takes an export before it gets there.
-- **Disaster recovery.** [Recovering FoundationDB](docs/recipes/infra/fdb-recovery.md)
-  is a runbook of its own: which loss calls for a restore, the recovery point
-  each achieves, and restoring onto systems kept apart from the damaged ones.
+- **Disaster recovery.** FoundationDB is backed up continuously, and
+  [recovering it](docs/recipes/infra/fdb-recovery.md) is a runbook of its own:
+  which loss calls for a restore, the recovery point each achieves, and
+  restoring onto systems kept apart from the damaged ones. A restore is proven
+  by counting what it restored, never by a job's exit status.
 
 ## For contributors
 
