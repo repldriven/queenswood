@@ -201,8 +201,9 @@ just release 0.2.0    # a chosen one
 ```
 
 A release is a pull request that bumps `version` and `appVersion` in
-`infra/helm/queenswood/Chart.yaml` to one number, and merging it is
-the release. The Release workflow runs off every green Tests run on
+`infra/helm/queenswood/Chart.yaml`, and `info.version` in every API's
+OpenAPI document, to one number, and merging it is the release;
+`just check-versions` fails where any of them differ. The Release workflow runs off every green Tests run on
 `main` and publishes the first commit whose declared version has no
 tag: it builds every image at it, tags them with the version, pushes
 the chart to GHCR at the same version, tags the commit `v<version>`
@@ -276,7 +277,8 @@ line, and pin `targetRevision` on both Applications to a release.
   `wait-for-<dep>` initContainer polling the target's
   `/actuator/health/liveness`.
 - Release with `just release`, which opens the pull request
-  bumping the chart's `version` and `appVersion` together;
+  bumping the chart's `version` and `appVersion` and every
+  API's OpenAPI `info.version` together;
   merging it is the release, and the Release workflow builds
   every image at the first green commit on `main` whose
   declared version has no tag, tags them with the version,

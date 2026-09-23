@@ -36,7 +36,8 @@ FoundationDB survives: the realm rebuilds from the committed JSON with
 fresh user ids, and the records referencing the old ones are orphaned
 silently.
 Release with `just release`, which opens the pull request bumping the
-chart's `version` and `appVersion` together — merging it is the
+chart's `version` and `appVersion` and every API's OpenAPI
+`info.version` together — merging it is the
 release: once that commit's Tests are green the Release workflow builds
 every image at it, tags them with the version, pushes the chart, tags
 the commit `v<version>`, publishes the GitHub release and deploys its
