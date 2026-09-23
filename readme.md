@@ -62,8 +62,8 @@ accounts.
   licence, on infrastructure you choose. There's no licence fee, and no vendor
   deciding your roadmap or moving the product from under you.
 - **Product changes without a release.** Change a rate, add a welcome reward
-  or launch a fixed-term account without shipping software. Existing
-  customers move to the new terms only when you plan and approve it.
+  or launch a new product line without shipping software. Existing customers
+  move to the new terms only when you plan and approve it.
 - **Rules without a release.** Policies are records checked on every request,
   and your bank's tier sets the capabilities and limits it works within, so
   changing either ships no code.
