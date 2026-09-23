@@ -328,33 +328,34 @@ instance project below it is rebuilt whenever an instance is.
   account, whose secret can be rotated or revoked. The API verifies every
   token against Keycloak's signing keys and its issuer, and refuses an
   operation whose declared scopes the caller lacks.
-- **Privileged access management.** No standing privileges: people hold
-  read-only access, and changing anything by hand means joining an empty
-  break-glass group for that change and leaving again. The
+- **Privileged access management.** In Google Cloud, nobody holds standing
+  privileges: people hold read-only access, and changing anything by hand
+  means joining an empty break-glass group for that change and leaving again.
+  The
   identity that bootstraps an installation holds its organisation rights for
   the bootstrap alone and is closed afterwards. No service-account key exists
   for any identity. See
   [ADR-0023](docs/adr/0023-installation-naming-and-access.md).
-- **Cloud security.** Each installation is a Google Cloud folder of its own,
-  following Google's
+- **Cloud security.** In Google Cloud, each installation is a folder of its
+  own, following Google's
   [enterprise foundations blueprint](https://cloud.google.com/architecture/security-foundations),
   with organisation policy constraints enforced from the first project.
   Automation owns everything inside the folder, restrained by what its own
   manifests declare — deletion policies, deletion protection and liens — so
   every restraint is reviewable in a pull request. Changes reach the cloud
   only from merged manifests, and a pull request never holds a cloud identity.
-- **Secrets and key management.** Credentials live in Secret Manager and reach
-  the cluster through the External Secrets operator under Workload Identity,
-  so neither git nor Argo CD ever holds one. The platform's admin credential
-  is a signing key generated inside the cluster, and its private half never
-  leaves the pods that sign with it.
-- **Encryption.** TLS terminates at the gateway on Google-managed
-  certificates, and FoundationDB backups are encrypted under a key held in
-  Secret Manager.
+- **Secrets and key management.** In Google Cloud, credentials live in Secret
+  Manager and reach the cluster through the External Secrets operator under
+  Workload Identity, so neither git nor Argo CD ever holds one. The
+  platform's admin credential is a signing key generated inside the cluster,
+  and its private half never leaves the pods that sign with it.
+- **Encryption.** In Google Cloud, TLS terminates at the gateway on
+  Google-managed certificates, and FoundationDB backups are encrypted under a
+  key held in Secret Manager.
 - **Vulnerability management.** Dependencies are scanned for known CVEs
   against the National Vulnerability Database, and Renovate opens and merges
-  their updates weekly. The Google Cloud organisation is scanned against the
-  CIS benchmark, and each accepted finding is muted by resource with its
+  their updates weekly. In Google Cloud, the organisation is scanned against
+  the CIS benchmark, and each accepted finding is muted by resource with its
   reasoning recorded.
   See [security scanning](docs/recipes/infra/security-scanning.md).
 - **Webhook security.** Deliveries are signed with HMAC-SHA256 under the
