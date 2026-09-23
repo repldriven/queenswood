@@ -157,8 +157,7 @@ independently of the web tier, so the work spreads across as many instances
 as it takes while a request costs the API only an open connection. Commands
 sharing an ordering key are consumed one at a time and in order, however many
 processors are running. Delivery is at-least-once and a redelivered command
-is recognised. Processors deploy individually, or bundled along lines of
-responsibility such as financial and operational.
+is recognised.
 
 **Reads are queries.** The API read-side loads records directly through a
 separate query surface — no command, no bus, no round-trip. Query bricks read
@@ -188,9 +187,10 @@ deduplicating outbox and relayed like the platform's own changes.
 What Queenswood is built from, each with its document:
 
 - **System-as-data.** Test and production share one bootstrap path, and what a
-  given process runs is decided by its configuration rather than its code: the
-  same bricks start as a modular monolith in one JVM or as separate services.
-  See
+  given process runs is decided by its configuration rather than its code. The
+  same bricks run as separate services, as groups of related ones such as the
+  financial and the operational processors, or all together in one JVM as a
+  modular monolith, grouped however suits you. See
   [ADR-0007](https://github.com/repldriven/mono/blob/main/docs/adr/0007-system-as-data.md).
 - **Message bus.** Processors send and subscribe through an abstraction that
   configuration binds to Kafka, Pulsar or in-process channels, so the same
