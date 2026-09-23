@@ -61,12 +61,12 @@ accounts.
 - **Open source.** The code is yours to read, run and change under the MIT
   licence, on infrastructure you choose. There's no licence fee, and no vendor
   deciding your roadmap or moving the product from under you.
-- **Product changes without a release.** Change a rate, add a welcome reward
-  or launch a new product line without shipping software. Existing customers
-  move to the new terms only when you plan and approve it.
-- **Rule changes without a release.** Policies are records checked on every
-  request, and your bank's tier sets the capabilities and limits it works
-  within, so changing either ships no code.
+- **Configurable products.** Change a rate, add a welcome reward or launch a
+  new product line without shipping software. Existing customers move to the
+  new terms only when you plan and approve it.
+- **Configurable policies.** Policies are records checked on every request,
+  and your bank's tier sets the capabilities and limits it works within, so
+  changing either ships no code.
 - **Sandbox.** Your bank starts in test, where you try everything with
   simulated money on the same software your customers will use, and moves to
   live when you're ready.
