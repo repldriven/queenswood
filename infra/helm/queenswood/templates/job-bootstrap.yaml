@@ -15,7 +15,7 @@ restartPolicy: OnFailure
 serviceAccountName: {{ include "queenswood.bootstrapServiceAccount" . }}
 initContainers:
   - name: wait-for-fdb-cluster
-    image: alpine/k8s:1.37.0
+    image: {{ $.Values.tools.k8s.image | quote }}
     command:
       - sh
       - -c
@@ -58,7 +58,7 @@ initContainers:
   # addressed there -- a name this chart could only re-derive by
   # holding a copy of everything that goes into the hash.
   - name: wait-for-realm-import
-    image: alpine/k8s:1.37.0
+    image: {{ $.Values.tools.k8s.image | quote }}
     command:
       - sh
       - -c
@@ -101,7 +101,7 @@ initContainers:
   # orders it ahead of every consumer, including bootstrap's own
   # container.
   - name: read-admin-client-key
-    image: alpine/k8s:1.37.0
+    image: {{ $.Values.tools.k8s.image | quote }}
     command:
       - sh
       - -c
@@ -128,7 +128,7 @@ initContainers:
   # openssl, because alpine/k8s carries curl, jq, kubectl and helm but
   # not openssl. Only runs where the Secret held nothing.
   - name: generate-admin-client-key
-    image: alpine/openssl:3.5.8
+    image: {{ $.Values.tools.openssl.image | quote }}
     command:
       - sh
       - -c
@@ -159,7 +159,7 @@ initContainers:
   # becoming the manager of the whole object, which the chart's own
   # server-side apply owns.
   - name: sync-admin-client-key
-    image: alpine/k8s:1.37.0
+    image: {{ $.Values.tools.k8s.image | quote }}
     env:
       - name: KC_BASE_URL
         value: {{ include "queenswood.keycloakBaseUrl" . | quote }}
@@ -252,7 +252,7 @@ initContainers:
   # Kafka topics — bootstrap reads the persisted FDB schema
   # via fdb/meta-store, so the migration must land first.
   - name: wait-for-migrator
-    image: alpine/k8s:1.37.0
+    image: {{ $.Values.tools.k8s.image | quote }}
     command:
       - sh
       - -c

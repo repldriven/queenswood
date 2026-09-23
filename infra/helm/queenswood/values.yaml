@@ -9,6 +9,18 @@ image:
   pullPolicy: IfNotPresent
   pullSecrets: []
 
+# -- Images the chart's Jobs and initContainers run their shell steps
+# in: curl, jq, kubectl and helm from the first, and openssl, which it
+# lacks, from the second. Named here alone; a template that spelt one
+# out would be a copy bumped on its own. Pinned by digest: one
+# manifest-list digest names the same content on every architecture,
+# and a retagged upstream image cannot change what a release deploys.
+tools:
+  k8s:
+    image: alpine/k8s:1.37.0@sha256:b421c2e9419edb98db39b6ab641669f4db7bb2acf354f22450c6b7e7176d1ff4
+  openssl:
+    image: alpine/openssl:3.5.8@sha256:6aa2be0ed55a61fff35583e5763c2ea8288bcd3549d316b954b01eec32fb7006
+
 # -- Required secrets.
 secrets:
   # The Keycloak admin client secret matches the realm-import JSON's
@@ -228,11 +240,10 @@ keycloak:
     # read on the backup bucket. Named for GCP because this Job is: it
     # shells out to `gcloud storage`. See values-gcp.yaml.
     gcpServiceAccount: ""
-    # Needs curl and jq: it POSTs the realm to Keycloak's Admin API and
-    # checks the restored user ids over the same API. No kubectl -- the
-    # operator's import CR is not used, so the Job touches no Kubernetes
-    # API at all.
-    toolsImage: alpine/k8s:1.37.0
+    # Runs in `tools.k8s.image` for curl and jq: it POSTs the realm to
+    # Keycloak's Admin API and checks the restored user ids over the
+    # same API. No kubectl -- the operator's import CR is not used, so
+    # the Job touches no Kubernetes API at all.
     gcloudImage: ""
     resources:
       requests:

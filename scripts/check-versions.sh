@@ -174,6 +174,18 @@ check "management plane composition (argo-cd chart)" "$argocd" \
           f && /version:/ {gsub(/["]/, "", $2); print $2; exit}' \
        infra/platform/crossplane-xrds/xmanagementplane-composition.yml)"
 
+# The tools images the chart's Jobs and initContainers run in are named
+# in values.yaml alone, by digest. A template spelling one out is a copy
+# Renovate bumps on its own, pinned to no digest.
+echo "Tools images named in values.yaml alone:"
+literal=$(grep -rn 'image: alpine/' infra/helm/queenswood/templates || true)
+if [ -z "$literal" ]; then
+  printf '  %-52s \033[32mnone in templates/\033[0m\n' "infra/helm/queenswood/templates"
+else
+  printf '  %-52s \033[31mnamed literally:\033[0m\n%s\n' "infra/helm/queenswood/templates" "$literal"
+  fail=1
+fi
+
 if [ "$fail" -ne 0 ]; then
   cat <<EOF
 

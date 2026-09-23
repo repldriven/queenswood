@@ -161,7 +161,7 @@ spec:
       {{- end }}
       containers:
         - name: import
-          image: {{ .Values.keycloak.realmImport.toolsImage | quote }}
+          image: {{ $.Values.tools.k8s.image | quote }}
           command:
             - sh
             - -c

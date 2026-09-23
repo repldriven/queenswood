@@ -14,7 +14,7 @@ imagePullSecrets:
 restartPolicy: OnFailure
 initContainers:
   - name: wait-for-fdb-cluster
-    image: alpine/k8s:1.37.0
+    image: {{ $.Values.tools.k8s.image | quote }}
     command:
       - sh
       - -c
@@ -48,7 +48,7 @@ initContainers:
   # on safely" -- it would permanently destroy the ability to
   # restore. Failing loudly here is the lesser outcome.
   - name: wait-for-restore
-    image: alpine/k8s:1.37.0
+    image: {{ $.Values.tools.k8s.image | quote }}
     command:
       - sh
       - -c
