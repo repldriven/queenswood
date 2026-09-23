@@ -320,6 +320,12 @@ reconciles the installation, the recovery project holds the backups and the
 key they're encrypted under, and the DNS zone stays when an instance goes. The
 instance project below it is rebuilt whenever an instance is.
 
+Rebuilding an [instance's cluster](docs/recipes/infra/instance-rebuild-cluster.md),
+replacing the
+[management plane's cluster](docs/recipes/infra/plane-rebuild-cluster.md) and
+[debugging an installation](docs/recipes/infra/crossplane-debug.md) each have a
+recipe of their own.
+
 ## For security engineers
 
 - **Identity and access management.** People sign in through Keycloak over
@@ -379,11 +385,6 @@ instance project below it is rebuilt whenever an instance is.
 - **Compliance.** A [register of obligations](docs/compliance/readme.md) maps
   what DORA, the CIS Controls, GDPR, NIS2 and ISO 22301 require to the recipe
   that meets each, gaps included.
-Rebuilding an [instance's cluster](docs/recipes/infra/instance-rebuild-cluster.md),
-replacing the
-[management plane's cluster](docs/recipes/infra/plane-rebuild-cluster.md) and
-[debugging an installation](docs/recipes/infra/crossplane-debug.md) each have a
-recipe of their own.
 
 ## For site reliability engineers
 
