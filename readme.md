@@ -89,9 +89,6 @@ accounts.
 - **A test suite.** Generated tests check its answers against a model of how
   a bank should behave, and scenarios drive the live API end to end.
 
-No bank runs Queenswood in production yet, and the documentation says what's
-done and what's not.
-
 ## For application engineers
 
 - **One API, with an OpenAPI 3.x document.** One base URL and one document,
