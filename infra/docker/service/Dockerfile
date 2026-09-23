@@ -115,7 +115,7 @@ RUN --mount=type=cache,id=queenswood-m2,target=/root/.m2,sharing=shared \
 FROM eclipse-temurin:25-jre-resolute AS runtime
 ARG PROJECT_NAME
 ARG TARGETARCH
-ARG FDB_VERSION=7.3.75
+ARG FDB_VERSION=7.3.79
 
 # hadolint ignore=DL3008
 RUN apt-get update \

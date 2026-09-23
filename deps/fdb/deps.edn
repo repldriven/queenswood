@@ -14,4 +14,4 @@
 ;; a client older than the record layer's.
 {:deps {org.foundationdb/fdb-record-layer-core
         {:mvn/version "4.10.4.0" :exclusions [org.foundationdb/fdb-java]}
-        org.foundationdb/fdb-java {:mvn/version "7.3.75"}}}
+        org.foundationdb/fdb-java {:mvn/version "7.3.79"}}}

@@ -27,13 +27,10 @@
 
         # Fetch pre-built FDB binary directly from GitHub releases.
         #
-        # Must match the fdb-java client mono pins and the FDB server its
+        # Must match the fdb-java client in deps/fdb and the FDB server the
         # testcontainers image builds -- client and cluster share a protocol
-        # version. Bump this with the mono coordinate in deps/mono*.
-        #
-        # On 7.4.x because 7.3.75 is the last 7.3 release shipping macOS .pkg
-        # assets; 7.3.76+ are Linux-only, leaving this derivation nothing to
-        # unpack. Same internal layout, so the unpack below is unchanged.
+        # version. `just check-versions` and a testcontainers test assert
+        # those copies against versions.json.
         fdbVersion = versions.foundationdb.version;
         fdbArch = if pkgs.stdenv.hostPlatform.isAarch64 then "arm64" else "x86_64";
         fdbBinary = pkgs.stdenv.mkDerivation {

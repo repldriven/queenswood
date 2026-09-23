@@ -559,13 +559,13 @@ services:
 
 # ---------------------------------------------------------------------
 # FDB cluster managed by the FDB Kubernetes operator. The version MUST
-# match the FDB client (libfdb_c) baked into the service image (7.3.75).
+# match the FDB client (libfdb_c) baked into the service image.
 # Defaults are sized for a single-node dev cluster (kind/k3s); raise
 # processCounts and resources for production.
 # ---------------------------------------------------------------------
 fdb:
   enabled: true
-  version: "7.3.75"
+  version: "7.3.79"
   # Passed to every general process. Two are worth setting anywhere the
   # container limit is below FoundationDB's own defaults, which is
   # everywhere: --cache_memory sizes the page cache, which defaults to
@@ -769,14 +769,14 @@ fdbOperator:
   # only the 7.4 monitor binaries the chart actually uses.
   initContainers:
     "7.1": null
-    # 7.3.75 rather than 7.4.x: fdb-kubernetes-monitor:7.4.6 is published
+    # 7.3 rather than 7.4.x: fdb-kubernetes-monitor:7.4.6 is published
     # amd64-only, so on an arm64 node the operator's fdbcli runs under
     # Rosetta and `configure new` never executes — the cluster is created
-    # but never configured. The 7.3.75 image is multi-arch.
+    # but never configured. The 7.3 images are multi-arch.
     "7.3":
       image:
         repository: foundationdb/fdb-kubernetes-monitor
-        tag: 7.3.75
+        tag: 7.3.79
         pullPolicy: IfNotPresent
     "7.4": null
 

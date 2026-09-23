@@ -12,7 +12,7 @@
 ;; is built from versions.json — FDB requires a compatible protocol version
 ;; between client and cluster, so a mismatch fails at connect time with an
 ;; error naming neither. `version-test` asserts the two agree.
-(def fdb-version "7.3.75")
+(def fdb-version "7.3.79")
 (def default-image-name (str "queenswood/foundationdb:" fdb-version))
 
 ;; The port fdbserver binds inside the container, and the only one the
