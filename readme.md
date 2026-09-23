@@ -87,10 +87,9 @@ accounts.
   [requirements document](docs/prd/) saying what it's for and who uses it, in
   product language.
 
-Queenswood has no production miles yet, but it's built to run in production:
-generated tests check its answers against a model of how a bank should behave,
-scenarios drive the live API end to end, and the documentation says what's
-done and what's not.
+No bank runs Queenswood in production yet. Generated tests check its answers
+against a model of how a bank should behave, scenarios drive the live API end
+to end, and the documentation says what's done and what's not.
 
 ## For application engineers
 
