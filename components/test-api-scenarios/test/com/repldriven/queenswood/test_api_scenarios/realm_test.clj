@@ -86,6 +86,13 @@
                         body
                         (assoc :body body))))
 
+(defn- delete-realm
+  "Remove the realm a reused Keycloak still holds from the last run,
+  so the import below meets the empty Keycloak it expects. 404 is the
+  fresh case."
+  [base-url admin-token]
+  (admin-request base-url admin-token :delete (str "/" realm) nil))
+
 (defn- import-deployed-realm
   [base-url admin-token]
   (admin-request base-url
@@ -160,6 +167,9 @@
      (nom-test> [admin (master-admin-token base-url)
                  admin-token (:access_token admin)
                  _ (is (string? admin-token) (pr-str admin))
+                 deleted (delete-realm base-url admin-token)
+                 _ (is (contains? #{204 404} (:status deleted))
+                       (pr-str (:body deleted)))
                  imported (import-deployed-realm base-url admin-token)
                  _ (is (= 201 (:status imported)) (pr-str (:body imported)))
                  verified

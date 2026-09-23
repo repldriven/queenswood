@@ -77,6 +77,17 @@
   [txn bank-id]
   (core/list-active-by-bank txn bank-id))
 
+(defn list-active-by-banks
+  "List several banks' active memberships in one transaction, as a map
+  from bank id to its vector (possibly empty) of Membership maps, or
+  an anomaly.
+
+  Args:
+  - txn: FDB transaction or config.
+  - bank-ids: bank ids (strings)."
+  [txn bank-ids]
+  (core/list-active-by-banks txn bank-ids))
+
 (defn find-by-id
   "Load a Membership by id, active or ended. Returns the map or a
   `:membership/not-found` rejection anomaly.

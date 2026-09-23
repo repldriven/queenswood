@@ -192,6 +192,30 @@
          (is (= "USD" (:currency payload))))
        (is (nil? (SUT/get-account config bank-id "led.nope")))))))
 
+(deftest list-accounts-with-balances-pairs-the-chart-test
+  (with-test-system
+   [sys "classpath:ledger-account/application-test.yml"]
+   (let [config (fdb-config sys)
+         bank-id "bnk.test-pairs"]
+     (nom-test> [seeded (seed! config bank-id)
+                 listed (SUT/list-accounts config bank-id)
+                 paired (SUT/list-accounts-with-balances config bank-id)
+                 _ (is (= (count seeded) (count paired)))
+                 _ (is (= listed (mapv :account paired))
+                       "the chart, in the order list-accounts gives it")
+                 _ (doseq [{:keys [account balances]} paired]
+                     (is (= [(:ledger-account-id account)]
+                            (distinct (map :account-id balances)))
+                         "each account is paired with its own balances")
+                     (is (= (:balances (balances/get-balances
+                                        config
+                                        bank-id
+                                        (:ledger-account-id account)))
+                            balances)
+                         "the same buckets the per-account read gives"))])
+     (is (= [] (SUT/list-accounts-with-balances config "bnk.test-nobody"))
+         "a bank with no chart pairs nothing"))))
+
 (deftest list-accounts-caps-the-scan-test
   (with-test-system
    [sys "classpath:ledger-account/application-test.yml"]

@@ -47,6 +47,17 @@
   [txn bank-id account-id]
   (core/get-balances txn bank-id account-id))
 
+(defn totals
+  "Derive an account's posted-balance and available-balance totals from
+  its balance buckets, as `get-balances` does after its read: returns
+  `{:balances [...] :posted-balance {...} :available-balance {...}}`.
+  Pure, for a caller that already holds the buckets.
+
+  Args:
+  - balances: the account's balance maps, all in one currency."
+  [balances]
+  (core/totals balances))
+
 (defn list-balances
   "List an account's raw balance buckets (a vector, unenriched). A read
   primitive for the write sibling's apply-legs computation.

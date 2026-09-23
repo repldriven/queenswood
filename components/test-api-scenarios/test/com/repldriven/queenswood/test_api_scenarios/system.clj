@@ -6,6 +6,8 @@
   loaded somewhere on the test classpath. Bundling them here means
   the test namespace only needs a single bare require of this ns."
   (:require
+    [com.repldriven.mono.system.interface :as system]
+
     [com.repldriven.queenswood.bank.interface]
     [com.repldriven.queenswood.cash-account.interface]
     [com.repldriven.queenswood.cash-account.system]
@@ -41,3 +43,13 @@
     [com.repldriven.mono.server.interface]
     [com.repldriven.mono.smtp.interface]
     [com.repldriven.mono.test-telemetry.interface]))
+
+;; Where the run writes its finished spans, or nil for nowhere. The rig
+;; reads the path from `QW_SPAN_DUMP`, so the test itself never does.
+(def span-dump
+  {:system/start (fn [{:system/keys [config]}] (:path config))
+   :system/config {:path nil}
+   :system/config-schema [:map [:path {:optional true} [:maybe string?]]]
+   :system/instance-schema [:maybe string?]})
+
+(system/defcomponents :test-api-scenarios {:span-dump span-dump})

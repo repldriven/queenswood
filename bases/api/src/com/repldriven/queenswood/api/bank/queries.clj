@@ -28,14 +28,33 @@
       {:status 200
        :body {:banks result}})))
 
+(defn- owner-lookups
+  "The two lookups `names/owners` takes, backed by one read of every
+  listed bank's active memberships and one of their owners' users,
+  rather than a read per bank and per owner. Returns
+  `{:list-active f :lookup f}` or an anomaly."
+  [config found]
+  (let-nom> [active (memberships/list-active-by-banks config
+                                                      (map :bank-id found))
+             users (users/find-by-ids config
+                                      (into #{}
+                                            (comp cat
+                                                  (filter #(= :role-owner
+                                                              (:role %)))
+                                                  (map :user-id))
+                                            (vals active)))]
+    {:list-active (fn [bank-id] (get active bank-id []))
+     :lookup (fn [user-id] (get users user-id))}))
+
 (defn list-banks
   [request]
   (let [{:keys [record-db record-store]} request
-        config {:record-db record-db :record-store record-store}]
-    (banks-response (banks/get-banks config)
-                    (fn [bank-id]
-                      (names/owners (fn [id]
-                                      (memberships/list-active-by-bank config
-                                                                       id))
-                                    (fn [id] (users/find-by-id config id))
-                                    bank-id)))))
+        config {:record-db record-db :record-store record-store}
+        found (banks/get-banks config)
+        lookups (if (error/anomaly? found) found (owner-lookups config found))]
+    (if (error/anomaly? lookups)
+      (errors/anomaly->response lookups)
+      (let [{:keys [list-active lookup]} lookups]
+        (banks-response found
+                        (fn [bank-id]
+                          (names/owners list-active lookup bank-id)))))))

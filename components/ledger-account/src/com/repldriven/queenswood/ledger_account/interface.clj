@@ -129,6 +129,21 @@
   [txn bank-id]
   (core/list-accounts txn bank-id))
 
+(defn list-accounts-with-balances
+  "Return the bank's chart paired with each account's balances, as a
+  vector of `{:account LedgerAccount :balances [Balance ...]}` in
+  account-id order, or an anomaly. One merged scan of the two stores,
+  so a chart of any size costs a page per store rather than a
+  transaction per account.
+
+  Args:
+  - config: map with `:record-db` and `:record-store`. The scan pages
+    in transactions of its own, so it takes the config rather than a
+    transaction.
+  - bank-id: owning bank id."
+  [config bank-id]
+  (core/list-accounts-with-balances config bank-id))
+
 (defn debit-normal?
   "True for debit-normal account families (asset, expense), false for
   credit-normal (liability, equity, income) — which column a ledger

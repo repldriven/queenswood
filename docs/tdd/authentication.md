@@ -260,8 +260,8 @@ local impl for tests) exposes:
 
 - **`create-service-account`** — create a bank's service-account
   client (`client_id == bank-id`), stamping `access.token.lifespan
-  = 3600` and an audience client-scope; returns
-  `{:client-id … :client-secret …}` once.
+  = 3600` and an audience client-scope; returns `{:client-id …}`,
+  and no credential until `rotate-secret` mints one.
 - **`exchange-client-credentials`** — run OAuth2
   `client_credentials`, returning the raw token response. Proxied
   by `POST /oauth/token` so a bank can mint its own JWT.
@@ -275,9 +275,9 @@ local impl for tests) exposes:
 **Creation is a bus round trip, and that shapes the lifecycle.**
 `new-bank` runs in the operational processors service, not in the
 API. It calls `create-service-account` *before* the FDB write, so an
-identity-provider failure aborts the transaction cleanly. The secret
-that call mints is **discarded**: the reply travels back over the
-command bus, and no credential is put on the bus. The API handler,
+identity-provider failure aborts the transaction cleanly. That call
+mints **no secret**: the reply travels back over the command bus, and
+no credential is put on the bus. The API handler,
 holding the reply, calls **`rotate-secret`** for that bank and
 returns what it mints — once — in the create-bank response. So the
 secret a tenant receives is a rotated one, never the created one.

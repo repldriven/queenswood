@@ -135,6 +135,35 @@
                  :relative (subs (.getPath f) prefix-len)}))
          (sort-by :relative))))
 
+(defn- span->map
+  "One finished span as data: enough to rebuild the tree and time
+  each node, with its attributes as strings."
+  [^SpanData s]
+  (let [ctx (.getSpanContext s)
+        parent (.getParentSpanContext s)]
+    {:trace-id (.getTraceId ctx)
+     :span-id (.getSpanId ctx)
+     :parent-id (when (.isValid parent) (.getSpanId parent))
+     :name (.getName s)
+     :kind (str (.getKind s))
+     :start-ns (.getStartEpochNanos s)
+     :end-ns (.getEndEpochNanos s)
+     :attributes (into {}
+                       (map (fn [[^AttributeKey k v]] [(.getKey k) (str v)]))
+                       (.asMap (.getAttributes s)))}))
+
+(defn- dump-spans!
+  "Write every finished span as one JSON line to `path`, when the rig
+  names one — its `span-dump` component reads `QW_SPAN_DUMP`. The
+  run's timing evidence, for reading where a request spends its time."
+  [path spans]
+  (when path
+    (with-open [w (io/writer path)]
+      (doseq [s spans]
+        (.write w ^String (json/write-str (span->map s)))
+        (.write w "\n")))
+    (log/info "api scenario spans written" {:path path :count (count spans)})))
+
 (defn- fdb-config
   "The booted system's own FDB handles, as the `txn-or-config` map a
   brick interface takes. Lets a test reach a transition no route
@@ -277,6 +306,8 @@
          (let [spans (test-telemetry/finished-spans
                       (system/instance sys [:telemetry :otel-sdk]))
                names (frequencies (map #(.getName ^SpanData %) spans))]
+           (dump-spans! (system/instance sys [:test-api-scenarios :span-dump])
+                        spans)
            ;; Every scenario drives at least one request, so this floor
            ;; holds however many scenarios there are.
            (is (>= (count spans) (count files)))

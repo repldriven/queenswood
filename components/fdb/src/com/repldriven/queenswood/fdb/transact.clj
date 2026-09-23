@@ -1,6 +1,7 @@
 (ns com.repldriven.queenswood.fdb.transact
   (:require
-    [com.repldriven.mono.error.interface :as error :refer [try-nom]])
+    [com.repldriven.mono.error.interface :as error :refer [try-nom]]
+    [com.repldriven.mono.telemetry.interface :as telemetry])
   (:import
     (com.apple.foundationdb.record LoggableTimeoutException
                                    RecordCoreRetriableTransactionException)
@@ -62,25 +63,28 @@
            keyspace-prefix (or (:keyspace-prefix txn-or-config)
                                (:keyspace-prefix (meta record-store)))]
        (try
-         (.run ^FDBDatabase record-db
-               ^Function
-               (fn [ctx]
-                 (let [cache (atom {})
-                       open-fn (fn [store-name]
-                                 (or (get @cache store-name)
-                                     (let [s (open-store record-store
-                                                         ctx
-                                                         store-name)]
-                                       (swap! cache assoc store-name s)
-                                       s)))
-                       result (try-nom category
-                                       message
-                                       (f (->Txn open-fn keyspace-prefix)))]
-                   (if (error/anomaly? result)
-                     ;; nosemgrep: no-raw-throw
-                     (throw (ex-info "Transaction rolled back"
-                                     {::anomaly result}))
-                     result))))
+         (telemetry/with-span
+          {:name "fdb-transaction"
+           :attributes {:fdb.category (str category)}}
+          (.run ^FDBDatabase record-db
+                ^Function
+                (fn [ctx]
+                  (let [cache (atom {})
+                        open-fn (fn [store-name]
+                                  (or (get @cache store-name)
+                                      (let [s (open-store record-store
+                                                          ctx
+                                                          store-name)]
+                                        (swap! cache assoc store-name s)
+                                        s)))
+                        result (try-nom category
+                                        message
+                                        (f (->Txn open-fn keyspace-prefix)))]
+                    (if (error/anomaly? result)
+                      ;; nosemgrep: no-raw-throw
+                      (throw (ex-info "Transaction rolled back"
+                                      {::anomaly result}))
+                      result)))))
          (catch Exception e
            (reclassify
             (or (::anomaly (ex-data e))

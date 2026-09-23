@@ -38,6 +38,10 @@ system:
   server: !include test-api-scenarios/server-test.yml
   smtp: !include system/smtp-test.yml
   telemetry: !include system/telemetry.yml
+  test-api-scenarios:
+    span-dump: !system/component
+      system/component-kind: test-api-scenarios/span-dump
+      path: !env QW_SPAN_DUMP
   transactions: !include system/transaction.yml
   transactions-dispatcher: !include system/transaction-dispatcher.yml
   uk-companies-house-adapter: !include system/uk-companies-house-adapter.yml

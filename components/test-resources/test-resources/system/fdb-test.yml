@@ -1,7 +1,11 @@
 _metadata: &metadata !include system/fdb-record-types.yml
 
+# With TESTCONTAINERS_REUSE_ENABLE set, one FDB container serves every
+# boot, in this JVM and the next; unset, each boot starts and stops
+# its own.
 container: !system/component
   system/component-kind: fdb/container
+  reuse: !env TESTCONTAINERS_REUSE_ENABLE
 
 container-cluster-file-path: !system/component
   system/component-kind: fdb/container-cluster-file-path
@@ -20,8 +24,8 @@ record-db: !system/component
   system/component-kind: fdb/record-db
   cluster-file-path: !system/local-ref cluster-file-path
 
-# A fresh prefix per boot. Rigs share one reused FDB testcontainer, so
-# without this they share stores, changelog and cursors — one rig's
+# A fresh prefix per boot. Rigs sharing a reused FDB testcontainer
+# would otherwise share stores, changelog and cursors — one rig's
 # relay then drains entries another rig wrote.
 keyspace-prefix: !system/component
   system/component-kind: fdb/keyspace-prefix

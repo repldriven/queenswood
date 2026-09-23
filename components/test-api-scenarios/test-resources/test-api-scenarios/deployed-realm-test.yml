@@ -6,6 +6,7 @@ system:
     # the chart's realm-import Job does.
     container: !system/component
       system/component-kind: keycloak/container
+      reuse: !env TESTCONTAINERS_REUSE_ENABLE
 
     container-http-port: !system/component
       system/component-kind: keycloak/container-http-port

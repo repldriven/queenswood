@@ -41,3 +41,7 @@
 (defn find-by-id
   [txn user-id]
   (store/get-user txn user-id))
+
+(defn find-by-ids
+  [txn user-ids]
+  (store/get-users txn user-ids))

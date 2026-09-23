@@ -53,6 +53,15 @@
   [store & primary-key-parts]
   (apply record/load store primary-key-parts))
 
+(defn load-records
+  "Loads several records by primary key from an open FDBRecordStore,
+  returning serialized bytes or nil per key, in the order given. Each
+  key is a vector of its parts, or the part alone for a single-part
+  key. The loads are issued together and waited on once, so the batch
+  costs one round trip rather than one per key."
+  [store primary-keys]
+  (record/load-many store primary-keys))
+
 (defn save-record
   "Persists a protobuf message into an open FDBRecordStore."
   [store record]

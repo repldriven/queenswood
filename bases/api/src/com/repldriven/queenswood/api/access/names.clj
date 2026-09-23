@@ -70,7 +70,9 @@
   (let [{:keys [membership-id user-id]} membership
         found {:membership-id membership-id :user-id user-id}
         user (lookup user-id)]
-    (cond (not (error/anomaly? user))
+    (cond (nil? user)
+          found
+          (not (error/anomaly? user))
           (let [{:keys [name email]} user]
             (utility/assoc-some found
                                 :name (when-not (str/blank? name) name)
@@ -88,7 +90,7 @@
   active owner, or the first anomaly a read answers other than
   `:user/not-found`. `list-active` is a one-argument function from a bank
   id to its active memberships or an anomaly, and `lookup` one from a
-  user id to a `User` or an anomaly."
+  user id to a `User`, nil for a user with no record, or an anomaly."
   [list-active lookup bank-id]
   (let-nom> [active (list-active bank-id)]
     (reduce (fn [found membership]

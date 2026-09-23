@@ -31,6 +31,17 @@
   (some-> (.loadRecord store (->tuple primary-key-parts))
           record->bytes))
 
+;; Every load is issued before any is waited on, so `n` keys cost one
+;; round trip in flight together rather than `n` in turn.
+(defn load-many
+  [store primary-keys]
+  (let [futures (mapv (fn [k] (.loadRecordAsync store (->tuple k)))
+                      primary-keys)]
+    (mapv (fn [^java.util.concurrent.CompletableFuture f]
+            (some-> (.join f)
+                    record->bytes))
+          futures)))
+
 (defn save
   [store ^MessageLite record]
   (.saveRecord store record)

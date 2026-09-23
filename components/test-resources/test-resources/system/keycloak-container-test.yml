@@ -1,5 +1,6 @@
 container: !system/component
   system/component-kind: keycloak/container
+  reuse: !env TESTCONTAINERS_REUSE_ENABLE
   # Imported at container boot. Each realm carries audience scopes
   # + a `queenswood-admin` service-account client for the keycloak
   # adapter's admin path. queenswood is the organization-user realm

@@ -199,9 +199,9 @@
           ;; Client-id == bank-id (deterministic mapping). `:audience` is
           ;; the JWT `aud` claim the IDP stamps on tokens for this client
           ;; — the bank-api handler picks it from its own status→audience
-          ;; config and forwards it here. The secret it mints is
-          ;; discarded: callers rotate a fresh one after the reply so no
-          ;; credential crosses the bus.
+          ;; config and forwards it here. No secret is minted here:
+          ;; callers rotate one after the reply, so no credential
+          ;; crosses the bus.
           _ (identity-provider/create-service-account
              identity-provider
              {:bank-id bank-id

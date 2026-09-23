@@ -23,25 +23,12 @@
               (:gl-account-code account)))
       (dissoc :gl-account-code)))
 
-(defn- with-posted-balances
-  "Attach each ledger account's derived `:posted-balance` ({value,
-  currency}) — the same per-account read the balances endpoint does,
-  batched server-side so the list carries the headline figure and the
-  trial balance can be summed here rather than in the client. Returns the
-  enriched accounts, or the first balance anomaly."
-  [config bank-id accounts]
-  (reduce (fn [acc account]
-            (let [balances (balances/get-balances
-                            config
-                            bank-id
-                            (:ledger-account-id account))]
-              (if (error/anomaly? balances)
-                (reduced balances)
-                (conj
-                 acc
-                 (assoc account :posted-balance (:posted-balance balances))))))
-          []
-          accounts))
+(defn- with-posted-balance
+  "Attach the account's derived `:posted-balance` ({value, currency}),
+  the same figure the balances endpoint derives, from the balances the
+  chart scan paired it with."
+  [{:keys [account balances]}]
+  (assoc account :posted-balance (:posted-balance (balances/totals balances))))
 
 (defn- trial-balance-entry
   "Project an enriched account into a bank-balance trial-balance entry:
@@ -59,8 +46,9 @@
         {:keys [bank-id]} auth
         config {:record-db record-db :record-store record-store}
         result (let-nom>
-                 [accounts (ledger-accounts/list-accounts config bank-id)
-                  enriched (with-posted-balances config bank-id accounts)]
+                 [pairs (ledger-accounts/list-accounts-with-balances config
+                                                                     bank-id)
+                  enriched (mapv with-posted-balance pairs)]
                  {:ledger-accounts (mapv ->api enriched)
                   :trial-balance (balances/trial-balance
                                   (map trial-balance-entry enriched))})]

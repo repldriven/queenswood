@@ -46,3 +46,15 @@
   - user-id: user id (string)."
   [txn user-id]
   (core/find-by-id txn user-id))
+
+(defn find-by-ids
+  "Load the Users among `user-ids` that exist, as a map from user id to
+  User, in one transaction with every load in flight together. An id
+  with no record is absent from the map rather than an anomaly. Returns
+  the map or an anomaly.
+
+  Args:
+  - txn: FDB transaction or db handle.
+  - user-ids: user ids (strings)."
+  [txn user-ids]
+  (core/find-by-ids txn user-ids))

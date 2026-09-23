@@ -56,7 +56,19 @@
                             (SUT/load-record (SUT/open txn "pets") "pet-1")))
                          test-schema/pb->Pet)
                   _
-                  (is (= whiskers (utility/record->map retrieved)))]))))
+                  (is (= whiskers (utility/record->map retrieved)))
+                  batch
+                  (SUT/transact
+                   config
+                   (fn [txn]
+                     (SUT/load-records (SUT/open txn "pets")
+                                       ["pet-1" ["pet-nobody"] "pet-1"])))
+                  _ (is (= [whiskers nil whiskers]
+                           (mapv #(some-> %
+                                          test-schema/pb->Pet
+                                          utility/record->map)
+                                 batch))
+                        "one result per key, in order, nil for an absent one")]))))
 
 (defn- test-record-layer-consumer
   [sys pet-store]
