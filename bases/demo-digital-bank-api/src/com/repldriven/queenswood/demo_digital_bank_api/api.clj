@@ -102,7 +102,7 @@
                  :openapi {:info {:title "Demo digital bank"
                                   :description
                                   "The bank behind the demo digital bank's app"
-                                  :version "1.0.0"}
+                                  :version "0.0.4"}
                            :components
                            {:securitySchemes
                             {"sessionAuth" {:type :http

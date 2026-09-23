@@ -4,8 +4,9 @@ name: Release
 # `just release` opens it, and this runs once that commit's Tests are
 # green: it builds every image at the commit, tags them with the
 # version, packages and pushes the chart, tags the commit `v<version>`
-# and publishes the GitHub release. Nothing here runs on a workflow
-# button, and nothing is built for a commit that is not a release.
+# and publishes the GitHub release, then deploys the release's docs to
+# GitHub Pages. Nothing here runs on a workflow button, and nothing is
+# built for a commit that is not a release.
 #
 # One condition, read at the commit Tests ran on: the tag `v<version>`
 # does not exist yet. The first green commit on main whose declared
@@ -254,3 +255,17 @@ jobs:
             "release/queenswood-$VERSION.tgz" \
             release/README.md
           echo "Released v$VERSION from \`$SHA\`." >> "$GITHUB_STEP_SUMMARY"
+
+  pages:
+    needs: [check, publish]
+    permissions:
+      actions: write        # dispatch the Pages workflow
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Deploy the release's docs to GitHub Pages
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          gh workflow run pages.yml \
+            -R "${{ github.repository }}" --ref "v$VERSION"

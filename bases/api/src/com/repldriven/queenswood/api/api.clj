@@ -192,7 +192,7 @@
        :openapi
        {:info {:title "Queenswood"
                :description "Queenswood Banking API"
-               :version "1.0.0"}
+               :version "0.0.4"}
         :components
         {:securitySchemes
          {"bearerAuth"

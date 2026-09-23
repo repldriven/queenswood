@@ -26,8 +26,8 @@ someone, **Migrate** accounts and **Accrue** interest.
 [![Video: the same bank from your customer's side, in the demo digital bank's app](docs/assets/demo-app.png)](https://github.com/user-attachments/assets/673ac5b1-c751-4d85-a29b-4b02859c3c75)
 
 The same bank from your customer's side, in the
-[demo digital bank](docs/prd/demo-digital-bank.md)'s app: sign up and open two
-accounts.
+[demo digital bank](docs/prd/demo-digital-bank.md)'s app: **Sign up** and
+**Open** accounts.
 
 ## How it's used
 
@@ -58,40 +58,45 @@ accounts.
 
 ## For decision-makers
 
-- **Isolated banks.** Your organisation is a bank on the platform, with its own
-  products, customers, books, policies and team, and nothing of one is visible
-  to another. A bank starts in test and moves to live, and its tier binds the
-  policies it works within: its capabilities, and the limits on them.
-- **Customer onboarding.** Every new customer is identity-checked as they sign
-  up, and can't open an account until the check clears.
-- **Product changes without a release.** Change a rate, add a welcome reward
-  or launch a new term without shipping software. Existing customers move to
-  the new terms only when you plan and approve it.
-- **UK payments and books that balance.** Customers pay and are paid by Faster
-  Payments in seconds, with the payee's name checked first. Every movement is
-  recorded as matching debits and credits, so the books always balance, down
-  to fractions of a penny of interest.
+- **Open source.** The code is yours to read, run and change under the MIT
+  licence, on infrastructure you choose. There's no licence fee, and no vendor
+  deciding your roadmap or moving the product from under you.
+- **Configurable policies.** Policies are records checked on every request,
+  and your bank's tier sets the capabilities and limits it works within, so
+  changing either ships no code.
+- **Sandbox.** Your bank starts in test, where you try everything with
+  simulated money on the same software your customers will use, and moves to
+  live when you're ready.
 - **Pluggable providers.** Clearing and identity verification each connect
   through an adapter, and a simulator stands in for each provider, so you can
   build and test before a contract is signed.
-- **Real-time notifications.** Your systems are told as it happens when an
-  account opens, money arrives or a payment settles.
-- **Rules without a release.** Policies are records checked on every request,
-  so changing a capability or a limit ships no code.
-- **An audit trail.** Everyone on your team signs in as themselves with a
+- **Books that balance.** Every movement is recorded as matching debits and
+  credits, so the books always balance, down to fractions of a penny of
+  interest.
+- **Audit trail.** Everyone on your team signs in as themselves with a
   role, and a log records who did what.
-- **A sandbox.** Try everything with simulated money, on the same software
-  your customers will use.
+- **Documentation.** Every decision, design and procedure is written down, and
+  all of it says what's done and what's not.
+- **Test suite.** Generated tests check its answers against a model of how
+  a bank should behave, and scenarios drive the live API end to end.
+
+## For product managers
+
+- **Configurable products.** Change a rate, add a welcome reward or launch a
+  new product line, and move existing customers to the new terms only when you
+  plan and approve it, with no need to ship code.
+- **Interest and rewards.** Accounts earn interest daily on their settled
+  balance, paid in on a schedule you set, and a product can pay a welcome
+  reward once for opening an account.
+- **Customer onboarding.** Every new customer is identity-checked as they sign
+  up, and can't open an account until the check clears.
+- **Payments.** Customers pay and are paid by UK Faster Payments in seconds,
+  with Confirmation of Payee first.
+- **Real-time notifications.** Your systems are told as things happen, such
+  as an account opening, money arriving or a payment settling.
 - **Product requirements.** Every capability has a
   [requirements document](docs/prd/) saying what it's for and who uses it, in
   product language.
-- **No lock-in.** The source is yours to read, run and change, under the MIT
-  licence, on infrastructure you choose.
-
-Queenswood has no production miles yet, but it's built to run in production:
-generated tests check its answers against a model of how a bank should behave,
-scenarios drive the live API end to end, and the documentation says what's
-done and what's not.
 
 ## For application engineers
 
@@ -103,10 +108,9 @@ done and what's not.
 - **Idempotent writes.** Every write takes an idempotency key, so a retried
   request replays the first answer rather than paying twice.
   See [idempotency](docs/tdd/idempotency.md).
-- **Signed webhooks.** Deliveries are signed under the
-  [Standard Webhooks](https://www.standardwebhooks.com/) convention, retried,
-  and re-sendable.
-  See [webhooks](docs/tdd/webhooks.md).
+- **Webhooks.** Deliveries are retried until acknowledged, up to a limit, and
+  each is recorded, so a missed one can be found and sent again. See
+  [webhooks](docs/tdd/webhooks.md).
 - **A worked example.** The
   [demo digital bank](docs/prd/demo-digital-bank.md) is a retail banking app
   built entirely on the API, with its own backend and store, and the reference
@@ -135,9 +139,12 @@ just demo-digital-bank-app-start
 
 ### Architecture
 
-The Message Bus (Kafka or Pulsar) carries commands and events
-between Queenswood's processors and external providers; a distributed
-database (FoundationDB) manages the data.
+The API reads from a distributed database, and makes a write either directly
+or by putting it on a message bus as a command. Processors take those
+commands, write to the database, and publish what changed as events on the
+same bus. Adapters stand between the platform and the outside world: they call
+the clearing, identity verification and company registry providers, and turn
+the providers' webhooks into events.
 
 <picture>
   <source media="(prefers-color-scheme: dark)"  srcset="docs/diagrams/system-diagram-dark.svg">
@@ -145,18 +152,12 @@ database (FoundationDB) manages the data.
   <img alt="Queenswood system diagram" src="docs/diagrams/system-diagram-light.svg">
 </picture>
 
-**Writes as commands, processed in parallel and in order.** The API can put a
-write on the bus as a command instead of doing the work itself. Processors
-consume those commands and scale independently of the web tier, so the work
-spreads across as many instances as it takes while a request costs the API
-only an open connection. Commands sharing an ordering key are consumed one at
-a time and in order, however many processors are running. Delivery is
-at-least-once and a redelivered command is recognised, so repeating a request
-replays the first outcome rather than doing the work twice. Today the API
-waits for the reply and answers on the same connection; the same split would
-let it acknowledge immediately and return the outcome out of band. Other
-writes are direct calls. Processors deploy individually, or bundled along
-lines of responsibility such as financial and operational.
+**Writes as commands, processed in parallel and in order.** Processors scale
+independently of the web tier, so the work spreads across as many instances
+as it takes while a request costs the API only an open connection. Commands
+sharing an ordering key are consumed one at a time and in order, however many
+processors are running. Delivery is at-least-once and a redelivered command
+is recognised.
 
 **Reads are queries.** The API read-side loads records directly through a
 separate query surface — no command, no bus, no round-trip. Query bricks read
@@ -170,8 +171,7 @@ system has to react to a change, it's recorded in a changelog in the same
 transaction as the write itself, so a change and the news of it can't diverge.
 One system-wide relay tails those changelogs in order and publishes each entry
 to the message bus as an event, and the processors that care subscribe. An
-event says what happened; a command asks for something to be done. The records
-stay the source of truth, and an event carries a change across a boundary.
+event says what happened; a command asks for something to be done.
 
 **External calls are recorded before they're made.** A database write and an
 outbound HTTP call can't be made atomic: no transaction spans the two, and
@@ -179,33 +179,27 @@ there's no two-phase commit across another company's API. Committing first
 risks a call that never happens; calling first risks a call that happened but
 was never recorded. So the adapter commits the _intent_ to call, and a
 separate poller makes the call afterwards, retrying each pending intent until
-it succeeds or exhausts its attempts. Webhook events received from an external
-service are normalized by the adapter and written to a deduplicating outbox,
-atomically with its changelog record, and relayed to the message bus in order
-through the system-wide changelog relay, so processors react to a provider's
-events as they do to the platform's own.
+it succeeds or exhausts its attempts. A provider's webhooks are written to a
+deduplicating outbox and relayed like the platform's own changes.
 
-### Design decisions
+### Building blocks
 
-The main engineering decisions, each with its document:
+What Queenswood is built from, each with its document:
 
-- **System-level and model-equality property testing.** Two state machines fed
-  the same commands: the real system, and a model that imports nothing from
-  it, no database, no protobuf, no shared code. A divergence shrinks to the
-  shortest sequence that causes it. See
-  [scenario-testing](docs/tdd/scenario-testing.md).
-- **Anomalies, not exceptions, at every component interface.** An interface
-  returns a value or an anomaly and never raises. Three kinds separate a fault
-  from a refusal from a forbidden call, which is how the API picks a status
-  family without inspecting a payload. See
-  [ADR-0005](https://github.com/repldriven/mono/blob/main/docs/adr/0005-error-handling-with-anomalies.md).
 - **System-as-data.** Test and production share one bootstrap path, and what a
-  given process runs is decided by its configuration rather than its code: the
-  same bricks start as a modular monolith in one JVM or as separate services.
-  See
-  [ADR-0007](https://github.com/repldriven/mono/blob/main/docs/adr/0007-system-as-data.md)
-  and the
-  [slides](https://github.com/repldriven/mono/blob/main/docs/slides/systems-as-data/slides.md).
+  given process runs is decided by its configuration rather than its code. The
+  same bricks run as separate services, as groups of related ones such as the
+  financial and the operational processors, or all together in one JVM as a
+  modular monolith, grouped however suits you. See
+  [ADR-0007](https://github.com/repldriven/mono/blob/main/docs/adr/0007-system-as-data.md).
+- **Message bus.** Processors send and subscribe through an abstraction that
+  configuration binds to Kafka, Pulsar or in-process channels, so the same
+  processors run on a broker in production and on channels in a test or the
+  monolith. Commands and events travel as Avro, each producer and consumer
+  bound to its schema at startup. See
+  [ADR-0003](https://github.com/repldriven/mono/blob/main/docs/adr/0003-message-bus-abstraction.md)
+  and
+  [ADR-0004](https://github.com/repldriven/mono/blob/main/docs/adr/0004-avro-for-message-payloads.md).
 - **FoundationDB Record Layer.** Multi-record ACID across stores in one
   transaction, so creating a bank writes its party, ledger chart, house
   accounts and policy bindings, or none of them. Changelog entries are keyed
@@ -214,11 +208,10 @@ The main engineering decisions, each with its document:
   reading one costs the same whether a bank has ten accounts or ten million.
   See [ADR-0002](docs/adr/0002-foundationdb-record-layer.md).
 - **Built on `mono`.** The generic half lives upstream: messaging, identity,
-  observability, HTTP, error handling, and the system assembly the bullet
-  above describes. It arrives tested on its own terms and pinned to a tag and
-  a sha, so the tests here cover banking, not infrastructure, and an upgrade
-  happens only when someone bumps the pin. See
-  [ADR-0001](docs/adr/0001-reuse-mono-as-upstream.md).
+  observability, HTTP, error handling and the system assembly. It arrives
+  tested on its own terms and pinned to a tag and a sha, so the tests here
+  cover banking, not infrastructure, and an upgrade happens only when someone
+  bumps the pin. See [ADR-0001](docs/adr/0001-reuse-mono-as-upstream.md).
 
 ### Technical documentation
 
@@ -232,11 +225,6 @@ Queenswood's documents live under `docs/`:
 - **[docs/recipes/](docs/recipes/)** — task-oriented guides in a fixed shape
   (Problem, Solution, Failures, Rules, Discussion) for the things you do
   repeatedly in this codebase.
-
-Nearly every ADR and recipe carries a label binding it to a rule plugin, and
-the rules an agent loads on every task in this repo are regenerated from those
-documents rather than written alongside them, so an agent's rules always match
-the decision they came from.
 
 ## For infrastructure engineers
 
@@ -288,12 +276,9 @@ each
 
 ### Run on Google Cloud
 
-A blueprint for running Queenswood on Google Cloud, guided by Google's
-[enterprise foundations blueprint](https://cloud.google.com/architecture/security-foundations):
-each installation is a folder of its own, people hold read-only access and
-make changes only through controlled break-glass groups, the foundations are
-protected by liens rather than convention, and organisation security policies
-are enforced from the first project.
+A blueprint for running Queenswood on Google Cloud, one installation to a
+folder. The controls it applies are listed
+[for security engineers](#for-security-engineers).
 
 No command deploys an installation. An installation is a manifest in a private
 repository, and a management plane running Crossplane and Argo CD reconciles
@@ -320,6 +305,90 @@ reconciles the installation, the recovery project holds the backups and the
 key they're encrypted under, and the DNS zone stays when an instance goes. The
 instance project below it is rebuilt whenever an instance is.
 
+Rebuilding an [instance's cluster](docs/recipes/infra/instance-rebuild-cluster.md),
+replacing the
+[management plane's cluster](docs/recipes/infra/plane-rebuild-cluster.md) and
+[debugging an installation](docs/recipes/infra/crossplane-debug.md) each have a
+recipe of their own.
+
+## For security engineers
+
+- **Identity and access management.** People sign in through Keycloak over
+  OpenID Connect, each as themselves, with a role in their bank: owner, admin,
+  developer or viewer, and a bank's own systems act as a principal of their
+  own. The API verifies every token against Keycloak's signing keys and its
+  issuer, and refuses an operation whose declared scopes the caller lacks.
+- **Machine-to-machine authentication.** A fintech's systems use OAuth 2.0
+  client credentials: each bank is issued a client id and secret, which can be
+  rotated or revoked, and exchanges them at the API's token endpoint for a
+  short-lived bearer token bound to the bank and to whether it is in test or
+  live.
+- **GitOps.** On Google Cloud, every change to an installation, a release
+  included, is a reviewed pull request, and merging it is what applies it. A
+  pull request never holds a cloud identity.
+- **Privileged access management.** On Google Cloud, nobody holds standing
+  privileges. People hold read-only access, since GitOps makes every routine
+  change, and an intervention means joining an empty break-glass group for its
+  duration and leaving again. The identity that bootstraps an installation
+  holds its organisation rights for the bootstrap alone and is closed
+  afterwards. No service-account key exists for any identity. See
+  [ADR-0023](docs/adr/0023-installation-naming-and-access.md).
+- **Cloud security.** On Google Cloud, each installation is a folder of its
+  own, following Google's
+  [enterprise foundations blueprint](https://cloud.google.com/architecture/security-foundations),
+  with organisation policy constraints enforced from the first project.
+  Automation owns everything inside the folder, restrained by what its own
+  manifests declare — deletion policies, deletion protection and liens — so
+  every restraint is reviewable in a pull request.
+- **Secrets and key management.** On Google Cloud, credentials live in Secret
+  Manager and reach the cluster through the External Secrets operator under
+  Workload Identity, so neither git nor Argo CD ever holds one. The
+  platform's admin credential is a signing key generated inside the cluster,
+  and its private half never leaves the pods that sign with it.
+- **Encryption.** On Google Cloud, TLS terminates at the gateway on
+  Google-managed certificates, and FoundationDB backups are encrypted under a
+  key held in Secret Manager.
+- **Vulnerability management.** Dependencies are scanned for known CVEs
+  against the National Vulnerability Database, and Renovate opens and merges
+  their updates weekly. On Google Cloud, the organisation is scanned against
+  the CIS benchmark, and each accepted finding is muted by resource with its
+  reasoning recorded.
+  See [security scanning](docs/recipes/infra/security-scanning.md).
+- **Webhook security.** Deliveries are signed with HMAC-SHA256 under the
+  [Standard Webhooks](https://www.standardwebhooks.com/) specification, and
+  carry both signatures while a secret rotates. Endpoints must be HTTPS, and
+  one whose address resolves to a loopback, link-local, private or metadata
+  range is refused at registration and again at every send.
+- **Compliance.** A [register of obligations](docs/compliance/readme.md) maps
+  what DORA, the CIS Controls, GDPR, NIS2 and ISO 22301 require to the recipe
+  that meets each, gaps included.
+
+## For site reliability engineers
+
+- **Observability.** Every request is traced with OpenTelemetry across the
+  HTTP edge and the message bus, and a correlation id follows a user action
+  through every command, event and processor it touches. Traces are exported
+  over OTLP to any collector, to the bundled Jaeger by default, and logs are
+  structured JSON.
+- **Health checks.** Every service answers liveness and readiness under
+  `/actuator/health`, and its probes use them. A service starts only once
+  the migrations and bootstrap it depends on have completed, and the services
+  it calls are up.
+- **Scheduled jobs.** End-of-day processing and every other job run on a
+  schedule you read and change through the API and the console, and each run
+  is recorded.
+- **Scaling.** Services run as many replicas as you give them, except the
+  dispatcher that owns every changelog cursor and scheduled trigger, which
+  runs as exactly one.
+- **Environment lifecycle.** An instance is up, draining or down. Down stops
+  its compute, node pools at zero and its database stopped, with its data
+  untouched, and draining takes an export before it gets there.
+- **Disaster recovery.** FoundationDB is backed up continuously, and
+  [recovering it](docs/recipes/infra/fdb-recovery.md) is a runbook of its own:
+  which loss calls for a restore, the recovery point each achieves, and
+  restoring onto systems kept apart from the damaged ones. A restore is proven
+  by counting what it restored, never by a job's exit status.
+
 ## For contributors
 
 ### Nix
@@ -328,22 +397,8 @@ Nix is used to manage the many tools and binaries required to develop
 Queenswood. Nix can be installed several ways, and this README doesn't
 prescribe one.
 
-Nix flakes with `direnv` ensure everything required is on the path
-automatically whenever you `cd` to it.
-
-```bash
-❯ cd queenswood
-direnv: loading ~/Documents/github.nosync/repldriven/queenswood/.envrc
-direnv: using flake .
-FDB libs: /nix/store/i3abz3pz7p6mw9dzg9kr2praag0s6zqz-foundationdb-7.3.75/lib
-fdbcli: /nix/store/i3abz3pz7p6mw9dzg9kr2praag0s6zqz-foundationdb-7.3.75/bin/fdbcli
-protoc-gen-clojure: protoc-gen-clojure version: v2.1.2
-Clojure monorepo environment loaded
-Preparing repo...
-merge drivers configured
-Prepping libraries...
-direnv: export +AR +AS +CC +CLASSPATH ...
-```
+Nix flakes with `direnv` put everything required on the path whenever you
+`cd` into the checkout.
 
 ### REPL
 
@@ -373,10 +428,30 @@ REPL-driven development follows the standard Polylith pattern.
   :-)
 ```
 
+### Testing
+
+Beside each brick's own tests, two state machines are fed the same commands:
+the real system, and a model that imports nothing from it, no database, no
+protobuf, no shared code. A divergence shrinks to the shortest sequence that
+causes it. See
+[ADR-0009](docs/adr/0009-model-equality-property-testing.md) and
+[scenario testing](docs/tdd/scenario-testing.md).
+
+### Agent rules
+
+Nearly every ADR and recipe carries a label binding it to a rule plugin, and
+the rules an agent loads on every task in this repo are regenerated from those
+documents rather than written alongside them, so an agent's rules always match
+the decision they came from.
+
 ### Built on mono
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/repldriven/mono/main/docs/assets/logo-dark.svg" />
+  <img src="https://raw.githubusercontent.com/repldriven/mono/main/docs/assets/logo.svg" alt="mono" width="64" align="left" />
+</picture>
 
 [mono](https://github.com/repldriven/mono) is an opinionated Clojure framework
 for building systems on [Polylith](https://polylith.gitbook.io/polylith):
 bricks you test on their own, wired together by configuration and started as
-one. Its components are documented in the
-[mono README](https://github.com/repldriven/mono#components).
+one.

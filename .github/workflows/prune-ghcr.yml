@@ -1,12 +1,10 @@
 name: Prune GHCR Untagged
 
 # Deletes untagged manifests from GHCR for every Queenswood package --
-# the service images and the three Helm charts. Every
-# `release-images.yml` run pushes new content to the moving
-# `:latest-<arch>` tags and rebuilds the `:latest` manifest list; the
-# digests behind the *previous* tags become untagged but still occupy
-# storage. Re-publishing a chart version supersedes its digest the same
-# way. Without periodic pruning they accumulate indefinitely.
+# the service images and the chart. A release that fails part way and
+# is picked up again pushes the same version's tags a second time; the
+# digests behind the first push become untagged but still occupy
+# storage. Without periodic pruning they accumulate indefinitely.
 #
 # Three things this has to get right, and the first two have bitten:
 #
@@ -14,13 +12,13 @@ name: Prune GHCR Untagged
 #    so the GHCR package is `queenswood/<name>` and the REST path
 #    needs it percent-encoded. A bare `<name>` fails with "Package
 #    not found" -- which is silent enough to look like a clean run.
-#    Charts publish to `ghcr.io/<owner>/<name>` instead, so their
-#    package name carries no slash and the encoding is a no-op.
+#    The chart publishes to `ghcr.io/<owner>/queenswood` instead, so
+#    its package name carries no slash and the encoding is a no-op.
 #
 # 2. "Untagged" does not mean "unreferenced". A tagged multi-arch
 #    index points at per-platform manifests that GHCR itself reports
 #    with no tags, so deleting every untagged version destroys the
-#    image `:latest` resolves to. Every digest a tagged version
+#    image a version tag resolves to. Every digest a tagged version
 #    references is collected first and kept.
 #
 # 3. A chart is a single manifest rather than an index, so the manifest
@@ -30,8 +28,7 @@ name: Prune GHCR Untagged
 #    whenever one is acceptable, so image pruning is unchanged.
 
 on:
-  # Sunday 03:30 UTC. Off-peak for GHCR + no overlap with
-  # release-images.yml which fires on every push to main.
+  # Sunday 03:30 UTC, off-peak for GHCR.
   schedule:
     - cron: '30 3 * * 0'
   workflow_dispatch:
@@ -66,16 +63,13 @@ jobs:
           - queenswood/external-adapters-service
           - queenswood/console
           - queenswood
-          - keycloak-operator
     steps:
       - name: Prune untagged versions of ${{ matrix.package }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OWNER: ${{ github.repository_owner }}
           PKG: ${{ matrix.package }}
-          # Untagged digests are the only way to rebuild a previous
-          # `:latest` with `imagetools create`, so keep a few as a
-          # rollback path after a bad release.
+          # The newest few untagged digests are kept as a margin.
           KEEP: '5'
         run: |
           set -euo pipefail
