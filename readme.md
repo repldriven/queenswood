@@ -198,9 +198,7 @@ What Queenswood is built from, each with its document:
   given process runs is decided by its configuration rather than its code: the
   same bricks start as a modular monolith in one JVM or as separate services.
   See
-  [ADR-0007](https://github.com/repldriven/mono/blob/main/docs/adr/0007-system-as-data.md)
-  and the
-  [slides](https://github.com/repldriven/mono/blob/main/docs/slides/systems-as-data/slides.md).
+  [ADR-0007](https://github.com/repldriven/mono/blob/main/docs/adr/0007-system-as-data.md).
 - **Message bus.** Processors send and subscribe through an abstraction that
   configuration binds to Kafka, Pulsar or in-process channels, so the same
   processors run on a broker in production and on channels in a test or the
