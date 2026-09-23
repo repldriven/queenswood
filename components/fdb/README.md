@@ -33,9 +33,6 @@ curl -fLO "https://github.com/apple/foundationdb/releases/download/${FDB}/Founda
 sudo installer -pkg "FoundationDB-${FDB}_${ARCH}.pkg" -target /
 ```
 
-Note that only the 7.4 line and 7.3.75 and earlier ship macOS packages; 7.3.76
-through 7.3.79 are Linux-only.
-
 **Linux.**
 
 ```bash

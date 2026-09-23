@@ -3,11 +3,11 @@
   "Native toolchain versions. Single source of truth, read by flake.nix",
   "(builtins.fromJSON), by the CI workflows, and by 'just doctor'.",
   "JSON rather than EDN because nix can only parse JSON natively.",
-  "These mirror the versions.json of the mono release pinned in",
-  "deps/mono -- the FoundationDB client must match the server mono's",
-  "testcontainers image builds, and protoc must stay on the 25.x line",
-  "because a newer protoc emits protobuf 4 code that the FDB Record",
-  "Layer's pinned protobuf-java 3.25.8 runtime cannot load.",
+  "The FoundationDB client must match the server the testcontainers",
+  "image builds and the cluster the chart deploys, and protoc must",
+  "stay on the 25.x line because a newer protoc emits protobuf 4 code",
+  "that the FDB Record Layer's pinned protobuf-java 3.25.9 runtime",
+  "cannot load.",
   "Changing a version means changing its sha256 in the same edit:",
   "  nix store prefetch-file --hash-type sha256 --json <url>",
   "Cross-check against the vendor's published checksum where one exists;",
@@ -18,17 +18,17 @@
   "Keycloak is here for a different reason than the toolchain entries: the operator's CRD is generated from the server's realm schema, so an operator older than the server rejects fields the server exports. That surfaced as a restore failing with a strict decoding error on webAuthnPolicyResidentKey -- an hour into a teardown cycle, and only on the restore path, because the chart's committed realm JSON happens to carry no such field. Server and operator move together."
  ],
  "foundationdb": {
-  "version": "7.3.75",
+  "version": "7.3.79",
   "sha256": {
-   "aarch64": "sha256-axYrC+vv1Jhzzi59fbe7ABUVyAzjqQVFWFhZwmNiSI8=",
-   "x86_64": "sha256-YqGe3fCkbfe4NdVTCcJwQIU1MEYAh4BLBzkP76kl0Ks="
+   "aarch64": "sha256-UQSt6U0eG2IRn0nj4W1DvZ/7i17GBLFzD0b2gMDBiQ4=",
+   "x86_64": "sha256-C80PlDCYSrcte6R/jtlchfFNI384eKsVIf7/FOB028Q="
   }
  },
  "protoc": {
-  "version": "25.8",
+  "version": "25.9",
   "sha256": {
-   "aarch64": "sha256-UIIE7oJiT01MQUF81XNyHzqZWkzqTzCD+wYp7Gk2ZxI=",
-   "x86_64": "sha256-J2NjPhXHFDEra/dW+H1YGaXypsbc6291RPDht9bblm0="
+   "aarch64": "sha256-EekbsW/FL1aRlwo/tXxusm4TBlou/x7qImsNzWmN220=",
+   "x86_64": "sha256-OHrZJPmP7pYihf88XWPhxsZm6na6M5+1Bq+lbXQ3LGA="
   }
  },
  "protoc-gen-clojure": {

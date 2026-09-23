@@ -9,6 +9,18 @@ image:
   pullPolicy: IfNotPresent
   pullSecrets: []
 
+# -- Images the chart's Jobs and initContainers run their shell steps
+# in: curl, jq, kubectl and helm from the first, and openssl, which it
+# lacks, from the second. Named here alone; a template that spelt one
+# out would be a copy bumped on its own. Pinned by digest: one
+# manifest-list digest names the same content on every architecture,
+# and a retagged upstream image cannot change what a release deploys.
+tools:
+  k8s:
+    image: alpine/k8s:1.37.0@sha256:b421c2e9419edb98db39b6ab641669f4db7bb2acf354f22450c6b7e7176d1ff4
+  openssl:
+    image: alpine/openssl:3.5.8@sha256:6aa2be0ed55a61fff35583e5763c2ea8288bcd3549d316b954b01eec32fb7006
+
 # -- Required secrets.
 secrets:
   # The Keycloak admin client secret matches the realm-import JSON's
@@ -228,11 +240,10 @@ keycloak:
     # read on the backup bucket. Named for GCP because this Job is: it
     # shells out to `gcloud storage`. See values-gcp.yaml.
     gcpServiceAccount: ""
-    # Needs curl and jq: it POSTs the realm to Keycloak's Admin API and
-    # checks the restored user ids over the same API. No kubectl -- the
-    # operator's import CR is not used, so the Job touches no Kubernetes
-    # API at all.
-    toolsImage: alpine/k8s:1.37.0
+    # Runs in `tools.k8s.image` for curl and jq: it POSTs the realm to
+    # Keycloak's Admin API and checks the restored user ids over the
+    # same API. No kubectl -- the operator's import CR is not used, so
+    # the Job touches no Kubernetes API at all.
     gcloudImage: ""
     resources:
       requests:
@@ -548,13 +559,13 @@ services:
 
 # ---------------------------------------------------------------------
 # FDB cluster managed by the FDB Kubernetes operator. The version MUST
-# match the FDB client (libfdb_c) baked into the service image (7.3.75).
+# match the FDB client (libfdb_c) baked into the service image.
 # Defaults are sized for a single-node dev cluster (kind/k3s); raise
 # processCounts and resources for production.
 # ---------------------------------------------------------------------
 fdb:
   enabled: true
-  version: "7.3.75"
+  version: "7.3.79"
   # Passed to every general process. Two are worth setting anywhere the
   # container limit is below FoundationDB's own defaults, which is
   # everywhere: --cache_memory sizes the page cache, which defaults to
@@ -758,14 +769,14 @@ fdbOperator:
   # only the 7.4 monitor binaries the chart actually uses.
   initContainers:
     "7.1": null
-    # 7.3.75 rather than 7.4.x: fdb-kubernetes-monitor:7.4.6 is published
+    # 7.3 rather than 7.4.x: fdb-kubernetes-monitor:7.4.6 is published
     # amd64-only, so on an arm64 node the operator's fdbcli runs under
     # Rosetta and `configure new` never executes — the cluster is created
-    # but never configured. The 7.3.75 image is multi-arch.
+    # but never configured. The 7.3 images are multi-arch.
     "7.3":
       image:
         repository: foundationdb/fdb-kubernetes-monitor
-        tag: 7.3.75
+        tag: 7.3.79
         pullPolicy: IfNotPresent
     "7.4": null
 

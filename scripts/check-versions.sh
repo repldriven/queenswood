@@ -13,6 +13,7 @@ cd "$(dirname "$0")/.."
 versions=versions.json
 fdb=$(jq -r '.foundationdb.version' "$versions")
 keycloak=$(jq -r '.keycloak.version' "$versions")
+protoc=$(jq -r '.protoc.version' "$versions")
 fdb_minor=${fdb%.*}
 fail=0
 
@@ -80,6 +81,17 @@ check "$values (initContainer $fdb_minor tag)" "$fdb" \
           $1 == key {f = 1; next}
           f && /^    "/ {f = 0}
           f && /^        tag:/ {print $2; exit}' "$values")"
+
+# protoc generates the Java record classes in the service image's build
+# stage, where the flake cannot reach, so the image would otherwise build
+# them with a different protoc from the one a developer's `just force-prep`
+# runs.
+echo
+echo "Pinned copies of protoc $protoc, against $versions:"
+
+f=infra/docker/service/Dockerfile
+check "$f (ARG PROTOC_VERSION)" "$protoc" \
+  "$(sed -n 's/^ARG PROTOC_VERSION=\([0-9][0-9.]*\).*/\1/p' "$f" | head -1)"
 
 # Clojure itself cannot be single-sourced through deps/clojure-core-async the way
 # core.async is: the CLI merges its own root deps.edn into every project's
@@ -173,6 +185,18 @@ check "management plane composition (argo-cd chart)" "$argocd" \
   "$(awk '/name: argo-cd$/ {f = 1; next}
           f && /version:/ {gsub(/["]/, "", $2); print $2; exit}' \
        infra/platform/crossplane-xrds/xmanagementplane-composition.yml)"
+
+# The tools images the chart's Jobs and initContainers run in are named
+# in values.yaml alone, by digest. A template spelling one out is a copy
+# Renovate bumps on its own, pinned to no digest.
+echo "Tools images named in values.yaml alone:"
+literal=$(grep -rn 'image: alpine/' infra/helm/queenswood/templates || true)
+if [ -z "$literal" ]; then
+  printf '  %-52s \033[32mnone in templates/\033[0m\n' "infra/helm/queenswood/templates"
+else
+  printf '  %-52s \033[31mnamed literally:\033[0m\n%s\n' "infra/helm/queenswood/templates" "$literal"
+  fail=1
+fi
 
 if [ "$fail" -ne 0 ]; then
   cat <<EOF

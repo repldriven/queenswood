@@ -1,3 +1,11 @@
+# The images `docker-build-all` builds, one per line: the bake file's targets.
+[private]
+_docker-images:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    spec=$(docker buildx bake -f infra/docker/bake.hcl --print)
+    jq -r '.target | keys[]' <<<"$spec"
+
 # Start Docker via Colima
 docker-start:
     colima status 2>/dev/null || colima start --arch aarch64 --vm-type vz --vz-rosetta --cpu 9 --memory 24 --disk 100

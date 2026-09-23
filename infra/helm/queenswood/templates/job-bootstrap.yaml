@@ -13,9 +13,11 @@ imagePullSecrets:
 {{- end }}
 restartPolicy: OnFailure
 serviceAccountName: {{ include "queenswood.bootstrapServiceAccount" . }}
+securityContext:
+  {{- include "queenswood.appPodSecurityContext" . | nindent 2 }}
 initContainers:
   - name: wait-for-fdb-cluster
-    image: alpine/k8s:1.37.0
+    image: {{ $.Values.tools.k8s.image | quote }}
     command:
       - sh
       - -c
@@ -58,7 +60,7 @@ initContainers:
   # addressed there -- a name this chart could only re-derive by
   # holding a copy of everything that goes into the hash.
   - name: wait-for-realm-import
-    image: alpine/k8s:1.37.0
+    image: {{ $.Values.tools.k8s.image | quote }}
     command:
       - sh
       - -c
@@ -101,7 +103,7 @@ initContainers:
   # orders it ahead of every consumer, including bootstrap's own
   # container.
   - name: read-admin-client-key
-    image: alpine/k8s:1.37.0
+    image: {{ $.Values.tools.k8s.image | quote }}
     command:
       - sh
       - -c
@@ -115,6 +117,7 @@ initContainers:
         crt=$(kubectl get secret "$S" \
           -o jsonpath='{.data.admin-client\.crt}' 2>/dev/null || true)
         if [ -n "$pem" ] && [ -n "$crt" ]; then
+          umask 027
           printf '%s' "$pem" | base64 -d > /keys/admin-client.pem
           printf '%s' "$crt" | base64 -d > /keys/admin-client.crt
           touch /keys/.stored
@@ -128,7 +131,7 @@ initContainers:
   # openssl, because alpine/k8s carries curl, jq, kubectl and helm but
   # not openssl. Only runs where the Secret held nothing.
   - name: generate-admin-client-key
-    image: alpine/openssl:3.5.8
+    image: {{ $.Values.tools.openssl.image | quote }}
     command:
       - sh
       - -c
@@ -141,6 +144,7 @@ initContainers:
           -keyout /keys/admin-client.pem \
           -out /keys/admin-client.crt \
           -subj "/CN={{ .Release.Name }}-admin"
+        chmod 0640 /keys/admin-client.pem
         echo "generated a signing pair"
     volumeMounts:
       - name: admin-client-key
@@ -159,7 +163,7 @@ initContainers:
   # becoming the manager of the whole object, which the chart's own
   # server-side apply owns.
   - name: sync-admin-client-key
-    image: alpine/k8s:1.37.0
+    image: {{ $.Values.tools.k8s.image | quote }}
     env:
       - name: KC_BASE_URL
         value: {{ include "queenswood.keycloakBaseUrl" . | quote }}
@@ -252,7 +256,7 @@ initContainers:
   # Kafka topics — bootstrap reads the persisted FDB schema
   # via fdb/meta-store, so the migration must land first.
   - name: wait-for-migrator
-    image: alpine/k8s:1.37.0
+    image: {{ $.Values.tools.k8s.image | quote }}
     command:
       - sh
       - -c
@@ -264,6 +268,8 @@ containers:
   - name: bootstrap
     image: "{{ .Values.image.registry }}/bootstrap-service:{{ include "queenswood.imageTag" . }}"
     imagePullPolicy: {{ include "queenswood.imagePullPolicy" $ }}
+    securityContext:
+      {{- include "queenswood.appSecurityContext" . | nindent 6 }}
     env:
       - name: SERVICE_NAME
         value: "bootstrap-service"

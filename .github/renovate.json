@@ -23,6 +23,17 @@
   "dependencyDashboardApproval": false,
   "packageRules": [
     {
+      "description": "The tools images the chart's Jobs and initContainers run in are pinned by digest in values.yaml, so a bump moves tag and digest together and a retagged upstream image changes nothing.",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "alpine/k8s",
+        "alpine/openssl"
+      ],
+      "pinDigests": true
+    },
+    {
       "groupName": "clojure-core",
       "matchManagers": [
         "deps-edn"

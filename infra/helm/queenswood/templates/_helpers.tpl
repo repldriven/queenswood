@@ -34,6 +34,29 @@ release the images were published under.
 {{- .Values.image.tag | default .Chart.AppVersion -}}
 {{- end -}}
 
+{{/*
+The security context for a container running one of this chart's own
+images. The image sets a numeric non-root USER, which `runAsNonRoot`
+checks, so the uid is stated once, in the Dockerfile.
+*/}}
+{{- define "queenswood.appSecurityContext" -}}
+runAsNonRoot: true
+allowPrivilegeEscalation: false
+capabilities:
+  drop: ["ALL"]
+seccompProfile:
+  type: RuntimeDefault
+{{- end -}}
+
+{{/*
+The pod security context where a service image reads a file another
+container or the kubelet wrote as root: the admin client's key, from a
+Secret volume or an emptyDir. The group is the service image's.
+*/}}
+{{- define "queenswood.appPodSecurityContext" -}}
+fsGroup: 10001
+{{- end -}}
+
 {{/* Force Always when tag is `:latest` so re-pulls actually happen */}}
 {{- define "queenswood.imagePullPolicy" -}}
 {{- if eq (include "queenswood.imageTag" .) "latest" -}}Always{{- else -}}{{ .Values.image.pullPolicy }}{{- end -}}
