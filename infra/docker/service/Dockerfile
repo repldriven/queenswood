@@ -24,7 +24,7 @@ ARG PROJECT_NAME
 # work that is byte-identical — and they would each run it, serialised
 # by the lock below. Keeping the arg out until the next stage is what
 # makes this run exactly once.
-FROM --platform=$BUILDPLATFORM clojure:temurin-21-tools-deps-bookworm AS deps
+FROM --platform=$BUILDPLATFORM clojure:temurin-25-tools-deps-bookworm AS deps
 ARG BUILDARCH
 WORKDIR /workspace
 

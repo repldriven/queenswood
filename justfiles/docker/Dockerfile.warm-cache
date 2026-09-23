@@ -26,7 +26,7 @@
 # and, unlike busybox, it has GNU coreutils. BusyBox `cp -rn` accepts
 # the flag, exits 0, and copies nothing, which is silent enough to look
 # like a warm cache while leaving it empty.
-FROM clojure:temurin-21-tools-deps-bookworm AS seed
+FROM clojure:temurin-25-tools-deps-bookworm AS seed
 
 # `-n` (no-clobber) so an artifact already in the cache wins: the
 # builder's copy was resolved against the same coordinates, and
