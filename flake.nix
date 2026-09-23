@@ -35,7 +35,7 @@
         # assets; 7.3.76+ are Linux-only, leaving this derivation nothing to
         # unpack. Same internal layout, so the unpack below is unchanged.
         fdbVersion = versions.foundationdb.version;
-        fdbArch = if pkgs.stdenv.isAarch64 then "arm64" else "x86_64";
+        fdbArch = if pkgs.stdenv.hostPlatform.isAarch64 then "arm64" else "x86_64";
         fdbBinary = pkgs.stdenv.mkDerivation {
           name = "foundationdb-${fdbVersion}";
           src = pkgs.fetchurl {
