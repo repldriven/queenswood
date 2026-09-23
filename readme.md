@@ -139,8 +139,12 @@ just demo-digital-bank-app-start
 
 ### Architecture
 
-A message bus carries commands and events between Queenswood's processors
-and external providers; a distributed database manages the data.
+The API reads from a distributed database, and makes a write either directly
+or by putting it on a message bus as a command. Processors take those
+commands, write to the database, and publish what changed as events on the
+same bus. Adapters stand between the platform and the outside world: they call
+the clearing, identity verification and company registry providers, and turn
+the providers' webhooks into events.
 
 <picture>
   <source media="(prefers-color-scheme: dark)"  srcset="docs/diagrams/system-diagram-dark.svg">
