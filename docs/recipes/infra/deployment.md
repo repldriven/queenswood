@@ -210,7 +210,10 @@ the chart to GHCR at the same version, tags the commit `v<version>`
 and publishes the GitHub release with the quickstart README. It then
 dispatches the GitHub Pages workflow on the tag, so the site is that
 release's docs and each Pages deployment is one release's; the
-`github-pages` environment admits only `v*` tags. The chart's images
+`github-pages` environment admits only `v*` tags, and the workflow
+deploys only when the Release workflow dispatched it. Last, it prunes
+the untagged images a retried release left behind, which nothing else
+runs. The chart's images
 default to its `appVersion`, so a chart is a release of itself and no
 image tag is set anywhere but the local loop's `dev`. Nothing carries
 `latest`.
