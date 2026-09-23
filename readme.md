@@ -58,35 +58,33 @@ accounts.
 
 ## For decision-makers
 
-- **Isolated banks.** Your organisation is a bank on the platform, with its own
-  products, customers, books, policies and team, and nothing of one is visible
-  to another. A bank starts in test and moves to live, and its tier binds the
-  policies it works within: its capabilities, and the limits on them.
-- **Customer onboarding.** Every new customer is identity-checked as they sign
-  up, and can't open an account until the check clears.
+- **No lock-in.** The source is yours to read, run and change, under the MIT
+  licence, on infrastructure you choose.
 - **Product changes without a release.** Change a rate, add a welcome reward
   or launch a new term without shipping software. Existing customers move to
   the new terms only when you plan and approve it.
+- **Rules without a release.** Policies are records checked on every request,
+  and your bank's tier sets the capabilities and limits it works within, so
+  changing either ships no code.
+- **A sandbox.** Your bank starts in test, where you try everything with
+  simulated money on the same software your customers will use, and moves to
+  live when you're ready.
+- **Pluggable providers.** Clearing and identity verification each connect
+  through an adapter, and a simulator stands in for each provider, so you can
+  build and test before a contract is signed.
+- **Customer onboarding.** Every new customer is identity-checked as they sign
+  up, and can't open an account until the check clears.
 - **UK payments and books that balance.** Customers pay and are paid by Faster
   Payments in seconds, with the payee's name checked first. Every movement is
   recorded as matching debits and credits, so the books always balance, down
   to fractions of a penny of interest.
-- **Pluggable providers.** Clearing and identity verification each connect
-  through an adapter, and a simulator stands in for each provider, so you can
-  build and test before a contract is signed.
 - **Real-time notifications.** Your systems are told as it happens when an
   account opens, money arrives or a payment settles.
-- **Rules without a release.** Policies are records checked on every request,
-  so changing a capability or a limit ships no code.
 - **An audit trail.** Everyone on your team signs in as themselves with a
   role, and a log records who did what.
-- **A sandbox.** Try everything with simulated money, on the same software
-  your customers will use.
 - **Product requirements.** Every capability has a
   [requirements document](docs/prd/) saying what it's for and who uses it, in
   product language.
-- **No lock-in.** The source is yours to read, run and change, under the MIT
-  licence, on infrastructure you choose.
 
 Queenswood has no production miles yet, but it's built to run in production:
 generated tests check its answers against a model of how a bank should behave,
