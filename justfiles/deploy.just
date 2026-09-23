@@ -59,11 +59,8 @@ kind-up tag="dev":
     set -e
     bash {{ justfile_directory() }}/infra/kind/with-registry.sh queenswood
     # just docker-build-all {{ tag }}
-    # console lives at bases/* (Svelte SPA, not a Polylith service
-    # project), so the projects/*-service/ glob misses it.
-    # docker-build-all's `default` group in infra/docker/bake.hcl already
-    # builds it -- we just need to push it alongside the services.
-    for svc in projects/*-service/(:t) console; do
+    images=$(just _docker-images)
+    for svc in ${(f)images}; do
       docker tag {{ DOCKER_REGISTRY }}/$svc:{{ tag }} localhost:5001/$svc:{{ tag }}
       docker push localhost:5001/$svc:{{ tag }}
     done
@@ -131,7 +128,7 @@ kind-redeploy tag="dev" *services:
     # kind-up installs with pullPolicy Always precisely so a same-tag
     # push plus a restart runs the new build.
     #
-    # No services named = every service project plus the console.
+    # No services named = every image the bake file builds.
     #
     # Deployments only. The migrator and bootstrap Jobs are named for
     # the image tag, so an unchanged tag leaves them alone -- applying
@@ -140,7 +137,8 @@ kind-redeploy tag="dev" *services:
     set -e
     svcs=({{ services }})
     if [[ ${#svcs} -eq 0 ]]; then
-      svcs=(projects/*-service/(:t) console)
+      images=$(just _docker-images)
+      svcs=(${(f)images})
     fi
     for svc in $svcs; do
       docker tag {{ DOCKER_REGISTRY }}/$svc:{{ tag }} localhost:5001/$svc:{{ tag }}
