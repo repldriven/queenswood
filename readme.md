@@ -324,10 +324,14 @@ instance project below it is rebuilt whenever an instance is.
 
 - **Identity and access management.** People sign in through Keycloak over
   OpenID Connect, each as themselves, with a role in their bank: owner, admin,
-  developer or viewer. A bank's own systems authenticate as its service
-  account, whose secret can be rotated or revoked. The API verifies every
-  token against Keycloak's signing keys and its issuer, and refuses an
-  operation whose declared scopes the caller lacks.
+  developer or viewer. The API verifies every token against Keycloak's signing
+  keys and its issuer, and refuses an operation whose declared scopes the
+  caller lacks.
+- **Machine-to-machine authentication.** A fintech's systems use OAuth 2.0
+  client credentials: each bank is issued a client id and secret, which can be
+  rotated or revoked, and exchanges them at the API's token endpoint for an
+  hour-long bearer token bound to the bank and to whether it is in test or
+  live.
 - **GitOps.** Every change to an installation, a release included, is a
   reviewed pull request, and merging it is what applies it. Argo CD and
   Crossplane reconcile the cloud toward the merged manifests, a release is a
