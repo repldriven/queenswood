@@ -49,37 +49,34 @@ The shortlist:
 
 ## Decision
 
-An external provider is a deployment fact. It is chosen by which
-adapter service runs and how that service is configured — never by a
-request parameter validated against a list.
-
-Pluggability is served by the command channel, which already provides
-it. A second company registry is a second adapter base consuming
-`companies-command`, deployed instead of or alongside the first. The
-routing question is a deployment question, answered by configuration
-and consumer groups, not by a conditional inside a brick.
+An external provider is a deployment fact. It is chosen by which adapter service
+runs and how that service is configured — never by a request parameter validated
+against a list.
 
 Concretely:
 
-- A domain component (`company`, `idv`, `payment`) never names a
-  provider and never takes a provider parameter.
-- A vendor's HTTP contract — the outbound call and the translation of
-  its wire shape — lives in that vendor's adapter, which is the only
-  thing named after it.
-- Anomaly kinds stay provider-neutral even when raised inside a
-  vendor's adapter. They surface as the API's RFC 9457 `type`
-  (ADR-0014), which is a public contract and must not name a supplier.
-
-A provider identity may still be **recorded**, and that is not a
-violation. The bank's `CompanyBinding.registry` is written once at
-onboarding and never read back for dispatch: it says which register the
-entity was confirmed against, which is a fact about the bank worth
-keeping. The adapter stamps its own identity onto its reply and the
-caller snapshots it. Provenance is an output; nothing branches on it.
-
-The distinction is the test to apply. If a value selects behaviour, it
-is dispatch, and it belongs in deployment. If it only records what
-happened, it is provenance, and it can travel on the reply.
+- Pluggability is served by the command channel, which already provides it. A
+  second company registry is a second adapter base consuming
+  `companies-command`, deployed instead of or alongside the first. The routing
+  question is a deployment question, answered by configuration and consumer
+  groups, not by a conditional inside a brick.
+- A domain component (`company`, `idv`, `payment`) never names a provider and
+  never takes a provider parameter.
+- A vendor's HTTP contract — the outbound call and the translation of its wire
+  shape — lives in that vendor's adapter, which is the only thing named after
+  it.
+- Anomaly kinds stay provider-neutral even when raised inside a vendor's
+  adapter. They surface as the API's RFC 9457 `type` (ADR-0014), which is a
+  public contract and must not name a supplier.
+- A provider identity may still be **recorded**, and that is not a violation.
+  The bank's `CompanyBinding.registry` is written once at onboarding and never
+  read back for dispatch: it says which register the entity was confirmed
+  against, which is a fact about the bank worth keeping. The adapter stamps its
+  own identity onto its reply and the caller snapshots it. Provenance is an
+  output; nothing branches on it.
+- The distinction is the test to apply. If a value selects behaviour, it is
+  dispatch, and it belongs in deployment. If it only records what happened, it
+  is provenance, and it can travel on the reply.
 
 ## Consequences
 

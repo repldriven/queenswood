@@ -53,6 +53,7 @@ The shortlist:
 ## Decision
 
 We will treat full OpenAPI 3.x compliance as the API contract.
+
 Concretely:
 
 - **Reusable schemas.** Malli schemas for request and response
@@ -77,11 +78,10 @@ Concretely:
 - **The spec is verified.** The exported OpenAPI document is
   validated against the OpenAPI 3.x schema in CI, not just
   trusted to be valid because Reitit produced it.
-
-The implementation lives in `api`, using Reitit-with-Malli
-plus our own component-registration helpers. The spec is served
-at the API root path in development and published as a static
-artefact for consumers.
+- **Where it lives.** The implementation lives in `api`, using
+  Reitit-with-Malli plus our own component-registration helpers. The
+  spec is served at the API root path in development and published
+  as a static artefact for consumers.
 
 ## Consequences
 

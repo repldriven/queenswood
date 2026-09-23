@@ -298,9 +298,9 @@ non-trivial work on their topic.
   propagation window a no-op, replacing all four nameservers, and why
   the registry rather than the zone is what you ask. See
   [gcp-dns-delegation.md](docs/recipes/infra/gcp-dns-delegation.md).
-- **Writing about an installation** — what counts as a system
-  identifier, what to write instead, and why masking happens while you write rather
-  than when a check fails. See
+- **Writing about an installation** — what counts as a system identifier, what
+  to write instead, and why masking happens while you write rather than when a
+  check fails. See
   [system-identifiers.md](docs/recipes/practices/system-identifiers.md).
 - **Cloud naming** — the installation code, the prefix/code/env/label
   rule and its exceptions, the inventory of every kind and a worked

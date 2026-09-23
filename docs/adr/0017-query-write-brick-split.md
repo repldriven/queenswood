@@ -46,7 +46,10 @@ The shortlist of how to enforce it:
 
 ## Decision
 
-Each domain component splits into two first-class Polylith bricks:
+Each domain component splits into two first-class Polylith bricks,
+`X-query` and `X`.
+
+What each brick holds, how they are named, and how the split is enforced:
 
 - `X-query` — reads only (`get-*`, `find-*`, `count-*`), plus the
   read primitives the write side needs inside a transaction. This is
@@ -56,41 +59,37 @@ Each domain component splits into two first-class Polylith bricks:
   FDB transactions, passing the live `txn` — the same cross-brick
   read-with-live-txn idiom already used across the codebase (a read fn
   takes `txn` first and joins the caller's transaction).
-
-**Naming polarity.** The write side keeps the plain `X` name; the
-read carve-out takes the `-query` suffix. Writes are the core domain
-brick; the query brick is a read projection over the same records.
-This also avoids renaming the existing brick and re-pointing every
-write caller. The guardrail keys off the sibling's existence:
-`components/X-query/` marks `X` as a guarded write brick.
-
-**Defense in depth (later stage).** Splitting the brick makes the API
-unable to *name* a write, but a `X-query` still requires
-`fdb.interface`, which exposes write verbs alongside reads. A later
-stage splits `fdb` into `fdb-query` (read verbs) and a write side over
-a shared core (`Txn`, `transact`, `open`, `ctx->txn`), so the read
-stack has no write verb in scope top to bottom.
-
-**Two tiers of enforcement, both real:**
-
-- **Guardrail** — a pre-commit guardrail check
-  (`scripts/hooks/enforce-idioms.sh`) fails if `api` request code
-  requires a write brick's interface that has a `-query` sibling. This
-  holds in every project, including `development`, which includes every
-  brick and so cannot rely on project exclusion. The
-  `system.clj` registration bundle is exempt: it bare-requires
-  interfaces to register component-kinds, not to call them.
-  The check asserts its own base path and namespace prefix before
-  running, and fails if either matches nothing. It is two greps over
-  names a rename empties, and an empty candidate set is
-  indistinguishable from a clean one — the `bank-api` → `api` and
-  `mono` → `queenswood` renames left it inert and passing.
-- **`poly check`** — once a service project no longer lists the write
-  brick, `poly check` hard-fails any reference to it from that
-  project. This is gated on removing the remaining synchronous writers
-  from the API's classpath (for cash-account, `bank`'s
-  house-account open), so it lands per domain as those writers move to
-  the bus.
+- **Naming polarity.** The write side keeps the plain `X` name; the
+  read carve-out takes the `-query` suffix. Writes are the core domain
+  brick; the query brick is a read projection over the same records.
+  This also avoids renaming the existing brick and re-pointing every
+  write caller. The guardrail keys off the sibling's existence:
+  `components/X-query/` marks `X` as a guarded write brick.
+- **Defense in depth (later stage).** Splitting the brick makes the
+  API unable to *name* a write, but a `X-query` still requires
+  `fdb.interface`, which exposes write verbs alongside reads. A later
+  stage splits `fdb` into `fdb-query` (read verbs) and a write side
+  over a shared core (`Txn`, `transact`, `open`, `ctx->txn`), so the
+  read stack has no write verb in scope top to bottom.
+- **Two tiers of enforcement, both real:**
+  - **Guardrail** — a pre-commit guardrail check
+    (`scripts/hooks/enforce-idioms.sh`) fails if `api` request code
+    requires a write brick's interface that has a `-query` sibling.
+    This holds in every project, including `development`, which
+    includes every brick and so cannot rely on project exclusion. The
+    `system.clj` registration bundle is exempt: it bare-requires
+    interfaces to register component-kinds, not to call them. The
+    check asserts its own base path and namespace prefix before
+    running, and fails if either matches nothing. It is two greps over
+    names a rename empties, and an empty candidate set is
+    indistinguishable from a clean one — the `bank-api` → `api` and
+    `mono` → `queenswood` renames left it inert and passing.
+  - **`poly check`** — once a service project no longer lists the
+    write brick, `poly check` hard-fails any reference to it from that
+    project. This is gated on removing the remaining synchronous
+    writers from the API's classpath (for cash-account, `bank`'s
+    house-account open), so it lands per domain as those writers move
+    to the bus.
 
 ## Consequences
 

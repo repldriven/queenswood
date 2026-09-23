@@ -78,23 +78,19 @@ The shape:
 - When they diverge, fugato shrinks to a minimal reproducer.
 - Hand-authored EDN scenarios share the same runner and
   projections — used for cases we want locked down explicitly.
-
-Three test-only components (carried by `project:dev` for the
-test runner; *not* part of any deployable project):
-
-- `test-model` — the pure model.
-- `test-projections` — projection fns built on production
-  component *interfaces only*.
-- `test-scenarios` — command dispatch, ID side-table,
-  quiescence wait, divergence debugging.
-
-The dependency arrow points test → production, never the reverse.
-Polylith enforces this: if a production component starts importing
-from `test-*`, the build complains.
-
-The architecture is documented in detail at
-[docs/tdd/scenario-testing.md](../tdd/scenario-testing.md);
-this ADR captures the decision and the rejected alternatives.
+- Three test-only components (carried by `project:dev` for the
+  test runner; *not* part of any deployable project):
+  - `test-model` — the pure model.
+  - `test-projections` — projection fns built on production
+    component *interfaces only*.
+  - `test-scenarios` — command dispatch, ID side-table,
+    quiescence wait, divergence debugging.
+- The dependency arrow points test → production, never the reverse.
+  Polylith enforces this: if a production component starts importing
+  from `test-*`, the build complains.
+- The architecture is documented in detail at
+  [docs/tdd/scenario-testing.md](../tdd/scenario-testing.md);
+  this ADR captures the decision and the rejected alternatives.
 
 ## Consequences
 

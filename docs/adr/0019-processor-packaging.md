@@ -35,7 +35,7 @@ deps carry only the bricks its group runs — `poly check`'s
 unnecessary-component warning stays meaningful for these projects
 instead of being structurally silenced.
 
-Grouping is by boundary, not throughput:
+Grouping is by boundary, not throughput, and a regrouping keeps two invariants:
 
 - **`financial-processors-service`** — payment, transaction,
   interest, payee-check. Operations that post, settle, accrue, or
@@ -63,13 +63,9 @@ Grouping is by boundary, not throughput:
   from a command processor's. An adapter reaches its simulator over
   localhost rather than a Service, which removes the startup race
   the cross-pod webhook registration had to retry around.
-
-Financial and operational processors never share a JVM: a poison
-message, memory spike, or deploy of a provisioning domain must not
-sit in the same failure domain as money movement.
-
-Two invariants when regrouping:
-
+- **Financial and operational processors never share a JVM.** A poison message,
+  memory spike, or deploy of a provisioning domain must not sit in the same
+  failure domain as money movement.
 - **Cursor continuity.** message-bus consumer groups and changelog
   `consumer-id`s move with the processor, verbatim. The subscription
   and changelog cursor identify the *consumer role*, not the pod
