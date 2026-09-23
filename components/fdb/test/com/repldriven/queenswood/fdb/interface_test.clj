@@ -98,12 +98,16 @@
                                                 "pets"
                                                 (:pet-id rex)
                                                 (.getBytes "rex-data")))))
+         ;; Under the rig's per-boot prefix, as a relay reads it off the
+         ;; store, or the consumer reads an empty log.
          _
          (SUT/process-changelog record-db
                                 "test-consumer"
                                 "pets"
                                 (fn [_ctx changelog-bytes]
-                                  (swap! received conj changelog-bytes)))
+                                  (swap! received conj changelog-bytes))
+                                {:keyspace-prefix (:keyspace-prefix
+                                                   (meta pet-store))})
          _
          (is (= 2 (count @received)))
          _

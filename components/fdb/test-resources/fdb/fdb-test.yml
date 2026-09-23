@@ -41,10 +41,18 @@ record-db: !system/component
   system/component-kind: fdb/record-db
   cluster-file-path: !system/local-ref cluster-file-path
 
+# A fresh prefix per boot, as the shared rig has: boots sharing a
+# reused container would otherwise share stores, changelog and cursors,
+# and a changelog consumer then reads another boot's entries.
+keyspace-prefix: !system/component
+  system/component-kind: fdb/keyspace-prefix
+  generate: true
+
 pet-store: !system/component
   system/component-kind: fdb/store
   descriptor: com.repldriven.queenswood.test_schemas.schemas.TestSchemaProto
   metadata: *metadata
+  keyspace-prefix: !system/local-ref keyspace-prefix
 
 pet-meta-store: !system/component
   system/component-kind: fdb/meta-store
@@ -52,4 +60,5 @@ pet-meta-store: !system/component
   path: pet-meta
   descriptor: com.repldriven.queenswood.test_schemas.schemas.TestSchemaProto
   metadata: *metadata
+  keyspace-prefix: !system/local-ref keyspace-prefix
   migrate: true
