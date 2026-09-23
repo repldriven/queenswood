@@ -316,6 +316,95 @@ reconciles the installation, the recovery project holds the backups and the
 key they're encrypted under, and the DNS zone stays when an instance goes. The
 instance project below it is rebuilt whenever an instance is.
 
+## For security engineers
+
+- **Identity and access management.** People sign in through Keycloak over
+  OpenID Connect, each as themselves, with a role in their bank: owner, admin,
+  developer or viewer. The API verifies every token against Keycloak's signing
+  keys and its issuer, and refuses an operation whose declared scopes the
+  caller lacks.
+- **Machine-to-machine authentication.** A fintech's systems use OAuth 2.0
+  client credentials: each bank is issued a client id and secret, which can be
+  rotated or revoked, and exchanges them at the API's token endpoint for a
+  short-lived bearer token bound to the bank and to whether it is in test or
+  live.
+- **GitOps.** On Google Cloud, every change to an installation, a release
+  included, is a reviewed pull request, and merging it is what applies it.
+  Argo CD and Crossplane reconcile the cloud toward the merged manifests, a
+  release is a merged version bump that builds and tags the images and chart,
+  and an instance moves to a release when a merge pins it. A pull request
+  never holds a cloud identity.
+- **Privileged access management.** On Google Cloud, nobody holds standing
+  privileges. People hold read-only access, since GitOps makes every routine
+  change, and an intervention means joining an empty break-glass group for its
+  duration and leaving again. The identity that bootstraps an installation
+  holds its organisation rights for the bootstrap alone and is closed
+  afterwards. No service-account key exists for any identity. See
+  [ADR-0023](docs/adr/0023-installation-naming-and-access.md).
+- **Cloud security.** On Google Cloud, each installation is a folder of its
+  own, following Google's
+  [enterprise foundations blueprint](https://cloud.google.com/architecture/security-foundations),
+  with organisation policy constraints enforced from the first project.
+  Automation owns everything inside the folder, restrained by what its own
+  manifests declare — deletion policies, deletion protection and liens — so
+  every restraint is reviewable in a pull request.
+- **Secrets and key management.** On Google Cloud, credentials live in Secret
+  Manager and reach the cluster through the External Secrets operator under
+  Workload Identity, so neither git nor Argo CD ever holds one. The
+  platform's admin credential is a signing key generated inside the cluster,
+  and its private half never leaves the pods that sign with it.
+- **Encryption.** On Google Cloud, TLS terminates at the gateway on
+  Google-managed certificates, and FoundationDB backups are encrypted under a
+  key held in Secret Manager.
+- **Vulnerability management.** Dependencies are scanned for known CVEs
+  against the National Vulnerability Database, and Renovate opens and merges
+  their updates weekly. On Google Cloud, the organisation is scanned against
+  the CIS benchmark, and each accepted finding is muted by resource with its
+  reasoning recorded.
+  See [security scanning](docs/recipes/infra/security-scanning.md).
+- **Webhook security.** Deliveries are signed with HMAC-SHA256 under the
+  [Standard Webhooks](https://www.standardwebhooks.com/) specification, and
+  carry both signatures while a secret rotates. Endpoints must be HTTPS, and
+  one whose address resolves to a loopback, link-local, private or metadata
+  range is refused at registration and again at every send.
+- **Audit logging.** Every person and every bank's systems act as a principal
+  of their own, and a log records who did what.
+- **Backup and recovery.** FoundationDB is backed up continuously, and a
+  restore is proven by counting what it restored, never by a job's exit
+  status. See [recovering FoundationDB](docs/recipes/infra/fdb-recovery.md).
+- **Compliance.** A [register of obligations](docs/compliance/readme.md) maps
+  what DORA, the CIS Controls, GDPR, NIS2 and ISO 22301 require to the recipe
+  that meets each, gaps included.
+Rebuilding an [instance's cluster](docs/recipes/infra/instance-rebuild-cluster.md),
+replacing the
+[management plane's cluster](docs/recipes/infra/plane-rebuild-cluster.md) and
+[debugging an installation](docs/recipes/infra/crossplane-debug.md) each have a
+recipe of their own.
+
+## For site reliability engineers
+
+- **Observability.** Every request is traced with OpenTelemetry across the
+  HTTP edge and the message bus, and a correlation id follows a user action
+  through every command, event and processor it touches. Traces are exported
+  over OTLP to any collector, to the bundled Jaeger by default, and logs are
+  structured JSON.
+- **Health checks.** Every service answers liveness and readiness under
+  `/actuator/health`, and its probes use them. A service starts only once
+  the migrations and bootstrap it depends on have completed, and the services
+  it calls are up.
+- **Scheduled jobs.** End-of-day processing and every other job run on a
+  schedule you read and change through the API and the console, and each run
+  is recorded.
+- **Scaling.** Services run as many replicas as you give them, except the
+  dispatcher that owns every changelog cursor and scheduled trigger, which
+  runs as exactly one.
+- **Environment lifecycle.** An instance is up, draining or down. Down stops
+  its compute, node pools at zero and its database stopped, with its data
+  untouched, and draining takes an export before it gets there.
+- **Disaster recovery.** [Recovering FoundationDB](docs/recipes/infra/fdb-recovery.md)
+  is a runbook of its own: which loss calls for a restore, the recovery point
+  each achieves, and restoring onto systems kept apart from the damaged ones.
+
 ## For contributors
 
 ### Nix
