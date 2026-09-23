@@ -41,7 +41,7 @@
           src = pkgs.fetchurl {
             url = "https://github.com/apple/foundationdb/releases/download/${fdbVersion}/FoundationDB-${fdbVersion}_${fdbArch}.pkg";
             sha256 =
-              if pkgs.stdenv.isAarch64 then
+              if pkgs.stdenv.hostPlatform.isAarch64 then
                 versions.foundationdb.sha256.aarch64
               else
                 versions.foundationdb.sha256.x86_64;
@@ -80,13 +80,16 @@
         # for the FDB Record Layer, and a newer protoc emits code targeting the
         # protobuf 4 runtime.
         protocVersion = versions.protoc.version;
-        protocArch = if pkgs.stdenv.isAarch64 then "aarch_64" else "x86_64";
+        protocArch = if pkgs.stdenv.hostPlatform.isAarch64 then "aarch_64" else "x86_64";
         protocBinary = pkgs.stdenv.mkDerivation {
           name = "protoc-${protocVersion}";
           src = pkgs.fetchurl {
             url = "https://github.com/protocolbuffers/protobuf/releases/download/v${protocVersion}/protoc-${protocVersion}-osx-${protocArch}.zip";
             sha256 =
-              if pkgs.stdenv.isAarch64 then versions.protoc.sha256.aarch64 else versions.protoc.sha256.x86_64;
+              if pkgs.stdenv.hostPlatform.isAarch64 then
+                versions.protoc.sha256.aarch64
+              else
+                versions.protoc.sha256.x86_64;
           };
           sourceRoot = ".";
           nativeBuildInputs = [ pkgs.unzip ];
