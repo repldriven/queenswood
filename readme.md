@@ -60,7 +60,7 @@ accounts.
 
 - **Open source.** The code is yours to read, run and change under the MIT
   licence, on infrastructure you choose. There's no licence fee, and no vendor
-  deciding your roadmap or moving the product under you.
+  deciding your roadmap or moving the product from under you.
 - **Product changes without a release.** Change a rate, add a welcome reward
   or launch a new term without shipping software. Existing customers move to
   the new terms only when you plan and approve it.
