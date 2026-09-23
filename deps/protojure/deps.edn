@@ -10,4 +10,4 @@
 ;; everywhere it can arise.
 {:deps {io.github.protojure/core
         {:mvn/version "2.11.0" :exclusions [com.google.protobuf/protobuf-java]}
-        com.google.protobuf/protobuf-java {:mvn/version "3.25.8"}}}
+        com.google.protobuf/protobuf-java {:mvn/version "3.25.9"}}}

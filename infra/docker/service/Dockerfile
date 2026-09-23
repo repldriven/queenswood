@@ -26,11 +26,13 @@ ARG PROJECT_NAME
 # makes this run exactly once.
 FROM --platform=$BUILDPLATFORM clojure:temurin-25-tools-deps-trixie AS deps
 ARG BUILDARCH
+ARG PROTOC_VERSION=25.9
 WORKDIR /workspace
 
 # Code-gen tooling for the prep step. Both versions match the local
 # nix flake so generated output is identical to dev:
-#  - protoc 25.8 — arch-aware Linux build from the upstream release
+#  - protoc, at versions.json's version — arch-aware Linux build from
+#    the upstream release
 #  - protoc-gen-clojure 2.1.2 — protojure's plugin, distributed as a
 #    `:;exec java -jar ...` self-executing jar, so it runs on any
 #    arch via the temurin JDK already in this image
@@ -47,7 +49,7 @@ RUN apt-get update \
                      *) echo "unknown arch: ${BUILDARCH}" >&2; exit 1 ;; \
                    esac)" \
  && curl -fsSL --retry 5 --retry-delay 2 --retry-all-errors \
-      "https://github.com/protocolbuffers/protobuf/releases/download/v25.8/protoc-25.8-linux-${PROTOC_ARCH}.zip" \
+      "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-${PROTOC_ARCH}.zip" \
       -o /tmp/protoc.zip \
  && unzip -q /tmp/protoc.zip -d /usr/local \
  && rm /tmp/protoc.zip \

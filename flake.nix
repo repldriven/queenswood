@@ -73,7 +73,7 @@
           '';
         };
 
-        # protoc must stay on the 25.x line: protobuf-java is pinned to 3.25.8
+        # protoc must stay on the 25.x line: protobuf-java is pinned to 3.25.9
         # for the FDB Record Layer, and a newer protoc emits code targeting the
         # protobuf 4 runtime.
         protocVersion = versions.protoc.version;

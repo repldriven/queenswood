@@ -6,7 +6,7 @@
   "The FoundationDB client must match the server the testcontainers",
   "image builds and the cluster the chart deploys, and protoc must",
   "stay on the 25.x line because a newer protoc emits protobuf 4 code",
-  "that the FDB Record Layer's pinned protobuf-java 3.25.8 runtime",
+  "that the FDB Record Layer's pinned protobuf-java 3.25.9 runtime",
   "cannot load.",
   "Changing a version means changing its sha256 in the same edit:",
   "  nix store prefetch-file --hash-type sha256 --json <url>",
@@ -25,10 +25,10 @@
   }
  },
  "protoc": {
-  "version": "25.8",
+  "version": "25.9",
   "sha256": {
-   "aarch64": "sha256-UIIE7oJiT01MQUF81XNyHzqZWkzqTzCD+wYp7Gk2ZxI=",
-   "x86_64": "sha256-J2NjPhXHFDEra/dW+H1YGaXypsbc6291RPDht9bblm0="
+   "aarch64": "sha256-EekbsW/FL1aRlwo/tXxusm4TBlou/x7qImsNzWmN220=",
+   "x86_64": "sha256-OHrZJPmP7pYihf88XWPhxsZm6na6M5+1Bq+lbXQ3LGA="
   }
  },
  "protoc-gen-clojure": {
