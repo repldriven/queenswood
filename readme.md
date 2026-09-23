@@ -332,12 +332,12 @@ instance project below it is rebuilt whenever an instance is.
   rotated or revoked, and exchanges them at the API's token endpoint for a
   short-lived bearer token bound to the bank and to whether it is in test or
   live.
-- **GitOps.** Every change to an installation, a release included, is a
-  reviewed pull request, and merging it is what applies it. Argo CD and
-  Crossplane reconcile the cloud toward the merged manifests, a release is a
-  merged version bump that builds and tags the images and chart, and an
-  instance moves to a release when a merge pins it. A pull request never
-  holds a cloud identity.
+- **GitOps.** On Google Cloud, every change to an installation, a release
+  included, is a reviewed pull request, and merging it is what applies it.
+  Argo CD and Crossplane reconcile the cloud toward the merged manifests, a
+  release is a merged version bump that builds and tags the images and chart,
+  and an instance moves to a release when a merge pins it. A pull request
+  never holds a cloud identity.
 - **Privileged access management.** On Google Cloud, nobody holds standing
   privileges. People hold read-only access, since GitOps makes every routine
   change, and the rare change by hand means joining an empty break-glass group
