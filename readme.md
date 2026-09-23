@@ -26,8 +26,8 @@ someone, **Migrate** accounts and **Accrue** interest.
 [![Video: the same bank from your customer's side, in the demo digital bank's app](docs/assets/demo-app.png)](https://github.com/user-attachments/assets/673ac5b1-c751-4d85-a29b-4b02859c3c75)
 
 The same bank from your customer's side, in the
-[demo digital bank](docs/prd/demo-digital-bank.md)'s app: sign up and open two
-accounts.
+[demo digital bank](docs/prd/demo-digital-bank.md)'s app: **Sign up** and
+**Open** accounts.
 
 ## How it's used
 
@@ -446,8 +446,12 @@ the decision they came from.
 
 ### Built on mono
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/repldriven/mono/main/docs/assets/logo-dark.svg" />
+  <img src="https://raw.githubusercontent.com/repldriven/mono/main/docs/assets/logo.svg" alt="mono" width="80" align="left" />
+</picture>
+
 [mono](https://github.com/repldriven/mono) is an opinionated Clojure framework
 for building systems on [Polylith](https://polylith.gitbook.io/polylith):
 bricks you test on their own, wired together by configuration and started as
-one. Its components are documented in the
-[mono README](https://github.com/repldriven/mono#components).
+one.
