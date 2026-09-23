@@ -152,18 +152,13 @@ the providers' webhooks into events.
   <img alt="Queenswood system diagram" src="docs/diagrams/system-diagram-light.svg">
 </picture>
 
-**Writes as commands, processed in parallel and in order.** The API can put a
-write on the bus as a command instead of doing the work itself. Processors
-consume those commands and scale independently of the web tier, so the work
-spreads across as many instances as it takes while a request costs the API
-only an open connection. Commands sharing an ordering key are consumed one at
-a time and in order, however many processors are running. Delivery is
-at-least-once and a redelivered command is recognised, so repeating a request
-replays the first outcome rather than doing the work twice. Today the API
-waits for the reply and answers on the same connection; the same split would
-let it acknowledge immediately and return the outcome out of band. Other
-writes are direct calls. Processors deploy individually, or bundled along
-lines of responsibility such as financial and operational.
+**Writes as commands, processed in parallel and in order.** Processors scale
+independently of the web tier, so the work spreads across as many instances
+as it takes while a request costs the API only an open connection. Commands
+sharing an ordering key are consumed one at a time and in order, however many
+processors are running. Delivery is at-least-once and a redelivered command
+is recognised. Processors deploy individually, or bundled along lines of
+responsibility such as financial and operational.
 
 **Reads are queries.** The API read-side loads records directly through a
 separate query surface — no command, no bus, no round-trip. Query bricks read
@@ -177,8 +172,7 @@ system has to react to a change, it's recorded in a changelog in the same
 transaction as the write itself, so a change and the news of it can't diverge.
 One system-wide relay tails those changelogs in order and publishes each entry
 to the message bus as an event, and the processors that care subscribe. An
-event says what happened; a command asks for something to be done. The records
-stay the source of truth, and an event carries a change across a boundary.
+event says what happened; a command asks for something to be done.
 
 **External calls are recorded before they're made.** A database write and an
 outbound HTTP call can't be made atomic: no transaction spans the two, and
@@ -186,11 +180,8 @@ there's no two-phase commit across another company's API. Committing first
 risks a call that never happens; calling first risks a call that happened but
 was never recorded. So the adapter commits the _intent_ to call, and a
 separate poller makes the call afterwards, retrying each pending intent until
-it succeeds or exhausts its attempts. Webhook events received from an external
-service are normalized by the adapter and written to a deduplicating outbox,
-atomically with its changelog record, and relayed to the message bus in order
-through the system-wide changelog relay, so processors react to a provider's
-events as they do to the platform's own.
+it succeeds or exhausts its attempts. A provider's webhooks are written to a
+deduplicating outbox and relayed like the platform's own changes.
 
 ### Building blocks
 
@@ -234,11 +225,6 @@ Queenswood's documents live under `docs/`:
 - **[docs/recipes/](docs/recipes/)** — task-oriented guides in a fixed shape
   (Problem, Solution, Failures, Rules, Discussion) for the things you do
   repeatedly in this codebase.
-
-Nearly every ADR and recipe carries a label binding it to a rule plugin, and
-the rules an agent loads on every task in this repo are regenerated from those
-documents rather than written alongside them, so an agent's rules always match
-the decision they came from.
 
 ## For infrastructure engineers
 
@@ -411,22 +397,8 @@ Nix is used to manage the many tools and binaries required to develop
 Queenswood. Nix can be installed several ways, and this README doesn't
 prescribe one.
 
-Nix flakes with `direnv` ensure everything required is on the path
-automatically whenever you `cd` to it.
-
-```bash
-❯ cd queenswood
-direnv: loading ~/Documents/github.nosync/repldriven/queenswood/.envrc
-direnv: using flake .
-FDB libs: /nix/store/i3abz3pz7p6mw9dzg9kr2praag0s6zqz-foundationdb-7.3.75/lib
-fdbcli: /nix/store/i3abz3pz7p6mw9dzg9kr2praag0s6zqz-foundationdb-7.3.75/bin/fdbcli
-protoc-gen-clojure: protoc-gen-clojure version: v2.1.2
-Clojure monorepo environment loaded
-Preparing repo...
-merge drivers configured
-Prepping libraries...
-direnv: export +AR +AS +CC +CLASSPATH ...
-```
+Nix flakes with `direnv` put everything required on the path whenever you
+`cd` into the checkout.
 
 ### REPL
 
@@ -464,6 +436,13 @@ protobuf, no shared code. A divergence shrinks to the shortest sequence that
 causes it. See
 [ADR-0009](docs/adr/0009-model-equality-property-testing.md) and
 [scenario testing](docs/tdd/scenario-testing.md).
+
+### Agent rules
+
+Nearly every ADR and recipe carries a label binding it to a rule plugin, and
+the rules an agent loads on every task in this repo are regenerated from those
+documents rather than written alongside them, so an agent's rules always match
+the decision they came from.
 
 ### Built on mono
 
