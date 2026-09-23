@@ -152,7 +152,7 @@
             fdbBinary
             pkgs.ffmpeg
             gcloud
-            pkgs.jdk21
+            pkgs.jdk25
             pkgs.jq
             pkgs.just
             pkgs.k6

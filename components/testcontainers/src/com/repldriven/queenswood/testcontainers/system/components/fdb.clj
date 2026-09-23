@@ -80,6 +80,18 @@
                        {:stdout (.getStdout result)
                         :stderr (.getStderr result)}))))))
 
+;; One build at a time: the tag is fixed and the build idempotent, but
+;; two boots building it at once have Docker refuse the second as
+;; already existing and then fail to find it, and that boot's system
+;; never comes up.
+(def ^:private build-lock (Object.))
+
+(defn- build-image!
+  [image-name]
+  (locking build-lock
+    (log/info "Building FDB image:" image-name)
+    (.get (fdb-image image-name))))
+
 (defn- start-container
   "Starts FDB on a Docker-assigned host port, in two phases.
 
@@ -90,8 +102,7 @@
   parallel — collide in it."
   [config]
   (let [{:keys [image-name]} config
-        _ (log/info "Building FDB image:" image-name)
-        built-name (.get (fdb-image image-name))
+        built-name (build-image! image-name)
         _ (log/info "Starting FDB container, image:" built-name)
         container (doto (GenericContainer. ^String built-name)
                     (.addExposedPort (int listen-port))

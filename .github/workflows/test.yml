@@ -22,10 +22,9 @@ jobs:
   # `on.push.paths`: branch protection requires the `tests` check, and a
   # workflow skipped at the trigger never reports it.
   changes:
-    # Pinned, here and in every workflow: the ubuntu-latest label moves
-    # to Ubuntu 26 on 19 October 2026, and a pinned label moves when a
-    # change says so rather than on a date GitHub picks.
-    runs-on: ubuntu-24.04
+    # Pinned, here and in every workflow: a pinned label moves when a
+    # change says so rather than on the date GitHub moves ubuntu-latest.
+    runs-on: ubuntu-26.04
 
     outputs:
       clojure: ${{ steps.decide.outputs.clojure }}
@@ -53,7 +52,7 @@ jobs:
   # Ungated — the pins it checks live in Helm values and Dockerfile ARG
   # defaults, not only in deps.edn.
   versions:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     name: check pinned versions
 
     steps:
@@ -71,7 +70,7 @@ jobs:
   discover:
     needs: changes
     if: needs.changes.outputs.clojure == 'true'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
 
     outputs:
       projects: ${{ steps.projects.outputs.matrix }}
@@ -94,7 +93,7 @@ jobs:
 
   test:
     needs: discover
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
 
     strategy:
       fail-fast: false
@@ -127,7 +126,7 @@ jobs:
         uses: actions/setup-java@v6
         with:
           distribution: "temurin"
-          java-version: "21"
+          java-version: "25"
 
       - name: Setup Clojure
         uses: DeLaGuardo/setup-clojure@13.7.0
@@ -248,7 +247,7 @@ jobs:
   js:
     needs: changes
     if: needs.changes.outputs.js == 'true'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     name: js build
 
     steps:
@@ -313,7 +312,7 @@ jobs:
   helm:
     needs: changes
     if: needs.changes.outputs.helm == 'true'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     name: helm validate
 
     steps:
@@ -358,7 +357,7 @@ jobs:
   tests:
     if: always()
     needs: [versions, test, js, helm]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Check results
         env:
@@ -409,7 +408,7 @@ jobs:
       && needs.tests.result == 'success'
       && github.event_name == 'push'
       && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
 
     permissions:
       contents: write
