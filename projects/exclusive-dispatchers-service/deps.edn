@@ -51,6 +51,6 @@
   component/schema {:local/root "../../components/schema"}
   component/transaction {:local/root "../../components/transaction"}
   base/exclusive-dispatchers {:local/root "../../bases/exclusive-dispatchers"}
-  org.clojure/clojure {:mvn/version "1.12.5"}
+  org.clojure/clojure {:mvn/version "1.12.6"}
   pin/clojure-core-async {:local/root "../../deps/clojure-core-async"}}
  :paths ["resources"]}

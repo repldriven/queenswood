@@ -72,6 +72,6 @@
   base/uk-companies-house-simulator {:local/root
                                      "../../bases/uk-companies-house-simulator"}
   base/monolith {:local/root "../../bases/monolith"}
-  org.clojure/clojure {:mvn/version "1.12.5"}
+  org.clojure/clojure {:mvn/version "1.12.6"}
   pin/clojure-core-async {:local/root "../../deps/clojure-core-async"}}
  :paths ["resources"]}
