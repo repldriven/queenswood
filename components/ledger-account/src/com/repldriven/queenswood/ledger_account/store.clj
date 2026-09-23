@@ -1,5 +1,6 @@
 (ns com.repldriven.queenswood.ledger-account.store
   (:require
+    [com.repldriven.queenswood.balance-query.interface :as balance-query]
     [com.repldriven.queenswood.fdb.interface :as fdb]
     [com.repldriven.queenswood.schema.interface :as schema]))
 
@@ -57,3 +58,22 @@
                                        {:prefix [bank-id] :limit 1000}))))
    :ledger-account/list
    "Failed to list ledger accounts"))
+
+(defn list-by-bank-with-balances
+  "The bank's chart paired with each account's balances, in account-id
+  order. One merged scan of the two stores rather than a balance read
+  per account: both are keyed `[bank_id, account_id, ...]`, so the
+  cursors advance in step. A cash account's balances share the bank
+  prefix and pair with no chart row, so they are skipped."
+  [config bank-id]
+  (fdb/merge-scan
+   config
+   {:left {:store store-name :prefix [bank-id] :limit 1000}
+    :right {:store balance-query/store-name :prefix [bank-id] :limit 5000}}
+   (fn [acc {:keys [left right]}]
+     (if-let [record (first left)]
+       (conj acc
+             {:account (schema/pb->LedgerAccount record)
+              :balances (mapv schema/pb->Balance right)})
+       acc))
+   []))

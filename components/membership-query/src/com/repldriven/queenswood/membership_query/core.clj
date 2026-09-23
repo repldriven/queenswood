@@ -58,6 +58,10 @@
   [txn bank-id]
   (store/list-active-by-bank txn bank-id))
 
+(defn list-active-by-banks
+  [txn bank-ids]
+  (store/list-active-by-banks txn bank-ids))
+
 (defn find-by-id
   [txn membership-id]
   (let-nom> [membership (store/get-membership txn membership-id)]

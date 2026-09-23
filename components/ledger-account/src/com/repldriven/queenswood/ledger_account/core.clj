@@ -60,6 +60,10 @@
   [txn bank-id]
   (store/list-by-bank txn bank-id))
 
+(defn list-accounts-with-balances
+  [config bank-id]
+  (store/list-by-bank-with-balances config bank-id))
+
 (defn- control-code
   "The control gl-code `leg` rolls up into, by its product type. Nil for
   a leg with no control counterpart."

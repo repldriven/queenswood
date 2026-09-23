@@ -1,6 +1,7 @@
 (ns com.repldriven.queenswood.testcontainers.system.components.fdb
   (:require
-    [com.repldriven.mono.log.interface :as log])
+    [com.repldriven.mono.log.interface :as log]
+    [com.repldriven.mono.testcontainers.interface :as testcontainers])
   (:import
     (java.time Duration)
     (org.testcontainers.containers GenericContainer)
@@ -99,17 +100,38 @@
                     ;; waiting to be told which port to advertise.
                     (.waitingFor (Wait/forLogMessage ".*Awaiting public port.*"
                                                      (int 1)))
+                    ;; A reused container already holds its port and
+                    ;; answers, so the two phases below pass straight
+                    ;; through on it; the per-boot keyspace prefix is
+                    ;; what keeps the rigs sharing it apart.
+                    (.withReuse (testcontainers/reuse? config))
                     (.start))]
     (publish-port! container (.getMappedPort container (int listen-port)))
     (await-configured container)
     container))
 
+;; Reuse finds only a container that has finished starting — port
+;; published, cluster configured — so boots racing in parallel would
+;; each create one and the rest sit idle for good. A reusable start
+;; takes this lock, so the first completes before the next looks.
+(def ^:private reusable-start-lock (Object.))
+
+(defn- start-or-find-container
+  [config]
+  (if (testcontainers/reuse? config)
+    (locking reusable-start-lock (start-container config))
+    (start-container config)))
+
 (def container
   {:system/start (fn [{:system/keys [config instance]}]
-                   (or instance (start-container config)))
-   :system/stop (fn [{:system/keys [instance]}]
-                  (log/info "Stopping FDB container")
-                  (when (some? instance) (.stop instance)))
-   :system/config {:image-name default-image-name}
-   :system/config-schema [:map [:image-name string?]]
+                   (or instance (start-or-find-container config)))
+   :system/stop (fn [{:system/keys [config instance]}]
+                  (if (testcontainers/reuse? config)
+                    (log/info "Leaving FDB container for the next boot")
+                    (do (log/info "Stopping FDB container")
+                        (when (some? instance) (.stop instance)))))
+   :system/config {:image-name default-image-name :reuse nil}
+   :system/config-schema [:map [:image-name string?]
+                          [:reuse {:optional true}
+                           [:maybe [:or boolean? string?]]]]
    :system/instance-schema some?})

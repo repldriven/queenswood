@@ -3,7 +3,7 @@
     [com.repldriven.queenswood.fdb.interface :as fdb]
     [com.repldriven.queenswood.schema.interface :as schema]
 
-    [com.repldriven.mono.error.interface :refer [let-nom>]]))
+    [com.repldriven.mono.error.interface :as error :refer [let-nom>]]))
 
 (def ^:private memberships-store-name "memberships")
 (def ^:private invitations-store-name "invitations")
@@ -62,6 +62,20 @@
   [txn bank-id]
   (let-nom> [memberships (list-by-bank txn bank-id)]
     (active memberships)))
+
+(defn list-active-by-banks
+  [txn bank-ids]
+  (fdb/transact txn
+                (fn [txn]
+                  (reduce (fn [acc bank-id]
+                            (let [memberships (list-active-by-bank txn bank-id)]
+                              (if (error/anomaly? memberships)
+                                (reduced memberships)
+                                (assoc acc bank-id memberships))))
+                          {}
+                          bank-ids))
+                :membership/list-by-banks
+                "Failed to list memberships by bank"))
 
 (defn find-invitation
   [txn bank-id invitation-id]

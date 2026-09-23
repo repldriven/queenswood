@@ -19,6 +19,20 @@
                 :user/save
                 "Failed to save user"))
 
+(defn get-users
+  [txn user-ids]
+  (fdb/transact txn
+                (fn [txn]
+                  (into {}
+                        (keep (fn [record]
+                                (when record
+                                  (let [user (schema/pb->User record)]
+                                    [(:user-id user) user]))))
+                        (fdb/load-records (fdb/open txn store-name)
+                                          (vec user-ids))))
+                :user/get-many
+                "Failed to load users"))
+
 (defn get-user
   [txn user-id]
   (fdb/transact txn
