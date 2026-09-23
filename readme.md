@@ -320,7 +320,13 @@ reconciles the installation, the recovery project holds the backups and the
 key they're encrypted under, and the DNS zone stays when an instance goes. The
 instance project below it is rebuilt whenever an instance is.
 
-## For SREs
+Rebuilding an [instance's cluster](docs/recipes/infra/instance-rebuild-cluster.md),
+replacing the
+[management plane's cluster](docs/recipes/infra/plane-rebuild-cluster.md) and
+[debugging an installation](docs/recipes/infra/crossplane-debug.md) each have a
+recipe of their own.
+
+## For site reliability engineers
 
 - **Observability.** Every request is traced with OpenTelemetry across the
   HTTP edge and the message bus, and a correlation id follows a user action
@@ -344,13 +350,9 @@ instance project below it is rebuilt whenever an instance is.
 - **Environment lifecycle.** An instance is up, draining or down. Down stops
   its compute, node pools at zero and its database stopped, with its data
   untouched, and draining takes an export before it gets there.
-- **Runbooks.** Restoring
-  [FoundationDB](docs/recipes/infra/fdb-recovery.md), rebuilding an
-  [instance's cluster](docs/recipes/infra/instance-rebuild-cluster.md),
-  replacing the
-  [management plane's cluster](docs/recipes/infra/plane-rebuild-cluster.md)
-  and [debugging an installation](docs/recipes/infra/crossplane-debug.md)
-  are each a recipe of their own.
+- **Disaster recovery.** [Recovering FoundationDB](docs/recipes/infra/fdb-recovery.md)
+  is a runbook of its own: which loss calls for a restore, the recovery point
+  each achieves, and restoring onto systems kept apart from the damaged ones.
 
 ## For contributors
 
