@@ -13,8 +13,8 @@ if [ ! -f "$lib" ]; then
 fi
 . "$lib"
 
-echo "Checking for cloud account identifiers..."
-bash scripts/hooks/check-cloud-ids.sh --staged
+echo "Checking for system identifiers..."
+bash scripts/hooks/check-system-ids.sh --staged
 
 files=$(hook_staged_clojure_files)
 

@@ -4,4 +4,4 @@
 # files, so an identifier written in a message reached main unexamined.
 set -e
 
-bash scripts/hooks/check-cloud-ids.sh --message "$1"
+bash scripts/hooks/check-system-ids.sh --message "$1"

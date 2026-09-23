@@ -361,7 +361,7 @@ installation is that field and nothing else.
   name carries.
 - Put a realised suffix anywhere public — a pull request's title or
   body, an issue, a comment, a review.
-  `scripts/hooks/check-cloud-ids.sh` covers the tree and the commit
+  `scripts/hooks/check-system-ids.sh` covers the tree and the commit
   message from a hook, and everything written outside git from a
   workflow; write `xxxxxx` instead. On a pull request that check can
   hold a merge. On a comment it is detection only: the text is public

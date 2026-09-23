@@ -12,7 +12,7 @@ commit was refused, and how to arm the hooks in a fresh clone.
 Three hooks are tracked under `scripts/hooks/` and copied into the
 clone's hooks directory by `just install-hooks`, mono's recipe, which
 `.envrc` runs on entering the primary checkout after `just mono-import`
-has laid it down. The helpers beside them, `check-cloud-ids.sh` and
+has laid it down. The helpers beside them, `check-system-ids.sh` and
 `enforce-idioms.sh`, are not hooks and are not installed. The format
 and lint steps are mono's too: `pre-commit` sources
 `.mono/scripts/hooks/lib.sh` and calls `hook_format` and `hook_lint`
@@ -21,8 +21,8 @@ between its own jobs.
 `pre-commit` runs these jobs in this order, and the first failure
 refuses the commit:
 
-1. Refuse a cloud account identifier in any staged file, per
-   [cloud-identifiers](cloud-identifiers.md).
+1. Refuse a system identifier in any staged file, per
+   [system-identifiers](system-identifiers.md).
 2. Format the staged Clojure files with zprint and restage them
    (`hook_format`).
 3. Lint the staged Clojure files with clj-kondo (`hook_lint`).
@@ -52,9 +52,9 @@ checkout.
 - **`install-hooks: skipped — hooks belong to the whole clone.`** —
   run it from the primary checkout. There is one hooks directory per
   clone, and a linked worktree is not allowed to fill it.
-- **A commit is refused with no output after `Checking for cloud
-  account identifiers...`** — the identifier check found one in a
-  staged file. Run `bash scripts/hooks/check-cloud-ids.sh --staged`
+- **A commit is refused with no output after `Checking for system
+  identifiers...`** — the identifier check found one in a
+  staged file. Run `bash scripts/hooks/check-system-ids.sh --staged`
   to see the line.
 
 ## Rules
@@ -111,7 +111,7 @@ gate, which is why bypassing the hook only moves the failure.
 
 - [ADR-0012](../../adr/0012-pre-commit-hooks.md) — Pre-commit hooks
   for formatting and linting
-- [cloud-identifiers](cloud-identifiers.md) — the identifier check and
+- [system-identifiers](system-identifiers.md) — the identifier check and
   the placeholders to write instead
 - [git-workflow](git-workflow.md) — the conventions around committing
 - [mono-import](mono-import.md) — where the hook library and the

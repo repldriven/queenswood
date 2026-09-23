@@ -939,7 +939,7 @@ assuming and recording the answer. Never rename a project id, a folder
 or a bucket in place: none supports it, the id is consumed and the
 resource is rebuilt. Never put a realised suffix anywhere public — a
 pull request's title or body, an issue, a comment, a review — and write
-`xxxxxx` instead: `scripts/hooks/check-cloud-ids.sh` covers the tree
+`xxxxxx` instead: `scripts/hooks/check-system-ids.sh` covers the tree
 and the commit message from a hook and everything written outside git
 from a workflow, and can hold a merge on a pull request, but on a
 comment it is detection only, since the text is public the moment it is
@@ -1010,8 +1010,8 @@ more permissive than this, so that it does not cry wolf, and it reports
 afterwards. A public resolver or nameserver, and loopback, may be
 named: they identify nobody, and a delegation cannot be documented
 without them. Where a real value genuinely belongs, mark the line
-`cloud-id-ok`, which makes it deliberate rather than missed.
-See [cloud-identifiers](../../../docs/recipes/practices/cloud-identifiers.md).
+`system-id-ok`, which makes it deliberate rather than missed.
+See [system-identifiers](../../../docs/recipes/practices/system-identifiers.md).
 
 ## A plane builds its successor and swaps onto it
 

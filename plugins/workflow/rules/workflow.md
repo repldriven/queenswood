@@ -8,7 +8,7 @@ tree.
 
 Install the hooks with `just install-hooks` from the primary checkout,
 and again after editing anything under `scripts/hooks/`. `pre-commit`
-runs the cloud-identifier check first, over every staged file, then the
+runs the system-identifier check first, over every staged file, then the
 Clojure jobs in the order format, lint, semgrep, guardrails; whole-tree
 sweeps are `just semgrep` and `enforce-idioms.sh --all`. Mark a `throw`
 that must stay with `;; nosemgrep: no-raw-throw` on the line above, and

@@ -11,6 +11,12 @@ having real identifiers in front of you constantly — they are in the
 terminal output you are reading when you write the sentence — and the
 easiest sentence to write is the one naming what you just saw.
 
+These are system identifiers: what PII is to a person, they are to an
+installation — the account, folder, project and billing ids, the
+addresses and the suffixes that pick out this one among every other.
+CWE-497, the exposure of sensitive system information, is the class of
+weakness writing one down belongs to.
+
 None of them is a credential. That is exactly why they get written
 down: nothing feels risky about pasting a project id. What an
 organisation, folder or billing account id is good for is sounding like
@@ -101,7 +107,7 @@ the public one.
 
 ### When a real one belongs
 
-Rarely, and then say so with `cloud-id-ok` on the line. It is an
+Rarely, and then say so with `system-id-ok` on the line. It is an
 assertion by the author that this value is meant, which is the point:
 it makes the exception visible and attributable rather than silent.
 
@@ -126,7 +132,7 @@ it makes the exception visible and attributable rather than silent.
 
 - Name a public resolver or nameserver, and loopback. They identify
   nobody and a delegation cannot be documented without them.
-- Mark a line `cloud-id-ok` where a real value genuinely belongs, which
+- Mark a line `system-id-ok` where a real value genuinely belongs, which
   makes it deliberate rather than missed.
 
 ## References
@@ -135,5 +141,7 @@ it makes the exception visible and attributable rather than silent.
   suffix exists at all
 - [ADR-0023](../../adr/0023-installation-naming-and-access.md) — the
   naming and access decision underneath both
-- `scripts/hooks/check-cloud-ids.sh` — the detection half, and the one
+- `scripts/hooks/check-system-ids.sh` — the detection half, and the one
   definition of what an identifier is
+- [CWE-497](https://cwe.mitre.org/data/definitions/497.html) — Exposure
+  of Sensitive System Information to an Unauthorized Control Sphere
