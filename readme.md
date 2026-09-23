@@ -63,7 +63,7 @@ accounts.
   deciding your roadmap or moving the product from under you.
 - **Configurable products.** Change a rate, add a welcome reward or launch a
   new product line, and move existing customers to the new terms only when you
-  plan and approve it, with no code changes.
+  plan and approve it, with no need to ship code.
 - **Configurable policies.** Policies are records checked on every request,
   and your bank's tier sets the capabilities and limits it works within, so
   changing either ships no code.
