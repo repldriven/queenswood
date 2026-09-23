@@ -85,9 +85,8 @@ The same bank from your customer's side, in the
 - **Configurable products.** Change a rate, add a welcome reward or launch a
   new product line, and move existing customers to the new terms only when you
   plan and approve it, with no need to ship code.
-- **Interest and rewards.** Accounts earn interest daily on their settled
-  balance, paid in on a schedule you set, and a product can pay a welcome
-  reward once for opening an account.
+- **Interest.** Accounts earn interest daily on their settled balance, paid
+  in on a schedule you set.
 - **Customer onboarding.** Every new customer is identity-checked as they sign
   up, and can't open an account until the check clears.
 - **Payments.** Customers pay and are paid by UK Faster Payments in seconds,
