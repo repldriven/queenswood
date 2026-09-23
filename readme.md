@@ -75,10 +75,10 @@ accounts.
   build and test before a contract is signed.
 - **Customer onboarding.** Every new customer is identity-checked as they sign
   up, and can't open an account until the check clears.
-- **UK payments and books that balance.** Customers pay and are paid by Faster
-  Payments in seconds, with the payee's name checked first. Every movement is
-  recorded as matching debits and credits, so the books always balance, down
-  to fractions of a penny of interest.
+- **Payments and books that balance.** Customers pay and are paid by UK
+  Faster Payments in seconds, with the payee's name checked first. Every
+  movement is recorded as matching debits and credits, so the books always
+  balance, down to fractions of a penny of interest.
 - **Real-time notifications.** Your systems are told as it happens when an
   account opens, money arrives or a payment settles.
 - **An audit trail.** Everyone on your team signs in as themselves with a
