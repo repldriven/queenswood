@@ -22,6 +22,7 @@ _metadata: &metadata !strs
 
 container: !system/component
   system/component-kind: fdb/container
+  reuse: !env TESTCONTAINERS_REUSE_ENABLE
 
 container-cluster-file-path: !system/component
   system/component-kind: fdb/container-cluster-file-path
