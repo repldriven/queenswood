@@ -64,10 +64,10 @@ accounts.
 - **Product changes without a release.** Change a rate, add a welcome reward
   or launch a new product line without shipping software. Existing customers
   move to the new terms only when you plan and approve it.
-- **Rules without a release.** Policies are records checked on every request,
-  and your bank's tier sets the capabilities and limits it works within, so
-  changing either ships no code.
-- **A sandbox.** Your bank starts in test, where you try everything with
+- **Rule changes without a release.** Policies are records checked on every
+  request, and your bank's tier sets the capabilities and limits it works
+  within, so changing either ships no code.
+- **Sandbox.** Your bank starts in test, where you try everything with
   simulated money on the same software your customers will use, and moves to
   live when you're ready.
 - **Pluggable providers.** Clearing and identity verification each connect
@@ -78,15 +78,15 @@ accounts.
 - **Payments and books that balance.** Customers pay and are paid by UK
   Faster Payments in seconds, with Confirmation of Payee first. Every
   movement is recorded as matching debits and credits, so the books always
-  balance, down to fractions of a penny of interest.
+  balance.
 - **Real-time notifications.** Your systems are told as things happen, such
   as an account opening, money arriving or a payment settling.
-- **An audit trail.** Everyone on your team signs in as themselves with a
+- **Audit trail.** Everyone on your team signs in as themselves with a
   role, and a log records who did what.
-- **A documentation set.** Every capability has a
+- **Documentation.** Every capability has a
   [requirements document](docs/prd/) saying what it's for and who uses it, in
-  product language. All of the documentation says what's done and what's not.
-- **A test suite.** Generated tests check its answers against a model of how
+  product language. All technical documentation says what's done and what's not.
+- **Test suite.** Generated tests check its answers against a model of how
   a bank should behave, and scenarios drive the live API end to end.
 
 ## For application engineers
