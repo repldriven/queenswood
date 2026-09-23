@@ -76,7 +76,7 @@ accounts.
 - **Customer onboarding.** Every new customer is identity-checked as they sign
   up, and can't open an account until the check clears.
 - **Payments and books that balance.** Customers pay and are paid by UK
-  Faster Payments in seconds, with the payee's name checked first. Every
+  Faster Payments in seconds, with Confirmation of Payee first. Every
   movement is recorded as matching debits and credits, so the books always
   balance, down to fractions of a penny of interest.
 - **Real-time notifications.** Your systems are told as things happen, such
