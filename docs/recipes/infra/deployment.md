@@ -201,19 +201,23 @@ just release 0.2.0    # a chosen one
 ```
 
 A release is a pull request that bumps `version` and `appVersion` in
-`infra/helm/queenswood/Chart.yaml`, and `info.version` in every API's
-OpenAPI document, to one number, and merging it is the release;
-`just check-versions` fails where any of them differ. The Release workflow runs off every green Tests run on
-`main` and publishes the first commit whose declared version has no
-tag: it builds every image at it, tags them with the version, pushes
-the chart to GHCR at the same version, tags the commit `v<version>`
-and publishes the GitHub release with the quickstart README. It then
-dispatches the GitHub Pages workflow on the tag, so the site is that
-release's docs and each Pages deployment is one release's; the
-`github-pages` environment admits only `v*` tags. The chart's images
-default to its `appVersion`, so a chart is a release of itself and no
-image tag is set anywhere but the local loop's `dev`. Nothing carries
-`latest`.
+`infra/helm/queenswood/Chart.yaml`, and `info.version` in every API's OpenAPI
+document, to one number, and merging it is the release; `just check-versions`
+fails where any of them differ. The Release workflow runs off every green Tests
+run on `main` and publishes the first commit whose declared version has no tag:
+it builds every image at it, tags them with the version, pushes the chart to
+GHCR at the same version, tags the commit `v<version>` and publishes the GitHub
+release with the quickstart README. It then dispatches the GitHub Pages workflow
+on the tag, so the site is that release's docs and each Pages deployment is one
+release's; the `github-pages` environment admits only `v*` tags, and the
+workflow deploys only when the Release workflow dispatched it. Last, it prunes
+the untagged images a retried release left behind, and deletes the workflow runs
+nobody needs any more with
+[prune-workflow-runs.sh](/scripts/prune-workflow-runs.sh): anything past the
+90-day log retention, runs of retired workflows, Pages runs off a release tag,
+and Release runs that released nothing. Nothing else runs either. The chart's
+images default to its `appVersion`, so a chart is a release of itself and no
+image tag is set anywhere but the local loop's `dev`. Nothing carries `latest`.
 
 An instance is pinned to a release by `targetRevision: v<version>` on
 both of its unit's Applications, `queenswood.yml` and `config.yml`,

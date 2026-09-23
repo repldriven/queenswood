@@ -45,10 +45,13 @@ single OpenAPI document. The API surface is *bank-shaped*, not
 "Queenswood", not with "Queenswood-accounts AND
 Queenswood-payments AND Queenswood-parties".
 
-The internal decomposition into domain processors lives behind
-the API on the command pipeline. Processors can be split,
-merged, scaled, and reasoned about independently inside the
-system without changing the external contract.
+Behind that surface:
+
+- The internal decomposition into domain processors lives behind
+  the API on the command pipeline.
+- Processors can be split, merged, scaled, and reasoned about
+  independently inside the system without changing the external
+  contract.
 
 ## Consequences
 

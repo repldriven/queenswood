@@ -27,8 +27,9 @@ Pin a library several bricks or projects share in one shim under
 `deps/`, referenced as `pin/<name>` — `pin/protojure`, `pin/fdb`,
 `pin/clojure-core-async` — never declared in a brick or project
 directly. Pinning down needs the competing copy excluded where it
-enters, which is what `pin/protojure` and `pin/fdb` do. Every project
-repeats `org.clojure/clojure`, and `just check-versions` asserts the
-copies against the root `deps.edn`. Renovate owns the bumps.
+enters, since a shim one level below a direct dependency loses; that is
+what `pin/protojure` and `pin/fdb` do. Every project repeats
+`org.clojure/clojure`, and `just check-versions` asserts the copies
+against the root `deps.edn`. Renovate owns the bumps.
 Commands: `just check-versions`.
 See [library-pins](../../../docs/recipes/code/library-pins.md).

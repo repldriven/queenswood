@@ -5,8 +5,10 @@ name: Release
 # green: it builds every image at the commit, tags them with the
 # version, packages and pushes the chart, tags the commit `v<version>`
 # and publishes the GitHub release, then deploys the release's docs to
-# GitHub Pages. Nothing here runs on a workflow button, and nothing is
-# built for a commit that is not a release.
+# GitHub Pages, prunes the untagged images a retried release left
+# behind and deletes the workflow runs nobody needs any more. Nothing
+# here runs on a workflow button, and nothing is built for a commit that
+# is not a release.
 #
 # One condition, read at the commit Tests ran on: the tag `v<version>`
 # does not exist yet. The first green commit on main whose declared
@@ -269,3 +271,28 @@ jobs:
         run: |
           gh workflow run pages.yml \
             -R "${{ github.repository }}" --ref "v$VERSION"
+
+  prune:
+    needs: publish
+    permissions:
+      packages: write       # delete untagged versions on GHCR
+    uses: ./.github/workflows/prune-ghcr.yml
+
+  runs:
+    needs: [publish, pages]
+    permissions:
+      actions: write        # delete workflow runs
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout the tested commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Delete the workflow runs nobody needs any more
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Under the token's 1,000 requests an hour, with room for the
+          # listing; whatever is left goes at the next release.
+          LIMIT: '500'
+        run: ./scripts/prune-workflow-runs.sh

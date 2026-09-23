@@ -223,7 +223,7 @@ done anything — and a full set of realised ones is what somebody
 pretexting a support call wants. That repository is where the real ones
 belong, because that is what it is for, and having somewhere for them
 is what lets everything else say `<folder-id>`. See
-[cloud-identifiers](../practices/cloud-identifiers.md).
+[system-identifiers](../practices/system-identifiers.md).
 
 **Why an App.** It belongs to the organisation instead of to a person,
 appears in the organisation's installed applications with an audit
@@ -277,7 +277,7 @@ project holds.
   repository this reads for Queenswood, and the manifest that names it.
 - [external-secrets](external-secrets.md) — how the key gets into that
   store, and out of it onto a cluster.
-- [cloud-identifiers](../practices/cloud-identifiers.md) — what counts as an
+- [system-identifiers](../practices/system-identifiers.md) — what counts as an
   identifier, and why the real ones live in that repository and nowhere
   else.
 - [diagrams](../../diagrams/README.md) — the infrastructure diagram,

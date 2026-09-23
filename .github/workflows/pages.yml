@@ -2,8 +2,10 @@ name: GitHub Pages
 
 # The site is the docs of a release, deployed once per release. The
 # Release workflow dispatches this on the tag `v<version>` it has just
-# written, so the deployment's ref is the release; a dispatch on any
-# other ref deploys nothing, and the environment admits only `v*` tags.
+# written, so the deployment's ref is the release and the run's actor is
+# `github-actions[bot]`. A dispatch by anyone else, or on any other ref,
+# deploys nothing; a rerun keeps the original actor, so rerunning a
+# failed deploy still works. The environment admits only `v*` tags.
 on:
   workflow_dispatch:
 
@@ -18,7 +20,9 @@ permissions:
 
 jobs:
   deploy:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: >-
+      startsWith(github.ref, 'refs/tags/v') &&
+      github.actor == 'github-actions[bot]'
     runs-on: ubuntu-24.04
 
     environment:

@@ -43,39 +43,38 @@ The options:
 
 We consume mono as a **pinned git-dependency**, not a fork.
 
-The workspace holds only Queenswood's domain bricks. Shared infrastructure
-comes from `com.repldriven/mono`, pinned to a specific tag and sha. Two
-shim directories under `deps/` carry that coordinate: `deps/mono` (runtime,
-rooted at mono's `projects/mono-lib`) and `deps/mono-test` (the test
-superset, rooted at `projects/mono-test-lib`, which adds `test-system` and
-`testcontainers`). Every project references them under one symbol,
-`ext/mono`; a project's `:test` alias re-points `ext/mono` at the test
-superset, so the root is swapped by symbol. Upgrading mono is a one-line
-tag/sha bump in those two shims.
+The decision has four parts:
 
-The pin carries more than code. mono's ADRs and recipes, its slide deck, its
-Tessl plugins, the hook library its `pre-commit` is composed from, the semgrep
-rules it runs and the justfiles that install hooks and plugins are laid down
-in this tree by `just mono-import` at the sha a third shim, `deps/mono-dev`,
-pins — untracked, excluded from git, and never edited here. That shim is on no
-classpath, so the practices can move ahead of or behind the code when a
-release changes only one of them. They land where Queenswood's own would: the
-ADRs in `docs/adr/`, the recipes in `docs/recipes/`, the deck in
-`docs/slides/`, the rest under `.mono/`. The two repositories share one ADR
-number space and one recipe namespace, and the import refuses to overwrite a
-path this tree tracks, so a number or a filename used twice fails rather than
-shadows.
-
-Because domain bricks no longer share a workspace with mono's infra, they
-carry no distinguishing prefix — a component is just a component. External
-infra namespaces stay `com.repldriven.mono.*`; Queenswood's own bricks are
-`com.repldriven.queenswood.*`.
-
-This decision implies Polylith as the workspace structure, since mono is a
-Polylith workspace and `mono-lib` is a Polylith aggregate. Polylith brings
-clear interface boundaries, brick-level test scoping, and
-projects-as-deployment-targets. We do not re-argue Polylith here; see
-[the Polylith documentation](https://polylith.gitbook.io/polylith).
+- **The code.** The workspace holds only Queenswood's domain bricks. Shared
+  infrastructure comes from `com.repldriven/mono`, pinned to a specific tag and
+  sha. Two shim directories under `deps/` carry that coordinate: `deps/mono`
+  (runtime, rooted at mono's `projects/mono-lib`) and `deps/mono-test` (the test
+  superset, rooted at `projects/mono-test-lib`, which adds `test-system` and
+  `testcontainers`). Every project references them under one symbol, `ext/mono`;
+  a project's `:test` alias re-points `ext/mono` at the test superset, so the
+  root is swapped by symbol. Upgrading mono is a one-line tag/sha bump in those
+  two shims.
+- **The practices.** The pin carries more than code. mono's ADRs and recipes,
+  its slide deck, its Tessl plugins, the hook library its `pre-commit` is
+  composed from, the semgrep rules it runs and the justfiles that install hooks
+  and plugins are laid down in this tree by `just mono-import` at the sha a
+  third shim, `deps/mono-dev`, pins — untracked, excluded from git, and never
+  edited here. That shim is on no classpath, so the practices can move ahead of
+  or behind the code when a release changes only one of them. They land where
+  Queenswood's own would: the ADRs in `docs/adr/`, the recipes in
+  `docs/recipes/`, the deck in `docs/slides/`, the rest under `.mono/`. The two
+  repositories share one ADR number space and one recipe namespace, and the
+  import refuses to overwrite a path this tree tracks, so a number or a filename
+  used twice fails rather than shadows.
+- **The namespaces.** Because domain bricks no longer share a workspace with
+  mono's infra, they carry no distinguishing prefix — a component is just a
+  component. External infra namespaces stay `com.repldriven.mono.*`;
+  Queenswood's own bricks are `com.repldriven.queenswood.*`.
+- **Polylith.** This decision implies Polylith as the workspace structure, since
+  mono is a Polylith workspace and `mono-lib` is a Polylith aggregate. Polylith
+  brings clear interface boundaries, brick-level test scoping, and
+  projects-as-deployment-targets. We do not re-argue Polylith here; see [the
+  Polylith documentation](https://polylith.gitbook.io/polylith).
 
 ## Consequences
 

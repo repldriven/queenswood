@@ -27,9 +27,10 @@ last `stable-*` tag, in the development project — and `just test-all`
 as the full suite, which adds every service project's start-up check
 and the migrator's guard whatever changed; one brick is
 `project:dev brick:<name> :all`. Both recipes cap the JVM and set
-`TEST_SYSTEM_PERMITS` to Docker's CPU count. The model imports nothing
-from production, projections live in `test-projections`, each
-assertion projects narrowly, and the runner's quiescence wait is never
-skipped.
+`TEST_SYSTEM_PERMITS` to Docker's CPU count. The model is pure functions
+over a Clojure map: it talks to no FDB, message bus or other real
+infrastructure and imports nothing from production; projections live in
+`test-projections`, each assertion projects narrowly, and the runner's
+quiescence wait is never skipped.
 Commands: `just test`, `just test-all`.
 See [testing](../../../docs/recipes/test/testing.md).

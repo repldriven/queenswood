@@ -276,6 +276,21 @@ the caller lacks — see [gcp-iam](gcp-iam.md).
 - Render the manifest with `just queenswood-installation-manifest` and
   commit it before applying it with `just boot-mgmt-apply`, and
   push it before any plane takes over reading it from git.
+- Render each file the installation is from its template under
+  `infra/platform/templates/`, with the recipe that names it —
+  `installation.yml` here, and `environment.yml`, `subsidiary.yml`,
+  `local.yml`, a zone and a unit by theirs — so what it will say is
+  readable before it is run, and commit it in the installation's
+  directory of the private manifests repository.
+- Change what the installation is by editing one of those files and
+  merging it, never by acting on GCP. From step 5 the plane reconciles
+  the installation from the repository, and the folder id is a manifest
+  value rather than a shell one.
+- Read the folder id, the management project and the platform identity
+  back from `status` rather than committing them.
+- Give Argo the credential for the private repository, from
+  [argocd-github](argocd-github.md), before expecting any later merge to
+  reach the plane.
 - Ask for `compute.skipDefaultNetworkCreation` before the first project
   is created. `just gcp-org-enforce-constraints` enforces them, as the
   identity you name — during a bootstrap, the seed.
@@ -314,6 +329,9 @@ the caller lacks — see [gcp-iam](gcp-iam.md).
   this path without changing it.
 - Load another XRD and composition onto the plane, and deploy something
   else the same way.
+- Point `management.source` at upstream, a fork or a mirror, with
+  `targetRevision` pinned to a release tag. The renderer pins the newest
+  `v*` tag, and `QW_SOURCE_REVISION` overrides it.
 
 ## Discussion
 

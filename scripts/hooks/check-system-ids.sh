@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Keeps Google Cloud account identifiers out of a public repository.
+# Keeps system identifiers -- what names this installation's accounts,
+# projects and addresses rather than a person -- out of a public
+# repository. See docs/recipes/practices/system-identifiers.md.
 #
 # None of these is a credential, and none of them grants anything on its
 # own. They are worth withholding anyway: an organisation, folder or
@@ -14,11 +16,11 @@
 #
 # Write a placeholder instead: folders/<folder-id>, organizations/<org-id>,
 # and xxxxxx for a project id's suffix. Where a real one genuinely
-# belongs, put `cloud-id-ok` in a comment on the same line.
+# belongs, put `system-id-ok` in a comment on the same line.
 #
 # A commit message is checked too, and carries one rule of its own --
 # see the bottom of this file. Everything written outside git goes
-# through the same mode, from .github/workflows/check-cloud-ids.yml: a
+# through the same mode, from .github/workflows/check-system-ids.yml: a
 # pull request's title and body, an issue's, a comment, a review. No
 # hook reaches any of them and all of them are as public as the tree.
 #
@@ -29,9 +31,9 @@
 # that grants nothing on its own. What it buys is that nothing joins
 # them.
 #
-#   bash check-cloud-ids.sh                 # every tracked file
-#   bash check-cloud-ids.sh --staged        # staged changes (pre-commit)
-#   bash check-cloud-ids.sh --message FILE  # a commit message (commit-msg)
+#   bash check-system-ids.sh                 # every tracked file
+#   bash check-system-ids.sh --staged        # staged changes (pre-commit)
+#   bash check-system-ids.sh --message FILE  # a commit message (commit-msg)
 
 set -euo pipefail
 
@@ -61,7 +63,7 @@ report() {
   fail=1
   echo "BLOCKING $1" >&2
   printf '%s\n' "$2" | sed 's/^/  /' >&2
-  echo "  fix: write a placeholder, or add cloud-id-ok on the line" >&2
+  echo "  fix: write a placeholder, or add system-id-ok on the line" >&2
 }
 
 # A billing account id is three uppercase hex groups. Restricted to hex
@@ -69,13 +71,13 @@ report() {
 # both legitimate placeholders in this tree -- do not match.
 hits=$(printf '%s\n' "$files" | xargs grep -nHE \
   '\b[0-9A-F]{6}-[0-9A-F]{6}-[0-9A-F]{6}\b' 2>/dev/null \
-  | grep -v 'cloud-id-ok' || true)
+  | grep -v 'system-id-ok' || true)
 [ -n "$hits" ] && report "billing account id" "$hits"
 
 # A resource-manager id in the one shape that always means a real one.
 hits=$(printf '%s\n' "$files" | xargs grep -nHE \
   '(organizations|folders|projects)/[0-9]{6,}' 2>/dev/null \
-  | grep -v 'cloud-id-ok' || true)
+  | grep -v 'system-id-ok' || true)
 [ -n "$hits" ] && report "organization, folder or project number" "$hits"
 
 # A project id's random suffix: six hex characters closing a name. The
@@ -96,7 +98,7 @@ hits=$(printf '%s\n' "$files" | xargs grep -nHE \
 # time is six digits closing a name, and every decimal digit is a hex
 # digit, so a gap report citing an earlier gap report matches this rule
 # exactly -- which analysts are meant to do, and which no amount of
-# cloud-id-ok on each citing line would stop recurring.
+# system-id-ok on each citing line would stop recurring.
 #
 # Masked rather than exempted by line: a real suffix elsewhere on the
 # same line still reports, and what is reported is the original line.
@@ -110,7 +112,7 @@ mask_dated_artefacts() {
 }
 
 hits=$(printf '%s\n' "$files" | xargs grep -nHE "$suffix" 2>/dev/null \
-  | grep -v 'cloud-id-ok' \
+  | grep -v 'system-id-ok' \
   | while IFS= read -r line; do
       if printf '%s' "$line" | mask_dated_artefacts \
            | grep -qE "$suffix"; then
@@ -129,7 +131,7 @@ if [ -z "$message" ]; then
   if [ -n "$prose" ]; then
     hits=$(printf '%s\n' "$prose" | xargs grep -nHE \
       '(^|[^0-9A-Za-z_./=-])[0-9]{9,12}([^0-9A-Za-z_./-]|$)' 2>/dev/null \
-      | grep -v 'cloud-id-ok' || true)
+      | grep -v 'system-id-ok' || true)
     [ -n "$hits" ] && report "bare account-length number" "$hits"
   fi
 fi
@@ -144,7 +146,7 @@ fi
 # there is almost no reason for a long number, an address or a hex run
 # to appear in one at all. So they are all refused and the exceptions
 # are stated: a version, which this project's own support procedures
-# print, and `cloud-id-ok` for anything else that genuinely belongs.
+# print, and `system-id-ok` for anything else that genuinely belongs.
 #
 # The cost of being wrong in each direction decides this. A false
 # positive is one placeholder. A false negative is an identifier in a
@@ -155,7 +157,7 @@ if [ -n "$message" ]; then
   # and grep finding nothing is one -- so a message with no hits at all
   # ended the script rather than passing it, which is the shape every
   # recipe in justfile-recipes warns about and this is not a recipe.
-  # Two exemptions beyond cloud-id-ok, both measured rather than
+  # Two exemptions beyond system-id-ok, both measured rather than
   # imagined. A version, because this project's own support procedures
   # print one. And a line carrying a GitHub no-reply address, which is
   # the Co-authored-by trailer every Renovate commit ends with -- 66 of
@@ -164,7 +166,7 @@ if [ -n "$message" ]; then
   exempt() {
     grep -viE 'versions?' \
       | grep -v 'noreply.github.com' \
-      | grep -v 'cloud-id-ok'
+      | grep -v 'system-id-ok'
   }
 
   hits=$(grep -nHE '(^|[^0-9A-Za-z_.=-])[0-9]{9,12}([^0-9A-Za-z_-]|$)' \
@@ -212,7 +214,7 @@ fi
 # match hundreds of lines that are exactly what they should be.
 if [ -n "$message" ]; then
   hits=$(grep -nHE '[0-9a-z]-[0-9a-f]{8,}([^0-9a-z-]|$)' "$message" 2>/dev/null \
-    | grep -v 'cloud-id-ok' || true)
+    | grep -v 'system-id-ok' || true)
   [ -n "$hits" ] && report "realised resource id in a commit message" "$hits"
 fi
 

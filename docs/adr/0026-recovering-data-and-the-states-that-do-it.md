@@ -43,77 +43,73 @@ before there is anything in the bank worth losing.
 
 ## Decision
 
-**Down and rebuild are different kinds of state, and must not share a
-word.**
+**Down and rebuild are different kinds of state, and must not share a word.**
+`down` is reversible and preserves what it stops. Whatever replaces the old
+destructive cycle is irreversible and destroys what it replaces. Both are
+legitimately "a declared state" in the sense ADR-0022 means, and putting them in
+one enum is how someone eventually recovers an environment by selecting the
+wrong value from a list.
 
-`down` is reversible and preserves what it stops. Whatever replaces the
-old destructive cycle is irreversible and destroys what it replaces.
-Both are legitimately "a declared state" in the sense ADR-0022 means,
-and putting them in one enum is how someone eventually recovers an
-environment by selecting the wrong value from a list.
+The decision has further parts:
 
-**Recovery has two shapes and they are for different situations.**
+- **Recovery has two shapes and they are for different situations.**
 
-*In place.* Empty the data and let the restore fill it. It is what the
-chart already supports and it needs `clusterAdmin`, which is right —
-recovering from corruption is break-glass. It is correct when the
-current data is worthless: a test environment, or a rebuild after total
-loss.
+  *In place.* Empty the data and let the restore fill it. It is what the chart
+  already supports and it needs `clusterAdmin`, which is right — recovering from
+  corruption is break-glass. It is correct when the current data is worthless: a
+  test environment, or a rebuild after total loss.
 
-*Beside it, then cut over.* Build a second instance, restore it to a
-point before the damage, verify what it holds, move traffic. It is
-heavier and needs a cutover story this model does not have.
+  *Beside it, then cut over.* Build a second instance, restore it to a point
+  before the damage, verify what it holds, move traffic. It is heavier and needs
+  a cutover story this model does not have.
 
-**For corruption, restoring beside it is the one to build toward**, and
-not for convenience. The corrupted data is evidence — the first act of
-the in-place path destroys the only record of what happened and when.
-And it is reversible until the cutover, where in place commits at the
-moment the volumes go: a restore that comes back wrong, or to the wrong
-point, has nothing behind it.
+- **For corruption, restoring beside it is the one to build toward**, and not
+  for convenience. The corrupted data is evidence — the first act of the
+  in-place path destroys the only record of what happened and when. And it is
+  reversible until the cutover, where in place commits at the moment the volumes
+  go: a restore that comes back wrong, or to the wrong point, has nothing behind
+  it.
 
-**A destructive state must be self-limiting.** The restore Job embeds
-its version in its own name, so re-applying the same value resolves to
-a Job that has already completed and the restore does not run twice.
-Anything that empties data needs that property or something as strong.
-A field meaning "destroy this and rebuild it" that stays true is a
-field that destroys on every reconcile, which is the hazard ADR-0022
-names from the other end — *a live plane watching its resources vanish
-through a prune and doing what it was told.*
+- **A destructive state must be self-limiting.** The restore Job embeds its
+  version in its own name, so re-applying the same value resolves to a Job that
+  has already completed and the restore does not run twice. Anything that
+  empties data needs that property or something as strong. A field meaning
+  "destroy this and rebuild it" that stays true is a field that destroys on
+  every reconcile, which is the hazard ADR-0022 names from the other end — *a
+  live plane watching its resources vanish through a prune and doing what it was
+  told.*
 
-**Retention is one number, expressed in days, and everything else is
-derived from it.** An installation says how far back it can recover —
-thirty days — and nothing else is stated.
+- **Retention is one number, expressed in days, and everything else is derived
+  from it.** An installation says how far back it can recover — thirty days —
+  and nothing else is stated.
 
-Days because that is the unit the tool consuming it uses:
-`--delete-before-days` and `--min-restorable-days` both take days, so
-any other unit would be converted on the way in, which is the
-arithmetic this decision exists to remove. It is also the unit the
-question is asked in — nobody wants to recover to 2,592,000 seconds
-ago. `snapshotPeriodSeconds` beside it is in seconds for the same
-reason and not from inconsistency: a snapshot period is a thing you
-tune in minutes and FDB takes it in seconds. The unit follows what
-reads the value, not a house style.
+  Days because that is the unit the tool consuming it uses:
+  `--delete-before-days` and `--min-restorable-days` both take days, so any
+  other unit would be converted on the way in, which is the arithmetic this
+  decision exists to remove. It is also the unit the question is asked in —
+  nobody wants to recover to 2,592,000 seconds ago. `snapshotPeriodSeconds`
+  beside it is in seconds for the same reason and not from inconsistency: a
+  snapshot period is a thing you tune in minutes and FDB takes it in seconds.
+  The unit follows what reads the value, not a house style.
 
-`fdbbackup expire` takes a cutoff and a floor as separate flags, and
-two flags that must agree is how a configuration ends up cutting at
-thirty and guaranteeing seven, which nobody notices until the day it
-matters. Both come from the one value.
+  `fdbbackup expire` takes a cutoff and a floor as separate flags, and two flags
+  that must agree is how a configuration ends up cutting at thirty and
+  guaranteeing seven, which nobody notices until the day it matters. Both come
+  from the one value.
 
-That the two are the same number is what makes the floor useful rather
-than decorative: it stops being a second decision and becomes a check
-on the first. Expire deletes what is not needed to restore across the
-window, and the floor asserts the window survived. Where FDB's two
-approximations of *approximately NUM_DAYS worth of versions* disagree
-at the boundary, expire refuses and that run deletes nothing — which is
-the direction a destructive operation should fail in, and it corrects
-itself on the next one.
+  That the two are the same number is what makes the floor useful rather than
+  decorative: it stops being a second decision and becomes a check on the first.
+  Expire deletes what is not needed to restore across the window, and the floor
+  asserts the window survived. Where FDB's two approximations of *approximately
+  NUM_DAYS worth of versions* disagree at the boundary, expire refuses and that
+  run deletes nothing — which is the direction a destructive operation should
+  fail in, and it corrects itself on the next one.
 
-**States belong to parts, not only to instances.** `state: up | down`
-is instance-wide, and the parts of an instance have independent
-lifecycles: the data tier, the database behind Keycloak, the services.
-Recovering data should not require declaring the whole environment off,
-and the parts that can be stopped independently are the ones that can
-be recovered independently.
+- **States belong to parts, not only to instances.** `state: up | down` is
+  instance-wide, and the parts of an instance have independent lifecycles: the
+  data tier, the database behind Keycloak, the services. Recovering data should
+  not require declaring the whole environment off, and the parts that can be
+  stopped independently are the ones that can be recovered independently.
 
 ## Consequences
 

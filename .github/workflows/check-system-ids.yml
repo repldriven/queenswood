@@ -14,7 +14,7 @@
 # The comment, issue and review triggers run the copy of this file on
 # the default branch rather than the one in a branch, so a change to
 # them does nothing until it is merged.
-name: Cloud identifiers
+name: System identifiers
 
 on:
   pull_request:
@@ -36,7 +36,7 @@ concurrency:
   # carries issue.number for both kinds. run_id is the fallback so two
   # unrelated events never share a group.
   group: >-
-    cloud-ids-${{ github.event.pull_request.number
+    system-ids-${{ github.event.pull_request.number
       || github.event.issue.number || github.run_id }}
   cancel-in-progress: true
 
@@ -71,4 +71,4 @@ jobs:
             printf '%s\n' "${COMMENT_BODY:-}"
             printf '%s\n' "${REVIEW_BODY:-}"
           } > event-text.txt
-          bash scripts/hooks/check-cloud-ids.sh --message event-text.txt
+          bash scripts/hooks/check-system-ids.sh --message event-text.txt

@@ -31,18 +31,20 @@ its `added` and `modified` versions, and under a store's
 `former-indexes` the indexes removed from it. Every change to a record
 type, primary key or index bumps `version`; a store added after the
 first version takes it as `since`, declared there and never as a proto
-`since_version` option; an index whose key, type or uniqueness changed
-keeps its name and its `added` and takes the new version as `modified`;
-a new index takes it as both; a removed or renamed
-index becomes a former entry with its `name`, `added` and `removed`, and
-its name is never reused. A proto field, once written,
-is deprecated with its tag kept and dropped in the record conversion —
-never removed or reserved. The migrator saves with a validator that
-allows index rebuilds and refuses everything else: a change at the
-stored version, or older meta-data than the store's, fails the Job
-rather than being skipped. `just test-all` runs the migrator's guard
-whatever changed, validating the working tree's meta-data as an
-evolution of the last `stable-*` tag's.
+`since_version` option, and never changed afterwards; an index whose
+key, type or uniqueness changed keeps its name and its `added` and takes
+the new version as `modified` — never a rename in place of the bump; a
+new index takes it as both; a removed or renamed index becomes a former
+entry with its `name`, `added` and `removed`, and its name is never
+reused. A proto field, once written, is deprecated with its tag kept and
+dropped in the record conversion — never removed or reserved. The
+migrator saves with a validator that allows index rebuilds and refuses
+everything else: a change at the stored version, or older meta-data than
+the store's, fails the Job rather than being skipped, and a store's
+meta-data is never cleared to make a refused save land. `just test-all`
+runs the migrator's guard whatever changed, validating the working
+tree's meta-data as an evolution of the last `stable-*` tag's.
+Commands: `just test-all`.
 See [schema-evolution](../../../docs/recipes/code/schema-evolution.md).
 
 ## A service's `application.yml` includes shared groups, never copies
@@ -63,25 +65,38 @@ See [service-configurations](../../../docs/recipes/code/service-configurations.m
 ## React to a changelog, don't orchestrate across bricks
 
 Reactive state transitions run through the changelog relay, not an
-HTTP-layer orchestrator. A store's write co-commits a `ChangelogEvent`
-envelope to its changelog; a `changelog-relay` runner tails that cursor
-and republishes the payload to the message bus; the reacting brick
-handles the event in its own `events.clj`, against its own records. The
-relay holds no domain logic, and no handler runs inside the changelog
-checkpoint transaction. Never mint a fresh `consumer-id` for an
-existing cursor — it starts at no checkpoint and rescans the store's
-whole history in one transaction. Not every envelope field crosses:
-the relay carries `event_name`, `payload`, `correlation_id`,
-`causation_id` and `traceparent` into mono's `EventEnvelope`, carries
-`event_id` as its `id`, and hands `ordering_key` to the bus as the
-publish key, while `dedup_key` and `created_at` stop there — a
-consumer needing either reads it from the Avro payload. Consume with
-the reacting brick's own `<brick>/event-processor` kind wrapped in
-mono's `event-processor/event-processor`, which leaves an event
-unacknowledged when the handler throws or returns an anomaly. A brick
-acts only on its own records, the webhook component excepted: it reads
-across domains through each catalogued domain's `*-query` brick, so a
-notification body equals what that domain's read route returns.
+HTTP-layer orchestrator: a request N bricks must react to is N
+consumers, each in the reacting brick. The tier that owns a cursor holds
+no domain logic, and the brick that holds domain logic owns no cursor. A
+store's write co-commits a `ChangelogEvent` envelope to its changelog —
+the adapter outbox protos reuse its field numbers, so their entries
+decode as one too; a `changelog-relay` runner, hosted in
+`exclusive-dispatchers-service` and scaled by sharding stores across
+deployments rather than by replicas, tails that cursor and republishes
+the payload verbatim to the message bus, never deserialising it, with
+`{:deduplicate? false}` because collapsing two transitions would drop
+an event; the reacting brick handles the event in its own `events.clj`,
+against its own records, outside any changelog transaction. Delivery is
+at-least-once — the cursor advances only when the whole pass commits,
+so a handler that throws leaves the checkpoint in place and the entry
+is redriven — and the source-status guard in `domain.clj` is what makes
+that safe. Never mint a fresh `consumer-id` for an existing cursor — it
+starts at no checkpoint and rescans the store's whole history in one
+transaction, republishing every historical transition. Not every
+envelope field crosses: the relay carries `event_name`, `payload`,
+`correlation_id`, `causation_id` and `traceparent` into mono's
+`EventEnvelope`, carries `event_id` as its `id` so a consumer dedups on
+the entry rather than on an id the publisher minted, and hands
+`ordering_key` to the bus as the publish key, while `dedup_key` and
+`created_at` stop there — a consumer needing either reads it from the
+Avro payload. Consume with the reacting brick's own
+`<brick>/event-processor` kind wrapped in mono's
+`event-processor/event-processor`, which leaves an event unacknowledged
+when the handler throws or returns an anomaly, so the bus redelivers
+it. A brick acts only on its own records, the webhook component
+excepted: it reads across domains through each catalogued domain's
+`*-query` brick, so a notification body equals what that domain's read
+route returns.
 See [ADR-0021](../../../docs/adr/0021-changelog-relay.md).
 
 ## A write earns command status, or stays synchronous
@@ -93,12 +108,22 @@ abort as one), idempotency stakes (a redelivered or double-submitted
 write causes real damage), reaction (other bricks must respond
 asynchronously via the changelog), or unreliable ingress (originates
 from a webhook or external event needing consume-then-ack semantics).
-A write with none of these stays synchronous. Once a domain earns
-commands, it splits into two bricks: `X-query` (reads only —
-`get-*` / `find-*` / `count-*` — the only cash-account-style brick
-`api` may require) and `X` (commands, writes, domain,
-events), which depends on `X-query` and calls its reads inside
-its own FDB transaction, passing the live `txn`.
+A write with none of these stays synchronous; a path moves when it
+crosses a criterion, never for symmetry. Events exist to cross
+boundaries, not to rebuild state: FDB records stay the source of truth
+and the changelog-as-outbox is the event backbone — no event sourcing.
+A commandified brick gains a `-query` sibling only once a reader
+outside its processor needs its reads, and then splits into two bricks:
+`X-query` (reads only — `get-*` / `find-*` / `count-*` — plus the read
+primitives the write side needs in a transaction, and the only
+cash-account-style brick `api` may require) and `X` (commands, writes,
+domain, events), which keeps the plain name, depends on `X-query` and
+calls its reads inside its own FDB transaction, passing the live `txn`.
+`components/X-query/` existing is what marks `X` as a guarded write
+brick: the pre-commit guardrail (`scripts/hooks/enforce-idioms.sh`)
+fails `api` request code that requires such a brick's interface, the
+`system.clj` registration bundle excepted, and `poly check` hard-fails
+any reference once a service project no longer lists the write brick.
 See [ADR-0017](../../../docs/adr/0017-query-write-brick-split.md),
 [ADR-0018](../../../docs/adr/0018-command-writes-are-earned.md).
 
@@ -113,20 +138,18 @@ JVM hosts. Bases are group-scoped, not one shared superset, so each
 project's deps carry only the bricks its group runs. Group by
 boundary, not throughput — financial processors (payment,
 transaction, interest, payee-check) never share a JVM with
-operational processors (bank, party, cash-account,
-cash-account-product, idv); external adapters and simulators are
-never grouped with domain processors, and share one JVM of their
-own. Work that admits exactly one dispatcher — every store's
-changelog runner and the Quartz scheduler — goes in
-`exclusive-dispatchers-service`, pinned to `replicas: 1`, which is
-what leaves every other group free of the constraint. A poll loop is
-not exclusive work on its own: a runner that claims each row by a
+operational processors (bank, party, cash-account, idv); external
+adapters and simulators are never grouped with domain processors, and
+share one JVM of their own. Work that admits exactly one dispatcher —
+every store's changelog runner and the Quartz scheduler — goes in
+`exclusive-dispatchers-service`, pinned to `replicas: 1`, which is what
+leaves every other group free of the constraint. A poll loop is not
+exclusive work on its own: a runner that claims each row by a
 conditional transition inside one FDB transaction leaves a second
-replica nothing to take, so its group stays free — that claim is
-what a runner added to `external-adapters-service` carries instead
-of a pin. When a processor moves between groups its consumer groups
-and changelog `consumer-id`s move with it verbatim, or the cursor is
-abandoned.
+replica nothing to take, so its group stays free — that claim is what a
+runner added to `external-adapters-service` carries instead of a pin.
+When a processor moves between groups its consumer groups and changelog
+`consumer-id`s move with it verbatim, or the cursor is abandoned.
 See [ADR-0019](../../../docs/adr/0019-processor-packaging.md).
 
 ## External providers are deployment facts
@@ -152,15 +175,19 @@ See [ADR-0020](../../../docs/adr/0020-providers-are-deployment-facts.md).
 Expose one HTTP API for the whole bank — one base (`api`), one
 base URL, one OpenAPI document, bank-shaped rather than
 implementation-shaped (a consumer integrates with "Queenswood", not
-with each domain separately). Treat full OpenAPI 3.x compliance as
-the contract itself: request/response bodies are named components
-referenced by `$ref`, never inlined; API-key auth is a
-`securitySchemes` entry applied per-operation; every operation
-carries realistic examples; every 2xx/4xx/5xx response shape is
-documented, with the rejection/error shape itself a reusable
-component; polymorphic payloads project as `oneOf` plus
-`discriminator`; the exported spec is validated against the OpenAPI
-3.x schema in CI.
+with each domain separately). The decomposition into domain processors
+lives behind it on the command pipeline, so processors split, merge and
+scale without changing the external contract. Treat full OpenAPI 3.x
+compliance as the contract itself: request/response bodies are named
+components referenced by `$ref`, never inlined; API-key auth is a
+`securitySchemes` entry applied per-operation, an endpoint needing none
+opting out explicitly; every operation carries realistic examples,
+reusable `components/examples` where one shape recurs across endpoints;
+every 2xx/4xx/5xx response shape is documented, with the
+rejection/error shape itself a reusable component; polymorphic payloads
+project as `oneOf` plus `discriminator`; the exported spec is validated
+against the OpenAPI 3.x schema in CI, served at the API root in
+development and published as a static artefact for consumers.
 See [ADR-0013](../../../docs/adr/0013-single-unified-api.md),
 [ADR-0014](../../../docs/adr/0014-openapi-3x-compliance.md).
 
@@ -170,15 +197,18 @@ A transition function in `domain.clj` asserts its source state as
 the first `let-nom>` binding, before any capability or limit check,
 rejecting with a per-brick `:<entity>/invalid-status` kind and a
 payload carrying `:message`, the entity's id key, `:status`, and
-`:allowed`. An event handler's second leg gates on the loaded
+`:allowed`. An event handler's transition leg gates on the loaded
 record's current status matching the expected source and skips
-silently rather than rejecting — redelivery and replay must be a
-no-op, not a failure. `:<entity>/invalid-status` maps to HTTP 409 in
-`api`'s rejection→status table. Adding a new lifecycle state or
-transition works through a ten-point checklist: proto enum, Avro
-schema registered in both YAMLs, the `domain.clj` guard, `core.clj`
-orchestration, `commands.clj` dispatch, `interface.clj` fn, the
-`events.clj` leg if two-phase, the `api` route/OpenAPI/rejection
+silently rather than rejecting — delivery is at-least-once, a handler
+that throws leaves the checkpoint in place and the entry is redriven,
+so redelivery and replay must be a no-op, not a failure.
+`:<entity>/invalid-status` maps to HTTP 409 in `api`'s
+rejection→status table. No shared `utility` guard helper until three or
+more bricks have landed identical guard shapes. Adding a new lifecycle
+state or transition works through a ten-point checklist: proto enum,
+Avro schema registered in both YAMLs, the `domain.clj` guard,
+`core.clj` orchestration, `commands.clj` dispatch, `interface.clj` fn,
+the `events.clj` leg if two-phase, the `api` route/OpenAPI/rejection
 mapping, the event channel and consumer wiring, and tests.
 See [lifecycle-transitions](../../../docs/recipes/code/lifecycle-transitions.md),
 [ADR-0021](../../../docs/adr/0021-changelog-relay.md).
@@ -187,14 +217,22 @@ See [lifecycle-transitions](../../../docs/recipes/code/lifecycle-transitions.md)
 
 System-level correctness is proven by model-equality property
 testing: a pure-functional reimplementation of the bank's domain
-rules (the model) imports nothing from production — no FDB, Pulsar,
-protobuf, Malli, nom, or real IDs — and runs in parallel with the
-real system against fugato-generated command sequences. Projection
-functions reduce real-system state to the model's shape; the
-property is equality between the model's end-state and the projected
-real-system end-state, and fugato shrinks any divergence to a
-minimal reproducer. Hand-authored EDN scenarios share the same
-runner and projections.
+rules (the model) imports nothing from production — no FDB, message
+bus, protobuf, Malli, nom or real IDs, not even `policy`, whose rules
+it re-implements itself — and runs in parallel with the real system
+against command sequences fugato generates from a model spec
+(`{:run? :args :next-state :valid? :freq}`). Projection functions
+reduce real-system state to the model's shape; the property is equality
+between the model's end-state and the projected real-system end-state,
+and fugato shrinks any divergence to a minimal reproducer.
+Hand-authored EDN scenarios share the same runner and projections, for
+cases locked down explicitly. Three test-only components carry it, in
+`project:dev` and in no deployable project: `test-model` (the model),
+`test-projections` (projections built on production component
+interfaces only) and `test-scenarios` (command dispatch, ID side-table,
+quiescence wait, divergence debugging). The dependency arrow points
+test → production, never the reverse — Polylith fails the build when a
+production component imports from `test-*`.
 See [ADR-0009](../../../docs/adr/0009-model-equality-property-testing.md).
 
 ## Bank-specific code generation follows the shared prep-lib pattern

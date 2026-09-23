@@ -4,7 +4,8 @@ name: Prune GHCR Untagged
 # the service images and the chart. A release that fails part way and
 # is picked up again pushes the same version's tags a second time; the
 # digests behind the first push become untagged but still occupy
-# storage. Without periodic pruning they accumulate indefinitely.
+# storage. The Release workflow calls this once it has published, so
+# they go with the release that orphaned them, and nothing else runs it.
 #
 # Three things this has to get right, and the first two have bitten:
 #
@@ -28,18 +29,7 @@ name: Prune GHCR Untagged
 #    whenever one is acceptable, so image pruning is unchanged.
 
 on:
-  # Sunday 03:30 UTC, off-peak for GHCR.
-  schedule:
-    - cron: '30 3 * * 0'
-  workflow_dispatch:
-
-# Manual + scheduled runs queue rather than overlap.
-concurrency:
-  group: prune-ghcr
-  cancel-in-progress: false
-
-permissions:
-  packages: write       # delete untagged versions on GHCR
+  workflow_call:
 
 jobs:
   prune:
@@ -69,8 +59,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OWNER: ${{ github.repository_owner }}
           PKG: ${{ matrix.package }}
-          # The newest few untagged digests are kept as a margin.
-          KEEP: '5'
         run: |
           set -euo pipefail
 
@@ -97,13 +85,11 @@ jobs:
 
           echo "$PKG: $(grep -c . <<<"$keep" || true) digest(s) referenced by a tag"
 
-          ids=$(jq -r --arg keep "$keep" --argjson n "$KEEP" '
+          ids=$(jq -r --arg keep "$keep" '
                   ($keep | split("\n") | map(select(length > 0))) as $k
                   | [ .[]
                       | select(.metadata.container.tags == [])
                       | select(.name as $d | ($k | index($d)) | not) ]
-                  | sort_by(.created_at) | reverse
-                  | .[$n:]
                   | .[].id' <<<"$versions")
 
           n=$(grep -c . <<<"$ids" || true)

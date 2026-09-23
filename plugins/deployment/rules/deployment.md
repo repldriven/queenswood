@@ -47,12 +47,13 @@ cancelled Tests run or a failed release is picked up by the next green
 push. Pin an instance to a release with `targetRevision:
 v<version>` on both of its unit's Applications; the chart's images
 default to its `appVersion`, so a unit names no image tag, and never
-pull `latest`, which no image carries. Never release from a workflow
-button or by pushing a tag by hand: the tag is what the workflow writes
-once it has published. Never deploy GitHub Pages from anything but a
-release tag — the site is a release's docs, and the `github-pages`
-environment admits only `v*` tags.
-Commands: `just release`, `just kind-up-remote`.
+pull `latest`, which no image carries — a tag is a released version, or
+the local loop's `dev`. Never release from a workflow button or by
+pushing a tag by hand: the tag is what the workflow writes once it has
+published, and a tag that exists is what stops a rerun releasing twice.
+Never deploy GitHub Pages from anything but a release tag — the site is
+a release's docs, and a deployment from `main` is one no release names.
+Commands: `just release`.
 See [deployment](../../../docs/recipes/infra/deployment.md).
 
 ## A folder is an installation, and its foundations are not deleted
@@ -109,7 +110,8 @@ See [ADR-0022](../../../docs/adr/0022-cloud-foundation-and-environment-lifecycle
 
 Build the plane before expecting a merge to install anything: a control plane
 running another toolchain cannot apply this kind. Read what you can reach
-before choosing between creating a folder and adopting one. Grant the seed
+before choosing between creating a folder and adopting one. Join a
+break-glass group for the step that names it and leave again. Grant the seed
 identity its rights on the folder or the parent, never a key; impersonate it
 rather than holding a credential, and revoke the impersonation once the
 throwaway plane is gone, since it outlives the plane, the terminal and the
@@ -122,19 +124,28 @@ reading it from git, and pivot the composite off a throwaway plane before
 discarding that plane. Never render a manifest over one that already exists:
 the management project id is minted per call, so the second render replaces
 the recorded id with one no project answers to, and the redirect truncates
-before the renderer runs. Close the seed identity once the bootstrap is done
-and reopen it for the next one: its organisation grants otherwise stand for
-ever, and the plane needs none of them. Never assume you can create a folder —
-ids are required, and one may be handed to you instead — and never delete a
-project as a side effect of an edit. Standing the installation up with no
-instance at all is valid, since an instance is its own composite applied
-afterwards, asking a platform team for the folder and the identity shortens
-the path without changing it, and another XRD and composition loaded onto the
-plane deploys something else the same way.
+before the renderer runs. Add `adopt` under `recovery` once that project
+exists, as the manifest already carries for the management project — it is
+what lets any later plane adopt it rather than try to create it. Add the
+platform identity as an Owner on the Search Console Domain property for the
+highest name the installation controls, since Cloud DNS refuses a zone create
+by an identity that does not own the name, and never compose the apex from
+the plane or from any installation: it is what a registrar points at, its
+nameservers change when it is recreated, and each fresh zone draws from a
+finite per-domain pool. Close the seed identity once the bootstrap is done
+and reopen it for the next one: its organisation grants, and the
+impersonation that reaches them, otherwise stand for ever, and the plane
+needs neither. Never assume you can create a folder — ids are required, and
+one may be handed to you instead — and never delete a project as a side
+effect of an edit. Standing the installation up with no instance at all is
+valid, since an instance is its own composite applied afterwards, asking a
+platform team for the folder and the identity shortens the path without
+changing it, and another XRD and composition loaded onto the plane deploys
+something else the same way.
 Commands: `just boot-cluster-up`, `just seed-impersonate`, `just
 seed-impersonate-revoke`, `just queenswood-installation-manifest`,
 `just boot-mgmt-apply`, `just gcp-org-enforce-constraints`, `just
-boot-cluster-down`, `just seed-close`.
+boot-cluster-down`, `just plane-identity`, `just seed-close`.
 See [management-plane-install](../../../docs/recipes/infra/management-plane-install.md).
 
 ## The identity that builds installations is opened and closed
@@ -161,39 +172,26 @@ seed-grant-org-roles`, `just seed-close`, `just seed-open`, `just
 seed-impersonate`.
 See [organisation-bootstrap](../../../docs/recipes/infra/organisation-bootstrap.md).
 
-## An installation is one file, and changing it is a merge
+## An installation is a directory of rendered files, and changing it is a merge
 
-Change what exists by editing the manifest and merging it, never by
-acting on GCP, and apply from merged state only, since a
-`pull_request` trigger gets no cloud identity and a fork's would
-otherwise run as the platform identity. Push the manifest before a
-plane takes over reading it from git, and give Argo the credential for
-the manifests repository before expecting any later merge to reach the
-plane at all.
-Supply `management.projectId` always — the folder is `XSubsidiary`'s
-rather than this manifest's — give `metadata.name` and
-`spec.code` the same string — nothing enforces it and the tooling
-assumes it — and state `region`, `regionCode`, `zone` and anything else
-immutable rather than leaving it to a default that may move. Render the
-installation's environment and merge it before the first instance is
-composed, keep the manifests repository private, and read `status` back
-rather than committing it. Never commit anything secret beside the
-manifest, never
-name a principal in `access` that does not exist — IAM rejects the
-binding, not the manifest — never create a key for an identity the
-installation composes, never leave a new XRD field required when the
-manifest that sets it lives in another repository, never retype a
-verification token into the manifest, since the block is rendered from
-what the domain answers and a token that exists only in the file proves
-nothing, and never delete and recreate the public zone, whose
-nameservers change with it while the registrar does not follow.
-`management.source` may point at upstream, a fork, or a mirror that vendors
-the layout, with `targetRevision` pinned
-to a tag; an empty `access` mapping installs and capabilities may be
-added later, which on a first installation is the only order available;
-an existing recovery project may be adopted by passing its id; and one
-manifest per folder allows
-more than one installation.
+An installation is a directory in the private manifests repository:
+`installation.yml`, `environment.yml`, `subsidiary.yml`, `local.yml`, and a zone
+and a unit per environment, each rendered from its template under
+`infra/platform/templates/` by the recipe that names it, so what it will say is
+readable before it is run. Change what the installation is by editing one of
+those files and merging it, never by acting on GCP: once the plane has pivoted
+onto its cluster it reconciles the installation from the repository, and the
+folder id is a manifest value rather than a shell one. Read the folder id, the
+management project and the platform identity back from `status` rather than
+committing them, and give Argo the credential for the private repository before
+expecting any later merge to reach the plane at all. `management.source` may
+point at upstream, a fork or a mirror, with `targetRevision` pinned to a release
+tag — the renderer pins the newest `v*` tag, and `QW_SOURCE_REVISION` overrides
+it.
+Commands: `just boot-cluster-up`, `just seed-impersonate`, `just
+seed-impersonate-revoke`, `just queenswood-installation-manifest`,
+`just boot-mgmt-apply`, `just gcp-org-enforce-constraints`, `just
+boot-cluster-down`, `just plane-identity`, `just seed-close`.
 See [management-plane-install](../../../docs/recipes/infra/management-plane-install.md).
 
 ## An instance is a unit, and its secrets are written while it builds
@@ -219,11 +217,14 @@ reconcile before writing any secret version: the installation's `secretsAdmin`
 binds on the management project, writes nothing here, and the denial is
 reported as a container that does not exist. Let an instance take its region
 from the installation's `environment.yml`, since setting `region`,
-`regionCode` or `zone` on the instance overrides it for that one alone. State
-`ingress.domain` distinct from every other instance's, naming the
-installation's zone in `zone.name` and `zone.project`, and never share a
-domain between two instances — both compose a record for the one name and each
-reconciles it to its own address. Merge the composite and the Applications
+`regionCode` or `zone` on the instance overrides it for that one alone.
+Compose this environment's zone with `just queenswood-zone-manifest` and get
+it delegated before deploying the instance; state `ingress.domain` distinct
+from every other instance's, with `zone.name` and `zone.project` naming that
+zone rather than a shared one, and never share a domain between two
+instances — both compose a record for the one name and each reconciles it to
+its own address. Never reuse or rename a project id: neither is possible, and
+the second rebuilds the resource. Merge the composite and the Applications
 separately, the composite first: Keycloak honours a bootstrap admin only while
 the master realm is absent, and nothing automatic holds that gap open, where a
 folder with no Applications in it does. Create the OAuth client in the
@@ -240,8 +241,8 @@ are immutable or nearly so and a default that moves under a live instance is
 refused rather than applied. An instance may be taken down once it is up, and
 one stood up with no `ingress` answers on no name at all.
 Commands: `just queenswood-instance-manifest`, `just
-queenswood-instance-keycloak-admin`, `just
-queenswood-instance-google-secret`, `just
+queenswood-zone-manifest`, `just queenswood-instance-keycloak-admin`,
+`just queenswood-instance-google-secret`, `just
 queenswood-recovery-backup-key`, `just crossplane-unready`, `just
 argo-apps-status`, `just queenswood-instance-ctx`.
 See [instance-deploy](../../../docs/recipes/infra/instance-deploy.md).
@@ -256,18 +257,28 @@ folder-scoped half of `access`; leave the management project, the
 cluster, the identities and the project- and service-account-scoped
 bindings with `XManagementPlane`, which composes no folder and finds
 the one it sits in by naming `fldr-<code>` from its own `spec.code`.
-Only `platformViewer` and `clusterAdmin` bind on a folder.
+The subsidiary publishes `status.folderId` and nothing else, and only
+`platformViewer` and `clusterAdmin` bind on a folder.
 
 Make the XR the handover in either direction: composed where the folder
 is ours, and adopted with `folderId` where an organisation hands one
-over. State `parent` and `displayName` in both modes, since the
-provider holds `Update` and either left to a default is one it would
-write onto a folder somebody else owns, and never omit `folderId` when
-adopting — GCP permits two folders with one display name under a
-parent, so a second is composed and everything reports healthy. Prove
-an adoption by counting folders under the parent rather than by reading
-the composite. Where an organisation runs no Crossplane, nothing
-instantiates the kind and the XRD is the contract a folder must meet.
+over, both leaving the same object so the recipe after it is
+unconditional. State which, and which folder, in the installation's
+`EnvironmentConfig` rather than in the manifest, so a handover edits one
+file and the manifest carries the code alone. An adopted folder is not
+managed, rather than not named: the provider holds `Update` and either
+of `parent` and `displayName` left to a default is one it would write
+onto a folder somebody else owns, so the composite reads both back and
+asserts neither, `folderId` suppressing them where it is set —
+precedence rather than prohibition, since a rejected `EnvironmentConfig`
+would stop the plane and every instance. Give an adopted folder
+`Observe` and `LateInitialize` only, never merely `Update` withheld: the
+provider marks `displayName` required whenever the resource is managed
+at all, so a folder we decline to name cannot carry `Create` either, and
+an external name means `Create` would never fire. Prove an adoption by
+counting folders under the parent rather than by reading the composite.
+Where an organisation runs no Crossplane, nothing instantiates the kind
+and the XRD is the contract a folder must meet.
 
 Compose the bindings and take the principals as input; creating a group
 stays a directory act, because Groups Admin is not scopable to a name
@@ -425,8 +436,9 @@ composition owns what it patches and the field goes with the patch.
 Change a composition-owned field in the Composition and merge it —
 nothing pins a revision, so every live composite takes the edit on its
 next reconcile, and a `kubectl patch` of such a field reverts. A
-rendered diff is proof of what a composition produces, never of what
-applying it does to what already exists.
+rendered diff is proof neither of what applying it does to what already
+exists nor that it applies at all — a render does not run the CRD's
+validation rules.
 Commands: `just crossplane-unready`, `just crossplane-conditions`,
 `just crossplane-owners`.
 See [crossplane-debug](../../../docs/recipes/infra/crossplane-debug.md).
@@ -438,11 +450,13 @@ what happens to a field, and identity is visible nowhere, so it is
 settled when the kind is designed rather than looked up here. Read
 `LastAsyncOperation` on the managed resource before treating a
 change as applied, since a refusal reports there while the composite
-above goes on reading `Synced`. Never expect a merged value to reach a
-field that identifies its resource: upjet refuses the replacement
-rather than performing it, so the value moves only by destroying and
-rebuilding the cloud resource — granting `Delete` for the duration
-where the policy withholds it, since nothing else moves it.
+above goes on reading `Synced`. Prove a write-only field against the
+cloud, never against `Synced`: the provider cannot read one back, so it
+reports no drift whether the value took or not. Never expect a merged
+value to reach a field that identifies its resource: upjet refuses the
+replacement rather than performing it, so the value moves only by
+destroying and rebuilding the cloud resource — granting `Delete` for the
+duration where the policy withholds it, since nothing else moves it.
 
 Withhold `Delete` before moving a resource to another composite, in a
 change of its own that reaches the plane first — the transfer deletes
@@ -483,7 +497,10 @@ compose from it rather than committing a literal read out by hand.
 
 Never expect a ForceNew change to replace a resource: it is refused,
 the refusal is in `LastAsyncOperation`, and diagnosing from `Synced`
-alone misreads it. Never treat a list-shaped field as extensible
+alone misreads it. Never believe a changed reference applied because
+every condition is green — where the field is part of the external name
+there is no refusal at all, so compare `crossplane.io/external-name`
+against the spec. Never treat a list-shaped field as extensible
 without checking — a `Certificate`'s `managed.domains` is identity, so
 a second domain is refused rather than appended. Create a service account a
 provider shares, or that a binding names, outside the package manager
@@ -497,10 +514,11 @@ See [crossplane-providers](../../../docs/recipes/infra/crossplane-providers.md).
 
 ## Do it in order, and each recipe leaves what the next reads
 
-Do these in order. Start at step 2 where the organisation is already
-established, stop after step 4 — an installation with no instance on
-it — and run step 1 once for an organisation, with steps 2 to 5 once
-per installation.
+Do these in order. Start at step 3 where the organisation is established
+and its apex already delegates a name to you, stop after step 5 — an
+installation with no instance on it — and skip step 7 where nobody signs
+in to a local monolith with Google; run steps 1 and 2 once for an
+organisation, and steps 3 to 6 once per installation.
 See [up-and-running](../../../docs/recipes/infra/up-and-running.md).
 
 ## A foundation produces capabilities, not groups
@@ -527,7 +545,8 @@ existing one reused rather than created, and revoke the super admin's local
 credentials and its direct organisation binding together once the group
 carries the role — either one left standing still reaches super admin. Never
 leave anybody standing in a break-glass group — `grp-gcp-org-admin@`,
-`grp-gcp-folder-admin@`, `grp-gcp-billing-admin@`, `grp-gcp-dns-admin@`,
+`grp-gcp-folder-admin@`, `grp-gcp-billing-admin@`,
+`grp-gcp-project-admin@`, `grp-gcp-dns-admin@`,
 `grp-gcp-<code>-platform-admin@`, `grp-gcp-<code>-cluster-admin@`,
 `grp-gcp-<code>-secrets-admin@`.
 
@@ -550,7 +569,9 @@ which nobody can reach, and a capability may be answered by a user or a
 `principalSet://` rather than a group. State the region in the contract too,
 as `region`, `regionCode` and `zone`: the plane and every instance read them,
 nothing defaults them, and a manifest that restates one is a second place for
-it to be wrong. Declare an
+it to be wrong. State the domain there too, as `dns.domain`, and only the
+name delegated to this installation: an environment's own name is derived
+from it, so a unit restates neither. Declare an
 organisation-scoped role in `infra/access/organisation-roles.json`, never in
 the recipe that binds it, and read what a capability grants and why with `just
 gcp-roles` — everything folder or project scoped is in the compositions under
@@ -677,10 +698,14 @@ the dev profile read them, and restart the monolith after storing either:
 the container imports a fresh realm at every start, substituting
 `${QW_LOCAL_GOOGLE_CLIENT_ID:...}`, and nothing reaches a running one. Never
 commit a client id to this repository, since the realm's placeholder is what
-tests sign in against, and never copy the secret into Secret Manager as
-well, where nothing local reads it.
-Commands: `just queenswood-local-manifest`, `just crossplane-conditions`,
-`just monolith-start`.
+tests and `just keycloak-up` sign in against, and never copy the secret into
+Secret Manager as well, where nothing local reads it and a second copy of a
+credential you can regenerate is one more to rotate. Skip rendering and
+adopting the project where the installation's local project exists, and use
+`just keycloak-up` for username and password sign-in alone: it mounts no
+vault, so it does not sign in with Google.
+Commands: `just queenswood-local-manifest`, `just monolith-start`,
+`just keycloak-up`.
 See [local-install](../../../docs/recipes/infra/local-install.md).
 
 ## An instance sends from its own domain, and its password is written first
@@ -753,8 +778,8 @@ of it where an organisation hands over a folder and a subdomain --
 their apex is theirs, and an installation reads the same either way --
 and point the apex at a front door rather than at an environment's
 address once one exists, since it is the same record.
-Commands: `just dns-apex-project-create`, `just
-dns-apex-zone-create`, `just dns-apex-diff`, `just dns-apex-apply`.
+Commands: `just dns-apex-project-create`, `just dns-apex-zone-create`,
+`just dns-apex-apply`, `just dns-apex-diff`.
 See [apex-install](../../../docs/recipes/infra/apex-install.md) and
 [ADR-0028](../../../docs/adr/0028-the-apex-belongs-to-no-installation.md).
 
@@ -762,8 +787,10 @@ See [apex-install](../../../docs/recipes/infra/apex-install.md) and
 
 Verify the domain before a public zone is created, as the operator
 account in its own right, adding it as a Domain property rather than a
-URL prefix and adding the automation identity as an Owner — Full and
-Restricted confer no ownership. Never read an existing
+URL prefix and adding the automation identity as an Owner, once per
+installation — Full and Restricted confer no ownership, and a Domain
+property covers every name below it, so one grant covers every zone
+that installation composes. Never read an existing
 `google-site-verification` record as evidence your account owns the
 domain, or an absent Search Console property as evidence it is
 unverified, and never tidy away an unattributed token or regenerate one
@@ -774,7 +801,9 @@ leave the installation's identities delegated from a personal account.
 
 Inventory every record type at the registrar before moving a domain,
 the underscore-prefixed names included, and carry the verification
-tokens, SPF and DMARC into the new zone before the delegation moves.
+tokens, SPF and DMARC into the new zone before the delegation moves,
+reading the full sweep against that list, since the narrowing is right
+only for a domain serving nothing else.
 Check for a DS record before delegating; where one exists, unsign at
 the registrar and wait out the DS TTL first, watching the parent
 registry rather than the zone, and take several spaced probes across
@@ -794,17 +823,20 @@ See [gcp-dns](../../../docs/recipes/infra/gcp-dns.md).
 Diff the same sweep from each authority before delegating, aiming it at
 the new zone's nameservers and at the registrar's in turn: a public
 resolver still answers from the old authority and can say nothing about
-the new one. Query the registry's authority section to check the
-delegation itself, since a referral carries the NS records there rather
-than in the answer, and a short query looks empty and reads as failure.
-Confirm the verification TXT resolves from the new authority
-afterwards. Never change the delegation before the new zone answers, or
-while a DS record still names the old nameservers' keys, never replace
-only some of the registrar's nameservers, never delete the old records
-there — they are the way back — and never re-enable DNSSEC at the
-registrar afterwards. Set a CAA record naming the issuing CA. Done in
-this order the propagation window is a no-op, since both authorities
-answer the same and no resolver holding either one is wrong.
+the new one. Check every name below the apex separately: the sweep does
+not reach them, so one that exists only in the old zone passes the diff
+and stops resolving after the move. Query the registry's authority
+section to check the delegation itself, since a referral carries the NS
+records there rather than in the answer, and a short query looks empty
+and reads as failure. Confirm the verification TXT resolves from the new
+authority afterwards. Never change the delegation before the new zone
+answers, or while a DS record still names the old nameservers' keys,
+never replace only some of the registrar's nameservers, never delete
+the old records there — they are the way back — and never re-enable
+DNSSEC at the registrar afterwards. Set a CAA record at the apex naming
+every CA that must issue, where it covers delegated child zones too.
+Done in this order the propagation window is a no-op, since both
+authorities answer the same and no resolver holding either one is wrong.
 Commands: `just dns-records`.
 See [gcp-dns-delegation](../../../docs/recipes/infra/gcp-dns-delegation.md).
 
@@ -939,7 +971,7 @@ assuming and recording the answer. Never rename a project id, a folder
 or a bucket in place: none supports it, the id is consumed and the
 resource is rebuilt. Never put a realised suffix anywhere public — a
 pull request's title or body, an issue, a comment, a review — and write
-`xxxxxx` instead: `scripts/hooks/check-cloud-ids.sh` covers the tree
+`xxxxxx` instead: `scripts/hooks/check-system-ids.sh` covers the tree
 and the commit message from a hook and everything written outside git
 from a workflow, and can hold a merge on a pull request, but on a
 comment it is detection only, since the text is public the moment it is
@@ -1010,8 +1042,8 @@ more permissive than this, so that it does not cry wolf, and it reports
 afterwards. A public resolver or nameserver, and loopback, may be
 named: they identify nobody, and a delegation cannot be documented
 without them. Where a real value genuinely belongs, mark the line
-`cloud-id-ok`, which makes it deliberate rather than missed.
-See [cloud-identifiers](../../../docs/recipes/practices/cloud-identifiers.md).
+`system-id-ok`, which makes it deliberate rather than missed.
+See [system-identifiers](../../../docs/recipes/practices/system-identifiers.md).
 
 ## A plane builds its successor and swaps onto it
 
@@ -1038,8 +1070,10 @@ rather than from its Kubernetes name.
 
 Record the slot list and the external names before and diff them after,
 writing both outside every repository since they are the estate's own
-identifiers, compare the two planes field by field with `just
-crossplane-drift` -- a field only the creating plane sets is one
+identifiers, merge an `adopt` for every project in the estate before
+swapping -- one whose manifest lacks it cannot be adopted by any plane
+that did not create it -- compare the two planes field by field with
+`just crossplane-drift` -- a field only the creating plane sets is one
 late-initialisation filled there, which an adopting plane has no way to
 learn and only the composition can supply -- and prove the instances
 adopted as well as the plane before swapping, counting a `down`
@@ -1049,59 +1083,72 @@ else reports whether it happened. Never run a command against the
 successor without checking `$NEXT` is set, since an unset one is the
 current context -- the plane in charge -- and the command succeeds there
 rather than failing. Scale the old plane's Crossplane core down before
-its provider pods, and only once the successor holds the estate; never
-delete the old composite to stop it, since its access bindings carry
-`Delete`, including the one its Crossplane authenticates with. Keep the
-cluster it replaced until the successor is trusted -- while it stands,
-scaling it up and reverting the merge is the way back -- and never run
-`just plane-ctx` before the swap, which renames whatever it fetches to
-`MGMT_CTX`. No boot plane and no seed identity: everything a second
-cluster in the management project needs, the platform identity already
-holds inside the folder. Where no plane is running at all this is not
-the procedure, since nothing is left to build a successor -- install
-one, which adopts what survived.
-Commands: `just crossplane-slots`, `just crossplane-external-names`,
-`just crossplane-unready`, `just argo-apps-status`, `just plane-ctx`.
+its provider pods -- the core puts a provider back -- and only once the
+successor holds the estate; never delete the old composite to stop it,
+since its access bindings carry `Delete`, including the one its
+Crossplane authenticates with. Keep the cluster it replaced until the
+successor is trusted -- while it stands, scaling it up and reverting
+the merge is the way back -- and never run `just plane-ctx` before the
+swap, which renames whatever it fetches to `MGMT_CTX`. Never use this
+on an instance's cluster, which has a live plane above it and data
+under it, and never as a way to retire an installation, which takes the
+recovery project and the backups with it. No boot plane and no seed
+identity: everything a second cluster in the management project needs,
+the platform identity already holds inside the folder. Where no plane
+is running at all this is not the procedure, since nothing is left to
+build a successor -- install one, which adopts what survived.
+Commands: `just crossplane-drift`, `just plane-ctx`, `just
+crossplane-slots`, `just crossplane-external-names`, `just
+crossplane-unready`, `just argo-apps-status`, `just check-versions`.
 See [plane-rebuild-cluster](../../../docs/recipes/infra/plane-rebuild-cluster.md).
 
 ## A restore is proven by a key count, and a destructive state is self-limiting
 
-Establish that data is actually lost or wrong before restoring:
-scale-to-zero preserves the volumes, so `down` and `up` is not a
-recovery scenario and needs no restore point. Name a generation with
-every version and record the generation with it — a version alone
-cannot say which container to read — and open a new generation after
-recovering: `fdb.restore.backupName` is the source,
-`fdb.backup.backupName` the destination, and after a recovery they
-differ, so point the destination at a new generation before a rebuilt
-cluster starts writing. Quiesce writes before taking a restore point
-for a planned cluster rebuild, take it with `sop-fdb-version-at` rather
-than modelling one, and delete promptly afterwards, so the point is
-still current when the volumes go. Never use restore-to-latest where
-the moment is known, and never set a `version` with no `backupName` —
-the render refuses it, and the refusal is the feature. Read RPO off the
-restorable window rather than off `snapshotPeriodSeconds`. Recover
-Keycloak alongside FoundationDB, preserving user ids. Prove a restore
-with `fdbrestore status` and a key count — never with the Job's exit
-status, which against a populated destination succeeds by doing
-nothing, never with the `FoundationDBRestore` resource, and never with
-a bucket listing, which a wrong encryption key produces exactly like a
-right one. Restore onto systems segregated from the source anywhere
-other than a test environment: the damaged data is the only record of
-what happened, and restoring over it commits before anything is
-verified. Test the recovery procedure on a schedule and record what it
-proved — a backup is not verified until it has been restored. Down and
-rebuild are different kinds of state and must not share a word: never
-give whatever empties a destination a name sharing a word with `down`,
-or let it stay true across reconciles, never treat a cluster rebuild as
-reversible, and never use it for an instance or installation rebuild,
-since both take the database or the backups with them. Never let a
-lifecycle rule delete inside FDB's prefixes — `fdbbackup expire` is the
-only thing that may delete. A ForceNew field does not apply itself: the
-composite reports `Synced` while nothing happens, so read
-`LastAsyncOperation`. `fdb.restore` may stay set indefinitely after a
-recovery, being a target rather than a mode, and a test environment may
-restore in place.
+Establish that data is actually lost or wrong before restoring: scale-to-zero
+preserves the volumes, so `down` and `up` is not a recovery scenario and needs
+no restore point. Name a generation with every version and record the generation
+with it — a version alone cannot say which container to read — and open a new
+generation after recovering: `fdb.restore.backupName` is the source,
+`fdb.backup.backupName` the destination, and after a recovery they differ, so
+point the destination at a new generation before a rebuilt cluster starts
+writing. Quiesce writes before taking a restore point for a planned cluster
+rebuild, take it with `sop-fdb-version-at` rather than modelling one, and delete
+promptly afterwards, so the point is still current when the volumes go. Never
+use restore-to-latest where the moment is known, and never set a `version` with
+no `backupName` — the render refuses it, and the refusal is the feature. Read
+RPO off the restorable window rather than off `snapshotPeriodSeconds`. Recover
+Keycloak alongside FoundationDB, preserving user ids. Annotate a hand-applied
+chart resource back into its release rather than deleting it — deleting a
+`FoundationDBBackup` stops the backup and tears down its agents. Prove a restore
+with `fdbrestore status` and a key count — never with the Job's exit status,
+which against a populated destination succeeds by doing nothing, never with the
+`FoundationDBRestore` resource, and never with a bucket listing, which a wrong
+encryption key produces exactly like a right one. Restore onto systems
+segregated from the source anywhere other than a test environment: the damaged
+data is the only record of what happened, and restoring over it commits before
+anything is verified. Restoring in place — emptying the data and letting the
+restore fill it, which needs `clusterAdmin` — is right only where the current
+data is worthless, a test environment or a rebuild after total loss; for
+corruption, restoring beside it and cutting over is the shape to build toward.
+Test the recovery procedure on a schedule and record what it proved — a backup
+is not verified until it has been restored. Down and rebuild are different kinds
+of state and must not share a word: `down` preserves what it stops and is
+reversible, a rebuild destroys what it replaces and is not. Never give whatever
+empties a destination a name sharing a word with `down`, or let it stay true
+across reconciles — the restore Job embeds its version in its own name, so
+re-applying the same value resolves to a Job that has already completed, and
+anything that empties data needs that property or something as strong. Never
+treat a cluster rebuild as reversible, and never use it for an instance or
+installation rebuild, since both take the database or the backups with them.
+State retention as one number of days, deriving the expire cutoff and the
+restorable floor both from it, so where the two disagree at the boundary expire
+refuses and deletes nothing. Never let a lifecycle rule delete inside FDB's
+prefixes — `fdbbackup expire` is the only thing that may delete. States belong
+to parts, not only to instances: recovering data must not require declaring the
+whole environment off. A ForceNew field does not apply itself: the composite
+reports `Synced` while nothing happens, so read `LastAsyncOperation`.
+`fdb.restore` may stay set indefinitely after a recovery, being a target rather
+than a mode, and a test environment may restore in place.
 Commands: `just sop-fdb-list-backups`, `just sop-fdb-version-at`, `just
 sop-fdb-describe`, `just crossplane-unready`.
 See [fdb-recovery](../../../docs/recipes/infra/fdb-recovery.md),

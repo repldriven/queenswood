@@ -113,11 +113,11 @@ The rules that follow from that split:
    which only that domain can render, so it reads across domains
    through each catalogued domain's `*-query` brick.
 
-Rule 6 is ADR-0008's brick-boundary rule, carried over with the one
-exception stated in it, and is the reason this is a change of transport
-rather than of architecture.
-What changed is that the hop between "X committed" and "Y reacts" is
-now a broker rather than a function call in the same JVM.
+   This is ADR-0008's brick-boundary rule, carried over with the one
+   exception stated in it, and is the reason this is a change of
+   transport rather than of architecture. What changed is that the hop
+   between "X committed" and "Y reacts" is now a broker rather than a
+   function call in the same JVM.
 
 ## Consequences
 
