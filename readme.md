@@ -61,9 +61,6 @@ accounts.
 - **Open source.** The code is yours to read, run and change under the MIT
   licence, on infrastructure you choose. There's no licence fee, and no vendor
   deciding your roadmap or moving the product from under you.
-- **Configurable products.** Change a rate, add a welcome reward or launch a
-  new product line, and move existing customers to the new terms only when you
-  plan and approve it, with no need to ship code.
 - **Configurable policies.** Policies are records checked on every request,
   and your bank's tier sets the capabilities and limits it works within, so
   changing either ships no code.
@@ -73,21 +70,33 @@ accounts.
 - **Pluggable providers.** Clearing and identity verification each connect
   through an adapter, and a simulator stands in for each provider, so you can
   build and test before a contract is signed.
-- **Customer onboarding.** Every new customer is identity-checked as they sign
-  up, and can't open an account until the check clears.
-- **Payments and books that balance.** Customers pay and are paid by UK
-  Faster Payments in seconds, with Confirmation of Payee first. Every
-  movement is recorded as matching debits and credits, so the books always
-  balance.
-- **Real-time notifications.** Your systems are told as things happen, such
-  as an account opening, money arriving or a payment settling.
+- **Books that balance.** Every movement is recorded as matching debits and
+  credits, so the books always balance, down to fractions of a penny of
+  interest.
 - **Audit trail.** Everyone on your team signs in as themselves with a
   role, and a log records who did what.
-- **Documentation.** Every capability has a
-  [requirements document](docs/prd/) saying what it's for and who uses it, in
-  product language. All technical documentation says what's done and what's not.
+- **Documentation.** Every decision, design and procedure is written down, and
+  all of it says what's done and what's not.
 - **Test suite.** Generated tests check its answers against a model of how
   a bank should behave, and scenarios drive the live API end to end.
+
+## For product managers
+
+- **Configurable products.** Change a rate, add a welcome reward or launch a
+  new product line, and move existing customers to the new terms only when you
+  plan and approve it, with no need to ship code.
+- **Interest and rewards.** Accounts earn interest daily on their settled
+  balance, paid in on a schedule you set, and a product can pay a welcome
+  reward once for opening an account.
+- **Customer onboarding.** Every new customer is identity-checked as they sign
+  up, and can't open an account until the check clears.
+- **Payments.** Customers pay and are paid by UK Faster Payments in seconds,
+  with Confirmation of Payee first.
+- **Real-time notifications.** Your systems are told as things happen, such
+  as an account opening, money arriving or a payment settling.
+- **Product requirements.** Every capability has a
+  [requirements document](docs/prd/) saying what it's for and who uses it, in
+  product language.
 
 ## For application engineers
 
