@@ -58,7 +58,7 @@ port-forward).
 {{- end }}
 
 Then open:
-  http://localhost:8080/scalar       (bank-api OpenAPI)
+  http://localhost:8080              (bank-api OpenAPI)
 {{- if .Values.console.enabled }}
 {{- if .Values.keycloak.dev.user.username }}
   http://localhost:8081              (console -- sign in as `{{ .Values.keycloak.dev.user.username }}`, the password values-local.yaml sets)

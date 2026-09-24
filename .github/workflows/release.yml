@@ -313,7 +313,7 @@ jobs:
              the user `values-local.yaml` adds. The Keycloak admin
              console rides the same proxy at
              <http://localhost:8081/keycloak/admin> with `admin` /
-             `admin`. OpenAPI docs at <http://localhost:8080/scalar>.
+             `admin`. OpenAPI docs at <http://localhost:8080/>.
 
           ## Tear down
 
