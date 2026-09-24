@@ -67,7 +67,7 @@
              {:title "ClearBank Simulator"
               :description
               "Simulates ClearBank payment APIs for testing"
-              :version "0.0.4"}
+              :version "0.0.5"}
              :components
              {:examples (merge cop.examples/registry
                                fps.examples/registry
