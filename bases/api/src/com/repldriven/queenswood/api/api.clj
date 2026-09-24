@@ -262,7 +262,7 @@
           "The endpoints a bank is notified at when its records change, and the deliveries made to them."}
          {:name "Simulate"
           :description
-          "A stand-in for an inbound transfer, crediting a bank's own funds as money arriving from outside."}]
+          "A stand-in for an inbound transfer, crediting a test bank's own funds as money arriving from outside."}]
         :components
         {:securitySchemes
          {"bearerAuth"

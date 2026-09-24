@@ -3,6 +3,10 @@
   (:require
     [com.repldriven.queenswood.api.errors :as errors]
 
+    [com.repldriven.queenswood.bank-query.interface :as banks]
+
+    [com.repldriven.mono.error.interface :as error]
+
     [clojure.string :as str]
     [sieppari.context :as sc]))
 
@@ -66,3 +70,27 @@
               (sc/terminate ctx
                             (errors/forbidden-response
                              "Name the bank in the Bank-Id header"))))})
+
+(def test-bank
+  "Refuses a request whose bank is not a test bank: 404 where the bank
+  does not exist, and 409 `:bank/invalid-status` where it is live. For
+  the sandbox routes, which move money no scheme sent. Sits after
+  `named-bank`, which resolves the bank it reads."
+  {:name ::test-bank
+   :enter (fn [ctx]
+            (let [{:keys [record-db record-store auth]} (:request ctx)
+                  bank (banks/get-bank {:record-db record-db
+                                        :record-store record-store}
+                                       (:bank-id auth))
+                  refusal (cond (error/anomaly? bank)
+                                bank
+
+                                (not= :bank-status-test (:status bank))
+                                (error/reject :bank/invalid-status
+                                              {:message
+                                               "Only a test bank can simulate"
+                                               :bank-id (:bank-id auth)
+                                               :status (:status bank)}))]
+              (if refusal
+                (sc/terminate ctx (errors/anomaly->response refusal))
+                ctx)))})

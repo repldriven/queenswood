@@ -12,7 +12,7 @@
              :auth :admin
              :headers {:idempotency-key "ik-race-bank-001"}
              :body {:name "Internal Race Test"
-                    :status "live"
+                    :status "test"
                     :tier "micro"
                     :currencies ["GBP"]}}
    :as :bank-0
@@ -20,7 +20,7 @@
   {:command :auth/mint-token
    :for {:client-id [:ref :bank-0 :client-id]
          :client-secret [:ref :bank-0 :client-secret]
-         :status :live}
+         :status :test}
    :as :bank-0-token}
   {:command :api/request
    :request {:method :post

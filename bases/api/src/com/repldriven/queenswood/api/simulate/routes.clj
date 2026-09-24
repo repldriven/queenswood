@@ -2,7 +2,7 @@
   (:require
     [com.repldriven.queenswood.api.simulate.examples :refer
      [BalanceNotFound InvalidAmount LedgerAccountClosed
-      MissingCurrencyAccount]]
+      MissingCurrencyAccount SimulateLiveBank]]
     [com.repldriven.queenswood.api.simulate.handlers :as handlers]
 
     [com.repldriven.queenswood.api.bank.examples :refer
@@ -19,23 +19,26 @@
 
 (def routes
   [["/simulate/inbound-transfer"
-    ;; Sandbox affordance: a bank tenant funds its own bank from the
-    ;; console, so the route drops to `org:developer` beside `admin`.
-    ;; `named-bank` refuses an operator who names no bank.
+    ;; Sandbox affordance: a bank tenant funds its own test bank from
+    ;; the console, so the route drops to `org:developer` beside `admin`.
+    ;; `named-bank` refuses an operator who names no bank, and
+    ;; `test-bank` a live one.
     {:openapi {:tags ["Simulate"]
                :security [{"bearerAuth" ["org:developer"]}
                           {"bearerAuth" ["admin"]}]}
-     :interceptors [shared.interceptors/named-bank]
+     :interceptors [shared.interceptors/named-bank
+                    shared.interceptors/test-bank]
      :post
-     {:summary "Simulate an inbound transfer into the bank's own funds"
+     {:summary "Simulate an inbound transfer into a test bank's own funds"
       :openapi {:operationId "SimulateInboundTransfer"
                 :description
-                (str "Credits the own-funds account of the bank the "
+                (str "Credits the own-funds account of the test bank the "
                      "`Bank-Id` header names, in the given currency, as "
                      "money arriving from outside, and returns the posted "
                      "transaction with the account it credited. An operator "
-                     "naming no bank is refused with 403. A currency the bank"
-                     " has no account in is refused with 409.")
+                     "naming no bank is refused with 403. A live bank is "
+                     "refused with 409, as is a currency the bank has no "
+                     "account in.")
                 :requestBody {:required true}
                 :parameters ^:replace
                             [shared.parameters/ref-bank-id-header
@@ -49,7 +52,8 @@
                         :body [:ref "SimulateInboundTransferResponse"]}
                    403 (ErrorExamples [#'BankUnnamed])
                    404 (ErrorResponse [#'BankNotFound #'BalanceNotFound])
-                   409 (ErrorResponse [#'MissingCurrencyAccount
+                   409 (ErrorResponse [#'SimulateLiveBank
+                                       #'MissingCurrencyAccount
                                        #'LedgerAccountClosed])
                    422 (ErrorResponse [#'InvalidAmount])})
       :handler handlers/inbound-transfer}}]])

@@ -7,7 +7,7 @@
              :auth :admin
              :headers {:idempotency-key "ik-reward-deferred-bank-001"}
              :body {:name "Reward Deferred Test Org"
-                    :status "live"
+                    :status "test"
                     :tier "test-scenario"
                     :currencies ["GBP"]}}
    :as :org-0
@@ -15,7 +15,7 @@
   {:command :auth/mint-token
    :for {:client-id [:ref :org-0 :client-id]
          :client-secret [:ref :org-0 :client-secret]
-         :status :live}
+         :status :test}
    :as :org-0-token}
   ;; A version that promises £10 to every account opened under it.
   {:command :api/request

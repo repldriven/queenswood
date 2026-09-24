@@ -53,6 +53,12 @@
                         " gl-account-code-cash-at-correspondent"
                         " ledger account in USD")}})
 
+(def SimulateLiveBank
+  {:value {:title "REJECTED"
+           :type ":bank/invalid-status"
+           :status 409
+           :detail "Only a test bank can simulate"}})
+
 (def LedgerAccountClosed
   {:value {:title "REJECTED"
            :type ":ledger-account/closed"
@@ -61,4 +67,4 @@
 
 (def registry
   (examples-registry [#'BalanceNotFound #'InvalidAmount #'MissingCurrencyAccount
-                      #'LedgerAccountClosed]))
+                      #'LedgerAccountClosed #'SimulateLiveBank]))

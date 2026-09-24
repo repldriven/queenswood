@@ -12,7 +12,7 @@
     :auth :admin
     :headers {:idempotency-key "ik-foreign-inbound-bank-a-001"}
     :body {:name "Tenant A Bank"
-           :status "live"
+           :status "test"
            :tier "micro"
            :currencies ["GBP"]}}
    :as :bank-a
@@ -24,7 +24,7 @@
     :auth :admin
     :headers {:idempotency-key "ik-foreign-inbound-bank-b-001"}
     :body {:name "Tenant B Bank"
-           :status "live"
+           :status "test"
            :tier "micro"
            :currencies ["GBP"]}}
    :as :bank-b
@@ -32,12 +32,12 @@
   {:command :auth/mint-token
    :for {:client-id [:ref :bank-a :client-id]
          :client-secret [:ref :bank-a :client-secret]
-         :status :live}
+         :status :test}
    :as :bank-a-token}
   {:command :auth/mint-token
    :for {:client-id [:ref :bank-b :client-id]
          :client-secret [:ref :bank-b :client-secret]
-         :status :live}
+         :status :test}
    :as :bank-b-token}
   ;; B's own-funds house account arrives with the bank and needs no
   ;; party. Its balances are read with B's own token because the

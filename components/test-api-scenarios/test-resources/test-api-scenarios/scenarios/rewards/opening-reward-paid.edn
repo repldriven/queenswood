@@ -7,7 +7,7 @@
              :auth :admin
              :headers {:idempotency-key "ik-reward-paid-bank-001"}
              :body {:name "Reward Paid Test Org"
-                    :status "live"
+                    :status "test"
                     :tier "test-scenario"
                     :currencies ["GBP"]}}
    :as :org-0
@@ -15,7 +15,7 @@
   {:command :auth/mint-token
    :for {:client-id [:ref :org-0 :client-id]
          :client-secret [:ref :org-0 :client-secret]
-         :status :live}
+         :status :test}
    :as :org-0-token}
   ;; Money from outside into the bank's own-funds house account, which
   ;; is what a reward is paid from.

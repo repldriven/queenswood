@@ -7,7 +7,7 @@
              :auth :admin
              :headers {:idempotency-key "ik-close-account-non-zero-bank-001"}
              :body {:name "Close Non-Zero Account Test Org"
-                    :status "live"
+                    :status "test"
                     :tier "micro"
                     :currencies ["GBP"]}}
    :as :org-0
@@ -15,7 +15,7 @@
   {:command :auth/mint-token
    :for {:client-id [:ref :org-0 :client-id]
          :client-secret [:ref :org-0 :client-secret]
-         :status :live}
+         :status :test}
    :as :org-0-token}
   ;; Active party
   {:command :api/request

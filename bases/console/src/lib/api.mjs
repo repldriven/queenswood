@@ -389,9 +389,9 @@ export function get_outbound_payment(payment_id) {
 // ─── Simulate (sandbox) ───
 //
 // Drives money onto the books the way the scheme would. The
-// inbound-transfer route is org-tier (a bank can fund its own bank);
-// accrue/capitalize remain admin-only, so the sandbox runs interest via
-// the bank-tier daily-interest job force-start instead.
+// inbound-transfer route is org-tier, so a bank can fund its own test
+// bank, and a live bank is refused. The sandbox runs interest by
+// force-starting the daily-interest job.
 
 export function list_rewards(account_id) {
   return request(`/v1/rewards?account-id=${encodeURIComponent(account_id)}`);
