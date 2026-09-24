@@ -31,7 +31,6 @@ interceptors: !system/component
     memberships: !system/ref memberships-dispatcher.dispatcher
     parties: !system/ref parties-dispatcher.dispatcher
     payments: !system/ref payments-dispatcher.dispatcher
-    interest: !system/ref interest-dispatcher.dispatcher
     transactions: !system/ref transactions-dispatcher.dispatcher
     payee-checks: !system/ref payee-checks.dispatcher
     companies: !system/ref companies-dispatcher.dispatcher

@@ -18,8 +18,12 @@
 
 (def Role (coercion/role-enum-schema {:json-schema/example "owner"}))
 
-(def User
-  [:map {:json-schema/example examples/User}
+(def Me
+  [:map
+   {:json-schema/example examples/Me
+    :description
+    "The signed-in person: their user record, and whether they are an
+    operator. Their memberships are at `/v1/me/memberships`."}
    [:user-id [:ref "UserId"]]
    [:issuer string?]
    [:sub string?]
@@ -28,28 +32,10 @@
    [:avatar-url {:optional true} string?]
    [:identity-provider [:ref "IdentityProvider"]]
    [:status [:ref "UserStatus"]]
+   [:operator boolean?]
    [:created-at [:ref "Timestamp"]]
    [:updated-at [:ref "Timestamp"]]])
-
-(def Membership
-  [:map {:json-schema/example examples/Membership}
-   [:membership-id [:ref "MembershipId"]]
-   [:user-id [:ref "UserId"]]
-   [:bank-id [:ref "BankId"]]
-   ;; Optional because the field is enriched by the handler from a
-   ;; sibling brick — a stripped-down read path (or a future caller)
-   ;; could legitimately omit it.
-   [:bank-name {:optional true} [:ref "Name"]]
-   [:role [:ref "Role"]]
-   [:created-at [:ref "Timestamp"]]
-   [:updated-at [:ref "Timestamp"]]])
-
-(def Me
-  [:map {:json-schema/example examples/Me}
-   [:user [:ref "User"]]
-   [:memberships [:vector [:ref "Membership"]]]
-   [:operator boolean?]])
 
 (def registry
   (components-registry [#'UserId #'MembershipId #'IdentityProvider #'UserStatus
-                        #'Role #'User #'Membership #'Me]))
+                        #'Role #'Me]))

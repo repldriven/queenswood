@@ -39,7 +39,7 @@
     `:audience` (string) is the `aud` claim stamped on tokens minted
     for the new client; `:company-binding` (map, optional) is the
     confirmed legal-entity snapshot to bind the bank to (onboarding) —
-    creation is rejected `:onboarding/company-not-active` unless its
+    creation is rejected `:bank/company-not-active` unless its
     `:company-status` is active; `:membership` (map, optional) is
     `{:user-id … :role …}` for the owner membership, and a user may own
     any number of banks; `:owner-invitation` (map, optional) is

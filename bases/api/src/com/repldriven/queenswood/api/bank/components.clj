@@ -10,11 +10,19 @@
   (coercion/bank-status-enum-schema {:json-schema/example "test"}))
 
 (def CreateBankRequest
-  [:map {:closed true :json-schema/example examples/CreateBankRequest}
+  [:map
+   {:closed true
+    :json-schema/example examples/CreateBankRequest
+    :description
+    "A person names the company the bank is for and nothing else, and
+    becomes its owner. An operator may name a company too, may choose the
+    status, tier and currencies, which default to test, micro and GBP,
+    and may name an owner by email."}
    [:name [:ref "Name"]]
-   [:status [:ref "BankStatus"]]
-   [:tier [:ref "Name"]]
-   [:currencies [:unique-vector {:min 1} [:ref "Currency"]]]
+   [:company-number {:optional true} string?]
+   [:status {:optional true} [:ref "BankStatus"]]
+   [:tier {:optional true} [:ref "Name"]]
+   [:currencies {:optional true} [:unique-vector {:min 1} [:ref "Currency"]]]
    [:owner-email {:optional true} [:ref "EmailAddress"]]])
 
 (def Owner
@@ -81,6 +89,7 @@
    [:client-id [:ref "BankId"]]
    [:client-secret string?]
    [:owner-invitation {:optional true} [:ref "Invitation"]]
+   [:membership {:optional true} [:ref "Membership"]]
    [:company-binding {:optional true} [:ref "CompanyBinding"]]
    [:created-at [:ref "Timestamp"]]
    [:updated-at [:ref "Timestamp"]]])

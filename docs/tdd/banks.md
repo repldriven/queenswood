@@ -84,7 +84,7 @@ an identity-provider failure aborts the transaction cleanly.
 
 ```mermaid
 graph TD
-    API["api base<br/>POST /v1/banks, POST /v1/onboarding/me"]
+    API["api base<br/>POST /v1/banks"]
     DISP["dispatcher<br/>banks"]
     CH[("banks-command")]
     RCH[("banks-command-response")]
@@ -187,7 +187,7 @@ operator with principal id `unknown`.
    empty list stands in for a nil tier.
 6. **Build the `Bank`** — `domain/new-bank` runs the
    `:bank-action-create` capability check, rejects
-   `:onboarding/company-not-active` when `opts` carries a
+   `:bank/company-not-active` when `opts` carries a
    `:company-binding` whose status is not active, and rejects
    `:bank/unknown-tier` when step 5 resolved no policies. Then it
    mints the record with a `bnk.*` id, the allocated sort code,
@@ -237,21 +237,23 @@ own-funds product template allows all three, so a create naming
 any subset of them provisions one full ledger chart and one
 own-funds account per currency named.
 
-### Both callers
+### Who creates a bank
 
-Two routes send `create-bank`.
+`POST /v1/banks` sends `create-bank`, gated `admin` or `user`. Either
+caller may name a company in `company-number`, which the handler looks
+up in the registry and snapshots as the `:company-binding`.
 
-- `POST /v1/banks`, under the api base's `admin` gate, carries
-  the name, status, tier and currencies the operator chose.
-- `POST /v1/onboarding/me`, under the `user` gate, is
-  first-sign-in self-service. The handler looks the company up in
-  the registry, then fixes the rest: status test, tier `micro`,
-  currencies `["GBP"]`, a `:company-binding` snapshotted from the
-  registry lookup, and an owner membership for the authenticated
-  user.
+- An operator may choose the status, tier and currencies, which
+  default to test, `micro` and `["GBP"]`, and may name an owner by
+  email, whom the create invites.
+- A signed-in person must name a company, and gets the defaults and an
+  owner membership of their own. Naming a status, tier, currencies or
+  owner is refused 403 `auth/forbidden`, and naming no company 422
+  `:bank/company-required`, both before the registry is asked.
 
-Both answer 201 with the bank's `Location`, `/v1/banks/{bank-id}`. A
-`GET` there answers the bank as the list shows it, to an operator or
+Both return 201 with the bank's `Location`, `/v1/bank`, read with the
+bank's id in the `Bank-Id` header as every bank-scoped route is. A
+`GET` there returns the bank as the list shows it, to an operator or
 to one of the bank's own members; a member naming another bank is
 refused with 403.
 
@@ -332,7 +334,7 @@ after.
 It rejects `:bank/invalid-status` (409) unless the bank is test
 or live, and `:bank/unknown-tier` (422) when the tier resolves to
 no policies, so a typo cannot silently strip every tier binding.
-The route is `POST /v1/banks/{bank-id}/change-tier`.
+The route is `POST /v1/bank/change-tier`.
 
 ### Status change
 
@@ -346,8 +348,7 @@ entry.
 
 It rejects `:bank/invalid-status` (409) unless the bank is
 currently test or live, and again when the requested status is
-the one it already has. The route is
-`POST /v1/banks/{bank-id}/change-status`.
+the one it already has. The route is `POST /v1/bank/change-status`.
 
 ## Alternatives Considered
 
@@ -417,8 +418,8 @@ the one it already has. The route is
 - **The processor checks a capability, not a principal.**
   `domain/new-bank` runs a `:bank-action-create` capability check
   and nothing more. Which principals may reach it is the api
-  base's: the `admin` gate on `POST /v1/banks`, the `user` gate on
-  `POST /v1/onboarding/me`. Code calling the command directly
+  base's: the `admin` and `user` gates on `POST /v1/banks`, and the
+  fields only an operator may send. Code calling the command directly
   bypasses both.
 
 ## References

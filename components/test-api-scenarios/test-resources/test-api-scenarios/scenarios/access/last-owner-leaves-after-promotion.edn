@@ -60,7 +60,7 @@
                       :detail "Make someone else an owner first"}}}
   {:command :api/request
    :request {:method :post
-             :path "/v1/members/{membership-id}/change-role"
+             :path "/v1/memberships/{membership-id}/change-role"
              :path-params {:membership-id [:ref :admin-membership
                                            :membership-id]}
              :auth :owner-token
@@ -78,8 +78,8 @@
    :assert {:status 204}}]
  :then
  [{:command :api/request
-   :request {:method :get :path "/v1/me" :auth :owner-token}
-   :assert {:status 200 :body {:memberships []}}}
+   :request {:method :get :path "/v1/me/memberships" :auth :owner-token}
+   :assert {:status 200 :body {:items []}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/me/memberships/{membership-id}/leave"
@@ -89,7 +89,7 @@
    :assert {:status 409 :problem {:type ":membership/invalid-status"}}}
   {:command :api/request
    :request {:method :get
-             :path "/v1/members"
+             :path "/v1/memberships"
              :auth :admin-token
              :headers {:bank-id [:ref :bank :bank-id]}}
    :assert {:status 200
@@ -98,7 +98,7 @@
                             :role "owner"}]}}}
   {:command :api/request
    :request {:method :get
-             :path "/v1/access-events"
+             :path "/v1/bank/audit-events"
              :auth :admin-token
              :headers {:bank-id [:ref :bank :bank-id]}
              :query-params {"page[size]" 2}}

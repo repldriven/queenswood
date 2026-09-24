@@ -87,10 +87,10 @@
   ;; Fund the account so it holds a non-zero posted balance.
   {:command :api/request
    :request {:method :post
-             :path "/v1/simulate/banks/{bank-id}/inbound-transfer"
-             :path-params {:bank-id [:ref :org-0 :bank-id]}
+             :path "/v1/simulate/inbound-transfer"
              :auth :admin
-             :headers {:idempotency-key "ik-close-non-zero-fund"}
+             :headers {:bank-id [:ref :org-0 :bank-id]
+                       :idempotency-key "ik-close-non-zero-fund"}
              :body {:amount 5000
                     :currency "GBP"}}
    :as :funded-1

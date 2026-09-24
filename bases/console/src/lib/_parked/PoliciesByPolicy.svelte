@@ -3,7 +3,7 @@
      read, per domain, exactly what it permits (capabilities) and how it
      is bounded (limits), side by side, in the matrix below.
 
-     Data: GET /v1/me/policies returns the policies effective for the
+     Data: GET /v1/bank/policies returns the policies effective for the
      caller's bank (the platform tier plus any bound to the bank) in the
      nested protojure wire shape; policy-adapter flattens each into the
      view-model the ui matrix components consume. No per-row fetch —

@@ -1,4 +1,4 @@
-{:name "The access history pages newest first, and its pages add up to the list"
+{:name "The audit log pages newest first, and its pages add up to the list"
  :tags #{:access :api :happy}
  ;; Seven events at two a page: the bank's creation and the owner's
  ;; invitation (one transaction), the owner's acceptance, then a
@@ -56,7 +56,7 @@
    :assert {:status 201 :body {:role "developer"}}}
   {:command :api/request
    :request {:method :post
-             :path "/v1/members/{membership-id}/change-role"
+             :path "/v1/memberships/{membership-id}/change-role"
              :path-params {:membership-id [:ref :member-membership
                                            :membership-id]}
              :auth :owner-token
@@ -65,7 +65,7 @@
    :assert {:status 200 :body {:role "admin"}}}
   {:command :api/request
    :request {:method :post
-             :path "/v1/members/{membership-id}/remove"
+             :path "/v1/memberships/{membership-id}/remove"
              :path-params {:membership-id [:ref :member-membership
                                            :membership-id]}
              :auth :owner-token
@@ -75,7 +75,7 @@
  :when
  [{:command :api/request
    :request {:method :get
-             :path "/v1/access-events"
+             :path "/v1/bank/audit-events"
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}}
    :as :all
@@ -117,7 +117,7 @@
      :links [:m/absent]}}}
   {:command :api/request
    :request {:method :get
-             :path "/v1/access-events"
+             :path "/v1/bank/audit-events"
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}
              :query-params {"page[size]" 2}}
@@ -125,7 +125,7 @@
    :assert {:status 200
             :body {:items [:m/equals
                            [[:ref :all :items 0] [:ref :all :items 1]]]
-                   :links {:next [:m/regex "^/v1/access-events\\?"]}}}}
+                   :links {:next [:m/regex "^/v1/bank/audit-events\\?"]}}}}
   {:command :api/request
    :request {:method :get
              :url [:ref :page-1 :links :next]

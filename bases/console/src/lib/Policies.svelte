@@ -9,7 +9,7 @@
      (which policy/tier decided it), shown as a badge in the matrix. There
      is no policy selector: you read the capabilities and limits directly.
 
-     Data: GET /v1/me/effective-policies returns { capabilities, limits },
+     Data: GET /v1/bank/effective-policy returns { capabilities, limits },
      each entry the flat wire shape plus an `origin`. adaptEffectivePolicy
      flattens it into the { capabilities, limits } view-model PolicyMatrix
      already consumes. */

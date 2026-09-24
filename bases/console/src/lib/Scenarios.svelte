@@ -48,8 +48,8 @@
       bankId = m;
       return;
     }
-    api.get_me().then((r) => {
-      bankId = r.body?.memberships?.[0]?.["bank-id"];
+    api.list_my_memberships().then((r) => {
+      bankId = r.body?.items?.[0]?.["bank-id"];
     });
   });
 
@@ -149,13 +149,13 @@
     {
       id: "s2", num: "02", title: "Invite", view: "people",
       story:
-        "Invite a developer and a viewer to the bank's team, resend the developer's invitation, and read the access log the platform keeps of every one of those acts.",
+        "Invite a developer and a viewer to the bank's team, resend the developer's invitation, and read the audit log the platform keeps of every one of those acts.",
       backing: ["invite-and-accept-by-email", "owner-resends-invitation", "history-pages-in-order"],
       steps: [
         { name: "Invite Trillian as a developer", raw: [{ method: "POST", path: "/v1/invitations", tag: "request" }] },
         { name: "Invite Marvin as a viewer", raw: [{ method: "POST", path: "/v1/invitations", tag: "request" }] },
         { name: "Resend Trillian's invitation", raw: [{ method: "POST", path: "/v1/invitations/{id}/resend", tag: "request" }] },
-        { name: "The access log records each act", raw: [{ method: "GET", path: "/v1/access-events", tag: "request" }] },
+        { name: "The audit log records each act", raw: [{ method: "GET", path: "/v1/bank/audit-events", tag: "request" }] },
       ],
     },
     {
@@ -178,7 +178,7 @@
         "£50,000 arrives from outside into the bank's own funds. The books move — 1100 cash-at-correspondent debited, own funds credited — debits equal credits, to the penny. Customers are paid from here, never from nowhere.",
       backing: ["simulate/inbound-transfer", "ledger-accounts/post-second-currency"],
       steps: [
-        { name: "Fund the bank · £50,000 into own funds", raw: [{ method: "POST", path: "/v1/simulate/banks/{bank-id}/inbound-transfer", tag: "request" }] },
+        { name: "Fund the bank · £50,000 into own funds", raw: [{ method: "POST", path: "/v1/simulate/inbound-transfer", tag: "request" }] },
         { name: "Trial balance ties", raw: [{ method: "GET", path: "/v1/ledger-accounts", tag: "request" }] },
       ],
     },
@@ -223,7 +223,7 @@
       backing: ["policy-daily-limit", "capability-denied-outbound"],
       steps: [
         { name: "Arthur sends £40 · Everyday → Rainy Day", raw: [{ method: "POST", path: "/v1/payments/internal", tag: "request" }] },
-        { name: "Refused · available must stay ≥ £0", tone: "exception", raw: [{ method: "GET", path: "/v1/me/effective-policies", tag: "request" }] },
+        { name: "Refused · available must stay ≥ £0", tone: "exception", raw: [{ method: "GET", path: "/v1/bank/effective-policy", tag: "request" }] },
         { name: "Nothing posted · Everyday still £20", raw: [{ method: "GET", path: "/v1/cash-accounts/{id}/balances", tag: "poll" }] },
       ],
     },
@@ -523,8 +523,8 @@
         if (!ok2xx(r)) throw new Error(`resend: ${r.status}`);
       });
       await step(3, async () => {
-        const r = await api.list_access_events({ size: 8 });
-        if (!ok2xx(r)) throw new Error(`access events: ${r.status}`);
+        const r = await api.list_audit_events({ size: 8 });
+        if (!ok2xx(r)) throw new Error(`audit log: ${r.status}`);
       });
     },
     async s3({ step }) {
@@ -537,7 +537,7 @@
     },
     async s4({ step }) {
       await step(0, async () => {
-        const r = await api.simulate_inbound_transfer(bankId, { amount: FUND_BANK, currency: "GBP" });
+        const r = await api.simulate_inbound_transfer({ amount: FUND_BANK, currency: "GBP" });
         if (!ok2xx(r)) throw new Error(`fund the bank: ${r.status}`);
         ctx.house = r.body["account-id"];
         persistCtx();
@@ -943,7 +943,7 @@
       <div class="party-line"><span class="pl-name">trillian@example.test</span><span class="pl-flow"><Badge tone="published">developer</Badge><span class="arr">·</span><Badge tone="archived">pending, resent</Badge></span></div>
       <div class="party-line"><span class="pl-name">marvin@example.test</span><span class="pl-flow"><Badge tone="published">viewer</Badge><span class="arr">·</span><Badge tone="archived">pending</Badge></span></div>
     </div>
-    <div class="tb-tie">{@render icoCheck()}<span>Two invitations out, and the access log has an entry for each act, with the name that did it.</span></div>
+    <div class="tb-tie">{@render icoCheck()}<span>Two invitations out, and the audit log has an entry for each act, with the name that did it.</span></div>
   {:else if s.id === "s3"}
     <div class="party-lines">
       <div class="party-line"><span class="pl-name">Arthur Dent</span><span class="pl-flow"><Badge tone="archived">pending</Badge><span class="arr">→</span><Badge tone="published">active</Badge></span></div>

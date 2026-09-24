@@ -44,7 +44,7 @@
      _ (when (and company-binding
                   (not= "active" (:company-status company-binding)))
          (error/reject
-          :onboarding/company-not-active
+          :bank/company-not-active
           {:message "Only an active company can be bound to a bank"
            :company-number (:company-number company-binding)
            :company-status (:company-status company-binding)}))]

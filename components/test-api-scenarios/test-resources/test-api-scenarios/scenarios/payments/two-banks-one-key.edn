@@ -106,10 +106,10 @@
    :until {:status 200 :body {:account-status "opened"}}}
   {:command :api/request
    :request {:method :post
-             :path "/v1/simulate/banks/{bank-id}/inbound-transfer"
-             :path-params {:bank-id [:ref :bank-a :bank-id]}
+             :path "/v1/simulate/inbound-transfer"
              :auth :admin
-             :headers {:idempotency-key "ik-pay-two-banks-fund-a-001"}
+             :headers {:bank-id [:ref :bank-a :bank-id]
+                       :idempotency-key "ik-pay-two-banks-fund-a-001"}
              :body {:amount 100000
                     :currency "GBP"}}
    :as :funded-1
@@ -233,10 +233,10 @@
    :until {:status 200 :body {:account-status "opened"}}}
   {:command :api/request
    :request {:method :post
-             :path "/v1/simulate/banks/{bank-id}/inbound-transfer"
-             :path-params {:bank-id [:ref :bank-b :bank-id]}
+             :path "/v1/simulate/inbound-transfer"
              :auth :admin
-             :headers {:idempotency-key "ik-pay-two-banks-fund-b-001"}
+             :headers {:bank-id [:ref :bank-b :bank-id]
+                       :idempotency-key "ik-pay-two-banks-fund-b-001"}
              :body {:amount 100000
                     :currency "GBP"}}
    :as :funded-2

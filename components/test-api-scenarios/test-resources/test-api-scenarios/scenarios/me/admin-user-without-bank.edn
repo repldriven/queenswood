@@ -15,10 +15,10 @@
    :as :ops-token}
   {:command :api/request
    :request {:method :get :path "/v1/me" :auth :ops-token}
-   :assert {:status 200
-            :body {:user {:issuer [:m/regex "/realms/queenswood-ops$"]
-                          :email "ops@queenswood.local"}
-                   :memberships []}}}
+   :assert {:status 200 :body {:issuer [:m/regex "/realms/queenswood-ops$"] :email "ops@queenswood.local"}}}
+  {:command :api/request
+   :request {:method :get :path "/v1/me/memberships" :auth :ops-token}
+   :assert {:status 200 :body {:items []}}}
   ;; The detail is asserted because the status and the type alone do
   ;; not say which branch refused. A principal carrying no `:org` at
   ;; all is refused earlier in `authorize` with the same 403 and the

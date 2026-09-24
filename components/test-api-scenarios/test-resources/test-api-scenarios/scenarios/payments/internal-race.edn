@@ -105,10 +105,10 @@
    :until {:status 200 :body {:account-status "opened"}}}
   {:command :api/request
    :request {:method :post
-             :path "/v1/simulate/banks/{bank-id}/inbound-transfer"
-             :path-params {:bank-id [:ref :bank-0 :bank-id]}
+             :path "/v1/simulate/inbound-transfer"
              :auth :admin
-             :headers {:idempotency-key "ik-race-fund-001"}
+             :headers {:bank-id [:ref :bank-0 :bank-id]
+                       :idempotency-key "ik-race-fund-001"}
              :body {:amount 100000
                     :currency "GBP"}}
    :as :funded-1

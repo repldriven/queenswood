@@ -93,9 +93,14 @@
 
 (def ^:private write-methods #{:post :put :patch :delete})
 
-(def ^:private inbound-transfer "/v1/simulate/banks/{bank-id}/inbound-transfer")
+(def ^:private inbound-transfer "/v1/simulate/inbound-transfer")
 
-(def ^:private bank-read "/v1/banks/{bank-id}")
+(def ^:private bank-read "/v1/bank")
+
+(defn- bank-own?
+  "True for the bank's own record and every read beneath it."
+  [path]
+  (or (= bank-read path) (str/starts-with? path (str bank-read "/"))))
 
 (defn- real-router
   []
@@ -120,7 +125,7 @@
   "True for a write on the bank's members or invitations."
   [{:keys [path method]}]
   (boolean (and (write-methods method)
-                (or (str/starts-with? path "/v1/members")
+                (or (str/starts-with? path "/v1/memberships")
                     (str/starts-with? path "/v1/invitations")))))
 
 (defn- org-operation?
@@ -200,9 +205,13 @@
       (is (= [(into (gate "org:developer") (gate "admin"))]
              (map :security
                   (filter (fn [op] (= inbound-transfer (:path op))) ops)))))
-    (testing "a bank's own record names org:viewer and admin"
-      (is (= [(into (gate "org:viewer") (gate "admin"))]
-             (map :security (filter (fn [op] (= bank-read (:path op))) ops)))))
+    (testing
+      "a bank's own record, and what hangs off it, name org:viewer and admin"
+      (let [own (filter (fn [op] (bank-own? (:path op))) org-ops)]
+        (is (= 4 (count own)))
+        (doseq [{:keys [path method security]} own]
+          (is (= (into (gate "org:viewer") (gate "admin")) security)
+              (str (name method) " " path)))))
     (testing "the people writes name org:admin"
       (let [people (filter people-write? org-ops)]
         (is (seq people))
@@ -210,7 +219,8 @@
           (is (= (gate "org:admin") security) (str (name method) " " path)))))
     (testing "every other org read names org:viewer and write org:developer"
       (doseq [{:keys [path method security] :as op} org-ops
-              :when (and (not (#{inbound-transfer bank-read} path))
+              :when (and (not= inbound-transfer path)
+                         (not (bank-own? path))
                          (not (people-write? op)))]
         (is (= (if (read-methods method)
                  (gate "org:viewer")

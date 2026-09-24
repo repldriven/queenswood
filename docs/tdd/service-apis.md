@@ -163,6 +163,34 @@ Common verb endpoints in the api:
 The rule: if the operation is a state transition rather than a
 resource-based operation, model it as a verb.
 
+### Whose records a path names
+
+A path names a record, and its prefix says whose:
+
+- `/v1/<records>` — the bank the `Bank-Id` header names, or the one a
+  service token or a person's only membership resolves.
+- `/v1/me/<records>` — the signed-in person's, across every bank, under
+  the `user` gate and never with a `Bank-Id` header. Where the bank has
+  the same record, both use one noun and one id:
+  `/v1/memberships/{membership-id}` and
+  `/v1/me/memberships/{membership-id}` are one membership.
+- `/v1/bank` and `/v1/bank/<resource>` — the bank the header names, and
+  what describes it as a whole rather than a record it holds: its
+  policies, its effective policy and its audit log. The bank's own
+  members and an operator may read it, and
+  `shared.interceptors/named-bank` refuses an operator who names no
+  bank with 403.
+
+`Bank-Id` is the only way a request names a bank: no path carries a
+bank id, just as none carries the signed-in person's user id.
+
+Every operation under `/v1/me` carries `My` in its operationId and the
+Me tag, since only a signed-in person reaches one; every other tag is
+named for a record. `GET /v1/me` returns the person alone, and each
+record they hold is its own route beneath it. The document lists its
+paths sorted, so each tag reads a collection, then its items, then
+their actions.
+
 ### Lists
 
 A list's body is `items`, an array of the resource its retrieve
@@ -520,7 +548,7 @@ auth boundaries — go here, not into a brick's `interface_test.clj`.
   `:membership/role-not-granted`. A client matching on `type`
   matches each as emitted.
 - **Some lists page a set read whole.** Job runs, migration previews,
-  members, the caller's invitations, cash account products, inbound
+  memberships, the caller's invitations, cash account products, inbound
   payments and webhook deliveries are read in full and windowed with
   `cursor/window`, so a page costs the whole read. Job runs and
   migration previews have indexes a cursor could scan instead.

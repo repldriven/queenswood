@@ -43,10 +43,6 @@
     [com.repldriven.queenswood.api.oauth.components :as oauth.components]
     [com.repldriven.queenswood.api.oauth.examples :as oauth.examples]
     [com.repldriven.queenswood.api.oauth.routes :as oauth]
-    [com.repldriven.queenswood.api.onboarding.components :as
-     onboarding.components]
-    [com.repldriven.queenswood.api.onboarding.examples :as onboarding.examples]
-    [com.repldriven.queenswood.api.onboarding.routes :as onboarding]
     [com.repldriven.queenswood.api.party.components :as party.components]
     [com.repldriven.queenswood.api.party.examples :as party.examples]
     [com.repldriven.queenswood.api.party.routes :as party]
@@ -130,7 +126,6 @@
          ledger-account.components/registry
          me.components/registry
          oauth.components/registry
-         onboarding.components/registry
          party.components/registry
          payee-check.components/registry
          payment-api/registry
@@ -169,17 +164,20 @@
 (defn- openapi-handler
   "The standard handler, with the notification's schemas merged under
   the ones reitit collected, so the `webhooks` object's `$ref`
-  resolves."
+  resolves, and the paths sorted, so each tag lists a collection, then
+  its items, then their actions."
   []
   (let [handler (server/standard-openapi-handler)
-        with-notification (fn [response]
-                            (update-in response
-                                       [:body :components :schemas]
-                                       #(merge @notification-schemas %)))]
+        complete (fn [response]
+                   (-> response
+                       (update-in [:body :components :schemas]
+                                  #(merge @notification-schemas %))
+                       (update-in [:body :paths]
+                                  #(into (sorted-map) %))))]
     (fn
-      ([request] (with-notification (handler request)))
+      ([request] (complete (handler request)))
       ([request respond raise]
-       (handler request (comp respond with-notification) raise)))))
+       (handler request (comp respond complete) raise)))))
 
 (defn- routes
   [ctx]
@@ -205,15 +203,21 @@
         [{:name "OAuth"
           :description
           "Issuing tokens, and the documents a client reads to verify them."}
-         {:name "Onboarding"
+         {:name "Me"
           :description
-          "A person's first sign-in: looking up their company and creating their bank."}
-         {:name "Membership"
+          "The signed-in person: who they are, the banks they belong to, and the invitations waiting for them."}
+         {:name "Memberships"
           :description
-          "The signed-in person, their memberships, and whether they are an operator."}
-         {:name "Access"
+          "The bank's members, and the role each holds."}
+         {:name "Invitations"
           :description
-          "A bank's members and their roles, invitations to join it, and its access history."}
+          "Invitations to join the bank, and resending or withdrawing them."}
+         {:name "Audit"
+          :description
+          "A bank's audit log: every change to who may act for it, with who made it and why."}
+         {:name "Companies"
+          :description
+          "Looking a company up in the company registry before creating a bank for it."}
          {:name "Banks"
           :description
           "Creating banks, and changing a bank's status and tier."}
@@ -253,7 +257,7 @@
          {:name "Jobs"
           :description
           "Scheduled jobs, their schedules, and their runs."}
-         {:name "Webhooks"
+         {:name "Webhook Endpoints"
           :description
           "The endpoints a bank is notified at when its records change, and the deliveries made to them."}
          {:name "Simulate"
@@ -279,7 +283,6 @@
                     jobs.examples/registry
                     ledger-account.examples/registry
                     oauth.examples/registry
-                    onboarding.examples/registry
                     companies.examples/registry
                     party.examples/registry
                     payee-check.examples/registry
@@ -327,7 +330,6 @@
            jobs/routes
            ledger-account/routes
            me/routes
-           onboarding/routes
            companies/routes
            party/routes
            payee-check/routes

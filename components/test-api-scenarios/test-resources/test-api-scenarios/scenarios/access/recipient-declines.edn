@@ -76,7 +76,7 @@
    :assert {:status 409 :problem {:type ":invitation/invalid-status"}}}
   {:command :api/request
    :request {:method :get
-             :path "/v1/access-events"
+             :path "/v1/bank/audit-events"
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}}
    :assert {:status 200
@@ -84,9 +84,8 @@
                            [{:kind "invitation-declined"
                              :actor {:kind "member"
                                      :principal-id
-                                     [:ref :invitee-me :user :user-id]}
-                             :subject-user-id [:ref :invitee-me :user
-                                               :user-id]
+                                     [:ref :invitee-me :user-id]}
+                             :subject-user-id [:ref :invitee-me :user-id]
                              :invitation-id [:ref :invitation :invitation-id]
                              :email "decline-invitee@queenswood.local"
                              :role-after "developer"}]]}}}]}

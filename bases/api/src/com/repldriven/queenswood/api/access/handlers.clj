@@ -1,6 +1,7 @@
 (ns com.repldriven.queenswood.api.access.handlers
-  "Who may act for a bank: the recipient's invitation routes, the bank's
-  people routes and its access history. A write is a command to the
+  "Who may act for a bank: the signed-in person's memberships and
+  invitations, the bank's memberships and invitations, and its audit
+  log. A write is a command to the
   `membership` processor, whose reply names the records it wrote, read
   back through `membership-query`.
 
@@ -17,23 +18,27 @@
     [com.repldriven.queenswood.user.interface :as users]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
-    [com.repldriven.mono.utility.interface :as utility]))
+    [com.repldriven.mono.utility.interface :as utility]
 
-(def ^:private access-events-path "/v1/access-events")
+    [clojure.set :as set]))
 
 (def ^:private invitations-path "/v1/invitations")
 
-(def ^:private members-path "/v1/members")
+(def ^:private memberships-path "/v1/memberships")
 
 (def ^:private my-invitations-path "/v1/me/invitations")
+
+(def ^:private my-memberships-path "/v1/me/memberships")
+
+(def ^:private audit-events-path "/v1/bank/audit-events")
 
 (defn- invitation-uri
   [{:keys [invitation-id]}]
   (str "/v1/invitations/" invitation-id))
 
-(defn- member-uri
+(defn- my-membership-uri
   [{:keys [membership-id]}]
-  (str "/v1/members/" membership-id))
+  (str "/v1/me/memberships/" membership-id))
 
 (defn- config
   [{:keys [record-db record-store]}]
@@ -111,23 +116,29 @@
    []
    items))
 
-(defn- ->member
-  [membership user invitation names]
-  (let [{:keys [membership-id user-id role created-at invitation-id]}
-        membership]
-    (utility/assoc-some {:membership-id membership-id
-                         :user-id user-id
-                         :role role
-                         :joined-at created-at
-                         :created-organisation (nil? invitation-id)}
-                        :name (:name user)
-                        :email (:email user)
-                        :invitation-id invitation-id
-                        :invited-by (some-> (:invited-by invitation)
-                                            (names/->actor names))
-                        :invited-email (:email invitation))))
+(defn- ->membership
+  [membership user bank-name invitation names]
+  (let [{:keys [invitation-id]} membership]
+    (-> (select-keys membership
+                     [:membership-id :bank-id :user-id :role :created-at
+                      :updated-at])
+        (assoc :created-organisation (nil? invitation-id))
+        (utility/assoc-some :bank-name bank-name
+                            :name (:name user)
+                            :email (:email user)
+                            :invitation-id invitation-id
+                            :invited-by (some-> (:invited-by invitation)
+                                                (names/->actor names))
+                            :invited-email (:email invitation)))))
 
-(defn- member-records
+(defn founding-membership
+  "The owner membership a bank's creation writes, as `Membership` shows
+  it, from the `user` and the `bank` already in hand: it joined by no
+  invitation, so there is nothing more to read."
+  [membership user bank]
+  (->membership membership user (:name bank) nil {}))
+
+(defn- membership-records
   [txn membership]
   (let [{:keys [bank-id user-id invitation-id]} membership]
     (let-nom>
@@ -139,31 +150,34 @@
                                   :invitation/not-found))]
       {:membership membership :user user :invitation invitation})))
 
-(defn- members
-  [txn memberships]
+(defn named-memberships
+  "Each membership as `Membership` shows it: its person, its bank's name,
+  and the invitation it was accepted from with its inviter named. An
+  anomaly when a user or invitation record cannot be read."
+  [txn found]
   (let-nom> [records (all-or-anomaly (fn [membership]
-                                       (member-records txn membership))
-                                     memberships)
+                                       (membership-records txn membership))
+                                     found)
              names (names/user-names (lookup txn)
                                      (names/actor-ids
                                       (map (comp :invited-by :invitation)
                                            records)))]
-    (mapv (fn [{:keys [membership user invitation]}]
-            (->member membership user invitation names))
-          records)))
+    (let [bank-names (into {}
+                           (map (fn [bank-id] [bank-id
+                                               (bank-name txn bank-id)]))
+                           (distinct (map :bank-id found)))]
+      (mapv (fn [{:keys [membership user invitation]}]
+              (->membership membership
+                            user
+                            (get bank-names (:bank-id membership))
+                            invitation
+                            names))
+            records))))
 
-(defn- member
+(defn- named-membership
   [txn membership]
-  (let-nom> [found (members txn [membership])]
+  (let-nom> [found (named-memberships txn [membership])]
     (first found)))
-
-(defn- ->membership
-  [membership bank-name]
-  (utility/assoc-some (select-keys membership
-                                   [:membership-id :user-id :bank-id :role
-                                    :created-at :updated-at])
-                      :bank-name
-                      bank-name))
 
 (defn- ->invitation
   [invitation names accepted-email]
@@ -261,7 +275,7 @@
                (recipient-invitation txn found))
              ok)))
 
-(defn accept-invitation
+(defn accept-my-invitation
   [request]
   (let [{:keys [auth parameters]} request
         {:keys [invitation-id]} (:path parameters)
@@ -275,11 +289,10 @@
      (fn [{:keys [membership-id]}]
        (respond (let-nom> [membership (memberships/find-by-id txn
                                                               membership-id)]
-                  (->membership membership
-                                (bank-name txn (:bank-id membership))))
-                (created member-uri))))))
+                  (named-membership txn membership))
+                (created my-membership-uri))))))
 
-(defn decline-invitation
+(defn decline-my-invitation
   [request]
   (let [{:keys [auth parameters]} request
         {:keys [invitation-id]} (:path parameters)
@@ -297,7 +310,50 @@
                   (recipient-invitation txn declined))
                 ok)))))
 
-(defn leave
+(defn- membership-not-found
+  [membership-id]
+  (error/reject :membership/not-found
+                {:message "Membership not found" :membership-id membership-id}))
+
+(defn- active-for
+  "The membership when it is active and `k` of it is `v`, otherwise the
+  not-found rejection, so a membership elsewhere reads as none at all."
+  [membership k v]
+  (let [{:keys [membership-id status]} membership]
+    (if (and (= v (get membership k)) (= :membership-status-active status))
+      membership
+      (membership-not-found membership-id))))
+
+(defn- page-memberships
+  [txn path page active]
+  (let-nom> [windowed (cursor/window (sort-by :membership-id active)
+                                     :membership-id
+                                     :asc
+                                     page)
+             listed (named-memberships txn (:page windowed))]
+    (cursor/page-body path page listed windowed)))
+
+(defn list-my-memberships
+  [request]
+  (let [{:keys [auth parameters]} request
+        {:keys [page]} (:query parameters)]
+    (respond (page-memberships (config request)
+                               my-memberships-path
+                               page
+                               (or (:memberships auth) []))
+             ok)))
+
+(defn get-my-membership
+  [request]
+  (let [{:keys [auth parameters]} request
+        {:keys [membership-id]} (:path parameters)
+        txn (config request)]
+    (respond (let-nom> [found (memberships/find-by-id txn membership-id)
+                        active (active-for found :user-id (:principal-id auth))]
+               (named-membership txn active))
+             ok)))
+
+(defn leave-my-membership
   [request]
   (let [{:keys [auth parameters]} request
         {:keys [membership-id]} (:path parameters)]
@@ -307,45 +363,25 @@
                    :user-id (:principal-id auth)}
                   no-content)))
 
-(defn list-members
+(defn list-memberships
   [request]
   (let [{:keys [auth parameters]} request
         {:keys [bank-id]} auth
         {:keys [page]} (:query parameters)
         txn (config request)]
-    (respond (let-nom> [active (memberships/list-active-by-bank txn bank-id)
-                        windowed (cursor/window (sort-by :membership-id active)
-                                                :membership-id
-                                                :asc
-                                                page)
-                        listed (members txn (:page windowed))]
-               (cursor/page-body members-path page listed windowed))
+    (respond (let-nom> [active (memberships/list-active-by-bank txn bank-id)]
+               (page-memberships txn memberships-path page active))
              ok)))
 
-(defn- membership-not-found
-  [membership-id]
-  (error/reject :membership/not-found
-                {:message "Membership not found" :membership-id membership-id}))
-
-(defn- active-in-bank
-  "The membership when it is active and of `bank-id`, otherwise the
-  not-found rejection, so a membership elsewhere reads as none at all."
-  [membership bank-id]
-  (let [{:keys [membership-id status]} membership]
-    (if (and (= bank-id (:bank-id membership))
-             (= :membership-status-active status))
-      membership
-      (membership-not-found membership-id))))
-
-(defn get-member
+(defn get-membership
   [request]
   (let [{:keys [auth parameters]} request
         {:keys [bank-id]} auth
         {:keys [membership-id]} (:path parameters)
         txn (config request)]
     (respond (let-nom> [found (memberships/find-by-id txn membership-id)
-                        active (active-in-bank found bank-id)]
-               (member txn active))
+                        active (active-for found :bank-id bank-id)]
+               (named-membership txn active))
              ok)))
 
 (defn change-role
@@ -366,10 +402,10 @@
      (fn [{:keys [membership-id]}]
        (respond (let-nom> [changed (memberships/find-by-id txn
                                                            membership-id)]
-                  (member txn changed))
+                  (named-membership txn changed))
                 ok)))))
 
-(defn remove-member
+(defn remove-membership
   [request]
   (let [{:keys [auth parameters]} request
         {:keys [bank-id]} auth
@@ -463,14 +499,17 @@
                    :reason (:reason body)}
                   (invitation-change request ok))))
 
-(defn- ->access-event
+(defn- ->audit-event
+  "An access event as the bank's audit log shows it, its actor and
+  subject named."
   [access-event names]
   (-> access-event
+      (set/rename-keys {:access-event-id :audit-event-id})
       (update :actor names/->actor names)
       (utility/assoc-some :subject-name
                           (get names (:subject-user-id access-event)))))
 
-(defn- named-access-events
+(defn- audit-events
   [txn found]
   (let [{:keys [access-events]} found]
     (let-nom> [names (names/user-names
@@ -479,10 +518,10 @@
                               (keep :subject-user-id access-events)))]
       (assoc found
              :access-events
-             (mapv (fn [access-event] (->access-event access-event names))
+             (mapv (fn [access-event] (->audit-event access-event names))
                    access-events)))))
 
-(defn list-access-events
+(defn list-audit-events
   [request]
   (let [{:keys [auth parameters]} request
         {:keys [bank-id]} auth
@@ -492,8 +531,8 @@
                                txn
                                bank-id
                                (cursor/page-opts page))
-                        named (named-access-events txn found)]
-               (cursor/page-body access-events-path
+                        named (audit-events txn found)]
+               (cursor/page-body audit-events-path
                                  page
                                  (:access-events named)
                                  named))

@@ -69,7 +69,7 @@
             :body {:bank-id [:ref :bank :bank-id] :role "developer"}}}
   {:command :api/request
    :request {:method :get
-             :path "/v1/access-events"
+             :path "/v1/bank/audit-events"
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}}
    :assert {:status 200

@@ -32,9 +32,9 @@
   finds the entity has left the state the transition starts from and
   is rejected with a 409, which is the same answer a replayed cache
   entry would have given."
-  {[:post "/v1/banks/{bank-id}/change-tier"]
+  {[:post "/v1/bank/change-tier"]
    "Absolute set. The body names the tier, so a retry converges."
-   [:post "/v1/banks/{bank-id}/change-status"]
+   [:post "/v1/bank/change-status"]
    "Absolute set. The body names the status, so a retry converges."
    [:put "/v1/jobs/{job-id}/schedule"]
    "Absolute set. The body names the whole schedule, so a retry
@@ -87,10 +87,10 @@
    [:post "/v1/me/memberships/{membership-id}/leave"]
    "Source-state guard. Only an active membership may be ended; a retry
     finds it ended and is refused 409 `membership/invalid-status`."
-   [:post "/v1/members/{membership-id}/change-role"]
+   [:post "/v1/memberships/{membership-id}/change-role"]
    "Absolute set. The body names the role, so a retry converges and
     records nothing."
-   [:post "/v1/members/{membership-id}/remove"]
+   [:post "/v1/memberships/{membership-id}/remove"]
    "Source-state guard. Only an active membership may be ended; a retry
     finds it ended and is refused 409 `membership/invalid-status`."
    [:post "/v1/invitations/{invitation-id}/withdraw"]

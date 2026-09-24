@@ -5,10 +5,11 @@ Components preserved for reuse, not currently routed in console.
 ## `PoliciesByPolicy.svelte`
 
 The original console Policies page: a master **list** of policies
-(`GET /v1/me/policies`) you select from, with a per-policy capability/limit
-`PolicyMatrix` below. Replaced on the `/policies` route by the resolved
-**effective** view (`Policies.svelte`, `GET /v1/me/effective-policies`), which
-shows one decision per scope with provenance and no policy selector.
+(`GET /v1/bank/policies`) you select from, with a per-policy
+capability/limit `PolicyMatrix` below. Replaced on the `/policies` route by
+the resolved **effective** view (`Policies.svelte`,
+`GET /v1/bank/effective-policy`), which shows one decision per scope with
+provenance and no policy selector.
 
 Kept because the **bank-of-banks super-admin** console will manage all policies
 (view per policy, and eventually edit), which is what this list+matrix view

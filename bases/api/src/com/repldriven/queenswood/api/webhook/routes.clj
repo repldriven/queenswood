@@ -24,7 +24,7 @@
 
 (def routes
   [["/webhook-endpoints"
-    {:openapi {:tags ["Webhooks"]}}
+    {:openapi {:tags ["Webhook Endpoints"]}}
     [""
      {:get {:summary "List the bank's webhook endpoints"
             :openapi {:operationId "ListWebhookEndpoints"

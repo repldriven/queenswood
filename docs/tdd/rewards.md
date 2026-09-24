@@ -59,8 +59,8 @@ bank consuming `reward.paid`, which is the demo's own slice in
   transfer from it to the customer. The e2e API scenario does exactly
   this by hand. See [chart-of-accounts](chart-of-accounts.md) and
   [banks](banks.md).
-- **The simulate route credits any account.** `POST
-  /v1/simulate/banks/{bank-id}/inbound-transfer` takes an `account-id`,
+- **The simulate route credits any account.**
+  `POST /v1/simulate/inbound-transfer` takes an `account-id`,
   debits 1100 and credits whatever account is named, reading the
   account's product type only to pick the control leg. Twelve API
   scenarios, the console's funding scene and the demo's fund recipe
@@ -204,7 +204,7 @@ not the customer's news.
 
 ### Funding the bank
 
-`POST /v1/simulate/banks/{bank-id}/inbound-transfer` loses its
+`POST /v1/simulate/inbound-transfer` loses its
 `account-id`. Its body is `{amount currency}`, it credits the house
 account for that currency, and its response names the account it
 credited. A bank funds itself, so there is nothing to choose, and the

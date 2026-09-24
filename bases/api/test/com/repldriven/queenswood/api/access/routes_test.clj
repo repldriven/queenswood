@@ -25,6 +25,8 @@
 (def ^:private user-routes
   "REQ-023's routes, each against the one role its gate names."
   {[:get "/v1/me"] "user"
+   [:get "/v1/me/memberships"] "user"
+   [:get "/v1/me/memberships/{membership-id}"] "user"
    [:get "/v1/me/invitations"] "user"
    [:get "/v1/me/invitations/{invitation-id}"] "user"
    [:post "/v1/me/invitations/{invitation-id}/accept"] "user"
@@ -33,16 +35,20 @@
 
 (def ^:private bank-routes
   "REQ-024's routes, each against the one level its gate names."
-  {[:get "/v1/members"] "org:viewer"
-   [:get "/v1/members/{membership-id}"] "org:viewer"
-   [:post "/v1/members/{membership-id}/change-role"] "org:admin"
-   [:post "/v1/members/{membership-id}/remove"] "org:admin"
+  {[:get "/v1/memberships"] "org:viewer"
+   [:get "/v1/memberships/{membership-id}"] "org:viewer"
+   [:post "/v1/memberships/{membership-id}/change-role"] "org:admin"
+   [:post "/v1/memberships/{membership-id}/remove"] "org:admin"
    [:get "/v1/invitations"] "org:viewer"
    [:post "/v1/invitations"] "org:admin"
    [:get "/v1/invitations/{invitation-id}"] "org:viewer"
    [:post "/v1/invitations/{invitation-id}/withdraw"] "org:admin"
-   [:post "/v1/invitations/{invitation-id}/resend"] "org:admin"
-   [:get "/v1/access-events"] "org:viewer"})
+   [:post "/v1/invitations/{invitation-id}/resend"] "org:admin"})
+
+(def ^:private own-bank-routes
+  "The routes under the bank's own path, each open to its members at
+  the level named and to an operator."
+  {[:get "/v1/bank/audit-events"] "org:viewer"})
 
 (def ^:private bank-id-header "#/components/parameters/BankIdHeader")
 
@@ -84,7 +90,13 @@
         (is (contains? ops route) "exists at its documented method and path")
         (is (fn? (:handler (get ops route))) "and answers with a handler")
         (is (= [{"bearerAuth" [role]}] (get-in ops [route :openapi :security]))
-            "gated by exactly the role it documents")))))
+            "gated by exactly the role it documents")))
+    (doseq [[route level] own-bank-routes]
+      (testing (str route)
+        (is (fn? (:handler (get ops route))) "exists with a handler")
+        (is (= [{"bearerAuth" [level]} {"bearerAuth" ["admin"]}]
+               (get-in ops [route :openapi :security]))
+            "open to the bank's members and to an operator")))))
 
 (deftest every-org-operation-documents-the-bank-id-header-test
   (nom-test> [document (json/read-str @exported)
@@ -92,7 +104,9 @@
               org-ops (sort (keys (filter (comp org-level? val) ops)))
               _ (is (seq org-ops))
               _ (testing "every access route REQ-024 names is org-level"
-                  (is (every? (set org-ops) (keys bank-routes))))
+                  (is (every? (set org-ops)
+                              (concat (keys bank-routes)
+                                      (keys own-bank-routes)))))
               _ (doseq [op org-ops]
                   (is (= 1 (count (header-refs document op)))
                       (str "lists Bank-Id once: " op)))

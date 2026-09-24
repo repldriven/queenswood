@@ -36,7 +36,7 @@
                     :token [:m/absent]}}}}
   {:command :api/request
    :request {:method :get
-             :path "/v1/members"
+             :path "/v1/memberships"
              :auth :admin
              :headers {:bank-id [:ref :bank :bank-id]}}
    :assert {:status 200 :body {:items []}}}
@@ -73,15 +73,16 @@
  :then
  [{:command :api/request
    :request {:method :get :path "/v1/me" :auth :owner-token}
-   :assert {:status 200
-            :body {:memberships [{:membership-id [:ref :owner-membership
+   :assert {:status 200 :body {:operator false}}}
+  {:command :api/request
+   :request {:method :get :path "/v1/me/memberships" :auth :owner-token}
+   :assert {:status 200 :body {:items [{:membership-id [:ref :owner-membership
                                                   :membership-id]
                                   :bank-id [:ref :bank :bank-id]
-                                  :role "owner"}]
-                   :operator false}}}
+                                  :role "owner"}]}}}
   {:command :api/request
    :request {:method :get
-             :path "/v1/members"
+             :path "/v1/memberships"
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}}
    :assert {:status 200
@@ -94,7 +95,7 @@
                                          :principal-id "queenswood-admin"}}]}}}
   {:command :api/request
    :request {:method :get
-             :path "/v1/access-events"
+             :path "/v1/bank/audit-events"
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}}
    :assert {:status 200

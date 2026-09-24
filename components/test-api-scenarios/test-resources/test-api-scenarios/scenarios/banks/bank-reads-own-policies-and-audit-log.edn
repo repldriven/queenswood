@@ -1,0 +1,76 @@
+{:name "A bank reads its own policies and audit log, and an operator any bank's"
+ :tags #{:api :banks :access :happy}
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-bank-reads-own-bank-001"}
+             :body {:name "Reading Bank"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :org-0
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-bank-reads-own-bank-002"}
+             :body {:name "Other Reading Bank"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :org-1
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :org-0 :client-id]
+         :client-secret [:ref :org-0 :client-secret]
+         :status :live}
+   :as :org-0-token}]
+ :when
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/bank/policies"
+             :auth :org-0-token
+             :headers {:bank-id [:ref :org-0 :bank-id]}}
+   :assert {:status 200}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/bank/effective-policy"
+             :auth :org-0-token
+             :headers {:bank-id [:ref :org-0 :bank-id]}}
+   :assert {:status 200}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/bank/audit-events"
+             :auth :org-0-token
+             :headers {:bank-id [:ref :org-0 :bank-id]}}
+   :assert {:status 200 :body {:items [{:kind "bank-created"}]}}}]
+ :then
+ [;; Another bank's are refused, whether or not it exists.
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/bank/policies"
+             :auth :org-0-token
+             :headers {:bank-id [:ref :org-1 :bank-id]}}
+   :assert {:status 403}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/bank/effective-policy"
+             :auth :org-0-token
+             :headers {:bank-id [:ref :org-1 :bank-id]}}
+   :assert {:status 403}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/bank/audit-events"
+             :auth :org-0-token
+             :headers {:bank-id [:ref :org-1 :bank-id]}}
+   :assert {:status 403}}
+  ;; An operator names the bank in the path alone.
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/bank/audit-events"
+             :auth :admin
+             :headers {:bank-id [:ref :org-1 :bank-id]}}
+   :assert {:status 200 :body {:items [{:kind "bank-created"}]}}}]}

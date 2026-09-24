@@ -71,7 +71,7 @@
  :then
  [{:command :api/request
    :request {:method :get
-             :path "/v1/members"
+             :path "/v1/memberships"
              :auth :viewer-token
              :headers {:bank-id [:ref :bank :bank-id]}}
    :assert {:status 200}}

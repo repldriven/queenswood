@@ -1,6 +1,6 @@
 (ns com.repldriven.queenswood.bank.domain-test
   "Pure-function tests for bank provisioning: `:bank/unknown-tier` when
-  the tier resolves to no policies, `:onboarding/company-not-active`
+  the tier resolves to no policies, `:bank/company-not-active`
   when the bound company snapshot is not active, the actor a create
   records when its command carries none, and `:bank/already-exists`
   when a key has already created a bank."
@@ -80,7 +80,7 @@
                           tier-policies
                           permissive-policies)]
       (is (error/rejection? r))
-      (is (= :onboarding/company-not-active (error/kind r))))))
+      (is (= :bank/company-not-active (error/kind r))))))
 
 (deftest creation-actor-test
   (let [operator {:kind :actor-kind-operator :principal-id "queenswood-admin"}]

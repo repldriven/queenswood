@@ -19,7 +19,7 @@
 
 (def actor-kind-enum-schema (:enum-schema actor-kind-enum))
 
-(def ^:private access-event-kind-enum
+(def ^:private audit-event-kind-enum
   (coercion/enum-coercion
    {"bank-created" :access-event-kind-bank-created
     "invitation-created" :access-event-kind-invitation-created
@@ -32,4 +32,4 @@
     "member-left" :access-event-kind-member-left}
    :access-event-kind-unknown))
 
-(def access-event-kind-enum-schema (:enum-schema access-event-kind-enum))
+(def audit-event-kind-enum-schema (:enum-schema audit-event-kind-enum))

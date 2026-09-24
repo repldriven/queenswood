@@ -22,7 +22,8 @@
             ;; nosemgrep: no-raw-throw
             (throw (ex-info (str "OpenAPI build failed (status " status ")")
                             {:status status :body body-str})))
-        spec (json/read-str body-str :key-fn keyword)]
+        spec (-> (json/read-str body-str :key-fn keyword)
+                 (update :paths #(into (sorted-map) %)))]
     (io/make-parents path)
     (spit path
           (yaml/generate-string spec

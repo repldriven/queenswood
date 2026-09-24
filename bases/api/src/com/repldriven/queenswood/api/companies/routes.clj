@@ -9,7 +9,7 @@
 
 (def routes
   [["/companies"
-    {:openapi {:tags ["Onboarding"] :security [{"bearerAuth" ["user"]}]}}
+    {:openapi {:tags ["Companies"] :security [{"bearerAuth" ["user"]}]}}
     ["/{company-number}"
      {:parameters {:path {:company-number string?}}}
      [""

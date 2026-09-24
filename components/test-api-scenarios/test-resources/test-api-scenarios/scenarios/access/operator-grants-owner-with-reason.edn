@@ -38,11 +38,11 @@
   {:command :api/request
    :request {:method :get :path "/v1/me" :auth :founder-token}
    :as :founder-me
-   :assert {:status 200 :body {:user {:name [:m/non-empty]}}}}]
+   :assert {:status 200 :body {:name [:m/non-empty]}}}]
  :when
  [{:command :api/request
    :request {:method :post
-             :path "/v1/members/{membership-id}/remove"
+             :path "/v1/memberships/{membership-id}/remove"
              :path-params {:membership-id [:ref :founder-membership
                                            :membership-id]}
              :auth :admin
@@ -82,7 +82,7 @@
    :assert {:status 201 :body {:role "owner"}}}
   {:command :api/request
    :request {:method :post
-             :path "/v1/members/{membership-id}/remove"
+             :path "/v1/memberships/{membership-id}/remove"
              :path-params {:membership-id [:ref :founder-membership
                                            :membership-id]}
              :auth :admin
@@ -92,7 +92,7 @@
  :then
  [{:command :api/request
    :request {:method :get
-             :path "/v1/members"
+             :path "/v1/memberships"
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}}
    :assert {:status 200
@@ -104,7 +104,7 @@
                                          :name "Queenswood"}}]}}}
   {:command :api/request
    :request {:method :get
-             :path "/v1/access-events"
+             :path "/v1/bank/audit-events"
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}
              :query-params {"page[size]" 3}}
@@ -115,7 +115,7 @@
                             :principal-id "queenswood-admin"
                             :name "Queenswood"}
                     :subject-user-id [:ref :founder-membership :user-id]
-                    :subject-name [:ref :founder-me :user :name]
+                    :subject-name [:ref :founder-me :name]
                     :role-before "owner"
                     :reason "Handed over to the new owner"}
                    {:kind "invitation-accepted"
@@ -129,5 +129,5 @@
                     :role-after "owner"
                     :reason "The founder has left and asked for a handover"}]}}}
   {:command :api/request
-   :request {:method :get :path "/v1/me" :auth :founder-token}
-   :assert {:status 200 :body {:memberships []}}}]}
+   :request {:method :get :path "/v1/me/memberships" :auth :founder-token}
+   :assert {:status 200 :body {:items []}}}]}

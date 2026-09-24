@@ -83,9 +83,8 @@
    :assert {:status 201 :body {:owner-invitation [:m/absent]}}}]
  :when
  [{:command :api/request
-   :request {:method :get :path "/v1/me" :auth :person-token}
-   :assert {:status 200
-            :body {:memberships [:m/in-any-order
+   :request {:method :get :path "/v1/me/memberships" :auth :person-token}
+   :assert {:status 200 :body {:items [:m/in-any-order
                                  [{:bank-id [:ref :bank-a :bank-id]
                                    :bank-name "Multi Bank A"
                                    :role "owner"}
@@ -142,7 +141,7 @@
  ;; B is not found there, rather than refused as someone else's.
  [{:command :api/request
    :request {:method :post
-             :path "/v1/members/{membership-id}/change-role"
+             :path "/v1/memberships/{membership-id}/change-role"
              :path-params {:membership-id [:ref :b-owner-membership
                                            :membership-id]}
              :auth :person-token
@@ -152,7 +151,7 @@
   ;; Nor is either read there, though both are read in B.
   {:command :api/request
    :request {:method :get
-             :path "/v1/members/{membership-id}"
+             :path "/v1/memberships/{membership-id}"
              :path-params {:membership-id [:ref :b-owner-membership
                                            :membership-id]}
              :auth :person-token
@@ -167,7 +166,7 @@
    :assert {:status 404 :problem {:type ":invitation/not-found"}}}
   {:command :api/request
    :request {:method :get
-             :path "/v1/members/{membership-id}"
+             :path "/v1/memberships/{membership-id}"
              :path-params {:membership-id [:ref :b-owner-membership
                                            :membership-id]}
              :auth :person-token
@@ -182,7 +181,7 @@
    :assert {:status 200 :body {:status "accepted"}}}
   {:command :api/request
    :request {:method :get
-             :path "/v1/members"
+             :path "/v1/memberships"
              :auth :owner-token
              :headers {:bank-id [:ref :bank-b :bank-id]}}
    :assert {:status 200
