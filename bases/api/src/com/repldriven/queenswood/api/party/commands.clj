@@ -13,11 +13,12 @@
   (let [{:keys [auth parameters]} request
         {:keys [bank-id]} auth
         {:keys [body]} parameters]
-    (commands/send (dispatcher request)
-                   request
-                   "create-party"
-                   "party"
-                   (assoc body :bank-id bank-id))))
+    (commands/created (commands/send (dispatcher request)
+                                     request
+                                     "create-party"
+                                     "party"
+                                     (assoc body :bank-id bank-id))
+                      #(str "/v1/parties/" (:party-id %)))))
 
 (defn- send-lifecycle
   [request command]

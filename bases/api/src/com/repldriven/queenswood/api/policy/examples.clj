@@ -5,7 +5,7 @@
 
 (def PolicyNotFound
   {:value {:title "REJECTED"
-           :type "policy/not-found"
+           :type ":policy/not-found"
            :status 404
            :detail "Policy not found"}})
 

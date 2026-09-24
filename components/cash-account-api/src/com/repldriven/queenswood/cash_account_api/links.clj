@@ -9,7 +9,7 @@
 (def from-account
   {"GetAccount" {:operationId "RetrieveCashAccount"
                  :parameters {"account-id" "$response.body#/account-id"}}
-   "GetBalances" {:operationId "RetrieveBalances"
+   "GetBalances" {:operationId "ListBalances"
                   :parameters {"account-id" "$response.body#/account-id"}}
-   "GetTransactions" {:operationId "RetrieveAccountTransactions"
+   "GetTransactions" {:operationId "ListAccountTransactions"
                       :parameters {"account-id" "$response.body#/account-id"}}})

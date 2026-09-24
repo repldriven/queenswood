@@ -104,9 +104,16 @@
   opts the corresponding sub-record into the response; omitted, the GET
   returns just the summary party."
   [:map {:closed true}
-   [:person-identification {:optional true} boolean?]
-   [:address {:optional true} boolean?]
-   [:national-identifier {:optional true} boolean?]])
+   [:person-identification
+    {:optional true
+     :json-schema/description
+     "Embed person identification (names, date of birth, nationality)"}
+    boolean?]
+   [:address {:optional true :json-schema/description "Embed address"}
+    boolean?]
+   [:national-identifier
+    {:optional true :json-schema/description "Embed national identifier"}
+    boolean?]])
 
 (def CreatePartyResponse [:ref "Party"])
 

@@ -59,7 +59,7 @@
                                           :value "TN555301B"
                                           :issuing-country "GB"}}}
    :as :party-a
-   :assert {:status 200 :body {:bank-id [:ref :bank-a :bank-id]}}}
+   :assert {:status 201 :body {:bank-id [:ref :bank-a :bank-id]}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/parties"
@@ -80,7 +80,7 @@
                                           :value "TN555302C"
                                           :issuing-country "GB"}}}
    :as :party-b
-   :assert {:status 200 :body {:bank-id [:ref :bank-b :bank-id]}}}]
+   :assert {:status 201 :body {:bank-id [:ref :bank-b :bank-id]}}}]
  :then
  ;; Two parties, not one replayed twice — B's answer is B's own party,
  ;; with B's own name, not A's read back.

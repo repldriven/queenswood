@@ -47,7 +47,7 @@
                                           :value "TN555803E"
                                           :issuing-country "GB"}}}
    :as :party-0
-   :assert {:status 200 :body {:status "pending"}}}
+   :assert {:status 201 :body {:status "pending"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/parties/{party-id}"
@@ -109,7 +109,7 @@
                     :product-id [:ref :draft :product-id]}}
    ;; The claim was released, so this ran rather than replayed -- and
    ;; still answers with the account the first attempt opened.
-   :assert {:status 200
+   :assert {:status 201
             :headers {:idempotent-replayed [:m/absent]}
             :body {:party-id [:ref :party-0 :party-id]}}
    :as :retried}

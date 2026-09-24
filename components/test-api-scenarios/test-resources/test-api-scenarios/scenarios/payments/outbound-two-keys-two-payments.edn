@@ -62,7 +62,7 @@
                                           :value "TN555931A"
                                           :issuing-country "GB"}}}
    :as :zaphod
-   :assert {:status 200 :body {:status "pending"}}}
+   :assert {:status 201 :body {:status "pending"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/parties/{party-id}"
@@ -79,7 +79,7 @@
                     :currency "GBP"
                     :product-id [:ref :current-draft :product-id]}}
    :as :debtor
-   :assert {:status 200 :body {:account-status "opening"}}}
+   :assert {:status 201 :body {:account-status "opening"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}"
@@ -120,7 +120,7 @@
                     :scheme "fps"
                     :reference "Two keys"}}
    :as :payment-a
-   :assert {:status 200}}
+   :assert {:status 201}}
   {:command :api/request
    :request {:method :post
              :path "/v1/payments/outbound"
@@ -134,7 +134,7 @@
                     :scheme "fps"
                     :reference "Two keys"}}
    :as :payment-b
-   :assert {:status 200
+   :assert {:status 201
             :body {:payment-id [:m/mismatch [:ref :payment-a :payment-id]]}}}]
  :then
  ;; Both payments exist and settle, and each took its own 25.00.

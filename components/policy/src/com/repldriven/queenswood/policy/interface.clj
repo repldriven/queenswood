@@ -112,7 +112,7 @@
 
 (defn check-capability
   "Check whether `policies` allow the requested capability. Returns
-  `true` on allow, or an `:unauthorized/policy-denied` anomaly.
+  `true` on allow, or a `:policy/denied` unauthorized anomaly.
 
   Args:
   - policies: collection of policy maps to evaluate.

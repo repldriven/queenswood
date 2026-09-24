@@ -233,6 +233,6 @@ schemathesis base_url="http://127.0.0.1:8080":
       uvx schemathesis run "{{ base_url }}/openapi.json" \
         --output-sanitize false \
         --max-examples 500 \
-        --phases=examples,coverage,fuzzing \
+        --phases=examples,coverage,fuzzing,stateful \
         --report junit \
         --continue-on-failure

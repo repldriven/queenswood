@@ -5,7 +5,7 @@
 
 (def PaymentNotFound
   {:value {:title "REJECTED"
-           :type "payment/not-found"
+           :type ":payment/not-found"
            :status 404
            :detail "Payment not found"}})
 
@@ -20,6 +20,30 @@
            :type ":transaction/invalid-amount"
            :status 422
            :detail "Transaction amount must be positive"}})
+
+(def DebtorAccountNotOperable
+  {:value {:title "REJECTED"
+           :type ":payment/debtor-account-not-operable"
+           :status 409
+           :detail "The debtor account is not open for payments"}})
+
+(def CreditorAccountNotOperable
+  {:value {:title "REJECTED"
+           :type ":payment/creditor-account-not-operable"
+           :status 409
+           :detail "The creditor account is not open for payments"}})
+
+(def SelfTransferNotPermitted
+  {:value {:title "REJECTED"
+           :type ":payment/self-transfer-not-permitted"
+           :status 422
+           :detail "Debtor and creditor accounts must differ"}})
+
+(def CurrencyMismatch
+  {:value {:title "REJECTED"
+           :type ":payment/currency-mismatch"
+           :status 422
+           :detail "Payment currency must match account currency"}})
 
 (def PaymentId "pmt.01kprbmgcj35ptc8npmybhh4s5")
 
@@ -61,7 +85,7 @@
    :creditor-name "Arthur Dent"
    :currency "GBP"
    :amount 500
-   :payment-status :outbound-payment-status-pending
+   :payment-status :pending
    :transaction-id "txn.01kprbmgcj35ptc8npmybhh4sb"
    :reference "Invoice 123"
    :business-day "2025-01-01"
@@ -123,6 +147,8 @@
 
 (def registry
   (examples-registry [#'PaymentNotFound #'BalanceNotFound #'InvalidAmount
+                      #'DebtorAccountNotOperable #'CreditorAccountNotOperable
+                      #'SelfTransferNotPermitted #'CurrencyMismatch
                       #'SettledInboundPayment #'SuspendedInboundPayment
                       #'HeldInboundPayment #'ReturnedInboundPayment
                       #'InboundPaymentList]))

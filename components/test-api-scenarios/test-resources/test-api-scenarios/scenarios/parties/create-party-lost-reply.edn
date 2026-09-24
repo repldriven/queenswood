@@ -79,7 +79,7 @@
                                           :issuing-country "GB"}}}
    :as :retry
    ;; The claim was released, so this ran rather than replayed.
-   :assert {:status 200
+   :assert {:status 201
             :headers {:idempotent-replayed [:m/absent]}
             :body {:display-name "Ford Prefect"}}}
   ;; The retry was handed the first attempt's party: this bank holds it

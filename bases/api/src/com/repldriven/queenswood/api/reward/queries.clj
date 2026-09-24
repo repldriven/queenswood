@@ -9,7 +9,7 @@
 (def ^:private not-found
   {:status 404
    :body (errors/error-response 404 "REJECTED"
-                                "reward/not-found" "Reward not found")})
+                                ":reward/not-found" "Reward not found")})
 
 (defn get-reward
   [request]

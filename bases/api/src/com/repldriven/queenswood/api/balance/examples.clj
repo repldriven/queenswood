@@ -5,7 +5,7 @@
 
 (def BalanceNotFound
   {:value {:title "REJECTED"
-           :type "balances/not-found"
+           :type ":balance/not-found"
            :status 404
            :detail "Balance not found"}})
 

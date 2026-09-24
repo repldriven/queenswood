@@ -62,7 +62,7 @@
                                           :value "TN555201A"
                                           :issuing-country "GB"}}}
    :as :ford
-   :assert {:status 200 :body {:status "pending"}}}
+   :assert {:status 201 :body {:status "pending"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/parties/{party-id}"
@@ -79,7 +79,7 @@
                     :currency "GBP"
                     :product-id [:ref :product :product-id]}}
    :as :debtor
-   :assert {:status 200 :body {:account-status "opening"}}}
+   :assert {:status 201 :body {:account-status "opening"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}"
@@ -96,7 +96,7 @@
                     :currency "GBP"
                     :product-id [:ref :product :product-id]}}
    :as :creditor
-   :assert {:status 200 :body {:account-status "opening"}}}
+   :assert {:status 201 :body {:account-status "opening"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}"
@@ -125,7 +125,7 @@
                     :currency "GBP"
                     :amount 100000
                     :reference "Funding"}}
-   :assert {:status 200}}
+   :assert {:status 201}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}/balances"
@@ -146,7 +146,7 @@
                     :reference "First submission"}}
    :as :payment
    ;; The first submission ran the handler, so it is not a replay.
-   :assert {:status 200 :headers {:idempotent-replayed [:m/absent]}}}]
+   :assert {:status 201 :headers {:idempotent-replayed [:m/absent]}}}]
  :then
  ;; The same key and the same body: answered from the cache, marked as
  ;; a replay, so the payment id is the first one's.
@@ -160,7 +160,7 @@
                     :currency "GBP"
                     :amount 2500
                     :reference "First submission"}}
-   :assert {:status 200
+   :assert {:status 201
             :headers {:idempotent-replayed "true"}
             :body {:payment-id [:ref :payment :payment-id]
                    :amount 2500}}}

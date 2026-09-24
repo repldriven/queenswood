@@ -37,7 +37,7 @@
                                           :value "TN000001A"
                                           :issuing-country "GB"}}}
    :as :party-0
-   :assert {:status 200
+   :assert {:status 201
             :body {:party-id [:m/regex "^pty\\."]
                    :type "person"
                    :display-name "Arthur Phillip Dent"

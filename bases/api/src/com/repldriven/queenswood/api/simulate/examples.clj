@@ -72,7 +72,13 @@
            :status 409
            :detail "Ledger account is closed"}})
 
+(def ForeignBankSimulation
+  {:value {:title "FORBIDDEN"
+           :type "auth/forbidden"
+           :status 403
+           :detail "Token is not this bank's; simulate only your own bank"}})
+
 (def registry
   (examples-registry [#'SettlementAccountNotFound #'BalanceNotFound
                       #'InvalidAmount #'MissingCurrencyAccount
-                      #'LedgerAccountClosed]))
+                      #'LedgerAccountClosed #'ForeignBankSimulation]))

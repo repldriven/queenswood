@@ -11,16 +11,27 @@
 
 (def Unauthorized
   {:value {:title "UNAUTHORIZED"
-           :type "mono/unauthenticated"
+           :type "auth/unauthenticated"
            :status 401
-           :detail "Missing or invalid API key"}})
+           :detail "Missing or invalid token"}})
 
 (def Forbidden
-  {:value {:title "UNAUTHORIZED"
-           :type "mono/unauthorized"
+  {:value {:title "FORBIDDEN"
+           :type "auth/forbidden"
            :status 403
-           :detail
-           "API key does not have sufficient privileges for this operation"}})
+           :detail "Insufficient privileges"}})
+
+(def PolicyDenied
+  {:value {:title "UNAUTHORIZED"
+           :type ":policy/denied"
+           :status 403
+           :detail "No matching allow capability"}})
+
+(def PolicyLimitExceeded
+  {:value {:title "REJECTED"
+           :type ":policy/limit-exceeded"
+           :status 429
+           :detail "Limit exceeded for this bank"}})
 
 (def BadResponse
   {:value {:title "FAILED"
@@ -80,8 +91,8 @@
            :detail "Failed to save cash account"}})
 
 (def registry
-  (examples-registry [#'BadRequest #'Unauthorized #'Forbidden #'BadResponse
-                      #'InternalServerError #'Contention #'Timeout
-                      #'MissingIdempotencyKey #'InvalidIdempotencyKey
-                      #'IdempotentRequestInFlight #'IdempotencyKeyReused
-                      #'IdempotencyCacheUnavailable]))
+  (examples-registry
+   [#'BadRequest #'Unauthorized #'Forbidden #'BadResponse #'InternalServerError
+    #'Contention #'Timeout #'MissingIdempotencyKey #'InvalidIdempotencyKey
+    #'IdempotentRequestInFlight #'IdempotencyKeyReused
+    #'IdempotencyCacheUnavailable #'PolicyDenied #'PolicyLimitExceeded]))

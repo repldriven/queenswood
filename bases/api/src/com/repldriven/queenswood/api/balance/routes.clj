@@ -16,18 +16,30 @@
                :parameters [shared.parameters/ref-bank-id-header]}
      :parameters {:path {:account-id [:ref "CashAccountId"]}}}
     [""
-     {:get {:summary "Retrieve account balances"
-            :openapi {:operationId "RetrieveBalances"}
-            :responses {200 {:body [:ref "BalanceList"]}
+     {:get {:summary "List a cash account's balances"
+            :openapi {:operationId "ListBalances"
+                      :description
+                      (str
+                       "Every balance bucket the account holds, one per type, "
+                       "currency and status, with its credit and debit totals, "
+                       "and the posted and available balances derived from "
+                       "them.")}
+            :responses {200 {:description "The account's balances."
+                             :body [:ref "BalanceList"]}
                         404 (ErrorResponse [#'CashAccountNotFound])}
             :handler queries/list-balances}}]
     ["/{balance-type}/{currency}/{balance-status}"
      {:get {:summary "Retrieve a balance"
-            :openapi {:operationId "RetrieveBalance"}
+            :openapi {:operationId "RetrieveBalance"
+                      :description
+                      (str
+                       "The balance bucket for the type, currency and status in"
+                       " the path. Returns 404 when the account holds no such "
+                       "bucket.")}
             :parameters {:path {:balance-type [:ref "BalanceType"]
                                 :currency [:ref "Currency"]
                                 :balance-status [:ref "BalanceStatus"]}}
-            :responses {200 {:body [:ref "Balance"]}
+            :responses {200 {:description "The balance." :body [:ref "Balance"]}
                         404 (ErrorResponse [#'CashAccountNotFound
                                             #'BalanceNotFound])}
             :handler queries/get-balance}}]]])

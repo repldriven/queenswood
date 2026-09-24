@@ -165,10 +165,15 @@
   before malli validation runs. `from` and `to` bound when the delivery
   was created."
   [:map {:closed true}
-   [:kind {:optional true} [:ref "WebhookNotificationKind"]]
-   [:outcome {:optional true} [:ref "WebhookDeliveryStatus"]]
-   [:from {:optional true} [:ref "Timestamp"]]
-   [:to {:optional true} [:ref "Timestamp"]]])
+   [:kind {:optional true :json-schema/description "Notification kind"}
+    [:ref "WebhookNotificationKind"]]
+   [:outcome {:optional true :json-schema/description "Delivery outcome"}
+    [:ref "WebhookDeliveryStatus"]]
+   [:from
+    {:optional true :json-schema/description "Earliest delivery creation"}
+    [:ref "Timestamp"]]
+   [:to {:optional true :json-schema/description "Latest delivery creation"}
+    [:ref "Timestamp"]]])
 
 (def WebhookDeliveryList
   [:map {:json-schema/example examples/WebhookDeliveryList}

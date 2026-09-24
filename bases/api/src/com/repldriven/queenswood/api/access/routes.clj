@@ -6,10 +6,12 @@
       MembershipLastOwner MembershipNotFound ReasonRequired RoleNotGranted]]
     [com.repldriven.queenswood.api.access.handlers :as handlers]
 
+    [com.repldriven.queenswood.api.shared.headers :as shared.headers]
     [com.repldriven.queenswood.api.shared.idempotency :as shared.idempotency]
     [com.repldriven.queenswood.api.shared.parameters :as shared.parameters]
 
-    [com.repldriven.queenswood.api-schema.interface :refer [ErrorResponse]]
+    [com.repldriven.queenswood.api-schema.interface :refer
+     [ErrorExamples ErrorResponse]]
     [com.repldriven.queenswood.idempotency.interface :as bank-idempotency]
 
     [com.repldriven.mono.server.interface :as server]))
@@ -19,6 +21,14 @@
 
 (def ^:private optional-reason [:maybe [:ref "ReasonRequest"]])
 
+;; `:maybe` lets the body be left out; the document says so with
+;; `required: false` and names the schema, rather than a null branch.
+(def ^:private optional-reason-request-body
+  {:required false
+   :content ^:replace
+            {"application/json"
+             {:schema {:$ref "#/components/schemas/ReasonRequest"}}}})
+
 (defn- gate
   [level]
   [{"bearerAuth" [level]}])
@@ -27,9 +37,12 @@
   [["/me/invitations"
     {:openapi {:tags ["Access"] :security (gate "user")}}
     [""
-     {:get {:summary (str "List the pending invitations to the signed-in "
-                          "person's verified email")
-            :openapi {:operationId "ListMyInvitations"}
+     {:get {:summary "List the signed-in person's pending invitations"
+            :openapi {:operationId "ListMyInvitations"
+                      :description
+                      (str "Pending, unexpired invitations from any bank to "
+                           "the email in the caller's token. The list is "
+                           "empty when that email is not verified.")}
             :responses {200 {:description (str "Pending, unexpired "
                                                "invitations, none when the "
                                                "email is not verified.")
@@ -39,29 +52,48 @@
      {:parameters {:path {:invitation-id [:ref "InvitationId"]}}}
      [""
       {:get {:summary "Retrieve an invitation as its recipient"
-             :openapi {:operationId "RetrieveMyInvitation"
-                       :parameters ^:replace
-                                   [shared.parameters/ref-invitation-id
-                                    shared.parameters/ref-invitation-token]}
+             :openapi
+             {:operationId "RetrieveMyInvitation"
+              :description
+              (str "The caller proves the invitation is theirs with the "
+                   "`Invitation-Token` header from the emailed link, or "
+                   "with a verified email that matches the invited address."
+                   " Returns 404 when the caller cannot prove it.")
+              :parameters ^:replace
+                          [shared.parameters/ref-invitation-id
+                           shared.parameters/ref-invitation-token]}
              :responses {200 {:description "The invitation."
                               :body [:ref "RecipientInvitation"]}
                          404 (ErrorResponse [#'InvitationNotFound])}
              :handler handlers/get-my-invitation}}]
      ["/accept"
-      {:post {:summary "Accept an invitation, becoming a member of its bank"
-              :openapi {:operationId "AcceptInvitation"
-                        :parameters ^:replace
-                                    [shared.parameters/ref-invitation-id
-                                     shared.parameters/ref-invitation-token]}
-              :responses {201 {:description "The membership created."
-                               :body [:ref "Membership"]}
-                          404 (ErrorResponse [#'InvitationNotFound])
-                          409 (ErrorResponse [#'InvitationInvalidStatus
-                                              #'MembershipAlreadyExists])}
-              :handler handlers/accept-invitation}}]
+      {:post
+       {:summary "Accept an invitation"
+        :openapi {:operationId "AcceptInvitation"
+                  :description
+                  (str "Makes the caller a member of the invitation's "
+                       "bank with the invited role, on the same proof "
+                       "as retrieving it. An invitation that is not "
+                       "pending or has expired is refused with 409, as "
+                       "is a caller who is already a member of that " "bank.")
+                  :parameters ^:replace
+                              [shared.parameters/ref-invitation-id
+                               shared.parameters/ref-invitation-token]}
+        :responses {201 {:description "The membership created."
+                         :body [:ref "Membership"]
+                         :openapi {:headers {"Location" (shared.headers/location
+                                                         "membership")}}}
+                    404 (ErrorResponse [#'InvitationNotFound])
+                    409 (ErrorResponse [#'InvitationInvalidStatus
+                                        #'MembershipAlreadyExists])}
+        :handler handlers/accept-invitation}}]
      ["/decline"
       {:post {:summary "Decline an invitation"
               :openapi {:operationId "DeclineInvitation"
+                        :description
+                        (str "Takes the same proof as retrieving the "
+                             "invitation. An invitation that is not pending "
+                             "or has expired is refused with 409.")
                         :parameters ^:replace
                                     [shared.parameters/ref-invitation-id
                                      shared.parameters/ref-invitation-token]}
@@ -73,8 +105,14 @@
    ["/me/memberships/{membership-id}/leave"
     {:openapi {:tags ["Access"] :security (gate "user")}
      :parameters {:path {:membership-id [:ref "MembershipId"]}}
-     :post {:summary "Leave a bank, ending the caller's own membership"
-            :openapi {:operationId "LeaveMembership"}
+     :post {:summary "Leave a bank"
+            :openapi {:operationId "LeaveMembership"
+                      :description
+                      (str
+                       "Ends the caller's own membership. Returns 404 for a "
+                       "membership that is not the caller's. A membership that "
+                       "has already ended is refused with 409, as is the bank's"
+                       " last active owner leaving.")}
             :responses {204 {:description "The membership was ended. No body."}
                         404 (ErrorResponse [#'MembershipNotFound])
                         409 (ErrorResponse [#'MembershipInvalidStatus
@@ -86,22 +124,48 @@
      {:openapi {:security (gate "org:viewer")
                 :parameters [shared.parameters/ref-bank-id-header]}
       :get {:summary "List the bank's active members"
-            :openapi {:operationId "ListMembers"}
+            :openapi {:operationId "ListMembers"
+                      :description
+                      (str "Members of the bank the `Bank-Id` header names, "
+                           "each with their name, email, role, when they "
+                           "joined and who invited them. The founding owner "
+                           "is marked as having created the organisation.")}
             :responses {200 {:description "The bank's active members."
                              :body [:ref "Members"]}}
             :handler handlers/list-members}}]
     ["/{membership-id}"
      {:parameters {:path {:membership-id [:ref "MembershipId"]}}}
+     [""
+      {:openapi {:security (gate "org:viewer")
+                 :parameters [shared.parameters/ref-bank-id-header]}
+       :get {:summary "Retrieve a member"
+             :openapi
+             {:operationId "RetrieveMember"
+              :description
+              (str "An active member of the bank the `Bank-Id` header "
+                   "names, as the member list shows them. Returns 404 for a"
+                   " membership that has ended or belongs to another bank.")}
+             :responses {200 {:description "The member." :body [:ref "Member"]}
+                         404 (ErrorResponse [#'MembershipNotFound])}
+             :handler handlers/get-member}}]
      ["/change-role"
       {:openapi {:security (gate "org:admin")
                  :parameters [shared.parameters/ref-bank-id-header]}
        :post {:summary "Change a member's role"
               :openapi {:operationId "ChangeMemberRole"
+                        :description
+                        (str "An owner may set any role, and an admin may "
+                             "move a member only between admin, developer and "
+                             "viewer, any other change being refused with "
+                             "403. Demoting the bank's last active owner, or "
+                             "changing an ended membership, is refused with "
+                             "409. Setting the role already held changes and "
+                             "records nothing.")
                         :requestBody {:required true}}
               :parameters {:body [:ref "ChangeRoleRequest"]}
               :responses {200 {:description "The member with the new role."
                                :body [:ref "Member"]}
-                          403 (ErrorResponse [#'RoleNotGranted])
+                          403 (ErrorExamples [#'RoleNotGranted])
                           404 (ErrorResponse [#'MembershipNotFound])
                           409 (ErrorResponse [#'MembershipInvalidStatus
                                               #'MembershipLastOwner])}
@@ -111,10 +175,16 @@
                  :parameters [shared.parameters/ref-bank-id-header]}
        :post
        {:summary "Remove a member from the bank"
-        :openapi {:operationId "RemoveMember" :requestBody {:required false}}
+        :openapi {:operationId "RemoveMember"
+                  :description
+                  (str "Ends the membership, recording the optional reason "
+                       "in the bank's access events. An admin removing an "
+                       "owner is refused with 403. Removing the last active "
+                       "owner, or an ended membership, is refused with 409.")
+                  :requestBody optional-reason-request-body}
         :parameters {:body optional-reason}
         :responses {204 {:description "The membership was ended. No body."}
-                    403 (ErrorResponse [#'RoleNotGranted])
+                    403 (ErrorExamples [#'RoleNotGranted])
                     404 (ErrorResponse [#'MembershipNotFound])
                     409 (ErrorResponse [#'MembershipInvalidStatus
                                         #'MembershipLastOwner])}
@@ -122,58 +192,100 @@
    ["/invitations"
     {:openapi {:tags ["Access"]}}
     [""
-     {:get {:summary (str "List the bank's pending, expired and accepted "
-                          "invitations")
+     {:get {:summary "List the bank's invitations"
             :openapi {:operationId "ListInvitations"
+                      :description
+                      (str "Pending, expired and accepted invitations to the "
+                           "bank the `Bank-Id` header names, an accepted one "
+                           "with the address that "
+                           "accepted it. Declined and withdrawn invitations "
+                           "appear only in the access events.")
                       :security (gate "org:viewer")
                       :parameters [shared.parameters/ref-bank-id-header]}
             :responses {200 {:description "The bank's invitations."
                              :body [:ref "Invitations"]}}
             :handler handlers/list-invitations}
-      :post {:summary "Invite a person to the bank by email"
-             :openapi {:operationId "CreateInvitation"
-                       :security (gate "org:admin")
-                       :requestBody {:required true}
-                       :parameters ^:replace
-                                   [shared.parameters/ref-bank-id-header
-                                    shared.parameters/ref-idempotency-key]}
-             :interceptors [server/require-idempotency-key
-                            bank-idempotency/cache-response]
-             :parameters {:body [:ref "CreateInvitationRequest"]}
-             :responses (shared.idempotency/with-responses
-                         {201 {:description (str "The invitation, whose link "
-                                                 "is emailed to the address.")
-                               :body [:ref "Invitation"]}
-                          403 (ErrorResponse [#'RoleNotGranted])
-                          409 (ErrorResponse [#'InvitationAlreadyExists
-                                              #'InvitationAlreadyMember])
-                          422 (ErrorResponse [#'ReasonRequired])})
-             :handler handlers/invite}}]
+      :post
+      {:summary "Invite a person to the bank by email"
+       :openapi {:operationId "CreateInvitation"
+                 :description
+                 (str "Creates a pending invitation, valid for seven days, and"
+                      " emails its link to the address. An address that "
+                      "already has a pending invitation or belongs to a member"
+                      " is refused with 409. An admin inviting an owner is "
+                      "refused with 403. An operator must give a reason, or "
+                      "the request is refused with 422.")
+                 :security (gate "org:admin")
+                 :requestBody {:required true}
+                 :parameters ^:replace
+                             [shared.parameters/ref-bank-id-header
+                              shared.parameters/ref-idempotency-key]}
+       :interceptors [server/require-idempotency-key
+                      bank-idempotency/cache-response]
+       :parameters {:body [:ref "CreateInvitationRequest"]}
+       :responses (shared.idempotency/with-responses
+                   {201 {:description (str "The invitation, whose link "
+                                           "is emailed to the address.")
+                         :body [:ref "Invitation"]
+                         :openapi {:headers {"Location" (shared.headers/location
+                                                         "invitation")}}}
+                    403 (ErrorExamples [#'RoleNotGranted])
+                    409 (ErrorResponse [#'InvitationAlreadyExists
+                                        #'InvitationAlreadyMember])
+                    422 (ErrorResponse [#'ReasonRequired])})
+       :handler handlers/invite}}]
     ["/{invitation-id}"
      {:parameters {:path {:invitation-id [:ref "InvitationId"]}}}
+     [""
+      {:openapi {:security (gate "org:viewer")
+                 :parameters [shared.parameters/ref-bank-id-header]}
+       :get {:summary "Retrieve an invitation"
+             :openapi
+             {:operationId "RetrieveInvitation"
+              :description
+              (str "An invitation to the bank the `Bank-Id` header names, "
+                   "in any status; an accepted invitation includes the "
+                   "address that accepted it. Returns 404 for an invitation"
+                   " to another bank.")}
+             :responses {200 {:description "The invitation."
+                              :body [:ref "Invitation"]}
+                         404 (ErrorResponse [#'InvitationNotFound])}
+             :handler handlers/get-invitation}}]
      ["/withdraw"
       {:openapi {:security (gate "org:admin")
                  :parameters [shared.parameters/ref-bank-id-header]}
        :post {:summary "Withdraw a pending invitation"
-              :openapi {:operationId "WithdrawInvitation"
-                        :requestBody {:required false}}
+              :openapi
+              {:operationId "WithdrawInvitation"
+               :description
+               (str "The invitation can no longer be accepted. An invitation"
+                    " that is not pending, or has expired, is refused with "
+                    "409. An admin withdrawing an owner's invitation is "
+                    "refused with 403.")
+               :requestBody optional-reason-request-body}
               :parameters {:body optional-reason}
               :responses {200 {:description "The withdrawn invitation."
                                :body [:ref "Invitation"]}
-                          403 (ErrorResponse [#'RoleNotGranted])
+                          403 (ErrorExamples [#'RoleNotGranted])
                           404 (ErrorResponse [#'InvitationNotFound])
                           409 (ErrorResponse [#'InvitationInvalidStatus])}
               :handler handlers/withdraw-invitation}}]
      ["/resend"
       {:openapi {:security (gate "org:admin")}
-       :post {:summary (str "Resend a pending or expired invitation, "
-                            "emailing a fresh link")
-              :openapi {:operationId "ResendInvitation"
-                        :requestBody {:required false}
-                        :parameters ^:replace
-                                    [shared.parameters/ref-invitation-id
-                                     shared.parameters/ref-bank-id-header
-                                     shared.parameters/ref-idempotency-key]}
+       :post {:summary "Resend an invitation"
+              :openapi
+              {:operationId "ResendInvitation"
+               :description
+               (str "Emails a fresh link for a pending or expired invitation"
+                    " and sets its expiry seven days from now. Links in "
+                    "earlier emails stop working. An invitation in any other"
+                    " status is refused with 409. An admin resending an "
+                    "owner's invitation is refused with 403.")
+               :requestBody optional-reason-request-body
+               :parameters ^:replace
+                           [shared.parameters/ref-invitation-id
+                            shared.parameters/ref-bank-id-header
+                            shared.parameters/ref-idempotency-key]}
               :interceptors [server/require-idempotency-key
                              bank-idempotency/cache-response]
               :parameters {:body optional-reason}
@@ -181,14 +293,20 @@
                           {200 {:description (str "The invitation, with a "
                                                   "fresh expiry.")
                                 :body [:ref "Invitation"]}
-                           403 (ErrorResponse [#'RoleNotGranted])
+                           403 (ErrorExamples [#'RoleNotGranted])
                            404 (ErrorResponse [#'InvitationNotFound])
                            409 (ErrorResponse [#'InvitationInvalidStatus])})
               :handler handlers/resend-invitation}}]]]
    ["/access-events"
     {:openapi {:tags ["Access"] :security (gate "org:viewer")}
-     :get {:summary "Page the bank's access history, newest first"
+     :get {:summary "List the bank's access events"
            :openapi {:operationId "ListAccessEvents"
+                     :description
+                     (str "The access history of the bank the `Bank-Id` "
+                          "header names, newest first: its creation, "
+                          "invitations, role changes, removals and "
+                          "departures. Each event names who acted and any "
+                          "reason given.")
                      :parameters ^:replace
                                  [shared.parameters/ref-page
                                   shared.parameters/ref-bank-id-header]}

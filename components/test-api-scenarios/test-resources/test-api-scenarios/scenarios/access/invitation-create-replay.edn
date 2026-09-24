@@ -57,7 +57,8 @@
                        :idempotency-key "ik-access-replay-invite-001"}
              :body {:email "replay-invitee@queenswood.local" :role "developer"}}
    :assert {:status 201
-            :headers {:idempotent-replayed "true"}
+            :headers {:idempotent-replayed "true"
+                      :location [:m/regex "^/v1/invitations/inv\\."]}
             :body {:invitation-id [:ref :first :invitation-id]
                    :email "replay-invitee@queenswood.local"
                    :status "pending"

@@ -6,7 +6,9 @@
       InvalidStatus NoticeRequired]]
     [com.repldriven.queenswood.api.cash-account-migration.handlers :as handlers]
     [com.repldriven.queenswood.api.cash-account-migration.queries :as queries]
+    [com.repldriven.queenswood.api.examples :as api.examples]
 
+    [com.repldriven.queenswood.api.shared.headers :as shared.headers]
     [com.repldriven.queenswood.api.shared.idempotency :as shared.idempotency]
     [com.repldriven.queenswood.api.shared.parameters :as shared.parameters]
 
@@ -14,12 +16,6 @@
     [com.repldriven.queenswood.idempotency.interface :as bank-idempotency]
 
     [com.repldriven.mono.server.interface :as server]))
-
-(def ^:private migration-location-header
-  {:schema {:type "string"} :description "URI of the new migration"})
-
-(def ^:private preview-location-header
-  {:schema {:type "string"} :description "URI of the new preview"})
 
 ;; A migration is its own resource rather than a sub-resource of a
 ;; product: it names two of them, and neither owns it.
@@ -32,16 +28,26 @@
 ;; not an omission.
 (def routes
   [["/cash-account-migrations"
-    {:openapi {:tags ["Cash-account migrations"]}}
+    {:openapi {:tags ["Cash Account Migrations"]}}
     [""
-     {:get {:summary "Retrieve cash-account migrations"
-            :openapi {:operationId "RetrieveCashAccountMigrations"
+     {:get {:summary "List cash account migrations"
+            :openapi {:operationId "ListCashAccountMigrations"
+                      :description
+                      "The bank's migrations in every status, newest first."
                       :security [{"bearerAuth" ["org:viewer"]}]
                       :parameters [shared.parameters/ref-bank-id-header]}
-            :responses {200 {:body [:ref "MigrationList"]}}
+            :responses {200 {:description "The bank's migrations, newest first."
+                             :body [:ref "MigrationList"]}}
             :handler queries/list-migrations}
-      :post {:summary "Author a cash-account migration"
+      :post {:summary "Create a cash account migration"
              :openapi {:operationId "CreateCashAccountMigration"
+                       :description
+                       (str "Creates the migration as a draft, and moves no "
+                            "account. The target must be a published version "
+                            "of a product of the same type as the source, and "
+                            "the notice date no later than the due date, or "
+                            "the request is refused with 422. A source "
+                            "product with no versions is refused with 404.")
                        :security [{"bearerAuth" ["org:developer"]}]
                        :requestBody {:required true}
                        :parameters ^:replace
@@ -51,9 +57,11 @@
                             bank-idempotency/cache-response]
              :parameters {:body [:ref "MigrationCreate"]}
              :responses (shared.idempotency/with-responses
-                         {201 {:body [:ref "Migration"]
+                         {201 {:description "The migration, as a draft."
+                               :body [:ref "Migration"]
                                :openapi {:headers {"Location"
-                                                   migration-location-header}}}
+                                                   (shared.headers/location
+                                                    "migration")}}}
                           404 (ErrorResponse [#'SourceProductNotFound])
                           422 (ErrorResponse [#'ProductTypeMismatch
                                               #'TargetNotPublished
@@ -66,17 +74,31 @@
      [""
       {:openapi {:security [{"bearerAuth" ["org:viewer"]}]
                  :parameters [shared.parameters/ref-bank-id-header]}
-       :get {:summary "Retrieve a cash-account migration"
-             :openapi {:operationId "RetrieveCashAccountMigration"}
-             :responses {200 {:body [:ref "Migration"]}
+       :get {:summary "Retrieve a cash account migration"
+             :openapi {:operationId "RetrieveCashAccountMigration"
+                       :description
+                       (str "A migration is a draft until approved, and "
+                            "completed once the scheduled migration job has "
+                            "moved its accounts.")}
+             :responses {200 {:description "The migration."
+                              :body [:ref "Migration"]}
                          404 (ErrorResponse [#'MigrationNotFound])}
              :handler queries/get-migration}}]
      ["/approve"
       {:openapi {:security [{"bearerAuth" ["org:developer"]}]
                  :parameters [shared.parameters/ref-bank-id-header]}
-       :post {:summary "Approve a cash-account migration"
-              :openapi {:operationId "ApproveCashAccountMigration"}
-              :responses {200 {:body [:ref "Migration"]}
+       :post {:summary "Approve a cash account migration"
+              :openapi
+              {:operationId "ApproveCashAccountMigration"
+               :description
+               (str "Commits to moving the migration's accounts. The "
+                    "scheduled migration job moves them once the due date is"
+                    " reached and the target version is in force. A "
+                    "migration that is not a draft is refused with 409. One "
+                    "without both a notice date and a due date is refused "
+                    "with 422.")}
+              :responses {200 {:description "The approved migration."
+                               :body [:ref "Migration"]}
                           404 (ErrorResponse [#'MigrationNotFound])
                           409 (ErrorResponse [#'InvalidStatus])
                           422 (ErrorResponse [#'NoticeRequired])}
@@ -84,23 +106,42 @@
      ["/cancel"
       {:openapi {:security [{"bearerAuth" ["org:developer"]}]
                  :parameters [shared.parameters/ref-bank-id-header]}
-       :post {:summary "Cancel a cash-account migration"
-              :openapi {:operationId "CancelCashAccountMigration"}
-              :responses {200 {:body [:ref "Migration"]}
+       :post {:summary "Cancel a cash account migration"
+              :openapi {:operationId "CancelCashAccountMigration"
+                        :description
+                        (str "Stops a draft or approved migration, so the "
+                             "scheduled migration job never moves its "
+                             "accounts. A completed or cancelled migration "
+                             "is refused with 409.")}
+              :responses {200 {:description "The cancelled migration."
+                               :body [:ref "Migration"]}
                           404 (ErrorResponse [#'MigrationNotFound])
                           409 (ErrorResponse [#'InvalidStatus])}
               :handler handlers/cancel-migration}}]
      ["/previews"
       [""
-       {:get {:summary "Retrieve a migration's previews"
-              :openapi {:operationId "RetrieveCashAccountMigrationPreviews"
-                        :security [{"bearerAuth" ["org:viewer"]}]
-                        :parameters [shared.parameters/ref-bank-id-header]}
-              :responses {200 {:body [:ref "MigrationRunList"]}
-                          404 (ErrorResponse [#'MigrationNotFound])}
-              :handler queries/list-runs}
-        :post {:summary "Preview a migration without moving accounts"
+       {:get
+        {:summary "List a migration's previews"
+         :openapi {:operationId "ListCashAccountMigrationPreviews"
+                   :description
+                   (str "Every run of the migration, newest first. Once "
+                        "the migration has completed, this includes the "
+                        "run that moved its accounts, with `dry-run` " "false.")
+                   :security [{"bearerAuth" ["org:viewer"]}]
+                   :parameters [shared.parameters/ref-bank-id-header]}
+         :responses {200 {:description "The migration's runs, newest first."
+                          :body [:ref "MigrationRunList"]}
+                     404 (ErrorResponse [#'MigrationNotFound])}
+         :handler queries/list-runs}
+        :post {:summary "Preview a cash account migration"
                :openapi {:operationId "PreviewCashAccountMigration"
+                         :description
+                         (str "Decides what the migration would do to each "
+                              "account it reaches today, records a verdict "
+                              "for each, and moves none. A preview can be "
+                              "run again at any time, including after "
+                              "approval, and counts towards any daily "
+                              "preview limit the bank's policies set.")
                          :security [{"bearerAuth" ["org:developer"]}]
                          :parameters ^:replace
                                      [shared.parameters/ref-migration-id
@@ -108,11 +149,14 @@
                                       shared.parameters/ref-idempotency-key]}
                :interceptors [server/require-idempotency-key
                               bank-idempotency/cache-response]
-               :responses (shared.idempotency/with-responses
-                           {201 {:body [:ref "MigrationRun"]
-                                 :openapi {:headers {"Location"
-                                                     preview-location-header}}}
-                            404 (ErrorResponse [#'MigrationNotFound])})
+               :responses
+               (shared.idempotency/with-responses
+                {201 {:description "The preview run."
+                      :body [:ref "MigrationRun"]
+                      :openapi {:headers {"Location" (shared.headers/location
+                                                      "preview")}}}
+                 404 (ErrorResponse [#'MigrationNotFound])
+                 429 (ErrorResponse [#'api.examples/PolicyLimitExceeded])})
                :handler handlers/preview-migration}}]
       ["/{run-id}"
        {:parameters {:path {:run-id [:ref "MigrationRunId"]}}}
@@ -120,16 +164,29 @@
         {:openapi {:security [{"bearerAuth" ["org:viewer"]}]
                    :parameters [shared.parameters/ref-bank-id-header]}
          :get {:summary "Retrieve a migration preview"
-               :openapi {:operationId "RetrieveCashAccountMigrationPreview"}
-               :responses {200 {:body [:ref "MigrationRun"]}
+               :openapi {:operationId "RetrieveCashAccountMigrationPreview"
+                         :description
+                         (str "One run of the migration, with how many "
+                              "accounts it saw, moved, found ineligible and "
+                              "failed. A run of another migration is refused "
+                              "with 404.")}
+               :responses {200 {:description "The preview run."
+                                :body [:ref "MigrationRun"]}
                            404 (ErrorResponse [#'RunNotFound])}
                :handler queries/get-run}}]
        ["/accounts"
         {:openapi {:security [{"bearerAuth" ["org:viewer"]}]
                    :parameters [shared.parameters/ref-bank-id-header]}
-         :get {:summary "Retrieve a preview's per-account verdicts"
-               :openapi {:operationId
-                         "RetrieveCashAccountMigrationPreviewAccounts"}
-               :responses {200 {:body [:ref "MigrationAccountRunList"]}
+         :get {:summary "List a preview's per-account verdicts"
+               :openapi {:operationId "ListCashAccountMigrationPreviewAccounts"
+                         :description
+                         (str "One verdict per account the run reached, in "
+                              "account order. A preview records each account "
+                              "as eligible, or ineligible with the reason, "
+                              "and the run that moves accounts records "
+                              "migrated or failed in place of eligible.")}
+               :responses {200 {:description
+                                "One verdict per account the run reached."
+                                :body [:ref "MigrationAccountRunList"]}
                            404 (ErrorResponse [#'RunNotFound])}
                :handler queries/list-run-accounts}}]]]]]])

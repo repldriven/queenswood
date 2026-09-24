@@ -19,8 +19,8 @@ option java_outer_classname = "IdempotencyProto";
 //                 Subsequent requests with the same key get 409
 //                 until the handler completes (or the entry
 //                 ages out via the stale-pending timeout).
-//   `completed` — handler done; `status` and `body` hold the
-//                 response to replay. Cached for `expires_at`
+//   `completed` — handler done; `status`, `headers` and `body` hold
+//                 the response to replay. Cached for `expires_at`
 //                 (24h after creation by default).
 //
 // `body` is the response body serialised as EDN — preserves
@@ -45,4 +45,9 @@ message Idempotency {
   // written before this field still parse; those match anything for
   // the rest of their lifetime.
   optional string fingerprint     = 9;
+  // The handler's response headers, `Location` among them, as EDN,
+  // replayed beside `Idempotent-Replayed`. Optional at the wire level
+  // so entries written before this field still parse; those replay
+  // with none.
+  optional string headers         = 10;
 }

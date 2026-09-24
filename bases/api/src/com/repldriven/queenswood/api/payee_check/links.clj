@@ -3,5 +3,5 @@
 
 (def from-check
   "Links available on a `PayeeCheck` response."
-  {"GetCheck" {:operationId "GetPayeeCheck"
+  {"GetCheck" {:operationId "RetrievePayeeCheck"
                :parameters {"check-id" "$response.body#/check-id"}}})

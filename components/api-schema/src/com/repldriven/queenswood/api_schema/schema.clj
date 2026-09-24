@@ -41,6 +41,10 @@
    :content {"application/json" {:schema [:ref "ErrorResponse"]
                                  :examples (example-refs examples)}}})
 
+(defn ErrorExamples
+  [examples]
+  {:content {"application/json" {:examples (example-refs examples)}}})
+
 (defn SuccessResponse
   [description schema examples]
   {:description description

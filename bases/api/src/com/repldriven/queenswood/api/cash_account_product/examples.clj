@@ -5,37 +5,37 @@
 
 (def ProductNotFound
   {:value {:title "REJECTED"
-           :type "cash-account-products/product-not-found"
+           :type ":cash-account-product/product-not-found"
            :status 404
            :detail "Product not found"}})
 
 (def VersionNotFound
   {:value {:title "REJECTED"
-           :type "cash-account-products/version-not-found"
+           :type ":cash-account-product/version-not-found"
            :status 404
            :detail "Version not found"}})
 
 (def DraftAlreadyExists
   {:value {:title "REJECTED"
-           :type "cash-account-products/draft-already-exists"
+           :type ":cash-account-product/draft-already-exists"
            :status 409
            :detail "A draft already exists"}})
 
 (def VersionImmutable
   {:value {:title "REJECTED"
-           :type "cash-account-products/version-immutable"
+           :type ":cash-account-product/version-immutable"
            :status 409
            :detail "Version is not a draft and cannot be modified"}})
 
 (def CurrencyNotAllowed
   {:value {:title "REJECTED"
-           :type "cash-account-products/currency-not-allowed"
+           :type ":cash-account-product/currency-not-allowed"
            :status 422
            :detail "Currency not allowed for this product-type"}})
 
 (def TemplateMismatch
   {:value {:title "REJECTED"
-           :type "cash-account-products/template-mismatch"
+           :type ":cash-account-product/template-mismatch"
            :status 422
            :detail "Template does not match the product's template"}})
 

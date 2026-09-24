@@ -5,7 +5,7 @@
 
 (def LedgerAccountNotFound
   {:value {:title "REJECTED"
-           :type "ledger-account/not-found"
+           :type ":ledger-account/not-found"
            :status 404
            :detail "Ledger account not found"}})
 

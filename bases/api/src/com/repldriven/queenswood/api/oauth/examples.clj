@@ -31,4 +31,21 @@
    :id_token_signing_alg_values_supported ["RS256"]
    :token_endpoint_auth_methods_supported ["client_secret_post"]})
 
-(def registry (examples-registry []))
+(def UnsupportedGrantType
+  {:value {:error "unsupported_grant_type"
+           :error_description "Only client_credentials is supported"}})
+
+(def InvalidTokenRequest
+  {:value {:error "invalid_request"
+           :error_description "Missing client_id or client_secret"}})
+
+(def InvalidClient
+  {:value {:error "invalid_client" :error_description "Authentication failed"}})
+
+(def SigningKeysUnavailable
+  {:value {:error "server_error"
+           :error_description "Failed to fetch signing keys"}})
+
+(def registry
+  (examples-registry [#'UnsupportedGrantType #'InvalidTokenRequest
+                      #'InvalidClient #'SigningKeysUnavailable]))

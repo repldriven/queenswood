@@ -497,7 +497,8 @@ Under `/v1/me`, gated `user`, no header:
   signed-in email: organisation name, role, who invited, expiry.
 - `GET /v1/me/invitations/{invitation-id}` — one, as its recipient
   sees it, by token header or email match.
-- `POST .../accept`, `POST .../decline` — the same proof.
+- `POST .../accept`, `POST .../decline` — the same proof. Accepting
+  answers the membership, with the member's `Location`.
 - `POST /v1/me/memberships/{membership-id}/leave` — the person's own.
 
 Under the bank the header names:
@@ -506,13 +507,18 @@ Under the bank the header names:
   user's name and email, role, joined, and who invited them, read off
   the invitation; the founding owner shows as having created the
   organisation.
+- `GET /v1/members/{membership-id}` — `org:viewer`. One active member,
+  as the list shows them; an ended membership, or another bank's,
+  answers 404.
 - `POST /v1/members/{membership-id}/change-role`,
   `POST /v1/members/{membership-id}/remove` — `org:admin`.
 - `GET /v1/invitations` — `org:viewer`. Pending, expired and accepted,
   with the invited and, once accepted, the accepting address. Declined
   and withdrawn invitations appear only in the history.
+- `GET /v1/invitations/{invitation-id}` — `org:viewer`. One invitation
+  in any status; another bank's answers 404.
 - `POST /v1/invitations` — `org:admin`. Email, role, optional reason.
-  Answers the invitation.
+  Answers the invitation, with its `Location`.
 - `POST /v1/invitations/{invitation-id}/withdraw`,
   `POST /v1/invitations/{invitation-id}/resend` — `org:admin`. Each
   answers the invitation.

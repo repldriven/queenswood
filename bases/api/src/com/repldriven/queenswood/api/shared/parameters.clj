@@ -36,51 +36,26 @@
    :example "01jsx6k7h0abfdv8qpm2ytn3we"})
 
 (def PageQuery
-  "Cursor-paginated `page` query parameter. Uses OpenAPI 3's
-  `deepObject` / `explode: true` so clients wire-serialise as
-  `page[after]=x&page[size]=20`. `additionalProperties: false`
-  matches the malli `[:map {:closed true} ...]` that validates the
-  incoming request after the nest-bracket interceptor rewrites it.
-
-  `size` is declared as an integer so fuzzers don't feed non-numeric
-  strings through to the handler; `after`/`before` have a min length
-  so blank cursors are rejected at validation rather than silently
-  treated as \"no cursor\"."
+  "Cursor-paginated `page` query parameter, deepObject-styled so clients
+  send `page[after]=x&page[size]=20`. Its schema is the malli `PageQuery`
+  that validates the request."
   {:name "page"
    :in "query"
    :required false
    :style "deepObject"
    :explode true
-   :schema {:type "object"
-            :additionalProperties false
-            :properties {:after {:type "string"
-                                 :minLength 1
-                                 :maxLength 200
-                                 :description "Cursor for next page"}
-                         :before {:type "string"
-                                  :minLength 1
-                                  :maxLength 200
-                                  :description "Cursor for previous page"}
-                         :size {:type "integer"
-                                :minimum 1
-                                :maximum 100
-                                :description "Page size"}}}})
+   :schema {:$ref "#/components/schemas/PageQuery"}})
 
 (def EmbedQuery
   "`embed` query parameter for optional sub-resource embedding on
-  cash-account GET endpoints. deepObject-styled so clients send
+  cash-account GET endpoints, deepObject-styled so clients send
   `embed[balances]=true&embed[transactions]=false`."
   {:name "embed"
    :in "query"
    :required false
    :style "deepObject"
    :explode true
-   :schema {:type "object"
-            :additionalProperties false
-            :properties {:balances {:type "boolean"
-                                    :description "Embed balances"}
-                         :transactions {:type "boolean"
-                                        :description "Embed transactions"}}}})
+   :schema {:$ref "#/components/schemas/EmbedQuery"}})
 
 (def AccountId
   "`components.parameters` entry for the `account-id` path parameter.
@@ -129,29 +104,11 @@
    :required true
    :schema {:$ref "#/components/schemas/InvitationId"}})
 
-(def MembershipId
-  {:name "membership-id"
-   :in "path"
-   :required true
-   :schema {:$ref "#/components/schemas/MembershipId"}})
-
 (def PartyId
   {:name "party-id"
    :in "path"
    :required true
    :schema {:$ref "#/components/schemas/PartyId"}})
-
-(def ProductId
-  {:name "product-id"
-   :in "path"
-   :required true
-   :schema {:$ref "#/components/schemas/ProductId"}})
-
-(def VersionId
-  {:name "version-id"
-   :in "path"
-   :required true
-   :schema {:$ref "#/components/schemas/VersionId"}})
 
 (def JobId
   {:name "job-id"
@@ -164,42 +121,6 @@
    :in "path"
    :required true
    :schema {:$ref "#/components/schemas/MigrationId"}})
-
-(def CheckId
-  {:name "check-id"
-   :in "path"
-   :required true
-   :schema {:$ref "#/components/schemas/CheckId"}})
-
-(def PaymentId
-  {:name "payment-id"
-   :in "path"
-   :required true
-   :schema {:$ref "#/components/schemas/PaymentId"}})
-
-(def PolicyId
-  {:name "policy-id"
-   :in "path"
-   :required true
-   :schema {:$ref "#/components/schemas/PolicyId"}})
-
-(def BalanceType
-  {:name "balance-type"
-   :in "path"
-   :required true
-   :schema {:$ref "#/components/schemas/BalanceType"}})
-
-(def Currency
-  {:name "currency"
-   :in "path"
-   :required true
-   :schema {:$ref "#/components/schemas/Currency"}})
-
-(def BalanceStatus
-  {:name "balance-status"
-   :in "path"
-   :required true
-   :schema {:$ref "#/components/schemas/BalanceStatus"}})
 
 (def EndpointId
   {:name "endpoint-id"
@@ -214,26 +135,15 @@
    :schema {:$ref "#/components/schemas/WebhookDeliveryId"}})
 
 (def DeliveryFilterQuery
-  "`filter` query parameter on an endpoint's delivery history.
+  "`filter` query parameter on an endpoint's delivery history,
   deepObject-styled so clients send
-  `filter[kind]=cash-account.opened&filter[outcome]=failed`. `from` and
-  `to` bound when the delivery was created."
+  `filter[kind]=cash-account.opened&filter[outcome]=failed`."
   {:name "filter"
    :in "query"
    :required false
    :style "deepObject"
    :explode true
-   :schema {:type "object"
-            :additionalProperties false
-            :properties {:kind {:type "string" :description "Notification kind"}
-                         :outcome {:$ref
-                                   "#/components/schemas/WebhookDeliveryStatus"}
-                         :from {:type "string"
-                                :format "date-time"
-                                :description "Earliest delivery creation"}
-                         :to {:type "string"
-                              :format "date-time"
-                              :description "Latest delivery creation"}}}})
+   :schema {:$ref "#/components/schemas/WebhookDeliveryFilterQuery"}})
 
 (def InboundPaymentStatusQuery
   "`status` query parameter on the inbound payment list: the one status
@@ -245,23 +155,14 @@
 
 (def PartyEmbedQuery
   "`embed` query parameter for optional sub-resource embedding on the
-  party detail endpoint. deepObject-styled so clients send
-  `embed[person-identification]=true&embed[address]=true&embed[national-identifier]=true`."
+  party detail endpoint, deepObject-styled so clients send
+  `embed[person-identification]=true&embed[address]=true`."
   {:name "embed"
    :in "query"
    :required false
    :style "deepObject"
    :explode true
-   :schema {:type "object"
-            :additionalProperties false
-            :properties
-            {:person-identification
-             {:type "boolean"
-              :description
-              "Embed person identification (names, date of birth, nationality)"}
-             :address {:type "boolean" :description "Embed address"}
-             :national-identifier {:type "boolean"
-                                   :description "Embed national identifier"}}}})
+   :schema {:$ref "#/components/schemas/PartyEmbedQuery"}})
 
 (def ref-idempotency-key {:$ref "#/components/parameters/IdempotencyKey"})
 (def ref-page {:$ref "#/components/parameters/PageQuery"})
@@ -272,7 +173,6 @@
 (def ref-bank-id-header {:$ref "#/components/parameters/BankIdHeader"})
 (def ref-invitation-token {:$ref "#/components/parameters/InvitationToken"})
 (def ref-invitation-id {:$ref "#/components/parameters/InvitationId"})
-(def ref-membership-id {:$ref "#/components/parameters/MembershipId"})
 (def ref-party-id {:$ref "#/components/parameters/PartyId"})
 (def ref-job-id {:$ref "#/components/parameters/JobId"})
 (def ref-migration-id {:$ref "#/components/parameters/MigrationId"})
@@ -294,18 +194,9 @@
    "BankIdHeader" BankIdHeader
    "InvitationToken" InvitationToken
    "InvitationId" InvitationId
-   "MembershipId" MembershipId
    "PartyId" PartyId
    "JobId" JobId
    "MigrationId" MigrationId
-   "ProductId" ProductId
-   "VersionId" VersionId
-   "CheckId" CheckId
-   "PaymentId" PaymentId
-   "PolicyId" PolicyId
-   "BalanceType" BalanceType
-   "Currency" Currency
-   "BalanceStatus" BalanceStatus
    "EndpointId" EndpointId
    "DeliveryId" DeliveryId
    "DeliveryFilterQuery" DeliveryFilterQuery

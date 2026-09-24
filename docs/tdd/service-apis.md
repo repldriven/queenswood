@@ -216,10 +216,11 @@ discipline.
 surface stands; `just openapi-diff <ref>` writes it twice — once
 from `ref`'s tree and once from the working tree — and prints
 the difference, which is how a change to a shared component or
-an error shape is read before it ships. A route family that
-lands without a `description` on each of its responses shows up
-in `openapi_test`'s `standing-gaps` instead, which fails only
-when a class grows.
+an error shape is read before it ships. `just openapi-lint [path]`
+lints the document with Spectral against the ruleset in
+`.config/spectral/`, which validates it as OpenAPI 3.2 and holds the
+conventions this section describes, and the Release workflow runs it
+before building a release.
 
 ### Interceptor chain
 

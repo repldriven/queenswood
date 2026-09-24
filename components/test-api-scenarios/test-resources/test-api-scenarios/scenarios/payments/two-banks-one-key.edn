@@ -63,7 +63,7 @@
                                           :value "TN555401D"
                                           :issuing-country "GB"}}}
    :as :party-a
-   :assert {:status 200 :body {:status "pending"}}}
+   :assert {:status 201 :body {:status "pending"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/parties/{party-id}"
@@ -80,7 +80,7 @@
                     :currency "GBP"
                     :product-id [:ref :product-a :product-id]}}
    :as :debtor-a
-   :assert {:status 200 :body {:account-status "opening"}}}
+   :assert {:status 201 :body {:account-status "opening"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}"
@@ -97,7 +97,7 @@
                     :currency "GBP"
                     :product-id [:ref :product-a :product-id]}}
    :as :creditor-a
-   :assert {:status 200 :body {:account-status "opening"}}}
+   :assert {:status 201 :body {:account-status "opening"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}"
@@ -125,7 +125,7 @@
                     :currency "GBP"
                     :amount 100000
                     :reference "Funding"}}
-   :assert {:status 200}}
+   :assert {:status 201}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}/balances"
@@ -190,7 +190,7 @@
                                           :value "TN555402E"
                                           :issuing-country "GB"}}}
    :as :party-b
-   :assert {:status 200 :body {:status "pending"}}}
+   :assert {:status 201 :body {:status "pending"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/parties/{party-id}"
@@ -207,7 +207,7 @@
                     :currency "GBP"
                     :product-id [:ref :product-b :product-id]}}
    :as :debtor-b
-   :assert {:status 200 :body {:account-status "opening"}}}
+   :assert {:status 201 :body {:account-status "opening"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}"
@@ -224,7 +224,7 @@
                     :currency "GBP"
                     :product-id [:ref :product-b :product-id]}}
    :as :creditor-b
-   :assert {:status 200 :body {:account-status "opening"}}}
+   :assert {:status 201 :body {:account-status "opening"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}"
@@ -252,7 +252,7 @@
                     :currency "GBP"
                     :amount 100000
                     :reference "Funding"}}
-   :assert {:status 200}}
+   :assert {:status 201}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}/balances"
@@ -274,7 +274,7 @@
                     :amount 2500
                     :reference "Bank A payment"}}
    :as :payment-a
-   :assert {:status 200 :body {:bank-id [:ref :bank-a :bank-id]
+   :assert {:status 201 :body {:bank-id [:ref :bank-a :bank-id]
                                :amount 2500
                                :reference "Bank A payment"}}}
   {:command :api/request
@@ -288,7 +288,7 @@
                     :amount 7100
                     :reference "Bank B payment"}}
    :as :payment-b
-   :assert {:status 200 :body {:bank-id [:ref :bank-b :bank-id]
+   :assert {:status 201 :body {:bank-id [:ref :bank-b :bank-id]
                                :amount 7100
                                :reference "Bank B payment"}}}]
  :then

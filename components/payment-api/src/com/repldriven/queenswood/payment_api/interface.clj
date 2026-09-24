@@ -170,6 +170,22 @@
      BalanceNotFound
   examples/BalanceNotFound)
 
+(def ^{:doc "RFC 9457 body for a debtor account not open for payments — 409."}
+     DebtorAccountNotOperable
+  examples/DebtorAccountNotOperable)
+
+(def ^{:doc "RFC 9457 body for a creditor account not open for payments — 409."}
+     CreditorAccountNotOperable
+  examples/CreditorAccountNotOperable)
+
+(def ^{:doc "RFC 9457 body for a payment between one account and itself — 422."}
+     SelfTransferNotPermitted
+  examples/SelfTransferNotPermitted)
+
+(def ^{:doc "RFC 9457 body for a payment currency the account is not in — 422."}
+     CurrencyMismatch
+  examples/CurrencyMismatch)
+
 (def ^{:doc "RFC 9457 body for an amount the transaction rules refuse."}
      InvalidAmount
   examples/InvalidAmount)

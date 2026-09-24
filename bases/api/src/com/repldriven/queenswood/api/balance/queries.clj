@@ -49,7 +49,7 @@
      (nil? result)
      {:status 404
       :body (errors/error-response 404 "REJECTED"
-                                   "balances/not-found"
+                                   ":balance/not-found"
                                    "Balance not found")}
 
      :else

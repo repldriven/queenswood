@@ -71,6 +71,17 @@
   [examples]
   (schema/ErrorResponse examples))
 
+(defn ErrorExamples
+  "Reitit `:responses` entry adding `examples` to an error status an
+  enclosing route already documents with `ErrorResponse`. It carries no
+  schema: two schemas for one status are merged, and the merge inlines
+  `ErrorResponse` in place of its `$ref`.
+
+  Args:
+  - examples: sequence of vars, each holding an OpenAPI example map."
+  [examples]
+  (schema/ErrorExamples examples))
+
 (defn SuccessResponse
   "Reitit `:responses` entry for one success status: an
   `application/json` body of `schema` whose `examples` `$ref` the named

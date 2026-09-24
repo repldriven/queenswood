@@ -31,5 +31,4 @@
            :status 404
            :detail "Payee check not found"}})
 
-(def registry
-  (examples-registry [#'PayeeCheck #'PayeeCheckList #'PayeeCheckNotFound]))
+(def registry (examples-registry [#'PayeeCheckNotFound]))

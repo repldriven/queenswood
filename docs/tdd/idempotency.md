@@ -117,8 +117,8 @@ Each cache entry is in one of two states:
 - **`pending`** — a handler is currently processing this key. Set on
   first arrival, with the fingerprint, and cleared when the handler
   completes.
-- **`completed`** — handler finished; `status` and `body` hold the
-  response to replay.
+- **`completed`** — handler finished; `status`, `headers` and `body`
+  hold the response to replay.
 
 A stale-`pending` entry (older than 60 s) is treated as abandoned —
 a server crashed, say. It is reclaimable by the next request, and
@@ -211,7 +211,7 @@ sequenceDiagram
         F-->>I: anomaly
         I-->>C: 503 cache unavailable
     else completed entry exists
-        F-->>I: completed (status body)
+        F-->>I: completed (status headers body)
         I-->>C: replay, Idempotent-Replayed true
     else pending entry exists (not stale)
         F-->>I: in-flight
@@ -277,7 +277,9 @@ the principal scope needs that to have run.
 
 Every replayed response carries `Idempotent-Replayed: true`. A fresh
 response carries no such header, so a client can tell a cached
-outcome from a new one without comparing bodies.
+outcome from a new one without comparing bodies. A replay carries the
+first response's own headers beside it, so a replayed 201 names what
+it created in `Location` as the first one did.
 
 ### Body serialisation
 
@@ -318,6 +320,7 @@ mints a fresh token.
 | `idempotency_key` | string | required |
 | `state` | string | `"pending"` or `"completed"` |
 | `status` | int32 | optional (completed only) |
+| `headers` | string | optional EDN (completed only) |
 | `body` | string | optional EDN (completed only) |
 | `created_at` | int64 | epoch ms |
 | `expires_at` | int64 | epoch ms |
@@ -515,19 +518,6 @@ header as the store-level key.
   the same operation collide. Acceptable given the back-office usage
   pattern; per-operator humans use the user-JWT path with a distinct
   user-id principal and don't share scope.
-
-- **Only the replay marker is replayed, not the response's other
-  headers.** The cache stores status and body, and sets
-  `Idempotent-Replayed` itself. Four routes that declare the pair
-  set `Location` on a fresh 201: product creation, migration
-  creation, the migration preview and the forced job run. A replay of
-  any of the four omits it. Each declares the header in its route
-  data, but that declaration does not reach the generated document,
-  which names `Location` nowhere, so no generated client expects it
-  either; moving the declaration where reitit reads it is an `api`
-  fix of its own. Product draft opening also sets `Location`, but it
-  is exempt, so it never replays. Widening the entry to store headers
-  is deferred.
 
 ## References
 

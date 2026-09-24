@@ -35,6 +35,14 @@
   "version": "2.1.2",
   "sha256": "0vzz78fd4awbsc5iykych9yqd86yab18f8fbbgydrw556lmhv8hh"
  },
+ "spectral": {
+  "version": "6.16.3",
+  "sha256": {
+   "macos-arm64": "sha256-0BhXpggx3viMMQB4cIx6mQwX8q0+Kgm06ExX4cAujwY=",
+   "macos-x64": "sha256-kpyFXv1m7uG7slEyviS7lNZa6aeVI8lORXs7TBMMvn8=",
+   "linux-x64": "sha256-uQrI2nuATQQFK5241OpQKNKfupvGmwLchdRuX8xHZFI="
+  }
+ },
  "keycloak": {
   "version": "26.7.4",
   "$comment": "Server image and operator image. The operator vendors its CRDs, so infra/helm/queenswood/charts/keycloak-operator must be re-vendored from keycloak-k8s-resources at this same tag when this changes."

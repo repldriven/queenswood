@@ -26,13 +26,23 @@
              :body {:company-number "TY046601"
                     :bank-name "Tyrell Corporation"}}
    :as :onboarded
-   :assert {:status 201 :body {:membership {:role "owner"}}}}
+   :assert {:status 201
+            :headers {:location [:m/regex "^/v1/banks/bnk\\."]}
+            :body {:membership {:role "owner"}}}}
   {:command :api/request
    :request {:method :get :path "/v1/me" :auth :member-token}
    :assert {:status 200
             :body {:memberships
                    [{:bank-id [:ref :onboarded :bank :bank-id]
                      :role "owner"}]}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/banks/{bank-id}"
+             :path-params {:bank-id [:ref :onboarded :bank :bank-id]}
+             :auth :member-token}
+   :assert {:status 200
+            :body {:bank-id [:ref :onboarded :bank :bank-id]
+                   :name "Tyrell Corporation"}}}
   ;; An org-gated route the same token could not reach a moment ago.
   {:command :api/request
    :request {:method :get :path "/v1/cash-accounts" :auth :member-token}
