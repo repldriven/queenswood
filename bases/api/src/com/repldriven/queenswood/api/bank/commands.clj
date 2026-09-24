@@ -116,6 +116,7 @@
             (errors/forbidden-response
              (str "Only an operator chooses a bank's status, tier, "
                   "currencies or owner"))
+
             (nil? (:company-number body))
             (errors/anomaly->response
              (error/reject :bank/company-required
@@ -182,8 +183,10 @@
         looked-up (when-not refused (company request))]
     (cond refused
           refused
+
           (and looked-up (not= 200 (:status looked-up)))
           looked-up
+
           :else
           (let [result (send-create-bank request
                                          (create-bank-data request

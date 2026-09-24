@@ -32,7 +32,7 @@
                     :name "Never Opened"
                     :currency "GBP"
                     :product-id "prd.00000000000000000000000000"}}
-   :assert {:status 400 :problem {:type "mono/missing-idempotency-key"}}}]
+   :assert {:status 400 :problem {:type "server/missing-idempotency-key"}}}]
  :then
  ;; Eight characters — present, but shorter than the minimum sixteen.
  [{:command :api/request
@@ -44,4 +44,4 @@
                     :name "Never Opened"
                     :currency "GBP"
                     :product-id "prd.00000000000000000000000000"}}
-   :assert {:status 400 :problem {:type "mono/invalid-idempotency-key"}}}]}
+   :assert {:status 400 :problem {:type "server/invalid-idempotency-key"}}}]}

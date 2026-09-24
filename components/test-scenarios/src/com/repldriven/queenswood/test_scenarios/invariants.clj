@@ -166,6 +166,7 @@
   (cond
    (error/anomaly? snapshot)
    snapshot
+
    (nil? snapshot)
    :no-snapshot))
 

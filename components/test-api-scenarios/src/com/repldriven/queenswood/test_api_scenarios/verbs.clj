@@ -67,12 +67,15 @@
   (cond
    (nil? auth)
    nil
+
    (= :admin auth)
    admin-token
+
    ;; A keyword references a previously-captured token (minted by
    ;; `:auth/mint-token` and stored via `:as`).
    (keyword? auth)
    (get captures auth)
+
    :else
    auth))
 
@@ -101,8 +104,10 @@
   (cond
    (absolute-url? url)
    url
+
    (some? url)
    (str base-url url)
+
    :else
    (str base-url (substitute-path path path-params))))
 
@@ -131,9 +136,11 @@
         base-headers (cond-> {}
                              body
                              (assoc "Content-Type" "application/json")
+
                              form
                              (assoc "Content-Type"
                                     "application/x-www-form-urlencoded")
+
                              token
                              (assoc "Authorization" (str "Bearer " token)))]
     (cond-> {:method method
@@ -141,8 +148,10 @@
              :headers (merge-headers base-headers headers)}
             query-params
             (assoc :query-params query-params)
+
             body
             (assoc :body (json/write-str body))
+
             form
             (assoc :body (form-urlencode form)))))
 
@@ -263,6 +272,7 @@
         ctx' (cond-> (assoc ctx :last-response response)
                      as
                      (assoc-in [:captures as] (:body response))
+
                      (created-bank? resolved response)
                      (track-bank (:body response)))]
     (if-let [expect (:assert step)]

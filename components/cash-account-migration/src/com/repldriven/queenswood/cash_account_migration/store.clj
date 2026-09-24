@@ -18,11 +18,16 @@
   `unknowns` maps a key to the enum member that means unset."
   [m string-keys unknowns]
   (as-> (into {} m) record
-    (reduce (fn [acc k] (cond-> acc (= "" (get acc k)) (dissoc k)))
+    (reduce (fn [acc k]
+              (cond-> acc
+                      (= "" (get acc k))
+                      (dissoc k)))
             record
             string-keys)
     (reduce (fn [acc [k unset]]
-              (cond-> acc (= unset (get acc k)) (dissoc k)))
+              (cond-> acc
+                      (= unset (get acc k))
+                      (dissoc k)))
             record
             unknowns)))
 

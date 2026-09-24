@@ -420,10 +420,10 @@ HTTP status:
 The Reitit exception interceptor handles framework-level
 failures the same way:
 
-- Malformed JSON body → 400 (`mono/malformed-body`).
-- Request coercion failure → 400 (`mono/bad-request`) with a
+- Malformed JSON body → 400 (`server/malformed-body`).
+- Request coercion failure → 400 (`server/bad-request`) with a
   humanised explanation of the schema violation.
-- Response coercion failure → 500 (`mono/bad-response`) — the
+- Response coercion failure → 500 (`server/bad-response`) — the
   bug is on our side.
 - Catch-all `::exception/default` → 500, logs the stack trace.
 

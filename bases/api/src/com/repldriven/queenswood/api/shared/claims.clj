@@ -44,10 +44,13 @@
                     f (:family_name claims)]
                 (cond (and g f)
                       (str g " " f)
+
                       g
                       g
+
                       f
                       f
+
                       :else
                       (:preferred_username claims))))
     :identity-provider (claims->identity-provider claims)}

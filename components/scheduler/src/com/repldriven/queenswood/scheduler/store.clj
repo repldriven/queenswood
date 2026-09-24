@@ -15,6 +15,7 @@
   (cond-> job
           (zero? (:last-run-at job 0))
           (dissoc :last-run-at)
+
           (zero? (:next-run-at job 0))
           (dissoc :next-run-at)))
 
@@ -27,8 +28,10 @@
   (cond-> (into {} task)
           (zero? (:started-at task 0))
           (dissoc :started-at)
+
           (zero? (:finished-at task 0))
           (dissoc :finished-at)
+
           (= "" (:error task ""))
           (dissoc :error)))
 
@@ -37,12 +40,16 @@
   (cond-> run
           (zero? (:finished-at run 0))
           (dissoc :finished-at)
+
           (zero? (:expected-end-at run 0))
           (dissoc :expected-end-at)
+
           (= "" (:current-task run ""))
           (dissoc :current-task)
+
           (= "" (:error run ""))
           (dissoc :error)
+
           :always
           (update :tasks (fn [tasks] (mapv clean-task tasks)))))
 

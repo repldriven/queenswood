@@ -14,8 +14,10 @@
   ([status anomaly]
    (cond-> {:title (cond (error/unauthorized? anomaly)
                          "UNAUTHORIZED"
+
                          (error/rejection? anomaly)
                          "REJECTED"
+
                          :else
                          "FAILED")
             :type (str (error/kind anomaly))
@@ -98,12 +100,15 @@
                   name)]
     (cond (contains? rejection-status-overrides kind)
           (get rejection-status-overrides kind)
+
           (str/ends-with? (or n "") "not-found")
           404
+
           (or (= n "already-exists")
               (= n "exists")
               (str/includes? (or n "") "duplicate"))
           409
+
           :else
           422)))
 
@@ -117,10 +122,13 @@
   [anomaly]
   (cond (error/unauthorized? anomaly)
         403
+
         (contains? error-status-overrides (error/kind anomaly))
         (get error-status-overrides (error/kind anomaly))
+
         (not (error/rejection? anomaly))
         500
+
         :else
         (rejection-kind->status (error/kind anomaly))))
 

@@ -503,8 +503,10 @@
   (loop [n 50]
     (cond (pred)
           true
+
           (zero? n)
           false
+
           :else
           (do (Thread/sleep 100) (recur (dec n))))))
 

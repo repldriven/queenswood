@@ -72,6 +72,7 @@
                                        proto-path]
                                       fdb-path
                                       (conj "--proto_path" fdb-path)
+
                                       true
                                       (into protos))})
     (strip-fdb-requires clj-out)

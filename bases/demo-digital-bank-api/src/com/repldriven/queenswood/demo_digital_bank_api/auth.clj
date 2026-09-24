@@ -23,10 +23,13 @@
                              (bank/authenticate bank credential))]
               (cond (nil? customer)
                     ctx
+
                     (error/unauthorized? customer)
                     ctx
+
                     (error/anomaly? customer)
                     (sc/terminate ctx (errors/anomaly->response customer))
+
                     :else
                     (update ctx
                             :request assoc

@@ -113,7 +113,9 @@
                   FDBStoreTimer$Waits/WAIT_SCAN_RECORDS)
                  vec)
         more? (> (count raw) limit)
-        trimmed (cond-> raw more? (subvec 0 limit))
+        trimmed (cond-> raw
+                        more?
+                        (subvec 0 limit))
         ;; Native scan yields low-to-high forward, high-to-low reverse.
         page (if (= reverse-scan? descending?)
                trimmed

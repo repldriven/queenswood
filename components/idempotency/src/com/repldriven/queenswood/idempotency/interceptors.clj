@@ -116,8 +116,10 @@
               (cond
                (empty? parent)
                (dissoc body k)
+
                (some? (get-in body parent))
                (update-in body parent dissoc k)
+
                :else
                body)))
           body

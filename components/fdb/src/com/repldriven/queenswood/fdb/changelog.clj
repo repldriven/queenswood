@@ -128,7 +128,9 @@
                    cp (read-checkpoint record-db cp-key)
                    entries (scan ctx keyspace-prefix store-name cp)]
                (when (seq entries)
-                 (doseq [kv (cond-> entries deduplicate? deduplicate)]
+                 (doseq [kv (cond-> entries
+                                    deduplicate?
+                                    deduplicate)]
                    (let [tuple (Tuple/fromBytes (.getValue kv))
                          changelog-bytes (.getBytes tuple 1)]
                      (handler ctx changelog-bytes)))

@@ -3,6 +3,6 @@
 ;; :test as ext/mono so it replaces the runtime root by symbol.
 ;; Bump the tag/sha to match ../mono.
 {:deps {com.repldriven/mono {:git/url "https://github.com/repldriven/mono.git"
-                             :git/tag "v0.0.43"
-                             :git/sha "015594f3219693d801b6339a421cfbe7e3675cdf"
+                             :git/tag "v0.0.44"
+                             :git/sha "c55b9c7ac055fac65547fe7beab70f24a1bd8124"
                              :deps/root "projects/mono-test-lib"}}}

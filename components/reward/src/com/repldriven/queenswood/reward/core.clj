@@ -64,8 +64,10 @@
        (cond
         (error/anomaly? existing)
         existing
+
         (domain/paid? existing)
         :paid-before
+
         :else
         (let [reward (or existing
                          (domain/new-reward account amount (:run-id ctx)))
@@ -99,8 +101,10 @@
        (cond
         (error/anomaly? existing)
         existing
+
         (domain/paid? existing)
         existing
+
         :else
         (store/save-reward txn
                            (domain/deferred (or existing
@@ -155,12 +159,14 @@
             (cond
              (= :paid-before result)
              :paid-before
+
              (error/anomaly? result)
              (do (defer config ctx account amount result)
                  (log/warn "reward: deferred"
                            {:account-id (:account-id account)
                             :error (error/format-anomaly result)})
                  :deferred)
+
              :else
              :paid))))))))
 
@@ -179,6 +185,7 @@
                   (cond-> tally
                           (= :paid outcome)
                           (update :paid inc)
+
                           (= :deferred outcome)
                           (update :deferred inc))))
               {:paid 0 :deferred 0})]

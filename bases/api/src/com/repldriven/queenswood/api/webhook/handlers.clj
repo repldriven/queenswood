@@ -81,7 +81,9 @@
   lifts it onto the write's data."
   [data request]
   (let [key (get (:headers request) "idempotency-key")]
-    (cond-> data key (assoc :idempotency-key key))))
+    (cond-> data
+            key
+            (assoc :idempotency-key key))))
 
 (defn register
   [request]

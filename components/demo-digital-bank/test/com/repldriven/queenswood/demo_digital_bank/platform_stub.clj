@@ -185,16 +185,19 @@
               party (get-in @state [:parties (:party-id body-params)])]
           (cond (nil? party)
                 (problem 404 "REJECTED" ":party/not-found" "no such party")
+
                 (not= "active" (:status (decide party)))
                 (problem 422
                          "REJECTED"
                          ":cash-account/party-inactive"
                          "the party is not active")
+
                 (nil? (published (:product-id body-params)))
                 (problem 422
                          "REJECTED"
                          ":cash-account-product/not-published"
                          "no published version")
+
                 :else
                 (let [account (new-account state body-params)]
                   (swap! state
@@ -251,6 +254,7 @@
                            {:match-result "no-match"
                             :reason-code "ANNM"
                             :reason "Account name does not match"}
+
                            (str/includes? name "COP_CLOSEMATCH")
                            {:match-result "close-match"
                             :actual-name (str/trim (str/replace
@@ -259,10 +263,12 @@
                                                     ""))
                             :reason-code "MBAM"
                             :reason "Close match"}
+
                            (str/includes? name "COP_UNAVAILABLE")
                            {:match-result "unavailable"
                             :reason-code "ACNS"
                             :reason "Account not supported"}
+
                            :else
                            {:match-result "match"})
               now (util/now-rfc3339)]
@@ -308,11 +314,13 @@
   (let [account (get-in @state [:accounts account-id])]
     (cond (nil? account)
           (problem 404 "REJECTED" ":cash-account/not-found" "no such account")
+
           (not= "opened" (:account-status account))
           (problem 409
                    "REJECTED"
                    ":cash-account/invalid-status"
                    (str "the account is " (:account-status account)))
+
           :else
           account)))
 
@@ -337,10 +345,13 @@
            creditor (operable state creditor-account-id)]
        (cond (:status debtor)
              debtor
+
              (:status creditor)
              creditor
+
              (covered debtor amount)
              (covered debtor amount)
+
              :else
              (let [transaction-id (util/generate-id "txn")
                    now (util/now-rfc3339)]
@@ -394,8 +405,10 @@
               debtor (operable state debtor-account-id)]
           (cond (:status debtor)
                 debtor
+
                 (covered debtor amount)
                 (covered debtor amount)
+
                 :else
                 (let [transaction-id (util/generate-id "txn")
                       payment-id (util/generate-id "pmt")

@@ -148,6 +148,7 @@
    (cond-> {:kind kind :bound bound}
            reason
            (assoc :reason reason)
+
            allow
            (assoc :allow allow))))
 

@@ -138,20 +138,20 @@
           with pkgs.google-cloud-sdk.components; [ gke-gcloud-auth-plugin ]
         );
 
-        # Tessl CLI (skill tile authoring + evals). Pre-built binary from
-        # install.tessl.io; darwin-arm64 to match this workspace's dev
-        # machines.
-        tessl = pkgs.stdenv.mkDerivation rec {
-          pname = "tessl";
-          version = "0.90.0";
+        # Tessl CLI (rule plugins, skill authoring and evals). Pre-built
+        # binary from install.tessl.io.
+        tesslVersion = versions.tessl.version;
+        tesslArch = if pkgs.stdenv.hostPlatform.isAarch64 then "arm64" else "x64";
+        tessl = pkgs.stdenv.mkDerivation {
+          name = "tessl-${tesslVersion}";
           src = pkgs.fetchurl {
-            url = "https://install.tessl.io/binaries/${version}/tessl-${version}-darwin-arm64.tar.gz";
-            sha256 = "1v42hrlk0gfqr098b7irhdnmz72dvab8r58dskpmf257lfykf7x3";
+            url = "https://install.tessl.io/binaries/${tesslVersion}/tessl-${tesslVersion}-darwin-${tesslArch}.tar.gz";
+            sha256 = versions.tessl.sha256."darwin-${tesslArch}";
           };
           sourceRoot = ".";
           installPhase = ''
             mkdir -p $out/bin
-            install -m 755 tessl-${version}-darwin-arm64 $out/bin/tessl
+            install -m 755 tessl-${tesslVersion}-darwin-${tesslArch} $out/bin/tessl
           '';
         };
       in

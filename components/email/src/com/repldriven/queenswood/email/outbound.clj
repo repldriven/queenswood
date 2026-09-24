@@ -37,8 +37,10 @@
       (cond
        (= :user/not-found (error/kind found))
        nil
+
        (error/anomaly? found)
        found
+
        :else
        (:name found)))))
 
@@ -144,8 +146,10 @@
         updated (cond
                  superseded
                  (domain/mark-superseded delivery superseded now)
+
                  error
                  (domain/record-failure delivery error now)
+
                  :else
                  (domain/mark-sent delivery message-id now))]
     (when error

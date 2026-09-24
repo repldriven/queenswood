@@ -49,7 +49,9 @@
   so this lifts it onto the command data."
   [data request]
   (let [key (get (:headers request) "idempotency-key")]
-    (cond-> data key (assoc :idempotency-key key))))
+    (cond-> data
+            key
+            (assoc :idempotency-key key))))
 
 (defn create-product
   [request]
