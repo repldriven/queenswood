@@ -150,8 +150,10 @@
             stats' (-> stats
                        (update (cond assertion?
                                      :asserts
+
                                      modelled?
                                      :modelled
+
                                      :else
                                      :unmodelled)
                                inc)

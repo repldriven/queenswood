@@ -85,6 +85,7 @@
   (let [headers (cond-> {"accept" "application/json"}
                         body
                         (assoc "content-type" "application/json")
+
                         idempotency-key
                         (assoc "idempotency-key"
                                idempotency-key))

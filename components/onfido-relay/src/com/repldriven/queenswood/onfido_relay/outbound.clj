@@ -105,14 +105,19 @@
            :country country}
           flat-number
           (assoc :flat_number flat-number)
+
           building-number
           (assoc :building_number building-number)
+
           building-name
           (assoc :building_name building-name)
+
           sub-street
           (assoc :sub_street sub-street)
+
           state
           (assoc :state state)
+
           start-date
           (assoc :start_date start-date)))
 

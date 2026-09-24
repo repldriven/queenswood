@@ -81,10 +81,13 @@
                       (reduced acc)
                       (let [k (cond (nil? lk)
                                     rk
+
                                     (nil? rk)
                                     lk
+
                                     (neg? (compare lk rk))
                                     lk
+
                                     :else
                                     rk)
                             lres (if (= k lk)

@@ -280,8 +280,10 @@
         new-version (.getVersion new)]
     (cond (< old-version new-version)
           (validate-evolution old new)
+
           (= old-version new-version)
           (validate-unchanged old new)
+
           :else
           (error/fail :fdb/meta-data-evolution
                       {:message

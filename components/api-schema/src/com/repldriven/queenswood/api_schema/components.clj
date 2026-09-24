@@ -55,6 +55,7 @@
              :uniqueItems true}
             min
             (assoc :minItems min)
+
             max
             (assoc :maxItems max))))
 
@@ -227,8 +228,10 @@
     {:decode/api (fn [v]
                    (cond (int? v)
                          v
+
                          (string? v)
                          (or (iso-date->epoch-day v) v)
+
                          :else
                          v))
      :encode/api epoch-day->iso-date}]])
@@ -249,8 +252,10 @@
     {:decode/api (fn [v]
                    (cond (int? v)
                          v
+
                          (string? v)
                          (or (iso-date->yyyymmdd v) v)
+
                          :else
                          v))
      :encode/api (fn [n] (when (int? n) (yyyymmdd->iso-date n)))}]
@@ -390,8 +395,10 @@
    {:decode/api (fn [v]
                   (cond (int? v)
                         v
+
                         (string? v)
                         (or (parse-timestamp v) v)
+
                         :else
                         v))
     :encode/api (fn [ms] (when (pos? ms) (str (Instant/ofEpochMilli ms))))

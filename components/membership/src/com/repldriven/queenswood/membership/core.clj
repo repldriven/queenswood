@@ -46,8 +46,10 @@
               (cond
                (error/anomaly? email)
                (reduced email)
+
                (some? email)
                (conj emails email)
+
                :else
                emails)))
           []

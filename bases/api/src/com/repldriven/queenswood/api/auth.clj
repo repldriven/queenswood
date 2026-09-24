@@ -95,8 +95,10 @@
      :bank-id
      (cond is-admin?
            requested
+
            refused?
            nil
+
            :else
            (:azp claims))
      :bank-refused

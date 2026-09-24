@@ -54,10 +54,13 @@
      (cond
       (ref? x)
       (resolve-ref captures x)
+
       (ref-find? x)
       (resolve-ref-find captures x)
+
       (str-marker? x)
       (apply str (rest x))
+
       :else
       x))
    form))

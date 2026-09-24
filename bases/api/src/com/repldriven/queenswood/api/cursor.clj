@@ -39,10 +39,13 @@
   [n]
   (cond (nil? n)
         default-page-size
+
         (< n 1)
         1
+
         (> n max-page-size)
         max-page-size
+
         :else
         n))
 
@@ -107,6 +110,7 @@
                         separator
                         "page[after]=" (encode after-id)
                         "&page[size]=" size))
+
             before-id
             (assoc :prev
                    (str base
@@ -128,7 +132,9 @@
                (->> (str/split query-string #"&")
                     (remove page-param?)
                     (str/join "&")))]
-    (cond-> uri (seq kept) (str "?" kept))))
+    (cond-> uri
+            (seq kept)
+            (str "?" kept))))
 
 (defn page-opts
   "The store options a `page` query asks for: `:limit`, and `:after` or

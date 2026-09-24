@@ -20,8 +20,10 @@
     (cond
      (error/anomaly? result)
      (errors/anomaly->response result)
+
      (nil? result)
      not-found
+
      :else
      {:status 200 :body result})))
 

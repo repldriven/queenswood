@@ -480,8 +480,10 @@
         prod-model-id (cond
                        explicit-prod
                        explicit-prod
+
                        existing-prod
                        existing-prod
+
                        :else
                        (model-id-for-next-product next-product-id))
         {bank-real-id :real-id sort-code :sort-code :keys [currency]}
@@ -542,8 +544,10 @@
         outcome (cond
                  (error/anomaly? party-result)
                  party-result
+
                  (and acct-result (error/anomaly? acct-result))
                  acct-result
+
                  :else
                  (or acct-result party-result))]
     (-> ctx

@@ -27,8 +27,10 @@
     (cond
      (not (error/anomaly? res))
      {:status "ACCEPTED"}
+
      (relay/uniqueness-violation? res)
      {:status "ACCEPTED"}
+
      :else
      res)))
 

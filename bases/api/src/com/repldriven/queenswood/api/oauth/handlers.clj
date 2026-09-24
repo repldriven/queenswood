@@ -28,7 +28,9 @@
   {:status status
    :headers {"content-type" "application/json"}
    :body
-   (cond-> {:error code} description (assoc :error_description description))})
+   (cond-> {:error code}
+           description
+           (assoc :error_description description))})
 
 (defn token
   "RFC 6749 §4.4 — client_credentials grant. Proxies the request to

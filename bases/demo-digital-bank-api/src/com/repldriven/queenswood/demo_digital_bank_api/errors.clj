@@ -21,17 +21,23 @@
   (let [kind (error/kind anomaly)]
     (cond (error/unauthorized? anomaly)
           401
+
           (error/rejection? anomaly)
           (cond (= :platform/refused kind)
                 (or (platform-status anomaly) 422)
+
                 (str/ends-with? (name kind) "not-found")
                 404
+
                 (= "invalid-status" (name kind))
                 409
+
                 :else
                 422)
+
           (contains? retry-later (namespace kind))
           503
+
           :else
           500)))
 
@@ -39,8 +45,10 @@
   [anomaly]
   (cond (error/unauthorized? anomaly)
         "UNAUTHORIZED"
+
         (error/rejection? anomaly)
         "REJECTED"
+
         :else
         "FAILED"))
 

@@ -59,6 +59,7 @@
             :user-client-ids [console-client-id]}
            token
            (assoc-in [:headers "authorization"] (str "Bearer " token))
+
            bank-id
            (assoc-in [:headers "bank-id"] bank-id))))
 
@@ -100,7 +101,9 @@
   `security`, as the principal `auth`."
   [auth security]
   (run [SUT/require-bank server/require-scopes]
-       (cond-> gate-data security (assoc :openapi {:security security}))
+       (cond-> gate-data
+               security
+               (assoc :openapi {:security security}))
        (cond-> {}
                auth
                (assoc :auth auth

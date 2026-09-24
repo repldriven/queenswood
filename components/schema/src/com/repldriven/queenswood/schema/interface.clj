@@ -191,7 +191,9 @@
   "`pb->` hands an embedded message back as a protojure record, which
   reitit cannot coerce, so the one under `k` becomes a plain map."
   [m k]
-  (cond-> m (some? (get m k)) (update k #(into {} %))))
+  (cond-> m
+          (some? (get m k))
+          (update k #(into {} %))))
 
 (defn pb->CashAccountProduct
   "Parse CashAccountProduct protobuf bytes into a Clojure map, dropping
@@ -1029,7 +1031,10 @@
 
 (defn- without-unset
   [record unset]
-  (reduce-kv (fn [m k v] (cond-> m (= v (get m k)) (dissoc k)))
+  (reduce-kv (fn [m k v]
+               (cond-> m
+                       (= v (get m k))
+                       (dissoc k)))
              (into {} record)
              unset))
 

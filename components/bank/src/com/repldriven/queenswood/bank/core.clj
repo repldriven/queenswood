@@ -133,9 +133,11 @@
                 (cond
                  (error/anomaly? tier-labelled)
                  (reduced tier-labelled)
+
                  tier-labelled
                  (let [result (policy/remove-binding txn binding-id)]
                    (if (error/anomaly? result) (reduced result) nil))
+
                  :else
                  nil)))
             nil

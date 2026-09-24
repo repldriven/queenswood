@@ -136,13 +136,14 @@ metrics-summary:
       worst_mi:    ([.files[].maintainability.index] | min)
     }'
 
-# Format all Clojure source files with zprint
+# Format all Clojure source files: lay out cond pairs, then zprint
 format:
     #!/usr/bin/env bash
     set -e
     echo "Formatting Clojure source files..."
     files=$(git ls-files '*.clj' '*.cljc' '*.cljs' '*.edn' | while read f; do [ -f "$f" ] && echo "$f"; done)
     if [ -n "$files" ]; then
+        echo "$files" | xargs bb .mono/scripts/hooks/cond_pairs.clj
         echo "$files" | xargs clojure -M:format/zprint '{:search-config? true}' -w
         echo "✓ Formatting complete"
     else

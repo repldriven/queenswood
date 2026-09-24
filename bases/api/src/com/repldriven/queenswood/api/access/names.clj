@@ -22,8 +22,10 @@
             (let [user (lookup id)]
               (cond (not (error/anomaly? user))
                     (assoc found id user)
+
                     (= :user/not-found (error/kind user))
                     found
+
                     :else
                     (reduced user))))
           {}
@@ -72,13 +74,16 @@
         user (lookup user-id)]
     (cond (nil? user)
           found
+
           (not (error/anomaly? user))
           (let [{:keys [name email]} user]
             (utility/assoc-some found
                                 :name (when-not (str/blank? name) name)
                                 :email email))
+
           (= :user/not-found (error/kind user))
           found
+
           :else
           user)))
 
