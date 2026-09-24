@@ -73,7 +73,7 @@
                                           :value "TN555200E"
                                           :issuing-country "GB"}}}
    :as :party
-   :assert {:status 200 :body {:status "pending"}}}
+   :assert {:status 201 :body {:status "pending"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/parties/{party-id}"
@@ -91,7 +91,7 @@
                     :currency "GBP"
                     :product-id [:ref :current-draft :product-id]}}
    :as :account
-   :assert {:status 200 :body {:account-status "opening"}}}]
+   :assert {:status 201 :body {:account-status "opening"}}}]
  :then
  ;; The opened account's SCAN address carries bank A's sort code.
  [{:command :api/poll

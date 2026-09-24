@@ -43,7 +43,7 @@
                                           :value "TN000050R"
                                           :issuing-country "GB"}}}
    :as :party-0
-   :assert {:status 200 :body {:status "pending"}}}
+   :assert {:status 201 :body {:status "pending"}}}
   ;; Poll the party until it reaches "rejected" rather than timing
   ;; out at a fixed wait — the cascade is fast but the headroom
   ;; tolerates a slow event-processor or watcher hop.

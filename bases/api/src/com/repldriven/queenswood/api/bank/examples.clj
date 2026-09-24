@@ -11,12 +11,6 @@
     [com.repldriven.queenswood.cash-account-api.interface :as
      cash-account-examples]))
 
-(def BankLimitExceeded
-  {:value {:title "REJECTED"
-           :type "cash-account/limit-max-accounts"
-           :status 422
-           :detail "Tier limit exceeded for this bank"}})
-
 (def BankNotFound
   {:value {:title "REJECTED"
            :type ":bank/not-found"
@@ -35,9 +29,15 @@
            :status 422
            :detail "No policies found for tier"}})
 
+(def ForeignBankRead
+  {:value {:title "FORBIDDEN"
+           :type "auth/forbidden"
+           :status 403
+           :detail "Token is not this bank's; retrieve only your own bank"}})
+
 (def registry
-  (examples-registry [#'BankLimitExceeded #'BankNotFound #'BankInvalidStatus
-                      #'BankUnknownTier]))
+  (examples-registry [#'BankNotFound #'BankInvalidStatus #'BankUnknownTier
+                      #'ForeignBankRead]))
 
 (def BankId (schema/id-examples "BankId"))
 

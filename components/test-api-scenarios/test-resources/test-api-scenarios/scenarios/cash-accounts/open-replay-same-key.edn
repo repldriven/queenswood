@@ -37,7 +37,7 @@
                                           :value "TN889010A"
                                           :issuing-country "GB"}}}
    :as :party-0
-   :assert {:status 200 :body {:status "pending"}}}
+   :assert {:status 201 :body {:status "pending"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/parties/{party-id}"
@@ -76,7 +76,7 @@
                     :product-id [:ref :draft :product-id]}}
    :as :account-0
    ;; The first submission ran the handler, so it is not a replay.
-   :assert {:status 200
+   :assert {:status 201
             :headers {:idempotent-replayed [:m/absent]}
             :body {:account-status "opening"}}}]
  :then
@@ -91,6 +91,6 @@
                     :name "Opened Once"
                     :currency "GBP"
                     :product-id [:ref :draft :product-id]}}
-   :assert {:status 200
+   :assert {:status 201
             :headers {:idempotent-replayed "true"}
             :body {:account-id [:ref :account-0 :account-id]}}}]}

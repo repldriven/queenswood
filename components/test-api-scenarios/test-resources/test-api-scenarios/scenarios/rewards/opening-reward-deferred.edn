@@ -59,7 +59,7 @@
                                           :value "TN555202A"
                                           :issuing-country "GB"}}}
    :as :arthur
-   :assert {:status 200 :body {:status "pending"}}}
+   :assert {:status 201 :body {:status "pending"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/parties/{party-id}"
@@ -76,7 +76,7 @@
                     :currency "GBP"
                     :product-id [:ref :product :product-id]}}
    :as :account
-   :assert {:status 200 :body {:account-status "opening"}}}
+   :assert {:status 201 :body {:account-status "opening"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}"

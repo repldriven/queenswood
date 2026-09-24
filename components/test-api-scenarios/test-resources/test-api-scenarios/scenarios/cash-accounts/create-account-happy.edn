@@ -39,7 +39,7 @@
                                           :value "TN000010A"
                                           :issuing-country "GB"}}}
    :as :party-0
-   :assert {:status 200 :body {:status "pending"}}}
+   :assert {:status 201 :body {:status "pending"}}}
   ;; Wait for the IDV → activation cascade
   {:command :api/poll
    :request {:method :get
@@ -80,7 +80,7 @@
                     :currency "GBP"
                     :product-id [:ref :draft :product-id]}}
    :as :account-0
-   :assert {:status 200
+   :assert {:status 201
             :body {:account-id [:m/regex "^acc\\."]
                    :party-id [:ref :party-0 :party-id]
                    :name "Current GBP"

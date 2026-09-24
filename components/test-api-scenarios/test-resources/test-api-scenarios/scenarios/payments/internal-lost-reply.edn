@@ -65,7 +65,7 @@
                                           :value "TN555701G"
                                           :issuing-country "GB"}}}
    :as :party
-   :assert {:status 200 :body {:status "pending"}}}
+   :assert {:status 201 :body {:status "pending"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/parties/{party-id}"
@@ -82,7 +82,7 @@
                     :currency "GBP"
                     :product-id [:ref :product :product-id]}}
    :as :debtor
-   :assert {:status 200 :body {:account-status "opening"}}}
+   :assert {:status 201 :body {:account-status "opening"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}"
@@ -99,7 +99,7 @@
                     :currency "GBP"
                     :product-id [:ref :product :product-id]}}
    :as :creditor
-   :assert {:status 200 :body {:account-status "opening"}}}
+   :assert {:status 201 :body {:account-status "opening"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}"
@@ -127,7 +127,7 @@
                     :currency "GBP"
                     :amount 100000
                     :reference "Funding"}}
-   :assert {:status 200}}
+   :assert {:status 201}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}/balances"
@@ -160,7 +160,7 @@
                     :reference "Lost reply"}}
    :as :retry
    ;; The claim was released, so this ran rather than replayed.
-   :assert {:status 200 :headers {:idempotent-replayed [:m/absent]}}}
+   :assert {:status 201 :headers {:idempotent-replayed [:m/absent]}}}
   ;; Debited once across both attempts.
   {:command :api/poll
    :request {:method :get

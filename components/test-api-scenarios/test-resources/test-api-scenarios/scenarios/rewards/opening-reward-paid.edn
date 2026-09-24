@@ -70,7 +70,7 @@
                                           :value "TN555202A"
                                           :issuing-country "GB"}}}
    :as :arthur
-   :assert {:status 200 :body {:status "pending"}}}
+   :assert {:status 201 :body {:status "pending"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/parties/{party-id}"
@@ -87,7 +87,7 @@
                     :currency "GBP"
                     :product-id [:ref :product :product-id]}}
    :as :account
-   :assert {:status 200 :body {:account-status "opening"}}}
+   :assert {:status 201 :body {:account-status "opening"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}"
@@ -157,7 +157,7 @@
              :path "/v1/rewards/{reward-id}"
              :path-params {:reward-id "rwd.00000000000000000000000000"}
              :auth :org-0-token}
-   :assert {:status 404 :body {:type "reward/not-found"}}}
+   :assert {:status 404 :body {:type ":reward/not-found"}}}
   ;; A second run finds the reward paid and pays nothing.
   {:command :api/request
    :request {:method :post

@@ -42,8 +42,8 @@
   "Single FDB transaction that atomically inspects the cache and
   decides what to do with a request:
 
-  - `{:type ::completed :body <map> :status <int>}` — cached
-    response should be replayed.
+  - `{:type ::completed :status <int> :headers <map> :body <map>}` —
+    cached response should be replayed.
   - `{:type ::in-flight}` — another request with the same
     principal+operation+key is currently being processed; caller
     should return 409.
@@ -83,6 +83,8 @@
             (and live (= "completed" (:state existing)))
             {:type ::completed
              :status (:status existing)
+             :headers (some-> (not-empty (:headers existing))
+                              edn/read-string)
              :body (edn/read-string (:body existing))}
 
             (and live (= "pending" (:state existing)))
@@ -116,7 +118,7 @@
   response to replay. Called from the interceptor's `:leave` when the
   handler returned a cacheable status (2xx/4xx)."
   [config principal-id operation idempotency-key fingerprint
-   {:keys [status body]}]
+   {:keys [status headers body]}]
   (let [now (utility/now)]
     (store/save config
                 {:principal-id principal-id
@@ -124,6 +126,7 @@
                  :idempotency-key idempotency-key
                  :state "completed"
                  :status status
+                 :headers (pr-str (or headers {}))
                  :body (pr-str (plain body))
                  :fingerprint fingerprint
                  :created-at now

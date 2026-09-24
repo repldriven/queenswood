@@ -131,8 +131,8 @@
   `:enter` runs an atomic FDB check-and-set. Four outcomes and a
   failure:
 
-  - completed → terminate with the cached `{:status :body}` replay,
-                marked `Idempotent-Replayed: true`
+  - completed → terminate with the cached `{:status :headers :body}`
+                replay, marked `Idempotent-Replayed: true`
   - pending   → terminate with 409 (another request in flight)
   - mismatch  → terminate with 422; the key is live against a
                 different request
@@ -190,7 +190,9 @@
                      (sc/terminate ctx
                                    {:status (:status result)
                                     :body (:body result)
-                                    :headers {"Idempotent-Replayed" "true"}})
+                                    :headers (assoc (:headers result)
+                                                    "Idempotent-Replayed"
+                                                    "true")})
 
                      ::core/in-flight (sc/terminate ctx (in-flight-response))
 

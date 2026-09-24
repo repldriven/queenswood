@@ -68,4 +68,5 @@
             (if (error/anomaly? bank)
               (errors/anomaly->response bank)
               {:status 201
+               :headers {"Location" (bank-commands/bank-uri bank-id)}
                :body {:user user :bank bank :membership membership}})))))))

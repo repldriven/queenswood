@@ -41,7 +41,7 @@
                                           :value "TN000042A"
                                           :issuing-country "GB"}}}
    :as :party-0
-   :assert {:status 200 :body {:status "pending"}}}
+   :assert {:status 201 :body {:status "pending"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/parties/{party-id}"
@@ -185,7 +185,7 @@
                     :name "Current GBP"
                     :currency "GBP"
                     :product-id [:ref :cur-v1 :product-id]}}
-   :assert {:status 200
+   :assert {:status 201
             :body {:product-id [:ref :cur-v1 :product-id]
                    :version-id [:ref :cur-v1 :version-id]
                    :product-type "current"}}}
@@ -199,7 +199,7 @@
                     :name "Savings GBP"
                     :currency "GBP"
                     :product-id [:ref :sav-v1 :product-id]}}
-   :assert {:status 200
+   :assert {:status 201
             :body {:product-id [:ref :sav-v1 :product-id]
                    :version-id [:ref :sav-v2 :version-id]
                    :product-type "savings"}}}
@@ -213,7 +213,7 @@
                     :name "Term GBP"
                     :currency "GBP"
                     :product-id [:ref :td-v1 :product-id]}}
-   :assert {:status 200
+   :assert {:status 201
             :body {:product-id [:ref :td-v1 :product-id]
                    :version-id [:ref :td-v2 :version-id]
                    :product-type "term-deposit"}}}]}

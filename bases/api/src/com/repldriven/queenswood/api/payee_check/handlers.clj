@@ -12,12 +12,10 @@
   [request]
   (let [{:keys [auth parameters]} request
         {:keys [bank-id]} auth
-        {:keys [body]} parameters
-        result (commands/send (dispatcher request)
-                              request
-                              "check-payee"
-                              "payee-check"
-                              (assoc body :bank-id bank-id))]
-    (cond-> result
-            (= 200 (:status result))
-            (assoc :status 201))))
+        {:keys [body]} parameters]
+    (commands/created (commands/send (dispatcher request)
+                                     request
+                                     "check-payee"
+                                     "payee-check"
+                                     (assoc body :bank-id bank-id))
+                      #(str "/v1/payee-checks/" (:check-id %)))))

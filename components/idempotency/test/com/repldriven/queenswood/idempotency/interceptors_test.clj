@@ -67,9 +67,13 @@
               :token (str "token-" n)}})))
 
 (defn- responding
-  "A handler counting its own invocations."
+  "A handler counting its own invocations, naming what it created."
   [calls]
-  (fn [_request] (swap! calls inc) {:status 200 :body {:name "First"}}))
+  (fn [_request]
+    (swap! calls inc)
+    {:status 201
+     :headers {"Location" "/v1/things/first"}
+     :body {:name "First"}}))
 
 (defn- inviting-an-owner
   "A handler creating a bank with an owner invitation, minting a fresh
@@ -130,11 +134,12 @@
          first-response (run (request config key) handler)
          replay (run (request config key) handler)]
      (testing "the first response is the handler's, unmarked"
-       (is (= 200 (:status first-response)))
+       (is (= 201 (:status first-response)))
        (is (nil? (get-in first-response [:headers "Idempotent-Replayed"]))))
      (testing "the second is the cached one, marked as a replay"
-       (is (= 200 (:status replay)))
+       (is (= 201 (:status replay)))
        (is (= {:name "First"} (:body replay)))
+       (is (= "/v1/things/first" (get-in replay [:headers "Location"])))
        (is (= "true" (get-in replay [:headers "Idempotent-Replayed"]))))
      (testing "the handler ran once" (is (= 1 @calls))))))
 
@@ -232,7 +237,7 @@
         (binding [*stub* :complete]
           (let [response (run (request config key) handler)]
             (testing "the handler's effect committed, so its answer stands"
-              (is (= 200 (:status response)))
+              (is (= 201 (:status response)))
               (is (= {:name "First"} (:body response))))
             (testing "the failure is logged, and names the key"
               (is (logged? "idempotency completion failed"))

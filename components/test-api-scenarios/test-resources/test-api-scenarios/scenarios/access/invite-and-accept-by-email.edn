@@ -43,7 +43,8 @@
                        :idempotency-key "ik-access-match-invite-001"}
              :body {:email "Match-Invitee@queenswood.local" :role "developer"}}
    :as :invitation
-   :assert {:status 201}}]
+   :assert {:status 201
+            :headers {:location [:m/regex "^/v1/invitations/inv\\."]}}}]
  :when
  [{:command :api/request
    :request {:method :get :path "/v1/me/invitations" :auth :invitee-token}
@@ -64,11 +65,36 @@
              :auth :invitee-token}
    :as :accepted
    :assert {:status 201
+            :headers {:location [:m/regex "^/v1/members/mem\\."]}
             :body {:bank-id [:ref :bank :bank-id] :role "developer"}}}]
  :then
  [{:command :api/request
    :request {:method :get :path "/v1/me/invitations" :auth :invitee-token}
    :assert {:status 200 :body {:items []}}}
+  ;; Both creates are retrievable where their `Location` points.
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/invitations/{invitation-id}"
+             :path-params {:invitation-id [:ref :invitation :invitation-id]}
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 200
+            :body {:invitation-id [:ref :invitation :invitation-id]
+                   :bank-id [:ref :bank :bank-id]
+                   :status "accepted"
+                   :accepted-email "match-invitee@queenswood.local"
+                   :token [:m/absent]}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/members/{membership-id}"
+             :path-params {:membership-id [:ref :accepted :membership-id]}
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 200
+            :body {:membership-id [:ref :accepted :membership-id]
+                   :email "match-invitee@queenswood.local"
+                   :role "developer"
+                   :invitation-id [:ref :invitation :invitation-id]}}}
   {:command :api/request
    :request {:method :get :path "/v1/me" :auth :invitee-token}
    :assert {:status 200

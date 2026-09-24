@@ -9,7 +9,14 @@
            :status 404
            :detail "No active company found for that number"}})
 
-(def registry (examples-registry [#'CompanyNotFound]))
+(def CompanyRegistryUnavailable
+  {:value {:title "FAILED"
+           :type ":company/unavailable"
+           :status 503
+           :detail "Companies House unavailable"}})
+
+(def registry
+  (examples-registry [#'CompanyNotFound #'CompanyRegistryUnavailable]))
 
 (def Company
   {:company-number "SC998137"

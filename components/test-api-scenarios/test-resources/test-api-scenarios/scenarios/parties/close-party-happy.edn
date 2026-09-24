@@ -37,7 +37,7 @@
                                           :value "TN888016A"
                                           :issuing-country "GB"}}}
    :as :party-0
-   :assert {:status 200 :body {:status "pending"}}}
+   :assert {:status 201 :body {:status "pending"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/parties/{party-id}"

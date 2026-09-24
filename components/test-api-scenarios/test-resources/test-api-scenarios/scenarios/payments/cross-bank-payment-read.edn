@@ -64,7 +64,7 @@
                                           :value "TN556201A"
                                           :issuing-country "GB"}}}
    :as :party-a
-   :assert {:status 200 :body {:status "pending"}}}
+   :assert {:status 201 :body {:status "pending"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/parties/{party-id}"
@@ -81,7 +81,7 @@
                     :currency "GBP"
                     :product-id [:ref :product-a :product-id]}}
    :as :debtor-a
-   :assert {:status 200 :body {:account-status "opening"}}}
+   :assert {:status 201 :body {:account-status "opening"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}"
@@ -98,7 +98,7 @@
                     :currency "GBP"
                     :product-id [:ref :product-a :product-id]}}
    :as :creditor-a
-   :assert {:status 200 :body {:account-status "opening"}}}
+   :assert {:status 201 :body {:account-status "opening"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}"
@@ -127,7 +127,7 @@
                     :currency "GBP"
                     :amount 100000
                     :reference "Funding"}}
-   :assert {:status 200}}
+   :assert {:status 201}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}/balances"
@@ -164,7 +164,7 @@
                     :amount 2500
                     :reference "Cross bank internal"}}
    :as :internal
-   :assert {:status 200 :body {:bank-id [:ref :bank-a :bank-id]}}}
+   :assert {:status 201 :body {:bank-id [:ref :bank-a :bank-id]}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/payments/outbound"
@@ -178,7 +178,7 @@
                     :scheme "fps"
                     :reference "Cross bank outbound"}}
    :as :outbound
-   :assert {:status 200 :body {:bank-id [:ref :bank-a :bank-id]}}}
+   :assert {:status 201 :body {:bank-id [:ref :bank-a :bank-id]}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/payments/outbound/{payment-id}"
@@ -195,7 +195,7 @@
              :auth :bank-b-token}
    :assert {:status 404
             :body [:m/equals {:title "REJECTED"
-                              :type "payment/not-found"
+                              :type ":payment/not-found"
                               :status 404
                               :detail "Payment not found"}]}}
   {:command :api/request
@@ -205,7 +205,7 @@
              :auth :bank-b-token}
    :assert {:status 404
             :body [:m/equals {:title "REJECTED"
-                              :type "payment/not-found"
+                              :type ":payment/not-found"
                               :status 404
                               :detail "Payment not found"}]}}
   {:command :api/request
@@ -215,7 +215,7 @@
              :auth :bank-a-token}
    :assert {:status 404
             :body [:m/equals {:title "REJECTED"
-                              :type "payment/not-found"
+                              :type ":payment/not-found"
                               :status 404
                               :detail "Payment not found"}]}}
   ;; Bank A reads both.

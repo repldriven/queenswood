@@ -24,13 +24,14 @@
                              bank-id)]
     (if (error/anomaly? bank)
       bank
-      (commands/send (dispatcher request)
-                     request
-                     "open-cash-account"
-                     "cash-account"
-                     (assoc body
-                            :bank-id bank-id
-                            :sort-code (:sort-code bank))))))
+      (commands/created (commands/send (dispatcher request)
+                                       request
+                                       "open-cash-account"
+                                       "cash-account"
+                                       (assoc body
+                                              :bank-id bank-id
+                                              :sort-code (:sort-code bank)))
+                        #(str "/v1/cash-accounts/" (:account-id %))))))
 
 (defn close-cash-account
   [request]

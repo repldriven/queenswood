@@ -64,8 +64,9 @@
    :account-type :personal
    :account-status :opened
    :payment-addresses [{:scheme :scan
-                        :scan {:sort-code "040004"
-                               :account-number "12345678"}}]})
+                        :scan {:sort-code "040004" :account-number "12345678"}}]
+   :created-at "2026-05-18T09:15:00Z"
+   :updated-at "2026-05-18T09:15:00Z"})
 
 (def CashAccountId (:account-id CashAccount))
 

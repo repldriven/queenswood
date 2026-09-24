@@ -1,0 +1,228 @@
+extends:
+  - spectral:oas
+  - ./oas-3.2.json
+
+functionsDir: ./functions
+functions:
+  - describedStatusesDocumented
+
+rules:
+  # Validates against the OpenAPI 3.0 schema, which rejects any 3.2
+  # document. oas3_2-schema validates against 3.2 instead, from
+  # oas-3.2.json, which `just openapi-lint-ruleset` generates.
+  oas3-schema: off
+  # OpenAPI 3.1 allows role names as scopes on a non-OAuth scheme.
+  oas3-operation-security-defined: off
+
+  get-summary-verb:
+    description: A GET operation's summary starts with Retrieve or List.
+    message: "{{property}} \"{{value}}\" must start with Retrieve or List."
+    severity: error
+    given: "$.paths[*].get.summary"
+    then:
+      function: pattern
+      functionOptions:
+        match: "^(Retrieve|List) "
+
+  get-operation-id-verb:
+    description: A GET operation's operationId starts with Retrieve or List.
+    message: "{{property}} \"{{value}}\" must start with Retrieve or List."
+    severity: error
+    given: "$.paths[*].get.operationId"
+    then:
+      function: pattern
+      functionOptions:
+        match: "^(Retrieve|List)[A-Z]"
+
+  get-item-summary-verb:
+    description: A GET on a path ending in a parameter retrieves one thing.
+    message: "{{property}} \"{{value}}\" on a single resource must start with Retrieve."
+    severity: error
+    given: "$.paths[?(@property.match(/\\}$/))].get.summary"
+    then:
+      function: pattern
+      functionOptions:
+        match: "^Retrieve "
+
+  operation-description: error
+  operation-operationId: error
+
+  operation-summary-style:
+    description: A summary is a short verb phrase, its detail in the description.
+    message: "{{property}} \"{{value}}\" must be at most 60 characters, with no parentheses, semicolon or closing full stop."
+    severity: error
+    given: "$.paths[*][get,put,post,delete,patch].summary"
+    then:
+      function: pattern
+      functionOptions:
+        match: "^[A-Z][^();]{0,59}(?<!\\.)$"
+
+  operation-description-sentences:
+    description: An operation's description is sentences, ending with a full stop.
+    message: "{{property}} must end with a full stop."
+    severity: error
+    given: "$.paths[*][get,put,post,delete,patch].description"
+    then:
+      function: pattern
+      functionOptions:
+        match: "\\.$"
+
+  post-request-body-ref:
+    description: A POST takes no body, or a body that references a named schema.
+    message: A POST body must reference a schema in components, not inline one.
+    severity: error
+    resolved: false
+    given: "$.paths[*].post.requestBody.content[*].schema"
+    then:
+      field: $ref
+      function: truthy
+
+  operation-security-declared:
+    description: Every operation declares its security, a public one as an empty list.
+    message: The operation must declare `security`.
+    severity: error
+    given: "$.paths[*][get,put,post,delete,patch]"
+    then:
+      field: security
+      function: defined
+
+  operation-single-tag:
+    description: Every operation carries exactly one tag.
+    message: The operation must carry exactly one tag.
+    severity: error
+    given: "$.paths[*][get,put,post,delete,patch].tags"
+    then:
+      function: length
+      functionOptions:
+        min: 1
+        max: 1
+
+  operation-id-pascal-case:
+    description: An operationId is PascalCase.
+    message: "{{value}} must be PascalCase."
+    severity: error
+    given: "$.paths[*][get,put,post,delete,patch].operationId"
+    then:
+      function: casing
+      functionOptions:
+        type: pascal
+
+  response-body-ref:
+    description: A response body references a named schema.
+    message: A response body must reference a schema in components, not inline one.
+    severity: error
+    resolved: false
+    given: "$.paths[*][get,put,post,delete,patch].responses[*].content[*].schema"
+    then:
+      field: $ref
+      function: truthy
+
+  media-examples-ref:
+    description: A request or response example references one in components.
+    message: An example must reference one in components/examples, not inline one.
+    severity: error
+    resolved: false
+    given: "$.paths[*][get,put,post,delete,patch]..content[*].examples[*]"
+    then:
+      field: $ref
+      function: truthy
+
+  media-example-inline:
+    description: A media type names its examples under `examples`, never `example`.
+    message: Use `examples` with a reference, not an inline `example`.
+    severity: error
+    resolved: false
+    given: "$.paths[*][get,put,post,delete,patch]..content[*]"
+    then:
+      field: example
+      function: falsy
+
+  path-segments-kebab-case:
+    description: A path is kebab-case, its parameters included.
+    message: "{{property}} must be kebab-case."
+    severity: error
+    given: "$.paths"
+    then:
+      field: "@key"
+      function: pattern
+      functionOptions:
+        match: "^(/(\\.well-known|[a-z0-9]+(-[a-z0-9]+)*|\\{[a-z0-9]+(-[a-z0-9]+)*\\}))+$"
+
+  schema-properties-kebab-case:
+    description: >-
+      Property names are kebab-case (ADR-0006), except in the OAuth
+      schemas, whose names RFC 6749 and OpenID Connect fix.
+    message: "{{property}} must be kebab-case."
+    severity: error
+    resolved: false
+    given: "$.components.schemas[?(!['TokenRequest','TokenResponse','TokenError','DiscoveryDoc'].includes(@property))]..properties"
+    then:
+      field: "@key"
+      function: pattern
+      functionOptions:
+        match: "^[a-z0-9]+(-[a-z0-9]+)*$"
+
+  schema-names-pascal-case:
+    description: A component schema's name is PascalCase.
+    message: "{{property}} must be PascalCase."
+    severity: error
+    given: "$.components.schemas"
+    then:
+      field: "@key"
+      function: casing
+      functionOptions:
+        type: pascal
+
+  created-location:
+    description: A 201 names the resource it created in a Location header.
+    message: A 201 must document the Location of what it created.
+    severity: error
+    given: "$.paths[*][get,put,post,delete,patch].responses['201']"
+    then:
+      field: headers.Location
+      function: truthy
+
+  response-description:
+    description: Every response says what it carries.
+    message: The response must have a description.
+    severity: error
+    given: "$.paths[*][get,put,post,delete,patch].responses[*]"
+    then:
+      field: description
+      function: truthy
+
+  status-phrasing:
+    description: >-
+      An operation returns a status or is refused with one; it never
+      "answers" one.
+    message: Write that an operation returns a status, or that a request is refused with one, never that it answers one.
+    severity: error
+    given:
+      - "$.paths[*][get,put,post,delete,patch].description"
+      - "$.paths[*][get,put,post,delete,patch].responses[*].description"
+    then:
+      function: pattern
+      functionOptions:
+        notMatch: "\\banswers? (with )?[1-5]\\d\\d\\b"
+
+  described-statuses-documented:
+    message: "{{error}}"
+    description: >-
+      A status the description names is a response the operation
+      documents, with an example of that refusal.
+    severity: error
+    resolved: false
+    given: "$.paths[*][get,put,post,delete,patch]"
+    then:
+      function: describedStatusesDocumented
+
+  create-returns-created:
+    description: A Create operation returns 201, never 200.
+    message: "{{error}}"
+    severity: error
+    given: "$.paths[*][?(@.operationId && @.operationId.match(/^Create[A-Z]/))].responses"
+    then:
+      - field: "201"
+        function: truthy
+      - field: "200"
+        function: falsy

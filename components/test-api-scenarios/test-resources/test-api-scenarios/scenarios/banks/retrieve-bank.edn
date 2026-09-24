@@ -1,0 +1,54 @@
+{:name "A created bank is retrieved at its Location, by an operator or itself"
+ :tags #{:api :banks :happy}
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-retrieve-bank-bank-001"}
+             :body {:name "Retrieved Bank"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :org-0
+   :assert {:status 201 :headers {:location [:m/regex "^/v1/banks/bnk\\."]}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-retrieve-bank-bank-002"}
+             :body {:name "Other Bank"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :org-1
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :org-0 :client-id]
+         :client-secret [:ref :org-0 :client-secret]
+         :status :live}
+   :as :org-0-token}]
+ :when
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/banks/{bank-id}"
+             :path-params {:bank-id [:ref :org-0 :bank-id]}
+             :auth :admin}
+   :assert {:status 200
+            :body {:bank-id [:ref :org-0 :bank-id]
+                   :name "Retrieved Bank"
+                   :party {:party-id [:m/regex "^pty\\."]}}}}]
+ :then
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/banks/{bank-id}"
+             :path-params {:bank-id [:ref :org-0 :bank-id]}
+             :auth :org-0-token}
+   :assert {:status 200 :body {:bank-id [:ref :org-0 :bank-id]}}}
+  ;; Another bank's record is refused, whether or not it exists.
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/banks/{bank-id}"
+             :path-params {:bank-id [:ref :org-1 :bank-id]}
+             :auth :org-0-token}
+   :assert {:status 403}}]}

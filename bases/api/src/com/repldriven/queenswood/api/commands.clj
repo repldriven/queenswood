@@ -84,3 +84,12 @@
         (if (error/anomaly? body)
           (errors/anomaly->response body)
           {:status 200 :body body}))))))
+
+(defn created
+  "The 201 of a command that created a resource: its 200 reply, with the
+  resource's `Location` built by `uri` from the body. Any other reply
+  passes through unchanged."
+  [response uri]
+  (cond-> response
+          (= 200 (:status response))
+          (assoc :status 201 :headers {"Location" (uri (:body response))})))

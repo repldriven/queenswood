@@ -5,7 +5,7 @@
 
 (def PartyNotFound
   {:value {:title "REJECTED"
-           :type "party/not-found"
+           :type ":party/not-found"
            :status 404
            :detail "Party not found"}})
 
@@ -17,19 +17,19 @@
 
 (def PartyInvalidStatus
   {:value {:title "REJECTED"
-           :type "party/invalid-status"
+           :type ":party/invalid-status"
            :status 409
            :detail "Party is not in a valid state for this action"}})
 
 (def PartyOpenAccounts
   {:value {:title "REJECTED"
-           :type "party/open-accounts"
+           :type ":party/open-accounts"
            :status 409
            :detail "Party has open cash accounts"}})
 
 (def PartyMergeIntoSelf
   {:value {:title "REJECTED"
-           :type "party/merge-into-self"
+           :type ":party/merge-into-self"
            :status 422
            :detail "Cannot merge a party into itself"}})
 

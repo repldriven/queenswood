@@ -34,10 +34,12 @@
 (def ^:private bank-routes
   "REQ-024's routes, each against the one level its gate names."
   {[:get "/v1/members"] "org:viewer"
+   [:get "/v1/members/{membership-id}"] "org:viewer"
    [:post "/v1/members/{membership-id}/change-role"] "org:admin"
    [:post "/v1/members/{membership-id}/remove"] "org:admin"
    [:get "/v1/invitations"] "org:viewer"
    [:post "/v1/invitations"] "org:admin"
+   [:get "/v1/invitations/{invitation-id}"] "org:viewer"
    [:post "/v1/invitations/{invitation-id}/withdraw"] "org:admin"
    [:post "/v1/invitations/{invitation-id}/resend"] "org:admin"
    [:get "/v1/access-events"] "org:viewer"})

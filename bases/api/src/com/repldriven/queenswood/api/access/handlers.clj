@@ -21,6 +21,14 @@
 
 (def ^:private access-events-path "/v1/access-events")
 
+(defn- invitation-uri
+  [{:keys [invitation-id]}]
+  (str "/v1/invitations/" invitation-id))
+
+(defn- member-uri
+  [{:keys [membership-id]}]
+  (str "/v1/members/" membership-id))
+
 (defn- config
   [{:keys [record-db record-store]}]
   {:record-db record-db :record-store record-store})
@@ -205,7 +213,10 @@
 
 (defn- ok [body] {:status 200 :body body})
 
-(defn- created [body] {:status 201 :body body})
+(defn- created
+  "A 201 answering `body`, its `Location` the URI `uri` makes of it."
+  [uri]
+  (fn [body] {:status 201 :headers {"Location" (uri body)} :body body}))
 
 (defn- no-content [_] {:status 204})
 
@@ -252,7 +263,7 @@
                                                               membership-id)]
                   (->membership membership
                                 (bank-name txn (:bank-id membership))))
-                created)))))
+                (created member-uri))))))
 
 (defn decline-invitation
   [request]
@@ -289,6 +300,32 @@
     (respond (let-nom> [active (memberships/list-active-by-bank txn bank-id)]
                (members txn active))
              items)))
+
+(defn- membership-not-found
+  [membership-id]
+  (error/reject :membership/not-found
+                {:message "Membership not found" :membership-id membership-id}))
+
+(defn- active-in-bank
+  "The membership when it is active and of `bank-id`, otherwise the
+  not-found rejection, so a membership elsewhere reads as none at all."
+  [membership bank-id]
+  (let [{:keys [membership-id status]} membership]
+    (if (and (= bank-id (:bank-id membership))
+             (= :membership-status-active status))
+      membership
+      (membership-not-found membership-id))))
+
+(defn get-member
+  [request]
+  (let [{:keys [auth parameters]} request
+        {:keys [bank-id]} auth
+        {:keys [membership-id]} (:path parameters)
+        txn (config request)]
+    (respond (let-nom> [found (memberships/find-by-id txn membership-id)
+                        active (active-in-bank found bank-id)]
+               (member txn active))
+             ok)))
 
 (defn change-role
   [request]
@@ -333,6 +370,19 @@
                (invitations txn found))
              items)))
 
+(defn get-invitation
+  [request]
+  (let [{:keys [auth parameters]} request
+        {:keys [bank-id]} auth
+        {:keys [invitation-id]} (:path parameters)
+        txn (config request)]
+    (respond (let-nom> [found (memberships/find-invitation txn
+                                                           bank-id
+                                                           invitation-id)
+                        named (invitations txn [found])]
+               (first named))
+             ok)))
+
 (defn named-invitation
   "The invitation of `bank-id` as the bank's members see it, its inviter
   named. An anomaly when it or the inviter's user record cannot be read."
@@ -359,7 +409,7 @@
                    :role role
                    :actor (actor auth)
                    :reason reason}
-                  (invitation-change request created))))
+                  (invitation-change request (created invitation-uri)))))
 
 (defn withdraw-invitation
   [request]

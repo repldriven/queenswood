@@ -132,9 +132,13 @@
                   "#/components/parameters/PageQuery"
                   "#/components/parameters/BankIdHeader"}
                 referenced)))
+     _ (testing "whose filter is the schema the request is validated against"
+         (is (= {"$ref" "#/components/schemas/WebhookDeliveryFilterQuery"}
+                (get-in document
+                        ["components" "parameters" "DeliveryFilterQuery"
+                         "schema"]))))
      filters (get-in document
-                     ["components" "parameters" "DeliveryFilterQuery"
-                      "schema"
+                     ["components" "schemas" "WebhookDeliveryFilterQuery"
                       "properties"])
      _ (testing "and the filter takes a kind, an outcome and a window"
          (is (= #{"kind" "outcome" "from" "to"} (set (keys filters)))))
@@ -144,5 +148,5 @@
                         than restating its values, so a fifth status
                         cannot be advertised in one place and not the
                         other"
-       (is (= {"$ref" "#/components/schemas/WebhookDeliveryStatus"}
-              (get filters "outcome"))))]))
+       (is (= "#/components/schemas/WebhookDeliveryStatus"
+              (get-in filters ["outcome" "$ref"]))))]))

@@ -37,7 +37,7 @@
                                           :value "TN000003C"
                                           :issuing-country "GB"}}}
    :as :party-1
-   :assert {:status 200 :body {:party-id [:m/regex "^pty\\."]}}}
+   :assert {:status 201 :body {:party-id [:m/regex "^pty\\."]}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/parties"
@@ -58,7 +58,7 @@
                                           :value "TN000004D"
                                           :issuing-country "GB"}}}
    :as :party-2
-   :assert {:status 200 :body {:party-id [:m/regex "^pty\\."]}}}]
+   :assert {:status 201 :body {:party-id [:m/regex "^pty\\."]}}}]
  :when
  [{:command :api/request
    :request {:method :get

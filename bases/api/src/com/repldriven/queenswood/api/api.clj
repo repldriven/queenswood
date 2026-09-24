@@ -39,7 +39,6 @@
      ledger-account.examples]
     [com.repldriven.queenswood.api.ledger-account.routes :as ledger-account]
     [com.repldriven.queenswood.api.me.components :as me.components]
-    [com.repldriven.queenswood.api.me.examples :as me.examples]
     [com.repldriven.queenswood.api.me.routes :as me]
     [com.repldriven.queenswood.api.oauth.components :as oauth.components]
     [com.repldriven.queenswood.api.oauth.examples :as oauth.examples]
@@ -193,6 +192,64 @@
        {:info {:title "Queenswood"
                :description "Queenswood Banking API"
                :version "0.0.4"}
+        :tags
+        [{:name "OAuth"
+          :description
+          "Issuing tokens, and the documents a client reads to verify them."}
+         {:name "Onboarding"
+          :description
+          "A person's first sign-in: looking up their company and creating their bank."}
+         {:name "Membership"
+          :description
+          "The signed-in person, their memberships, and whether they are an operator."}
+         {:name "Access"
+          :description
+          "A bank's members and their roles, invitations to join it, and its access history."}
+         {:name "Banks"
+          :description
+          "Creating banks, and changing a bank's status and tier."}
+         {:name "Tiers"
+          :description
+          "The tiers an operator can place a bank on."}
+         {:name "Policies"
+          :description
+          "The policies that grant a bank its capabilities and limits."}
+         {:name "Parties"
+          :description
+          "The customers a bank opens accounts for."}
+         {:name "Cash Account Products"
+          :description
+          "The products cash accounts are opened on, versioned as drafts that are published."}
+         {:name "Cash Accounts"
+          :description
+          "Opening, suspending, resuming and closing cash accounts, and reading their transactions."}
+         {:name "Balances"
+          :description
+          "A cash account's balances."}
+         {:name "Ledger Accounts"
+          :description
+          "The bank's ledger accounts, their balances, and its trial balance."}
+         {:name "Payments"
+          :description
+          "Submitting internal and outbound payments, and reading inbound ones."}
+         {:name "Payee Checks"
+          :description
+          "Checking a payee's name against their account before paying them."}
+         {:name "Rewards"
+          :description
+          "The rewards paid or owed to an account."}
+         {:name "Cash Account Migrations"
+          :description
+          "Moving cash accounts from one product to another, previewed before they are approved."}
+         {:name "Jobs"
+          :description
+          "Scheduled jobs, their schedules, and their runs."}
+         {:name "Webhooks"
+          :description
+          "The endpoints a bank is notified at when its records change, and the deliveries made to them."}
+         {:name "Simulate"
+          :description
+          "Operator-only stand-ins for an inbound transfer, and for the interest jobs."}]
         :components
         {:securitySchemes
          {"bearerAuth"
@@ -212,7 +269,6 @@
                     cash-account-product.examples/registry
                     jobs.examples/registry
                     ledger-account.examples/registry
-                    me.examples/registry
                     oauth.examples/registry
                     onboarding.examples/registry
                     companies.examples/registry

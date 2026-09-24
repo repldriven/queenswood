@@ -16,7 +16,8 @@
   (:require
     [com.repldriven.queenswood.api.examples :as examples]
 
-    [com.repldriven.queenswood.api-schema.interface :refer [ErrorResponse]]
+    [com.repldriven.queenswood.api-schema.interface :refer
+     [ErrorExamples ErrorResponse]]
 
     [com.repldriven.mono.utility.interface :as utility]))
 
@@ -97,11 +98,11 @@
     retry finds it withdrawn and is refused 409 `invitation/invalid-status`."})
 
 (def ^:private shared-responses
-  {400 (ErrorResponse [#'examples/BadRequest #'examples/MissingIdempotencyKey
+  {400 (ErrorExamples [#'examples/MissingIdempotencyKey
                        #'examples/InvalidIdempotencyKey])
    409 (ErrorResponse [#'examples/IdempotentRequestInFlight])
    422 (ErrorResponse [#'examples/IdempotencyKeyReused])
-   503 (ErrorResponse [#'examples/IdempotencyCacheUnavailable])})
+   503 (ErrorExamples [#'examples/IdempotencyCacheUnavailable])})
 
 (defn with-responses
   "Fold the refusals every protected route shares into `responses`:

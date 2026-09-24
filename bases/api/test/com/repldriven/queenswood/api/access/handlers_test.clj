@@ -369,6 +369,8 @@
               ["a resend" SUT/resend-invitation request]
               ["the member list" SUT/list-members request]
               ["the invitation list" SUT/list-invitations request]
+              ["an invitation" SUT/get-invitation request]
+              ["a member" SUT/get-member request]
               ["the access history" SUT/list-access-events request]
               ["a change of role" SUT/change-role request]
               ["a withdrawal" SUT/withdraw-invitation request]
@@ -495,3 +497,110 @@
                  "no subject, no subject name")
              (is (= {"queenswood-admin" 1 user-id 1 subject-id 1} @calls)
                  "each distinct id is looked up once"))))))))
+
+(def ^:private other-bank-id "bnk.01kprbmgcj35ptc8npmybhh4t9")
+
+(def ^:private accepted-invitation
+  (assoc (invitation member-actor)
+         :status :invitation-status-accepted
+         :accepted-by-user-id subject-id))
+
+(defn- invitation-in
+  "A `find-invitation` holding `accepted-invitation` in `bank-id` alone."
+  [_ bank invitation]
+  (if (and (= bank-id bank) (= invitation-id invitation))
+    accepted-invitation
+    (error/reject :invitation/not-found
+                  {:message "Invitation not found" :invitation-id invitation})))
+
+(defn- get-invitation-as
+  [bank invitation]
+  (SUT/get-invitation {:auth (assoc member-auth :bank-id bank)
+                       :parameters {:path {:invitation-id invitation}}}))
+
+(deftest an-invitation-is-read-in-its-own-bank-test
+  (standing-in (assoc stand-ins
+                      #'users/find-by-id
+                      find-person
+                      #'memberships/find-invitation
+                      invitation-in
+                      #'memberships/list-invitations-by-bank
+                      (fn [& _] [accepted-invitation]))
+               (fn []
+                 (testing "found, as the list shows it"
+                   (let [{:keys [status body]}
+                         (get-invitation-as bank-id invitation-id)]
+                     (is (= 200 status))
+                     (is (= invitation-id (:invitation-id body)))
+                     (is (= "charles@example.com" (:accepted-email body)))
+                     (is (= "Ada Lovelace" (get-in body [:invited-by :name])))
+                     (is (= [body]
+                            (get-in (SUT/list-invitations {:auth member-auth})
+                                    [:body :items]))
+                         "the same representation as the list's item")))
+                 (testing "another bank's answers 404"
+                   (let [{:keys [status body]}
+                         (get-invitation-as other-bank-id invitation-id)]
+                     (is (= 404 status))
+                     (is (= ":invitation/not-found" (:type body)))))
+                 (testing "none answers 404"
+                   (is (= 404
+                          (:status (get-invitation-as
+                                    bank-id
+                                    "inv.01kprbmgcj35ptc8npmybhh4t0"))))))))
+
+(def ^:private ended-id "mem.01kprbpdwa9q5n2t7vwsx84a3n")
+
+(def ^:private elsewhere-id "mem.01kprbpdwa9q5n2t7vwsx84a3p")
+
+(defn- membership-by-id
+  [_ id]
+  (condp = id
+    membership-id stored-membership
+    ended-id (assoc stored-membership
+                    :membership-id ended-id
+                    :status :membership-status-ended)
+    elsewhere-id (assoc stored-membership
+                        :membership-id elsewhere-id
+                        :bank-id other-bank-id)
+    (error/reject :membership/not-found
+                  {:message "Membership not found" :membership-id id})))
+
+(defn- get-member-as
+  [id]
+  (SUT/get-member {:auth member-auth
+                   :parameters {:path {:membership-id id}}}))
+
+(deftest a-member-is-read-while-active-in-its-own-bank-test
+  (standing-in (assoc stand-ins
+                      #'users/find-by-id
+                      find-person
+                      #'memberships/find-by-id
+                      membership-by-id)
+               (fn []
+                 (testing "found, as the list shows it"
+                   (let [{:keys [status body]} (get-member-as membership-id)]
+                     (is (= 200 status))
+                     (is (= [body]
+                            (get-in (SUT/list-members {:auth member-auth})
+                                    [:body :items])))))
+                 (doseq [[label id] [["another bank's" elsewhere-id]
+                                     ["an ended one" ended-id]
+                                     ["none" "mem.01kprbpdwa9q5n2t7vwsx84a3q"]]]
+                   (testing (str label " answers 404")
+                     (let [{:keys [status body]} (get-member-as id)]
+                       (is (= 404 status))
+                       (is (= ":membership/not-found" (:type body)))))))))
+
+(deftest a-create-names-what-it-created-test
+  (standing-in
+   stand-ins
+   (fn []
+     (testing "an invitation"
+       (let [{:keys [status headers]} (SUT/invite request)]
+         (is (= 201 status))
+         (is (= {"Location" (str "/v1/invitations/" invitation-id)} headers))))
+     (testing "the membership an accept creates"
+       (let [{:keys [status headers]} (SUT/accept-invitation recipient)]
+         (is (= 201 status))
+         (is (= {"Location" (str "/v1/members/" membership-id)} headers)))))))

@@ -65,7 +65,7 @@
                                           :value "TN556211A"
                                           :issuing-country "GB"}}}
    :as :party-a
-   :assert {:status 200 :body {:status "pending"}}}
+   :assert {:status 201 :body {:status "pending"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/parties/{party-id}"
@@ -82,7 +82,7 @@
                     :currency "GBP"
                     :product-id [:ref :product-a :product-id]}}
    :as :debtor-a
-   :assert {:status 200 :body {:account-status "opening"}}}
+   :assert {:status 201 :body {:account-status "opening"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}"
@@ -110,7 +110,7 @@
                     :currency "GBP"
                     :amount 100000
                     :reference "Funding"}}
-   :assert {:status 200}}
+   :assert {:status 201}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}/balances"
@@ -147,7 +147,7 @@
                     :amount 2500
                     :scheme "fps"
                     :reference "Unmatched inbound"}}
-   :assert {:status 200}}]
+   :assert {:status 201}}]
  :then
  [;; Bank A's only suspended inbound is the unmatched credit.
   {:command :api/poll
@@ -183,7 +183,7 @@
              :auth :bank-b-token}
    :assert {:status 404
             :body [:m/equals {:title "REJECTED"
-                              :type "payment/not-found"
+                              :type ":payment/not-found"
                               :status 404
                               :detail "Payment not found"}]}}
   {:command :api/request

@@ -97,6 +97,26 @@
           '';
         };
 
+        # Spectral lints the exported OpenAPI document. nixpkgs carries only
+        # its language server, so fetch the standalone release binary. It
+        # is a packaged Node executable with its payload appended, which
+        # stripping would truncate.
+        spectralVersion = versions.spectral.version;
+        spectralArch = if pkgs.stdenv.hostPlatform.isAarch64 then "arm64" else "x64";
+        spectral = pkgs.stdenv.mkDerivation {
+          name = "spectral-${spectralVersion}";
+          src = pkgs.fetchurl {
+            url = "https://github.com/stoplightio/spectral/releases/download/v${spectralVersion}/spectral-macos-${spectralArch}";
+            sha256 = versions.spectral.sha256."macos-${spectralArch}";
+          };
+          dontUnpack = true;
+          dontStrip = true;
+          installPhase = ''
+            mkdir -p $out/bin
+            install -m 755 $src $out/bin/spectral
+          '';
+        };
+
         libPath = pkgs.lib.makeLibraryPath [ fdbBinary ];
 
         # Wrap clojure/clj to always set DYLD_LIBRARY_PATH for the FDB native
@@ -166,6 +186,7 @@
             protocGenClojure
             pkgs.prowler
             pkgs.semgrep
+            spectral
             tessl
             pkgs.trivy
             pkgs.uv

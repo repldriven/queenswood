@@ -5,7 +5,7 @@
 
 (def RewardNotFound
   {:value {:title "REJECTED"
-           :type "reward/not-found"
+           :type ":reward/not-found"
            :status 404
            :detail "Reward not found"}})
 

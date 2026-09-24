@@ -65,7 +65,7 @@
                                           :value "TN555933A"
                                           :issuing-country "GB"}}}
    :as :slartibartfast
-   :assert {:status 200 :body {:status "pending"}}}
+   :assert {:status 201 :body {:status "pending"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/parties/{party-id}"
@@ -82,7 +82,7 @@
                     :currency "GBP"
                     :product-id [:ref :current-draft :product-id]}}
    :as :debtor
-   :assert {:status 200 :body {:account-status "opening"}}}
+   :assert {:status 201 :body {:account-status "opening"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}"
@@ -124,7 +124,7 @@
                     :scheme "fps"
                     :reference "Submission refused"}}
    :as :payment
-   :assert {:status 200 :body {:payment-status "pending"}}}]
+   :assert {:status 201 :body {:payment-status "pending"}}}]
  :then
  ;; The payment fails with the refusal code, and the £25 returns to the
  ;; debtor's available balance, which was never posted away.

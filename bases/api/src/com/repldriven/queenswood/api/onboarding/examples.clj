@@ -27,6 +27,4 @@
            :status 404
            :detail "No active company found for that number"}})
 
-(def registry
-  (examples-registry [#'OnboardingRequest #'OnboardingResponse
-                      #'CompanyNotActive #'CompanyNotFound]))
+(def registry (examples-registry [#'CompanyNotActive #'CompanyNotFound]))

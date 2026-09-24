@@ -18,6 +18,11 @@
         {:keys [banks]} dispatchers]
     banks))
 
+(defn bank-uri
+  "The URI a bank is retrieved at."
+  [bank-id]
+  (str "/v1/banks/" bank-id))
+
 (defn send-create-bank
   "Dispatch a create-bank command. `data` is the command payload
   (name/status/tier/currencies plus optional audience,
@@ -99,7 +104,9 @@
                    (utility/assoc-some bank :owner-invitation invitation))]
         (if (error/anomaly? bank)
           (errors/anomaly->response bank)
-          {:status 201 :body bank})))))
+          {:status 201
+           :headers {"Location" (bank-uri bank-id)}
+           :body bank})))))
 
 (defn change-bank-tier
   [request]

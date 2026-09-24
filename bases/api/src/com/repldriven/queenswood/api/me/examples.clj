@@ -1,7 +1,4 @@
-(ns com.repldriven.queenswood.api.me.examples
-  (:require
-    [com.repldriven.queenswood.api-schema.interface :refer
-     [examples-registry]]))
+(ns com.repldriven.queenswood.api.me.examples)
 
 (def UserId "usr.01kprbmgcj35ptc8npmybhh4s7")
 
@@ -31,5 +28,3 @@
    :updated-at "2026-05-18T09:15:00Z"})
 
 (def Me {:user User :memberships [Membership] :operator false})
-
-(def registry (examples-registry [#'User #'Membership]))

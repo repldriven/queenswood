@@ -95,6 +95,8 @@
 
 (def ^:private inbound-transfer "/v1/simulate/banks/{bank-id}/inbound-transfer")
 
+(def ^:private bank-read "/v1/banks/{bank-id}")
+
 (defn- real-router
   []
   (:reitit.core/router (meta (SUT/app {:interceptors []}))))
@@ -198,6 +200,9 @@
       (is (= [(into (gate "org:developer") (gate "admin"))]
              (map :security
                   (filter (fn [op] (= inbound-transfer (:path op))) ops)))))
+    (testing "a bank's own record names org:viewer and admin"
+      (is (= [(into (gate "org:viewer") (gate "admin"))]
+             (map :security (filter (fn [op] (= bank-read (:path op))) ops)))))
     (testing "the people writes name org:admin"
       (let [people (filter people-write? org-ops)]
         (is (seq people))
@@ -205,7 +210,8 @@
           (is (= (gate "org:admin") security) (str (name method) " " path)))))
     (testing "every other org read names org:viewer and write org:developer"
       (doseq [{:keys [path method security] :as op} org-ops
-              :when (and (not= inbound-transfer path) (not (people-write? op)))]
+              :when (and (not (#{inbound-transfer bank-read} path))
+                         (not (people-write? op)))]
         (is (= (if (read-methods method)
                  (gate "org:viewer")
                  (gate "org:developer"))

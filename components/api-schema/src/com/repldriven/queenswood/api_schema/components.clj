@@ -263,8 +263,11 @@
   `{:balances …, :transactions …}` by the `nest-bracket-query-params`
   interceptor before malli validation runs."
   [:map {:closed true}
-   [:balances {:optional true} boolean?]
-   [:transactions {:optional true} boolean?]])
+   [:balances {:optional true :json-schema/description "Embed balances"}
+    boolean?]
+   [:transactions
+    {:optional true :json-schema/description "Embed transactions"}
+    boolean?]])
 
 (def IdempotencyKey
   "Client-generated idempotency key. 16-255 chars of URL-safe ASCII
@@ -308,9 +311,13 @@
   fields are opaque strings with a min length so blanks are rejected
   at validation rather than being silently treated as \"no cursor\"."
   [:map {:closed true}
-   [:after {:optional true} [:string {:min 1 :max 200}]]
-   [:before {:optional true} [:string {:min 1 :max 200}]]
-   [:size {:optional true} [:int {:min 1 :max 100}]]])
+   [:after {:optional true :json-schema/description "Cursor for next page"}
+    [:string {:min 1 :max 200}]]
+   [:before
+    {:optional true :json-schema/description "Cursor for previous page"}
+    [:string {:min 1 :max 200}]]
+   [:size {:optional true :json-schema/description "Page size"}
+    [:int {:min 1 :max 100}]]])
 
 (def Name
   "Non-empty printable text up to 140 chars. Used wherever the

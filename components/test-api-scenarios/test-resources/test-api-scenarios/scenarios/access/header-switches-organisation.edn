@@ -149,6 +149,37 @@
              :headers {:bank-id [:ref :bank-a :bank-id]}
              :body {:role "viewer"}}
    :assert {:status 404 :problem {:type ":membership/not-found"}}}
+  ;; Nor is either read there, though both are read in B.
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/members/{membership-id}"
+             :path-params {:membership-id [:ref :b-owner-membership
+                                           :membership-id]}
+             :auth :person-token
+             :headers {:bank-id [:ref :bank-a :bank-id]}}
+   :assert {:status 404 :problem {:type ":membership/not-found"}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/invitations/{invitation-id}"
+             :path-params {:invitation-id [:ref :b-invitation :invitation-id]}
+             :auth :person-token
+             :headers {:bank-id [:ref :bank-a :bank-id]}}
+   :assert {:status 404 :problem {:type ":invitation/not-found"}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/members/{membership-id}"
+             :path-params {:membership-id [:ref :b-owner-membership
+                                           :membership-id]}
+             :auth :person-token
+             :headers {:bank-id [:ref :bank-b :bank-id]}}
+   :assert {:status 200 :body {:role "owner"}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/invitations/{invitation-id}"
+             :path-params {:invitation-id [:ref :b-invitation :invitation-id]}
+             :auth :person-token
+             :headers {:bank-id [:ref :bank-b :bank-id]}}
+   :assert {:status 200 :body {:status "accepted"}}}
   {:command :api/request
    :request {:method :get
              :path "/v1/members"

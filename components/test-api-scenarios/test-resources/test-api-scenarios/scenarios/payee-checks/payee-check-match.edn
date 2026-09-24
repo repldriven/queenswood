@@ -27,5 +27,6 @@
                     :account {:sort-code "040062" :account-number "12345678"}
                     :account-type "personal"}}
    :assert {:status 201
+            :headers {:location [:m/regex "^/v1/payee-checks/chk\\."]}
             :body {:check-id [:m/regex "^chk\\."]
                    :result {:match-result "match"}}}}]}

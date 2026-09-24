@@ -101,7 +101,7 @@
                                           :value "TN555001A"
                                           :issuing-country "GB"}}}
    :as :arthur
-   :assert {:status 200 :body {:status "pending"}}}
+   :assert {:status 201 :body {:status "pending"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/parties/{party-id}"
@@ -129,7 +129,7 @@
                                           :value "TN555002B"
                                           :issuing-country "GB"}}}
    :as :ford
-   :assert {:status 200 :body {:status "pending"}}}
+   :assert {:status 201 :body {:status "pending"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/parties/{party-id}"
@@ -148,7 +148,7 @@
                     :currency "GBP"
                     :product-id [:ref :current-draft :product-id]}}
    :as :arthur-current
-   :assert {:status 200 :body {:account-status "opening"}}}
+   :assert {:status 201 :body {:account-status "opening"}}}
   ;; Re-bind :arthur-current to the polled GET response so later
   ;; steps see the full record (including :bban, which the POST
   ;; response doesn't expose).
@@ -169,7 +169,7 @@
                     :currency "GBP"
                     :product-id [:ref :savings-draft :product-id]}}
    :as :arthur-savings
-   :assert {:status 200 :body {:account-status "opening"}}}
+   :assert {:status 201 :body {:account-status "opening"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}"
@@ -186,7 +186,7 @@
                     :currency "GBP"
                     :product-id [:ref :current-draft :product-id]}}
    :as :ford-current
-   :assert {:status 200 :body {:account-status "opening"}}}
+   :assert {:status 201 :body {:account-status "opening"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}"
@@ -203,7 +203,7 @@
                     :currency "GBP"
                     :product-id [:ref :savings-draft :product-id]}}
    :as :ford-savings
-   :assert {:status 200 :body {:account-status "opening"}}}
+   :assert {:status 201 :body {:account-status "opening"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}"
@@ -234,7 +234,7 @@
                     :currency "GBP"
                     :amount 100000
                     :reference "Reward Arthur"}}
-   :assert {:status 200}}
+   :assert {:status 201}}
   {:command :api/request
    :request {:method :post
              :path "/v1/payments/internal"
@@ -245,7 +245,7 @@
                     :currency "GBP"
                     :amount 100000
                     :reference "Reward Ford"}}
-   :assert {:status 200}}]
+   :assert {:status 201}}]
  :when
  ;; --- Customer activity ------------------------------------------
  ;; Arthur: £750 current → savings
@@ -259,7 +259,7 @@
                     :currency "GBP"
                     :amount 75000
                     :reference "Arthur saves"}}
-   :assert {:status 200}}
+   :assert {:status 201}}
   ;; Ford: £350 current → savings
   {:command :api/request
    :request {:method :post
@@ -271,7 +271,7 @@
                     :currency "GBP"
                     :amount 35000
                     :reference "Ford saves"}}
-   :assert {:status 200}}
+   :assert {:status 201}}
   ;; Ford: £25 outbound to Arthur, settling the beer and nuts debt.
   ;; Arthur's BBAN is sort-code ++ account-number from the SCAN
   ;; payment address on his current account.
@@ -287,7 +287,7 @@
                     :amount 2500
                     :scheme "fps"
                     :reference "Beer and nuts"}}
-   :assert {:status 200}}]
+   :assert {:status 201}}]
  :then
  ;; Outbound is async (scheme command → ClearBank → settled event).
  ;; Give the chain ~2s to settle before checking balances.

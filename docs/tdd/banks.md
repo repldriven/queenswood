@@ -250,6 +250,11 @@ Two routes send `create-bank`.
   registry lookup, and an owner membership for the authenticated
   user.
 
+Both answer 201 with the bank's `Location`, `/v1/banks/{bank-id}`. A
+`GET` there answers the bank as the list shows it, to an operator or
+to one of the bank's own members; a member naming another bank is
+refused with 403.
+
 ### The default ledger chart
 
 The chart is loaded from `ledgers/general-ledger.edn` on the

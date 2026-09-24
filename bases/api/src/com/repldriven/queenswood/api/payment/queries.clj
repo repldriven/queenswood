@@ -12,7 +12,7 @@
 (def ^:private not-found
   {:status 404
    :body (errors/error-response 404 "REJECTED"
-                                "payment/not-found" "Payment not found")})
+                                ":payment/not-found" "Payment not found")})
 
 (defn- payment-response
   [result]

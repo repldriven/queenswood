@@ -2,8 +2,8 @@ name: Release
 
 # A release is a merged pull request that bumps the chart's version.
 # `just release` opens it, and this runs once that commit's Tests are
-# green: it builds every image at the commit, tags them with the
-# version, packages and pushes the chart, tags the commit `v<version>`
+# green: it lints the OpenAPI document the commit exports, builds every
+# image at the commit, tags them with the version, packages and pushes the chart, tags the commit `v<version>`
 # and publishes the GitHub release, then deploys the release's docs to
 # GitHub Pages, prunes the untagged images a retried release left
 # behind and deletes the workflow runs nobody needs any more. Nothing
@@ -64,8 +64,90 @@ jobs:
           echo "releasing $version from $GITHUB_SHA"
           echo "release=true" >> "$GITHUB_OUTPUT"
 
-  images:
+  openapi-lint:
     needs: check
+    if: needs.check.outputs.release == 'true'
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout the tested commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Read pinned toolchain versions
+        id: versions
+        run: |
+          {
+            echo "fdb=$(jq -r '.foundationdb.version' versions.json)"
+            echo "protoc=$(jq -r '.protoc.version' versions.json)"
+            echo "protoc_gen_clojure=$(jq -r '."protoc-gen-clojure".version' versions.json)"
+            echo "spectral=$(jq -r '.spectral.version' versions.json)"
+            echo "spectral_sha256=$(jq -r '.spectral.sha256."linux-x64"' versions.json)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Setup Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: "temurin"
+          java-version: "25"
+
+      - name: Setup Clojure
+        uses: DeLaGuardo/setup-clojure@13.7.0
+        with:
+          cli: latest
+
+      - name: Setup Protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          version: ${{ steps.versions.outputs.protoc }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install protoc-gen-clojure
+        env:
+          VERSION: ${{ steps.versions.outputs.protoc_gen_clojure }}
+        run: |
+          sudo curl -L "https://github.com/protojure/protoc-plugin/releases/download/v${VERSION}/protoc-gen-clojure" -o /usr/local/bin/protoc-gen-clojure
+          sudo chmod +x /usr/local/bin/protoc-gen-clojure
+
+      - name: Install FoundationDB client library
+        env:
+          VERSION: ${{ steps.versions.outputs.fdb }}
+        run: |
+          curl -LO "https://github.com/apple/foundationdb/releases/download/${VERSION}/foundationdb-clients_${VERSION}-1_amd64.deb"
+          sudo dpkg -i "foundationdb-clients_${VERSION}-1_amd64.deb"
+
+      - name: Install Spectral
+        env:
+          VERSION: ${{ steps.versions.outputs.spectral }}
+          SHA256: ${{ steps.versions.outputs.spectral_sha256 }}
+        run: |
+          curl -fsSL "https://github.com/stoplightio/spectral/releases/download/v${VERSION}/spectral-linux-x64" -o spectral
+          actual="sha256-$(openssl dgst -sha256 -binary spectral | base64)"
+          if [[ "$actual" != "$SHA256" ]]; then
+            echo "::error::spectral-linux-x64 is $actual; versions.json pins $SHA256"
+            exit 1
+          fi
+          sudo install -m 755 spectral /usr/local/bin/spectral
+
+      - name: Cache dependencies
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
+          restore-keys: |
+            ${{ runner.os }}-clojure-
+
+      # The same export and ruleset as `just openapi-lint`.
+      - name: Export and lint the OpenAPI document
+        run: |
+          clojure -X:deps prep :aliases '[:dev]'
+          clojure -Sdeps '{:aliases {:dev {:main-opts []}}}' -M:dev -m com.repldriven.queenswood.api.export-spec "$RUNNER_TEMP/openapi.yaml"
+          spectral lint --ruleset .config/spectral/spectral.yaml "$RUNNER_TEMP/openapi.yaml"
+
+  images:
+    needs: [check, openapi-lint]
     if: needs.check.outputs.release == 'true'
     permissions:
       contents: read

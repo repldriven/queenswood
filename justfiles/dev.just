@@ -26,6 +26,9 @@ doctor:
     check protoc-gen-clojure \
       "$(jq -r '."protoc-gen-clojure".version' versions.json)" \
       "$(protoc-gen-clojure -v 2>/dev/null | sed -n 's/.*v\([0-9.]*\).*/\1/p')"
+    check spectral \
+      "$(jq -r '.spectral.version' versions.json)" \
+      "$(spectral --version 2>/dev/null)"
     if [ "$fail" -ne 0 ]; then
       echo
       echo "Enter the nix devshell to get these, or install them at the"
