@@ -190,7 +190,16 @@
       {:no-doc true
        :openapi
        {:info {:title "Queenswood"
-               :description "Queenswood Banking API"
+               :description
+               (str "**Open-source core banking.** Whether you're building a "
+                    "bank or embedding banking into your product, Queenswood "
+                    "runs the banking behind it. It provides customer "
+                    "onboarding with identity checks, products and accounts, "
+                    "payments, interest and rewards, a general ledger, "
+                    "policies, end-of-day processing, webhooks and an "
+                    "operator console, all of it configured and driven "
+                    "through this API. You bring the banking licence, the "
+                    "clearing partner and the identity provider.")
                :version "0.0.4"}
         :tags
         [{:name "OAuth"
