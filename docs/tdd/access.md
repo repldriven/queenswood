@@ -536,14 +536,13 @@ Under the bank the header names:
   `POST /v1/invitations/{invitation-id}/resend` — `org:admin`. Each
   returns the invitation.
 
-Under the bank's own path:
+Under `/v1/bank`, the bank the header names:
 
-- `GET /v1/banks/{bank-id}/audit-events` — `org:viewer` or `admin`,
-  cursor-paged, newest first. The bank's audit log: each `AccessEvent`
-  as an `AuditEvent`, its id as `audit-event-id`. It describes the bank
-  rather than a record it holds, so it sits beside the bank's policies,
-  and a member naming another bank is refused 403. The name is the
-  API's, not the store's: the record stays `AccessEvent`.
+- `GET /v1/bank/audit-events` — `org:viewer` or `admin`, cursor-paged,
+  newest first. The bank's audit log: each `AccessEvent` as an
+  `AuditEvent`, its id as `audit-event-id`. It describes the bank rather
+  than a record it holds, so it sits beside the bank's policies. The
+  name is the API's, not the store's: the record stays `AccessEvent`.
 
 Every `Actor` a route answers carries `name`, and every `AuditEvent`
 with a subject carries `subject-name`, resolved on read in

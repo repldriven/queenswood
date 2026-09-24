@@ -5,7 +5,7 @@
       InvitationNotFound MembershipAlreadyExists MembershipInvalidStatus
       MembershipLastOwner MembershipNotFound ReasonRequired RoleNotGranted]]
     [com.repldriven.queenswood.api.access.handlers :as handlers]
-    [com.repldriven.queenswood.api.bank.examples :refer [ForeignBankRead]]
+    [com.repldriven.queenswood.api.bank.examples :refer [BankUnnamed]]
 
     [com.repldriven.queenswood.api.shared.headers :as shared.headers]
     [com.repldriven.queenswood.api.shared.idempotency :as shared.idempotency]
@@ -343,32 +343,30 @@
                           409 (ErrorResponse [#'InvitationInvalidStatus])})
              :handler handlers/resend-invitation}}]]])
 
-;; A bank reads its own audit log as well as an operator reads any bank's:
-;; `own-bank` holds the tenant boundary.
+;; The bank the `Bank-Id` header names: a member's own, or any an
+;; operator names. `named-bank` refuses an operator who names none.
 (def ^:private audit-events
-  ["/banks/{bank-id}/audit-events"
+  ["/bank/audit-events"
    {:openapi {:tags ["Audit"]
               :security [{"bearerAuth" ["org:viewer"]}
                          {"bearerAuth" ["admin"]}]}
-    :parameters {:path {:bank-id [:ref "BankId"]}}
-    :interceptors [shared.interceptors/own-bank]
+    :interceptors [shared.interceptors/named-bank]
     :get {:summary "List the bank's audit events"
           :openapi {:operationId "ListAuditEvents"
                     :description
-                    (str "The bank's audit log, newest first: every change to "
-                         "who may act for it — its creation, invitations, "
-                         "role changes, removals and departures, and the "
-                         "operator's own acts — each naming who made it and "
-                         "any reason given. A member can list only their own"
-                         " bank's; another is refused with 403.")
+                    (str "The audit log of the bank the `Bank-Id` header "
+                         "names, newest first: every change to who may act "
+                         "for it — its creation, invitations, role changes, "
+                         "removals and departures, and the operator's own "
+                         "acts — each naming who made it and any reason "
+                         "given.")
                     :parameters ^:replace
-                                [shared.parameters/ref-bank-id
-                                 shared.parameters/ref-page
+                                [shared.parameters/ref-page
                                  shared.parameters/ref-bank-id-header]}
           :parameters {:query shared.parameters/page-query}
           :responses {200 {:description "One page of the bank's audit events."
                            :body [:ref "AuditEventList"]}
-                      403 (ErrorExamples [#'ForeignBankRead])}
+                      403 (ErrorExamples [#'BankUnnamed])}
           :handler handlers/list-audit-events}}])
 
 (def routes

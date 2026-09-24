@@ -91,9 +91,7 @@
 
 (def AuditEventList
   {:items [AuditEvent]
-   :links {:next (str "/v1/banks/"
-                      me-examples/BankId
-                      "/audit-events?page[after]="
+   :links {:next (str "/v1/bank/audit-events?page[after]="
                       "djE6YWV2LjAxa3ByYm1nY2ozNXB0YzhucG15YmhoNHNu"
                       "&page[size]=20")}})
 

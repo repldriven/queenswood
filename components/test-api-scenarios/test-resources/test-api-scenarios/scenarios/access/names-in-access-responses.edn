@@ -101,8 +101,7 @@
  :then
  [{:command :api/request
    :request {:method :get
-             :path "/v1/banks/{bank-id}/audit-events"
-             :path-params {:bank-id [:ref :bank :bank-id]}
+             :path "/v1/bank/audit-events"
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}}
    :assert

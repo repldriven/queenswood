@@ -16,7 +16,6 @@ system:
   idv: !include system/idv.yml
   idvs-relay: !include system/idv-relay.yml
   interest: !include system/interest.yml
-  interest-dispatcher: !include system/interest-dispatcher.yml
   invitations-relay: !include system/invitation-relay.yml
   kafka: !include system/kafka-all-test.yml
   keycloak: !include system/keycloak.yml

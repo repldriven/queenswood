@@ -17,7 +17,7 @@
   `:openapi {:parameters ^:replace [...]}`, the replacement wipes any
   path params reitit would have auto-generated from `:parameters :path`.
   Routes that need both a path param and a query/header override must
-  include `ref-account-id` / `ref-bank-id` alongside the other refs."
+  include `ref-account-id` or the like alongside the other refs."
   (:require
     [com.repldriven.queenswood.api-schema.interface :as api-schema]
 
@@ -66,13 +66,6 @@
    :required true
    :schema {:$ref "#/components/schemas/CashAccountId"}})
 
-(def BankId
-  "`components.parameters` entry for the `bank-id` path parameter."
-  {:name "bank-id"
-   :in "path"
-   :required true
-   :schema {:$ref "#/components/schemas/BankId"}})
-
 (def BankIdHeader
   "`components.parameters` entry for the `Bank-Id` header, which names
   the bank an organisation operation acts on. Every operation gated by
@@ -81,8 +74,9 @@
   {:name "Bank-Id"
    :in "header"
    :required false
-   :description (str "The bank the call acts on. Required of a person "
-                     "holding more than one active membership.")
+   :description (str "The bank the call acts on, and the only way a "
+                     "request names one. Required of a person holding "
+                     "more than one active membership, and of an " "operator.")
    :schema {:$ref "#/components/schemas/BankId"}})
 
 (def InvitationToken
@@ -180,7 +174,6 @@
 (def ref-embed {:$ref "#/components/parameters/EmbedQuery"})
 (def ref-party-embed {:$ref "#/components/parameters/PartyEmbedQuery"})
 (def ref-account-id {:$ref "#/components/parameters/AccountId"})
-(def ref-bank-id {:$ref "#/components/parameters/BankId"})
 (def ref-bank-id-header {:$ref "#/components/parameters/BankIdHeader"})
 (def ref-invitation-token {:$ref "#/components/parameters/InvitationToken"})
 (def ref-invitation-id {:$ref "#/components/parameters/InvitationId"})
@@ -202,7 +195,6 @@
    "EmbedQuery" EmbedQuery
    "PartyEmbedQuery" PartyEmbedQuery
    "AccountId" AccountId
-   "BankId" BankId
    "BankIdHeader" BankIdHeader
    "InvitationToken" InvitationToken
    "InvitationId" InvitationId

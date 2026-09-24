@@ -30,11 +30,11 @@
            :status 422
            :detail "No policies found for tier"}})
 
-(def ForeignBankRead
+(def BankUnnamed
   {:value {:title "FORBIDDEN"
            :type "auth/forbidden"
            :status 403
-           :detail "Token is not this bank's; retrieve only your own bank"}})
+           :detail "Name the bank in the Bank-Id header"}})
 
 (def CompanyNotActive
   {:value {:title "REJECTED"
@@ -59,7 +59,7 @@
 (def registry
   (examples-registry [#'BankNotFound #'BankInvalidStatus #'BankUnknownTier
                       #'CompanyNotActive #'CompanyRequired
-                      #'OperatorFieldRefused #'ForeignBankRead]))
+                      #'OperatorFieldRefused #'BankUnnamed]))
 
 (def BankId (schema/id-examples "BankId"))
 

@@ -14,9 +14,9 @@
    :assert {:status 201 :body {:status "test"}}}]
  :when [{:command :api/request
          :request {:method :post
-                   :path "/v1/banks/{bank-id}/change-status"
-                   :path-params {:bank-id [:ref :bank-0 :bank-id]}
+                   :path "/v1/bank/change-status"
                    :auth :admin
+                   :headers {:bank-id [:ref :bank-0 :bank-id]}
                    :body {:status "live"}}
          :assert {:status 200
                   :body {:bank-id [:ref :bank-0 :bank-id] :status "live"}}}]}

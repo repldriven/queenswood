@@ -55,17 +55,14 @@
                        [:request :query-params]
                        (fn [qp] (when qp (nest-params qp)))))})
 
-(def own-bank
-  "Refuses a route under `/v1/banks/{bank-id}` with 403 unless the path
-  names the caller's own bank or the caller is an operator, so a member
-  reads only their own bank and an operator reads any."
-  {:name ::own-bank
+(def named-bank
+  "Refuses with 403 a request that resolves no bank: an operator naming
+  none in the `Bank-Id` header. A member's is refused before this, by
+  `auth/require-bank`, and a service token always names its own."
+  {:name ::named-bank
    :enter (fn [ctx]
-            (let [{:keys [auth parameters]} (:request ctx)]
-              (if (or (= (get-in parameters [:path :bank-id]) (:bank-id auth))
-                      (contains? (:roles auth) :admin))
-                ctx
-                (sc/terminate ctx
-                              (errors/forbidden-response
-                               (str "Token is not this bank's; "
-                                    "retrieve only your own bank"))))))})
+            (if (get-in ctx [:request :auth :bank-id])
+              ctx
+              (sc/terminate ctx
+                            (errors/forbidden-response
+                             "Name the bank in the Bank-Id header"))))})

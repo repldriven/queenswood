@@ -50,8 +50,8 @@
 
 (defn get-bank
   [request]
-  (let [{:keys [parameters record-db record-store]} request
-        {:keys [bank-id]} (:path parameters)
+  (let [{:keys [auth record-db record-store]} request
+        {:keys [bank-id]} auth
         config {:record-db record-db :record-store record-store}
         result (let-nom>
                  [bank (banks/get-bank-view config bank-id)

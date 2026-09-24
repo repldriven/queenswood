@@ -247,14 +247,14 @@ export function list_ledger_account_balances(account_id) {
 // policy-adapter.mjs flattens it for the matrix.
 
 export function list_my_policies() {
-  return request(`/v1/banks/${bank_id}/policies`);
+  return request("/v1/bank/policies");
 }
 
 // The resolved effective decision for my bank: capabilities/limits
 // collapsed (deny-wins, most-restrictive) to one survivor per scope,
 // each carrying its origin policy. policy-adapter.mjs flattens it.
 export function list_my_effective_policies() {
-  return request(`/v1/banks/${bank_id}/effective-policy`);
+  return request("/v1/bank/effective-policy");
 }
 
 // ─── Jobs (scheduler, org-scoped, read-only) ───
@@ -404,8 +404,8 @@ export function check_payee(data) {
   });
 }
 
-export function simulate_inbound_transfer(bank_id, data) {
-  return mutate(`/v1/simulate/banks/${bank_id}/inbound-transfer`, {
+export function simulate_inbound_transfer(data) {
+  return mutate("/v1/simulate/inbound-transfer", {
     method: "POST",
     body: JSON.stringify(data),
   });
@@ -504,6 +504,6 @@ export function decline_invitation(invitation_id, token) {
 // `next` is the previous page's `links.next`; without it, the newest page.
 export function list_audit_events({ next, size = 8 } = {}) {
   return request(
-    next ?? `/v1/banks/${bank_id}/audit-events?page[size]=${size}`,
+    next ?? `/v1/bank/audit-events?page[size]=${size}`,
   );
 }

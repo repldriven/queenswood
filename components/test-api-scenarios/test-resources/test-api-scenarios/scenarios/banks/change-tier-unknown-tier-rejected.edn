@@ -14,8 +14,8 @@
    :assert {:status 201}}]
  :when [{:command :api/request
          :request {:method :post
-                   :path "/v1/banks/{bank-id}/change-tier"
-                   :path-params {:bank-id [:ref :bank-0 :bank-id]}
+                   :path "/v1/bank/change-tier"
                    :auth :admin
+                   :headers {:bank-id [:ref :bank-0 :bank-id]}
                    :body {:tier "no-such-tier"}}
          :assert {:status 422 :body {:type ":bank/unknown-tier"}}}]}

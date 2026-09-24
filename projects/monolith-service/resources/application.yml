@@ -61,7 +61,6 @@ system:
   rewards-relay: !include system/reward-relay.yml
   companies-dispatcher: !include system/company-dispatcher.yml
   idvs-relay: !include system/idv-relay.yml
-  interest-dispatcher: !include system/interest-dispatcher.yml
   invitations-relay: !include system/invitation-relay.yml
   memberships-dispatcher: !include system/membership-dispatcher.yml
   parties-dispatcher: !include system/party-dispatcher.yml
@@ -97,7 +96,6 @@ system:
         memberships: !system/ref memberships-dispatcher.dispatcher
         parties: !system/ref parties-dispatcher.dispatcher
         payments: !system/ref payments-dispatcher.dispatcher
-        interest: !system/ref interest-dispatcher.dispatcher
         transactions: !system/ref transactions-dispatcher.dispatcher
         payee-checks: !system/ref payee-checks-dispatcher.dispatcher
         companies: !system/ref companies-dispatcher.dispatcher

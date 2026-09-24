@@ -27,7 +27,7 @@
              :body {:company-number "TY046601" :name "Tyrell Corporation"}}
    :as :onboarded
    :assert {:status 201
-            :headers {:location [:m/regex "^/v1/banks/bnk\\."]}
+            :headers {:location "/v1/bank"}
             :body {:membership {:role "owner"}}}}
   {:command :api/request
    :request {:method :get :path "/v1/me/memberships" :auth :member-token}
@@ -35,9 +35,9 @@
                      :role "owner"}]}}}
   {:command :api/request
    :request {:method :get
-             :path "/v1/banks/{bank-id}"
-             :path-params {:bank-id [:ref :onboarded :bank-id]}
-             :auth :member-token}
+             :path "/v1/bank"
+             :auth :member-token
+             :headers {:bank-id [:ref :onboarded :bank-id]}}
    :assert {:status 200
             :body {:bank-id [:ref :onboarded :bank-id]
                    :name "Tyrell Corporation"}}}

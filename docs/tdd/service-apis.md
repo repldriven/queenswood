@@ -174,11 +174,15 @@ A path names a record, and its prefix says whose:
   the same record, both use one noun and one id:
   `/v1/memberships/{membership-id}` and
   `/v1/me/memberships/{membership-id}` are one membership.
-- `/v1/banks/{bank-id}/<resource>` — what describes a bank as a whole
-  rather than a record it holds: its policies, its effective policy
-  and its audit log. The bank's own members and an operator may
-  read it, and `shared.interceptors/own-bank` refuses a member any
-  other bank with 403.
+- `/v1/bank` and `/v1/bank/<resource>` — the bank the header names, and
+  what describes it as a whole rather than a record it holds: its
+  policies, its effective policy and its audit log. The bank's own
+  members and an operator may read it, and
+  `shared.interceptors/named-bank` refuses an operator who names no
+  bank with 403.
+
+`Bank-Id` is the only way a request names a bank: no path carries a
+bank id, just as none carries the signed-in person's user id.
 
 Every operation under `/v1/me` carries `My` in its operationId and the
 Me tag, since only a signed-in person reaches one; every other tag is

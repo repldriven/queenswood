@@ -75,8 +75,7 @@
  :when
  [{:command :api/request
    :request {:method :get
-             :path "/v1/banks/{bank-id}/audit-events"
-             :path-params {:bank-id [:ref :bank :bank-id]}
+             :path "/v1/bank/audit-events"
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}}
    :as :all
@@ -118,8 +117,7 @@
      :links [:m/absent]}}}
   {:command :api/request
    :request {:method :get
-             :path "/v1/banks/{bank-id}/audit-events"
-             :path-params {:bank-id [:ref :bank :bank-id]}
+             :path "/v1/bank/audit-events"
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}
              :query-params {"page[size]" 2}}
@@ -127,7 +125,7 @@
    :assert {:status 200
             :body {:items [:m/equals
                            [[:ref :all :items 0] [:ref :all :items 1]]]
-                   :links {:next [:m/regex "^/v1/banks/bnk\\.[^/]+/audit-events\\?"]}}}}
+                   :links {:next [:m/regex "^/v1/bank/audit-events\\?"]}}}}
   {:command :api/request
    :request {:method :get
              :url [:ref :page-1 :links :next]

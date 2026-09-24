@@ -96,10 +96,10 @@
   ;; Fund the debtor with £1,000 from outside.
   {:command :api/request
    :request {:method :post
-             :path "/v1/simulate/banks/{bank-id}/inbound-transfer"
-             :path-params {:bank-id [:ref :bank-0 :bank-id]}
+             :path "/v1/simulate/inbound-transfer"
              :auth :admin
-             :headers {:idempotency-key "ik-oaf-fund-debtor"}
+             :headers {:bank-id [:ref :bank-0 :bank-id]
+                       :idempotency-key "ik-oaf-fund-debtor"}
              :body {:amount 100000
                     :currency "GBP"}}
    :as :funded-1

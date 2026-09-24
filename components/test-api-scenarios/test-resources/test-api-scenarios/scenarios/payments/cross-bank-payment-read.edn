@@ -108,10 +108,10 @@
    :as :creditor-a}
   {:command :api/request
    :request {:method :post
-             :path "/v1/simulate/banks/{bank-id}/inbound-transfer"
-             :path-params {:bank-id [:ref :bank-a :bank-id]}
+             :path "/v1/simulate/inbound-transfer"
              :auth :admin
-             :headers {:idempotency-key "ik-cbpr-fund-a-001"}
+             :headers {:bank-id [:ref :bank-a :bank-id]
+                       :idempotency-key "ik-cbpr-fund-a-001"}
              :body {:amount 100000
                     :currency "GBP"}}
    :as :funded-1

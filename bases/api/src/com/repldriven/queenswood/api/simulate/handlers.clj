@@ -15,50 +15,24 @@
         {:keys [transactions]} dispatchers]
     transactions))
 
-(defn- interest-dispatcher
-  [request]
-  (let [{:keys [dispatchers]} request
-        {:keys [interest]} dispatchers]
-    interest))
-
 (defn- check-bank
-  "Confirms the path's `{bank-id}` resolves to a real bank.
+  "Confirms the bank the request names resolves to a real bank.
   Returns nil when found, or the anomaly-response for `:bank/not-found`."
   [request]
-  (let [{:keys [record-db record-store parameters]} request
-        {:keys [path]} parameters
-        {:keys [bank-id]} path
+  (let [{:keys [record-db record-store auth]} request
         result (banks/get-bank
                 {:record-db record-db :record-store record-store}
-                bank-id)]
+                (:bank-id auth))]
     (when (error/anomaly? result)
       (errors/anomaly->response result))))
-
-(defn- check-principal-bank
-  "Confirms the caller may act on the path's `{bank-id}`. A service
-  principal carries the bank its token was minted for; an admin carries
-  none and takes its bank from the path. Returns nil when the caller
-  may act, or the 403 the `authorize` interceptor would have returned.
-  Runs before `check-bank`, so a foreign bank id is refused whether or
-  not that bank exists and the answer tells the caller nothing about
-  another tenant."
-  [request]
-  (let [{:keys [auth parameters]} request
-        {:keys [path]} parameters
-        {:keys [bank-id]} path]
-    (when-not (or (= bank-id (:bank-id auth))
-                  (contains? (:roles auth) :admin))
-      (errors/forbidden-response
-       "Token is not this bank's; simulate only your own bank"))))
 
 (defn inbound-transfer
   [request]
   (or
-   (check-principal-bank request)
    (check-bank request)
-   (let [{:keys [record-db record-store parameters]} request
-         {:keys [path body]} parameters
-         {:keys [bank-id]} path
+   (let [{:keys [auth record-db record-store parameters]} request
+         {:keys [body]} parameters
+         {:keys [bank-id]} auth
          {:keys [amount currency]} body
          ;; The bank's own money arriving from outside: 1100 cash-at-
          ;; correspondent up, the house account for the currency credited,
@@ -111,33 +85,3 @@
              (cond-> response
                      (= 200 (:status response))
                      (assoc-in [:body :account-id] (:account-id house))))))))))
-
-(defn accrue
-  [request]
-  (or (check-bank request)
-      (let [{:keys [parameters]} request
-            {:keys [path body]} parameters
-            {:keys [bank-id]} path
-            {:keys [as-of-date]} body]
-        (commands/send
-         (interest-dispatcher request)
-         request
-         "accrue-day-interest"
-         "interest-result"
-         {:bank-id bank-id
-          :as-of-date as-of-date}))))
-
-(defn capitalize
-  [request]
-  (or (check-bank request)
-      (let [{:keys [parameters]} request
-            {:keys [path body]} parameters
-            {:keys [bank-id]} path
-            {:keys [as-of-date]} body]
-        (commands/send
-         (interest-dispatcher request)
-         request
-         "capitalize-accrued-interest"
-         "interest-result"
-         {:bank-id bank-id
-          :as-of-date as-of-date}))))

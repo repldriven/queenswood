@@ -216,10 +216,10 @@
   ;; which rolls up into the 3100 own-funds control)
   {:command :api/request
    :request {:method :post
-             :path "/v1/simulate/banks/{bank-id}/inbound-transfer"
-             :path-params {:bank-id [:ref :bank-0 :bank-id]}
+             :path "/v1/simulate/inbound-transfer"
              :auth :admin
-             :headers {:idempotency-key "ik-fhp-inbound-settlement"}
+             :headers {:bank-id [:ref :bank-0 :bank-id]
+                       :idempotency-key "ik-fhp-inbound-settlement"}
              :body {:amount 5000000
                     :currency "GBP"}}
    :assert {:status 200}}
@@ -351,43 +351,29 @@
    :assert {:status 200
             :body {:available-balance {:value 35000 :currency "GBP"}}}}
   ;; --- Interest run -----------------------------------------------
-  ;; Daily interest on savings at 3650 bps:
-  ;;   Arthur sav  75_000 → 75p accrued
-  ;;   Ford   sav  35_000 → 35p accrued
-  ;; Both land in customer.interest-accrued (not visible in
-  ;; available); the offset is the bank's 2400 interest-payable
-  ;; ledger account. The own-funds house account is untouched.
+  ;; A forced run of the daily-interest job accrues a day's interest on
+  ;; savings at 3650 bps, then capitalises it into each saver's
+  ;; spendable default-posted balance:
+  ;;   Arthur sav  75_000 → +75 → 75_075
+  ;;   Ford   sav  35_000 → +35 → 35_035
+  ;; The offset is the bank's 2400 interest-payable ledger account, so
+  ;; the own-funds house account and the current accounts are
+  ;; unchanged.
   {:command :api/request
    :request {:method :post
-             :path "/v1/simulate/banks/{bank-id}/accrue"
-             :path-params {:bank-id [:ref :bank-0 :bank-id]}
-             :auth :admin
-             :headers {:idempotency-key "ik-fhp-accrue-interest"}
-             :body {:as-of-date "2026-05-01"}}
-   :assert {:status 200}}
-  ;; The own-funds house account is unaffected by interest (the
-  ;; offset is the 2400 interest-payable ledger control), so it
-  ;; still reads 4_800_000.
-  {:command :api/request
-   :request {:method :get
-             :path "/v1/cash-accounts/{account-id}/balances"
-             :path-params {:account-id [:ref :bank-0 :accounts 0 :account-id]}
-             :auth :bank-0-token}
-   :assert {:status 200
-            :body {:available-balance {:value 4800000 :currency "GBP"}}}}
-  ;; Capitalisation moves each saver's accrued interest into their
-  ;; spendable default-posted balance, offset by the 2400 ledger:
-  ;;   Arthur savings.default  += 75      →    75_075
-  ;;   Ford   savings.default  += 35      →    35_035
-  ;;   current + own-funds accounts unchanged.
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/simulate/banks/{bank-id}/capitalize"
-             :path-params {:bank-id [:ref :bank-0 :bank-id]}
-             :auth :admin
-             :headers {:idempotency-key "ik-fhp-capitalize"}
-             :body {:as-of-date "2026-05-01"}}
-   :assert {:status 200}}
+             :path "/v1/jobs/{job-id}/runs"
+             :path-params {:job-id "daily-interest"}
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-fhp-interest-run"}}
+   :assert {:status 201
+            :body {:job-id "daily-interest"
+                   :status "succeeded"
+                   :tasks [{:label "accrue"
+                            :status "succeeded"
+                            :records-failed 0}
+                           {:label "capitalize"
+                            :status "succeeded"
+                            :records-failed 0}]}}}
   {:command :api/request
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}/balances"

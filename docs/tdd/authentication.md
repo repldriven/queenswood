@@ -196,12 +196,11 @@ under `user`, and an organisation's own data under a level: its reads
 `org:admin`.** Banks, tiers, policy administration and the simulator
 are platform-wide, except that a person may create a bank for their
 own company; `/me` is about who the caller is. A
-route reading or writing one tenant's data takes a level. A bank's own
-record, and what describes it under `/v1/banks/{bank-id}` — its
-policies, its effective policy and its audit log — takes
-`org:viewer` or `admin`, the `own-bank` interceptor refusing a member
-any other bank. `org:owner` gates no route; the rules only an owner
-satisfies are described in [access.md](access.md).
+route reading or writing one tenant's data takes a level. The bank's
+own record, and what describes it under `/v1/bank` — its policies, its
+effective policy and its audit log — takes `org:viewer` or `admin`.
+`org:owner` gates no route; the rules only an owner satisfies are
+described in [access.md](access.md).
 
 **Every route names its roles.** A route or a method declares them in
 its OpenAPI security, `:security [{"bearerAuth" ["org:viewer"]}]`, and
@@ -241,19 +240,17 @@ principal that satisfies the gate only through organisation levels and
 carries no `:bank-id` has nothing for the route to act on, and is
 refused **403** (`auth/forbidden`) rather than served against a nil
 bank. An operator that sends no `Bank-Id` header is such a principal.
-A route an admin may call on *any* bank takes the bank from its path
-and declares `admin` as a second requirement object beside a level,
-which widens what the guard reads as required past the levels and opts
-out of the rule.
+A route an admin may call on *any* bank takes the bank from the same
+header and declares `admin` as a second requirement object beside a
+level, which widens what the guard reads as required past the levels
+and opts out of the rule; `shared.interceptors/named-bank` then refuses
+an operator who names no bank, 403 with the detail to name it.
 
 The exceptions, each deliberate:
 
 - The **simulator's inbound transfer** is `org:developer` and `admin`,
-  so a tenant can fund its own sandbox. Its handler holds the tenant
-  boundary itself: the path's bank must be the principal's, unless the
-  principal is an admin, and a foreign bank is refused 403 before the
-  bank is looked up — so the answer says nothing about another tenant.
-  The rest of `/simulate` stays `admin`.
+  so a tenant can fund its own sandbox. It is the simulator's one
+  route, and like every other it acts on the bank the header names.
 - The **companies** routes are `user`, and so is `POST /v1/banks`
   beside `admin`, because a person creating their first bank uses them
   before any membership exists.

@@ -33,19 +33,6 @@
            :currency "GBP"
            :created-at "2025-01-01T00:00:00Z"}]})
 
-(def SimulateInterestRequest {:as-of-date "2026-03-26"})
-
-(def SimulateInterestResponse
-  {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
-   :as-of-date "2026-03-26"
-   :accounts-processed 5})
-
-(def SettlementAccountNotFound
-  {:value {:title "REJECTED"
-           :type ":interest/no-settlement"
-           :status 404
-           :detail "No settlement account found"}})
-
 (def BalanceNotFound
   {:value {:title "REJECTED"
            :type ":balance/not-found"
@@ -72,13 +59,6 @@
            :status 409
            :detail "Ledger account is closed"}})
 
-(def ForeignBankSimulation
-  {:value {:title "FORBIDDEN"
-           :type "auth/forbidden"
-           :status 403
-           :detail "Token is not this bank's; simulate only your own bank"}})
-
 (def registry
-  (examples-registry [#'SettlementAccountNotFound #'BalanceNotFound
-                      #'InvalidAmount #'MissingCurrencyAccount
-                      #'LedgerAccountClosed #'ForeignBankSimulation]))
+  (examples-registry [#'BalanceNotFound #'InvalidAmount #'MissingCurrencyAccount
+                      #'LedgerAccountClosed]))

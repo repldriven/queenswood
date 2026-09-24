@@ -19,10 +19,9 @@
         {:keys [banks]} dispatchers]
     banks))
 
-(defn bank-uri
-  "The URI a bank is retrieved at."
-  [bank-id]
-  (str "/v1/banks/" bank-id))
+(def bank-uri
+  "The URI a bank is retrieved at, with its id in the `Bank-Id` header."
+  "/v1/bank")
 
 (defn send-create-bank
   "Dispatch a create-bank command. `data` is the command payload
@@ -195,14 +194,14 @@
                 (if (error/anomaly? bank)
                   (errors/anomaly->response bank)
                   {:status 201
-                   :headers {"Location" (bank-uri (:bank-id bank))}
+                   :headers {"Location" bank-uri}
                    :body bank})))))))
 
 (defn change-bank-tier
   [request]
-  (let [{:keys [parameters record-db record-store]} request
-        {:keys [path body]} parameters
-        {:keys [bank-id]} path
+  (let [{:keys [auth parameters record-db record-store]} request
+        {:keys [body]} parameters
+        {:keys [bank-id]} auth
         {:keys [tier]} body
         result (commands/send (dispatcher request)
                               request
@@ -219,9 +218,10 @@
 
 (defn change-bank-status
   [request]
-  (let [{:keys [parameters record-db record-store audiences-by-status]} request
-        {:keys [path body]} parameters
-        {:keys [bank-id]} path
+  (let [{:keys [auth parameters record-db record-store audiences-by-status]}
+        request
+        {:keys [body]} parameters
+        {:keys [bank-id]} auth
         {:keys [status]} body
         ;; Same status->audience resolution as `create-bank`: the
         ;; substrate IDP brick is naive about audience naming, so the

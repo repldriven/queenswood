@@ -197,7 +197,7 @@ demo-digital-bank-seed:
       if (( REWARD > 0 )); then SUFFIX=", $REWARD pence opening reward"; fi
       printf '  %-14s %s, %s bps%s\n' "$NAME" "$PRODUCT" "$BPS" "$SUFFIX"
     done
-    RES=$(curl -sS -X POST "{{ DEMO_API_URL }}/v1/simulate/banks/$CLIENT_ID/inbound-transfer" \
+    RES=$(curl -sS -X POST "{{ DEMO_API_URL }}/v1/simulate/inbound-transfer" \
       -H "authorization: Bearer $TOKEN" \
       -H 'content-type: application/json' \
       -H "idempotency-key: demo-digital-bank-fund-house" \
@@ -261,7 +261,7 @@ demo-digital-bank-fund amount:
     OUT=$(pass show {{ DEMO_PASS }}/demo-digital-bank)
     CLIENT_SECRET="${OUT%%$'\n'*}"
     TOKEN=$(just _demo-digital-bank-token "$CLIENT_ID" "$CLIENT_SECRET" queenswood-api-test)
-    RES=$(curl -sS -X POST "{{ DEMO_API_URL }}/v1/simulate/banks/$CLIENT_ID/inbound-transfer" \
+    RES=$(curl -sS -X POST "{{ DEMO_API_URL }}/v1/simulate/inbound-transfer" \
       -H "authorization: Bearer $TOKEN" \
       -H 'content-type: application/json' \
       -H "idempotency-key: demo-digital-bank-fund-$(date +%s%N)" \

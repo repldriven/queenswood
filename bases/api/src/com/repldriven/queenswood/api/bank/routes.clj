@@ -2,8 +2,8 @@
   (:require
     [com.repldriven.queenswood.api.bank.commands :as bank-commands]
     [com.repldriven.queenswood.api.bank.examples :refer
-     [BankNotFound BankInvalidStatus BankUnknownTier CompanyNotActive
-      CompanyRequired ForeignBankRead OperatorFieldRefused]]
+     [BankNotFound BankInvalidStatus BankUnknownTier BankUnnamed
+      CompanyNotActive CompanyRequired OperatorFieldRefused]]
     [com.repldriven.queenswood.api.bank.queries :as queries]
     [com.repldriven.queenswood.api.companies.examples :as companies.examples]
     [com.repldriven.queenswood.api.examples :as api.examples]
@@ -71,64 +71,68 @@
          422 (ErrorResponse [#'BankUnknownTier #'CompanyNotActive
                              #'CompanyRequired])
          503 (ErrorExamples [#'companies.examples/CompanyRegistryUnavailable])})
-       :handler bank-commands/create-bank}}]
-    ["/{bank-id}"
-     {:parameters {:path {:bank-id [:ref "BankId"]}}}
-     [""
-      ;; A bank reads its own record as well as an operator reads any:
-      ;; the handler holds the tenant boundary, `admin` joining the level.
-      {:openapi {:security ^:replace
-                           [{"bearerAuth" ["org:viewer"]}
-                            {"bearerAuth" ["admin"]}]}
-       :get {:summary "Retrieve a bank"
-             :openapi {:operationId "RetrieveBank"
+       :handler bank-commands/create-bank}}]]
+   ["/bank"
+    ;; The bank the `Bank-Id` header names: a member's own, or any an
+    ;; operator names. `named-bank` refuses an operator who names none.
+    {:openapi {:tags ["Banks"]} :interceptors [shared.interceptors/named-bank]}
+    [""
+     {:get {:summary "Retrieve the bank"
+            :openapi {:operationId "RetrieveBank"
+                      :security [{"bearerAuth" ["org:viewer"]}
+                                 {"bearerAuth" ["admin"]}]
+                      :description
+                      (str "The bank the `Bank-Id` header names, with its "
+                           "party, its cash accounts and their balances, its"
+                           " tier and its active owners, as the bank list "
+                           "shows it. An operator naming no bank is refused "
+                           "with 403.")
+                      :parameters ^:replace
+                                  [shared.parameters/ref-bank-id-header]}
+            :responses {200 {:description "The bank." :body [:ref "Bank"]}
+                        403 (ErrorExamples [#'BankUnnamed])
+                        404 (ErrorResponse [#'BankNotFound])}
+            :handler queries/get-bank}}]
+    ["/change-tier"
+     {:post {:summary "Change the bank's tier"
+             :openapi
+             {:operationId "ChangeBankTier"
+              :security [{"bearerAuth" ["admin"]}]
+              :description
+              (str "Binds the bank the `Bank-Id` header names to the named "
+                   "tier's policies in place of its current tier's, and "
+                   "returns the bank. A bank that is neither test nor live "
+                   "is refused with 409. A tier with no policies is refused "
+                   "with 422. Naming no bank is refused with 403.")
+              :requestBody {:required true}
+              :parameters ^:replace [shared.parameters/ref-bank-id-header]}
+             :parameters {:body [:ref "ChangeBankTierRequest"]}
+             :responses {200 {:description "The bank with its new tier."
+                              :body [:ref "ChangeBankTierResponse"]}
+                         403 (ErrorExamples [#'BankUnnamed])
+                         404 (ErrorResponse [#'BankNotFound])
+                         409 (ErrorResponse [#'BankInvalidStatus])
+                         422 (ErrorResponse [#'BankUnknownTier])}
+             :handler bank-commands/change-bank-tier}}]
+    ["/change-status"
+     {:post {:summary "Change the bank's status"
+             :openapi {:operationId "ChangeBankStatus"
+                       :security [{"bearerAuth" ["admin"]}]
                        :description
-                       (str
-                        "The bank with its party, its cash accounts and their "
-                        "balances, its tier and its active owners, as the bank "
-                        "list shows it. A member can retrieve only their own "
-                        "bank; another is refused with 403.")
+                       (str "Moves the bank the `Bank-Id` header names "
+                            "between test and live, and tokens issued to its"
+                            " client afterwards carry the new status's "
+                            "audience. A bank that is neither test nor live,"
+                            " or already has the requested status, is "
+                            "refused with 409. Naming no bank is refused "
+                            "with 403. Returns the bank.")
+                       :requestBody {:required true}
                        :parameters ^:replace
-                                   [shared.parameters/ref-bank-id
-                                    shared.parameters/ref-bank-id-header]}
-             :interceptors [shared.interceptors/own-bank]
-             :responses {200 {:description "The bank." :body [:ref "Bank"]}
-                         403 (ErrorExamples [#'ForeignBankRead])
-                         404 (ErrorResponse [#'BankNotFound])}
-             :handler queries/get-bank}}]
-     ["/change-tier"
-      {:post {:summary "Change a bank's tier"
-              :openapi
-              {:operationId "ChangeBankTier"
-               :description
-               (str "Binds the bank to the named tier's policies in place of"
-                    " its current tier's, and returns the bank. A bank that "
-                    "is neither test nor live is refused with 409. A tier "
-                    "with no policies is refused with 422.")
-               :requestBody {:required true}
-               :parameters ^:replace [shared.parameters/ref-bank-id]}
-              :parameters {:body [:ref "ChangeBankTierRequest"]}
-              :responses {200 {:description "The bank with its new tier."
-                               :body [:ref "ChangeBankTierResponse"]}
-                          404 (ErrorResponse [#'BankNotFound])
-                          409 (ErrorResponse [#'BankInvalidStatus])
-                          422 (ErrorResponse [#'BankUnknownTier])}
-              :handler bank-commands/change-bank-tier}}]
-     ["/change-status"
-      {:post {:summary "Change a bank's status"
-              :openapi {:operationId "ChangeBankStatus"
-                        :description
-                        (str "Moves the bank between test and live, and "
-                             "tokens issued to its client afterwards carry "
-                             "the new status's audience. A bank that is "
-                             "neither test nor live, or already has the "
-                             "requested status, is refused with 409. Returns "
-                             "the bank.")
-                        :requestBody {:required true}
-                        :parameters ^:replace [shared.parameters/ref-bank-id]}
-              :parameters {:body [:ref "ChangeBankStatusRequest"]}
-              :responses {200 {:description "The bank with its new status."
-                               :body [:ref "ChangeBankStatusResponse"]}
-                          404 (ErrorResponse [#'BankNotFound])
-                          409 (ErrorResponse [#'BankInvalidStatus])}
-              :handler bank-commands/change-bank-status}}]]]])
+                                   [shared.parameters/ref-bank-id-header]}
+             :parameters {:body [:ref "ChangeBankStatusRequest"]}
+             :responses {200 {:description "The bank with its new status."
+                              :body [:ref "ChangeBankStatusResponse"]}
+                         403 (ErrorExamples [#'BankUnnamed])
+                         404 (ErrorResponse [#'BankNotFound])
+                         409 (ErrorResponse [#'BankInvalidStatus])}
+             :handler bank-commands/change-bank-status}}]]])

@@ -370,7 +370,7 @@ processor's index outlives the cache entry.
   `POST /v1/payments/internal`, `POST /v1/payments/outbound`,
   `POST /v1/cash-account-products`,
   `POST /v1/cash-account-migrations` and
-  `POST /v1/simulate/banks/{bank-id}/inbound-transfer`, each read
+  `POST /v1/simulate/inbound-transfer`, each read
   back off a unique index headed by `bank_id`.
 - On the two payment routes the index also catches a redelivered
   command, which the payment processor answers with the original
@@ -391,10 +391,6 @@ given.
   `:cash-account/invalid-status`, a 409.
 - `POST /v1/parties/{party-id}/suspend`, `/resume`, `/close` and
   `/merge` — `:party/invalid-status`, a 409.
-- `POST /v1/simulate/banks/{bank-id}/accrue` and `/capitalize` — the
-  per-account rows a run commits make a re-run skip what it already
-  posted, and the daily-count policy refuses a second run for the
-  same day and kind.
 
 **The pair alone.** After a 5xx release the guarantee rests on
 nothing, and a retry following a lost reply acts twice.
@@ -415,8 +411,8 @@ than a delta. A source-state guard refuses, because the second
 attempt finds the entity has left the state the transition starts
 from.
 
-- Absolute sets: `POST /v1/banks/{bank-id}/change-tier`,
-  `POST /v1/banks/{bank-id}/change-status`,
+- Absolute sets: `POST /v1/bank/change-tier`,
+  `POST /v1/bank/change-status`,
   `PUT /v1/jobs/{job-id}/schedule`, and
   `PUT /v1/cash-account-products/{product-id}/versions/{version-id}`,
   whose body names the whole draft and which is refused

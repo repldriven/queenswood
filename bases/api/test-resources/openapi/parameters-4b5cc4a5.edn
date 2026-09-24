@@ -60,10 +60,10 @@
  #{["path" "endpoint-id"] ["query" "filter"] ["query" "page"]}
  "POST /v1/banks"
  #{["header" "Idempotency-Key"]}
- "POST /v1/banks/{bank-id}/change-status"
- #{["path" "bank-id"]}
- "POST /v1/banks/{bank-id}/change-tier"
- #{["path" "bank-id"]}
+ "POST /v1/bank/change-status"
+ #{["header" "Bank-Id"]}
+ "POST /v1/bank/change-tier"
+ #{["header" "Bank-Id"]}
  "POST /v1/cash-account-migrations"
  #{["header" "Idempotency-Key"]}
  "POST /v1/cash-account-migrations/{migration-id}/approve"
@@ -106,12 +106,8 @@
  #{["header" "Idempotency-Key"]}
  "POST /v1/payments/outbound"
  #{["header" "Idempotency-Key"]}
- "POST /v1/simulate/banks/{bank-id}/accrue"
- #{["header" "Idempotency-Key"] ["path" "bank-id"]}
- "POST /v1/simulate/banks/{bank-id}/capitalize"
- #{["header" "Idempotency-Key"] ["path" "bank-id"]}
- "POST /v1/simulate/banks/{bank-id}/inbound-transfer"
- #{["header" "Idempotency-Key"] ["path" "bank-id"]}
+ "POST /v1/simulate/inbound-transfer"
+ #{["header" "Bank-Id"] ["header" "Idempotency-Key"]}
  "POST /v1/webhook-endpoints"
  #{["header" "Idempotency-Key"]}
  "POST /v1/webhook-endpoints/{endpoint-id}/deliveries/{delivery-id}/resend"

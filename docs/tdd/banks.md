@@ -251,8 +251,9 @@ up in the registry and snapshots as the `:company-binding`.
   owner is refused 403 `auth/forbidden`, and naming no company 422
   `:bank/company-required`, both before the registry is asked.
 
-Both return 201 with the bank's `Location`, `/v1/banks/{bank-id}`. A
-`GET` there answers the bank as the list shows it, to an operator or
+Both return 201 with the bank's `Location`, `/v1/bank`, read with the
+bank's id in the `Bank-Id` header as every bank-scoped route is. A
+`GET` there returns the bank as the list shows it, to an operator or
 to one of the bank's own members; a member naming another bank is
 refused with 403.
 
@@ -333,7 +334,7 @@ after.
 It rejects `:bank/invalid-status` (409) unless the bank is test
 or live, and `:bank/unknown-tier` (422) when the tier resolves to
 no policies, so a typo cannot silently strip every tier binding.
-The route is `POST /v1/banks/{bank-id}/change-tier`.
+The route is `POST /v1/bank/change-tier`.
 
 ### Status change
 
@@ -347,8 +348,7 @@ entry.
 
 It rejects `:bank/invalid-status` (409) unless the bank is
 currently test or live, and again when the requested status is
-the one it already has. The route is
-`POST /v1/banks/{bank-id}/change-status`.
+the one it already has. The route is `POST /v1/bank/change-status`.
 
 ## Alternatives Considered
 

@@ -1,6 +1,6 @@
 (ns com.repldriven.queenswood.api.policy.routes
   (:require
-    [com.repldriven.queenswood.api.bank.examples :refer [ForeignBankRead]]
+    [com.repldriven.queenswood.api.bank.examples :refer [BankUnnamed]]
     [com.repldriven.queenswood.api.policy.examples :refer [PolicyNotFound]]
     [com.repldriven.queenswood.api.policy.queries :as queries]
 
@@ -34,45 +34,37 @@
              :responses {200 {:description "The policy." :body [:ref "Policy"]}
                          404 (ErrorResponse [#'PolicyNotFound])}
              :handler queries/get-policy}}]]]
-   ["/banks/{bank-id}"
-    ;; A bank reads its own policies as well as an operator reads any
-    ;; bank's: `own-bank` holds the tenant boundary.
+   ["/bank"
+    ;; The bank the `Bank-Id` header names: a member's own, or any an
+    ;; operator names. `named-bank` refuses an operator who names none.
     {:openapi {:tags ["Policies"]
                :security [{"bearerAuth" ["org:viewer"]}
-                          {"bearerAuth" ["admin"]}]}
-     :parameters {:path {:bank-id [:ref "BankId"]}}
-     :interceptors [shared.interceptors/own-bank]}
+                          {"bearerAuth" ["admin"]}]
+               :parameters [shared.parameters/ref-bank-id-header]}
+     :interceptors [shared.interceptors/named-bank]}
     ["/policies"
      {:get {:summary "List the bank's policies"
             :openapi {:operationId "ListBankPolicies"
-                      :parameters ^:replace
-                                  [shared.parameters/ref-bank-id
-                                   shared.parameters/ref-bank-id-header]
                       :description
                       (str "The platform tier's policies, which apply to "
-                           "every bank, and those bound to this bank, each "
-                           "as written rather than resolved against the "
-                           "others. A member can list only their own bank's;"
-                           " another is refused with 403.")}
+                           "every bank, and those bound to the bank the "
+                           "`Bank-Id` header names, each as written rather "
+                           "than resolved against the others.")}
             :responses {200 {:description
                              "The policies in effect for the bank, as written."
                              :body [:ref "PolicyList"]}
-                        403 (ErrorExamples [#'ForeignBankRead])}
+                        403 (ErrorExamples [#'BankUnnamed])}
             :handler queries/list-bank-policies}}]
     ["/effective-policy"
      {:get {:summary "Retrieve the bank's effective policy"
             :openapi {:operationId "RetrieveEffectivePolicy"
-                      :parameters ^:replace
-                                  [shared.parameters/ref-bank-id
-                                   shared.parameters/ref-bank-id-header]
                       :description
-                      (str "The bank's policies resolved as they are "
-                           "enforced: a denying capability wins over an "
-                           "allowing one, and the most restrictive limit "
-                           "wins. Each capability and limit names the "
-                           "policy it came from. A member can retrieve only"
-                           " their own bank's; another is refused with 403.")}
+                      (str "The policies of the bank the `Bank-Id` header "
+                           "names, resolved as they are enforced: a denying "
+                           "capability wins over an allowing one, and the "
+                           "most restrictive limit wins. Each capability and"
+                           " limit names the policy it came from.")}
             :responses {200 {:description "The resolved policy."
                              :body [:ref "EffectivePolicy"]}
-                        403 (ErrorExamples [#'ForeignBankRead])}
+                        403 (ErrorExamples [#'BankUnnamed])}
             :handler queries/get-effective-policy}}]]])

@@ -93,9 +93,9 @@
 
 (def ^:private write-methods #{:post :put :patch :delete})
 
-(def ^:private inbound-transfer "/v1/simulate/banks/{bank-id}/inbound-transfer")
+(def ^:private inbound-transfer "/v1/simulate/inbound-transfer")
 
-(def ^:private bank-read "/v1/banks/{bank-id}")
+(def ^:private bank-read "/v1/bank")
 
 (defn- bank-own?
   "True for the bank's own record and every read beneath it."

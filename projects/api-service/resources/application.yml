@@ -57,13 +57,6 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-transactions-command
           acks: all
-      interest-command:
-        schemas: !system/local-ref schemas
-        schema: !keyword command
-        conf:
-          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          topic: topic-interest-command
-          acks: all
       payee-checks-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
@@ -122,13 +115,6 @@ system:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           group.id: api-service-transactions-command-response
-      interest-command-response:
-        schemas: !system/local-ref schemas
-        schema: !keyword command-response
-        topics: [topic-interest-command-response]
-        conf:
-          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          group.id: api-service-interest-command-response
       payee-checks-command-response:
         schemas: !system/local-ref schemas
         schema: !keyword command-response
@@ -152,8 +138,6 @@ system:
         producer: !system/local-ref producers.payments-command
       transactions-command:
         producer: !system/local-ref producers.transactions-command
-      interest-command:
-        producer: !system/local-ref producers.interest-command
       payee-checks-command:
         producer: !system/local-ref producers.payee-checks-command
     message-bus-consumers: !system/component
@@ -178,9 +162,6 @@ system:
         timeout: 500
       transactions-command-response:
         consumer: !system/local-ref consumers.transactions-command-response
-        timeout: 500
-      interest-command-response:
-        consumer: !system/local-ref consumers.interest-command-response
         timeout: 500
       payee-checks-command-response:
         consumer: !system/local-ref consumers.payee-checks-command-response
@@ -231,12 +212,6 @@ system:
       bus: !system/ref message-bus.bus
       command-channel: !keyword transactions-command
       command-response-channel: !keyword transactions-command-response
-  interest:
-    dispatcher: !system/component
-      system/component-kind: command/dispatcher
-      bus: !system/ref message-bus.bus
-      command-channel: !keyword interest-command
-      command-response-channel: !keyword interest-command-response
   payee-checks:
     dispatcher: !system/component
       system/component-kind: command/dispatcher
@@ -279,7 +254,6 @@ system:
         memberships: !system/ref memberships.dispatcher
         parties: !system/ref parties.dispatcher
         payments: !system/ref payments.dispatcher
-        interest: !system/ref interest.dispatcher
         transactions: !system/ref transactions.dispatcher
         payee-checks: !system/ref payee-checks.dispatcher
         companies: !system/ref companies.dispatcher

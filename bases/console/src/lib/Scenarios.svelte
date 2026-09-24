@@ -155,7 +155,7 @@
         { name: "Invite Trillian as a developer", raw: [{ method: "POST", path: "/v1/invitations", tag: "request" }] },
         { name: "Invite Marvin as a viewer", raw: [{ method: "POST", path: "/v1/invitations", tag: "request" }] },
         { name: "Resend Trillian's invitation", raw: [{ method: "POST", path: "/v1/invitations/{id}/resend", tag: "request" }] },
-        { name: "The audit log records each act", raw: [{ method: "GET", path: "/v1/banks/{bank-id}/audit-events", tag: "request" }] },
+        { name: "The audit log records each act", raw: [{ method: "GET", path: "/v1/bank/audit-events", tag: "request" }] },
       ],
     },
     {
@@ -178,7 +178,7 @@
         "£50,000 arrives from outside into the bank's own funds. The books move — 1100 cash-at-correspondent debited, own funds credited — debits equal credits, to the penny. Customers are paid from here, never from nowhere.",
       backing: ["simulate/inbound-transfer", "ledger-accounts/post-second-currency"],
       steps: [
-        { name: "Fund the bank · £50,000 into own funds", raw: [{ method: "POST", path: "/v1/simulate/banks/{bank-id}/inbound-transfer", tag: "request" }] },
+        { name: "Fund the bank · £50,000 into own funds", raw: [{ method: "POST", path: "/v1/simulate/inbound-transfer", tag: "request" }] },
         { name: "Trial balance ties", raw: [{ method: "GET", path: "/v1/ledger-accounts", tag: "request" }] },
       ],
     },
@@ -223,7 +223,7 @@
       backing: ["policy-daily-limit", "capability-denied-outbound"],
       steps: [
         { name: "Arthur sends £40 · Everyday → Rainy Day", raw: [{ method: "POST", path: "/v1/payments/internal", tag: "request" }] },
-        { name: "Refused · available must stay ≥ £0", tone: "exception", raw: [{ method: "GET", path: "/v1/banks/{bank-id}/effective-policy", tag: "request" }] },
+        { name: "Refused · available must stay ≥ £0", tone: "exception", raw: [{ method: "GET", path: "/v1/bank/effective-policy", tag: "request" }] },
         { name: "Nothing posted · Everyday still £20", raw: [{ method: "GET", path: "/v1/cash-accounts/{id}/balances", tag: "poll" }] },
       ],
     },
@@ -537,7 +537,7 @@
     },
     async s4({ step }) {
       await step(0, async () => {
-        const r = await api.simulate_inbound_transfer(bankId, { amount: FUND_BANK, currency: "GBP" });
+        const r = await api.simulate_inbound_transfer({ amount: FUND_BANK, currency: "GBP" });
         if (!ok2xx(r)) throw new Error(`fund the bank: ${r.status}`);
         ctx.house = r.body["account-id"];
         persistCtx();

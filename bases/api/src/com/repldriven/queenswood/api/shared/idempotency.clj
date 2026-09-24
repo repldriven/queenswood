@@ -32,9 +32,9 @@
   finds the entity has left the state the transition starts from and
   is rejected with a 409, which is the same answer a replayed cache
   entry would have given."
-  {[:post "/v1/banks/{bank-id}/change-tier"]
+  {[:post "/v1/bank/change-tier"]
    "Absolute set. The body names the tier, so a retry converges."
-   [:post "/v1/banks/{bank-id}/change-status"]
+   [:post "/v1/bank/change-status"]
    "Absolute set. The body names the status, so a retry converges."
    [:put "/v1/jobs/{job-id}/schedule"]
    "Absolute set. The body names the whole schedule, so a retry

@@ -30,9 +30,7 @@
 
 (def ^:private my-memberships-path "/v1/me/memberships")
 
-(defn- audit-events-path
-  [bank-id]
-  (str "/v1/banks/" bank-id "/audit-events"))
+(def ^:private audit-events-path "/v1/bank/audit-events")
 
 (defn- invitation-uri
   [{:keys [invitation-id]}]
@@ -525,8 +523,8 @@
 
 (defn list-audit-events
   [request]
-  (let [{:keys [parameters]} request
-        {:keys [bank-id]} (:path parameters)
+  (let [{:keys [auth parameters]} request
+        {:keys [bank-id]} auth
         {:keys [page]} (:query parameters)
         txn (config request)]
     (respond (let-nom> [found (memberships/list-access-events
@@ -534,7 +532,7 @@
                                bank-id
                                (cursor/page-opts page))
                         named (audit-events txn found)]
-               (cursor/page-body (audit-events-path bank-id)
+               (cursor/page-body audit-events-path
                                  page
                                  (:access-events named)
                                  named))

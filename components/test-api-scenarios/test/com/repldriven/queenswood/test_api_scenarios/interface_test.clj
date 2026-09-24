@@ -173,14 +173,18 @@
    :record-store (system/instance sys [:fdb :store])})
 
 (defn- post-json
-  "POST `body` as JSON to `path` on the booted API, bearing `token`
-  and `idempotency-key`, and return `{:status :body}`."
-  [base-url token idempotency-key path body]
+  "POST `body` as JSON to `path` on the booted API, bearing `token`,
+  `idempotency-key` and, when given, the `Bank-Id` header naming
+  `bank-id`, and return `{:status :body}`."
+  [base-url token idempotency-key bank-id path body]
   (let [res (http/request {:method :post
                            :url (str base-url path)
-                           :headers {"content-type" "application/json"
-                                     "authorization" (str "Bearer " token)
-                                     "idempotency-key" idempotency-key}
+                           :headers (cond-> {"content-type" "application/json"
+                                             "authorization" (str "Bearer "
+                                                                  token)
+                                             "idempotency-key" idempotency-key}
+                                            bank-id
+                                            (assoc "bank-id" bank-id))
                            :body (json/write-str body)})]
     {:status (:status res) :body (http/res->edn res)}))
 
@@ -203,12 +207,11 @@
          config (fdb-config sys)
          created (post-json base-url
                             admin-token
-                            "ik-closed-control-bank-001"
-                            "/v1/banks"
-                            {:name "Closed Control Bank"
-                             :status "live"
-                             :tier "micro"
-                             :currencies ["GBP"]})
+                            "ik-closed-control-bank-001" nil
+                            "/v1/banks" {:name "Closed Control Bank"
+                                         :status "live"
+                                         :tier "micro"
+                                         :currencies ["GBP"]})
          bank-id (get-in created [:body :bank-id])]
      (is (= 201 (:status created)) (pr-str (:body created)))
      (nom-test> [policies (policy/get-effective-policies config {})
@@ -231,9 +234,8 @@
                  _ (let [refused (post-json base-url
                                             admin-token
                                             "ik-closed-control-inbound-001"
-                                            (str "/v1/simulate/banks/"
-                                                 bank-id
-                                                 "/inbound-transfer")
+                                            bank-id
+                                            "/v1/simulate/inbound-transfer"
                                             {:amount 250000 :currency "GBP"})]
                      (is (= 409 (:status refused)) (pr-str (:body refused)))
                      (is (= ":ledger-account/closed"
