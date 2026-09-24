@@ -21,8 +21,6 @@ system:
         - transactions-command-response
         - payments-command
         - payments-command-response
-        - interest-command
-        - interest-command-response
         - schemes-payments-event
         - cash-accounts-event
         - payments-event
@@ -45,7 +43,6 @@ system:
   memberships: !include system/membership.yml
   parties: !include system/party.yml
   payments: !include system/payment.yml
-  interest: !include system/interest.yml
   transactions: !include system/transaction.yml
   idv: !include system/idv.yml
   payee-checks: !include system/payee-check.yml

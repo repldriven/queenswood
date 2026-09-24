@@ -29,13 +29,6 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-transactions-command-response
           acks: all
-      interest-command-response:
-        schemas: !system/local-ref schemas
-        schema: !keyword command-response
-        conf:
-          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          topic: topic-interest-command-response
-          acks: all
       payee-checks-command-response:
         schemas: !system/local-ref schemas
         schema: !keyword command-response
@@ -57,11 +50,6 @@ system:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-transactions-command-dlq
-          acks: all
-      interest-command-dlq:
-        conf:
-          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          topic: topic-interest-command-dlq
           acks: all
       payee-checks-command-dlq:
         conf:
@@ -97,15 +85,6 @@ system:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           group.id: transaction-service-transactions-command
-      interest-command:
-        schemas: !system/local-ref schemas
-        schema: !keyword command
-        topics: [topic-interest-command]
-        dead-letter-producer: !system/local-ref producers.interest-command-dlq
-        max-redeliveries: 5
-        conf:
-          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          group.id: interest-service-interest-command
       payee-checks-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
@@ -123,8 +102,6 @@ system:
         producer: !system/local-ref producers.schemes-payment-command
       transactions-command-response:
         producer: !system/local-ref producers.transactions-command-response
-      interest-command-response:
-        producer: !system/local-ref producers.interest-command-response
       payee-checks-command-response:
         producer: !system/local-ref producers.payee-checks-command-response
     message-bus-consumers: !system/component
@@ -138,9 +115,6 @@ system:
       transactions-command:
         consumer: !system/local-ref consumers.transactions-command
         timeout: 500
-      interest-command:
-        consumer: !system/local-ref consumers.interest-command
-        timeout: 500
       payee-checks-command:
         consumer: !system/local-ref consumers.payee-checks-command
         timeout: 500
@@ -149,6 +123,5 @@ system:
   avro: !include system/avro.yml
   payments: !include system/payment.yml
   transactions: !include system/transaction.yml
-  interest: !include system/interest.yml
   payee-checks: !include system/payee-check.yml
   telemetry: !include system/telemetry.yml

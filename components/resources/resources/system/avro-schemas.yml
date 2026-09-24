@@ -47,10 +47,6 @@ check-payee: schemas/payee-check/check-payee.avsc.json
 transaction: schemas/transactions/transaction.avsc.json
 record-transaction: schemas/transactions/record-transaction.avsc.json
 
-interest-result: schemas/interest/interest-result.avsc.json
-accrue-day-interest: schemas/interest/accrue-day-interest.avsc.json
-capitalize-accrued-interest: schemas/interest/capitalize-accrued-interest.avsc.json
-
 inbound-payment: schemas/payments/inbound-payment.avsc.json
 internal-payment: schemas/payments/internal-payment.avsc.json
 outbound-payment: schemas/payments/outbound-payment.avsc.json

@@ -119,7 +119,6 @@
                        "components/idv/test"
                        "components/idv/test-resources"
                        "components/interest/test"
-                       "components/interest/test-resources"
                        "components/ledger-account/test"
                        "components/ledger-account/test-resources"
                        "components/membership/test"

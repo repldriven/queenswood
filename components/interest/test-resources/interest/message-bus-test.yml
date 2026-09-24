@@ -1,3 +1,0 @@
-bus: !system/component
-  system/component-kind: message-bus/local-bus
-  channels: [cash-accounts-event]

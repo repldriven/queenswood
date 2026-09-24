@@ -262,7 +262,7 @@
           "The endpoints a bank is notified at when its records change, and the deliveries made to them."}
          {:name "Simulate"
           :description
-          "Operator-only stand-ins for an inbound transfer, and for the interest jobs."}]
+          "A stand-in for an inbound transfer, crediting a bank's own funds as money arriving from outside."}]
         :components
         {:securitySchemes
          {"bearerAuth"

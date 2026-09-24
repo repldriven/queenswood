@@ -465,8 +465,8 @@ somewhere.
 - **Interest accrual via the changelog relay pattern
   (ADR-0021).** Relayed events react to writes; accrual is
   time-driven, not write-driven. Rejected — wrong tool.
-  Accrual is a scheduled batch driven externally (a cron or
-  similar) calling the command interface.
+  Accrual is a scheduled batch the `scheduler` brick runs,
+  calling the brick's interface; see [scheduler](scheduler.md).
 
 ## Known Limitations
 
@@ -484,11 +484,6 @@ somewhere.
   version, not to a "rate effective from date X" within a
   version. Rate changes happen at version boundary; the
   account's `:version-id` records which version was active.
-- **The run is invocation-driven, not scheduled.** A
-  scheduler outside the brick has to call `accrue-day` once
-  per day per bank. There is no internal scheduler that
-  *will* run accruals; triggering them is an operations
-  responsibility.
 - **Interest is simple, not compounding within a period.**
   The accrued bucket does not itself earn interest — the
   principal is the available balance, which the accrued
@@ -552,6 +547,8 @@ somewhere.
 - [policy-evaluation.md](policy-evaluation.md) — Policy
   evaluation (transaction-type filtering, e.g.
   excluding interest from available-balance limits)
+- [scheduler.md](scheduler.md) — the job that runs the pass
+  each day, and what it does about a missed or crashed one
 - [idempotency.md](idempotency.md) — Idempotency (the
   proposed universal design that interest's per-(account,
   date) key fits into)
