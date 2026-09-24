@@ -285,7 +285,7 @@
       <h3 class="section-title">Membership</h3>
       <dl class="detail-list">
         <dt>Joined</dt>
-        <dd>{fmtUtcDateTime(member["joined-at"])}</dd>
+        <dd>{fmtUtcDateTime(member["created-at"])}</dd>
         <dt>Membership id</dt>
         <dd class="mono">{member["membership-id"]}</dd>
         <dt>User id</dt>

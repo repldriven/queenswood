@@ -13,7 +13,7 @@ This TDD covers the technical pieces: the Keycloak realm
 shape that lets the console SPA mint user JWTs, the
 `user` and `membership` bricks that own the new
 records, the api auth interceptor's user-JWT path, and the
-two endpoints the console talks to (`POST /v1/onboarding/me`
+two endpoints the console talks to (`POST /v1/onboarding`
 and `GET /v1/me`).
 
 The user-onboarding flow is **distinct** from the existing
@@ -78,7 +78,7 @@ graph LR
 
     SPA -->|sign in| KC
     KC -->|user JWT| SPA
-    SPA -->|/v1/me, /v1/onboarding/me| API
+    SPA -->|/v1/me, /v1/onboarding| API
     API -->|verify JWT| KC
     API -->|find / upsert| BU
     API -->|list / create| BM
@@ -252,7 +252,7 @@ itself.
 Two new route groups, both under `/v1`, both gated by the new
 `user` role.
 
-#### `POST /v1/onboarding/me`
+#### `POST /v1/onboarding`
 
 Accepts a verified user JWT even when no user record exists
 yet (the `:user` role doesn't require a user record). Request:
@@ -311,7 +311,7 @@ screen each:
   `kc.login({ idpHint: "google" })`. The browser navigates to
   Keycloak and never returns from that call.
 - **Onboarding.** A single-field form for the organisation
-  name, posts to `/v1/onboarding/me`, transitions on 201.
+  name, posts to `/v1/onboarding`, transitions on 201.
 - **Dashboard.** The welcome screen — name, avatar,
   organisation identifier.
 

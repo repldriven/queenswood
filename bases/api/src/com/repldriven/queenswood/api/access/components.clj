@@ -2,14 +2,14 @@
   (:require
     [com.repldriven.queenswood.api.access.coercion :as coercion]
     [com.repldriven.queenswood.api.access.examples :as examples]
+    [com.repldriven.queenswood.api.me.examples :as me-examples]
 
     [com.repldriven.queenswood.api-schema.interface :as schema :refer
      [components-registry list-schema]]))
 
 (def InvitationId (schema/id-schema "InvitationId" "inv" examples/InvitationId))
 
-(def AccessEventId
-  (schema/id-schema "AccessEventId" "aev" examples/AccessEventId))
+(def AuditEventId (schema/id-schema "AuditEventId" "aev" examples/AuditEventId))
 
 (def InvitationStatus
   (coercion/invitation-status-enum-schema {:json-schema/example "pending"}))
@@ -17,9 +17,8 @@
 (def ActorKind
   (coercion/actor-kind-enum-schema {:json-schema/example "member"}))
 
-(def AccessEventKind
-  (coercion/access-event-kind-enum-schema {:json-schema/example
-                                           "role-changed"}))
+(def AuditEventKind
+  (coercion/audit-event-kind-enum-schema {:json-schema/example "role-changed"}))
 
 (def EmailAddress
   [:re
@@ -40,25 +39,29 @@
    [:principal-id string?]
    [:name string?]])
 
-(def Member
+(def Membership
   [:map
-   {:json-schema/example examples/Member
+   {:json-schema/example me-examples/Membership
     :description
-    "An active member of the bank. A member who created the organisation
-    joined by no invitation; any other names the invitation, who sent it
-    and the address it was sent to."}
+    "A person's role in a bank, the same record whether the bank or the
+    person reads it. A membership that created the organisation joined by
+    no invitation; any other names the invitation, who sent it and the
+    address it was sent to."}
    [:membership-id [:ref "MembershipId"]]
+   [:bank-id [:ref "BankId"]]
+   [:bank-name {:optional true} [:ref "Name"]]
    [:user-id [:ref "UserId"]]
    [:name {:optional true} string?]
    [:email {:optional true} string?]
    [:role [:ref "Role"]]
-   [:joined-at [:ref "Timestamp"]]
    [:created-organisation boolean?]
    [:invitation-id {:optional true} [:ref "InvitationId"]]
    [:invited-by {:optional true} [:ref "Actor"]]
-   [:invited-email {:optional true} string?]])
+   [:invited-email {:optional true} string?]
+   [:created-at [:ref "Timestamp"]]
+   [:updated-at [:ref "Timestamp"]]])
 
-(def MemberList (list-schema "Member" examples/MemberList))
+(def MembershipList (list-schema "Membership" examples/MembershipList))
 
 (def Invitation
   [:map
@@ -114,18 +117,19 @@
   [:map {:closed true :json-schema/example examples/ReasonRequest}
    [:reason {:optional true} [:string {:min 1 :max 500}]]])
 
-(def AccessEvent
+(def AuditEvent
   [:map
-   {:json-schema/example examples/AccessEvent
+   {:json-schema/example examples/AuditEvent
     :description
-    "One change to who may act for the bank. An invitation's events name
+    "One entry in the bank's audit log: a change to who may act for the
+    bank, who made it and why. An invitation's events name
     the invitation, its address and its role as `role-after`; a
     membership's name the member, the membership and `role-before`, and a
     role change `role-after`. `subject-name` names the member from their
     user record, and is absent when they have none."}
-   [:access-event-id [:ref "AccessEventId"]]
+   [:audit-event-id [:ref "AuditEventId"]]
    [:bank-id [:ref "BankId"]]
-   [:kind [:ref "AccessEventKind"]]
+   [:kind [:ref "AuditEventKind"]]
    [:actor [:ref "Actor"]]
    [:subject-user-id {:optional true} [:ref "UserId"]]
    [:subject-name {:optional true} string?]
@@ -137,12 +141,12 @@
    [:reason {:optional true} string?]
    [:occurred-at [:ref "Timestamp"]]])
 
-(def AccessEventList (list-schema "AccessEvent" examples/AccessEventList))
+(def AuditEventList (list-schema "AuditEvent" examples/AuditEventList))
 
 (def registry
-  (components-registry
-   [#'AccessEvent #'AccessEventId #'AccessEventKind #'AccessEventList #'Actor
-    #'ActorKind #'ChangeRoleRequest #'CreateInvitationRequest #'EmailAddress
-    #'Invitation #'InvitationId #'InvitationStatus #'InvitationList #'Member
-    #'MemberList #'ReasonRequest #'RecipientInvitation
-    #'RecipientInvitationList]))
+  (components-registry [#'Actor #'AuditEvent #'AuditEventId #'AuditEventKind
+                        #'AuditEventList #'ActorKind #'ChangeRoleRequest
+                        #'CreateInvitationRequest #'EmailAddress #'Invitation
+                        #'InvitationId #'InvitationStatus #'InvitationList
+                        #'Membership #'MembershipList #'ReasonRequest
+                        #'RecipientInvitation #'RecipientInvitationList]))

@@ -50,20 +50,17 @@
 
 (defn get-bank
   [request]
-  (let [{:keys [auth parameters record-db record-store]} request
+  (let [{:keys [parameters record-db record-store]} request
         {:keys [bank-id]} (:path parameters)
-        config {:record-db record-db :record-store record-store}]
-    (if-not (or (= bank-id (:bank-id auth)) (contains? (:roles auth) :admin))
-      (errors/forbidden-response
-       "Token is not this bank's; retrieve only your own bank")
-      (let [result (let-nom>
-                     [bank (banks/get-bank-view config bank-id)
-                      {:keys [list-active lookup]} (owner-lookups config [bank])
-                      owners (names/owners list-active lookup bank-id)]
-                     (assoc bank :owners owners))]
-        (if (error/anomaly? result)
-          (errors/anomaly->response result)
-          {:status 200 :body result})))))
+        config {:record-db record-db :record-store record-store}
+        result (let-nom>
+                 [bank (banks/get-bank-view config bank-id)
+                  {:keys [list-active lookup]} (owner-lookups config [bank])
+                  owners (names/owners list-active lookup bank-id)]
+                 (assoc bank :owners owners))]
+    (if (error/anomaly? result)
+      (errors/anomaly->response result)
+      {:status 200 :body result})))
 
 (defn list-banks
   [request]

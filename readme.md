@@ -74,7 +74,9 @@ The same bank from your customer's side, in the
   credits, so the books always balance, down to fractions of a penny of
   interest.
 - **Audit trail.** Everyone on your team signs in as themselves with a
-  role, and a log records who did what.
+  role, and an audit log records every change to who may act for your
+  bank — invitations, role changes, removals and the operator's own acts
+  — with who made it and why.
 - **Documentation.** Every decision, design and procedure is written down, and
   all of it says what's done and what's not.
 - **Test suite.** Generated tests check its answers against a model of how

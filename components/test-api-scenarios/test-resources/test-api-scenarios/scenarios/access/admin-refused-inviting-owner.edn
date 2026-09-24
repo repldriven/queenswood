@@ -62,7 +62,7 @@
    :assert {:status 403 :problem {:type ":membership/role-not-granted"}}}
   {:command :api/request
    :request {:method :post
-             :path "/v1/members/{membership-id}/change-role"
+             :path "/v1/memberships/{membership-id}/change-role"
              :path-params {:membership-id [:ref :owner-membership
                                            :membership-id]}
              :auth :admin-token

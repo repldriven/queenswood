@@ -3,6 +3,7 @@
     [com.repldriven.queenswood.api.access.examples :as access-examples]
     [com.repldriven.queenswood.api.balance.examples :as
      balance-examples]
+    [com.repldriven.queenswood.api.me.examples :as me-examples]
     [com.repldriven.queenswood.api.party.examples :as
      party-examples]
 
@@ -44,7 +45,7 @@
 (def ClientSecret "k7DqGZ-Wt0aIqcPyQs8FdVx3y9rNJ4hLp1m6BvE-AtQ")
 
 (def Owner
-  (select-keys access-examples/Member [:membership-id :user-id :name :email]))
+  (select-keys me-examples/Membership [:membership-id :user-id :name :email]))
 
 (def Bank
   {:bank-id BankId

@@ -92,7 +92,8 @@
                              :status "pending"}]]}}}
   {:command :api/request
    :request {:method :get
-             :path "/v1/access-events"
+             :path "/v1/banks/{bank-id}/audit-events"
+             :path-params {:bank-id [:ref :bank :bank-id]}
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}
              :query-params {"page[size]" 1}}

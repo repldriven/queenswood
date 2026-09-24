@@ -38,7 +38,7 @@
  :when
  [{:command :api/request
    :request {:method :post
-             :path "/v1/onboarding/me"
+             :path "/v1/onboarding"
              :auth :person-token
              :headers {:idempotency-key
                        "ik-access-onboarding-second-organisation-002"}

@@ -169,17 +169,20 @@
 (defn- openapi-handler
   "The standard handler, with the notification's schemas merged under
   the ones reitit collected, so the `webhooks` object's `$ref`
-  resolves."
+  resolves, and the paths sorted, so each tag lists a collection, then
+  its items, then their actions."
   []
   (let [handler (server/standard-openapi-handler)
-        with-notification (fn [response]
-                            (update-in response
-                                       [:body :components :schemas]
-                                       #(merge @notification-schemas %)))]
+        complete (fn [response]
+                   (-> response
+                       (update-in [:body :components :schemas]
+                                  #(merge @notification-schemas %))
+                       (update-in [:body :paths]
+                                  #(into (sorted-map) %))))]
     (fn
-      ([request] (with-notification (handler request)))
+      ([request] (complete (handler request)))
       ([request respond raise]
-       (handler request (comp respond with-notification) raise)))))
+       (handler request (comp respond complete) raise)))))
 
 (defn- routes
   [ctx]
@@ -208,12 +211,18 @@
          {:name "Onboarding"
           :description
           "A person's first sign-in: looking up their company and creating their bank."}
-         {:name "Membership"
+         {:name "Me"
           :description
           "The signed-in person, their memberships, and whether they are an operator."}
-         {:name "Access"
+         {:name "Memberships"
           :description
-          "A bank's members and their roles, invitations to join it, and its access history."}
+          "A person's role in a bank: the bank's members, and the banks the signed-in person belongs to."}
+         {:name "Invitations"
+          :description
+          "Invitations to join a bank, as the bank sends them and as the person invited answers them."}
+         {:name "Audit"
+          :description
+          "A bank's audit log: every change to who may act for it, with who made it and why."}
          {:name "Banks"
           :description
           "Creating banks, and changing a bank's status and tier."}

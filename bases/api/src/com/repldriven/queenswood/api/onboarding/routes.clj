@@ -18,32 +18,31 @@
 
 (def routes
   [["/onboarding"
-    {:openapi {:tags ["Onboarding"] :security [{"bearerAuth" ["user"]}]}}
-    ["/me"
-     {:post
-      {:summary "Create a bank for a registered company"
-       :openapi {:operationId "OnboardMe"
-                 :description
-                 (str "Looks the company number up in the company registry and"
-                      " creates a test bank on the micro tier in GBP, bound to"
-                      " that company, with the caller as its owner. Returns "
-                      "404 for an unknown company, and 422 for one that is not"
-                      " active. The response carries the bank's client secret,"
-                      " which is returned only here.")
-                 :requestBody {:required true}
-                 :parameters ^:replace [shared.parameters/ref-idempotency-key]}
-       :interceptors [server/require-idempotency-key
-                      bank-idempotency/cache-response]
-       :parameters {:body [:ref "OnboardingRequest"]}
-       :responses
-       (shared.idempotency/with-responses
-        {201
-         {:description
-          "The user, the created bank with its client secret, and the owner membership."
-          :body [:ref "OnboardingResponse"]
-          :openapi {:headers {"Location" (shared.headers/location "bank")}}}
-         403 (ErrorExamples [#'api.examples/PolicyDenied])
-         404 (ErrorResponse [#'CompanyNotFound])
-         422 (ErrorResponse [#'CompanyNotActive])
-         503 (ErrorExamples [#'companies.examples/CompanyRegistryUnavailable])})
-       :handler handlers/onboard}}]]])
+    {:openapi {:tags ["Onboarding"] :security [{"bearerAuth" ["user"]}]}
+     :post
+     {:summary "Create a bank for a registered company"
+      :openapi {:operationId "Onboard"
+                :description
+                (str "Looks the company number up in the company registry and"
+                     " creates a test bank on the micro tier in GBP, bound to"
+                     " that company, with the caller as its owner. Returns "
+                     "404 for an unknown company, and 422 for one that is not"
+                     " active. The response carries the bank's client secret,"
+                     " which is returned only here.")
+                :requestBody {:required true}
+                :parameters ^:replace [shared.parameters/ref-idempotency-key]}
+      :interceptors [server/require-idempotency-key
+                     bank-idempotency/cache-response]
+      :parameters {:body [:ref "OnboardingRequest"]}
+      :responses
+      (shared.idempotency/with-responses
+       {201
+        {:description
+         "The user, the created bank with its client secret, and the owner membership."
+         :body [:ref "OnboardingResponse"]
+         :openapi {:headers {"Location" (shared.headers/location "bank")}}}
+        403 (ErrorExamples [#'api.examples/PolicyDenied])
+        404 (ErrorResponse [#'CompanyNotFound])
+        422 (ErrorResponse [#'CompanyNotActive])
+        503 (ErrorExamples [#'companies.examples/CompanyRegistryUnavailable])})
+      :handler handlers/onboard}}]])

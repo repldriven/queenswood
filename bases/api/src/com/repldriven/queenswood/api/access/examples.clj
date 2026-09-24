@@ -7,7 +7,7 @@
 
 (def InvitationId "inv.01kprbmgcj35ptc8npmybhh4sm")
 
-(def AccessEventId "aev.01kprbmgcj35ptc8npmybhh4sn")
+(def AuditEventId "aev.01kprbmgcj35ptc8npmybhh4sn")
 
 (def invitee-user-id "usr.01kprbmgcj35ptc8npmybhh4sp")
 
@@ -16,28 +16,22 @@
 (def Actor
   {:kind :member :principal-id me-examples/UserId :name "Ada Lovelace"})
 
-(def Member
-  {:membership-id me-examples/MembershipId
-   :user-id me-examples/UserId
-   :name "Ada Lovelace"
-   :email "ada@example.com"
-   :role :owner
-   :joined-at "2026-05-18T09:15:00Z"
-   :created-organisation true})
-
-(def invited-member
+(def invited-membership
   {:membership-id invitee-membership-id
+   :bank-id me-examples/BankId
+   :bank-name "Ada's Bank"
    :user-id invitee-user-id
    :name "Charles Babbage"
    :email "charles@example.com"
    :role :developer
-   :joined-at "2026-05-19T10:00:00Z"
    :created-organisation false
    :invitation-id InvitationId
    :invited-by Actor
-   :invited-email "c.babbage@example.com"})
+   :invited-email "c.babbage@example.com"
+   :created-at "2026-05-19T10:00:00Z"
+   :updated-at "2026-05-19T10:00:00Z"})
 
-(def MemberList {:items [Member invited-member]})
+(def MembershipList {:items [me-examples/Membership invited-membership]})
 
 (def Invitation
   {:invitation-id InvitationId
@@ -82,8 +76,8 @@
 
 (def ReasonRequest {:reason "Left the company"})
 
-(def AccessEvent
-  {:access-event-id AccessEventId
+(def AuditEvent
+  {:audit-event-id AuditEventId
    :bank-id me-examples/BankId
    :kind :role-changed
    :actor Actor
@@ -95,9 +89,11 @@
    :reason "Leads the payments team"
    :occurred-at "2026-06-01T09:00:00Z"})
 
-(def AccessEventList
-  {:items [AccessEvent]
-   :links {:next (str "/v1/access-events?page[after]="
+(def AuditEventList
+  {:items [AuditEvent]
+   :links {:next (str "/v1/banks/"
+                      me-examples/BankId
+                      "/audit-events?page[after]="
                       "djE6YWV2LjAxa3ByYm1nY2ozNXB0YzhucG15YmhoNHNu"
                       "&page[size]=20")}})
 

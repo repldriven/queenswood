@@ -1,5 +1,6 @@
 (ns com.repldriven.queenswood.api.onboarding.handlers
   (:require
+    [com.repldriven.queenswood.api.access.handlers :as access]
     [com.repldriven.queenswood.api.bank.commands :as bank-commands]
     [com.repldriven.queenswood.api.companies.queries :as companies]
     [com.repldriven.queenswood.api.errors :as errors]
@@ -69,4 +70,7 @@
               (errors/anomaly->response bank)
               {:status 201
                :headers {"Location" (bank-commands/bank-uri bank-id)}
-               :body {:user user :bank bank :membership membership}})))))))
+               :body {:user user
+                      :bank bank
+                      :membership
+                      (access/founding-membership membership user bank)}})))))))

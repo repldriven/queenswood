@@ -69,7 +69,7 @@ export function lookup_company(number) {
 // First-sign-in onboarding: binds a new bank to the confirmed legal
 // entity. `{ companyNumber, bankName }`.
 export function onboard({ companyNumber, bankName }) {
-  return mutate("/v1/onboarding/me", {
+  return mutate("/v1/onboarding", {
     method: "POST",
     body: JSON.stringify({
       "company-number": companyNumber,
@@ -235,21 +235,20 @@ export function list_ledger_account_balances(account_id) {
 
 // ─── Policies (org-scoped, read-only) ───
 //
-// The policies effective for the caller's own bank — the always-on
-// platform tier plus any bound to the bank. `/v1/policies` proper is
-// admin-only (the ops console); this `/me` variant is scoped to the
-// tenant via the bank-id on their token. The wire shape is the nested
-// protojure policy; policy-adapter.mjs flattens it for the matrix.
+// The policies effective for the chosen bank — the always-on platform
+// tier plus any bound to the bank. `/v1/policies` proper is admin-only
+// (the ops console). The wire shape is the nested protojure policy;
+// policy-adapter.mjs flattens it for the matrix.
 
 export function list_my_policies() {
-  return request("/v1/me/policies");
+  return request(`/v1/banks/${bank_id}/policies`);
 }
 
 // The resolved effective decision for my bank: capabilities/limits
 // collapsed (deny-wins, most-restrictive) to one survivor per scope,
 // each carrying its origin policy. policy-adapter.mjs flattens it.
 export function list_my_effective_policies() {
-  return request("/v1/me/effective-policies");
+  return request(`/v1/banks/${bank_id}/effective-policy`);
 }
 
 // ─── Jobs (scheduler, org-scoped, read-only) ───
@@ -411,8 +410,9 @@ export function simulate_inbound_transfer(bank_id, data) {
 // Every level reads the members, invitations and history; changing them
 // needs `org:admin`, and the rules that depend on the target (an admin
 // never acts on an owner, a bank is never ownerless) refuse in the
-// domain. Member and invitation lists are unpaged; the history pages by
-// cursor, and its `links.next` is a ready-made `/v1/...` path. Creating
+// domain. The membership and invitation lists are read whole, a page at
+// a time; the history pages by cursor, and its `links.next` is a
+// ready-made `/v1/...` path. Creating
 // and resending an invitation answer the invitation, and email its link.
 
 function with_reason(reason) {
@@ -420,18 +420,18 @@ function with_reason(reason) {
 }
 
 export function list_members() {
-  return all_pages("/v1/members");
+  return all_pages("/v1/memberships");
 }
 
 export function change_member_role(membership_id, { role, reason }) {
-  return mutate(`/v1/members/${membership_id}/change-role`, {
+  return mutate(`/v1/memberships/${membership_id}/change-role`, {
     method: "POST",
     body: JSON.stringify(reason ? { role, reason } : { role }),
   });
 }
 
 export function remove_member(membership_id, { reason } = {}) {
-  return mutate(`/v1/members/${membership_id}/remove`, {
+  return mutate(`/v1/memberships/${membership_id}/remove`, {
     method: "POST",
     body: with_reason(reason),
   });
@@ -496,6 +496,8 @@ export function decline_invitation(invitation_id, token) {
 }
 
 // `next` is the previous page's `links.next`; without it, the newest page.
-export function list_access_events({ next, size = 8 } = {}) {
-  return request(next ?? `/v1/access-events?page[size]=${size}`);
+export function list_audit_events({ next, size = 8 } = {}) {
+  return request(
+    next ?? `/v1/banks/${bank_id}/audit-events?page[size]=${size}`,
+  );
 }

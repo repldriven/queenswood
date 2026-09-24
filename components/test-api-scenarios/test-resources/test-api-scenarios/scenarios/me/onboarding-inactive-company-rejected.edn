@@ -13,7 +13,7 @@
    :as :dev-token}
   {:command :api/request
    :request {:method :post
-             :path "/v1/onboarding/me"
+             :path "/v1/onboarding"
              :auth :dev-token
              :headers {:idempotency-key
                        "ik-onboarding-inactive-company-001"}

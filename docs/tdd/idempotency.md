@@ -391,7 +391,7 @@ given.
   `:cash-account/invalid-status`, a 409.
 - `POST /v1/parties/{party-id}/suspend`, `/resume`, `/close` and
   `/merge` — `:party/invalid-status`, a 409.
-- `POST /v1/onboarding/me` — the handler refuses a user who already
+- `POST /v1/onboarding` — the handler refuses a user who already
   holds a membership with `:membership/already-exists`, a 409, and
   the processor re-checks inside its own transaction so a racing
   double-submit still creates one bank.
@@ -425,7 +425,7 @@ from.
   `PUT /v1/cash-account-products/{product-id}/versions/{version-id}`,
   whose body names the whole draft and which is refused
   `product/version-immutable` once the version has published.
-  `POST /v1/members/{membership-id}/change-role` is one too: the body
+  `POST /v1/memberships/{membership-id}/change-role` is one too: the body
   names the role, so a second application converges and records
   nothing.
 - Source-state guards:

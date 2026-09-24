@@ -84,7 +84,7 @@ an identity-provider failure aborts the transaction cleanly.
 
 ```mermaid
 graph TD
-    API["api base<br/>POST /v1/banks, POST /v1/onboarding/me"]
+    API["api base<br/>POST /v1/banks, POST /v1/onboarding"]
     DISP["dispatcher<br/>banks"]
     CH[("banks-command")]
     RCH[("banks-command-response")]
@@ -243,7 +243,7 @@ Two routes send `create-bank`.
 
 - `POST /v1/banks`, under the api base's `admin` gate, carries
   the name, status, tier and currencies the operator chose.
-- `POST /v1/onboarding/me`, under the `user` gate, is
+- `POST /v1/onboarding`, under the `user` gate, is
   first-sign-in self-service. The handler looks the company up in
   the registry, then fixes the rest: status test, tier `micro`,
   currencies `["GBP"]`, a `:company-binding` snapshotted from the
@@ -418,7 +418,7 @@ the one it already has. The route is
   `domain/new-bank` runs a `:bank-action-create` capability check
   and nothing more. Which principals may reach it is the api
   base's: the `admin` gate on `POST /v1/banks`, the `user` gate on
-  `POST /v1/onboarding/me`. Code calling the command directly
+  `POST /v1/onboarding`. Code calling the command directly
   bypasses both.
 
 ## References

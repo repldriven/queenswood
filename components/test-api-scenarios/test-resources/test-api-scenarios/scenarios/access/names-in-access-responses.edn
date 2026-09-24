@@ -91,7 +91,7 @@
    :assert {:status 201 :body {:role "developer"}}}
   {:command :api/request
    :request {:method :post
-             :path "/v1/members/{membership-id}/remove"
+             :path "/v1/memberships/{membership-id}/remove"
              :path-params {:membership-id [:ref :member-membership
                                            :membership-id]}
              :auth :owner-token
@@ -101,7 +101,8 @@
  :then
  [{:command :api/request
    :request {:method :get
-             :path "/v1/access-events"
+             :path "/v1/banks/{bank-id}/audit-events"
+             :path-params {:bank-id [:ref :bank :bank-id]}
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}}
    :assert

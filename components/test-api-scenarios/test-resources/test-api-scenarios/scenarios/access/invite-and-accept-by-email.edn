@@ -65,7 +65,7 @@
              :auth :invitee-token}
    :as :accepted
    :assert {:status 201
-            :headers {:location [:m/regex "^/v1/members/mem\\."]}
+            :headers {:location [:m/regex "^/v1/me/memberships/mem\\."]}
             :body {:bank-id [:ref :bank :bank-id] :role "developer"}}}]
  :then
  [{:command :api/request
@@ -86,15 +86,27 @@
                    :token [:m/absent]}}}
   {:command :api/request
    :request {:method :get
-             :path "/v1/members/{membership-id}"
+             :path "/v1/me/memberships/{membership-id}"
              :path-params {:membership-id [:ref :accepted :membership-id]}
-             :auth :owner-token
-             :headers {:bank-id [:ref :bank :bank-id]}}
+             :auth :invitee-token}
+   :as :own-read
    :assert {:status 200
             :body {:membership-id [:ref :accepted :membership-id]
+                   :bank-name "Match Bank"
                    :email "match-invitee@queenswood.local"
                    :role "developer"
                    :invitation-id [:ref :invitation :invitation-id]}}}
+  {:command :api/request
+   :request {:method :get :path "/v1/me/memberships" :auth :invitee-token}
+   :assert {:status 200 :body {:items [:m/equals [[:ref :own-read]]]}}}
+  ;; The bank reads the same record the member does.
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/memberships/{membership-id}"
+             :path-params {:membership-id [:ref :accepted :membership-id]}
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 200 :body [:m/equals [:ref :own-read]]}}
   {:command :api/request
    :request {:method :get :path "/v1/me" :auth :invitee-token}
    :assert {:status 200

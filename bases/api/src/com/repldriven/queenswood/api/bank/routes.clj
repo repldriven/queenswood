@@ -8,6 +8,7 @@
 
     [com.repldriven.queenswood.api.shared.headers :as shared.headers]
     [com.repldriven.queenswood.api.shared.idempotency :as shared.idempotency]
+    [com.repldriven.queenswood.api.shared.interceptors :as shared.interceptors]
     [com.repldriven.queenswood.api.shared.parameters :as shared.parameters]
 
     [com.repldriven.queenswood.api-schema.interface :refer
@@ -75,6 +76,7 @@
                        :parameters ^:replace
                                    [shared.parameters/ref-bank-id
                                     shared.parameters/ref-bank-id-header]}
+             :interceptors [shared.interceptors/own-bank]
              :responses {200 {:description "The bank." :body [:ref "Bank"]}
                          403 (ErrorExamples [#'ForeignBankRead])
                          404 (ErrorResponse [#'BankNotFound])}

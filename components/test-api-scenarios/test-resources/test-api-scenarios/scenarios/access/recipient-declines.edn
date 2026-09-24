@@ -76,7 +76,8 @@
    :assert {:status 409 :problem {:type ":invitation/invalid-status"}}}
   {:command :api/request
    :request {:method :get
-             :path "/v1/access-events"
+             :path "/v1/banks/{bank-id}/audit-events"
+             :path-params {:bank-id [:ref :bank :bank-id]}
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}}
    :assert {:status 200

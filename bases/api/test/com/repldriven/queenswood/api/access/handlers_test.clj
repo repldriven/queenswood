@@ -200,7 +200,7 @@
         (= {:token-hash nil :email "Charles@Example.com" :email-verified? false}
            @seen))
        (testing "an accept sends the token's hash and never the token"
-         (SUT/accept-invitation
+         (SUT/accept-my-invitation
           (with-avro {:auth {:principal-id user-id :claims claims}
                       :headers {"invitation-token" token}
                       :parameters {:path {:invitation-id invitation-id}}}))
@@ -236,7 +236,8 @@
   "One request carrying every path parameter and body field an access
   write reads."
   (with-avro {:auth member-auth
-              :parameters {:path {:membership-id membership-id
+              :parameters {:path {:bank-id bank-id
+                                  :membership-id membership-id
                                   :invitation-id invitation-id}
                            :body {:email "c.babbage@example.com"
                                   :role :role-developer
@@ -247,22 +248,22 @@
   can meet it: the handler, the route's `[method path]` and the status
   the kind maps to."
   [[:membership/last-owner SUT/change-role
-    ["post" "/v1/members/{membership-id}/change-role"] 409]
-   [:membership/invalid-status SUT/remove-member
-    ["post" "/v1/members/{membership-id}/remove"] 409]
+    ["post" "/v1/memberships/{membership-id}/change-role"] 409]
+   [:membership/invalid-status SUT/remove-membership
+    ["post" "/v1/memberships/{membership-id}/remove"] 409]
    [:invitation/invalid-status SUT/withdraw-invitation
     ["post" "/v1/invitations/{invitation-id}/withdraw"] 409]
    [:invitation/already-member SUT/invite ["post" "/v1/invitations"] 409]
    [:invitation/already-exists SUT/invite ["post" "/v1/invitations"] 409]
-   [:membership/already-exists SUT/accept-invitation
+   [:membership/already-exists SUT/accept-my-invitation
     ["post" "/v1/me/invitations/{invitation-id}/accept"] 409]
    [:invitation/reason-required SUT/invite ["post" "/v1/invitations"] 422]
    [:invitation/not-found SUT/resend-invitation
     ["post" "/v1/invitations/{invitation-id}/resend"] 404]
-   [:membership/not-found SUT/leave
+   [:membership/not-found SUT/leave-my-membership
     ["post" "/v1/me/memberships/{membership-id}/leave"] 404]
-   [:membership/role-not-granted SUT/remove-member
-    ["post" "/v1/members/{membership-id}/remove"] 403]])
+   [:membership/role-not-granted SUT/remove-membership
+    ["post" "/v1/memberships/{membership-id}/remove"] 403]])
 
 (defn- documented-types
   "The problem `type` of every example the document gives `status` on
@@ -368,17 +369,17 @@
      (doseq [[label handler req]
              [["a create" SUT/invite request]
               ["a resend" SUT/resend-invitation request]
-              ["the member list" SUT/list-members request]
+              ["the member list" SUT/list-memberships request]
               ["the invitation list" SUT/list-invitations request]
               ["an invitation" SUT/get-invitation request]
-              ["a member" SUT/get-member request]
-              ["the access history" SUT/list-access-events request]
+              ["a member" SUT/get-membership request]
+              ["the audit log" SUT/list-audit-events request]
               ["a change of role" SUT/change-role request]
               ["a withdrawal" SUT/withdraw-invitation request]
               ["the recipient's list" SUT/list-my-invitations recipient]
               ["the recipient's read" SUT/get-my-invitation recipient]
-              ["an accept" SUT/accept-invitation recipient]
-              ["a decline" SUT/decline-invitation recipient]]]
+              ["an accept" SUT/accept-my-invitation recipient]
+              ["a decline" SUT/decline-my-invitation recipient]]]
        (testing (str label " answers no token and no hash")
          (let [{:keys [status body]} (handler req)]
            (is (< status 300))
@@ -451,7 +452,7 @@
        (testing "the member list names each inviter"
          (is (= ["Ada Lovelace"]
                 (map (comp :name :invited-by)
-                     (get-in (SUT/list-members request) [:body :items])))))
+                     (get-in (SUT/list-memberships request) [:body :items])))))
        (testing "a recipient's read names the inviter"
          (is (= "Ada Lovelace"
                 (get-in (SUT/get-my-invitation recipient)
@@ -473,7 +474,7 @@
        (fn []
          (doseq [response [(SUT/get-my-invitation recipient)
                            (SUT/list-my-invitations recipient)
-                           (SUT/decline-invitation recipient)]]
+                           (SUT/decline-my-invitation recipient)]]
            (is (not-any? #{"ada@example.com"} (strings (:body response))))
            (is (= #{"Ada's Bank"}
                   (set (map (comp :name :invited-by)
@@ -484,7 +485,7 @@
         (standing-in
          (assoc named-stand-ins #'users/find-by-id f)
          (fn []
-           (let [{:keys [status body]} (SUT/list-access-events request)
+           (let [{:keys [status body]} (SUT/list-audit-events request)
                  [removed changed created] (:items body)]
              (is (= 200 status))
              (is (= "Queenswood" (get-in removed [:actor :name])))
@@ -554,6 +555,8 @@
 
 (def ^:private elsewhere-id "mem.01kprbpdwa9q5n2t7vwsx84a3p")
 
+(def ^:private someone-elses-id "mem.01kprbpdwa9q5n2t7vwsx84a3r")
+
 (defn- membership-by-id
   [_ id]
   (condp = id
@@ -564,13 +567,16 @@
     elsewhere-id (assoc stored-membership
                         :membership-id elsewhere-id
                         :bank-id other-bank-id)
+    someone-elses-id (assoc stored-membership
+                            :membership-id someone-elses-id
+                            :user-id subject-id)
     (error/reject :membership/not-found
                   {:message "Membership not found" :membership-id id})))
 
-(defn- get-member-as
+(defn- get-membership-as
   [id]
-  (SUT/get-member {:auth member-auth
-                   :parameters {:path {:membership-id id}}}))
+  (SUT/get-membership {:auth member-auth
+                       :parameters {:path {:membership-id id}}}))
 
 (deftest a-member-is-read-while-active-in-its-own-bank-test
   (standing-in (assoc stand-ins
@@ -580,16 +586,50 @@
                       membership-by-id)
                (fn []
                  (testing "found, as the list shows it"
-                   (let [{:keys [status body]} (get-member-as membership-id)]
+                   (let [{:keys [status body]} (get-membership-as
+                                                membership-id)]
                      (is (= 200 status))
                      (is (= [body]
-                            (get-in (SUT/list-members {:auth member-auth})
+                            (get-in (SUT/list-memberships {:auth member-auth})
                                     [:body :items])))))
                  (doseq [[label id] [["another bank's" elsewhere-id]
                                      ["an ended one" ended-id]
                                      ["none" "mem.01kprbpdwa9q5n2t7vwsx84a3q"]]]
                    (testing (str label " answers 404")
-                     (let [{:keys [status body]} (get-member-as id)]
+                     (let [{:keys [status body]} (get-membership-as id)]
+                       (is (= 404 status))
+                       (is (= ":membership/not-found" (:type body)))))))))
+
+(defn- get-my-membership-as
+  [id]
+  (SUT/get-my-membership {:auth {:principal-type :user
+                                 :principal-id user-id
+                                 :memberships [stored-membership]}
+                          :parameters {:path {:membership-id id}}}))
+
+(deftest a-person-reads-only-their-own-active-memberships-test
+  (standing-in (assoc stand-ins
+                      #'users/find-by-id
+                      find-person
+                      #'memberships/find-by-id
+                      membership-by-id)
+               (fn []
+                 (testing "found, as their list and the bank's show it"
+                   (let [{:keys [status body]} (get-my-membership-as
+                                                membership-id)]
+                     (is (= 200 status))
+                     (is (= "Ada's Bank" (:bank-name body)))
+                     (is (= [body]
+                            (get-in (SUT/list-my-memberships
+                                     {:auth {:memberships [stored-membership]}})
+                                    [:body :items])
+                            (get-in (SUT/list-memberships {:auth member-auth})
+                                    [:body :items])))))
+                 (doseq [[label id] [["another person's" someone-elses-id]
+                                     ["an ended one" ended-id]
+                                     ["none" "mem.01kprbpdwa9q5n2t7vwsx84a3q"]]]
+                   (testing (str label " answers 404")
+                     (let [{:keys [status body]} (get-my-membership-as id)]
                        (is (= 404 status))
                        (is (= ":membership/not-found" (:type body)))))))))
 
@@ -602,6 +642,7 @@
          (is (= 201 status))
          (is (= {"Location" (str "/v1/invitations/" invitation-id)} headers))))
      (testing "the membership an accept creates"
-       (let [{:keys [status headers]} (SUT/accept-invitation recipient)]
+       (let [{:keys [status headers]} (SUT/accept-my-invitation recipient)]
          (is (= 201 status))
-         (is (= {"Location" (str "/v1/members/" membership-id)} headers)))))))
+         (is (= {"Location" (str "/v1/me/memberships/" membership-id)}
+                headers)))))))

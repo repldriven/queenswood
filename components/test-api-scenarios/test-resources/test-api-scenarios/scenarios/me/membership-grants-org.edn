@@ -19,7 +19,7 @@
                    :memberships []}}}
   {:command :api/request
    :request {:method :post
-             :path "/v1/onboarding/me"
+             :path "/v1/onboarding"
              :auth :member-token
              :headers {:idempotency-key
                        "ik-membership-grants-org-onboarding-001"}

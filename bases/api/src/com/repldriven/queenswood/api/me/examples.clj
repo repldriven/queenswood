@@ -20,10 +20,13 @@
 
 (def Membership
   {:membership-id MembershipId
-   :user-id UserId
    :bank-id BankId
    :bank-name "Ada's Bank"
+   :user-id UserId
+   :name "Ada Lovelace"
+   :email "ada@example.com"
    :role :owner
+   :created-organisation true
    :created-at "2026-05-18T09:15:00Z"
    :updated-at "2026-05-18T09:15:00Z"})
 

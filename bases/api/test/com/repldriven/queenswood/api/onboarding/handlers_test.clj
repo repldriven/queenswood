@@ -66,7 +66,11 @@
           (is (= 201 (:status response)))
           (is (= {:bank-id second-bank-id :client-secret "secret"}
                  (get-in response [:body :bank])))
-          (is (= membership (get-in response [:body :membership]))))
+          (is (= (assoc membership
+                        :email "ada@example.com"
+                        :created-organisation true)
+                 (get-in response [:body :membership]))
+              "the owner membership, as founding the organisation"))
         (testing "sends the person as the owner and as the actor"
           (is (= {:user-id user-id :role :role-owner} (:membership @sent)))
           (is (= {:kind :actor-kind-member :principal-id user-id}

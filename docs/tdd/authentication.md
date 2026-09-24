@@ -194,10 +194,12 @@ under `user`, and an organisation's own data under a level: its reads
 `org:viewer`, its writes `org:developer`, its people routes
 `org:admin`.** Banks, tiers, policy administration and the simulator
 are platform-wide; `/me` and onboarding are about who the caller is. A
-route reading or writing one tenant's data takes a level whatever its
-path suggests, so `/me/policies` is `org:viewer`. `org:owner` gates no
-route; the rules only an owner satisfies are described in
-[access.md](access.md).
+route reading or writing one tenant's data takes a level. A bank's own
+record, and what describes it under `/v1/banks/{bank-id}` — its
+policies, its effective policy and its audit log — takes
+`org:viewer` or `admin`, the `own-bank` interceptor refusing a member
+any other bank. `org:owner` gates no route; the rules only an owner
+satisfies are described in [access.md](access.md).
 
 **Every route names its roles.** A route or a method declares them in
 its OpenAPI security, `:security [{"bearerAuth" ["org:viewer"]}]`, and

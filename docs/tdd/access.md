@@ -25,9 +25,9 @@ In scope: the `Membership` record's evolution and the `Invitation` and
 whom, and never ownerless; the invitation changelog; the request
 header that names the organisation; the role levels on the `api` base's
 gates and the sweep that puts one on every route; the routes under
-`/v1/me`, `/v1/members`, `/v1/invitations` and `/v1/access-events`; the
-owner email on the operator's create call; the console's screens; and
-the tests.
+`/v1/me`, `/v1/memberships`, `/v1/invitations` and the bank's audit
+log; the owner email on the operator's create call; the console's
+screens; and the tests.
 
 Out of scope: sending the invitation email and minting the link's token, which
 [outbound-email.md](outbound-email.md) covers from the changelog entry this
@@ -326,7 +326,7 @@ graph LR
     EM["email adapter"]
     FDB[("FDB")]
 
-    SPA -->|"/v1/me/*, /v1/members, /v1/invitations"| API
+    SPA -->|"/v1/me/*, /v1/memberships, /v1/invitations"| API
     API -->|"reads"| BQ
     API -->|"access commands, over the bus"| BM
     API -->|"upsert on every user request"| BU
@@ -489,42 +489,61 @@ lists `owners: []`. The operator's create call and grant are above.
 
 ### Routes
 
+A path names a record, and its prefix says whose: `/v1/me/<records>`
+the signed-in person's, `/v1/<records>` the bank the header names. A
+membership and an invitation are each one record under both, by the
+same noun and id; a membership is shown the same way to both, and an
+invitation to its recipient as `RecipientInvitation`, which carries no
+inviter's email. The tags follow the records: Me, Memberships,
+Invitations and Audit.
+
 Under `/v1/me`, gated `user`, no header:
 
 - `GET /v1/me` — the user, the active memberships with role and bank
   name, and an `operator` flag so the console knows what it may offer.
+- `GET /v1/me/memberships`, `GET /v1/me/memberships/{membership-id}` —
+  the person's active memberships in every bank; another person's, or
+  an ended one, returns 404.
+- `POST /v1/me/memberships/{membership-id}/leave` — the person's own.
 - `GET /v1/me/invitations` — pending, unexpired invitations to the
   signed-in email: organisation name, role, who invited, expiry.
 - `GET /v1/me/invitations/{invitation-id}` — one, as its recipient
   sees it, by token header or email match.
 - `POST .../accept`, `POST .../decline` — the same proof. Accepting
-  answers the membership, with the member's `Location`.
-- `POST /v1/me/memberships/{membership-id}/leave` — the person's own.
+  returns the membership, with its `Location` under `/v1/me/memberships`.
 
 Under the bank the header names:
 
-- `GET /v1/members` — `org:viewer`. Active members, each with the
-  user's name and email, role, joined, and who invited them, read off
-  the invitation; the founding owner shows as having created the
-  organisation.
-- `GET /v1/members/{membership-id}` — `org:viewer`. One active member,
-  as the list shows them; an ended membership, or another bank's,
-  answers 404.
-- `POST /v1/members/{membership-id}/change-role`,
-  `POST /v1/members/{membership-id}/remove` — `org:admin`.
+- `GET /v1/memberships` — `org:viewer`. Active memberships, each with
+  the user's name and email, role, when they joined, and who invited
+  them, read off the invitation; the founding owner's shows as having
+  created the organisation.
+- `GET /v1/memberships/{membership-id}` — `org:viewer`. One active
+  membership, as the list shows it; an ended membership, or another
+  bank's, returns 404.
+- `POST /v1/memberships/{membership-id}/change-role`,
+  `POST /v1/memberships/{membership-id}/remove` — `org:admin`.
 - `GET /v1/invitations` — `org:viewer`. Pending, expired and accepted,
   with the invited and, once accepted, the accepting address. Declined
   and withdrawn invitations appear only in the history.
 - `GET /v1/invitations/{invitation-id}` — `org:viewer`. One invitation
-  in any status; another bank's answers 404.
+  in any status; another bank's returns 404.
 - `POST /v1/invitations` — `org:admin`. Email, role, optional reason.
-  Answers the invitation, with its `Location`.
+  Returns the invitation, with its `Location`.
 - `POST /v1/invitations/{invitation-id}/withdraw`,
   `POST /v1/invitations/{invitation-id}/resend` — `org:admin`. Each
-  answers the invitation.
-- `GET /v1/access-events` — `org:viewer`, cursor-paged, newest first.
+  returns the invitation.
 
-Every `Actor` a route answers carries `name`, and every `AccessEvent`
+Under the bank's own path:
+
+- `GET /v1/banks/{bank-id}/audit-events` — `org:viewer` or `admin`,
+  cursor-paged, newest first. The bank's audit log: each `AccessEvent`
+  as an `AuditEvent`, its id as `audit-event-id`. It describes the bank
+  rather than a record it holds, so it sits beside the bank's policies,
+  and a member naming another bank is refused 403. The name is the
+  API's, not the store's: the record stays `AccessEvent`.
+
+Every `Actor` a route answers carries `name`, and every `AuditEvent`
 with a subject carries `subject-name`, resolved on read in
 `access/names.clj`, each distinct id once per response: the user
 record's name, or its email when the name is blank, or `Queenswood` for
@@ -746,6 +765,10 @@ The email that follows is [outbound-email.md](outbound-email.md)'s.
   sees one flow.
 
 ## Known Limitations
+
+- **The audit log holds access changes only.** No other record names
+  the principal that wrote it, so a payment, an account, a product or a
+  policy change appears in no bank's audit log.
 
 - **No invitation without mail.** An installation with no mail server
   configured records invitations that nobody receives, except an

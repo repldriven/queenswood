@@ -4,7 +4,7 @@
 
 (def routes
   [["/me"
-    {:openapi {:tags ["Membership"] :security [{"bearerAuth" ["user"]}]}}
+    {:openapi {:tags ["Me"] :security [{"bearerAuth" ["user"]}]}}
     [""
      {:get {:summary "Retrieve the signed-in user"
             :openapi {:operationId "RetrieveMe"

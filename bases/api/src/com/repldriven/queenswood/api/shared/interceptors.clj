@@ -1,7 +1,10 @@
 (ns com.repldriven.queenswood.api.shared.interceptors
   "Cross-cutting reitit interceptors for the bank-api router."
   (:require
-    [clojure.string :as str]))
+    [com.repldriven.queenswood.api.errors :as errors]
+
+    [clojure.string :as str]
+    [sieppari.context :as sc]))
 
 (defn- nest-bracket-entry
   "If `k` looks like `outer[inner]`, returns `[:outer-kw :inner-kw v]`.
@@ -51,3 +54,18 @@
             (update-in ctx
                        [:request :query-params]
                        (fn [qp] (when qp (nest-params qp)))))})
+
+(def own-bank
+  "Refuses a route under `/v1/banks/{bank-id}` with 403 unless the path
+  names the caller's own bank or the caller is an operator, so a member
+  reads only their own bank and an operator reads any."
+  {:name ::own-bank
+   :enter (fn [ctx]
+            (let [{:keys [auth parameters]} (:request ctx)]
+              (if (or (= (get-in parameters [:path :bank-id]) (:bank-id auth))
+                      (contains? (:roles auth) :admin))
+                ctx
+                (sc/terminate ctx
+                              (errors/forbidden-response
+                               (str "Token is not this bank's; "
+                                    "retrieve only your own bank"))))))})

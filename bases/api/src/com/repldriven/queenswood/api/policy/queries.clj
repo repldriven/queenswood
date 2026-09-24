@@ -18,14 +18,12 @@
       {:status 200
        :body (cursor/page-body "/v1/policies" page (:items result) result)})))
 
-(defn list-effective-policies
-  "Org-scoped: the policies effective for the caller's own bank — the
-  always-on platform tier plus any policies bound to the bank. Reads
-  `bank-id` from the request auth (a tenant principal carries it); an
-  admin without a bank-id sees just the platform tier."
+(defn list-bank-policies
+  "The policies effective for the bank the path names — the always-on
+  platform tier plus any policies bound to the bank."
   [request]
-  (let [{:keys [record-db record-store auth]} request
-        {:keys [bank-id]} auth
+  (let [{:keys [record-db record-store parameters]} request
+        {:keys [bank-id]} (:path parameters)
         config {:record-db record-db :record-store record-store}
         result (policies/get-effective-policies config {:bank-id bank-id})]
     (if (error/anomaly? result)
@@ -33,13 +31,13 @@
       {:status 200 :body {:items result}})))
 
 (defn get-effective-policy
-  "Org-scoped: the caller's effective policies collapsed into the
-  resolved decision set — `{:capabilities [...] :limits [...]}`, one
-  survivor per scope, each tagged with its origin policy. Reads
-  `bank-id` from the request auth as `list-effective-policies` does."
+  "The bank's effective policies collapsed into the resolved decision
+  set — `{:capabilities [...] :limits [...]}`, one survivor per scope,
+  each tagged with its origin policy. Reads `bank-id` from the path as
+  `list-bank-policies` does."
   [request]
-  (let [{:keys [record-db record-store auth]} request
-        {:keys [bank-id]} auth
+  (let [{:keys [record-db record-store parameters]} request
+        {:keys [bank-id]} (:path parameters)
         config {:record-db record-db :record-store record-store}
         result (policies/get-effective-policy config {:bank-id bank-id})]
     (if (error/anomaly? result)
