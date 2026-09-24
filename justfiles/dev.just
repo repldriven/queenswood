@@ -29,6 +29,9 @@ doctor:
     check spectral \
       "$(jq -r '.spectral.version' versions.json)" \
       "$(spectral --version 2>/dev/null)"
+    check tessl \
+      "$(jq -r '.tessl.version' versions.json)" \
+      "$(tessl --version 2>/dev/null | tail -1)"
     if [ "$fail" -ne 0 ]; then
       echo
       echo "Enter the nix devshell to get these, or install them at the"
