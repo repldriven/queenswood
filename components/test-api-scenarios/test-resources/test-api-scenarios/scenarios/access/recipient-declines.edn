@@ -86,8 +86,7 @@
                              :actor {:kind "member"
                                      :principal-id
                                      [:ref :invitee-me :user-id]}
-                             :subject-user-id [:ref :invitee-me :user
-                                               :user-id]
+                             :subject-user-id [:ref :invitee-me :user-id]
                              :invitation-id [:ref :invitation :invitation-id]
                              :email "decline-invitee@queenswood.local"
                              :role-after "developer"}]]}}}]}
