@@ -233,14 +233,15 @@ just helm-install dev
 ### kind end-to-end
 
 ```bash
-just kind-up dev      # create cluster, build all images,
-                      # load into kind, install chart
-just kind-down        # tear it all down
+just docker-build-all dev
+just kind-up dev
+just kind-down
 ```
 
-`kind-up` does the full chain: creates the cluster if
-missing, builds every service image, loads each into the
-kind node's containerd, then `helm-install`s the chart.
+`kind-up` creates the cluster and its local registry if
+missing, pushes every image `docker-build-all` built to that
+registry, then `helm-install`s the chart. It builds nothing,
+so build first, and again after a change.
 
 ## Failures
 
