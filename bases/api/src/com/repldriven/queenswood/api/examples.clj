@@ -5,7 +5,7 @@
 
 (def BadRequest
   {:value {:title "REJECTED"
-           :type "mono/bad-request"
+           :type "server/bad-request"
            :status 400
            :detail "Bad Request"}})
 
@@ -35,7 +35,7 @@
 
 (def BadResponse
   {:value {:title "FAILED"
-           :type "mono/bad-response"
+           :type "server/bad-response"
            :status 500
            :detail "Bad Response"}})
 
@@ -47,13 +47,13 @@
 
 (def MissingIdempotencyKey
   {:value {:title "REJECTED"
-           :type "mono/missing-idempotency-key"
+           :type "server/missing-idempotency-key"
            :status 400
            :detail "Missing Idempotency-Key header"}})
 
 (def InvalidIdempotencyKey
   {:value {:title "REJECTED"
-           :type "mono/invalid-idempotency-key"
+           :type "server/invalid-idempotency-key"
            :status 400
            :detail "Idempotency-Key must be 16-255 URL-safe ASCII chars"}})
 

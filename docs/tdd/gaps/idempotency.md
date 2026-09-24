@@ -63,7 +63,7 @@ the ones that predict runtime behaviour say so.
 
 - `require-idempotency-key` accepts 16 to 255 characters of letters,
   digits, `_` and `-`, and terminates with a 400 problem body of type
-  `mono/missing-idempotency-key` or `mono/invalid-idempotency-key`.
+  `server/missing-idempotency-key` or `server/invalid-idempotency-key`.
 - The envelope's `:id` and `:correlation-id` carry the header value
   and the payload never does; a route without the header gets a
   server-generated id at dispatch.
@@ -270,7 +270,7 @@ both lifetimes and what a reused key does on each kind of route.
 Route-level `:leave` runs before the router-level response coercion
 and exception interceptors, so the cache sees the handler's response.
 A 200 whose body fails response coercion reaches the client as a 500
-of type `mono/bad-response` while the cache holds a completed 200 with
+of type `server/bad-response` while the cache holds a completed 200 with
 the same body, and every replay repeats the 500 until the entry
 expires. The `:leave` table describes a 5xx as released and retryable.
 Traced, not executed. Evidence: the router data in the `server` brick

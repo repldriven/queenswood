@@ -170,7 +170,7 @@ Traced, not executed. `exchange-client-credentials` returns whatever
 body Keycloak sends, so a refused grant arrives as a plain map holding
 `error`. The proxy handler only maps anomalies to 401 and returns
 everything else as 200, where response coercion against
-`TokenResponse` fails and the caller receives a 500 `mono/bad-response`
+`TokenResponse` fails and the caller receives a 500 `server/bad-response`
 instead of the 401 `invalid_client` the route advertises. Evidence:
 [handlers.clj](/bases/api/src/com/repldriven/queenswood/api/oauth/handlers.clj)
 in the `oauth` namespace. The only token scenario is the happy path.

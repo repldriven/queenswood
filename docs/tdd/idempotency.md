@@ -33,8 +33,8 @@ The API enforces `Idempotency-Key` presence and format on every
 protected write route through the `server/require-idempotency-key`
 interceptor, which is upstream in `mono`. The header value is 16–255
 URL-safe ASCII characters (letters, digits, `_`, `-`). A missing
-header is a 400 of type `mono/missing-idempotency-key`, a malformed
-one a 400 of type `mono/invalid-idempotency-key`.
+header is a 400 of type `server/missing-idempotency-key`, a malformed
+one a 400 of type `server/invalid-idempotency-key`.
 
 The key is also carried in the command envelope's `:id` field, so a
 processor can deduplicate at the domain layer. The envelope and the
