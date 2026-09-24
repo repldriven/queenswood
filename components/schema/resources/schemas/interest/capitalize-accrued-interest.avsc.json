@@ -1,9 +1,0 @@
-{
-  "type": "record",
-  "name": "CapitalizeAccruedInterest",
-  "namespace": "com.repldriven.mono.interest",
-  "fields": [
-    {"name": "bank_id",   "type": "string"},
-    {"name": "as_of_date",        "type": "long"}
-  ]
-}

@@ -1,5 +1,0 @@
-processor: !system/component
-  system/component-kind: interest/processor
-  record-db: !system/ref fdb.record-db
-  record-store: !system/ref fdb.meta-store
-  schemas: !system/ref avro.serde

@@ -1,0 +1,60 @@
+{:name "A live bank cannot be funded over the simulator"
+ :tags #{:api :simulate :unhappy}
+ ;; Simulating money arriving from outside is a sandbox affordance, so
+ ;; a live bank is refused whoever asks — its own token or an operator
+ ;; naming it.
+ :given
+ [{:command :api/request
+   :request
+   {:method :post
+    :path "/v1/banks"
+    :auth :admin
+    :headers {:idempotency-key "ik-live-inbound-bank-001"}
+    :body {:name "Live Bank"
+           :status "live"
+           :tier "micro"
+           :currencies ["GBP"]}}
+   :as :bank
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :bank :client-id]
+         :client-secret [:ref :bank :client-secret]
+         :status :live}
+   :as :bank-token}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :bank :accounts 0 :account-id]}
+             :auth :bank-token}
+   :as :before
+   :assert {:status 200}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/simulate/inbound-transfer"
+             :auth :bank-token
+             :headers {:bank-id [:ref :bank :bank-id]
+                       :idempotency-key "ik-live-inbound-own"}
+             :body {:amount 100000
+                    :currency "GBP"}}
+   :assert {:status 409 :problem {:type ":bank/invalid-status"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/simulate/inbound-transfer"
+             :auth :admin
+             :headers {:bank-id [:ref :bank :bank-id]
+                       :idempotency-key "ik-live-inbound-admin"}
+             :body {:amount 100000
+                    :currency "GBP"}}
+   :assert {:status 409 :problem {:type ":bank/invalid-status"}}}]
+ :then
+ ;; Nothing reached the bank's books.
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :bank :accounts 0 :account-id]}
+             :auth :bank-token}
+   :assert {:status 200
+            :body {:available-balance [:ref :before :available-balance]
+                   :posted-balance [:ref :before :posted-balance]
+                   :items [:m/in-any-order [:ref :before :items]]}}}]}

@@ -151,28 +151,6 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-idvs-event
       acks: all
-  interest-command:
-    _: !system/local-ref topics
-    schemas: !system/local-ref schemas
-    schema: !keyword command
-    conf:
-      bootstrap.servers: !system/local-ref bootstrap-servers
-      topic: topic-interest-command
-      acks: all
-  interest-command-dlq:
-    _: !system/local-ref topics
-    conf:
-      bootstrap.servers: !system/local-ref bootstrap-servers
-      topic: topic-interest-command-dlq
-      acks: all
-  interest-command-response:
-    _: !system/local-ref topics
-    schemas: !system/local-ref schemas
-    schema: !keyword command-response
-    conf:
-      bootstrap.servers: !system/local-ref bootstrap-servers
-      topic: topic-interest-command-response
-      acks: all
   invitations-event:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -475,24 +453,6 @@ consumers: !system/component
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       group.id: test-idvs-event
-  interest-command:
-    _: !system/local-ref topics
-    schemas: !system/local-ref schemas
-    schema: !keyword command
-    topics: [topic-interest-command]
-    dead-letter-producer: !system/local-ref producers.interest-command-dlq
-    max-redeliveries: 5
-    conf:
-      bootstrap.servers: !system/local-ref bootstrap-servers
-      group.id: test-interest-command
-  interest-command-response:
-    _: !system/local-ref topics
-    schemas: !system/local-ref schemas
-    schema: !keyword command-response
-    topics: [topic-interest-command-response]
-    conf:
-      bootstrap.servers: !system/local-ref bootstrap-servers
-      group.id: test-interest-command-response
   invitations-event:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -668,10 +628,6 @@ message-bus-producers: !system/component
     producer: !system/local-ref producers.idv-event
   idvs-event:
     producer: !system/local-ref producers.idvs-event
-  interest-command:
-    producer: !system/local-ref producers.interest-command
-  interest-command-response:
-    producer: !system/local-ref producers.interest-command-response
   invitations-event:
     producer: !system/local-ref producers.invitations-event
   memberships-command:
@@ -752,12 +708,6 @@ message-bus-consumers: !system/component
     timeout: 500
   idvs-event:
     consumer: !system/local-ref consumers.idvs-event
-    timeout: 500
-  interest-command:
-    consumer: !system/local-ref consumers.interest-command
-    timeout: 500
-  interest-command-response:
-    consumer: !system/local-ref consumers.interest-command-response
     timeout: 500
   invitations-event:
     consumer: !system/local-ref consumers.invitations-event

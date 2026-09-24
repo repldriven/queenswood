@@ -17,13 +17,13 @@
     :auth :admin
     :headers {:idempotency-key "ik-inbound-unmatched-suspense-bank-001"}
     :body
-    {:name "Suspense Test" :status "live" :tier "micro" :currencies ["GBP"]}}
+    {:name "Suspense Test" :status "test" :tier "micro" :currencies ["GBP"]}}
    :as :bank-0
    :assert {:status 201}}
   {:command :auth/mint-token
    :for {:client-id [:ref :bank-0 :client-id]
          :client-secret [:ref :bank-0 :client-secret]
-         :status :live}
+         :status :test}
    :as :bank-0-token}
   ;; The seeded chart of accounts — used to find the 2500 account id.
   {:command :api/request

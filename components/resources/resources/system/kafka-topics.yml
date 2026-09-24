@@ -38,12 +38,6 @@
     partitions: 1
   - topic: topic-idvs-event-dlq
     partitions: 1
-  - topic: topic-interest-command
-    partitions: 1
-  - topic: topic-interest-command-dlq
-    partitions: 1
-  - topic: topic-interest-command-response
-    partitions: 1
   - topic: topic-invitations-event
     partitions: 1
   - topic: topic-invitations-event-dlq

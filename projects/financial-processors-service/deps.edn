@@ -25,7 +25,6 @@
                                       "../../components/cash-account-query"}
         component/cash-account-product-query
         {:local/root "../../components/cash-account-product-query"}
-        component/interest {:local/root "../../components/interest"}
         component/ledger-account {:local/root "../../components/ledger-account"}
         component/party-query {:local/root "../../components/party-query"}
         component/payee-check {:local/root "../../components/payee-check"}

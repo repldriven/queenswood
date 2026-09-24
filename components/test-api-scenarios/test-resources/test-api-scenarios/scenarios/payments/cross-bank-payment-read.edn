@@ -14,7 +14,7 @@
              :auth :admin
              :headers {:idempotency-key "ik-cbpr-bank-a-001"}
              :body {:name "Cross Bank Read A"
-                    :status "live"
+                    :status "test"
                     :tier "micro"
                     :currencies ["GBP"]}}
    :as :bank-a
@@ -22,7 +22,7 @@
   {:command :auth/mint-token
    :for {:client-id [:ref :bank-a :client-id]
          :client-secret [:ref :bank-a :client-secret]
-         :status :live}
+         :status :test}
    :as :bank-a-token}
   {:command :api/request
    :request {:method :post
@@ -142,7 +142,7 @@
              :auth :admin
              :headers {:idempotency-key "ik-cbpr-bank-b-001"}
              :body {:name "Cross Bank Read B"
-                    :status "live"
+                    :status "test"
                     :tier "micro"
                     :currencies ["GBP"]}}
    :as :bank-b
@@ -150,7 +150,7 @@
   {:command :auth/mint-token
    :for {:client-id [:ref :bank-b :client-id]
          :client-secret [:ref :bank-b :client-secret]
-         :status :live}
+         :status :test}
    :as :bank-b-token}]
  :when
  [{:command :api/request

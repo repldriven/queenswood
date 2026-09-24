@@ -9,7 +9,7 @@
     :headers {:idempotency-key "ik-ledger-accounts-missing-ccy-bank-001"}
     :body
     {:name "Sterling Only Bank"
-     :status "live"
+     :status "test"
      :tier "micro"
      :currencies ["GBP"]}}
    :as :org-0
@@ -17,7 +17,7 @@
   {:command :auth/mint-token
    :for {:client-id [:ref :org-0 :client-id]
          :client-secret [:ref :org-0 :client-secret]
-         :status :live}
+         :status :test}
    :as :org-0-token}]
  :when
  ;; The bank holds a GBP chart alone, so resolving 1100 in USD finds

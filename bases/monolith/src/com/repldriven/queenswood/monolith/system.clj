@@ -9,7 +9,6 @@
     [com.repldriven.queenswood.email.interface]
     [com.repldriven.queenswood.fdb.interface]
     [com.repldriven.queenswood.idv.interface]
-    [com.repldriven.queenswood.interest.interface]
     [com.repldriven.queenswood.membership.interface]
     [com.repldriven.queenswood.onfido-adapter.interface]
     [com.repldriven.queenswood.onfido-simulator.interface]

@@ -489,7 +489,7 @@ services:
       limits: { cpu: "1000m", memory: "1500Mi" }
       requests: { cpu: "200m", memory: "768Mi" }
 
-  # Money path: payment, transaction, interest, payee-check processors
+  # Money path: payment, transaction, payee-check processors
   # in one JVM. Payee-check invokes the ClearBank adapter for
   # Confirmation of Payee, hence CLEARBANK_ADAPTER_URL.
   financial-processors-service:

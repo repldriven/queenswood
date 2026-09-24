@@ -209,7 +209,7 @@
                             admin-token
                             "ik-closed-control-bank-001" nil
                             "/v1/banks" {:name "Closed Control Bank"
-                                         :status "live"
+                                         :status "test"
                                          :tier "micro"
                                          :currencies ["GBP"]})
          bank-id (get-in created [:body :bank-id])]
