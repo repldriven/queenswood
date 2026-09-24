@@ -4,7 +4,7 @@
     [com.repldriven.queenswood.api.policy.examples :as examples]
 
     [com.repldriven.queenswood.api-schema.interface :as schema :refer
-     [components-registry]]))
+     [components-registry list-schema]]))
 
 (def PolicyId (schema/id-schema "PolicyId" "pol" examples/PolicyId))
 
@@ -33,9 +33,7 @@
    [:created-at [:ref "Timestamp"]]
    [:updated-at [:ref "Timestamp"]]])
 
-(def PolicyList
-  [:map {:json-schema/example examples/PolicyList}
-   [:policies [:vector [:ref "Policy"]]]])
+(def PolicyList (list-schema "Policy" examples/PolicyList))
 
 ;; Effective policies: the resolved decision set for a bank. Each
 ;; capability/limit is the Capability/Limit open map plus the origin

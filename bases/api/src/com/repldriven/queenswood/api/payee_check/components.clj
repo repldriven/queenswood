@@ -42,19 +42,9 @@
    [:created-at string?]
    [:expires-at string?]])
 
-(def PayeeCheckLinks
-  [:map
-   [:next {:optional true} string?]
-   [:prev {:optional true} string?]])
-
-(def PayeeCheckList
-  [:map
-   {:json-schema/example examples/PayeeCheckList}
-   [:items [:vector [:ref "PayeeCheck"]]]
-   [:links {:optional true} [:ref "PayeeCheckLinks"]]])
+(def PayeeCheckList (schema/list-schema "PayeeCheck" examples/PayeeCheckList))
 
 (def registry
   (components-registry [#'CheckId #'PayeeCheckAccountType #'MatchResult
                         #'PayeeCheckAccount #'PayeeCheckRequest
-                        #'PayeeCheckResult #'PayeeCheck #'PayeeCheckLinks
-                        #'PayeeCheckList]))
+                        #'PayeeCheckResult #'PayeeCheck #'PayeeCheckList]))

@@ -2,6 +2,7 @@
   (:require
     [com.repldriven.queenswood.api.jobs.view :as view]
 
+    [com.repldriven.queenswood.api.cursor :as cursor]
     [com.repldriven.queenswood.api.errors :as errors]
 
     [com.repldriven.queenswood.scheduler.interface :as scheduler]
@@ -15,12 +16,17 @@
 
 (defn list-jobs
   [request]
-  (let [{:keys [record-db record-store auth]} request
+  (let [{:keys [record-db record-store auth parameters]} request
         {:keys [bank-id]} auth
+        {:keys [page]} (:query parameters)
         config {:record-db record-db :record-store record-store}
         result (let-nom>
-                 [jobs (scheduler/list-jobs config bank-id)]
-                 {:jobs (mapv view/job->api jobs)})]
+                 [{:keys [jobs] :as found}
+                  (scheduler/list-jobs config bank-id (cursor/page-opts page))]
+                 (cursor/page-body "/v1/jobs"
+                                   page
+                                   (mapv view/job->api jobs)
+                                   found))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       {:status 200 :body result})))
@@ -43,13 +49,19 @@
   [request]
   (let [{:keys [record-db record-store auth parameters]} request
         {:keys [bank-id]} auth
-        {:keys [job-id]} (:path parameters)
+        {:keys [path query]} parameters
+        {:keys [job-id]} path
+        {:keys [page]} query
         config {:record-db record-db :record-store record-store}
         result (let-nom>
                  [job (scheduler/get-job config bank-id job-id)
                   _ (when (nil? job) (job-not-found job-id))
-                  runs (scheduler/list-runs config bank-id job-id)]
-                 {:runs runs})]
+                  runs (scheduler/list-runs config bank-id job-id)
+                  windowed (cursor/window runs :run-id :desc page)]
+                 (cursor/page-body (str "/v1/jobs/" job-id "/runs")
+                                   page
+                                   (:page windowed)
+                                   windowed))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       {:status 200 :body result})))

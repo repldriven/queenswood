@@ -57,7 +57,7 @@
         policies = [];
         return;
       }
-      policies = adaptPolicies(res.body?.policies ?? []);
+      policies = adaptPolicies(res.body?.items ?? []);
       if (selected >= policies.length) selected = 0;
     } catch (err) {
       error = err.message;

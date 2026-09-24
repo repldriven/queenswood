@@ -1,5 +1,7 @@
 (ns com.repldriven.queenswood.api.cursor
   (:require
+    [com.repldriven.mono.utility.interface :as utility]
+
     [clojure.string :as str])
   (:import
     (java.util Base64)))
@@ -10,18 +12,23 @@
 (def max-page-size 100)
 
 (defn encode
-  "Encodes an id as an opaque cursor string."
+  "Encodes an id as an opaque cursor string. A key of several parts,
+  as a store with a compound primary key pages on, is encoded whole."
   [id]
-  (.encodeToString (Base64/getUrlEncoder) (.getBytes (str prefix id))))
+  (let [raw (if (sequential? id) (str/join ":" id) id)]
+    (.encodeToString (Base64/getUrlEncoder) (.getBytes (str prefix raw)))))
 
 (defn decode
-  "Decodes a cursor string to an id. Returns nil on
-  invalid or missing cursor."
+  "Decodes a cursor string to the id `encode` was given: a string, or a
+  vector of the parts of a compound key. Returns nil on an invalid or
+  missing cursor."
   [cursor-str]
   (when cursor-str
     (try (let [decoded (String. (.decode (Base64/getUrlDecoder)
                                          ^String cursor-str))]
-           (when (.startsWith decoded prefix) (subs decoded (count prefix))))
+           (when (.startsWith decoded prefix)
+             (let [parts (str/split (subs decoded (count prefix)) #":")]
+               (if (next parts) parts (first parts)))))
          (catch IllegalArgumentException _ nil))))
 
 (defn clamp-size
@@ -106,3 +113,48 @@
                         separator
                         "page[before]=" (encode before-id)
                         "&page[size]=" size)))))
+
+(defn- page-param?
+  [param]
+  (or (str/starts-with? param "page[") (str/starts-with? param "page%5B")))
+
+(defn request-path
+  "The path `request` was made to, with its query string less any `page`
+  parameter: the base a paged list's links extend when the list takes
+  other query parameters, which the links must carry."
+  [request]
+  (let [{:keys [uri query-string]} request
+        kept (when query-string
+               (->> (str/split query-string #"&")
+                    (remove page-param?)
+                    (str/join "&")))]
+    (cond-> uri (seq kept) (str "?" kept))))
+
+(defn page-opts
+  "The store options a `page` query asks for: `:limit`, and `:after` or
+  `:before` decoded from its cursors."
+  [page]
+  (let [{:keys [after before size]} page]
+    (utility/assoc-some {:limit (clamp-size size)}
+                        :after (decode after)
+                        :before (decode before))))
+
+(defn window
+  "`paginate` driven by a `page` query: its cursors decoded and its size
+  clamped. Returns what `paginate` does."
+  [items id-key order page]
+  (let [{:keys [after before size]} page]
+    (paginate items
+              id-key
+              order
+              {:after (decode after) :before (decode before) :size size})))
+
+(defn page-body
+  "A list's 200 body: `items`, and `links` to the pages either side where
+  the store reported rows there. `before` and `after` are the raw ids of
+  the page's first and last rows, as a store scan or `paginate` returns
+  them, each nil when nothing lies on that side."
+  [path page items {:keys [before after]}]
+  (utility/assoc-seq {:items items}
+                     :links
+                     (build-links path (clamp-size (:size page)) before after)))

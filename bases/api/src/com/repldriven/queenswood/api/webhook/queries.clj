@@ -5,62 +5,38 @@
 
     [com.repldriven.queenswood.webhook.interface :as webhook]
 
-    [com.repldriven.mono.error.interface :as error]
-    [com.repldriven.mono.utility.interface :as utility]))
+    [com.repldriven.mono.error.interface :as error]))
 
 (defn- config
   [{:keys [record-db record-store]}]
   {:record-db record-db :record-store record-store})
 
-(defn- deliveries-path
-  [endpoint-id]
-  (str "/v1/webhook-endpoints/" endpoint-id "/deliveries"))
-
 (defn- listing
   "One 200 body for the delivery history: the window's items, and the
   cursor links when there is a page either side of it."
   [items id-key project path page]
-  (let [{:keys [after before size]} page
-        {windowed :page next-cursor :after prev-cursor :before}
-        (cursor/paginate items
-                         id-key
-                         :asc
-                         {:after (cursor/decode after)
-                          :before (cursor/decode before)
-                          :size size})
-        links (when (seq windowed)
-                (cursor/build-links path
-                                    (cursor/clamp-size size)
-                                    (when after prev-cursor)
-                                    next-cursor))]
+  (let [windowed (cursor/window items id-key :asc page)]
     {:status 200
-     :body (utility/assoc-seq {:items (mapv project windowed)} :links links)}))
+     :body (cursor/page-body path
+                             page
+                             (mapv project (:page windowed))
+                             windowed)}))
 
 (defn list-endpoints
   [request]
   (let [{:keys [auth parameters]} request
         {:keys [bank-id]} auth
         {:keys [page]} (:query parameters)
-        {:keys [after before size]} page
-        after-id (cursor/decode after)
-        before-id (cursor/decode before)
-        size (cursor/clamp-size size)
-        opts (utility/assoc-some {:limit size}
-                                 :after after-id
-                                 :before before-id)
-        result (webhook/get-endpoints (config request) bank-id opts)]
+        result (webhook/get-endpoints (config request)
+                                      bank-id
+                                      (cursor/page-opts page))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
-      (let [{:keys [endpoints] next-cursor :after prev-cursor :before} result
-            links (when (seq endpoints)
-                    (cursor/build-links "/v1/webhook-endpoints"
-                                        size
-                                        (when after-id prev-cursor)
-                                        next-cursor))]
-        {:status 200
-         :body (utility/assoc-seq {:items (mapv webhook/->body endpoints)}
-                                  :links
-                                  links)}))))
+      {:status 200
+       :body (cursor/page-body "/v1/webhook-endpoints"
+                               page
+                               (mapv webhook/->body (:endpoints result))
+                               result)})))
 
 (defn get-endpoint
   [request]
@@ -88,5 +64,5 @@
       (listing (:deliveries result)
                :delivery-id
                webhook/->delivery-body
-               (deliveries-path endpoint-id)
+               (cursor/request-path request)
                page))))

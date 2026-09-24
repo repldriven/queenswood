@@ -90,7 +90,7 @@
              :path-params {:migration-id [:ref :migration :migration-id]}
              :auth :org-0-token}
    :assert {:status 200
-            :body {:runs [{:run-id [:ref :preview :run-id]
+            :body {:items [{:run-id [:ref :preview :run-id]
                            :dry-run true}]}}}
   {:command :api/request
    :request {:method :get
@@ -107,4 +107,4 @@
     :path-params {:migration-id [:ref :migration :migration-id]
                   :run-id [:ref :preview :run-id]}
     :auth :org-0-token}
-   :assert {:status 200 :body {:accounts []}}}]}
+   :assert {:status 200 :body {:items []}}}]}

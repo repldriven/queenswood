@@ -60,7 +60,7 @@
                      [balance-examples/Balance])]
    :client-id BankId})
 
-(def BankList {:banks [(assoc Bank :owners [Owner])]})
+(def BankList {:items [(assoc Bank :owners [Owner])]})
 
 (def CreateBankRequest
   {:name "Galactic Bank"

@@ -4,7 +4,7 @@
     [com.repldriven.queenswood.api.bank.examples :as examples]
 
     [com.repldriven.queenswood.api-schema.interface :refer
-     [components-registry]]))
+     [components-registry list-schema]]))
 
 (def BankStatus
   (coercion/bank-status-enum-schema {:json-schema/example "test"}))
@@ -50,9 +50,7 @@
    [:created-at [:ref "Timestamp"]]
    [:updated-at [:ref "Timestamp"]]])
 
-(def BankList
-  [:map {:json-schema/example examples/BankList}
-   [:banks [:vector [:ref "Bank"]]]])
+(def BankList (list-schema "Bank" examples/BankList))
 
 (def CompanyBinding
   "The confirmed legal-entity snapshot a bank is bound to (onboarding

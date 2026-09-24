@@ -62,11 +62,12 @@
    (store/transact
     txn
     (fn [txn]
-      (let-nom> [banks (store/get-banks txn opts)]
-        (reduce (fn [acc bank]
-                  (let [result (enrich txn bank)]
-                    (if (error/anomaly? result)
-                      (reduced result)
-                      (conj acc result))))
-                []
-                banks))))))
+      (let-nom> [{:keys [banks] :as found} (store/get-banks txn opts)
+                 enriched (reduce (fn [acc bank]
+                                    (let [result (enrich txn bank)]
+                                      (if (error/anomaly? result)
+                                        (reduced result)
+                                        (conj acc result))))
+                                  []
+                                  banks)]
+        (assoc found :banks enriched))))))

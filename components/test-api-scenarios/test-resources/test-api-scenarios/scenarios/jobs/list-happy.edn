@@ -28,7 +28,7 @@
    :assert
    {:status 200
     :body
-    {:jobs [:m/embeds
+    {:items [:m/embeds
             [{:job-id "daily-interest"
               :name "Daily interest"
               :kind "user"

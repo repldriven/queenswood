@@ -5,7 +5,9 @@
     [com.repldriven.queenswood.balance-query.interface :as balances]
     [com.repldriven.queenswood.cash-account-query.interface :as cash-accounts]
 
-    [com.repldriven.mono.error.interface :as error :refer [let-nom>]]))
+    [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
+
+    [clojure.set :as set]))
 
 (defn list-balances
   [request]
@@ -18,8 +20,8 @@
                  [_ (cash-accounts/get-account config
                                                bank-id
                                                account-id)
-                  balances (balances/get-balances config bank-id account-id)]
-                 balances)]
+                  found (balances/get-balances config bank-id account-id)]
+                 (set/rename-keys found {:balances :items}))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       {:status 200 :body result})))

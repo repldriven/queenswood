@@ -3,11 +3,9 @@
     [com.repldriven.queenswood.api.cursor :as cursor]
     [com.repldriven.queenswood.api.errors :as errors]
 
-    [com.repldriven.queenswood.payment-api.interface :as coercion]
     [com.repldriven.queenswood.payment-query.interface :as payments]
 
-    [com.repldriven.mono.error.interface :as error]
-    [com.repldriven.mono.utility.interface :as utility]))
+    [com.repldriven.mono.error.interface :as error]))
 
 (def ^:private not-found
   {:status 404
@@ -46,32 +44,17 @@
   [request]
   (read-payment payments/find-inbound-payment request))
 
-(defn- inbound-path
-  [status]
-  (str "/v1/payments/inbound?status="
-       (coercion/encode-inbound-payment-status status)))
-
 (defn list-inbound-payments
   [request]
   (let [{:keys [auth parameters]} request
         {:keys [bank-id]} auth
-        {:keys [query]} parameters
-        {:keys [status page]} query
-        {:keys [after before size]} page
+        {:keys [status page]} (:query parameters)
         result (payments/list-inbound-payments request bank-id status)]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
-      (let [{windowed :page next-cursor :after prev-cursor :before}
-            (cursor/paginate result
-                             :payment-id
-                             :desc
-                             {:after (cursor/decode after)
-                              :before (cursor/decode before)
-                              :size size})
-            links (when (seq windowed)
-                    (cursor/build-links (inbound-path status)
-                                        (cursor/clamp-size size)
-                                        (when after prev-cursor)
-                                        next-cursor))]
+      (let [windowed (cursor/window result :payment-id :desc page)]
         {:status 200
-         :body (utility/assoc-seq {:items windowed} :links links)}))))
+         :body (cursor/page-body (cursor/request-path request)
+                                 page
+                                 (:page windowed)
+                                 windowed)}))))

@@ -26,7 +26,7 @@
    :assert
    {:status 200
     :body
-    {:ledger-accounts
+    {:items
      [:m/embeds
       [{:gl-code "2100"
         :gl-account-class "control"

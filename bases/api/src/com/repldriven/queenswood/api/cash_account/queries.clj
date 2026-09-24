@@ -14,46 +14,34 @@
   [request]
   (let [{:keys [record-db record-store auth parameters]} request
         {:keys [bank-id]} auth
-        {:keys [query]} parameters
-        {:keys [page embed]} query
-        {:keys [after before size]} page
+        {:keys [page embed]} (:query parameters)
         {embed-balances :balances embed-transactions :transactions} embed
-        after-id (cursor/decode after)
-        before-id (cursor/decode before)
-        size (cursor/clamp-size size)
-        opts (utility/assoc-some {:limit size}
-                                 :after after-id
-                                 :before before-id
+        opts (utility/assoc-some (cursor/page-opts page)
                                  :embed-balances embed-balances
                                  :embed-transactions embed-transactions)
         result (cash-accounts/get-accounts
-                {:record-db record-db
-                 :record-store record-store}
+                {:record-db record-db :record-store record-store}
                 bank-id
                 opts)]
-
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       ;; Skip any account whose product-type reads back unset — proto2
       ;; deserialises an absent enum as `:product-type-unknown`.
-      (let [{:keys [accounts before after]} result
-            customer-accounts (mapv
-                               cash-account-api/->body
-                               (filterv
-                                (fn [a]
-                                  (let [pt (:product-type a)]
-                                    (and (some? pt)
-                                         (not= :product-type-unknown pt))))
-                                accounts))
-            links (when (seq customer-accounts)
-                    (cursor/build-links "/v1/cash-accounts"
-                                        size
-                                        (when after-id before)
-                                        after))]
+      (let [customer-accounts (into []
+                                    (comp (filter (fn [a]
+                                                    (let [pt (:product-type a)]
+                                                      (and
+                                                       (some? pt)
+                                                       (not=
+                                                        :product-type-unknown
+                                                        pt)))))
+                                          (map cash-account-api/->body))
+                                    (:accounts result))]
         {:status 200
-         :body (utility/assoc-seq {:cash-accounts customer-accounts}
-                                  :links
-                                  links)}))))
+         :body (cursor/page-body (cursor/request-path request)
+                                 page
+                                 customer-accounts
+                                 result)}))))
 
 (defn get-cash-account
   [request]
@@ -78,15 +66,20 @@
   [request]
   (let [{:keys [record-db record-store auth parameters]} request
         {:keys [bank-id]} auth
-        {:keys [path]} parameters
+        {:keys [path query]} parameters
         {:keys [account-id]} path
+        {:keys [page]} query
         config {:record-db record-db :record-store record-store}
         result (error/let-nom>
-                 [_ (cash-accounts/get-account config
-                                               bank-id
-                                               account-id)
-                  txns (transactions/get-transactions config account-id)]
-                 txns)]
+                 [_ (cash-accounts/get-account config bank-id account-id)
+                  found (transactions/page-transactions config
+                                                        account-id
+                                                        (cursor/page-opts
+                                                         page))]
+                 (cursor/page-body (cursor/request-path request)
+                                   page
+                                   (:transactions found)
+                                   found))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
-      {:status 200 :body {:transactions (or result [])}})))
+      {:status 200 :body result})))

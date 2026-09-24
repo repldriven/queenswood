@@ -1495,7 +1495,7 @@
 (defmethod dispatch :assert-migration-verdicts
   [{:keys [bank banks last-preview] :as ctx} {[model-bank expected] :args}]
   (let [{bank-real-id :real-id} (get banks model-bank)
-        rows
+        {rows :account-runs}
         (migrations/list-run-accounts bank bank-real-id (:run-id last-preview))
         ;; An ineligible verdict is counted by its reason, which is
         ;; the useful grouping; anything else by its outcome.

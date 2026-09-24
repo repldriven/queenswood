@@ -332,7 +332,8 @@
     #'memberships/find-invitation (fn [& _] stored-invitation)
     #'memberships/find-invitation-for-recipient (fn [& _] stored-invitation)
     #'memberships/list-active-by-bank (fn [& _] [stored-membership])
-    #'memberships/list-invitations-by-bank (fn [& _] [stored-invitation])
+    #'memberships/page-invitations-by-bank (fn [& _]
+                                             {:invitations [stored-invitation]})
     #'memberships/list-pending-invitations-by-email (fn [& _]
                                                       [stored-invitation])
     #'memberships/list-access-events
@@ -524,8 +525,8 @@
                       find-person
                       #'memberships/find-invitation
                       invitation-in
-                      #'memberships/list-invitations-by-bank
-                      (fn [& _] [accepted-invitation]))
+                      #'memberships/page-invitations-by-bank
+                      (fn [& _] {:invitations [accepted-invitation]}))
                (fn []
                  (testing "found, as the list shows it"
                    (let [{:keys [status body]}

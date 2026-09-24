@@ -357,7 +357,7 @@
                legs (platform/list-transactions client (:account-id opened))]
       {:account (domain/account recorded
                                 platform-account
-                                (:transactions legs)
+                                legs
                                 product
                                 today)
        :deposit moved})))
@@ -383,7 +383,7 @@
                                                    (:account-id account))]
                                     (assoc m
                                            (:account-id account)
-                                           (:transactions legs))))
+                                           legs)))
                                 {}
                                 held)
                accounts (reduce

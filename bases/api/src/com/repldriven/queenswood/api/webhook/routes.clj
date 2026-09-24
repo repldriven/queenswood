@@ -17,9 +17,6 @@
 
     [com.repldriven.mono.server.interface :as server]))
 
-(def ^:private list-endpoints-query-schema
-  [:map {:closed true} [:page {:optional true} [:ref "PageQuery"]]])
-
 (def ^:private list-deliveries-query-schema
   [:map {:closed true}
    [:filter {:optional true} [:ref "WebhookDeliveryFilterQuery"]]
@@ -38,7 +35,7 @@
                       :parameters ^:replace
                                   [shared.parameters/ref-page
                                    shared.parameters/ref-bank-id-header]}
-            :parameters {:query list-endpoints-query-schema}
+            :parameters {:query shared.parameters/page-query}
             :responses {200 {:description "The bank's webhook endpoints."
                              :body [:ref "WebhookEndpointList"]}}
             :handler queries/list-endpoints}

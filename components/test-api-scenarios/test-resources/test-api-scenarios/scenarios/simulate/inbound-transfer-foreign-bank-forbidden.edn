@@ -69,7 +69,7 @@
    :assert {:status 200
             :body {:available-balance [:ref :b-before :available-balance]
                    :posted-balance [:ref :b-before :posted-balance]
-                   :balances [:m/in-any-order [:ref :b-before :balances]]}}}
+                   :items [:m/in-any-order [:ref :b-before :items]]}}}
   ;; A's token on A's own path is untouched by the check.
   {:command :api/request
    :request {:method :post

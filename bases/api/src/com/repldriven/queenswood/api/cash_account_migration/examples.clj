@@ -88,7 +88,7 @@
    :created-at "2025-01-02T02:00:00Z"
    :updated-at "2025-01-02T02:00:00Z"})
 
-(def MigrationList {:migrations [Migration]})
+(def MigrationList {:items [Migration]})
 
 (def MigrationCreate
   {:name "Super-saver to mega-saver"
@@ -112,7 +112,7 @@
    :accounts-ineligible 412
    :accounts-failed 0})
 
-(def MigrationRunList {:runs [MigrationRun]})
+(def MigrationRunList {:items [MigrationRun]})
 
 (def MigrationAccountRun
   {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
@@ -124,4 +124,4 @@
    :ineligibility :currency-not-allowed
    :created-at "2025-01-02T02:00:10Z"})
 
-(def MigrationAccountRunList {:accounts [MigrationAccountRun]})
+(def MigrationAccountRunList {:items [MigrationAccountRun]})

@@ -176,10 +176,10 @@
  [{:command :api/poll
    :request {:method :get
              :path "/v1/ledger-accounts/{account-id}/balances"
-             :path-params {:account-id [:ref-find :ledgers :ledger-accounts
+             :path-params {:account-id [:ref-find :ledgers :items
                                         :gl-code "2500" :account-id]}
              :auth :org-0-token}
-   :until {:status 200 :body {:balances [:m/embeds [{:credit 4200 :debit 0}]]}}
+   :until {:status 200 :body {:items [:m/embeds [{:credit 4200 :debit 0}]]}}
    :timeout-ms 10000}
   ;; The credit was refused, not lost: the closed account's own
   ;; balance did not move.

@@ -117,14 +117,19 @@
         ;; Native scan yields low-to-high forward, high-to-low reverse.
         page (if (= reverse-scan? descending?)
                trimmed
-               (vec (rseq trimmed)))]
+               (vec (rseq trimmed)))
+        ;; Paging back from `before`, the rows beyond the limit lie
+        ;; before the page and the cursor's own row after it; paging
+        ;; forward it is the other way round.
+        rows-before? (if before more? (some? after))
+        rows-after? (if before true more?)]
     {:entries (mapv (fn [r]
                       {:key (cursor r prefix-size)
                        :record (record->bytes r)})
                     page)
-     :before (when (seq page)
+     :before (when (and rows-before? (seq page))
                (cursor (first page) prefix-size))
-     :after (when more?
+     :after (when (and rows-after? (seq page))
               (cursor (peek page) prefix-size))}))
 
 (defn scan

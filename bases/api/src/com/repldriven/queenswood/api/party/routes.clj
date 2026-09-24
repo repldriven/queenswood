@@ -18,9 +18,6 @@
 
     [com.repldriven.mono.server.interface :as server]))
 
-(def ^:private list-parties-query-schema
-  [:map {:closed true} [:page {:optional true} [:ref "PageQuery"]]])
-
 (def ^:private get-party-query-schema
   [:map {:closed true} [:embed {:optional true} [:ref "PartyEmbedQuery"]]])
 
@@ -36,7 +33,7 @@
                       :parameters ^:replace
                                   [shared.parameters/ref-page
                                    shared.parameters/ref-bank-id-header]}
-            :parameters {:query list-parties-query-schema}
+            :parameters {:query shared.parameters/page-query}
             :responses {200 {:description "One page of the bank's parties."
                              :body [:ref "PartyList"]}}
             :handler queries/list-parties}

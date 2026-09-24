@@ -26,7 +26,7 @@
 
 (def BalanceList
   [:map {:json-schema/example examples/BalanceList}
-   [:balances [:vector [:ref "Balance"]]]
+   [:items [:vector [:ref "Balance"]]]
    [:posted-balance [:ref "SignedAmount"]]
    [:available-balance [:ref "SignedAmount"]]])
 

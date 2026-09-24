@@ -8,4 +8,4 @@
 (def Tier
   {:tier "micro" :description "Micro tier policy - capabilities and limits"})
 
-(def TierList {:tiers [Tier]})
+(def TierList {:items [Tier]})

@@ -50,13 +50,15 @@
   (core/get-migration txn bank-id migration-id))
 
 (defn list-migrations
-  "A bank's migrations, newest first. Returns a vector, empty when the
-  bank has authored none.
+  "One page of a bank's migrations, newest first. Returns
+  `{:migrations [...] :before id|nil :after id|nil}`, the cursors set
+  only where migrations lie on that side of the page.
 
   Args:
   - txn: FDB transaction or db handle.
   - bank-id: owning bank id.
-  - opts (optional): `:limit` and `:order` (`:desc` by default)."
+  - opts (optional): `:after`, `:before`, `:limit` (default 1000) and
+    `:order` (`:desc` by default)."
   ([txn bank-id]
    (core/list-migrations txn bank-id))
   ([txn bank-id opts]
@@ -186,14 +188,16 @@
   (core/list-runs txn bank-id migration-id))
 
 (defn list-run-accounts
-  "The per-account verdicts one run recorded, in account order. This is
-  what a preview is read for: which accounts would not move, and why.
+  "One page of the per-account verdicts one run recorded, in account
+  order. This is what a preview is read for: which accounts would not
+  move, and why. Returns `{:account-runs [...] :before id|nil :after
+  id|nil}`, the cursors set only where verdicts lie on that side.
 
   Args:
   - txn: FDB transaction or db handle.
   - bank-id: owning bank id.
   - run-id: the run whose verdicts to list.
-  - opts (optional): `:limit`."
+  - opts (optional): `:after`, `:before` and `:limit` (default 1000)."
   ([txn bank-id run-id]
    (core/list-run-accounts txn bank-id run-id))
   ([txn bank-id run-id opts]

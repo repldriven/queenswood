@@ -123,15 +123,8 @@
    [:from [:ref "Timestamp"]]
    [:to {:optional true} [:ref "Timestamp"]]])
 
-(def WebhookListLinks
-  [:map
-   [:next {:optional true} string?]
-   [:prev {:optional true} string?]])
-
 (def WebhookEndpointList
-  [:map {:json-schema/example examples/WebhookEndpointList}
-   [:items [:vector [:ref "WebhookEndpoint"]]]
-   [:links {:optional true} [:ref "WebhookListLinks"]]])
+  (schema/list-schema "WebhookEndpoint" examples/WebhookEndpointList))
 
 (def WebhookDelivery
   [:map {:json-schema/example examples/delivery}
@@ -176,9 +169,7 @@
     [:ref "Timestamp"]]])
 
 (def WebhookDeliveryList
-  [:map {:json-schema/example examples/WebhookDeliveryList}
-   [:items [:vector [:ref "WebhookDelivery"]]]
-   [:links {:optional true} [:ref "WebhookListLinks"]]])
+  (schema/list-schema "WebhookDelivery" examples/WebhookDeliveryList))
 
 (def ^:private endpoint-registry
   (components-registry
@@ -186,7 +177,7 @@
     #'WebhookDeliveryId #'WebhookDeliveryList #'WebhookDeliveryStatus
     #'WebhookEndpoint #'WebhookEndpointEnableRequest #'WebhookEndpointId
     #'WebhookEndpointList #'WebhookEndpointRegistration #'WebhookEndpointRequest
-    #'WebhookEndpointSecretRotation #'WebhookEndpointStatus #'WebhookListLinks
+    #'WebhookEndpointSecretRotation #'WebhookEndpointStatus
     #'WebhookNotificationId #'WebhookNotificationKind
     #'WebhookResendWindowRequest #'WebhookSigningSecret]))
 

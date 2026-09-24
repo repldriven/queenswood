@@ -1,5 +1,6 @@
 (ns com.repldriven.queenswood.api.cash-account-migration.queries
   (:require
+    [com.repldriven.queenswood.api.cursor :as cursor]
     [com.repldriven.queenswood.api.errors :as errors]
 
     [com.repldriven.queenswood.cash-account-migration.interface :as migrations]
@@ -13,10 +14,16 @@
 (defn list-migrations
   [request]
   (let [{:keys [bank-id]} (:auth request)
+        {:keys [page]} (:query (:parameters request))
         result (let-nom>
-                 [migrations (migrations/list-migrations (config request)
-                                                         bank-id)]
-                 {:migrations migrations})]
+                 [{:keys [migrations] :as found}
+                  (migrations/list-migrations (config request)
+                                              bank-id
+                                              (cursor/page-opts page))]
+                 (cursor/page-body "/v1/cash-account-migrations"
+                                   page
+                                   migrations
+                                   found))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       {:status 200 :body result})))
@@ -33,7 +40,9 @@
 (defn list-runs
   [request]
   (let [{:keys [bank-id]} (:auth request)
-        {:keys [migration-id]} (:path (:parameters request))
+        {:keys [path query]} (:parameters request)
+        {:keys [migration-id]} path
+        {:keys [page]} query
         result (let-nom>
                  ;; Reading the migration first turns an unknown id into
                  ;; a 404 rather than an empty list, which would read as
@@ -43,8 +52,14 @@
                                               migration-id)
                   runs (migrations/list-runs (config request)
                                              bank-id
-                                             migration-id)]
-                 {:runs runs})]
+                                             migration-id)
+                  windowed (cursor/window runs :run-id :desc page)]
+                 (cursor/page-body (str "/v1/cash-account-migrations/"
+                                        migration-id
+                                        "/previews")
+                                   page
+                                   (:page windowed)
+                                   windowed))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       {:status 200 :body result})))
@@ -68,7 +83,9 @@
 (defn list-run-accounts
   [request]
   (let [{:keys [bank-id]} (:auth request)
-        {:keys [migration-id run-id]} (:path (:parameters request))
+        {:keys [path query]} (:parameters request)
+        {:keys [migration-id run-id]} path
+        {:keys [page]} query
         result (let-nom>
                  [run (migrations/get-run (config request) bank-id run-id)
                   _ (when-not (= migration-id (:migration-id run))
@@ -76,10 +93,19 @@
                                     {:message "Migration run not found"
                                      :migration-id migration-id
                                      :run-id run-id}))
-                  accounts (migrations/list-run-accounts (config request)
-                                                         bank-id
-                                                         run-id)]
-                 {:accounts accounts})]
+                  {:keys [account-runs] :as found}
+                  (migrations/list-run-accounts (config request)
+                                                bank-id
+                                                run-id
+                                                (cursor/page-opts page))]
+                 (cursor/page-body (str "/v1/cash-account-migrations/"
+                                        migration-id
+                                        "/previews/"
+                                        run-id
+                                        "/accounts")
+                                   page
+                                   account-runs
+                                   found))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       {:status 200 :body result})))

@@ -76,6 +76,34 @@
   (testing "a key with one element past the prefix stays a scalar"
     (is (= ["o1" "o2" "o3"] (page-keys config "owners" 2)))))
 
+(defn- page-cursors
+  "One page of owners, as the keys it holds and its two cursors."
+  [config opts]
+  (SUT/transact
+   config
+   (fn [txn]
+     (let [page (SUT/scan-record-entries (SUT/open txn "owners")
+                                         (merge {:prefix [household] :limit 1}
+                                                opts))]
+       [(mapv :key (:entries page)) (:before page) (:after page)]))))
+
+(defn- test-page-cursors
+  [config]
+  (testing "a cursor is set only on a side with rows"
+    (is (= [["o1"] nil "o1"] (page-cursors config {})))
+    (is (= [["o2"] "o2" "o2"] (page-cursors config {:after "o1"})))
+    (is (= [["o3"] "o3" nil] (page-cursors config {:after "o2"}))))
+
+  (testing "paging back keeps both sides until the head"
+    (is (= [["o2"] "o2" "o2"] (page-cursors config {:before "o3"})))
+    (is (= [["o1"] nil "o1"] (page-cursors config {:before "o2"}))))
+
+  (testing "descending, the cursors follow the display order"
+    (is (= [["o3"] nil "o3"] (page-cursors config {:order :desc})))
+    (is (= [["o2"] "o2" "o2"] (page-cursors config {:order :desc :after "o3"})))
+    (is (= [["o3"] nil "o3"]
+           (page-cursors config {:order :desc :before "o2"})))))
+
 (defn- test-merge-outer
   [config]
   (testing "pairs both stores on the shared key, keeping unmatched keys"
@@ -153,6 +181,7 @@
                  :record-store (system/instance sys [:fdb :pet-store])}]
      (is (not (error/anomaly? (seed config))))
      (test-composite-cursor config)
+     (test-page-cursors config)
      (test-merge-outer config)
      (test-merge-short-circuit config)
      (test-merge-empty-side config))))

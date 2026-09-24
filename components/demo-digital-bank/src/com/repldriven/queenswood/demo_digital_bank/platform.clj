@@ -135,11 +135,24 @@
          :path (str "/v1/cash-accounts/" account-id)
          :query {"embed[balances]" "true"}}))
 
+(defn- every-page
+  "Every item of a paged list, following each page's `links.next`, or
+  the first page's refusal."
+  [client path]
+  (loop [path (str path "?page[size]=100")
+         items []]
+    (let [page (call client {:method :get :path path})]
+      (if (error/anomaly? page)
+        page
+        (let [items (into items (:items page))]
+          (if-let [next-path (get-in page [:links :next])]
+            (recur next-path items)
+            items))))))
+
 (defn list-transactions
+  "Every leg on the account, newest first."
   [client account-id]
-  (call client
-        {:method :get
-         :path (str "/v1/cash-accounts/" account-id "/transactions")}))
+  (every-page client (str "/v1/cash-accounts/" account-id "/transactions")))
 
 (defn open-account
   "Open an account for a party against a product, under

@@ -31,4 +31,4 @@
                    :path "/v1/jobs/{job-id}/runs"
                    :path-params {:job-id "daily-interest"}
                    :auth :org-0-token}
-         :assert {:status 200 :body {:runs []}}}]}
+         :assert {:status 200 :body {:items []}}}]}

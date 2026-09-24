@@ -122,6 +122,12 @@
    :required true
    :schema {:$ref "#/components/schemas/MigrationId"}})
 
+(def MigrationRunId
+  {:name "run-id"
+   :in "path"
+   :required true
+   :schema {:$ref "#/components/schemas/MigrationRunId"}})
+
 (def EndpointId
   {:name "endpoint-id"
    :in "path"
@@ -164,6 +170,11 @@
    :explode true
    :schema {:$ref "#/components/schemas/PartyEmbedQuery"}})
 
+(def page-query
+  "Malli `:query` schema of a paged list with no other query parameter:
+  the optional `page` object and nothing else."
+  [:map {:closed true} [:page {:optional true} [:ref "PageQuery"]]])
+
 (def ref-idempotency-key {:$ref "#/components/parameters/IdempotencyKey"})
 (def ref-page {:$ref "#/components/parameters/PageQuery"})
 (def ref-embed {:$ref "#/components/parameters/EmbedQuery"})
@@ -176,6 +187,7 @@
 (def ref-party-id {:$ref "#/components/parameters/PartyId"})
 (def ref-job-id {:$ref "#/components/parameters/JobId"})
 (def ref-migration-id {:$ref "#/components/parameters/MigrationId"})
+(def ref-migration-run-id {:$ref "#/components/parameters/MigrationRunId"})
 (def ref-endpoint-id {:$ref "#/components/parameters/EndpointId"})
 (def ref-delivery-id {:$ref "#/components/parameters/DeliveryId"})
 (def ref-delivery-filter {:$ref "#/components/parameters/DeliveryFilterQuery"})
@@ -197,6 +209,7 @@
    "PartyId" PartyId
    "JobId" JobId
    "MigrationId" MigrationId
+   "MigrationRunId" MigrationRunId
    "EndpointId" EndpointId
    "DeliveryId" DeliveryId
    "DeliveryFilterQuery" DeliveryFilterQuery

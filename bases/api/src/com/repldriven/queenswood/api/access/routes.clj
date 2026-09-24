@@ -16,9 +16,6 @@
 
     [com.repldriven.mono.server.interface :as server]))
 
-(def ^:private list-access-events-query-schema
-  [:map {:closed true} [:page {:optional true} [:ref "PageQuery"]]])
-
 (def ^:private optional-reason [:maybe [:ref "ReasonRequest"]])
 
 ;; `:maybe` lets the body be left out; the document says so with
@@ -41,12 +38,15 @@
             :openapi {:operationId "ListMyInvitations"
                       :description
                       (str "Pending, unexpired invitations from any bank to "
-                           "the email in the caller's token. The list is "
-                           "empty when that email is not verified.")}
-            :responses {200 {:description (str "Pending, unexpired "
+                           "the email in the caller's token, newest first, a "
+                           "page at a time. The list is empty when that "
+                           "email is not verified.")
+                      :parameters ^:replace [shared.parameters/ref-page]}
+            :parameters {:query shared.parameters/page-query}
+            :responses {200 {:description (str "A page of pending, unexpired "
                                                "invitations, none when the "
                                                "email is not verified.")
-                             :body [:ref "RecipientInvitations"]}}
+                             :body [:ref "RecipientInvitationList"]}}
             :handler handlers/list-my-invitations}}]
     ["/{invitation-id}"
      {:parameters {:path {:invitation-id [:ref "InvitationId"]}}}
@@ -121,17 +121,21 @@
    ["/members"
     {:openapi {:tags ["Access"]}}
     [""
-     {:openapi {:security (gate "org:viewer")
-                :parameters [shared.parameters/ref-bank-id-header]}
+     {:openapi {:security (gate "org:viewer")}
       :get {:summary "List the bank's active members"
             :openapi {:operationId "ListMembers"
                       :description
                       (str "Members of the bank the `Bank-Id` header names, "
-                           "each with their name, email, role, when they "
-                           "joined and who invited them. The founding owner "
-                           "is marked as having created the organisation.")}
-            :responses {200 {:description "The bank's active members."
-                             :body [:ref "Members"]}}
+                           "in the order they joined, a page at a time, each "
+                           "with their name, email, role, when they joined "
+                           "and who invited them. The founding owner is "
+                           "marked as having created the organisation.")
+                      :parameters ^:replace
+                                  [shared.parameters/ref-page
+                                   shared.parameters/ref-bank-id-header]}
+            :parameters {:query shared.parameters/page-query}
+            :responses {200 {:description "A page of the bank's active members."
+                             :body [:ref "MemberList"]}}
             :handler handlers/list-members}}]
     ["/{membership-id}"
      {:parameters {:path {:membership-id [:ref "MembershipId"]}}}
@@ -199,11 +203,15 @@
                            "bank the `Bank-Id` header names, an accepted one "
                            "with the address that "
                            "accepted it. Declined and withdrawn invitations "
-                           "appear only in the access events.")
+                           "appear only in the access events. Newest first, "
+                           "a page at a time.")
                       :security (gate "org:viewer")
-                      :parameters [shared.parameters/ref-bank-id-header]}
-            :responses {200 {:description "The bank's invitations."
-                             :body [:ref "Invitations"]}}
+                      :parameters ^:replace
+                                  [shared.parameters/ref-page
+                                   shared.parameters/ref-bank-id-header]}
+            :parameters {:query shared.parameters/page-query}
+            :responses {200 {:description "A page of the bank's invitations."
+                             :body [:ref "InvitationList"]}}
             :handler handlers/list-invitations}
       :post
       {:summary "Invite a person to the bank by email"
@@ -310,7 +318,7 @@
                      :parameters ^:replace
                                  [shared.parameters/ref-page
                                   shared.parameters/ref-bank-id-header]}
-           :parameters {:query list-access-events-query-schema}
+           :parameters {:query shared.parameters/page-query}
            :responses {200 {:description "One page of the bank's access events."
-                            :body [:ref "AccessEvents"]}}
+                            :body [:ref "AccessEventList"]}}
            :handler handlers/list-access-events}}]])

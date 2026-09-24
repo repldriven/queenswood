@@ -55,22 +55,21 @@
    :transaction/find-by-idempotency-key
    "Failed to find transaction by idempotency key"))
 
-(defn get-transactions
-  ([txn account-id]
-   (get-transactions txn account-id nil))
-  ([txn account-id opts]
-   (fdb/transact
-    txn
-    (fn [txn]
-      (let [{:keys [limit order] :or {limit 1000 order :desc}} opts
-            leg-store (fdb/open txn legs-store-name)
-            txn-store (fdb/open txn store-name)
-            legs (mapv schema/pb->TransactionLeg
-                       (:records (fdb/scan-records
-                                  leg-store
-                                  {:prefix [account-id]
-                                   :limit limit
-                                   :order order})))]
+(defn page-transactions
+  [txn account-id opts]
+  (fdb/transact
+   txn
+   (fn [txn]
+     (let [{:keys [after before limit order] :or {limit 1000 order :desc}} opts
+           leg-store (fdb/open txn legs-store-name)
+           txn-store (fdb/open txn store-name)
+           result (fdb/scan-records leg-store
+                                    {:prefix [account-id]
+                                     :after after
+                                     :before before
+                                     :limit limit
+                                     :order order})]
+       {:transactions
         (mapv (fn [leg]
                 (let [txn-record (fdb/load-record txn-store
                                                   (:transaction-id leg))
@@ -78,9 +77,17 @@
                                (schema/pb->Transaction txn-record))]
                   (merge leg
                          (select-keys parent
-                                      [:transaction-type
-                                       :status
-                                       :reference]))))
-              legs)))
-    :transaction/list
-    "Failed to list account transactions")))
+                                      [:transaction-type :status :reference]))))
+              (map schema/pb->TransactionLeg (:records result)))
+        :before (:before result)
+        :after (:after result)}))
+   :transaction/list
+   "Failed to list account transactions"))
+
+(defn get-transactions
+  ([txn account-id]
+   (get-transactions txn account-id nil))
+  ([txn account-id opts]
+   (error/let-nom> [{:keys [transactions]}
+                    (page-transactions txn account-id opts)]
+     transactions)))

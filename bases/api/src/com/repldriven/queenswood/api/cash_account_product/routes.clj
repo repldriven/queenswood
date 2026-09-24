@@ -18,9 +18,6 @@
 
     [com.repldriven.mono.server.interface :as server]))
 
-(def ^:private list-products-query-schema
-  [:map {:closed true} [:page {:optional true} [:ref "PageQuery"]]])
-
 (def routes
   [["/cash-account-product-templates"
     {:openapi {:tags ["Cash Account Products"]}}
@@ -53,7 +50,7 @@
                       :parameters ^:replace
                                   [shared.parameters/ref-page
                                    shared.parameters/ref-bank-id-header]}
-            :parameters {:query list-products-query-schema}
+            :parameters {:query shared.parameters/page-query}
             :responses {200 {:description
                              "The bank's products, each with its versions."
                              :body [:ref "CashAccountProductList"]}}

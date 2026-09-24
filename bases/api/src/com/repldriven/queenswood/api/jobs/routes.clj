@@ -19,15 +19,18 @@
   [["/jobs"
     {:openapi {:tags ["Jobs"]}}
     [""
-     {:openapi {:security [{"bearerAuth" ["org:viewer"]}]
-                :parameters [shared.parameters/ref-bank-id-header]}
+     {:openapi {:security [{"bearerAuth" ["org:viewer"]}]}
       :get {:summary "List scheduled jobs"
             :openapi {:operationId "ListJobs"
                       :description
-                      (str "The bank's system and user jobs, each with its "
-                           "schedule, the cadences its tasks allow and when "
-                           "it next runs.")}
-            :responses {200 {:description "The bank's jobs."
+                      (str "The bank's system and user jobs, a page at a "
+                           "time, each with its schedule, the cadences its "
+                           "tasks allow and when it next runs.")
+                      :parameters ^:replace
+                                  [shared.parameters/ref-page
+                                   shared.parameters/ref-bank-id-header]}
+            :parameters {:query shared.parameters/page-query}
+            :responses {200 {:description "A page of the bank's jobs."
                              :body [:ref "JobList"]}}
             :handler queries/list-jobs}}]
     ["/{job-id}"
@@ -69,10 +72,16 @@
        {:get {:summary "List a job's runs"
               :openapi {:operationId "ListJobRuns"
                         :description
-                        "The job's scheduled and forced runs, newest first."
+                        (str "The job's scheduled and forced runs, newest "
+                             "first, a page at a time.")
                         :security [{"bearerAuth" ["org:viewer"]}]
-                        :parameters [shared.parameters/ref-bank-id-header]}
-              :responses {200 {:description "The job's runs, newest first."
+                        :parameters ^:replace
+                                    [shared.parameters/ref-job-id
+                                     shared.parameters/ref-page
+                                     shared.parameters/ref-bank-id-header]}
+              :parameters {:query shared.parameters/page-query}
+              :responses {200 {:description
+                               "A page of the job's runs, newest first."
                                :body [:ref "RunList"]}
                           404 (ErrorResponse [#'JobNotFound])}
               :handler queries/list-runs}

@@ -123,7 +123,7 @@
              :path-params {:account-id [:ref :account :account-id]}
              :auth :org-0-token}
    :assert {:status 200
-            :body {:transactions [:m/embeds
+            :body {:items [:m/embeds
                                   [{:reference "Welcome reward"
                                     :transaction-type "reward"
                                     :side "credit"

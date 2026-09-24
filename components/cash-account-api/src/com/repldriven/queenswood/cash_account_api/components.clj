@@ -75,12 +75,7 @@
 (def CreateCashAccountResponse [:ref "CashAccount"])
 
 (def CashAccountList
-  [:map {:json-schema/example examples/CashAccountList}
-   [:cash-accounts [:vector [:ref "CashAccount"]]]
-   [:links {:optional true}
-    [:map
-     [:next {:optional true} string?]
-     [:prev {:optional true} string?]]]])
+  (schema/list-schema "CashAccount" examples/CashAccountList))
 
 (def CloseCashAccountResponse [:ref "CashAccount"])
 

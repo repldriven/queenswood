@@ -28,6 +28,21 @@ async function request(path, opts = {}) {
   return { status: res.status, body };
 }
 
+// Every page of a paged list, following each page's `links.next`, as
+// one `{ status, body: { items } }`; the first page that fails is
+// returned as it came.
+async function all_pages(path) {
+  const items = [];
+  let next = path;
+  while (next) {
+    const res = await request(next);
+    if (res.status < 200 || res.status >= 300) return res;
+    items.push(...(res.body?.items ?? []));
+    next = res.body?.links?.next ?? null;
+  }
+  return { status: 200, body: { items } };
+}
+
 // Mutations get an `Idempotency-Key` so a retried POST/PUT/DELETE
 // doesn't double-apply on the server side. Same convention bank-app
 // uses; bank-api keys against this header to dedupe.
@@ -101,7 +116,7 @@ export function list_cash_account_product_templates() {
 }
 
 export function list_cash_account_products() {
-  return request("/v1/cash-account-products");
+  return all_pages("/v1/cash-account-products");
 }
 
 export function create_cash_account_product(data) {
@@ -157,7 +172,7 @@ export function publish_cash_account_product(product_id, version_id) {
 // console renders Edit disabled.
 
 export function list_cash_account_migrations() {
-  return request("/v1/cash-account-migrations");
+  return all_pages("/v1/cash-account-migrations");
 }
 
 export function get_cash_account_migration(migration_id) {
@@ -193,11 +208,11 @@ export function preview_cash_account_migration(migration_id) {
   });
 }
 
-// The per-account verdicts one run recorded. Unpaginated and
-// unfiltered server-side today, so the outcomes panel filters and pages
-// in the browser; see the note on the Migrations screen.
+// The per-account verdicts one run recorded, every page of them. They
+// are unfiltered server-side, so the outcomes panel filters and pages in
+// the browser; see the note on the Migrations screen.
 export function list_cash_account_migration_run_accounts(migration_id, run_id) {
-  return request(
+  return all_pages(
     `/v1/cash-account-migrations/${migration_id}/previews/${run_id}/accounts`,
   );
 }
@@ -249,7 +264,7 @@ export function list_my_effective_policies() {
 // edits aren't surfaced yet.
 
 export function list_jobs() {
-  return request("/v1/jobs");
+  return all_pages("/v1/jobs");
 }
 
 export function list_job_runs(job_id) {
@@ -283,7 +298,7 @@ export function update_job_schedule(job_id, body) {
 // per-field detail until the read endpoint surfaces it.
 
 export function list_parties() {
-  return request("/v1/parties");
+  return all_pages("/v1/parties");
 }
 
 // Fetch a party. Pass `embed` (e.g. ["person-identification", "address",
@@ -329,7 +344,7 @@ export function get_cash_account_balances(account_id) {
 }
 
 export function get_cash_account_transactions(account_id) {
-  return request(`/v1/cash-accounts/${account_id}/transactions`);
+  return all_pages(`/v1/cash-accounts/${account_id}/transactions?page[size]=100`);
 }
 
 export function open_cash_account(data) {
@@ -405,7 +420,7 @@ function with_reason(reason) {
 }
 
 export function list_members() {
-  return request("/v1/members");
+  return all_pages("/v1/members");
 }
 
 export function change_member_role(membership_id, { role, reason }) {
@@ -429,7 +444,7 @@ export function leave_membership(membership_id) {
 }
 
 export function list_invitations() {
-  return request("/v1/invitations");
+  return all_pages("/v1/invitations");
 }
 
 export function create_invitation({ email, role, reason }) {

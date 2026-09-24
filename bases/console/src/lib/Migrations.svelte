@@ -127,7 +127,7 @@
       }
       products = (prodRes.body?.items ?? []).map(normaliseProduct);
       const byProduct = Object.fromEntries(products.map((p) => [p.id, p]));
-      migrations = (migRes.body?.migrations ?? []).map((m) =>
+      migrations = (migRes.body?.items ?? []).map((m) =>
         normaliseMigration(m, byProduct),
       );
       selectedId = migrations[0]?.id ?? null;

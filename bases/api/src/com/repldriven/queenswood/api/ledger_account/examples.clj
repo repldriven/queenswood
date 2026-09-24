@@ -28,5 +28,5 @@
 (def LedgerAccountId (:account-id LedgerAccount))
 
 (def LedgerAccountList
-  {:ledger-accounts [LedgerAccount]
+  {:items [LedgerAccount]
    :trial-balance [{:currency "GBP" :debit 90000 :credit 90000 :accounts 8}]})

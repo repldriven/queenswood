@@ -163,6 +163,24 @@ Common verb endpoints in the api:
 The rule: if the operation is a state transition rather than a
 resource-based operation, model it as a verb.
 
+### Lists
+
+A list's body is `items`, an array of the resource its retrieve
+operation returns, and a list whose set grows with use is read a page
+at a time:
+
+- **The request** takes `page[size]` (1 to 100, 20 by default) and at
+  most one of `page[after]` and `page[before]`, each an opaque cursor
+  taken from a link.
+- **The response** carries `links.next` where rows follow the page and
+  `links.prev` where rows precede it, each the path of that page with
+  every other query parameter the request carried. The first page has
+  no `prev`, and the last no `next`.
+- **The schema** is `list-schema` from `api-schema`, an `<X>List` of
+  `items` and the shared `PageLinks`, and a handler builds the body with
+  `cursor/page-body` from a store scan's `before` and `after`, or from
+  `cursor/window` over a set read whole.
+
 ### Hypermedia (and what counts as REST here)
 
 Response bodies include `_links` fields where useful, typically
@@ -501,6 +519,11 @@ auth boundaries — go here, not into a brick's `interface_test.clj`.
   while one derived from an anomaly kind carries it,
   `:membership/role-not-granted`. A client matching on `type`
   matches each as emitted.
+- **Some lists page a set read whole.** Job runs, migration previews,
+  members, the caller's invitations, cash account products, inbound
+  payments and webhook deliveries are read in full and windowed with
+  `cursor/window`, so a page costs the whole read. Job runs and
+  migration previews have indexes a cursor could scan instead.
 - **API versioning is `/v1` only.** Adding `/v2` would mean
   either coexistence (running both surfaces during migration)
   or a breaking-change protocol. Neither is automated.

@@ -35,7 +35,7 @@ export async function loadPopulation({ owners = false } = {}) {
     const partyName = {};
     if (owners) {
       const res = await list_parties();
-      for (const p of res.body?.parties ?? []) {
+      for (const p of res.body?.items ?? []) {
         partyName[p["party-id"]] = p["display-name"];
       }
     }
@@ -45,7 +45,7 @@ export async function loadPopulation({ owners = false } = {}) {
       const res = await list_cash_accounts({ after });
       if (res.status < 200 || res.status >= 300) return null;
 
-      for (const a of res.body?.["cash-accounts"] ?? []) {
+      for (const a of res.body?.items ?? []) {
         byVersion[a["version-id"]] = (byVersion[a["version-id"]] ?? 0) + 1;
         byProduct[a["product-id"]] = (byProduct[a["product-id"]] ?? 0) + 1;
         if (!owners) continue;

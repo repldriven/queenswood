@@ -5,34 +5,18 @@
 
     [com.repldriven.queenswood.party-query.interface :as parties]
 
-    [com.repldriven.mono.error.interface :as error]
-    [com.repldriven.mono.utility.interface :as utility]))
+    [com.repldriven.mono.error.interface :as error]))
 
 (defn list-parties
   [request]
   (let [{:keys [auth parameters]} request
         {:keys [bank-id]} auth
-        {:keys [query]} parameters
-        {:keys [page]} query
-        {:keys [after before size]} page
-        after-id (cursor/decode after)
-        before-id (cursor/decode before)
-        size (cursor/clamp-size size)
-        result (parties/get-parties request
-                                    bank-id
-                                    {:after after-id
-                                     :before before-id
-                                     :limit size})]
+        {:keys [page]} (:query parameters)
+        result (parties/get-parties request bank-id (cursor/page-opts page))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
-      (let [{:keys [parties before after]} result
-            links (when (seq parties)
-                    (cursor/build-links "/v1/parties"
-                                        size
-                                        (when after-id before)
-                                        after))]
-        {:status 200
-         :body (utility/assoc-seq {:parties parties} :links links)}))))
+      {:status 200
+       :body (cursor/page-body "/v1/parties" page (:parties result) result)})))
 
 (defn get-party
   [request]

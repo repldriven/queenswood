@@ -4,7 +4,7 @@
     [com.repldriven.queenswood.api.jobs.examples :as examples]
 
     [com.repldriven.queenswood.api-schema.interface :refer
-     [components-registry]]))
+     [components-registry list-schema]]))
 
 (def JobId
   [:re
@@ -61,9 +61,7 @@
    [:created-at [:ref "Timestamp"]]
    [:updated-at [:ref "Timestamp"]]])
 
-(def JobList
-  [:map {:json-schema/example examples/JobList}
-   [:jobs [:vector [:ref "Job"]]]])
+(def JobList (list-schema "Job" examples/JobList))
 
 (def TaskRun
   "What one task of a run did. `records-processed` / `records-failed`
@@ -95,9 +93,7 @@
    [:error {:optional true} string?]
    [:tasks [:vector [:ref "TaskRun"]]]])
 
-(def RunList
-  [:map {:json-schema/example examples/RunList}
-   [:runs [:vector [:ref "Run"]]]])
+(def RunList (list-schema "Run" examples/RunList))
 
 (def JobScheduleUpdate
   "Editable schedule fields. All optional — an omitted field keeps its

@@ -3,7 +3,7 @@
     [com.repldriven.queenswood.api.transaction.coercion :as coercion]
 
     [com.repldriven.queenswood.api-schema.interface :as schema :refer
-     [components-registry]]))
+     [components-registry list-schema]]))
 
 (def TransactionId
   (schema/id-schema "TransactionId" "txn" "txn.01kprbmgcj35ptc8npmybhh4sb"))
@@ -37,9 +37,7 @@
    [:reference {:optional true} [:maybe string?]]
    [:created-at [:ref "Timestamp"]]])
 
-(def TransactionList
-  [:map
-   [:transactions [:vector [:ref "Transaction"]]]])
+(def TransactionList (list-schema "Transaction" nil))
 
 (def registry
   (components-registry [#'TransactionId #'LegId #'TransactionStatus

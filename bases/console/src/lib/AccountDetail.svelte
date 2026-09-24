@@ -102,7 +102,7 @@
     get_cash_account_transactions(id).then((r) => {
       if (account?.id !== id) return;
       if (r.status < 200 || r.status >= 300) return;
-      const def = (r.body?.transactions ?? []).filter((t) => {
+      const def = (r.body?.items ?? []).filter((t) => {
         const bt = shortEnum(t["balance-type"]);
         return bt === "default" || bt === "";
       });

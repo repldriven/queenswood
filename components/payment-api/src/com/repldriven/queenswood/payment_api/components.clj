@@ -93,12 +93,7 @@
    [:updated-at [:ref "Timestamp"]]])
 
 (def InboundPaymentList
-  [:map {:json-schema/example (:value examples/InboundPaymentList)}
-   [:items [:vector [:ref "InboundPayment"]]]
-   [:links {:optional true}
-    [:map
-     [:next {:optional true} string?]
-     [:prev {:optional true} string?]]]])
+  (schema/list-schema "InboundPayment" (:value examples/InboundPaymentList)))
 
 (def registry
   (components-registry

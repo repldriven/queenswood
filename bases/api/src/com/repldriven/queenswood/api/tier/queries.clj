@@ -13,4 +13,4 @@
         result (policies/get-tiers config)]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
-      {:status 200 :body {:tiers (or result [])}})))
+      {:status 200 :body {:items (or result [])}})))

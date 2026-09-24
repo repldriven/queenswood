@@ -468,7 +468,7 @@
       accountId = res.body["account-id"];
     } else {
       const list = await api.list_cash_accounts();
-      const found = (list.body?.items || list.body?.["cash-accounts"] || []).find(
+      const found = (list.body?.items || []).find(
         (a) => a["party-id"] === body["party-id"] && a["product-id"] === body["product-id"],
       );
       if (!found) throw new Error(`open account ${key}: ${res.status}`);
@@ -486,7 +486,7 @@
   }
   async function forceJob(pattern) {
     const list = await api.list_jobs();
-    const jobs = list.body?.jobs ?? [];
+    const jobs = list.body?.items ?? [];
     const job = jobs.find((j) => pattern.test(j["job-id"] || j.name || ""));
     if (!job) throw new Error(`${pattern} job not found`);
     const r = await api.force_start_job(job["job-id"]);

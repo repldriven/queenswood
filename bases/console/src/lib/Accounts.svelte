@@ -82,7 +82,7 @@
         list_cash_account_products(),
       ]);
       const partyName = {};
-      for (const p of pRes.body?.parties ?? []) {
+      for (const p of pRes.body?.items ?? []) {
         partyName[p["party-id"]] = p["display-name"];
       }
       const versionName = {};
@@ -100,7 +100,7 @@
           accounts = [];
           return;
         }
-        raw.push(...(res.body?.["cash-accounts"] ?? []));
+        raw.push(...(res.body?.items ?? []));
         const next = res.body?.links?.next;
         after = next
           ? new URL(next, location.origin).searchParams.get("page[after]")

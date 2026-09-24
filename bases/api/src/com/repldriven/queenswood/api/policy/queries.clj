@@ -1,5 +1,6 @@
 (ns com.repldriven.queenswood.api.policy.queries
   (:require
+    [com.repldriven.queenswood.api.cursor :as cursor]
     [com.repldriven.queenswood.api.errors :as errors]
 
     [com.repldriven.queenswood.policy.interface :as policies]
@@ -8,12 +9,14 @@
 
 (defn list-policies
   [request]
-  (let [{:keys [record-db record-store]} request
+  (let [{:keys [record-db record-store parameters]} request
+        {:keys [page]} (:query parameters)
         config {:record-db record-db :record-store record-store}
-        result (policies/get-policies config)]
+        result (policies/get-policies config (cursor/page-opts page))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
-      {:status 200 :body {:policies (or (:items result) [])}})))
+      {:status 200
+       :body (cursor/page-body "/v1/policies" page (:items result) result)})))
 
 (defn list-effective-policies
   "Org-scoped: the policies effective for the caller's own bank — the
@@ -27,7 +30,7 @@
         result (policies/get-effective-policies config {:bank-id bank-id})]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
-      {:status 200 :body {:policies result}})))
+      {:status 200 :body {:items result}})))
 
 (defn get-effective-policy
   "Org-scoped: the caller's effective policies collapsed into the

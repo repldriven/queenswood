@@ -16,6 +16,12 @@
   [examples]
   (reduce (fn [m v] (assoc m (vname v) @v)) {} examples))
 
+(defn list-schema
+  [item example]
+  [:map (cond-> {} example (assoc :json-schema/example example))
+   [:items [:vector [:ref item]]]
+   [:links {:optional true} [:ref "PageLinks"]]])
+
 (def ErrorResponseSchema
   [:map
    [:title string?]

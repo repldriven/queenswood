@@ -49,7 +49,7 @@
                  [pairs (ledger-accounts/list-accounts-with-balances config
                                                                      bank-id)
                   enriched (mapv with-posted-balance pairs)]
-                 {:ledger-accounts (mapv ->api enriched)
+                 {:items (mapv ->api enriched)
                   :trial-balance (balances/trial-balance
                                   (map trial-balance-entry enriched))})]
     (if (error/anomaly? result)
@@ -91,8 +91,8 @@
                       (error/reject :ledger-account/not-found
                                     {:message "Ledger account not found"
                                      :account-id account-id}))
-                  balances (balances/get-balances config bank-id account-id)]
-                 balances)]
+                  found (balances/get-balances config bank-id account-id)]
+                 (set/rename-keys found {:balances :items}))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       {:status 200 :body result})))

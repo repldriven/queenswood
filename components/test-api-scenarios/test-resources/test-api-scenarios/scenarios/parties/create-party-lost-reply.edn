@@ -57,7 +57,7 @@
  [{:command :api/poll
    :request {:method :get :path "/v1/parties" :auth :bank-0-token}
    :until {:status 200
-           :body {:parties [:m/embeds [{:display-name "Ford Prefect"}]]}}}
+           :body {:items [:m/embeds [{:display-name "Ford Prefect"}]]}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/parties"
@@ -87,7 +87,7 @@
   {:command :api/request
    :request {:method :get :path "/v1/parties" :auth :bank-0-token}
    :assert {:status 200
-            :body {:parties
+            :body {:items
                    [:m/in-any-order
                     [{:party-id [:ref :retry :party-id]}
                      {:party-id [:ref :bank-0 :party :party-id]}]]}}}]}

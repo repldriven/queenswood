@@ -238,7 +238,7 @@
     (let [account-id (get-in request [:path-params :account-id])]
       (if (get-in @state [:accounts account-id])
         {:status 200
-         :body {:transactions (get-in @state [:transactions account-id] [])}}
+         :body {:items (get-in @state [:transactions account-id] [])}}
         (problem 404 "REJECTED" ":cash-account/not-found" "no such account")))))
 
 (defn- check-payee

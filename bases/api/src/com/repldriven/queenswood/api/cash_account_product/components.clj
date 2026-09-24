@@ -72,15 +72,8 @@
    [:product-id [:ref "ProductId"]]
    [:versions [:vector [:ref "CashAccountProductVersion"]]]])
 
-(def CashAccountProductListLinks
-  [:map
-   [:next {:optional true} string?]
-   [:prev {:optional true} string?]])
-
 (def CashAccountProductList
-  [:map {:json-schema/example examples/CashAccountProductList}
-   [:items [:vector [:ref "CashAccountProduct"]]]
-   [:links {:optional true} [:ref "CashAccountProductListLinks"]]])
+  (schema/list-schema "CashAccountProduct" examples/CashAccountProductList))
 
 (def CashAccountProductTemplate
   [:map {:json-schema/example examples/CashAccountProductTemplate}
@@ -101,6 +94,5 @@
   (components-registry
    [#'TemplateId #'BalanceSheetSide #'VersionStatus #'OpeningReward
     #'CashAccountProductRequest #'CashAccountProductDraftRequest
-    #'CashAccountProductVersion #'CashAccountProduct
-    #'CashAccountProductListLinks #'CashAccountProductList
+    #'CashAccountProductVersion #'CashAccountProduct #'CashAccountProductList
     #'CashAccountProductTemplate #'CashAccountProductTemplateList]))
