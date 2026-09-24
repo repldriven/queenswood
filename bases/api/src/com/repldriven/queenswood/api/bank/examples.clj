@@ -36,9 +36,30 @@
            :status 403
            :detail "Token is not this bank's; retrieve only your own bank"}})
 
+(def CompanyNotActive
+  {:value {:title "REJECTED"
+           :type ":bank/company-not-active"
+           :status 422
+           :detail "Only an active company can be bound to a bank"}})
+
+(def CompanyRequired
+  {:value {:title "REJECTED"
+           :type ":bank/company-required"
+           :status 422
+           :detail "Name the company the bank is created for"}})
+
+(def OperatorFieldRefused
+  {:value
+   {:title "FORBIDDEN"
+    :type "auth/forbidden"
+    :status 403
+    :detail
+    "Only an operator chooses a bank's status, tier, currencies or owner"}})
+
 (def registry
   (examples-registry [#'BankNotFound #'BankInvalidStatus #'BankUnknownTier
-                      #'ForeignBankRead]))
+                      #'CompanyNotActive #'CompanyRequired
+                      #'OperatorFieldRefused #'ForeignBankRead]))
 
 (def BankId (schema/id-examples "BankId"))
 
@@ -65,6 +86,7 @@
 
 (def CreateBankRequest
   {:name "Galactic Bank"
+   :company-number "SC998137"
    :status :test
    :tier "micro"
    :currencies ["GBP"]
@@ -95,4 +117,7 @@
          {:kind :operator :principal-id "queenswood-admin" :name "Queenswood"}))
 
 (def CreateBankResponse
-  (assoc Bank :client-secret ClientSecret :owner-invitation owner-invitation))
+  (assoc Bank
+         :client-secret ClientSecret
+         :company-binding CompanyBinding
+         :owner-invitation owner-invitation))

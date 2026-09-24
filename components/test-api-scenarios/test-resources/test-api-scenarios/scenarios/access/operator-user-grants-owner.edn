@@ -20,9 +20,7 @@
   {:command :api/request
    :request {:method :get :path "/v1/me" :auth :ops-token}
    :as :ops-me
-   :assert {:status 200
-            :body {:user {:user-id [:m/regex "^usr\\."]
-                          :name [:m/non-empty]}}}}
+   :assert {:status 200 :body {:user-id [:m/regex "^usr\\."] :name [:m/non-empty]}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/banks"
@@ -48,8 +46,8 @@
    :assert {:status 201
             :body {:role "owner"
                    :invited-by {:kind "operator"
-                                :principal-id [:ref :ops-me :user :user-id]
-                                :name [:ref :ops-me :user :name]}
+                                :principal-id [:ref :ops-me :user-id]
+                                :name [:ref :ops-me :name]}
                    :token [:m/absent]}}}
   {:command :api/request
    :request {:method :post
@@ -73,8 +71,8 @@
                             :principal-id [:ref :founder-membership :user-id]}}
                    {:kind "invitation-created"
                     :actor {:kind "operator"
-                            :principal-id [:ref :ops-me :user :user-id]
-                            :name [:ref :ops-me :user :name]}
+                            :principal-id [:ref :ops-me :user-id]
+                            :name [:ref :ops-me :name]}
                     :invitation-id [:ref :invitation :invitation-id]
                     :email "opsgrant-founder@queenswood.local"
                     :role-after "owner"

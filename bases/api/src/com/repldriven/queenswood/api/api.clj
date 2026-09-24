@@ -43,10 +43,6 @@
     [com.repldriven.queenswood.api.oauth.components :as oauth.components]
     [com.repldriven.queenswood.api.oauth.examples :as oauth.examples]
     [com.repldriven.queenswood.api.oauth.routes :as oauth]
-    [com.repldriven.queenswood.api.onboarding.components :as
-     onboarding.components]
-    [com.repldriven.queenswood.api.onboarding.examples :as onboarding.examples]
-    [com.repldriven.queenswood.api.onboarding.routes :as onboarding]
     [com.repldriven.queenswood.api.party.components :as party.components]
     [com.repldriven.queenswood.api.party.examples :as party.examples]
     [com.repldriven.queenswood.api.party.routes :as party]
@@ -130,7 +126,6 @@
          ledger-account.components/registry
          me.components/registry
          oauth.components/registry
-         onboarding.components/registry
          party.components/registry
          payee-check.components/registry
          payment-api/registry
@@ -208,21 +203,21 @@
         [{:name "OAuth"
           :description
           "Issuing tokens, and the documents a client reads to verify them."}
-         {:name "Onboarding"
-          :description
-          "A person's first sign-in: looking up their company and creating their bank."}
          {:name "Me"
           :description
-          "The signed-in person, their memberships, and whether they are an operator."}
+          "The signed-in person: who they are, the banks they belong to, and the invitations waiting for them."}
          {:name "Memberships"
           :description
-          "A person's role in a bank: the bank's members, and the banks the signed-in person belongs to."}
+          "The bank's members, and the role each holds."}
          {:name "Invitations"
           :description
-          "Invitations to join a bank, as the bank sends them and as the person invited answers them."}
+          "Invitations to join the bank, and resending or withdrawing them."}
          {:name "Audit"
           :description
           "A bank's audit log: every change to who may act for it, with who made it and why."}
+         {:name "Companies"
+          :description
+          "Looking a company up in the company registry before creating a bank for it."}
          {:name "Banks"
           :description
           "Creating banks, and changing a bank's status and tier."}
@@ -262,7 +257,7 @@
          {:name "Jobs"
           :description
           "Scheduled jobs, their schedules, and their runs."}
-         {:name "Webhooks"
+         {:name "Webhook Endpoints"
           :description
           "The endpoints a bank is notified at when its records change, and the deliveries made to them."}
          {:name "Simulate"
@@ -288,7 +283,6 @@
                     jobs.examples/registry
                     ledger-account.examples/registry
                     oauth.examples/registry
-                    onboarding.examples/registry
                     companies.examples/registry
                     party.examples/registry
                     payee-check.examples/registry
@@ -336,7 +330,6 @@
            jobs/routes
            ledger-account/routes
            me/routes
-           onboarding/routes
            companies/routes
            party/routes
            payee-check/routes

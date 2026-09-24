@@ -166,7 +166,8 @@ realm roles include `admin`. An operator's `:bank-id` is `requested`,
 the bank the header names, or none.
 
 A brand-new human with no memberships still authenticates as
-`:user` (reaching `/me` and onboarding routes) and holds no level
+`:user` (reaching `/me`, the companies routes and bank creation) and
+holds no level
 until a membership exists.
 
 **The store write is on every user request, so its failure is a
@@ -193,7 +194,8 @@ The rule: **platform-wide resources under `admin`, identity routes
 under `user`, and an organisation's own data under a level: its reads
 `org:viewer`, its writes `org:developer`, its people routes
 `org:admin`.** Banks, tiers, policy administration and the simulator
-are platform-wide; `/me` and onboarding are about who the caller is. A
+are platform-wide, except that a person may create a bank for their
+own company; `/me` is about who the caller is. A
 route reading or writing one tenant's data takes a level. A bank's own
 record, and what describes it under `/v1/banks/{bank-id}` — its
 policies, its effective policy and its audit log — takes
@@ -252,8 +254,9 @@ The exceptions, each deliberate:
   principal is an admin, and a foreign bank is refused 403 before the
   bank is looked up — so the answer says nothing about another tenant.
   The rest of `/simulate` stays `admin`.
-- The **companies** routes are `user`, because a human completing
-  onboarding uses them before any membership exists.
+- The **companies** routes are `user`, and so is `POST /v1/banks`
+  beside `admin`, because a person creating their first bank uses them
+  before any membership exists.
 
 ### Service-account lifecycle
 

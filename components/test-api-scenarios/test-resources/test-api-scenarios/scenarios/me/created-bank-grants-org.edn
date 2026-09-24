@@ -1,7 +1,7 @@
-{:name "Onboarding gives a user a membership, and the membership grants org"
- :tags #{:api :auth :me :onboarding :happy}
- ;; Onboarding, not bank creation, is how a scenario gives a user a
- ;; membership: `CreateBankRequest` is closed and carries none. The
+{:name "Creating a bank gives a person a membership, and the membership grants org"
+ :tags #{:api :auth :me :banks :happy}
+ ;; A person creating a bank becomes its owner, which an operator's
+ ;; create does not make anyone. The
  ;; user store is shared by the whole run, so this uses `member`
  ;; rather than `dev` — the first-sign-in scenario asserts an empty
  ;; membership list and must not depend on which file runs first.
@@ -14,34 +14,32 @@
    :as :member-token}
   {:command :api/request
    :request {:method :get :path "/v1/me" :auth :member-token}
-   :assert {:status 200
-            :body {:user {:email "member@queenswood.local"}
-                   :memberships []}}}
+   :assert {:status 200 :body {:email "member@queenswood.local"}}}
+  {:command :api/request
+   :request {:method :get :path "/v1/me/memberships" :auth :member-token}
+   :assert {:status 200 :body {:items []}}}
   {:command :api/request
    :request {:method :post
-             :path "/v1/onboarding"
+             :path "/v1/banks"
              :auth :member-token
              :headers {:idempotency-key
                        "ik-membership-grants-org-onboarding-001"}
-             :body {:company-number "TY046601"
-                    :bank-name "Tyrell Corporation"}}
+             :body {:company-number "TY046601" :name "Tyrell Corporation"}}
    :as :onboarded
    :assert {:status 201
             :headers {:location [:m/regex "^/v1/banks/bnk\\."]}
             :body {:membership {:role "owner"}}}}
   {:command :api/request
-   :request {:method :get :path "/v1/me" :auth :member-token}
-   :assert {:status 200
-            :body {:memberships
-                   [{:bank-id [:ref :onboarded :bank :bank-id]
+   :request {:method :get :path "/v1/me/memberships" :auth :member-token}
+   :assert {:status 200 :body {:items [{:bank-id [:ref :onboarded :bank-id]
                      :role "owner"}]}}}
   {:command :api/request
    :request {:method :get
              :path "/v1/banks/{bank-id}"
-             :path-params {:bank-id [:ref :onboarded :bank :bank-id]}
+             :path-params {:bank-id [:ref :onboarded :bank-id]}
              :auth :member-token}
    :assert {:status 200
-            :body {:bank-id [:ref :onboarded :bank :bank-id]
+            :body {:bank-id [:ref :onboarded :bank-id]
                    :name "Tyrell Corporation"}}}
   ;; An org-gated route the same token could not reach a moment ago.
   {:command :api/request

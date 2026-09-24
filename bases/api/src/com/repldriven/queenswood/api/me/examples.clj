@@ -30,4 +30,4 @@
    :created-at "2026-05-18T09:15:00Z"
    :updated-at "2026-05-18T09:15:00Z"})
 
-(def Me {:user User :memberships [Membership] :operator false})
+(def Me (assoc User :operator false))

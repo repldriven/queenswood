@@ -1,8 +1,8 @@
-{:name "A person who owns one bank onboards a second and holds both"
- :tags #{:access :api :me :onboarding :happy}
+{:name "A person who owns one bank creates a second and holds both"
+ :tags #{:access :api :me :banks :happy}
  ;; WEYLAND-YUTANI CORP LTD is `active` in the Companies House
  ;; simulator's examples, so only the person's existing membership could
- ;; refuse the onboarding.
+ ;; refuse the create.
  :given
  [{:command :auth/mint-user-token
    :realm :queenswood
@@ -31,31 +31,28 @@
    :as :first-membership
    :assert {:status 201 :body {:role "owner"}}}
   {:command :api/request
-   :request {:method :get :path "/v1/me" :auth :person-token}
-   :assert {:status 200
-            :body {:memberships [{:bank-id [:ref :first-bank :bank-id]
+   :request {:method :get :path "/v1/me/memberships" :auth :person-token}
+   :assert {:status 200 :body {:items [{:bank-id [:ref :first-bank :bank-id]
                                   :role "owner"}]}}}]
  :when
  [{:command :api/request
    :request {:method :post
-             :path "/v1/onboarding"
+             :path "/v1/banks"
              :auth :person-token
              :headers {:idempotency-key
                        "ik-access-onboarding-second-organisation-002"}
-             :body {:company-number "WY002122"
-                    :bank-name "Weyland-Yutani Bank"}}
+             :body {:company-number "WY002122" :name "Weyland-Yutani Bank"}}
    :as :onboarded
    :assert {:status 201 :body {:membership {:role "owner"}}}}]
  :then
  [{:command :api/request
-   :request {:method :get :path "/v1/me" :auth :person-token}
-   :assert {:status 200
-            :body {:memberships [:m/in-any-order
+   :request {:method :get :path "/v1/me/memberships" :auth :person-token}
+   :assert {:status 200 :body {:items [:m/in-any-order
                                  [{:membership-id [:ref :first-membership
                                                    :membership-id]
                                    :bank-id [:ref :first-bank :bank-id]
                                    :bank-name "First Org Bank"
                                    :role "owner"}
-                                  {:bank-id [:ref :onboarded :bank :bank-id]
+                                  {:bank-id [:ref :onboarded :bank-id]
                                    :bank-name "Weyland-Yutani Bank"
                                    :role "owner"}]]}}}]}

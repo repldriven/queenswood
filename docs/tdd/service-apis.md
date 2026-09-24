@@ -180,10 +180,12 @@ A path names a record, and its prefix says whose:
   read it, and `shared.interceptors/own-bank` refuses a member any
   other bank with 403.
 
-Every operation under `/v1/me` carries `My` in its operationId. Tags
-are named for records, and a record's tag holds both prefixes. The
-document lists its paths sorted, so each tag reads a collection, then
-its items, then their actions.
+Every operation under `/v1/me` carries `My` in its operationId and the
+Me tag, since only a signed-in person reaches one; every other tag is
+named for a record. `GET /v1/me` returns the person alone, and each
+record they hold is its own route beneath it. The document lists its
+paths sorted, so each tag reads a collection, then its items, then
+their actions.
 
 ### Lists
 

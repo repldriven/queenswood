@@ -60,20 +60,26 @@ export function get_me() {
   return request("/v1/me");
 }
 
+// Every bank the signed-in person belongs to, each with its role and name.
+export function list_my_memberships() {
+  return all_pages("/v1/me/memberships");
+}
+
 // Look up a company on the register of record (used during onboarding,
 // before the user has a bank). Returns the profile or a 404.
 export function lookup_company(number) {
   return request(`/v1/companies/${number}`);
 }
 
-// First-sign-in onboarding: binds a new bank to the confirmed legal
-// entity. `{ companyNumber, bankName }`.
-export function onboard({ companyNumber, bankName }) {
-  return mutate("/v1/onboarding", {
+// A person creates a bank for the confirmed legal entity and becomes its
+// owner; the answer is the bank with the person's owner membership.
+// `{ companyNumber, bankName }`.
+export function create_bank({ companyNumber, bankName }) {
+  return mutate("/v1/banks", {
     method: "POST",
     body: JSON.stringify({
+      name: bankName,
       "company-number": companyNumber,
-      "bank-name": bankName,
     }),
   });
 }

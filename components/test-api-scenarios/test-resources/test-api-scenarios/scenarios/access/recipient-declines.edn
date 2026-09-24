@@ -85,7 +85,7 @@
                            [{:kind "invitation-declined"
                              :actor {:kind "member"
                                      :principal-id
-                                     [:ref :invitee-me :user :user-id]}
+                                     [:ref :invitee-me :user-id]}
                              :subject-user-id [:ref :invitee-me :user
                                                :user-id]
                              :invitation-id [:ref :invitation :invitation-id]

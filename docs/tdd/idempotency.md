@@ -391,10 +391,6 @@ given.
   `:cash-account/invalid-status`, a 409.
 - `POST /v1/parties/{party-id}/suspend`, `/resume`, `/close` and
   `/merge` — `:party/invalid-status`, a 409.
-- `POST /v1/onboarding` — the handler refuses a user who already
-  holds a membership with `:membership/already-exists`, a 409, and
-  the processor re-checks inside its own transaction so a racing
-  double-submit still creates one bank.
 - `POST /v1/simulate/banks/{bank-id}/accrue` and `/capitalize` — the
   per-account rows a run commits make a re-run skip what it already
   posted, and the daily-count policy refuses a second run for the

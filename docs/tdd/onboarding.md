@@ -13,7 +13,7 @@ This TDD covers the technical pieces: the Keycloak realm
 shape that lets the console SPA mint user JWTs, the
 `user` and `membership` bricks that own the new
 records, the api auth interceptor's user-JWT path, and the
-two endpoints the console talks to (`POST /v1/onboarding`
+two endpoints the console talks to (`POST /v1/banks`
 and `GET /v1/me`).
 
 The user-onboarding flow is **distinct** from the existing
@@ -78,7 +78,7 @@ graph LR
 
     SPA -->|sign in| KC
     KC -->|user JWT| SPA
-    SPA -->|/v1/me, /v1/onboarding| API
+    SPA -->|/v1/me, /v1/banks| API
     API -->|verify JWT| KC
     API -->|find / upsert| BU
     API -->|list / create| BM
@@ -252,54 +252,42 @@ itself.
 Two new route groups, both under `/v1`, both gated by the new
 `user` role.
 
-#### `POST /v1/onboarding`
+#### `POST /v1/banks`
 
-Accepts a verified user JWT even when no user record exists
-yet (the `:user` role doesn't require a user record). Request:
+The operator's create, opened to a verified user JWT even when no
+user record exists yet (the `:user` role doesn't require a user
+record). A person's request names the company and the bank:
 
 ```json
-{ "company-number": "12345678", "bank-name": "Acme Bank" }
+{ "company-number": "12345678", "name": "Acme Bank" }
 ```
 
-Handler:
+For a person, the handler:
 
-1. Upserts the user from JWT claims.
-2. Lists memberships for the user; if non-empty, returns 409
-   with the existing organisation identifier — the MVP is one
-   user, one organisation.
-3. Looks the company number up against the registry of
-   record; a failed lookup comes back to the caller as it
-   stands.
-4. Sends the `create-bank` command with the defaults this
-   path fixes: status `bank-status-test`, tier `micro`,
-   currencies `["GBP"]`, a company binding snapshotted from
-   the lookup, and an owner membership carrying `role-owner`
-   for the signed-in user. The command itself rejects
-   `:onboarding/company-not-active` when the snapshot is not
-   active. It is the same command the operator-driven
-   onboarding sends, with the user-facing defaults filled
-   in.
-5. Returns 201 with the user, the rich organisation (party,
-   accounts, client-id, one-time client-secret), and the
-   membership.
+1. Refuses a status, tier, currencies or owner email with 403, and a
+   missing company number with 422 `:bank/company-required`.
+2. Looks the company number up against the registry of record; a
+   failed lookup comes back to the caller as it stands.
+3. Sends the `create-bank` command with the defaults a person cannot
+   change: status `bank-status-test`, tier `micro`, currencies
+   `["GBP"]`, a company binding snapshotted from the lookup, and an
+   owner membership carrying `role-owner` for the signed-in user. The
+   command itself rejects `:bank/company-not-active` when the snapshot
+   is not active.
+4. Returns 201 with the bank (party, accounts, client-id, one-time
+   client-secret) and the person's owner membership.
 
-The organisation, its party, its accounts and the owner
-membership are written in one FDB transaction, which re-runs
-the sole-membership check inside itself: a duplicate-tab race
-rejects `:membership/already-exists` on the second command
-and leaves nothing half-created. Step 1's user upsert is the
-one write outside that transaction, and repeating it is
-harmless.
+The organisation, its party, its accounts and the owner membership are
+written in one FDB transaction. The user upsert is the one write
+outside it, and repeating it is harmless.
 
 #### `GET /v1/me`
 
-Accepts a verified user JWT. Returns 200 with the user and
-memberships when a user record exists, 404 when it doesn't
-(the SPA uses the 404 to redirect to onboarding). The handler
-reads from the resolved auth context — the user and
-memberships are already attached by the authenticate
-interceptor, so the handler is just a shape-and-status
-decision.
+Accepts a verified user JWT and returns 200 with the user record
+and an `operator` flag; the authenticate interceptor upserts the
+record, so there is no 404. The person's memberships are at
+`GET /v1/me/memberships`, which the SPA reads beside it to decide
+between the create screen and the console.
 
 ### console SPA
 
@@ -311,7 +299,7 @@ screen each:
   `kc.login({ idpHint: "google" })`. The browser navigates to
   Keycloak and never returns from that call.
 - **Onboarding.** A single-field form for the organisation
-  name, posts to `/v1/onboarding`, transitions on 201.
+  name, posts to `/v1/banks`, transitions on 201.
 - **Dashboard.** The welcome screen — name, avatar,
   organisation identifier.
 

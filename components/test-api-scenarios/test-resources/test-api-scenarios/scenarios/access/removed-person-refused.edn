@@ -76,8 +76,8 @@
             :problem {:type "auth/forbidden"
                       :detail "The caller is not a member of this bank"}}}
   {:command :api/request
-   :request {:method :get :path "/v1/me" :auth :member-token}
-   :assert {:status 200 :body {:memberships []}}}
+   :request {:method :get :path "/v1/me/memberships" :auth :member-token}
+   :assert {:status 200 :body {:items []}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/memberships/{membership-id}/remove"

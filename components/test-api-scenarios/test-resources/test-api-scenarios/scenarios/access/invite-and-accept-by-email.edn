@@ -109,12 +109,13 @@
    :assert {:status 200 :body [:m/equals [:ref :own-read]]}}
   {:command :api/request
    :request {:method :get :path "/v1/me" :auth :invitee-token}
-   :assert {:status 200
-            :body {:memberships [{:membership-id [:ref :accepted :membership-id]
+   :assert {:status 200 :body {:operator false}}}
+  {:command :api/request
+   :request {:method :get :path "/v1/me/memberships" :auth :invitee-token}
+   :assert {:status 200 :body {:items [{:membership-id [:ref :accepted :membership-id]
                                   :bank-id [:ref :bank :bank-id]
                                   :bank-name "Match Bank"
-                                  :role "developer"}]
-                   :operator false}}}
+                                  :role "developer"}]}}}
   ;; One membership, so no `Bank-Id` is needed to name the bank.
   {:command :api/request
    :request {:method :get :path "/v1/cash-accounts" :auth :invitee-token}

@@ -34,7 +34,7 @@
 
 (def ^:private my-memberships
   ["/me/memberships"
-   {:openapi {:tags ["Memberships"] :security (gate "user")}}
+   {:openapi {:tags ["Me"] :security (gate "user")}}
    [""
     {:get {:summary "List the signed-in person's memberships"
            :openapi {:operationId "ListMyMemberships"
@@ -78,7 +78,7 @@
 
 (def ^:private my-invitations
   ["/me/invitations"
-   {:openapi {:tags ["Invitations"] :security (gate "user")}}
+   {:openapi {:tags ["Me"] :security (gate "user")}}
    [""
     {:get {:summary "List the signed-in person's pending invitations"
            :openapi {:operationId "ListMyInvitations"

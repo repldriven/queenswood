@@ -78,8 +78,8 @@
    :assert {:status 204}}]
  :then
  [{:command :api/request
-   :request {:method :get :path "/v1/me" :auth :owner-token}
-   :assert {:status 200 :body {:memberships []}}}
+   :request {:method :get :path "/v1/me/memberships" :auth :owner-token}
+   :assert {:status 200 :body {:items []}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/me/memberships/{membership-id}/leave"

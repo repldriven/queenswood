@@ -15,7 +15,7 @@
      bank exists. */
 
   import { AppNav } from "@queenswood/ui";
-  import { lookup_company, onboard } from "./api.mjs";
+  import { create_bank, lookup_company } from "./api.mjs";
   import {
     companyTypeLabel,
     jurisdictionLabel,
@@ -95,7 +95,7 @@
     creating = true;
     createError = null;
     try {
-      const res = await onboard({
+      const res = await create_bank({
         companyNumber: number,
         bankName: bankName.trim(),
       });

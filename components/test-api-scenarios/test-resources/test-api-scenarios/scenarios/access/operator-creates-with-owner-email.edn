@@ -73,12 +73,13 @@
  :then
  [{:command :api/request
    :request {:method :get :path "/v1/me" :auth :owner-token}
-   :assert {:status 200
-            :body {:memberships [{:membership-id [:ref :owner-membership
+   :assert {:status 200 :body {:operator false}}}
+  {:command :api/request
+   :request {:method :get :path "/v1/me/memberships" :auth :owner-token}
+   :assert {:status 200 :body {:items [{:membership-id [:ref :owner-membership
                                                   :membership-id]
                                   :bank-id [:ref :bank :bank-id]
-                                  :role "owner"}]
-                   :operator false}}}
+                                  :role "owner"}]}}}
   {:command :api/request
    :request {:method :get
              :path "/v1/memberships"

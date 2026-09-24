@@ -2,7 +2,8 @@
   "A bank whose credential rotation answers no secret must not reach
   the caller as a 201 carrying nothing usable, and an operator's create
   sends the owner invitation's address and the operator as actor, and no
-  token (REQ-028, OQ-2).
+  token (REQ-028, OQ-2). An operator may leave status, tier and
+  currencies out, and a person may name none of them.
 
   The identity provider here is a `reify` over the protocol's own
   `-rotate-secret`, and the request carries no store at all. That the
@@ -65,7 +66,8 @@
 
 (deftest an-operator-create-sends-the-owner-address-test
   (let [data (SUT/create-bank-data (create-request {:owner-email
-                                                    "zaphod@example.com"}))]
+                                                    "zaphod@example.com"})
+                                   nil)]
     (testing "the owner invitation carries the address alone"
       (is (= {:email "zaphod@example.com"} (:owner-invitation data))))
     (testing "and the command carries no address field"
@@ -77,7 +79,40 @@
       (is (= "queenswood-test" (:audience data))))))
 
 (deftest an-operator-create-without-an-owner-email-invites-nobody-test
-  (let [data (SUT/create-bank-data (create-request {}))]
+  (let [data (SUT/create-bank-data (create-request {}) nil)]
     (is (not (contains? data :owner-invitation)))
     (is (= {:kind :actor-kind-operator :principal-id "queenswood-admin"}
            (:actor data)))))
+
+(deftest an-operator-create-defaults-what-it-leaves-out-test
+  (let [data (SUT/create-bank-data {:auth {:principal-type :service
+                                           :principal-id "queenswood-admin"
+                                           :roles #{:admin}}
+                                    :audiences-by-status {:bank-status-test
+                                                          "queenswood-test"}
+                                    :parameters {:body {:name "Galactic Bank"}}}
+                                   nil)]
+    (is (= {:status :bank-status-test :tier "micro" :currencies ["GBP"]}
+           (select-keys data [:status :tier :currencies])))
+    (is (= "queenswood-test" (:audience data)))
+    (is (not (contains? data :membership)) "an operator is not the owner")))
+
+(defn- person-request
+  [body]
+  {:auth {:principal-type :user :principal-id "usr.x" :roles #{:user}}
+   :parameters {:body (merge {:name "Galactic Bank"} body)}})
+
+(deftest a-person-names-no-operator-field-test
+  (doseq [field [{:status :bank-status-live} {:tier "enterprise"}
+                 {:currencies ["EUR"]} {:owner-email "zaphod@example.com"}]]
+    (testing (str (key (first field)))
+      (let [{:keys [status body]} (SUT/create-bank
+                                   (person-request
+                                    (assoc field :company-number "SC998137")))]
+        (is (= 403 status))
+        (is (= "auth/forbidden" (:type body)))))))
+
+(deftest a-person-names-a-company-test
+  (let [{:keys [status body]} (SUT/create-bank (person-request {}))]
+    (is (= 422 status))
+    (is (= ":bank/company-required" (:type body)))))

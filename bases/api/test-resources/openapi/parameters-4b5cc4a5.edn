@@ -90,8 +90,6 @@
  #{["header" "Idempotency-Key"] ["path" "account-id"]}
  "POST /v1/jobs/{job-id}/runs"
  #{["header" "Idempotency-Key"] ["path" "job-id"]}
- "POST /v1/onboarding"
- #{["header" "Idempotency-Key"]}
  "POST /v1/parties"
  #{["header" "Idempotency-Key"]}
  "POST /v1/parties/{party-id}/close"

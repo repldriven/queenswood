@@ -46,11 +46,11 @@
   {:command :api/request
    :request {:method :get :path "/v1/me" :auth :owner-token}
    :as :owner-me
-   :assert {:status 200 :body {:user {:name [:m/non-empty]}}}}
+   :assert {:status 200 :body {:name [:m/non-empty]}}}
   {:command :api/request
    :request {:method :get :path "/v1/me" :auth :member-token}
    :as :member-me
-   :assert {:status 200 :body {:user {:name [:m/non-empty]}}}}]
+   :assert {:status 200 :body {:name [:m/non-empty]}}}]
  :when
  [{:command :api/request
    :request {:method :post
@@ -71,7 +71,7 @@
             :body {:invitation-id [:ref :invitation :invitation-id]
                    :invited-by {:kind "member"
                                 :principal-id [:ref :owner-membership :user-id]
-                                :name [:ref :owner-me :user :name]}}}}
+                                :name [:ref :owner-me :name]}}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/invitations"
@@ -111,9 +111,9 @@
                    [{:kind "member-removed"
                      :actor {:kind "member"
                              :principal-id [:ref :owner-membership :user-id]
-                             :name [:ref :owner-me :user :name]}
+                             :name [:ref :owner-me :name]}
                      :subject-user-id [:ref :member-membership :user-id]
-                     :subject-name [:ref :member-me :user :name]}
+                     :subject-name [:ref :member-me :name]}
                     {:kind "bank-created"
                      :actor {:kind "operator"
                              :principal-id "queenswood-admin"

@@ -83,9 +83,8 @@
    :assert {:status 201 :body {:owner-invitation [:m/absent]}}}]
  :when
  [{:command :api/request
-   :request {:method :get :path "/v1/me" :auth :person-token}
-   :assert {:status 200
-            :body {:memberships [:m/in-any-order
+   :request {:method :get :path "/v1/me/memberships" :auth :person-token}
+   :assert {:status 200 :body {:items [:m/in-any-order
                                  [{:bank-id [:ref :bank-a :bank-id]
                                    :bank-name "Multi Bank A"
                                    :role "owner"}

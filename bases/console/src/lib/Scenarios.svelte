@@ -48,8 +48,8 @@
       bankId = m;
       return;
     }
-    api.get_me().then((r) => {
-      bankId = r.body?.memberships?.[0]?.["bank-id"];
+    api.list_my_memberships().then((r) => {
+      bankId = r.body?.items?.[0]?.["bank-id"];
     });
   });
 

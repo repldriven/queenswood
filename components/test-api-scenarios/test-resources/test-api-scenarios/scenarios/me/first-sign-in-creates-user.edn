@@ -15,13 +15,13 @@
   {:command :api/request
    :request {:method :get :path "/v1/me" :auth :dev-token}
    :as :me-1
-   :assert {:status 200
-            :body {:user {:issuer [:m/regex "/realms/queenswood$"]
-                          :sub [:m/non-empty]
-                          :email "dev@queenswood.local"}
-                   :memberships []}}}
+   :assert {:status 200 :body {:issuer [:m/regex "/realms/queenswood$"] :sub [:m/non-empty] :email "dev@queenswood.local"}}}
+  {:command :api/request
+   :request {:method :get :path "/v1/me/memberships" :auth :dev-token}
+   :assert {:status 200 :body {:items []}}}
   {:command :api/request
    :request {:method :get :path "/v1/me" :auth :dev-token}
-   :assert {:status 200
-            :body {:user {:user-id [:ref :me-1 :user :user-id]}
-                   :memberships []}}}]}
+   :assert {:status 200 :body {:user-id [:ref :me-1 :user-id]}}}
+  {:command :api/request
+   :request {:method :get :path "/v1/me/memberships" :auth :dev-token}
+   :assert {:status 200 :body {:items []}}}]}

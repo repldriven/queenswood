@@ -2,7 +2,7 @@
   import Router, { push } from "svelte-spa-router";
   import { wrap } from "svelte-spa-router/wrap";
   import { ensure_session, sign_in, sign_out, token_claims } from "./lib/auth.mjs";
-  import { get_me, set_bank_id } from "./lib/api.mjs";
+  import { get_me, list_my_memberships, set_bank_id } from "./lib/api.mjs";
   import Landing from "./lib/Landing.svelte";
   import SignInPage from "./lib/SignInPage.svelte";
   import Onboarding from "./lib/Onboarding.svelte";
@@ -148,15 +148,15 @@
   }
 
   async function refresh_me() {
-    const { status, body } = await get_me();
-    if (status !== 200) {
+    const [me, mine] = await Promise.all([get_me(), list_my_memberships()]);
+    if (me.status !== 200 || mine.status !== 200) {
       // Unexpected status (5xx, 401 after refresh) — safer to send
       // the user back to sign-in than to render stale state.
       stage = "signin";
       return;
     }
-    user = body.user;
-    memberships = currentFirst(body.memberships ?? [], rememberedBank());
+    user = me.body;
+    memberships = currentFirst(mine.body.items ?? [], rememberedBank());
     set_bank_id(memberships[0]?.["bank-id"]);
     if (invitationLink) {
       stage = "invitation";
@@ -181,12 +181,10 @@
   }
 
   // Lands on the bank just created, first sign-in and fresh bank
-  // alike. The onboarding answer carries the bare membership, so the
-  // bank's name comes from the bank beside it.
-  function handleOnboardComplete(payload) {
-    user = payload.user;
-    const bankId = payload.membership?.["bank-id"];
-    const joined = { ...payload.membership, "bank-name": payload.bank?.name };
+  // alike. The created bank carries the person's owner membership.
+  function handleOnboardComplete(bank) {
+    const bankId = bank.membership?.["bank-id"];
+    const joined = { ...bank.membership, "bank-name": bank.name };
     const others = memberships.filter((m) => m["bank-id"] !== bankId);
     rememberBank(bankId);
     memberships = currentFirst([joined, ...others], bankId);

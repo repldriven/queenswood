@@ -63,8 +63,8 @@ and the console as first built:
   the bank list's under `scenarios/banks/`.
 - **One door on the console.** The sign-in screen has one button,
   which sends every person through the same Google flow, and the
-  console decides what to show from the answer to `/v1/me` alone: no
-  membership means the create screen.
+  console decides what to show from `/v1/me` and `/v1/me/memberships`,
+  read together: no membership means the create screen.
 - **The People page.** `People.svelte` and `PeopleDrawer.svelte` under
   `bases/console/src/lib/`: members, invitations and the history as
   three tabs, and a drawer that changes roles, removes, leaves, invites,
@@ -445,10 +445,11 @@ non-member's would be.
 
 ### Creating an organisation
 
-**From the console.** The route and the command stay. The
-sole-membership check and its 409 go — a person may create another
-organisation — and `new-bank` writes the creation event with the person
-as actor beside the owner membership.
+**From the console.** A person creates the organisation through
+`POST /v1/banks`, naming its company, as [banks.md](banks.md)
+describes. There is no sole-membership check — a person may create
+another organisation — and `new-bank` writes the creation event with
+the person as actor beside the owner membership.
 
 **By the operator.** `CreateBankRequest` gains an optional
 `owner-email`, and the command carries it with the actor. `new-bank`
@@ -494,13 +495,14 @@ the signed-in person's, `/v1/<records>` the bank the header names. A
 membership and an invitation are each one record under both, by the
 same noun and id; a membership is shown the same way to both, and an
 invitation to its recipient as `RecipientInvitation`, which carries no
-inviter's email. The tags follow the records: Me, Memberships,
-Invitations and Audit.
+inviter's email. The tags follow who may call: every route under
+`/v1/me` is tagged Me, since no service token reaches one, and the
+bank's routes are tagged Memberships, Invitations and Audit.
 
 Under `/v1/me`, gated `user`, no header:
 
-- `GET /v1/me` — the user, the active memberships with role and bank
-  name, and an `operator` flag so the console knows what it may offer.
+- `GET /v1/me` — the user record and an `operator` flag, so the console
+  knows what it may offer. The memberships are the next route's alone.
 - `GET /v1/me/memberships`, `GET /v1/me/memberships/{membership-id}` —
   the person's active memberships in every bank; another person's, or
   an ended one, returns 404.
@@ -610,8 +612,9 @@ waiting;
 choose an organisation, and the switcher in the shell's header; create
 an organisation, as today with the credential shown once; people, with
 members, pending invitations, the history and the actions the person's
-own level allows, read off `/v1/me`; invite, a drawer that says the
-invitation has been emailed, with no link and no `TokenBox`; and accept
+own level allows, read off `/v1/me/memberships`; invite, a drawer that
+says the invitation has been emailed, with no link and no `TokenBox`;
+and accept
 an invitation, the route the link lands on,
 with log in in front of it when the person is not signed in. The
 link's id and token ride in the fragment, so they never reach the

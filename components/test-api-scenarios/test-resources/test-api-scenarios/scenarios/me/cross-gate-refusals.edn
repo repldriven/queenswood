@@ -10,13 +10,7 @@
    :password "dev"
    :as :dev-token}
   {:command :api/request
-   :request {:method :post
-             :path "/v1/banks"
-             :auth :dev-token
-             :body {:name "Refused Bank"
-                    :status "live"
-                    :tier "micro"
-                    :currencies ["GBP"]}}
+   :request {:method :get :path "/v1/banks" :auth :dev-token}
    :assert {:status 403 :problem {:type "auth/forbidden"}}}
   {:command :api/request
    :request {:method :get :path "/v1/me" :auth :admin}

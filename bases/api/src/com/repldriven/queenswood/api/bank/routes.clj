@@ -2,8 +2,10 @@
   (:require
     [com.repldriven.queenswood.api.bank.commands :as bank-commands]
     [com.repldriven.queenswood.api.bank.examples :refer
-     [BankNotFound BankInvalidStatus BankUnknownTier ForeignBankRead]]
+     [BankNotFound BankInvalidStatus BankUnknownTier CompanyNotActive
+      CompanyRequired ForeignBankRead OperatorFieldRefused]]
     [com.repldriven.queenswood.api.bank.queries :as queries]
+    [com.repldriven.queenswood.api.companies.examples :as companies.examples]
     [com.repldriven.queenswood.api.examples :as api.examples]
 
     [com.repldriven.queenswood.api.shared.headers :as shared.headers]
@@ -35,27 +37,40 @@
             :handler queries/list-banks}
       :post
       {:summary "Create a bank"
-       :openapi {:operationId "CreateBank"
-                 :description
-                 (str "Creates the bank with its party, its ledger and "
-                      "an own-funds cash account in each currency "
-                      "named, bound to the tier's policies. A tier with "
-                      "no policies is refused with 422. The response "
-                      "carries the bank's client secret, returned only "
-                      "here, and with `owner-email` the owner "
-                      "invitation emailed to that address.")
-                 :requestBody {:required true}
-                 :parameters ^:replace [shared.parameters/ref-idempotency-key]}
+       :openapi
+       {:operationId "CreateBank"
+        :security ^:replace [{"bearerAuth" ["admin"]} {"bearerAuth" ["user"]}]
+        :description (str "Creates the bank with its party, its ledger and "
+                          "an own-funds cash account in each currency, bound "
+                          "to the tier's policies and to the company "
+                          "`company-number` names, looked up in the company "
+                          "registry. A signed-in person must name a company, "
+                          "gets a test bank on the micro tier in GBP, and "
+                          "becomes its owner; naming a status, tier, "
+                          "currencies or owner is refused with 403, and naming"
+                          " no company with 422. An unknown company returns "
+                          "404, and one that is not active is refused with "
+                          "422, as is a tier with no policies. The response "
+                          "carries the bank's client secret, returned only "
+                          "here, the person's owner membership, and with "
+                          "`owner-email` the owner invitation emailed to that "
+                          "address.")
+        :requestBody {:required true}
+        :parameters ^:replace [shared.parameters/ref-idempotency-key]}
        :interceptors [server/require-idempotency-key
                       bank-idempotency/cache-response]
        :parameters {:body [:ref "CreateBankRequest"]}
-       :responses (shared.idempotency/with-responses
-                   {201 {:description "The created bank and its client secret."
-                         :body [:ref "CreateBankResponse"]
-                         :openapi {:headers {"Location" (shared.headers/location
-                                                         "bank")}}}
-                    403 (ErrorExamples [#'api.examples/PolicyDenied])
-                    422 (ErrorResponse [#'BankUnknownTier])})
+       :responses
+       (shared.idempotency/with-responses
+        {201 {:description "The created bank and its client secret."
+              :body [:ref "CreateBankResponse"]
+              :openapi {:headers {"Location" (shared.headers/location "bank")}}}
+         403 (ErrorExamples [#'api.examples/PolicyDenied
+                             #'OperatorFieldRefused])
+         404 (ErrorResponse [#'companies.examples/CompanyNotFound])
+         422 (ErrorResponse [#'BankUnknownTier #'CompanyNotActive
+                             #'CompanyRequired])
+         503 (ErrorExamples [#'companies.examples/CompanyRegistryUnavailable])})
        :handler bank-commands/create-bank}}]
     ["/{bank-id}"
      {:parameters {:path {:bank-id [:ref "BankId"]}}}

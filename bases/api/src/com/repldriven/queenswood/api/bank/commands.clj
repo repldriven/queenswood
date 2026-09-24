@@ -2,6 +2,7 @@
   (:require
     [com.repldriven.queenswood.api.access.handlers :as access-handlers]
     [com.repldriven.queenswood.api.commands :as commands]
+    [com.repldriven.queenswood.api.companies.queries :as companies]
     [com.repldriven.queenswood.api.errors :as errors]
 
     [com.repldriven.queenswood.bank-query.interface :as banks]
@@ -70,43 +71,132 @@
           txn {:record-db record-db :record-store record-store}]
       (access-handlers/named-invitation txn bank-id invitation-id))))
 
+(def ^:private default-status :bank-status-test)
+
+(def ^:private default-tier "micro")
+
+(def ^:private default-currencies ["GBP"])
+
+(def ^:private operator-fields
+  "What an operator chooses and a person creating their own bank may not."
+  [:status :tier :currencies :owner-email])
+
+(defn- office->string
+  "Join the non-blank registered-office address lines into one string."
+  [{:keys [address-line-1 locality postal-code country]}]
+  (->> [address-line-1 locality postal-code country]
+       (remove str/blank?)
+       (str/join ", ")))
+
+(defn- ->binding
+  "Snapshot the confirmed company into the bank's company-binding shape."
+  [registry company]
+  (let [office (office->string (:registered-office-address company))]
+    (utility/assoc-some
+     {:registry registry
+      :company-number (:company-number company)}
+     :company-name (:company-name company)
+     :company-status (:company-status company)
+     :type (:type company)
+     :jurisdiction (:jurisdiction company)
+     :date-of-creation (:date-of-creation company)
+     :registered-office-address (when-not (str/blank? office) office))))
+
+(defn- operator?
+  [auth]
+  (contains? (:roles auth) :admin))
+
+(defn- refusal
+  "The response a create is refused with before anything is looked up:
+  a person naming what only an operator chooses, or naming no company.
+  Nil when the request may go ahead."
+  [{:keys [auth parameters]}]
+  (let [{:keys [body]} parameters]
+    (when-not (operator? auth)
+      (cond (some #(contains? body %) operator-fields)
+            (errors/forbidden-response
+             (str "Only an operator chooses a bank's status, tier, "
+                  "currencies or owner"))
+            (nil? (:company-number body))
+            (errors/anomaly->response
+             (error/reject :bank/company-required
+                           {:message
+                            "Name the company the bank is created for"}))))))
+
 (defn create-bank-data
-  "The create-bank command payload for an operator's request: the body
-  with its status's audience and the principal as an operator actor, and
-  for an `owner-email` the owner invitation."
-  [request]
+  "The create-bank command payload: the body with the defaults a field
+  left out takes, its status's audience, and `company`, the registry's
+  answer for the number it names, as its binding.
+  An operator is the actor and may name an owner by email; a person is
+  the actor and the owner."
+  [request company]
   (let [{:keys [auth parameters audiences-by-status]} request
         {:keys [body]} parameters
-        {:keys [status owner-email]} body]
+        {:keys [name status tier currencies owner-email]} body
+        status (or status default-status)
+        person? (not (operator? auth))]
     ;; `audiences-by-status` is bank-api deployment config (sits in
     ;; server/interceptors next to `expected-audiences`). The substrate
     ;; IDP brick is naive about audience naming; the handler resolves
     ;; the per-status audience here and forwards it through.
     (utility/assoc-some
-     (assoc (dissoc body :owner-email)
-            :audience (get audiences-by-status status)
-            :actor {:kind :actor-kind-operator
-                    :principal-id (:principal-id auth)})
-     :owner-invitation
-     (when owner-email {:email owner-email}))))
+     {:name name
+      :status status
+      :tier (or tier default-tier)
+      :currencies (or currencies default-currencies)
+      :audience (get audiences-by-status status)
+      :actor {:kind (if person? :actor-kind-member :actor-kind-operator)
+              :principal-id (:principal-id auth)}}
+     :company-binding (when company
+                        (->binding (:registry-id company) company))
+     :membership (when person?
+                   {:user-id (:principal-id auth) :role :role-owner})
+     :owner-invitation (when owner-email {:email owner-email}))))
+
+(defn- company
+  "The company the body names, looked up in the registry: the
+  `commands/send` ring response, or nil when the body names none."
+  [request]
+  (when-some [company-number (get-in request
+                                     [:parameters :body :company-number])]
+    (companies/lookup request company-number)))
+
+(defn- created-bank
+  "The created bank with its fresh client secret, and whichever of the
+  owner invitation and the creator's owner membership the create wrote."
+  [request {:keys [bank-id owner-invitation-id membership]}]
+  (let-nom> [bank (bank-with-secret request bank-id)
+             invitation (owner-invitation request bank-id owner-invitation-id)]
+    (utility/assoc-some bank
+                        :owner-invitation
+                        invitation
+                        :membership
+                        (when membership
+                          (access-handlers/founding-membership
+                           membership
+                           (get-in request [:auth :user])
+                           bank)))))
 
 (defn create-bank
   [request]
-  (let [result (send-create-bank request (create-bank-data request))]
-    (if (not= 200 (:status result))
-      result
-      (let [{:keys [bank-id owner-invitation-id]} (:body result)
-            bank (let-nom>
-                   [bank (bank-with-secret request bank-id)
-                    invitation (owner-invitation request
-                                                 bank-id
-                                                 owner-invitation-id)]
-                   (utility/assoc-some bank :owner-invitation invitation))]
-        (if (error/anomaly? bank)
-          (errors/anomaly->response bank)
-          {:status 201
-           :headers {"Location" (bank-uri bank-id)}
-           :body bank})))))
+  (let [refused (refusal request)
+        looked-up (when-not refused (company request))]
+    (cond refused
+          refused
+          (and looked-up (not= 200 (:status looked-up)))
+          looked-up
+          :else
+          (let [result (send-create-bank request
+                                         (create-bank-data request
+                                                           (:body looked-up)))]
+            (if (not= 200 (:status result))
+              result
+              (let [bank (created-bank request (:body result))]
+                (if (error/anomaly? bank)
+                  (errors/anomaly->response bank)
+                  {:status 201
+                   :headers {"Location" (bank-uri (:bank-id bank))}
+                   :body bank})))))))
 
 (defn change-bank-tier
   [request]

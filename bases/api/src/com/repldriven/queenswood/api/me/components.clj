@@ -18,8 +18,12 @@
 
 (def Role (coercion/role-enum-schema {:json-schema/example "owner"}))
 
-(def User
-  [:map {:json-schema/example examples/User}
+(def Me
+  [:map
+   {:json-schema/example examples/Me
+    :description
+    "The signed-in person: their user record, and whether they are an
+    operator. Their memberships are at `/v1/me/memberships`."}
    [:user-id [:ref "UserId"]]
    [:issuer string?]
    [:sub string?]
@@ -28,15 +32,10 @@
    [:avatar-url {:optional true} string?]
    [:identity-provider [:ref "IdentityProvider"]]
    [:status [:ref "UserStatus"]]
+   [:operator boolean?]
    [:created-at [:ref "Timestamp"]]
    [:updated-at [:ref "Timestamp"]]])
 
-(def Me
-  [:map {:json-schema/example examples/Me}
-   [:user [:ref "User"]]
-   [:memberships [:vector [:ref "Membership"]]]
-   [:operator boolean?]])
-
 (def registry
   (components-registry [#'UserId #'MembershipId #'IdentityProvider #'UserStatus
-                        #'Role #'User #'Me]))
+                        #'Role #'Me]))
