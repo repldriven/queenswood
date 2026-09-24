@@ -136,6 +136,52 @@
                 :invitation/list-by-bank
                 "Failed to list invitations by bank"))
 
+(defn- open-invitations
+  [entries]
+  (into []
+        (comp (map (fn [{:keys [key record]}]
+                     {:key key :invitation (schema/pb->Invitation record)}))
+              (remove #(contains? closed-statuses (:status (:invitation %)))))
+        entries))
+
+(defn page-invitations-by-bank
+  [txn bank-id opts]
+  (let [{:keys [after before limit order] :or {limit 100 order :desc}} opts
+        back? (some? before)
+        scan (fn [store cursor]
+               (fdb/scan-record-entries store
+                                        (assoc {:prefix [bank-id]
+                                                :limit limit
+                                                :order order}
+                                               (if back? :before :after)
+                                               cursor)))]
+    (fdb/transact
+     txn
+     (fn [txn]
+       ;; Declined and withdrawn invitations are skipped, so a scan can
+       ;; come back short; scanning on from where it stopped fills the
+       ;; page rather than returning fewer than `limit`.
+       (let [store (fdb/open txn invitations-store-name)]
+         (loop [cursor (if back? before after)
+                kept []]
+           (let [found (scan store cursor)
+                 opened (open-invitations (:entries found))
+                 kept (if back? (into opened kept) (into kept opened))
+                 further (if back? (:before found) (:after found))]
+             (if (and further (< (count kept) limit))
+               (recur further kept)
+               (let [more? (or (some? further) (> (count kept) limit))
+                     page (if back?
+                            (vec (take-last limit kept))
+                            (vec (take limit kept)))]
+                 {:invitations (mapv :invitation page)
+                  :before (when (and (seq page) (if back? more? after))
+                            (:key (first page)))
+                  :after (when (and (seq page) (if back? true more?))
+                           (:key (peek page)))}))))))
+     :invitation/list-by-bank
+     "Failed to list invitations by bank")))
+
 (defn scan-access-events
   [txn bank-id opts]
   (let [{:keys [after before limit order]

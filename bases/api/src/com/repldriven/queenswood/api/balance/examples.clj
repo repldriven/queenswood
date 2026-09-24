@@ -23,7 +23,7 @@
    :updated-at "2025-01-01T00:00:00Z"})
 
 (def BalanceList
-  {:balances [Balance]
+  {:items [Balance]
    :posted-balance {:value 0 :currency "GBP"}
    :available-balance {:value 0 :currency "GBP"}})
 

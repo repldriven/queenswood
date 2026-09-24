@@ -59,10 +59,15 @@
    (fdb/transact
     txn
     (fn [txn]
-      (let [{:keys [limit order] :or {limit 100 order :desc}} opts]
-        (mapv ->bank
-              (:records (fdb/scan-records
-                         (fdb/open txn store-name)
-                         {:limit limit :order order})))))
+      (let [{:keys [after before limit order] :or {limit 100 order :desc}}
+            opts
+            result (fdb/scan-records (fdb/open txn store-name)
+                                     {:after after
+                                      :before before
+                                      :limit limit
+                                      :order order})]
+        {:banks (mapv ->bank (:records result))
+         :before (:before result)
+         :after (:after result)}))
     :bank/list
     "Failed to list banks")))

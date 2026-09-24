@@ -189,8 +189,10 @@
 
   `:before` and `:after` are the cursors of the page's first and last
   records, phrased in the client's display direction — so they always
-  mean prev / next regardless of `:order`. `:after` is set only when
-  rows remain beyond the page.
+  mean prev / next regardless of `:order`. Each is set only when rows
+  lie on that side of the page: `:before` on a page reached through a
+  cursor, or one paged back to with more before it, and `:after` on a
+  page with rows remaining beyond it, or one paged back to.
 
   Args:
   - store: an open FDBRecordStore.

@@ -49,7 +49,7 @@
 
 (def PartyId (:party-id Party))
 
-(def PartyList {:parties [Party]})
+(def PartyList {:items [Party]})
 
 (def Address
   {:building-number "155"

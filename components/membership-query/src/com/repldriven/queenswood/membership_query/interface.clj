@@ -180,6 +180,21 @@
   ([txn bank-id opts]
    (core/list-invitations-by-bank txn bank-id opts)))
 
+(defn page-invitations-by-bank
+  "One page of a bank's pending, expired and accepted invitations, newest
+  first; declined and withdrawn ones are left out, and a page is filled
+  past them. Returns `{:invitations [...] :before id|nil :after id|nil}`,
+  the cursors set only where invitations lie on that side of the page,
+  or an anomaly.
+
+  Args:
+  - txn: FDB transaction or config.
+  - bank-id: bank id (string).
+  - opts: `:after`, `:before`, `:limit` (default 100), `:order`
+    (default `:desc`) and `:now`."
+  [txn bank-id opts]
+  (core/page-invitations-by-bank txn bank-id opts))
+
 (defn list-pending-invitations-by-email
   "List the pending, unexpired invitations to an address, in any bank,
   matched lower-cased. The caller establishes the address is verified.

@@ -6,44 +6,27 @@
     [com.repldriven.queenswood.cash-account-product-query.interface :as
      cash-account-products]
 
-    [com.repldriven.mono.error.interface :as error]
-    [com.repldriven.mono.utility.interface :as utility]))
+    [com.repldriven.mono.error.interface :as error]))
 
 (defn list-products
   [request]
   (let [{:keys [record-db record-store auth parameters]} request
         {:keys [bank-id]} auth
-        {:keys [query]} parameters
-        {:keys [page]} query
-        {:keys [after before size]} page
-        after-id (cursor/decode after)
-        before-id (cursor/decode before)
+        {:keys [page]} (:query parameters)
         result (cash-account-products/get-products
                 {:record-db record-db :record-store record-store}
                 bank-id)]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
-      (let [{:keys [items]} result
-            windowed (cursor/paginate (or items [])
-                                      :product-id
-                                      :desc
-                                      {:after after-id
-                                       :before before-id
-                                       :size size})
-            {windowed-items :page
-             next-cursor :after
-             prev-cursor :before}
-            windowed
-            links (when (seq windowed-items)
-                    (cursor/build-links "/v1/cash-account-products"
-                                        (cursor/clamp-size size)
-                                        (when after-id prev-cursor)
-                                        next-cursor))]
+      (let [windowed (cursor/window (or (:items result) [])
+                                    :product-id
+                                    :desc
+                                    page)]
         {:status 200
-         :body (utility/assoc-seq
-                {:items windowed-items}
-                :links
-                links)}))))
+         :body (cursor/page-body "/v1/cash-account-products"
+                                 page
+                                 (:page windowed)
+                                 windowed)}))))
 
 (defn get-product
   [request]

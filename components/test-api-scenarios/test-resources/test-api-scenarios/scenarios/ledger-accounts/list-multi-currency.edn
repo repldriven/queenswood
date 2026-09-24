@@ -35,7 +35,7 @@
    :assert
    {:status 200
     :body
-    {:ledger-accounts
+    {:items
      [:m/in-any-order
       [{:gl-code "1100" :currency "EUR"}
        {:gl-code "1200" :currency "EUR"}

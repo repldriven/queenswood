@@ -52,6 +52,16 @@
   [examples]
   (schema/examples-registry examples))
 
+(defn list-schema
+  "Malli schema for a list's 200 body: `items`, each a `[:ref item]`,
+  and the optional `links` a paged list carries, `[:ref \"PageLinks\"]`.
+
+  Args:
+  - item: the name of the item's schema, as registered.
+  - example: the body's example, or nil for none."
+  [item example]
+  (schema/list-schema item example))
+
 (def
   ^{:doc
     "Malli schema for the RFC 9457 problem-details body the API
@@ -149,7 +159,8 @@
     "Malli registry of the cross-cutting schemas every API
   surface shares — timestamps, dates, country and currency primitives,
   amounts, names, the entity ids and product enums more than one
-  resource carries, and the `page` / `embed` query objects. Merged into
+  resource carries, the `page` / `embed` query objects and the
+  `PageLinks` a paged list returns. Merged into
   the coercion registry in `api.clj`, so `[:ref \"X\"]` resolves the
   same definition on every route."}
   registry

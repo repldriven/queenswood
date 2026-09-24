@@ -76,8 +76,8 @@
 ;; --- queries --------------------------------------------------------------
 
 (defn list-jobs
-  [config bank-id]
-  (store/list-jobs config bank-id))
+  [config bank-id opts]
+  (store/list-jobs config bank-id opts))
 
 (defn get-job
   [config bank-id job-id]

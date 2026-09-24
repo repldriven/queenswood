@@ -61,11 +61,11 @@
 (deftest list-cash-accounts-answers-with-projected-accounts-test
   (with-redefs [cash-accounts/get-accounts
                 (fn [& _] {:accounts [stored-account] :before nil :after nil})]
-    (let [{:keys [status body]} (SUT/list-cash-accounts (request))]
+    (let [{:keys [status body]} (SUT/list-cash-accounts
+                                 (assoc (request) :uri "/v1/cash-accounts"))]
       (is (= 200 status))
-      (testing "each account in the list is projected, under :cash-accounts"
-        (is (= [(cash-account-api/->body stored-account)]
-               (:cash-accounts body))))
+      (testing "each account in the list is projected, under :items"
+        (is (= [(cash-account-api/->body stored-account)] (:items body))))
       (testing "one unpaged page advertises no links"
         (is (not (contains? body :links)))))))
 

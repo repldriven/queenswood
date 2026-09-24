@@ -40,7 +40,7 @@
    :request {:method :get :path "/v1/ledger-accounts" :auth :org-0-token}
    :until
    {:status 200
-    :body {:ledger-accounts
+    :body {:items
            [:m/embeds
             [{:gl-code "1100"
               :currency "USD"
@@ -55,7 +55,7 @@
    :assert
    {:status 200
     :body
-    {:ledger-accounts
+    {:items
      [:m/embeds
       [{:gl-code "1100"
         :currency "USD"

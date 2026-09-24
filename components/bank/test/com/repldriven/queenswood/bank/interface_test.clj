@@ -271,7 +271,7 @@
          (is (error/rejection? second-reply))
          (is (= :bank/already-exists (error/kind second-reply)))
          (is (= 1 @clients))
-         (nom-test> [banks (bank-query/get-banks config)
+         (nom-test> [{:keys [banks]} (bank-query/get-banks config)
                      _ (is (= 1
                               (count (filter #(= "Twice Bank" (:name %))
                                              banks))))
@@ -314,7 +314,7 @@
                              {:identity-provider idp})]
          (is (error/rejection? r))
          (is (= :bank/unknown-tier (error/kind r)))
-         (nom-test> [banks (bank-query/get-banks config)
+         (nom-test> [{:keys [banks]} (bank-query/get-banks config)
                      _ (is (not-any? #(= "Unknown Tier Bank" (:name %)) banks))]))))))
 
 (deftest new-bank-rolls-back-on-failure-test
@@ -367,7 +367,7 @@
                      _ (is (empty? accounts))
                      bindings (policy/get-bindings-for-bank config bank-id)
                      _ (is (empty? bindings))
-                     jobs (scheduler/list-jobs config bank-id)
+                     {:keys [jobs]} (scheduler/list-jobs config bank-id)
                      _ (is (empty? jobs))
                      listed (q/list-by-user config user-id)
                      _ (is (empty? listed))

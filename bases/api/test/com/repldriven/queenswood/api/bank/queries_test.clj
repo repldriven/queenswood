@@ -74,18 +74,19 @@
   ([] (list-banks {}))
   ([reads]
    (let [{:keys [found list-active lookup]}
-         (merge {:found listed-banks
+         (merge {:found {:banks listed-banks}
                  :list-active active-memberships-of
                  :lookup find-person}
                 reads)]
-     (SUT/banks-response found
+     (SUT/banks-response nil
+                         found
                          (fn [bank-id]
                            (names/owners list-active lookup bank-id))))))
 
 (defn- listed-bank
   [response bank-id]
   (some (fn [bank] (when (= bank-id (:bank-id bank)) bank))
-        (get-in response [:body :banks])))
+        (get-in response [:body :items])))
 
 (deftest a-bank-lists-its-owners-only-test
   (let [response (list-banks)]
@@ -123,7 +124,7 @@
           response (list-banks {:lookup (fn [_] failure)})]
       (is (= 500 (:status response)))
       (is (= ":user/read" (get-in response [:body :type])))
-      (is (not (contains? (:body response) :banks)))))
+      (is (not (contains? (:body response) :items)))))
   (testing "the bank list itself"
     (let [failure (error/fail :bank/read {:message "Store unavailable"})
           response (list-banks {:found failure})]

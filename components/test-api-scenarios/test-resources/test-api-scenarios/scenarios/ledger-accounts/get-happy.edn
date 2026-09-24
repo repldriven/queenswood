@@ -33,14 +33,14 @@
    {:method :get
     :path "/v1/ledger-accounts/{account-id}"
     :path-params
-    {:account-id [:ref-find :chart :ledger-accounts :gl-code "2100"
+    {:account-id [:ref-find :chart :items :gl-code "2100"
                   :account-id]}
     :auth :org-0-token}
    :assert
    {:status 200
     :body
     {:bank-id [:ref :org-0 :bank-id]
-     :account-id [:ref-find :chart :ledger-accounts :gl-code "2100"
+     :account-id [:ref-find :chart :items :gl-code "2100"
                   :account-id]
      :gl-code "2100"
      :name "Customer deposits - current"

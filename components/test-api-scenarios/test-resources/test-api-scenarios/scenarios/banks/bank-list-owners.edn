@@ -26,7 +26,7 @@
   {:command :api/request
    :request {:method :get :path "/v1/banks" :auth :admin}
    :assert {:status 200
-            :body {:banks [:m/embeds
+            :body {:items [:m/embeds
                            [{:bank-id [:ref :bank :bank-id] :owners []}]]}}}
   {:command :api/request
    :request {:method :post
@@ -39,7 +39,7 @@
  [{:command :api/request
    :request {:method :get :path "/v1/banks" :auth :admin}
    :assert {:status 200
-            :body {:banks [:m/embeds
+            :body {:items [:m/embeds
                            [{:bank-id [:ref :bank :bank-id]
                              :owners [{:membership-id [:ref :owner-membership
                                                        :membership-id]

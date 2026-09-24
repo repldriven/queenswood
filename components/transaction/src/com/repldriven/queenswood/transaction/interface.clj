@@ -44,6 +44,21 @@
   [txn bank-id data]
   (core/record-and-post txn bank-id data))
 
+(defn page-transactions
+  "One page of an account's transaction legs, newest first by default,
+  each enriched with the parent transaction's type, status and
+  reference. Returns `{:transactions [...] :before key|nil :after
+  key|nil}`, a cursor being the leg's `[transaction-id leg-id]` and set
+  only where legs lie on that side of the page, or an anomaly.
+
+  Args:
+  - txn: FDB handle or open transaction.
+  - account-id: account whose legs to return.
+  - opts: map with `:after`, `:before`, `:limit` (default 1000) and
+    `:order` (`:desc` default)."
+  [txn account-id opts]
+  (store/page-transactions txn account-id opts))
+
 (defn get-transactions
   "List transaction legs for an account, enriched with the parent
   transaction's type, status, and reference.

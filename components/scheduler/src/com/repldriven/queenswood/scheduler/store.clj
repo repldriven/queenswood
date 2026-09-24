@@ -72,15 +72,20 @@
     :job-id job-id}))
 
 (defn list-jobs
-  [txn bank-id]
+  [txn bank-id opts]
   (fdb/transact
    txn
    (fn [txn]
-     (mapv (comp clean-job schema/pb->SchedulerJob)
-           (:records (fdb/scan-records (fdb/open txn jobs-store)
-                                       {:prefix [bank-id]
-                                        :limit 1000
-                                        :order :asc}))))
+     (let [{:keys [after before limit] :or {limit 1000}} opts
+           result (fdb/scan-records (fdb/open txn jobs-store)
+                                    {:prefix [bank-id]
+                                     :after after
+                                     :before before
+                                     :limit limit
+                                     :order :asc})]
+       {:jobs (mapv (comp clean-job schema/pb->SchedulerJob) (:records result))
+        :before (:before result)
+        :after (:after result)}))
    :scheduler/list-jobs
    {:message "Failed to list scheduler jobs" :bank-id bank-id}))
 

@@ -23,10 +23,13 @@
      {:get {:summary "List banks"
             :openapi {:operationId "ListBanks"
                       :description
-                      (str "Every bank on the platform, each with its party, "
-                           "its cash accounts and their balances, its tier "
-                           "and its active owners.")}
-            :responses {200 {:description "Every bank on the platform."
+                      (str "The banks on the platform, newest first, a page "
+                           "at a time, each with its party, its cash accounts "
+                           "and their balances, its tier and its active "
+                           "owners.")
+                      :parameters ^:replace [shared.parameters/ref-page]}
+            :parameters {:query shared.parameters/page-query}
+            :responses {200 {:description "A page of the platform's banks."
                              :body [:ref "BankList"]}}
             :handler queries/list-banks}
       :post

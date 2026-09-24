@@ -41,11 +41,14 @@
   (core/get-bank-view txn bank-id))
 
 (defn get-banks
-  "List banks enriched with party and accounts (with balances).
-  Returns a vector of rich bank maps or an anomaly.
+  "One page of banks, each enriched with its party and accounts (with
+  balances). Returns `{:banks [...] :before id|nil :after id|nil}`, the
+  cursors set only where banks lie on that side of the page, or an
+  anomaly.
 
   Args:
   - txn: FDB transaction or db handle.
-  - opts (optional): map; `:limit` and `:order` (default `:desc`)."
+  - opts (optional): map; `:after`, `:before`, `:limit` (default 100)
+    and `:order` (default `:desc`)."
   ([txn] (core/get-banks txn))
   ([txn opts] (core/get-banks txn opts)))

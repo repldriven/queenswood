@@ -94,7 +94,7 @@
              :path "/v1/cash-accounts"
              :auth :bank-0-token}
    :until {:status 200
-           :body {:cash-accounts
+           :body {:items
                   [:m/in-any-order
                    [{:account-id [:ref :bank-0 :accounts 0 :account-id]}
                     {:party-id [:ref :party-0 :party-id]}]]}}}
@@ -120,7 +120,7 @@
              :path "/v1/cash-accounts"
              :auth :bank-0-token}
    :assert {:status 200
-            :body {:cash-accounts
+            :body {:items
                    [:m/in-any-order
                     [{:account-id [:ref :bank-0 :accounts 0 :account-id]}
                      {:account-id [:ref :retried :account-id]}]]}}}]}

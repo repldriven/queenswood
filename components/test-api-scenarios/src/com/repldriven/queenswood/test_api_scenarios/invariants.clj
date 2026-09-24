@@ -83,7 +83,7 @@
   each control account's posted balance keyed by `[role currency]`."
   [base-url token]
   (let [{:keys [status body]} (get-json base-url token ledger-accounts-path)
-        {:keys [ledger-accounts trial-balance]} body]
+        {ledger-accounts :items :keys [trial-balance]} body]
     {:ok? (and (= 200 status) (seq ledger-accounts) (some? trial-balance))
      :status status
      :body body
@@ -120,17 +120,16 @@
 (defn- read-sub-ledgers
   "Walk the bank's cash accounts page by page through the cursor,
   summing each account's posted default balance by `[role currency]`.
-  The `:next` link carries the cursor but not the embed, so each page
-  after the first re-adds it."
+  The `:next` link carries the embed the first page asked for."
   [base-url token]
   (loop [path cash-accounts-path
          sums {}]
     (let [{:keys [status body]} (get-json base-url token path)
-          ok? (and (= 200 status) (contains? body :cash-accounts))
-          sums (reduce add-account sums (:cash-accounts body))
+          ok? (and (= 200 status) (contains? body :items))
+          sums (reduce add-account sums (:items body))
           next-path (get-in body [:links :next])]
       (if (and ok? next-path)
-        (recur (str next-path "&" embed-balances) sums)
+        (recur next-path sums)
         {:ok? ok? :status status :body body :sums sums}))))
 
 (defn- read-books

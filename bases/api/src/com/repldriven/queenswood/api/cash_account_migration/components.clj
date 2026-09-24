@@ -4,7 +4,7 @@
     [com.repldriven.queenswood.api.cash-account-migration.examples :as examples]
 
     [com.repldriven.queenswood.api-schema.interface :as schema :refer
-     [components-registry]]))
+     [components-registry list-schema]]))
 
 (def MigrationId (schema/id-schema "MigrationId" "mig" examples/MigrationId))
 
@@ -50,9 +50,7 @@
    [:completed-at {:optional true} [:ref "Timestamp"]]
    [:cancelled-at {:optional true} [:ref "Timestamp"]]])
 
-(def MigrationList
-  [:map {:json-schema/example examples/MigrationList}
-   [:migrations [:vector [:ref "Migration"]]]])
+(def MigrationList (list-schema "Migration" examples/MigrationList))
 
 (def MigrationCreate
   "Naming a target version rather than a product is deliberate: approval
@@ -87,9 +85,7 @@
    [:accounts-ineligible {:optional true} nat-int?]
    [:accounts-failed {:optional true} nat-int?]])
 
-(def MigrationRunList
-  [:map {:json-schema/example examples/MigrationRunList}
-   [:runs [:vector [:ref "MigrationRun"]]]])
+(def MigrationRunList (list-schema "MigrationRun" examples/MigrationRunList))
 
 (def MigrationAccountRun
   "What a run decided about one account. An ineligible account carries
@@ -108,8 +104,7 @@
    [:created-at [:ref "Timestamp"]]])
 
 (def MigrationAccountRunList
-  [:map {:json-schema/example examples/MigrationAccountRunList}
-   [:accounts [:vector [:ref "MigrationAccountRun"]]]])
+  (list-schema "MigrationAccountRun" examples/MigrationAccountRunList))
 
 (def registry
   (components-registry [#'MigrationId #'MigrationRunId #'MigrationStatus

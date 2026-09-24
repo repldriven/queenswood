@@ -56,7 +56,7 @@
 
 (def JobId (:job-id Job))
 
-(def JobList {:jobs [Job]})
+(def JobList {:items [Job]})
 
 (def JobScheduleUpdate
   {:periodicity :daily :run-time-minutes 1020 :enabled true})
@@ -86,4 +86,4 @@
 
 (def RunId (:run-id Run))
 
-(def RunList {:runs [Run]})
+(def RunList {:items [Run]})

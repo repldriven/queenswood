@@ -15,9 +15,6 @@
 
     [com.repldriven.mono.server.interface :as server]))
 
-(def ^:private list-query-schema
-  [:map {:closed true} [:page {:optional true} [:ref "PageQuery"]]])
-
 (def routes
   [["/payee-checks"
     {:openapi {:tags ["Payee Checks"]}}
@@ -31,7 +28,7 @@
                       :parameters ^:replace
                                   [shared.parameters/ref-page
                                    shared.parameters/ref-bank-id-header]}
-            :parameters {:query list-query-schema}
+            :parameters {:query shared.parameters/page-query}
             :responses {200 {:description "One page of the bank's payee checks."
                              :body [:ref "PayeeCheckList"]}}
             :handler queries/list-checks}

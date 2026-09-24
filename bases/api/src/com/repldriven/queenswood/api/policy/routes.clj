@@ -15,8 +15,10 @@
             :openapi {:operationId "ListPolicies"
                       :description
                       (str "Policies of every tier, whether or not bound to "
-                           "a bank. Returns at most 20.")}
-            :responses {200 {:description "The policies, at most 20."
+                           "a bank, newest first, a page at a time.")
+                      :parameters ^:replace [shared.parameters/ref-page]}
+            :parameters {:query shared.parameters/page-query}
+            :responses {200 {:description "A page of policies."
                              :body [:ref "PolicyList"]}}
             :handler queries/list-policies}}]
     ["/{policy-id}"

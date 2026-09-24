@@ -4,7 +4,7 @@
     [com.repldriven.queenswood.api.party.examples :as examples]
 
     [com.repldriven.queenswood.api-schema.interface :refer
-     [components-registry]]))
+     [components-registry list-schema]]))
 
 (def PartyType
   (coercion/party-type-enum-schema {:json-schema/example "person"}))
@@ -129,13 +129,7 @@
 
 (def ClosePartyResponse [:ref "Party"])
 
-(def PartyList
-  [:map {:json-schema/example examples/PartyList}
-   [:parties [:vector [:ref "Party"]]]
-   [:links {:optional true}
-    [:map
-     [:next {:optional true} string?]
-     [:prev {:optional true} string?]]]])
+(def PartyList (list-schema "Party" examples/PartyList))
 
 (def registry
   (components-registry

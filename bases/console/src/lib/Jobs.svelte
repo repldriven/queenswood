@@ -131,13 +131,13 @@
         jobs = [];
         return;
       }
-      const list = res.body?.jobs ?? [];
+      const list = res.body?.items ?? [];
       jobs = await Promise.all(
         list.map(async (job) => {
           const runsRes = await list_job_runs(job["job-id"]);
           const runs =
             runsRes.status >= 200 && runsRes.status < 300
-              ? (runsRes.body?.runs ?? [])
+              ? (runsRes.body?.items ?? [])
               : [];
           return toView(job, runs);
         }),

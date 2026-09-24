@@ -70,13 +70,16 @@
   (core/update-schedule config bank-id job-id edits))
 
 (defn list-jobs
-  "All scheduled jobs for `bank-id`.
+  "One page of `bank-id`'s scheduled jobs, in job-id order. Returns
+  `{:jobs [...] :before id|nil :after id|nil}`, the cursors set only
+  where jobs lie on that side of the page, or an anomaly.
 
   Args:
   - config: FDB+interfaces map.
-  - bank-id: the bank to list jobs for."
-  [config bank-id]
-  (core/list-jobs config bank-id))
+  - bank-id: the bank to list jobs for.
+  - opts (optional): `:after`, `:before` and `:limit` (default 1000)."
+  ([config bank-id] (core/list-jobs config bank-id nil))
+  ([config bank-id opts] (core/list-jobs config bank-id opts)))
 
 (defn get-job
   "One job by id, or nil if absent.

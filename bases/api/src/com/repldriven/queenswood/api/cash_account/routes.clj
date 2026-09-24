@@ -99,20 +99,24 @@
                          404 (ErrorResponse [#'CashAccountNotFound])}
              :handler queries/get-cash-account}}]
      ["/transactions"
-      {:openapi {:security [{"bearerAuth" ["org:viewer"]}]
-                 :parameters [shared.parameters/ref-bank-id-header]}
-       :get {:summary "List a cash account's transactions"
-             :openapi {:operationId "ListAccountTransactions"
-                       :description
-                       (str "The account's side of each transaction that "
-                            "touched it, newest first, with the transaction's "
-                            "type, status and reference. The list is not "
-                            "paged and holds at most 1000 entries.")}
-             :responses {200 {:description
-                              "The account's transactions, newest first."
-                              :body [:ref "TransactionList"]}
-                         404 (ErrorResponse [#'CashAccountNotFound])}
-             :handler queries/list-transactions}}]
+      {:openapi {:security [{"bearerAuth" ["org:viewer"]}]}
+       :get
+       {:summary "List a cash account's transactions"
+        :openapi {:operationId "ListAccountTransactions"
+                  :description
+                  (str "The account's side of each transaction that "
+                       "touched it, newest first, a page at a time, "
+                       "with the transaction's type, status and " "reference.")
+                  :parameters ^:replace
+                              [shared.parameters/ref-account-id
+                               shared.parameters/ref-page
+                               shared.parameters/ref-bank-id-header]}
+        :parameters {:query shared.parameters/page-query}
+        :responses {200 {:description
+                         "A page of the account's transactions, newest first."
+                         :body [:ref "TransactionList"]}
+                    404 (ErrorResponse [#'CashAccountNotFound])}
+        :handler queries/list-transactions}}]
      ["/close"
       {:openapi {:security [{"bearerAuth" ["org:developer"]}]}
        :post

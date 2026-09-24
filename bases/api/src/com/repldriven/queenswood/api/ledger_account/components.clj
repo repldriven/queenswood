@@ -54,7 +54,7 @@
 
 (def LedgerAccountList
   [:map {:json-schema/example examples/LedgerAccountList}
-   [:ledger-accounts [:vector [:ref "LedgerAccount"]]]
+   [:items [:vector [:ref "LedgerAccount"]]]
    [:trial-balance [:vector [:ref "TrialBalanceEntry"]]]])
 
 (def LedgerBalance
@@ -70,7 +70,7 @@
 
 (def LedgerBalanceList
   [:map
-   [:balances [:vector [:ref "LedgerBalance"]]]
+   [:items [:vector [:ref "LedgerBalance"]]]
    [:posted-balance [:ref "SignedAmount"]]
    [:available-balance [:ref "SignedAmount"]]])
 

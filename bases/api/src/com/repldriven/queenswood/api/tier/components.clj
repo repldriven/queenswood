@@ -3,15 +3,13 @@
     [com.repldriven.queenswood.api.tier.examples :as examples]
 
     [com.repldriven.queenswood.api-schema.interface :refer
-     [components-registry]]))
+     [components-registry list-schema]]))
 
 (def Tier
   [:map {:closed true :json-schema/example examples/Tier}
    [:tier [:ref "Name"]]
    [:description {:optional true} [:maybe string?]]])
 
-(def TierList
-  [:map {:json-schema/example examples/TierList}
-   [:tiers [:vector [:ref "Tier"]]]])
+(def TierList (list-schema "Tier" examples/TierList))
 
 (def registry (components-registry [#'Tier #'TierList]))

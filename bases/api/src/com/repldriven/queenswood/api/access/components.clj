@@ -4,7 +4,7 @@
     [com.repldriven.queenswood.api.access.examples :as examples]
 
     [com.repldriven.queenswood.api-schema.interface :as schema :refer
-     [components-registry]]))
+     [components-registry list-schema]]))
 
 (def InvitationId (schema/id-schema "InvitationId" "inv" examples/InvitationId))
 
@@ -58,9 +58,7 @@
    [:invited-by {:optional true} [:ref "Actor"]]
    [:invited-email {:optional true} string?]])
 
-(def Members
-  [:map {:json-schema/example examples/Members}
-   [:items [:vector [:ref "Member"]]]])
+(def MemberList (list-schema "Member" examples/MemberList))
 
 (def Invitation
   [:map
@@ -82,9 +80,7 @@
    [:created-at [:ref "Timestamp"]]
    [:updated-at [:ref "Timestamp"]]])
 
-(def Invitations
-  [:map {:json-schema/example examples/Invitations}
-   [:items [:vector [:ref "Invitation"]]]])
+(def InvitationList (list-schema "Invitation" examples/InvitationList))
 
 (def RecipientInvitation
   [:map
@@ -100,9 +96,8 @@
    [:invited-by [:ref "Actor"]]
    [:created-at [:ref "Timestamp"]]])
 
-(def RecipientInvitations
-  [:map {:json-schema/example examples/RecipientInvitations}
-   [:items [:vector [:ref "RecipientInvitation"]]]])
+(def RecipientInvitationList
+  (list-schema "RecipientInvitation" examples/RecipientInvitationList))
 
 (def CreateInvitationRequest
   [:map {:closed true :json-schema/example examples/CreateInvitationRequest}
@@ -142,20 +137,12 @@
    [:reason {:optional true} string?]
    [:occurred-at [:ref "Timestamp"]]])
 
-(def AccessEventLinks
-  [:map
-   [:next {:optional true} string?]
-   [:prev {:optional true} string?]])
-
-(def AccessEvents
-  [:map {:json-schema/example examples/AccessEvents}
-   [:items [:vector [:ref "AccessEvent"]]]
-   [:links {:optional true} [:ref "AccessEventLinks"]]])
+(def AccessEventList (list-schema "AccessEvent" examples/AccessEventList))
 
 (def registry
   (components-registry
-   [#'AccessEvent #'AccessEventId #'AccessEventKind #'AccessEventLinks
-    #'AccessEvents #'Actor #'ActorKind #'ChangeRoleRequest
-    #'CreateInvitationRequest #'EmailAddress #'Invitation #'InvitationId
-    #'InvitationStatus #'Invitations #'Member #'Members #'ReasonRequest
-    #'RecipientInvitation #'RecipientInvitations]))
+   [#'AccessEvent #'AccessEventId #'AccessEventKind #'AccessEventList #'Actor
+    #'ActorKind #'ChangeRoleRequest #'CreateInvitationRequest #'EmailAddress
+    #'Invitation #'InvitationId #'InvitationStatus #'InvitationList #'Member
+    #'MemberList #'ReasonRequest #'RecipientInvitation
+    #'RecipientInvitationList]))

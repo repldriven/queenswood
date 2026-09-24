@@ -46,7 +46,7 @@
     try {
       const res = await list_parties();
       if (res.status >= 200 && res.status < 300) {
-        parties = res.body?.parties ?? [];
+        parties = res.body?.items ?? [];
       } else {
         error = res.body?.detail ?? `HTTP ${res.status}`;
         parties = [];

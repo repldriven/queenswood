@@ -70,7 +70,7 @@
 
 (def CashAccountId (:account-id CashAccount))
 
-(def CashAccountList {:cash-accounts [CashAccount]})
+(def CashAccountList {:items [CashAccount]})
 
 (def CreateCashAccountRequest
   (select-keys CashAccount [:party-id :name :currency :product-id]))

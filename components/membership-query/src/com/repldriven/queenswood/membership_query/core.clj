@@ -110,6 +110,12 @@
     (let-nom> [invitations (store/list-invitations-by-bank txn bank-id)]
       (mapv #(as-read % now) invitations))))
 
+(defn page-invitations-by-bank
+  [txn bank-id opts]
+  (let [now (clock opts)]
+    (let-nom> [found (store/page-invitations-by-bank txn bank-id opts)]
+      (update found :invitations (fn [page] (mapv #(as-read % now) page))))))
+
 (defn list-pending-invitations-by-email
   [txn email opts]
   (if-not (string? email)

@@ -21,6 +21,12 @@
 
 (def ^:private access-events-path "/v1/access-events")
 
+(def ^:private invitations-path "/v1/invitations")
+
+(def ^:private members-path "/v1/members")
+
+(def ^:private my-invitations-path "/v1/me/invitations")
+
 (defn- invitation-uri
   [{:keys [invitation-id]}]
   (str "/v1/invitations/" invitation-id))
@@ -224,17 +230,25 @@
 
 (defn list-my-invitations
   [request]
-  (let [{:keys [auth]} request
+  (let [{:keys [auth parameters]} request
         {:keys [claims]} auth
+        {:keys [page]} (:query parameters)
         txn (config request)]
     (if-not (true? (:email_verified claims))
       (items [])
       (respond (let-nom> [invitations
                           (memberships/list-pending-invitations-by-email
                            txn
-                           (:email claims))]
-                 (recipient-invitations txn invitations))
-               items))))
+                           (:email claims))
+                          windowed (cursor/window (sort-by :invitation-id
+                                                           #(compare %2 %1)
+                                                           invitations)
+                                                  :invitation-id
+                                                  :desc
+                                                  page)
+                          listed (recipient-invitations txn (:page windowed))]
+                 (cursor/page-body my-invitations-path page listed windowed))
+               ok))))
 
 (defn get-my-invitation
   [request]
@@ -295,11 +309,18 @@
 
 (defn list-members
   [request]
-  (let [{:keys [bank-id]} (:auth request)
+  (let [{:keys [auth parameters]} request
+        {:keys [bank-id]} auth
+        {:keys [page]} (:query parameters)
         txn (config request)]
-    (respond (let-nom> [active (memberships/list-active-by-bank txn bank-id)]
-               (members txn active))
-             items)))
+    (respond (let-nom> [active (memberships/list-active-by-bank txn bank-id)
+                        windowed (cursor/window (sort-by :membership-id active)
+                                                :membership-id
+                                                :asc
+                                                page)
+                        listed (members txn (:page windowed))]
+               (cursor/page-body members-path page listed windowed))
+             ok)))
 
 (defn- membership-not-found
   [membership-id]
@@ -363,12 +384,17 @@
 
 (defn list-invitations
   [request]
-  (let [{:keys [bank-id]} (:auth request)
+  (let [{:keys [auth parameters]} request
+        {:keys [bank-id]} auth
+        {:keys [page]} (:query parameters)
         txn (config request)]
-    (respond (let-nom> [found (memberships/list-invitations-by-bank txn
-                                                                    bank-id)]
-               (invitations txn found))
-             items)))
+    (respond (let-nom> [found (memberships/page-invitations-by-bank
+                               txn
+                               bank-id
+                               (cursor/page-opts page))
+                        listed (invitations txn (:invitations found))]
+               (cursor/page-body invitations-path page listed found))
+             ok)))
 
 (defn get-invitation
   [request]
@@ -461,25 +487,14 @@
   (let [{:keys [auth parameters]} request
         {:keys [bank-id]} auth
         {:keys [page]} (:query parameters)
-        {:keys [after before size]} page
-        after-id (cursor/decode after)
-        before-id (cursor/decode before)
-        size (cursor/clamp-size size)
         txn (config request)]
-    (respond
-     (let-nom> [found (memberships/list-access-events
-                       txn
-                       bank-id
-                       (utility/assoc-some {:limit size}
-                                           :after after-id
-                                           :before before-id))]
-       (named-access-events txn found))
-     (fn [{:keys [access-events] next-cursor :after prev-cursor :before}]
-       (ok (utility/assoc-seq
-            {:items access-events}
-            :links
-            (when (seq access-events)
-              (cursor/build-links access-events-path
-                                  size
-                                  (when after-id prev-cursor)
-                                  next-cursor))))))))
+    (respond (let-nom> [found (memberships/list-access-events
+                               txn
+                               bank-id
+                               (cursor/page-opts page))
+                        named (named-access-events txn found)]
+               (cursor/page-body access-events-path
+                                 page
+                                 (:access-events named)
+                                 named))
+             ok)))

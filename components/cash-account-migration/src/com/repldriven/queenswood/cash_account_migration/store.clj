@@ -84,12 +84,18 @@
   (fdb/transact
    txn
    (fn [txn]
-     (let [{:keys [limit order] :or {limit 1000 order :desc}} opts]
-       (mapv (comp clean-migration schema/pb->CashAccountMigration)
-             (:records (fdb/scan-records (fdb/open txn store-name)
-                                         {:prefix [bank-id]
-                                          :limit limit
-                                          :order order})))))
+     (let [{:keys [after before limit order] :or {limit 1000 order :desc}}
+           opts
+           result (fdb/scan-records (fdb/open txn store-name)
+                                    {:prefix [bank-id]
+                                     :after after
+                                     :before before
+                                     :limit limit
+                                     :order order})]
+       {:migrations (mapv (comp clean-migration schema/pb->CashAccountMigration)
+                          (:records result))
+        :before (:before result)
+        :after (:after result)}))
    :cash-account-migration/list
    {:message "Failed to list cash-account migrations" :bank-id bank-id}))
 
@@ -151,12 +157,18 @@
   (fdb/transact
    txn
    (fn [txn]
-     (let [{:keys [limit] :or {limit 1000}} opts]
-       (mapv (comp clean-account-run schema/pb->CashAccountMigrationAccountRun)
-             (:records (fdb/scan-records (fdb/open txn account-runs-store-name)
-                                         {:prefix [bank-id run-id]
-                                          :limit limit
-                                          :order :asc})))))
+     (let [{:keys [after before limit] :or {limit 1000}} opts
+           result (fdb/scan-records (fdb/open txn account-runs-store-name)
+                                    {:prefix [bank-id run-id]
+                                     :after after
+                                     :before before
+                                     :limit limit
+                                     :order :asc})]
+       {:account-runs (mapv (comp clean-account-run
+                                  schema/pb->CashAccountMigrationAccountRun)
+                            (:records result))
+        :before (:before result)
+        :after (:after result)}))
    :cash-account-migration/list-account-runs
    {:message "Failed to list cash-account migration account runs"
     :bank-id bank-id

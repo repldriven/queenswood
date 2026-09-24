@@ -37,7 +37,7 @@
    :invited-by Actor
    :invited-email "c.babbage@example.com"})
 
-(def Members {:items [Member invited-member]})
+(def MemberList {:items [Member invited-member]})
 
 (def Invitation
   {:invitation-id InvitationId
@@ -58,7 +58,7 @@
          :accepted-email "charles@example.com"
          :updated-at "2026-05-19T10:00:00Z"))
 
-(def Invitations {:items [Invitation accepted-invitation]})
+(def InvitationList {:items [Invitation accepted-invitation]})
 
 (def RecipientInvitation
   {:invitation-id InvitationId
@@ -71,7 +71,7 @@
    :invited-by Actor
    :created-at "2026-05-18T10:00:00Z"})
 
-(def RecipientInvitations {:items [RecipientInvitation]})
+(def RecipientInvitationList {:items [RecipientInvitation]})
 
 (def CreateInvitationRequest
   {:email "c.babbage@example.com"
@@ -95,7 +95,7 @@
    :reason "Leads the payments team"
    :occurred-at "2026-06-01T09:00:00Z"})
 
-(def AccessEvents
+(def AccessEventList
   {:items [AccessEvent]
    :links {:next (str "/v1/access-events?page[after]="
                       "djE6YWV2LjAxa3ByYm1nY2ozNXB0YzhucG15YmhoNHNu"

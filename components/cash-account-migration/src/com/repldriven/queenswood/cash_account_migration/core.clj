@@ -370,7 +370,7 @@
   does, and the rest of the work list is unaffected."
   [txn bank-id business-day]
   (let-nom>
-    [migrations (store/list-migrations txn bank-id {})]
+    [{:keys [migrations]} (store/list-migrations txn bank-id {})]
     (into []
           (filter (fn [migration]
                     (let [target (target-of txn bank-id migration)]

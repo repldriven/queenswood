@@ -33,10 +33,15 @@
      {:get {:summary "List cash account migrations"
             :openapi {:operationId "ListCashAccountMigrations"
                       :description
-                      "The bank's migrations in every status, newest first."
+                      (str "The bank's migrations in every status, newest "
+                           "first, a page at a time.")
                       :security [{"bearerAuth" ["org:viewer"]}]
-                      :parameters [shared.parameters/ref-bank-id-header]}
-            :responses {200 {:description "The bank's migrations, newest first."
+                      :parameters ^:replace
+                                  [shared.parameters/ref-page
+                                   shared.parameters/ref-bank-id-header]}
+            :parameters {:query shared.parameters/page-query}
+            :responses {200 {:description
+                             "A page of the bank's migrations, newest first."
                              :body [:ref "MigrationList"]}}
             :handler queries/list-migrations}
       :post {:summary "Create a cash account migration"
@@ -120,19 +125,25 @@
               :handler handlers/cancel-migration}}]
      ["/previews"
       [""
-       {:get
-        {:summary "List a migration's previews"
-         :openapi {:operationId "ListCashAccountMigrationPreviews"
-                   :description
-                   (str "Every run of the migration, newest first. Once "
-                        "the migration has completed, this includes the "
-                        "run that moved its accounts, with `dry-run` " "false.")
-                   :security [{"bearerAuth" ["org:viewer"]}]
-                   :parameters [shared.parameters/ref-bank-id-header]}
-         :responses {200 {:description "The migration's runs, newest first."
-                          :body [:ref "MigrationRunList"]}
-                     404 (ErrorResponse [#'MigrationNotFound])}
-         :handler queries/list-runs}
+       {:get {:summary "List a migration's previews"
+              :openapi {:operationId "ListCashAccountMigrationPreviews"
+                        :description
+                        (str
+                         "Every run of the migration, newest first, a page "
+                         "at a time. Once the migration has completed, this "
+                         "includes the run that moved its accounts, with "
+                         "`dry-run` false.")
+                        :security [{"bearerAuth" ["org:viewer"]}]
+                        :parameters ^:replace
+                                    [shared.parameters/ref-migration-id
+                                     shared.parameters/ref-page
+                                     shared.parameters/ref-bank-id-header]}
+              :parameters {:query shared.parameters/page-query}
+              :responses {200 {:description
+                               "A page of the migration's runs, newest first."
+                               :body [:ref "MigrationRunList"]}
+                          404 (ErrorResponse [#'MigrationNotFound])}
+              :handler queries/list-runs}
         :post {:summary "Preview a cash account migration"
                :openapi {:operationId "PreviewCashAccountMigration"
                          :description
@@ -175,18 +186,24 @@
                            404 (ErrorResponse [#'RunNotFound])}
                :handler queries/get-run}}]
        ["/accounts"
-        {:openapi {:security [{"bearerAuth" ["org:viewer"]}]
-                   :parameters [shared.parameters/ref-bank-id-header]}
+        {:openapi {:security [{"bearerAuth" ["org:viewer"]}]}
          :get {:summary "List a preview's per-account verdicts"
                :openapi {:operationId "ListCashAccountMigrationPreviewAccounts"
                          :description
                          (str "One verdict per account the run reached, in "
-                              "account order. A preview records each account "
-                              "as eligible, or ineligible with the reason, "
-                              "and the run that moves accounts records "
-                              "migrated or failed in place of eligible.")}
+                              "account order, a page at a time. A preview "
+                              "records each account as eligible, or "
+                              "ineligible with the reason, and the run that "
+                              "moves accounts records migrated or failed in "
+                              "place of eligible.")
+                         :parameters ^:replace
+                                     [shared.parameters/ref-migration-id
+                                      shared.parameters/ref-migration-run-id
+                                      shared.parameters/ref-page
+                                      shared.parameters/ref-bank-id-header]}
+               :parameters {:query shared.parameters/page-query}
                :responses {200 {:description
-                                "One verdict per account the run reached."
+                                "A page of the verdicts the run recorded."
                                 :body [:ref "MigrationAccountRunList"]}
                            404 (ErrorResponse [#'RunNotFound])}
                :handler queries/list-run-accounts}}]]]]]])

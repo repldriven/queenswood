@@ -319,6 +319,15 @@
    [:size {:optional true :json-schema/description "Page size"}
     [:int {:min 1 :max 100}]]])
 
+(def PageLinks
+  "The links a paged list carries beside its `items`: `next` when rows
+  follow the page, `prev` when rows precede it, each the path of that
+  page. The first page has no `prev`, and the last no `next`."
+  [:map
+   [:next {:optional true :json-schema/description "The next page"} string?]
+   [:prev {:optional true :json-schema/description "The previous page"}
+    string?]])
+
 (def Name
   "Non-empty printable text up to 140 chars. Used wherever the
   API exposes a human-readable name (party display names, payment
@@ -427,6 +436,6 @@
    [#'AccountNumber #'Amount #'Bban #'BankId #'BusinessDay #'CountryCode
     #'Country3Code #'Currency #'CurrencyCode #'Date #'DateOfBirth #'EmbedQuery
     #'IdempotencyKey #'MinorUnits #'Name #'PartyId #'PaymentAddressScheme
-    #'PaymentMinorUnits #'NationalIdentifierValue #'PageQuery #'ProductId
-    #'ProductType #'SignedAmount #'SignedBasisPoints #'SignedMinorUnits
-    #'SortCode #'Timestamp #'VersionId]))
+    #'PaymentMinorUnits #'NationalIdentifierValue #'PageLinks #'PageQuery
+    #'ProductId #'ProductType #'SignedAmount #'SignedBasisPoints
+    #'SignedMinorUnits #'SortCode #'Timestamp #'VersionId]))

@@ -209,7 +209,7 @@
              :auth :org-0-token}
    :as :runs
    :assert {:status 200
-            :body {:runs [{:migration-id [:ref :migration :migration-id]
+            :body {:items [{:migration-id [:ref :migration :migration-id]
                            :dry-run false
                            :status "completed"
                            :accounts-seen 1
@@ -222,10 +222,10 @@
     :path
     "/v1/cash-account-migrations/{migration-id}/previews/{run-id}/accounts"
     :path-params {:migration-id [:ref :migration :migration-id]
-                  :run-id [:ref :runs :runs 0 :run-id]}
+                  :run-id [:ref :runs :items 0 :run-id]}
     :auth :org-0-token}
    :assert {:status 200
-            :body {:accounts [{:account-id [:ref :account-0 :account-id]
+            :body {:items [{:account-id [:ref :account-0 :account-id]
                                :outcome "migrated"
                                :from-version-id [:ref :v1 :version-id]
                                :to-version-id [:ref :v2 :version-id]}]}}}]}

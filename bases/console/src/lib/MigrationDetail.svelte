@@ -132,7 +132,7 @@
     runsLoading = true;
     const res = await list_cash_account_migration_runs(migration.id);
     const next =
-      res.status >= 200 && res.status < 300 ? (res.body?.runs ?? []) : [];
+      res.status >= 200 && res.status < 300 ? (res.body?.items ?? []) : [];
     runs = next;
     runsLoading = false;
     await loadOutcomes(settledRun(next));
@@ -148,7 +148,7 @@
       run["run-id"],
     );
     outcomes =
-      res.status >= 200 && res.status < 300 ? (res.body?.accounts ?? []) : [];
+      res.status >= 200 && res.status < 300 ? (res.body?.items ?? []) : [];
   }
 
   const shownRun = $derived(settledRun(runs));

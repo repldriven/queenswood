@@ -104,7 +104,7 @@
         trial = [];
         return;
       }
-      const list = res.body?.["ledger-accounts"] ?? [];
+      const list = res.body?.items ?? [];
       // One call: shape each account from the list. `balances` is null
       // until the row is expanded (lazily fetched then), since the
       // headline figure comes from the backend-derived posted-balance.
@@ -149,7 +149,7 @@
       const bres = await list_ledger_account_balances(acc.id);
       acc.balances =
         bres.status >= 200 && bres.status < 300
-          ? (bres.body?.balances ?? []).map(mapBalance)
+          ? (bres.body?.items ?? []).map(mapBalance)
           : [];
     } finally {
       acc.balancesLoading = false;
