@@ -20,27 +20,30 @@
       {:status "ACCEPTED"
        :payload (avro/serialize (schemas "cash-account") account)})))
 
-(def ^:private command-handlers
-  {"open-cash-account" (fn [config data]
-                         (->response config (core/open-account config data)))
-   "close-cash-account" (fn [config data]
-                          (->response config (core/close-account config data)))
-   "suspend-cash-account"
-   (fn [config data] (->response config (core/suspend-account config data)))
-   "resume-cash-account"
-   (fn [config data] (->response config (core/resume-account config data)))
-   "rotate-cash-account-address"
-   (fn [config data] (->response config (core/rotate-address config data)))
-   "get-cash-account"
-   (fn [config data]
-     (let [{:keys [bank-id account-id]} data]
-       (->response config (q/get-account config bank-id account-id))))})
+(defn- get-account
+  [config data]
+  (let [{:keys [bank-id account-id]} data]
+    (q/get-account config bank-id account-id)))
+
+(def ^:private command-fns
+  {"open-cash-account" core/open-account
+   "close-cash-account" core/close-account
+   "suspend-cash-account" core/suspend-account
+   "resume-cash-account" core/resume-account
+   "rotate-cash-account-address" core/rotate-address
+   "get-cash-account" get-account})
+
+(defn- decode
+  [schema message]
+  (let [{:keys [id payload]} message]
+    (let-nom> [raw (avro/deserialize-same schema payload)]
+      (assoc raw :idempotency-key id))))
 
 (defn- dispatch
   [config message]
-  (let [{:keys [command id payload]} message
-        handler (get command-handlers command)]
-    (if (nil? handler)
+  (let [{:keys [command]} message
+        f (get command-fns command)]
+    (if (nil? f)
       (error/reject :cash-account/unknown-command
                     (str "Unknown command: " command))
       (let [{:keys [schemas]} config
@@ -49,9 +52,8 @@
           (error/fail :cash-account/process-command
                       {:message "No schema found for command"
                        :command command})
-          (let-nom> [raw (avro/deserialize-same schema payload)
-                     data (assoc raw :idempotency-key id)]
-            (handler config data)))))))
+          (let-nom> [data (decode schema message)]
+            (->response config (f config data))))))))
 
 (defrecord CashAccountProcessor [config]
   processor/Processor
