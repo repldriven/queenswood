@@ -22,10 +22,6 @@ system:
   memberships: !include system/membership.yml
   memberships-dispatcher: !include system/membership-dispatcher.yml
   message-bus: !include system/message-bus-test.yml
-  onfido-adapter: !include system/onfido-adapter.yml
-  onfido-adapter-relay: !include system/onfido-adapter-relay.yml
-  onfido-adapter-server: !include system/onfido-adapter-server.yml
-  onfido-simulator-server: !include system/onfido-simulator-server.yml
   parties: !include system/party.yml
   parties-dispatcher: !include system/party-dispatcher.yml
   parties-relay: !include system/party-relay.yml
@@ -44,3 +40,7 @@ system:
   uk-companies-house-adapter: !include system/uk-companies-house-adapter.yml
   uk-companies-house-simulator-server: !include system/uk-companies-house-simulator-server.yml
   webhook: !include monolith/webhook-test.yml
+  zyphe-adapter: !include system/zyphe-adapter.yml
+  zyphe-adapter-relay: !include system/zyphe-adapter-relay.yml
+  zyphe-adapter-server: !include system/zyphe-adapter-server.yml
+  zyphe-simulator-server: !include system/zyphe-simulator-server.yml

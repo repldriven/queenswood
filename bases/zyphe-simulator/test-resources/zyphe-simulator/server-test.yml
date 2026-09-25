@@ -1,0 +1,17 @@
+handler: !system/required-component
+
+state: !system/component
+  system/component-kind: zyphe-simulator/state
+
+interceptors: !system/component
+  system/component-kind: server/interceptors
+  state: !system/local-ref state
+  organization-id: 6b0f6a2e-1f5c-4a70-9d6b-2b1a0e4c9d33
+  api-key: zyphe_sk_simulator
+
+jetty-adapter: !system/component
+  system/component-kind: server/jetty-adapter
+  handler: !system/ref server.handler
+  interceptors: !system/ref server.interceptors
+  options:
+    port: 0

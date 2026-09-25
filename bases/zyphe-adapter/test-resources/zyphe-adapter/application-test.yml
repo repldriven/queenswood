@@ -1,0 +1,5 @@
+system:
+  avro: !include system/avro.yml
+  fdb: !include system/fdb-test.yml
+  message-bus: !include zyphe-adapter/message-bus-test.yml
+  server: !include zyphe-adapter/server-test.yml

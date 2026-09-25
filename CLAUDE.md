@@ -61,7 +61,7 @@ non-trivial work on their topic.
   (one transaction, commit-then-ack) and work that crosses a
   boundary (ingress idempotent consume-then-ack; egress via an
   outbox for events and an intent for external calls, drained by
-  a relay). The external adapters (ClearBank, Onfido) are the
+  a relay). The external adapters (ClearBank, Zyphe) are the
   worked example.
   See [tdd/transaction-processing.md](docs/tdd/transaction-processing.md),
   [tdd/payments.md](docs/tdd/payments.md), and

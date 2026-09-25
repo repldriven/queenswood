@@ -112,7 +112,7 @@ system:
       system/component-kind: changelog-relay/envelope-handler
       bus: !system/ref message-bus.bus
       event-channel: !keyword idv-event
-      store-name: onfido-outbox
+      store-name: zyphe-outbox
     idvs-handler: !system/component
       system/component-kind: changelog-relay/envelope-handler
       bus: !system/ref message-bus.bus
@@ -174,11 +174,11 @@ system:
         consumer-id: invitations-relay
         store-name: invitations
         handler: !system/local-ref invitations-handler
-      onfido-outbox:
+      zyphe-outbox:
         record-db: !system/ref fdb.record-db
         keyspace-prefix: !system/ref fdb.keyspace-prefix
-        consumer-id: onfido-relay
-        store-name: onfido-outbox
+        consumer-id: zyphe-relay
+        store-name: zyphe-outbox
         handler: !system/local-ref idv-handler
       parties:
         record-db: !system/ref fdb.record-db

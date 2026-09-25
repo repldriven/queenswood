@@ -1,6 +1,6 @@
 (ns com.repldriven.queenswood.external-adapters.system
   "Bare-require bundle for the external adapters service — the
-  ClearBank, Onfido and Companies House adapters plus the simulators
+  ClearBank, Zyphe and Companies House adapters plus the simulators
   that stand in for those vendors, and the webhook and email consumers
   and delivery runners — every brick whose component-kinds its
   application.yml instantiates. Each composed base is reached
@@ -17,14 +17,14 @@
     [com.repldriven.queenswood.company.interface]
     [com.repldriven.queenswood.email.interface]
     [com.repldriven.queenswood.fdb.interface]
-    [com.repldriven.queenswood.onfido-adapter.interface]
-    [com.repldriven.queenswood.onfido-relay.interface]
-    [com.repldriven.queenswood.onfido-simulator.interface]
-    [com.repldriven.queenswood.onfido-webhook.interface]
     [com.repldriven.queenswood.schema.interface]
     [com.repldriven.queenswood.uk-companies-house-adapter.interface]
     [com.repldriven.queenswood.uk-companies-house-simulator.interface]
     [com.repldriven.queenswood.webhook.interface]
+    [com.repldriven.queenswood.zyphe-adapter.interface]
+    [com.repldriven.queenswood.zyphe-relay.interface]
+    [com.repldriven.queenswood.zyphe-simulator.interface]
+    [com.repldriven.queenswood.zyphe-webhook.interface]
 
     [com.repldriven.mono.avro.interface]
     [com.repldriven.mono.command.interface]

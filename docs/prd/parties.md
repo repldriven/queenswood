@@ -61,12 +61,11 @@ takes on.
 ## Non-goals
 
 - **Production identity-verification provider.** The
-  platform integrates with an Onfido-shaped provider via a
-  pluggable adapter. A simulator standing in for the
-  provider covers development and tests; pointing the
-  adapter at production Onfido (real credentials, real
-  webhook URL, signature verification) isn't a deployment
-  the platform ships today. See Open questions.
+  platform integrates with Zyphe via a pluggable adapter. A
+  simulator standing in for the provider covers development
+  and tests; pointing the adapter at production Zyphe (real
+  credentials, a real webhook URL) isn't a deployment the
+  platform ships today. See Open questions.
 - **Periodic re-verification.** Once active, a person party
   stays active. No periodic KYC refresh, no sanctions
   re-screening, no address-change-triggered re-verification.
@@ -121,8 +120,8 @@ completes.
 ### Identity verification (person parties)
 
 When a person party is registered, the platform sends the
-person's details to an Onfido-shaped IDV provider (or a
-simulator standing in for one) and begins an identity
+person's details to an IDV provider, Zyphe (or a
+simulator standing in for it), and begins an identity
 check in the background. The tenant doesn't wait for it —
 the registration call returns straight away with a pending
 party. The provider does its checks asynchronously and
@@ -267,10 +266,10 @@ name comparison belongs here.
 ## Open questions
 
 - **Production IDV provider deployment.** The IDV adapter
-  speaks Onfido's HTTP API and runs against a simulator in
-  development and tests. Pointing it at production Onfido
-  needs real credentials, a production webhook URL,
-  signature verification keys, and operator runbooks —
+  speaks Zyphe's HTTP API and runs against a simulator in
+  development and tests. Pointing it at production Zyphe
+  needs real credentials, a production webhook URL, a
+  webhook secret, and operator runbooks —
   none of which are deployed today. Until that's in place,
   the platform isn't enforcing real KYC, even though the
   shape of the integration is real.

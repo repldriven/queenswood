@@ -527,8 +527,8 @@ services:
 
   # Every external-vendor adapter and the simulators that stand in for
   # those vendors, in one JVM: ClearBank (8081 simulator / 8082
-  # adapter), Onfido (8083 / 8084), Companies House (8085 simulator,
-  # bus-only adapter). Adapters reach their simulator over localhost, so
+  # adapter), Companies House (8085 simulator, bus-only adapter), Zyphe
+  # (8086 / 8087). Adapters reach their simulator over localhost, so
   # there is no cross-pod wait and no webhook registration race. The
   # `_URL` env vars stay so a deployment can point an adapter at the
   # real vendor instead. Port 8082 is the probe target because it is
@@ -540,12 +540,12 @@ services:
     extraPorts:
       - name: clearbank-sim
         port: 8081
-      - name: onfido-sim
-        port: 8083
-      - name: onfido
-        port: 8084
       - name: companies-sim
         port: 8085
+      - name: zyphe-sim
+        port: 8086
+      - name: zyphe
+        port: 8087
     replicas: 1
     resources:
       limits: { cpu: "1500m", memory: "2Gi" }
@@ -553,9 +553,16 @@ services:
     extraEnv:
       CLEARBANK_SIMULATOR_URL: "http://localhost:8081"
       CLEARBANK_ADAPTER_PUBLIC_URL: "http://localhost:8082"
-      ONFIDO_URL: "http://localhost:8083"
-      IDV_ONFIDO_ADAPTER_PUBLIC_URL: "http://localhost:8084"
       COMPANIES_HOUSE_URL: "http://localhost:8085"
+      # The simulator is the only party to the Zyphe values, so none is
+      # a secret. Pointing ZYPHE_URL at Zyphe needs a secret key, a flow
+      # id and a webhook secret from a secret store instead.
+      ZYPHE_URL: "http://localhost:8086"
+      ZYPHE_API_KEY: "zyphe_sk_simulator"
+      ZYPHE_FLOW_ID: "2d8285d7-f4ba-42df-ab3f-681d9870d37a"
+      ZYPHE_SANDBOX: "true"
+      ZYPHE_WEBHOOK_SECRET: "9f2b7c1d4e6a8035b1c9d2e4f6a80351d7e9b2c4f6a803517d9e2b4c6f8a0351"
+      IDV_ZYPHE_ADAPTER_PUBLIC_URL: "http://localhost:8087"
 
 # ---------------------------------------------------------------------
 # FDB cluster managed by the FDB Kubernetes operator. The version MUST

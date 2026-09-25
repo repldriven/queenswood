@@ -1,0 +1,17 @@
+handler: !system/required-component
+
+interceptors: !system/component
+  system/component-kind: server/interceptors
+  bus: !system/ref message-bus.bus
+  avro: !system/ref avro.serde
+  event-channel: !keyword idv-event
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  webhook-secret: "9f2b7c1d4e6a8035b1c9d2e4f6a80351d7e9b2c4f6a803517d9e2b4c6f8a0351"
+
+jetty-adapter: !system/component
+  system/component-kind: server/jetty-adapter
+  handler: !system/ref server.handler
+  interceptors: !system/ref server.interceptors
+  options:
+    port: 0
