@@ -36,7 +36,7 @@ export QW_CODE=qw01
 ### 1. Name the repository in the manifest
 
 One field, in the installation's own manifest — see
-[management-plane-install](management-plane-install.md) for where that
+[plane-install](plane-install.md) for where that
 file lives:
 
 ```yaml
@@ -273,7 +273,7 @@ project holds.
 
 - [argocd-apps](argocd-apps.md) — Applications, sync waves, and what a
   parent may hold.
-- [management-plane-install](management-plane-install.md) — the private
+- [plane-install](plane-install.md) — the private
   repository this reads for Queenswood, and the manifest that names it.
 - [external-secrets](external-secrets.md) — how the key gets into that
   store, and out of it onto a cluster.

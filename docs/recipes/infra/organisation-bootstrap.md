@@ -147,7 +147,7 @@ plane that succeeds it needs none of them.
 
 - [organisation-foundation](organisation-foundation.md) — the organisation
   and the billing account this grants against.
-- [management-plane-install](management-plane-install.md) — what impersonates
+- [plane-install](plane-install.md) — what impersonates
   it, and the plane it builds.
 - [gcp-iam](gcp-iam.md) — why a granted identity is not an inherited
   one.

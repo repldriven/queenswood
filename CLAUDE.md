@@ -221,7 +221,7 @@ non-trivial work on their topic.
   cannot install this at all, what the composite builds, the path from a
   throwaway plane to a durable one, the four identities, and the
   credential and zone that finish it. See
-  [management-plane-install](docs/recipes/infra/management-plane-install.md).
+  [plane-install](docs/recipes/infra/plane-install.md).
 - **Adding an instance to an installation** — the unit's two places,
   why the secrets are written while the composite builds, and why
   `down` is not a starting state. See

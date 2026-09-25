@@ -21,7 +21,7 @@ a deployed instance does.
 
 - A running Queenswood installation, with `billingAccountId` and
   `access.platformAdmin` in its `environment.yml` — see
-  [management-plane-install](management-plane-install.md).
+  [plane-install](plane-install.md).
 - Write access to the private manifests repository, and a merge.
 - `pass`, on the machine that runs the monolith.
 - The capability each step names. Ours is a Google group; yours may differ.
@@ -128,7 +128,7 @@ differs from step 4's, character for character, including `http`.
 **A project that stays `Ready: False` with a billing refusal.** The
 plane's identity cannot link the installation's billing account. The
 grant is made once by an administrator of the account — see
-[management-plane-install](management-plane-install.md).
+[plane-install](plane-install.md).
 
 ## Rules
 

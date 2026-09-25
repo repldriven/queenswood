@@ -90,7 +90,7 @@ what forces the management plane to hold its own service account rather
 than borrowing this one.
 
 The runbook for both paths is
-[management-plane-install](../recipes/infra/management-plane-install.md).
+[plane-install](../recipes/infra/plane-install.md).
 
 Its rights are folder-scoped once the folder exists, but creating the
 folder is not: `resourcemanager.folders.create` is checked on the

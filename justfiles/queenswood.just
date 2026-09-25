@@ -383,7 +383,7 @@ queenswood-local-manifest project="":
     if [[ ! -d "$ROOT" ]]; then
       echo "no installation at $ROOT" >&2
       echo "the plane's manifest is committed there first -- see" >&2
-      echo "docs/recipes/infra/management-plane-install.md" >&2
+      echo "docs/recipes/infra/plane-install.md" >&2
       exit 1
     fi
     if [[ -n "{{ project }}" && ! "{{ project }}" =~ ^prj-{{ CODE }}-d-local-[0-9a-f]{6}$ ]]; then

@@ -64,7 +64,7 @@ hands one over.
 
 ### 5. The management plane
 
-[management-plane-install](management-plane-install.md). The management
+[plane-install](plane-install.md). The management
 project, a cluster running Crossplane and Argo that reconciles the
 installation from git, Argo's credential for the manifests repository, the
 recovery project, and the name this installation answers under. A throwaway
@@ -138,7 +138,7 @@ the plane and the instance cannot tell which entry produced them.
 - [contract-install](contract-install.md) — step 3, and what to ask an
   organisation for.
 - [boundary-install](boundary-install.md) — step 4.
-- [management-plane-install](management-plane-install.md) — step 5.
+- [plane-install](plane-install.md) — step 5.
 - [instance-deploy](instance-deploy.md) — step 6.
 - [ADR-0022](../../adr/0022-cloud-foundation-and-environment-lifecycle.md)
   — the folder as the boundary an installation occupies.

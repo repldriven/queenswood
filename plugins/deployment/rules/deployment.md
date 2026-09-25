@@ -146,7 +146,7 @@ Commands: `just boot-cluster-up`, `just seed-impersonate`, `just
 seed-impersonate-revoke`, `just queenswood-installation-manifest`,
 `just boot-mgmt-apply`, `just gcp-org-enforce-constraints`, `just
 boot-cluster-down`, `just plane-identity`, `just seed-close`.
-See [management-plane-install](../../../docs/recipes/infra/management-plane-install.md).
+See [plane-install](../../../docs/recipes/infra/plane-install.md).
 
 ## The identity that builds installations is opened and closed
 
@@ -192,7 +192,7 @@ Commands: `just boot-cluster-up`, `just seed-impersonate`, `just
 seed-impersonate-revoke`, `just queenswood-installation-manifest`,
 `just boot-mgmt-apply`, `just gcp-org-enforce-constraints`, `just
 boot-cluster-down`, `just plane-identity`, `just seed-close`.
-See [management-plane-install](../../../docs/recipes/infra/management-plane-install.md).
+See [plane-install](../../../docs/recipes/infra/plane-install.md).
 
 ## An instance is a unit, and its secrets are written while it builds
 Render an instance's unit with `just queenswood-instance-manifest`, which

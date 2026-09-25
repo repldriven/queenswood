@@ -324,7 +324,7 @@ which is why one half is a recipe and the other is a browser.
 - [cloud-naming](../practices/cloud-naming.md) — the code every
   installation name is
   built from.
-- [management-plane-install](management-plane-install.md) — the management plane
+- [plane-install](plane-install.md) — the management plane
   this leaves you ready to build.
 - [up-and-running](up-and-running.md) — every
   recipe from here to a bank serving traffic, in order.

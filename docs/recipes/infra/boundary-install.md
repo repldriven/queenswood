@@ -130,7 +130,7 @@ cannot rename it or move it whatever the spec says. An empty
 
 - [contract-install](contract-install.md) — the contract, and the
   principals it names.
-- [management-plane-install](management-plane-install.md) — the plane
+- [plane-install](plane-install.md) — the plane
   that applies this, built inside the boundary afterwards.
 - [up-and-running](up-and-running.md) — where this sits in the order.
 - [ADR-0027](../../adr/0027-the-folder-is-a-subsidiary.md) — the folder

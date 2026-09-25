@@ -57,7 +57,7 @@ Where no plane is running at all — its cluster already gone — this is
 not the procedure. Nothing is left to build a successor, so raise a boot
 plane and install, which adopts the folder, the projects and the
 identities that survived; see
-[management-plane-install](management-plane-install.md).
+[plane-install](plane-install.md).
 
 Every step below reads these, and a `just` recipe defaults the code where
 the shell does not — which is why an unset one shows up as a context
@@ -772,7 +772,7 @@ installation is a third, and nothing writes it down.
 
 ## References
 
-- [management-plane-install](management-plane-install.md) — building a
+- [plane-install](plane-install.md) — building a
   plane where none is running, which adopts what survived
 - [instance-rebuild-cluster](instance-rebuild-cluster.md) — the same act
   under a live plane, with data under it

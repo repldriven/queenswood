@@ -206,7 +206,7 @@ It is easier to set before anything depends on not having it.
 
 - [organisation-foundation](organisation-foundation.md) — the organisation,
   the domain these accounts are on, and its own capabilities.
-- [management-plane-install](management-plane-install.md) — the plane
+- [plane-install](plane-install.md) — the plane
   that binds them.
 - [cloud-naming](../practices/cloud-naming.md) — the code they are named for.
 - [ADR-0023](../../adr/0023-installation-naming-and-access.md) — the
