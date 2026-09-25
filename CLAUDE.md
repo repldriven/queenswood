@@ -158,6 +158,12 @@ non-trivial work on their topic.
   no-op, and what has to be installed by hand for the composite to
   observe. See
   [plane-rebuild-cluster](docs/recipes/infra/plane-rebuild-cluster.md).
+- **Freezing and thawing the plane's cluster** — taking the management
+  plane's node pool to zero to save cost, leaving the cluster and
+  everything the plane manages, the record written to the recovery
+  project first, and why the thaw merges before the nodes return. See
+  [plane-freeze-cluster](docs/recipes/infra/plane-freeze-cluster.md) and
+  [plane-thaw-cluster](docs/recipes/infra/plane-thaw-cluster.md).
 - **Recovering FoundationDB** — the scenario matrix, restore mode
   against destination state, RPO per scenario, why scale-to-zero is not
   a recovery scenario, and the CIS and DORA controls each open item

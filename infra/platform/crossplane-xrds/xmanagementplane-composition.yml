@@ -2217,6 +2217,48 @@ spec:
                 project: {{ $project | quote }}
                 service: secretmanager.googleapis.com
                 disableOnDestroy: false
+            {{- $region := dig "region" (dig "region" "" $env) $xr.spec }}
+            {{- if $region }}
+            {{- /* The plane's own records: what a hibernated or lost plane
+                   held, written by `just plane-record`. Here rather than
+                   in the management project for the reason the project
+                   is: the plane is what these describe. The suffix is
+                   the recovery project's, as an instance's backups
+                   bucket borrows it. */}}
+            {{- $bucket := printf "bkt-%s-c-mgmt-records-%s" $code (last (splitList "-" $project)) }}
+            ---
+            apiVersion: storage.gcp.m.upbound.io/v1beta1
+            kind: Bucket
+            metadata:
+              name: {{ $bucket }}
+              namespace: crossplane-system
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: recovery-plane-records
+                crossplane.io/external-name: {{ $bucket }}
+            spec:
+              # Without Delete, like the project it sits in: deleting
+              # the managed resource orphans the records rather than
+              # emptying them.
+              managementPolicies:
+                - Observe
+                - Create
+                - Update
+                - LateInitialize
+              providerConfigRef:
+                kind: ClusterProviderConfig
+                name: default
+              forProvider:
+                project: {{ $project | quote }}
+                location: {{ $region | upper | quote }}
+                storageClass: STANDARD
+                uniformBucketLevelAccess: true
+                publicAccessPrevention: enforced
+                # Every record is written under a prefix of its own and
+                # never overwritten, so a delete is the only loss, and
+                # this keeps one recoverable for a week.
+                softDeletePolicy:
+                  retentionDurationSeconds: 604800
+            {{- end }}
             ---
             apiVersion: platform.repldriven.com/v1alpha1
             kind: XManagementPlane

@@ -1102,6 +1102,35 @@ crossplane-slots`, `just crossplane-external-names`, `just
 crossplane-unready`, `just argo-apps-status`, `just check-versions`.
 See [plane-rebuild-cluster](../../../docs/recipes/infra/plane-rebuild-cluster.md).
 
+## A plane's cluster is frozen by a merge, and thawed by one before its nodes
+
+Record what the plane holds with `just plane-record` before freezing it,
+as the installation's platform admin, and read the stamp back with `just
+plane-records`: the record is the only copy off your machine of what a
+successor would have to adopt. Check the plane with `just
+crossplane-unready` and `just argo-apps-status` first, since nothing
+finishes what is outstanding once it stops, and put every instance in
+the state it should hold while frozen and merge `adopt` for every
+project in the estate before freezing. Freeze by merging `nodeCount: 0`
+into the installation's manifest, raised with `just gh-pr-plane-freeze`
+in the manifests repository, so the repository says the plane is
+stopped. Never delete the plane's cluster or its composite to save cost:
+freezing keeps both, and deleting either is a rebuild rather than a
+thaw. A plane may stay frozen for as long as nothing needs reconciling.
+Thaw by merging the count back with `just gh-pr-plane-thaw` before
+resizing the pool, since the plane reads its manifest as it starts and
+one still reading zero stops itself again; resize the pool to the count
+the thaw merged, and diff `just crossplane-slots` and `just
+crossplane-external-names` against the last record, fetched with `just
+plane-records`, before trusting the plane. Never thaw a plane whose
+cluster is gone — that is an install, which adopts what survived.
+Commands: `just plane-record`, `just plane-records`, `just
+gh-pr-plane-freeze`, `just gh-pr-plane-thaw`, `just crossplane-unready`,
+`just argo-apps-status`, `just plane-ctx`, `just crossplane-slots`,
+`just crossplane-external-names`.
+See [plane-freeze-cluster](../../../docs/recipes/infra/plane-freeze-cluster.md) and
+[plane-thaw-cluster](../../../docs/recipes/infra/plane-thaw-cluster.md).
+
 ## A restore is proven by a key count, and a destructive state is self-limiting
 
 Establish that data is actually lost or wrong before restoring: scale-to-zero

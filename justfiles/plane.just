@@ -16,6 +16,19 @@ _mgmt-project:
 _recovery-project:
     @just _gcp-project "projectId ~ ^prj-{{ CODE }}-c-recovery-"
 
+# Print the plane's records bucket, which borrows the recovery project's
+# suffix.
+[private]
+_plane-records-bucket:
+    #!/usr/bin/env zsh
+    set -e
+    RECOVERY=$(just _recovery-project)
+    if [[ -z "$RECOVERY" ]]; then
+      echo "no recovery project for {{ CODE }}" >&2
+      exit 1
+    fi
+    printf 'gs://bkt-{{ CODE }}-c-mgmt-records-%s\n' "${RECOVERY##*-}"
+
 # Print the platform identity's email address.
 plane-identity:
     @printf 'sa-{{ CODE }}-platform@%s.iam.gserviceaccount.com\n' "$(just _mgmt-project)"
@@ -154,3 +167,52 @@ plane-status:
     else
       echo "  not readable by this account"
     fi
+
+# Record what the plane holds in its records bucket (as a platform admin).
+plane-record:
+    #!/usr/bin/env zsh
+    set -e
+    BUCKET=$(just _plane-records-bucket)
+    SA=$(just plane-identity)
+    STAMP=$(date -u +%Y%m%dT%H%M%SZ)
+    DIR=$(mktemp -d)
+    trap 'rm -rf "$DIR"' EXIT
+
+    MANAGED=$(kubectl --context {{ MGMT_CTX }} get managed -A -o json)
+    COUNT=$(jq '.items | length' <<< "$MANAGED")
+    if [[ "$COUNT" -eq 0 ]]; then
+      echo "no managed resources on {{ MGMT_CTX }}, so nothing to record" >&2
+      exit 1
+    fi
+    COMPOSITE=$(kubectl --context {{ MGMT_CTX }} get composite -A -o json)
+    RELEASES=$(kubectl --context {{ MGMT_CTX }} -n crossplane-system \
+                 get release.helm.m.crossplane.io -o json)
+    printf '%s\n' "$MANAGED" > "$DIR/managed.json"
+    printf '%s\n' "$COMPOSITE" > "$DIR/composite.json"
+    printf '%s\n' "$RELEASES" > "$DIR/releases.json"
+    just crossplane-slots > "$DIR/slots.txt"
+    just crossplane-external-names > "$DIR/names.txt"
+
+    gcloud storage cp "$DIR"/* "$BUCKET/$STAMP/" \
+      --impersonate-service-account="$SA"
+    echo ">>> $COUNT managed resources recorded to $BUCKET/$STAMP"
+
+# List the plane's records, or copy the one named by stamp into dir (as a platform admin).
+plane-records stamp="" dir="":
+    #!/usr/bin/env zsh
+    set -e
+    BUCKET=$(just _plane-records-bucket)
+    SA=$(just plane-identity)
+    if [[ -z "{{ stamp }}" ]]; then
+      OUT=$(gcloud storage ls "$BUCKET/" --impersonate-service-account="$SA")
+      printf '%s\n' "$OUT" | sed -e "s|^$BUCKET/||" -e 's|/$||' | sort
+      exit 0
+    fi
+    if [[ -z "{{ dir }}" ]]; then
+      echo "name a directory to copy {{ stamp }} into" >&2
+      exit 1
+    fi
+    mkdir -p "{{ dir }}"
+    gcloud storage cp "$BUCKET/{{ stamp }}/*" "{{ dir }}/" \
+      --impersonate-service-account="$SA"
+    echo ">>> {{ stamp }} copied into {{ dir }}"
