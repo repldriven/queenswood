@@ -53,9 +53,9 @@
     "a type added to the map whose component no required
            registry declares is named, rather than projecting a
            pointer at nothing"
-    (is (= #{"Party"}
+    (is (= #{"Bank"}
            (SUT/unknown-resource-types
-            (assoc SUT/resource-components "Party" "Party"))))))
+            (assoc SUT/resource-components "Bank" "Bank"))))))
 
 (deftest the-notification-refers-to-the-union-test
   (testing
@@ -85,6 +85,5 @@
            project its data"
     (is (= #{} (unmapped-types catalogue/entries))))
   (testing "an entry naming a type with no member is named, not ignored"
-    (is (= #{"Party"}
-           (unmapped-types (conj catalogue/entries
-                                 {:resource-type "Party"}))))))
+    (is (= #{"Bank"}
+           (unmapped-types (conj catalogue/entries {:resource-type "Bank"}))))))

@@ -23,6 +23,8 @@
     [com.repldriven.queenswood.cash-account-query.interface :as
      cash-account-query]
     [com.repldriven.queenswood.fdb.interface :as fdb]
+    [com.repldriven.queenswood.party-api.interface :as party-api]
+    [com.repldriven.queenswood.party-query.interface :as party-query]
     [com.repldriven.queenswood.schema.interface :as schema]
 
     [com.repldriven.mono.avro.interface :as avro]
@@ -420,25 +422,170 @@
                     config
                     (account bank-id account-id "20000006" "ik-unknown")
                     (balance bank-id account-id))
-                 rotated (envelope sys
-                                   {:event-id (str "evt.rotate." suffix)
+                 closing (envelope sys
+                                   {:event-id (str "evt.closing." suffix)
                                     :bank-id bank-id
                                     :account-id account-id
                                     :status-before :cash-account-status-opened
-                                    :status-after :cash-account-status-opened
+                                    :status-after :cash-account-status-closing
                                     :change-kind
-                                    :cash-account-change-kind-rotate-address})
-                 _ (testing "a change kind with no entry acknowledges"
-                     (is (not (error/anomaly? (consume sys rotated)))))
+                                    :cash-account-change-kind-close})
+                 _ (testing "a leg with no entry acknowledges"
+                     (is (not (error/anomaly? (consume sys closing)))))
                  _ (testing
                      "an event with no entry acknowledges without decoding"
                      (is (not (error/anomaly? (consume
                                                sys
-                                               {:id (str "evt.party." suffix)
-                                                :event "party-status-changed"
+                                               {:id (str "evt.idv." suffix)
+                                                :event "idv-status-changed"
                                                 :payload (byte-array 0)})))))
                  written (notifications config bank-id)
                  _ (is (= 0 (count written)))]))))
+
+(deftest each-account-transition-is-its-own-kind-test
+  (with-test-system
+   [sys config-file]
+   (let [config (processor-config sys)
+         bank-id "bnk.events.transitions"
+         account-id (utility/generate-id "acc")
+         suffix (str (utility/uuidv7))
+         leg (fn [n change-kind before after]
+               (envelope sys
+                         {:event-id (str "evt." n "." suffix)
+                          :bank-id bank-id
+                          :account-id account-id
+                          :status-before before
+                          :status-after after
+                          :change-kind change-kind}))]
+     (nom-test>
+       [_ (seed-account config
+                        (account bank-id account-id "20000008" "ik-legs")
+                        (balance bank-id account-id))
+        legs [(leg "suspend" :cash-account-change-kind-suspend
+                   :cash-account-status-opened :cash-account-status-suspended)
+              (leg "resume" :cash-account-change-kind-resume
+                   :cash-account-status-suspended :cash-account-status-opened)
+              (leg "rotate" :cash-account-change-kind-rotate-address
+                   :cash-account-status-opened :cash-account-status-opened)
+              (leg "migrate" :cash-account-change-kind-migrate
+                   :cash-account-status-suspended
+                   :cash-account-status-suspended)
+              (leg "closed" :cash-account-change-kind-close
+                   :cash-account-status-closing :cash-account-status-closed)]
+        _ (is (not-any? error/anomaly? (map (partial consume sys) legs)))
+        written (notifications config bank-id)
+        bodies (map body->map written)
+        _ (testing "each transition is told under a kind of its own"
+            (is (= #{"cash-account.suspended" "cash-account.resumed"
+                     "cash-account.address-rotated" "cash-account.migrated"
+                     "cash-account.closed"}
+                   (set (map :kind bodies))))
+            (is (= 5 (count bodies))))
+        _
+        (testing
+          "a transition that leaves the status alone is told on
+                   whatever status the account holds"
+          (is (= #{["rotate-address" "opened"] ["migrate" "suspended"]}
+                 (into #{}
+                       (comp (filter (comp #{"rotate-address" "migrate"}
+                                           :change-kind))
+                             (map (juxt :change-kind :status-after)))
+                       bodies))))]))))
+
+(def ^:private party-event-name "party-status-changed")
+
+(def ^:private parties-store "Must match `party.store`'s store name." "parties")
+
+(defn- party
+  "A person as `party.store` leaves it."
+  [bank-id party-id status]
+  (let [now (utility/now)]
+    {:bank-id bank-id
+     :party-id party-id
+     :type :party-type-person
+     :display-name "Arthur Dent"
+     :status status
+     :idempotency-key (str "ik-" party-id)
+     :created-at now
+     :updated-at now}))
+
+(defn- seed-party
+  [config party]
+  (fdb/transact config
+                (fn [txn]
+                  (fdb/save-record (fdb/open txn parties-store)
+                                   (schema/Party->java party))
+                  nil)
+                :test/seed
+                "Failed to seed the party"))
+
+(defn- party-envelope
+  [sys {:keys [event-id bank-id party-id status-before status-after]}]
+  (let [schemas (system/instance sys [:avro :serde])
+        payload (avro/serialize (get schemas party-event-name)
+                                {:bank-id bank-id
+                                 :party-id party-id
+                                 :status-before status-before
+                                 :status-after status-after})]
+    (if (error/anomaly? payload)
+      payload
+      {:id event-id
+       :event party-event-name
+       :payload payload
+       :causation-id party-id
+       :correlation-id nil})))
+
+(deftest a-party-is-told-by-where-its-transition-lands-test
+  (with-test-system
+   [sys config-file]
+   (let [config (processor-config sys)
+         bank-id "bnk.events.party"
+         party-id (utility/generate-id "pty")
+         suffix (str (utility/uuidv7))
+         leg (fn [n before after]
+               (party-envelope sys
+                               {:event-id (str "evt.party." n "." suffix)
+                                :bank-id bank-id
+                                :party-id party-id
+                                :status-before before
+                                :status-after after}))]
+     (nom-test>
+       [_ (seed-party config (party bank-id party-id :party-status-active))
+        _ (store/save-endpoint config
+                               (endpoint bank-id
+                                         (str "whe.p." suffix)
+                                         :webhook-endpoint-status-enabled
+                                         ["party.opened"]))
+        created (leg "create" nil :party-status-pending)
+        _ (is (not (error/anomaly? (consume sys created))))
+        none (notifications config bank-id)
+        _ (testing "a creation is acknowledged and writes nothing"
+            (is (empty? none)))
+        opened (leg "open" :party-status-pending :party-status-active)
+        resumed (leg "resume" :party-status-suspended :party-status-active)
+        _ (is (not (error/anomaly? (consume sys opened))))
+        _ (is (not (error/anomaly? (consume sys resumed))))
+        written (notifications config bank-id)
+        bodies (map body->map written)
+        _
+        (testing
+          "two transitions landing on active are told apart by the
+                   status each left"
+          (is (= #{["party.opened" "open" "pending"]
+                   ["party.resumed" "resume" "suspended"]}
+                 (into #{}
+                       (map (juxt :kind :change-kind :status-before))
+                       bodies))))
+        record (party-query/get-party config bank-id party-id)
+        _ (testing "data is the party's own projection, field for field"
+            (let [projected (party-api/->wire-body record)]
+              (is (= (json/read-str (json/write-str projected) :key-fn keyword)
+                     (:data (first bodies))))
+              (is (= "Party" (:resource-type (first bodies))))
+              (is (nil? (:idempotency-key (:data (first bodies)))))))
+        _ (testing "and only the endpoint's chosen kind is delivered"
+            (nom-test> [chosen (deliveries config (str "whe.p." suffix))
+                        _ (is (= 1 (count chosen)))]))]))))
 
 (deftest the-bus-subscription-reaches-the-consumer-test
   (with-test-system
@@ -486,7 +633,7 @@
 
 (def ^:private outbound-event-name "outbound-payment-status-changed")
 
-(def ^:private outbound-kind "payment.outbound-status-changed")
+(def ^:private outbound-kind "payment.outbound-completed")
 
 (def ^:private outbound-store
   "Must match `payment.store`'s store name — the store the consumer's

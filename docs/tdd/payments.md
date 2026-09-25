@@ -216,7 +216,8 @@ the statuses before and after and the change kind — `submit`, `hold`,
 `settle` or `fail` — with the payment id as its ordering key. A relay
 runner over the outbound store republishes each on `payments-event`,
 where the webhook catalogue turns every kind but `submit` into a
-`payment.outbound-status-changed` notification. See
+notification named for where it lands: `payment.outbound-held`,
+`payment.outbound-completed` or `payment.outbound-failed`. See
 [webhooks](webhooks.md).
 
 #### Inbound payment
@@ -264,8 +265,10 @@ stateDiagram-v2
 Each inbound save co-commits `inbound-payment-status-changed` the same
 way, with the change kind `settle`, `hold`, `release`, `suspend` or
 `return`, and a second runner over the inbound store republishes it on
-the same channel, where every kind becomes a
-`payment.inbound-status-changed` notification. An internal payment's
+the same channel, where each kind becomes a notification of its own:
+`payment.inbound-settled`, `payment.inbound-held`,
+`payment.inbound-released`, `payment.inbound-suspended` or
+`payment.inbound-returned`. An internal payment's
 save co-commits `internal-payment-settled`, its one transition, with
 the change kind `settle`, and a third runner over the internal store
 republishes it on the same channel as `payment.internal-settled`: the

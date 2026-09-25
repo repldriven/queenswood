@@ -7,6 +7,7 @@
      [components-registry]]
     [com.repldriven.queenswood.cash-account-api.interface :as
      cash-account-api]
+    [com.repldriven.queenswood.party-api.interface :as party-api]
     [com.repldriven.queenswood.payment-api.interface :as payment-api]
     [com.repldriven.queenswood.reward-api.interface :as reward-api]
 
@@ -196,6 +197,7 @@
    "OutboundPayment" "OutboundPayment"
    "InboundPayment" "InboundPayment"
    "InternalPayment" "InternalPayment"
+   "Party" "Party"
    "Reward" "Reward"
    "WebhookEndpoint" "WebhookEndpoint"})
 
@@ -204,6 +206,7 @@
   `<domain>-api` registry a resource publishes under, and this
   component's own for the endpoint."
   (merge cash-account-api/registry
+         party-api/registry
          payment-api/registry
          reward-api/registry
          endpoint-registry))

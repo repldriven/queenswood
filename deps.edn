@@ -18,6 +18,22 @@
     components/cash-account-api {:local/root "components/cash-account-api"}
     components/payment-api {:local/root "components/payment-api"}
     components/reward-api {:local/root "components/reward-api"}
+    components/access-api {:local/root "components/access-api"}
+    components/balance-api {:local/root "components/balance-api"}
+    components/bank-api {:local/root "components/bank-api"}
+    components/cash-account-migration-api {:local/root "components/cash-account-migration-api"}
+    components/cash-account-product-api {:local/root "components/cash-account-product-api"}
+    components/company-api {:local/root "components/company-api"}
+    components/job-api {:local/root "components/job-api"}
+    components/ledger-account-api {:local/root "components/ledger-account-api"}
+    components/me-api {:local/root "components/me-api"}
+    components/oauth-api {:local/root "components/oauth-api"}
+    components/party-api {:local/root "components/party-api"}
+    components/payee-check-api {:local/root "components/payee-check-api"}
+    components/policy-api {:local/root "components/policy-api"}
+    components/simulate-api {:local/root "components/simulate-api"}
+    components/tier-api {:local/root "components/tier-api"}
+    components/transaction-api {:local/root "components/transaction-api"}
     components/cash-account-migration
     {:local/root "components/cash-account-migration"}
     components/cash-account-product {:local/root
@@ -108,6 +124,7 @@
                        "components/scheduler/test-resources"
                        "components/payment-api/test"
                        "components/reward-api/test"
+                       "components/party-api/test"
                        "components/company/test"
                        "components/company/test-resources"
                        "components/demo-digital-bank/test"

@@ -1,14 +1,14 @@
 (ns com.repldriven.queenswood.api.policy.routes
   (:require
-    [com.repldriven.queenswood.api.bank.examples :refer [BankUnnamed]]
-    [com.repldriven.queenswood.api.policy.examples :refer [PolicyNotFound]]
     [com.repldriven.queenswood.api.policy.queries :as queries]
 
     [com.repldriven.queenswood.api.shared.interceptors :as shared.interceptors]
     [com.repldriven.queenswood.api.shared.parameters :as shared.parameters]
 
     [com.repldriven.queenswood.api-schema.interface :refer
-     [ErrorExamples ErrorResponse]]))
+     [ErrorExamples ErrorResponse]]
+    [com.repldriven.queenswood.bank-api.interface :refer [BankUnnamed]]
+    [com.repldriven.queenswood.policy-api.interface :refer [PolicyNotFound]]))
 
 (def routes
   [["/policies"

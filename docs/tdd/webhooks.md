@@ -159,9 +159,9 @@ outside the `api` base. The move is per domain and mechanical:
   `poly` allows those; it only forbids a component reaching into a
   base, which is the constraint the move removes.
 
-Extraction happens one domain at a time, as that domain's kinds enter
-the catalogue. A domain whose shape is still in the base cannot be in
-the catalogue, and nothing forces the moves to happen together.
+Every domain has moved, those no notification carries among them, so
+the base holds routes, handlers, queries and command dispatch alone,
+and the rejection examples every route shares live in `api-schema`.
 
 ### Three places know, and no processor is one of them
 
@@ -279,12 +279,13 @@ A re-send sends the same bytes. "As it stood" means as it stood when
 the notification was produced, moments after the commit.
 
 The catalogue, as public kind, source event, resource and loader.
-`cash-account-status-changed` is one event carrying six change kinds,
-and each kind gets its own public name: one event whose payload has to
-be inspected to tell a freeze from an address rotation would make the
-per-endpoint kind filter useless, and rotation and migration leave the
-status alone, so a tenant cannot tell those two apart by the statuses
-either.
+One kind per transition, never one per event: each event carries
+several transitions, and one whose payload had to be inspected to tell
+a suspension from an address rotation would make the per-endpoint kind
+filter useless. An entry is matched on the event, its `change_kind`
+where the event carries one, the status the transition lands on where
+it moves one, and the status it left where two transitions land on the
+same status.
 
 - `cash-account.opened` — `cash-account-status-changed` with
   `change_kind` open, `CashAccount`, by bank and account id. Told on
@@ -292,25 +293,33 @@ either.
 - `cash-account.closed` — the same event with `change_kind` close.
   Told on `closing` to `closed`; the leg landing on `closing` is
   skipped.
-- `cash-account.frozen` and `cash-account.unfrozen` — `change_kind`
+- `cash-account.suspended` and `cash-account.resumed` — `change_kind`
   suspend and resume, told on `opened` to `suspended` and `suspended`
   to `opened`.
-- `cash-account.address-rotated` and `cash-account.product-changed` —
+- `cash-account.address-rotated` and `cash-account.migrated` —
   `change_kind` rotate-address and migrate. Both carry equal before
-  and after statuses, because neither write moves the status.
-- `party.status-changed`, `party.identity-verified` and
-  `party.identity-status-changed` — `party-status-changed`,
-  `idv-completed` and `idv-status-changed`, all resolving to `Party`,
-  by bank and party id.
-- `payment.outbound-status-changed` —
-  `outbound-payment-status-changed` with `change_kind` hold, settle or
-  fail, `OutboundPayment`, by bank and payment id. Told on the status
-  each lands on — `held`, `completed`, `failed` — and not on
-  submission, whose answer the caller already holds.
-- `payment.inbound-status-changed` — `inbound-payment-status-changed`
-  with `change_kind` settle, hold, release, suspend or return,
-  `InboundPayment`, by bank and payment id: money arriving, held on
-  its way in, released, parked in suspense, or returned.
+  and after statuses, because neither write moves the status, and are
+  told whatever that status is.
+- `party.opened`, `party.rejected`, `party.suspended`,
+  `party.resumed`, `party.closed` and `party.merged` —
+  `party-status-changed`, `Party`, by bank and party id. The event
+  carries no change kind, so each is told by the status it lands on:
+  `active`, `rejected`, `suspended`, `active`, `closed` and `merged`.
+  `party.opened` and `party.resumed` both land on `active`, and are
+  told apart by the status left — `pending` or none for an opening,
+  `suspended` for a resumption. A creation, landing on `pending`, is
+  not told: the caller holds that answer.
+- `payment.outbound-held`, `payment.outbound-completed` and
+  `payment.outbound-failed` — `outbound-payment-status-changed` with
+  `change_kind` hold, settle and fail, `OutboundPayment`, by bank and
+  payment id. Submission is not told, since the caller already holds
+  that answer.
+- `payment.inbound-settled`, `payment.inbound-held`,
+  `payment.inbound-released`, `payment.inbound-suspended` and
+  `payment.inbound-returned` — `inbound-payment-status-changed` with
+  `change_kind` settle, hold, release, suspend and return,
+  `InboundPayment`, by bank and payment id: money arriving, held on its
+  way in, released, parked in suspense, or returned.
 - `payment.internal-settled` — `internal-payment-settled` with
   `change_kind` settle, `InternalPayment`, by bank and payment id. An
   internal payment carries no status and is settled as it is saved, so
@@ -319,15 +328,24 @@ either.
 - `reward.paid` — `reward-status-changed` with `change_kind` pay,
   `Reward`, by bank and reward id. A defer, the other kind the entry
   carries, is the bank's operational problem and is not published.
+
+Three more wait on work outside the catalogue:
+
+- `party.verification-in-review` and `party.verification-failed` —
+  `idv-status-changed`, resolving to `Party`, for the verification
+  statuses `party.opened` and `party.rejected` do not cover. No read
+  route publishes an identity verification, so the entries carry the
+  party.
+- `webhook-endpoint.paused` — `webhook-endpoint-status-changed`,
+  `WebhookEndpoint`, so an endpoint paused by the platform is told to
+  the bank's other endpoints through the same path as everything else.
+  The endpoint store writes the event, and nothing relays it yet.
 - `interest.capitalised` — the interest brick's per-account
   capitalisation, resolving to the `Transaction` the run posted,
   behind the single-transaction read its slice creates first.
-- `bank.status-changed` and `bank.tier-changed` —
-  `bank-status-changed` and `bank-tier-changed`, behind the
-  tenant-facing bank shape their slice creates first.
-- `webhook-endpoint.status-changed` — `WebhookEndpoint`, so an
-  endpoint paused by the platform is told to the bank's other
-  endpoints through the same path as everything else.
+
+A bank's status and tier changes are an operator's acts and are not
+published to the bank's own endpoints.
 
 ### Hearing a change
 
@@ -756,8 +774,6 @@ neither.
 
 ## Known Limitations
 
-- **Only an extracted domain can be in the catalogue.** Each domain's
-  kinds wait on its `<domain>-api` move.
 - **No retention or purge.** Notifications and deliveries accumulate.
 - **A lease can expire mid-send.** A second replica then claims a
   delivery the first is still sending, and sends it again. The
@@ -797,9 +813,8 @@ neither.
   every attempt, and a host that moves between the re-check and the
   connection.
 - **The interest entry waits on its event.** Until the interest brick
-  publishes capitalisation, the catalogue delivers account and payment
-  changes only; the party and identity-verification entries wait on
-  their extraction.
+  publishes capitalisation, a posting is heard only through the payment
+  or reward that made it.
 
 Five things this design reasons from have never been observed. Each is
 stated as unobserved, with what would observe it.

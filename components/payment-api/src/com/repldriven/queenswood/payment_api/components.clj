@@ -6,7 +6,9 @@
     [com.repldriven.queenswood.api-schema.interface :as schema :refer
      [components-registry]]
     [com.repldriven.queenswood.cash-account-api.interface :as
-     cash-account-api]))
+     cash-account-api]
+    [com.repldriven.queenswood.transaction-api.interface :as
+     transaction-api]))
 
 (def PaymentId (schema/id-schema "PaymentId" "pmt" examples/PaymentId))
 
@@ -125,16 +127,10 @@
 
 (def ^:private wire-registry
   "What the wire encoders resolve a `$ref` against: the shared schemas,
-  the account ids a payment names, this brick's own, and a
-  `TransactionId` of its own, since the transaction domain's shapes
-  are still declared inside the API base and a component cannot reach
-  them. The document's `TransactionId` stays the transaction domain's;
-  this one encodes and is published nowhere."
+  the account and transaction ids a payment names, and this brick's own."
   (merge schema/registry
          cash-account-api/registry
-         {"TransactionId" (schema/id-schema "TransactionId"
-                                            "txn"
-                                            "txn.01kprbmgcj35ptc8npmybhh4s9")}
+         transaction-api/registry
          registry))
 
 (def ^:private encode-outbound

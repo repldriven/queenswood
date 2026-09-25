@@ -122,15 +122,6 @@
                 {:changelog-event-id (:id envelope) :kind (:kind entry)})
       result)))
 
-(defn- handle
-  [config entry envelope data]
-  (if (= (:terminal-status entry) (:status-after data))
-    (write-once config entry envelope data)
-    (log/debugf "Skipping the %s leg of %s, which lands on %s"
-                (:kind entry)
-                (:event entry)
-                (:status-after data))))
-
 (defn- dispatch
   [config message]
   (let [{:keys [event payload]} message
@@ -146,11 +137,13 @@
 
      :else
      (let-nom> [data (avro/deserialize-same (get schemas event) payload)]
-       (if-let [entry (catalogue/find-entry event (:change-kind data))]
-         (handle config entry message data)
-         (log/debugf "No webhook catalogue entry for %s change kind: %s"
+       (if-let [entry (catalogue/find-entry event data)]
+         (write-once config entry message data)
+         (log/debugf "No webhook catalogue entry for %s %s leg from %s to %s"
                      event
-                     (:change-kind data)))))))
+                     (:change-kind data)
+                     (:status-before data)
+                     (:status-after data)))))))
 
 (defrecord WebhookEventProcessor [config]
   processor/Processor

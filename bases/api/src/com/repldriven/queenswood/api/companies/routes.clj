@@ -1,11 +1,11 @@
 (ns com.repldriven.queenswood.api.companies.routes
   (:require
-    [com.repldriven.queenswood.api.companies.examples :refer
-     [CompanyNotFound CompanyRegistryUnavailable]]
     [com.repldriven.queenswood.api.companies.queries :as queries]
 
     [com.repldriven.queenswood.api-schema.interface :refer
-     [ErrorExamples ErrorResponse]]))
+     [ErrorExamples ErrorResponse]]
+    [com.repldriven.queenswood.company-api.interface :refer
+     [CompanyNotFound CompanyRegistryUnavailable]]))
 
 (def routes
   [["/companies"

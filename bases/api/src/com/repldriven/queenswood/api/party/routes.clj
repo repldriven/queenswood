@@ -1,20 +1,18 @@
 (ns com.repldriven.queenswood.api.party.routes
   (:require
-    [com.repldriven.queenswood.api.examples :as api.examples]
     [com.repldriven.queenswood.api.party.commands :as commands]
-    [com.repldriven.queenswood.api.party.examples :refer
-     [IdentificationRejected PartyNotFound PartyInvalidStatus PartyOpenAccounts
-      PartyMergeIntoSelf]]
-    [com.repldriven.queenswood.api.party.links :as links]
     [com.repldriven.queenswood.api.party.queries :as queries]
 
     [com.repldriven.queenswood.api.shared.headers :as shared.headers]
     [com.repldriven.queenswood.api.shared.idempotency :as shared.idempotency]
     [com.repldriven.queenswood.api.shared.parameters :as shared.parameters]
 
-    [com.repldriven.queenswood.api-schema.interface :refer
+    [com.repldriven.queenswood.api-schema.interface :as api-schema :refer
      [ErrorExamples ErrorResponse]]
     [com.repldriven.queenswood.idempotency.interface :as bank-idempotency]
+    [com.repldriven.queenswood.party-api.interface :as party-api :refer
+     [IdentificationRejected PartyInvalidStatus PartyMergeIntoSelf PartyNotFound
+      PartyOpenAccounts]]
 
     [com.repldriven.mono.server.interface :as server]))
 
@@ -43,8 +41,10 @@
                        (str "Only a person party can be created. It starts "
                             "pending while its identity is verified, then "
                             "becomes active if verification accepts it or "
-                            "rejected if not. A national identifier another "
-                            "party already holds is refused with 422.")
+                            "rejected if not, with a `party.opened` or "
+                            "`party.rejected` webhook notification. A national "
+                            "identifier another party already holds is refused "
+                            "with 422.")
                        :security [{"bearerAuth" ["org:developer"]}]
                        :requestBody {:required true}
                        :parameters ^:replace
@@ -59,8 +59,8 @@
                     :body [:ref "CreatePartyResponse"]
                     :openapi {:headers {"Location" (shared.headers/location
                                                     "party")}
-                              :links links/from-party}}
-               403 (ErrorExamples [#'api.examples/PolicyDenied])
+                              :links party-api/from-party}}
+               403 (ErrorExamples [#'api-schema/PolicyDenied])
                422 (ErrorResponse [#'IdentificationRejected])})
              :handler commands/create-party}}]
     ["/{party-id}" {:parameters {:path {:party-id [:ref "PartyId"]}}}
@@ -89,7 +89,8 @@
               :openapi {:operationId "SuspendParty"
                         :description
                         (str "Only an active party can be suspended. Any "
-                             "other status is refused with 409.")
+                             "other status is refused with 409. A "
+                             "`party.suspended` webhook notification follows.")
                         :parameters ^:replace
                                     [shared.parameters/ref-party-id
                                      shared.parameters/ref-bank-id-header
@@ -99,8 +100,8 @@
               :responses (shared.idempotency/with-responses
                           {200 {:description "The suspended party."
                                 :body [:ref "SuspendPartyResponse"]
-                                :openapi {:links links/from-party}}
-                           403 (ErrorExamples [#'api.examples/PolicyDenied])
+                                :openapi {:links party-api/from-party}}
+                           403 (ErrorExamples [#'api-schema/PolicyDenied])
                            404 (ErrorResponse [#'PartyNotFound])
                            409 (ErrorResponse [#'PartyInvalidStatus])})
               :handler commands/suspend-party}}]
@@ -110,7 +111,8 @@
               :openapi {:operationId "ResumeParty"
                         :description
                         (str "The party returns to active. A party that is "
-                             "not suspended is refused with 409.")
+                             "not suspended is refused with 409. A "
+                             "`party.resumed` webhook notification follows.")
                         :parameters ^:replace
                                     [shared.parameters/ref-party-id
                                      shared.parameters/ref-bank-id-header
@@ -120,8 +122,8 @@
               :responses (shared.idempotency/with-responses
                           {200 {:description "The resumed party."
                                 :body [:ref "ResumePartyResponse"]
-                                :openapi {:links links/from-party}}
-                           403 (ErrorExamples [#'api.examples/PolicyDenied])
+                                :openapi {:links party-api/from-party}}
+                           403 (ErrorExamples [#'api-schema/PolicyDenied])
                            404 (ErrorResponse [#'PartyNotFound])
                            409 (ErrorResponse [#'PartyInvalidStatus])})
               :handler commands/resume-party}}]
@@ -133,7 +135,8 @@
                         (str "An active or suspended party can be closed, and "
                              "closing is final. A party that still holds a "
                              "cash account that is not closed is refused "
-                             "with 409.")
+                             "with 409. A `party.closed` webhook notification "
+                             "follows.")
                         :parameters ^:replace
                                     [shared.parameters/ref-party-id
                                      shared.parameters/ref-bank-id-header
@@ -143,8 +146,8 @@
               :responses (shared.idempotency/with-responses
                           {200 {:description "The closed party."
                                 :body [:ref "ClosePartyResponse"]
-                                :openapi {:links links/from-party}}
-                           403 (ErrorExamples [#'api.examples/PolicyDenied])
+                                :openapi {:links party-api/from-party}}
+                           403 (ErrorExamples [#'api-schema/PolicyDenied])
                            404 (ErrorResponse [#'PartyNotFound])
                            409 (ErrorResponse [#'PartyInvalidStatus
                                                #'PartyOpenAccounts])})
@@ -154,12 +157,15 @@
        :post {:summary "Merge a party into another"
               :openapi {:operationId "MergeParty"
                         :description
-                        (str "The party in the path becomes merged and records "
-                             "the id of the party it was merged into. It must "
-                             "be suspended and hold no cash account that is "
-                             "not closed, and the party it merges into must be "
-                             "active, or the merge is refused with 409. "
-                             "Merging a party into itself is refused with 422.")
+                        (str
+                         "The party in the path becomes merged and records "
+                         "the id of the party it was merged into. It must "
+                         "be suspended and hold no cash account that is "
+                         "not closed, and the party it merges into must be "
+                         "active, or the merge is refused with 409. "
+                         "Merging a party into itself is refused with 422. "
+                         "A `party.merged` webhook notification follows for "
+                         "the merged-away party.")
                         :requestBody {:required true}
                         :parameters ^:replace
                                     [shared.parameters/ref-party-id
@@ -171,8 +177,8 @@
               :responses (shared.idempotency/with-responses
                           {200 {:description "The merged party."
                                 :body [:ref "MergePartyResponse"]
-                                :openapi {:links links/from-merged-party}}
-                           403 (ErrorExamples [#'api.examples/PolicyDenied])
+                                :openapi {:links party-api/from-merged-party}}
+                           403 (ErrorExamples [#'api-schema/PolicyDenied])
                            404 (ErrorResponse [#'PartyNotFound])
                            409 (ErrorResponse [#'PartyInvalidStatus
                                                #'PartyOpenAccounts])

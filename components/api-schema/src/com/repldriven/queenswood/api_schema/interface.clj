@@ -8,11 +8,14 @@
   registry of cross-cutting schemas — timestamps, dates, country and
   currency primitives, amounts, names, the entity ids and product enums
   more than one resource carries, and the `page` / `embed` query
-  objects. Requiring this namespace registers
-  the `:unique-vector` and `:unique-vector-lax` OpenAPI projections."
+  objects — and the rejection examples every route may return, from a
+  malformed request to the platform's own failures. Requiring this
+  namespace registers the `:unique-vector` and `:unique-vector-lax`
+  OpenAPI projections."
   (:require
     [com.repldriven.queenswood.api-schema.coercion :as coercion]
     [com.repldriven.queenswood.api-schema.components :as components]
+    [com.repldriven.queenswood.api-schema.examples :as examples]
     [com.repldriven.queenswood.api-schema.schema :as schema]))
 
 (defn components-registry
@@ -182,3 +185,117 @@
   satisfy."}
   IdempotencyKey
   components/IdempotencyKey)
+
+;; ---
+;; rejection examples every route shares
+;; ---
+
+(def
+  ^{:doc
+    "Map of example name to example value for the rejection bodies
+  every route may return — a malformed request, a missing or refused
+  credential, a policy denial or limit, the idempotency refusals,
+  and the platform's own failures — feeding the document's
+  `components/examples` section."}
+  examples
+  examples/registry)
+
+(def ^{:doc
+       "RFC 9457 body for a 400 `server/bad-request` rejection: Bad
+  Request."}
+     BadRequest
+  examples/BadRequest)
+
+(def
+  ^{:doc
+    "RFC 9457 body for a 401 `auth/unauthenticated` rejection: Missing
+  or invalid token."}
+  Unauthorized
+  examples/Unauthorized)
+
+(def
+  ^{:doc
+    "RFC 9457 body for a 403 `auth/forbidden` rejection: Insufficient
+  privileges."}
+  Forbidden
+  examples/Forbidden)
+
+(def
+  ^{:doc
+    "RFC 9457 body for a 403 `:policy/denied` rejection: No matching
+  allow capability."}
+  PolicyDenied
+  examples/PolicyDenied)
+
+(def
+  ^{:doc
+    "RFC 9457 body for a 429 `:policy/limit-exceeded` rejection: Limit
+  exceeded for this bank."}
+  PolicyLimitExceeded
+  examples/PolicyLimitExceeded)
+
+(def
+  ^{:doc
+    "RFC 9457 body for a 500 `server/bad-response` rejection: Bad
+  Response."}
+  BadResponse
+  examples/BadResponse)
+
+(def
+  ^{:doc
+    "RFC 9457 body for a 500 `mono/internal-server-error` rejection:
+  Internal server error."}
+  InternalServerError
+  examples/InternalServerError)
+
+(def
+  ^{:doc
+    "RFC 9457 body for a 400 `server/missing-idempotency-key`
+  rejection: Missing Idempotency-Key header."}
+  MissingIdempotencyKey
+  examples/MissingIdempotencyKey)
+
+(def
+  ^{:doc
+    "RFC 9457 body for a 400 `server/invalid-idempotency-key`
+  rejection: Idempotency-Key must be 16-255 URL-safe ASCII chars."}
+  InvalidIdempotencyKey
+  examples/InvalidIdempotencyKey)
+
+(def
+  ^{:doc
+    "RFC 9457 body for a 409 `mono/idempotent-request-in-flight`
+  rejection: A request with this Idempotency-Key is already being
+  processed; please retry in a moment."}
+  IdempotentRequestInFlight
+  examples/IdempotentRequestInFlight)
+
+(def
+  ^{:doc
+    "RFC 9457 body for a 422 `mono/idempotency-key-reused` rejection:
+  This Idempotency-Key was used for a different request; use a fresh
+  key."}
+  IdempotencyKeyReused
+  examples/IdempotencyKeyReused)
+
+(def
+  ^{:doc
+    "RFC 9457 body for a 503 `mono/idempotency-cache-unavailable`
+  rejection: The idempotency cache could not be read; please retry
+  in a moment."}
+  IdempotencyCacheUnavailable
+  examples/IdempotencyCacheUnavailable)
+
+(def
+  ^{:doc
+    "RFC 9457 body for a 503 `:fdb/contention` rejection: Failed to
+  save cash account."}
+  Contention
+  examples/Contention)
+
+(def
+  ^{:doc
+    "RFC 9457 body for a 503 `:fdb/timeout` rejection: Failed to save
+  cash account."}
+  Timeout
+  examples/Timeout)

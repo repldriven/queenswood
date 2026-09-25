@@ -3,6 +3,7 @@
     [com.repldriven.queenswood.api.cursor :as cursor]
     [com.repldriven.queenswood.api.errors :as errors]
 
+    [com.repldriven.queenswood.party-api.interface :as party-api]
     [com.repldriven.queenswood.party-query.interface :as parties]
 
     [com.repldriven.mono.error.interface :as error]))
@@ -16,7 +17,10 @@
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       {:status 200
-       :body (cursor/page-body "/v1/parties" page (:parties result) result)})))
+       :body (cursor/page-body "/v1/parties"
+                               page
+                               (mapv party-api/->body (:parties result))
+                               result)})))
 
 (defn get-party
   [request]

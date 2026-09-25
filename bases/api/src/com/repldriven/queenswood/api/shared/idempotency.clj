@@ -14,9 +14,7 @@
   `:responses`. It deep-merges, so a route that already documents a
   409 of its own keeps that example beside the shared one."
   (:require
-    [com.repldriven.queenswood.api.examples :as examples]
-
-    [com.repldriven.queenswood.api-schema.interface :refer
+    [com.repldriven.queenswood.api-schema.interface :as api-schema :refer
      [ErrorExamples ErrorResponse]]
 
     [com.repldriven.mono.utility.interface :as utility]))
@@ -98,11 +96,11 @@
     retry finds it withdrawn and is refused 409 `invitation/invalid-status`."})
 
 (def ^:private shared-responses
-  {400 (ErrorExamples [#'examples/MissingIdempotencyKey
-                       #'examples/InvalidIdempotencyKey])
-   409 (ErrorResponse [#'examples/IdempotentRequestInFlight])
-   422 (ErrorResponse [#'examples/IdempotencyKeyReused])
-   503 (ErrorExamples [#'examples/IdempotencyCacheUnavailable])})
+  {400 (ErrorExamples [#'api-schema/MissingIdempotencyKey
+                       #'api-schema/InvalidIdempotencyKey])
+   409 (ErrorResponse [#'api-schema/IdempotentRequestInFlight])
+   422 (ErrorResponse [#'api-schema/IdempotencyKeyReused])
+   503 (ErrorExamples [#'api-schema/IdempotencyCacheUnavailable])})
 
 (defn with-responses
   "Fold the refusals every protected route shares into `responses`:

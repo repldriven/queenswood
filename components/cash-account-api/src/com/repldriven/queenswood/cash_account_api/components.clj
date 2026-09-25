@@ -95,10 +95,9 @@
 
 (def ^:private embedded-keys
   "The `CashAccount` keys a read route fills only when the caller asks
-  for them with `embed`. `Balance` and `Transaction` are published by
-  their own resources, so a surface outside the API base cannot resolve
-  them: `->wire-body` carries neither, and a consumer wanting either
-  follows the account's links."
+  for them with `embed`. A notification carries the account as a read
+  route returns it without one: `->wire-body` carries neither, and a
+  consumer wanting either follows the account's links."
   #{:balances :transactions})
 
 (def ^:private CashAccountWire

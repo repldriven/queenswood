@@ -1,6 +1,5 @@
 (ns com.repldriven.queenswood.api.webhook.routes
   (:require
-    [com.repldriven.queenswood.api.examples :as api.examples]
     [com.repldriven.queenswood.api.webhook.handlers :as handlers]
     [com.repldriven.queenswood.api.webhook.queries :as queries]
 
@@ -8,12 +7,12 @@
     [com.repldriven.queenswood.api.shared.idempotency :as shared.idempotency]
     [com.repldriven.queenswood.api.shared.parameters :as shared.parameters]
 
-    [com.repldriven.queenswood.api-schema.interface :refer
+    [com.repldriven.queenswood.api-schema.interface :as api-schema :refer
      [ErrorExamples ErrorResponse]]
     [com.repldriven.queenswood.idempotency.interface :as bank-idempotency]
     [com.repldriven.queenswood.webhook.interface :refer
-     [WebhookEndpointNotFound WebhookDeliveryNotFound
-      WebhookEndpointInvalidAddress WebhookEndpointInvalidStatus]]
+     [WebhookDeliveryNotFound WebhookEndpointInvalidAddress
+      WebhookEndpointInvalidStatus WebhookEndpointNotFound]]
 
     [com.repldriven.mono.server.interface :as server]))
 
@@ -64,9 +63,9 @@
                          :body [:ref "WebhookEndpointRegistration"]
                          :openapi {:headers {"Location" (shared.headers/location
                                                          "webhook endpoint")}}}
-                    403 (ErrorExamples [#'api.examples/PolicyDenied])
+                    403 (ErrorExamples [#'api-schema/PolicyDenied])
                     422 (ErrorResponse [#'WebhookEndpointInvalidAddress])
-                    429 (ErrorResponse [#'api.examples/PolicyLimitExceeded])})
+                    429 (ErrorResponse [#'api-schema/PolicyLimitExceeded])})
        :handler handlers/register}}]
     ["/{endpoint-id}"
      {:parameters {:path {:endpoint-id [:ref "WebhookEndpointId"]}}}
@@ -96,7 +95,7 @@
              :parameters {:body [:ref "WebhookEndpointRequest"]}
              :responses {200 {:description "The endpoint as replaced."
                               :body [:ref "WebhookEndpoint"]}
-                         403 (ErrorExamples [#'api.examples/PolicyDenied])
+                         403 (ErrorExamples [#'api-schema/PolicyDenied])
                          404 (ErrorResponse [#'WebhookEndpointNotFound])
                          409 (ErrorResponse [#'WebhookEndpointInvalidStatus])
                          422 (ErrorResponse [#'WebhookEndpointInvalidAddress])}
@@ -113,7 +112,7 @@
                   :security [{"bearerAuth" ["org:developer"]}]
                   :parameters [shared.parameters/ref-bank-id-header]}
         :responses {204 {:description "The endpoint was removed. No body."}
-                    403 (ErrorExamples [#'api.examples/PolicyDenied])
+                    403 (ErrorExamples [#'api-schema/PolicyDenied])
                     404 (ErrorResponse [#'WebhookEndpointNotFound])
                     409 (ErrorResponse [#'WebhookEndpointInvalidStatus])}
         :handler handlers/remove-endpoint}}]
@@ -132,7 +131,7 @@
               :parameters {:body [:ref "WebhookEndpointEnableRequest"]}
               :responses {200 {:description "The enabled endpoint."
                                :body [:ref "WebhookEndpoint"]}
-                          403 (ErrorExamples [#'api.examples/PolicyDenied])
+                          403 (ErrorExamples [#'api-schema/PolicyDenied])
                           404 (ErrorResponse [#'WebhookEndpointNotFound])
                           409 (ErrorResponse [#'WebhookEndpointInvalidStatus])}
               :handler handlers/enable}}]
@@ -148,7 +147,7 @@
                     "be disabled; any other is refused with 409.")}
               :responses {200 {:description "The disabled endpoint."
                                :body [:ref "WebhookEndpoint"]}
-                          403 (ErrorExamples [#'api.examples/PolicyDenied])
+                          403 (ErrorExamples [#'api-schema/PolicyDenied])
                           404 (ErrorResponse [#'WebhookEndpointNotFound])
                           409 (ErrorResponse [#'WebhookEndpointInvalidStatus])}
               :handler handlers/disable}}]
@@ -174,7 +173,7 @@
                                        "when the previous one stops being "
                                        "accepted.")
                      :body [:ref "WebhookEndpointSecretRotation"]}
-                403 (ErrorExamples [#'api.examples/PolicyDenied])
+                403 (ErrorExamples [#'api-schema/PolicyDenied])
                 404 (ErrorResponse [#'WebhookEndpointNotFound])
                 409 (ErrorResponse [#'WebhookEndpointInvalidStatus])})
               :handler handlers/rotate-secret}}]
@@ -201,7 +200,7 @@
                      :body [:ref "WebhookDelivery"]
                      :openapi {:headers {"Location" (shared.headers/location
                                                      "delivery")}}}
-                403 (ErrorExamples [#'api.examples/PolicyDenied])
+                403 (ErrorExamples [#'api-schema/PolicyDenied])
                 404 (ErrorResponse [#'WebhookEndpointNotFound])
                 409 (ErrorResponse [#'WebhookEndpointInvalidStatus])})
               :handler handlers/test-notification}}]
@@ -229,7 +228,7 @@
                {200 {:description (str "One new delivery per notification "
                                        "in the window.")
                      :body [:ref "WebhookDeliveryList"]}
-                403 (ErrorExamples [#'api.examples/PolicyDenied])
+                403 (ErrorExamples [#'api-schema/PolicyDenied])
                 404 (ErrorResponse [#'WebhookEndpointNotFound])
                 409 (ErrorResponse [#'WebhookEndpointInvalidStatus])})
               :handler handlers/resend-window}}]
@@ -278,7 +277,7 @@
                      :body [:ref "WebhookDelivery"]
                      :openapi {:headers {"Location" (shared.headers/location
                                                      "delivery")}}}
-                403 (ErrorExamples [#'api.examples/PolicyDenied])
+                403 (ErrorExamples [#'api-schema/PolicyDenied])
                 404 (ErrorResponse [#'WebhookEndpointNotFound
                                     #'WebhookDeliveryNotFound])
                 409 (ErrorResponse [#'WebhookEndpointInvalidStatus])})
