@@ -1104,30 +1104,30 @@ See [plane-rebuild-cluster](../../../docs/recipes/infra/plane-rebuild-cluster.md
 
 ## A plane's cluster is frozen by a merge, and thawed by one before its nodes
 
-Record what the plane holds with `just plane-record` before freezing it,
-as the installation's platform admin, and read the stamp back with `just
-plane-records`: the record is the only copy off your machine of what a
-successor would have to adopt. Check the plane with `just
-crossplane-unready` and `just argo-apps-status` first, since nothing
-finishes what is outstanding once it stops, and put every instance in
-the state it should hold while frozen and merge `adopt` for every
-project in the estate before freezing. Freeze by merging `nodeCount: 0`
-into the installation's manifest, raised with `just gh-pr-plane-freeze`
-in the manifests repository, so the repository says the plane is
-stopped. Never delete the plane's cluster or its composite to save cost:
-freezing keeps both, and deleting either is a rebuild rather than a
-thaw. A plane may stay frozen for as long as nothing needs reconciling.
-Thaw by merging the count back with `just gh-pr-plane-thaw` before
+Check the plane before freezing it, since nothing finishes what is
+outstanding once it stops — a `down` instance's Applications may read
+`OutOfSync`, `Degraded` or `Progressing`, its cluster having no nodes,
+and are not outstanding. Put every instance in the state it should hold
+while frozen and merge `adopt` for every project in the estate first,
+then record what the plane holds as the installation's platform admin
+and read the stamp back: the record is the only copy off your machine of
+what a successor would have to adopt. Freeze by merging `nodeCount: 0`
+into the installation's manifest, raised in the manifests repository, so
+the repository says the plane is stopped. Never delete the plane's
+cluster or its composite to save cost: freezing keeps both, and deleting
+either is a rebuild rather than a thaw. A plane may stay frozen for as
+long as nothing needs reconciling. Thaw by merging the count back before
 resizing the pool, since the plane reads its manifest as it starts and
-one still reading zero stops itself again; resize the pool to the count
-the thaw merged, and diff `just crossplane-slots` and `just
-crossplane-external-names` against the last record, fetched with `just
-plane-records`, before trusting the plane. Never thaw a plane whose
-cluster is gone — that is an install, which adopts what survived.
+one still reading zero stops itself again, and resize the pool to the
+count the thaw merged. Diff the slots and the external names against the
+last record before trusting the plane, reading a difference against the
+merges made while it was frozen, which it has now applied. Never thaw a
+plane whose cluster is gone — that is an install, which adopts what
+survived.
 Commands: `just plane-record`, `just plane-records`, `just
-gh-pr-plane-freeze`, `just gh-pr-plane-thaw`, `just crossplane-unready`,
-`just argo-apps-status`, `just plane-ctx`, `just crossplane-slots`,
-`just crossplane-external-names`.
+gh-pr-plane-freeze`, `just crossplane-unready`, `just argo-apps-status`,
+`just gh-pr-plane-thaw`, `just crossplane-slots`, `just
+crossplane-external-names`, `just plane-ctx`.
 See [plane-freeze-cluster](../../../docs/recipes/infra/plane-freeze-cluster.md) and
 [plane-thaw-cluster](../../../docs/recipes/infra/plane-thaw-cluster.md).
 

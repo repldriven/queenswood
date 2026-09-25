@@ -122,13 +122,13 @@ the plane was frozen. See the paragraph under Prerequisites.
 - Resize the pool to the count the thaw merged.
 - Diff `just crossplane-slots` and `just crossplane-external-names`
   against the last record, fetched with `just plane-records`, before
-  trusting the plane.
+  trusting the plane, and read a difference against the merges made
+  while it was frozen, which it has now applied.
 
 **MUST NOT:**
 
 - Never thaw a plane whose cluster is gone. That is
-  [plane-install](plane-install.md), which adopts
-  what survived.
+  [plane-install](plane-install.md), which adopts what survived.
 
 Commands: `just gh-pr-plane-thaw`, `just plane-ctx`, `just
 argo-apps-status`, `just crossplane-unready`, `just plane-records`, `just

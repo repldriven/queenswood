@@ -4,10 +4,9 @@
 
 ## Status
 
-**Untested.** Derived from
-[plane-rebuild-cluster](plane-rebuild-cluster.md), whose step 1 records
-what a plane holds and whose step 8 stops one, and from an instance's
-`down`, which takes a pool to zero the same way.
+**Verified** on 2026-09-25, freezing one installation's plane with its
+one instance `down`: the pool drained in about four minutes from the
+resize starting.
 
 ## Problem
 
@@ -56,8 +55,10 @@ just argo-apps-status
 ```
 
 A header line with nothing under it from the first, and every
-Application `Synced` and `Healthy` from the second. Finish anything
-outstanding before going on.
+Application `Synced` and `Healthy` from the second — except a `down`
+instance's, which read `OutOfSync`, `Degraded` or `Progressing` because
+its cluster has no nodes. Finish anything else outstanding before going
+on.
 
 ### 2. Record what the plane holds
 
@@ -101,9 +102,10 @@ gcloud container clusters list --project="$(just _mgmt-project)" \
   --filter="name=$QW_CODE-c-mgmt" --format='value(status,currentNodeCount)'
 ```
 
-`RUNNING 0` once the pool has drained. `kubectl --context
-"$QW_CODE-mgmt" get nodes` then answers `No resources found`, and every
-pod on the plane is `Pending`.
+`RECONCILING` with the old count while the resize runs, then `RUNNING`
+with the old count still, then `RUNNING` and an empty count once the
+pool has drained. `kubectl --context "$QW_CODE-mgmt" get nodes` then
+answers `No resources found`, and every pod on the plane is `Pending`.
 
 ## Failures
 
@@ -144,6 +146,9 @@ the bucket is not composed. Neither is the bucket having been deleted.
 **MAY:**
 
 - Leave a plane frozen for as long as nothing needs reconciling.
+- Freeze with a `down` instance's Applications reading `OutOfSync`,
+  `Degraded` or `Progressing`. Its cluster has no nodes, so nothing
+  there is outstanding.
 
 Commands: `just crossplane-unready`, `just argo-apps-status`, `just
 plane-record`, `just plane-records`, `just gh-pr-plane-freeze`.
