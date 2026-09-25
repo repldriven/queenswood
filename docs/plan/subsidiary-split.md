@@ -114,7 +114,7 @@ organisation answers each capability with its own group, a user, or a
 - **Handed a folder** — `folderId` set; it adopts and records the one
   you were given, keeping their `displayName` and `parent`.
 
-Both leave the same object for `management-plane-install` to read, so
+Both leave the same object for `plane-install` to read, so
 the branch
 that today sits at step 5 of an eleven-step bootstrap becomes one field
 in a manifest. It is the convention the installation manifest already
@@ -183,7 +183,7 @@ organisation-bootstrap      prj-b-seed and the seed identity    ┘ organisation
 ──────────────────────────  the installation's own, from here ────────────
 contract-install            who holds what, which folder, what pays
 boundary-install            the folder, and what binds on it
-management-plane-install    the project, cluster, Crossplane, Argo
+plane-install    the project, cluster, Crossplane, Argo
 instance-deploy             one environment's project and the bank on it
 instance-rebuild-cluster
 up-and-running              the order they go in
@@ -411,7 +411,7 @@ So the recipe was deleted rather than renamed.
    `Delete` withheld in a merge of its own, then the transfer. No
    binding left GCP at any point. `createFolder` came out of the XRD,
    the manifest and the renderer after it.
-3. **`management-plane-install` no longer describes what happens.** Its
+3. **`plane-install` no longer describes what happens.** Its
    step 5 renders an installation manifest with no folder and step 6
    says the apply reports one. Nothing renders or applies a
    `subsidiary.yml`. A second installation following it would get a

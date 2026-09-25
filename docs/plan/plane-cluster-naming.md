@@ -272,7 +272,7 @@ swap.
   resource between composites, and what a rename does.
 - [crossplane-design](../recipes/infra/crossplane-design.md) — a
   composed resource is identified by its composition name.
-- [management-plane-install](../recipes/infra/management-plane-install.md)
+- [plane-install](../recipes/infra/plane-install.md)
   — building the plane, and the pivot a rename would repeat.
 - [ADR-0024](../adr/0024-instances-are-their-own-composites.md) — what
   the plane composes, and what Argo installs.

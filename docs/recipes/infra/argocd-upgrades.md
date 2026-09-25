@@ -346,7 +346,7 @@ managed resource being reconciled rather than merely being read.
 from the composition and leaves no divergence, which is worth it when
 several changes have accumulated, or when nobody is sure what the plane
 is running any more. See
-[management-plane-install](management-plane-install.md).
+[plane-install](plane-install.md).
 
 **What this does not cover.** Argo applies `infra/helm/management-plane`
 from git on every sync, so anything in that chart — the
@@ -357,7 +357,7 @@ of this. Only the release Argo itself runs from is `Observe`.
 ## References
 
 - [argocd-apps](argocd-apps.md) — how Argo applies what it does own
-- [management-plane-install](management-plane-install.md) — building a
+- [plane-install](plane-install.md) — building a
   plane, and the rebuild path
-- [management-plane-install](management-plane-install.md) — what a plane
+- [plane-install](plane-install.md) — what a plane
   cannot change about itself

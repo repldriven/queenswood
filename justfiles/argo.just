@@ -194,7 +194,7 @@ argo-github-app-secret pem app_id installation_id:
     set -e
     # A person's act, once per App, from the secretsAdmin capability --
     # GitHub has no API that creates an App, so nothing here can be
-    # declared. See docs/recipes/infra/management-plane-install.md for the console
+    # declared. See docs/recipes/infra/plane-install.md for the console
     # steps that produce these three values.
     #
     # The container is composed by the installation; this adds a

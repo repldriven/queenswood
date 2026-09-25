@@ -184,7 +184,7 @@ layout. The renames are mechanical and consequential on this;
 [the plan](../plan/subsidiary-split.md) lists them.
 
 **Whether a recipe survives the split.** What is today
-`management-plane-install` supplies four things, and each may belong
+`plane-install` supplies four things, and each may belong
 elsewhere once the layers separate: the Argo credential to the boot,
 since without it the plane reconciles from nothing while reporting
 healthy; the environment config and the recovery project to the

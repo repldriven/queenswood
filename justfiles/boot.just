@@ -50,7 +50,8 @@ boot-cluster-up:
     MANIFEST=infra/platform/crossplane-providers/providers.yml
     for name in provider-gcp-cloudplatform provider-gcp-compute \
                 provider-gcp-container provider-gcp-secretmanager \
-                provider-helm function-patch-and-transform \
+                provider-gcp-storage provider-helm \
+                function-patch-and-transform \
                 function-go-templating function-auto-ready \
                 function-environment-configs ; do
       PKG=$(grep -A2 "name: $name\$" "$MANIFEST" | grep 'package:' | awk '{print $2}')
@@ -78,6 +79,8 @@ boot-cluster-up:
       provider.pkg.crossplane.io/provider-gcp-container
     kubectl --context {{ BOOT_CTX }} wait --for=condition=healthy --timeout=600s \
       provider.pkg.crossplane.io/provider-gcp-secretmanager
+    kubectl --context {{ BOOT_CTX }} wait --for=condition=healthy --timeout=600s \
+      provider.pkg.crossplane.io/provider-gcp-storage
     kubectl --context {{ BOOT_CTX }} wait --for=condition=healthy --timeout=600s \
       provider.pkg.crossplane.io/provider-helm
     kubectl --context {{ BOOT_CTX }} wait --for=condition=healthy --timeout=600s \

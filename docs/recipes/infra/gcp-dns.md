@@ -226,7 +226,7 @@ than one resolver.
 
 Move the delegation once the zone exists — that is
 [gcp-dns-delegation](gcp-dns-delegation.md), and it cannot start
-before [management-plane-install](management-plane-install.md) has
+before [plane-install](plane-install.md) has
 composed one.
 
 ## Rules
@@ -287,7 +287,7 @@ composed one.
   installation composes.
 - [crossplane-design](crossplane-design.md) — what composes the zones
   below it, and their records.
-- [management-plane-install](management-plane-install.md) — the manifest
+- [plane-install](plane-install.md) — the manifest
   the domain is named in.
 - [gcp-dns-delegation](gcp-dns-delegation.md) — moving the
   registrar, once the zone answers.

@@ -17,7 +17,7 @@ You want to add a Queenswood instance to an installation.
 ### Prerequisites
 
 - A running Queenswood installation — see
-  [management-plane-install](management-plane-install.md).
+  [plane-install](plane-install.md).
 - The installation's recovery project composed, where this instance is
   to keep backups.
 - The plane's Argo identity and recovery project carrying
@@ -383,7 +383,7 @@ standing an instance up.
 
 - [outbound-email-install](outbound-email-install.md) — the mail server
   an instance's invitation emails go through, once it serves.
-- [management-plane-install](management-plane-install.md) — building
+- [plane-install](plane-install.md) — building
   the plane this runs on, and the manifest it reads.
 - [google-sign-in](google-sign-in.md) — the console acts and the Admin
   API call behind step 5.

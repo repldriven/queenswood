@@ -201,7 +201,7 @@ permission and is meant for a project.
 
 ## References
 
-- [management-plane-install](management-plane-install.md) — the
+- [plane-install](plane-install.md) — the
   identities an installation has, and why each is separate.
 - [crossplane-providers](crossplane-providers.md) — how a provider
   authenticates as one.
