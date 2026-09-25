@@ -57,7 +57,7 @@
             {:info {:title "UK Companies House Simulator"
                     :description
                     "Simulates the UK Companies House API for testing"
-                    :version "0.0.5"}
+                    :version "0.0.6"}
              :components {:examples (merge companies-examples)}}
             :handler (server/standard-openapi-handler)}}]
     (into ["" {:interceptors (:interceptors ctx)}]
