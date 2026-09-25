@@ -1,20 +1,19 @@
 (ns com.repldriven.queenswood.api.bank.routes
   (:require
     [com.repldriven.queenswood.api.bank.commands :as bank-commands]
-    [com.repldriven.queenswood.api.bank.examples :refer
-     [BankNotFound BankInvalidStatus BankUnknownTier BankUnnamed
-      CompanyNotActive CompanyRequired OperatorFieldRefused]]
     [com.repldriven.queenswood.api.bank.queries :as queries]
-    [com.repldriven.queenswood.api.companies.examples :as companies.examples]
-    [com.repldriven.queenswood.api.examples :as api.examples]
 
     [com.repldriven.queenswood.api.shared.headers :as shared.headers]
     [com.repldriven.queenswood.api.shared.idempotency :as shared.idempotency]
     [com.repldriven.queenswood.api.shared.interceptors :as shared.interceptors]
     [com.repldriven.queenswood.api.shared.parameters :as shared.parameters]
 
-    [com.repldriven.queenswood.api-schema.interface :refer
+    [com.repldriven.queenswood.api-schema.interface :as api-schema :refer
      [ErrorExamples ErrorResponse]]
+    [com.repldriven.queenswood.bank-api.interface :refer
+     [BankInvalidStatus BankNotFound BankUnknownTier BankUnnamed
+      CompanyNotActive CompanyRequired OperatorFieldRefused]]
+    [com.repldriven.queenswood.company-api.interface :as company-api]
     [com.repldriven.queenswood.idempotency.interface :as bank-idempotency]
 
     [com.repldriven.mono.server.interface :as server]))
@@ -65,12 +64,12 @@
         {201 {:description "The created bank and its client secret."
               :body [:ref "CreateBankResponse"]
               :openapi {:headers {"Location" (shared.headers/location "bank")}}}
-         403 (ErrorExamples [#'api.examples/PolicyDenied
+         403 (ErrorExamples [#'api-schema/PolicyDenied
                              #'OperatorFieldRefused])
-         404 (ErrorResponse [#'companies.examples/CompanyNotFound])
+         404 (ErrorResponse [#'company-api/CompanyNotFound])
          422 (ErrorResponse [#'BankUnknownTier #'CompanyNotActive
                              #'CompanyRequired])
-         503 (ErrorExamples [#'companies.examples/CompanyRegistryUnavailable])})
+         503 (ErrorExamples [#'company-api/CompanyRegistryUnavailable])})
        :handler bank-commands/create-bank}}]]
    ["/bank"
     ;; The bank the `Bank-Id` header names: a member's own, or any an

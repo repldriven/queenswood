@@ -2,19 +2,17 @@
   (:require
     [com.repldriven.queenswood.api.cash-account.commands :as commands]
     [com.repldriven.queenswood.api.cash-account.queries :as queries]
-    [com.repldriven.queenswood.api.examples :as api.examples]
 
     [com.repldriven.queenswood.api.shared.headers :as shared.headers]
     [com.repldriven.queenswood.api.shared.idempotency :as shared.idempotency]
     [com.repldriven.queenswood.api.shared.parameters :as shared.parameters]
 
-    [com.repldriven.queenswood.api-schema.interface :refer
+    [com.repldriven.queenswood.api-schema.interface :as api-schema :refer
      [ErrorExamples ErrorResponse]]
     [com.repldriven.queenswood.cash-account-api.interface :as cash-account-api
      :refer
-     [CashAccountNotFound ProductNotPublished InvalidCurrency
-      PartyNotFound ProductNotFound CashAccountInvalidStatus
-      CashAccountNonZeroBalance]]
+     [CashAccountInvalidStatus CashAccountNonZeroBalance CashAccountNotFound
+      InvalidCurrency PartyNotFound ProductNotFound ProductNotPublished]]
     [com.repldriven.queenswood.idempotency.interface :as bank-idempotency]
 
     [com.repldriven.mono.server.interface :as server]))
@@ -73,12 +71,12 @@
                          :openapi {:headers {"Location" (shared.headers/location
                                                          "cash account")}
                                    :links cash-account-api/from-account}}
-                    403 (ErrorExamples [#'api.examples/PolicyDenied])
+                    403 (ErrorExamples [#'api-schema/PolicyDenied])
                     404 (ErrorResponse [#'PartyNotFound
                                         #'ProductNotFound])
                     422 (ErrorResponse [#'ProductNotPublished
                                         #'InvalidCurrency])
-                    429 (ErrorResponse [#'api.examples/PolicyLimitExceeded])})
+                    429 (ErrorResponse [#'api-schema/PolicyLimitExceeded])})
        :handler commands/open-cash-account}}]
     ["/{account-id}" {:parameters {:path {:account-id [:ref "CashAccountId"]}}}
      [""
@@ -127,7 +125,8 @@
                        "account with a non-zero balance is refused with 409 "
                        "unless the bank's policies allow it. Returns the "
                        "account in the `closing` status; it becomes `closed` "
-                       "shortly after.")
+                       "shortly after, and a `cash-account.closed` webhook "
+                       "notification follows.")
                   :parameters ^:replace
                               [shared.parameters/ref-account-id
                                shared.parameters/ref-bank-id-header
@@ -138,7 +137,7 @@
                     {200 {:description "The account in the `closing` status."
                           :body [:ref "CloseCashAccountResponse"]
                           :openapi {:links cash-account-api/from-account}}
-                     403 (ErrorExamples [#'api.examples/PolicyDenied])
+                     403 (ErrorExamples [#'api-schema/PolicyDenied])
                      404 (ErrorResponse [#'CashAccountNotFound])
                      409 (ErrorResponse [#'CashAccountInvalidStatus
                                          #'CashAccountNonZeroBalance])})
@@ -151,7 +150,8 @@
                         (str "Only an opened account can be suspended. While "
                              "suspended it cannot send or receive payments, "
                              "and money arriving for it is parked in "
-                             "suspense.")
+                             "suspense. A `cash-account.suspended` webhook "
+                             "notification follows.")
                         :parameters ^:replace
                                     [shared.parameters/ref-account-id
                                      shared.parameters/ref-bank-id-header
@@ -162,7 +162,7 @@
                           {200 {:description "The suspended account."
                                 :body [:ref "SuspendCashAccountResponse"]
                                 :openapi {:links cash-account-api/from-account}}
-                           403 (ErrorExamples [#'api.examples/PolicyDenied])
+                           403 (ErrorExamples [#'api-schema/PolicyDenied])
                            404 (ErrorResponse [#'CashAccountNotFound])
                            409 (ErrorResponse [#'CashAccountInvalidStatus])})
               :handler commands/suspend-cash-account}}]
@@ -172,7 +172,8 @@
               :openapi {:operationId "ResumeCashAccount"
                         :description
                         (str "The account returns to opened. An account that "
-                             "is not suspended is refused with 409.")
+                             "is not suspended is refused with 409. A `cash-"
+                             "account.resumed` webhook notification follows.")
                         :parameters ^:replace
                                     [shared.parameters/ref-account-id
                                      shared.parameters/ref-bank-id-header
@@ -183,7 +184,7 @@
                           {200 {:description "The resumed account."
                                 :body [:ref "ResumeCashAccountResponse"]
                                 :openapi {:links cash-account-api/from-account}}
-                           403 (ErrorExamples [#'api.examples/PolicyDenied])
+                           403 (ErrorExamples [#'api-schema/PolicyDenied])
                            404 (ErrorResponse [#'CashAccountNotFound])
                            409 (ErrorResponse [#'CashAccountInvalidStatus])})
               :handler commands/resume-cash-account}}]
@@ -196,7 +197,8 @@
                              "given a new account number under the same sort "
                              "code, and the old one is retired rather than "
                              "redirected, so money sent to it is parked in "
-                             "suspense.")
+                             "suspense. A `cash-account.address-rotated` "
+                             "webhook notification follows.")
                         :parameters ^:replace
                                     [shared.parameters/ref-account-id
                                      shared.parameters/ref-bank-id-header
@@ -208,7 +210,7 @@
                                 "The account with its new payment address."
                                 :body [:ref "RotateCashAccountAddressResponse"]
                                 :openapi {:links cash-account-api/from-account}}
-                           403 (ErrorExamples [#'api.examples/PolicyDenied])
+                           403 (ErrorExamples [#'api-schema/PolicyDenied])
                            404 (ErrorResponse [#'CashAccountNotFound])
                            409 (ErrorResponse [#'CashAccountInvalidStatus])})
               :handler commands/rotate-cash-account-address}}]]]])

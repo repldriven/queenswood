@@ -1,19 +1,19 @@
 (ns com.repldriven.queenswood.api.access.routes
   (:require
-    [com.repldriven.queenswood.api.access.examples :refer
-     [InvitationAlreadyExists InvitationAlreadyMember InvitationInvalidStatus
-      InvitationNotFound MembershipAlreadyExists MembershipInvalidStatus
-      MembershipLastOwner MembershipNotFound ReasonRequired RoleNotGranted]]
     [com.repldriven.queenswood.api.access.handlers :as handlers]
-    [com.repldriven.queenswood.api.bank.examples :refer [BankUnnamed]]
 
     [com.repldriven.queenswood.api.shared.headers :as shared.headers]
     [com.repldriven.queenswood.api.shared.idempotency :as shared.idempotency]
     [com.repldriven.queenswood.api.shared.interceptors :as shared.interceptors]
     [com.repldriven.queenswood.api.shared.parameters :as shared.parameters]
 
+    [com.repldriven.queenswood.access-api.interface :refer
+     [InvitationAlreadyExists InvitationAlreadyMember InvitationInvalidStatus
+      InvitationNotFound MembershipAlreadyExists MembershipInvalidStatus
+      MembershipLastOwner MembershipNotFound ReasonRequired RoleNotGranted]]
     [com.repldriven.queenswood.api-schema.interface :refer
      [ErrorExamples ErrorResponse]]
+    [com.repldriven.queenswood.bank-api.interface :refer [BankUnnamed]]
     [com.repldriven.queenswood.idempotency.interface :as bank-idempotency]
 
     [com.repldriven.mono.server.interface :as server]))

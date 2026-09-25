@@ -2,82 +2,59 @@
   (:require
     [com.repldriven.queenswood.api.auth :as auth]
     [com.repldriven.queenswood.api.errors :as errors]
-    [com.repldriven.queenswood.api.examples :as examples]
 
-    [com.repldriven.queenswood.api.access.components :as access.components]
-    [com.repldriven.queenswood.api.access.examples :as access.examples]
     [com.repldriven.queenswood.api.access.routes :as access]
-    [com.repldriven.queenswood.api.balance.components :as balance.components]
-    [com.repldriven.queenswood.api.balance.examples :as balance.examples]
     [com.repldriven.queenswood.api.balance.routes :as balance]
-    [com.repldriven.queenswood.api.bank.components :as bank.components]
-    [com.repldriven.queenswood.api.bank.examples :as bank.examples]
     [com.repldriven.queenswood.api.bank.routes :as bank]
     [com.repldriven.queenswood.api.cash-account.routes :as cash-account]
-    [com.repldriven.queenswood.api.cash-account-migration.components :as
-     cash-account-migration.components]
-    [com.repldriven.queenswood.api.cash-account-migration.examples :as
-     cash-account-migration.examples]
     [com.repldriven.queenswood.api.cash-account-migration.routes :as
      cash-account-migration]
-    [com.repldriven.queenswood.api.cash-account-product.components :as
-     cash-account-product.components]
-    [com.repldriven.queenswood.api.cash-account-product.examples :as
-     cash-account-product.examples]
     [com.repldriven.queenswood.api.cash-account-product.routes :as
      cash-account-product]
-    [com.repldriven.queenswood.api.companies.components :as
-     companies.components]
-    [com.repldriven.queenswood.api.companies.examples :as companies.examples]
     [com.repldriven.queenswood.api.companies.routes :as companies]
-    [com.repldriven.queenswood.api.jobs.components :as jobs.components]
-    [com.repldriven.queenswood.api.jobs.examples :as jobs.examples]
     [com.repldriven.queenswood.api.jobs.routes :as jobs]
-    [com.repldriven.queenswood.api.ledger-account.components :as
-     ledger-account.components]
-    [com.repldriven.queenswood.api.ledger-account.examples :as
-     ledger-account.examples]
     [com.repldriven.queenswood.api.ledger-account.routes :as ledger-account]
-    [com.repldriven.queenswood.api.me.components :as me.components]
     [com.repldriven.queenswood.api.me.routes :as me]
-    [com.repldriven.queenswood.api.oauth.components :as oauth.components]
-    [com.repldriven.queenswood.api.oauth.examples :as oauth.examples]
     [com.repldriven.queenswood.api.oauth.routes :as oauth]
-    [com.repldriven.queenswood.api.party.components :as party.components]
-    [com.repldriven.queenswood.api.party.examples :as party.examples]
     [com.repldriven.queenswood.api.party.routes :as party]
-    [com.repldriven.queenswood.api.payee-check.components :as
-     payee-check.components]
-    [com.repldriven.queenswood.api.payee-check.examples :as
-     payee-check.examples]
     [com.repldriven.queenswood.api.payee-check.routes :as payee-check]
     [com.repldriven.queenswood.api.payment.routes :as payment]
-    [com.repldriven.queenswood.api.policy.components :as policy.components]
-    [com.repldriven.queenswood.api.policy.examples :as policy.examples]
     [com.repldriven.queenswood.api.policy.routes :as policy]
     [com.repldriven.queenswood.api.reward.routes :as reward]
     [com.repldriven.queenswood.api.shared.interceptors :as shared.interceptors]
     [com.repldriven.queenswood.api.shared.parameters :as shared.parameters]
-    [com.repldriven.queenswood.api.simulate.components :as simulate.components]
-    [com.repldriven.queenswood.api.simulate.examples :as simulate.examples]
     [com.repldriven.queenswood.api.simulate.routes :as simulate]
-    [com.repldriven.queenswood.api.tier.components :as tier.components]
-    [com.repldriven.queenswood.api.tier.examples :as tier.examples]
     [com.repldriven.queenswood.api.tier.routes :as tier]
-    [com.repldriven.queenswood.api.transaction.components :as
-     transaction.components]
     [com.repldriven.queenswood.api.webhook.document :as webhook.document]
     [com.repldriven.queenswood.api.webhook.routes :as webhook]
 
+    [com.repldriven.queenswood.access-api.interface :as access-api]
     [com.repldriven.queenswood.api-schema.interface :as api-schema]
+    [com.repldriven.queenswood.balance-api.interface :as balance-api]
+    [com.repldriven.queenswood.bank-api.interface :as bank-api]
     [com.repldriven.queenswood.cash-account-api.interface :as cash-account-api]
+    [com.repldriven.queenswood.cash-account-migration-api.interface :as
+     cash-account-migration-api]
+    [com.repldriven.queenswood.cash-account-product-api.interface :as
+     cash-account-product-api]
+    [com.repldriven.queenswood.company-api.interface :as company-api]
+    [com.repldriven.queenswood.job-api.interface :as job-api]
+    [com.repldriven.queenswood.ledger-account-api.interface :as
+     ledger-account-api]
+    [com.repldriven.queenswood.me-api.interface :as me-api]
+    [com.repldriven.queenswood.oauth-api.interface :as oauth-api]
+    [com.repldriven.queenswood.party-api.interface :as party-api]
+    [com.repldriven.queenswood.payee-check-api.interface :as payee-check-api]
     [com.repldriven.queenswood.payment-api.interface :as payment-api]
+    [com.repldriven.queenswood.policy-api.interface :as policy-api]
     [com.repldriven.queenswood.reward-api.interface :as reward-api]
+    [com.repldriven.queenswood.simulate-api.interface :as simulate-api]
+    [com.repldriven.queenswood.tier-api.interface :as tier-api]
+    [com.repldriven.queenswood.transaction-api.interface :as transaction-api]
     [com.repldriven.queenswood.webhook.interface :as webhook-api]
 
     [com.repldriven.mono.server.interface :as server]
     [com.repldriven.mono.telemetry.interface :as telemetry]
-
 
     [malli.core :as m]
     [malli.json-schema :as mjs]
@@ -115,26 +92,26 @@
          {:unique-vector api-schema/unique-vector-schema
           :unique-vector-lax api-schema/unique-vector-lax-schema
           "ErrorResponse" api-schema/ErrorResponseSchema}
-         access.components/registry
-         balance.components/registry
-         bank.components/registry
+         access-api/registry
+         balance-api/registry
+         bank-api/registry
          cash-account-api/registry
-         cash-account-migration.components/registry
-         cash-account-product.components/registry
-         companies.components/registry
-         jobs.components/registry
-         ledger-account.components/registry
-         me.components/registry
-         oauth.components/registry
-         party.components/registry
-         payee-check.components/registry
+         cash-account-migration-api/registry
+         cash-account-product-api/registry
+         company-api/registry
+         job-api/registry
+         ledger-account-api/registry
+         me-api/registry
+         oauth-api/registry
+         party-api/registry
+         payee-check-api/registry
          payment-api/registry
          reward-api/registry
-         policy.components/registry
+         policy-api/registry
          api-schema/registry
-         simulate.components/registry
-         tier.components/registry
-         transaction.components/registry
+         simulate-api/registry
+         tier-api/registry
+         transaction-api/registry
          webhook-api/registry))
 
 (def ^:private coercion
@@ -273,24 +250,24 @@
            "JWT issued by the Queenswood Keycloak realm. Two shapes are accepted: a service JWT minted by an organization's service-account client (`azp` is the org id) and a user JWT minted by the `queenswood-console` SPA via Authorization Code + PKCE (`azp` is `queenswood-console`). Each operation's gate names one or more of six roles: `user`, any signed-in person; `admin`, a Queenswood operator; and the organisation levels `org:viewer`, `org:developer`, `org:admin` and `org:owner`, where a member holds the level of their role in the bank the `Bank-Id` header names and every level below it. A service JWT carries `org:viewer` and `org:developer` for its own bank."}}
          :parameters shared.parameters/registry
          :examples (merge
-                    examples/registry
-                    access.examples/registry
-                    balance.examples/registry
-                    bank.examples/registry
+                    api-schema/examples
+                    access-api/examples
+                    balance-api/examples
+                    bank-api/examples
                     cash-account-api/examples
-                    cash-account-migration.examples/registry
-                    cash-account-product.examples/registry
-                    jobs.examples/registry
-                    ledger-account.examples/registry
-                    oauth.examples/registry
-                    companies.examples/registry
-                    party.examples/registry
-                    payee-check.examples/registry
+                    cash-account-migration-api/examples
+                    cash-account-product-api/examples
+                    job-api/examples
+                    ledger-account-api/examples
+                    oauth-api/examples
+                    company-api/examples
+                    party-api/examples
+                    payee-check-api/examples
                     payment-api/examples
                     reward-api/examples
-                    policy.examples/registry
-                    simulate.examples/registry
-                    tier.examples/registry
+                    policy-api/examples
+                    simulate-api/examples
+                    tier-api/examples
                     webhook-api/examples)}
         :webhooks webhook.document/webhooks}
        :handler (openapi-handler)}}]
@@ -311,15 +288,16 @@
             :exclusive-scopes auth/exclusive-scopes
             :unauthorized (errors/unauthenticated-response)
             :forbidden (errors/forbidden-response)
-            :responses {400 (api-schema/ErrorResponse [#'examples/BadRequest])
-                        401 (api-schema/ErrorResponse [#'examples/Unauthorized])
-                        403 (api-schema/ErrorResponse [#'examples/Forbidden])
+            :responses {400 (api-schema/ErrorResponse [#'api-schema/BadRequest])
+                        401 (api-schema/ErrorResponse
+                             [#'api-schema/Unauthorized])
+                        403 (api-schema/ErrorResponse [#'api-schema/Forbidden])
                         500 (api-schema/ErrorResponse
-                             [#'examples/InternalServerError
-                              #'examples/BadResponse])
+                             [#'api-schema/InternalServerError
+                              #'api-schema/BadResponse])
                         503 (api-schema/ErrorResponse
-                             [#'examples/Contention
-                              #'examples/Timeout])}}]
+                             [#'api-schema/Contention
+                              #'api-schema/Timeout])}}]
           (concat
            access/routes
            balance/routes

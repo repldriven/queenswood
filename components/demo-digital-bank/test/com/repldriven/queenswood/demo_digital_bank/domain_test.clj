@@ -316,10 +316,9 @@
                                    :received-at "2026-09-19T10:00:00.000000Z"}
                                   {:account-id "acc.1" :name "Rainy Day"}))))
   (testing "a kind the bank does not know is told as the change it names"
-    (is (= "Something changed: party.status-changed"
-           (:headline (SUT/notification-view {:id "whn.2"
-                                              :kind "party.status-changed"}
-                                             {})))))
+    (is (= "Something changed: party.suspended"
+           (:headline
+            (SUT/notification-view {:id "whn.2" :kind "party.suspended"} {})))))
   (testing "money landing on an account is told as arriving, sender unnamed"
     (let [told (SUT/notification-view {:id "whn.3"
                                        :kind "payment.internal-settled"}
@@ -333,27 +332,27 @@
       (is (= "acc.1" (:account told)))
       (is (not (str/includes? (pr-str told) "acc.house")))))
   (testing "an inbound payment is told by what the scheme did with it"
-    (let [inbound (fn [status]
+    (let [inbound (fn [change]
                     (SUT/notification-view
-                     {:id "whn.4" :kind "payment.inbound-status-changed"}
+                     {:id "whn.4" :kind (str "payment.inbound-" change)}
                      {:creditor-account-id "acc.1"
                       :amount 12345
                       :currency "GBP"
-                      :payment-status status
                       :debtor-name "Ford Prefect"}))]
       (is (= ["£123.45 arrived" "From Ford Prefect" "acc.1"]
              ((juxt :headline :detail :account) (inbound "settled"))))
+      (is (= "£123.45 arrived" (:headline (inbound "released"))))
       (is (= "£123.45 is on hold" (:headline (inbound "held"))))
+      (is (= "£123.45 is on hold" (:headline (inbound "suspended"))))
       (is (= "£123.45 was returned" (:headline (inbound "returned"))))))
   (testing "a payment the customer sent is told by its outcome"
-    (let [outbound (fn [status]
+    (let [outbound (fn [outcome]
                      (SUT/notification-view
-                      {:id "whn.5" :kind "payment.outbound-status-changed"}
+                      {:id "whn.5" :kind (str "payment.outbound-" outcome)}
                       {:debtor-account-id "acc.1"
                        :creditor-name "Arthur Dent"
                        :amount 2500
                        :currency "GBP"
-                       :payment-status status
                        :reference "Towel"}))]
       (is (= ["Payment to Arthur Dent sent" "£25.00, Towel" "acc.1"]
              ((juxt :headline :detail :account) (outbound "completed"))))
@@ -369,5 +368,5 @@
   (testing "a kind naming no account names no customer either"
     (is (nil? (SUT/notified-account "webhook.test" {:endpoint-id "whe.1"})))
     (is (= "acc.1"
-           (SUT/notified-account "payment.outbound-status-changed"
+           (SUT/notified-account "payment.outbound-completed"
                                  {:debtor-account-id "acc.1"})))))

@@ -1,19 +1,18 @@
 (ns com.repldriven.queenswood.api.cash-account-product.routes
   (:require
-    [com.repldriven.queenswood.api.cash-account-product.examples :refer
-     [ProductNotFound VersionNotFound DraftAlreadyExists VersionImmutable
-      CurrencyNotAllowed TemplateMismatch]]
     [com.repldriven.queenswood.api.cash-account-product.handlers :as handlers]
-    [com.repldriven.queenswood.api.cash-account-product.links :as links]
     [com.repldriven.queenswood.api.cash-account-product.queries :as queries]
-    [com.repldriven.queenswood.api.examples :as api.examples]
 
     [com.repldriven.queenswood.api.shared.headers :as shared.headers]
     [com.repldriven.queenswood.api.shared.idempotency :as shared.idempotency]
     [com.repldriven.queenswood.api.shared.parameters :as shared.parameters]
 
-    [com.repldriven.queenswood.api-schema.interface :refer
+    [com.repldriven.queenswood.api-schema.interface :as api-schema :refer
      [ErrorExamples ErrorResponse]]
+    [com.repldriven.queenswood.cash-account-product-api.interface :as
+     cash-account-product-api :refer
+     [CurrencyNotAllowed DraftAlreadyExists ProductNotFound TemplateMismatch
+      VersionImmutable VersionNotFound]]
     [com.repldriven.queenswood.idempotency.interface :as bank-idempotency]
 
     [com.repldriven.mono.server.interface :as server]))
@@ -75,10 +74,10 @@
                     :body [:ref "CashAccountProductVersion"]
                     :openapi {:headers {"Location" (shared.headers/location
                                                     "draft version")}
-                              :links links/from-draft}}
-               403 (ErrorExamples [#'api.examples/PolicyDenied])
+                              :links cash-account-product-api/from-draft}}
+               403 (ErrorExamples [#'api-schema/PolicyDenied])
                422 (ErrorResponse [#'CurrencyNotAllowed])
-               429 (ErrorResponse [#'api.examples/PolicyLimitExceeded])})
+               429 (ErrorResponse [#'api-schema/PolicyLimitExceeded])})
              :handler handlers/create-product}}]
     ["/{product-id}" {:parameters {:path {:product-id [:ref "ProductId"]}}}
      [""
@@ -91,7 +90,8 @@
                             "status.")}
              :responses {200 {:description "The product with its versions."
                               :body [:ref "CashAccountProduct"]
-                              :openapi {:links links/from-product}}
+                              :openapi {:links
+                                        cash-account-product-api/from-product}}
                          404 (ErrorResponse [#'ProductNotFound])}
              :handler queries/get-product}}]
      ["/versions"
@@ -109,11 +109,11 @@
               :parameters {:body [:ref "CashAccountProductDraftRequest"]}
               :responses {201 {:description "The new draft version."
                                :body [:ref "CashAccountProductVersion"]
-                               :openapi {:headers {"Location"
-                                                   (shared.headers/location
-                                                    "draft version")}
-                                         :links links/from-draft}}
-                          403 (ErrorExamples [#'api.examples/PolicyDenied])
+                               :openapi
+                               {:headers {"Location" (shared.headers/location
+                                                      "draft version")}
+                                :links cash-account-product-api/from-draft}}
+                          403 (ErrorExamples [#'api-schema/PolicyDenied])
                           404 (ErrorResponse [#'ProductNotFound])
                           409 (ErrorResponse [#'DraftAlreadyExists])
                           422 (ErrorResponse [#'CurrencyNotAllowed
@@ -145,8 +145,9 @@
               :parameters {:body [:ref "CashAccountProductDraftRequest"]}
               :responses {200 {:description "The updated draft."
                                :body [:ref "CashAccountProductVersion"]
-                               :openapi {:links links/from-draft}}
-                          403 (ErrorExamples [#'api.examples/PolicyDenied])
+                               :openapi {:links
+                                         cash-account-product-api/from-draft}}
+                          403 (ErrorExamples [#'api-schema/PolicyDenied])
                           404 (ErrorResponse [#'VersionNotFound])
                           409 (ErrorResponse [#'VersionImmutable])
                           422 (ErrorResponse [#'CurrencyNotAllowed
@@ -163,7 +164,7 @@
                            :parameters [shared.parameters/ref-bank-id-header]}
                  :responses {204 {:description
                                   "The draft was discarded. No body."}
-                             403 (ErrorExamples [#'api.examples/PolicyDenied])
+                             403 (ErrorExamples [#'api-schema/PolicyDenied])
                              404 (ErrorResponse [#'VersionNotFound])
                              409 (ErrorResponse [#'VersionImmutable])}
                  :handler handlers/discard-draft}}]
@@ -180,10 +181,11 @@
                               "its version until a migration moves it. A "
                               "version that is not a draft is refused with "
                               "409.")}
-               :responses {200 {:description "The published version."
-                                :body [:ref "CashAccountProductVersion"]
-                                :openapi {:links links/from-published}}
-                           403 (ErrorExamples [#'api.examples/PolicyDenied])
-                           404 (ErrorResponse [#'VersionNotFound])
-                           409 (ErrorResponse [#'VersionImmutable])}
+               :responses
+               {200 {:description "The published version."
+                     :body [:ref "CashAccountProductVersion"]
+                     :openapi {:links cash-account-product-api/from-published}}
+                403 (ErrorExamples [#'api-schema/PolicyDenied])
+                404 (ErrorResponse [#'VersionNotFound])
+                409 (ErrorResponse [#'VersionImmutable])}
                :handler handlers/publish-draft}}]]]]])

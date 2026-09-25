@@ -749,9 +749,17 @@
   [kind record]
   (case kind
     "cash-account.opened" (:account-id record)
-    ("payment.internal-settled" "payment.inbound-status-changed")
+    ("payment.internal-settled"
+     "payment.inbound-settled"
+     "payment.inbound-held"
+     "payment.inbound-released"
+     "payment.inbound-suspended"
+     "payment.inbound-returned")
     (:creditor-account-id record)
-    "payment.outbound-status-changed" (:debtor-account-id record)
+    ("payment.outbound-held"
+     "payment.outbound-completed"
+     "payment.outbound-failed")
+    (:debtor-account-id record)
     "reward.paid" (:account-id record)
     nil))
 
@@ -786,27 +794,24 @@
       (assoc base
              :headline (str (money record) " arrived")
              :detail (:reference record))
-      "payment.inbound-status-changed"
-      (case (:payment-status record)
-        "settled"
-        (assoc base :headline (str (money record) " arrived") :detail from)
-        ("held" "suspended") (assoc base
-                                    :headline (str (money record) " is on hold")
-                                    :detail from)
-        "returned" (assoc base
-                          :headline (str (money record) " was returned")
-                          :detail from)
-        unknown)
-      "payment.outbound-status-changed"
+      ("payment.inbound-settled" "payment.inbound-released")
+      (assoc base :headline (str (money record) " arrived") :detail from)
+      ("payment.inbound-held" "payment.inbound-suspended")
+      (assoc base :headline (str (money record) " is on hold") :detail from)
+      "payment.inbound-returned"
+      (assoc base :headline (str (money record) " was returned") :detail from)
+      ("payment.outbound-completed"
+       "payment.outbound-failed"
+       "payment.outbound-held")
       (let [to (str "Payment to " (or (:creditor-name record) "your payee"))
             sent (str (money record)
                       (some->> (:reference record)
-                               (str ", ")))]
-        (case (:payment-status record)
-          "completed" (assoc base :headline (str to " sent") :detail sent)
-          "failed" (assoc base :headline (str to " failed") :detail sent)
-          "held" (assoc base :headline (str to " is held") :detail sent)
-          unknown))
+                               (str ", ")))
+            outcome ({"payment.outbound-completed" " sent"
+                      "payment.outbound-failed" " failed"
+                      "payment.outbound-held" " is held"}
+                     kind)]
+        (assoc base :headline (str to outcome) :detail sent))
       "reward.paid"
       (assoc base
              :headline (str (money record) " welcome reward arrived")

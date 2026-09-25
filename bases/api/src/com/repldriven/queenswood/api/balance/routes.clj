@@ -1,11 +1,11 @@
 (ns com.repldriven.queenswood.api.balance.routes
   (:require
-    [com.repldriven.queenswood.api.balance.examples :refer [BalanceNotFound]]
     [com.repldriven.queenswood.api.balance.queries :as queries]
 
     [com.repldriven.queenswood.api.shared.parameters :as shared.parameters]
 
     [com.repldriven.queenswood.api-schema.interface :refer [ErrorResponse]]
+    [com.repldriven.queenswood.balance-api.interface :refer [BalanceNotFound]]
     [com.repldriven.queenswood.cash-account-api.interface :refer
      [CashAccountNotFound]]))
 

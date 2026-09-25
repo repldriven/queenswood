@@ -1,12 +1,12 @@
 (ns com.repldriven.queenswood.api.ledger-account.routes
   (:require
-    [com.repldriven.queenswood.api.ledger-account.examples :refer
-     [LedgerAccountNotFound]]
     [com.repldriven.queenswood.api.ledger-account.queries :as queries]
 
     [com.repldriven.queenswood.api.shared.parameters :as shared.parameters]
 
-    [com.repldriven.queenswood.api-schema.interface :refer [ErrorResponse]]))
+    [com.repldriven.queenswood.api-schema.interface :refer [ErrorResponse]]
+    [com.repldriven.queenswood.ledger-account-api.interface :refer
+     [LedgerAccountNotFound]]))
 
 (def routes
   [["/ledger-accounts"

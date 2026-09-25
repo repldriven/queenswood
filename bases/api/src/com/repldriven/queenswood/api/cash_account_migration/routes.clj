@@ -1,18 +1,18 @@
 (ns com.repldriven.queenswood.api.cash-account-migration.routes
   (:require
-    [com.repldriven.queenswood.api.cash-account-migration.examples :refer
-     [MigrationNotFound RunNotFound ProductTypeMismatch TargetNotPublished
-      TargetIsSource NoticeAfterDue NameRequired SourceProductNotFound
-      InvalidStatus NoticeRequired]]
     [com.repldriven.queenswood.api.cash-account-migration.handlers :as handlers]
     [com.repldriven.queenswood.api.cash-account-migration.queries :as queries]
-    [com.repldriven.queenswood.api.examples :as api.examples]
 
     [com.repldriven.queenswood.api.shared.headers :as shared.headers]
     [com.repldriven.queenswood.api.shared.idempotency :as shared.idempotency]
     [com.repldriven.queenswood.api.shared.parameters :as shared.parameters]
 
-    [com.repldriven.queenswood.api-schema.interface :refer [ErrorResponse]]
+    [com.repldriven.queenswood.api-schema.interface :as api-schema :refer
+     [ErrorResponse]]
+    [com.repldriven.queenswood.cash-account-migration-api.interface :refer
+     [InvalidStatus MigrationNotFound NameRequired NoticeAfterDue NoticeRequired
+      ProductTypeMismatch RunNotFound SourceProductNotFound TargetIsSource
+      TargetNotPublished]]
     [com.repldriven.queenswood.idempotency.interface :as bank-idempotency]
 
     [com.repldriven.mono.server.interface :as server]))
@@ -98,7 +98,8 @@
                :description
                (str "Commits to moving the migration's accounts. The "
                     "scheduled migration job moves them once the due date is"
-                    " reached and the target version is in force. A "
+                    " reached and the target version is in force, with a "
+                    "`cash-account.migrated` webhook notification for each. A "
                     "migration that is not a draft is refused with 409. One "
                     "without both a notice date and a due date is refused "
                     "with 422.")}
@@ -167,7 +168,7 @@
                       :openapi {:headers {"Location" (shared.headers/location
                                                       "preview")}}}
                  404 (ErrorResponse [#'MigrationNotFound])
-                 429 (ErrorResponse [#'api.examples/PolicyLimitExceeded])})
+                 429 (ErrorResponse [#'api-schema/PolicyLimitExceeded])})
                :handler handlers/preview-migration}}]
       ["/{run-id}"
        {:parameters {:path {:run-id [:ref "MigrationRunId"]}}}

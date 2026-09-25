@@ -1,9 +1,6 @@
 (ns com.repldriven.queenswood.api.payee-check.routes
   (:require
-    [com.repldriven.queenswood.api.payee-check.examples :refer
-     [PayeeCheckNotFound]]
     [com.repldriven.queenswood.api.payee-check.handlers :as handlers]
-    [com.repldriven.queenswood.api.payee-check.links :as links]
     [com.repldriven.queenswood.api.payee-check.queries :as queries]
 
     [com.repldriven.queenswood.api.shared.headers :as shared.headers]
@@ -12,6 +9,8 @@
 
     [com.repldriven.queenswood.api-schema.interface :refer [ErrorResponse]]
     [com.repldriven.queenswood.idempotency.interface :as bank-idempotency]
+    [com.repldriven.queenswood.payee-check-api.interface :as payee-check-api
+     :refer [PayeeCheckNotFound]]
 
     [com.repldriven.mono.server.interface :as server]))
 
@@ -56,7 +55,7 @@
                          :body [:ref "PayeeCheck"]
                          :openapi {:headers {"Location" (shared.headers/location
                                                          "payee check")}
-                                   :links links/from-check}}})
+                                   :links payee-check-api/from-check}}})
        :handler handlers/create-check}}]
     ["/{check-id}"
      {:parameters {:path {:check-id [:ref "CheckId"]}}}

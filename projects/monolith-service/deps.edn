@@ -24,6 +24,22 @@
   component/cash-account-api {:local/root "../../components/cash-account-api"}
   component/payment-api {:local/root "../../components/payment-api"}
   component/reward-api {:local/root "../../components/reward-api"}
+  component/access-api {:local/root "../../components/access-api"}
+  component/balance-api {:local/root "../../components/balance-api"}
+  component/bank-api {:local/root "../../components/bank-api"}
+  component/cash-account-migration-api {:local/root "../../components/cash-account-migration-api"}
+  component/cash-account-product-api {:local/root "../../components/cash-account-product-api"}
+  component/company-api {:local/root "../../components/company-api"}
+  component/job-api {:local/root "../../components/job-api"}
+  component/ledger-account-api {:local/root "../../components/ledger-account-api"}
+  component/me-api {:local/root "../../components/me-api"}
+  component/oauth-api {:local/root "../../components/oauth-api"}
+  component/party-api {:local/root "../../components/party-api"}
+  component/payee-check-api {:local/root "../../components/payee-check-api"}
+  component/policy-api {:local/root "../../components/policy-api"}
+  component/simulate-api {:local/root "../../components/simulate-api"}
+  component/tier-api {:local/root "../../components/tier-api"}
+  component/transaction-api {:local/root "../../components/transaction-api"}
   component/cash-account {:local/root "../../components/cash-account"}
   component/cash-account-query {:local/root
                                 "../../components/cash-account-query"}

@@ -1,19 +1,19 @@
 (ns com.repldriven.queenswood.api.simulate.routes
   (:require
-    [com.repldriven.queenswood.api.simulate.examples :refer
-     [BalanceNotFound InvalidAmount LedgerAccountClosed
-      MissingCurrencyAccount SimulateLiveBank]]
     [com.repldriven.queenswood.api.simulate.handlers :as handlers]
 
-    [com.repldriven.queenswood.api.bank.examples :refer
-     [BankNotFound BankUnnamed]]
     [com.repldriven.queenswood.api.shared.idempotency :as shared.idempotency]
     [com.repldriven.queenswood.api.shared.interceptors :as shared.interceptors]
     [com.repldriven.queenswood.api.shared.parameters :as shared.parameters]
 
     [com.repldriven.queenswood.api-schema.interface :refer
      [ErrorExamples ErrorResponse]]
+    [com.repldriven.queenswood.bank-api.interface :refer
+     [BankNotFound BankUnnamed]]
     [com.repldriven.queenswood.idempotency.interface :as bank-idempotency]
+    [com.repldriven.queenswood.simulate-api.interface :refer
+     [BalanceNotFound InvalidAmount LedgerAccountClosed MissingCurrencyAccount
+      SimulateLiveBank]]
 
     [com.repldriven.mono.server.interface :as server]))
 

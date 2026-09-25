@@ -1,6 +1,5 @@
 (ns com.repldriven.queenswood.api.payment.routes
   (:require
-    [com.repldriven.queenswood.api.examples :as api.examples]
     [com.repldriven.queenswood.api.payment.commands :as commands]
     [com.repldriven.queenswood.api.payment.queries :as queries]
 
@@ -8,17 +7,16 @@
     [com.repldriven.queenswood.api.shared.idempotency :as shared.idempotency]
     [com.repldriven.queenswood.api.shared.parameters :as shared.parameters]
 
-    [com.repldriven.queenswood.api-schema.interface :refer
+    [com.repldriven.queenswood.api-schema.interface :as api-schema :refer
      [ErrorExamples ErrorResponse SuccessResponse]]
+    [com.repldriven.queenswood.cash-account-api.interface :refer
+     [CashAccountNotFound]]
+    [com.repldriven.queenswood.idempotency.interface :as bank-idempotency]
     [com.repldriven.queenswood.payment-api.interface :as links :refer
      [BalanceNotFound CreditorAccountNotOperable CurrencyMismatch
       DebtorAccountNotOperable HeldInboundPayment InboundPaymentList
       InvalidAmount PaymentNotFound ReturnedInboundPayment
-      SelfTransferNotPermitted
-      SettledInboundPayment SuspendedInboundPayment]]
-    [com.repldriven.queenswood.cash-account-api.interface :refer
-     [CashAccountNotFound]]
-    [com.repldriven.queenswood.idempotency.interface :as bank-idempotency]
+      SelfTransferNotPermitted SettledInboundPayment SuspendedInboundPayment]]
 
     [com.repldriven.mono.server.interface :as server]))
 
@@ -55,14 +53,14 @@
                     :openapi {:headers {"Location" (shared.headers/location
                                                     "payment")}
                               :links links/from-internal-payment}}
-               403 (ErrorExamples [#'api.examples/PolicyDenied])
+               403 (ErrorExamples [#'api-schema/PolicyDenied])
                404 (ErrorResponse [#'CashAccountNotFound
                                    #'BalanceNotFound])
                409 (ErrorResponse [#'DebtorAccountNotOperable
                                    #'CreditorAccountNotOperable])
                422 (ErrorResponse [#'InvalidAmount #'SelfTransferNotPermitted
                                    #'CurrencyMismatch])
-               429 (ErrorResponse [#'api.examples/PolicyLimitExceeded])})
+               429 (ErrorResponse [#'api-schema/PolicyLimitExceeded])})
              :handler commands/submit-internal-payment}}]
     ["/internal/{payment-id}"
      {:parameters {:path {:payment-id [:ref "PaymentId"]}}}
@@ -89,8 +87,9 @@
                       "from the account's available balance and the payment is"
                       " returned `pending`. It moves to `held`, `completed` or"
                       " `failed` as the scheme responds, with a "
-                      "`payment.outbound-status-changed` webhook notification "
-                      "for each change. A failure releases the reservation.")
+                      "`payment.outbound-held`, `payment.outbound-completed` "
+                      "or `payment.outbound-failed` webhook notification for "
+                      "each. A failure releases the reservation.")
                  :requestBody {:required true}
                  :parameters ^:replace
                              [shared.parameters/ref-bank-id-header
@@ -104,12 +103,12 @@
                          :openapi {:headers {"Location" (shared.headers/location
                                                          "payment")}
                                    :links links/from-outbound-payment}}
-                    403 (ErrorExamples [#'api.examples/PolicyDenied])
+                    403 (ErrorExamples [#'api-schema/PolicyDenied])
                     404 (ErrorResponse [#'CashAccountNotFound
                                         #'BalanceNotFound])
                     409 (ErrorResponse [#'DebtorAccountNotOperable])
                     422 (ErrorResponse [#'InvalidAmount #'CurrencyMismatch])
-                    429 (ErrorResponse [#'api.examples/PolicyLimitExceeded])})
+                    429 (ErrorResponse [#'api-schema/PolicyLimitExceeded])})
        :handler commands/submit-outbound-payment}}]
     ["/outbound/{payment-id}"
      {:parameters {:path {:payment-id [:ref "PaymentId"]}}}

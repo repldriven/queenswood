@@ -1,8 +1,5 @@
 (ns com.repldriven.queenswood.api.jobs.routes
   (:require
-    [com.repldriven.queenswood.api.jobs.examples :refer
-     [JobNotFound RunNotFound PeriodicityNotAllowed SystemJobLocked
-      RunTimeNotAllowed]]
     [com.repldriven.queenswood.api.jobs.handlers :as handlers]
     [com.repldriven.queenswood.api.jobs.queries :as queries]
 
@@ -12,6 +9,9 @@
 
     [com.repldriven.queenswood.api-schema.interface :refer [ErrorResponse]]
     [com.repldriven.queenswood.idempotency.interface :as bank-idempotency]
+    [com.repldriven.queenswood.job-api.interface :refer
+     [JobNotFound PeriodicityNotAllowed RunNotFound RunTimeNotAllowed
+      SystemJobLocked]]
 
     [com.repldriven.mono.server.interface :as server]))
 
