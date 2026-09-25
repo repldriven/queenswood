@@ -175,7 +175,7 @@
                     "operator console, all of it configured and driven "
                     "through this API. You bring the banking licence, the "
                     "clearing partner and the identity provider.")
-               :version "0.0.5"}
+               :version "0.0.6"}
         :tags
         [{:name "OAuth"
           :description

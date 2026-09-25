@@ -50,7 +50,7 @@
             {:info {:title "ClearBank Adapter"
                     :description
                     "Adapts between Queenswood and ClearBank APIs"
-                    :version "0.0.5"}
+                    :version "0.0.6"}
              :components
              {:examples (merge cop.examples/registry
                                clearbank-webhook/example-registry)}}
