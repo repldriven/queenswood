@@ -23,6 +23,7 @@ import "schemas/memberships/invitation.proto";
 import "schemas/memberships/membership.proto";
 import "schemas/banks/bank.proto";
 import "schemas/onfido/outbox.proto";
+import "schemas/zyphe/outbox.proto";
 import "schemas/clearbank/outbox.proto";
 import "schemas/party/party-national-identifier.proto";
 import "schemas/party/party.proto";
@@ -95,4 +96,6 @@ message RecordTypeUnion {
   optional com.repldriven.queenswood.schemas.memberships.AccessEvent _AccessEvent = 44;
   optional com.repldriven.queenswood.schemas.emails.EmailDelivery _EmailDelivery = 45;
   optional com.repldriven.queenswood.schemas.rewards.Reward _Reward = 46;
+  optional com.repldriven.queenswood.schemas.zyphe.ZypheOutboxEvent _ZypheOutboxEvent = 47;
+  optional com.repldriven.queenswood.schemas.zyphe.ZypheOutboundIntent _ZypheOutboundIntent = 48;
 }

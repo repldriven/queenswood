@@ -1,0 +1,43 @@
+command-processor-impl: !system/component
+  system/component-kind: zyphe-adapter/command-processor
+  schemas: !system/ref avro.serde
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+
+
+command-processor: !system/component
+  system/component-kind: command-processor/command-processor
+  bus: !system/ref message-bus.bus
+  processor: !system/local-ref command-processor-impl
+  command-channel: !keyword idv-command
+  command-response-channel: !keyword idv-command-response
+
+
+outbound-runner: !system/component
+  system/component-kind: zyphe-relay/outbound-runner
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  zyphe-url: !profile
+    dev: !system/ref zyphe-simulator-server.http-url
+    test: !system/ref zyphe-simulator-server.http-url
+    default: !env ZYPHE_URL
+  api-key: !profile
+    dev: zyphe_sk_simulator
+    test: zyphe_sk_simulator
+    default: !env ZYPHE_API_KEY
+  flow-id: !profile
+    dev: 2d8285d7-f4ba-42df-ab3f-681d9870d37a
+    test: 2d8285d7-f4ba-42df-ab3f-681d9870d37a
+    default: !env ZYPHE_FLOW_ID
+  sandbox: !profile
+    dev: "true"
+    test: "true"
+    default: !env ZYPHE_SANDBOX
+  adapter-url: !profile
+    dev: !system/ref zyphe-adapter-server.http-url
+    test: !system/ref zyphe-adapter-server.http-url
+    default: !env IDV_ZYPHE_ADAPTER_PUBLIC_URL
+  webhook-secret: !profile
+    dev: "9f2b7c1d4e6a8035b1c9d2e4f6a80351d7e9b2c4f6a803517d9e2b4c6f8a0351"
+    test: "9f2b7c1d4e6a8035b1c9d2e4f6a80351d7e9b2c4f6a803517d9e2b4c6f8a0351"
+    default: !env ZYPHE_WEBHOOK_SECRET

@@ -35,6 +35,7 @@
     [com.repldriven.queenswood.schemas.types :as types]
     [com.repldriven.queenswood.schemas.users :as users]
     [com.repldriven.queenswood.schemas.webhooks :as webhooks]
+    [com.repldriven.queenswood.schemas.zyphe :as zyphe]
 
     [protojure.protobuf :as proto])
   (:import
@@ -106,7 +107,10 @@
      WebhookDeliveryProto$WebhookDelivery
      WebhookDeliveryAttemptProto$WebhookDeliveryAttempt
      WebhookEndpointProto$WebhookEndpoint
-     WebhookNotificationProto$WebhookNotification)))
+     WebhookNotificationProto$WebhookNotification)
+    (com.repldriven.queenswood.schemas.zyphe
+     ZypheOutboxProto$ZypheOutboxEvent
+     ZypheOutboxProto$ZypheOutboundIntent)))
 
 (def ^{:doc "Parse Balance protobuf bytes into a Clojure map."} pb->Balance
   balances/pb->Balance)
@@ -941,6 +945,35 @@
   [m]
   (OnfidoOutboxProto$OnfidoOutboundIntent/parseFrom
    (OnfidoOutboundIntent->pb m)))
+
+(def ^{:doc "Parse ZypheOutboxEvent protobuf bytes into a Clojure map."}
+     pb->ZypheOutboxEvent
+  zyphe/pb->ZypheOutboxEvent)
+
+(defn ZypheOutboxEvent->pb
+  "Serialise a ZypheOutboxEvent map to protobuf bytes."
+  [m]
+  (proto/->pb (zyphe/new-ZypheOutboxEvent m)))
+
+(defn ZypheOutboxEvent->java
+  "Parse a ZypheOutboxEvent map into the generated Java protobuf class."
+  [m]
+  (ZypheOutboxProto$ZypheOutboxEvent/parseFrom (ZypheOutboxEvent->pb m)))
+
+(def ^{:doc "Parse ZypheOutboundIntent protobuf bytes into a Clojure map."}
+     pb->ZypheOutboundIntent
+  zyphe/pb->ZypheOutboundIntent)
+
+(defn ZypheOutboundIntent->pb
+  "Serialise a ZypheOutboundIntent map to protobuf bytes."
+  [m]
+  (proto/->pb (zyphe/new-ZypheOutboundIntent m)))
+
+(defn ZypheOutboundIntent->java
+  "Parse a ZypheOutboundIntent map into the generated Java protobuf class."
+  [m]
+  (ZypheOutboxProto$ZypheOutboundIntent/parseFrom
+   (ZypheOutboundIntent->pb m)))
 
 (def ^{:doc "Parse Policy protobuf bytes into a Clojure map."} pb->Policy
   policies/pb->Policy)

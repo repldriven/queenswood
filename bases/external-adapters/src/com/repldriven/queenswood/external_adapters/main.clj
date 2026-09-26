@@ -6,10 +6,10 @@
      clearbank-adapter]
     [com.repldriven.queenswood.clearbank-simulator.interface :as
      clearbank-simulator]
-    [com.repldriven.queenswood.onfido-adapter.interface :as onfido-adapter]
-    [com.repldriven.queenswood.onfido-simulator.interface :as onfido-simulator]
     [com.repldriven.queenswood.uk-companies-house-simulator.interface :as
      ukch-simulator]
+    [com.repldriven.queenswood.zyphe-adapter.interface :as zyphe-adapter]
+    [com.repldriven.queenswood.zyphe-simulator.interface :as zyphe-simulator]
 
     [com.repldriven.mono.cli.interface :as cli]
     [com.repldriven.mono.env.interface :as env]
@@ -28,15 +28,15 @@
          (assoc-in [:system/defs :clearbank-adapter-server
                     :handler]
           clearbank-adapter/app)
-         (assoc-in [:system/defs :onfido-simulator-server
-                    :handler]
-          onfido-simulator/app)
-         (assoc-in [:system/defs :onfido-adapter-server
-                    :handler]
-          onfido-adapter/app)
          (assoc-in [:system/defs :uk-companies-house-simulator-server
                     :handler]
           ukch-simulator/app)
+         (assoc-in [:system/defs :zyphe-simulator-server
+                    :handler]
+          zyphe-simulator/app)
+         (assoc-in [:system/defs :zyphe-adapter-server
+                    :handler]
+          zyphe-adapter/app)
          system/start))
 
 (defn -main

@@ -15,9 +15,9 @@ Kubernetes:
   cash-account, cash-account-product, idv)
 - **exclusive-dispatchers-service** — the changelog relay
   runners and the cron scheduler, pinned to one replica
-- **external-adapters-service** — the ClearBank, Onfido and
-  Companies House adapters plus their simulators, in one
-  JVM on ports 8081-8085
+- **external-adapters-service** — the ClearBank, Companies
+  House and Zyphe adapters plus their simulators, in one
+  JVM on ports 8081, 8082 and 8085-8087
 - **console** (Svelte SPA served via nginx)
 - **Keycloak** with embedded H2 on a volume, for standalone
   installs (`keycloak.mode: dev`, the default), with no user

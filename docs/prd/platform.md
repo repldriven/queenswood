@@ -223,8 +223,8 @@ sequenceDiagram
 ```
 
 Person parties go through identity verification before they
-can transact. The check runs in the background through an
-Onfido-shaped provider (or simulator); the tenant sees the
+can transact. The check runs in the background through
+Zyphe (or a simulator); the tenant sees the
 active status the next time they read the party.
 
 ### 3. Account opening
@@ -297,11 +297,11 @@ days, so no pennies are lost over time.
 Things deliberately left unresolved or future work.
 
 - **Production identity-verification provider.** The IDV
-  adapter speaks Onfido's HTTP API and runs against a
-  simulator today. Pointing it at production Onfido needs
-  real credentials, a production webhook URL, and signature
-  verification. The architecture is pluggable; the
-  production deployment isn't yet there.
+  adapter speaks Zyphe's HTTP API and runs against a
+  simulator today. Pointing it at production Zyphe needs
+  real credentials, a production webhook URL, and a webhook
+  secret. The architecture is pluggable; the production
+  deployment isn't yet there.
 - **Real scheme adapter.** UK FPS settlement is wired through
   a simulator today; the production target is a clearing-bank
   partner with scheme API access. The architecture is

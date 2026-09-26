@@ -297,7 +297,7 @@
 <div class="announce">
   <span class="pill">v0.1.0</span>
   <span>
-    Bring your own <strong>ClearBank</strong> and <strong>Onfido</strong> — bundled
+    Bring your own <strong>ClearBank</strong> and <strong>Zyphe</strong> — bundled
     simulators for development, plug in your own accounts per bank.
   </span>
   <a target="_blank" rel="noreferrer"
@@ -305,8 +305,8 @@
     >ClearBank adapter ↗</a
   >
   <a target="_blank" rel="noreferrer"
-    href="https://github.com/repldriven/queenswood/tree/main/bases/onfido-adapter"
-    >Onfido adapter ↗</a
+    href="https://github.com/repldriven/queenswood/tree/main/bases/zyphe-adapter"
+    >Zyphe adapter ↗</a
   >
 </div>
 
@@ -401,7 +401,7 @@
       </div>
       <div class="cap">
         <span class="cap-label">KYC</span>
-        <p class="cap-desc">Onfido IDV for your customers.</p>
+        <p class="cap-desc">Zyphe IDV for your customers.</p>
       </div>
       <div class="cap">
         <span class="cap-label">UK payments</span>
@@ -496,12 +496,12 @@
         <span class="num">02 — Parties &amp; IDV</span>
         <h3>Verify <em>customers.</em></h3>
         <p>
-          Onboard people and organisations. An Onfido identity check runs
+          Onboard people and organisations. A Zyphe identity check runs
           automatically and flips each party to active or rejected — no operator
           click. A rejected check means no account.
         </p>
         <ul>
-          <li>Bring your own Onfido — simulator bundled for dev &amp; tests</li>
+          <li>Bring your own Zyphe — simulator bundled for dev &amp; tests</li>
           <li>Async accept / reject, webhook-driven</li>
           <li>People and organisations in one register</li>
         </ul>
@@ -797,7 +797,7 @@
         </a>
         <p class="desc">
           Open-source core banking, under MIT. Adapters for ClearBank and
-          Onfido, with simulators that stand in for both during development.
+          Zyphe, with simulators that stand in for both during development.
         </p>
       </div>
       <div>

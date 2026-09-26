@@ -41,8 +41,6 @@
   component/company {:local/root "../../components/company"}
   component/email {:local/root "../../components/email"}
   component/membership-query {:local/root "../../components/membership-query"}
-  component/onfido-relay {:local/root "../../components/onfido-relay"}
-  component/onfido-webhook {:local/root "../../components/onfido-webhook"}
   component/party-query {:local/root "../../components/party-query"}
   component/person-identification {:local/root
                                    "../../components/person-identification"}
@@ -52,14 +50,16 @@
   component/transaction {:local/root "../../components/transaction"}
   component/user {:local/root "../../components/user"}
   component/webhook {:local/root "../../components/webhook"}
+  component/zyphe-relay {:local/root "../../components/zyphe-relay"}
+  component/zyphe-webhook {:local/root "../../components/zyphe-webhook"}
   base/clearbank-adapter {:local/root "../../bases/clearbank-adapter"}
   base/clearbank-simulator {:local/root "../../bases/clearbank-simulator"}
-  base/onfido-adapter {:local/root "../../bases/onfido-adapter"}
-  base/onfido-simulator {:local/root "../../bases/onfido-simulator"}
   base/uk-companies-house-adapter
   {:local/root "../../bases/uk-companies-house-adapter"}
   base/uk-companies-house-simulator
   {:local/root "../../bases/uk-companies-house-simulator"}
+  base/zyphe-adapter {:local/root "../../bases/zyphe-adapter"}
+  base/zyphe-simulator {:local/root "../../bases/zyphe-simulator"}
   base/external-adapters {:local/root "../../bases/external-adapters"}
   org.clojure/clojure {:mvn/version "1.12.6"}
   pin/clojure-core-async {:local/root "../../deps/clojure-core-async"}}

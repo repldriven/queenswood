@@ -113,9 +113,9 @@ system:
   clearbank-adapter-server: !include system/clearbank-adapter-server.yml
   clearbank-adapter: !include system/clearbank-adapter.yml
   clearbank-adapter-relay: !include system/clearbank-adapter-relay.yml
-  onfido-simulator-server: !include system/onfido-simulator-server.yml
-  onfido-adapter-server: !include system/onfido-adapter-server.yml
-  onfido-adapter: !include system/onfido-adapter.yml
-  onfido-adapter-relay: !include system/onfido-adapter-relay.yml
+  zyphe-simulator-server: !include system/zyphe-simulator-server.yml
+  zyphe-adapter-server: !include system/zyphe-adapter-server.yml
+  zyphe-adapter: !include system/zyphe-adapter.yml
+  zyphe-adapter-relay: !include system/zyphe-adapter-relay.yml
   uk-companies-house-simulator-server: !include system/uk-companies-house-simulator-server.yml
   uk-companies-house-adapter: !include system/uk-companies-house-adapter.yml

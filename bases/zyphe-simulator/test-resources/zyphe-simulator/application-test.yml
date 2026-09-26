@@ -1,0 +1,2 @@
+system:
+  server: !include zyphe-simulator/server-test.yml

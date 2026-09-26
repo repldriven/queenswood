@@ -1,0 +1,29 @@
+handler: !system/required-component
+
+interceptors: !system/component
+  system/component-kind: server/interceptors
+  bus: !system/ref message-bus.bus
+  avro: !system/ref avro.serde
+  event-channel: !keyword idv-event
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  webhook-secret: !profile
+    dev: "9f2b7c1d4e6a8035b1c9d2e4f6a80351d7e9b2c4f6a803517d9e2b4c6f8a0351"
+    test: "9f2b7c1d4e6a8035b1c9d2e4f6a80351d7e9b2c4f6a803517d9e2b4c6f8a0351"
+    default: !env ZYPHE_WEBHOOK_SECRET
+
+jetty-adapter: !system/component
+  system/component-kind: server/jetty-adapter
+  handler: !system/ref zyphe-adapter-server.handler
+  interceptors: !system/ref zyphe-adapter-server.interceptors
+  options: !profile
+    dev:
+      port: 8087
+    test:
+      port: 0
+    default:
+      port: 8087
+
+http-url: !system/component
+  system/component-kind: server/http-url
+  jetty-adapter: !system/local-ref jetty-adapter

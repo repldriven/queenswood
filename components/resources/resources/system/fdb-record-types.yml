@@ -5,7 +5,7 @@
 # its record type arrived on as since, and a store lists the indexes
 # removed from it under former-indexes with the versions they were added
 # and removed at. See docs/recipes/code/schema-evolution.md.
-version: 57
+version: 58
 stores:
   assertions:
     record-type: Assertion
@@ -500,3 +500,27 @@ stores:
         modified: 55
         fields: [bank_id, account_id, kind]
         unique: true
+  zyphe-outbox:
+    record-type: ZypheOutboxEvent
+    since: 58
+    primary-key: [outbox_id]
+    indexes:
+      - name: ZypheOutboxEvent_by_dedup_key
+        added: 58
+        modified: 58
+        field: dedup_key
+        unique: true
+  zyphe-outbound-intents:
+    record-type: ZypheOutboundIntent
+    since: 58
+    primary-key: [intent_id]
+    indexes:
+      - name: ZypheOutboundIntent_by_dedup_key
+        added: 58
+        modified: 58
+        field: dedup_key
+        unique: true
+      - name: ZypheOutboundIntent_by_status
+        added: 58
+        modified: 58
+        field: status

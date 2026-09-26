@@ -56,6 +56,8 @@
     components/idv {:local/root "components/idv"}
     components/onfido-webhook {:local/root "components/onfido-webhook"}
     components/onfido-relay {:local/root "components/onfido-relay"}
+    components/zyphe-webhook {:local/root "components/zyphe-webhook"}
+    components/zyphe-relay {:local/root "components/zyphe-relay"}
     components/interest {:local/root "components/interest"}
     components/ledger-account {:local/root "components/ledger-account"}
     components/membership {:local/root "components/membership"}
@@ -95,6 +97,8 @@
     bases/monolith {:local/root "bases/monolith"}
     bases/onfido-adapter {:local/root "bases/onfido-adapter"}
     bases/onfido-simulator {:local/root "bases/onfido-simulator"}
+    bases/zyphe-adapter {:local/root "bases/zyphe-adapter"}
+    bases/zyphe-simulator {:local/root "bases/zyphe-simulator"}
     bases/operational-processors {:local/root
                                   "bases/operational-processors"}
     bases/uk-companies-house-adapter {:local/root
@@ -173,6 +177,9 @@
                        "components/clearbank-relay/test-resources"
                        "components/onfido-relay/test"
                        "components/onfido-relay/test-resources"
+                       "components/zyphe-relay/test"
+                       "components/zyphe-relay/test-resources"
+                       "components/zyphe-webhook/test"
                        "bases/api/test"
                        "bases/clearbank-adapter/test"
                        "bases/clearbank-adapter/test-resources"
@@ -189,7 +196,11 @@
                        "bases/uk-companies-house-adapter/test"
                        "bases/uk-companies-house-adapter/test-resources"
                        "bases/uk-companies-house-simulator/test"
-                       "bases/uk-companies-house-simulator/test-resources"]}
+                       "bases/uk-companies-house-simulator/test-resources"
+                       "bases/zyphe-adapter/test"
+                       "bases/zyphe-adapter/test-resources"
+                       "bases/zyphe-simulator/test"
+                       "bases/zyphe-simulator/test-resources"]}
   :format/zprint {:extra-deps {zprint/zprint {:mvn/version "1.3.0"}}
                   :main-opts ["-m" "zprint.main"]}
   :lint/clj-kondo {:extra-deps {clj-kondo/clj-kondo {:mvn/version "2026.07.24"}}

@@ -38,9 +38,13 @@ services:
     extraEnv:
       CLEARBANK_SIMULATOR_URL: "http://localhost:8081"
       CLEARBANK_ADAPTER_PUBLIC_URL: "http://localhost:8082"
-      ONFIDO_URL: "http://localhost:8083"
-      IDV_ONFIDO_ADAPTER_PUBLIC_URL: "http://localhost:8084"
       COMPANIES_HOUSE_URL: "http://localhost:8085"
+      ZYPHE_URL: "http://localhost:8086"
+      ZYPHE_API_KEY: "zyphe_sk_simulator"
+      ZYPHE_FLOW_ID: "2d8285d7-f4ba-42df-ab3f-681d9870d37a"
+      ZYPHE_SANDBOX: "true"
+      ZYPHE_WEBHOOK_SECRET: "9f2b7c1d4e6a8035b1c9d2e4f6a80351d7e9b2c4f6a803517d9e2b4c6f8a0351"
+      IDV_ZYPHE_ADAPTER_PUBLIC_URL: "http://localhost:8087"
 
   # Everything the monolith subsumes is turned off. The monolith hosts
   # the changelog relay runners and the scheduler in-process too.

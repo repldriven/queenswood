@@ -1,0 +1,15 @@
+relay-handler: !system/component
+  system/component-kind: changelog-relay/envelope-handler
+  bus: !system/ref message-bus.bus
+  store-name: zyphe-outbox
+  event-channel: !keyword idv-event
+
+
+relay-runners: !system/component
+  system/component-kind: changelog-relay/runners
+  zyphe-outbox:
+    record-db: !system/ref fdb.record-db
+    keyspace-prefix: !system/ref fdb.keyspace-prefix
+    consumer-id: zyphe-relay
+    store-name: zyphe-outbox
+    handler: !system/local-ref relay-handler
