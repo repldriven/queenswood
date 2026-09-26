@@ -1,593 +1,451 @@
 # Parties and identity verification
 
+> **Status: proposal.** Parties, the IDV record, the activation chain
+> and the IDV adapters exist, and Background names them. Everything
+> under Proposed Solution is the build list, and
+> [First slices](#first-slices) says what comes first.
+
 ## Objective
 
-Every account in Queenswood belongs to a **party** —
-either a natural person, a non-person legal entity, or an
-internal bookkeeping identity for the bank itself. Persons
-are subject to identity verification (IDV) before they can
-transact; non-person and internal parties become active
-immediately. IDV runs through a real provider integration
-(or a simulator standing in for one): a person party's
-creation publishes a `submit-idv-check` command, the
-adapter calls the provider, and a webhook-borne
-`idv-completed` event flips the IDV record. This TDD
-describes the party model, the three types, the activation
-flow that traverses FDB changelogs and the message bus to
-the IDV adapter, and the honest gaps in today's IDV
-machinery.
+Every account belongs to a **party**: a natural person, a non-person
+legal entity, or an internal bookkeeping identity of the bank. A person
+is verified before it can transact. This TDD decides how a bank's
+policies state what a verification must establish, the contract every
+IDV adapter meets whichever provider it speaks to, how a provider's
+evidence becomes a decision, and how the person reaches the provider
+from a tenant's web or mobile app.
 
-In scope: the `party` and `idv` bricks; the
-`onfido-adapter` and `onfido-simulator` bases;
-party types and lifecycle; the relay + bus + event flow
-that drives person-party activation; name-matching; party
-identifiers and person identifications.
+In scope: the `party` and `idv` bricks; the `idv-action-accept`
+capability and the verifications and screenings its denies name; the
+provider declaration and the check that it meets a bank's policies;
+the IDV adapter contract, covering evidence, sessions and the
+simulator every adapter ships; verification sessions and their
+hand-off to the person; name matching.
 
-Out of scope: the HTTP-edge auth model and user identity —
-see [authentication.md](authentication.md), with parties distinct from
-users; see Background; cash account ownership and SCAN
-assignment, see [cash-accounts.md](cash-accounts.md);
-Confirmation of Payee callers, covered in
-[payments.md](payments.md).
+Out of scope: users and their authentication, distinct from parties,
+see [authentication.md](authentication.md); the policy engine's
+matching, bindings and limits, see
+[policy-evaluation.md](policy-evaluation.md); tiers and bank creation,
+see [banks.md](banks.md); account ownership, see
+[cash-accounts.md](cash-accounts.md); Confirmation of Payee, see
+[payments.md](payments.md); the demo bank's own onboarding screens, see
+[demo-digital-bank.md](demo-digital-bank.md); how a particular
+provider's API maps onto the contract, which lives with its adapter;
+organisation (KYB) verification, which no adapter offers yet.
 
 ## Background
 
-A **party** is a participant the bank tracks: the *who* on
-both sides of every transaction. The model has three types,
-each with different lifecycle rules.
-
-- **Person parties** — natural humans. KYC requires verified
-  identity before they can hold a cash account or transact.
-  Status starts `pending`; flips to `active` when IDV
-  accepts.
-- **Organisation parties** — non-person legal entities (a
-  customer's customer that's a company, for example). No
-  per-person KYC; status starts `active`.
-- **Internal parties** — Queenswood's own bookkeeping
-  identities (settlement, fee P&L, suspense accounts, and so
-  on). The bank's books. Status starts `active`.
-
-A note on terminology that often confuses: **a party is not
-a user**. A `User` is the authenticated human, an OIDC identity
-described in [authentication.md](authentication.md), and is
-deliberately separate from a party. A party is the
-customer-of-the-customer or counterparty the bank deals with
-as a *customer of the bank's customer*; a user is the
-authenticated human triggering a request. They serve
-different concerns, and there is no link between them yet.
-
-For person parties, KYC sits between creation and activation.
-The system implements this with the changelog relay per
-[ADR-0021](../adr/0021-changelog-relay.md) at the
-boundaries and the message bus per
-[ADR-0003](../adr/0003-message-bus-abstraction.md)
-throughout: a party write is relayed as a
-`party-status-changed` event that triggers an IDV write, the
-IDV write
-publishes a `submit-idv-check` command, the IDV-provider
-adapter calls the provider and republishes the eventual
-webhook as an `idv-completed` event, the IDV event
-processor flips the IDV record, and the IDV flip triggers
-party activation. The flow is decoupled end-to-end — no
-direct call from `party` to `idv` to the
-adapter; each hop crosses a durable channel.
+- **Party types.** `party` holds three types. A person starts
+  `pending` and waits on verification; an organisation and an internal
+  party start `active`. `party-query` holds the reads and
+  `match-name`, which normalises and tokenises two names and answers
+  `:match`, `:close-match` or `:no-match`.
+- **Person identification.** `person-identification` holds a person's
+  given, middle and family names, date of birth, nationality and one
+  current address, the address snake-case with its country as ISO
+  3166-1 alpha-3.
+- **Lifecycle.** `suspend-party`, `resume-party` and `close-party` are
+  direct single-phase commands guarded on source status in `party`'s
+  `domain.clj`, per
+  [lifecycle-transitions](../recipes/code/lifecycle-transitions.md).
+  `merge-party` tombstones a duplicate with a pointer to the survivor.
+- **The IDV record.** `idv` holds one IDV per person party, keyed
+  `idv.<ulid>`, unique on party through `Idv_by_party`, with status
+  `pending`, `in-review`, `accepted`, `rejected` or `failed`, each
+  transition guarded on source status in `idv`'s `domain.clj`.
+- **The activation chain.** A pending person party relays
+  `party-status-changed` off the parties changelog. `idv`'s
+  `party-event-processor` creates the IDV and publishes
+  `submit-idv-check` on `idv-command`. An IDV adapter consumes it,
+  calls the provider, and turns the provider's webhook into
+  `idv-completed` `{bank-id verification-id status}` on `idv-event`.
+  `idv`'s `event-processor` moves the IDV, the idvs changelog relays
+  `idv-status-changed` on `idvs-event`, and `party`'s
+  `idv-event-processor` activates or rejects the party. Each hop
+  crosses a durable channel per
+  [ADR-0021](../adr/0021-changelog-relay.md). The command is sent on
+  the bus after the IDV commits, not through an outbox.
+- **IDV adapters.** Each is a base, `<provider>-adapter`, with a
+  `<provider>-relay` component holding its `<provider>-outbox` and
+  `<provider>-outbound-intents` stores and the runner that calls the
+  provider outside any transaction, a `<provider>-webhook` component
+  holding the provider's wire schemas, and a `<provider>-simulator`
+  base standing in for the provider. The adapter consumes
+  `submit-idv-check` into an intent, the runner starts the provider's
+  run carrying the bank and verification ids for correlation, and the
+  adapter serves the provider's webhook, maps its overall outcome to an
+  `idv-completed` status and writes it to its outbox, relayed to
+  `idv-event`. Two adapters exist. Every deployable build composes one
+  into `external-adapters` and `monolith`, and the other stays in the
+  development project with its tests.
+- **Simulators today.** Each simulator settles a run without a person.
+  The scenario rigs in `test-scenarios` and `test-api-scenarios` run
+  the development-only adapter's simulator, which rejects a check whose
+  given name contains "reject".
+- **The provider as a deployment fact.** Which adapter runs is decided
+  by the service's `application.yml`, never by a request, per
+  [ADR-0020](../adr/0020-providers-are-deployment-facts.md). Only one
+  adapter may consume `idv-command` in a JVM.
+- **Capabilities.** `policy`'s `check-capability` takes a kind and a
+  request map. A capability matches when its kind and its fields beside
+  `filters` equal the request's, and when it has no filters or any one
+  filter's set fields all equal the request's, an unset field matching
+  anything (`match.clj`). Any matching deny refuses with its reason,
+  otherwise any matching allow permits (`capability.clj`). The
+  `tier=platform` policy applies to every bank, and the console renders
+  each capability's effect, reason and filters. IDV has one action,
+  `idv-action-submit`, and a daily count limit per tier.
+- **What the tenant sees.** The API exposes no IDV route. A tenant
+  reads the party's status, and the webhook catalogue sends
+  `party.opened` and `party.rejected`.
 
 ## Proposed Solution
 
-### Architecture
+### Verifications and screenings
 
-Two bricks plus an adapter/simulator base pair:
+What a verification establishes falls into two kinds, each an enum in
+`policy.proto`, so a policy names what the person must show, never a
+provider's method:
 
-- **`party`** — owns Party records, party CRUD, name
-  matching, party identifiers (passport, NI), person
-  identifications (given/family/middle names), and the
-  `idv-status-changed` handler that activates parties on
-  IDV acceptance.
-- **`idv`** — owns IDV records, the
-  `party-status-changed` handler that creates IDVs from
-  pending parties, the `initiate` core
-  fn that publishes `submit-idv-check`, and the
-  `IdvEventProcessor` that consumes `idv-completed` events
-  and flips the IDV record.
-- **`onfido-adapter`** (base) — talks to the
-  IDV provider over HTTP. Subscribes to `submit-idv-check`
-  on the bus, calls Onfido's `POST /v3.6/applicants` and
-  `POST /v3.6/checks`, receives `check.completed`
-  webhooks, and republishes them as `idv-completed`
-  events on the bus.
-- **`onfido-simulator`** (base) — Onfido-shaped HTTP
-  service used for development and tests. Mocks the
-  applicant + check + webhook lifecycle deterministically.
+- **`IdvVerification`**, established from something the person
+  presents:
+  - `identity` — name and date of birth, read from a genuine
+    government photo document.
+  - `liveness` — the person is live and matches the document's
+    portrait.
+  - `claimed-identity` — the document's name and date of birth match
+    what the tenant registered for the party.
+  - `address` — the residential address, from an address document.
+- **`IdvScreening`**, established by checking lists:
+  - `sanctions` — screened against sanctions lists.
+  - `pep` — screened for being a politically exposed person.
 
-`party` and `idv` communicate over the bus, via events
-relayed off each other's changelogs per
-[ADR-0021](../adr/0021-changelog-relay.md).
-`idv` and `onfido-adapter` communicate via the
-message bus per
-[ADR-0003](../adr/0003-message-bus-abstraction.md) — a
-command channel for `submit-idv-check` and an event
-channel for `idv-completed`.
+### Criteria as capabilities
 
-```mermaid
-graph TD
-    HTTP[HTTP create-person-party]
-    PARTY["party<br/>(party-status-pending)"]
-    PCH[("parties changelog")]
-    RELAY1["changelog relay"]
-    BUS[("message-bus")]
-    IDV1["idv<br/>IdvPartyEventProcessor<br/>creates IDV (pending)<br/>+ publishes submit-idv-check"]
-    IDV[("IDV record")]
-    ADAPTER["onfido-adapter"]
-    ONFIDO["Onfido<br/>(or simulator)"]
-    EP["idv<br/>IdvEventProcessor"]
-    ICH[("idvs changelog")]
-    RELAY2["changelog relay"]
-    PARTY3["party<br/>PartyIdvEventProcessor<br/>activates party"]
-    PARTY4["Party (active)"]
+Accepting a verification becomes an action, `idv-action-accept`, and a
+bank's criteria are denies on accepting while a verification is
+unverified or a screening unscreened. `IdvCapability` gains `repeated
+IdvCapabilityFilter filters`, whose fields are `party_type`,
+`unverified` (an `IdvVerification`) and `unscreened` (an
+`IdvScreening`). A filter sets one of the two, so an unscreened
+address or an unverified PEP cannot be written. The platform policy's
+`capabilities/idvs.yml`:
 
-    HTTP -->|new-party| PARTY
-    PARTY --> PCH
-    PCH --> RELAY1
-    RELAY1 -->|party-status-changed| BUS
-    BUS -->|consume| IDV1
-    IDV1 --> IDV
-    IDV1 -->|submit-idv-check| BUS
-    BUS -->|consume| ADAPTER
-    ADAPTER -->|POST /v3.6/applicants<br/>POST /v3.6/checks| ONFIDO
-    ONFIDO -.->|check.completed<br/>webhook| ADAPTER
-    ADAPTER -->|idv-completed| BUS
-    BUS -->|consume| EP
-    EP --> IDV
-    IDV --> ICH
-    ICH --> RELAY2
-    RELAY2 -->|idv-status-changed| BUS
-    BUS -->|consume| PARTY3
-    PARTY3 --> PARTY4
+```yaml
+- effect: !keyword effect-allow
+  reason: "Allow accepting a verification"
+  kind:
+    idv:
+      action: !keyword idv-action-accept
+- effect: !keyword effect-deny
+  reason: "A person's address must be verified"
+  kind:
+    idv:
+      action: !keyword idv-action-accept
+      filters:
+        - party-type: !keyword party-type-person
+          unverified: !keyword idv-verification-address
+- effect: !keyword effect-deny
+  reason: "A person must be screened for being politically exposed"
+  kind:
+    idv:
+      action: !keyword idv-action-accept
+      filters:
+        - party-type: !keyword party-type-person
+          unscreened: !keyword idv-screening-pep
 ```
 
-Each hop is independently observable and testable: the
-`party-status-changed` event off the parties changelog, the
-`submit-idv-check` command on the bus, the adapter's HTTP
-call, the webhook receipt, the `idv-completed` event, the
-event processor's flip, and the `idv-status-changed` event
-off the idvs changelog that activates the party.
+`match.clj` and `capability.clj` do not change. The meaning of
+`unverified` and `unscreened` lives in the request `idv` builds: one
+check per verification or screening not yet established, carrying it
+in its field, and one check carrying neither once everything is. A deny
+matches only the check that names its value, so its reason is the
+answer while that one is outstanding. A value no deny names passes, so
+its absence never holds a verification up.
 
-### Data model
+- **Platform.** One deny per verification and screening, six in all.
+  That is the customer due diligence a UK bank owes a person onboarded
+  remotely: name, date of birth and address verified, the person live
+  and matching the document, and screened.
+- **Micro.** Nothing added. A micro bank may be live, so it takes the
+  floor as it is. Deny wins, so no tier lowers the floor, and a tier
+  for riskier products raises it with a deny of its own.
 
-**Party**:
+`idv/unmet-criteria policies declaration` probes every value of both
+enums against `policies` and returns those a deny requires that the
+declaration below lacks. The change adds a field to the `Policy`
+record's nested capability, which bumps the meta-data version per
+[schema-evolution](../recipes/code/schema-evolution.md).
 
-```clojure
-{:organization-id
- :party-id        "pty.<ulid>"
- :type            :party-type-person
-                  ;; or -organization, -internal
- :display-name
- :status          :party-status-pending
-                  ;; or -active, ...
- :created-at
- :updated-at}
+### The provider declaration
+
+`system/idv-provider.yml` declares what the deployment's adapter can
+establish, the hand-offs it offers, and what it needs as input:
+
+```yaml
+verifies: [identity, liveness, claimed-identity, address]
+screens: [sanctions, pep]
+channels: [web, mobile]
+hand-offs: [url]
+needs: [email]
 ```
 
-**PartyNationalIdentifier** — one per identifier type per
-party:
+The file is included as plain config wherever the agreement is
+checked, so a bank changes its criteria rather than a request changing
+the provider:
 
-```clojure
-{:organization-id
- :party-id
- :type            ;; :passport, :ni, etc.
- :value
- :issuing-country
- :created-at}
-```
+- **At start-up.** A new component kind, `idv/criteria-check`, takes
+  the seeded platform policy and the declaration and fails to start
+  while `unmet-criteria` is not empty. `bootstrap` and `monolith`
+  include it, so a floor the provider cannot meet stops the bootstrap.
+- **At bank creation and tier change.** `bank`'s `new-bank` and
+  `change-bank-tier` call `idv/unmet-criteria` on the tier's policies
+  and reject `:idv/unsupported-criteria` (422) naming what is missing.
+- **At policy edits.** Creating a policy or a binding through the API
+  rejects the same.
 
-**PersonIdentification** — names, demographics, and residence
-for person parties:
+### The evidence contract
 
-```clojure
-{:party-id
- :given-name
- :middle-names                    ;; optional
- :family-name
- :date-of-birth                   ;; YYYYMMDD int
- :nationality                     ;; ISO 3166-1 alpha-2
- :address
- {:flat-number                    ;; optional
-  :building-number                ;; optional
-  :building-name                  ;; optional
-  :street                         ;; required
-  :sub-street                     ;; optional
-  :town                           ;; required
-  :state                          ;; optional (US: USPS abbrev)
-  :postcode                       ;; required
-  :country                        ;; required, ISO 3166-1 alpha-3
-  :start-date}                    ;; optional, YYYY-MM-DD
- :created-at}
-```
+The adapter reports evidence, and `idv` decides. A new Avro event
+`idv-evidence` on `idv-event`, registered in both YAMLs, carries
+`bank-id`, `verification-id`, `kind` and `outcome`, and per kind:
 
-The address shape mirrors the Entrust/Onfido applicant address
-object so the adapter can forward it without a code-table
-translation. Two deliberate asymmetries:
+- **`document`** — `passed`, `failed` or `review`, with the extracted
+  `given-names`, `family-name`, `date-of-birth`, `document-type` and
+  `issuing-country`.
+- **`liveness`** — `passed` or `failed`.
+- **`address`** — `passed` or `failed`, with the `document-type`.
+- **`screening`** — `sanctions` `clear`, `possible-match` or `hit`, and
+  `pep` `true` or `false`.
+- **`cancelled`** — the person abandoned the run.
 
-- **Nationality stays alpha-2 (`GB`); address country goes
-  alpha-3 (`GBR`).** Onfido's applicant accepts alpha-3 in
-  `address.country`; we mirror that exactly. Nationality is a
-  separate concept and the proto's `nationality` predates the
-  Onfido alignment.
-- **Middle names live as a separate field but are concatenated
-  into `first_name` at the adapter edge.** Onfido has no
-  `middle_name` field; the standard pattern is
-  `first_name = "Arthur Phillip"`. Storing them separately keeps
-  the data legible internally.
+`Idv` gains an `evidence` sub-message holding the latest of each kind,
+and `idv`'s `event-processor` handles `idv-evidence` by merging it and
+calling `domain/decide idv policies claimed`. `claimed` is the person
+identification, read through `person-identification`, and the
+claimed-identity comparison uses `party-query/match-name` on the names
+and equality on the date of birth. `decide` settles each verification
+and screening by one treatment table:
 
-Single current address only — previous-N-years lookback (Onfido
-supports it via `POST /applicants/:id/addresses`) is not modelled
-today and is a future follow-up if a customer relationship
-requires it.
+| Verification or screening | Established | Review | Reject |
+|---|---|---|---|
+| identity | document passed | document review | document failed |
+| liveness | liveness passed | — | liveness failed |
+| claimed-identity | `:match`, same date of birth | `:close-match` | `:no-match` or another date of birth |
+| address | address passed | — | address failed |
+| sanctions | clear | possible match | hit |
+| pep | not a PEP | a PEP | — |
 
-**IDV** — the verification record itself:
+Any reject makes the IDV `rejected`; otherwise any review makes it
+`in-review`; otherwise it is `accepted` when the `idv-action-accept`
+checks all pass, and stays `pending` while one is denied. A PEP is
+enhanced due diligence, not a refusal, so it reviews. `cancelled`
+fails the IDV. Redelivered evidence merges to the same record and
+decides the same way, so it needs no dedup beyond the outbox's.
+`idv-completed` retires once every adapter reports evidence.
 
-```clojure
-{:organization-id
- :verification-id
- :party-id
- :status        :idv-status-pending
-                ;; or -accepted, -rejected
- :created-at
- :updated-at}
-```
+### Verification sessions
 
-### Party types and initial status
+The person reaches the provider through a session the tenant opens, so
+the channel, the return URL and the email are known when the run
+starts. The party route gains:
 
-```clojure
-:party-type-person       → :party-status-pending
-:party-type-organization → :party-status-active
-:party-type-internal     → :party-status-active
-```
+- **`POST /v1/parties/{party-id}/verification-sessions`** —
+  `{channel return-url email}`, where `channel` is `web` or `mobile`
+  and `return-url` is an https page or an app link. Returns 202 with
+  a `Location` and the session `opening`. Rejects
+  `:idv/invalid-status` (409) unless the IDV is pending,
+  `:idv/unsupported-channel` (422) for a channel the provider does not
+  declare, and `:idv/missing-email` (422) where the provider needs one.
+- **`GET /v1/parties/{party-id}/verification-sessions/{session-id}`** —
+  `{status hand-off}`, `status` one of `opening`, `ready`, `expired`
+  and `completed`, `hand-off` `{type url expires-at}` once ready.
+- **`GET /v1/parties/{party-id}/verification`** — the IDV's status,
+  and each verification and screening as established, in review or
+  failed, with the reasons of the denies still outstanding, never the
+  extracted identity.
 
-The split is intentional. Person parties carry the KYC
-obligation; orgs and internal don't. The bank's own
-bookkeeping (internal) and the customer's non-person
-counterparties (organization) don't need IDV before they can
-appear in transactions.
+The session is a command, `open-idv-session`, to `idv`'s processor,
+which checks `idv-action-submit` and its limit, records the session on
+the IDV and publishes `submit-idv-check` with the channel, return URL,
+email, and the verifications and screenings the bank's denies require.
+The adapter reports the hand-off as an `idv-session-opened` event
+`{verification-id session-id url expires-at}`, which `idv` stores on
+the session until it expires or the IDV decides, and never logs. The
+webhook catalogue gains `party.verification-session-ready`. Party
+creation stops publishing `submit-idv-check`: the IDV waits, pending,
+for the first session.
 
-### Lifecycle transitions
+### The IDV adapter contract
 
-Beyond the IDV-driven pending → active path, a party has
-three tenant-driven transitions. Each is direct and
-single-phase: a command over the bus, one FDB transaction,
-no reactive second leg off the changelog.
+Every IDV adapter, `<provider>-adapter` with its relay, webhook and
+simulator bricks, meets the same contract, so which one a deployment
+runs changes nothing outside it:
 
-- `suspend-party` — `:party-status-active` →
-  `:party-status-suspended`
-- `resume-party` — `:party-status-suspended` →
-  `:party-status-active`
-- `close-party` — `:party-status-active` or
-  `:party-status-suspended` → `:party-status-closed`
+- **Declares.** It ships the `idv-provider.yml` its provider supports,
+  verifying `claimed-identity` only where the provider returns the
+  document's extracted name and date of birth. Its config maps
+  provider configurations to the verifications and screenings each
+  establishes, and it refuses to start when they do not cover what the
+  file declares.
+- **Starts or resumes a run.** It consumes `submit-idv-check` into an
+  intent, and its runner starts the provider's run on the smallest
+  configuration covering the verifications and screenings requested.
+  Starting again for the same verification resumes the run rather
+  than opening a second one, and mints a fresh hand-off.
+- **Hands off.** It builds the hand-off for the session's channel,
+  carrying the return URL so the person comes back to the tenant, and
+  reports it as `idv-session-opened`.
+- **Reports evidence.** It authenticates each delivery from the
+  provider, as the provider signs it, before anything else, maps each
+  provider result to `idv-evidence`, and writes one outbox entry per
+  provider event, deduplicated on the provider's event id.
+- **Stays neutral.** Its anomalies are the `:idv/*` kinds, its
+  correlation carries only opaque ids, and no provider name leaves its
+  bricks.
+- **Ships a simulator.** `<provider>-simulator` serves the provider's
+  API as the adapter calls it, signs its deliveries as the provider
+  does, and serves the hosted page the hand-off points at. The page
+  asks for what the person's document says and offers the outcomes a
+  person or a reviewer produces: a document that matches, someone
+  else's document, failed liveness, a failed address document, a
+  sanctions hit, a sanctions possible match, a PEP, and walking away.
+  Submitting emits the provider's results for that outcome and returns
+  the person to the return URL. A decision route takes the same body,
+  so a test drives what a person would, and nothing settles a run
+  without one.
 
-`domain.clj` guards each transition's source state as the
-first binding of its `let-nom>`, ahead of the capability
-check, and rejects `:party/invalid-status` (HTTP 409)
-carrying the offending status and the set the transition
-accepts. See
-[lifecycle-transitions](../recipes/code/lifecycle-transitions.md).
+### First slices
 
-Closing also reads the party's cash accounts through
-`bank-cash-account-query` and rejects `:party/open-accounts`
-while any of them is not closed — the same check
-`merge-party` makes of the party being merged away.
+1. **Criteria.** `IdvVerification`, `IdvScreening`,
+   `idv-action-accept` and its filter, the platform denies,
+   `idv-provider.yml`, `idv/unmet-criteria`, `idv/criteria-check`, and
+   the bank and policy checks. Proved by a bootstrap refused against a
+   declaration that does not verify `address`, and an API scenario
+   refusing a tier change.
+2. **Evidence.** `idv-evidence`, the IDV's evidence, `domain/decide`,
+   and the deployed adapter and its simulator reporting evidence. The
+   scenario rigs move to that simulator and drive its decision route,
+   and the name-based rejection retires from them. Proved by a scenario
+   per row of the treatment table.
+3. **Sessions.** The routes, `open-idv-session`, the hand-off, the
+   hosted page, and party creation no longer submitting. The console's
+   onboarding scenario opens a session and sends Zaphod through the
+   hosted page with a sanctions hit. Proved by API scenarios for both
+   channels.
 
-Closed is terminal, so the resume guard admits
-`:party-status-suspended` only and is not a way back from
-closure. Suspension and closure are a separate axis from the
-pending → active → rejected path IDV drives: a pending or
-rejected party is neither suspendable nor closeable.
+Resolving a review, re-verification and bringing the
+development-only adapter up to the contract follow under this TDD.
+The demo bank's onboarding screens follow under
+[demo-digital-bank.md](demo-digital-bank.md).
 
-Each transition carries its own capability —
-`:party-action-suspend`, `:party-action-resume`,
-`:party-action-close` — checked against the effective
-policies inside the same transaction as the write.
+### Tests
 
-### The activation flow
-
-The pending → active transition for a person party
-crosses two relayed changelog events, one bus command, one
-HTTP round-trip to the IDV provider, and one bus event.
-
-```mermaid
-sequenceDiagram
-    participant H as HTTP handler
-    participant P as party
-    participant R as changelog relay
-    participant B as message-bus
-    participant W1 as idv<br/>IdvPartyEventProcessor
-    participant I as idv
-    participant A as onfido-adapter
-    participant O as Onfido<br/>(or simulator)
-    participant E as idv<br/>IdvEventProcessor
-    participant W2 as party<br/>PartyIdvEventProcessor
-
-    H->>P: new-party (type=person)
-    P->>P: write Party + changelog entry (one Tx)
-    Note over P: parties changelog fires
-
-    R->>P: tail parties cursor
-    R->>B: publish party-status-changed
-    B->>W1: consume (status-after=pending)
-    W1->>I: core/initiate-for-party
-    I->>I: write IDV (status=pending)
-    I->>B: publish submit-idv-check
-
-    Note over B,O: Asynchronous from here
-
-    B->>A: consume submit-idv-check
-    A->>O: POST /v3.6/applicants
-    A->>O: POST /v3.6/checks (external_id=org-id|verification-id)
-    O-->>A: 2xx
-    O-->>A: webhook check.completed
-    A->>B: publish idv-completed
-
-    B->>E: consume idv-completed
-    E->>I: update IDV + changelog entry (one Tx)
-    Note over I: idvs changelog fires
-
-    R->>I: tail idvs cursor
-    R->>B: publish idv-status-changed
-    B->>W2: consume (status-after=accepted)
-    W2->>P: get-party
-    W2->>P: update Party (status=active)
-```
-
-Each handler is idempotent on the matching status — running
-twice doesn't double-initiate or double-activate, which is
-what makes at-least-once delivery off the relay safe. The IDV
-handler additionally consults the
-unique `Idv_by_party` index before initiating, so a
-changelog replay or a duplicate party-pending event won't
-create a second IDV.
-
-### Onfido adapter
-
-`onfido-adapter` is its own base. It owns:
-
-- **Command consumer** — message-bus consumer for
-  `submit-idv-check` commands. For each, calls Onfido's
-  `POST /v3.6/applicants` (mapping the IDV's first-name /
-  last-name / date-of-birth) and `POST /v3.6/checks`,
-  smuggling the originating
-  `:organization-id|:verification-id` into the check's
-  `external_id` field as a correlation channel.
-- **Webhook receiver** — HTTP endpoint
-  `POST /webhooks/onfido/check-completed` under its own
-  server (separate from `api`). Parses the Onfido
-  payload, parses the composite `external_id` back into
-  org-id / verification-id, and republishes as an
-  `idv-completed` event with `:status` set to `ACCEPTED`
-  (Onfido `clear`) or `REJECTED` (Onfido `consider`). It
-  authenticates nobody: the route carries no security
-  metadata, the chain ahead of it only injects
-  components, and no adapter config holds a signing
-  secret. Verifying Onfido's signature is an open gap.
-- **Periodic webhook re-register daemon** — re-asserts
-  the adapter's webhook registration with the provider
-  on a schedule. Closes the silent-loss window when the
-  simulator (or provider) restarts and forgets registered
-  webhooks.
-
-The adapter is the only Queenswood code that talks HTTP to
-Onfido. The rest of the system sees only bus messages.
-
-### Onfido simulator
-
-`onfido-simulator` is its own base, deployed in
-development and tests. It exposes the subset of Onfido's
-HTTP API that the adapter uses:
-
-- **`POST /v3.6/applicants`**, **`GET /v3.6/applicants/{id}`**.
-- **`POST /v3.6/checks`** — async. Records the check, then
-  fires a `check.completed` webhook after a configurable
-  delay.
-- **`GET /v3.6/checks/{id}`**.
-- **`POST/GET/DELETE /v3.6/webhooks`** — registration CRUD;
-  `POST` deduplicates by URL so adapter bounces don't
-  accumulate duplicate registrations.
-
-Outcome routing is deterministic and keyed off the
-applicant's `first_name`:
-
-- `Reject` (case-sensitive) → Onfido `consider` → maps to
-  `REJECTED` at the adapter.
-- Default → `clear` → maps to `ACCEPTED`.
-
-The `external_id` field on the create-check request flows
-through to the webhook payload as a correlation channel —
-a simulator-only extension to the Onfido shape, used in
-tests but transparent to production-Onfido callers.
-
-The simulator is approximate (happy-path applicant + check
-roundtrip; deterministic outcomes; no rate limiting; no
-real document upload pipeline) but covers the choreography
-end-to-end so tests can exercise the full activation loop
-without external calls.
-
-### Name matching
-
-`match-name` compares two name strings and returns one of:
-
-- **`:match`** — exact equality after lower-casing,
-  whitespace normalisation.
-- **`:close-match`** — every token in the shorter name
-  appears in the longer (handles middle-names, abbreviations
-  in either direction).
-- **`:no-match`** — neither.
-
-Used by Confirmation of Payee flows (in the
-ClearBank adapter; see payments TDD) and elsewhere when the
-caller needs a soft equality on display names.
-
-The implementation is a deliberately simple normalise-and-
-tokenise pass — it covers the bulk of real cases without a
-fuzzy-matching dependency. See Known Limitations for the
-edge cases it doesn't cover.
-
-### Why the changelog relay + bus (and not direct calls)
-
-The party → IDV → provider → party-active flow could
-equally be written as direct procedural calls inside the
-create-party handler: write the party, write the IDV, call
-the provider over HTTP in-band, wait, flip the party.
-Choosing the relay + bus pattern is deliberate — see
-[ADR-0003](../adr/0003-message-bus-abstraction.md) and
-[ADR-0021](../adr/0021-changelog-relay.md).
-
-Reasons:
-
-- **Decoupling.** `party` doesn't import `idv`
-  and vice versa; `idv` doesn't import the adapter;
-  the adapter doesn't import `idv`. Each brick or
-  base evolves independently.
-- **Observability.** Each transition is its own durable
-  event — a changelog entry or a bus message — visible to
-  tracing and replayable. Debugging "where did this party
-  get stuck" is a question of "which step has no successor
-  yet?".
-- **Decoupled from provider latency.** Onfido checks can
-  take seconds to minutes, or human review hours to days.
-  The bus + webhook shape lets the HTTP path return
-  immediately with a pending party; the adapter's
-  command-consume / HTTP / webhook / event-publish loop
-  finishes whenever the provider does.
-- **Testability.** Each handler takes a config and a
-  deserialised event, and returns a value or anomaly.
-  Unit-testable without booting the full system.
-- **Idempotency by status and unique index.** The IDV
-  handler consults `Idv_by_party` before initiating; each
-  handler short-circuits unless the status is the one it
-  cares about; redelivering an event doesn't re-execute the
-  transition.
-
-The trade-off is that the chain is harder to follow if you
-don't already know the model, and that ordering between
-hops holds only because every topic is single-partition
-today — see [ADR-0021](../adr/0021-changelog-relay.md).
-Both costs are accepted.
+- **`policy`** — an `unverified` or `unscreened` deny matching only
+  the check that names its value, and passing a check that names
+  neither.
+- **`idv`** — `unmet-criteria` over the platform and micro policies,
+  `domain/decide` over every row of the treatment table, evidence
+  merged in any order, redelivery deciding the same way, and the
+  session's record and expiry.
+- **`bank`** — create and tier change refused with what is missing.
+- **`<provider>-adapter`** — each provider result mapped to its
+  evidence, an unauthenticated delivery refused, and the refusal to
+  start on a declaration its configuration does not cover.
+- **`<provider>-relay`** — configuration selection by verifications and
+  screenings, resuming a run, and the hand-off for each channel.
+- **`<provider>-simulator`** — each hosted-page outcome posting its
+  results, authenticated as the provider's are.
+- **`test-api-scenarios`** — opening a session for web and mobile, the
+  refusals, the verification read with its outstanding reasons, and a
+  party activated or rejected through the simulator.
+- **`test-scenarios`** — the model's activation rule follows the
+  treatment table and the denies.
 
 ## Alternatives Considered
 
-- **Direct procedural calls between bricks.** Create-party
-  calls IDV-create directly; IDV-create calls the adapter
-  directly. Rejected — couples bricks; the
-  observability story disappears; testability
-  weakens. Relay + bus preserve the brick boundaries.
-- **Single brick covering parties and IDV.** Coarser; loses
-  the testability split; conflates KYC with party identity.
-  Rejected — the two are conceptually separate even if
-  always-paired in this product.
-- **Synchronous IDV during create-party.** The HTTP handler
-  blocks on the IDV provider's response, returns an active
-  party (or error). Rejected for two reasons: real IDV
-  providers can take seconds to minutes (or human review for
-  hours/days); blocking the HTTP handler is a poor caller
-  experience. Bus + webhook with a status-poll/read model
-  is the right shape.
-- **Auto-flipping IDV on receipt.** The previous
-  iteration of `idv` unconditionally flipped pending IDVs
-  to accepted, with no provider involved.
-  Replaced — left no place for a real provider to plug in,
-  and the flip-without-evidence pattern was never going to
-  survive contact with a compliance review.
-- **Direct adapter dependency in `idv`.** Have
-  `idv` call Onfido's HTTP API directly. Rejected —
-  couples the IDV brick to a vendor's API. The adapter
-  base is the only place that knows about Onfido's wire
-  shape; the rest of the system sees bus messages.
-- **Saga / orchestrator.** A central orchestrator
-  coordinates the steps. Rejected — overkill for a chain
-  that relayed events and bus subscribers handle
-  naturally.
-- **Person-only party model.** Just persons; orgs and
-  internal modelled differently. Rejected — bookkeeping
-  needs a unified party concept (settlement *parties*, fee
-  *parties*); collapsing them into one model with type
-  discrimination is cleaner than three parallel models.
+- **A third rule kind, `requirements`, beside capabilities and
+  limits.** Rejected: it reads directly, but it is one more thing to
+  evaluate, store and render, where deny precedence already gives a
+  floor no tier can lower.
+- **One `missing` field for every verification and screening.**
+  Rejected: separate `unverified` and `unscreened` fields read as what
+  each is, and make a mismatched pair unwritable.
+- **Criteria in the adapter's config.** Rejected: a bank's criteria
+  would live beside a vendor's credentials, invisible to anyone reading
+  the bank's policies.
+- **Negotiating criteria per request.** Rejected: a request would then
+  choose what a verification establishes, which ADR-0020 keeps to
+  deployment.
+- **Treatments as policy data.** Rejected for now: one table serves
+  every bank, and it moves into policy when a bank needs another.
+- **The provider's overall outcome decides.** Rejected: it hides which
+  verifications and screenings were established, and leaves the
+  claimed-identity match to whatever the provider happens to compare.
+- **A native-SDK token as the hand-off.** Taken in part: `hand-offs`
+  admits another type, but a URL serves web and a mobile WebView for
+  any provider with a hosted flow, so it is the one every adapter
+  offers.
+- **Minting the hand-off on every read.** Rejected: it puts a provider
+  call in a read's path, where the relay keeps every provider call
+  outside a request.
+- **Starting the run at party creation.** Rejected: the channel, the
+  return URL and the email are unknown until the tenant has the person
+  in front of it.
+- **Direct calls between `party`, `idv` and the adapter.** Rejected:
+  it couples the bricks and loses each hop's durable, replayable
+  event.
+- **A saga orchestrating the chain.** Rejected: relayed events and bus
+  subscribers carry a chain this short.
+- **One brick for parties and IDV.** Rejected: identity and its
+  verification change for different reasons.
+- **A person-only party model.** Rejected: bookkeeping needs internal
+  parties and counterparties need organisations, and one model with a
+  type serves all three.
 
 ## Known Limitations
 
-- **Production Onfido integration isn't deployed.**
-  `onfido-adapter` speaks Onfido's HTTP API and is
-  wired against `onfido-simulator` for development
-  and tests. Pointing it at production Onfido needs real
-  credentials, the production webhook URL, signature
-  verification keys, and operator playbooks — none of
-  which are deployed today. The architecture is
-  pluggable; the production deployment isn't yet there.
-- **Simulator outcomes are deterministic, not realistic.**
-  `onfido-simulator` routes outcomes off the
-  applicant's `first_name` (`Reject` → `consider`,
-  default → `clear`). It doesn't model partial outcomes,
-  manual-review queues, document-quality failures, or
-  rate limits. Useful for end-to-end tests; not a stand-
-  in for production behaviour.
-- **IDV outcomes beyond accept and reject aren't acted
-  on.** The `IdvStatus` enum already admits `IN_REVIEW` and
-  `FAILED` (`idv.proto`), but `party/core.clj`'s
-  `apply-idv-status` only maps accepted and rejected to a
-  status transition; manual-review and
-  technical-failure outcomes leave the party pending with no
-  follow-up.
-- **No re-verification flow.** Once a person party is
-  active, there's no machinery to re-IDV them (periodic
-  refresh, sanctions list re-screening, address change
-  triggering re-verification). Compliance regimes
-  increasingly require this; today the model assumes one-
-  shot KYC.
-- **Party and User are not linked.** A platform `User`
-  (`user`, an OIDC identity) and `Membership`
-  (`membership`, User→Bank) now exist and are
-  deliberately separate from `Party` (the banking-domain
-  customer). But there is still no relation tying a `User`
-  to a `Party` — no *acts on behalf of* or *is a* link for
-  self-service flows. The two identity models coexist
-  without a join.
-- **Name matching is naive.** Token-set matching after
-  lower-casing. No accent folding, no transliteration, no
-  edit-distance fuzziness, no honorific stripping. Real
-  Confirmation-of-Payee scoring is harder than this brick
-  admits and tends to need vendor-grade matching libraries.
-- **National identifier types are uninterpreted.** The
-  brick stores type/value/issuing-country but doesn't
-  validate format per type — a "passport" record could
-  contain anything. Caller-side discipline.
-- **PII at rest is unencrypted.** Personal names, identifier
-  values, and demographics live in FDB without field-level
-  encryption. Production would want either tokenised
-  storage or per-field encryption, depending on the
-  regulator's view.
-- **Merging is a tombstone plus a pointer, not a rewrite.**
-  `merge-party` flips a suspended duplicate to
-  `:party-status-merged` and sets `merged-into-party-id` at
-  the survivor, and stops there. IDVs, national identifiers
-  and person identification stay keyed to the merged-away
-  party-id, so a reader wanting the whole picture follows
-  the pointer rather than reading the survivor alone. There
-  is no unmerge, and no re-parenting of the linked records.
+- **The denies read backwards.** A criterion is written as a refusal
+  while something is outstanding, and why `unverified` and
+  `unscreened` work lives in `idv`'s requests, not in the policy.
+- **Reviews have no resolution.** A PEP or a possible sanctions match
+  leaves the IDV `in-review`, and nothing lets an operator accept or
+  reject it.
+- **The development-only adapter reports no evidence.** It reports an
+  overall outcome, so it cannot meet the platform floor until it maps
+  its provider's reports.
+- **`claimed-identity` depends on the provider returning extracted
+  details.** A provider that returns only a pass or a fail cannot
+  verify it, whatever its document check does.
+- **No re-verification.** An active person is never verified again,
+  and screening is not repeated.
+- **No organisation verification.** An organisation party starts
+  active, and no adapter verifies a company or its owners.
+- **The hand-off URL is a credential at rest.** It is stored unencrypted
+  until it expires, as is all PII in FDB.
+- **Party and User are not linked.** A `User` and a `Party` coexist
+  with no relation between them.
+- **Name matching is naive.** Token sets after lower-casing, with no
+  accent folding, transliteration or edit distance.
+- **National identifiers are not validated per type.**
+- **Merging does not re-parent.** IDVs, identifiers and person
+  identification stay on the merged-away party.
 
 ## References
 
-- [ADR-0002](../adr/0002-foundationdb-record-layer.md) —
-  FoundationDB Record Layer (party storage)
-- [ADR-0003](../adr/0003-message-bus-abstraction.md) —
-  Message-bus abstraction (the IDV-provider channel and
-  IDV event channel)
-- [ADR-0021](../adr/0021-changelog-relay.md) — the
-  changelog relay (the activation chain endpoints)
-- [authentication.md](authentication.md) — Authentication (the `User`
-  identity, distinct from parties)
-- [payments.md](payments.md) — Payments (CoP consumes
-  `match-name`; the same adapter/simulator pattern lives
-  there for ClearBank)
-- `party` brick interface
-- `idv` brick interface
-- `onfido-adapter` base
-- `onfido-simulator` base
-- `onfido-webhook` component (Malli schemas for the
-  webhook envelope)
+- [parties](../prd/parties.md) — the product requirements this design
+  serves.
+- [policy-evaluation](policy-evaluation.md) — capability matching,
+  deny precedence, bindings and tiers, which the criteria reuse.
+- [banks](banks.md) — bank creation and tier change, where the
+  agreement is checked.
+- [payments](payments.md) — Confirmation of Payee, the other caller of
+  `match-name`.
+- [transaction-processing](transaction-processing.md) — the intent and
+  outbox pattern every IDV adapter follows.
+- [ADR-0020](../adr/0020-providers-are-deployment-facts.md) — the
+  provider as a deployment fact.
+- [ADR-0021](../adr/0021-changelog-relay.md) — the changelog relay the
+  activation chain runs on.
+- [schema-evolution](../recipes/code/schema-evolution.md) — the
+  meta-data bump for the `Policy` and `Idv` changes.
