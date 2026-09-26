@@ -34,6 +34,10 @@ spec:
           properties:
             spec:
               type: object
+              x-kubernetes-validations:
+                - rule: >-
+                    !has(self.cluster) || !has(self.cluster.shelved) || !self.cluster.shelved || self.state == 'down'
+                  message: an instance is shelved only when down
               required:
                 - code
                 - env
@@ -352,6 +356,25 @@ spec:
                           description: |
                             How many nodes may be taken down before
                             their replacements are ready.
+                    shelved:
+                      type: boolean
+                      default: false
+                      description: |
+                        Whether the cluster exists at all. True deletes
+                        the cluster and its pool, and everything on them
+                        -- FoundationDB's volumes included, so its data
+                        comes back from a backup rather than from a disk.
+                        The project, the network, the identities, the
+                        database, the address, the secrets and the
+                        backups stand.
+
+                        Not a value of state, and not spelled like one:
+                        down is reversible and loses nothing, and this
+                        destroys what it stops. Only an instance already
+                        down may be shelved, and the workloads come off
+                        the cluster first, or their disks and load
+                        balancers outlive it. See ADR-0029 and the
+                        instance-shelve recipe.
                 keycloak:
                   type: object
                   default: {}

@@ -137,212 +137,29 @@ spec:
                   string:
                     fmt: "serviceAccount:sa-%s-%s-%s-nodes@%s.iam.gserviceaccount.com"
                 toFieldPath: spec.forProvider.member
-          # ===================================================================
-          # The cluster this environment runs on, and where its bill
-          # starts: everything composed above it costs nothing standing
-          # still.
-          #
-          # Fully managed by default, Delete included, which is what
-          # ADR-0022 leaves anything that rebuilds from its own
-          # declaration. Retiring an instance destroys the cluster and
-          # leaves the project, its data, the network and the
-          # identities, which is the line that makes state a word in a
-          # file rather than a teardown.
-          #
-          # retain withholds it, for the caller whose cluster is the one
-          # Crossplane itself runs on.
-          #
-          # No nodeConfig here on purpose. It only ever configures the
-          # default node pool, which removeDefaultNodePool deletes
-          # immediately, and GKE then recomputes node_config on the
-          # cluster. The provider sees a diff on a field that can only
-          # change by replacing the cluster and refuses to reconcile,
-          # leaving it stuck Creating. The real node configuration is on
-          # the pool below.
-          # ===================================================================
-          - name: cluster
-            base:
-              apiVersion: container.gcp.m.upbound.io/v1beta1
-              kind: Cluster
-              metadata:
-                namespace: crossplane-system
-              spec:
-                # The list an XR that predates retain composes: a
-                # default reaches an XR when something writes it, and
-                # one stored before the field existed carries nothing
-                # there. So the common value is here and the patch
-                # below flips it, rather than the patch being Required
-                # and every existing XR failing to render.
-                managementPolicies:
-                  - Observe
-                  - Create
-                  - Update
-                  - Delete
-                  - LateInitialize
-                providerConfigRef:
-                  kind: ClusterProviderConfig
-                  name: default
-                forProvider:
-                  initialNodeCount: 1
-                  removeDefaultNodePool: true
-                  # The composite is what protects this, through
-                  # managementPolicies and the manifest that declares
-                  # it. A second lock GCP holds outside Crossplane only
-                  # makes a declared teardown fail halfway.
-                  deletionProtection: false
-                  ipAllocationPolicy:
-                    clusterSecondaryRangeName: pods
-                    servicesSecondaryRangeName: services
-                  addonsConfig:
-                    httpLoadBalancing:
-                      disabled: false
-                  # What the proxy-only subnet is for. Upbound's CRD
-                  # nests this at the top level rather than under
-                  # networkConfig, and placing it elsewhere is silently
-                  # dropped.
-                  gatewayApiConfig:
-                    channel: CHANNEL_STANDARD
-                  # Encryption in transit, for the ten paths inside the
-                  # cluster that are not TLS: the backup agents to
-                  # s3proxy, the Gateway to console, api and Keycloak,
-                  # the services to Kafka and to FoundationDB,
-                  # FoundationDB between its own processes, Keycloak and
-                  # the realm exporter to the Cloud SQL proxy, and
-                  # everything to Jaeger. The control asks whether data
-                  # in transit is encrypted rather than whether it is
-                  # TLS, so this answers all ten at once.
-                  #
-                  # Both fields or neither: the encryption is a
-                  # Dataplane V2 feature and inert on LEGACY_DATAPATH,
-                  # which is what GKE defaults to.
-                  #
-                  # Neither can be applied to a live cluster. The
-                  # dataplane is fixed at creation, so the provider
-                  # refuses the diff rather than performing it and the
-                  # refusal lands in LastAsyncOperation -- Synced alone
-                  # does not say. The cluster takes this when it is next
-                  # rebuilt; see docs/recipes/infra/cluster-rebuild.md.
-                  #
-                  # It forecloses enableFqdnNetworkPolicy, which cannot
-                  # coexist with inter-node encryption, so egress
-                  # control has to be a Cloud NAT and CIDRs rather than
-                  # names. And it does not cover two pods on one node,
-                  # because that traffic never reaches a network.
-                  datapathProvider: ADVANCED_DATAPATH
-                  inTransitEncryptionConfig: IN_TRANSIT_ENCRYPTION_INTER_NODE_TRANSPARENT
-                # A kubeconfig for this cluster, written by the provider
-                # on every reconcile. It carries the endpoint and the CA
-                # and no credential: the token comes from the identity
-                # block on whichever provider config reads it. This is
-                # what provider-helm will want when the workloads
-                # arrive.
-                writeConnectionSecretToRef:
-                  name: instance-kubeconfig
-            patches:
-              # Both cases are spelled, so retain: false is as explicit
-              # as leaving it out. map takes a string key, and the field
-              # is a boolean, so it is converted first.
-              #
-              # Deliberately not Required: absent means an XR written
-              # before the field existed, which is what base carries.
-              - fromFieldPath: spec.retain
-                toFieldPath: spec.managementPolicies
-                transforms:
-                  - type: convert
-                    convert:
-                      toType: string
-                  - type: map
-                    map:
-                      "true":
-                        - Observe
-                        - Create
-                        - Update
-                        - LateInitialize
-                      "false":
-                        - Observe
-                        - Create
-                        - Update
-                        - Delete
-                        - LateInitialize
-              # No kind prefix: a cluster is never listed beside other
-              # kinds, and GKE prefixes every name it derives from one
-              # with gke- already.
-              - type: CombineFromComposite
-                combine:
-                  variables:
-                    - fromFieldPath: spec.code
-                    - fromFieldPath: spec.env
-                    - fromFieldPath: spec.label
-                  strategy: string
-                  string:
-                    fmt: "%s-%s-%s"
-                toFieldPath: metadata.name
-              - type: CombineFromComposite
-                combine:
-                  variables:
-                    - fromFieldPath: spec.code
-                    - fromFieldPath: spec.env
-                    - fromFieldPath: spec.label
-                  strategy: string
-                  string:
-                    fmt: "%s-%s-%s-kubeconfig"
-                toFieldPath: spec.writeConnectionSecretToRef.name
-              - type: CombineFromComposite
-                combine:
-                  variables:
-                    - fromFieldPath: spec.code
-                    - fromFieldPath: spec.env
-                    - fromFieldPath: spec.label
-                  strategy: string
-                  string:
-                    fmt: "vpc-%s-%s-%s"
-                toFieldPath: spec.forProvider.networkRef.name
-              - policy:
-                  fromFieldPath: Required
-                type: CombineFromComposite
-                combine:
-                  variables:
-                    - fromFieldPath: spec.code
-                    - fromFieldPath: spec.env
-                    - fromFieldPath: spec.label
-                    - fromFieldPath: spec.regionCode
-                  strategy: string
-                  string:
-                    fmt: "sb-%s-%s-%s-%s"
-                toFieldPath: spec.forProvider.subnetworkRef.name
-              - &cluster-project
-                fromFieldPath: spec.projectId
-                toFieldPath: spec.forProvider.project
-              # The one this rule was learned from. location is required
-              # on Cluster and optional on NodePool, so the same absent
-              # zone failed the first loudly and left the second holding
-              # a pool it could no longer observe.
-              - &cluster-zone
-                policy:
-                  fromFieldPath: Required
-                fromFieldPath: spec.zone
-                toFieldPath: spec.forProvider.location
-              - policy:
-                  fromFieldPath: Required
-                fromFieldPath: spec.cluster.releaseChannel
-                toFieldPath: spec.forProvider.releaseChannel.channel
-              # Workload Identity, so a pod assumes a service account
-              # rather than holding a key. Nothing binds to the pool
-              # yet; the cluster is where the choice is made available.
-              - fromFieldPath: spec.projectId
-                toFieldPath: spec.forProvider.workloadIdentityConfig.workloadPool
-                transforms:
-                  - type: string
-                    string:
-                      type: Format
-                      fmt: "%s.svc.id.goog"
-              - type: ToCompositeFieldPath
-                fromFieldPath: status.atProvider.endpoint
-                toFieldPath: status.endpoint
-              - type: ToCompositeFieldPath
-                fromFieldPath: status.atProvider.masterAuth.clusterCaCertificate
-                toFieldPath: status.ca
-    - step: nodes
+    # =======================================================================
+    # The cluster this environment runs on and the pool on it, which is
+    # where its bill starts: everything composed above costs nothing
+    # standing still.
+    #
+    # Templated rather than patched, for two reasons. The pool's count is
+    # a manifest value and a state at once, and no patch can combine the
+    # two, since a map transform must name every key it may see. And a
+    # shelved cluster composes neither: patch-and-transform composes a
+    # fixed set, where a template can leave both out of the desired state,
+    # and Crossplane deletes what is left out, subject to its
+    # managementPolicies. See ADR-0029.
+    #
+    # The composition-resource-names are what identify these to
+    # Crossplane, so they stay cluster and nodes and the live cluster and
+    # pool are matched rather than rebuilt.
+    #
+    # Every field is checked before it is used. A Go template renders a
+    # missing map key as the string "<no value>" rather than failing,
+    # which is a silent failure where policy.fromFieldPath Required in
+    # patch-and-transform was a loud one.
+    # =======================================================================
+    - step: cluster
       functionRef:
         name: function-go-templating
       input:
@@ -354,26 +171,139 @@ spec:
             {{- $xr := .observed.composite.resource }}
             {{- $cluster := $xr.spec.cluster | default dict }}
             {{- $upgrade := $cluster.upgradeSettings | default dict }}
-            {{- range $f := list "machineType" "nodeCount" "diskSize" "diskType" "upgradeSettings" }}
+            {{- range $f := list "machineType" "nodeCount" "diskSize" "diskType" "releaseChannel" "upgradeSettings" }}
             {{- if not (hasKey $cluster $f) }}
             {{- fail (printf "spec.cluster.%s is absent" $f) }}
             {{- end }}
             {{- end }}
-            {{- range $f := list "code" "env" "label" "state" "zone" "projectId" }}
+            {{- range $f := list "code" "env" "label" "state" "zone" "regionCode" "projectId" }}
             {{- if not (hasKey $xr.spec $f) }}
             {{- fail (printf "spec.%s is absent" $f) }}
             {{- end }}
             {{- end }}
-            {{- /* Absent on an XR stored before the field existed, and
+            {{- /* Both absent on an XR stored before the field existed, and
                    false is what such an XR means: a default reaches an
                    object when something writes it, never on the way
                    out. */}}
             {{- $retain := $xr.spec.retain | default false }}
+            {{- $shelved := $cluster.shelved | default false }}
             {{- $name := printf "%s-%s-%s" $xr.spec.code $xr.spec.env $xr.spec.label }}
             {{- $count := 0 }}
             {{- if eq $xr.spec.state "up" }}
             {{- $count = $cluster.nodeCount }}
             {{- end }}
+            {{- if not $shelved }}
+            {{- $observed := dig "cluster" "resource" "status" "atProvider" dict (.observed.resources | default dict) }}
+            # Fully managed unless retain withholds Delete, which is what
+            # ADR-0022 leaves anything that rebuilds from its own
+            # declaration. Shelving destroys the cluster and leaves the
+            # project, its data, the network and the identities.
+            #
+            # retain is for the caller whose cluster is the one Crossplane
+            # itself runs on, and shelving that is refused by the XRD.
+            #
+            # No nodeConfig here on purpose. It only ever configures the
+            # default node pool, which removeDefaultNodePool deletes
+            # immediately, and GKE then recomputes node_config on the
+            # cluster. The provider sees a diff on a field that can only
+            # change by replacing the cluster and refuses to reconcile,
+            # leaving it stuck Creating. The real node configuration is on
+            # the pool below.
+            apiVersion: container.gcp.m.upbound.io/v1beta1
+            kind: Cluster
+            metadata:
+              # No kind prefix: a cluster is never listed beside other
+              # kinds, and GKE prefixes every name it derives from one
+              # with gke- already.
+              name: {{ $name }}
+              namespace: crossplane-system
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: cluster
+            spec:
+              managementPolicies:
+                - Observe
+                - Create
+                - Update
+                {{- if not $retain }}
+                - Delete
+                {{- end }}
+                - LateInitialize
+              providerConfigRef:
+                kind: ClusterProviderConfig
+                name: default
+              forProvider:
+                project: {{ $xr.spec.projectId }}
+                # The field this rule was learned from. location is
+                # required on Cluster and optional on NodePool, so the
+                # same absent zone failed the first loudly and left the
+                # second holding a pool it could no longer observe.
+                location: {{ $xr.spec.zone }}
+                initialNodeCount: 1
+                removeDefaultNodePool: true
+                # The composite is what protects this, through
+                # managementPolicies and the manifest that declares
+                # it. A second lock GCP holds outside Crossplane only
+                # makes a declared teardown fail halfway.
+                deletionProtection: false
+                networkRef:
+                  name: vpc-{{ $name }}
+                subnetworkRef:
+                  name: sb-{{ $name }}-{{ $xr.spec.regionCode }}
+                ipAllocationPolicy:
+                  clusterSecondaryRangeName: pods
+                  servicesSecondaryRangeName: services
+                addonsConfig:
+                  httpLoadBalancing:
+                    disabled: false
+                # What the proxy-only subnet is for. Upbound's CRD
+                # nests this at the top level rather than under
+                # networkConfig, and placing it elsewhere is silently
+                # dropped.
+                gatewayApiConfig:
+                  channel: CHANNEL_STANDARD
+                releaseChannel:
+                  channel: {{ $cluster.releaseChannel }}
+                # Workload Identity, so a pod assumes a service account
+                # rather than holding a key. The pool belongs to the
+                # project rather than to the cluster, so a rebuilt
+                # cluster answers to the same bindings.
+                workloadIdentityConfig:
+                  workloadPool: {{ $xr.spec.projectId }}.svc.id.goog
+                # Encryption in transit, for the ten paths inside the
+                # cluster that are not TLS: the backup agents to
+                # s3proxy, the Gateway to console, api and Keycloak,
+                # the services to Kafka and to FoundationDB,
+                # FoundationDB between its own processes, Keycloak and
+                # the realm exporter to the Cloud SQL proxy, and
+                # everything to Jaeger. The control asks whether data
+                # in transit is encrypted rather than whether it is
+                # TLS, so this answers all ten at once.
+                #
+                # Both fields or neither: the encryption is a
+                # Dataplane V2 feature and inert on LEGACY_DATAPATH,
+                # which is what GKE defaults to.
+                #
+                # Neither can be applied to a live cluster. The
+                # dataplane is fixed at creation, so the provider
+                # refuses the diff rather than performing it and the
+                # refusal lands in LastAsyncOperation -- Synced alone
+                # does not say. The cluster takes this when it is next
+                # rebuilt; see docs/recipes/infra/instance-rebuild-cluster.md.
+                #
+                # It forecloses enableFqdnNetworkPolicy, which cannot
+                # coexist with inter-node encryption, so egress
+                # control has to be a Cloud NAT and CIDRs rather than
+                # names. And it does not cover two pods on one node,
+                # because that traffic never reaches a network.
+                datapathProvider: ADVANCED_DATAPATH
+                inTransitEncryptionConfig: IN_TRANSIT_ENCRYPTION_INTER_NODE_TRANSPARENT
+              # A kubeconfig for this cluster, written by the provider
+              # on every reconcile. It carries the endpoint and the CA
+              # and no credential: the token comes from the identity
+              # block on whichever provider config reads it.
+              writeConnectionSecretToRef:
+                name: {{ $name }}-kubeconfig
+            ---
             apiVersion: container.gcp.m.upbound.io/v1beta1
             kind: NodePool
             metadata:
@@ -431,6 +361,22 @@ spec:
                     - https://www.googleapis.com/auth/cloud-platform
                   workloadMetadataConfig:
                     mode: GKE_METADATA
+            {{- if or $observed.endpoint (dig "masterAuth" "clusterCaCertificate" "" $observed) }}
+            ---
+            # Both read back from the cluster rather than derived, and
+            # absent until it exists. A shelved cluster reports neither,
+            # so whatever registers it has nothing to point at.
+            apiVersion: platform.repldriven.com/v1alpha1
+            kind: XCluster
+            status:
+              {{- with $observed.endpoint }}
+              endpoint: {{ . }}
+              {{- end }}
+              {{- with dig "masterAuth" "clusterCaCertificate" "" $observed }}
+              ca: {{ . }}
+              {{- end }}
+            {{- end }}
+            {{- end }}
     # =======================================================================
     # One binding per principal, which patch-and-transform cannot
     # express: it composes a fixed set of resources and has no way to

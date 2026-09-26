@@ -1185,6 +1185,47 @@ See [fdb-recovery](../../../docs/recipes/infra/fdb-recovery.md),
 and
 [ADR-0026](../../../docs/adr/0026-recovering-data-and-the-states-that-do-it.md).
 
+## A shelved instance keeps everything but its cluster
+
+Shelve an instance to stop paying for its cluster: `spec.cluster.shelved:
+true` stops composing the cluster and node pool, Crossplane deletes both,
+and the project, network, identities, database, address, secrets and
+backups stand; unshelving composes both afresh under the same name, and
+FoundationDB restores from the point recorded when it was shelved. Shelve
+only an instance that is `up`, on a plane that is not frozen, bringing a
+`down` one up first. Record the restore point -- generation and version --
+in the instance's backups bucket before the workloads come off, and read
+it back. Withdraw the unit's Applications and delete them while the
+instance has nodes, since an operator's finalizer needs its pod to run,
+and check no `pvc-` disk and no forwarding rule remains in the project
+before shelving: a disk and a load balancer outlive a cluster deleted
+from under them. Shelve in the merge that sets `down` and carries the
+recorded point into `fdb.restore`; the XRD refuses a shelved instance that
+is not `down`, and a cluster with `retain`. Never shelve an instance
+whose data matters before an unshelve has been proven on one whose data
+does not, and never delete the instance's composite to stop paying for
+its cluster. Unshelve only on a plane that is not frozen, after checking
+the restore point in the values against the last record, and point
+`fdb.backup.backupName` at a new generation in the unshelving merge,
+never earlier and never the one the restore reads from. Return the
+workloads only once the cluster is `RUNNING`, and verify with `fdbrestore
+status` and a sign-in, never with the restore Job's exit status. Never
+write a secret again to unshelve: the entries survive, and a new version
+of the backup key strands every backup written under the old one. Keep
+the address through a shelve, so the certificates and records stay
+valid. An instance may stay shelved for as long as nobody needs it, and
+`fdb.restore` may stay set afterwards, being a target rather than a
+mode.
+Commands: `just queenswood-instance-record`, `just
+queenswood-instance-records`, `just gh-pr-up`, `just
+gh-pr-workloads-withdraw`, `just gh-pr-shelve`, `just
+argo-apps-status`, `just gh-pr-unshelve`, `just
+gh-pr-workloads-return`, `just crossplane-unready`, `just
+queenswood-instance-ctx`.
+See [instance-shelve](../../../docs/recipes/infra/instance-shelve.md),
+[instance-unshelve](../../../docs/recipes/infra/instance-unshelve.md) and
+[ADR-0029](../../../docs/adr/0029-a-shelved-instance-keeps-everything-but-its-cluster.md).
+
 ## A muted finding is a decision, recorded
 
 Mute by resource, so the check still fails for anything the reasoning
