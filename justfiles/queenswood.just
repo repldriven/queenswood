@@ -658,6 +658,74 @@ queenswood-recovery-backup-key env=ENV label=LABEL supersede="":
         >/dev/null
     echo ">>> $SECRET now holds a key. It is the only copy, deliberately."
 
+# Record `env`-`label`'s restore point at `time` (ISO-8601 UTC, default now) in its backups bucket (as a platform admin).
+queenswood-instance-record env label time="":
+    #!/usr/bin/env zsh
+    set -e
+    NAME=$(just _queenswood-instance "{{ env }}" "{{ label }}")
+    BUCKET=$(just _sop-backup-bucket "{{ env }}" "{{ label }}")
+    if [[ -z "$BUCKET" ]]; then
+      echo "no backups bucket for $NAME" >&2
+      exit 1
+    fi
+    SA=$(just plane-identity)
+    AT="{{ time }}"
+    if [[ -z "$AT" ]]; then
+      AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    fi
+    POINT=$(just sop-fdb-version-at "{{ env }}" "{{ label }}" "$AT")
+    GENERATION=$(printf '%s\n' "$POINT" | sed -n 's/^generation: *//p')
+    VERSION=$(printf '%s\n' "$POINT" | sed -n 's/^version: *//p')
+    WRITTEN=$(printf '%s\n' "$POINT" | sed -n 's/^written: *//p')
+    if [[ -z "$GENERATION" || -z "$VERSION" ]]; then
+      echo "no restore point at $AT for $NAME" >&2
+      exit 1
+    fi
+    COMPOSITE=$(kubectl --context {{ MGMT_CTX }} -n crossplane-system \
+                  get xqueenswoodinstance "$NAME" -o json)
+    STAMP=$(date -u +%Y%m%dT%H%M%SZ)
+    DIR=$(mktemp -d)
+    trap 'rm -rf "$DIR"' EXIT
+
+    jq -n --arg generation "$GENERATION" --arg version "$VERSION" \
+      --arg written "$WRITTEN" --arg at "$AT" \
+      '{generation: $generation, version: $version, written: $written, at: $at}' \
+      > "$DIR/restore.json"
+    printf '%s\n' "$COMPOSITE" > "$DIR/composite.json"
+
+    gcloud storage cp "$DIR"/* "gs://$BUCKET/records/$STAMP/" \
+      --impersonate-service-account="$SA"
+    echo ">>> $NAME restores to $GENERATION at $VERSION"
+    echo ">>> recorded to gs://$BUCKET/records/$STAMP"
+
+# List `env`-`label`'s records, or print the restore point of the one named by `stamp` (as a platform admin).
+queenswood-instance-records env label stamp="":
+    #!/usr/bin/env zsh
+    set -e
+    NAME=$(just _queenswood-instance "{{ env }}" "{{ label }}")
+    BUCKET=$(just _sop-backup-bucket "{{ env }}" "{{ label }}")
+    if [[ -z "$BUCKET" ]]; then
+      echo "no backups bucket for $NAME" >&2
+      exit 1
+    fi
+    SA=$(just plane-identity)
+    if [[ -z "{{ stamp }}" ]]; then
+      if ! OUT=$(gcloud storage ls "gs://$BUCKET/records/" \
+                   --impersonate-service-account="$SA" 2>&1); then
+        if printf '%s\n' "$OUT" | grep -q "matched no objects"; then
+          echo "no records for $NAME" >&2
+          exit 0
+        fi
+        printf '%s\n' "$OUT" >&2
+        exit 1
+      fi
+      printf '%s\n' "$OUT" \
+        | sed -e "s|^gs://$BUCKET/records/||" -e 's|/$||' | sort
+      exit 0
+    fi
+    gcloud storage cat "gs://$BUCKET/records/{{ stamp }}/restore.json" \
+      --impersonate-service-account="$SA"
+
 # Add a kubectl context for `env`-`label`'s cluster, named for it.
 queenswood-instance-ctx env label project="":
     #!/usr/bin/env zsh

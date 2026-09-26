@@ -41,6 +41,10 @@ spec:
           properties:
             spec:
               type: object
+              x-kubernetes-validations:
+                - rule: >-
+                    !has(self.cluster) || !has(self.cluster.shelved) || !self.cluster.shelved || (self.state == 'down' && !(has(self.retain) && self.retain))
+                  message: a cluster is shelved only when down, and never when retained
               required:
                 - code
                 - env
@@ -188,6 +192,14 @@ spec:
                           description: |
                             How many nodes may be taken down before
                             their replacements are ready.
+                    shelved:
+                      type: boolean
+                      default: false
+                      description: |
+                        Whether the cluster and its pool are composed at
+                        all. True deletes both; the identity the pool
+                        runs as stands. Refused with retain, whose cluster
+                        is the one Crossplane runs on. See ADR-0029.
             status:
               type: object
               properties:

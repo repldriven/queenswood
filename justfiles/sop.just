@@ -80,15 +80,18 @@ sop-fdb-list-backups env label count="20":
           match($0, /[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z/) {
             when = substr($0, RSTART, RLENGTH)
             n = split($NF, p, "/"); split(p[n], f, ",")
-            printf "%s/%s\t%s\t%s\t%s\n", p[n-3], p[n-2], f[3], when, f[4]
+            gen = $NF
+            sub(/^gs:\/\/[^\/]+\/data\//, "", gen)
+            sub(/\/snapshots\/.*$/, "", gen)
+            printf "%s\t%s\t%s\t%s\n", gen, f[3], when, f[4]
           }' \
       | sort -k2 -rn \
       | head -n {{ count }} \
       | awk -v total="$(printf '%s\n' "$ROWS" | wc -l | tr -d ' ')" \
             -v shown={{ count }} '
-             BEGIN { printf "%-14s %-22s %-22s %s\n",
+             BEGIN { printf "%-28s %-22s %-22s %s\n",
                        "GENERATION", "VERSION", "WRITTEN", "BYTES" }
-             { printf "%-14s %-22s %-22s %s\n", $1, $2, $3, $4 }
+             { printf "%-28s %-22s %-22s %s\n", $1, $2, $3, $4 }
              END { if (total > shown)
                      printf "-- newest first, %d of %d snapshots\n", shown, total
                    else
@@ -171,10 +174,11 @@ sop-fdb-version-at env label time:
           match($0, /[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z/) {
             when = substr($0, RSTART, RLENGTH)
             n = split($NF, p, "/"); split(p[n], f, ",")
-            # data/<service>/<type>/logs/<dir>/<dir>/log,... -- two
-            # levels deeper than a snapshot, which sits directly under
-            # the generation.
-            gen = p[n-5] "/" p[n-4]
+            # data/<generation>/logs/<dir>/<dir>/log,... -- the
+            # generation is however many segments backupName has.
+            gen = $NF
+            sub(/^gs:\/\/[^\/]+\/data\//, "", gen)
+            sub(/\/logs\/.*$/, "", gen)
             if (when <= target) { bgen=gen; bwhen=when; bver=f[2] }
             else if (awhen == "") { agen=gen; awhen=when; aver=f[2] }
           }

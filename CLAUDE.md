@@ -232,6 +232,13 @@ non-trivial work on their topic.
   why the secrets are written while the composite builds, and why
   `down` is not a starting state. See
   [instance-deploy.md](docs/recipes/infra/instance-deploy.md).
+- **Shelving and unshelving an instance** — deleting its cluster so it
+  stops costing one, keeping the project, database, secrets and
+  backups, and bringing it back with FoundationDB restored from the
+  point recorded in its bucket. See
+  [ADR-0029](docs/adr/0029-a-shelved-instance-keeps-everything-but-its-cluster.md),
+  [instance-shelve](docs/recipes/infra/instance-shelve.md) and
+  [instance-unshelve](docs/recipes/infra/instance-unshelve.md).
 - **Upgrading or reconfiguring Argo CD** — the steps for a plane whose
   own Argo is `Observe`, the `extraObjects` a values file must carry,
   and why a merged change does not reach it. See
