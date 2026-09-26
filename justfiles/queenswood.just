@@ -719,7 +719,7 @@ queenswood-instance-records env label stamp="":
         printf '%s\n' "$OUT" >&2
         exit 1
       fi
-      printf '%s\n' "$OUT" \
+      printf '%s\n' "$OUT" | grep "^gs://$BUCKET/records/" \
         | sed -e "s|^gs://$BUCKET/records/||" -e 's|/$||' | sort
       exit 0
     fi
