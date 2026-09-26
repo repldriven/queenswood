@@ -1,5 +1,6 @@
 (ns com.repldriven.queenswood.bank.domain
   (:require
+    [com.repldriven.queenswood.idv.interface :as idv]
     [com.repldriven.queenswood.policy.interface :as policy]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
@@ -30,7 +31,8 @@
                    :idempotency-key idempotency-key})))
 
 (defn new-bank
-  [bank-name bank-status sort-code tier company-binding tier-policies policies]
+  [bank-name bank-status sort-code tier company-binding tier-policies policies
+   idv-provider]
   (let-nom>
     [_ (policy/check-capability policies
                                 :bank
@@ -41,6 +43,7 @@
                        {:message "No policies found for tier"
                         :bank-name bank-name
                         :tier tier}))
+     _ (idv/check-criteria (concat policies tier-policies) idv-provider)
      _ (when (and company-binding
                   (not= "active" (:company-status company-binding)))
          (error/reject
@@ -61,12 +64,14 @@
 
 (defn change-tier
   "Rebind a bank onto a new tier's policies. `new-tier-policies` is the
-  set of policies whose `tier=<tier>` label matches — pre-fetched by
-  the caller since resolving it needs an FDB read. Rejects
-  `:bank/invalid-status` unless the bank is test or live, and
-  `:bank/unknown-tier` when the tier resolves to no policies (a typo
-  must not silently strip all tier bindings)."
-  [bank tier new-tier-policies]
+  set of policies whose `tier=<tier>` label matches, and `policies` the
+  platform tier's — both pre-fetched by the caller since resolving them
+  needs an FDB read. Rejects `:bank/invalid-status` unless the bank is
+  test or live, `:bank/unknown-tier` when the tier resolves to no
+  policies (a typo must not silently strip all tier bindings), and
+  `:idv/unsupported-criteria` when the tier requires a verification or
+  screening `idv-provider` does not establish."
+  [bank tier new-tier-policies policies idv-provider]
   (let-nom>
     [_ (when-not (#{:bank-status-test :bank-status-live} (:status bank))
          (error/reject :bank/invalid-status
@@ -78,7 +83,8 @@
          (error/reject :bank/unknown-tier
                        {:message "No policies found for tier"
                         :bank-id (:bank-id bank)
-                        :tier tier}))]
+                        :tier tier}))
+     _ (idv/check-criteria (concat policies new-tier-policies) idv-provider)]
     (assoc bank :tier tier :updated-at (utility/now))))
 
 (defn change-status

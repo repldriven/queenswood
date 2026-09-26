@@ -10,7 +10,8 @@
    :system/config {:record-db system/required-component
                    :record-store system/required-component
                    :schemas system/required-component
-                   :identity-provider system/required-component}
+                   :identity-provider system/required-component
+                   :idv-provider nil}
    :system/instance-schema some?})
 
 (system/defcomponents :bank {:processor processor})

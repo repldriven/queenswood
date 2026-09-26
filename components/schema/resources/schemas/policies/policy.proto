@@ -97,10 +97,37 @@ message CashAccountProductCapability {
 enum IdvAction {
   IDV_ACTION_UNKNOWN = 0;
   IDV_ACTION_SUBMIT = 1;
+  IDV_ACTION_ACCEPT = 2;
+}
+
+// What a verification establishes from something the person presents.
+enum IdvVerification {
+  IDV_VERIFICATION_UNKNOWN = 0;
+  IDV_VERIFICATION_IDENTITY = 1;
+  IDV_VERIFICATION_LIVENESS = 2;
+  IDV_VERIFICATION_CLAIMED_IDENTITY = 3;
+  IDV_VERIFICATION_ADDRESS = 4;
+}
+
+// What a verification establishes by checking lists.
+enum IdvScreening {
+  IDV_SCREENING_UNKNOWN = 0;
+  IDV_SCREENING_SANCTIONS = 1;
+  IDV_SCREENING_PEP = 2;
+}
+
+// A deny on IDV_ACTION_ACCEPT sets one of unverified or unscreened, and
+// refuses acceptance while that verification or screening is
+// outstanding.
+message IdvCapabilityFilter {
+  optional com.repldriven.queenswood.schemas.party.Party.PartyType party_type = 1;
+  optional IdvVerification unverified = 2;
+  optional IdvScreening unscreened = 3;
 }
 
 message IdvCapability {
   required IdvAction action = 1;
+  repeated IdvCapabilityFilter filters = 2;
 }
 
 enum InboundPaymentAction {

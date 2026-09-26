@@ -150,6 +150,12 @@
          :template-id
          (product-type->template-id product-type)))
 
+(def ^:private idv-provider
+  "The identity provider declaration the scenario banks are created
+  against, establishing everything the platform policy requires."
+  {:verifies ["identity" "liveness" "claimed-identity" "address"]
+   :screens ["sanctions" "pep"]})
+
 (defmulti dispatch (fn [_ctx command] (:command command)))
 
 (defmethod dispatch :create-bank
@@ -183,6 +189,7 @@
                                "test-scenario"
                                ["GBP"]
                                {:identity-provider identity-provider
+                                :idv-provider idv-provider
                                 :audience "queenswood-api-test"})
         bank-entity (:bank result)
         real-bank-id (:bank-id bank-entity)

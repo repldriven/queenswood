@@ -12,7 +12,8 @@
      [ErrorExamples ErrorResponse]]
     [com.repldriven.queenswood.bank-api.interface :refer
      [BankInvalidStatus BankNotFound BankUnknownTier BankUnnamed
-      CompanyNotActive CompanyRequired OperatorFieldRefused]]
+      CompanyNotActive CompanyRequired IdvUnsupportedCriteria
+      OperatorFieldRefused]]
     [com.repldriven.queenswood.company-api.interface :as company-api]
     [com.repldriven.queenswood.idempotency.interface :as bank-idempotency]
 
@@ -49,7 +50,9 @@
                           "currencies or owner is refused with 403, and naming"
                           " no company with 422. An unknown company returns "
                           "404, and one that is not active is refused with "
-                          "422, as is a tier with no policies. The response "
+                          "422, as is a tier with no policies and one "
+                          "requiring a verification or screening the "
+                          "identity provider does not establish. The response "
                           "carries the bank's client secret, returned only "
                           "here, the person's owner membership, and with "
                           "`owner-email` the owner invitation emailed to that "
@@ -68,7 +71,7 @@
                              #'OperatorFieldRefused])
          404 (ErrorResponse [#'company-api/CompanyNotFound])
          422 (ErrorResponse [#'BankUnknownTier #'CompanyNotActive
-                             #'CompanyRequired])
+                             #'CompanyRequired #'IdvUnsupportedCriteria])
          503 (ErrorExamples [#'company-api/CompanyRegistryUnavailable])})
        :handler bank-commands/create-bank}}]]
    ["/bank"
@@ -102,7 +105,9 @@
                    "tier's policies in place of its current tier's, and "
                    "returns the bank. A bank that is neither test nor live "
                    "is refused with 409. A tier with no policies is refused "
-                   "with 422. Naming no bank is refused with 403.")
+                   "with 422, as is one requiring a verification or "
+                   "screening the identity provider does not establish. "
+                   "Naming no bank is refused with 403.")
               :requestBody {:required true}
               :parameters ^:replace [shared.parameters/ref-bank-id-header]}
              :parameters {:body [:ref "ChangeBankTierRequest"]}
@@ -111,7 +116,8 @@
                          403 (ErrorExamples [#'BankUnnamed])
                          404 (ErrorResponse [#'BankNotFound])
                          409 (ErrorResponse [#'BankInvalidStatus])
-                         422 (ErrorResponse [#'BankUnknownTier])}
+                         422 (ErrorResponse [#'BankUnknownTier
+                                             #'IdvUnsupportedCriteria])}
              :handler bank-commands/change-bank-tier}}]
     ["/change-status"
      {:post {:summary "Change the bank's status"

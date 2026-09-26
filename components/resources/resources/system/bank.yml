@@ -4,6 +4,7 @@ processor: !system/component
   record-store: !system/ref fdb.meta-store
   schemas: !system/ref avro.serde
   identity-provider: !system/ref keycloak.identity-provider
+  idv-provider: !include system/idv-provider.yml
 
 command-processor: !system/component
   system/component-kind: command-processor/command-processor

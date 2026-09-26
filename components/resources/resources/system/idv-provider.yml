@@ -1,0 +1,9 @@
+# What the deployment's IDV adapter can establish, the hand-offs it
+# offers, and what it needs as input. Checked against the platform
+# policy at start-up and against a tier's policies when a bank is
+# created or changes tier. See docs/tdd/parties.md.
+verifies: [identity, liveness, claimed-identity, address]
+screens: [sanctions, pep]
+channels: [web, mobile]
+hand-offs: [url]
+needs: [email]

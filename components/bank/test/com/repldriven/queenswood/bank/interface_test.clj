@@ -44,6 +44,12 @@
   {:record-db (system/instance sys [:fdb :record-db])
    :record-store (system/instance sys [:fdb :store])})
 
+(def ^:private idv-provider
+  "A provider declaration establishing every verification and screening
+  the platform policy requires."
+  {:verifies ["identity" "liveness" "claimed-identity" "address"]
+   :screens ["sanctions" "pep"]})
+
 (def ^:private operator
   {:kind :actor-kind-operator :principal-id "queenswood-admin"})
 
@@ -54,7 +60,7 @@
                 :bank-status-test
                 "micro"
                 ["GBP"]
-                (assoc opts :identity-provider idp)))
+                (assoc opts :identity-provider idp :idv-provider idv-provider)))
 
 (defn- owner-invitation
   [email]
@@ -246,7 +252,10 @@
                                  "schemas/banks/create-bank.avsc.json")
                   "bank" (schema-for "schemas/banks/bank.avsc.json")}
          idp (identity-provider/local-provider {})
-         config (assoc (fdb-config sys) :schemas schemas :identity-provider idp)
+         config (assoc (fdb-config sys)
+                       :schemas schemas
+                       :identity-provider idp
+                       :idv-provider idv-provider)
          user-id "usr.delivered-twice"
          message (fn [id data]
                    {:command "create-bank"
@@ -311,7 +320,8 @@
                              :bank-status-test
                              "no-such-tier"
                              ["GBP"]
-                             {:identity-provider idp})]
+                             {:identity-provider idp
+                              :idv-provider idv-provider})]
          (is (error/rejection? r))
          (is (= :bank/unknown-tier (error/kind r)))
          (nom-test> [{:keys [banks]} (bank-query/get-banks config)
@@ -340,6 +350,7 @@
                                  "micro"
                                  ["GBP"]
                                  {:identity-provider idp
+                                  :idv-provider idv-provider
                                   :membership {:user-id user-id
                                                :role :role-owner}})))
              bank-id @created]
@@ -385,7 +396,8 @@
                                               :bank-status-test
                                               "micro"
                                               ["GBP"]
-                                              {:identity-provider idp})
+                                              {:identity-provider idp
+                                               :idv-provider idv-provider})
                  bank-id (:bank-id bank)
                  micro-policies (policy/get-policies-by-tier config "micro")
                  bindings-before (policy/get-bindings-for-bank config bank-id)
@@ -395,7 +407,10 @@
                             (set (map :policy-id bindings-before)))))
                  test-scenario-policies
                  (policy/get-policies-by-tier config "test-scenario")
-                 updated (SUT/change-tier config bank-id "test-scenario")
+                 updated (SUT/change-tier config
+                                          bank-id
+                                          "test-scenario"
+                                          {:idv-provider idv-provider})
                  bindings-after (policy/get-bindings-for-bank config bank-id)
                  _ (testing
                      "change-tier stamps the new tier and rebinds its policies"
@@ -407,7 +422,10 @@
                                   (set (map :policy-id bindings-after))))))
                  _ (testing
                      "an unknown tier is rejected, leaving bindings untouched"
-                     (let [r (SUT/change-tier config bank-id "no-such-tier")]
+                     (let [r (SUT/change-tier config
+                                              bank-id
+                                              "no-such-tier"
+                                              {:idv-provider idv-provider})]
                        (is (error/rejection? r))
                        (is (= :bank/unknown-tier (error/kind r)))
                        (is (= (set (map :policy-id bindings-after))
@@ -427,12 +445,14 @@
                                               "micro"
                                               ["GBP"]
                                               {:identity-provider idp
+                                               :idv-provider idv-provider
                                                :audience "queenswood-api-test"})
                  bank-id (:bank-id bank)
                  updated (SUT/change-status config
                                             bank-id
                                             :bank-status-live
                                             {:identity-provider idp
+                                             :idv-provider idv-provider
                                              :audience "queenswood-api-live"})
                  _ (testing "flips test to live"
                      (is (= :bank-status-live (:status updated))))
@@ -441,6 +461,7 @@
                                                 bank-id
                                                 :bank-status-live
                                                 {:identity-provider idp
+                                                 :idv-provider idv-provider
                                                  :audience
                                                  "queenswood-api-live"})]
                        (is (error/rejection? r))
@@ -459,14 +480,19 @@
                                      "micro"
                                      ["GBP"]
                                      {:identity-provider idp
+                                      :idv-provider idv-provider
                                       :audience "queenswood-api-test"})
         bank-id (:bank-id bank)
         _ (SUT/change-status config
                              bank-id
                              :bank-status-live
                              {:identity-provider idp
+                              :idv-provider idv-provider
                               :audience "queenswood-api-live"})
-        _ (SUT/change-tier config bank-id "test-scenario")
+        _ (SUT/change-tier config
+                           bank-id
+                           "test-scenario"
+                           {:idv-provider idv-provider})
         ;; `:deduplicate? false` matters: the default keeps only
         ;; the latest entry per record id, which would collapse
         ;; both writes on this one bank into one.
@@ -497,7 +523,8 @@
                                               :bank-status-test
                                               "micro"
                                               ["GBP"]
-                                              {:identity-provider idp})
+                                              {:identity-provider idp
+                                               :idv-provider idv-provider})
                  found (bank-query/get-bank-by-sort-code config
                                                          (:sort-code bank))
                  _ (testing "the allocated sort code resolves back to its bank"

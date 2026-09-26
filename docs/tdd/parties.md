@@ -2,8 +2,9 @@
 
 > **Status: proposal.** Parties, the IDV record, the activation chain
 > and the IDV adapters exist, and Background names them. Everything
-> under Proposed Solution is the build list, and
-> [First slices](#first-slices) says what comes first.
+> under Proposed Solution is the build list; the criteria and the
+> provider declaration are built, and [First slices](#first-slices)
+> says what comes next.
 
 ## Objective
 
@@ -198,11 +199,10 @@ the provider:
   the seeded platform policy and the declaration and fails to start
   while `unmet-criteria` is not empty. `bootstrap` and `monolith`
   include it, so a floor the provider cannot meet stops the bootstrap.
-- **At bank creation and tier change.** `bank`'s `new-bank` and
-  `change-bank-tier` call `idv/unmet-criteria` on the tier's policies
-  and reject `:idv/unsupported-criteria` (422) naming what is missing.
-- **At policy edits.** Creating a policy or a binding through the API
-  rejects the same.
+- **At bank creation and tier change.** `bank`'s processor includes
+  the declaration, and `new-bank` and `change-bank-tier` call
+  `idv/check-criteria` on the platform and tier policies, which rejects
+  `:idv/unsupported-criteria` (422) naming what is missing.
 
 ### The evidence contract
 
@@ -320,9 +320,10 @@ runs changes nothing outside it:
 1. **Criteria.** `IdvVerification`, `IdvScreening`,
    `idv-action-accept` and its filter, the platform denies,
    `idv-provider.yml`, `idv/unmet-criteria`, `idv/criteria-check`, and
-   the bank and policy checks. Proved by a bootstrap refused against a
-   declaration that does not verify `address`, and an API scenario
-   refusing a tier change.
+   the bank checks. Proved by a criteria check refused against a
+   declaration that does not verify `address`, and a bank create and a
+   tier change refused for a tier requiring what the declaration
+   lacks. Built.
 2. **Evidence.** `idv-evidence`, the IDV's evidence, `domain/decide`,
    and the deployed adapter and its simulator reporting evidence. The
    scenario rigs move to that simulator and drive its decision route,
@@ -408,6 +409,10 @@ The demo bank's onboarding screens follow under
 - **The denies read backwards.** A criterion is written as a refusal
   while something is outstanding, and why `unverified` and
   `unscreened` work lives in `idv`'s requests, not in the policy.
+- **The tier check refuses nothing yet.** The platform denies name
+  every verification and screening, so a declaration that passes the
+  start-up check meets every tier, until a value joins the enums that
+  the platform floor does not name.
 - **Reviews have no resolution.** A PEP or a possible sanctions match
   leaves the IDV `in-review`, and nothing lets an operator accept or
   reject it.

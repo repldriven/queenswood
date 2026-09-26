@@ -2,8 +2,9 @@
   "Pure-function tests for bank provisioning: `:bank/unknown-tier` when
   the tier resolves to no policies, `:bank/company-not-active`
   when the bound company snapshot is not active, the actor a create
-  records when its command carries none, and `:bank/already-exists`
-  when a key has already created a bank."
+  records when its command carries none, `:bank/already-exists`
+  when a key has already created a bank, and `:idv/unsupported-criteria`
+  when a tier requires what the identity provider does not establish."
   (:require
     [com.repldriven.queenswood.bank.domain :as SUT]
 
@@ -15,7 +16,24 @@
   "Single allow-everything policy — an empty fields map in the oneof
   variant matches every request because the matcher only constrains
   on set fields."
-  [{:enabled true :capabilities [{:kind {:bank {}} :effect :effect-allow}]}])
+  [{:enabled true
+    :capabilities [{:kind {:bank {}} :effect :effect-allow}
+                   {:kind {:idv {}} :effect :effect-allow}]}])
+
+(def ^:private idv-provider
+  "A provider declaration that establishes nothing, which meets
+  `permissive-policies` since they require nothing."
+  {:verifies [] :screens []})
+
+(def ^:private address-tier-policies
+  "A tier requiring a person's address to be verified."
+  [{:policy-id "pol.address"
+    :enabled true
+    :capabilities [{:kind {:idv {:action :idv-action-accept
+                                 :filters [{:party-type :party-type-person
+                                            :unverified
+                                            :idv-verification-address}]}}
+                    :effect :effect-deny}]}])
 
 (def ^:private tier-policies
   "A tier that resolves to at least one policy — creation rejects an
@@ -36,7 +54,8 @@
                              "micro"
                              active-binding
                              tier-policies
-                             permissive-policies)]
+                             permissive-policies
+                             idv-provider)]
       (is (re-find #"^bnk\." (:bank-id bank)))
       (is (= :bank-status-test (:status bank)))
       (is (= "000001" (:sort-code bank)))
@@ -49,7 +68,8 @@
                              "micro"
                              nil
                              tier-policies
-                             permissive-policies)]
+                             permissive-policies
+                             idv-provider)]
       (is (not (contains? bank :company-binding)))))
   (testing "rejects a nil tier"
     (let [r (SUT/new-bank "Acme"
@@ -58,7 +78,8 @@
                           nil
                           nil
                           []
-                          permissive-policies)]
+                          permissive-policies
+                          idv-provider)]
       (is (error/rejection? r))
       (is (= :bank/unknown-tier (error/kind r)))))
   (testing "rejects a tier that resolves to no policies"
@@ -68,7 +89,8 @@
                           "no-such-tier"
                           nil
                           []
-                          permissive-policies)]
+                          permissive-policies
+                          idv-provider)]
       (is (error/rejection? r))
       (is (= :bank/unknown-tier (error/kind r)))))
   (testing "rejects a binding whose company is not active"
@@ -78,9 +100,22 @@
                           "micro"
                           (assoc active-binding :company-status "dissolved")
                           tier-policies
-                          permissive-policies)]
+                          permissive-policies
+                          idv-provider)]
       (is (error/rejection? r))
-      (is (= :bank/company-not-active (error/kind r))))))
+      (is (= :bank/company-not-active (error/kind r)))))
+  (testing "rejects a tier requiring what the identity provider lacks"
+    (let [r (SUT/new-bank "Acme"
+                          :bank-status-test
+                          "000001"
+                          "address"
+                          nil
+                          address-tier-policies
+                          permissive-policies
+                          idv-provider)]
+      (is (error/rejection? r))
+      (is (= :idv/unsupported-criteria (error/kind r)))
+      (is (= [:idv-verification-address] (:unmet (error/payload r)))))))
 
 (deftest creation-actor-test
   (let [operator {:kind :actor-kind-operator :principal-id "queenswood-admin"}]
@@ -110,19 +145,38 @@
 
 (deftest change-tier-test
   (testing "rebinds and stamps the new tier"
-    (let [bank (SUT/change-tier test-bank "growth" new-tier-policies)]
+    (let [bank (SUT/change-tier test-bank
+                                "growth"
+                                new-tier-policies
+                                permissive-policies
+                                idv-provider)]
       (is (= "growth" (:tier bank)))
       (is (= "bnk.1" (:bank-id bank)))))
   (testing "rejects a bank that isn't test or live"
     (let [r (SUT/change-tier (assoc test-bank :status :bank-status-unknown)
                              "growth"
-                             new-tier-policies)]
+                             new-tier-policies
+                             permissive-policies
+                             idv-provider)]
       (is (error/rejection? r))
       (is (= :bank/invalid-status (error/kind r)))))
   (testing "rejects a tier with no matching policies"
-    (let [r (SUT/change-tier test-bank "unknown-tier" [])]
+    (let [r (SUT/change-tier test-bank
+                             "unknown-tier"
+                             []
+                             permissive-policies
+                             idv-provider)]
       (is (error/rejection? r))
-      (is (= :bank/unknown-tier (error/kind r))))))
+      (is (= :bank/unknown-tier (error/kind r)))))
+  (testing "rejects a tier requiring what the identity provider lacks"
+    (let [r (SUT/change-tier test-bank
+                             "address"
+                             address-tier-policies
+                             permissive-policies
+                             idv-provider)]
+      (is (error/rejection? r))
+      (is (= :idv/unsupported-criteria (error/kind r)))
+      (is (= [:idv-verification-address] (:unmet (error/payload r)))))))
 
 (deftest change-status-test
   (testing "flips status"

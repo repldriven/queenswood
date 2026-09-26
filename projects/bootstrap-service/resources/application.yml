@@ -11,5 +11,6 @@ system:
       record-db: !system/ref fdb.record-db
       record-store: !system/ref fdb.meta-store
       policy: !include policies/micro/restricted/policy.yml
+  idv-criteria: !include system/idv-criteria.yml
   cash-account-product-templates: !include system/cash-account-product-templates.yml
   telemetry: !include system/telemetry.yml

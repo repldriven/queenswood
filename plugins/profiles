@@ -1,3 +1,2 @@
 default mono/design mono/docs mono/framework mono/idioms mono/workflow queenswood/design queenswood/framework queenswood/idioms queenswood/workflow
 infra mono/docs mono/workflow queenswood/deployment queenswood/workflow
-all mono/design mono/docs mono/framework mono/idioms mono/workflow queenswood/deployment queenswood/design queenswood/framework queenswood/idioms queenswood/workflow
