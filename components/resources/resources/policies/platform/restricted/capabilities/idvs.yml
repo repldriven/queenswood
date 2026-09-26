@@ -3,3 +3,56 @@
   kind:
     idv:
       action: !keyword idv-action-submit
+- effect: !keyword effect-allow
+  reason: "Allow accepting a verification"
+  kind:
+    idv:
+      action: !keyword idv-action-accept
+- effect: !keyword effect-deny
+  reason: "A person's name and date of birth must be verified from a genuine government photo document"
+  kind:
+    idv:
+      action: !keyword idv-action-accept
+      filters:
+        - party-type: !keyword party-type-person
+          unverified: !keyword idv-verification-identity
+- effect: !keyword effect-deny
+  reason: "A person must be verified as live and matching their document's portrait"
+  kind:
+    idv:
+      action: !keyword idv-action-accept
+      filters:
+        - party-type: !keyword party-type-person
+          unverified: !keyword idv-verification-liveness
+- effect: !keyword effect-deny
+  reason: "A person's document must match the name and date of birth registered for them"
+  kind:
+    idv:
+      action: !keyword idv-action-accept
+      filters:
+        - party-type: !keyword party-type-person
+          unverified: !keyword idv-verification-claimed-identity
+- effect: !keyword effect-deny
+  reason: "A person's address must be verified"
+  kind:
+    idv:
+      action: !keyword idv-action-accept
+      filters:
+        - party-type: !keyword party-type-person
+          unverified: !keyword idv-verification-address
+- effect: !keyword effect-deny
+  reason: "A person must be screened against sanctions lists"
+  kind:
+    idv:
+      action: !keyword idv-action-accept
+      filters:
+        - party-type: !keyword party-type-person
+          unscreened: !keyword idv-screening-sanctions
+- effect: !keyword effect-deny
+  reason: "A person must be screened for being politically exposed"
+  kind:
+    idv:
+      action: !keyword idv-action-accept
+      filters:
+        - party-type: !keyword party-type-person
+          unscreened: !keyword idv-screening-pep

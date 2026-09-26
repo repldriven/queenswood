@@ -1,0 +1,4 @@
+criteria-check: !system/component
+  system/component-kind: idv/criteria-check
+  policy: !system/ref policies.platform
+  idv-provider: !include system/idv-provider.yml

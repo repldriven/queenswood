@@ -16,13 +16,18 @@
  ;; cash-account-product templates, over FDB. `cash-account-product` is
  ;; here for its `system.clj`, which registers the
  ;; `cash-account-product-templates/template` kind the application.yml
- ;; instantiates — no code references the brick.
+ ;; instantiates — no code references the brick. `idv` is here for the
+ ;; `idv/criteria-check` kind, and `person-identification` because `idv`
+ ;; requires it.
  :deps {ext/mono {:local/root "../../deps/mono"}
         component/cash-account-product {:local/root
                                         "../../components/cash-account-product"}
         component/cash-account-product-query
         {:local/root "../../components/cash-account-product-query"}
         component/fdb {:local/root "../../components/fdb"}
+        component/idv {:local/root "../../components/idv"}
+        component/person-identification {:local/root
+                                         "../../components/person-identification"}
         component/policy {:local/root "../../components/policy"}
         component/resources {:local/root "../../components/resources"}
         component/schema {:local/root "../../components/schema"}

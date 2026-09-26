@@ -50,6 +50,7 @@ system:
   email: !include system/email.yml
   smtp: !include system/smtp.yml
   policies: !include system/policy.yml
+  idv-criteria: !include system/idv-criteria.yml
   cash-account-product-templates: !include system/cash-account-product-templates.yml
   banks-dispatcher: !include system/bank-dispatcher.yml
   cash-accounts-dispatcher: !include system/cash-account-dispatcher.yml

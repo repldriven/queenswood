@@ -1,7 +1,50 @@
 (ns com.repldriven.queenswood.idv.domain
   (:require
+    [com.repldriven.queenswood.policy.interface :as policy]
+
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
-    [com.repldriven.mono.utility.interface :as utility]))
+    [com.repldriven.mono.utility.interface :as utility]
+
+    [clojure.string :as str]))
+
+(def ^:private verifications
+  [:idv-verification-identity :idv-verification-liveness
+   :idv-verification-claimed-identity :idv-verification-address])
+
+(def ^:private screenings [:idv-screening-sanctions :idv-screening-pep])
+
+(defn- criterion-name
+  [criterion]
+  (str/replace (name criterion) #"^idv-(verification|screening)-" ""))
+
+(defn- required?
+  [policies field criterion]
+  (error/anomaly? (policy/check-capability policies
+                                           :idv
+                                           {:action :idv-action-accept
+                                            :party-type :party-type-person
+                                            field criterion})))
+
+(defn unmet-criteria
+  [policies declaration]
+  (let [{:keys [verifies screens]} declaration
+        declared (set (concat verifies screens))]
+    (->> (concat (map (fn [v] [:unverified v]) verifications)
+                 (map (fn [s] [:unscreened s]) screenings))
+         (filter (fn [[field criterion]]
+                   (required? policies field criterion)))
+         (map second)
+         (remove (fn [criterion] (declared (criterion-name criterion))))
+         vec)))
+
+(defn check-criteria
+  [policies declaration]
+  (let [unmet (unmet-criteria policies declaration)]
+    (when (seq unmet)
+      (error/reject :idv/unsupported-criteria
+                    {:message (str "The identity provider cannot establish "
+                                   (str/join ", " (map criterion-name unmet)))
+                     :unmet unmet}))))
 
 (defn- guard-source-status
   [idv message allowed]

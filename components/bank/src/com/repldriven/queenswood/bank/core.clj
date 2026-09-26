@@ -161,8 +161,8 @@
   (store/transact
    txn
    (fn [txn]
-     (let [{:keys [identity-provider company-binding membership owner-invitation
-                   idempotency-key]}
+     (let [{:keys [identity-provider idv-provider company-binding membership
+                   owner-invitation idempotency-key]}
            opts
            {:keys [user-id role]} membership
            actor (domain/creation-actor (:actor opts) membership)]
@@ -193,7 +193,8 @@
                                 tier
                                 company-binding
                                 tier-policies
-                                policies)
+                                policies
+                                idv-provider)
           bank-id (:bank-id bank)
 
           ;; Issue the service-account client BEFORE the FDB write so an
@@ -243,14 +244,19 @@
    "Failed to create bank"))
 
 (defn change-tier
-  [txn bank-id tier]
+  [txn bank-id tier opts]
   (store/transact
    txn
    (fn [txn]
      (let-nom>
        [bank (bank-query/get-bank txn bank-id)
         new-tier-policies (policy/get-policies-by-tier txn tier)
-        updated (domain/change-tier bank tier new-tier-policies)
+        policies (policy/get-effective-policies txn {})
+        updated (domain/change-tier bank
+                                    tier
+                                    new-tier-policies
+                                    policies
+                                    (:idv-provider opts))
         _ (unbind-tier-policies txn bank-id)
         _ (bind-policies txn bank-id new-tier-policies)
         entry (changelog/tier-changed {:bank-id bank-id

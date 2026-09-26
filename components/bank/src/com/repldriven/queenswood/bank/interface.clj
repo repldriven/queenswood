@@ -36,6 +36,9 @@
   - opts: map; `:identity-provider` (required) is the IDP component
     that issues the bank's service-account client — without one a bank
     has no credentials, so creation is rejected `:bank/missing-identity-provider`;
+    `:idv-provider` (required) is the provider declaration, and creation
+    is rejected `:idv/unsupported-criteria` when the platform or tier
+    policies require a verification or screening it does not establish;
     `:audience` (string) is the `aud` claim stamped on tokens minted
     for the new client; `:company-binding` (map, optional) is the
     confirmed legal-entity snapshot to bind the bank to (onboarding) —
@@ -68,17 +71,20 @@
   binds the new tier's policies, and persists the bank's `:tier`.
   Returns the updated bank map or an anomaly.
 
-  Rejects `:bank/invalid-status` unless the bank is test or live, and
+  Rejects `:bank/invalid-status` unless the bank is test or live,
   `:bank/unknown-tier` when `tier` resolves to no policies (a typo
-  must not silently strip all tier bindings).
+  must not silently strip all tier bindings), and
+  `:idv/unsupported-criteria` when the tier's policies require a
+  verification or screening the provider does not establish.
 
   Args:
   - txn: FDB transaction or db handle.
   - bank-id: bank id string.
   - tier: tier name (string) selecting `tier=<name>`-labelled
-    policies to bind."
-  [txn bank-id tier]
-  (core/change-tier txn bank-id tier))
+    policies to bind.
+  - opts: map; `:idv-provider` (required) is the provider declaration."
+  [txn bank-id tier opts]
+  (core/change-tier txn bank-id tier opts))
 
 (defn change-status
   "Flip a bank between `:bank-status-test` and `:bank-status-live` in
