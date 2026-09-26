@@ -8,9 +8,9 @@ Proposed, and built as far as the repository goes: `spec.cluster.shelved`
 on `XQueenswoodInstance` and `XCluster`, the record an instance leaves in
 its backups bucket, and the
 [instance-shelve](../recipes/infra/instance-shelve.md) and
-[instance-unshelve](../recipes/infra/instance-unshelve.md) recipes. No
-instance has been shelved yet, so the first unshelve is also this
-installation's first restore.
+[instance-unshelve](../recipes/infra/instance-unshelve.md) recipes. A
+test instance has been shelved and unshelved, restoring FoundationDB to
+the recorded version with every record intact.
 
 Extends [ADR-0022](0022-cloud-foundation-and-environment-lifecycle.md),
 which made off a declared state, and

@@ -4,10 +4,10 @@
 
 ## Status
 
-**Untested.** Derived from the `XCluster` composition, the chart's
-restore path and [instance-rebuild-cluster](instance-rebuild-cluster.md),
-itself untested. The first run is this installation's first restore,
-and its first measurement of how long one takes.
+**Verified** on 2026-09-26, unshelving one installation's test
+instance: the cluster was `RUNNING` about ten minutes after the plane
+read the merge, the restore completed at the recorded version, and
+every record, both banks included, came back.
 
 ## Problem
 
@@ -75,8 +75,9 @@ gcloud container clusters list --project="$PROJECT" --format='value(name,status,
 just crossplane-unready
 ```
 
-`PROVISIONING`, then `RUNNING` with the pool's count; then nothing of
-the instance's from the second.
+`PROVISIONING`, then `RUNNING` with the pool's count, about ten minutes
+after the plane reads the merge; then nothing of the instance's from
+the second.
 
 ### 4. Return the workloads
 
@@ -109,11 +110,12 @@ The unit's four Applications `Synced` and `Healthy`.
 just queenswood-instance-ctx "$QW_ENV" "$QW_LABEL"
 kubectl --context "$QW_CODE-$QW_ENV-$QW_LABEL" -n queenswood exec -it \
   deploy/queenswood-fdb-backup-agents -- \
-  fdbrestore status --dest-cluster-file /etc/fdb/fdb.cluster
+  fdbrestore status --dest-cluster-file /var/dynamic-conf/fdb.cluster
 ```
 
-`State: completed` with `LastError: None`. Then sign in through the
-console and confirm a party resolves.
+`State: completed`, and the last line `Restored to version <version>`
+with the version `just queenswood-instance-records` gives for the
+record. Then sign in through the console and confirm a party resolves.
 
 ## Failures
 
@@ -121,6 +123,12 @@ console and confirm a party resolves.
 registration still carries no address, because the composite had not
 read the new cluster's back when the Applications arrived. It corrects
 itself on the next reconcile; nothing needs doing.
+
+**The console opens a bank older than the one last used.** It opens the
+bank the signed-in user is a member of, and one person may have two
+users — a Google account and a password one, say — each a member of a
+different bank. The restore is exact; sign out and sign in as the other
+account before suspecting it.
 
 ## Rules
 

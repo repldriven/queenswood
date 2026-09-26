@@ -1160,7 +1160,10 @@ restore fill it, which needs `clusterAdmin` — is right only where the current
 data is worthless, a test environment or a rebuild after total loss; for
 corruption, restoring beside it and cutting over is the shape to build toward.
 Test the recovery procedure on a schedule and record what it proved — a backup
-is not verified until it has been restored. Down and rebuild are different kinds
+is not verified until it has been restored. Start the backup again in a new
+generation after any change to `fdb.version`, aborting the running one first,
+and judge whether it is current by `Last complete log`, never by the first line
+of `fdbbackup status`. Down and rebuild are different kinds
 of state and must not share a word: `down` preserves what it stops and is
 reversible, a rebuild destroys what it replaces and is not. Never give whatever
 empties a destination a name sharing a word with `down`, or let it stay true
@@ -1193,9 +1196,12 @@ and the project, network, identities, database, address, secrets and
 backups stand; unshelving composes both afresh under the same name, and
 FoundationDB restores from the point recorded when it was shelved. Shelve
 only an instance that is `up`, on a plane that is not frozen, bringing a
-`down` one up first. Record the restore point -- generation and version --
-in the instance's backups bucket before the workloads come off, and read
-it back. Withdraw the unit's Applications and delete them while the
+`down` one up first. Stop the five writers, even on an instance nobody
+uses, and check the backup is restorable and its log advancing, before
+recording the restore point -- generation and version -- in the
+instance's backups bucket: the restore returns exactly the recorded
+version, and anything written after it goes with the volumes. Read the
+record back. Withdraw the unit's Applications and delete them while the
 instance has nodes, since an operator's finalizer needs its pod to run,
 and check no `pvc-` disk and no forwarding rule remains in the project
 before shelving: a disk and a load balancer outlive a cluster deleted

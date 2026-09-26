@@ -179,8 +179,16 @@ sop-fdb-version-at env label time:
             gen = $NF
             sub(/^gs:\/\/[^\/]+\/data\//, "", gen)
             sub(/\/logs\/.*$/, "", gen)
-            if (when <= target) { bgen=gen; bwhen=when; bver=f[2] }
-            else if (awhen == "") { agen=gen; awhen=when; aver=f[2] }
+            # By write time, never by position: the listing is ordered
+            # by path, and a bucket holding several generations lists
+            # an old one after a current one.
+            if (when <= target) {
+              if (when > bwhen || (when == bwhen && f[2] + 0 > bver + 0)) {
+                bgen=gen; bwhen=when; bver=f[2]
+              }
+            } else if (awhen == "" || when < awhen) {
+              agen=gen; awhen=when; aver=f[2]
+            }
           }
           END {
             if (bver == "") {
