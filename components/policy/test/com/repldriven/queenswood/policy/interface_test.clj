@@ -137,6 +137,48 @@
                                        {:action :organization-action-create})]
       (is (error/unauthorized? result)))))
 
+(deftest check-capability-idv-criteria-test
+  (let [accept {:action :idv-action-accept :party-type :party-type-person}
+        policies [(policy
+                   [(allow {:idv {:action :idv-action-accept}})
+                    (deny {:idv {:action :idv-action-accept
+                                 :filters [{:party-type :party-type-person
+                                            :unverified
+                                            :idv-verification-address}]}}
+                          "address unverified")
+                    (deny {:idv {:action :idv-action-accept
+                                 :filters [{:party-type :party-type-person
+                                            :unscreened :idv-screening-pep}]}}
+                          "pep unscreened")])]]
+    (testing "an unverified deny refuses the check naming its value"
+      (let [result (SUT/check-capability
+                    policies
+                    :idv
+                    (assoc accept :unverified :idv-verification-address))]
+        (is (error/unauthorized? result))
+        (is (= "address unverified" (:message (error/payload result))))))
+    (testing "an unscreened deny refuses the check naming its value"
+      (let [result (SUT/check-capability
+                    policies
+                    :idv
+                    (assoc accept :unscreened :idv-screening-pep))]
+        (is (error/unauthorized? result))
+        (is (= "pep unscreened" (:message (error/payload result))))))
+    (testing "a value no deny names passes"
+      (is (true? (SUT/check-capability
+                  policies
+                  :idv
+                  (assoc accept :unverified :idv-verification-liveness)))))
+    (testing "a check naming neither passes"
+      (is (true? (SUT/check-capability policies :idv accept))))
+    (testing "a deny for a person passes an organisation"
+      (is (true? (SUT/check-capability policies
+                                       :idv
+                                       {:action :idv-action-accept
+                                        :party-type :party-type-organization
+                                        :unverified
+                                        :idv-verification-address}))))))
+
 (defn- limit-policy
   [limits & {:keys [enabled] :or {enabled true}}]
   {:enabled enabled :limits limits})
@@ -464,6 +506,50 @@
                                          :labels {"tier" "test-tier"}})
                    loaded (SUT/get-policy config policy-id)
                    _ (is (= {"tier" "test-tier"} (:labels loaded)))])))))
+
+(deftest idv-filters-roundtrip-test
+  (with-test-system
+   [sys "classpath:policy/application-test.yml"]
+   (let [config (fdb-config sys)
+         accept {:action :idv-action-accept :party-type :party-type-person}]
+     (testing "an idv deny read back refuses only the check naming its value"
+       (nom-test> [{:keys [policy-id]}
+                   (SUT/new-policy
+                    config
+                    {:name "Idv criteria"
+                     :enabled true
+                     :category :policy-category-standard
+                     :capabilities
+                     [(allow {:idv {:action :idv-action-accept}})
+                      (deny {:idv {:action :idv-action-accept
+                                   :filters
+                                   [{:party-type :party-type-person
+                                     :unverified
+                                     :idv-verification-claimed-identity}
+                                    {:party-type :party-type-person
+                                     :unscreened :idv-screening-sanctions}]}})]
+                     :limits []})
+                   loaded (SUT/get-policy config policy-id)
+                   _ (is (error/unauthorized?
+                          (SUT/check-capability
+                           [loaded]
+                           :idv
+                           (assoc accept
+                                  :unverified
+                                  :idv-verification-claimed-identity))))
+                   _ (is
+                      (error/unauthorized?
+                       (SUT/check-capability
+                        [loaded]
+                        :idv
+                        (assoc accept :unscreened :idv-screening-sanctions))))
+                   _ (is (true? (SUT/check-capability
+                                 [loaded]
+                                 :idv
+                                 (assoc accept
+                                        :unverified
+                                        :idv-verification-liveness))))
+                   _ (is (true? (SUT/check-capability [loaded] :idv accept)))])))))
 
 (deftest get-effective-policies-test
   (with-test-system

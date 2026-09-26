@@ -1,0 +1,9 @@
+platform: !include policies/platform/restricted/policy.yml
+micro: !include policies/micro/restricted/policy.yml
+idv-provider: !include system/idv-provider.yml
+system:
+  idv:
+    criteria-check: !system/component
+      system/component-kind: idv/criteria-check
+      policy: !include policies/platform/restricted/policy.yml
+      idv-provider: !include system/idv-provider.yml

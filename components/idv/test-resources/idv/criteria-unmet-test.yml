@@ -1,0 +1,8 @@
+system:
+  idv:
+    criteria-check: !system/component
+      system/component-kind: idv/criteria-check
+      policy: !include policies/platform/restricted/policy.yml
+      idv-provider:
+        verifies: [identity, liveness, claimed-identity]
+        screens: [sanctions, pep]

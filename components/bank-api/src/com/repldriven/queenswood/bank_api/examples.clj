@@ -45,6 +45,12 @@
            :status 422
            :detail "Name the company the bank is created for"}})
 
+(def IdvUnsupportedCriteria
+  {:value {:title "REJECTED"
+           :type ":idv/unsupported-criteria"
+           :status 422
+           :detail "The identity provider cannot establish address"}})
+
 (def OperatorFieldRefused
   {:value
    {:title "FORBIDDEN"
@@ -56,7 +62,8 @@
 (def registry
   (examples-registry [#'BankNotFound #'BankInvalidStatus #'BankUnknownTier
                       #'CompanyNotActive #'CompanyRequired
-                      #'OperatorFieldRefused #'BankUnnamed]))
+                      #'IdvUnsupportedCriteria #'OperatorFieldRefused
+                      #'BankUnnamed]))
 
 (def BankId (schema/id-examples "BankId"))
 

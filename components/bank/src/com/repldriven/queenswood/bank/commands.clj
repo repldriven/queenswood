@@ -31,6 +31,7 @@
                                tier
                                currencies
                                {:identity-provider (:identity-provider config)
+                                :idv-provider (:idv-provider config)
                                 :audience audience
                                 :company-binding company-binding
                                 :membership membership
@@ -41,7 +42,10 @@
 (defn- change-bank-tier
   [config data]
   (let [{:keys [bank-id tier]} data
-        result (core/change-tier config bank-id tier)]
+        result (core/change-tier config
+                                 bank-id
+                                 tier
+                                 {:idv-provider (:idv-provider config)})]
     (if (error/anomaly? result)
       result
       (->response config {:bank result}))))

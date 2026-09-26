@@ -76,6 +76,14 @@
 
 (def
   ^{:doc
+    "RFC 9457 body for a 422 `:idv/unsupported-criteria` rejection: the
+  tier's policies require a verification or screening the identity
+  provider does not establish."}
+  IdvUnsupportedCriteria
+  examples/IdvUnsupportedCriteria)
+
+(def
+  ^{:doc
     "RFC 9457 body for a 403 `auth/forbidden` rejection: Only an
   operator chooses a bank's status, tier, currencies or owner."}
   OperatorFieldRefused
