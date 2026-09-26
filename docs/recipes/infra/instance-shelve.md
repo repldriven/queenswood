@@ -4,10 +4,10 @@
 
 ## Status
 
-**Untested.** Derived from the `XCluster` composition, the unit's
-Applications and the chart; nobody has shelved an instance yet. The
-first [instance-unshelve](instance-unshelve.md) after it is this
-installation's first restore.
+**Verified** on 2026-09-26, shelving one installation's test instance
+twice, with an [instance-unshelve](instance-unshelve.md) between: the
+cluster and pool were deleted about ten minutes after the merge, and
+nothing billed was left in the project.
 
 ## Problem
 
@@ -24,6 +24,18 @@ data restored.
 - An instance that is `up`, on a plane that is not frozen. One that is
   `down` is brought up first, with `gh-pr-up` in the manifests
   repository: its operators have to run to let their resources go.
+- A backup restorable into the generation `fdb.backup.backupName`
+  names, and still shipping: two readings a minute apart, the first
+  line saying `is restorable` and `Last complete log version` higher
+  in the second. After a FoundationDB upgrade it may be neither; see
+  [fdb-recovery](fdb-recovery.md).
+
+  ```bash
+  kubectl --context "$QW_CODE-$QW_ENV-$QW_LABEL" -n queenswood exec \
+    deploy/queenswood-fdb-backup-agents -- \
+    fdbbackup status -C /var/dynamic-conf/fdb.cluster
+  ```
+
 - The capability each step names. Ours is a Google group; yours may
   differ.
 - Steps 3 and 5 — write access to the manifests repository, and a
@@ -40,12 +52,18 @@ export QW_INSTALLATIONS_REPO=../installations
 
 ### 1. Stop writing to it
 
-**No cloud capability.** These are the bank's own workloads.
+**As the installation's cluster admin.** Ours is
+`grp-gcp-<code>-cluster-admin@` — join for this step, then leave.
 
-Scale the five writers to zero as
-[instance-rebuild-cluster](instance-rebuild-cluster.md) step 2 lists
-them, or on an instance nobody uses, stop using it. Wait five minutes,
-so the mutation log ships what was last written.
+```bash
+kubectl --context "$QW_CODE-$QW_ENV-$QW_LABEL" -n queenswood scale deploy --replicas=0 \
+  queenswood-api-service queenswood-financial-processors-service \
+  queenswood-operational-processors-service queenswood-external-adapters-service \
+  queenswood-exclusive-dispatchers-service
+```
+
+All five read `0/0`. Wait five minutes, so the mutation log ships what
+was last written.
 
 ### 2. Record the restore point
 
@@ -63,7 +81,11 @@ path: `records/<stamp>` in the instance's backups bucket.
 export QW_STAMP=$(just queenswood-instance-records "$QW_ENV" "$QW_LABEL" | tail -1)
 export QW_GENERATION=$(just queenswood-instance-records "$QW_ENV" "$QW_LABEL" "$QW_STAMP" | jq -r .generation)
 export QW_VERSION=$(just queenswood-instance-records "$QW_ENV" "$QW_LABEL" "$QW_STAMP" | jq -r .version)
+echo "$QW_GENERATION $QW_VERSION"
 ```
+
+The generation is the one `fdb.backup.backupName` names in
+`$QW_CODE/units/$QW_LABEL/values.yml`.
 
 ### 3. Withdraw the workloads
 
@@ -77,7 +99,7 @@ just -f "$QW_INSTALLATIONS_REPO/Justfile" gh-merge
 The pull request sets `spec.source.exclude` in
 `$QW_CODE/$QW_LABEL.unit.yml` to the unit's three Applications. Once
 the plane syncs it, `just argo-apps-status` shows the unit's own
-Application `OutOfSync` and the three unchanged.
+Application `OutOfSync` and `Healthy`, and the three unchanged.
 
 ### 4. Delete the workloads
 
@@ -129,7 +151,13 @@ PROJECT=$(just _instance-project "$QW_ENV" "$QW_LABEL")
 gcloud container clusters list --project="$PROJECT" --format='value(name,status)'
 ```
 
-`STOPPING` within a few minutes of the merge, then no output.
+`STOPPING` within a few minutes of the merge, then no output. Then:
+
+```bash
+gcloud compute network-endpoint-groups list --project="$PROJECT" --format='value(name)'
+```
+
+No output.
 
 ## Failures
 
@@ -144,10 +172,23 @@ outlived its owner, or its volume's reclaim policy is `Retain`. Delete
 the claim, or the disk, before step 5: a disk left when the cluster
 goes is billed and nothing adopts it.
 
+**An endpoint group is still listed after step 6.** GKE deletes a
+Gateway backend's endpoint group some minutes after its Service goes,
+and a cluster deleted first leaves it behind. It is not billed and the
+next cluster's groups carry a different id, so nothing clashes. Delete
+it as the installation's platform admin, passing
+`--impersonate-service-account="$(just plane-identity)"`: no person
+holds a write role in the project.
+
 ## Rules
 
 **MUST:**
 
+- Stop the five writers before recording the restore point, even on an
+  instance nobody uses. The restore returns exactly the recorded
+  version, and anything written after it goes with the volumes.
+- Check the backup is restorable and its log advancing before
+  recording.
 - Record the restore point with `just queenswood-instance-record`
   before withdrawing the workloads, and read it back with `just
   queenswood-instance-records`.

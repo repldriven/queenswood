@@ -242,6 +242,29 @@ Every acting scenario starts from a rebuilt cluster, so open a new
 generation on every recovery. That is what
 `<service>/<backup-type>/<generation>` has the slot for.
 
+### After a FoundationDB upgrade, start the backup again
+
+FoundationDB 7.3.79 reads the encryption block size from a backup's
+own configuration rather than a knob, a change made in
+[apple/foundationdb#13126](https://github.com/apple/foundationdb/pull/13126).
+A backup started under an earlier version stored none, so every upload
+fails `ASSERT(encryptionBlockSize > 0)` in the agents' trace logs,
+while `fdbbackup status` goes on saying `restorable` about a log that
+has stopped. `fdbbackup modify` carries the stored size forward, so a
+new generation alone does not help.
+
+Abort the running backup, then merge a new `fdb.backup.backupName`:
+
+```bash
+kubectl --context <code>-<env>-<label> -n queenswood exec \
+  deploy/queenswood-fdb-backup-agents -- \
+  fdbbackup abort -t default -C /var/dynamic-conf/fdb.cluster
+```
+
+The operator finds no backup running and starts one into the new,
+empty container, storing the size. Abort only once: a second abort
+stops the backup it just started.
+
 ### Restore testing, and what each check proves
 
 A backup is not verified until it has been restored. The three
@@ -371,6 +394,10 @@ waits on.
 - Prove a restore with `fdbrestore status` and a key count, never with
   the Job's exit status and never with the `FoundationDBRestore`
   resource.
+- Start the backup again in a new generation after any change to
+  `fdb.version`, aborting the running one first, and read `Last
+  complete log` rather than the first line of `fdbbackup status` to
+  judge whether it is current.
 - Test the recovery procedure on a schedule and record what it proved.
   A backup is not verified until it has been restored.
 - Restore onto systems segregated from the source anywhere other than a
