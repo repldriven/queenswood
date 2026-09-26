@@ -260,6 +260,47 @@ deploys from the same tag.
 chart's default and names a tag no image carries any more. Remove the
 line, and pin `targetRevision` on both Applications to a release.
 
+**FoundationDB's storage pod, or a new service pod, is `Pending` with
+`Insufficient memory`.** The migrator and bootstrap Jobs are named for a
+hash of their spec, so every image or values change adds a pair beside
+the last, and `prune: false` leaves the old ones: a pod stuck in init
+or `ImagePullBackOff` keeps its memory request for as long as it
+exists. A rollout also starts each service's new pod beside the old
+one, where it waits in init on bootstrap, and every FoundationDB pod
+requests 2 GiB, its sidecar as much as the database. Delete the gate
+Jobs the current release does not name; where that is not enough, scale
+the five services to zero until FoundationDB, the migrator and
+bootstrap have finished, then sync the `queenswood` Application. Nothing
+in the chart yet frees a superseded Job, or sizes the sidecar apart
+from the database.
+
+**The migrator Job reads `BackoffLimitExceeded`.** It crashed while
+FoundationDB was unavailable and used its six retries, and nothing
+starts it again: the Application does not self-heal. Delete the Job,
+then give the `<code>-<env>-<label>-queenswood` Application an empty
+sync, `{"operation":{"initiatedBy":{"username":"<you>"},"sync":{}}}`
+merged into it on the plane, which recreates the Job under the same
+name.
+
+**Bootstrap fails with `deadline exceeded` while FoundationDB reports
+itself available.** Its pod started before FoundationDB moved its
+coordinator, which an upgrade does. The cluster file is in an
+`emptyDir` the `wait-for-fdb-cluster` init container writes once, so
+every restart of the container reads the coordinator that has gone.
+Delete the pod, not the Job, and the replacement reads the current
+file. Any pod behind that init container fails the same way.
+
+**A merged `gh-pr-up` never reaches a `down` instance.** The unit's
+sync started while the instance was `down`, and waits for the
+`external-secrets` Application in wave 1 to become healthy, which needs
+nodes; while it runs, no later merge is applied. `just
+argo-apps-operation` shows it `Running` on an old revision. Terminate
+it by setting `status.operationState.phase` to `Terminating` on the
+unit's Application, as the plane's cluster admin: the next sync
+applies `instance.yml`, which carries no wave, before it waits on
+anything. Every unit sync that starts while its instance is `down`
+hangs the same way.
+
 ## Rules
 
 **MUST:**
