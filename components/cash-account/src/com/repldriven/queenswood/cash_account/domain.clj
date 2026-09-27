@@ -4,7 +4,9 @@
     [com.repldriven.queenswood.policy.interface :as policy]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
-    [com.repldriven.mono.utility.interface :as utility :refer [assoc-some]]))
+    [com.repldriven.mono.utility.interface :as utility :refer [assoc-some]]
+
+    [clojure.string :as str]))
 
 (defn party->account-type
   [party]
@@ -60,30 +62,43 @@
   [{:keys [sort-code account-number]}]
   (str sort-code account-number))
 
-(defn- new-addresses
-  [product-version address-fountain-fn sort-code]
-  (let [schemes (:allowed-payment-address-schemes product-version)]
+(defn- scheme-name
+  [scheme]
+  (str/replace (clojure.core/name scheme) #"^payment-address-scheme-" ""))
+
+(defn address-schemes
+  [product-version]
+  (let [schemes (:allowed-payment-address-schemes product-version)
+        unsupported (remove #{:payment-address-scheme-scan} schemes)]
     (cond
      (empty? schemes)
      (error/reject :cash-account/no-payment-schemes
                    "Product has no allowed payment address schemes")
 
-     :else
-     (reduce (fn [addresses scheme]
-               (case scheme
-                 :payment-address-scheme-scan
-                 (let [account-number (address-fountain-fn sort-code)]
-                   (conj addresses
-                         {:scheme :payment-address-scheme-scan
-                          :scan {:sort-code sort-code
-                                 :account-number account-number}}))
+     (seq unsupported)
+     (error/reject :cash-account/unsupported-scheme
+                   (str "Unsupported payment address scheme: "
+                        (clojure.core/name (first unsupported))))
 
-                 (reduced (error/reject :cash-account/unsupported-scheme
-                                        (str
-                                         "Unsupported payment address scheme: "
-                                         (clojure.core/name scheme))))))
-             []
-             schemes))))
+     :else
+     (mapv scheme-name schemes))))
+
+(defn- issued->address
+  [{:keys [scheme sort-code account-number]}]
+  (case scheme
+    "scan" {:scheme :payment-address-scheme-scan
+            :scan {:sort-code sort-code :account-number account-number}}))
+
+(defn- with-addresses
+  [account issued provider-account-id]
+  (let [addresses (mapv issued->address issued)
+        bban (some (fn [{:keys [scan]}] (when scan (scan->bban scan)))
+                   addresses)]
+    (assoc-some (assoc account
+                       :payment-addresses addresses
+                       :provider-account-id provider-account-id)
+                :bban
+                bban)))
 
 (defn- enum-suffix
   [kw prefix]
@@ -110,11 +125,8 @@
                      :status status}))))
 
 (defn open-account
-  "Build a cash-account record from input data and a published product
-  version: derives account-type from the holder party, runs the open
-  capability + count limits, and allocates payment-addresses."
-  [data product-version as-of party address-fountain-fn aggregates policies]
-  (let [{:keys [bank-id party-id product-id currency name sort-code]}
+  [data product-version as-of party aggregates policies]
+  (let [{:keys [bank-id party-id product-id currency name]}
         data
         {:keys [version-id]} product-version
         product-type (:product-type product-version)
@@ -127,10 +139,6 @@
                                         " effective today")
                           :product-id product-id
                           :as-of as-of}))
-       _ (when (nil? sort-code)
-           (error/reject :cash-account/missing-sort-code
-                         {:message "No sort code supplied for account opening"
-                          :bank-id bank-id}))
        _ (ensure-currency-allowed currency product-version)
        _ (ensure-party-active party)
        _ (check-capability :cash-account-action-open account-type policies)
@@ -140,12 +148,8 @@
                                currency
                                aggregates
                                policies)
-       payment-addresses (new-addresses product-version
-                                        address-fountain-fn
-                                        sort-code)]
-      (let [now (utility/now)
-            bban (some (fn [{:keys [scan]}] (when scan (scan->bban scan)))
-                       payment-addresses)]
+       _ (address-schemes product-version)]
+      (let [now (utility/now)]
         (assoc-some {:bank-id bank-id
                      :party-id party-id
                      :product-id product-id
@@ -156,11 +160,9 @@
                      :name name
                      :account-id (utility/generate-id "acc")
                      :account-status :cash-account-status-opening
-                     :payment-addresses payment-addresses
+                     :payment-addresses []
                      :created-at now
                      :updated-at now}
-                    :bban
-                    bban
                     :idempotency-key
                     (:idempotency-key data))))))
 
@@ -185,6 +187,20 @@
   (assoc account
          :account-status :cash-account-status-opened
          :updated-at (utility/now)))
+
+(defn provider-opened-account
+  [account {:keys [provider-account-id addresses]}]
+  (assoc (with-addresses account addresses provider-account-id)
+         :account-status :cash-account-status-opened
+         :updated-at (utility/now)))
+
+(defn refused-account
+  [account reason]
+  (assoc-some (assoc account
+                     :account-status :cash-account-status-refused
+                     :updated-at (utility/now))
+              :refusal-reason
+              reason))
 
 (defn close-account
   [account balances policies]
@@ -253,17 +269,8 @@
            :account-status :cash-account-status-opened
            :updated-at (utility/now))))
 
-(defn rotate-address
-  "Replace an opened account's payment addresses with a freshly
-  allocated set drawn from the product version's allowed schemes,
-  retiring the old ones on-record (QNS-20). The old addresses are
-  never redirected — a payment landing on a retired address is a
-  lookup miss for `get-account-by-bban`, which already falls into
-  the suspense path.
-
-  The rotation stamps its own idempotency key onto the account, so a
-  retry under that key can be told from a fresh rotation."
-  [account data product-version address-fountain-fn policies]
+(defn request-rotation
+  [account data policies]
   (let-nom>
     [_ (when-not (= :cash-account-status-opened (:account-status account))
          (error/reject :cash-account/invalid-status
@@ -273,27 +280,25 @@
                         :allowed #{:cash-account-status-opened}}))
      _ (check-capability :cash-account-action-rotate-address
                          (:account-type account)
-                         policies)
-     sort-code (some (fn [{:keys [scan]}] (when scan (:sort-code scan)))
-                     (:payment-addresses account))
-     new-payment-addresses (new-addresses product-version
-                                          address-fountain-fn
-                                          sort-code)]
-    (let [now (utility/now)
-          bban (some (fn [{:keys [scan]}] (when scan (scan->bban scan)))
-                     new-payment-addresses)
-          retired (mapv (fn [address] {:address address :retired-at now})
-                        (:payment-addresses account))]
-      (assoc-some (assoc account
-                         :payment-addresses new-payment-addresses
-                         :retired-payment-addresses
-                         (into (vec (:retired-payment-addresses account))
-                               retired)
-                         :updated-at now)
-                  :bban
-                  bban
-                  :last-rotation-idempotency-key
-                  (:idempotency-key data)))))
+                         policies)]
+    (let [rotation-key (or (:idempotency-key data)
+                           (str (utility/uuidv7)))]
+      (assoc account
+             :pending-rotation-key rotation-key
+             :last-rotation-idempotency-key rotation-key
+             :updated-at (utility/now)))))
+
+(defn reissued-account
+  [account {:keys [provider-account-id addresses]}]
+  (let [now (utility/now)
+        retired (mapv (fn [address] {:address address :retired-at now})
+                      (:payment-addresses account))]
+    (-> account
+        (dissoc :pending-rotation-key :bban)
+        (with-addresses addresses provider-account-id)
+        (assoc :retired-payment-addresses
+               (into (vec (:retired-payment-addresses account)) retired)
+               :updated-at now))))
 
 (defn migrate-product
   "Repin an opened account to another product version. Direct

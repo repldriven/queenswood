@@ -296,10 +296,7 @@ thing so the first rejection or error short-circuits.
                               :product-id product-id}))
            aggregates (counts txn organization-id ...)
            account (domain/open-account
-                    data product-version party
-                    (fn [counter]
-                      (store/allocate-payment-address txn counter))
-                    aggregates policies)
+                    data product-version party aggregates policies)
            _ (balances/new-balances
               txn (domain/opening-balances account currency product-version))
            _ (store/save-account txn account {...changelog...})]

@@ -320,6 +320,41 @@
                 (:type (http/res->edn forged))))
        _ (is (= before (outbox-size config)) "nothing is written")])))
 
+(defn- test-account-commands-twice
+  [sys config]
+  (let [proc (system/instance sys [:clearbank-adapter :command-processor])
+        schemas (system/instance sys [:avro :serde])
+        send (fn [command data]
+               (let [payload (avro/serialize (get schemas command) data)]
+                 (processor/process proc
+                                    {:command command :payload payload})))
+        intents (fn [dedup-key]
+                  (dedup-count config
+                               "clearbank-outbound-intents"
+                               "ClearbankOutboundIntent"
+                               [dedup-key]))
+        opening {:bank-id "bnk.1"
+                 :account-id "acc.adapter.1"
+                 :holder-name "Ford Prefect"
+                 :currency "GBP"
+                 :address-schemes ["scan"]}
+        closing {:bank-id "bnk.1"
+                 :account-id "acc.adapter.1"
+                 :provider-account-id "va-1"}
+        reissue {:bank-id "bnk.1"
+                 :account-id "acc.adapter.1"
+                 :provider-account-id "va-1"
+                 :rotation-key "rot-1"}]
+    (testing "each account command enqueues one call, however often sent"
+      (doseq [[command data dedup-key]
+              [["open-payment-account" opening "open:acc.adapter.1"]
+               ["close-payment-account" closing "close:acc.adapter.1"]
+               ["reissue-payment-address" reissue
+                "reissue:acc.adapter.1:rot-1"]]]
+        (is (= {:status "ACCEPTED"} (send command data)))
+        (is (= {:status "ACCEPTED"} (send command data)))
+        (is (= 1 (intents dedup-key)) command)))))
+
 (deftest clearbank-adapter-test
   (with-test-system
    [sys
@@ -349,5 +384,7 @@
          (test-assessment-failure-without-instructions config))
        (testing "a redelivered submit-payment enqueues one intent"
          (test-submit-payment-twice sys config))
+       (testing "a redelivered account command enqueues one call"
+         (test-account-commands-twice sys config))
        (testing "an unsigned or forged webhook answers 401 and writes nothing"
          (test-unauthenticated-webhooks config))))))

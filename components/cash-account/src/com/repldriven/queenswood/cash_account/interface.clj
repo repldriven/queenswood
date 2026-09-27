@@ -33,8 +33,10 @@
 
 (defn new-account
   "Open a cash account, seeding the product's balance buckets.
-  Returns the account map (`:cash-account-status-opening`) or an
-  anomaly.
+  Returns the account map (`:cash-account-status-opening`, with no
+  payment addresses yet) or an anomaly. The account's opening event asks
+  the payment provider for its addresses, and it becomes `opened` with
+  them, or `refused`, when the provider answers.
 
   Args:
   - txn: FDB transaction or db handle.
@@ -49,7 +51,9 @@
 
 (defn close-account
   "Close an account. Returns the updated account
-  (`:cash-account-status-closing`) or an anomaly.
+  (`:cash-account-status-closing`) or an anomaly. The account becomes
+  `closed` once the payment provider closes the account behind it, at
+  once for one the provider never opened.
 
   Args:
   - txn: FDB transaction or db handle.
@@ -89,16 +93,16 @@
    (core/resume-account txn data opts)))
 
 (defn rotate-address
-  "Rotate an opened account onto a freshly allocated set of payment
-  addresses, permanently retiring the old ones on-record. Direct
-  single-phase flip, no second leg. Returns the updated account
-  (`:cash-account-status-opened`) or an anomaly.
+  "Ask the payment provider to rotate an opened account onto new
+  payment addresses. Returns the account with the rotation pending, its
+  addresses unchanged, or an anomaly; when the provider reports the new
+  ones, they replace the old, which are retired on-record.
 
   A rotation stamps its `:idempotency-key` onto the account, and a
   command repeating the key that last rotated it returns the account
-  untouched — no address is allocated and nothing is written. That is
-  what a retry after a lost reply gets, rather than a second set of
-  addresses and a second retirement.
+  untouched — nothing is asked of the provider and nothing is written.
+  That is what a retry after a lost reply gets, rather than a second
+  rotation.
 
   Args:
   - txn: FDB transaction or db handle.

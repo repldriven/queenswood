@@ -39,19 +39,6 @@
                 :bank/get
                 "Failed to load bank"))
 
-(defn get-bank-by-sort-code
-  [txn sort-code]
-  (fdb/transact txn
-                (fn [txn]
-                  (some-> (fdb/query-record (fdb/open txn store-name)
-                                            "Bank"
-                                            "sort_code"
-                                            sort-code
-                                            {:index "Bank_by_sort_code"})
-                          ->bank))
-                :bank/get-by-sort-code
-                "Failed to get bank by sort code"))
-
 (defn get-banks
   ([txn]
    (get-banks txn nil))

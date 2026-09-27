@@ -1,10 +1,6 @@
 (ns com.repldriven.queenswood.api.cash-account.commands
   (:require
-    [com.repldriven.queenswood.api.commands :as commands]
-
-    [com.repldriven.queenswood.bank-query.interface :as banks]
-
-    [com.repldriven.mono.error.interface :as error]))
+    [com.repldriven.queenswood.api.commands :as commands]))
 
 (defn- dispatcher
   [request]
@@ -14,24 +10,15 @@
 
 (defn open-cash-account
   [request]
-  (let [{:keys [auth parameters record-db record-store]} request
+  (let [{:keys [auth parameters]} request
         {:keys [bank-id]} auth
-        {:keys [body]} parameters
-        ;; The bank's sort code prefixes its accounts' BBANs; resolve it
-        ;; here (above cash-account, which can't depend on bank) and
-        ;; pass it on the open command.
-        bank (banks/get-bank {:record-db record-db :record-store record-store}
-                             bank-id)]
-    (if (error/anomaly? bank)
-      bank
-      (commands/created (commands/send (dispatcher request)
-                                       request
-                                       "open-cash-account"
-                                       "cash-account"
-                                       (assoc body
-                                              :bank-id bank-id
-                                              :sort-code (:sort-code bank)))
-                        #(str "/v1/cash-accounts/" (:account-id %))))))
+        {:keys [body]} parameters]
+    (commands/created (commands/send (dispatcher request)
+                                     request
+                                     "open-cash-account"
+                                     "cash-account"
+                                     (assoc body :bank-id bank-id))
+                      #(str "/v1/cash-accounts/" (:account-id %)))))
 
 (defn close-cash-account
   [request]

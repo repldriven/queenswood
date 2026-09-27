@@ -10,16 +10,14 @@
     [com.repldriven.mono.processor.interface :as processor]
     [com.repldriven.mono.utility.interface :as utility]))
 
-(defn- submit-payment-intent
-  [config data]
-  (let [{:keys [end-to-end-id]} data
-        res (relay/save-intent (select-keys config [:record-store :record-db])
-                               {:intent-id (str (utility/uuidv7))
-                                :dedup-key end-to-end-id
-                                :request (clearbank/->fps-body data)
-                                :status "pending"
-                                :attempts 0
-                                :created-at (utility/now)})]
+(defn- save-intent
+  [config intent]
+  (let [res (relay/save-intent (select-keys config [:record-store :record-db])
+                               (assoc intent
+                                      :intent-id (str (utility/uuidv7))
+                                      :status "pending"
+                                      :attempts 0
+                                      :created-at (utility/now)))]
     (cond
      (not (error/anomaly? res))
      {:status "ACCEPTED"}
@@ -29,6 +27,64 @@
 
      :else
      res)))
+
+(defn- submit-payment-intent
+  [config data]
+  (save-intent config
+               {:dedup-key (:end-to-end-id data)
+                :request (clearbank/->fps-body data)}))
+
+(defn- fdb
+  [config]
+  (select-keys config [:record-store :record-db]))
+
+(defn- open-account-intent
+  [config data]
+  (let [{:keys [bank-id account-id holder-name currency]} data]
+    (let-nom> [account-number (relay/allocate-account-number (fdb config))]
+      (save-intent config
+                   {:dedup-key (str "open:" account-id)
+                    :kind "open-account"
+                    :request (clearbank/->virtual-account-body
+                              (:sort-code config)
+                              account-number
+                              holder-name
+                              currency
+                              account-id)
+                    :context (pr-str {:bank-id bank-id
+                                      :account-id account-id})}))))
+
+(defn- close-account-intent
+  [config data]
+  (let [{:keys [bank-id account-id provider-account-id]} data]
+    (save-intent config
+                 {:dedup-key (str "close:" account-id)
+                  :kind "close-account"
+                  :request "{}"
+                  :context (pr-str {:bank-id bank-id
+                                    :account-id account-id
+                                    :provider-account-id
+                                    provider-account-id})})))
+
+(defn- reissue-address-intent
+  [config data]
+  (let [{:keys [bank-id account-id provider-account-id rotation-key]} data]
+    (let-nom> [account-number (relay/allocate-account-number (fdb config))]
+      (save-intent config
+                   {:dedup-key (str "reissue:" account-id ":" rotation-key)
+                    :kind "reissue-address"
+                    :request (clearbank/->virtual-account-body
+                              (:sort-code config)
+                              account-number
+                              nil
+                              nil
+                              account-id)
+                    :context (pr-str (utility/assoc-some
+                                      {:bank-id bank-id
+                                       :account-id account-id
+                                       :rotation-key rotation-key}
+                                      :provider-account-id
+                                      provider-account-id))}))))
 
 (defn- dispatch
   [config message]
@@ -42,6 +98,15 @@
         (case command
           "submit-payment"
           (submit-payment-intent config data)
+
+          "open-payment-account"
+          (open-account-intent config data)
+
+          "close-payment-account"
+          (close-account-intent config data)
+
+          "reissue-payment-address"
+          (reissue-address-intent config data)
 
           (do (log/warnf "Unknown command: %s" command)
               nil))))))

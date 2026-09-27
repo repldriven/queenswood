@@ -5,7 +5,7 @@
 # its record type arrived on as since, and a store lists the indexes
 # removed from it under former-indexes with the versions they were added
 # and removed at. See docs/recipes/code/schema-evolution.md.
-version: 61
+version: 62
 stores:
   assertions:
     record-type: Assertion
@@ -238,12 +238,11 @@ stores:
         removed: 52
   banks:
     record-type: Bank
-    indexes:
+    indexes: []
+    former-indexes:
       - name: Bank_by_sort_code
         added: 45
-        modified: 45
-        field: sort_code
-        unique: true
+        removed: 62
   payee-checks:
     record-type: PayeeCheck
     primary-key: [bank_id, check_id]

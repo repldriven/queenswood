@@ -7,7 +7,8 @@
                            "opened" :cash-account-status-opened
                            "closing" :cash-account-status-closing
                            "closed" :cash-account-status-closed
-                           "suspended" :cash-account-status-suspended}))
+                           "suspended" :cash-account-status-suspended
+                           "refused" :cash-account-status-refused}))
 
 (def cash-account-status-enum-schema (:enum-schema cash-account-status-enum))
 

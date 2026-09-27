@@ -4,7 +4,6 @@
     [com.repldriven.queenswood.payment.store :as store]
 
     [com.repldriven.queenswood.balance.interface :as balances]
-    [com.repldriven.queenswood.bank-query.interface :as banks]
     [com.repldriven.queenswood.cash-account-query.interface :as cash-accounts]
     [com.repldriven.queenswood.ledger-account.interface :as
      ledger-accounts]
@@ -31,25 +30,6 @@
      :payment/settle-inbound
      {:message "Inbound payment settlement for non-credit is not permissible"
       :debit-credit-code debit-credit-code})))
-
-(defn- bban->sort-code
-  [bban]
-  (when (and bban (>= (count bban) 6)) (subs bban 0 6)))
-
-(defn- resolve-suspense-bank
-  "The bank owning an unmatched inbound's BBAN, by its sort code. A sort code
-  that matches no bank is genuinely foreign and fails."
-  [txn data]
-  (let [{:keys [creditor-bban]} data
-        sort-code (bban->sort-code creditor-bban)]
-    (let-nom>
-      [bank (banks/get-bank-by-sort-code txn sort-code)
-       _ (when (nil? bank)
-           (error/fail :payment/no-bank-for-sort-code
-                       {:message "No bank owns the inbound BBAN's sort code"
-                        :bban creditor-bban
-                        :sort-code sort-code}))]
-      (:bank-id bank))))
 
 (defn- post-to-suspense
   [txn data bank-id]
@@ -264,11 +244,10 @@
           held
           (record-inbound-release txn data account held business-day)
 
-          ;; No account matches the BBAN — park the funds in 2500 suspense
-          ;; rather than losing the receipt (it stays recoverable).
           (nil? account)
-          (let-nom> [bank-id (resolve-suspense-bank txn data)]
-            (park-in-suspense txn data bank-id business-day))
+          (error/fail :payment/unknown-creditor
+                      {:message "No account holds the inbound's address"
+                       :bban (:creditor-bban data)})
 
           :else
           (record-inbound-settlement txn data account business-day))))

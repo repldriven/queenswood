@@ -16,7 +16,8 @@
                            "CASH_ACCOUNT_STATUS_OPENED",
                            "CASH_ACCOUNT_STATUS_CLOSING",
                            "CASH_ACCOUNT_STATUS_CLOSED",
-                           "CASH_ACCOUNT_STATUS_SUSPENDED"]}},
+                           "CASH_ACCOUNT_STATUS_SUSPENDED",
+                           "CASH_ACCOUNT_STATUS_REFUSED"]}},
     {"name": "created_at", "type": {"type": "long", "logicalType": "timestamp-millis"}},
     {"name": "updated_at", "type": {"type": "long", "logicalType": "timestamp-millis"}},
     {"name": "product_id",  "type": "string"},
@@ -77,6 +78,7 @@
                    "type": {"type": "long",
                             "logicalType": "timestamp-millis"}}
                 ]}},
-     "default": []}
+     "default": []},
+    {"name": "refusal_reason", "type": ["null", "string"], "default": null}
   ]
 }

@@ -80,6 +80,18 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-memberships-command
           acks: all
+      schemes-account-command-response:
+        schemas: !system/local-ref schemas
+        schema: !keyword command-response
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          topic: topic-schemes-account-command-response
+          acks: all
+      schemes-account-command-dlq:
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          topic: topic-schemes-account-command-dlq
+          acks: all
     # The group.ids name the per-adapter services this one absorbed.
     # They are carried over verbatim: a consumer group identifies the
     # consumer role, not the pod hosting it, and renaming one
@@ -161,6 +173,15 @@ system:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           group.id: email-service-memberships-command-response
+      schemes-account-command:
+        schemas: !system/local-ref schemas
+        schema: !keyword command
+        topics: [topic-schemes-account-command]
+        dead-letter-producer: !system/local-ref producers.schemes-account-command-dlq
+        max-redeliveries: 5
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          group.id: clearbank-adapter-service-schemes-account-command
     message-bus-producers: !system/component
       system/component-kind: kafka/message-bus-producers
       schemes-payment-command-response:
@@ -175,6 +196,8 @@ system:
         producer: !system/local-ref producers.companies-command-response
       memberships-command:
         producer: !system/local-ref producers.memberships-command
+      schemes-account-command-response:
+        producer: !system/local-ref producers.schemes-account-command-response
     message-bus-consumers: !system/component
       system/component-kind: kafka/message-bus-consumers
       schemes-payment-command:
@@ -203,6 +226,9 @@ system:
         timeout: 500
       memberships-command-response:
         consumer: !system/local-ref consumers.memberships-command-response
+        timeout: 500
+      schemes-account-command:
+        consumer: !system/local-ref consumers.schemes-account-command
         timeout: 500
   message-bus: !include system/message-bus.yml
   fdb: !include system/fdb.yml

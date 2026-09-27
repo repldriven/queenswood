@@ -3,6 +3,7 @@ relay-handler: !system/component
   bus: !system/ref message-bus.bus
   store-name: clearbank-outbox
   event-channel: !keyword schemes-payments-event
+  event-channels: !include system/payment-account-event-channels.yml
 
 
 relay-runners: !system/component

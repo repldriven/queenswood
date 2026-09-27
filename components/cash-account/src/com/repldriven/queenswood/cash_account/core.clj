@@ -86,8 +86,6 @@
                      product-version
                      today
                      party
-                     (fn [counter]
-                       (store/allocate-payment-address txn counter))
                      aggregates
                      policies)
             _ (balances/new-balances
@@ -202,9 +200,9 @@
 
 (defn- rotated-under-key?
   "True when the account's last rotation is the one this command is
-  asking for — a retry after a lost reply. It gets back the addresses
-  the first attempt allocated: no allocation, no save, no changelog
-  entry. A read-derived skip, not a rejection."
+  asking for — a retry after a lost reply. It gets back the account as
+  the first attempt left it: no request, no save, no changelog entry. A
+  read-derived skip, not a rejection."
   [account idempotency-key]
   (boolean (and idempotency-key
                 (= idempotency-key
@@ -224,27 +222,76 @@
           (if (rotated-under-key? account idempotency-key)
             account
             (let-nom>
-              [product-version (products/get-version txn
-                                                     bank-id
-                                                     (:product-id account)
-                                                     (:version-id account))
-               updated (domain/rotate-address
-                        account
-                        data
-                        product-version
-                        (fn [counter]
-                          (store/allocate-payment-address txn counter))
-                        policies)
+              [updated (domain/request-rotation account data policies)
                _ (store/save-account
                   txn
                   updated
                   {:account-id account-id
                    :status-before (:account-status account)
-                   :status-after (:account-status
-                                  updated)
+                   :status-after (:account-status updated)
                    :change-kind
-                   :cash-account-change-kind-rotate-address})]
+                   :cash-account-change-kind-rotate-requested})]
               updated))))))))
+
+(defn- provider-transition
+  [txn bank-id account-id guard transition change-kind]
+  (store/transact
+   txn
+   (fn [txn]
+     (let-nom>
+       [account (q/find-account txn bank-id account-id)]
+       (when (and account (guard account))
+         (let [updated (transition account)]
+           (let-nom>
+             [_ (store/save-account txn
+                                    updated
+                                    {:account-id account-id
+                                     :status-before (:account-status account)
+                                     :status-after (:account-status updated)
+                                     :change-kind change-kind})]
+             updated)))))))
+
+(defn- status?
+  [status]
+  (fn [account] (= status (:account-status account))))
+
+(defn provider-opened
+  [txn {:keys [bank-id account-id] :as event}]
+  (provider-transition txn
+                       bank-id
+                       account-id
+                       (status? :cash-account-status-opening)
+                       (fn [account]
+                         (domain/provider-opened-account account event))
+                       :cash-account-change-kind-open))
+
+(defn provider-refused
+  [txn {:keys [bank-id account-id reason]}]
+  (provider-transition txn
+                       bank-id
+                       account-id
+                       (status? :cash-account-status-opening)
+                       (fn [account] (domain/refused-account account reason))
+                       :cash-account-change-kind-open))
+
+(defn provider-closed
+  [txn {:keys [bank-id account-id]}]
+  (provider-transition txn
+                       bank-id
+                       account-id
+                       (status? :cash-account-status-closing)
+                       domain/closed-account
+                       :cash-account-change-kind-close))
+
+(defn provider-reissued
+  [txn {:keys [bank-id account-id rotation-key] :as event}]
+  (provider-transition txn
+                       bank-id
+                       account-id
+                       (fn [account]
+                         (= rotation-key (:pending-rotation-key account)))
+                       (fn [account] (domain/reissued-account account event))
+                       :cash-account-change-kind-rotate-address))
 
 (defn migrate-account
   "Repin an account the caller already holds, writing into the caller's

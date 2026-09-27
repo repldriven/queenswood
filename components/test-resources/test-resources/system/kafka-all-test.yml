@@ -277,6 +277,42 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-payments-command-response
       acks: all
+  schemes-account-command:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword command
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      topic: topic-schemes-account-command
+      acks: all
+  schemes-account-command-dlq:
+    _: !system/local-ref topics
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      topic: topic-schemes-account-command-dlq
+      acks: all
+  schemes-account-command-response:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword command-response
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      topic: topic-schemes-account-command-response
+      acks: all
+  schemes-account-event:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword event
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      topic: topic-schemes-account-event
+      acks: all
+  schemes-account-event-dlq:
+    _: !system/local-ref topics
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      topic: topic-schemes-account-event-dlq
+      acks: all
   schemes-payment-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -589,6 +625,34 @@ consumers: !system/component
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       group.id: test-payments-command-response
+  schemes-account-command:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword command
+    topics: [topic-schemes-account-command]
+    dead-letter-producer: !system/local-ref producers.schemes-account-command-dlq
+    max-redeliveries: 5
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      group.id: test-schemes-account-command
+  schemes-account-command-response:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword command-response
+    topics: [topic-schemes-account-command-response]
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      group.id: test-schemes-account-command-response
+  schemes-account-event:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword event
+    topics: [topic-schemes-account-event]
+    dead-letter-producer: !system/local-ref producers.schemes-account-event-dlq
+    max-redeliveries: 5
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      group.id: test-schemes-account-event
   schemes-payment-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -700,6 +764,12 @@ message-bus-producers: !system/component
     producer: !system/local-ref producers.payments-command
   payments-command-response:
     producer: !system/local-ref producers.payments-command-response
+  schemes-account-command:
+    producer: !system/local-ref producers.schemes-account-command
+  schemes-account-command-response:
+    producer: !system/local-ref producers.schemes-account-command-response
+  schemes-account-event:
+    producer: !system/local-ref producers.schemes-account-event
   schemes-payment-command:
     producer: !system/local-ref producers.schemes-payment-command
   schemes-payment-command-response:
@@ -799,6 +869,15 @@ message-bus-consumers: !system/component
     timeout: 500
   payments-command-response:
     consumer: !system/local-ref consumers.payments-command-response
+    timeout: 500
+  schemes-account-command:
+    consumer: !system/local-ref consumers.schemes-account-command
+    timeout: 500
+  schemes-account-command-response:
+    consumer: !system/local-ref consumers.schemes-account-command-response
+    timeout: 500
+  schemes-account-event:
+    consumer: !system/local-ref consumers.schemes-account-event
     timeout: 500
   schemes-payment-command:
     consumer: !system/local-ref consumers.schemes-payment-command

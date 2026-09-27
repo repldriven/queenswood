@@ -16,9 +16,23 @@ event-processor-impl: !system/component
   record-db: !system/ref fdb.record-db
   record-store: !system/ref fdb.meta-store
   schemas: !system/ref avro.serde
+  bus: !system/ref message-bus.bus
+  scheme-account-command-channel: !keyword schemes-account-command
 
 event-consumer: !system/component
   system/component-kind: event-processor/event-processor
   bus: !system/ref message-bus.bus
   processor: !system/local-ref event-processor-impl
   event-channel: !keyword cash-accounts-event
+
+payment-account-event-processor-impl: !system/component
+  system/component-kind: cash-account/payment-account-event-processor
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  schemas: !system/ref avro.serde
+
+payment-account-event-consumer: !system/component
+  system/component-kind: event-processor/event-processor
+  bus: !system/ref message-bus.bus
+  processor: !system/local-ref payment-account-event-processor-impl
+  event-channel: !keyword schemes-account-event

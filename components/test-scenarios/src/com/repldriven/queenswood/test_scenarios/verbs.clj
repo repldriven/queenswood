@@ -76,13 +76,19 @@
                                 (:legs r)
                                 (:transaction-type r))))))))
 
-(defn- seed-opened
+(defn- await-opened
   [bank bank-real-id real-acct-id]
-  (cash-accounts/seed-opened-account bank bank-real-id real-acct-id))
+  (quiescence/wait-for-account-status bank
+                                      bank-real-id
+                                      real-acct-id
+                                      :cash-account-status-opened))
 
-(defn- seed-closed
+(defn- await-closed
   [bank bank-real-id real-acct-id]
-  (cash-accounts/seed-closed-account bank bank-real-id real-acct-id))
+  (quiescence/wait-for-account-status bank
+                                      bank-real-id
+                                      real-acct-id
+                                      :cash-account-status-closed))
 
 (defn- track
   [ctx result]
@@ -220,20 +226,16 @@
                              :party-id real-party-id
                              :product-id scenario-product-id
                              :currency "GBP"
-                             :sort-code (:sort-code bank-entity)
                              :name "Scenario Account"}))
         real-acct-id (:account-id scenario-account)
-        real-bban (:bban scenario-account)
-        _ (when real-acct-id (seed-opened bank real-bank-id real-acct-id))]
+        real-bban (when real-acct-id
+                    (:bban (await-opened bank real-bank-id real-acct-id)))]
     (-> ctx
         (cond-> real-acct-id
                 (-> (assoc :id-mapping
                            (id-mapping/add id-mapping model-acct real-acct-id))
                     (assoc-in [:accounts model-acct] {:bank model-bank})))
-        (assoc-in [:banks model-bank]
-                  {:real-id real-bank-id
-                   :currency "GBP"
-                   :sort-code (:sort-code bank-entity)})
+        (assoc-in [:banks model-bank] {:real-id real-bank-id :currency "GBP"})
         ;; The scenario product is born already-published (we publish
         ;; above) so track v1 as :published; matches the model's
         ;; auto-scenario-product semantics.
@@ -434,8 +436,7 @@
   [{:keys [bank counter next-model-id id-mapping banks products parties]
     :as ctx} {[model-bank model-party model-prod] :args}]
   (let [model-acct (model-id-for-next-account next-model-id)
-        {bank-real-id :real-id sort-code :sort-code :keys [currency]}
-        (get banks model-bank)
+        {bank-real-id :real-id :keys [currency]} (get banks model-bank)
         {prod-real-id :real-id} (get products model-prod)
         {party-real-id :real-id} (get parties model-party)
         result (cash-accounts/new-account bank
@@ -443,17 +444,17 @@
                                            :party-id party-real-id
                                            :product-id prod-real-id
                                            :currency currency
-                                           :sort-code sort-code
                                            :name (str "Scenario Account "
                                                       counter)})
         real-acct-id (:account-id result)
-        _ (when real-acct-id (seed-opened bank bank-real-id real-acct-id))]
+        opened (when real-acct-id
+                 (await-opened bank bank-real-id real-acct-id))]
     (-> ctx
         (cond-> real-acct-id
                 (assoc :id-mapping
                        (id-mapping/add id-mapping model-acct real-acct-id)))
         (assoc-in [:accounts model-acct]
-                  {:bank model-bank :bban (:bban result)})
+                  {:bank model-bank :bban (:bban opened)})
         (update :next-model-id inc)
         (update :counter inc)
         (track result))))
@@ -497,8 +498,7 @@
 
                        :else
                        (model-id-for-next-product next-product-id))
-        {bank-real-id :real-id sort-code :sort-code :keys [currency]}
-        (get banks model-bank)
+        {bank-real-id :real-id :keys [currency]} (get banks model-bank)
         prod-result (when create-prod?
                       (products/new-product bank
                                             bank-real-id
@@ -553,10 +553,9 @@
                         :party-id party-real-id
                         :product-id prod-real-id
                         :currency currency
-                        :sort-code sort-code
                         :name (str "Scenario Customer Account " counter)}))
         real-acct-id (:account-id acct-result)
-        _ (when real-acct-id (seed-opened bank bank-real-id real-acct-id))
+        opened (when real-acct-id (await-opened bank bank-real-id real-acct-id))
         outcome (cond
                  (error/anomaly? party-result)
                  party-result
@@ -583,7 +582,7 @@
                 (-> (assoc :id-mapping
                            (id-mapping/add id-mapping model-acct real-acct-id))
                     (assoc-in [:accounts model-acct]
-                              {:bank model-bank :bban (:bban acct-result)})
+                              {:bank model-bank :bban (:bban opened)})
                     (update :next-model-id inc)))
         (update :next-party-id inc)
         (update :counter inc)
@@ -598,7 +597,7 @@
                                             {:bank-id bank-real-id
                                              :account-id real-acct-id})
         _ (when-not (error/anomaly? result)
-            (seed-closed bank bank-real-id real-acct-id))]
+            (await-closed bank bank-real-id real-acct-id))]
     (-> ctx
         (update :counter inc)
         (track result))))

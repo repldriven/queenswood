@@ -166,6 +166,37 @@
                          (:private-key (clearbank-webhook/key-pair)))
      _ (is (= 401 (:status forged)))]))
 
+(def ^:private virtual-account
+  {:sortCode "040004"
+   :accountNumber "20000001"
+   :externalReference "acc.sim.1"
+   :ownerName "Arthur Dent"
+   :currency "GBP"})
+
+(defn- test-virtual-accounts
+  []
+  (nom-test>
+    [opened (post "/v1/virtual-accounts" virtual-account)
+     _ (is (= 201 (:status opened)))
+     {:keys [id] :as body} (http/res->edn opened)
+     _ (is (= {:sortCode "040004" :accountNumber "20000001"}
+              (select-keys body [:sortCode :accountNumber])))
+     reissued (post (str "/v1/virtual-accounts/" id "/reissue")
+                    (assoc virtual-account :accountNumber "20000002"))
+     _ (is (= 200 (:status reissued)))
+     _ (is (= "20000002" (:accountNumber (http/res->edn reissued))))
+     closed (post (str "/v1/virtual-accounts/" id "/close") {})
+     _ (is (= 200 (:status closed)))
+     refuse (post "/simulate/open-refused" {})
+     _ (is (= 204 (:status refuse)))
+     refused (post "/v1/virtual-accounts" virtual-account)
+     _ (is (= 422 (:status refused)))
+     _ (is (= "The account was declined" (:detail (http/res->edn refused))))
+     again (post "/v1/virtual-accounts" virtual-account)
+     _ (is (= 201 (:status again)) "only the next opening is declined")
+     unsigned (post-signed "/v1/virtual-accounts" virtual-account nil)
+     _ (is (= 401 (:status unsigned)))]))
+
 (deftest clearbank-simulator-test
   (with-test-system [sys
                      ["classpath:clearbank-simulator/application-test.yml"
@@ -182,6 +213,8 @@
                           (test-fps-payment))
                         (testing "an unsigned or forged payment answers 401"
                           (test-fps-payment-unsigned))
+                        (testing "virtual accounts open, reissue and close"
+                          (test-virtual-accounts))
                         (testing "POST /simulate/inbound-payment returns 202"
                           (test-simulate-inbound-payment))
                         (testing "POST /simulate/inbound-payment held trigger"

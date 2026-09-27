@@ -25,7 +25,8 @@ can filter on.
 In scope: the `cash-account` and `cash-account-query`
 bricks; account data model; opening and closing flow;
 suspend, resume, rotate-address and migrate; event-driven
-status transitions; SCAN address generation; lookups;
+status transitions; addresses from the payment provider;
+lookups;
 balance-bucket creation at open time.
 
 Out of scope: balances themselves, covered in
@@ -95,17 +96,19 @@ Two bricks, split query from write per
   the capability and count-limit checks, and the
   product / currency / party validation. Every rejection
   this brick raises originates here.
-- `store.clj` — the FDB record store and the account-number
-  fountain. Primary key `(bank-id, account-id)`, with
+- `store.clj` — the FDB record store. Primary key
+  `(bank-id, account-id)`, with
   secondary indexes on BBAN, idempotency key and party, and
   three count aggregates.
 - `changelog.clj` — the `cash-account-status-changed`
   payload and the changelog envelope co-committed with
   every save.
-- `events.clj` — the event handler that flips
-  opening → opened and closing → closed.
-- `system.clj` — `defcomponents` for the processor and
-  event-processor.
+- `events.clj` — the handler that asks the payment provider to
+  open, close or reissue an account on the account's own
+  events, and the handler that applies what the provider
+  reports.
+- `system.clj` — `defcomponents` for the processor and the
+  two event processors.
 
 `cash-account-query` holds the reads, and is the only
 cash-account brick the `api` base may require:
@@ -137,14 +140,17 @@ reads inside its own FDB transactions, passing the live
  :account-type      :account-type-personal
                     ;; or -business (derived from party type)
  :account-status    :cash-account-status-opening
-                    ;; -opened, -suspended, -closing, -closed
+                    ;; -opened, -suspended, -closing, -closed,
+                    ;; -refused
 
  :payment-addresses
  [{:scheme :payment-address-scheme-scan
-   :scan {:sort-code      "000001"
-          :account-number "12345678"}}]
+   :scan {:sort-code      "040004"
+          :account-number "20000001"}}]
 
- :bban              "00000112345678"   ;; derived from SCAN
+ :bban              "04000420000001"   ;; derived from SCAN
+
+ :provider-account-id "va-..."         ;; the provider's account
 
  ;; tag 21 — the envelope id of the open command that created this
  ;; account, unique-indexed per bank
@@ -273,38 +279,39 @@ is a later operational workflow described in
    ran against. A product that does not exist, one whose
    only version is a draft, and one whose window has passed
    are three distinguishable failures, not one.
-7. Refuse when the command carries no `:sort-code` —
-   `:cash-account/missing-sort-code`.
-8. **Validate currency** against the version's
+7. **Validate currency** against the version's
    `:allowed-currencies`. An empty list is unrestricted, not
    a refusal of everything; a non-empty list that does not
    contain the requested currency is
    `:cash-account/invalid-currency`.
-9. **Check the party is active** —
+8. **Check the party is active** —
    `:cash-account/party-status` otherwise, carrying the
    party id and the status found.
-10. **Capability check** — `:cash-account` with
+9. **Capability check** — `:cash-account` with
     `{:action :cash-account-action-open
       :account-type <derived>}`.
-11. **Count limits** — both checks, against the aggregates
+10. **Count limits** — both checks, against the aggregates
     read at step 5.
-12. **Generate payment addresses** from the version's
-    `:allowed-payment-address-schemes`. A version allowing
-    none is `:cash-account/no-payment-schemes`; a scheme
-    other than SCAN is `:cash-account/unsupported-scheme`.
-13. Build the account record in `:cash-account-status-opening`,
-    with `:bban` derived from the SCAN.
-14. Write **opening balances** — one Balance per
+11. **Check the payment address schemes** the version's
+    `:allowed-payment-address-schemes` names. A version
+    allowing none is `:cash-account/no-payment-schemes`; a
+    scheme other than SCAN is
+    `:cash-account/unsupported-scheme`.
+12. Build the account record in `:cash-account-status-opening`,
+    with no payment address and no `:bban`.
+13. Write **opening balances** — one Balance per
     `:balance-products` entry on the version, in the
     account's currency, falling back to a single
     default / posted bucket when the version declares none.
     These create the bucket structure that legs land into
     (transactions-and-balances TDD).
-15. Persist the account, co-committing its changelog entry.
+14. Persist the account, co-committing its changelog entry.
     Commit.
 
 The status is `:opening`. The relay publishes the changelog
-entry and the brick's event handler consumes it.
+entry, and the brick's event handler asks the payment provider
+for an account, as [Event transitions](#event-transitions)
+describes.
 
 **The count limits that ship.** Both checks use the
 `:cash-account` limit kind with `:aggregate :count` and
@@ -358,8 +365,10 @@ change.
 5. Persist in `:cash-account-status-closing`, co-committing
    the changelog entry. Commit.
 
-The changelog entry is relayed; the event handler closes to
-`:cash-account-status-closed`.
+The changelog entry is relayed, and the event handler asks the
+payment provider to close the account behind it; the account
+closes to `:cash-account-status-closed` when the provider
+reports it closed, and at once when it has no provider account.
 
 **The waiver.** `:cash-account-action-close-non-zero` is a
 capability like any other, and holding it turns the
@@ -381,22 +390,34 @@ store's changelog and republishes each entry as a
 `cash-account-status-changed` event, so a consumer sees one
 message per write.
 
-`events.clj` handles that event and acts on `:status-after`,
-via `core/complete-status-transition`:
+`events.clj` handles that event, reading the account as it now
+stands, and sends a command on `schemes-account-command`:
 
-- `:cash-account-status-opening` → flip to `:opened`.
-- `:cash-account-status-closing` → flip to `:closed`.
+- `:cash-account-status-opening` → `open-payment-account`,
+  with the holder party's display name, the currency and the
+  address schemes the version allows.
+- `:cash-account-status-closing` → `close-payment-account`,
+  or a flip to `:closed` when the account has no provider
+  account.
+- change kind rotate-requested → `reissue-payment-address`,
+  with the pending rotation's key.
 
 Every other entry is relayed and then dropped by this
-handler. The two terminal transitions share the same
-pattern. Each is one FDB transaction — read the account,
-apply the domain transition, save — and each is gated on the
-account still being in the expected source status, so
-redelivery is a silent no-op.
+handler. The payment adapter answers on
+`schemes-account-event`, which the brick's second handler
+consumes: `payment-account-opened` opens the account with
+the issued addresses, provider account id and BBAN;
+`payment-account-refused` makes it `:refused`, with the
+provider's reason; `payment-account-closed` closes it; and
+`payment-address-reissued` replaces its addresses, retiring
+the old. Each is one FDB transaction — read the account,
+apply the domain transition, save — gated on the account
+still being in the expected source status, or on the
+pending rotation's key, so redelivery is a silent no-op.
 
 **Telling one write from another.** The payload carries
 `change_kind`, one of open, close, suspend, resume,
-rotate-address or migrate, added to
+rotate-requested, rotate-address or migrate, added to
 `account-status-changed.avsc.json` with a null default so an
 entry written before the field decodes. It is what
 distinguishes a rotation from a migration: both leave the
@@ -413,62 +434,32 @@ deduplication a changelog runner can apply is off. A
 consumer that needs to tell writes apart reads `change_kind`
 in the payload, which the relay does carry.
 
-### SCAN address generation
+### Addresses from the payment provider
 
-For the SCAN scheme:
+The payment provider issues every address: the adapter opens
+an account at the provider and reports the sort code and
+account number it holds, and the provider's account id, which
+an outbound payment names. Neither the bank nor this brick
+allocates one, and a bank holds no sort code of its own. The
+BBAN (`<sort-code><account-number>`) is derived from the SCAN
+and is the lookup key for inbound payments arriving via FPS
+(payments TDD).
 
-- **Sort code** — one per bank, allocated at bank creation
-  by `allocate-sort-code` in the `bank` brick's `store.clj`.
-  It draws the next value of a global monotonic fountain and
-  formats it as six digits (`000001`, `000002`, …); the
-  `00` range is unallocated in the real world, so it is safe
-  to mint from. The code is stored on the bank record.
-- **Account number** — allocated by this brick's own
-  counter. `store/allocate-payment-address` advances a
-  monotonic FDB counter keyed by sort code and formats the
-  result as eight digits. It is not a fn the caller
-  supplies.
+**Number retirement.** The provider never issues an account
+number twice. The closed account's record also keeps its
+`:bban` under the unique `CashAccount_by_bban` index, so an
+accidental re-issue would fail at the provider's report
+regardless.
 
-The `cash-account` brick cannot depend on `bank`, so the
-sort code arrives as command data: the `api` base's open
-handler loads the bank, puts its code on the
-`open-cash-account` command as `:sort-code`, and a command
-without one is `:cash-account/missing-sort-code`. A rotation
-takes the sort code from the account's existing SCAN address
-instead, so an account keeps its bank's code across a
-rotation.
-
-The generated SCAN is bundled into the account's
-`:payment-addresses` vector and the BBAN is derived
-(`<sort-code><account-number>`). BBAN is the lookup key for
-inbound payments arriving via FPS (payments TDD).
-`040004` appears in this codebase only as example data in
-the API's OpenAPI examples — no sort code is derived from a
-constant.
-
-**Number retirement.** Account numbers are never reused. The
-counter behind `store/allocate-payment-address` only
-advances, so a closed account's number stays retired forever
-rather than returning to a pool. Recycling would risk a
-payment intended for the old account holder landing on
-whoever gets the number next; the closed account's record
-also keeps its `:bban` under the unique
-`CashAccount_by_bban` index, so an accidental re-issue would
-fail at insert regardless. The close leg doesn't need to
-inform the counter — there's nothing to release.
-
-**Rotation.** `rotate-address` draws a fresh set of payment
-addresses from the same counter against the account's bound
-product version, and rewrites `:bban` to the new SCAN. The
-old addresses are appended to `:retired-payment-addresses`
-rather than discarded, so the record keeps a permanent
-history. There's no redirect window: a payment landing on a
-retired BBAN is a lookup miss for `get-account-by-bban` and
-falls into the existing suspense path, same as any other
-unmatched inbound. Single-phase, no handler leg — a
-changelog entry is written and relayed like any other write,
-but no handler acts on it, and the account stays on
-`:cash-account-status-opened` throughout.
+**Rotation.** `rotate-address` records a pending rotation
+under its key, with the change kind rotate-requested, and the
+handler asks the provider to reissue. The account keeps its
+addresses until the provider reports new ones for that key,
+when `:bban` is rewritten and the old addresses are appended
+to `:retired-payment-addresses` rather than discarded, so the
+record keeps a permanent history. A payment landing on a
+retired BBAN is a lookup miss for `get-account-by-bban`. The
+account stays on `:cash-account-status-opened` throughout.
 
 ### Lookups
 
@@ -559,8 +550,8 @@ read back on.
 **Rotation stamps its own key.** A rotation writes
 `:last-rotation-idempotency-key` onto the account. A
 `rotate-cash-account-address` retried under that same key
-returns the account unchanged — no address allocated, no
-save, no changelog entry — which is a read-derived skip
+returns the account unchanged — nothing asked of the
+provider, no save, no changelog entry — which is a read-derived skip
 rather than a rejection.
 
 **Close, suspend and resume stamp nothing.** Their
@@ -612,10 +603,11 @@ At bank creation the `bank` brick creates one own-funds
 product per currency the bank is created with, publishes it,
 and opens one account against it on the bank's own
 organisation party — through this brick's ordinary open
-path, with the bank's sort code, so each is BBAN-addressable
-and transactable like any customer account. They are written
-in `:cash-account-status-opening` and reach `:opened` when
-the relay's event arrives, and they consume the tenant count
+path, so each is BBAN-addressable and transactable like any
+customer account. They are written in
+`:cash-account-status-opening` and reach `:opened` when the
+payment provider has issued their addresses, and they consume
+the tenant count
 cap described under [Opening flow](#opening-flow).
 
 ## Alternatives Considered

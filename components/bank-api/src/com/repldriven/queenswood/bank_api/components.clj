@@ -41,7 +41,6 @@
    [:bank-id [:ref "BankId"]]
    [:name [:ref "Name"]]
    [:status [:ref "BankStatus"]]
-   [:sort-code [:ref "SortCode"]]
    [:tier {:optional true} [:ref "Name"]]
    [:party [:ref "Party"]]
    [:accounts [:vector [:ref "CashAccount"]]]
@@ -78,7 +77,6 @@
    [:bank-id [:ref "BankId"]]
    [:name [:ref "Name"]]
    [:status [:ref "BankStatus"]]
-   [:sort-code [:ref "SortCode"]]
    ;; Required here but optional on `Bank`: creation rejects an
    ;; unmatched tier, so a bank this release just made always carries
    ;; one, while `Bank` describes any bank on record — including those

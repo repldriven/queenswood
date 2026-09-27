@@ -5,8 +5,7 @@
   atomically with the bank, that a command delivered twice creates one
   bank and one client, that a failure after the last write rolls every
   earlier write back, that a tier change rebinds the underlying
-  `PolicyBinding` records rather than just stamping `:tier`, and that a
-  bank resolves from the sort code it was allocated. Happy-path admin
+  `PolicyBinding` records rather than just stamping `:tier`. Happy-path admin
   creation over the bus is covered by banks/*.edn in
   bank-test-api-scenarios."
   (:require
@@ -512,28 +511,3 @@
                  (mapv :event-name @seen)))
           (is (= 2 (count (set (map :dedup-key @seen))))
               "the tier key does not collide with the status key"))]))))
-
-(deftest get-bank-by-sort-code-test
-  (with-test-system
-   [sys "classpath:bank/application-test.yml"]
-   (let [config (fdb-config sys)
-         idp (identity-provider/local-provider {})]
-     (nom-test> [{:keys [bank]} (SUT/new-bank config
-                                              "Sort Code Bank"
-                                              :bank-status-test
-                                              "micro"
-                                              ["GBP"]
-                                              {:identity-provider idp
-                                               :idv-provider idv-provider})
-                 found (bank-query/get-bank-by-sort-code config
-                                                         (:sort-code bank))
-                 _ (testing "the allocated sort code resolves back to its bank"
-                     (is (some? (:sort-code bank)))
-                     (is (= (:bank-id bank) (:bank-id found))))
-                 _ (testing "an unallocated sort code resolves to nil"
-                     ;; nil, not a `:bank/not-found` rejection: the
-                     ;; `bank-query` interface documents it that way and
-                     ;; the unmatched-inbound suspense path branches on the
-                     ;; nil rather than on a kind.
-                     (is (nil? (bank-query/get-bank-by-sort-code config
-                                                                 "999999"))))]))))

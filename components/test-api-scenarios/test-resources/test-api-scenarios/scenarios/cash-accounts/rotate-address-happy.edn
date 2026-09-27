@@ -86,6 +86,8 @@
    :until {:status 200 :body {:account-status "opened"}}
    :as :account-0-opened}]
  :when
+ ;; The rotation is asked of the payment provider, so the reply still
+ ;; carries the account's old addresses.
  [{:command :api/request
    :request {:method :post
              :path "/v1/cash-accounts/{account-id}/rotate-address"
@@ -95,6 +97,20 @@
    :assert {:status 200
             :body {:account-id [:ref :account-0 :account-id]
                    :account-status "opened"
-                   :payment-addresses [:m/mismatch
-                                       [:ref :account-0-opened
-                                        :payment-addresses]]}}}]}
+                   :payment-addresses [:ref :account-0-opened
+                                       :payment-addresses]}}}]
+ :then
+ ;; Once the provider reports the new addresses they replace the old,
+ ;; which are kept on the account as retired.
+ [{:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :account-0 :account-id]}
+             :auth :org-0-token}
+   :until {:status 200
+           :body {:account-status "opened"
+                  :payment-addresses [:m/mismatch
+                                      [:ref :account-0-opened
+                                       :payment-addresses]]
+                  :retired-payment-addresses
+                  [{:address [:ref :account-0-opened :payment-addresses 0]}]}}}]}

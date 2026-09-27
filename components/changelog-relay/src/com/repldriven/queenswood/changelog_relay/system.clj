@@ -34,6 +34,7 @@
                    (or instance (envelope/->handler config)))
    :system/config {:bus system/required-component
                    :event-channel system/required-component
+                   :event-channels nil
                    :store-name nil}
    :system/instance-schema fn?})
 

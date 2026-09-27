@@ -4,3 +4,4 @@ command-processor: !system/component
   record-db: !system/ref fdb.record-db
   record-store: !system/ref fdb.meta-store
   payment-provider: !include system/payment-provider.yml
+  sort-code: "040004"

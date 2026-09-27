@@ -88,6 +88,19 @@ message CashAccount {
   // written before this field.
   optional string last_rotation_idempotency_key = 24;
 
+  // The payment provider's identifier for the account behind this one,
+  // issued with its payment addresses. Opaque: nothing reads meaning
+  // into it, and an outbound payment names it to the provider.
+  optional string provider_account_id = 25;
+
+  // The idempotency key of a rotation asked of the provider and not yet
+  // answered. The account keeps its addresses until the provider reports
+  // new ones for this key.
+  optional string pending_rotation_key = 26;
+
+  // Why the provider declined to open the account, on a refused one.
+  optional string refusal_reason = 27;
+
   enum CashAccountStatus {
     CASH_ACCOUNT_STATUS_UNKNOWN = 0;
     CASH_ACCOUNT_STATUS_OPENING = 1;
@@ -95,5 +108,6 @@ message CashAccount {
     CASH_ACCOUNT_STATUS_CLOSING = 3;
     CASH_ACCOUNT_STATUS_CLOSED = 4;
     CASH_ACCOUNT_STATUS_SUSPENDED = 5;
+    CASH_ACCOUNT_STATUS_REFUSED = 6;
   }
 }

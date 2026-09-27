@@ -358,13 +358,50 @@
              ;; most. The `pos?` floor still catches total loss; the
              ;; partial case, one event that lost its traceparent on the
              ;; way, is what the filter gives up.
+             ;;
+             ;; An account's opening, closing and rotation complete when
+             ;; the payment provider reports back, in a write made while
+             ;; handling that report. The command that asked the provider
+             ;; was sent in reaction to a changelog entry, so it opened
+             ;; its own trace, and the write it leads to carries that
+             ;; trace rather than a request's. Only a write made handling
+             ;; an API-dispatched command is caused by a request, so the
+             ;; property holds over events whose writer's nearest handling
+             ;; span is a `process-command`.
              (let [event-attr (fn [^SpanData s]
                                 (.get (.getAttributes s)
                                       (AttributeKey/stringKey "event")))
                    carried? (fn [^SpanData s]
                               (.isValid (.getParentSpanContext s)))
+                   by-id (into {}
+                               (map (fn [^SpanData s] [(.getSpanId
+                                                        (.getSpanContext s))
+                                                       s]))
+                               spans)
+                   commanded? (fn [^SpanData s]
+                                (loop [id (.getSpanId (.getParentSpanContext
+                                                       s))]
+                                  (let [^SpanData ancestor (by-id id)
+                                        n (some-> ancestor
+                                                  .getName)]
+                                    (cond
+                                     (nil? ancestor)
+                                     false
+
+                                     (= "process-command" n)
+                                     true
+
+                                     (= "process-event" n)
+                                     false
+
+                                     :else
+                                     (recur (.getSpanId
+                                             (.getParentSpanContext
+                                              ancestor)))))))
                    of-event (fn [n]
-                              (filter #(and (= n (event-attr %)) (carried? %))
+                              (filter #(and (= n (event-attr %))
+                                            (carried? %)
+                                            (commanded? %))
                                       (named "process-event")))
                    account-events (of-event "cash-account-status-changed")]
                (is (pos? (count account-events)))

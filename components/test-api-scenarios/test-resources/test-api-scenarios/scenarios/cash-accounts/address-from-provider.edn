@@ -1,33 +1,21 @@
-{:name "Each bank gets its own fountain-allocated sort code"
- :tags #{:api :banks}
- ;; Banks are allocated a unique 6-digit sort code from a fountain at
- ;; creation (000001, 000002, ...). Two banks both creating successfully
- ;; proves distinctness — the Bank_by_sort_code index is unique, so a
- ;; collision would fail the second create. An opened account's BBAN
- ;; carries its bank's sort code (the first six digits).
+{:name "An account opens with the address the payment provider issues"
+ :tags #{:api :cash-accounts :happy}
+ ;; An account is written opening with no address. Its opening asks the
+ ;; payment provider for an account, and it opens carrying the sort code
+ ;; and account number the provider issued; a bank holds no sort code of
+ ;; its own.
  :given
  [{:command :api/request
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
-             :headers {:idempotency-key "ik-sort-code-fountain-bank-001"}
-             :body {:name "Sort Code Fountain A"
+             :headers {:idempotency-key "ik-address-from-provider-bank-001"}
+             :body {:name "Address From Provider"
                     :status "live"
                     :tier "micro"
                     :currencies ["GBP"]}}
    :as :bank-a
-   :assert {:status 201 :body {:sort-code [:m/regex "^[0-9]{6}$"]}}}
-  ;; A second bank must also succeed — distinct sort code (unique index).
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/banks"
-             :auth :admin
-             :headers {:idempotency-key "ik-sort-code-fountain-bank-002"}
-             :body {:name "Sort Code Fountain B"
-                    :status "live"
-                    :tier "micro"
-                    :currencies ["GBP"]}}
-   :assert {:status 201 :body {:sort-code [:m/regex "^[0-9]{6}$"]}}}
+   :assert {:status 201 :body {:sort-code [:m/absent]}}}
   {:command :auth/mint-token
    :for {:client-id [:ref :bank-a :client-id]
          :client-secret [:ref :bank-a :client-secret]
@@ -37,7 +25,7 @@
    :request {:method :post
              :path "/v1/cash-account-products"
              :auth :bank-a-token
-             :headers {:idempotency-key "ik-sort-code-fountain-prod-001"}
+             :headers {:idempotency-key "ik-address-from-provider-prod-001"}
              :body {:name "Current"
                     :template-id "tpl.00000000000000000000000001"
                     :currency "GBP"
@@ -57,7 +45,7 @@
    :request {:method :post
              :path "/v1/parties"
              :auth :bank-a-token
-             :headers {:idempotency-key "ik-scf-create-party"}
+             :headers {:idempotency-key "ik-afp-create-party"}
              :body {:type "person"
                     :display-name "Slartibartfast Magrathea"
                     :given-name "Slartibartfast"
@@ -85,15 +73,17 @@
    :request {:method :post
              :path "/v1/cash-accounts"
              :auth :bank-a-token
-             :headers {:idempotency-key "ik-scf-open-account"}
+             :headers {:idempotency-key "ik-afp-open-account"}
              :body {:party-id [:ref :party :party-id]
                     :name "Slartibartfast Current"
                     :currency "GBP"
                     :product-id [:ref :current-draft :product-id]}}
    :as :account
-   :assert {:status 201 :body {:account-status "opening"}}}]
+   :assert {:status 201
+            :body {:account-status "opening"
+                   :payment-addresses []
+                   :bban [:m/absent]}}}]
  :then
- ;; The opened account's SCAN address carries bank A's sort code.
  [{:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}"
@@ -101,6 +91,8 @@
              :auth :bank-a-token}
    :until {:status 200
            :body {:account-status "opened"
+                  :bban [:m/regex "^[0-9]{14}$"]
                   :payment-addresses
-                  [:m/embeds
-                   [{:scan {:sort-code [:ref :bank-a :sort-code]}}]]}}}]}
+                  [{:scheme "scan"
+                    :scan {:sort-code [:m/regex "^[0-9]{6}$"]
+                           :account-number [:m/regex "^[0-9]{8}$"]}}]}}}]}
