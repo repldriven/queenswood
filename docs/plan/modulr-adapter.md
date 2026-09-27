@@ -8,10 +8,8 @@ adapter meets. Modulr becomes the default provider: `modulr-adapter`,
 beside ClearBank's, the deployed builds move to them, and ClearBank's
 stay in the development project on the neutral contract, passing their
 tests. This plan maps each part of the contract onto Modulr's API and
-lists what only the sandbox can settle. The four bricks are built, and
-the simulator covers every row below but returned payments, which come
-with returned outbound payments. The sandbox is requested once it
-covers those too.
+lists what only the sandbox can settle. The four bricks are built, the
+simulator covers every row below, and the sandbox is requested next.
 
 Sources: the API docs at modulr.readme.io (index at
 modulr.readme.io/llms.txt) and the OpenAPI 3.1 document at
@@ -93,7 +91,10 @@ it, and whether the docs settle it (**documented**) or the sandbox must
   matches the hold on it.
 - **Returned outbound.** A PAYIN with `Type: PO_REV`, `ReturnReason`
   and `OriginalSchemeId`, matched to the original payment by
-  `GET /payments?schemeId=PAYPORT:<OriginalSchemeId>`. Documented.
+  `GET /payments?schemeId=PAYPORT:<OriginalSchemeId>`, whose
+  `externalReference` names the platform's payment. One matching none
+  is reported as money arriving. Documented; confirm the id a PAYOUT's
+  `SchemeInfo` carries is the one a return names.
 - **Deduplication.** On `PaymentId` and the outcome; `EventId` changes
   on a resend and `TransactionId` is empty for a failed payment.
   Documented.

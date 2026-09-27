@@ -164,20 +164,21 @@
           [:payments payment-id]))
 
 (defn find-payments
-  [state {:keys [id externalReference]}]
+  [state {:keys [id externalReference schemeId]}]
   (->> (vals (:payments @state))
        (filter (fn [p]
                  (and (or (nil? id) (= id (:id p)))
                       (or (nil? externalReference)
-                          (= externalReference (:externalReference p))))))
+                          (= externalReference (:externalReference p)))
+                      (or (nil? schemeId) (= schemeId (:schemeId p))))))
        (sort-by :createdDate)
        vec))
 
 (defn payment-response
   [p]
   (select-keys p
-               [:id :status :type :externalReference :createdDate :details
-                :message]))
+               [:id :status :type :externalReference :schemeId :createdDate
+                :details :message]))
 
 (defn pending-for-funds
   [state account-id]

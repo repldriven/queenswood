@@ -742,7 +742,8 @@
   every optional field that deserialises as its proto2 default so each
   key is present only when the record carries a real value: a payment
   the caller sent no `reference` for carries none, and only a failed one
-  carries a `failure-kind`, `failure-reason-code` and `failure-reason`.
+  carries a `failure-kind`, `failure-reason-code` and `failure-reason`,
+  and only a returned one a `return-reason-code` and `return-reason`.
   Drops `cancellation-code` and `cancellation-reason`, which are
   deprecated.
 
@@ -763,7 +764,13 @@
             (dissoc :failure-reason-code)
 
             (= "" (:failure-reason payment))
-            (dissoc :failure-reason))))
+            (dissoc :failure-reason)
+
+            (= "" (:return-reason-code payment))
+            (dissoc :return-reason-code)
+
+            (= "" (:return-reason payment))
+            (dissoc :return-reason))))
 
 (defn OutboundPayment->pb
   "Serialise an OutboundPayment map to protobuf bytes.

@@ -12,11 +12,12 @@
             :responses {201 {:body [:ref "Payment"]}
                         400 {:body [:ref "Problem"]}}
             :handler handlers/create}
-     :get {:summary "Retrieve payments by id or external reference"
+     :get {:summary "Retrieve payments by id, external reference or scheme id"
            :openapi {:operationId "GetPayments"}
            :parameters {:query [:map
                                 [:id {:optional true} string?]
-                                [:externalReference {:optional true} string?]]}
+                                [:externalReference {:optional true} string?]
+                                [:schemeId {:optional true} string?]]}
            :responses {200 {:body [:ref "PaymentPage"]}}
            :handler handlers/search}}]
    ["/credit"

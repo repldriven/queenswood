@@ -50,3 +50,40 @@
         (is (:is-return data))))
     (testing "a release reports nothing"
       (is (= [] (SUT/compliance (status "RELEASED") inbound))))))
+
+(deftest returned-test
+  (let [payin {:PaymentId "P9"
+               :Type "PO_REV"
+               :Amount "12.50"
+               :Currency "GBP"
+               :ReturnReason "BENACCCLOSED"
+               :OriginalSchemeId "MODULO00P1"
+               :PaymentAppliedTime "2026-09-28T16:38:06+0000"
+               :Payee {:Identifier {:SortCode "040010"
+                                    :AccountNumber "00001457"}}}
+        original {:id "P1" :type "PAYOUT" :externalReference "pmt-01K6A3Z9X0"}]
+    (testing
+      "a payment the adapter sent is returned, keyed on its end-to-end id"
+      (let [[{:keys [event-name dedup-key data]} :as all]
+            (SUT/returned payin original {:kind "payment"})]
+        (is (= 1 (count all)))
+        (is (= "transaction-returned" event-name))
+        (is (= "pmt.01K6A3Z9X0:returned" dedup-key))
+        (is (= {:end-to-end-id "pmt.01K6A3Z9X0"
+                :debit-credit-code :debit-credit-code-debit
+                :scheme-transaction-id "P9"
+                :amount 1250
+                :reason-code "AC04"
+                :reason "BENACCCLOSED"
+                :timestamp-returned 1790613486000}
+               (select-keys data
+                            [:end-to-end-id :debit-credit-code
+                             :scheme-transaction-id :amount :reason-code
+                             :reason :timestamp-returned])))))
+    (testing "a return matching no payment is money arriving where it landed"
+      (doseq [[original intent] [[nil nil] [original {:kind "transfer"}]
+                                 [original nil]]]
+        (let [[{:keys [event-name data]}] (SUT/returned payin original intent)]
+          (is (= "transaction-settled" event-name))
+          (is (= :debit-credit-code-credit (:debit-credit-code data)))
+          (is (= "04001000001457" (:creditor-bban data))))))))

@@ -88,6 +88,35 @@
                 :timestamp-settled (epoch-millis (or PaymentAppliedTime
                                                      DateTime))}})])))
 
+(defn returned
+  "A PAYIN of type `PO_REV`: the scheme brought back an outbound payment.
+  Reported against the payment it returns where `original`, the payment
+  Modulr names as returned, was one the adapter submitted for the
+  platform, and otherwise as money arriving at the account it landed
+  in, so it is never lost."
+  [payin original intent]
+  (let [{:keys [PaymentId Amount Currency ReturnReason PaymentAppliedTime
+                DateTime]}
+        payin
+        end-to-end-id (relay/reference->id (:externalReference original))]
+    (if-not (and end-to-end-id (= "payment" (:kind intent)))
+      (inbound payin)
+      (let-nom> [amount (amount->minor-units Amount PaymentId)]
+        [{:event-name "transaction-returned"
+          :dedup-key (str end-to-end-id ":returned")
+          :data (utility/assoc-some
+                 {:end-to-end-id end-to-end-id
+                  :scheme "fps"
+                  :debit-credit-code :debit-credit-code-debit
+                  :scheme-transaction-id PaymentId
+                  :amount amount
+                  :currency Currency
+                  :reason-code (relay/reason-code ReturnReason)
+                  :timestamp-returned (epoch-millis (or PaymentAppliedTime
+                                                        DateTime))}
+                 :reason
+                 ReturnReason)}]))))
+
 (defn payout
   "A PAYOUT at a final status, for a payment or a transfer the adapter
   made; nothing while the status is not final."

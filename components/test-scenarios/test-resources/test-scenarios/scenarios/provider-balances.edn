@@ -13,7 +13,9 @@
  ;; scheme left it. An internal payment moves between the two provider
  ;; accounts. Interest capitalised is paid from own funds. An inbound the
  ;; daily count refuses parks in 2500, and its money moves from the
- ;; receiving account's provider account to own funds.
+ ;; receiving account's provider account to own funds. An outbound the
+ ;; scheme returns lands back in the account it left at the provider as
+ ;; in the ledger, so nothing is mirrored for it.
  :given
  [{:command :create-bank :args []}
   {:command :create-product :args [:bank-0 :savings 3650]}
@@ -40,7 +42,9 @@
                             {:kind
                              {:count {:value 1 :window :time-window-daily}}}}}}
        :reason "Test-bound daily count cap"}]}]}
-  {:command :inbound-transfer :args [:acct-0 2500 :e2e-refused]}]
+  {:command :inbound-transfer :args [:acct-0 2500 :e2e-refused]}
+  {:command :outbound-payment :args [:acct-1 4000]}
+  {:command :return-outbound-payment :args [:pmt-0]}]
  :then
  [{:command :assert-no-anomaly :args []}
   {:command :assert-inbound-status

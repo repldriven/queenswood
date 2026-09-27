@@ -15,6 +15,10 @@
 
 (def ^:private move-prefix "move-")
 
+(def ^:private scheme-id-prefix
+  "What Modulr puts before a scheme's own id in a payment's scheme id."
+  "PAYPORT:")
+
 (defn- verified
   [handler]
   (fn [request]
@@ -104,6 +108,42 @@
                    (:kind (intent request SourceExternalReference)))
         (= "credit" (:kind (intent request PaymentReference))))))
 
+(defn- search-payments
+  [request query]
+  (let [res (relay/request (select-keys request [:modulr-url :credentials])
+                           {:method :get :path "/payments" :query query})
+        [outcome result] (relay/classify res)]
+    (if (= :ok outcome)
+      (:content result)
+      (error/fail :payment/unavailable
+                  {:message "The payment the notification names is unreadable"
+                   :query query
+                   :reason result}))))
+
+(defn- provider-payment
+  [request payment-id]
+  (let-nom> [found (search-payments request {"id" payment-id})]
+    (first found)))
+
+(defn- returned-payment
+  "The payment Modulr says a return brings back, or nil where it names
+  none or holds none under that scheme id."
+  [request original-scheme-id]
+  (if (str/blank? original-scheme-id)
+    nil
+    (let-nom> [found (search-payments request
+                                      {"schemeId" (str scheme-id-prefix
+                                                       original-scheme-id)})]
+      (first found))))
+
+(defn- returned
+  [request payin]
+  (let-nom> [original (returned-payment request (:OriginalSchemeId payin))]
+    (publisher/returned payin
+                        original
+                        (some->> (:externalReference original)
+                                 (intent request)))))
+
 (def payin
   (verified (fn [request]
               (let [body (get-in request [:parameters :body])
@@ -115,9 +155,7 @@
                  {:status 200 :body {}}
 
                  (= "PO_REV" Type)
-                 (do (log/error "A returned outbound payment arrived unmapped"
-                                {:payment-id PaymentId})
-                     {:status 200 :body {}})
+                 (respond request "PAYIN" (returned request body) nil)
 
                  :else
                  (respond request "PAYIN" (publisher/inbound body) nil))))))
@@ -136,20 +174,6 @@
                              "PAYOUT"
                              (publisher/payout body found)
                              (:dedup-key found))))))))
-
-(defn- provider-payment
-  [request payment-id]
-  (let [res (relay/request (select-keys request [:modulr-url :credentials])
-                           {:method :get
-                            :path "/payments"
-                            :query {"id" payment-id}})
-        [outcome result] (relay/classify res)]
-    (if (= :ok outcome)
-      (first (:content result))
-      (error/fail :payment/unavailable
-                  {:message "The payment the notification names is unreadable"
-                   :payment-id payment-id
-                   :reason result}))))
 
 (def compliance
   (verified (fn [request]

@@ -208,6 +208,9 @@
                    "settle" :outbound-payment-status-completed)
    (outbound-entry "payment.outbound-failed" :outbound-payment-change-kind-fail
                    "fail" :outbound-payment-status-failed)
+   (outbound-entry "payment.outbound-returned"
+                   :outbound-payment-change-kind-return
+                   "return" :outbound-payment-status-returned)
    (inbound-entry "payment.inbound-settled" :inbound-payment-change-kind-settle
                   "settle" :inbound-payment-status-settled)
    (inbound-entry "payment.inbound-held" :inbound-payment-change-kind-hold

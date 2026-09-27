@@ -551,6 +551,81 @@
      :payment/reject-outbound
      "Failed to reject outbound payment")))
 
+(defn- record-return-leg
+  "DEBIT 1100 / CREDIT debtor — bring a returned outbound's money back. The
+  debtor leg is a sub-ledger account, so route through `add-control-legs`."
+  [txn payment amount]
+  (let [{:keys [bank-id debtor-account-id currency]} payment]
+    (let-nom>
+      [cash (ledger-accounts/find-by-code
+             txn
+             bank-id
+             :gl-account-code-cash-at-correspondent
+             currency)
+       debtor-account (cash-accounts/get-account
+                       txn
+                       bank-id
+                       debtor-account-id)
+       tx (domain/outbound-return->transaction
+           payment
+           debtor-account
+           (:ledger-account-id cash)
+           amount)
+       expanded-legs (ledger-accounts/add-control-legs
+                      txn
+                      bank-id
+                      currency
+                      (:legs tx))
+       recorded (transactions/record-transaction
+                 txn
+                 (assoc tx :legs expanded-legs))
+       {:keys [transaction-type legs]} recorded
+       _ (balances/apply-legs txn bank-id legs transaction-type)]
+      recorded)))
+
+(defn return-outbound
+  [config data]
+  (let [{payment-id :end-to-end-id} data
+        {:keys [amount reason-code]} data]
+    (store/transact
+     config
+     (fn [txn]
+       (let-nom> [payment (q/get-outbound-payment txn payment-id)]
+         (cond
+          (nil? payment)
+          (error/fail :payment/return-outbound
+                      {:message
+                       "Failed to find corresponding outbound payment to return"
+                       :payment-id payment-id})
+
+          (= :outbound-payment-status-returned (:payment-status payment))
+          (do (log/infof "Outbound payment return already processed: %s"
+                         {:payment-id payment-id})
+              payment)
+
+          (not= :outbound-payment-status-completed (:payment-status payment))
+          (error/fail :payment/return-outbound
+                      {:message
+                       "Cannot return an outbound payment not completed"
+                       :payment-id payment-id
+                       :payment-status (:payment-status payment)})
+
+          :else
+          (let-nom>
+            [returned (domain/returned-outbound-payment payment data)
+             _ (store/save-outbound-payment
+                txn
+                returned
+                {:change-kind :outbound-payment-change-kind-return
+                 :status-before (:payment-status payment)})
+             _ (record-return-leg txn payment amount)]
+            (log/infof "Outbound payment returned: %s"
+                       {:payment-id payment-id
+                        :reason-code reason-code})
+            returned))))
+     :payment/return-outbound
+     "Failed to return outbound payment")))
+
 (defn- mirror-context
   "What `domain/provider-transfers` needs to know about the accounts a
   posting touched: which are cash accounts and whose provider account

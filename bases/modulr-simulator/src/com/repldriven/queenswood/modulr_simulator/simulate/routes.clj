@@ -17,6 +17,18 @@ first, then released, or returned where outcome is return."
        :responses {202 {:body [:map [:endToEndIdentification string?]]}
                    404 {:body map?}}
        :handler handlers/inbound-payment}}]
+    ["/outbound-return"
+     {:post
+      {:summary "Return a processed payment to the account it left"
+       :description
+       "As the beneficiary's bank does when it cannot apply a payment,
+with the reason given as an ISO 20022 code, AC04 where none is."
+       :openapi {:operationId "SimulateOutboundReturn"}
+       :parameters {:body [:ref "OutboundReturnRequest"]}
+       :responses {202 {:body [:map [:payment-id string?]]}
+                   404 {:body map?}
+                   409 {:body map?}}
+       :handler handlers/outbound-return}}]
     ["/open-refused"
      {:post {:summary "Refuse the next account opening"
              :openapi {:operationId "SimulateOpenRefused"}

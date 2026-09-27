@@ -91,6 +91,13 @@
             ;; code as the outbound path for backward compatibility.
             (events/reject-outbound config data))
 
+          "transaction-returned"
+          (if (= :debit-credit-code-debit debit-credit-code)
+            (events/return-outbound config data)
+            (error/fail :payment/unknown-debit-credit-code
+                        {:message "A return names an outbound payment"
+                         :debit-credit-code debit-credit-code}))
+
           "transfer-completed"
           (events/complete-transfer config data)
 

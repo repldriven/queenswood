@@ -1,0 +1,24 @@
+{:name "A completed outbound the scheme returns credits the debtor again"
+ :tags #{:outbound :payments :unhappy}
+ ;; The beneficiary's bank sends a completed payment back: the payment
+ ;; reads returned, and DEBIT 1100 / CREDIT customer undoes what
+ ;; settlement moved, so every balance is where the inbound left it. A
+ ;; second delivery of the return is a no-op.
+ :given [{:command :create-bank :args []}
+         {:command :inbound-transfer :args [:acct-0 1000]}
+         {:command :outbound-payment :args [:acct-0 250]}
+         {:command :assert-no-anomaly :args []}
+         {:command :assert-balance :args [:acct-0 750]}]
+ :when [{:command :return-outbound-payment :args [:pmt-0]}
+        {:command :return-outbound-event :args [:pmt-0 250]}]
+ :then [{:command :assert-no-anomaly :args []}
+        {:command :assert-outbound-status
+         :args [:pmt-0 :outbound-payment-status-returned]}
+        {:command :assert-balance :args [:acct-0 1000]}
+        {:command :assert-gl-balance
+         :args [:bank-0 :gl-account-code-cash-at-correspondent "GBP" -1000]}
+        {:command :assert-gl-balance
+         :args [:bank-0 :gl-account-code-pending-outbound "GBP" 0]}
+        {:command :assert-gl-balance
+         :args [:bank-0 :gl-account-code-customer-deposits-current "GBP"
+                1000]}]}

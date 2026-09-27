@@ -228,6 +228,48 @@
         (is (= 250 (:amount release)))))
     (testing "legs balance" (is (balanced? tx)))))
 
+(deftest outbound-return->transaction-test
+  (let [payment {:payment-id "pmt-3"
+                 :debtor-account-id "debtor"
+                 :currency "GBP"
+                 :amount 250
+                 :reference "Beer and nuts"}
+        tx (SUT/outbound-return->transaction payment
+                                             (account "debtor" "GBP")
+                                             "1100"
+                                             240)]
+    (testing "is an outbound return through the debtor's account"
+      (is (= :transaction-type-outbound-return (:transaction-type tx)))
+      (is (= "debtor" (:scheme-account-id tx)))
+      (is (= "return-out-pmt-3" (:idempotency-key tx))))
+    (testing "brings the returned amount back from 1100 to the debtor"
+      (let [in (leg tx :leg-side-debit :balance-status-posted)
+            back (leg tx :leg-side-credit :balance-status-posted)]
+        (is (= "1100" (:account-id in)))
+        (is (= "debtor" (:account-id back)))
+        (is (= 240 (:amount back)))))
+    (testing "legs balance" (is (balanced? tx)))
+    (testing "nets to nothing at the provider"
+      (is (= []
+             (SUT/provider-transfers tx
+                                     {:cash-accounts {"debtor" "debtor"}
+                                      :cash-at-correspondent-id "1100"
+                                      :scheme-account-id "debtor"
+                                      :own-funds "house"}))))))
+
+(deftest returned-outbound-payment-test
+  (let [payment {:payment-id "pmt.1"
+                 :payment-status :outbound-payment-status-completed}
+        returned (SUT/returned-outbound-payment payment
+                                                {:reason-code "AC04"
+                                                 :reason "Account closed"})]
+    (is (= :outbound-payment-status-returned (:payment-status returned)))
+    (is (= "AC04" (:return-reason-code returned)))
+    (is (= "Account closed" (:return-reason returned)))
+    (is (not (contains? (SUT/returned-outbound-payment payment
+                                                       {:reason-code "NARR"})
+                        :return-reason)))))
+
 (deftest operable?-test
   (testing "opened alone is operable"
     (is (SUT/operable? (account "debtor" "GBP")))

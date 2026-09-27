@@ -7,7 +7,8 @@
                            "processing" :outbound-payment-status-processing
                            "completed" :outbound-payment-status-completed
                            "failed" :outbound-payment-status-failed
-                           "held" :outbound-payment-status-held}
+                           "held" :outbound-payment-status-held
+                           "returned" :outbound-payment-status-returned}
                           :outbound-payment-status-unknown))
 
 (def outbound-payment-status-enum-schema

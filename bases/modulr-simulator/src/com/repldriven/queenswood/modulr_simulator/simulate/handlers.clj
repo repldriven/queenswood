@@ -7,7 +7,9 @@
     [com.repldriven.queenswood.modulr-simulator.ledger :as ledger]
     [com.repldriven.queenswood.modulr-simulator.scheme :as scheme]
 
-    [com.repldriven.mono.log.interface :as log]))
+    [com.repldriven.mono.log.interface :as log]
+
+    [clojure.string :as str]))
 
 (defn- account-for
   [state bban]
@@ -88,6 +90,49 @@
            (catch Exception e
              (log/error e "Modulr simulator inbound payment threw"))))
         {:status 202 :body {:endToEndIdentification (:id p)}}))))
+
+(def ^:private return-reasons
+  "Modulr's return reason for each ISO 20022 code a scenario may ask for."
+  {"AC04" "BENACCCLOSED" "AC01" "BENSCANUNKNOWN" "AM05" "DUPLICATE"})
+
+(defn- reference
+  "An end-to-end id as the adapter wrote it into a payment's external
+  reference, which allows no `.`."
+  [end-to-end-id]
+  (str/replace end-to-end-id "." "-"))
+
+(defn outbound-return
+  [request]
+  (let [{:keys [state parameters]} request
+        {:keys [end-to-end-id reason-code]} (:body parameters)
+        p (first (ledger/find-payments state
+                                       {:externalReference (reference
+                                                            end-to-end-id)}))
+        returned (when p
+                   (scheme/return-payment state
+                                          (config request)
+                                          (:id p)
+                                          (get return-reasons
+                                               reason-code
+                                               (or reason-code
+                                                   "BENACCCLOSED"))))]
+    (cond
+     (nil? p)
+     {:status 404
+      :body {:title "NOT_FOUND"
+             :type "simulate/unknown-payment"
+             :status 404
+             :detail "No payment the simulator holds has this end-to-end id"}}
+
+     (:refused returned)
+     {:status 409
+      :body {:title "CONFLICT"
+             :type "simulate/not-returnable"
+             :status 409
+             :detail (:refused returned)}}
+
+     :else
+     {:status 202 :body {:payment-id (:id p)}})))
 
 (defn open-refused
   [request]
