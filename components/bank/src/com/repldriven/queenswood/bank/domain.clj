@@ -30,8 +30,14 @@
                   {:message "A bank was already created by this command"
                    :idempotency-key idempotency-key})))
 
+(def ^:private placeholder-sort-code
+  "What the deprecated, required `sort_code` field is written with: the
+  payment provider issues every address, and the Record Layer will not
+  relax a required field."
+  "000000")
+
 (defn new-bank
-  [bank-name bank-status sort-code tier company-binding tier-policies policies
+  [bank-name bank-status tier company-binding tier-policies policies
    idv-provider]
   (let-nom>
     [_ (policy/check-capability policies
@@ -55,7 +61,7 @@
       (utility/assoc-some {:bank-id (utility/generate-id "bnk")
                            :name bank-name
                            :status bank-status
-                           :sort-code sort-code
+                           :sort-code placeholder-sort-code
                            :tier tier
                            :created-at now
                            :updated-at now}

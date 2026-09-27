@@ -29,6 +29,9 @@ system:
         - rewards-event
         - schemes-payment-command
         - schemes-payment-command-response
+        - schemes-account-command
+        - schemes-account-command-response
+        - schemes-account-event
         - idv-command
         - idv-command-response
         - companies-command

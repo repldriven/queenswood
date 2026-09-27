@@ -125,20 +125,19 @@ mints a second client that nothing removes. The limitation is
 {:bank-id         "bnk.<ulid>"
  :name            "Acme Bank"
  :status          :bank-status-test   ; or -live, -unknown
- :sort-code       "000001"            ; 6-digit, fountain-allocated
  :tier            "micro"
  :company-binding {...}               ; the registry snapshot, when bound
  :created-at      <ms>
  :updated-at      <ms>}
 ```
 
-Each bank has its **own 6-digit sort code**, allocated from a
-monotonic fountain at creation (`000001`, `000002`, …) and unique
-across banks (`Bank_by_sort_code`). `00`-prefixed sort codes are
-unallocated in the real world, so the range is safe. The sort code
-prefixes every BBAN the bank issues, so an inbound payment can be
-attributed to its bank by the BBAN's first six digits, which is
-what `bank-query/get-bank-by-sort-code` does.
+A bank holds **no sort code**: the payment provider issues every
+account's sort code and account number, as
+[payments.md](payments.md) describes. The deprecated `sort_code`
+field stays in the record's descriptor, required, since the
+Record Layer will not relax a required field; a new bank writes
+the placeholder `000000`, and one created before the provider
+issued addresses keeps its own. No read returns either.
 
 There is **no bank-type** — the internal/customer distinction was
 removed (#139). What distinguishes one bank from another is its
@@ -180,43 +179,40 @@ operator with principal id `unknown`.
    into every foundational write below, so a tier that denies the
    ledger-account or product capability per bank still
    bootstraps.
-4. **Allocate the sort code** — `store/allocate-sort-code` draws
-   the next value from the global fountain, formatted `%06d`.
-5. **Resolve tier policies** — `policy/get-policies-by-tier txn
+4. **Resolve tier policies** — `policy/get-policies-by-tier txn
    tier` returns the policies labelled `{:tier "<name>"}`, and an
    empty list stands in for a nil tier.
-6. **Build the `Bank`** — `domain/new-bank` runs the
+5. **Build the `Bank`** — `domain/new-bank` runs the
    `:bank-action-create` capability check, rejects
    `:bank/company-not-active` when `opts` carries a
    `:company-binding` whose status is not active, and rejects
-   `:bank/unknown-tier` when step 5 resolved no policies. Then it
-   mints the record with a `bnk.*` id, the allocated sort code,
-   the tier and the binding.
-7. **Create the service-account client** *(before the FDB
+   `:bank/unknown-tier` when step 4 resolved no policies. Then it
+   mints the record with a `bnk.*` id, the tier and the binding.
+6. **Create the service-account client** *(before the FDB
    write)* — `identity-provider/create-service-account` with
    `client_id == bank-id` and a status-derived audience. The
    secret minted here is discarded: the command reply crosses the
    bus, so no credential travels on it.
-8. **Persist the bank.**
-9. **Create the bank's org party** — `party/new-party` with
+7. **Persist the bank.**
+8. **Create the bank's org party** — `party/new-party` with
    `:type :party-type-organization` and display-name = bank name.
-10. **Seed the ledger chart** — one `LedgerAccount` per seed row
-    per currency, described below.
-11. **Open own-funds house accounts** — per currency, draft and
+9. **Seed the ledger chart** — one `LedgerAccount` per seed row
+   per currency, described below.
+10. **Open own-funds house accounts** — per currency, draft and
     publish a `:product-type-sub-ledger-own-funds` product
     ("Bank own funds", `effective-from` today), then open a real
-    `CashAccount` on the org party against it — its BBAN carries
-    the bank's sort code.
-12. **Bind the tier policies** — `policy/new-binding` per policy
-    resolved at step 5, targeting
+    `CashAccount` on the org party against it, which opens once
+    the payment provider has issued its address.
+11. **Bind the tier policies** — `policy/new-binding` per policy
+    resolved at step 4, targeting
     `{:kind {:bank {:bank-id <new-id>}}}`.
-13. **Seed the scheduled jobs** — `scheduler/seed-jobs`,
+12. **Seed the scheduled jobs** — `scheduler/seed-jobs`,
     idempotent on `[bank-id job-id]`.
-14. **Create the owner membership** *(`:membership`)*.
-15. **Record the bank-created access event** —
+13. **Create the owner membership** *(`:membership`)*.
+14. **Record the bank-created access event** —
     `membership/record-bank-created` in the actor's name, naming
     the owner membership when there is one.
-16. **Invite the owner** *(`:owner-invitation`)* —
+15. **Invite the owner** *(`:owner-invitation`)* —
     `membership/invite` with role owner, the actor, the given token
     hash and a fixed reason, writing a pending invitation and its
     invitation-created event. A token hash another invitation holds
@@ -230,7 +226,7 @@ view from `bank-query`.
 
 Two rules fall out of the flow. A bank always carries a tier that
 resolves to at least one policy — an unmatched or nil tier is
-rejected at step 6, exactly as a tier change rejects it. And a
+rejected at step 5, exactly as a tier change rejects it. And a
 bank is created in every currency the API offers: the request
 schema's `Currency` enum holds EUR, GBP and USD, and the
 own-funds product template allows all three, so a create naming
@@ -287,7 +283,7 @@ three accounts all coded 3100.
 shape `get-banks` and the api handlers return:
 
 ```clojure
-{:bank-id ... :name ... :status ... :sort-code ...
+{:bank-id ... :name ... :status ...
  :tier            "micro"
  :company-binding {...}      ; when the bank was onboarded
  :party           {...}      ; the bank's org party
@@ -448,4 +444,4 @@ the one it already has. The route is `POST /v1/bank/change-status`.
   (tier label, binding selectors, effective-policy resolution)
 - `bank` brick interface (`new-bank`, `change-tier`,
   `change-status`) and `bank-query` brick interface (`get-bank`,
-  `get-bank-by-sort-code`, `get-bank-view`, `get-banks`)
+  `get-bank-view`, `get-banks`)

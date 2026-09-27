@@ -13,7 +13,8 @@
                                     "CASH_ACCOUNT_STATUS_OPENED",
                                     "CASH_ACCOUNT_STATUS_CLOSING",
                                     "CASH_ACCOUNT_STATUS_CLOSED",
-                                    "CASH_ACCOUNT_STATUS_SUSPENDED"]}],
+                                    "CASH_ACCOUNT_STATUS_SUSPENDED",
+                                    "CASH_ACCOUNT_STATUS_REFUSED"]}],
      "default": null},
     {"name": "status_after",
      "type": "com.repldriven.mono.cash_accounts.CashAccountStatus"},
@@ -25,7 +26,8 @@
                                     "CASH_ACCOUNT_CHANGE_KIND_SUSPEND",
                                     "CASH_ACCOUNT_CHANGE_KIND_RESUME",
                                     "CASH_ACCOUNT_CHANGE_KIND_ROTATE_ADDRESS",
-                                    "CASH_ACCOUNT_CHANGE_KIND_MIGRATE"]}],
+                                    "CASH_ACCOUNT_CHANGE_KIND_MIGRATE",
+                                    "CASH_ACCOUNT_CHANGE_KIND_ROTATE_REQUESTED"]}],
      "default": null}
   ]
 }

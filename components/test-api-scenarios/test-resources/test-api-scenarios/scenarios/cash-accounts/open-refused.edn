@@ -1,0 +1,100 @@
+{:name "An account the payment provider declines is refused"
+ :tags #{:api :cash-accounts :unhappy}
+ ;; The simulator declines the next account it is asked to open. The
+ ;; account, written opening, becomes refused with the provider's reason
+ ;; and never carries an address.
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-open-refused-bank-001"}
+             :body {:name "Open Refused"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :bank-a
+   :assert {:status 201 :body {:sort-code [:m/absent]}}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :bank-a :client-id]
+         :client-secret [:ref :bank-a :client-secret]
+         :status :live}
+   :as :bank-a-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :bank-a-token
+             :headers {:idempotency-key "ik-open-refused-prod-001"}
+             :body {:name "Current"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-01-01"}}
+   :as :current-draft
+   :assert {:status 201 :body {:status "draft"}}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :current-draft :product-id]
+                  :version-id [:ref :current-draft :version-id]}
+    :auth :bank-a-token}
+   :assert {:status 200 :body {:status "published"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth :bank-a-token
+             :headers {:idempotency-key "ik-opr-create-party"}
+             :body {:type "person"
+                    :display-name "Slartibartfast Magrathea"
+                    :given-name "Slartibartfast"
+                    :family-name "Magrathea"
+                    :date-of-birth "1947-05-19"
+                    :nationality "GB"
+                    :address {:building-number "1"
+                              :street "Fjord Lane"
+                              :town "Cottington"
+                              :postcode "CT12 4XY"
+                              :country "GBR"}
+                    :national-identifier {:type "national-insurance"
+                                          :value "TN555201E"
+                                          :issuing-country "GB"}}}
+   :as :party
+   :assert {:status 201 :body {:status "pending"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}"
+             :path-params {:party-id [:ref :party :party-id]}
+             :auth :bank-a-token}
+   :until {:status 200 :body {:status "active"}}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :base :clearbank-simulator
+             :path "/simulate/open-refused"}
+   :assert {:status 204}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :bank-a-token
+             :headers {:idempotency-key "ik-opr-open-account"}
+             :body {:party-id [:ref :party :party-id]
+                    :name "Slartibartfast Current"
+                    :currency "GBP"
+                    :product-id [:ref :current-draft :product-id]}}
+   :as :account
+   :assert {:status 201
+            :body {:account-status "opening"
+                   :payment-addresses []
+                   :bban [:m/absent]}}}]
+ :then
+ [{:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :account :account-id]}
+             :auth :bank-a-token}
+   :until {:status 200
+           :body {:account-status "refused"
+                  :refusal-reason "The account was declined"
+                  :payment-addresses []
+                  :bban [:m/absent]}}}]}

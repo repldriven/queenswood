@@ -1,23 +1,21 @@
 (ns com.repldriven.queenswood.cash-account.interface-test
-  "The rotation retry, against a real store: `rotate-address` driven
-  twice under one idempotency key allocates one set of addresses. The
-  domain-level guards live in `domain-test`; this is the part only a
-  store and a payment-address fountain can show. The opening guards,
-  the count limits and the non-zero close are pure in `domain-test`;
-  their end-to-end shape is an EDN scenario in `test-scenarios` or
-  `test-api-scenarios`."
+  "The provider legs, against a real store: a rotation retried under one
+  idempotency key asks the provider once, and each report from the
+  provider — an opening, a refusal, a reissue — lands once, however
+  often it is delivered. The domain-level guards live in `domain-test`;
+  the opening guards, the count limits and the non-zero close are pure
+  there, and their end-to-end shape is an EDN scenario in
+  `test-scenarios` or `test-api-scenarios`."
   (:require
     [com.repldriven.queenswood.fdb.interface]
     [com.repldriven.queenswood.testcontainers.interface]
 
+    [com.repldriven.queenswood.cash-account.core :as core]
     [com.repldriven.queenswood.cash-account.interface :as SUT]
     [com.repldriven.queenswood.cash-account.store :as store]
 
-    ;; enforce-idioms: brick-test-scope -- rotate-address reads the version
-    [com.repldriven.queenswood.cash-account-product.interface :as products]
     [com.repldriven.queenswood.cash-account-query.interface :as q]
 
-    [com.repldriven.mono.error.interface :refer [let-nom>]]
     [com.repldriven.mono.system.interface :as system]
     [com.repldriven.mono.test-system.interface :refer
      [with-test-system nom-test>]]
@@ -27,136 +25,123 @@
 
 (def ^:private config-file "classpath:cash-account/application-test.yml")
 
-(def ^:private test-bank-id "bnk_rotate_retry_test")
-(def ^:private test-sort-code "040404")
-
-(def ^:private effective-from
-  "An epoch day well behind any run, so a published version is active
-  the day the test rotates against it."
-  20089)
+(def ^:private test-bank-id "bnk_provider_legs_test")
 
 (defn- fdb-config
   [sys]
   {:record-db (system/instance sys [:fdb :record-db])
    :record-store (system/instance sys [:fdb :store])})
 
-(defn- policy-allowing
-  [kind & actions]
-  {:enabled true
-   :capabilities (mapv (fn [action]
-                         {:effect :effect-allow
-                          :kind {kind {:action action}}})
-                       actions)})
-
-(def ^:private allow-product
-  [(policy-allowing :cash-account-product
-                    :cash-account-product-action-draft
-                    :cash-account-product-action-publish)])
-
 (def ^:private allow-rotate
-  [(policy-allowing :cash-account :cash-account-action-rotate-address)])
+  [{:enabled true
+    :capabilities [{:effect :effect-allow
+                    :kind {:cash-account
+                           {:action :cash-account-action-rotate-address}}}]}])
 
-(def ^:private current-template
-  {:template-id "tpl.rotate-retry-current"
-   :name "Rotation Retry Current"
-   :product-type :product-type-sub-ledger-current
-   :balance-sheet-side :balance-sheet-side-liability
-   :iso-cash-account-type :iso-cash-account-type-cacc
-   :allowed-currencies ["GBP"]
-   :allowed-payment-address-schemes [:payment-address-scheme-scan]
-   :balance-products [{:balance-type :balance-type-default
-                       :balance-status :balance-status-posted}]})
-
-(defn- published-version
-  "Create a product from the template and publish its first version,
-  returning that version. The rotation reads the version's allowed
-  schemes, which is the one thing here another brick has to write."
-  [config]
-  (let-nom>
-    [version (products/new-product config
-                                   test-bank-id
-                                   {:name "Rotation Retry Current"
-                                    :template-id (:template-id
-                                                  current-template)
-                                    :currency "GBP"
-                                    :effective-from effective-from}
-                                   {:policies allow-product})
-     _ (products/publish config
-                         test-bank-id
-                         (:product-id version)
-                         (:version-id version)
-                         {:policies allow-product})]
-    version))
-
-(defn- opened-account
-  [version account-number]
+(defn- account
+  [account-id status]
   {:bank-id test-bank-id
-   :account-id "acc.rotate.retry"
+   :account-id account-id
    :account-type :account-type-personal
    :party-id "pty.test"
-   :product-id (:product-id version)
-   :version-id (:version-id version)
-   :product-type (:product-type version)
-   :name "Rotation Retry Account"
+   :product-id "prd.test"
+   :version-id "prv.test"
+   :product-type :product-type-sub-ledger-current
+   :name "Provider Legs Account"
    :currency "GBP"
-   :account-status :cash-account-status-opened
-   :payment-addresses [{:scheme :payment-address-scheme-scan
-                        :scan {:sort-code test-sort-code
-                               :account-number account-number}}]
-   :bban (str test-sort-code account-number)
+   :account-status status
+   :payment-addresses []
    :created-at (utility/now)
    :updated-at (utility/now)})
 
-(defn- account-number-of
-  "The account's scan account-number. Read through rather than
-  compared whole, because the skip answers with the stored record and
-  a fresh rotation answers with the map the domain built — same
-  address, two shapes."
-  [account]
-  (get-in account [:payment-addresses 0 :scan :account-number]))
+(defn- save
+  [config account]
+  (store/save-account config
+                      account
+                      {:account-id (:account-id account)
+                       :status-after (:account-status account)
+                       :change-kind :cash-account-change-kind-open}))
 
-(deftest rotate-address-retried-under-one-key-allocates-once-test
+(defn- issued
+  [account-id account-number & {:as extra}]
+  (merge {:bank-id test-bank-id
+          :account-id account-id
+          :provider-account-id "va-1"
+          :addresses [{:scheme "scan"
+                       :sort-code "040004"
+                       :account-number account-number}]}
+         extra))
+
+(deftest provider-opening-lands-once-test
   (with-test-system
    [sys config-file]
    (let [config (fdb-config sys)
+         account-id "acc.provider.open"]
+     (nom-test> [_ (save config
+                         (account account-id :cash-account-status-opening))
+                 opened (core/provider-opened config
+                                              (issued account-id "20000001"))
+                 _ (testing "the provider's address opens the account"
+                     (is (= :cash-account-status-opened
+                            (:account-status opened)))
+                     (is (= "04000420000001" (:bban opened)))
+                     (is (= "va-1" (:provider-account-id opened))))
+                 again (core/provider-opened config
+                                             (issued account-id "20000009"))
+                 _ (testing "a redelivered opening is a no-op"
+                     (is (nil? again)))
+                 refused (core/provider-refused config
+                                                {:bank-id test-bank-id
+                                                 :account-id account-id
+                                                 :reason "Declined"})
+                 _ (testing "and a refusal after it changes nothing"
+                     (is (nil? refused)))
+                 stored (q/get-account config test-bank-id account-id)
+                 _ (is (= "04000420000001" (:bban stored)))
+                 _ (is (= :cash-account-status-opened
+                          (:account-status stored)))]))))
+
+(deftest rotate-address-retried-under-one-key-asks-once-test
+  (with-test-system
+   [sys config-file]
+   (let [config (fdb-config sys)
+         account-id "acc.rotate.retry"
          key "ik-rotate-retry-00000001"
-         command {:bank-id test-bank-id
-                  :account-id "acc.rotate.retry"
-                  :idempotency-key key}]
-     (nom-test> [_ (products/new-template config current-template)
-                 version (published-version config)
-                 account-number (store/allocate-payment-address config
-                                                                test-sort-code)
-                 _ (store/save-account
-                    config
-                    (opened-account version account-number)
-                    {:account-id "acc.rotate.retry"
-                     :status-after :cash-account-status-opened
-                     :change-kind :cash-account-change-kind-open})
-                 rotated
+         command
+         {:bank-id test-bank-id :account-id account-id :idempotency-key key}]
+     (nom-test> [_ (save config
+                         (account account-id :cash-account-status-opening))
+                 opened (core/provider-opened config
+                                              (issued account-id "20000001"))
+                 requested
                  (SUT/rotate-address config command {:policies allow-rotate})
-                 _ (testing "the first rotation allocates and retires"
-                     (is (= 1 (count (:retired-payment-addresses rotated))))
-                     (is (not= account-number (account-number-of rotated)))
-                     (is (= key (:last-rotation-idempotency-key rotated))))
-                 before (store/allocate-payment-address config test-sort-code)
+                 _ (testing "the rotation is pending and the address stays"
+                     (is (= key (:pending-rotation-key requested)))
+                     (is (= (:bban opened) (:bban requested))))
                  retried
                  (SUT/rotate-address config command {:policies allow-rotate})
-                 after (store/allocate-payment-address config test-sort-code)
-                 _ (testing
-                     "the retry answers with the address the first allocated"
-                     (is (= (account-number-of rotated)
-                            (account-number-of retried)))
-                     (is (= (:bban rotated) (:bban retried))))
-                 _ (testing "and retires nothing more"
-                     (is (= (count (:retired-payment-addresses rotated))
-                            (count (:retired-payment-addresses retried)))))
-                 _ (testing "and takes no number from the fountain"
-                     (is (= (inc (Long/parseLong before))
-                            (Long/parseLong after))))
-                 stored (q/get-account config test-bank-id "acc.rotate.retry")
-                 _ (testing
-                     "leaving the stored account exactly as the first left it"
-                     (is (= (account-number-of rotated)
-                            (account-number-of stored)))
-                     (is (= (:updated-at rotated) (:updated-at stored))))]))))
+                 _ (testing "the retry answers with the account as it was"
+                     (is (= (:updated-at requested) (:updated-at retried))))
+                 stale (core/provider-reissued config
+                                               (issued
+                                                account-id
+                                                "20000007"
+                                                :rotation-key
+                                                "ik-some-other-rotation"))
+                 _ (testing "a reissue for another rotation is ignored"
+                     (is (nil? stale)))
+                 reissued (core/provider-reissued
+                           config
+                           (issued account-id "20000002" :rotation-key key))
+                 _ (testing "the provider's new address replaces the old"
+                     (is (= "04000420000002" (:bban reissued)))
+                     (is (= 1 (count (:retired-payment-addresses reissued))))
+                     (is (nil? (:pending-rotation-key reissued))))
+                 replayed (core/provider-reissued
+                           config
+                           (issued account-id "20000002" :rotation-key key))
+                 _ (testing "and a redelivered reissue is a no-op"
+                     (is (nil? replayed)))
+                 stored (q/get-account config test-bank-id account-id)
+                 _ (is (= "04000420000002" (:bban stored)))
+                 _ (is (= 1 (count (:retired-payment-addresses stored))))]))))

@@ -11,6 +11,12 @@
 
 (def ^:private intents-store-name "clearbank-outbound-intents")
 
+(def ^:private first-account-number
+  "Where issued account numbers start, above the account numbers the
+  simulator's test values and scenarios name for creditors outside the
+  bank."
+  20000000)
+
 (def transact fdb/transact)
 
 (def uniqueness-violation? fdb/uniqueness-violation?)
@@ -48,7 +54,10 @@
    txn
    (fn [txn]
      (fdb/save-record (fdb/open txn intents-store-name)
-                      (schema/ClearbankOutboundIntent->java intent)))
+                      (schema/ClearbankOutboundIntent->java
+                       (assoc-some intent
+                                   :traceparent
+                                   (telemetry/inject-traceparent)))))
    :clearbank-outbound/save
    "Failed to save clearbank outbound intent"))
 
@@ -112,7 +121,40 @@
            (let-nom>
              [_ (fdb/save-record store
                                  (schema/ClearbankOutboundIntent->java failed))
-              _ (save-event txn event)]
+              _ (when event (save-event txn event))]
              failed)))))
    :clearbank-outbound/fail
    "Failed to fail outbound intent"))
+
+(defn complete-intent
+  [txn intent-id event]
+  (fdb/transact
+   txn
+   (fn [txn]
+     (let [store (fdb/open txn intents-store-name)
+           existing (some-> (fdb/load-record store intent-id)
+                            schema/pb->ClearbankOutboundIntent)]
+       (if (not= "pending" (:status existing))
+         existing
+         (let [done (assoc existing :status "sent" :sent-at (utility/now))]
+           (let-nom>
+             [_ (fdb/save-record store
+                                 (schema/ClearbankOutboundIntent->java done))
+              _ (when event (save-event txn event))]
+             done)))))
+   :clearbank-outbound/complete
+   "Failed to complete outbound intent"))
+
+(defn allocate-account-number
+  [txn]
+  (fdb/transact txn
+                (fn [txn]
+                  (format "%08d"
+                          (+ first-account-number
+                             (fdb/allocate-counter txn
+                                                   intents-store-name
+                                                   "clearbank"
+                                                   "counters"
+                                                   "account-numbers"))))
+                :clearbank-outbound/allocate-account-number
+                "Failed to allocate an account number"))

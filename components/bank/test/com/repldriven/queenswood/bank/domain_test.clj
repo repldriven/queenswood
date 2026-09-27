@@ -50,7 +50,6 @@
   (testing "builds a bnk.-prefixed bank stamped with the binding"
     (let [bank (SUT/new-bank "Acme"
                              :bank-status-test
-                             "000001"
                              "micro"
                              active-binding
                              tier-policies
@@ -58,13 +57,12 @@
                              idv-provider)]
       (is (re-find #"^bnk\." (:bank-id bank)))
       (is (= :bank-status-test (:status bank)))
-      (is (= "000001" (:sort-code bank)))
+      (is (= "000000" (:sort-code bank)) "the provider issues every address")
       (is (= "micro" (:tier bank)))
       (is (= active-binding (:company-binding bank)))))
   (testing "omits :company-binding for admin-provisioned banks"
     (let [bank (SUT/new-bank "Acme"
                              :bank-status-test
-                             "000001"
                              "micro"
                              nil
                              tier-policies
@@ -74,7 +72,6 @@
   (testing "rejects a nil tier"
     (let [r (SUT/new-bank "Acme"
                           :bank-status-test
-                          "000001"
                           nil
                           nil
                           []
@@ -85,7 +82,6 @@
   (testing "rejects a tier that resolves to no policies"
     (let [r (SUT/new-bank "Acme"
                           :bank-status-test
-                          "000001"
                           "no-such-tier"
                           nil
                           []
@@ -96,7 +92,6 @@
   (testing "rejects a binding whose company is not active"
     (let [r (SUT/new-bank "Acme"
                           :bank-status-test
-                          "000001"
                           "micro"
                           (assoc active-binding :company-status "dissolved")
                           tier-policies
@@ -107,7 +102,6 @@
   (testing "rejects a tier requiring what the identity provider lacks"
     (let [r (SUT/new-bank "Acme"
                           :bank-status-test
-                          "000001"
                           "address"
                           nil
                           address-tier-policies

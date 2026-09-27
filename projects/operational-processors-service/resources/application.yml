@@ -90,6 +90,18 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-parties-event-dlq
           acks: all
+      schemes-account-command:
+        schemas: !system/local-ref schemas
+        schema: !keyword command
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          topic: topic-schemes-account-command
+          acks: all
+      schemes-account-event-dlq:
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          topic: topic-schemes-account-event-dlq
+          acks: all
     consumers: !system/component
       system/component-kind: kafka/consumers
       banks-command:
@@ -171,6 +183,15 @@ system:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           group.id: party-service-idvs-event
+      schemes-account-event:
+        schemas: !system/local-ref schemas
+        schema: !keyword event
+        topics: [topic-schemes-account-event]
+        dead-letter-producer: !system/local-ref producers.schemes-account-event-dlq
+        max-redeliveries: 5
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          group.id: cash-account-service-schemes-account-event
     message-bus-producers: !system/component
       system/component-kind: kafka/message-bus-producers
       banks-command-response:
@@ -185,6 +206,8 @@ system:
         producer: !system/local-ref producers.cash-accounts-command-response
       idv-command:
         producer: !system/local-ref producers.idv-command
+      schemes-account-command:
+        producer: !system/local-ref producers.schemes-account-command
     message-bus-consumers: !system/component
       system/component-kind: kafka/message-bus-consumers
       banks-command:
@@ -213,6 +236,9 @@ system:
         timeout: 500
       idvs-event:
         consumer: !system/local-ref consumers.idvs-event
+        timeout: 500
+      schemes-account-event:
+        consumer: !system/local-ref consumers.schemes-account-event
         timeout: 500
   message-bus: !include system/message-bus.yml
   fdb: !include system/fdb.yml

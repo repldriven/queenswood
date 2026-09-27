@@ -46,6 +46,7 @@
    [:retired-payment-addresses {:optional true}
     [:vector [:ref "RetiredPaymentAddress"]]]
    [:bban {:optional true} [:ref "Bban"]]
+   [:refusal-reason {:optional true} [:maybe string?]]
    [:balances {:optional true} [:vector [:ref "Balance"]]]
    [:posted-balance {:optional true} [:ref "SignedAmount"]]
    [:available-balance {:optional true} [:ref "SignedAmount"]]

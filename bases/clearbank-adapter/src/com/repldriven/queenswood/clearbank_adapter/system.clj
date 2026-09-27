@@ -178,7 +178,8 @@
    :system/config {:schemas system/required-component
                    :record-db system/required-component
                    :record-store system/required-component
-                   :payment-provider system/required-component}
+                   :payment-provider system/required-component
+                   :sort-code system/required-component}
    :system/instance-schema some?})
 
 (system/defcomponents :clearbank-adapter

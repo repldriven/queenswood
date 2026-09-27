@@ -72,6 +72,13 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-schemes-payments-event
           acks: all
+      schemes-account-event:
+        schemas: !system/local-ref schemas
+        schema: !keyword event
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          topic: topic-schemes-account-event
+          acks: all
     message-bus-producers: !system/component
       system/component-kind: kafka/message-bus-producers
       cash-accounts-event:
@@ -92,6 +99,8 @@ system:
         producer: !system/local-ref producers.schemes-payment-command
       schemes-payments-event:
         producer: !system/local-ref producers.schemes-payments-event
+      schemes-account-event:
+        producer: !system/local-ref producers.schemes-account-event
     # This service only produces. `message-bus/bus` requires a consumers
     # map, so this is declared empty rather than omitted.
     message-bus-consumers: !system/component
@@ -147,6 +156,7 @@ system:
       system/component-kind: changelog-relay/envelope-handler
       bus: !system/ref message-bus.bus
       event-channel: !keyword schemes-payments-event
+      event-channels: !include system/payment-account-event-channels.yml
       store-name: clearbank-outbox
     # Keyed by store, because a cursor belongs to a store. `store-name`
     # and `consumer-id` are physical: the ids are carried over verbatim

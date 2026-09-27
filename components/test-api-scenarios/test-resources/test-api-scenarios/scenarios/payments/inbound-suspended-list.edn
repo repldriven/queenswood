@@ -1,13 +1,13 @@
 {:name "A suspended inbound is listed, read by id, and hidden from another bank"
  :tags #{:api :inbound :payments :unhappy}
- ;; An inbound to a BBAN that matches no account is parked in 2500 suspense
- ;; and recorded `suspended`. The bank lists its suspended inbounds and
- ;; finds the amount and the scheme transaction id, reads the record by id,
- ;; and another bank's token reads the same id as not found.
+ ;; An inbound to an account that cannot take it is parked in 2500
+ ;; suspense and recorded `suspended`. The bank lists its suspended
+ ;; inbounds and finds the amount and the scheme transaction id, reads the
+ ;; record by id, and another bank's token reads the same id as not found.
  ;;
- ;; The setup is `inbound-unmatched-suspense.edn`'s: an outbound to bank A's
- ;; own sort code and an account number no account holds, whose credit leg
- ;; the simulator settles to that BBAN. All amounts in pence.
+ ;; The inbound is the credit leg of an outbound to a suspended account of
+ ;; bank A's, which the simulator settles to that account's BBAN. All
+ ;; amounts in pence.
  :given
  [{:command :api/request
    :request {:method :post
@@ -120,6 +120,31 @@
            :body {:available-balance {:value 100000 :currency "GBP"}}}}
   {:command :api/request
    :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :bank-a-token
+             :headers {:idempotency-key "ik-isl-suspended-a-001"}
+             :body {:party-id [:ref :party-a :party-id]
+                    :name "Fenchurch Savings"
+                    :currency "GBP"
+                    :product-id [:ref :product-a :product-id]}}
+   :as :suspended-a
+   :assert {:status 201 :body {:account-status "opening"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :suspended-a :account-id]}
+             :auth :bank-a-token}
+   :until {:status 200 :body {:account-status "opened"}}
+   :as :suspended-a}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts/{account-id}/suspend"
+             :path-params {:account-id [:ref :suspended-a :account-id]}
+             :auth :bank-a-token
+             :headers {:idempotency-key "ik-isl-suspend-a-001"}}
+   :assert {:status 200 :body {:account-status "suspended"}}}
+  {:command :api/request
+   :request {:method :post
              :path "/v1/banks"
              :auth :admin
              :headers {:idempotency-key "ik-isl-bank-b-001"}
@@ -141,15 +166,15 @@
              :auth :bank-a-token
              :headers {:idempotency-key "ik-isl-outbound-001"}
              :body {:debtor-account-id [:ref :debtor-a :account-id]
-                    :creditor-bban [:str [:ref :bank-a :sort-code] "99999999"]
-                    :creditor-name "Nonexistent Account"
+                    :creditor-bban [:ref :suspended-a :bban]
+                    :creditor-name "Fenchurch Wells"
                     :currency "GBP"
                     :amount 2500
                     :scheme "fps"
-                    :reference "Unmatched inbound"}}
+                    :reference "Inbound to a suspended account"}}
    :assert {:status 201}}]
  :then
- [;; Bank A's only suspended inbound is the unmatched credit.
+ [;; Bank A's only suspended inbound is the parked credit.
   {:command :api/poll
    :request {:method :get
              :path "/v1/payments/inbound"

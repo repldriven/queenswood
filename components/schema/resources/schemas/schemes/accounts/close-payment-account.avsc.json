@@ -1,0 +1,19 @@
+{
+  "type": "record",
+  "name": "ClosePaymentAccount",
+  "namespace": "com.repldriven.mono.schemes.accounts",
+  "fields": [
+    {
+      "name": "bank_id",
+      "type": "string"
+    },
+    {
+      "name": "account_id",
+      "type": "string"
+    },
+    {
+      "name": "provider_account_id",
+      "type": "string"
+    }
+  ]
+}

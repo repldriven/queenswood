@@ -1,5 +1,10 @@
 (ns com.repldriven.queenswood.clearbank-simulator.api
   (:require
+    [com.repldriven.queenswood.clearbank-simulator.accounts.components :as
+     accounts.components]
+    [com.repldriven.queenswood.clearbank-simulator.accounts.examples :as
+     accounts.examples]
+    [com.repldriven.queenswood.clearbank-simulator.accounts.routes :as accounts]
     [com.repldriven.queenswood.clearbank-simulator.cop.components :as
      cop.components]
     [com.repldriven.queenswood.clearbank-simulator.cop.examples :as
@@ -50,6 +55,7 @@
                    :string {:default (->provider (mt/string-transformer))}
                    :response {:default (->provider nil)}}
     :options {:registry (merge (m/default-schemas)
+                               accounts.components/registry
                                cop.components/registry
                                fps.components/registry
                                simulate.components/registry
@@ -69,14 +75,16 @@
               "Simulates ClearBank payment APIs for testing"
               :version "0.0.6"}
              :components
-             {:examples (merge cop.examples/registry
+             {:examples (merge accounts.examples/registry
+                               cop.examples/registry
                                fps.examples/registry
                                simulate.examples/registry
                                webhooks.examples/registry
                                clearbank-webhook/example-registry)}}
             :handler (server/standard-openapi-handler)}}]
     (into ["" {:interceptors (:interceptors ctx)}]
-          (concat cop/routes
+          (concat accounts/routes
+                  cop/routes
                   fps/routes
                   simulate/routes
                   webhooks/routes))]))

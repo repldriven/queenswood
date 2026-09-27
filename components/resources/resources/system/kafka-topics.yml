@@ -76,6 +76,16 @@
     partitions: 1
   - topic: topic-payments-command-response
     partitions: 1
+  - topic: topic-schemes-account-command
+    partitions: 1
+  - topic: topic-schemes-account-command-dlq
+    partitions: 1
+  - topic: topic-schemes-account-command-response
+    partitions: 1
+  - topic: topic-schemes-account-event
+    partitions: 1
+  - topic: topic-schemes-account-event-dlq
+    partitions: 1
   - topic: topic-schemes-payment-command
     partitions: 1
   - topic: topic-schemes-payment-command-dlq

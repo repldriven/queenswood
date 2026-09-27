@@ -9,19 +9,21 @@
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.http-client.interface :as http]
     [com.repldriven.mono.log.interface :as log]
-    [com.repldriven.mono.utility.interface :as utility]))
+    [com.repldriven.mono.utility.interface :as utility]
+
+    [clojure.edn :as edn]))
 
 (def ^:private default-poll-ms 200)
 (def ^:private default-max-attempts 20)
 (def ^:private default-initial-backoff-ms 1000)
 (def ^:private default-max-backoff-ms 60000)
 
-(defn- post-fps
-  "POST the outbound payment to the scheme adapter. An unreachable
-  adapter is `:payment/unavailable` — the kind names the domain, not the
-  vendor, because a second scheme provider consuming this channel must
-  not change what the failure is called (ADR-0020)."
-  [clearbank-url signing-key request-body]
+(defn- post-signed
+  "POST a signed request to the provider. An unreachable provider is
+  `:payment/unavailable` — the kind names the domain, not the vendor,
+  because a second scheme provider consuming this channel must not
+  change what the failure is called (ADR-0020)."
+  [url signing-key request-body]
   (error/try-nom
    :payment/unavailable
    "Failed to POST outbound payment to the scheme adapter"
@@ -29,7 +31,7 @@
                                    (:private-key signing-key)
                                    request-body)]
                (http/request {:method :post
-                              :url (str clearbank-url "/v3/payments/fps")
+                              :url url
                               :headers {"Content-Type" "application/json"
                                         clearbank-webhook/signature-header
                                         signature}
@@ -117,7 +119,7 @@
                           :causation-id intent-id
                           :created-at now}))))
 
-(defn- relay-one
+(defn- relay-payment
   "Make the outbound FPS call for one intent OUTSIDE any FDB
   transaction, then record one of four outcomes: an accepted submission
   marks the intent sent, a refusal fails it immediately, a transport
@@ -128,10 +130,12 @@
   [config now intent]
   (let [{:keys [clearbank-url signing-key max-attempts post-fn]} config
         {:keys [intent-id dedup-key request]} intent
-        post (or post-fn post-fps)
+        post (or post-fn post-signed)
         max-attempts (or max-attempts default-max-attempts)
         attempts (inc (or (:attempts intent) 0))
-        [outcome reason] (classify (post clearbank-url signing-key request)
+        [outcome reason] (classify (post (str clearbank-url "/v3/payments/fps")
+                                         signing-key
+                                         request)
                                    dedup-key)]
     (cond
      (= :sent outcome)
@@ -164,6 +168,147 @@
                              intent-id
                              attempts
                              (+ now (backoff-ms config attempts)))))))
+
+(def ^:private account-calls
+  {"open-account" {:path (fn [_] "/v1/virtual-accounts")
+                   :opened "payment-account-opened"
+                   :refused "payment-account-refused"}
+   "close-account"
+   {:path (fn [{:keys [provider-account-id]}]
+            (str "/v1/virtual-accounts/" provider-account-id "/close"))
+    :opened "payment-account-closed"}
+   "reissue-address"
+   {:path (fn [{:keys [provider-account-id]}]
+            (if provider-account-id
+              (str "/v1/virtual-accounts/" provider-account-id "/reissue")
+              "/v1/virtual-accounts"))
+    :opened "payment-address-reissued"}})
+
+(defn- classify-account-call
+  [res]
+  (let [status (:status res)]
+    (cond
+     (error/anomaly? res)
+     [:retry (:message (error/payload res))]
+
+     (not (int? status))
+     [:retry "no HTTP status"]
+
+     (or (<= 500 status) (= 408 status) (= 429 status))
+     [:retry (str "HTTP " status)]
+
+     (<= 400 status 499)
+     [:refused (or (:detail (http/res->edn res)) (str "HTTP " status))]
+
+     (<= 200 status 299)
+     [:sent (http/res->edn res)]
+
+     :else
+     [:retry (str "HTTP " status)])))
+
+(defn- event-data
+  [event-name context body]
+  (let [{:keys [bank-id account-id rotation-key]} context
+        {:keys [id sortCode accountNumber]} body]
+    (case event-name
+      "payment-account-opened"
+      {:bank-id bank-id
+       :account-id account-id
+       :provider-account-id id
+       :addresses [{:scheme "scan"
+                    :sort-code sortCode
+                    :account-number accountNumber}]}
+
+      "payment-address-reissued"
+      {:bank-id bank-id
+       :account-id account-id
+       :provider-account-id id
+       :rotation-key rotation-key
+       :addresses [{:scheme "scan"
+                    :sort-code sortCode
+                    :account-number accountNumber}]}
+
+      "payment-account-closed"
+      {:bank-id bank-id :account-id account-id}
+
+      "payment-account-refused"
+      {:bank-id bank-id :account-id account-id :reason body})))
+
+(defn- account-event
+  [config now intent event-name data]
+  (let [{:keys [schemas]} config
+        {:keys [intent-id dedup-key traceparent]} intent]
+    (let-nom> [payload (avro/serialize (get schemas event-name) data)]
+      (utility/assoc-some {:outbox-id (str (utility/uuidv7))
+                           :dedup-key (str dedup-key ":" event-name)
+                           :event-name event-name
+                           :payload payload
+                           :correlation-id (str (utility/uuidv7))
+                           :causation-id intent-id
+                           :created-at now}
+                          :traceparent
+                          traceparent))))
+
+(defn- finish-account-call
+  [config now intent attempts event-name body]
+  (let [{:keys [intent-id context]} intent
+        context (edn/read-string context)]
+    (if (nil? event-name)
+      (store/fail-intent config intent-id attempts nil)
+      (let-nom> [event (account-event config
+                                      now
+                                      intent
+                                      event-name
+                                      (event-data event-name context body))]
+        (if (= "payment-account-refused" event-name)
+          (store/fail-intent config intent-id attempts event)
+          (store/complete-intent config intent-id event))))))
+
+(defn- relay-account-call
+  [config now intent]
+  (let [{:keys [clearbank-url signing-key max-attempts post-fn]} config
+        {:keys [intent-id kind request context]} intent
+        {:keys [path opened refused]} (get account-calls kind)
+        post (or post-fn post-signed)
+        max-attempts (or max-attempts default-max-attempts)
+        attempts (inc (or (:attempts intent) 0))
+        [outcome result] (classify-account-call
+                          (post (str clearbank-url
+                                     (path (edn/read-string context)))
+                                signing-key
+                                request))]
+    (cond
+     (= :sent outcome)
+     (finish-account-call config now intent attempts opened result)
+
+     (= :refused outcome)
+     (do (log/error "Account call refused"
+                    {:intent-id intent-id :kind kind :reason result})
+         (finish-account-call config now intent attempts refused result))
+
+     (>= attempts max-attempts)
+     (do (log/error "Account call giving up after max attempts"
+                    {:intent-id intent-id :kind kind :reason result})
+         (finish-account-call config
+                              now
+                              intent
+                              attempts
+                              refused
+                              (str "Undelivered: " result)))
+
+     :else
+     (do (log/warn "Account call failed; will retry"
+                   {:intent-id intent-id :kind kind :attempt attempts})
+         (store/mark-attempt config
+                             intent-id
+                             attempts
+                             (+ now (backoff-ms config attempts)))))))
+
+(defn- relay-one
+  [config now intent]
+  (if (contains? account-calls (:kind intent))
+    (relay-account-call config now intent)
+    (relay-payment config now intent)))
 
 (defn drain-once
   "Relay every pending intent whose `next-attempt-at` is not after `now`

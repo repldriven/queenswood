@@ -384,8 +384,8 @@
     "Signed monetary quantity in the smallest denomination of the associated currency."}])
 
 (def SortCode
-  "A bank's 6-digit sort code (the first six digits of its accounts'
-  BBANs), allocated per bank from the sort-code fountain."
+  "A 6-digit sort code, the first six digits of a BBAN, as the payment
+  provider issues it."
   [:re
    {:title "SortCode" :json-schema/example "000001"}
    #"^[0-9]{6}$"])

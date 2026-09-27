@@ -7,7 +7,12 @@
   told' so they cannot diverge. The outbound runner relays each pending
   intent's FPS request with exponential backoff, and fails an intent the
   scheme refuses, or one still failing at its last attempt, into a
-  `transaction-rejected` event written to the same outbox."
+  `transaction-rejected` event written to the same outbox. An intent of
+  another `:kind` — `open-account`, `close-account` or
+  `reissue-address` — is an account call, whose outcome is written to
+  the outbox as `payment-account-opened`, `payment-account-refused`,
+  `payment-account-closed` or `payment-address-reissued`, read back from
+  the intent's `:context`."
   (:require
     [com.repldriven.queenswood.clearbank-relay.system]
 
@@ -45,6 +50,18 @@
   - txn: an open FDB transaction or `{:record-db :record-store}` config.
   - intent: a map with `:intent-id`, `:dedup-key` (end-to-end id),
     `:request` (FPS JSON body), `:status` (\"pending\"), `:attempts`,
-    `:created-at`."
+    `:created-at`, and for an account call its `:kind` and `:context`,
+    an EDN map of `:bank-id`, `:account-id` and, as the call needs them,
+    `:provider-account-id` and `:rotation-key`."
   [txn intent]
   (store/save-intent txn intent))
+
+(defn allocate-account-number
+  "The next account number the adapter issues, eight digits, never
+  issued before. Returns the number or a
+  `:clearbank-outbound/allocate-account-number` anomaly.
+
+  Args:
+  - txn: an open FDB transaction or `{:record-db :record-store}` config."
+  [txn]
+  (store/allocate-account-number txn))

@@ -1,6 +1,7 @@
 (ns com.repldriven.queenswood.test-scenarios.quiescence
   (:require
     [com.repldriven.queenswood.balance-query.interface :as balance]
+    [com.repldriven.queenswood.cash-account-query.interface :as cash-account]
     [com.repldriven.queenswood.party-query.interface :as party]
     [com.repldriven.queenswood.payment-query.interface :as payment]
 
@@ -28,6 +29,36 @@
                        :bank-id bank-id
                        :party-id party-id
                        :status status})
+
+          :else
+          (do (Thread/sleep poll-interval-ms) (recur))))))))
+
+(def ^:private account-deadline-ms 15000)
+
+(defn wait-for-account-status
+  "Poll the account until it reaches `status`, and return it. An account
+  opens and closes once its event has asked the payment provider and
+  the provider's answer has come back through the adapter's outbox, so
+  a verb that opens or closes one waits here before it goes on."
+  ([bank bank-id account-id status]
+   (wait-for-account-status bank bank-id account-id status account-deadline-ms))
+  ([bank bank-id account-id status deadline-ms]
+   (let [deadline (+ (utility/now) deadline-ms)]
+     (loop []
+       (let [account (cash-account/find-account bank bank-id account-id)
+             current (when-not (error/anomaly? account)
+                       (:account-status account))]
+         (cond
+          (= status current)
+          account
+
+          (>= (utility/now) deadline)
+          (error/fail :scenario/quiescence-timeout
+                      {:message "Account did not reach its status"
+                       :bank-id bank-id
+                       :account-id account-id
+                       :expected status
+                       :status current})
 
           :else
           (do (Thread/sleep poll-interval-ms) (recur))))))))

@@ -20,8 +20,10 @@
 
 (def ^:private stored-account
   "A cash account as the query brick hands it back: every key
-  `CashAccount` declares, and the two idempotency keys the record also
-  stores and the API never publishes."
+  `CashAccount` declares but the refusal reason only a refused account
+  carries, and the two idempotency keys, the provider's account id and
+  the pending rotation the record also stores and the API never
+  publishes."
   {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
    :account-id "acc.01kprbmgcj35ptc8npmybhh4s8"
    :party-id "pty.01kprbmgcj35ptc8npmybhh4s9"
@@ -43,13 +45,15 @@
    :created-at 1700000000000
    :updated-at 1700000000001
    :idempotency-key "5b2f0f6e-open"
-   :last-rotation-idempotency-key "5b2f0f6e-rotate"})
+   :last-rotation-idempotency-key "5b2f0f6e-rotate"
+   :provider-account-id "va-01943b6e-7a2c-7f3d-9c1e-5b2a4d6e8f10"
+   :pending-rotation-key "5b2f0f6e-rotate"})
 
 (deftest declared-keys-cover-the-fixture-test
   (testing
     "the fixture carries every key CashAccount declares, so a
            dropped key is a failure rather than a silent pass"
-    (is (= (set declared-keys)
+    (is (= (disj (set declared-keys) :refusal-reason)
            (set (filter (set declared-keys) (keys stored-account)))))))
 
 (deftest ->body-publishes-no-undeclared-key-test
@@ -57,6 +61,9 @@
     (testing "the two stored idempotency keys do not reach a body"
       (is (not (contains? body :idempotency-key)))
       (is (not (contains? body :last-rotation-idempotency-key))))
+    (testing "nor do the provider's account id and a pending rotation"
+      (is (not (contains? body :provider-account-id)))
+      (is (not (contains? body :pending-rotation-key))))
     (testing "nor does any other key CashAccount does not declare"
       (is (empty? (remove (set declared-keys) (keys body)))))))
 

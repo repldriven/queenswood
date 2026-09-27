@@ -1,0 +1,6 @@
+# The adapter's outbox carries account events beside payment events; the
+# relay publishes these on the channel cash-account consumes.
+payment-account-opened: !keyword schemes-account-event
+payment-account-refused: !keyword schemes-account-event
+payment-account-closed: !keyword schemes-account-event
+payment-address-reissued: !keyword schemes-account-event

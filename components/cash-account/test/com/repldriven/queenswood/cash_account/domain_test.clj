@@ -35,8 +35,7 @@
   {:bank-id "bnk.test"
    :party-id "pty.test"
    :product-id "prd.001"
-   :name "Test Account"
-   :sort-code "040004"})
+   :name "Test Account"})
 
 (defn- party-with
   [status]
@@ -55,7 +54,6 @@
                     product-version
                     open-as-of
                     party
-                    (constantly "12345678")
                     nil
                     []))
 
@@ -118,13 +116,12 @@
 
 (defn- open-account-past-the-guards
   "An open whose version, currency and party all pass, so the result
-  is whatever the policies or the address allocation say."
+  is whatever the policies or the address schemes say."
   [product-version aggregates policies]
   (SUT/open-account (assoc open-data :currency "GBP")
                     product-version
                     open-as-of
                     (party-with :party-status-active)
-                    (constantly "12345678")
                     aggregates
                     policies))
 
@@ -135,18 +132,47 @@
                                                allow-open)]
       (is (error/rejection? result))
       (is (= :cash-account/no-payment-schemes (error/kind result)))))
-  (testing "a scheme the fountain cannot allocate is named"
+  (testing "a scheme the provider is not asked for is named"
     (let [result (open-account-past-the-guards (version-with-schemes
                                                 [:payment-address-scheme-iban])
                                                (counts 0 0)
                                                allow-open)]
       (is (error/rejection? result))
       (is (= :cash-account/unsupported-scheme (error/kind result)))))
-  (testing "and a scan scheme takes its number from the fountain"
+  (testing "and a scan account opens with no address until the provider's"
     (let [result
           (open-account-past-the-guards scan-version (counts 0 0) allow-open)]
       (is (= :cash-account-status-opening (:account-status result)))
-      (is (= "04000412345678" (:bban result))))))
+      (is (= [] (:payment-addresses result)))
+      (is (not (contains? result :bban))))))
+
+(deftest address-schemes-test
+  (testing "a scan version asks the provider for scan"
+    (is (= ["scan"] (SUT/address-schemes scan-version)))))
+
+(def ^:private issued
+  {:provider-account-id "va-1"
+   :addresses
+   [{:scheme "scan" :sort-code "040004" :account-number "20000001"}]})
+
+(deftest provider-opened-account-test
+  (testing "the provider's account and addresses open the account"
+    (let [result (SUT/provider-opened-account (account
+                                               :cash-account-status-opening)
+                                              issued)]
+      (is (= :cash-account-status-opened (:account-status result)))
+      (is (= "va-1" (:provider-account-id result)))
+      (is (= "04000420000001" (:bban result)))
+      (is (= [{:scheme :payment-address-scheme-scan
+               :scan {:sort-code "040004" :account-number "20000001"}}]
+             (:payment-addresses result))))))
+
+(deftest refused-account-test
+  (testing "a declined opening is refused with the provider's reason"
+    (let [result (SUT/refused-account (account :cash-account-status-opening)
+                                      "The account was declined")]
+      (is (= :cash-account-status-refused (:account-status result)))
+      (is (= "The account was declined" (:refusal-reason result))))))
 
 (defn- count-limit
   [bound filters]
@@ -308,9 +334,6 @@
                               :scan {:sort-code "040004"
                                      :account-number "12345678"}}]))
 
-(def ^:private product-version
-  {:allowed-payment-address-schemes [:payment-address-scheme-scan]})
-
 (deftest rotate-address-source-state-guard-test
   (testing
     "rotating an account not in :cash-account-status-opened is
@@ -319,27 +342,34 @@
                     :cash-account-status-closing
                     :cash-account-status-closed
                     :cash-account-status-suspended]]
-      (let [result (SUT/rotate-address (account status)
-                                       {}
-                                       product-version
-                                       (constantly "99999999")
-                                       [])]
+      (let [result (SUT/request-rotation (account status) {} [])]
         (is (error/rejection? result))
         (is (= :cash-account/invalid-status (error/kind result)))
         (is (= status (:status (error/payload result))))))))
 
 (deftest rotate-address-happy-test
-  (testing
-    "rotating replaces the payment address, rewrites the bban, and
-           retires the old address on-record"
+  (testing "a rotation is asked of the provider, and the addresses stay"
     (let [acct (opened-account-with-address)
-          result (SUT/rotate-address acct
-                                     {:idempotency-key "ik-rotate-0000000001"}
-                                     product-version
-                                     (constantly "99999999")
-                                     [(policy-allowing
-                                       :cash-account-action-rotate-address)])]
+          result (SUT/request-rotation acct
+                                       {:idempotency-key "ik-rotate-0000000001"}
+                                       [(policy-allowing
+                                         :cash-account-action-rotate-address)])]
       (is (= :cash-account-status-opened (:account-status result)))
+      (is (= (:payment-addresses acct) (:payment-addresses result)))
+      (is (= "ik-rotate-0000000001" (:pending-rotation-key result)))
+      (is (= "ik-rotate-0000000001" (:last-rotation-idempotency-key result)))))
+  (testing
+    "the provider's new address replaces the old, which is retired
+           on-record"
+    (let [acct (assoc (opened-account-with-address)
+                      :pending-rotation-key
+                      "ik-rotate-0000000001")
+          result (SUT/reissued-account acct
+                                       {:provider-account-id "va-1"
+                                        :addresses [{:scheme "scan"
+                                                     :sort-code "040004"
+                                                     :account-number
+                                                     "99999999"}]})]
       (is (= "04000499999999" (:bban result)))
       (is (= [{:scheme :payment-address-scheme-scan
                :scan {:sort-code "040004" :account-number "99999999"}}]
@@ -347,7 +377,7 @@
       (is (= (:payment-addresses acct)
              (mapv :address (:retired-payment-addresses result))))
       (is (every? int? (map :retired-at (:retired-payment-addresses result))))
-      (is (= "ik-rotate-0000000001" (:last-rotation-idempotency-key result))))))
+      (is (not (contains? result :pending-rotation-key))))))
 
 (def ^:private migration-target {:product-id "prd.mega" :version-id "prv.4"})
 

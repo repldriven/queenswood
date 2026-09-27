@@ -44,7 +44,7 @@
       [{:keys [parties]} (party-query/get-parties txn bank-id)
        {:keys [accounts]} (cash-accounts-query/get-accounts txn bank-id)
        enriched (enrich-accounts txn bank-id accounts)]
-      (assoc bank
+      (assoc (dissoc bank :sort-code)
              :party (first parties)
              :accounts enriched
              :client-id bank-id))))

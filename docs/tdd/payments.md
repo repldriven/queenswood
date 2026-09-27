@@ -3,9 +3,10 @@
 > **Status: proposal.** Internal, outbound and inbound payments, their
 > records and state machines, suspense, Confirmation of Payee and one
 > payment adapter exist, and Background names them. Everything under
-> Proposed Solution is the build list; the declaration and the neutral
-> scheme events are built for the existing adapter, and
-> [First slices](#first-slices) says what comes next.
+> Proposed Solution is the build list; the declaration, the neutral
+> scheme events and addresses from the provider are built for the
+> existing adapter, and [First slices](#first-slices) says what comes
+> next.
 
 ## Objective
 
@@ -73,13 +74,14 @@ later decision.
 - **The sweep.** `payment/outbound-sweep`, in
   `exclusive-dispatchers-service`, republishes a `pending` payment's
   command after 15 minutes and reports one open for 24 hours.
-- **Payment addresses.** `bank` allocates each bank a sort code from a
-  counter in the unallocated `00` range, and `cash-account` mints an
-  account number from an address counter at `open-account`. Opening
-  and closing are two-step, `opening → opened` and `closing → closed`,
-  each completed by `cash-account`'s own changelog event. An inbound
-  resolves its creditor by BBAN, and one matching no account is parked
-  in the bank that owns its sort code.
+- **Payment addresses.** The provider issues every account's sort code
+  and account number. `cash-account` writes an account `opening`, its
+  opening event sends `open-payment-account` on
+  `schemes-account-command`, and the adapter's answer on
+  `schemes-account-event` opens it with the addresses and the provider
+  account id, or refuses it; closing and rotation go the same way. A
+  bank holds no sort code. An inbound resolves its creditor by BBAN,
+  and one matching no account fails the handler.
 - **Confirmation of Payee.** `payee-check`'s processor handles
   `POST /v1/payee-checks` by calling the adapter's `/cop/outbound`
   over HTTP and persists each check for 24 hours. The adapter answers
@@ -421,7 +423,7 @@ stateDiagram-v2
 2. **Addresses from the provider.** The account legs,
    `provider_account_id`, `refused`, and the counters retired. Proved
    by an account opened with its address from the simulator, an
-   opening refused, a rotation and a closing.
+   opening refused, a rotation and a closing. Built.
 3. **The default adapter.** A second adapter meeting the contract, with
    per-account balances in its simulator and reconciliation. The
    deployed builds and scenario rigs move to it, and the existing

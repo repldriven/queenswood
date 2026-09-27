@@ -18,6 +18,11 @@
   transitions, and collapsing two transitions inside one poll window
   would drop an event.
 
+  The `changelog-relay/envelope-handler` kind publishes each entry on
+  its `:event-channel`, or on the channel `:event-channels` maps the
+  entry's event name to, so one outbox can feed more than one channel
+  without the relay reading a payload.
+
   A cursor has exactly one owner. Run the hosting service at
   `replicas: 1`; scale the relay tier by sharding stores across
   deployments, not by adding replicas to one."

@@ -161,6 +161,8 @@
   entries
   [(cash-account-entry "cash-account.opened" :cash-account-change-kind-open
                        "open" :cash-account-status-opened)
+   (cash-account-entry "cash-account.refused" :cash-account-change-kind-open
+                       "open" :cash-account-status-refused)
    (cash-account-entry "cash-account.closed" :cash-account-change-kind-close
                        "close" :cash-account-status-closed)
    (cash-account-entry "cash-account.suspended"

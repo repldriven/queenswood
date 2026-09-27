@@ -237,3 +237,147 @@
        (is (= "failed" (:status (load-intent config "int.10"))))
        (is (= ["obx.10"]
               (mapv :outbox-id (submission-rejections config "e2e-J"))))))))
+
+(defn- account-intent
+  [intent-id kind dedup-key context]
+  {:intent-id intent-id
+   :dedup-key dedup-key
+   :kind kind
+   :request "{}"
+   :context (pr-str context)
+   :status "pending"
+   :attempts 0
+   :created-at (utility/now)})
+
+(defn- outbox-event
+  [config dedup-key]
+  (fdb/transact config
+                (fn [txn]
+                  (some-> (first (fdb/query-records
+                                  (fdb/open txn "clearbank-outbox")
+                                  "ClearbankOutboxEvent"
+                                  "dedup_key"
+                                  dedup-key
+                                  {:index
+                                   "ClearbankOutboxEvent_by_dedup_key"}))
+                          schema/pb->ClearbankOutboxEvent))))
+
+(defn- decoded
+  [config event]
+  (avro/deserialize-same (get (:schemas config) (:event-name event))
+                         (:payload event)))
+
+(defn- json-response
+  [status body]
+  {:status status
+   :headers {:content-type "application/json"}
+   :body body})
+
+(deftest account-calls-test
+  (with-test-system
+   [sys "classpath:clearbank-relay/application-test.yml"]
+   (let [config (relay-config sys nil)
+         urls (atom [])
+         relay (fn [res]
+                 (assoc
+                  config
+                  :post-fn
+                  (fn [url _signing-key _request] (swap! urls conj url) res)))
+         now 1700000000000
+         context {:bank-id "bnk.1" :account-id "acc.1"}]
+     (testing "an opened account is reported with its address"
+       (nom-test> [_ (SUT/save-intent config
+                                      (account-intent "int.20" "open-account"
+                                                      "open:acc.1" context))])
+       (outbound/drain-once
+        (relay
+         (json-response
+          201
+          "{\"id\":\"va-1\",\"sortCode\":\"040004\",\"accountNumber\":\"20000001\"}"))
+        now)
+       (is (= "http://scheme.invalid/v1/virtual-accounts" (last @urls)))
+       (is (= "sent" (:status (load-intent config "int.20"))))
+       (let [event (outbox-event config "open:acc.1:payment-account-opened")]
+         (is (= "payment-account-opened" (:event-name event)))
+         (is (= {:bank-id "bnk.1"
+                 :account-id "acc.1"
+                 :provider-account-id "va-1"
+                 :addresses [{:scheme "scan"
+                              :sort-code "040004"
+                              :account-number "20000001"}]}
+                (decoded config event)))))
+     (testing "a declined opening is reported refused, with its reason"
+       (nom-test> [_ (SUT/save-intent config
+                                      (account-intent
+                                       "int.21" "open-account"
+                                       "open:acc.2"
+                                       (assoc context :account-id "acc.2")))])
+       (outbound/drain-once
+        (relay (json-response 422 "{\"detail\":\"The account was declined\"}"))
+        now)
+       (is (= "failed" (:status (load-intent config "int.21"))))
+       (is (= "The account was declined"
+              (:reason (decoded config
+                                (outbox-event
+                                 config
+                                 "open:acc.2:payment-account-refused"))))))
+     (testing "a closed account is reported closed"
+       (nom-test> [_ (SUT/save-intent config
+                                      (account-intent
+                                       "int.22" "close-account"
+                                       "close:acc.1" (assoc context
+                                                            :provider-account-id
+                                                            "va-1")))])
+       (outbound/drain-once (relay (json-response 200 "{\"id\":\"va-1\"}")) now)
+       (is (= "http://scheme.invalid/v1/virtual-accounts/va-1/close"
+              (last @urls)))
+       (is (= {:bank-id "bnk.1" :account-id "acc.1"}
+              (decoded config
+                       (outbox-event config
+                                     "close:acc.1:payment-account-closed")))))
+     (testing "a close the provider refuses fails with nothing reported"
+       (nom-test> [_ (SUT/save-intent config
+                                      (account-intent
+                                       "int.23" "close-account"
+                                       "close:acc.3" (assoc context
+                                                            :account-id "acc.3"
+                                                            :provider-account-id
+                                                            "va-3")))])
+       (outbound/drain-once (relay (json-response 409 "{}")) now)
+       (is (= "failed" (:status (load-intent config "int.23"))))
+       (is (nil? (outbox-event config "close:acc.3:payment-account-closed"))))
+     (testing "a reissued address is reported under its rotation"
+       (nom-test> [_ (SUT/save-intent config
+                                      (account-intent
+                                       "int.24" "reissue-address"
+                                       "reissue:acc.1:rot-1"
+                                       (assoc context
+                                              :provider-account-id "va-1"
+                                              :rotation-key "rot-1")))])
+       (outbound/drain-once
+        (relay
+         (json-response
+          200
+          "{\"id\":\"va-1\",\"sortCode\":\"040004\",\"accountNumber\":\"20000002\"}"))
+        now)
+       (is (= "http://scheme.invalid/v1/virtual-accounts/va-1/reissue"
+              (last @urls)))
+       (is (= "rot-1"
+              (:rotation-key
+               (decoded config
+                        (outbox-event
+                         config
+                         "reissue:acc.1:rot-1:payment-address-reissued")))))))))
+
+(deftest allocate-account-number-test
+  (with-test-system
+   [sys "classpath:clearbank-relay/application-test.yml"]
+   (let [config (relay-config sys nil)]
+     (nom-test> [first-number (SUT/allocate-account-number config)
+                 second-number (SUT/allocate-account-number config)
+                 _ (testing "numbers are eight digits above the test values"
+                     (is (re-matches #"\d{8}" first-number))
+                     (is (< 20000000 (Long/parseLong first-number))))
+                 _ (testing "and never issued twice"
+                     (is (= (inc (Long/parseLong first-number))
+                            (Long/parseLong second-number))))]))))

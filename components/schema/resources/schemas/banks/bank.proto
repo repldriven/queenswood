@@ -35,7 +35,11 @@ message Bank {
   required string name = 5;
   required int64 created_at = 6;
   required int64 updated_at = 7;
-  required string sort_code = 8;
+  // The payment provider issues every address, so a bank no longer holds
+  // a sort code of its own. The Record Layer will not relax a required
+  // field, so a new bank writes the placeholder 000000, which nothing
+  // reads.
+  required string sort_code = 8 [deprecated = true];
   optional BankCompanyBinding company_binding = 9;
   optional string tier = 10;
 }

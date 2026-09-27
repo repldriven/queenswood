@@ -7,3 +7,5 @@ system:
       bus: !system/ref message-bus.bus
       store-name: clearbank-outbox
       event-channel: !keyword relay-test-event
+      event-channels:
+        relay-test-routed: !keyword relay-test-routed-event

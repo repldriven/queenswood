@@ -9,11 +9,15 @@ signing-key: !system/component
 client-key: !system/component
   system/component-kind: clearbank-webhook/key-pair
 
+accounts: !system/component
+  system/component-kind: clearbank-simulator/state
+
 interceptors: !system/component
   system/component-kind: server/interceptors
   webhooks: !system/local-ref state
   signing-key: !system/local-ref signing-key
   client-key: !system/local-ref client-key
+  accounts: !system/local-ref accounts
   sort-code: "040004"
   webhook-delay-ms: 10
 

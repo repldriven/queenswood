@@ -10,21 +10,6 @@
 
 (def transact fdb/transact)
 
-(defn allocate-sort-code
-  "Allocate the next sort code from a global monotonic fountain, formatted
-  as a 6-digit string (000001, 000002, ...). `00`-prefixed sort codes are
-  unallocated in the real world, so the range is safe."
-  [txn]
-  (fdb/transact txn
-                (fn [txn]
-                  (format "%06d"
-                          (fdb/allocate-counter txn
-                                                store-name
-                                                "bank"
-                                                "sort-codes")))
-                :bank/allocate-sort-code
-                "Failed to allocate sort code"))
-
 (defn count-creations
   [txn principal-id idempotency-key]
   (fdb/transact txn

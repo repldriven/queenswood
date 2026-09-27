@@ -91,18 +91,21 @@
    q/find-internal-payment-by-idempotency-key))
 
 (defn- publish-scheme-command
-  [config payment debtor-bban]
+  [config payment debtor-account]
   (let [{:keys [bus schemas scheme-payment-command-channel]} config
         {:keys [payment-id creditor-bban creditor-name
                 currency amount reference scheme]}
         payment
+        {:keys [bban provider-account-id]} debtor-account
         schema (get schemas "submit-payment")]
     (when (and bus schema scheme-payment-command-channel)
       (let [result (let-nom>
                      [payload (avro/serialize schema
                                               {:payment-id payment-id
                                                :end-to-end-id payment-id
-                                               :debtor-bban debtor-bban
+                                               :debtor-bban bban
+                                               :debtor-provider-account-id
+                                               provider-account-id
                                                :creditor-bban creditor-bban
                                                :creditor-name creditor-name
                                                :amount amount
@@ -131,7 +134,7 @@
       (do (log/error "Failed to read the debtor account to republish"
                      {:payment-id payment-id :anomaly debtor-account})
           debtor-account)
-      (publish-scheme-command config payment (:bban debtor-account)))))
+      (publish-scheme-command config payment debtor-account))))
 
 (defn submit-outbound
   [config data]
@@ -197,7 +200,7 @@
                        txn
                        payment
                        {:change-kind :outbound-payment-change-kind-submit})]
-                   {:payment payment :debtor-bban (:bban debtor-account)}))))]
+                   {:payment payment :debtor-account debtor-account}))))]
     (if (store/uniqueness-violation? raw)
       (let-nom> [existing (or-already-submitted
                            config
@@ -207,6 +210,6 @@
         (when (domain/republishable-outbound? existing)
           (republish-pending config existing))
         existing)
-      (let-nom> [{:keys [payment debtor-bban]} raw]
-        (publish-scheme-command config payment debtor-bban)
+      (let-nom> [{:keys [payment debtor-account]} raw]
+        (publish-scheme-command config payment debtor-account)
         payment))))

@@ -64,11 +64,13 @@
   GL account / CREDIT the creditor's customer account), posts balance
   legs, and persists an InboundPayment. A settlement matching an open
   hold on its end-to-end id, creditor and amount releases that hold
-  instead. Money that has arrived is never refused: an unmatched BBAN,
-  a creditor that is not opened, or a settlement or release the
-  currency, receive capability or daily count checks refuse, is posted
-  DEBIT 1100 / CREDIT 2500 suspense and recorded `suspended`. GL
-  accounts are resolved per-bank from the chart of accounts at runtime.
+  instead. Money that has arrived is never refused: a creditor that is
+  not opened, or a settlement or release the currency, receive
+  capability or daily count checks refuse, is posted DEBIT 1100 /
+  CREDIT 2500 suspense and recorded `suspended`. A BBAN no account
+  holds fails `:payment/unknown-creditor`, since the payment provider
+  issued every address an account holds. GL accounts are resolved
+  per-bank from the chart of accounts at runtime.
 
   Args:
   - config: FDB handle.

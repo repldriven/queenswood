@@ -379,8 +379,8 @@ processor's index outlives the cache entry.
   [payments.md](payments.md).
 - `POST /v1/cash-accounts/{account-id}/rotate-address` keeps the key
   of the last rotation on the account rather than in an index. A
-  retry under that key returns the address the first rotation
-  allocated and allocates none.
+  retry under that key returns the account as the first rotation
+  left it and asks the payment provider for nothing.
 
 **The pair and a domain guard.** No index, but the second attempt
 meets a guard that refuses it with the answer a replay would have

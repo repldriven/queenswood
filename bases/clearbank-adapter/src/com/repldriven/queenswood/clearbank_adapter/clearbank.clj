@@ -40,3 +40,16 @@
           {:unstructured
            {:additionalReferenceInformation
             {:reference (or reference "")}}}}]}]})))
+
+(defn ->virtual-account-body
+  "Build the request that opens a virtual account under `sort-code`, or
+  reissues one, with the account number the adapter allocated. Pure."
+  [sort-code account-number owner-name currency account-id]
+  (json/write-str (cond-> {:sortCode sort-code
+                           :accountNumber account-number
+                           :externalReference account-id}
+                          owner-name
+                          (assoc :ownerName owner-name)
+
+                          currency
+                          (assoc :currency currency))))

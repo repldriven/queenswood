@@ -290,6 +290,9 @@ same status.
 - `cash-account.opened` — `cash-account-status-changed` with
   `change_kind` open, `CashAccount`, by bank and account id. Told on
   `opening` to `opened`; the leg landing on `opening` is skipped.
+- `cash-account.refused` — the same event with `change_kind` open,
+  told on `opening` to `refused` when the payment provider declines
+  the account.
 - `cash-account.closed` — the same event with `change_kind` close.
   Told on `closing` to `closed`; the leg landing on `closing` is
   skipped.
@@ -299,7 +302,9 @@ same status.
 - `cash-account.address-rotated` and `cash-account.migrated` —
   `change_kind` rotate-address and migrate. Both carry equal before
   and after statuses, because neither write moves the status, and are
-  told whatever that status is.
+  told whatever that status is. A rotation is told when the provider's
+  new address lands; the write that asks for it, change kind
+  rotate-requested, is not told.
 - `party.opened`, `party.rejected`, `party.suspended`,
   `party.resumed`, `party.closed` and `party.merged` —
   `party-status-changed`, `Party`, by bank and party id. The event

@@ -66,7 +66,7 @@
   customers from inside the bank (rewards, etc.). An ordinary
   `CashAccount` — BBAN-addressable, transactable — so external funding
   can land in it and internal transfers can move out of it."
-  [txn bank-id party-id sort-code currency policies payment-provider]
+  [txn bank-id party-id currency policies payment-provider]
   (let-nom>
     [version (products/new-product
               txn
@@ -88,17 +88,15 @@
       :party-id party-id
       :product-id (:product-id version)
       :currency currency
-      :sort-code sort-code
       :name "Bank own funds"}
      {:policies policies})))
 
 (defn- new-house-accounts
-  [txn bank-id party-id sort-code currencies policies payment-provider]
+  [txn bank-id party-id currencies policies payment-provider]
   (reduce (fn [_ currency]
             (let [result (new-house-account txn
                                             bank-id
                                             party-id
-                                            sort-code
                                             currency
                                             policies
                                             payment-provider)]
@@ -186,13 +184,11 @@
           _ (domain/check-first-creation idempotency-key creations)
           policies (or (:policies opts)
                        (policy/get-effective-policies txn {}))
-          sort-code (store/allocate-sort-code txn)
           tier-policies (if (some? tier)
                           (policy/get-policies-by-tier txn tier)
                           [])
           bank (domain/new-bank bank-name
                                 bank-status
-                                sort-code
                                 tier
                                 company-binding
                                 tier-policies
@@ -224,7 +220,6 @@
           _ (new-house-accounts txn
                                 bank-id
                                 party-id
-                                sort-code
                                 currencies
                                 policies
                                 payment-provider)

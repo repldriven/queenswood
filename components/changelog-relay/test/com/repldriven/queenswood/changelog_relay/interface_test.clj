@@ -170,3 +170,24 @@
              "the entry's empty id must not reach the envelope")
          (is (not= (:id first-publish) (:id second-publish))
              "two publishes of one id-less entry must not share an id"))))))
+
+(deftest an-entry-its-name-routes-goes-to-that-channel-test
+  (with-test-system
+   [sys "classpath:changelog-relay/application-test.yml"]
+   (let [bus (system/instance sys [:message-bus :bus])
+         handler (system/instance sys [:relay-handler :handler])
+         default (atom [])
+         routed (atom [])]
+     (message-bus/subscribe bus
+                            :relay-test-event
+                            (fn [e] (swap! default conj (:event e))))
+     (message-bus/subscribe bus
+                            :relay-test-routed-event
+                            (fn [e] (swap! routed conj (:event e))))
+     (handler nil (:bytes (changelog-entry "relay-test-routed")))
+     (handler nil (:bytes (changelog-entry "relay-test-other")))
+     (is (wait-for #(and (= 1 (count @routed)) (= 1 (count @default))) 5000))
+     (testing "an entry whose name the map routes goes to its channel"
+       (is (= ["relay-test-routed"] @routed)))
+     (testing "and every other entry to the default one"
+       (is (= ["relay-test-other"] @default))))))
