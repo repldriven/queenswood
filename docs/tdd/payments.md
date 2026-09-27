@@ -190,8 +190,8 @@ each an adapter of its own:
   the money in its own settlement account, asks the bank to admit each
   inbound before it settles, lets the bank return one, and screens
   nothing. Form3 is the worked example: `balances: pooled`,
-  `payee-check: [outbound, inbound]`, `inbound: admitted`,
-  `returns: [inbound]`, `screening: bank`.
+  `payee-check: [outbound]`, `inbound: admitted`, `returns: [inbound]`,
+  `screening: bank`.
 
 Everything that differs between them is a declared key, so `payment`,
 `cash-account` and `payee-check` read the declaration and never the
