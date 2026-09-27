@@ -15,7 +15,7 @@ Kubernetes:
   cash-account, cash-account-product, idv)
 - **exclusive-dispatchers-service** — the changelog relay
   runners and the cron scheduler, pinned to one replica
-- **external-adapters-service** — the ClearBank, Companies
+- **external-adapters-service** — the Modulr, Companies
   House and Zyphe adapters plus their simulators, in one
   JVM on ports 8081, 8082 and 8085-8087
 - **console** (Svelte SPA served via nginx)

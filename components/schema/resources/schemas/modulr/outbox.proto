@@ -1,0 +1,63 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schemas.modulr;
+
+import "record_metadata_options.proto";
+
+option java_outer_classname = "ModulrOutboxProto";
+
+// A durable egress event for the Modulr adapter: a scheme or account event
+// a webhook, a call's outcome or a reconciliation reported. Written in the
+// FDB transaction that records it, then relayed to the message bus by a
+// changelog runner. Field numbers match ChangelogEvent's, so an entry
+// decodes as one.
+message ModulrOutboxEvent {
+  option (com.apple.foundationdb.record.record).usage = RECORD;
+
+  required string outbox_id = 1;       // primary key (uuidv7)
+  // The event's logical identity. Unique-indexed so a redelivered
+  // webhook, or a reconciliation after one, does not double-enqueue.
+  required string dedup_key = 2;
+  required string event_name = 3;      // bus event name to publish
+  required bytes  payload = 4;         // Avro-serialised event payload
+  optional string correlation_id = 5;
+  optional string causation_id = 6;
+  optional int64  created_at = 7;
+  optional string traceparent = 8;     // W3C, see ChangelogEvent
+}
+
+// A pending call to Modulr: a payment, a transfer between accounts, or an
+// account opened, closed or reissued. Written in the FDB transaction that
+// consumes the command, then made by the out-of-transaction runner.
+message ModulrOutboundIntent {
+  option (com.apple.foundationdb.record.record).usage = RECORD;
+
+  required string intent_id = 1;       // primary key (uuidv7)
+  // The command's identity: the end-to-end id, the transfer id, or the
+  // account call's key. Unique-indexed so a redelivered command does not
+  // enqueue a second call.
+  required string dedup_key = 2;
+  required string request = 3;         // the call's JSON body
+  // pending | sent | settled | failed
+  required string status = 4;
+  optional string correlation_id = 5;
+  optional int64  attempts = 6;
+  optional int64  created_at = 7;
+  optional int64  sent_at = 8;
+  // Epoch millis. For a pending intent, when to call next; for a sent
+  // one, when to ask Modulr what became of it. Absent means now.
+  optional int64  next_attempt_at = 9;
+  // payment, transfer, credit, open-account, close-account or
+  // reissue-address.
+  optional string kind = 10;
+  // EDN the runner needs to finish the call: the bank and account ids,
+  // a rotation's key, a reissue's progress.
+  optional string context = 11;
+  optional string traceparent = 12;    // W3C, see ChangelogEvent
+  // The x-mod-nonce the call is signed with. A retry sends it again with
+  // x-mod-retry, so Modulr answers it as the request it already has.
+  optional string nonce = 13;
+  // Modulr's id for the payment the call created, which a
+  // reconciliation looks up.
+  optional string provider_payment_id = 14;
+}

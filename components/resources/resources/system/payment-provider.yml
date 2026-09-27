@@ -6,5 +6,5 @@
 # docs/tdd/payments.md.
 schemes: [fps]
 addresses: [scan]
-balances: pooled
-payee-check: [outbound, inbound]
+balances: per-account
+payee-check: [outbound]

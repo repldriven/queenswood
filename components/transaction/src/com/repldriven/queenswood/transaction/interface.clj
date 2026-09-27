@@ -1,8 +1,11 @@
 (ns com.repldriven.queenswood.transaction.interface
   "Double-entry transactions and their legs. Records a transaction
   with its legs in a single FDB transaction, optionally applying
-  legs to balances. Returns the transaction map (with `:legs`) or
-  an anomaly."
+  legs to balances, and co-commits a `transaction-posted` entry — the
+  transaction, its legs and, where the payment scheme itself settled
+  the posting, the cash account it moved the money through — to the
+  transactions store's changelog. Returns the transaction map (with
+  `:legs`) or an anomaly."
   (:require
     [com.repldriven.queenswood.transaction.system]
 
@@ -17,9 +20,9 @@
   Args:
   - txn: FDB handle or open transaction.
   - data: transaction data (bank-id, idempotency-key,
-    transaction-type, currency, reference, legs). `:bank-id` scopes
-    the idempotency key, so data without one is rejected with
-    `:transaction/missing-bank-id`.
+    transaction-type, currency, reference, legs, and optionally
+    scheme-account-id). `:bank-id` scopes the idempotency key, so data
+    without one is rejected with `:transaction/missing-bank-id`.
 
   Returns the transaction map with `:legs` or an anomaly."
   [txn data]

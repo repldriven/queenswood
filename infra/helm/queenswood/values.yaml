@@ -529,7 +529,7 @@ services:
       requests: { cpu: "200m", memory: "768Mi" }
 
   # Every external-vendor adapter and the simulators that stand in for
-  # those vendors, in one JVM: ClearBank (8081 simulator / 8082
+  # those vendors, in one JVM: Modulr (8081 simulator / 8082
   # adapter), Companies House (8085 simulator, bus-only adapter), Zyphe
   # (8086 / 8087). Adapters reach their simulator over localhost, so
   # there is no cross-pod wait and no webhook registration race. The
@@ -541,7 +541,7 @@ services:
     http: true
     port: 8082
     extraPorts:
-      - name: clearbank-sim
+      - name: modulr-sim
         port: 8081
       - name: companies-sim
         port: 8085
@@ -554,8 +554,12 @@ services:
       limits: { cpu: "1500m", memory: "2Gi" }
       requests: { cpu: "300m", memory: "1Gi" }
     extraEnv:
-      CLEARBANK_SIMULATOR_URL: "http://localhost:8081"
-      CLEARBANK_ADAPTER_PUBLIC_URL: "http://localhost:8082"
+      # The simulator generates the Modulr API key and secret the
+      # adapter signs with, since both share one JVM. Pointing MODULR_URL
+      # at Modulr needs MODULR_API_KEY, MODULR_API_SECRET and
+      # MODULR_CUSTOMER_ID from a secret store as well.
+      MODULR_URL: "http://localhost:8081"
+      MODULR_ADAPTER_PUBLIC_URL: "http://localhost:8082"
       COMPANIES_HOUSE_URL: "http://localhost:8085"
       # The simulator is the only party to the Zyphe values, so none is
       # a secret. Pointing ZYPHE_URL at Zyphe needs a secret key, a flow

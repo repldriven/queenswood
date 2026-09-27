@@ -32,6 +32,17 @@
                    :business-day-cutoff default-cutoff}
    :system/instance-schema some?})
 
+(def ^:private transaction-event-processor
+  {:system/start (fn [{:system/keys [config instance]}]
+                   (or instance (commands/->TransactionEventProcessor config)))
+   :system/config {:record-db system/required-component
+                   :record-store system/required-component
+                   :schemas system/required-component
+                   :bus system/required-component
+                   :scheme-payment-command-channel system/required-component
+                   :payment-provider system/required-component}
+   :system/instance-schema some?})
+
 (def ^:private outbound-sweep
   {:system/start (fn [{:system/keys [config instance]}]
                    (or instance (sweep/start-runner config)))
@@ -50,4 +61,5 @@
 (system/defcomponents :payment
                       {:processor processor
                        :event-processor event-processor
+                       :transaction-event-processor transaction-event-processor
                        :outbound-sweep outbound-sweep})

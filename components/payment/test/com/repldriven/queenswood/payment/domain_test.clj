@@ -613,3 +613,89 @@
         (is (= :outbound-payment-failure-kind-declined (:failure-kind failed)))
         (is (= "NARR" (:failure-reason-code failed)))
         (is (not (contains? failed :failure-reason)))))))
+
+(defn- posted-leg
+  [account-id side amount & {:as extra}]
+  (merge {:account-id account-id
+          :balance-type :balance-type-default
+          :balance-status :balance-status-posted
+          :side side
+          :amount amount}
+         extra))
+
+(def ^:private accounts
+  {:provider-accounts {"acc.a" "A1" "acc.b" "A2" "acc.house" "H1" "acc.no" nil}
+   :cash-at-correspondent-id "gl.1100"
+   :own-funds "H1"})
+
+(defn- transfers
+  ([legs] (transfers legs nil))
+  ([legs scheme-provider-account-id]
+   (SUT/provider-transfers {:legs legs}
+                           (assoc accounts
+                                  :scheme-provider-account-id
+                                  scheme-provider-account-id))))
+
+(deftest provider-transfers-test
+  (testing "an internal payment moves between the two provider accounts"
+    (is (= [{:debtor "A1" :creditor "A2" :amount 500}]
+           (transfers
+            [(posted-leg "acc.a" :leg-side-debit 500)
+             (posted-leg "acc.b" :leg-side-credit 500)
+             (posted-leg "gl.2100" :leg-side-debit 500 :control true)
+             (posted-leg "gl.2100" :leg-side-credit 500 :control true)]))))
+  (testing "interest capitalised is paid from the bank's own funds"
+    (is (= [{:debtor "H1" :creditor "A1" :amount 7}]
+           (transfers [(posted-leg "acc.a"
+                                   :leg-side-debit 7
+                                   :balance-type :balance-type-interest-accrued)
+                       (posted-leg "acc.a" :leg-side-credit 7)]))))
+  (testing "a reward from the house account"
+    (is (= [{:debtor "H1" :creditor "A2" :amount 300}]
+           (transfers [(posted-leg "acc.house" :leg-side-debit 300)
+                       (posted-leg "acc.b" :leg-side-credit 300)]))))
+  (testing "the scheme's own settlement moves nothing"
+    (is (= []
+           (transfers [(posted-leg "gl.1100" :leg-side-debit 900)
+                       (posted-leg "acc.a" :leg-side-credit 900)]
+                      "A1"))))
+  (testing "an inbound parked in suspense moves to the bank's own funds"
+    (is (= [{:debtor "A1" :creditor "H1" :amount 900}]
+           (transfers [(posted-leg "gl.1100" :leg-side-debit 900)
+                       (posted-leg "gl.2500" :leg-side-credit 900)]
+                      "A1"))))
+  (testing "money from outside the scheme is credited from outside"
+    (is (= [{:debtor nil :creditor "H1" :amount 5000}]
+           (transfers
+            [(posted-leg "gl.1100" :leg-side-debit 5000)
+             (posted-leg "acc.house" :leg-side-credit 5000)
+             (posted-leg "gl.3100" :leg-side-credit 5000 :control true)]))))
+  (testing "money leaving to 1100 without the scheme stays with own funds"
+    (is (= [{:debtor "A1" :creditor "H1" :amount 50}]
+           (transfers [(posted-leg "acc.a" :leg-side-debit 50)
+                       (posted-leg "gl.1100" :leg-side-credit 50)]))))
+  (testing "an account with no provider account is held in own funds"
+    (is (= [{:debtor "A1" :creditor "H1" :amount 20}]
+           (transfers [(posted-leg "acc.a" :leg-side-debit 20)
+                       (posted-leg "acc.no" :leg-side-credit 20)]))))
+  (testing "pending legs move nothing"
+    (is (= []
+           (transfers
+            [(posted-leg "acc.a"
+                         :leg-side-debit 20
+                         :balance-status :balance-status-pending-outgoing)
+             (posted-leg "gl.1200"
+                         :leg-side-credit 20
+                         :balance-status :balance-status-pending-outgoing)])))))
+
+(deftest transfer-outcome-test
+  (let [pending {:transfer-id "ptr.1"
+                 :status :provider-transfer-status-pending}]
+    (is (= :provider-transfer-status-failed
+           (:status (SUT/transfer-outcome pending
+                                          :provider-transfer-status-failed
+                                          "Insufficient funds"))))
+    (is (nil? (SUT/transfer-outcome
+               (assoc pending :status :provider-transfer-status-completed)
+               :provider-transfer-status-failed
+               nil)))))

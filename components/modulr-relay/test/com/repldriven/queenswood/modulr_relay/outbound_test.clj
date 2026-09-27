@@ -1,0 +1,311 @@
+(ns com.repldriven.queenswood.modulr-relay.outbound-test
+  "Drives the runner with a `post-fn` standing in for Modulr, which the
+  runner takes as configuration, so nothing is redefined for the JVM."
+  (:require
+    [com.repldriven.queenswood.modulr-relay.test-system]
+
+    [com.repldriven.queenswood.modulr-relay.outbound :as SUT]
+
+    [com.repldriven.queenswood.fdb.interface :as fdb]
+    [com.repldriven.queenswood.modulr-relay.interface :as relay]
+    [com.repldriven.queenswood.schema.interface :as schema]
+
+    [com.repldriven.mono.avro.interface :as avro]
+    [com.repldriven.mono.system.interface :as system]
+    [com.repldriven.mono.test-system.interface :refer
+     [with-test-system nom-test>]]
+    [com.repldriven.mono.utility.interface :as utility]
+
+    [clojure.edn :as edn]
+    [clojure.test :refer [deftest is testing]]))
+
+(defn- json-response
+  [status body]
+  {:status status
+   :headers {:content-type "application/json"}
+   :body body})
+
+(defn- recording
+  "A `post-fn` answering each call with `(answer request)`, keeping every
+  request it was given."
+  [calls answer]
+  (fn [_config request] (swap! calls conj request) (answer request)))
+
+(defn- runner-config
+  [sys post-fn]
+  {:record-db (system/instance sys [:fdb :record-db])
+   :record-store (system/instance sys [:fdb :store])
+   :schemas (system/instance sys [:avro :serde])
+   :modulr-url "http://modulr.invalid"
+   :customer-id "C1"
+   :max-attempts 3
+   :initial-backoff-ms 1000
+   :max-backoff-ms 60000
+   :reconcile-after-ms 60000
+   :post-fn post-fn})
+
+(defn- intent
+  [intent-id kind dedup-key request context]
+  {:intent-id intent-id
+   :dedup-key dedup-key
+   :kind kind
+   :request request
+   :nonce (str "nonce-" intent-id)
+   :status "pending"
+   :attempts 0
+   :created-at (utility/now)
+   :context (pr-str context)})
+
+(defn- load-intent
+  [config intent-id]
+  (fdb/transact config
+                (fn [txn]
+                  (some-> (fdb/load-record (fdb/open txn
+                                                     "modulr-outbound-intents")
+                                           intent-id)
+                          schema/pb->ModulrOutboundIntent))))
+
+(defn- outbox-event
+  [config dedup-key]
+  (fdb/transact config
+                (fn [txn]
+                  (some-> (fdb/query-record (fdb/open txn "modulr-outbox")
+                                            "ModulrOutboxEvent"
+                                            "dedup_key"
+                                            dedup-key
+                                            {:index
+                                             "ModulrOutboxEvent_by_dedup_key"})
+                          schema/pb->ModulrOutboxEvent))))
+
+(defn- decoded
+  [config event]
+  (avro/deserialize-same (get (:schemas config) (:event-name event))
+                         (:payload event)))
+
+(deftest payment-sent-then-retried-as-the-same-request-test
+  (with-test-system
+   [sys "classpath:modulr-relay/application-test.yml"]
+   (let [calls (atom [])
+         answers
+         (atom [{:status 503 :body ""}
+                (json-response 201 "{\"id\":\"P9\",\"status\":\"SUBMITTED\"}")])
+         config (runner-config sys
+                               (recording calls
+                                          (fn [_]
+                                            (let [a (first @answers)]
+                                              (swap! answers rest)
+                                              a))))
+         request "{\"amount\":1.50}"]
+     (nom-test> [_ (relay/save-intent
+                    config
+                    (intent "int.p1"
+                            "payment"
+                            "pmt.1"
+                            request
+                            {:bank-id "bnk.1" :amount 150 :currency "GBP"}))])
+     (SUT/drain-once config 0)
+     (testing "a failed call parks the intent for another attempt"
+       (let [i (load-intent config "int.p1")]
+         (is (= "pending" (:status i)))
+         (is (= 1 (:attempts i)))))
+     (SUT/drain-once config 10000)
+     (testing "the retry sends the first attempt's nonce, marked a retry"
+       (let [[first-call retry] @calls]
+         (is (= "nonce-int.p1" (:nonce first-call) (:nonce retry)))
+         (is (not (:retry? first-call)))
+         (is (:retry? retry))
+         (is (= request (:raw-body retry)))))
+     (testing "an accepted payment is sent, with Modulr's id kept"
+       (let [i (load-intent config "int.p1")]
+         (is (= "sent" (:status i)))
+         (is (= "P9" (:provider-payment-id i))))))))
+
+(deftest refused-payment-is-rejected-test
+  (with-test-system
+   [sys "classpath:modulr-relay/application-test.yml"]
+   (let [config (runner-config
+                 sys
+                 (recording
+                  (atom [])
+                  (fn [_]
+                    (json-response
+                     400
+                     "[{\"code\":\"INVALID\",\"message\":\"Bad\"}]"))))]
+     (nom-test> [_ (relay/save-intent config
+                                      (intent "int.p2"
+                                              "payment" "pmt.2"
+                                              "{}" {:bank-id "bnk.1"}))])
+     (SUT/drain-once config 0)
+     (is (= "failed" (:status (load-intent config "int.p2"))))
+     (let [event (outbox-event config "pmt.2:submission-rejected")
+           data (decoded config event)]
+       (is (= "transaction-rejected" (:event-name event)))
+       (is (= :failure-kind-refused (:failure-kind data)))
+       (is (= "Bad" (:cancellation-reason data)))))))
+
+(deftest reconciliation-test
+  (with-test-system
+   [sys "classpath:modulr-relay/application-test.yml"]
+   (let [lookups (atom 0)
+         status (atom "PENDING_FOR_FUNDS")
+         config (runner-config
+                 sys
+                 (fn [_ {:keys [method]}]
+                   (if (= :get method)
+                     (do (swap! lookups inc)
+                         (json-response
+                          200
+                          (str "{\"content\":[{\"id\":\"P3\",\"status\":\""
+                               @status
+                               "\"}]}")))
+                     (json-response 201 "{\"id\":\"P3\"}"))))]
+     (nom-test> [_ (relay/save-intent config
+                                      (intent "int.p3"
+                                              "payment" "pmt.3"
+                                              "{}" {:bank-id "bnk.1"
+                                                    :amount 250
+                                                    :currency "GBP"}))])
+     (SUT/drain-once config 0)
+     (testing "nothing is asked before reconcile-after-ms"
+       (SUT/drain-once config 1000)
+       (is (zero? @lookups)))
+     (testing "a payment still pending is asked again later"
+       (SUT/drain-once config 60001)
+       (is (= 1 @lookups))
+       (is (= "sent" (:status (load-intent config "int.p3")))))
+     (testing "a processed payment settles under the webhook's dedup key"
+       (reset! status "PROCESSED")
+       (SUT/drain-once config 200000)
+       (is (= "settled" (:status (load-intent config "int.p3"))))
+       (let [event (outbox-event config "P3:settled")
+             data (decoded config event)]
+         (is (= "transaction-settled" (:event-name event)))
+         (is (= 250 (:amount data)))
+         (is (= "pmt.3" (:end-to-end-id data))))))))
+
+(deftest a-webhook-first-leaves-reconciliation-nothing-test
+  (with-test-system
+   [sys "classpath:modulr-relay/application-test.yml"]
+   (let [lookups (atom 0)
+         config (runner-config sys
+                               (fn [_ {:keys [method]}]
+                                 (if (= :get method)
+                                   (do (swap! lookups inc)
+                                       (json-response 200 "{\"content\":[]}"))
+                                   (json-response 201 "{\"id\":\"P4\"}"))))]
+     (nom-test> [_ (relay/save-intent config
+                                      (intent "int.p4"
+                                              "payment" "pmt.4"
+                                              "{}" {:bank-id "bnk.1"}))])
+     (SUT/drain-once config 0)
+     (nom-test> [_ (relay/save-event config
+                                     {:outbox-id "obx.p4"
+                                      :dedup-key "P4:settled"
+                                      :event-name "transaction-settled"
+                                      :payload (.getBytes "x")
+                                      :created-at 0}
+                                     "pmt.4")])
+     (SUT/drain-once config 200000)
+     (is (= "settled" (:status (load-intent config "int.p4"))))
+     (is (zero? @lookups)))))
+
+(deftest credit-completes-at-once-test
+  (with-test-system
+   [sys "classpath:modulr-relay/application-test.yml"]
+   (let [calls (atom [])
+         config
+         (runner-config sys (recording calls (fn [_] {:status 200 :body ""})))]
+     (nom-test> [_ (relay/save-intent
+                    config
+                    (intent "int.c1" "credit" "ptr.1" "{}" {:bank-id "bnk.1"}))])
+     (SUT/drain-once config 0)
+     (is (= "/credit" (:path (first @calls))))
+     (is (= "settled" (:status (load-intent config "int.c1"))))
+     (is (= {:transfer-id "ptr.1" :bank-id "bnk.1"}
+            (select-keys (decoded config
+                                  (outbox-event config "ptr.1:completed"))
+                         [:transfer-id :bank-id]))))))
+
+(def ^:private opened
+  (str "{\"id\":\"A2\",\"status\":\"ACTIVE\",\"identifiers\":"
+       "[{\"type\":\"SCAN\",\"sortCode\":\"000000\","
+       "\"accountNumber\":\"00000002\"}]}"))
+
+(deftest open-account-test
+  (with-test-system
+   [sys "classpath:modulr-relay/application-test.yml"]
+   (let [calls (atom [])
+         config (runner-config sys
+                               (recording calls
+                                          (fn [_] (json-response 201 opened))))]
+     (nom-test> [_ (relay/save-intent config
+                                      (intent "int.o1"
+                                              "open-account" "open:acc.1"
+                                              "{}" {:bank-id "bnk.1"
+                                                    :account-id "acc.1"}))])
+     (SUT/drain-once config 0)
+     (is (= "/customers/C1/accounts" (:path (first @calls))))
+     (is (= {:bank-id "bnk.1"
+             :account-id "acc.1"
+             :provider-account-id "A2"
+             :addresses
+             [{:scheme "scan" :sort-code "000000" :account-number "00000002"}]}
+            (decoded config
+                     (outbox-event config
+                                   "open:acc.1:payment-account-opened")))))))
+
+(deftest reissue-moves-the-balance-test
+  (with-test-system
+   [sys "classpath:modulr-relay/application-test.yml"]
+   (let [calls (atom [])
+         config
+         (runner-config
+          sys
+          (recording
+           calls
+           (fn [{:keys [method path]}]
+             (cond
+              (= :get method)
+              (json-response
+               200
+               "{\"id\":\"A1\",\"balance\":\"12.34\",\"currency\":\"GBP\"}")
+
+              (= "/customers/C1/accounts" path)
+              (json-response 201 opened)
+
+              :else
+              (json-response 200 "{}")))))]
+     (nom-test> [_ (relay/save-intent config
+                                      (intent "int.r1"
+                                              "reissue-address"
+                                              "reissue:acc.1:k1"
+                                              "{}" {:bank-id "bnk.1"
+                                                    :account-id "acc.1"
+                                                    :provider-account-id "A1"
+                                                    :rotation-key "k1"}))])
+     (doseq [t (range 6)] (SUT/drain-once config t))
+     (testing "block, read, open, move and close, in that order"
+       (is (= [[:post "/accounts/A1/block"] [:get "/accounts/A1"]
+               [:post "/customers/C1/accounts"] [:post "/payments"]
+               [:post "/accounts/A1/close"]]
+              (mapv (juxt :method :path) @calls))))
+     (testing "the move takes the whole balance to the new account"
+       (let [move (nth @calls 3)]
+         (is (= {:sourceAccountId "A1"
+                 :destination {:type "ACCOUNT" :id "A2"}
+                 :amount 12.34M}
+                (select-keys (:body move)
+                             [:sourceAccountId :destination :amount])))))
+     (testing "each step is signed with a nonce of its own"
+       (is (= 5 (count (distinct (map :nonce @calls))))))
+     (testing "the new address is reported"
+       (let [data (decoded config
+                           (outbox-event
+                            config
+                            "reissue:acc.1:k1:payment-address-reissued"))]
+         (is (= "A2" (:provider-account-id data)))
+         (is (= "k1" (:rotation-key data)))))
+     (is (= "settled" (:status (load-intent config "int.r1"))))
+     (is (= "done"
+            (:step (edn/read-string (:context (load-intent config
+                                                           "int.r1")))))))))

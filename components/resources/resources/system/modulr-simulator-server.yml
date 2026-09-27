@@ -1,0 +1,31 @@
+handler: !system/required-component
+
+state: !system/component
+  system/component-kind: modulr-simulator/state
+
+# A payment the balance cannot cover waits this long for funds before it
+# expires, and the simulator waits webhook-delay-ms before each delivery.
+interceptors: !system/component
+  system/component-kind: server/interceptors
+  state: !system/local-ref state
+  # The adapter's credentials, which verify every call.
+  credentials: !system/ref modulr-adapter.credentials
+  sort-code: "040010"
+  webhook-delay-ms: 10
+  pending-for-funds-ms: 30000
+
+jetty-adapter: !system/component
+  system/component-kind: server/jetty-adapter
+  handler: !system/ref modulr-simulator-server.handler
+  interceptors: !system/ref modulr-simulator-server.interceptors
+  options: !profile
+    dev:
+      port: 8081
+    test:
+      port: 0
+    default:
+      port: 8081
+
+http-url: !system/component
+  system/component-kind: server/http-url
+  jetty-adapter: !system/local-ref jetty-adapter

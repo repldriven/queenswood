@@ -2,10 +2,9 @@
   (:require
     [com.repldriven.queenswood.external-adapters.system]
 
-    [com.repldriven.queenswood.clearbank-adapter.interface :as
-     clearbank-adapter]
-    [com.repldriven.queenswood.clearbank-simulator.interface :as
-     clearbank-simulator]
+    [com.repldriven.queenswood.modulr-adapter.interface :as modulr-adapter]
+    [com.repldriven.queenswood.modulr-simulator.interface :as
+     modulr-simulator]
     [com.repldriven.queenswood.uk-companies-house-simulator.interface :as
      ukch-simulator]
     [com.repldriven.queenswood.zyphe-adapter.interface :as zyphe-adapter]
@@ -22,12 +21,12 @@
   [config-file profile]
   (nom-> (env/config config-file profile)
          system/defs
-         (assoc-in [:system/defs :clearbank-simulator-server
+         (assoc-in [:system/defs :modulr-simulator-server
                     :handler]
-          clearbank-simulator/app)
-         (assoc-in [:system/defs :clearbank-adapter-server
+          modulr-simulator/app)
+         (assoc-in [:system/defs :modulr-adapter-server
                     :handler]
-          clearbank-adapter/app)
+          modulr-adapter/app)
          (assoc-in [:system/defs :uk-companies-house-simulator-server
                     :handler]
           ukch-simulator/app)

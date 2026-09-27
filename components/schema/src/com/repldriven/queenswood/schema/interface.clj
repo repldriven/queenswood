@@ -22,6 +22,7 @@
     [com.repldriven.queenswood.schemas.interest :as interest]
     [com.repldriven.queenswood.schemas.ledger_accounts :as ledger-accounts]
     [com.repldriven.queenswood.schemas.memberships :as memberships]
+    [com.repldriven.queenswood.schemas.modulr :as modulr]
     [com.repldriven.queenswood.schemas.onfido :as onfido]
     [com.repldriven.queenswood.schemas.party :as party]
     [com.repldriven.queenswood.schemas.payee_check :as payee-check]
@@ -73,7 +74,8 @@
     (com.repldriven.queenswood.schemas.payments
      InboundPaymentProto$InboundPayment
      InternalPaymentProto$InternalPayment
-     OutboundPaymentProto$OutboundPayment)
+     OutboundPaymentProto$OutboundPayment
+     ProviderTransferProto$ProviderTransfer)
     (com.repldriven.queenswood.schemas.payee_check
      PayeeCheckProto$PayeeCheck)
     (com.repldriven.queenswood.schemas.clearbank
@@ -110,7 +112,10 @@
      WebhookNotificationProto$WebhookNotification)
     (com.repldriven.queenswood.schemas.zyphe
      ZypheOutboxProto$ZypheOutboxEvent
-     ZypheOutboxProto$ZypheOutboundIntent)))
+     ZypheOutboxProto$ZypheOutboundIntent)
+    (com.repldriven.queenswood.schemas.modulr
+     ModulrOutboxProto$ModulrOutboxEvent
+     ModulrOutboxProto$ModulrOutboundIntent)))
 
 (def ^{:doc "Parse Balance protobuf bytes into a Clojure map."} pb->Balance
   balances/pb->Balance)
@@ -1000,6 +1005,67 @@
   [m]
   (ZypheOutboxProto$ZypheOutboundIntent/parseFrom
    (ZypheOutboundIntent->pb m)))
+
+(def ^{:doc "Parse ModulrOutboxEvent protobuf bytes into a Clojure map."}
+     pb->ModulrOutboxEvent
+  modulr/pb->ModulrOutboxEvent)
+
+(defn ModulrOutboxEvent->pb
+  "Serialise a ModulrOutboxEvent map to protobuf bytes."
+  [m]
+  (proto/->pb (modulr/new-ModulrOutboxEvent m)))
+
+(defn ModulrOutboxEvent->java
+  "Parse a ModulrOutboxEvent map into the generated Java protobuf class."
+  [m]
+  (ModulrOutboxProto$ModulrOutboxEvent/parseFrom (ModulrOutboxEvent->pb m)))
+
+(def ^{:doc "Parse ModulrOutboundIntent protobuf bytes into a Clojure map."}
+     pb->ModulrOutboundIntent
+  modulr/pb->ModulrOutboundIntent)
+
+(defn ModulrOutboundIntent->pb
+  "Serialise a ModulrOutboundIntent map to protobuf bytes."
+  [m]
+  (proto/->pb (modulr/new-ModulrOutboundIntent m)))
+
+(defn ModulrOutboundIntent->java
+  "Parse a ModulrOutboundIntent map into the generated Java protobuf class."
+  [m]
+  (ModulrOutboxProto$ModulrOutboundIntent/parseFrom
+   (ModulrOutboundIntent->pb m)))
+
+(defn pb->ProviderTransfer
+  "Parse ProviderTransfer protobuf bytes into a Clojure map, stripping
+  the optional `debtor-provider-account-id` and `failure-reason` when
+  they deserialise as the proto2 empty-string default.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (let [transfer (payments/pb->ProviderTransfer input)]
+    (cond-> transfer
+            (= "" (:debtor-provider-account-id transfer))
+            (dissoc :debtor-provider-account-id)
+
+            (= "" (:failure-reason transfer))
+            (dissoc :failure-reason))))
+
+(defn ProviderTransfer->pb
+  "Serialise a ProviderTransfer map to protobuf bytes.
+
+  Args:
+  - m: ProviderTransfer map matching the generated schema."
+  [m]
+  (proto/->pb (payments/new-ProviderTransfer m)))
+
+(defn ProviderTransfer->java
+  "Parse a ProviderTransfer map into the generated Java protobuf class.
+
+  Args:
+  - m: ProviderTransfer map matching the generated schema."
+  [m]
+  (ProviderTransferProto$ProviderTransfer/parseFrom (ProviderTransfer->pb m)))
 
 (def ^{:doc "Parse Policy protobuf bytes into a Clojure map."} pb->Policy
   policies/pb->Policy)

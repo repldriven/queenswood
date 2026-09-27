@@ -59,6 +59,8 @@
     components/onfido-relay {:local/root "components/onfido-relay"}
     components/zyphe-webhook {:local/root "components/zyphe-webhook"}
     components/zyphe-relay {:local/root "components/zyphe-relay"}
+    components/modulr-webhook {:local/root "components/modulr-webhook"}
+    components/modulr-relay {:local/root "components/modulr-relay"}
     components/interest {:local/root "components/interest"}
     components/ledger-account {:local/root "components/ledger-account"}
     components/membership {:local/root "components/membership"}
@@ -100,6 +102,8 @@
     bases/onfido-simulator {:local/root "bases/onfido-simulator"}
     bases/zyphe-adapter {:local/root "bases/zyphe-adapter"}
     bases/zyphe-simulator {:local/root "bases/zyphe-simulator"}
+    bases/modulr-adapter {:local/root "bases/modulr-adapter"}
+    bases/modulr-simulator {:local/root "bases/modulr-simulator"}
     bases/operational-processors {:local/root
                                   "bases/operational-processors"}
     bases/uk-companies-house-adapter {:local/root
@@ -181,6 +185,9 @@
                        "components/zyphe-relay/test"
                        "components/zyphe-relay/test-resources"
                        "components/zyphe-webhook/test"
+                       "components/modulr-webhook/test"
+                       "components/modulr-relay/test"
+                       "components/modulr-relay/test-resources"
                        "bases/api/test"
                        "bases/clearbank-adapter/test"
                        "bases/clearbank-adapter/test-resources"
@@ -201,7 +208,11 @@
                        "bases/zyphe-adapter/test"
                        "bases/zyphe-adapter/test-resources"
                        "bases/zyphe-simulator/test"
-                       "bases/zyphe-simulator/test-resources"]}
+                       "bases/zyphe-simulator/test-resources"
+                       "bases/modulr-adapter/test"
+                       "bases/modulr-adapter/test-resources"
+                       "bases/modulr-simulator/test"
+                       "bases/modulr-simulator/test-resources"]}
   :format/zprint {:extra-deps {zprint/zprint {:mvn/version "1.3.0"}}
                   :main-opts ["-m" "zprint.main"]}
   :lint/clj-kondo {:extra-deps {clj-kondo/clj-kondo {:mvn/version "2026.07.24"}}

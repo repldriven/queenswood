@@ -11,8 +11,10 @@
     [com.repldriven.queenswood.policy.interface :as policy]
     [com.repldriven.queenswood.transaction.interface :as transactions]
 
+    [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.log.interface :as log]
+    [com.repldriven.mono.message-bus.interface :as message-bus]
     [com.repldriven.mono.utility.interface :as utility]))
 
 ;; Every handler opens one FDB transaction (`store/transact config`) and
@@ -32,7 +34,7 @@
       :debit-credit-code debit-credit-code})))
 
 (defn- post-to-suspense
-  [txn data bank-id]
+  [txn data bank-id receiving-account-id]
   (let [{:keys [currency]} data]
     (let-nom>
       [cash (ledger-accounts/find-by-code
@@ -49,21 +51,26 @@
                     data
                     bank-id
                     (:ledger-account-id cash)
-                    (:ledger-account-id suspense))
+                    (:ledger-account-id suspense)
+                    receiving-account-id)
        recorded (transactions/record-transaction txn transaction)
        {:keys [transaction-type legs]} recorded
        _ (balances/apply-legs txn bank-id legs transaction-type)]
       recorded)))
 
 (defn- park-in-suspense
-  "Park an inbound in `bank-id`'s 2500 suspense and persist a `suspended`
-  InboundPayment for later reconciliation."
-  [txn data bank-id business-day]
+  "Park an inbound the receiving account could not take in its bank's
+  2500 suspense and persist a `suspended` InboundPayment for later
+  reconciliation."
+  [txn data account business-day]
   (let-nom>
-    [recorded (post-to-suspense txn data bank-id)
+    [recorded (post-to-suspense txn
+                                data
+                                (:bank-id account)
+                                (:account-id account))
      {:keys [transaction-id]} recorded
      payment (domain/suspended-inbound-payment data
-                                               bank-id
+                                               (:bank-id account)
                                                business-day
                                                transaction-id)
      _ (store/save-inbound-payment
@@ -101,7 +108,7 @@
           (do (log/infof "Inbound settlement refused, parked in suspense: %s"
                          {:kind (error/kind transaction)
                           :account-id account-id})
-              (park-in-suspense txn data bank-id business-day))
+              (park-in-suspense txn data account business-day))
           (let-nom>
             [_ transaction
              expanded-legs (ledger-accounts/add-control-legs
@@ -127,10 +134,10 @@
 
 (defn- suspend-held
   [txn data held]
-  (let [{:keys [bank-id]} held
+  (let [{:keys [bank-id creditor-account-id]} held
         {:keys [scheme-transaction-id]} data]
     (let-nom>
-      [recorded (post-to-suspense txn data bank-id)
+      [recorded (post-to-suspense txn data bank-id creditor-account-id)
        {:keys [transaction-id]} recorded
        suspended (domain/suspended-from-held held
                                              scheme-transaction-id
@@ -237,7 +244,7 @@
           (do (log/infof "Inbound settlement to a non-operable account: %s"
                          {:account-id (:account-id account)
                           :account-status (:account-status account)})
-              (park-in-suspense txn data (:bank-id account) business-day))
+              (park-in-suspense txn data account business-day))
 
           ;; Release of a previously-held inbound — settle it to the
           ;; account and flip the held record to settled.
@@ -543,3 +550,151 @@
             failed))))
      :payment/reject-outbound
      "Failed to reject outbound payment")))
+
+(defn- provider-account-of
+  [txn bank-id account-id]
+  (let-nom> [account (cash-accounts/find-account txn bank-id account-id)]
+    (when account [account-id (:provider-account-id account)])))
+
+(defn- mirror-context
+  "What `domain/provider-transfers` needs to know about the accounts a
+  posting touched: which are cash accounts and the provider account
+  behind each, which is 1100, the provider account the scheme moved the
+  money through, and the bank's own funds', or `::unopened` while the
+  provider has not opened it."
+  [txn posted]
+  (let [{:keys [bank-id currency legs scheme-account-id]} posted
+        account-ids (distinct (map :account-id legs))]
+    (let-nom>
+      [cash (ledger-accounts/find-by-code txn
+                                          bank-id
+                                          :gl-account-code-cash-at-correspondent
+                                          currency)
+       house (cash-accounts/house-account txn bank-id currency)
+       found (reduce (fn [acc account-id]
+                       (let [res (provider-account-of txn bank-id account-id)]
+                         (cond
+                          (error/anomaly? res)
+                          (reduced res)
+
+                          res
+                          (conj acc res)
+
+                          :else
+                          acc)))
+                     {}
+                     account-ids)
+       scheme (when scheme-account-id
+                (provider-account-of txn bank-id scheme-account-id))]
+      (let [own-funds (or (:provider-account-id house) ::unopened)]
+        {:provider-accounts found
+         :cash-at-correspondent-id (:ledger-account-id cash)
+         :scheme-provider-account-id (when scheme
+                                       (or (second scheme) own-funds))
+         :own-funds own-funds}))))
+
+(defn- record-transfers
+  "The posting's provider transfers, recorded pending in one
+  transaction: those already recorded for it where this is a
+  redelivery, or new ones."
+  [config posted]
+  (store/transact
+   config
+   (fn [txn]
+     (let-nom> [existing (store/transfers-for-transaction
+                          txn
+                          (:transaction-id posted))]
+       (if (seq existing)
+         existing
+         (let-nom> [ctx (mirror-context txn posted)]
+           (let [transfers (mapv (fn [t]
+                                   (domain/new-provider-transfer posted t))
+                                 (domain/provider-transfers posted ctx))]
+             (if (some (fn [{:keys [debtor-provider-account-id
+                                    creditor-provider-account-id]}]
+                         (some #{::unopened}
+                               [debtor-provider-account-id
+                                creditor-provider-account-id]))
+                       transfers)
+               (error/fail :payment/own-funds-unopened
+                           {:message
+                            "The bank's own funds have no provider account yet"
+                            :bank-id (:bank-id posted)
+                            :transaction-id (:transaction-id posted)})
+               (let-nom> [_ (reduce (fn [_ t]
+                                      (let [res (store/save-transfer txn t)]
+                                        (when (error/anomaly? res)
+                                          (reduced res))))
+                                    nil
+                                    transfers)]
+                 transfers)))))))
+   :payment/mirror
+   "Failed to record provider transfers"))
+
+(defn- send-transfer
+  [config transfer]
+  (let [{:keys [bus schemas scheme-payment-command-channel]} config
+        {:keys [transaction-id]} transfer]
+    (let-nom> [payload (avro/serialize (get schemas "transfer-between-accounts")
+                                       (select-keys
+                                        transfer
+                                        [:transfer-id :bank-id :transaction-id
+                                         :debtor-provider-account-id
+                                         :creditor-provider-account-id :amount
+                                         :currency]))]
+      (message-bus/send bus
+                        scheme-payment-command-channel
+                        {:command "transfer-between-accounts"
+                         :id (str (utility/uuidv7))
+                         :correlation-id (str (utility/uuidv7))
+                         :causation-id transaction-id
+                         :payload payload}))))
+
+(defn mirror-posted
+  "Where the provider holds a balance for each account, record and send
+  the transfers that make the provider accounts hold what a posted
+  transaction left in the ledger. A redelivery sends again those still
+  pending, which the adapter takes as the transfers it already has."
+  [config posted]
+  (if-not (= "per-account" (get-in config [:payment-provider :balances]))
+    nil
+    (let-nom> [transfers (record-transfers config posted)]
+      (reduce (fn [_ t]
+                (if (= :provider-transfer-status-pending (:status t))
+                  (let [res (send-transfer config t)]
+                    (if (error/anomaly? res) (reduced res) nil))
+                  nil))
+              nil
+              transfers))))
+
+(defn- finish-transfer
+  [config data status reason]
+  (let [{:keys [bank-id transfer-id]} data]
+    (store/transact
+     config
+     (fn [txn]
+       (let-nom> [transfer (store/get-transfer txn bank-id transfer-id)]
+         (if (nil? transfer)
+           (error/fail :payment/unknown-transfer
+                       {:message "No provider transfer has this id"
+                        :bank-id bank-id
+                        :transfer-id transfer-id})
+           (if-let [finished (domain/transfer-outcome transfer status reason)]
+             (let-nom> [_ (store/save-transfer txn finished)] finished)
+             transfer))))
+     :payment/finish-transfer
+     "Failed to record a provider transfer's outcome")))
+
+(defn complete-transfer
+  [config data]
+  (finish-transfer config data :provider-transfer-status-completed nil))
+
+(defn fail-transfer
+  "A transfer the provider did not make leaves the ledger as it is: the
+  customer's payment stands, and the bank reconciles the provider
+  accounts from the ERROR this logs."
+  [config data]
+  (let [{:keys [bank-id transfer-id reason]} data]
+    (log/error "A provider transfer failed, leaving the provider off the ledger"
+               {:bank-id bank-id :transfer-id transfer-id :reason reason})
+    (finish-transfer config data :provider-transfer-status-failed reason)))

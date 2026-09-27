@@ -32,6 +32,7 @@ system:
         - schemes-account-command
         - schemes-account-command-response
         - schemes-account-event
+        - transactions-event
         - idv-command
         - idv-command-response
         - companies-command
@@ -61,6 +62,7 @@ system:
   cash-accounts-dispatcher: !include system/cash-account-dispatcher.yml
   cash-accounts-relay: !include system/cash-account-relay.yml
   payments-relay: !include system/payment-relay.yml
+  transactions-relay: !include system/transaction-relay.yml
   rewards-relay: !include system/reward-relay.yml
   companies-dispatcher: !include system/company-dispatcher.yml
   idvs-relay: !include system/idv-relay.yml
@@ -120,10 +122,10 @@ system:
       interceptors: !system/ref server.interceptors
       options:
         port: 8080
-  clearbank-simulator-server: !include system/clearbank-simulator-server.yml
-  clearbank-adapter-server: !include system/clearbank-adapter-server.yml
-  clearbank-adapter: !include system/clearbank-adapter.yml
-  clearbank-adapter-relay: !include system/clearbank-adapter-relay.yml
+  modulr-simulator-server: !include system/modulr-simulator-server.yml
+  modulr-adapter-server: !include system/modulr-adapter-server.yml
+  modulr-adapter: !include system/modulr-adapter.yml
+  modulr-adapter-relay: !include system/modulr-adapter-relay.yml
   zyphe-simulator-server: !include system/zyphe-simulator-server.yml
   zyphe-adapter-server: !include system/zyphe-adapter-server.yml
   zyphe-adapter: !include system/zyphe-adapter.yml

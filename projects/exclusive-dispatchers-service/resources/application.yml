@@ -79,6 +79,13 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-schemes-account-event
           acks: all
+      transactions-event:
+        schemas: !system/local-ref schemas
+        schema: !keyword event
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          topic: topic-transactions-event
+          acks: all
     message-bus-producers: !system/component
       system/component-kind: kafka/message-bus-producers
       cash-accounts-event:
@@ -101,6 +108,8 @@ system:
         producer: !system/local-ref producers.schemes-payments-event
       schemes-account-event:
         producer: !system/local-ref producers.schemes-account-event
+      transactions-event:
+        producer: !system/local-ref producers.transactions-event
     # This service only produces. `message-bus/bus` requires a consumers
     # map, so this is declared empty rather than omitted.
     message-bus-consumers: !system/component
@@ -157,7 +166,12 @@ system:
       bus: !system/ref message-bus.bus
       event-channel: !keyword schemes-payments-event
       event-channels: !include system/payment-account-event-channels.yml
-      store-name: clearbank-outbox
+      store-name: modulr-outbox
+    transactions-handler: !system/component
+      system/component-kind: changelog-relay/envelope-handler
+      bus: !system/ref message-bus.bus
+      event-channel: !keyword transactions-event
+      store-name: transactions
     # Keyed by store, because a cursor belongs to a store. `store-name`
     # and `consumer-id` are physical: the ids are carried over verbatim
     # from the watchers these replaced, and a fresh one would restart
@@ -171,12 +185,18 @@ system:
         consumer-id: cash-account-watcher
         store-name: cash-accounts
         handler: !system/local-ref cash-accounts-handler
-      clearbank-outbox:
+      modulr-outbox:
         record-db: !system/ref fdb.record-db
         keyspace-prefix: !system/ref fdb.keyspace-prefix
-        consumer-id: clearbank-relay
-        store-name: clearbank-outbox
+        consumer-id: modulr-relay
+        store-name: modulr-outbox
         handler: !system/local-ref schemes-payments-handler
+      transactions:
+        record-db: !system/ref fdb.record-db
+        keyspace-prefix: !system/ref fdb.keyspace-prefix
+        consumer-id: transactions-relay
+        store-name: transactions
+        handler: !system/local-ref transactions-handler
       idvs:
         record-db: !system/ref fdb.record-db
         keyspace-prefix: !system/ref fdb.keyspace-prefix

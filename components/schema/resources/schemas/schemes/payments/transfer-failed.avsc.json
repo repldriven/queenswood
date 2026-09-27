@@ -1,0 +1,11 @@
+{
+  "type": "record",
+  "name": "TransferFailed",
+  "namespace": "com.repldriven.mono.schemes.payments",
+  "fields": [
+    {"name": "transfer_id",  "type": "string"},
+    {"name": "bank_id",      "type": "string"},
+    {"name": "reason",       "type": ["null", "string"], "default": null},
+    {"name": "timestamp_failed", "type": {"type": "long", "logicalType": "timestamp-millis"}}
+  ]
+}

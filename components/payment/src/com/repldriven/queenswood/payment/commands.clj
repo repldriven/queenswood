@@ -91,6 +91,12 @@
             ;; code as the outbound path for backward compatibility.
             (events/reject-outbound config data))
 
+          "transfer-completed"
+          (events/complete-transfer config data)
+
+          "transfer-failed"
+          (events/fail-transfer config data)
+
           (error/fail :payment/unknown-event
                       {:message "Unknown event"
                        :event event}))))))
@@ -98,3 +104,17 @@
 (defrecord PaymentEventProcessor [config]
   processor/Processor
     (process [_ message] (dispatch-event config message)))
+
+(defn- dispatch-transaction-event
+  [config message]
+  (let [{:keys [event payload]} message
+        schema (get (:schemas config) event)]
+    (if (or (not= "transaction-posted" event) (nil? schema))
+      (error/fail :payment/unknown-event
+                  {:message "Unknown transaction event" :event event})
+      (let-nom> [data (avro/deserialize-same schema payload)]
+        (events/mirror-posted config data)))))
+
+(defrecord TransactionEventProcessor [config]
+  processor/Processor
+    (process [_ message] (dispatch-transaction-event config message)))

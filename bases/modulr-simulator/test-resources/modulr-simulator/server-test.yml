@@ -1,0 +1,24 @@
+handler: !system/required-component
+
+state: !system/component
+  system/component-kind: modulr-simulator/state
+
+credentials: !system/component
+  system/component-kind: modulr-webhook/credentials
+  key-id: adapter-key
+  secret: adapter-secret
+
+interceptors: !system/component
+  system/component-kind: server/interceptors
+  state: !system/local-ref state
+  credentials: !system/local-ref credentials
+  sort-code: "040010"
+  webhook-delay-ms: 10
+  pending-for-funds-ms: 1500
+
+jetty-adapter: !system/component
+  system/component-kind: server/jetty-adapter
+  handler: !system/ref server.handler
+  interceptors: !system/ref server.interceptors
+  options:
+    port: 0

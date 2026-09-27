@@ -9,6 +9,13 @@
   republishes the scheme command for an outbound payment left pending and
   logs one left pending or held past a day, changing no record.
 
+  Where the payment provider holds a balance for each account, the
+  `payment/transaction-event-processor` component mirrors each posted
+  transaction at the provider: it records the transaction's provider
+  transfers and sends each as `transfer-between-accounts`, and the
+  adapter's `transfer-completed` and `transfer-failed` events settle
+  them.
+
   Reads live in `payment-query`; this brick reuses them inside its own
   transactions. `api` requires the query brick, not this one — submissions
   reach the processor as commands, settlements as events."
@@ -156,3 +163,47 @@
   Returns the updated payment map or an anomaly."
   [config data]
   (events/return-inbound config data))
+
+(defn mirror-posted
+  "Process a `transaction-posted` event where the payment provider holds
+  a balance for each account: record, pending, the provider transfers
+  that make the provider accounts hold what the transaction left in the
+  ledger, and send each as `transfer-between-accounts`. A redelivery
+  sends again those still pending. Does nothing where the provider pools
+  its balance, and fails `:payment/own-funds-unopened` while a transfer
+  needs the bank's own funds and the provider has not opened them.
+
+  Args:
+  - config: FDB handle plus :bus, :schemas,
+    :scheme-payment-command-channel, :payment-provider.
+  - data: the transaction-posted payload.
+
+  Returns nil or an anomaly."
+  [config data]
+  (events/mirror-posted config data))
+
+(defn complete-transfer
+  "Process a `transfer-completed` event: the pending provider transfer
+  becomes completed. A transfer no longer pending is left as it is.
+
+  Args:
+  - config: FDB handle.
+  - data: the event payload, bank-id and transfer-id.
+
+  Returns the transfer or an anomaly, `:payment/unknown-transfer` where
+  no transfer has the id."
+  [config data]
+  (events/complete-transfer config data))
+
+(defn fail-transfer
+  "Process a `transfer-failed` event: the pending provider transfer
+  becomes failed, with the reason, and the failure is logged at ERROR.
+  The ledger is not reversed.
+
+  Args:
+  - config: FDB handle.
+  - data: the event payload, bank-id, transfer-id and reason.
+
+  Returns the transfer or an anomaly."
+  [config data]
+  (events/fail-transfer config data))

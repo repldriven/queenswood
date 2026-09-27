@@ -165,6 +165,7 @@
         :idempotency-key scheme-transaction-id
         :transaction-type :transaction-type-inbound-transfer
         :currency currency
+        :scheme-account-id creditor-account-id
         :legs [{:account-id cash-account-id
                 :balance-type :balance-type-default
                 :balance-status :balance-status-posted
@@ -205,9 +206,11 @@
 
 (defn inbound-suspense->transaction
   "DEBIT 1100 cash-at-correspondent / CREDIT 2500 suspense — an inbound
-  arrived for a BBAN that matches no account, so the funds land in
-  suspense (a liability) pending reconciliation. GL-only legs."
-  [data bank-id cash-at-correspondent-id suspense-account-id]
+  the receiving account could not take lands in suspense (a liability)
+  pending reconciliation. GL-only legs, naming the receiving account the
+  scheme paid it into."
+  [data bank-id cash-at-correspondent-id suspense-account-id
+   receiving-account-id]
   (let [{:keys [scheme-transaction-id currency amount reference]} data]
     (utility/assoc-some
      {:bank-id bank-id
@@ -224,6 +227,8 @@
               :balance-status :balance-status-posted
               :side :leg-side-credit
               :amount amount}]}
+     :scheme-account-id
+     receiving-account-id
      :reference
      reference)))
 
@@ -298,6 +303,7 @@
        :idempotency-key (str "release-in-" payment-id)
        :transaction-type :transaction-type-inbound-transfer
        :currency currency
+       :scheme-account-id creditor-account-id
        :legs [{:account-id cash-at-correspondent-id
                :balance-type :balance-type-default
                :balance-status :balance-status-posted
@@ -503,6 +509,7 @@
       :idempotency-key (str "settle-out-" payment-id)
       :transaction-type :transaction-type-outbound-transfer
       :currency currency
+      :scheme-account-id debtor-account-id
       :legs [{:account-id debtor-account-id
               :product-type (:product-type debtor-account)
               :balance-type :balance-type-default
@@ -574,3 +581,99 @@
       :updated-at now}
      :reference
      reference)))
+
+(defn- mirrored?
+  "True for a leg that moves money a provider account holds: a posting,
+  not a roll-up, to the spendable balance."
+  [{:keys [balance-type balance-status control]}]
+  (and (= :balance-type-default balance-type)
+       (= :balance-status-posted balance-status)
+       (not control)))
+
+(defn- net
+  [{:keys [side amount]}]
+  (if (= :leg-side-credit side) amount (- amount)))
+
+(defn- pair
+  "Match each party the posting took money from with the parties it gave
+  money to, in a stable order, until both sides are spent."
+  [debtors creditors]
+  (loop [ds debtors
+         cs creditors
+         out []]
+    (if (or (empty? ds) (empty? cs))
+      out
+      (let [[d owed] (first ds)
+            [c due] (first cs)
+            amount (min owed due)]
+        (recur
+         (if (= amount owed) (rest ds) (cons [d (- owed amount)] (rest ds)))
+         (if (= amount due) (rest cs) (cons [c (- due amount)] (rest cs)))
+         (conj out {:debtor d :creditor c :amount amount}))))))
+
+(defn provider-transfers
+  "The movements between provider accounts that make them hold what the
+  posting left in the ledger. Nets the posting's mirrored legs per
+  party: a cash account's provider account, or the bank's own funds for
+  one without; the scheme's side of 1100 cash at correspondent, which is
+  the account the scheme moved the money through, or money from outside
+  where the scheme did not; and the bank's own funds for any other
+  ledger account and whatever the mirrored legs leave unbalanced. Money
+  from outside is a transfer with no debtor, and money leaving to it
+  without the scheme stays with the bank's own funds."
+  [posted
+   {:keys [provider-accounts cash-at-correspondent-id
+           scheme-provider-account-id own-funds]}]
+  (let [party (fn [{:keys [account-id]}]
+                (cond
+                 (contains? provider-accounts account-id)
+                 (or (get provider-accounts account-id) own-funds)
+
+                 (= cash-at-correspondent-id account-id)
+                 (or scheme-provider-account-id ::outside)
+
+                 :else
+                 own-funds))
+        nets (reduce (fn [m leg] (update m (party leg) (fnil + 0) (net leg)))
+                     {}
+                     (filter mirrored? (:legs posted)))
+        outside (get nets ::outside 0)
+        nets (cond-> nets
+                     (pos? outside)
+                     (-> (dissoc ::outside)
+                         (update own-funds (fnil + 0) outside)))
+        residual (- (reduce + 0 (vals nets)))
+        nets (cond-> nets
+                     (not (zero? residual))
+                     (update own-funds (fnil + 0) residual))
+        ordered (sort-by (comp str key) nets)]
+    (mapv (fn [{:keys [debtor] :as t}]
+            (assoc t :debtor (when-not (= ::outside debtor) debtor)))
+          (pair (keep (fn [[k v]] (when (neg? v) [k (- v)])) ordered)
+                (keep (fn [[k v]] (when (pos? v) [k v])) ordered)))))
+
+(defn new-provider-transfer
+  [posted {:keys [debtor creditor amount]}]
+  (let [{:keys [bank-id transaction-id currency]} posted
+        now (utility/now)]
+    (utility/assoc-some {:transfer-id (utility/generate-id "ptr")
+                         :bank-id bank-id
+                         :transaction-id transaction-id
+                         :creditor-provider-account-id creditor
+                         :amount amount
+                         :currency currency
+                         :status :provider-transfer-status-pending
+                         :created-at now
+                         :updated-at now}
+                        :debtor-provider-account-id
+                        debtor)))
+
+(defn transfer-outcome
+  "The transfer as its outcome leaves it, or nil where it is no longer
+  pending."
+  [transfer status reason]
+  (when (= :provider-transfer-status-pending (:status transfer))
+    (utility/assoc-some
+     (assoc transfer :status status :updated-at (utility/now))
+     :failure-reason
+     reason)))
