@@ -8,8 +8,9 @@ rails: it carries Faster Payments messages for a bank that holds the
 money in its own settlement account, asks the bank to admit each
 inbound, lets it return one, and screens nothing. This plan maps each
 part of the contract onto Form3's API and lists what only a Form3
-environment can settle. `form3-simulator` is built first, from this
-plan, then `form3-adapter`, `form3-relay` and `form3-webhook`.
+environment can settle. `form3-webhook`, holding the request signing and
+the notification schema, and `form3-simulator` are built from this
+plan; `form3-adapter` and `form3-relay` follow.
 
 Sources: the Swagger 2.0 document at
 api-docs.form3.tech/assets/swagger/form3-swagger.yaml, from which
@@ -118,8 +119,9 @@ environment must (**confirm**).
   with `account_number`, `bank_id`, `bank_id_code: GBDSC`, `name` and
   `account_classification`; the submission's `answer` (`confirmed` or
   `rejected`) and `reason_code` (`ANNM`, `MBAM`, `PANM`, `BANM`, `AC01`
-  and the rest) map to match, close match or no match. Documented;
-  confirm whether the answer is in the response or polled.
+  and the rest) map to match, close match or no match; the answer
+  comes in the response, as the `name_verification_submission`
+  relationship. Documented.
 
 ## Reason codes
 
@@ -143,5 +145,5 @@ way, from the platform's code to Form3's reason.
 6. The `return_code` values accepted for an FPS return.
 7. Whether an account registration is `confirmed` in the response or
    later, and how that is told.
-8. Whether a name verification's answer comes in the response or has
-   to be read.
+8. Whether a body sent as `application/json` is accepted as well as
+   `application/vnd.api+json`.

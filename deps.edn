@@ -60,6 +60,7 @@
     components/zyphe-webhook {:local/root "components/zyphe-webhook"}
     components/zyphe-relay {:local/root "components/zyphe-relay"}
     components/modulr-webhook {:local/root "components/modulr-webhook"}
+    components/form3-webhook {:local/root "components/form3-webhook"}
     components/modulr-relay {:local/root "components/modulr-relay"}
     components/interest {:local/root "components/interest"}
     components/ledger-account {:local/root "components/ledger-account"}
@@ -104,6 +105,7 @@
     bases/zyphe-simulator {:local/root "bases/zyphe-simulator"}
     bases/modulr-adapter {:local/root "bases/modulr-adapter"}
     bases/modulr-simulator {:local/root "bases/modulr-simulator"}
+    bases/form3-simulator {:local/root "bases/form3-simulator"}
     bases/operational-processors {:local/root
                                   "bases/operational-processors"}
     bases/uk-companies-house-adapter {:local/root
@@ -186,6 +188,7 @@
                        "components/zyphe-relay/test-resources"
                        "components/zyphe-webhook/test"
                        "components/modulr-webhook/test"
+                       "components/form3-webhook/test"
                        "components/modulr-relay/test"
                        "components/modulr-relay/test-resources"
                        "bases/api/test"
@@ -212,7 +215,9 @@
                        "bases/modulr-adapter/test"
                        "bases/modulr-adapter/test-resources"
                        "bases/modulr-simulator/test"
-                       "bases/modulr-simulator/test-resources"]}
+                       "bases/modulr-simulator/test-resources"
+                       "bases/form3-simulator/test"
+                       "bases/form3-simulator/test-resources"]}
   :format/zprint {:extra-deps {zprint/zprint {:mvn/version "1.3.0"}}
                   :main-opts ["-m" "zprint.main"]}
   :lint/clj-kondo {:extra-deps {clj-kondo/clj-kondo {:mvn/version "2026.07.24"}}

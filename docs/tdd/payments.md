@@ -496,8 +496,11 @@ runs changes nothing outside it:
 
   A simulator for a provider that asks for admission sends the request
   before each inbound from `/simulate/inbound-payment` settles, and
-  settles only one admitted, answering the control route with the
-  rejection's reason otherwise.
+  settles only one admitted, answering the control route once the
+  admission is decided, with its status and reason. A payment to an
+  account it has closed fails admission, so the sender's payment is
+  rejected rather than returned, and under `screening: bank` the held
+  name is declined with no hold.
 
 The deployed builds compose the default adapter into
 `external-adapters` and `monolith`; the other stays in the development
@@ -590,7 +593,7 @@ stateDiagram-v2
    provider's API as its reference documents it: account routing,
    outbound submission, admission requests, returns, Confirmation of
    Payee and its signatures, with the shared control routes. Proved by
-   its own tests, before any adapter calls it.
+   its own tests, before any adapter calls it. Built.
 7. **The declaration's new keys.** `inbound`, `returns` and
    `screening`, each existing adapter declaring its values, and the
    start-up check covering them. Proved by the payment scenarios
