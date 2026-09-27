@@ -8,6 +8,8 @@
     [com.repldriven.queenswood.api.shared.parameters :as shared.parameters]
 
     [com.repldriven.queenswood.api-schema.interface :refer [ErrorResponse]]
+    [com.repldriven.queenswood.cash-account-api.interface :refer
+     [CashAccountNotFound]]
     [com.repldriven.queenswood.idempotency.interface :as bank-idempotency]
     [com.repldriven.queenswood.payee-check-api.interface :as payee-check-api
      :refer [PayeeCheckNotFound]]
@@ -40,8 +42,11 @@
                       "and account number, and records the result: match, "
                       "close match, no match, or unavailable when the check "
                       "could not be made. The result may carry the name the "
-                      "account is held in. The check records an expiry 24 "
-                      "hours after it is made.")
+                      "account is held in. The check is made from the account "
+                      "the payment will leave where `account-id` names one, "
+                      "and otherwise from the bank's own funds; an account the "
+                      "bank does not hold returns 404. The check records an "
+                      "expiry 24 hours after it is made.")
                  :security [{"bearerAuth" ["org:developer"]}]
                  :requestBody {:required true}
                  :parameters ^:replace
@@ -55,7 +60,8 @@
                          :body [:ref "PayeeCheck"]
                          :openapi {:headers {"Location" (shared.headers/location
                                                          "payee check")}
-                                   :links payee-check-api/from-check}}})
+                                   :links payee-check-api/from-check}}
+                    404 (ErrorResponse [#'CashAccountNotFound])})
        :handler handlers/create-check}}]
     ["/{check-id}"
      {:parameters {:path {:check-id [:ref "CheckId"]}}}

@@ -1,11 +1,10 @@
 # Payments and the payment provider
 
 > **Status: proposal.** Internal, outbound and inbound payments, their
-> records and state machines, suspense, Confirmation of Payee and one
-> payment adapter exist, and Background names them. Everything under
-> Proposed Solution is the build list; the declaration, the neutral
-> scheme events and addresses from the provider are built for the
-> existing adapter, and [First slices](#first-slices) says what comes
+> records and state machines, suspense, Confirmation of Payee and two
+> payment adapters exist, and Background names them. Everything under
+> Proposed Solution is the build list; all but returned outbound
+> payments is built, and [First slices](#first-slices) says what comes
 > next.
 
 ## Objective
@@ -65,15 +64,19 @@ later decision.
   or `failed`; an inbound one `settled`, `held`, `returned` or
   `suspended`. A rejection naming a completed outbound payment fails
   the handler and is dead-lettered.
-- **Channels.** `payment` publishes `submit-payment` on
-  `schemes-payment-command` after the submission commits. The adapter's
-  outbox is relayed onto `schemes-payments-event`, whose consumer
-  dead-letters an event after five redeliveries. Each payment save
-  co-commits a status-changed entry relayed onto `payments-event`,
-  which the webhook catalogue turns into `payment.*` notifications.
-- **The sweep.** `payment/outbound-sweep`, in
+- **Channels.** `payment` publishes `submit-payment` and
+  `transfer-between-accounts` on `schemes-payment-command`. The
+  adapter's outbox is relayed onto `schemes-payments-event`, whose
+  consumer dead-letters an event after five redeliveries. Each payment
+  save co-commits a status-changed entry relayed onto `payments-event`,
+  which the webhook catalogue turns into `payment.*` notifications, and
+  each posted transaction a `transaction-posted` entry relayed onto
+  `transactions-event`.
+- **The sweeps.** `payment/outbound-sweep`, in
   `exclusive-dispatchers-service`, republishes a `pending` payment's
-  command after 15 minutes and reports one open for 24 hours.
+  command after 15 minutes and reports one open for 24 hours;
+  `payment/transfer-sweep` beside it sends again a provider transfer
+  still pending after 30 seconds.
 - **Payment addresses.** The provider issues every account's sort code
   and account number. `cash-account` writes an account `opening`, its
   opening event sends `open-payment-account` on
@@ -84,21 +87,20 @@ later decision.
   and one matching no account fails the handler.
 - **Confirmation of Payee.** `payee-check`'s processor handles
   `POST /v1/payee-checks` by calling the adapter's `/cop/outbound`
-  over HTTP and persists each check for 24 hours. The adapter answers
-  the provider's inbound check requests from `cash-account-query` and
-  `party-query`.
-- **The adapter.** One exists: a base, `<provider>-adapter`; a
-  `<provider>-relay` component holding its outbox and outbound-intents
-  stores and the runner that calls the provider outside any
-  transaction; a `<provider>-webhook` component holding the provider's
-  wire schemas; and a `<provider>-simulator` base. The adapter consumes
-  `submit-payment` into an intent unique on the end-to-end id, serves
-  the provider's webhooks into its outbox, and is composed into
-  `external-adapters` and `monolith`; `exclusive-dispatchers-service`
-  relays its outbox. Only the simulator is reachable. The adapter signs
-  what it sends and verifies what it receives with the scheme its
-  provider uses, the simulator doing the reverse, each side's key a
-  key pair generated at start.
+  over HTTP, with the bank and the account the payment will leave, and
+  persists each check for 24 hours.
+- **The adapters.** Two exist, each four bricks: a base,
+  `<provider>-adapter`; a `<provider>-relay` component holding its
+  outbox and outbound-intents stores and the runner that calls the
+  provider outside any transaction; a `<provider>-webhook` component
+  holding the provider's wire schemas and signature; and a
+  `<provider>-simulator` base. The default adapter is composed into
+  `external-adapters` and `monolith`, and
+  `exclusive-dispatchers-service` relays its outbox; the other stays in
+  the development project with its tests. Only the simulators are
+  reachable. Each adapter signs what it sends and verifies what it
+  receives with the scheme its provider uses, the simulator doing the
+  reverse.
 - **The provider as a deployment fact.** Which adapter runs is decided
   by the service's `application.yml`, per
   [ADR-0020](../adr/0020-providers-are-deployment-facts.md), and
@@ -238,19 +240,30 @@ expense has paid out.
   between their provider accounts; between a cash account and a GL
   account, against the bank's own-funds provider account. An inbound
   parked in 2500 after a policy refusal is mirrored from the
-  receiving account's provider account to own-funds.
+  receiving account's provider account to own-funds. Money that
+  reaches a cash account from 1100 without the scheme — the sandbox's
+  simulated inbound — is credited to its provider account from
+  outside, which only a sandbox provider can do.
 - **The trigger.** `transaction` co-commits a `transaction-posted`
-  changelog entry — bank id, transaction id, type and legs — with each
-  posted transaction, relayed onto `transactions-event`. `payment`'s
-  new `transaction-event-processor` skips the inbound and outbound
-  transfer types and, for the rest, nets each transaction's legs per
-  cash account and pairs the nets into transfers.
+  changelog entry — bank id, transaction id, type, currency, legs and,
+  where the scheme itself settled the posting, `scheme-account-id`,
+  the cash account it moved the money through — with each recorded
+  transaction, relayed onto `transactions-event`. `payment`'s
+  `transaction-event-processor` nets each transaction's posted default
+  legs, control legs aside, per party: a cash account; 1100, as the
+  scheme's account where the entry names one and as outside where it
+  does not; and the bank's own funds for any other GL account and
+  whatever the legs leave unbalanced. It pairs the nets into
+  transfers, so a scheme's own settlement nets to nothing.
 - **The record.** Each transfer is a `ProviderTransfer` in a new
-  `provider-transfers` store — transaction id, debtor and creditor
-  provider account ids, amount, status `pending`, `completed` or
-  `failed` — unique on transaction id and pair, and sent as
-  `transfer-between-accounts` on `schemes-payment-command`. The adapter
-  reports `transfer-completed` or `transfer-failed` on
+  `provider-transfers` store — transaction id, debtor and creditor cash
+  account ids, the debtor absent for money from outside, amount, status
+  `pending`, `completed` or `failed` — unique on transaction id and
+  pair. It is sent as `transfer-between-accounts` on
+  `schemes-payment-command`, naming the provider accounts the cash
+  accounts have when it is sent, and one the provider has not yet
+  opened waits for `payment/transfer-sweep`. The adapter reports
+  `transfer-completed` or `transfer-failed` on
   `schemes-payments-event`.
 - **A failed transfer.** The ledger is not reversed: the customer's
   payment stands, and the failure is logged at ERROR with the
@@ -347,8 +360,11 @@ runs changes nothing outside it:
   API as the adapter calls it, checks the adapter's signatures, signs
   its deliveries as the provider does, and holds a balance per account
   where the provider does, so a payment beyond it is held or declined
-  as the provider would. Every simulator serves the same control
-  routes and test values, so a scenario runs on either:
+  as the provider would; one holding balances also serves
+  `/simulate/fund`, crediting an account without notifying anyone for a
+  rig that posts the ledger itself, and `/simulate/balances`. Every
+  simulator serves the same control routes and test values, so a
+  scenario runs on either:
   - a creditor sort code `000000` is declined, `999998` refused, and
     the creditor name `6a41a29eafcf455493` held then declined;
   - `/simulate/inbound-payment` fires an inbound settlement, or a hold
@@ -427,12 +443,15 @@ stateDiagram-v2
 3. **The default adapter.** A second adapter meeting the contract, with
    per-account balances in its simulator and reconciliation. The
    deployed builds and scenario rigs move to it, and the existing
-   adapter stays in the development project.
+   adapter stays in the development project. Proved by the payment and
+   payee-check scenarios passing on its simulator. Built.
 4. **Balances at the provider.** `transaction-posted`,
    `ProviderTransfer` and mirroring. Proved by an internal payment,
-   interest capitalised, a reward and a refused inbound each leaving
-   every simulated provider balance equal to the ledger. Built with
-   slice 3, so no deployed build holds balances that drift.
+   interest capitalised and a refused inbound each leaving every
+   simulated provider balance equal to the ledger, and a reward, which
+   pays from the house account as an internal payment does, by the
+   netting it shares with one. Built with slice 3, so no deployed build
+   holds balances that drift.
 5. **Returned outbound payments.** Proved by a completed payment
    returned, and a return for a failed one dead-lettered.
 
@@ -443,7 +462,7 @@ once the simulator covers every flow above.
 
 - **`payment`** — the unsupported scheme, the failure fields, the
   return transition and its refusals, netting a transaction's legs
-  into transfers, and skipping the scheme's own settlements.
+  into transfers, and the scheme's own settlements netting to nothing.
 - **`cash-account`** — opening waiting on the provider, refused,
   rotating and closing through it.
 - **`cash-account-product`** — a version refused for an address scheme
@@ -457,14 +476,17 @@ once the simulator covers every flow above.
   declaration its configuration does not cover.
 - **`<provider>-relay`** — backoff, refusal, a retry recognised as the
   same request, and reconciliation writing what a late webhook would.
-- **`<provider>-simulator`** — each control route, and signatures
-  checked and made as the provider's are.
+- **`<provider>-webhook`** — the signature against the provider's own
+  worked example, and each way a delivery is refused.
+- **`<provider>-simulator`** — each control route, signatures checked
+  and made as the provider's are, and a payment beyond the balance
+  waiting for funds.
 - **`test-api-scenarios`** — the payment and payee-check scenarios run
-  on each adapter's simulator, plus a scenario per new transition and
-  refusal.
+  on the default adapter's simulator, plus a scenario per new
+  transition and refusal.
 - **`test-scenarios`** — every flow on the default adapter's simulator,
-  and each simulated provider balance equal to the ledger at the end
-  of a run.
+  and a scenario checking every simulated provider balance against the
+  ledger after each mirrored flow.
 
 ## Alternatives Considered
 
@@ -502,8 +524,9 @@ once the simulator covers every flow above.
   the ledger.
 - **A payment can overtake its funding.** An outbound submitted just
   after an internal payment into the same account can reach the
-  provider before the mirror, and a provider that declines rather than
-  waits fails it.
+  provider before the mirror. The default provider holds it pending
+  for funds until the mirror lands; one no money reaches before the
+  provider gives up expires, and reconciliation declines it.
 - **Own funds at the provider is not the own-funds account.** Its
   provider balance also carries suspense and paid interest, which the
   bank reconciles by hand.
@@ -519,6 +542,19 @@ once the simulator covers every flow above.
   waits for the sweep, as now.
 - **Outbound held then released is not exercised.** The shared test
   values decline every held outbound.
+- **One customer at the provider.** Every bank's accounts sit under the
+  customer the deployment names, until the provider's sandbox says
+  whether it wants one per bank.
+- **A payment to a closed account lands nowhere.** The default
+  simulator takes it and credits no one, and the return that brings it
+  back comes with returned outbound payments.
+- **The default simulator forgets on restart.** It holds accounts and
+  balances in memory, so after a restart it serves an account it no
+  longer knows as holding whatever is asked of it, and it issues
+  account numbers at random, so one could repeat.
+- **A name check needs the bank's own funds opened.** A check made from
+  no named account is made from the own-funds account's provider
+  account, and is unavailable until the provider has opened it.
 - **Kafka redeliveries have no delay.**
 - **A suspended inbound is never resolved.**
 - **Identical holds are one hold.**

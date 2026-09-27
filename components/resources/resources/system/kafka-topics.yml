@@ -102,3 +102,7 @@
     partitions: 1
   - topic: topic-transactions-command-response
     partitions: 1
+  - topic: topic-transactions-event
+    partitions: 1
+  - topic: topic-transactions-event-dlq
+    partitions: 1

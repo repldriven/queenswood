@@ -21,6 +21,7 @@ import "schemas/scheduler/scheduler-run.proto";
 import "schemas/memberships/access-event.proto";
 import "schemas/memberships/invitation.proto";
 import "schemas/memberships/membership.proto";
+import "schemas/modulr/outbox.proto";
 import "schemas/banks/bank.proto";
 import "schemas/onfido/outbox.proto";
 import "schemas/zyphe/outbox.proto";
@@ -31,6 +32,7 @@ import "schemas/payee-check/payee_check.proto";
 import "schemas/payments/inbound-payment.proto";
 import "schemas/payments/internal-payment.proto";
 import "schemas/payments/outbound-payment.proto";
+import "schemas/payments/provider-transfer.proto";
 import "schemas/person-identification/person-identification.proto";
 import "schemas/policies/policy.proto";
 import "schemas/rewards/reward.proto";
@@ -99,4 +101,7 @@ message RecordTypeUnion {
   optional com.repldriven.queenswood.schemas.zyphe.ZypheOutboxEvent _ZypheOutboxEvent = 47;
   optional com.repldriven.queenswood.schemas.zyphe.ZypheOutboundIntent _ZypheOutboundIntent = 48;
   optional com.repldriven.queenswood.schemas.idv.IdvSession _IdvSession = 49;
+  optional com.repldriven.queenswood.schemas.modulr.ModulrOutboxEvent _ModulrOutboxEvent = 50;
+  optional com.repldriven.queenswood.schemas.modulr.ModulrOutboundIntent _ModulrOutboundIntent = 51;
+  optional com.repldriven.queenswood.schemas.payments.ProviderTransfer _ProviderTransfer = 52;
 }

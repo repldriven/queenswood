@@ -1,14 +1,10 @@
-{:name "Inbound to a closed account's BBAN lands in 2500 suspense"
+{:name "A payment to a closed account's address leaves and lands nowhere"
  :tags #{:api :inbound :payments :unhappy}
- ;; A closed account keeps its BBAN in the unique index, so the address
- ;; still resolves — it is the credit that is refused. The funds park in
- ;; the owning bank's 2500 suspense account (DEBIT 1100 / CREDIT 2500)
- ;; exactly as an unmatched BBAN's do, and the closed account's balance
- ;; stays zero.
- ;;
- ;; We trigger it the way inbound-unmatched-suspense does: an outbound
- ;; from a funded account to the closed account's own BBAN, which the
- ;; simulator answers with a credit-settled. All amounts in pence.
+ ;; A closed account's provider account is closed too, so the provider
+ ;; takes nothing in for it: an outbound from a funded account to the
+ ;; closed account's own address completes, and neither the closed
+ ;; account nor 2500 suspense is credited. The provider returning the
+ ;; money is a return, which arrives separately. All amounts in pence.
  :given
  [{:command :api/request
    :request {:method :post
@@ -171,18 +167,17 @@
                     :amount 4200
                     :scheme "fps"
                     :reference "Inbound to a closed address"}}
+   :as :outbound
    :assert {:status 201}}]
  :then
  [{:command :api/poll
    :request {:method :get
-             :path "/v1/ledger-accounts/{account-id}/balances"
-             :path-params {:account-id [:ref-find :ledgers :items
-                                        :gl-code "2500" :account-id]}
+             :path "/v1/payments/outbound/{payment-id}"
+             :path-params {:payment-id [:ref :outbound :payment-id]}
              :auth :org-0-token}
-   :until {:status 200 :body {:items [:m/embeds [{:credit 4200 :debit 0}]]}}
+   :until {:status 200 :body {:payment-status "completed"}}
    :timeout-ms 10000}
-  ;; The credit was refused, not lost: the closed account's own
-  ;; balance did not move.
+  ;; Nothing arrived: neither the closed account nor suspense moved.
   {:command :api/request
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}/balances"
@@ -190,4 +185,11 @@
              :auth :org-0-token}
    :assert {:status 200
             :body {:posted-balance {:value 0 :currency "GBP"}
-                   :available-balance {:value 0 :currency "GBP"}}}}]}
+                   :available-balance {:value 0 :currency "GBP"}}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/ledger-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref-find :ledgers :items
+                                        :gl-code "2500" :account-id]}
+             :auth :org-0-token}
+   :assert {:status 200 :body {:items [:m/embeds [{:credit 0 :debit 0}]]}}}]}

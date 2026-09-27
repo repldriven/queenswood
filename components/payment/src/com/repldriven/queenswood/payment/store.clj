@@ -11,6 +11,7 @@
 (def ^:private internal-payments-store-name "internal-payments")
 (def ^:private outbound-payments-store-name "outbound-payments")
 (def ^:private inbound-payments-store-name "inbound-payments")
+(def ^:private provider-transfers-store-name "provider-transfers")
 
 (def transact fdb/transact)
 (def uniqueness-violation? fdb/uniqueness-violation?)
@@ -88,3 +89,61 @@
        nil))
    :payment/save-inbound-payment
    "Failed to save inbound payment"))
+
+(defn transfers-for-transaction
+  "The provider transfers recorded for `transaction-id`."
+  [txn transaction-id]
+  (fdb/transact
+   txn
+   (fn [txn]
+     (mapv schema/pb->ProviderTransfer
+           (fdb/query-records (fdb/open txn provider-transfers-store-name)
+                              "ProviderTransfer"
+                              "transaction_id"
+                              transaction-id
+                              {:index "ProviderTransfer_by_transaction_pair"})))
+   :payment/transfers-for-transaction
+   "Failed to read a transaction's provider transfers"))
+
+(defn get-transfer
+  [txn bank-id transfer-id]
+  (fdb/transact
+   txn
+   (fn [txn]
+     (some-> (fdb/load-record (fdb/open txn provider-transfers-store-name)
+                              bank-id
+                              transfer-id)
+             schema/pb->ProviderTransfer))
+   :payment/get-transfer
+   "Failed to read a provider transfer"))
+
+(defn save-transfer
+  [txn transfer]
+  (fdb/transact
+   txn
+   (fn [txn]
+     (fdb/save-record (fdb/open txn provider-transfers-store-name)
+                      (schema/ProviderTransfer->java transfer)))
+   :payment/save-transfer
+   "Failed to save a provider transfer"))
+
+(defn pending-transfers
+  "Every provider transfer still pending, oldest first."
+  [txn]
+  (fdb/transact
+   txn
+   (fn [txn]
+     (let [store (fdb/open txn provider-transfers-store-name)]
+       (mapv schema/pb->ProviderTransfer
+             (fdb/query-records store
+                                "ProviderTransfer"
+                                "status"
+                                (fdb/enum-value
+                                 store
+                                 "ProviderTransfer"
+                                 "status"
+                                 (schema/provider-transfer-status->int
+                                  :provider-transfer-status-pending))
+                                {:index "ProviderTransfer_by_status"}))))
+   :payment/pending-transfers
+   "Failed to read pending provider transfers"))

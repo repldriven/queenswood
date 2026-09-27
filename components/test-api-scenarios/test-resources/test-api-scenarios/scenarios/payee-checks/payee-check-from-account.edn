@@ -1,0 +1,109 @@
+{:name "A payee check made from the account the payment will leave"
+ :tags #{:api :happy :payee-checks}
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-payee-check-from-account-bank-001"}
+             :body {:name "Payee Check From Account Test"
+                    :status "test"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :bank-0
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :bank-0 :client-id]
+         :client-secret [:ref :bank-0 :client-secret]
+         :status :test}
+   :as :bank-0-token}
+  ;; Current product (0 bps), published.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-payee-check-from-account-prod-001"}
+             :body {:name "Current"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-01-01"}}
+   :as :current-draft
+   :assert {:status 201 :body {:status "draft"}}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :current-draft :product-id]
+                  :version-id [:ref :current-draft :version-id]}
+    :auth :bank-0-token}
+   :assert {:status 200 :body {:status "published"}}}
+  ;; Party → active.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-pcfa-create-party"}
+             :body {:type "person"
+                    :display-name "Trillian Astra"
+                    :given-name "Trillian"
+                    :family-name "Astra"
+                    :date-of-birth "1958-09-03"
+                    :nationality "GB"
+                    :address {:building-number "42"
+                              :street "Improbability Drive"
+                              :town "Cottington"
+                              :postcode "CT12 4XY"
+                              :country "GBR"}
+                    :national-identifier {:type "national-insurance"
+                                          :value "TN555201D"
+                                          :issuing-country "GB"}}}
+   :as :trillian
+   :assert {:status 201 :body {:status "pending"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}"
+             :path-params {:party-id [:ref :trillian :party-id]}
+             :auth :bank-0-token}
+   :until {:status 200 :body {:status "active"}}}
+  ;; Debtor account → opened.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-pcfa-open-debtor"}
+             :body {:party-id [:ref :trillian :party-id]
+                    :name "Trillian Current"
+                    :currency "GBP"
+                    :product-id [:ref :current-draft :product-id]}}
+   :as :debtor
+   :assert {:status 201 :body {:account-status "opening"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :debtor :account-id]}
+             :auth :bank-0-token}
+   :until {:status 200 :body {:account-status "opened"}}
+   :as :debtor}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/payee-checks"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-pcfa-check-001"}
+             :body {:creditor-name "Arthur Dent"
+                    :account {:sort-code "040062" :account-number "12345678"}
+                    :account-type "personal"
+                    :account-id [:ref :debtor :account-id]}}
+   :assert {:status 201 :body {:result {:match-result "match"}}}}]
+ :then
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/payee-checks"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-pcfa-check-002"}
+             :body {:creditor-name "Arthur Dent"
+                    :account {:sort-code "040062" :account-number "12345678"}
+                    :account-type "personal"
+                    :account-id "acc.01kprbmgcj35ptc8npmybhh4sa"}}
+   :assert {:status 404 :body {:type ":cash-account/not-found"}}}]}

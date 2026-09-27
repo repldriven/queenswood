@@ -24,7 +24,12 @@
    {:json-schema/example examples/PayeeCheckRequest}
    [:creditor-name [:ref "Name"]]
    [:account [:ref "PayeeCheckAccount"]]
-   [:account-type [:ref "PayeeCheckAccountType"]]])
+   [:account-type [:ref "PayeeCheckAccountType"]]
+   [:account-id
+    {:optional true
+     :json-schema/description
+     "The account the payment will leave, which the check is made from."}
+    [:ref "CashAccountId"]]])
 
 (def PayeeCheckResult
   [:map

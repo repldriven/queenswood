@@ -1,6 +1,6 @@
 {:name "Tenant runs a payee check and the simulator returns no match"
  :tags #{:api :happy :payee-checks}
- ;; The ClearBank simulator's CoP route recognises the magic string
+ ;; Every payment simulator's name check recognises the test value
  ;; `COP_NOMATCH` in the creditor name and replies with a no-match
  ;; result.
  :given
@@ -19,7 +19,15 @@
    :for {:client-id [:ref :org-0 :client-id]
          :client-secret [:ref :org-0 :client-secret]
          :status :live}
-   :as :org-0-token}]
+   :as :org-0-token}
+  ;; A check is made from the bank's own funds, so it waits for the
+  ;; provider to open them.
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts"
+             :auth :org-0-token}
+   :until {:status 200
+           :body {:items [:m/embeds [{:account-status "opened"}]]}}}]
  :when
  [{:command :api/request
    :request {:method :post

@@ -5,3 +5,19 @@ runner: !system/component
   schemas: !system/ref avro.serde
   bus: !system/ref message-bus.bus
   scheme-payment-command-channel: !keyword schemes-payment-command
+
+# Sends again a provider transfer still pending, as one waiting for a
+# provider account the provider has since opened.
+transfer-runner: !system/component
+  system/component-kind: payment/transfer-sweep
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  schemas: !system/ref avro.serde
+  bus: !system/ref message-bus.bus
+  scheme-payment-command-channel: !keyword schemes-payment-command
+  interval-ms: !profile
+    test: 1000
+    default: 30000
+  resend-after-ms: !profile
+    test: 2000
+    default: 30000

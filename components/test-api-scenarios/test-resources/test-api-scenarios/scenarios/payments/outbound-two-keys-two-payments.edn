@@ -3,7 +3,7 @@
  ;; The idempotency key, not the body, identifies a submission. A caller
  ;; that retries with a new key has asked for a second payment and gets
  ;; one: two payment ids, both settled, and the debtor debited twice.
- ;; The debtor is funded through the ClearBank simulator's inbound
+ ;; The debtor is funded through the payment simulator's inbound
  ;; payment, whose amount is in pounds. Balances are in pence.
  :given
  [{:command :api/request
@@ -89,7 +89,7 @@
    :as :debtor}
   {:command :api/request
    :request {:method :post
-             :base :clearbank-simulator
+             :base :payment-simulator
              :path "/simulate/inbound-payment"
              :body {:bban [:ref :debtor :bban]
                     :amount 1000

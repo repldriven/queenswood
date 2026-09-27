@@ -22,7 +22,11 @@
          (let-nom>
            [_ (domain/validate-legs legs)
             _ (store/save-transaction txn transaction)
-            _ (store/save-legs txn legs')]
+            _ (store/save-legs txn legs')
+            _ (store/write-posted txn
+                                  transaction
+                                  legs
+                                  (:scheme-account-id data))]
            (assoc transaction :legs legs')))))))
 
 (defn- or-already-recorded

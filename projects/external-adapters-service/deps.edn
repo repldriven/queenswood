@@ -37,8 +37,8 @@
   {:local/root "../../components/cash-account-product-query"}
   component/cash-account-query {:local/root
                                 "../../components/cash-account-query"}
-  component/clearbank-relay {:local/root "../../components/clearbank-relay"}
-  component/clearbank-webhook {:local/root "../../components/clearbank-webhook"}
+  component/modulr-relay {:local/root "../../components/modulr-relay"}
+  component/modulr-webhook {:local/root "../../components/modulr-webhook"}
   component/company {:local/root "../../components/company"}
   component/email {:local/root "../../components/email"}
   component/membership-query {:local/root "../../components/membership-query"}
@@ -53,8 +53,8 @@
   component/webhook {:local/root "../../components/webhook"}
   component/zyphe-relay {:local/root "../../components/zyphe-relay"}
   component/zyphe-webhook {:local/root "../../components/zyphe-webhook"}
-  base/clearbank-adapter {:local/root "../../bases/clearbank-adapter"}
-  base/clearbank-simulator {:local/root "../../bases/clearbank-simulator"}
+  base/modulr-adapter {:local/root "../../bases/modulr-adapter"}
+  base/modulr-simulator {:local/root "../../bases/modulr-simulator"}
   base/uk-companies-house-adapter
   {:local/root "../../bases/uk-companies-house-adapter"}
   base/uk-companies-house-simulator

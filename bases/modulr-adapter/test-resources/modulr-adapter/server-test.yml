@@ -1,0 +1,26 @@
+handler: !system/required-component
+
+credentials: !system/component
+  system/component-kind: modulr-webhook/credentials
+  key-id: adapter-key
+  secret: adapter-secret
+
+webhook-credentials: !system/component
+  system/component-kind: modulr-webhook/credentials
+  secret: 0123456789abcdef0123456789abcdef
+
+interceptors: !system/component
+  system/component-kind: server/interceptors
+  avro: !system/ref avro.serde
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  modulr-url: http://modulr.invalid
+  credentials: !system/local-ref credentials
+  webhook-credentials: !system/local-ref webhook-credentials
+
+jetty-adapter: !system/component
+  system/component-kind: server/jetty-adapter
+  handler: !system/ref server.handler
+  interceptors: !system/ref server.interceptors
+  options:
+    port: 0

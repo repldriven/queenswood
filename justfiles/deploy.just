@@ -171,7 +171,7 @@ keycloak-up:
     # Listens on host :8090 to match VITE_KEYCLOAK_URL in
     # `just console-start`. 8090 (not 8081) keeps the
     # port out of the way of monolith, which binds 8081 for
-    # the clearbank-simulator dev component. Admin console
+    # the modulr-simulator dev component. Admin console
     # at http://localhost:8090/admin (admin / admin). Realm JSON
     # imports the queenswood-admin + queenswood-console clients
     # plus the Google IdP (placeholder creds — sign-in via Google

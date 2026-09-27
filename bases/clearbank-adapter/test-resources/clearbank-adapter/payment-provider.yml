@@ -1,0 +1,6 @@
+# What a deployment running the ClearBank adapter declares: one pooled
+# balance its virtual accounts route to, and name checks both ways.
+schemes: [fps]
+addresses: [scan]
+balances: pooled
+payee-check: [outbound, inbound]

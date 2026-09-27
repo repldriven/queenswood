@@ -313,6 +313,20 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-schemes-account-event-dlq
       acks: all
+  transactions-event:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword event
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      topic: topic-transactions-event
+      acks: all
+  transactions-event-dlq:
+    _: !system/local-ref topics
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      topic: topic-transactions-event-dlq
+      acks: all
   schemes-payment-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -653,6 +667,16 @@ consumers: !system/component
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       group.id: test-schemes-account-event
+  transactions-event:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword event
+    topics: [topic-transactions-event]
+    dead-letter-producer: !system/local-ref producers.transactions-event-dlq
+    max-redeliveries: 5
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      group.id: test-transactions-event
   schemes-payment-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -770,6 +794,8 @@ message-bus-producers: !system/component
     producer: !system/local-ref producers.schemes-account-command-response
   schemes-account-event:
     producer: !system/local-ref producers.schemes-account-event
+  transactions-event:
+    producer: !system/local-ref producers.transactions-event
   schemes-payment-command:
     producer: !system/local-ref producers.schemes-payment-command
   schemes-payment-command-response:
@@ -878,6 +904,9 @@ message-bus-consumers: !system/component
     timeout: 500
   schemes-account-event:
     consumer: !system/local-ref consumers.schemes-account-event
+    timeout: 500
+  transactions-event:
+    consumer: !system/local-ref consumers.transactions-event
     timeout: 500
   schemes-payment-command:
     consumer: !system/local-ref consumers.schemes-payment-command

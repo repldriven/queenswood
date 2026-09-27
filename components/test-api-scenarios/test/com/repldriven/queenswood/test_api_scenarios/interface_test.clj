@@ -14,13 +14,14 @@
     [com.repldriven.queenswood.test-api-scenarios.interface :as SUT]
 
     [com.repldriven.queenswood.api.api :as api]
-    [com.repldriven.queenswood.clearbank-adapter.interface :as cb-adapter]
-    [com.repldriven.queenswood.clearbank-simulator.interface :as cb-simulator]
     ;; The closed-control deftest sets up a state no route reaches. This
     ;; brick belongs to the development project alone, and the namespace
     ;; already loads api.api, which requires both of these.
     ;; enforce-idioms: brick-test-scope -- see above.
     [com.repldriven.queenswood.ledger-account.interface :as ledger-accounts]
+    [com.repldriven.queenswood.modulr-adapter.interface :as modulr-adapter]
+    [com.repldriven.queenswood.modulr-simulator.interface :as
+     modulr-simulator]
     ;; enforce-idioms: brick-test-scope -- see the note above.
     [com.repldriven.queenswood.policy.interface :as policy]
     [com.repldriven.queenswood.uk-companies-house-simulator.interface :as
@@ -107,10 +108,10 @@
   [defs]
   (-> defs
       (assoc-in [:system/defs :server :handler] app-with-fault)
-      (assoc-in [:system/defs :clearbank-simulator-server :handler]
-                cb-simulator/app)
-      (assoc-in [:system/defs :clearbank-adapter-server :handler]
-                cb-adapter/app)
+      (assoc-in [:system/defs :modulr-simulator-server :handler]
+                modulr-simulator/app)
+      (assoc-in [:system/defs :modulr-adapter-server :handler]
+                modulr-adapter/app)
       (assoc-in [:system/defs :zyphe-simulator-server :handler]
                 zyphe-simulator/app)
       (assoc-in [:system/defs :zyphe-adapter-server :handler]
@@ -276,10 +277,9 @@
            endpoints (token-endpoints sys)
            key-pair (signing-key)
            mail-url (system/instance sys [:smtp :container-api-url])
-           clearbank-simulator-url
-           (server/http-local-url (system/instance sys
-                                                   [:clearbank-simulator-server
-                                                    :jetty-adapter]))
+           payment-simulator-url (system/instance sys
+                                                  [:modulr-simulator-server
+                                                   :http-url])
            zyphe-simulator-url (system/instance sys
                                                 [:zyphe-simulator-server
                                                  :http-url])]
@@ -303,7 +303,7 @@
                               :token-endpoints endpoints
                               :signing-key key-pair
                               :mail-url mail-url
-                              :clearbank-simulator-url clearbank-simulator-url
+                              :payment-simulator-url payment-simulator-url
                               :zyphe-simulator-url zyphe-simulator-url
                               :run-id (str (util/uuidv7))})
                             resource-path)

@@ -36,6 +36,8 @@
     [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.event.interface :as event]
+    [com.repldriven.mono.http-client.interface :as http]
+    [com.repldriven.mono.json.interface :as json]
     [com.repldriven.mono.utility.interface :as utility]
 
     [clojure.test :refer [is]]))
@@ -75,6 +77,26 @@
                                 bank-id
                                 (:legs r)
                                 (:transaction-type r))))))))
+
+(defn- fund-at-provider
+  "Credit the provider account behind `bban` as the scheme the rig plays
+  would have, once per scheme transaction, so the provider holds what
+  the ledger does. The simulator is told nothing it notifies anyone of."
+  [{:keys [bank funded] :as ctx} bban amount scheme-transaction-id result]
+  (let [url (:payment-simulator-url bank)]
+    (if (or (nil? url)
+            (error/anomaly? result)
+            (contains? funded scheme-transaction-id))
+      ctx
+      (do (http/request {:method :post
+                         :url (str url "/simulate/fund")
+                         :headers {"Content-Type" "application/json"}
+                         :body (json/write-str
+                                {:bban bban
+                                 :amount (.movePointLeft (BigDecimal/valueOf
+                                                          (long amount))
+                                                         2)})})
+          (update ctx :funded (fnil conj #{}) scheme-transaction-id)))))
 
 (defn- await-opened
   [bank bank-real-id real-acct-id]
@@ -647,6 +669,7 @@
                  :reference (str "scenario inbound " (name marker))
                  :timestamp-settled (utility/now)})]
     (-> ctx
+        (fund-at-provider bban amount stx-id result)
         (update :next-inbound-id inc)
         (update :counter inc)
         (track result))))
@@ -682,18 +705,20 @@
    {[model-acct] :args}]
   (let [{:keys [e2e amount]} (get held-inbounds model-acct)
         bban (get-in accounts [model-acct :bban])
-        result (payment/settle-inbound
-                bank
-                {:scheme-transaction-id (str "scen-rel-" run-id "-" counter)
-                 :end-to-end-id e2e
-                 :scheme "fps"
-                 :debit-credit-code :debit-credit-code-credit
-                 :amount amount
-                 :currency "GBP"
-                 :creditor-bban bban
-                 :debtor-name "Scenario Held Sender"
-                 :timestamp-settled (utility/now)})]
+        stx-id (str "scen-rel-" run-id "-" counter)
+        result (payment/settle-inbound bank
+                                       {:scheme-transaction-id stx-id
+                                        :end-to-end-id e2e
+                                        :scheme "fps"
+                                        :debit-credit-code
+                                        :debit-credit-code-credit
+                                        :amount amount
+                                        :currency "GBP"
+                                        :creditor-bban bban
+                                        :debtor-name "Scenario Held Sender"
+                                        :timestamp-settled (utility/now)})]
     (-> ctx
+        (fund-at-provider bban amount stx-id result)
         (update :counter inc)
         (track result))))
 
@@ -837,7 +862,7 @@
                  :creditor-bban creditor-bban
                  :creditor-name creditor-name})
         real-pmt-id (:payment-id result)
-        ;; ClearBank settles asynchronously; the bank-payment
+        ;; The provider settles asynchronously; the bank-payment
         ;; event-processor on schemes-payments-event fires both
         ;; settle-outbound (Debit → flip OutboundPayment to
         ;; :completed) and settle-inbound (Credit → credit the
@@ -950,6 +975,7 @@
                  :reference (str "scenario inbound " stx-id)
                  :timestamp-settled (utility/now)})]
     (-> ctx
+        (fund-at-provider bban amount stx-id result)
         (update :counter inc)
         (track result))))
 
@@ -1208,6 +1234,122 @@
     (is (= expected actual) (str "balance for " model-id))
     ctx))
 
+(defmethod dispatch :fund-house
+  [{:keys [bank banks run-id counter] :as ctx} {[model-bank amount] :args}]
+  ;; The bank's own money arriving from outside the scheme, as the
+  ;; sandbox's simulated inbound posts it: 1100 up and the house account
+  ;; credited. Mirroring credits the house's provider account from outside.
+  (let [{bank-real-id :real-id} (get banks model-bank)
+        cash (gl-account-for bank
+                             bank-real-id
+                             :gl-account-code-cash-at-correspondent
+                             "GBP")
+        house (cash-accounts-query/house-account bank bank-real-id "GBP")
+        result (if (error/anomaly? house)
+                 house
+                 (record-and-apply
+                  bank
+                  bank-real-id
+                  (transfer-tx
+                   {:transaction-type :transaction-type-inbound-transfer
+                    :idempotency-key (str "scen-fund-house-" run-id "-" counter)
+                    :reference "Scenario own funds"
+                    :gl-leg {:account-id (:ledger-account-id cash)
+                             :balance-type :balance-type-default
+                             :balance-status :balance-status-posted
+                             :side :leg-side-debit
+                             :amount amount}
+                    :customer-leg {:account-id (:account-id house)
+                                   :balance-type :balance-type-default
+                                   :balance-status :balance-status-posted
+                                   :side :leg-side-credit
+                                   :amount amount}})))]
+    (-> ctx
+        (update :counter inc)
+        (track result))))
+
+(def ^:private provider-deadline-ms
+  "How long the provider has to catch the ledger up: each posting relays,
+  mirrors and reaches the simulator through the adapter's runner."
+  20000)
+
+(defn- simulated-balances
+  "Each provider account the simulator holds, by id, in minor units."
+  [bank]
+  (let [res (http/request {:method :get
+                           :url (str (:payment-simulator-url bank)
+                                     "/simulate/balances")})]
+    (into {}
+          (map (fn [{:keys [id balance]}]
+                 [id
+                  (.longValueExact (.movePointRight (BigDecimal. ^String
+                                                                 balance)
+                                                    2))]))
+          (:accounts (http/res->edn res)))))
+
+(defn- posted
+  [bank bank-id account-id]
+  (let [balance (balances-query/get-balance bank
+                                            bank-id
+                                            account-id
+                                            :balance-type-default
+                                            "GBP"
+                                            :balance-status-posted)]
+    (if (error/anomaly? balance) 0 (- (:credit balance 0) (:debit balance 0)))))
+
+(defn- provider-check
+  "What the provider holds beside what the ledger does, for the bank's
+  accounts in the run: each customer account's provider balance against
+  its posted balance, and every provider balance of the bank together
+  against 1100 cash at correspondent, which is the money the scheme
+  moved. The house account's provider balance is the difference: its
+  own posted balance and the money the ledger keeps in the bank's GL
+  accounts."
+  [{:keys [bank banks accounts id-mapping]} model-bank]
+  (let [{bank-real-id :real-id} (get banks model-bank)
+        real-ids (keep (fn [[model-id {:keys [bank]}]]
+                         (when (= model-bank bank)
+                           (id-mapping/real id-mapping model-id)))
+                       accounts)
+        house (cash-accounts-query/house-account bank bank-real-id "GBP")
+        provider-of (fn [account-id]
+                      (:provider-account-id
+                       (cash-accounts-query/find-account bank
+                                                         bank-real-id
+                                                         account-id)))
+        held (simulated-balances bank)
+        cash (gl-account-for bank
+                             bank-real-id
+                             :gl-account-code-cash-at-correspondent
+                             "GBP")]
+    {:accounts (into {}
+                     (map (fn [account-id]
+                            [account-id
+                             [(get held (provider-of account-id) 0)
+                              (posted bank bank-real-id account-id)]]))
+                     real-ids)
+     :bank [(reduce +
+                    0
+                    (map (fn [id] (get held (provider-of id) 0))
+                         (conj real-ids (:account-id house))))
+            (- (posted bank bank-real-id (:ledger-account-id cash)))]}))
+
+(defn- agrees?
+  [{:keys [accounts bank]}]
+  (and (every? (fn [[provider ledger]] (= provider ledger)) (vals accounts))
+       (apply = bank)))
+
+(defmethod dispatch :assert-provider-balances
+  [ctx {[model-bank] :args}]
+  (let [check (quiescence/wait-until (fn [] (provider-check ctx model-bank))
+                                     agrees?
+                                     provider-deadline-ms)]
+    (doseq [[account-id [provider ledger]] (:accounts check)]
+      (is (= ledger provider) (str "provider balance of " account-id)))
+    (is (apply = (:bank check))
+        (str "provider balances of " model-bank " against 1100"))
+    ctx))
+
 (defmethod dispatch :assert-gl-balance
   [{:keys [bank banks] :as ctx}
    {[model-bank gl-account-code currency expected] :args}]
@@ -1272,11 +1414,11 @@
   (fdb/transact bank
                 (fn [txn]
                   (count (fdb/query-records
-                          (fdb/open txn "clearbank-outbound-intents")
-                          "ClearbankOutboundIntent"
+                          (fdb/open txn "modulr-outbound-intents")
+                          "ModulrOutboundIntent"
                           "dedup_key"
                           dedup-key
-                          {:index "ClearbankOutboundIntent_by_dedup_key"})))
+                          {:index "ModulrOutboundIntent_by_dedup_key"})))
                 :scenario/intents
                 "Failed to count outbound intents"))
 

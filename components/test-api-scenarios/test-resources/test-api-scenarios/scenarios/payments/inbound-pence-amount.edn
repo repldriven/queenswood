@@ -1,6 +1,6 @@
 {:name "An inbound of 0.29 credits exactly 29 pence"
  :tags #{:api :inbound :payments :happy}
- ;; The ClearBank simulator's inbound payment carries its amount in pounds,
+ ;; The payment simulator's inbound payment carries its amount in pounds,
  ;; and the adapter converts the webhook's Amount to minor units. 0.29 is
  ;; the value a floating-point conversion truncates to 28, so an empty
  ;; account's posted balance must land on 29 exactly. Balances are in
@@ -97,7 +97,7 @@
  :when
  [{:command :api/request
    :request {:method :post
-             :base :clearbank-simulator
+             :base :payment-simulator
              :path "/simulate/inbound-payment"
              :body {:bban [:ref :creditor :bban]
                     :amount 0.29

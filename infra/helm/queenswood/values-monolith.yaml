@@ -40,8 +40,8 @@ services:
       limits: { cpu: "2000m", memory: "3Gi" }
       requests: { cpu: "500m", memory: "1536Mi" }
     extraEnv:
-      CLEARBANK_SIMULATOR_URL: "http://localhost:8081"
-      CLEARBANK_ADAPTER_PUBLIC_URL: "http://localhost:8082"
+      MODULR_URL: "http://localhost:8081"
+      MODULR_ADAPTER_PUBLIC_URL: "http://localhost:8082"
       COMPANIES_HOUSE_URL: "http://localhost:8085"
       ZYPHE_URL: "http://localhost:8086"
       ZYPHE_API_KEY: "zyphe_sk_simulator"

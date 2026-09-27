@@ -2,10 +2,11 @@
 # `payment/submit-outbound` and `payment/settle-inbound` via the
 # library interface, so the dispatcher / command-processor /
 # processor entries from `system/payment-test.yml` (which require
-# payments-command channels on the bus) are omitted. Only the
-# event-processor that consumes schemes-payments-event is needed
-# — that's what posts the inbound credit when ClearBank settles
-# an outbound whose creditor BBAN matches an internal account.
+# payments-command channels on the bus) are omitted. The
+# event-processor that consumes schemes-payments-event posts the inbound
+# credit when the provider settles an outbound whose creditor BBAN
+# matches an internal account, and the transaction-event-processor
+# mirrors each posting at the provider.
 
 # The processor is started for its configuration alone: the verbs take
 # the provider declaration from it, so the rig submits against the same
@@ -31,3 +32,18 @@ event-processor: !system/component
   bus: !system/ref message-bus.bus
   processor: !system/local-ref event-processor-impl
   event-channel: !keyword schemes-payments-event
+
+transaction-event-processor-impl: !system/component
+  system/component-kind: payment/transaction-event-processor
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  schemas: !system/ref avro.serde
+  bus: !system/ref message-bus.bus
+  scheme-payment-command-channel: !keyword schemes-payment-command
+  payment-provider: !include system/payment-provider.yml
+
+transaction-event-processor: !system/component
+  system/component-kind: event-processor/event-processor
+  bus: !system/ref message-bus.bus
+  processor: !system/local-ref transaction-event-processor-impl
+  event-channel: !keyword transactions-event

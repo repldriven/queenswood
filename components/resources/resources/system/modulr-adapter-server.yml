@@ -1,0 +1,30 @@
+handler: !system/required-component
+
+interceptors: !system/component
+  system/component-kind: server/interceptors
+  avro: !system/ref avro.serde
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  modulr-url: !profile
+    dev: !system/ref modulr-simulator-server.http-url
+    test: !system/ref modulr-simulator-server.http-url
+    default: !env MODULR_URL
+  credentials: !system/ref modulr-adapter.credentials
+  webhook-credentials: !system/ref modulr-adapter.webhook-credentials
+
+jetty-adapter: !system/component
+  system/component-kind: server/jetty-adapter
+  handler: !system/ref modulr-adapter-server.handler
+  interceptors: !system/ref modulr-adapter-server.interceptors
+  ready-fn: !system/ref modulr-adapter.readiness
+  options: !profile
+    dev:
+      port: 8082
+    test:
+      port: 0
+    default:
+      port: 8082
+
+http-url: !system/component
+  system/component-kind: server/http-url
+  jetty-adapter: !system/local-ref jetty-adapter

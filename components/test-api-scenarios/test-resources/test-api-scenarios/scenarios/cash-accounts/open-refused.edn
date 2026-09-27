@@ -70,7 +70,7 @@
  :when
  [{:command :api/request
    :request {:method :post
-             :base :clearbank-simulator
+             :base :payment-simulator
              :path "/simulate/open-refused"}
    :assert {:status 204}}
   {:command :api/request

@@ -1,6 +1,6 @@
 {:name "Inbound held then returned — account never credited"
  :tags #{:held :inbound :transfers}
- ;; A held inbound that ClearBank declines is returned to the remitter:
+ ;; A held inbound that the provider declines is returned to the remitter:
  ;; nothing posts on our books, so the account stays at zero.
  :given [{:command :create-bank :args []}]
  :when [{:command :hold-inbound :args [:acct-0 1000]}

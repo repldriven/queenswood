@@ -7,7 +7,7 @@ Queenswood serves more than one HTTP API. The headline is
 [ADR-0013](../adr/0013-single-unified-api.md), with full
 OpenAPI 3.x compliance as the contract per
 [ADR-0014](../adr/0014-openapi-3x-compliance.md). The
-ClearBank simulator and ClearBank adapter also serve HTTP
+payment provider's simulator and adapter also serve HTTP
 surfaces, with their own contracts shaped by external
 specifications.
 
@@ -73,16 +73,16 @@ The HTTP API bases in the codebase today:
   layout, two-tier auth (admin / org), full OpenAPI 3.x
   compliance, idempotency on writes, command-pipeline
   integration. The worked example for the rest of this TDD.
-- **`clearbank-simulator`** — mocks the ClearBank FPS
-  HTTP API for development and tests. Inherits the `server`
-  brick's chain, RFC 9457 error mapping, and Muuntaja
-  serialization. Auth follows ClearBank's own scheme rather
-  than the api admin/org pattern, and OpenAPI compliance
-  is shaped by mirroring ClearBank's published spec.
-- **`clearbank-adapter`** — receives ClearBank webhooks
+- **`modulr-simulator`** — mocks the Modulr payments API
+  for development and tests. Inherits the `server` brick's
+  chain, RFC 9457 error mapping, and Muuntaja serialization.
+  Auth follows Modulr's own HMAC scheme rather than the api
+  admin/org pattern, and its routes and wire schemas follow
+  Modulr's published spec.
+- **`modulr-adapter`** — receives Modulr's notifications
   and exposes a small HTTP surface. Inherits the same chain;
   its endpoints are narrow and webhook-shaped, with auth
-  following ClearBank webhook signing rather than bearer
+  following Modulr's notification signing rather than bearer
   tokens.
 
 ```mermaid
