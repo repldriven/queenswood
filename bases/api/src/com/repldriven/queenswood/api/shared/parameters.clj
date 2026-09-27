@@ -104,6 +104,12 @@
    :required true
    :schema {:$ref "#/components/schemas/PartyId"}})
 
+(def VerificationSessionId
+  {:name "session-id"
+   :in "path"
+   :required true
+   :schema {:$ref "#/components/schemas/VerificationSessionId"}})
+
 (def JobId
   {:name "job-id"
    :in "path"
@@ -178,6 +184,8 @@
 (def ref-invitation-token {:$ref "#/components/parameters/InvitationToken"})
 (def ref-invitation-id {:$ref "#/components/parameters/InvitationId"})
 (def ref-party-id {:$ref "#/components/parameters/PartyId"})
+(def ref-verification-session-id
+  {:$ref "#/components/parameters/VerificationSessionId"})
 (def ref-job-id {:$ref "#/components/parameters/JobId"})
 (def ref-migration-id {:$ref "#/components/parameters/MigrationId"})
 (def ref-migration-run-id {:$ref "#/components/parameters/MigrationRunId"})
@@ -199,6 +207,7 @@
    "InvitationToken" InvitationToken
    "InvitationId" InvitationId
    "PartyId" PartyId
+   "VerificationSessionId" VerificationSessionId
    "JobId" JobId
    "MigrationId" MigrationId
    "MigrationRunId" MigrationRunId

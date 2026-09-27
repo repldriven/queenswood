@@ -1,7 +1,9 @@
 (ns com.repldriven.queenswood.demo-digital-bank.platform-stub
   "A stand-in for the platform, served in-process, answering in the
   shapes `test-api-scenarios` pins for the routes the bank calls: the
-  token endpoint, registering and reading a party, listing products,
+  token endpoint, registering and reading a party, opening a
+  verification session for one, which reads back ready with a hand-off,
+  listing products,
   opening and reading an account with its balances and its
   transactions, checking a payee, and submitting outbound and internal
   payments. A party is pending when registered and decided when read,
@@ -59,6 +61,7 @@
    :accounts {}
    :transactions {}
    :payments {}
+   :refuse-sessions 0
    :numbers 31908240})
 
 (defn- problem
@@ -142,6 +145,43 @@
       (if-let [party (get-in @state [:parties party-id])]
         {:status 200 :body (decide party)}
         (problem 404 "REJECTED" ":party/not-found" "no such party")))))
+
+(defn- open-verification-session
+  [state]
+  (fn [request]
+    (or (replay state request)
+        (when (pos? (:refuse-sessions @state))
+          (swap! state update :refuse-sessions dec)
+          (remember state
+                    request
+                    (problem 400 "BAD_REQUEST" "coercion" "bad return-url")))
+        (let [party-id (get-in request [:path-params :party-id])
+              {:keys [channel return-url]} (:body-params request)
+              now (util/now-rfc3339)
+              session-id (util/generate-id "ses")
+              session {:session-id session-id
+                       :party-id party-id
+                       :channel channel
+                       :return-url return-url
+                       :status "opening"
+                       :created-at now
+                       :updated-at now}]
+          (swap! state assoc-in [:sessions session-id] session)
+          (remember state request {:status 202 :body session})))))
+
+(defn- get-verification-session
+  [state]
+  (fn [request]
+    (let [{:keys [session-id]} (:path-params request)]
+      (if-let [session (get-in @state [:sessions session-id])]
+        {:status 200
+         :body (assoc session
+                      :status "ready"
+                      :hand-off {:type "url"
+                                 :url (str "https://verify.example.test/flow/"
+                                           session-id)
+                                 :expires-at (util/now-rfc3339)})}
+        (problem 404 "REJECTED" ":idv/session-not-found" "no such session")))))
 
 (defn- list-products [_] (fn [_] {:status 200 :body products}))
 
@@ -456,7 +496,13 @@
    ["/v1" {:interceptors [authenticate]}
     ["/parties"
      ["" {:post {:handler (register-party state)}}]
-     ["/{party-id}" {:get {:handler (get-party state)}}]]
+     ["/{party-id}"
+      ["" {:get {:handler (get-party state)}}]
+      ["/verification-sessions"
+       ["" {:post {:handler (open-verification-session state)}}]
+       ["/{session-id}"
+        {:get {:handler (get-verification-session
+                         state)}}]]]]
     ["/cash-account-products" {:get {:handler (list-products state)}}]
     ["/cash-accounts"
      ["" {:post {:handler (open-account state)}}]

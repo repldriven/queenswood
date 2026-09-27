@@ -4,7 +4,9 @@
     [com.repldriven.queenswood.party-api.examples :as examples]
 
     [com.repldriven.queenswood.api-schema.interface :as schema :refer
-     [components-registry list-schema]]))
+     [components-registry list-schema]]
+
+    [clojure.string :as str]))
 
 (def PartyType
   (coercion/party-type-enum-schema {:json-schema/example "person"}))
@@ -131,12 +133,90 @@
 
 (def PartyList (list-schema "Party" examples/PartyList))
 
+(def VerificationId
+  (schema/id-schema "VerificationId" "idv" examples/VerificationId))
+
+(def VerificationSessionId
+  (schema/id-schema "VerificationSessionId"
+                    "ses"
+                    examples/VerificationSessionId))
+
+(def VerificationStatus
+  (coercion/verification-status-enum-schema {:json-schema/example "pending"}))
+
+(def VerificationChannel
+  (coercion/verification-channel-enum-schema {:json-schema/example "web"}))
+
+(def VerificationSessionStatus
+  (coercion/verification-session-status-enum-schema {:json-schema/example
+                                                     "ready"}))
+
+(def HandOffType
+  (coercion/hand-off-type-enum-schema {:json-schema/example "url"}))
+
+(def VerificationCriterionState
+  (coercion/criterion-state-enum-schema {:json-schema/example "established"}))
+
+(def ReturnUrl
+  "Where the provider returns the person: an https page, an http page on
+  the loopback interface, or a link into the tenant's app."
+  [:re
+   {:title "ReturnUrl"
+    :json-schema/example "https://app.example.com/onboarding/verified"}
+   #"^(https://[^\s]+|http://(localhost|127\.0\.0\.1|\[::1\])(:[0-9]+)?([/?#][^\s]*)?|(?!https?:)[a-zA-Z][a-zA-Z0-9+.-]*:[^\s]+)$"])
+
+(def OpenVerificationSessionRequest
+  [:map
+   {:closed true :json-schema/example examples/OpenVerificationSessionRequest}
+   [:channel [:ref "VerificationChannel"]]
+   [:return-url [:ref "ReturnUrl"]]
+   [:email {:optional true} [:ref "EmailAddress"]]])
+
+(def HandOff
+  [:map {:json-schema/example examples/HandOff}
+   [:type [:ref "HandOffType"]]
+   [:url :string]
+   [:expires-at [:ref "Timestamp"]]])
+
+(def VerificationSession
+  [:map {:json-schema/example examples/VerificationSession}
+   [:session-id [:ref "VerificationSessionId"]]
+   [:party-id [:ref "PartyId"]]
+   [:channel [:ref "VerificationChannel"]]
+   [:return-url :string]
+   [:status [:ref "VerificationSessionStatus"]]
+   [:hand-off {:optional true} [:ref "HandOff"]]
+   [:created-at [:ref "Timestamp"]]
+   [:updated-at [:ref "Timestamp"]]])
+
+(def VerificationCriterion
+  [:map {:json-schema/example examples/VerificationCriterion}
+   [:name
+    [:enum {:json-schema/example "address"}
+     "identity" "liveness" "claimed-identity" "address" "sanctions" "pep"]]
+   [:kind
+    [:enum {:json-schema/example "verification"} "verification"
+     "screening"]]
+   [:state [:ref "VerificationCriterionState"]]
+   [:reason {:optional true} :string]])
+
+(def Verification
+  [:map {:json-schema/example examples/Verification}
+   [:verification-id [:ref "VerificationId"]]
+   [:party-id [:ref "PartyId"]]
+   [:status [:ref "VerificationStatus"]]
+   [:criteria [:vector [:ref "VerificationCriterion"]]]])
+
 (def registry
   (components-registry
    [#'PartyType #'PartyStatus #'IdentifierType #'Party #'PartyDetail
     #'PartyEmbedQuery #'NationalIdentifier #'Address #'CreatePartyRequest
     #'CreatePartyResponse #'PartyList #'MergePartyRequest #'MergePartyResponse
-    #'SuspendPartyResponse #'ResumePartyResponse #'ClosePartyResponse]))
+    #'SuspendPartyResponse #'ResumePartyResponse #'ClosePartyResponse
+    #'VerificationId #'VerificationSessionId #'VerificationStatus
+    #'VerificationChannel #'VerificationSessionStatus #'HandOffType
+    #'VerificationCriterionState #'ReturnUrl #'OpenVerificationSessionRequest
+    #'HandOff #'VerificationSession #'VerificationCriterion #'Verification]))
 
 (def ^:private party-keys (into [] (comp (filter vector?) (map first)) Party))
 
@@ -150,3 +230,38 @@
 (defn ->wire-body
   [party]
   (encode-party (->body party)))
+
+(def ^:private session-keys
+  [:session-id :party-id :channel :return-url :status :hand-off :created-at
+   :updated-at])
+
+(defn ->session-body
+  [session]
+  (cond-> (select-keys session session-keys)
+          (:hand-off session)
+          (update :hand-off select-keys [:type :url :expires-at])))
+
+(def ^:private encode-session
+  (schema/api-encoder VerificationSession (merge schema/registry registry)))
+
+(defn ->session-wire-body
+  [session]
+  (encode-session (->session-body session)))
+
+(defn- criterion-body
+  [criterion]
+  (let [{:keys [verification screening state reason]} criterion]
+    (cond-> {:name (str/replace (name (or verification screening))
+                                #"^idv-(verification|screening)-"
+                                "")
+             :kind (if verification "verification" "screening")
+             :state state}
+            reason
+            (assoc :reason reason))))
+
+(defn ->verification-body
+  [party-id verification]
+  (-> verification
+      (select-keys [:verification-id :status])
+      (assoc :party-id party-id
+             :criteria (mapv criterion-body (:criteria verification)))))

@@ -29,6 +29,13 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-parties-command-response
           acks: all
+      idvs-command-response:
+        schemas: !system/local-ref schemas
+        schema: !keyword command-response
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          topic: topic-idvs-command-response
+          acks: all
       cash-accounts-command-response:
         schemas: !system/local-ref schemas
         schema: !keyword command-response
@@ -57,6 +64,11 @@ system:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-parties-command-dlq
+          acks: all
+      idvs-command-dlq:
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          topic: topic-idvs-command-dlq
           acks: all
       cash-accounts-command-dlq:
         conf:
@@ -107,6 +119,15 @@ system:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           group.id: party-service-parties-command
+      idvs-command:
+        schemas: !system/local-ref schemas
+        schema: !keyword command
+        topics: [topic-idvs-command]
+        dead-letter-producer: !system/local-ref producers.idvs-command-dlq
+        max-redeliveries: 5
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          group.id: idv-service-idvs-command
       cash-accounts-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
@@ -158,6 +179,8 @@ system:
         producer: !system/local-ref producers.memberships-command-response
       parties-command-response:
         producer: !system/local-ref producers.parties-command-response
+      idvs-command-response:
+        producer: !system/local-ref producers.idvs-command-response
       cash-accounts-command-response:
         producer: !system/local-ref producers.cash-accounts-command-response
       idv-command:
@@ -172,6 +195,9 @@ system:
         timeout: 500
       parties-command:
         consumer: !system/local-ref consumers.parties-command
+        timeout: 500
+      idvs-command:
+        consumer: !system/local-ref consumers.idvs-command
         timeout: 500
       cash-accounts-command:
         consumer: !system/local-ref consumers.cash-accounts-command

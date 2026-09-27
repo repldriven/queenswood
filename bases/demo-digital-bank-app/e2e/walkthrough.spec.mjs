@@ -1,8 +1,8 @@
 import { test, expect } from "@playwright/test";
 
-// A new customer's walk through the app, filmed: sign up and be
-// verified, open an Everyday and be paid its welcome reward, then open
-// a Rainy Day with some of it. It runs against the bank the console's
+// A new customer's walk through the app, filmed: sign up, be handed to
+// the identity provider's page and verified there, open an Everyday and
+// be paid its welcome reward, then open a Rainy Day with some of it. It runs against the bank the console's
 // scenes have been through. The reward is paid by the platform's hourly
 // job, which the recipe forces once the Everyday exists, so the walk
 // waits on the balance rather than on the job. Every screen is held a
@@ -53,7 +53,7 @@ test("a new customer signs up and opens two accounts", async ({ page }) => {
   await button(page, "Get started").click();
 
   // Sign up: the number, the code the app fills in itself, the details,
-  // the document scan, and a passcode chosen twice.
+  // the identity provider's page and back, and a passcode chosen twice.
   await expect(screen(page, "Mobile number")).toBeVisible();
   await type(page.locator('input.inp[placeholder="7700 900123"]'), phone);
   await page.waitForTimeout(600);
@@ -62,6 +62,7 @@ test("a new customer signs up and opens two accounts", async ({ page }) => {
   await type(page.locator('input.inp[placeholder="Amara"]'), "Hotblack");
   await type(page.locator('input.inp[placeholder="Okafor"]'), "Desiato");
   await type(page.locator('input.inp[placeholder="DD / MM / YYYY"]'), "31101979");
+  await type(page.locator('input.inp[placeholder="amara@example.com"]'), "hotblack@example.com");
   await type(page.locator('input.inp[placeholder="12"]'), "42");
   await type(page.locator('input.inp[placeholder="Mare Street"]'), "Improbability Drive");
   await type(page.locator('input.inp[placeholder="London"]'), "Disaster Area");
@@ -71,9 +72,21 @@ test("a new customer signs up and opens two accounts", async ({ page }) => {
   await button(page, "Continue").click();
   await expect(screen(page, "ID check")).toBeVisible();
   await page.waitForTimeout(BEAT);
-  await button(page, "Scan document").click();
-  await button(page, "Continue").click({ timeout: 60_000 });
-  await expect(screen(page, "Passcode")).toBeVisible();
+  await button(page, "Verify my identity").click();
+
+  // The provider's page: what the document says, and a check that passes.
+  await expect(page.getByRole("heading", { name: "Verify your identity" })).toBeVisible({
+    timeout: 60_000,
+  });
+  await page.waitForTimeout(BEAT);
+  await type(page.getByLabel("Given names", { exact: true }), "Hotblack");
+  await type(page.getByLabel("Family name", { exact: true }), "Desiato");
+  await page.getByLabel("Date of birth", { exact: true }).fill("1979-10-31");
+  await page.waitForTimeout(600);
+  await page.locator("label.tile", { hasText: "Everything checks out" }).click();
+  await page.waitForTimeout(BEAT);
+  await button(page, "Continue").click();
+  await expect(screen(page, "Passcode")).toBeVisible({ timeout: 30_000 });
   await page.waitForTimeout(600);
   await tap(page, passcode);
   await page.waitForTimeout(600);

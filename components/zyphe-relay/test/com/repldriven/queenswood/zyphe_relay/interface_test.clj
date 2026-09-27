@@ -21,7 +21,7 @@
   [outbox-id dedup-key]
   {:outbox-id outbox-id
    :dedup-key dedup-key
-   :event-name "idv-completed"
+   :event-name "idv-evidence"
    :payload (.getBytes "avro-payload-bytes")
    :correlation-id "corr-1"
    :causation-id "caus-1"
@@ -43,7 +43,9 @@
 (def ^:private unreachable
   {:zyphe-url "http://localhost:1"
    :api-key "zyphe_sk_test"
-   :flow-id "2d8285d7-f4ba-42df-ab3f-681d9870d37a"
+   :flows [{:id "2d8285d7-f4ba-42df-ab3f-681d9870d37a"
+            :verifies ["identity"]
+            :screens []}]
    :sandbox true
    :adapter-url "http://localhost:2"
    :webhook-secret "00"
@@ -72,7 +74,7 @@
                                  (system/instance sys [:fdb :keyspace-prefix])})
          (let [e (deref received 5000 ::timeout)]
            (is (not= ::timeout e))
-           (when (not= ::timeout e) (is (= "idv-completed" (:event e)))))))
+           (when (not= ::timeout e) (is (= "idv-evidence" (:event e)))))))
      (testing "a duplicate intent dedup-key is rejected"
        (nom-test> [_ (SUT/save-intent config (intent-of "int.1" "iv-A"))])
        (is (SUT/uniqueness-violation?

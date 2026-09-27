@@ -199,6 +199,7 @@
    "InternalPayment" "InternalPayment"
    "Party" "Party"
    "Reward" "Reward"
+   "VerificationSession" "VerificationSession"
    "WebhookEndpoint" "WebhookEndpoint"})
 
 (def resource-registries

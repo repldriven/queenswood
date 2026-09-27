@@ -36,16 +36,16 @@
 
 (defn- record
   [request event]
-  (let [descriptor (publisher/->idv-completed event)]
+  (let [descriptor (publisher/->idv-evidence event)]
     (if (nil? descriptor)
-      (do (log/info "Zyphe webhook carries no decision; acknowledged"
+      (do (log/info "Zyphe webhook carries no evidence; acknowledged"
                     {:event-id (:id event)
                      :type (:type event)
                      :flow-status (get-in event [:flow :status])})
           {:status 200 :body {:received true}})
       (let [res (record-event request descriptor)]
         (if (error/anomaly? res)
-          (do (log/error "Failed to record idv-completed webhook" res)
+          (do (log/error "Failed to record Zyphe evidence" res)
               {:status 500 :body {:error "webhook not recorded"}})
           {:status 200 :body {:received true}})))))
 

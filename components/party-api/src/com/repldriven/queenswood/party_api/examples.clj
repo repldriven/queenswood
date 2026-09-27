@@ -33,10 +33,42 @@
            :status 422
            :detail "Cannot merge a party into itself"}})
 
+(def VerificationNotFound
+  {:value {:title "REJECTED"
+           :type ":idv/not-found"
+           :status 404
+           :detail "No verification for this party"}})
+
+(def VerificationSessionNotFound
+  {:value {:title "REJECTED"
+           :type ":idv/session-not-found"
+           :status 404
+           :detail "No such verification session"}})
+
+(def VerificationInvalidStatus
+  {:value {:title "REJECTED"
+           :type ":idv/invalid-status"
+           :status 409
+           :detail "IDV is not awaiting a verification"}})
+
+(def UnsupportedChannel
+  {:value {:title "REJECTED"
+           :type ":idv/unsupported-channel"
+           :status 422
+           :detail "The identity provider does not offer this channel"}})
+
+(def MissingEmail
+  {:value {:title "REJECTED"
+           :type ":idv/missing-email"
+           :status 422
+           :detail "The identity provider needs the person's email"}})
+
 (def registry
   (examples-registry [#'PartyNotFound #'IdentificationRejected
                       #'PartyInvalidStatus #'PartyOpenAccounts
-                      #'PartyMergeIntoSelf]))
+                      #'PartyMergeIntoSelf #'VerificationNotFound
+                      #'VerificationSessionNotFound #'VerificationInvalidStatus
+                      #'UnsupportedChannel #'MissingEmail]))
 
 (def Party
   {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
@@ -72,3 +104,41 @@
 
 (def MergePartyRequest {:into-party-id "pty.01kprbmgcj35ptc8npmybhh4sb"})
 
+
+(def VerificationSessionId "ses.01kprbmgcj35ptc8npmybhh4sc")
+
+(def VerificationId "idv.01kprbmgcj35ptc8npmybhh4sd")
+
+(def OpenVerificationSessionRequest
+  {:channel :web
+   :return-url "https://app.example.com/onboarding/verified"
+   :email "a.dent@example.com"})
+
+(def HandOff
+  {:type :url
+   :url (str "https://verify.example.com/flow/onboarding"
+             "?zypheVr=cf52e18e&zypheToken=eyJhbGci")
+   :expires-at "2025-01-01T00:15:00Z"})
+
+(def VerificationSession
+  {:session-id VerificationSessionId
+   :party-id PartyId
+   :channel :web
+   :return-url "https://app.example.com/onboarding/verified"
+   :status :ready
+   :hand-off HandOff
+   :created-at "2025-01-01T00:00:00Z"
+   :updated-at "2025-01-01T00:00:02Z"})
+
+(def VerificationCriterion
+  {:name :address
+   :kind :verification
+   :state :outstanding
+   :reason "A person's address must be verified"})
+
+(def Verification
+  {:verification-id VerificationId
+   :party-id PartyId
+   :status :pending
+   :criteria [{:name :identity :kind :verification :state :established}
+              VerificationCriterion]})

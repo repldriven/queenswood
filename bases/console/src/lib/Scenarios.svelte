@@ -30,6 +30,7 @@
     TaskPipeline,
     Button,
     Badge,
+    Drawer,
   } from "@queenswood/ui";
   import * as api from "./api.mjs";
 
@@ -75,9 +76,9 @@
     postcode: "CT12 4XY",
     country: "GBR",
   };
-  // Zaphod's middle name carries the Onfido-sim reject trigger (the
-  // applicant first name must contain "reject"); his display name stays
-  // clean, so the Parties list just shows "Zaphod Beeblebrox".
+  // Each person is played through the identity provider's hosted page:
+  // Arthur and Ford show their own documents, and Zaphod turns out to be
+  // on a sanctions list.
   const PARTY = {
     arthur: {
       type: "person", "display-name": "Arthur Dent",
@@ -93,7 +94,7 @@
     },
     zaphod: {
       type: "person", "display-name": "Zaphod Beeblebrox",
-      "given-name": "Zaphod", "middle-names": "Reject", "family-name": "Beeblebrox",
+      "given-name": "Zaphod", "family-name": "Beeblebrox",
       "date-of-birth": "1947-02-02", nationality: "GB", address: ADDRESS,
       "national-identifier": { type: "national-insurance", value: "TN555103C", "issuing-country": "GB" },
     },
@@ -161,15 +162,15 @@
     {
       id: "s3", num: "03", title: "Verify", view: "parties",
       story:
-        "Onboard Arthur Dent and Ford Prefect — their identity checks clear and both go active. Onboard Zaphod Beeblebrox, whose check is rejected, and the platform denies him an account.",
-      backing: ["create-person-party", "idv-rejected"],
+        "Onboard Arthur Dent, Ford Prefect and Zaphod Beeblebrox. Each is handed to the identity provider's page through a verification session: Arthur and Ford show their own documents and go active; Zaphod turns out to be on a sanctions list, is rejected, and the platform denies him an account.",
+      backing: ["verification-accepts-a-matching-document", "verification-sanctions-hit-rejects", "verification-session-hands-off"],
       steps: [
         { name: "Onboard Arthur Dent", raw: [{ method: "POST", path: "/v1/parties", tag: "request" }] },
-        { name: "Identity check clears → active", raw: [{ method: "GET", path: "/v1/parties/{id}", tag: "poll" }] },
+        { name: "Hand him to the identity check → active", raw: [{ method: "POST", path: "/v1/parties/{id}/verification-sessions", tag: "request" }, { method: "GET", path: "/v1/parties/{id}/verification-sessions/{s}", tag: "poll" }, { method: "GET", path: "/v1/parties/{id}", tag: "poll" }] },
         { name: "Onboard Ford Prefect", raw: [{ method: "POST", path: "/v1/parties", tag: "request" }] },
-        { name: "Identity check clears → active", raw: [{ method: "GET", path: "/v1/parties/{id}", tag: "poll" }] },
+        { name: "Hand him to the identity check → active", raw: [{ method: "POST", path: "/v1/parties/{id}/verification-sessions", tag: "request" }, { method: "GET", path: "/v1/parties/{id}/verification-sessions/{s}", tag: "poll" }, { method: "GET", path: "/v1/parties/{id}", tag: "poll" }] },
         { name: "Onboard Zaphod Beeblebrox", raw: [{ method: "POST", path: "/v1/parties", tag: "request" }] },
-        { name: "Identity check rejected → rejected", tone: "exception", raw: [{ method: "GET", path: "/v1/parties/{id}", tag: "poll" }] },
+        { name: "A sanctions hit → rejected", tone: "exception", raw: [{ method: "POST", path: "/v1/parties/{id}/verification-sessions", tag: "request" }, { method: "GET", path: "/v1/parties/{id}/verification", tag: "poll" }, { method: "GET", path: "/v1/parties/{id}", tag: "poll" }] },
       ],
     },
     {
@@ -456,6 +457,51 @@
   const pollParty = (id, status) =>
     poll(() => api.get_party(id), (r) => r.status === 200 && r.body?.status === status, { tries: 40, delay: 600 });
 
+  // Play the person through the identity provider's hosted page: open a
+  // session, wait for its hand-off, and show it in a panel, asking the
+  // page to fill in what the document says and submit `outcome` at a
+  // pace a viewer can follow. The panel closes once the verification
+  // decides. Skipped for a person whose verification has already decided.
+  const OUTCOMES = { match: "everything checks out", "sanctions-hit": "a sanctions hit" };
+  let idv = $state(null);
+  let idvOpen = $state(false);
+  async function verifyPerson(partyId, body, outcome) {
+    const verification = await api.get_verification(partyId);
+    if (verification.status === 200 && verification.body?.status !== "pending") return;
+    const opened = await api.open_verification_session(partyId, {
+      channel: "web",
+      "return-url": location.origin + "/#/parties",
+      email: `${body["given-name"].toLowerCase()}@example.test`,
+    });
+    if (!ok2xx(opened)) throw new Error(`open a verification session: ${opened.status}`);
+    const sessionId = opened.body["session-id"];
+    const ready = await poll(
+      () => api.get_verification_session(partyId, sessionId),
+      (r) => r.body?.status === "ready",
+      { tries: 30, delay: 500 },
+    );
+    const url = new URL(ready.body["hand-off"].url);
+    url.searchParams.set("simulate", outcome);
+    url.searchParams.set("givenNames", body["given-name"]);
+    url.searchParams.set("familyName", body["family-name"]);
+    url.searchParams.set("dateOfBirth", body["date-of-birth"]);
+    url.searchParams.set("pace", "900");
+    idv = { name: body["display-name"], outcome: OUTCOMES[outcome] ?? outcome, url: url.toString() };
+    idvOpen = true;
+    try {
+      await poll(
+        () => api.get_verification(partyId),
+        (r) => r.status === 200 && r.body?.status !== "pending",
+        { tries: 60, delay: 600 },
+      );
+      await sleep(1500);
+    } finally {
+      idvOpen = false;
+      await sleep(300);
+      idv = null;
+    }
+  }
+
   async function ensureAccount(key, body) {
     const cached = ctx.accounts?.[key];
     if (cached?.accountId) {
@@ -529,11 +575,20 @@
     },
     async s3({ step }) {
       const arthur = await step(0, () => ensureParty("arthur", PARTY.arthur));
-      await step(1, () => pollParty(arthur, "active"));
+      await step(1, async () => {
+        await verifyPerson(arthur, PARTY.arthur, "match");
+        await pollParty(arthur, "active");
+      });
       const ford = await step(2, () => ensureParty("ford", PARTY.ford));
-      await step(3, () => pollParty(ford, "active"));
+      await step(3, async () => {
+        await verifyPerson(ford, PARTY.ford, "match");
+        await pollParty(ford, "active");
+      });
       const zaphod = await step(4, () => ensureParty("zaphod", PARTY.zaphod));
-      await step(5, () => pollParty(zaphod, "rejected"));
+      await step(5, async () => {
+        await verifyPerson(zaphod, PARTY.zaphod, "sanctions-hit");
+        await pollParty(zaphod, "rejected");
+      });
     },
     async s4({ step }) {
       await step(0, async () => {
@@ -1009,6 +1064,19 @@
   {/if}
 {/snippet}
 
+<Drawer
+  open={idvOpen}
+  kicker="Identity provider"
+  title={idv?.name ?? ""}
+  sub={idv ? `The provider's hosted page, played through to ${idv.outcome}.` : ""}
+  width={460}
+  label="Identity provider"
+>
+  {#if idv}
+    <iframe class="idv-frame" title="Identity provider" src={idv.url}></iframe>
+  {/if}
+</Drawer>
+
 <div class="toast-wrap">
   {#each toasts as t (t.id)}
     <div class="toast" transition:fly={{ y: 8, duration: 200 }}>
@@ -1217,4 +1285,12 @@
   }
   .toast :global(svg) { width: 15px; height: 15px; }
   .toast .t-ok { color: var(--gold-bright); display: inline-flex; }
+  .idv-frame {
+    flex: 1;
+    width: 100%;
+    min-height: 0;
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    background: #f4f5f7;
+  }
 </style>

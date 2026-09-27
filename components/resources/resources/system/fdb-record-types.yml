@@ -5,7 +5,7 @@
 # its record type arrived on as since, and a store lists the indexes
 # removed from it under former-indexes with the versions they were added
 # and removed at. See docs/recipes/code/schema-evolution.md.
-version: 59
+version: 60
 stores:
   assertions:
     record-type: Assertion
@@ -161,6 +161,22 @@ stores:
         modified: 2
         field: party_id
         unique: true
+  idv-sessions:
+    record-type: IdvSession
+    since: 60
+    primary-key: [bank_id, session_id]
+    indexes:
+      # The sessions of one IDV, completed together when it decides.
+      - name: IdvSession_by_verification
+        added: 60
+        modified: 60
+        fields: [bank_id, verification_id]
+      # How many sessions a bank opened on a day, for the daily limit.
+      - name: IdvSession_count_by_bank_day
+        added: 60
+        modified: 60
+        fields: [bank_id, opened_day]
+        type: count
   interest-runs:
     record-type: InterestRun
     primary-key: [bank_id, business_day, kind]

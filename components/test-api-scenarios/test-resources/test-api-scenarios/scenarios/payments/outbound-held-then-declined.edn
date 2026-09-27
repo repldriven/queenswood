@@ -48,7 +48,7 @@
                   :version-id [:ref :current-draft :version-id]}
     :auth :bank-0-token}
    :assert {:status 200 :body {:status "published"}}}
-  ;; Party → active (Onfido sim auto-passes non-"Reject" names).
+  ;; Party → active once the person shows a matching document.
   {:command :api/request
    :request {:method :post
              :path "/v1/parties"

@@ -21,12 +21,12 @@
     ;; already loads api.api, which requires both of these.
     ;; enforce-idioms: brick-test-scope -- see above.
     [com.repldriven.queenswood.ledger-account.interface :as ledger-accounts]
-    [com.repldriven.queenswood.onfido-adapter.interface :as onfido-adapter]
-    [com.repldriven.queenswood.onfido-simulator.interface :as onfido-simulator]
     ;; enforce-idioms: brick-test-scope -- see the note above.
     [com.repldriven.queenswood.policy.interface :as policy]
     [com.repldriven.queenswood.uk-companies-house-simulator.interface :as
      ukch-simulator]
+    [com.repldriven.queenswood.zyphe-adapter.interface :as zyphe-adapter]
+    [com.repldriven.queenswood.zyphe-simulator.interface :as zyphe-simulator]
 
     [com.repldriven.mono.http-client.interface :as http]
     [com.repldriven.mono.identity-provider.interface :as identity-provider]
@@ -111,10 +111,10 @@
                 cb-simulator/app)
       (assoc-in [:system/defs :clearbank-adapter-server :handler]
                 cb-adapter/app)
-      (assoc-in [:system/defs :onfido-simulator-server :handler]
-                onfido-simulator/app)
-      (assoc-in [:system/defs :onfido-adapter-server :handler]
-                onfido-adapter/app)
+      (assoc-in [:system/defs :zyphe-simulator-server :handler]
+                zyphe-simulator/app)
+      (assoc-in [:system/defs :zyphe-adapter-server :handler]
+                zyphe-adapter/app)
       (assoc-in [:system/defs :uk-companies-house-simulator-server :handler]
                 ukch-simulator/app)))
 
@@ -279,7 +279,10 @@
            clearbank-simulator-url
            (server/http-local-url (system/instance sys
                                                    [:clearbank-simulator-server
-                                                    :jetty-adapter]))]
+                                                    :jetty-adapter]))
+           zyphe-simulator-url (system/instance sys
+                                                [:zyphe-simulator-server
+                                                 :http-url])]
        ;; The seam remembers which ids it has already lost, and it
        ;; outlives the system this boot tears down. Clearing it here
        ;; keeps a second run in the same JVM — a REPL re-run — losing
@@ -293,16 +296,17 @@
                                      {:file relative
                                       :name (:name loaded)
                                       :steps (count (SUT/steps loaded))})
-                         _ (SUT/run-scenario (SUT/fresh-context
-                                              {:base-url base-url
-                                               :admin-token admin-token
-                                               :token-endpoints endpoints
-                                               :signing-key key-pair
-                                               :mail-url mail-url
-                                               :clearbank-simulator-url
-                                               clearbank-simulator-url
-                                               :run-id (str (util/uuidv7))})
-                                             resource-path)
+                         _ (SUT/run-scenario
+                            (SUT/fresh-context
+                             {:base-url base-url
+                              :admin-token admin-token
+                              :token-endpoints endpoints
+                              :signing-key key-pair
+                              :mail-url mail-url
+                              :clearbank-simulator-url clearbank-simulator-url
+                              :zyphe-simulator-url zyphe-simulator-url
+                              :run-id (str (util/uuidv7))})
+                            resource-path)
                          _ (log/info "api scenario complete" {:file relative})]))))
        (testing "the run is traced end to end"
          (let [spans (test-telemetry/finished-spans

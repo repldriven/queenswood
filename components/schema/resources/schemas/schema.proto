@@ -98,4 +98,5 @@ message RecordTypeUnion {
   optional com.repldriven.queenswood.schemas.rewards.Reward _Reward = 46;
   optional com.repldriven.queenswood.schemas.zyphe.ZypheOutboxEvent _ZypheOutboxEvent = 47;
   optional com.repldriven.queenswood.schemas.zyphe.ZypheOutboundIntent _ZypheOutboundIntent = 48;
+  optional com.repldriven.queenswood.schemas.idv.IdvSession _IdvSession = 49;
 }

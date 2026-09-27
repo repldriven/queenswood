@@ -11,12 +11,16 @@
                   (when-let [{:keys [stop]} instance] (stop)))
    :system/config {:record-db system/required-component
                    :record-store system/required-component
+                   :schemas system/required-component
                    :zyphe-url system/required-component
+                   :verify-url system/required-component
                    :api-key system/required-component
-                   :flow-id system/required-component
+                   :flows system/required-component
                    :sandbox system/required-component
                    :adapter-url system/required-component
                    :webhook-secret system/required-component
+                   :idv-provider system/required-component
+                   :hand-off-ttl-ms nil
                    :max-attempts nil
                    :poll-ms nil}
    :system/instance-schema map?})

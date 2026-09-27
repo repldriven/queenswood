@@ -8,7 +8,9 @@
 
 (defn- idv->avro
   [idv]
-  (update idv :completed-at (fn [t] (when (and t (pos? t)) t))))
+  (-> idv
+      (dissoc :evidence :criteria)
+      (update :completed-at (fn [t] (when (and t (pos? t)) t)))))
 
 (defn- ->response
   [config result]
@@ -18,10 +20,25 @@
       {:status "ACCEPTED"
        :payload (avro/serialize (schemas "idv") (idv->avro result))})))
 
+(def ^:private session-keys
+  [:bank-id :session-id :verification-id :party-id :channel :return-url
+   :status :created-at :updated-at])
+
+(defn- open-idv-session
+  [config data]
+  (let [result (core/open-session config data)]
+    (if (error/anomaly? result)
+      result
+      (let [{:keys [schemas]} config]
+        {:status "ACCEPTED"
+         :payload (avro/serialize (schemas "idv-session")
+                                  (select-keys result session-keys))}))))
+
 (def ^:private command-handlers
   {"initiate-idv" (fn [config data]
                     (->response config (core/initiate config data)))
-   "get-idv" (fn [config data] (->response config (core/get config data)))})
+   "get-idv" (fn [config data] (->response config (core/get config data)))
+   "open-idv-session" open-idv-session})
 
 (defn- dispatch
   [config message]

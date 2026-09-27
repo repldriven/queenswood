@@ -1,0 +1,12 @@
+{
+  "type": "record",
+  "name": "OpenIdvSession",
+  "namespace": "com.repldriven.mono.idv",
+  "fields": [
+    {"name": "bank_id",    "type": "string"},
+    {"name": "party_id",   "type": "string"},
+    {"name": "channel",    "type": "string"},
+    {"name": "return_url", "type": "string"},
+    {"name": "email",      "type": ["null", "string"], "default": null}
+  ]
+}

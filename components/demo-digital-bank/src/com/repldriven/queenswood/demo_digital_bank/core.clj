@@ -16,6 +16,13 @@
 
 (def ^:private register-party "register-party")
 
+(def ^:private open-verification-session "open-verification-session")
+
+(def ^:private hand-off-wait-ms
+  "How long a sign-up waits for the provider's hand-off before answering
+  without one."
+  10000)
+
 (def ^:private open-account-kind "open-account")
 
 (def ^:private opening-deposit-kind "opening-deposit")
@@ -69,9 +76,65 @@
                                                             register-party
                                                             registration)))))
 
+(defn- ready-session
+  [client party-id session-id]
+  (let [deadline (+ (util/now) hand-off-wait-ms)]
+    (loop []
+      (let [session (platform/get-verification-session client
+                                                       party-id
+                                                       session-id)]
+        (cond
+         (error/anomaly? session)
+         session
+
+         (= "ready" (:status session))
+         session
+
+         (< (util/now) deadline)
+         (do (Thread/sleep 200) (recur))
+
+         :else
+         nil)))))
+
+(defn- hand-off
+  "The URL that hands the person to the identity provider, from a
+  session opened under a submission of its own so a repeat reuses its
+  key, or nil when the provider has not answered in time. A session the
+  platform refuses drops its submission, so a retry mints a fresh key
+  rather than replaying the refusal."
+  [bank sign-up party-id details]
+  (let [session-request (domain/verification-session-request details
+                                                             (:app-url bank))]
+    (let-nom> [existing (store/submission-for-sign-up
+                         (ds bank)
+                         (:id sign-up)
+                         open-verification-session)
+               submitted (or existing
+                             (store/insert-submission
+                              (ds bank)
+                              (domain/sign-up-submission
+                               sign-up
+                               open-verification-session
+                               session-request)))
+               opened (let [opened (platform/open-verification-session
+                                    (:platform bank)
+                                    (:idempotency-key submitted)
+                                    party-id
+                                    session-request)]
+                        (when (error/rejection? opened)
+                          (store/delete-submission (ds bank)
+                                                   (:idempotency-key
+                                                    submitted)))
+                        opened)
+               ready (ready-session (:platform bank)
+                                    party-id
+                                    (:session-id opened))]
+      (get-in ready [:hand-off :url]))))
+
 (defn register-details
-  "Register the person with the platform, and carry the party onto the
-  sign-up."
+  "Register the person with the platform, carry the party onto the
+  sign-up, and open a verification session whose hand-off the app sends
+  the person to."
   [bank sign-up-id details]
   (let-nom> [sign-up (fetch-sign-up bank sign-up-id)
              _ (domain/check-step sign-up :details)
@@ -85,10 +148,13 @@
              updated (store/update-sign-up (ds bank)
                                            (domain/registered sign-up
                                                               details
-                                                              party))]
-    (assoc (domain/sign-up-view updated)
-           :verification
-           (:verification (domain/user updated party)))))
+                                                              party))
+             hand-off-url (hand-off bank updated (:party-id party) details)]
+    (util/assoc-some (assoc (domain/sign-up-view updated)
+                            :verification
+                            (:verification (domain/user updated party)))
+                     :hand-off-url
+                     hand-off-url)))
 
 (defn- new-session
   [bank customer-id]

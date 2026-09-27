@@ -457,6 +457,9 @@ console:
   # the SPA stays same-origin. Empty means whichever Keycloak this
   # release runs, which is one Service name in either mode.
   keycloakUpstream: ""
+  # The simulated identity provider's hosted page, proxied at
+  # `/identity-provider/` so a verification hand-off opens in a browser.
+  identityProviderUpstream: "http://{{ .Release.Name }}-external-adapters-service:8086"
   # Public URL of the realm endpoint the browser calls. Empty derives it
   # from the issuer, so publishing Keycloak moves this with everything
   # else; without a published hostname it falls back to the SPA's own
@@ -563,6 +566,9 @@ services:
       ZYPHE_SANDBOX: "true"
       ZYPHE_WEBHOOK_SECRET: "9f2b7c1d4e6a8035b1c9d2e4f6a80351d7e9b2c4f6a803517d9e2b4c6f8a0351"
       IDV_ZYPHE_ADAPTER_PUBLIC_URL: "http://localhost:8087"
+      # Where a hand-off sends the person: the simulator's hosted page,
+      # through the console's `/identity-provider/` proxy.
+      ZYPHE_VERIFY_URL: "{{ include \"queenswood.mailConsoleUrl\" . }}/identity-provider"
 
 # ---------------------------------------------------------------------
 # FDB cluster managed by the FDB Kubernetes operator. The version MUST

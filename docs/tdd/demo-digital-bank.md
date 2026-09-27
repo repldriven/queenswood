@@ -73,8 +73,9 @@ come, which take this one as their pattern.
   product per type. See
   [cash-account-products](cash-account-products.md).
 - **Parties and identity verification.** `POST /v1/parties` registers
-  a person and starts a check, against the Onfido simulator locally,
-  which decides from the applicant's name. See [parties](parties.md).
+  a person, and a verification session hands them to the identity
+  provider's hosted page, the provider's simulator locally, where the
+  outcome is chosen. See [parties](parties.md).
 - **Payments.** A payee check, an outbound Faster Payment against the
   ClearBank simulator, and an internal transfer, each carrying an
   `Idempotency-Key` the caller mints. See [payments](payments.md) and
@@ -179,8 +180,10 @@ plays no part. Sign-up follows the screens: a phone number, a code,
 the person's details, an identity check, a four-digit passcode. The
 code is fixed under the dev and test profiles, as the design assumes,
 and a sender for live is a later concern. The details — name, date of
-birth, address and National Insurance number — register a party while
-the identity scan plays, and the bank reads the verification back. The
+birth, email, address and National Insurance number — register a party
+and open a verification session. The app sends the person to the
+session's hand-off, the provider returns them to the bank's `app-url`
+at `#verified`, and sign-up resumes at the passcode. The
 passcode is stored as a salted hash. A session is an opaque random id
 held in the store with an expiry, sent by the app as a bearer, and a
 returning customer opens one with their phone number and passcode.
@@ -310,8 +313,6 @@ processor already holds `cash-accounts-event`.
 - **Member since.** The party's creation time.
 - **The fixed-term minimum.** Enforced by the bank from the product
   until the platform carries a minimum deposit.
-- **The identity scan.** An interstitial and no call; the check runs
-  on the details.
 - **The code.** Fixed under the dev and test profiles.
 - **What a notification says.** The platform delivers a record; the
   bank composes the line the customer reads from the kind and the

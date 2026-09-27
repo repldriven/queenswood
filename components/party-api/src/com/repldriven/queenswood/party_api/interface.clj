@@ -27,7 +27,10 @@
   `PartyEmbedQuery`, `NationalIdentifier`, `Address`,
   `CreatePartyRequest`, `CreatePartyResponse`, `PartyList`,
   `MergePartyRequest`, `MergePartyResponse`, `SuspendPartyResponse`,
-  `ResumePartyResponse`, `ClosePartyResponse`. Merged into the
+  `ResumePartyResponse`, `ClosePartyResponse`, and the party's
+  verification: `Verification`, `VerificationCriterion`,
+  `VerificationSession`, `OpenVerificationSessionRequest`, `HandOff`
+  and the ids and enums they carry. Merged into the
   coercion registry in `api.clj`, so `[:ref \"X\"]` resolves them on
   any route."}
   registry
@@ -42,6 +45,35 @@
   - party: a party as the query brick hands it back."
   [party]
   (components/->body party))
+
+(defn ->session-body
+  "Project a verification session view, as `idv-query/session` hands it
+  back, onto `VerificationSession`: the hand-off only while it is ready.
+
+  Args:
+  - session: the session view."
+  [session]
+  (components/->session-body session))
+
+(defn ->session-wire-body
+  "Project a verification session view and encode it as the read route
+  would, for a webhook notification carrying it.
+
+  Args:
+  - session: the session view."
+  [session]
+  (components/->session-wire-body session))
+
+(defn ->verification-body
+  "Project a verification view, as `idv-query/verification` hands it
+  back, onto `Verification`: each criterion by name and kind, never
+  what the person's document says.
+
+  Args:
+  - party-id: the party verified.
+  - verification: the verification view."
+  [party-id verification]
+  (components/->verification-body party-id verification))
 
 (defn ->wire-body
   "Project a stored party and encode it as a read route would: enums as
@@ -69,6 +101,19 @@
     enum's own, for a `:json-schema/example` and the like."
   ([] (coercion/party-status-enum-schema))
   ([extra-props] (coercion/party-status-enum-schema extra-props)))
+
+(defn verification-session-status-enum-schema
+  "The `VerificationSessionStatus` `:enum` schema, coercing between the
+  wire strings (`opening`, `ready`, `expired`, `completed`) and the
+  session's prefixed keywords.
+
+  Args:
+  - extra-props (optional): map of schema properties merged over the
+    enum's own."
+  ([] (coercion/verification-session-status-enum-schema))
+  ([extra-props]
+   (coercion/verification-session-status-enum-schema
+    extra-props)))
 
 ;; ---
 ;; links
@@ -141,3 +186,38 @@
   has open cash accounts."}
   PartyOpenAccounts
   examples/PartyOpenAccounts)
+
+(def
+  ^{:doc
+    "RFC 9457 body for a 404 `:idv/not-found` rejection: No verification
+  for this party."}
+  VerificationNotFound
+  examples/VerificationNotFound)
+
+(def
+  ^{:doc
+    "RFC 9457 body for a 404 `:idv/session-not-found` rejection: No such
+  verification session."}
+  VerificationSessionNotFound
+  examples/VerificationSessionNotFound)
+
+(def
+  ^{:doc
+    "RFC 9457 body for a 409 `:idv/invalid-status` rejection: the
+  party's verification is no longer pending."}
+  VerificationInvalidStatus
+  examples/VerificationInvalidStatus)
+
+(def
+  ^{:doc
+    "RFC 9457 body for a 422 `:idv/unsupported-channel` rejection: the
+  identity provider does not offer the channel."}
+  UnsupportedChannel
+  examples/UnsupportedChannel)
+
+(def
+  ^{:doc
+    "RFC 9457 body for a 422 `:idv/missing-email` rejection: the
+  identity provider needs the person's email."}
+  MissingEmail
+  examples/MissingEmail)

@@ -6,14 +6,15 @@ import "record_metadata_options.proto";
 
 option java_outer_classname = "ZypheOutboxProto";
 
-// Durable egress event for the Zyphe adapter — an idv-completed event
-// derived from a signed flow-status webhook. Written atomically with the
-// webhook receipt, relayed to the bus by a changelog watcher.
+// Durable egress event for the Zyphe adapter — the evidence a signed
+// webhook reports, or the hand-off the relay composed for a session.
+// Written atomically with the webhook receipt or the intent it settles,
+// relayed to the bus by a changelog watcher.
 message ZypheOutboxEvent {
   option (com.apple.foundationdb.record.record).usage = RECORD;
 
   required string outbox_id = 1;       // primary key (uuidv7)
-  required string dedup_key = 2;       // unique: verification-id + status
+  required string dedup_key = 2;       // unique: the provider event id
   required string event_name = 3;      // bus event name to publish
   required bytes  payload = 4;         // Avro-serialised event payload
   optional string correlation_id = 5;
@@ -30,7 +31,7 @@ message ZypheOutboundIntent {
   option (com.apple.foundationdb.record.record).usage = RECORD;
 
   required string intent_id = 1;       // primary key (uuidv7)
-  required string dedup_key = 2;       // unique: verification-id
+  required string dedup_key = 2;       // unique: session-id
   required string request = 3;         // EDN-encoded submit-idv-check data
   required string status = 4;          // pending | sent | failed
   optional string correlation_id = 5;

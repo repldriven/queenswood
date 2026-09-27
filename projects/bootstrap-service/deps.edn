@@ -17,8 +17,8 @@
  ;; here for its `system.clj`, which registers the
  ;; `cash-account-product-templates/template` kind the application.yml
  ;; instantiates — no code references the brick. `idv` is here for the
- ;; `idv/criteria-check` kind, and `person-identification` because `idv`
- ;; requires it.
+ ;; `idv/criteria-check` kind, and `idv-query`, `party-query` and
+ ;; `person-identification` because `idv` requires them.
  :deps {ext/mono {:local/root "../../deps/mono"}
         component/cash-account-product {:local/root
                                         "../../components/cash-account-product"}
@@ -26,6 +26,8 @@
         {:local/root "../../components/cash-account-product-query"}
         component/fdb {:local/root "../../components/fdb"}
         component/idv {:local/root "../../components/idv"}
+        component/idv-query {:local/root "../../components/idv-query"}
+        component/party-query {:local/root "../../components/party-query"}
         component/person-identification {:local/root
                                          "../../components/person-identification"}
         component/policy {:local/root "../../components/policy"}

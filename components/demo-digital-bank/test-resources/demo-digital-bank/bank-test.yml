@@ -17,6 +17,7 @@ bank: !system/component
   store: !system/local-ref store
   platform: !system/local-ref platform
   sign-up-code: "123456"
+  app-url: "http://localhost:3000"
   session-ttl-seconds: 3600
   # Short, so a test reading a stream sees the keep-alive that follows
   # what it replays.

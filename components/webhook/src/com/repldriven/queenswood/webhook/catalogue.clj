@@ -3,6 +3,7 @@
     [com.repldriven.queenswood.cash-account-api.interface :as cash-account-api]
     [com.repldriven.queenswood.cash-account-query.interface :as
      cash-account-query]
+    [com.repldriven.queenswood.idv-query.interface :as idv-query]
     [com.repldriven.queenswood.party-api.interface :as party-api]
     [com.repldriven.queenswood.party-query.interface :as party-query]
     [com.repldriven.queenswood.payment-api.interface :as payment-api]
@@ -29,6 +30,16 @@
 
 (def ^:private party-status-name
   (enum-name-fn (party-api/party-status-enum-schema)))
+
+(def ^:private verification-session-status-name
+  (enum-name-fn (party-api/verification-session-status-enum-schema)))
+
+(defn- load-verification-session
+  [txn bank-id session-id]
+  (let [session (idv-query/get-session txn bank-id session-id)]
+    (if (map? session)
+      (idv-query/session session (utility/now))
+      session)))
 
 (def ^:private outbound-payment-status-name
   (enum-name-fn (payment-api/outbound-payment-status-enum-schema)))
@@ -177,6 +188,17 @@
                 :party-status-active)
    (party-entry "party.closed" "close" :party-status-closed)
    (party-entry "party.merged" "merge" :party-status-merged)
+   ;; A session is told once it holds a hand-off, which the tenant needs
+   ;; to send the person to the identity provider.
+   {:kind "party.verification-session-ready"
+    :event "idv-session-status-changed"
+    :published-change-kind "ready"
+    :terminal-status :idv-session-status-ready
+    :resource-type "VerificationSession"
+    :resource-id-key :session-id
+    :status-name verification-session-status-name
+    :load load-verification-session
+    :project party-api/->session-wire-body}
    (outbound-entry "payment.outbound-held" :outbound-payment-change-kind-hold
                    "hold" :outbound-payment-status-held)
    (outbound-entry "payment.outbound-completed"

@@ -99,8 +99,8 @@ _demo-digital-bank-owner-accept client_id:
     #!/usr/bin/env zsh
     set -e
     OWNER=$(just _demo-digital-bank-user-token {{ DEMO_OWNER_USERNAME }} {{ DEMO_OWNER_PASSWORD }})
-    RES=$(curl -sS {{ DEMO_API_URL }}/v1/me -H "authorization: Bearer $OWNER")
-    if [[ -n "$(jq -r --arg b "{{ client_id }}" '.memberships[] | select(."bank-id" == $b) | ."membership-id"' <<<"$RES")" ]]; then
+    RES=$(curl -sS {{ DEMO_API_URL }}/v1/me/memberships -H "authorization: Bearer $OWNER")
+    if [[ -n "$(jq -r --arg b "{{ client_id }}" '.items[] | select(."bank-id" == $b) | ."membership-id"' <<<"$RES")" ]]; then
       echo "owner {{ DEMO_OWNER_EMAIL }} already a member"
     else
       RES=$(curl -sS {{ DEMO_API_URL }}/v1/me/invitations -H "authorization: Bearer $OWNER")
@@ -123,8 +123,8 @@ _demo-digital-bank-owner-accept client_id:
 _demo-digital-bank-opened-accounts token:
     #!/usr/bin/env zsh
     set -e
-    RES=$(curl -fsS -H "Authorization: Bearer {{ token }}" "{{ DEMO_API_URL }}/v1/cash-accounts")
-    jq -c '[.["cash-accounts"][] | select(.["account-status"] == "opened") | .["account-id"]]' <<<"$RES"
+    RES=$(curl -fsSg -H "Authorization: Bearer {{ token }}" "{{ DEMO_API_URL }}/v1/cash-accounts?page[size]=100")
+    jq -c '[.items[] | select(.["account-status"] == "opened") | .["account-id"]]' <<<"$RES"
 
 # Start the Vite dev server for the demo digital bank's customer app (port 5174)
 demo-digital-bank-app-start:
@@ -151,7 +151,7 @@ demo-digital-bank-start:
       exit 1
     fi
     export DEMO_DIGITAL_BANK_WEBHOOK_SECRET="${OUT%%$'\n'*}"
-    export DEMO_API_URL={{ DEMO_API_URL }}
+    export DEMO_API_URL={{ DEMO_API_URL }} DEMO_APP_URL={{ DEMO_APP_URL }}
     clj -M{{ DOMAIN_ALIASES }}:dev:test -e "(require 'com.repldriven.mono.testcontainers.interface)" -m com.repldriven.queenswood.demo-digital-bank-api.main -c "classpath:demo-digital-bank-api/application-test.yml" -p "dev" 2>&1 | tee demo-digital-bank.log
 
 # Create the bank's organisation on the local monolith with its owner invited, store its credential in pass, publish its three products, fund its own funds with £10,000 once, register its webhook endpoint with the secret in pass, and accept the owner's invitation as the owner; does only what is not already done, and replaces a credential the platform no longer knows.
@@ -280,7 +280,7 @@ demo-digital-bank-record-walkthrough:
     export DEMO_APP_URL={{ DEMO_APP_URL }} DEMO_BANK_URL={{ DEMO_BANK_URL }}
     TOKEN=$(just _demo-digital-bank-user-token {{ DEMO_OWNER_USERNAME }} {{ DEMO_OWNER_PASSWORD }})
     JOBS=$(curl -fsS -H "Authorization: Bearer $TOKEN" "{{ DEMO_API_URL }}/v1/jobs")
-    JOB=$(jq -r '[.jobs[] | select((.["job-id"] + " " + .name) | test("hourly-rewards"))][0]["job-id"] // empty' <<<"$JOBS")
+    JOB=$(jq -r '[.items[] | select((.["job-id"] + " " + .name) | test("hourly-rewards"))][0]["job-id"] // empty' <<<"$JOBS")
     if [[ -z "$JOB" ]]; then
       echo "no hourly-rewards job in the bank" >&2
       exit 1

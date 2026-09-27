@@ -14,7 +14,8 @@
                    :record-store system/required-component
                    :schemas system/required-component
                    :bus nil
-                   :idv-command-channel nil}
+                   :idv-command-channel nil
+                   :idv-provider nil}
    :system/instance-schema some?})
 
 (def ^:private event-processor
@@ -30,9 +31,7 @@
                    (or instance (events/->IdvPartyEventProcessor config)))
    :system/config {:record-db system/required-component
                    :record-store system/required-component
-                   :schemas system/required-component
-                   :bus nil
-                   :idv-command-channel nil}
+                   :schemas system/required-component}
    :system/instance-schema some?})
 
 (def ^:private criteria-check

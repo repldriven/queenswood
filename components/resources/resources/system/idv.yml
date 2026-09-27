@@ -5,6 +5,14 @@ processor: !system/component
   schemas: !system/ref avro.serde
   bus: !system/ref message-bus.bus
   idv-command-channel: !keyword idv-command
+  idv-provider: !include system/idv-provider.yml
+
+command-processor: !system/component
+  system/component-kind: command-processor/command-processor
+  bus: !system/ref message-bus.bus
+  processor: !system/local-ref processor
+  command-channel: !keyword idvs-command
+  command-response-channel: !keyword idvs-command-response
 
 event-processor-impl: !system/component
   system/component-kind: idv/event-processor
@@ -23,8 +31,6 @@ party-event-processor-impl: !system/component
   record-db: !system/ref fdb.record-db
   record-store: !system/ref fdb.meta-store
   schemas: !system/ref avro.serde
-  bus: !system/ref message-bus.bus
-  idv-command-channel: !keyword idv-command
 
 party-event-consumer: !system/component
   system/component-kind: event-processor/event-processor

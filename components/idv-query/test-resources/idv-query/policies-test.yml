@@ -1,0 +1,1 @@
+platform: !include policies/platform/restricted/policy.yml

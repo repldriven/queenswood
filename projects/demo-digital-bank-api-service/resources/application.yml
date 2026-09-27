@@ -41,6 +41,9 @@ system:
       platform: !system/local-ref platform
       # Until a sender exists, the code every sign-up is asked for.
       sign-up-code: !env DEMO_DIGITAL_BANK_SIGN_UP_CODE
+      # Where the identity provider returns a person after the hosted
+      # verification.
+      app-url: !env DEMO_DIGITAL_BANK_APP_ORIGIN
       # The secret the endpoint's registration returned, under which
       # the platform signs what it delivers.
       webhook-secret: !env DEMO_DIGITAL_BANK_WEBHOOK_SECRET

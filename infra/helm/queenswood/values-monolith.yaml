@@ -20,6 +20,7 @@ migrator:
 # SPA proxies /v1/* to the monolith pod, not the (disabled) bank-api.
 console:
   apiUpstream: "http://{{ .Release.Name }}-monolith-service:8080"
+  identityProviderUpstream: "http://{{ .Release.Name }}-monolith-service:8086"
 
 services:
   # The single all-in-one service. Adapters and simulators share this
@@ -31,6 +32,9 @@ services:
     enabled: true
     http: true
     port: 8080
+    extraPorts:
+      - name: zyphe-sim
+        port: 8086
     replicas: 1
     resources:
       limits: { cpu: "2000m", memory: "3Gi" }
@@ -45,6 +49,7 @@ services:
       ZYPHE_SANDBOX: "true"
       ZYPHE_WEBHOOK_SECRET: "9f2b7c1d4e6a8035b1c9d2e4f6a80351d7e9b2c4f6a803517d9e2b4c6f8a0351"
       IDV_ZYPHE_ADAPTER_PUBLIC_URL: "http://localhost:8087"
+      ZYPHE_VERIFY_URL: "{{ include \"queenswood.mailConsoleUrl\" . }}/identity-provider"
 
   # Everything the monolith subsumes is turned off. The monolith hosts
   # the changelog relay runners and the scheduler in-process too.

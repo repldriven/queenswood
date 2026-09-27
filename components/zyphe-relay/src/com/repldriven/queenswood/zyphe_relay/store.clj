@@ -13,6 +13,8 @@
 
 (def uniqueness-violation? fdb/uniqueness-violation?)
 
+(def transact fdb/transact)
+
 (defn save-event
   "Persist an outbox event and append it to the store's changelog in a
   single transaction. A duplicate `dedup-key` fails the unique index."

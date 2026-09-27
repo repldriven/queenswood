@@ -44,6 +44,17 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    # The simulated identity provider's hosted page, which a
+    # verification hand-off opens. The trailing slash strips the
+    # prefix; the page finds its decision route from its own path.
+    location /identity-provider/ {
+        proxy_pass ${IDENTITY_PROVIDER_UPSTREAM}/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
     # Same-origin Keycloak proxy. Browser hits
     # `${current-origin}/keycloak/...`; nginx forwards the path
     # unchanged to upstream, where Keycloak runs natively under

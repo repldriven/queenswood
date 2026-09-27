@@ -3,6 +3,7 @@ processor: !system/component
   record-db: !system/ref fdb.record-db
   record-store: !system/ref fdb.meta-store
   schemas: !system/ref avro.serde
+  idv-provider: !include system/idv-provider.yml
 event-processor: !system/component
   system/component-kind: idv/event-processor
   record-db: !system/ref fdb.record-db

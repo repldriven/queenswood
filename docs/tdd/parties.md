@@ -2,9 +2,9 @@
 
 > **Status: proposal.** Parties, the IDV record, the activation chain
 > and the IDV adapters exist, and Background names them. Everything
-> under Proposed Solution is the build list; the criteria and the
-> provider declaration are built, and [First slices](#first-slices)
-> says what comes next.
+> under Proposed Solution is the build list; the criteria, the provider
+> declaration, evidence and sessions are built for the deployed
+> adapter, and [First slices](#first-slices) says what comes next.
 
 ## Objective
 
@@ -56,16 +56,16 @@ organisation (KYB) verification, which no adapter offers yet.
   transition guarded on source status in `idv`'s `domain.clj`.
 - **The activation chain.** A pending person party relays
   `party-status-changed` off the parties changelog. `idv`'s
-  `party-event-processor` creates the IDV and publishes
-  `submit-idv-check` on `idv-command`. An IDV adapter consumes it,
-  calls the provider, and turns the provider's webhook into
-  `idv-completed` `{bank-id verification-id status}` on `idv-event`.
-  `idv`'s `event-processor` moves the IDV, the idvs changelog relays
+  `party-event-processor` creates the IDV, which waits pending for a
+  verification session. An IDV adapter turns the provider's webhook
+  into an event on `idv-event`: `idv-evidence` from the deployed
+  adapter, `idv-completed` `{bank-id verification-id status}` from the
+  development-only one. `idv`'s `event-processor` moves the IDV, the
+  idvs changelog relays
   `idv-status-changed` on `idvs-event`, and `party`'s
   `idv-event-processor` activates or rejects the party. Each hop
   crosses a durable channel per
-  [ADR-0021](../adr/0021-changelog-relay.md). The command is sent on
-  the bus after the IDV commits, not through an outbox.
+  [ADR-0021](../adr/0021-changelog-relay.md).
 - **IDV adapters.** Each is a base, `<provider>-adapter`, with a
   `<provider>-relay` component holding its `<provider>-outbox` and
   `<provider>-outbound-intents` stores and the runner that calls the
@@ -74,15 +74,16 @@ organisation (KYB) verification, which no adapter offers yet.
   base standing in for the provider. The adapter consumes
   `submit-idv-check` into an intent, the runner starts the provider's
   run carrying the bank and verification ids for correlation, and the
-  adapter serves the provider's webhook, maps its overall outcome to an
-  `idv-completed` status and writes it to its outbox, relayed to
-  `idv-event`. Two adapters exist. Every deployable build composes one
-  into `external-adapters` and `monolith`, and the other stays in the
-  development project with its tests.
-- **Simulators today.** Each simulator settles a run without a person.
-  The scenario rigs in `test-scenarios` and `test-api-scenarios` run
-  the development-only adapter's simulator, which rejects a check whose
-  given name contains "reject".
+  adapter serves the provider's webhook and writes what it reports to
+  its outbox, relayed to `idv-event`. Two adapters exist. Every
+  deployable build composes one into `external-adapters` and
+  `monolith`, and the other stays in the development project with its
+  tests.
+- **Simulators.** The development-only adapter's simulator settles a
+  run without a person, rejecting a check whose given name contains
+  "reject". The deployed adapter's simulator waits for a decision, and
+  the scenario rigs in `test-scenarios` and `test-api-scenarios` run
+  it.
 - **The provider as a deployment fact.** Which adapter runs is decided
   by the service's `application.yml`, never by a request, per
   [ADR-0020](../adr/0020-providers-are-deployment-facts.md). Only one
@@ -96,9 +97,10 @@ organisation (KYB) verification, which no adapter offers yet.
   `tier=platform` policy applies to every bank, and the console renders
   each capability's effect, reason and filters. IDV has one action,
   `idv-action-submit`, and a daily count limit per tier.
-- **What the tenant sees.** The API exposes no IDV route. A tenant
-  reads the party's status, and the webhook catalogue sends
-  `party.opened` and `party.rejected`.
+- **What the tenant sees.** A tenant reads the party's status and,
+  with the routes under [Verification sessions](#verification-sessions),
+  the verification. The webhook catalogue lists `party.opened` and
+  `party.rejected`.
 
 ## Proposed Solution
 
@@ -173,7 +175,8 @@ its absence never holds a verification up.
   for riskier products raises it with a deny of its own.
 
 `idv/unmet-criteria policies declaration` probes every value of both
-enums against `policies` and returns those a deny requires that the
+enums against `policies`, through `idv-query`, which holds the IDV's
+reads and the probe, and returns those a deny requires that the
 declaration below lacks. The change adds a field to the `Policy`
 record's nested capability, which bumps the meta-data version per
 [schema-evolution](../recipes/code/schema-evolution.md).
@@ -206,9 +209,10 @@ the provider:
 
 ### The evidence contract
 
-The adapter reports evidence, and `idv` decides. A new Avro event
+The adapter reports evidence, and `idv` decides. An Avro event
 `idv-evidence` on `idv-event`, registered in both YAMLs, carries
-`bank-id`, `verification-id`, `kind` and `outcome`, and per kind:
+`bank-id` and `verification-id`, and one optional section per kind of
+evidence the provider event reported:
 
 - **`document`** — `passed`, `failed` or `review`, with the extracted
   `given-names`, `family-name`, `date-of-birth`, `document-type` and
@@ -217,11 +221,13 @@ The adapter reports evidence, and `idv` decides. A new Avro event
 - **`address`** — `passed` or `failed`, with the `document-type`.
 - **`screening`** — `sanctions` `clear`, `possible-match` or `hit`, and
   `pep` `true` or `false`.
-- **`cancelled`** — the person abandoned the run.
+- **`cancelled`** — `true` when the person abandoned the run.
 
 `Idv` gains an `evidence` sub-message holding the latest of each kind,
-and `idv`'s `event-processor` handles `idv-evidence` by merging it and
-calling `domain/decide idv policies claimed`. `claimed` is the person
+and `criteria`, each verification and screening with its state:
+`outstanding`, `established`, `review` or `failed`. `idv`'s
+`event-processor` handles `idv-evidence` by merging it and calling
+`domain/decide idv policies claimed`. `claimed` is the person
 identification, read through `person-identification`, and the
 claimed-identity comparison uses `party-query/match-name` on the names
 and equality on the date of birth. `decide` settles each verification
@@ -240,8 +246,10 @@ Any reject makes the IDV `rejected`; otherwise any review makes it
 `in-review`; otherwise it is `accepted` when the `idv-action-accept`
 checks all pass, and stays `pending` while one is denied. A PEP is
 enhanced due diligence, not a refusal, so it reviews. `cancelled`
-fails the IDV. Redelivered evidence merges to the same record and
-decides the same way, so it needs no dedup beyond the outbox's.
+fails the IDV. A claimed identity with no family name stays
+outstanding. Redelivered evidence merges to the same record and
+decides the same way, so it needs no dedup beyond the outbox's, and an
+IDV no longer pending or in review takes no more.
 `idv-completed` retires once every adapter reports evidence.
 
 ### Verification sessions
@@ -252,29 +260,39 @@ starts. The party route gains:
 
 - **`POST /v1/parties/{party-id}/verification-sessions`** —
   `{channel return-url email}`, where `channel` is `web` or `mobile`
-  and `return-url` is an https page or an app link. Returns 202 with
-  a `Location` and the session `opening`. Rejects
+  and `return-url` is an https page, an http page on the loopback
+  interface for local development, or an app link. Returns 202 with a
+  `Location` and the session `opening`. Rejects
   `:idv/invalid-status` (409) unless the IDV is pending,
   `:idv/unsupported-channel` (422) for a channel the provider does not
   declare, and `:idv/missing-email` (422) where the provider needs one.
 - **`GET /v1/parties/{party-id}/verification-sessions/{session-id}`** —
-  `{status hand-off}`, `status` one of `opening`, `ready`, `expired`
-  and `completed`, `hand-off` `{type url expires-at}` once ready.
+  the session, its `status` one of `opening`, `ready`, `expired` and
+  `completed`, with `hand-off` `{type url expires-at}` while ready.
+  Rejects `:idv/session-not-found` (404).
 - **`GET /v1/parties/{party-id}/verification`** — the IDV's status,
-  and each verification and screening as established, in review or
-  failed, with the reasons of the denies still outstanding, never the
-  extracted identity.
+  and each verification and screening as outstanding, established, in
+  review or failed, with the reasons of the denies still outstanding,
+  never the extracted identity.
 
-The session is a command, `open-idv-session`, to `idv`'s processor,
-which checks `idv-action-submit` and its limit, records the session on
-the IDV and publishes `submit-idv-check` with the channel, return URL,
-email, and the verifications and screenings the bank's denies require.
-The adapter reports the hand-off as an `idv-session-opened` event
-`{verification-id session-id url expires-at}`, which `idv` stores on
-the session until it expires or the IDV decides, and never logs. The
-webhook catalogue gains `party.verification-session-ready`. Party
-creation stops publishing `submit-idv-check`: the IDV waits, pending,
-for the first session.
+The session is a command, `open-idv-session` on `idvs-command`, to
+`idv`'s processor, which checks `idv-action-submit` and its daily limit
+in one transaction, saves the session to the `idv-sessions` store, and
+once that commits publishes `submit-idv-check` with the session, the
+channel, the return URL, the email, and the verifications and
+screenings the bank's denies require. The adapter reports the hand-off
+as an `idv-session-opened` event
+`{bank-id verification-id session-id url expires-at}`, which makes the
+session `ready`. A session reads `expired` once `expires-at` passes,
+and is `completed` when the IDV leaves pending. The hand-off is never
+logged. The `idv-sessions` changelog relays
+`idv-session-status-changed` on `idvs-event`, and the webhook catalogue
+sends `party.verification-session-ready` with the session as the read
+route returns it. Party creation no longer publishes
+`submit-idv-check`: the IDV waits, pending, for the first session.
+Opening a session for a pending person whose IDV the party event has
+not created yet creates it in the session's transaction, so a session
+opened straight after the party is not refused.
 
 ### The IDV adapter contract
 
@@ -308,12 +326,14 @@ runs changes nothing outside it:
   does, and serves the hosted page the hand-off points at. The page
   asks for what the person's document says and offers the outcomes a
   person or a reviewer produces: a document that matches, someone
-  else's document, failed liveness, a failed address document, a
-  sanctions hit, a sanctions possible match, a PEP, and walking away.
+  else's document, a document in review, a forged document, failed
+  liveness, a failed address document, a sanctions hit, a sanctions
+  possible match, a PEP, and walking away.
   Submitting emits the provider's results for that outcome and returns
   the person to the return URL. A decision route takes the same body,
   so a test drives what a person would, and nothing settles a run
-  without one.
+  without one. Deployed, the console proxies the page at
+  `/identity-provider/`, and the adapter's verify URL points there.
 
 ### First slices
 
@@ -328,12 +348,14 @@ runs changes nothing outside it:
    and the deployed adapter and its simulator reporting evidence. The
    scenario rigs move to that simulator and drive its decision route,
    and the name-based rejection retires from them. Proved by a scenario
-   per row of the treatment table.
+   per row of the treatment table. Built.
 3. **Sessions.** The routes, `open-idv-session`, the hand-off, the
    hosted page, and party creation no longer submitting. The console's
    onboarding scenario opens a session and sends Zaphod through the
-   hosted page with a sanctions hit. Proved by API scenarios for both
-   channels.
+   hosted page with a sanctions hit, and the demo bank's sign-up hands
+   the person to it. Proved by API scenarios for the hand-off and the
+   refusals. Built, with slice 2, so no build has persons who cannot
+   activate.
 
 Resolving a review, re-verification and bringing the
 development-only adapter up to the contract follow under this TDD.
@@ -347,8 +369,10 @@ The demo bank's onboarding screens follow under
   neither.
 - **`idv`** — `unmet-criteria` over the platform and micro policies,
   `domain/decide` over every row of the treatment table, evidence
-  merged in any order, redelivery deciding the same way, and the
-  session's record and expiry.
+  merged in any order, redelivery deciding the same way, the
+  session's refusals, and a session made ready and completed.
+- **`idv-query`** — the criteria a bank's policies require, and a
+  session reading expired.
 - **`bank`** — create and tier change refused with what is missing.
 - **`<provider>-adapter`** — each provider result mapped to its
   evidence, an unauthenticated delivery refused, and the refusal to
@@ -357,11 +381,11 @@ The demo bank's onboarding screens follow under
   screenings, resuming a run, and the hand-off for each channel.
 - **`<provider>-simulator`** — each hosted-page outcome posting its
   results, authenticated as the provider's are.
-- **`test-api-scenarios`** — opening a session for web and mobile, the
-  refusals, the verification read with its outstanding reasons, and a
-  party activated or rejected through the simulator.
-- **`test-scenarios`** — the model's activation rule follows the
-  treatment table and the denies.
+- **`test-api-scenarios`** — a scenario per row of the treatment
+  table, a session handing off, the refusals, a session refused once
+  the IDV decides, and the verification read.
+- **`test-scenarios`** — every person verified through the simulator
+  with a matching document.
 
 ## Alternatives Considered
 
@@ -417,8 +441,15 @@ The demo bank's onboarding screens follow under
   leaves the IDV `in-review`, and nothing lets an operator accept or
   reject it.
 - **The development-only adapter reports no evidence.** It reports an
-  overall outcome, so it cannot meet the platform floor until it maps
-  its provider's reports.
+  overall outcome, and never reports a hand-off, so it cannot meet the
+  platform floor or open a session until it meets the contract.
+- **Party webhooks are not delivered.** The catalogue lists the
+  `party.*` kinds, but no webhook consumer reads `parties-event`, so a
+  tenant learns a party opened or was rejected only by reading it.
+- **The verification read can lag the party.** Until the party event
+  or a session creates the IDV, `GET .../verification` returns 404.
+- **The simulator's page is reached through the console.** A deployed
+  instance without the console has no route to the hosted page.
 - **`claimed-identity` depends on the provider returning extracted
   details.** A provider that returns only a pass or a fail cannot
   verify it, whatever its document check does.
@@ -453,4 +484,5 @@ The demo bank's onboarding screens follow under
 - [ADR-0021](../adr/0021-changelog-relay.md) — the changelog relay the
   activation chain runs on.
 - [schema-evolution](../recipes/code/schema-evolution.md) — the
-  meta-data bump for the `Policy` and `Idv` changes.
+  meta-data bumps for the `Policy` and `Idv` changes and the
+  `idv-sessions` store.

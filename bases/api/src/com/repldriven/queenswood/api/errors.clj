@@ -50,6 +50,7 @@
    :invitation/invalid-status 409
    :invitation/superseded 409
    :gl/missing-currency-account 409
+   :idv/invalid-status 409
    :ledger-account/invalid-status 409
    :ledger-account/closed 409
    :membership/invalid-status 409
