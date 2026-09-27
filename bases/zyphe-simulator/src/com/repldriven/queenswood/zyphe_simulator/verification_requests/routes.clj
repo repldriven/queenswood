@@ -29,9 +29,24 @@
     ["/decision"
      {:post
       {:summary
-       "Settle a run as the person and reviewer would, and deliver its event"
+       "Settle a run as the person and reviewer would, and deliver its events"
        :openapi {:operationId "DecideSimulatedVerificationRequest"}
        :parameters {:path [:map [:id string?]] :body [:ref "Decision"]}
        :responses {200 {:body [:ref "VerificationRequest"]}
-                   404 {:body [:ref "BaxeError"]}}
-       :handler (handlers/decide nil)}}]]])
+                   404 {:body [:ref "BaxeError"]}
+                   409 {:body [:ref "BaxeError"]}}
+       :handler (handlers/decide nil)}}]]
+   ["/sandbox/flow/{slug}"
+    {:openapi {:tags ["Hosted flow"]}
+     :get {:summary "The hosted page a sandbox hand-off opens"
+           :openapi {:operationId "SandboxHostedFlow"}
+           :parameters {:path [:map [:slug string?]]
+                        :query [:ref "HostedPageQuery"]}
+           :handler (handlers/hosted-page nil)}}]
+   ["/flow/{slug}"
+    {:openapi {:tags ["Hosted flow"]}
+     :get {:summary "The hosted page a hand-off opens"
+           :openapi {:operationId "HostedFlow"}
+           :parameters {:path [:map [:slug string?]]
+                        :query [:ref "HostedPageQuery"]}
+           :handler (handlers/hosted-page nil)}}]])

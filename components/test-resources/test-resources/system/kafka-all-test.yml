@@ -175,6 +175,14 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-parties-command
       acks: all
+  idvs-command:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword command
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      topic: topic-idvs-command
+      acks: all
   memberships-command-dlq:
     _: !system/local-ref topics
     conf:
@@ -186,6 +194,12 @@ producers: !system/component
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-parties-command-dlq
+      acks: all
+  idvs-command-dlq:
+    _: !system/local-ref topics
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      topic: topic-idvs-command-dlq
       acks: all
   memberships-command-response:
     _: !system/local-ref topics
@@ -202,6 +216,14 @@ producers: !system/component
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-parties-command-response
+      acks: all
+  idvs-command-response:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword command-response
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      topic: topic-idvs-command-response
       acks: all
   parties-event:
     _: !system/local-ref topics
@@ -403,6 +425,14 @@ consumers: !system/component
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       group.id: test-webhook-rewards-event
+  webhook-idvs-event:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword event
+    topics: [topic-idvs-event]
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      group.id: test-webhook-idvs-event
   companies-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -481,6 +511,16 @@ consumers: !system/component
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       group.id: test-parties-command
+  idvs-command:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword command
+    topics: [topic-idvs-command]
+    dead-letter-producer: !system/local-ref producers.idvs-command-dlq
+    max-redeliveries: 5
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      group.id: test-idvs-command
   memberships-command-response:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -497,6 +537,14 @@ consumers: !system/component
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       group.id: test-parties-command-response
+  idvs-command-response:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword command-response
+    topics: [topic-idvs-command-response]
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      group.id: test-idvs-command-response
   parties-event:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -634,10 +682,14 @@ message-bus-producers: !system/component
     producer: !system/local-ref producers.memberships-command
   parties-command:
     producer: !system/local-ref producers.parties-command
+  idvs-command:
+    producer: !system/local-ref producers.idvs-command
   memberships-command-response:
     producer: !system/local-ref producers.memberships-command-response
   parties-command-response:
     producer: !system/local-ref producers.parties-command-response
+  idvs-command-response:
+    producer: !system/local-ref producers.idvs-command-response
   parties-event:
     producer: !system/local-ref producers.parties-event
   payee-checks-command:
@@ -691,6 +743,9 @@ message-bus-consumers: !system/component
   webhook-rewards-event:
     consumer: !system/local-ref consumers.webhook-rewards-event
     timeout: 500
+  webhook-idvs-event:
+    consumer: !system/local-ref consumers.webhook-idvs-event
+    timeout: 500
   companies-command:
     consumer: !system/local-ref consumers.companies-command
     timeout: 500
@@ -718,11 +773,17 @@ message-bus-consumers: !system/component
   parties-command:
     consumer: !system/local-ref consumers.parties-command
     timeout: 500
+  idvs-command:
+    consumer: !system/local-ref consumers.idvs-command
+    timeout: 500
   memberships-command-response:
     consumer: !system/local-ref consumers.memberships-command-response
     timeout: 500
   parties-command-response:
     consumer: !system/local-ref consumers.parties-command-response
+    timeout: 500
+  idvs-command-response:
+    consumer: !system/local-ref consumers.idvs-command-response
     timeout: 500
   parties-event:
     consumer: !system/local-ref consumers.parties-event

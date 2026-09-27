@@ -16,6 +16,8 @@ system:
         - memberships-command-response
         - parties-command
         - parties-command-response
+        - idvs-command
+        - idvs-command-response
         - parties-event
         - transactions-command
         - transactions-command-response
@@ -62,6 +64,7 @@ system:
   invitations-relay: !include system/invitation-relay.yml
   memberships-dispatcher: !include system/membership-dispatcher.yml
   parties-dispatcher: !include system/party-dispatcher.yml
+  idvs-dispatcher: !include system/idv-dispatcher.yml
   parties-relay: !include system/party-relay.yml
   payee-checks-dispatcher: !include system/payee-check-dispatcher.yml
   payments-dispatcher: !include system/payment-dispatcher.yml
@@ -93,6 +96,7 @@ system:
         cash-accounts: !system/ref cash-accounts-dispatcher.dispatcher
         memberships: !system/ref memberships-dispatcher.dispatcher
         parties: !system/ref parties-dispatcher.dispatcher
+        idvs: !system/ref idvs-dispatcher.dispatcher
         payments: !system/ref payments-dispatcher.dispatcher
         transactions: !system/ref transactions-dispatcher.dispatcher
         payee-checks: !system/ref payee-checks-dispatcher.dispatcher

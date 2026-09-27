@@ -23,6 +23,7 @@
   {:given-name "Amara"
    :family-name "Okafor"
    :date-of-birth "1994-03-12"
+   :email "amara@example.com"
    :address {:building-number "12"
              :street "Mare Street"
              :town "London"
@@ -102,7 +103,18 @@
              refused (SUT/register-details bank (:id started) details)]
          (is (error/rejection? refused))
          (is (= :sign-up/invalid-status (error/kind refused)))
-         (is (= "verified" (:allowed (error/payload refused))))))
+         (is (= ["registered" "verified"] (:allowed (error/payload refused))))))
+     (testing "a sign-up whose session was refused retries its details"
+       (let [started (SUT/start-sign-up bank {:phone "07700 900126"})
+             _ (SUT/verify-code bank (:id started) {:code "123456"})
+             _ (swap! (state sys) assoc :refuse-sessions 1)
+             refused (SUT/register-details bank (:id started) details)
+             retried (SUT/register-details bank (:id started) details)]
+         (is (= :platform/refused (error/kind refused)))
+         (is (= "registered" (:status retried)) (pr-str retried))
+         (is (= (:party-id retried)
+                (:party-id (SUT/register-details bank (:id started) details))))
+         (is (string? (:hand-off-url retried)))))
      (testing "a wrong code is refused and the sign-up stays where it was"
        (let [started (SUT/start-sign-up bank {:phone "07700 900125"})
              refused (SUT/verify-code bank (:id started) {:code "000000"})]

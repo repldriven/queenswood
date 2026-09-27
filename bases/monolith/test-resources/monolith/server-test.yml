@@ -34,6 +34,7 @@ interceptors: !system/component
     transactions: !system/ref transactions-dispatcher.dispatcher
     payee-checks: !system/ref payee-checks.dispatcher
     companies: !system/ref companies-dispatcher.dispatcher
+    idvs: !system/ref idvs-dispatcher.dispatcher
   avro: !system/ref avro.serde
   record-db: !system/ref fdb.record-db
   record-store: !system/ref fdb.meta-store

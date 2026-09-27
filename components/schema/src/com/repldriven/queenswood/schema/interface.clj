@@ -54,7 +54,7 @@
     (com.repldriven.queenswood.schemas.emails
      EmailDeliveryProto$EmailDelivery)
     (com.repldriven.queenswood.schemas.idempotency IdempotencyProto$Idempotency)
-    (com.repldriven.queenswood.schemas.idv IdvProto$Idv)
+    (com.repldriven.queenswood.schemas.idv IdvProto$Idv IdvProto$IdvSession)
     (com.repldriven.queenswood.schemas.interest
      InterestRunProto$InterestRun
      InterestRunProto$InterestAccountRun)
@@ -418,6 +418,26 @@
   - m: Idv map matching the generated schema."
   [m]
   (IdvProto$Idv/parseFrom (Idv->pb m)))
+
+(def ^{:doc "Parse IdvSession protobuf bytes into a Clojure map."}
+     pb->IdvSession
+  idv/pb->IdvSession)
+
+(defn IdvSession->pb
+  "Serialise an IdvSession map to protobuf bytes.
+
+  Args:
+  - m: IdvSession map matching the generated schema."
+  [m]
+  (proto/->pb (idv/new-IdvSession m)))
+
+(defn IdvSession->java
+  "Parse an IdvSession map into the generated Java protobuf class.
+
+  Args:
+  - m: IdvSession map matching the generated schema."
+  [m]
+  (IdvProto$IdvSession/parseFrom (IdvSession->pb m)))
 
 (def ^{:doc "Parse CashAccountMigration protobuf bytes into a Clojure map."}
      pb->CashAccountMigration

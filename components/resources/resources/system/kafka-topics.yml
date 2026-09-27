@@ -50,9 +50,15 @@
     partitions: 1
   - topic: topic-parties-command
     partitions: 1
+  - topic: topic-idvs-command
+    partitions: 1
   - topic: topic-parties-command-dlq
     partitions: 1
+  - topic: topic-idvs-command-dlq
+    partitions: 1
   - topic: topic-parties-command-response
+    partitions: 1
+  - topic: topic-idvs-command-response
     partitions: 1
   - topic: topic-parties-event
     partitions: 1

@@ -60,6 +60,9 @@ system:
       store: !system/local-ref store
       platform: !system/local-ref platform
       sign-up-code: "123456"
+      app-url: !profile
+        dev: !or [!env DEMO_APP_URL, "http://localhost:5174"]
+        default: "http://localhost:3000"
       # Short under test, so a stream the test has closed is noticed a
       # keep-alive later rather than fifteen seconds later: the bank
       # learns a stream is gone only when a write to it fails. Nil for

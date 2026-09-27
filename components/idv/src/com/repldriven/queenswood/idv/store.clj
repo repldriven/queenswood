@@ -9,10 +9,14 @@
 
 (def ^:private store-name "idvs")
 
+(def ^:private sessions-store-name "idv-sessions")
+
 (def transact fdb/transact)
 (def uniqueness-violation? fdb/uniqueness-violation?)
 
 (defn save-idv
+  "Save `idv`, and when `changelog` is given, the status transition it
+  describes to the idvs changelog."
   [txn idv changelog]
   (fdb/transact
    txn
@@ -20,41 +24,38 @@
      (let [store (fdb/open txn store-name)]
        (let-nom>
          [_ (fdb/save-record store (schema/Idv->java idv))
-          entry (changelog/status-changed
-                 (assoc changelog
-                        :bank-id (:bank-id idv)
-                        :party-id (:party-id idv)))
-          _ (fdb/write-changelog
-             txn
-             store-name
-             (:verification-id idv)
-             entry)]
+          _ (when changelog
+              (let-nom> [entry (changelog/status-changed
+                                (assoc changelog
+                                       :bank-id (:bank-id idv)
+                                       :party-id (:party-id idv)))]
+                (fdb/write-changelog txn
+                                     store-name
+                                     (:verification-id idv)
+                                     entry)))]
          idv)))
    :idv/save
    "Failed to save IDV"))
 
-(defn get-idv
-  [txn bank-id verification-id]
+(defn save-session
+  [txn session status-before]
   (fdb/transact
    txn
    (fn [txn]
-     (some-> (fdb/load-record (fdb/open txn store-name)
-                              bank-id
-                              verification-id)
-             schema/pb->Idv))
-   :idv/get
-   "Failed to load IDV"))
-
-(defn get-idv-by-party
-  [txn party-id]
-  (fdb/transact
-   txn
-   (fn [txn]
-     (some-> (fdb/query-record (fdb/open txn store-name)
-                               "Idv"
-                               "party_id"
-                               party-id
-                               {:index "Idv_by_party"})
-             schema/pb->Idv))
-   :idv/get-by-party
-   "Failed to look up IDV by party"))
+     (let [store (fdb/open txn sessions-store-name)]
+       (let-nom>
+         [_ (fdb/save-record store (schema/IdvSession->java session))
+          entry (changelog/session-status-changed
+                 {:bank-id (:bank-id session)
+                  :session-id (:session-id session)
+                  :verification-id (:verification-id session)
+                  :party-id (:party-id session)
+                  :status-before status-before
+                  :status-after (:status session)})
+          _ (fdb/write-changelog txn
+                                 sessions-store-name
+                                 (:session-id session)
+                                 entry)]
+         session)))
+   :idv/save-session
+   "Failed to save IDV session"))

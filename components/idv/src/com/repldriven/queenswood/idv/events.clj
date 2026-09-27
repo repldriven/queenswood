@@ -65,6 +65,8 @@
       (let-nom> [data (avro/deserialize-same schema payload)]
         (case event
           "idv-completed" (handle-idv-completed config data)
+          "idv-evidence" (core/apply-evidence config data)
+          "idv-session-opened" (core/record-hand-off config data)
           (do (log/warnf "Unknown IDV event: %s" event) nil))))))
 
 (defrecord IdvEventProcessor [config]
@@ -75,9 +77,6 @@
   [config data]
   (let [{:keys [bank-id party-id status-after]} data]
     (when (= :party-status-pending status-after)
-      ;; `config` rather than a bank map: initiating publishes a
-      ;; `submit-idv-check` command, so the bus and command channel have
-      ;; to come along.
       (core/initiate-for-party config bank-id party-id))))
 
 (defn- dispatch-party

@@ -1,0 +1,94 @@
+{:name "A tenant opens a verification session and gets a hand-off for the person"
+ :tags #{:api :idv :parties :happy}
+ :given
+ [{:command :api/request
+   :request
+   {:method :post
+    :path "/v1/banks"
+    :auth :admin
+    :headers {:idempotency-key "ik-verification-session-hands-off-bank-001"}
+    :body
+    {:name "Verification Session Org" :status "live" :tier "micro" :currencies ["GBP"]}}
+   :as :org-0
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :org-0 :client-id]
+         :client-secret [:ref :org-0 :client-secret]
+         :status :live}
+   :as :org-0-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-verification-session-hands-off-party-001"}
+             :body {:type "person"
+                    :display-name "Ford Prefect"
+                    :given-name "Ford"
+                    :family-name "Prefect"
+                    :date-of-birth "1960-01-01"
+                    :nationality "GB"
+                    :address {:building-number "155"
+                              :street "Country Lane"
+                              :town "Cottington"
+                              :postcode "CT12 4XY"
+                              :country "GBR"}
+                    :national-identifier {:type "national-insurance"
+                                          :value "TN300001S"
+                                          :issuing-country "GB"}}}
+   :as :party-0
+   :verify false
+   :assert {:status 201}}]
+ :when
+ [{:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}/verification"
+             :path-params {:party-id [:ref :party-0 :party-id]}
+             :auth :org-0-token}
+   :until {:status 200
+           :body {:status "pending"
+                  :criteria [:m/embeds
+                             [{:name "address"
+                               :kind "verification"
+                               :state "outstanding"
+                               :reason "A person's address must be verified"}]]}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties/{party-id}/verification-sessions"
+             :path-params {:party-id [:ref :party-0 :party-id]}
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-verification-session-hands-off-001"}
+             :body {:channel "mobile"
+                    :return-url "ford-app://verified"
+                    :email "ford@example.test"}}
+   :as :session-0
+   :assert {:status 202
+            :headers {:location [:m/regex "^/v1/parties/pty\\.[^/]+/verification-sessions/ses\\."]}
+            :body {:session-id [:m/regex "^ses\\."]
+                   :channel "mobile"
+                   :return-url "ford-app://verified"
+                   :status "opening"
+                   :hand-off [:m/absent]}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}/verification-sessions/{session-id}"
+             :path-params {:party-id [:ref :party-0 :party-id]
+                           :session-id [:ref :session-0 :session-id]}
+             :auth :org-0-token}
+   :until {:status 200
+           :body {:status "ready"
+                  :hand-off {:type "url"
+                             :url [:m/regex "zypheVr=.+zypheFullscreen=true"]
+                             :expires-at [:m/regex "^\\d{4}-"]}}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties/{party-id}/verification-sessions"
+             :path-params {:party-id [:ref :party-0 :party-id]}
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-verification-session-hands-off-002"}
+             :body {:channel "web"
+                    :return-url "http://localhost:5173/#verified"
+                    :email "ford@example.test"}}
+   :assert {:status 202
+            :body {:channel "web"
+                   :return-url "http://localhost:5173/#verified"
+                   :status "opening"}}}]}

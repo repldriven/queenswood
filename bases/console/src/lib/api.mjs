@@ -324,6 +324,24 @@ export function create_party(data) {
   });
 }
 
+// A person's identity verification: the session that hands them to the
+// identity provider, opening until the provider answers with a hand-off
+// URL, and the verification's status and criteria.
+export function open_verification_session(party_id, data) {
+  return mutate(`/v1/parties/${party_id}/verification-sessions`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export function get_verification_session(party_id, session_id) {
+  return request(`/v1/parties/${party_id}/verification-sessions/${session_id}`);
+}
+
+export function get_verification(party_id) {
+  return request(`/v1/parties/${party_id}/verification`);
+}
+
 // ─── Cash accounts (org-scoped) ───
 //
 // Open an account against a party + published product (returns

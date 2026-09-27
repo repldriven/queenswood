@@ -252,6 +252,118 @@
                             :token-exchange-refused
                             :no-client-credentials)})))))
 
+(def ^:private verification-return-url "https://app.example.test/verified")
+
+(def ^:private verification-timeout-ms 15000)
+
+(defn- iso-date
+  [yyyymmdd]
+  (when (and (int? yyyymmdd) (pos? yyyymmdd))
+    (format "%04d-%02d-%02d"
+            (quot yyyymmdd 10000)
+            (rem (quot yyyymmdd 100) 100)
+            (rem yyyymmdd 100))))
+
+(defn- person-document
+  "What the person's own document says, read off the party as the
+  tenant registered it."
+  [ctx auth party-id]
+  (let [{:keys [body]} (send-once ctx
+                                  {:method :get
+                                   :path (str "/v1/parties/" party-id)
+                                   :query-params {"embed[person-identification]"
+                                                  "true"}
+                                   :auth auth})
+        {:keys [given-name middle-names family-name date-of-birth]} body]
+    {:givenNames (str/join " " (remove str/blank? [given-name middle-names]))
+     :familyName family-name
+     :dateOfBirth (iso-date date-of-birth)}))
+
+(defn- until-deadline
+  "Call `f` until it returns non-nil or `timeout-ms` passes; nil then."
+  [timeout-ms f]
+  (let [deadline (+ (utility/now) timeout-ms)]
+    (loop []
+      (or (f)
+          (when (< (utility/now) deadline)
+            (Thread/sleep 50)
+            (recur))))))
+
+(defn- open-session
+  "Open a verification session for `party-id` straight after its
+  creation, as a tenant's app would."
+  [ctx auth party-id channel email]
+  (send-once ctx
+             {:method :post
+              :path (str "/v1/parties/" party-id "/verification-sessions")
+              :auth auth
+              :headers {"Idempotency-Key" (str "ik-verify-" (utility/uuidv7))}
+              :body (cond-> {:channel (or channel "web")
+                             :return-url verification-return-url}
+                            email
+                            (assoc :email email))}))
+
+(defn- ready-session
+  [ctx auth party-id session-id]
+  (until-deadline
+   verification-timeout-ms
+   (fn []
+     (let [{:keys [body]} (send-once ctx
+                                     {:method :get
+                                      :path (str "/v1/parties/" party-id
+                                                 "/verification-sessions/"
+                                                 session-id)
+                                      :auth auth})]
+       (when (= "ready" (:status body)) body)))))
+
+(defn- verify-party
+  "Stand in for the tenant's app and the person: open a session for
+  `party`, wait for its hand-off, and submit `outcome` (default a
+  document that matches) with what `document` says (default the party's
+  own details) to the simulator's decision route — the body its hosted
+  page posts. Returns the ready session, or nil having failed an
+  assertion saying where it stopped."
+  [{:keys [zyphe-simulator-url] :as ctx}
+   {:keys [party auth outcome document channel email]}]
+  (let [opened (open-session ctx
+                             auth
+                             party
+                             channel
+                             (or email "person@example.test"))
+        session-id (get-in opened [:body :session-id])]
+    (is (= 202 (:status opened))
+        (str "opening a verification session: " (pr-str opened)))
+    (when session-id
+      (let [ready (ready-session ctx auth party session-id)
+            url (get-in ready [:hand-off :url])
+            vr (some->> url
+                        (re-find #"[?&]zypheVr=([^&]+)")
+                        second)]
+        (is (some? vr) (str "the session never became ready: " party))
+        (when vr
+          (let [res (http/request
+                     {:method :post
+                      :url (str zyphe-simulator-url
+                                "/simulator/verification-requests/"
+                                vr
+                                "/decision")
+                      :headers {"Content-Type" "application/json"}
+                      :body (json/write-str
+                             (merge {:outcome (or outcome "match")}
+                                    (or document
+                                        (person-document ctx auth party))))})]
+            (is (= 200 (:status res))
+                (str "deciding the verification: " (pr-str res)))
+            ready))))))
+
+(def ^:private create-party-request {:method :post :path "/v1/parties"})
+
+(defn- created-person?
+  [request response]
+  (and (= create-party-request (select-keys request [:method :path]))
+       (= 201 (:status response))
+       (= "person" (get-in response [:body :type]))))
+
 (defmulti dispatch
   "Scenario step dispatch. `:api/*` methods drive the bank API over
   HTTP; `:assert/*` methods check the previous response.
@@ -262,11 +374,18 @@
 
   `:api/race` sends one request `:count` times at once and asserts the
   idempotency invariant over the answers rather than their timing: see
-  its own method."
+  its own method.
+
+  A step creating a person party verifies it as the tenant's app and the
+  person would: it opens a verification session and submits a document
+  that matches the party through the identity-provider simulator. The
+  step's `:verify` names another `:outcome` or `:document`, or `false`
+  leaves the party pending. `:idv/verify` does the same for a `:party`
+  created earlier, capturing the ready session under `:as`."
   (fn [_ctx command] (:command command)))
 
 (defmethod dispatch :api/request
-  [{:keys [captures] :as ctx} {:keys [request as] :as step}]
+  [{:keys [captures] :as ctx} {:keys [request as verify] :as step}]
   (let [resolved (refs/resolve-all captures request)
         response (send-once ctx resolved)
         ctx' (cond-> (assoc ctx :last-response response)
@@ -274,10 +393,25 @@
                      (assoc-in [:captures as] (:body response))
 
                      (created-bank? resolved response)
-                     (track-bank (:body response)))]
-    (if-let [expect (:assert step)]
-      (dispatch ctx' {:command :assert/response :assert expect})
-      ctx')))
+                     (track-bank (:body response)))
+        ctx'' (if-let [expect (:assert step)]
+                (dispatch ctx' {:command :assert/response :assert expect})
+                ctx')]
+    ;; A person the step creates is verified as the tenant's app would
+    ;; have it be, unless the step says `:verify false`.
+    (when (and (created-person? resolved response) (not (false? verify)))
+      (verify-party ctx''
+                    (merge (refs/resolve-all captures verify)
+                           {:party (get-in response [:body :party-id])
+                            :auth (:auth resolved)})))
+    ctx''))
+
+(defmethod dispatch :idv/verify
+  [{:keys [captures] :as ctx} {:keys [as] :as step}]
+  (let [session (verify-party ctx (refs/resolve-all captures step))]
+    (cond-> ctx
+            as
+            (assoc-in [:captures as] session))))
 
 (defmethod dispatch :api/race
   [{:keys [captures] :as ctx} {:keys [request as] n :count :as step}]

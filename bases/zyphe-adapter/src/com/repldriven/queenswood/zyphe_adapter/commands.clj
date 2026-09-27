@@ -10,16 +10,16 @@
 
 (defn- submit-idv-check-intent
   "Persist the outbound Zyphe submission as a pending intent in one FDB
-  transaction, then ack. The out-of-transaction runner creates the
-  Zyphe verification request. A redelivered command (same
-  verification-id) dedupes at the unique index."
+  transaction, then ack. The out-of-transaction runner creates or
+  resumes the Zyphe verification request. A redelivered command (same
+  session) dedupes at the unique index."
   [config data]
   (let [{:keys [record-db record-store]} config
         fdb-config {:record-db record-db :record-store record-store}
-        {:keys [verification-id]} data
+        {:keys [verification-id session-id]} data
         res (relay/save-intent fdb-config
                                {:intent-id (str (utility/uuidv7))
-                                :dedup-key verification-id
+                                :dedup-key (or session-id verification-id)
                                 :request (pr-str data)
                                 :status "pending"
                                 :attempts 0

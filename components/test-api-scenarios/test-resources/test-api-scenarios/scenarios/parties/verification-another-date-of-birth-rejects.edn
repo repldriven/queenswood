@@ -1,0 +1,53 @@
+{:name "A document with another date of birth rejects the person"
+ :tags #{:api :idv :parties :unhappy}
+ :given
+ [{:command :api/request
+   :request
+   {:method :post
+    :path "/v1/banks"
+    :auth :admin
+    :headers {:idempotency-key "ik-verification-another-date-of-birth-rejects-bank-001"}
+    :body
+    {:name "Verification Test Org" :status "live" :tier "micro" :currencies ["GBP"]}}
+   :as :org-0
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :org-0 :client-id]
+         :client-secret [:ref :org-0 :client-secret]
+         :status :live}
+   :as :org-0-token}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-verification-another-date-of-birth-rejects-001"}
+             :body {:type "person"
+                    :display-name "Arthur Dent"
+                    :given-name "Arthur"
+                    :family-name "Dent"
+                    :date-of-birth "1952-03-11"
+                    :nationality "GB"
+                    :address {:building-number "155"
+                              :street "Country Lane"
+                              :town "Cottington"
+                              :postcode "CT12 4XY"
+                              :country "GBR"}
+                    :national-identifier {:type "national-insurance"
+                                          :value "TN200005V"
+                                          :issuing-country "GB"}}}
+   :as :party-0
+   :verify {:document {:givenNames "Arthur" :familyName "Dent" :dateOfBirth "1971-05-23"}}
+   :assert {:status 201 :body {:status "pending"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}/verification"
+             :path-params {:party-id [:ref :party-0 :party-id]}
+             :auth :org-0-token}
+   :until {:status 200 :body {:status "rejected" :criteria [:m/embeds [{:name "claimed-identity" :state "failed"}]]}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}"
+             :path-params {:party-id [:ref :party-0 :party-id]}
+             :auth :org-0-token}
+   :until {:status 200 :body {:status "rejected"}}}]}

@@ -17,6 +17,8 @@ outbound-runner: !system/component
   system/component-kind: zyphe-relay/outbound-runner
   record-db: !system/ref fdb.record-db
   record-store: !system/ref fdb.meta-store
+  schemas: !system/ref avro.serde
+  idv-provider: !include system/idv-provider.yml
   zyphe-url: !profile
     dev: !system/ref zyphe-simulator-server.http-url
     test: !system/ref zyphe-simulator-server.http-url
@@ -25,10 +27,19 @@ outbound-runner: !system/component
     dev: zyphe_sk_simulator
     test: zyphe_sk_simulator
     default: !env ZYPHE_API_KEY
-  flow-id: !profile
-    dev: 2d8285d7-f4ba-42df-ab3f-681d9870d37a
-    test: 2d8285d7-f4ba-42df-ab3f-681d9870d37a
-    default: !env ZYPHE_FLOW_ID
+  # Each flow the organisation runs, with what it establishes; a run
+  # starts on the smallest one covering what the bank's policies ask.
+  flows:
+    - id: !profile
+        dev: 2d8285d7-f4ba-42df-ab3f-681d9870d37a
+        test: 2d8285d7-f4ba-42df-ab3f-681d9870d37a
+        default: !env ZYPHE_FLOW_ID
+      verifies: [identity, liveness, claimed-identity, address]
+      screens: [sanctions, pep]
+  verify-url: !profile
+    dev: !system/ref zyphe-simulator-server.http-url
+    test: !system/ref zyphe-simulator-server.http-url
+    default: !or [!env ZYPHE_VERIFY_URL, "https://verify.zyphe.com"]
   sandbox: !profile
     dev: "true"
     test: "true"

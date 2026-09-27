@@ -1,0 +1,12 @@
+{
+  "type": "record",
+  "name": "IdvSessionOpened",
+  "namespace": "com.repldriven.mono.idv",
+  "fields": [
+    {"name": "bank_id",         "type": "string"},
+    {"name": "verification_id", "type": "string"},
+    {"name": "session_id",      "type": "string"},
+    {"name": "url",             "type": "string"},
+    {"name": "expires_at",      "type": {"type": "long", "logicalType": "timestamp-millis"}}
+  ]
+}

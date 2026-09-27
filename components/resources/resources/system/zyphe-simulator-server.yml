@@ -3,10 +3,8 @@ handler: !system/required-component
 state: !system/component
   system/component-kind: zyphe-simulator/state
 
-# The simulator stands in for the person completing the hosted flow:
-# each run settles at auto-outcome after auto-settle-ms. Leave
-# auto-settle-ms out to hold runs for POST
-# /simulator/verification-requests/{id}/decision.
+# A run settles only when the person submits the hosted page, or a test
+# posts the same body to /simulator/verification-requests/{id}/decision.
 interceptors: !system/component
   system/component-kind: server/interceptors
   state: !system/local-ref state
@@ -15,8 +13,6 @@ interceptors: !system/component
     dev: zyphe_sk_simulator
     test: zyphe_sk_simulator
     default: !env ZYPHE_API_KEY
-  auto-settle-ms: 10
-  auto-outcome: COMPLETED
 
 jetty-adapter: !system/component
   system/component-kind: server/jetty-adapter

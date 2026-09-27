@@ -56,6 +56,7 @@
   component/email {:local/root "../../components/email"}
   component/idempotency {:local/root "../../components/idempotency"}
   component/idv {:local/root "../../components/idv"}
+  component/idv-query {:local/root "../../components/idv-query"}
   component/interest {:local/root "../../components/interest"}
   component/ledger-account {:local/root "../../components/ledger-account"}
   component/membership {:local/root "../../components/membership"}

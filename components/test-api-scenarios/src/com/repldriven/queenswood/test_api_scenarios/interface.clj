@@ -45,15 +45,19 @@
   - `:clearbank-simulator-url` (optional) — root URL of the booted
     ClearBank simulator, which a step's `:base :clearbank-simulator`
     sends its request to, as `/simulate/inbound-payment` needs.
+  - `:zyphe-simulator-url` (optional) — root URL of the booted
+    identity-provider simulator, whose decision route a verification
+    step posts the person's answers to.
   - `:run-id` (optional) — caller-supplied tag for log lines.
 
   The fresh `:captures` map isolates scenarios from each other so
   one boot can serve many, and the fresh `:banks` map limits the
   standing invariants to the banks this scenario created."
   [{:keys [base-url admin-token token-endpoints signing-key mail-url
-           clearbank-simulator-url run-id]}]
+           clearbank-simulator-url zyphe-simulator-url run-id]}]
   {:base-url base-url
    :clearbank-simulator-url clearbank-simulator-url
+   :zyphe-simulator-url zyphe-simulator-url
    :mail-url mail-url
    :admin-token admin-token
    :token-endpoints token-endpoints

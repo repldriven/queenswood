@@ -47,10 +47,13 @@ COPY --from=build /repo/bases/console/dist/ /usr/share/nginx/html/
 # at startup. API_UPSTREAM is the bank-api proxy target,
 # KEYCLOAK_UPSTREAM is the in-cluster Keycloak Service that the
 # `/keycloak/*` location reverse-proxies to so the SPA stays same-
-# origin, and the four KEYCLOAK_* values get rendered into /env.js.
-ENV NGINX_ENVSUBST_FILTER="^(API_UPSTREAM|KEYCLOAK_UPSTREAM|KEYCLOAK_URL|KEYCLOAK_REALM|KEYCLOAK_CLIENT_ID|KEYCLOAK_IDP_HINT)$"
+# origin, IDENTITY_PROVIDER_UPSTREAM is the simulated identity
+# provider `/identity-provider/*` reaches, and the four KEYCLOAK_*
+# values get rendered into /env.js.
+ENV NGINX_ENVSUBST_FILTER="^(API_UPSTREAM|KEYCLOAK_UPSTREAM|IDENTITY_PROVIDER_UPSTREAM|KEYCLOAK_URL|KEYCLOAK_REALM|KEYCLOAK_CLIENT_ID|KEYCLOAK_IDP_HINT)$"
 ENV API_UPSTREAM="http://bank-api:8080"
 ENV KEYCLOAK_UPSTREAM="http://queenswood-keycloak-keycloak-service:8080"
+ENV IDENTITY_PROVIDER_UPSTREAM="http://external-adapters-service:8086"
 ENV KEYCLOAK_URL=""
 ENV KEYCLOAK_REALM="queenswood"
 ENV KEYCLOAK_CLIENT_ID="queenswood-console"

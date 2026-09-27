@@ -39,4 +39,8 @@
    :sessionId "cbe0f5cd-6f38-4a2e-9c3f-0a2f9e2b7c14"
    :sessionWebhook SessionWebhook})
 
-(def Decision {:flowStatus "REJECTED"})
+(def Decision
+  {:outcome "match"
+   :givenNames "Arthur"
+   :familyName "Dent"
+   :dateOfBirth "1952-03-11"})

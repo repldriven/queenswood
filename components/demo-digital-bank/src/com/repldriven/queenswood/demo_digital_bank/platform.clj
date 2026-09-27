@@ -123,6 +123,23 @@
   [client party-id]
   (call client {:method :get :path (str "/v1/parties/" party-id)}))
 
+(defn open-verification-session
+  "Open a session handing the person `party-id` to the identity
+  provider, under `idempotency-key`, and answer the session, opening."
+  [client idempotency-key party-id session]
+  (call client
+        {:method :post
+         :path (str "/v1/parties/" party-id "/verification-sessions")
+         :body session
+         :idempotency-key idempotency-key}))
+
+(defn get-verification-session
+  [client party-id session-id]
+  (call client
+        {:method :get
+         :path (str "/v1/parties/" party-id
+                    "/verification-sessions/" session-id)}))
+
 (defn list-products
   [client]
   (call client {:method :get :path "/v1/cash-account-products"}))

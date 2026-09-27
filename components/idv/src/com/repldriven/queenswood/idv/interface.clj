@@ -1,13 +1,15 @@
 (ns com.repldriven.queenswood.idv.interface
-  "Identity verification (IDV) records and lifecycle. Persists IDV
-  state per (organization, verification-id) and bridges to an
-  IDV-provider adapter via the message bus: a `submit-idv-check`
-  command is published on initiation, and an `idv-completed` event
-  flips the record to in-review, accepted, rejected, or failed.
-  In-review and failed are non-terminal — accepted/rejected may
-  still follow once manual review resolves, or the provider retries
-  after a technical failure. The owning party stays pending
-  throughout; the IDV record is the source of truth for why.
+  "Identity verification (IDV) records and lifecycle. A person party
+  entering pending gets an IDV, which waits for the tenant to open a
+  verification session; opening one publishes a `submit-idv-check`
+  command to the IDV-provider adapter, whose `idv-session-opened` event
+  makes the session ready with a hand-off for the person. The adapter
+  reports what the provider established as `idv-evidence`, and each
+  report is merged into the IDV and decided against the bank's
+  policies: rejected, failed, in review, accepted, or still pending.
+  In-review is non-terminal, so an acceptance or a rejection may still
+  follow. The owning party stays pending until the IDV accepts or
+  rejects; the IDV record is the source of truth for why.
   A bank's criteria are denies on `idv-action-accept`, checked against
   the deployment's provider declaration (`system/idv-provider.yml`).
   Registers IDV component kinds (processor, event-processor,
@@ -29,6 +31,24 @@
   - verification-id: IDV identifier (`idv.<ulid>`)."
   [txn bank-id verification-id]
   (core/get-idv txn bank-id verification-id))
+
+(defn open-session
+  "Open a verification session for a party's pending IDV, and once it
+  commits ask the provider's adapter for a hand-off. Returns the
+  session, opening, or an anomaly: `:idv/not-found` when the party has
+  no IDV in the bank, `:idv/invalid-status` unless the IDV is pending,
+  `:idv/unsupported-channel` and `:idv/missing-email` against the
+  provider declaration, and the policy refusals of `idv-action-submit`
+  and its daily limit.
+
+  Args:
+  - config: the processor's config — `:record-db`, `:record-store`,
+    `:idv-provider`, and `:bus`, `:schemas` and `:idv-command-channel`
+    to reach the adapter.
+  - data: `{:bank-id :party-id :channel :return-url :email}`, the
+    channel `\"web\"` or `\"mobile\"`."
+  [config data]
+  (core/open-session config data))
 
 (defn unmet-criteria
   "Return the verifications and screenings `policies` require of a

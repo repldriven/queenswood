@@ -11,8 +11,10 @@
      [ErrorExamples ErrorResponse]]
     [com.repldriven.queenswood.idempotency.interface :as bank-idempotency]
     [com.repldriven.queenswood.party-api.interface :as party-api :refer
-     [IdentificationRejected PartyInvalidStatus PartyMergeIntoSelf PartyNotFound
-      PartyOpenAccounts]]
+     [IdentificationRejected MissingEmail PartyInvalidStatus PartyMergeIntoSelf
+      PartyNotFound PartyOpenAccounts UnsupportedChannel
+      VerificationInvalidStatus VerificationNotFound
+      VerificationSessionNotFound]]
 
     [com.repldriven.mono.server.interface :as server]))
 
@@ -39,12 +41,13 @@
              :openapi {:operationId "CreateParty"
                        :description
                        (str "Only a person party can be created. It starts "
-                            "pending while its identity is verified, then "
-                            "becomes active if verification accepts it or "
-                            "rejected if not, with a `party.opened` or "
-                            "`party.rejected` webhook notification. A national "
-                            "identifier another party already holds is refused "
-                            "with 422.")
+                            "pending until its identity is verified: open a "
+                            "verification session to hand the person to the "
+                            "identity provider. It becomes active if "
+                            "verification accepts it or rejected if not, with "
+                            "a `party.opened` or `party.rejected` webhook "
+                            "notification. A national identifier another "
+                            "party already holds is refused with 422.")
                        :security [{"bearerAuth" ["org:developer"]}]
                        :requestBody {:required true}
                        :parameters ^:replace
@@ -83,6 +86,82 @@
                               :body [:ref "PartyDetail"]}
                          404 (ErrorResponse [#'PartyNotFound])}
              :handler queries/get-party}}]
+     ["/verification"
+      {:openapi {:security [{"bearerAuth" ["org:viewer"]}]}
+       :get {:summary "Retrieve the party's verification"
+             :openapi {:operationId "RetrieveVerification"
+                       :description
+                       (str "The status of the person's identity "
+                            "verification, and each verification and "
+                            "screening the bank's policies ask of them as "
+                            "established, in review, failed or outstanding, "
+                            "an outstanding one with the reason it is "
+                            "required. It never carries what the person's "
+                            "document says. A party with no verification "
+                            "returns 404.")
+                       :parameters ^:replace
+                                   [shared.parameters/ref-party-id
+                                    shared.parameters/ref-bank-id-header]}
+             :responses {200 {:description "The party's verification."
+                              :body [:ref "Verification"]}
+                         404 (ErrorResponse [#'VerificationNotFound])}
+             :handler queries/get-verification}}]
+     ["/verification-sessions"
+      {:openapi {:security [{"bearerAuth" ["org:developer"]}]}
+       :post {:summary "Open a verification session"
+              :openapi {:operationId "OpenVerificationSession"
+                        :description
+                        (str
+                         "Starts, or resumes, the person's run with the "
+                         "identity provider, returning the session opening. "
+                         "Once it is ready, retrieving it returns a hand-off "
+                         "URL to open in a browser or a mobile WebView, which "
+                         "returns the person to `return-url`, and a "
+                         "`party.verification-session-ready` webhook "
+                         "notification follows. A verification that is no "
+                         "longer pending is refused with 409, and a channel "
+                         "the provider does not offer, or a missing `email` "
+                         "the provider needs, with 422.")
+                        :requestBody {:required true}
+                        :parameters ^:replace
+                                    [shared.parameters/ref-party-id
+                                     shared.parameters/ref-bank-id-header
+                                     shared.parameters/ref-idempotency-key]}
+              :interceptors [server/require-idempotency-key
+                             bank-idempotency/cache-response]
+              :parameters {:body [:ref "OpenVerificationSessionRequest"]}
+              :responses
+              (shared.idempotency/with-responses
+               {202 {:description "The session, opening."
+                     :body [:ref "VerificationSession"]
+                     :openapi {:headers {"Location" (shared.headers/location
+                                                     "verification session")}}}
+                403 (ErrorExamples [#'api-schema/PolicyDenied])
+                404 (ErrorResponse [#'VerificationNotFound])
+                409 (ErrorResponse [#'VerificationInvalidStatus])
+                422 (ErrorResponse [#'UnsupportedChannel #'MissingEmail])
+                429 (ErrorResponse [#'api-schema/PolicyLimitExceeded])})
+              :handler commands/open-verification-session}}]
+     ["/verification-sessions/{session-id}"
+      {:openapi {:security [{"bearerAuth" ["org:viewer"]}]}
+       :parameters {:path {:session-id [:ref "VerificationSessionId"]}}
+       :get {:summary "Retrieve a verification session"
+             :openapi {:operationId "RetrieveVerificationSession"
+                       :description
+                       (str "The session, `opening` until the provider "
+                            "returns a hand-off, `ready` with it, `expired` "
+                            "once the hand-off lapses, and `completed` once "
+                            "the verification decides. Only a ready session "
+                            "carries its hand-off.")
+                       :parameters
+                       ^:replace
+                       [shared.parameters/ref-party-id
+                        shared.parameters/ref-verification-session-id
+                        shared.parameters/ref-bank-id-header]}
+             :responses {200 {:description "The verification session."
+                              :body [:ref "VerificationSession"]}
+                         404 (ErrorResponse [#'VerificationSessionNotFound])}
+             :handler queries/get-verification-session}}]
      ["/suspend"
       {:openapi {:security [{"bearerAuth" ["org:developer"]}]}
        :post {:summary "Suspend a party"

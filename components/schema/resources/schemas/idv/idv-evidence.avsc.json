@@ -1,0 +1,53 @@
+{
+  "type": "record",
+  "name": "IdvEvidence",
+  "namespace": "com.repldriven.mono.idv",
+  "fields": [
+    {"name": "bank_id",         "type": "string"},
+    {"name": "verification_id", "type": "string"},
+    {"name": "document", "type": ["null", {
+      "type": "record",
+      "name": "IdvDocumentEvidence",
+      "fields": [
+        {"name": "outcome", "type": {"type": "enum",
+                                      "name": "IdvEvidenceOutcome",
+                                      "namespace": "com.repldriven.mono.idv",
+                                      "symbols": ["IDV_EVIDENCE_OUTCOME_UNKNOWN",
+                                                   "IDV_EVIDENCE_OUTCOME_PASSED",
+                                                   "IDV_EVIDENCE_OUTCOME_FAILED",
+                                                   "IDV_EVIDENCE_OUTCOME_REVIEW"]}},
+        {"name": "given_names",     "type": ["null", "string"], "default": null},
+        {"name": "family_name",     "type": ["null", "string"], "default": null},
+        {"name": "date_of_birth",   "type": ["null", "string"], "default": null},
+        {"name": "document_type",   "type": ["null", "string"], "default": null},
+        {"name": "issuing_country", "type": ["null", "string"], "default": null}
+      ]}], "default": null},
+    {"name": "liveness", "type": ["null", {
+      "type": "record",
+      "name": "IdvLivenessEvidence",
+      "fields": [
+        {"name": "outcome", "type": "com.repldriven.mono.idv.IdvEvidenceOutcome"}
+      ]}], "default": null},
+    {"name": "address", "type": ["null", {
+      "type": "record",
+      "name": "IdvAddressEvidence",
+      "fields": [
+        {"name": "outcome",       "type": "com.repldriven.mono.idv.IdvEvidenceOutcome"},
+        {"name": "document_type", "type": ["null", "string"], "default": null}
+      ]}], "default": null},
+    {"name": "screening", "type": ["null", {
+      "type": "record",
+      "name": "IdvScreeningEvidence",
+      "fields": [
+        {"name": "sanctions", "type": {"type": "enum",
+                                        "name": "IdvSanctionsOutcome",
+                                        "namespace": "com.repldriven.mono.idv",
+                                        "symbols": ["IDV_SANCTIONS_OUTCOME_UNKNOWN",
+                                                     "IDV_SANCTIONS_OUTCOME_CLEAR",
+                                                     "IDV_SANCTIONS_OUTCOME_POSSIBLE_MATCH",
+                                                     "IDV_SANCTIONS_OUTCOME_HIT"]}},
+        {"name": "pep", "type": "boolean"}
+      ]}], "default": null},
+    {"name": "cancelled", "type": "boolean", "default": false}
+  ]
+}

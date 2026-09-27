@@ -1,16 +1,17 @@
 (ns com.repldriven.queenswood.zyphe-relay.interface
   "Transactional-outbox egress for the Zyphe adapter. The webhook handler
-  persists an `idv-completed` event with `save-event` (co-committed to the
+  persists an `idv-evidence` event with `save-event` (co-committed to the
   outbox changelog, relayed to the bus at-least-once), and the
   submit-idv-check consumer persists an outbound intent with `save-intent`
-  (the out-of-transaction runner creates the Zyphe verification request)."
+  (the out-of-transaction runner creates the Zyphe verification request
+  and records the hand-off as an `idv-session-opened` event)."
   (:require
     [com.repldriven.queenswood.zyphe-relay.system]
 
     [com.repldriven.queenswood.zyphe-relay.store :as store]))
 
 (defn save-event
-  "Persist an `idv-completed` outbox event and append it to the changelog
+  "Persist an `idv-evidence` outbox event and append it to the changelog
   in one FDB transaction. Returns the event, or a `:zyphe-outbox/save`
   anomaly (a uniqueness violation when the `dedup-key` was already
   recorded — a redelivered webhook).

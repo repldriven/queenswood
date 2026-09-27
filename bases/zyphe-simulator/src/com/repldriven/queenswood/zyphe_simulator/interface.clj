@@ -1,7 +1,8 @@
 (ns com.repldriven.queenswood.zyphe-simulator.interface
   "Zyphe stand-in: the Reitit handler that creates and resumes
-  verification requests and, standing in for the person who would
-  complete the hosted flow, settles each run and delivers the signed
+  verification requests, serves the hosted page a hand-off opens, and
+  settles a run only when the person submits that page or a test posts
+  the same body to its decision route, delivering the signed
   session-webhook events a real Zyphe would. Composed into a service by
   an aggregator base, which injects `app` into the simulator server's
   handler slot; requiring this namespace also registers the simulator's

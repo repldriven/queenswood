@@ -4,6 +4,12 @@ relay-handler: !system/component
   event-channel: !keyword idvs-event
   store-name: idvs
 
+sessions-relay-handler: !system/component
+  system/component-kind: changelog-relay/envelope-handler
+  bus: !system/ref message-bus.bus
+  event-channel: !keyword idvs-event
+  store-name: idv-sessions
+
 # One JVM, so the monolith owns the cursor itself rather than
 # deferring to the operational processors.
 
@@ -15,3 +21,9 @@ relay-runners: !system/component
     consumer-id: parties-watcher
     store-name: idvs
     handler: !system/local-ref relay-handler
+  idv-sessions:
+    record-db: !system/ref fdb.record-db
+    keyspace-prefix: !system/ref fdb.keyspace-prefix
+    consumer-id: idv-sessions-relay
+    store-name: idv-sessions
+    handler: !system/local-ref sessions-relay-handler

@@ -5,8 +5,11 @@
 
     [com.repldriven.queenswood.zyphe-simulator.schema :as schema]))
 
-(def flow-statuses
-  ["PROCESSING" "COMPLETED" "FAILED" "CANCELLED" "REVIEW" "REJECTED"])
+(def outcomes
+  ["match" "other-document" "document-review" "document-failed"
+   "liveness-failed"
+   "address-failed" "sanctions-hit" "sanctions-possible-match" "pep"
+   "walk-away"])
 
 (def Credential
   [:map
@@ -71,12 +74,24 @@
 (def Decision
   [:map
    {:json-schema/example examples/Decision}
-   [:flowStatus (into [:enum] (remove #{"PROCESSING"} flow-statuses))]])
+   [:outcome (into [:enum] outcomes)]
+   [:givenNames {:optional true} [:maybe string?]]
+   [:familyName {:optional true} [:maybe string?]]
+   [:dateOfBirth {:optional true} [:maybe string?]]])
+
+(def HostedPageQuery
+  [:map
+   [:zypheVr string?]
+   [:zypheToken string?]
+   [:zypheAccessSig {:optional true} string?]
+   [:zypheEmail {:optional true} string?]
+   [:zypheHandoffBaseUrl {:optional true} string?]
+   [:zypheFullscreen {:optional true} string?]])
 
 (def registry
   (assoc (schema/components-registry
           [#'Credential #'SessionWebhookRequest #'CreateVerificationRequest
            #'VerificationRequest #'SessionWebhook
-           #'CreateVerificationRequestResponse #'Decision])
+           #'CreateVerificationRequestResponse #'Decision #'HostedPageQuery])
          "BaxeError"
          schema/BaxeError))

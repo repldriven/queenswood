@@ -138,9 +138,18 @@
                    decided (post (str "/simulator/verification-requests/"
                                       id
                                       "/decision")
-                                 {:flowStatus "REJECTED"})
+                                 {:outcome "sanctions-hit"
+                                  :givenNames "Zaphod"
+                                  :familyName "Beeblebrox"
+                                  :dateOfBirth "1970-01-01"})
                    _ (is (= 200 (:status decided)))
                    _ (is (= "REJECTED" (:status (http/res->edn decided))))
+                   again (post (str "/simulator/verification-requests/"
+                                    id
+                                    "/decision")
+                               {:outcome "match"})
+                   _ (is (= 409 (:status again))
+                         "a settled run is not decided twice")
                    {:keys [signature] delivered :body}
                    (deref deliveries 5000 nil)
                    _ (is (some? delivered)
@@ -152,8 +161,17 @@
                                                (utility/now))))
                          "signed with the secret the request supplied")
                    event (json/read-str (String. ^bytes delivered "UTF-8"))
-                   _ (is (= "verification.dv.failed"
-                            (clojure.core/get event "type")))
+                   _ (is (= "verification.dv.completed"
+                            (clojure.core/get event "type"))
+                         "the document result comes first")
+                   _ (is (= {"firstName" "Zaphod"
+                             "lastName" "Beeblebrox"
+                             "dateOfBirth" "1970-01-01"}
+                            (select-keys (get-in event
+                                                 ["data" "additionalData"])
+                                         ["firstName" "lastName"
+                                          "dateOfBirth"]))
+                         "carrying what the person said their document says")
                    _ (is (= {"status" "REJECTED"
                              "slug" "onboarding"
                              "customData" {"bankId" "bnk.1"
@@ -161,3 +179,24 @@
                              "nextStep" nil}
                             (clojure.core/get event "flow")))]))
       (finally (.stop ^HttpServer server 0)))))
+
+(deftest hosted-page-test
+  (with-simulator
+   (nom-test> [res (post create-path (create-body "pty.4"))
+               body (http/res->edn res)
+               id (get-in body [:verificationRequest :id])
+               token (:zypheToken body)
+               page (get (str "/sandbox/flow/onboarding?zypheVr="
+                              id
+                              "&zypheToken="
+                              token
+                              "&zypheHandoffBaseUrl=https%3A%2F%2Fapp.example"))
+               _ (is (= 200 (:status page)))
+               _ (is (re-find #"Verify your identity" (str (:body page))))
+               forged (get (str "/sandbox/flow/onboarding?zypheVr="
+                                id
+                                "&zypheToken=forged"))
+               _ (is (= 401 (:status forged))
+                     "a link with another token is refused")
+               unknown (get "/flow/onboarding?zypheVr=nope&zypheToken=x")
+               _ (is (= 404 (:status unknown)))])))

@@ -118,6 +118,11 @@ system:
       bus: !system/ref message-bus.bus
       event-channel: !keyword idvs-event
       store-name: idvs
+    idv-sessions-handler: !system/component
+      system/component-kind: changelog-relay/envelope-handler
+      bus: !system/ref message-bus.bus
+      event-channel: !keyword idvs-event
+      store-name: idv-sessions
     invitations-handler: !system/component
       system/component-kind: changelog-relay/envelope-handler
       bus: !system/ref message-bus.bus
@@ -168,6 +173,12 @@ system:
         consumer-id: parties-watcher
         store-name: idvs
         handler: !system/local-ref idvs-handler
+      idv-sessions:
+        record-db: !system/ref fdb.record-db
+        keyspace-prefix: !system/ref fdb.keyspace-prefix
+        consumer-id: idv-sessions-relay
+        store-name: idv-sessions
+        handler: !system/local-ref idv-sessions-handler
       invitations:
         record-db: !system/ref fdb.record-db
         keyspace-prefix: !system/ref fdb.keyspace-prefix

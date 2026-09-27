@@ -10,7 +10,8 @@
    [:id string?]
    [:status string?]
    [:party-id {:optional true} [:maybe string?]]
-   [:verification {:optional true} [:maybe string?]]])
+   [:verification {:optional true} [:maybe string?]]
+   [:hand-off-url {:optional true} [:maybe string?]]])
 
 (def CodeRequest [:map {:closed true} [:code shared/Code]])
 
@@ -33,6 +34,9 @@
    [:given-name shared/Name]
    [:family-name shared/Name]
    [:date-of-birth shared/IsoDate]
+   [:email
+    [:re {:json-schema/example "amara@example.com"}
+     #"^[^\s@]{1,64}@[^\s@]{1,255}$"]]
    [:nationality {:optional true} [:re #"^[A-Z]{2}$"]]
    [:address [:ref "Address"]]
    [:national-identifier [:ref "NationalIdentifier"]]])

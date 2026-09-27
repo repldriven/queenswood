@@ -1,16 +1,10 @@
 (ns com.repldriven.queenswood.zyphe-simulator.verification-requests.handlers
   (:require
+    [com.repldriven.queenswood.zyphe-simulator.page :as page]
     [com.repldriven.queenswood.zyphe-simulator.webhook :as webhook]
 
     [com.repldriven.mono.log.interface :as log]
     [com.repldriven.mono.utility.interface :as utility]))
-
-(def ^:private flow-status->vr-status
-  {"COMPLETED" "COMPLETED"
-   "FAILED" "FAILED"
-   "REJECTED" "REJECTED"
-   "CANCELLED" "CANCELLED"
-   "REVIEW" "REQUIRES_MANUAL_REVIEW"})
 
 (def ^:private undocumented-code 0)
 
@@ -42,18 +36,24 @@
         (vals (:verification-requests @state))))
 
 (defn settle
-  "Settles the run `id` at `flow-status` and delivers its event. Returns
-  the updated verification request, or nil when there is no such run."
-  [state id flow-status]
-  (when-let [{:keys [webhook]} (get-in @state [:verification-requests id])]
-    (let [run (get-in (swap! state assoc-in
-                        [:verification-requests id :vr :status]
-                        (get flow-status->vr-status flow-status))
-                      [:verification-requests id])]
-      (log/info "Zyphe simulator settled run"
-                {:verification-request-id id :flow-status flow-status})
-      (webhook/post-event (:vr run) webhook flow-status)
-      (:vr run))))
+  "Settles the pending run `id` as a person reaching `outcome` would,
+  `document` being what they said their document says, and delivers
+  its events. Returns the updated verification request, `:not-pending`
+  for a run already settled, or nil when there is no such run."
+  [state id outcome document]
+  (when-let [{:keys [webhook vr]} (get-in @state [:verification-requests id])]
+    (if-not (= "PENDING" (:status vr))
+      :not-pending
+      (let [status (webhook/flow-status->vr-status (webhook/flow-status
+                                                    outcome))
+            run (get-in (swap! state assoc-in
+                          [:verification-requests id :vr :status]
+                          status)
+                        [:verification-requests id])]
+        (log/info "Zyphe simulator settled run"
+                  {:verification-request-id id :outcome outcome})
+        (webhook/post-events (:vr run) webhook outcome document)
+        (:vr run)))))
 
 (defn- new-run
   [request zid body flow-id]
@@ -73,10 +73,10 @@
           :createdAt (utility/now-rfc3339)}}))
 
 (defn- response
-  [{:keys [zid webhook vr]} sandbox email]
+  [{:keys [zid webhook vr token]} sandbox email]
   (cond-> {:verificationRequest (dissoc vr :flowResultId)
            :zid zid
-           :zypheToken (str "simulated-token-" (:id vr))
+           :zypheToken token
            :zypheAccessSig (str "simulated-signature-" (:id vr))
            :flowSlug "onboarding"
            :flowStepSlug "document-verification"
@@ -94,22 +94,10 @@
                                                             4)))
                                   :expiresAt (utility/now-rfc3339)})))
 
-(defn- schedule-settlement
-  "Stands in for the person completing the hosted flow: settles the run
-  at `outcome` after `delay-ms`, or leaves it pending for a decision
-  when no delay is configured."
-  [state id delay-ms outcome]
-  (when delay-ms
-    (future
-     (when (pos? delay-ms) (Thread/sleep ^long delay-ms))
-     (settle state id (or outcome "COMPLETED")))))
-
 (defn create-verification-request
   [_config]
   (fn [request]
-    (let [{:keys [state parameters headers api-key auto-settle-ms
-                  auto-outcome]}
-          request
+    (let [{:keys [state parameters headers api-key]} request
           {:keys [path query body]} parameters
           flow-id (:flow_id path)
           given-key (get headers "x-api-key")
@@ -130,15 +118,14 @@
 
        :else
        (let [existing (open-run state flow-id zid)
-             run (if existing
-                   (cond-> existing
-                           (:webhook body)
-                           (assoc :webhook (:webhook body)))
-                   (new-run request zid body flow-id))
+             run (-> (if existing
+                         (cond-> existing
+                                 (:webhook body)
+                                 (assoc :webhook (:webhook body)))
+                         (new-run request zid body flow-id))
+                     (assoc :token (str "simulated-token-" (utility/uuidv7))))
              id (get-in run [:vr :id])]
          (swap! state assoc-in [:verification-requests id] run)
-         (when-not existing
-           (schedule-settlement state id auto-settle-ms auto-outcome))
          {:status 200 :body (response run (:sandbox query) (:email body))})))))
 
 (defn get-verification-request
@@ -154,16 +141,52 @@
                     "verification_request_not_found"
                     (str "No verification request with id: " id))))))
 
+(defn- not-found
+  [id]
+  (baxe-error 404
+              undocumented-code
+              "verification_request_not_found"
+              (str "No verification request with id: " id)))
+
+(defn- ->document
+  [body]
+  (select-keys body [:givenNames :familyName :dateOfBirth]))
+
 (defn decide
   [_config]
   (fn [request]
     (let [{:keys [state parameters]} request
           id (get-in parameters [:path :id])
-          {:keys [flowStatus]} (:body parameters)
-          vr (settle state id flowStatus)]
-      (if vr
-        {:status 200 :body (dissoc vr :flowResultId)}
-        (baxe-error 404
-                    undocumented-code
-                    "verification_request_not_found"
-                    (str "No verification request with id: " id))))))
+          {:keys [body]} parameters
+          vr (settle state id (:outcome body) (->document body))]
+      (cond
+       (nil? vr)
+       (not-found id)
+
+       (= :not-pending vr)
+       (baxe-error 409
+                   undocumented-code
+                   "verification_request_not_pending"
+                   (str "Verification request already settled: " id))
+
+       :else
+       {:status 200 :body (dissoc vr :flowResultId)}))))
+
+(defn hosted-page
+  [_config]
+  (fn [request]
+    (let [{:keys [state parameters]} request
+          {:keys [zypheVr zypheToken zypheHandoffBaseUrl]} (:query parameters)
+          run (get-in @state [:verification-requests zypheVr])]
+      (cond
+       (nil? run)
+       (page/response 404 (page/message "No such verification"))
+
+       (not= zypheToken (:token run))
+       (page/response 401 (page/message "This link is no longer valid"))
+
+       (not= "PENDING" (get-in run [:vr :status]))
+       (page/response 409 (page/message "This verification is finished"))
+
+       :else
+       (page/response 200 (page/form zypheVr zypheHandoffBaseUrl))))))

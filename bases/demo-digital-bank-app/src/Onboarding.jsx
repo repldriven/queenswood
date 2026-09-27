@@ -1,8 +1,9 @@
 // Onboarding: welcome → mobile → code → about you → ID → passcode → done,
 // each step a call to the bank; and signing in, for a returning
-// customer. The code fills itself in, and the ID scan is an interstitial
-// while the bank registers the person: both stand in for what a real
-// sign-up would do off the phone.
+// customer. The code fills itself in, standing in for what a real
+// sign-up would do off the phone. At the ID step the bank registers the
+// person and the app hands them to the identity provider's page, which
+// returns them here at `#verified` to choose a passcode.
 import { useState, useEffect } from "react";
 import { brand } from "./brand.js";
 import { Ic, Top, Field, Pad, Err } from "./ui.jsx";
@@ -43,6 +44,20 @@ const isoDob = (s) => {
 };
 
 const NI = /^[A-Z]{2}\d{6}[A-D]$/;
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// The sign-up the app left for the identity provider's page, kept so it
+// can carry on when the page returns the person.
+const HANDED_OFF = "xepha.handed-off";
+const PASSCODE_STEP = 5;
+const returning = () => {
+  if (!location.hash.startsWith("#verified")) return null;
+  try {
+    return JSON.parse(sessionStorage.getItem(HANDED_OFF));
+  } catch {
+    return null;
+  }
+};
 
 function PhoneInput({ value, onChange }) {
   return (
@@ -148,16 +163,18 @@ function SignIn({ onBack, onDone }) {
 }
 
 export default function Onboarding({ onDone }) {
+  const [resumed] = useState(returning);
   const [flow, setFlow] = useState("up");
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(resumed ? PASSCODE_STEP : 0);
   const [dir, setDir] = useState("fwd");
   const [phone, setPhone] = useState("");
-  const [signUp, setSignUp] = useState(null);
+  const [signUp, setSignUp] = useState(resumed ? { id: resumed.id } : null);
   const [code, setCode] = useState("");
   const [coded, setCoded] = useState(false);
   const [me, setMe] = useState({
-    first: "",
+    first: resumed?.first ?? "",
     last: "",
+    email: "",
     dob: "",
     number: "",
     street: "",
@@ -200,6 +217,7 @@ export default function Onboarding({ onDone }) {
     "given-name": me.first.trim(),
     "family-name": me.last.trim(),
     "date-of-birth": isoDob(me.dob),
+    email: me.email.trim(),
     address: {
       ...(me.number.trim() ? { "building-number": me.number.trim() } : {}),
       street: me.street.trim(),
@@ -217,6 +235,14 @@ export default function Onboarding({ onDone }) {
         delay(2200),
       ]);
       setVerification(registered.verification);
+      if (registered["hand-off-url"]) {
+        sessionStorage.setItem(
+          HANDED_OFF,
+          JSON.stringify({ id: signUp.id, first: me.first.trim() }),
+        );
+        location.assign(registered["hand-off-url"]);
+        return;
+      }
       setIdState("done");
     } catch (e) {
       setErr(e.message);
@@ -228,6 +254,11 @@ export default function Onboarding({ onDone }) {
     await onDone();
     setBusy(false);
   };
+  useEffect(() => {
+    if (!resumed) return;
+    sessionStorage.removeItem(HANDED_OFF);
+    history.replaceState(null, "", location.pathname + location.search);
+  }, []);
   useEffect(() => {
     if (step === 2 && code.length < 6) {
       const t = setTimeout(
@@ -297,6 +328,7 @@ export default function Onboarding({ onDone }) {
     me.street.trim() &&
     me.town.trim() &&
     me.postcode.trim().length >= 5 &&
+    EMAIL.test(me.email.trim()) &&
     NI.test(me.ni);
   const screens = [
     <div
@@ -413,6 +445,14 @@ export default function Onboarding({ onDone }) {
             {...field("dob", fmtDob)}
           />
         </Field>
+        <Field label="Email">
+          <input
+            className="inp"
+            inputMode="email"
+            placeholder="amara@example.com"
+            {...field("email", (v) => v.trim())}
+          />
+        </Field>
         <div className="row" style={{ gap: 10, alignItems: "flex-start" }}>
           <Field label="House no." style={{ flex: "0 0 96px" }}>
             <input className="inp mono" placeholder="12" {...field("number")} />
@@ -459,7 +499,8 @@ export default function Onboarding({ onDone }) {
       <div className="body">
         <h1>Confirm your identity</h1>
         <p className="sub">
-          Scan your passport or driving licence, then take a quick selfie.
+          We'll take you to our identity partner to scan your passport or
+          driving licence and take a quick selfie, then bring you back here.
         </p>
         <div
           className="card"
@@ -482,7 +523,7 @@ export default function Onboarding({ onDone }) {
               {idState === "idle"
                 ? "camera view · passport in frame"
                 : idState === "scanning"
-                  ? "Reading document…"
+                  ? "Opening identity check…"
                   : "Passport read · selfie matched"}
             </div>
           </div>
@@ -504,7 +545,7 @@ export default function Onboarding({ onDone }) {
             disabled={idState === "scanning"}
             onClick={scan}
           >
-            {idState === "scanning" ? "Scanning…" : "Scan document"}
+            {idState === "scanning" ? "Opening…" : "Verify my identity"}
           </button>
         )}
       </div>

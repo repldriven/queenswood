@@ -35,6 +35,7 @@
   {:given-name "Amara"
    :family-name "Okafor"
    :date-of-birth "1994-03-12"
+   :email "amara@example.com"
    :address {:building-number "12"
              :street "Mare Street"
              :town "London"
@@ -81,6 +82,8 @@
     (is (= 200 (:status coded)) (pr-str coded))
     (is (= 200 (:status registered)) (pr-str registered))
     (is (= "pending" (get-in registered [:body :verification])))
+    (is (re-find #"^https://" (str (get-in registered [:body :hand-off-url])))
+        "the sign-up hands the person to the identity provider")
     (is (= 201 (:status session)) (pr-str session))
     (get-in session [:body :token])))
 

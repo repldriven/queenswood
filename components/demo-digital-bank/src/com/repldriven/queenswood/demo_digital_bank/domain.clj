@@ -25,8 +25,12 @@
 (defn- id [] (str (util/uuidv7)))
 
 (def ^:private sign-up-transitions
-  "The status a sign-up must be in for each step to advance it."
-  {:code "code-sent" :details "verified" :passcode "registered"})
+  "The statuses a sign-up may be in for each step to advance it. Details
+  are taken again once registered, so a sign-up whose hand-off failed
+  can retry it."
+  {:code #{"code-sent"}
+   :details #{"verified" "registered"}
+   :passcode #{"registered"}})
 
 (defn normalise-phone
   "A UK mobile number in E.164: spaces and punctuation dropped, a
@@ -57,15 +61,15 @@
   "The sign-up when `step` may advance it, else an invalid-status
   rejection naming what was expected."
   [sign-up step]
-  (let [expected (get sign-up-transitions step)]
-    (if (= expected (:status sign-up))
+  (let [allowed (get sign-up-transitions step)]
+    (if (contains? allowed (:status sign-up))
       sign-up
       (error/reject :sign-up/invalid-status
                     {:message (str "sign-up is " (:status sign-up)
-                                   ", not " expected)
+                                   ", not " (str/join " or " (sort allowed)))
                      :sign-up-id (:id sign-up)
                      :status (:status sign-up)
-                     :allowed expected}))))
+                     :allowed (vec (sort allowed))}))))
 
 (defn- check-code
   [sign-up code expected]
@@ -158,6 +162,14 @@
      :national-identifier (merge {:type "national-insurance"
                                   :issuing-country "GB"}
                                  national-identifier)}))
+
+(defn verification-session-request
+  "The session a sign-up opens to hand the person to the identity
+  provider in a browser, returning them to the app at `app-url`."
+  [details app-url]
+  {:channel "web"
+   :return-url (str app-url "/#verified")
+   :email (:email details)})
 
 (def ^:private product-kinds
   {"current" "cur" "savings" "sav" "term-deposit" "fix"})

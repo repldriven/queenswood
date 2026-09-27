@@ -17,11 +17,9 @@
          :client-secret [:ref :org-0 :client-secret]
          :status :live}
    :as :org-0-token}
-  ;; The Onfido simulator routes by first-name: `Reject*` → "consider"
-  ;; → IDV "rejected" → party "rejected". Polling to that end state is
-  ;; what makes the source status deterministic — a person party is
-  ;; only ever "pending" in transit, so a scenario cannot hold one
-  ;; there long enough to aim at it.
+  ;; The person is found on a sanctions list, so the verification
+  ;; rejects them and the party with it. Polling to that end state is
+  ;; what makes the source status deterministic.
   {:command :api/request
    :request {:method :post
              :path "/v1/parties"
@@ -42,6 +40,7 @@
                                           :value "TN888014A"
                                           :issuing-country "GB"}}}
    :as :party-0
+   :verify {:outcome "sanctions-hit"}
    :assert {:status 201 :body {:status "pending"}}}
   {:command :api/poll
    :request {:method :get

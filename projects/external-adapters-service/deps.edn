@@ -20,6 +20,7 @@
  :deps
  {ext/mono {:local/root "../../deps/mono"}
   component/fdb {:local/root "../../components/fdb"}
+  component/idv-query {:local/root "../../components/idv-query"}
   component/api-schema {:local/root "../../components/api-schema"}
   component/balance {:local/root "../../components/balance"}
   component/balance-domain {:local/root "../../components/balance-domain"}

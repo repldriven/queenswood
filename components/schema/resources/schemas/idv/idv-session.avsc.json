@@ -1,0 +1,25 @@
+{
+  "type": "record",
+  "name": "IdvSession",
+  "namespace": "com.repldriven.mono.idv",
+  "fields": [
+    {"name": "bank_id",         "type": "string"},
+    {"name": "session_id",      "type": "string"},
+    {"name": "verification_id", "type": "string"},
+    {"name": "party_id",        "type": "string"},
+    {"name": "channel",         "type": {"type": "enum",
+                                          "name": "IdvSessionChannel",
+                                          "symbols": ["IDV_SESSION_CHANNEL_UNKNOWN",
+                                                       "IDV_SESSION_CHANNEL_WEB",
+                                                       "IDV_SESSION_CHANNEL_MOBILE"]}},
+    {"name": "return_url",      "type": "string"},
+    {"name": "status",          "type": {"type": "enum",
+                                          "name": "IdvSessionStatus",
+                                          "symbols": ["IDV_SESSION_STATUS_UNKNOWN",
+                                                       "IDV_SESSION_STATUS_OPENING",
+                                                       "IDV_SESSION_STATUS_READY",
+                                                       "IDV_SESSION_STATUS_COMPLETED"]}},
+    {"name": "created_at",      "type": {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name": "updated_at",      "type": {"type": "long", "logicalType": "timestamp-millis"}}
+  ]
+}

@@ -54,6 +54,7 @@
     components/email {:local/root "components/email"}
     components/idempotency {:local/root "components/idempotency"}
     components/idv {:local/root "components/idv"}
+    components/idv-query {:local/root "components/idv-query"}
     components/onfido-webhook {:local/root "components/onfido-webhook"}
     components/onfido-relay {:local/root "components/onfido-relay"}
     components/zyphe-webhook {:local/root "components/zyphe-webhook"}

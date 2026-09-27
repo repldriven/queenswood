@@ -4,6 +4,7 @@
     [com.repldriven.queenswood.test-scenarios.invariants :as invariants]
     [com.repldriven.queenswood.test-scenarios.observer :as observer]
     [com.repldriven.queenswood.test-scenarios.quiescence :as quiescence]
+    [com.repldriven.queenswood.test-scenarios.verification :as verification]
 
     [com.repldriven.queenswood.balance-query.interface :as balances-query]
     [com.repldriven.queenswood.balance.interface :as balances]
@@ -391,17 +392,21 @@
                         ni
                         (assoc :national-identifier ni))
         result (party/new-party bank payload)
-        ;; Reality: bank-idv watcher → onfido chain → bank-party
-        ;; activates. Wait until reality catches up to the model
-        ;; before the next verb fires. "Scenario" given-name routes
-        ;; the simulator outcome to clear → ACCEPTED, so every
-        ;; non-anomaly party reaches :active.
-        result' (if (error/anomaly? result)
-                  result
-                  (let [q (quiescence/wait-for-party-active bank
-                                                            bank-real-id
-                                                            (:party-id result))]
-                    (if (error/anomaly? q) q result)))]
+        ;; Reality: the party's IDV waits for a session; the person
+        ;; shows a matching document through it and the party
+        ;; activates. Wait until reality catches up to the model before
+        ;; the next verb fires.
+        result'
+        (if (error/anomaly? result)
+          result
+          (let [q (error/let-nom> [_ (verification/verify bank
+                                                          bank-real-id
+                                                          (:party-id result)
+                                                          payload)]
+                    (quiescence/wait-for-party-active bank
+                                                      bank-real-id
+                                                      (:party-id result)))]
+            (if (error/anomaly? q) q result)))]
     (-> ctx
         (cond->
          (not (error/anomaly? result'))
@@ -414,10 +419,9 @@
 
 (defmethod dispatch :activate-party
   [{:keys [bank banks parties] :as ctx} {[model-party] :args}]
-  ;; The IDV chain auto-activates a "Scenario"-named party, so this
-  ;; verb degrades to a wait-and-verify. Kept for EDN scenarios that
-  ;; emit it; fugato never selects it because no parties enter
-  ;; pending in the model.
+  ;; Creating a person already verifies it, so this verb degrades to a
+  ;; wait-and-verify. Kept for EDN scenarios that emit it; fugato never
+  ;; selects it because no parties enter pending in the model.
   (let [{party-real-id :real-id model-bank :bank} (get parties model-party)
         bank-real-id (get-in banks [model-bank :real-id])
         result
@@ -527,10 +531,15 @@
         party-result (party/new-party bank party-payload)
         party-result (if (error/anomaly? party-result)
                        party-result
-                       (let [q (quiescence/wait-for-party-active
-                                bank
-                                bank-real-id
-                                (:party-id party-result))]
+                       (let [q (error/let-nom> [_ (verification/verify
+                                                   bank
+                                                   bank-real-id
+                                                   (:party-id party-result)
+                                                   party-payload)]
+                                 (quiescence/wait-for-party-active
+                                  bank
+                                  bank-real-id
+                                  (:party-id party-result)))]
                          (if (error/anomaly? q) q party-result)))
         party-real-id (:party-id party-result)
         ;; Open the customer account.

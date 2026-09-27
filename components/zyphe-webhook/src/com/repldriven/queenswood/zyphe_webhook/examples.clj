@@ -15,6 +15,40 @@
    :flowId "2d8285d7-f4ba-42df-ab3f-681d9870d37a"
    :flowResultId "936f35a8-4921-430e-b016-15be48968886"})
 
+(def DocumentVerification
+  {:id "d65fa9a0-596e-4d7e-afd1-59a23bfb5a74"
+   :verificationRequestId "cf52e18e-28d1-4a2f-8304-c04ef5a75d0f"
+   :status "PASSED"
+   :reasons []
+   :documentType "Passport"
+   :customData CustomData})
+
+(def ExtractedDocument
+  {:firstName "Arthur"
+   :lastName "Dent"
+   :dateOfBirth "1952-03-11"
+   :issuingState "GBR"
+   :documentClassCode "P"})
+
+(def ProofOfAddress
+  {:id "e04a00e6-ccf9-4593-ab86-4b2c01f3bb95"
+   :status "PASSED"
+   :reason nil
+   :documentType "UTILITY_BILL"
+   :customData CustomData})
+
+(def AmlScreening
+  {:id "e5f6a7b8-9012-3456-7890-abcdef123456"
+   :updateKind "PRODUCED"
+   :status "APPROVED"
+   :subjectType "PERSON"
+   :hasPep false
+   :hasSanctions false
+   :riskScorePercent 12
+   :customData CustomData})
+
+(def EventData {:dv DocumentVerification :additionalData ExtractedDocument})
+
 (def WebhookEvent
   {:id "0f0dcb6c-6b6a-4f4a-a4a6-2b4a19e2e9c1"
    :type "flow.completed"

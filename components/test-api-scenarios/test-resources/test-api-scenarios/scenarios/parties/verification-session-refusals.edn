@@ -1,0 +1,82 @@
+{:name "Opening a verification session is refused without what the provider needs"
+ :tags #{:api :idv :parties :unhappy}
+ :given
+ [{:command :api/request
+   :request
+   {:method :post
+    :path "/v1/banks"
+    :auth :admin
+    :headers {:idempotency-key "ik-verification-session-refusals-bank-001"}
+    :body
+    {:name "Verification Session Org" :status "live" :tier "micro" :currencies ["GBP"]}}
+   :as :org-0
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :org-0 :client-id]
+         :client-secret [:ref :org-0 :client-secret]
+         :status :live}
+   :as :org-0-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-verification-session-refusals-party-001"}
+             :body {:type "person"
+                    :display-name "Ford Prefect"
+                    :given-name "Ford"
+                    :family-name "Prefect"
+                    :date-of-birth "1960-01-01"
+                    :nationality "GB"
+                    :address {:building-number "155"
+                              :street "Country Lane"
+                              :town "Cottington"
+                              :postcode "CT12 4XY"
+                              :country "GBR"}
+                    :national-identifier {:type "national-insurance"
+                                          :value "TN300002S"
+                                          :issuing-country "GB"}}}
+   :as :party-0
+   :verify false
+   :assert {:status 201}}]
+ :when
+ [{:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}/verification"
+             :path-params {:party-id [:ref :party-0 :party-id]}
+             :auth :org-0-token}
+   :until {:status 200 :body {:status "pending"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties/{party-id}/verification-sessions"
+             :path-params {:party-id [:ref :party-0 :party-id]}
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-verification-session-refusals-001"}
+             :body {:channel "web" :return-url "https://app.example.test/back"}}
+   :assert {:status 422 :body {:type ":idv/missing-email"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties/{party-id}/verification-sessions"
+             :path-params {:party-id [:ref :party-0 :party-id]}
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-verification-session-refusals-002"}
+             :body {:channel "web"
+                    :return-url "http://app.example.test/back"
+                    :email "ford@example.test"}}
+   :assert {:status 400}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties/{party-id}/verification-sessions"
+             :path-params {:party-id "pty.01kprbmgcj35ptc8npmybhh4s9"}
+             :auth :org-0-token
+             :headers {:idempotency-key "ik-verification-session-refusals-003"}
+             :body {:channel "web"
+                    :return-url "https://app.example.test/back"
+                    :email "ford@example.test"}}
+   :assert {:status 404 :body {:type ":idv/not-found"}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/parties/{party-id}/verification-sessions/{session-id}"
+             :path-params {:party-id [:ref :party-0 :party-id]
+                           :session-id "ses.01kprbmgcj35ptc8npmybhh4sc"}
+             :auth :org-0-token}
+   :assert {:status 404 :body {:type ":idv/session-not-found"}}}]}

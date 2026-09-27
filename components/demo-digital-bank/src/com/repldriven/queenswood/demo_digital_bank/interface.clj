@@ -63,15 +63,19 @@
   (core/verify-code bank sign-up-id request))
 
 (defn register-details
-  "Register the person with the platform and carry the party onto the
-  sign-up, answering `{:id :status :party-id :verification}`. A repeat
-  reuses the idempotency key the first attempt minted.
+  "Register the person with the platform, carry the party onto the
+  sign-up, and open a verification session handing the person to the
+  identity provider, answering `{:id :status :party-id :verification
+  :hand-off-url}` — the URL absent when the provider has not answered in
+  time. The provider returns the person to the bank's `:app-url`. A
+  repeat reuses the idempotency keys the first attempt minted.
 
   Args:
   - bank: the started bank component.
   - sign-up-id: the sign-up's id.
-  - request: `{:given-name :family-name :date-of-birth :nationality
-    :address :national-identifier}`, the date ISO 8601, the address
+  - request: `{:given-name :family-name :date-of-birth :email
+    :nationality :address :national-identifier}`, the date ISO 8601,
+    the address
     `{:building-number :street :town :postcode :country}` and the
     identifier `{:type :value :issuing-country}`; nationality, country,
     type and issuing country default to a UK person's."

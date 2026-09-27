@@ -43,11 +43,12 @@
    :system/config {:store system/required-component
                    :platform system/required-component
                    :sign-up-code system/required-component
+                   :app-url system/required-component
                    :session-ttl-seconds nil
                    :keep-alive-ms nil
                    :webhook-secret nil}
    :system/config-schema [:map [:store some?] [:platform some?]
-                          [:sign-up-code string?]
+                          [:sign-up-code string?] [:app-url string?]
                           [:webhook-secret {:optional true} [:maybe string?]]]
    :system/instance-schema map?})
 

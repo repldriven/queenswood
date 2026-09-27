@@ -43,6 +43,13 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-parties-command
           acks: all
+      idvs-command:
+        schemas: !system/local-ref schemas
+        schema: !keyword command
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          topic: topic-idvs-command
+          acks: all
       payments-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
@@ -101,6 +108,13 @@ system:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           group.id: api-service-parties-command-response
+      idvs-command-response:
+        schemas: !system/local-ref schemas
+        schema: !keyword command-response
+        topics: [topic-idvs-command-response]
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          group.id: api-service-idvs-command-response
       payments-command-response:
         schemas: !system/local-ref schemas
         schema: !keyword command-response
@@ -134,6 +148,8 @@ system:
         producer: !system/local-ref producers.memberships-command
       parties-command:
         producer: !system/local-ref producers.parties-command
+      idvs-command:
+        producer: !system/local-ref producers.idvs-command
       payments-command:
         producer: !system/local-ref producers.payments-command
       transactions-command:
@@ -156,6 +172,9 @@ system:
         timeout: 500
       parties-command-response:
         consumer: !system/local-ref consumers.parties-command-response
+        timeout: 500
+      idvs-command-response:
+        consumer: !system/local-ref consumers.idvs-command-response
         timeout: 500
       payments-command-response:
         consumer: !system/local-ref consumers.payments-command-response
@@ -200,6 +219,12 @@ system:
       bus: !system/ref message-bus.bus
       command-channel: !keyword parties-command
       command-response-channel: !keyword parties-command-response
+  idvs:
+    dispatcher: !system/component
+      system/component-kind: command/dispatcher
+      bus: !system/ref message-bus.bus
+      command-channel: !keyword idvs-command
+      command-response-channel: !keyword idvs-command-response
   payments:
     dispatcher: !system/component
       system/component-kind: command/dispatcher
@@ -253,6 +278,7 @@ system:
         cash-accounts: !system/ref cash-accounts.dispatcher
         memberships: !system/ref memberships.dispatcher
         parties: !system/ref parties.dispatcher
+        idvs: !system/ref idvs.dispatcher
         payments: !system/ref payments.dispatcher
         transactions: !system/ref transactions.dispatcher
         payee-checks: !system/ref payee-checks.dispatcher

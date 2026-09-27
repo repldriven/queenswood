@@ -155,6 +155,11 @@
      (jdbc/insert! ds :submissions (assoc submission :request request))
      read-row)))
 
+(defn delete-submission
+  [ds idempotency-key]
+  (error/nom->
+   (jdbc/delete! ds :submissions {:idempotency-key idempotency-key})))
+
 (defn answer-submission
   [ds {:keys [idempotency-key response]}]
   (let-nom> [encoded (json/write-str response)]

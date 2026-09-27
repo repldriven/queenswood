@@ -6,10 +6,10 @@
 
     [com.repldriven.queenswood.clearbank-adapter.interface :as cb-adapter]
     [com.repldriven.queenswood.clearbank-simulator.interface :as cb-simulator]
-    [com.repldriven.queenswood.onfido-adapter.interface :as onfido-adapter]
-    [com.repldriven.queenswood.onfido-simulator.interface :as onfido-simulator]
     [com.repldriven.queenswood.test-model.interface :as model]
     [com.repldriven.queenswood.test-projections.interface :as projections]
+    [com.repldriven.queenswood.zyphe-adapter.interface :as zyphe-adapter]
+    [com.repldriven.queenswood.zyphe-simulator.interface :as zyphe-simulator]
 
     [com.repldriven.mono.log.interface :as log]
     [com.repldriven.mono.system.interface :as system]
@@ -28,10 +28,10 @@
                 cb-simulator/app)
       (assoc-in [:system/defs :clearbank-adapter-server :handler]
                 cb-adapter/app)
-      (assoc-in [:system/defs :onfido-simulator-server :handler]
-                onfido-simulator/app)
-      (assoc-in [:system/defs :onfido-adapter-server :handler]
-                onfido-adapter/app)))
+      (assoc-in [:system/defs :zyphe-simulator-server :handler]
+                zyphe-simulator/app)
+      (assoc-in [:system/defs :zyphe-adapter-server :handler]
+                zyphe-adapter/app)))
 
 (defn- fdb-config
   [sys]
@@ -45,7 +45,9 @@
    ;; schemes-payments-event credits the inbound side.
    :bus (system/instance sys [:message-bus :bus])
    :schemas (system/instance sys [:avro :serde])
-   :scheme-payment-command-channel :schemes-payment-command})
+   :scheme-payment-command-channel :schemes-payment-command
+   :zyphe-simulator-url (system/instance sys
+                                         [:zyphe-simulator-server :http-url])})
 
 (defn- start-observers
   [sys]

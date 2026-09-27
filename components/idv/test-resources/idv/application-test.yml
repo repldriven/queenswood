@@ -2,3 +2,4 @@ system:
   avro: !include system/avro.yml
   fdb: !include system/fdb-test.yml
   idv: !include idv/idv-test.yml
+  policies: !include system/policy-test.yml

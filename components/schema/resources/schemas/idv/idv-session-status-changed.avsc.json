@@ -1,0 +1,20 @@
+{
+  "type": "record",
+  "name": "IdvSessionStatusChanged",
+  "namespace": "com.repldriven.mono.idv",
+  "fields": [
+    {"name": "bank_id",         "type": "string"},
+    {"name": "session_id",      "type": "string"},
+    {"name": "verification_id", "type": "string"},
+    {"name": "party_id",        "type": "string"},
+    {"name": "status_before",
+     "type": ["null", {"type": "enum",
+                       "name": "IdvSessionStatus",
+                       "symbols": ["IDV_SESSION_STATUS_UNKNOWN",
+                                    "IDV_SESSION_STATUS_OPENING",
+                                    "IDV_SESSION_STATUS_READY",
+                                    "IDV_SESSION_STATUS_COMPLETED"]}],
+     "default": null},
+    {"name": "status_after", "type": "com.repldriven.mono.idv.IdvSessionStatus"}
+  ]
+}
