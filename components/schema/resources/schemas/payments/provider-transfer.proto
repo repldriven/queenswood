@@ -15,7 +15,10 @@ enum ProviderTransferStatus {
 
 // A movement the ledger made that the payment provider must make too,
 // where the provider holds a balance for each account: one debtor and
-// creditor pair of one posted transaction.
+// creditor pair of one posted transaction, named by the cash accounts
+// whose provider accounts hold the money. The provider accounts are read
+// when the transfer is sent, so one the provider has not yet opened
+// waits.
 message ProviderTransfer {
   option (com.apple.foundationdb.record.record).usage = RECORD;
 
@@ -24,8 +27,8 @@ message ProviderTransfer {
   required string transaction_id = 3;
   // Absent when the money came from outside the provider, which only a
   // sandbox provider can credit.
-  optional string debtor_provider_account_id = 4;
-  required string creditor_provider_account_id = 5;
+  optional string debtor_account_id = 4;
+  required string creditor_account_id = 5;
   required int64 amount = 6;
   required string currency = 7;
   required ProviderTransferStatus status = 8;

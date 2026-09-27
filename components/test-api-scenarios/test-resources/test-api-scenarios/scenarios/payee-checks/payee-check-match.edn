@@ -16,7 +16,15 @@
    :for {:client-id [:ref :org-0 :client-id]
          :client-secret [:ref :org-0 :client-secret]
          :status :live}
-   :as :org-0-token}]
+   :as :org-0-token}
+  ;; A check is made from the bank's own funds, so it waits for the
+  ;; provider to open them.
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts"
+             :auth :org-0-token}
+   :until {:status 200
+           :body {:items [:m/embeds [{:account-status "opened"}]]}}}]
  :when
  [{:command :api/request
    :request {:method :post

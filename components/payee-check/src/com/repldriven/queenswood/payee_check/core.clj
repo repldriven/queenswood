@@ -3,6 +3,8 @@
     [com.repldriven.queenswood.payee-check.domain :as domain]
     [com.repldriven.queenswood.payee-check.store :as store]
 
+    [com.repldriven.queenswood.cash-account-query.interface :as cash-accounts]
+
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.http-client.interface :as http]
     [com.repldriven.mono.json.interface :as json]))
@@ -16,8 +18,8 @@
   "Invoke the CoP adapter for a single check request. A transport
   failure or non-200 response degrades to an `unavailable` result
   rather than an anomaly, so the check is still persisted."
-  [adapter-url request]
-  (let [{:keys [creditor-name account account-type]} request
+  [adapter-url bank-id request]
+  (let [{:keys [creditor-name account account-type account-id]} request
         {:keys [sort-code account-number]} account
         res (error/try-nom
              :payee-check/cop
@@ -27,10 +29,13 @@
                :url (str adapter-url "/cop/outbound")
                :headers {"Content-Type" "application/json"}
                :body (json/write-str
-                      {:creditor-name creditor-name
-                       :account {:sort-code sort-code
-                                 :account-number account-number}
-                       :account-type account-type})}))]
+                      (cond-> {:creditor-name creditor-name
+                               :account {:sort-code sort-code
+                                         :account-number account-number}
+                               :account-type account-type
+                               :bank-id bank-id}
+                              account-id
+                              (assoc :account-id account-id)))}))]
     (if (or (error/anomaly? res) (not= 200 (:status res)))
       unavailable
       (let [{:keys [match-result actual-name reason-code reason]}
@@ -49,10 +54,17 @@
 (defn check-and-save
   [config data]
   (let [{:keys [payment-adapter-url]} config
-        {:keys [bank-id]} data
-        request (dissoc data :bank-id)
-        result (perform-cop-check payment-adapter-url request)]
-    (check-payee config bank-id request result)))
+        {:keys [bank-id account-id]} data
+        request (dissoc data :bank-id :account-id)]
+    (let-nom> [_ (when account-id
+                   (cash-accounts/get-account config bank-id account-id))]
+      (check-payee config
+                   bank-id
+                   request
+                   (perform-cop-check
+                    payment-adapter-url
+                    bank-id
+                    (assoc request :account-id account-id))))))
 
 (defn get-check
   [txn bank-id check-id]

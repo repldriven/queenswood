@@ -121,11 +121,11 @@
        (str/join "&")))
 
 (defn- base-url-for
-  "The root URL a request goes to: the bank API's, or the ClearBank
-  simulator's when the step names `:base :clearbank-simulator`."
-  [{:keys [base-url clearbank-simulator-url]} base]
+  "The root URL a request goes to: the bank API's, or the payment
+  provider's simulator's when the step names `:base :payment-simulator`."
+  [{:keys [base-url payment-simulator-url]} base]
   (case base
-    :clearbank-simulator clearbank-simulator-url
+    :payment-simulator payment-simulator-url
     base-url))
 
 (defn- build-request

@@ -17,6 +17,7 @@
               "name": "AccountType",
               "symbols": ["ACCOUNT_TYPE_UNKNOWN",
                           "ACCOUNT_TYPE_PERSONAL",
-                          "ACCOUNT_TYPE_BUSINESS"]}}
+                          "ACCOUNT_TYPE_BUSINESS"]}},
+    {"name": "account_id", "type": ["null", "string"], "default": null}
   ]
 }

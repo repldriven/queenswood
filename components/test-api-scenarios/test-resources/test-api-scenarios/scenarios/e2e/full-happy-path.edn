@@ -289,7 +289,7 @@
                     :reference "Beer and nuts"}}
    :assert {:status 201}}]
  :then
- ;; Outbound is async (scheme command → ClearBank → settled event).
+ ;; Outbound is async (scheme command → provider → settled event).
  ;; Give the chain ~2s to settle before checking balances.
  ;;
  ;; --- Pre-interest balances --------------------------------------

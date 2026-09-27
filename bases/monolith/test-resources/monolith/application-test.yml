@@ -29,6 +29,7 @@ system:
   payee-checks: !include system/payee-check-test.yml
   payments: !include system/payment.yml
   payments-dispatcher: !include system/payment-dispatcher.yml
+  payment-sweep: !include system/payment-outbound-sweep.yml
   payments-relay: !include system/payment-relay.yml
   rewards-relay: !include system/reward-relay.yml
   policies: !include system/policy-test.yml

@@ -1,7 +1,7 @@
 {:name "An inbound held for screening, then returned, credits no one"
  :tags #{:api :inbound :payments :unhappy}
- ;; ClearBank's documented sandbox trigger: an inbound whose debtor name is
- ;; 6a41a29eafcf455493 is held for screening. The simulator then resolves it
+ ;; A test value every payment simulator shares: an inbound whose debtor
+ ;; name is 6a41a29eafcf455493 is held for screening. The simulator then resolves it
  ;; by the request's `outcome`, here a return, whose rejection carries the
  ;; creditor's BBAN. The payment events record the hold `held` and, on the
  ;; return, move that record to `returned`; no money reaches the bank's
@@ -91,7 +91,7 @@
  :when
  [{:command :api/request
    :request {:method :post
-             :base :clearbank-simulator
+             :base :payment-simulator
              :path "/simulate/inbound-payment"
              :body {:bban [:ref :creditor :bban]
                     :amount 25

@@ -1,12 +1,10 @@
 {:name "Outbound rejected at message assessment — funds reversed"
  :tags #{:api :outbound :payments :unhappy}
- ;; ClearBank assesses a submitted outbound payment against scheme rules
- ;; before settlement; on failure it fires PaymentMessageAssessmentFailed
- ;; (no settle/held). Here the creditor BBAN's sort code is 000000 — an
- ;; unreachable sort code the simulator treats as an assessment failure.
- ;; The adapter routes it through the transaction-rejected event, so the
- ;; payment brick reverses the in-flight legs (DEBIT 1200 / CREDIT debtor)
- ;; and flips the payment to "failed" with code CB_AssessmentFailed.
+ ;; A test value every payment simulator shares: a creditor sort code of
+ ;; 000000 is declined before settlement. The adapter reports it as a
+ ;; transaction-rejected event, so the payment brick reverses the
+ ;; in-flight legs (DEBIT 1200 / CREDIT debtor) and flips the payment to
+ ;; "failed", declined.
  ;; All amounts in pence.
  :given
  [{:command :api/request
@@ -140,8 +138,8 @@
    :as :payment
    :assert {:status 201}}]
  :then
- ;; ClearBank rejects at assessment: the payment lands on "failed" with
- ;; the CB_AssessmentFailed code, and the £25 returns to the debtor.
+ ;; The payment lands on "failed", declined, and the £25 returns to the
+ ;; debtor.
  [{:command :api/poll
    :request {:method :get
              :path "/v1/payments/outbound/{payment-id}"

@@ -1006,6 +1006,10 @@
   (ZypheOutboxProto$ZypheOutboundIntent/parseFrom
    (ZypheOutboundIntent->pb m)))
 
+(def ^{:doc "Map of ProviderTransferStatus keyword to its proto enum int."}
+     provider-transfer-status->int
+  payments/ProviderTransferStatus-label2val)
+
 (def ^{:doc "Parse ModulrOutboxEvent protobuf bytes into a Clojure map."}
      pb->ModulrOutboxEvent
   modulr/pb->ModulrOutboxEvent)
@@ -1037,16 +1041,16 @@
 
 (defn pb->ProviderTransfer
   "Parse ProviderTransfer protobuf bytes into a Clojure map, stripping
-  the optional `debtor-provider-account-id` and `failure-reason` when
-  they deserialise as the proto2 empty-string default.
+  the optional `debtor-account-id` and `failure-reason` when they
+  deserialise as the proto2 empty-string default.
 
   Args:
   - input: protobuf bytes."
   [input]
   (let [transfer (payments/pb->ProviderTransfer input)]
     (cond-> transfer
-            (= "" (:debtor-provider-account-id transfer))
-            (dissoc :debtor-provider-account-id)
+            (= "" (:debtor-account-id transfer))
+            (dissoc :debtor-account-id)
 
             (= "" (:failure-reason transfer))
             (dissoc :failure-reason))))

@@ -3,19 +3,21 @@ system:
   cash-account-product-templates: !include system/cash-account-product-templates.yml
   cash-accounts: !include system/cash-account.yml
   cash-accounts-relay: !include system/cash-account-relay.yml
-  clearbank-adapter: !include system/clearbank-adapter.yml
-  clearbank-adapter-relay: !include system/clearbank-adapter-relay.yml
-  clearbank-adapter-server: !include system/clearbank-adapter-server.yml
-  clearbank-simulator-server: !include system/clearbank-simulator-server.yml
   fdb: !include system/fdb-test.yml
   idv: !include system/idv.yml
   idvs-relay: !include system/idv-relay.yml
   kafka: !include system/kafka-all-test.yml
   message-bus: !include system/message-bus-test.yml
+  modulr-adapter: !include system/modulr-adapter.yml
+  modulr-adapter-relay: !include system/modulr-adapter-relay.yml
+  modulr-adapter-server: !include system/modulr-adapter-server.yml
+  modulr-simulator-server: !include system/modulr-simulator-server.yml
   parties: !include test-scenarios/party-test.yml
   parties-relay: !include system/party-relay.yml
   payments: !include test-scenarios/payment-test.yml
+  payment-sweep: !include system/payment-outbound-sweep.yml
   policies: !include system/policy-test.yml
+  transactions-relay: !include system/transaction-relay.yml
   zyphe-adapter: !include system/zyphe-adapter.yml
   zyphe-adapter-relay: !include system/zyphe-adapter-relay.yml
   zyphe-adapter-server: !include system/zyphe-adapter-server.yml

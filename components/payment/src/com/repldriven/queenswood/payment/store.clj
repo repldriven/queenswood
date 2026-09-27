@@ -126,3 +126,24 @@
                       (schema/ProviderTransfer->java transfer)))
    :payment/save-transfer
    "Failed to save a provider transfer"))
+
+(defn pending-transfers
+  "Every provider transfer still pending, oldest first."
+  [txn]
+  (fdb/transact
+   txn
+   (fn [txn]
+     (let [store (fdb/open txn provider-transfers-store-name)]
+       (mapv schema/pb->ProviderTransfer
+             (fdb/query-records store
+                                "ProviderTransfer"
+                                "status"
+                                (fdb/enum-value
+                                 store
+                                 "ProviderTransfer"
+                                 "status"
+                                 (schema/provider-transfer-status->int
+                                  :provider-transfer-status-pending))
+                                {:index "ProviderTransfer_by_status"}))))
+   :payment/pending-transfers
+   "Failed to read pending provider transfers"))

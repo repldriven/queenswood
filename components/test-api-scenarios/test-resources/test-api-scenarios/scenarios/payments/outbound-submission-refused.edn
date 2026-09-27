@@ -1,13 +1,12 @@
 {:name "An outbound refused in the submission response fails and is reversed"
  :tags #{:api :outbound :payments :unhappy}
- ;; ClearBank can answer a submission 202 with a per-instruction response
- ;; other than Accepted. The simulator does so for a creditor sort code of
- ;; 999998, and fires no webhook. The relay fails the intent on that
- ;; attempt and writes a transaction-rejected event coded
- ;; CB_SubmissionRefused, so the payment brick reverses the reservation
- ;; and the payment reads "failed". The debtor is funded through the
- ;; simulator's inbound payment, whose amount is in pounds. Balances are
- ;; in pence.
+ ;; A test value every payment simulator shares: the provider refuses a
+ ;; submission to a creditor sort code of 999998, and sends no webhook.
+ ;; The relay fails the intent on that attempt and writes a
+ ;; transaction-rejected event, refused, so the payment brick reverses the
+ ;; reservation and the payment reads "failed". The debtor is funded
+ ;; through the simulator's inbound payment, whose amount is in pounds.
+ ;; Balances are in pence.
  :given
  [{:command :api/request
    :request {:method :post
@@ -92,7 +91,7 @@
    :as :debtor}
   {:command :api/request
    :request {:method :post
-             :base :clearbank-simulator
+             :base :payment-simulator
              :path "/simulate/inbound-payment"
              :body {:bban [:ref :debtor :bban]
                     :amount 1000

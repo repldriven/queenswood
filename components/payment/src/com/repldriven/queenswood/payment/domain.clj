@@ -613,24 +613,25 @@
 
 (defn provider-transfers
   "The movements between provider accounts that make them hold what the
-  posting left in the ledger. Nets the posting's mirrored legs per
-  party: a cash account's provider account, or the bank's own funds for
-  one without; the scheme's side of 1100 cash at correspondent, which is
-  the account the scheme moved the money through, or money from outside
-  where the scheme did not; and the bank's own funds for any other
-  ledger account and whatever the mirrored legs leave unbalanced. Money
-  from outside is a transfer with no debtor, and money leaving to it
-  without the scheme stays with the bank's own funds."
+  posting left in the ledger, each named by the cash accounts whose
+  provider accounts hold the money. Nets the posting's mirrored legs per
+  party: a cash account, or the bank's own funds for one the provider
+  holds nothing for; the scheme's side of 1100 cash at correspondent,
+  which is the account the scheme moved the money through, or money from
+  outside where the scheme did not; and the bank's own funds for any
+  other ledger account and whatever the mirrored legs leave unbalanced.
+  Money from outside is a transfer with no debtor, and money leaving to
+  it without the scheme stays with the bank's own funds."
   [posted
-   {:keys [provider-accounts cash-at-correspondent-id
-           scheme-provider-account-id own-funds]}]
+   {:keys [cash-accounts cash-at-correspondent-id scheme-account-id
+           own-funds]}]
   (let [party (fn [{:keys [account-id]}]
                 (cond
-                 (contains? provider-accounts account-id)
-                 (or (get provider-accounts account-id) own-funds)
+                 (contains? cash-accounts account-id)
+                 (get cash-accounts account-id)
 
                  (= cash-at-correspondent-id account-id)
-                 (or scheme-provider-account-id ::outside)
+                 (or scheme-account-id ::outside)
 
                  :else
                  own-funds))
@@ -652,6 +653,18 @@
           (pair (keep (fn [[k v]] (when (neg? v) [k (- v)])) ordered)
                 (keep (fn [[k v]] (when (pos? v) [k v])) ordered)))))
 
+(defn mirror-party
+  "Whose provider account holds `account`'s money: its own where the
+  provider holds one for it, or will once it opens it, and otherwise the
+  bank's own funds."
+  [account own-funds]
+  (let [{:keys [account-id provider-account-id account-status]} account]
+    (if (or provider-account-id
+            (= account-id own-funds)
+            (= :cash-account-status-opening account-status))
+      account-id
+      own-funds)))
+
 (defn new-provider-transfer
   [posted {:keys [debtor creditor amount]}]
   (let [{:keys [bank-id transaction-id currency]} posted
@@ -659,13 +672,13 @@
     (utility/assoc-some {:transfer-id (utility/generate-id "ptr")
                          :bank-id bank-id
                          :transaction-id transaction-id
-                         :creditor-provider-account-id creditor
+                         :creditor-account-id creditor
                          :amount amount
                          :currency currency
                          :status :provider-transfer-status-pending
                          :created-at now
                          :updated-at now}
-                        :debtor-provider-account-id
+                        :debtor-account-id
                         debtor)))
 
 (defn transfer-outcome

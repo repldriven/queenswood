@@ -70,7 +70,7 @@
         ;; explicit wait step.
         {:command :outbound-payment :args [:acct-3 :acct-1 2500]}]
  :then
- ;; ClearBank settles the scheme leg and bank-payment's
+ ;; The provider settles the scheme leg and bank-payment's
  ;; event-processor on schemes-payments-event recognises the
  ;; creditor BBAN as internal, posting an inbound credit to
  ;; Arthur's current. The verb sleeps after submit-outbound long

@@ -551,47 +551,43 @@
      :payment/reject-outbound
      "Failed to reject outbound payment")))
 
-(defn- provider-account-of
-  [txn bank-id account-id]
-  (let-nom> [account (cash-accounts/find-account txn bank-id account-id)]
-    (when account [account-id (:provider-account-id account)])))
-
 (defn- mirror-context
   "What `domain/provider-transfers` needs to know about the accounts a
-  posting touched: which are cash accounts and the provider account
-  behind each, which is 1100, the provider account the scheme moved the
-  money through, and the bank's own funds', or `::unopened` while the
-  provider has not opened it."
+  posting touched: which are cash accounts and whose provider account
+  holds each one's money, which is 1100, the account the scheme moved
+  the money through, and the bank's own funds."
   [txn posted]
-  (let [{:keys [bank-id currency legs scheme-account-id]} posted
-        account-ids (distinct (map :account-id legs))]
+  (let [{:keys [bank-id currency legs scheme-account-id]} posted]
     (let-nom>
       [cash (ledger-accounts/find-by-code txn
                                           bank-id
                                           :gl-account-code-cash-at-correspondent
                                           currency)
        house (cash-accounts/house-account txn bank-id currency)
-       found (reduce (fn [acc account-id]
-                       (let [res (provider-account-of txn bank-id account-id)]
-                         (cond
-                          (error/anomaly? res)
-                          (reduced res)
+       own-funds (:account-id house)
+       parties (reduce (fn [acc account-id]
+                         (let [account (cash-accounts/find-account txn
+                                                                   bank-id
+                                                                   account-id)]
+                           (cond
+                            (error/anomaly? account)
+                            (reduced account)
 
-                          res
-                          (conj acc res)
+                            account
+                            (assoc acc
+                                   account-id
+                                   (domain/mirror-party account own-funds))
 
-                          :else
-                          acc)))
-                     {}
-                     account-ids)
-       scheme (when scheme-account-id
-                (provider-account-of txn bank-id scheme-account-id))]
-      (let [own-funds (or (:provider-account-id house) ::unopened)]
-        {:provider-accounts found
-         :cash-at-correspondent-id (:ledger-account-id cash)
-         :scheme-provider-account-id (when scheme
-                                       (or (second scheme) own-funds))
-         :own-funds own-funds}))))
+                            :else
+                            acc)))
+                       {}
+                       (distinct (keep identity
+                                       (conj (mapv :account-id legs)
+                                             scheme-account-id))))]
+      {:cash-accounts parties
+       :cash-at-correspondent-id (:ledger-account-id cash)
+       :scheme-account-id (get parties scheme-account-id)
+       :own-funds own-funds})))
 
 (defn- record-transfers
   "The posting's provider transfers, recorded pending in one
@@ -610,45 +606,53 @@
            (let [transfers (mapv (fn [t]
                                    (domain/new-provider-transfer posted t))
                                  (domain/provider-transfers posted ctx))]
-             (if (some (fn [{:keys [debtor-provider-account-id
-                                    creditor-provider-account-id]}]
-                         (some #{::unopened}
-                               [debtor-provider-account-id
-                                creditor-provider-account-id]))
-                       transfers)
-               (error/fail :payment/own-funds-unopened
-                           {:message
-                            "The bank's own funds have no provider account yet"
-                            :bank-id (:bank-id posted)
-                            :transaction-id (:transaction-id posted)})
-               (let-nom> [_ (reduce (fn [_ t]
-                                      (let [res (store/save-transfer txn t)]
-                                        (when (error/anomaly? res)
-                                          (reduced res))))
-                                    nil
-                                    transfers)]
-                 transfers)))))))
+             (let-nom> [_ (reduce (fn [_ t]
+                                    (let [res (store/save-transfer txn t)]
+                                      (when (error/anomaly? res)
+                                        (reduced res))))
+                                  nil
+                                  transfers)]
+               transfers))))))
    :payment/mirror
    "Failed to record provider transfers"))
 
-(defn- send-transfer
+(defn- provider-account
+  [config bank-id account-id]
+  (when account-id
+    (let [account (cash-accounts/find-account config bank-id account-id)]
+      (when-not (error/anomaly? account) (:provider-account-id account)))))
+
+(defn send-transfer
+  "Send a pending transfer as `transfer-between-accounts`, naming the
+  provider accounts its cash accounts now have. One whose provider
+  account is not yet opened is left for the sweep to send."
   [config transfer]
   (let [{:keys [bus schemas scheme-payment-command-channel]} config
-        {:keys [transaction-id]} transfer]
-    (let-nom> [payload (avro/serialize (get schemas "transfer-between-accounts")
-                                       (select-keys
-                                        transfer
-                                        [:transfer-id :bank-id :transaction-id
-                                         :debtor-provider-account-id
-                                         :creditor-provider-account-id :amount
-                                         :currency]))]
-      (message-bus/send bus
-                        scheme-payment-command-channel
-                        {:command "transfer-between-accounts"
-                         :id (str (utility/uuidv7))
-                         :correlation-id (str (utility/uuidv7))
-                         :causation-id transaction-id
-                         :payload payload}))))
+        {:keys [bank-id transaction-id debtor-account-id creditor-account-id]}
+        transfer
+        debtor (provider-account config bank-id debtor-account-id)
+        creditor (provider-account config bank-id creditor-account-id)]
+    (if (or (nil? creditor) (and debtor-account-id (nil? debtor)))
+      (log/info "Provider transfer waits for a provider account"
+                {:transfer-id (:transfer-id transfer)})
+      (let-nom> [payload (avro/serialize
+                          (get schemas "transfer-between-accounts")
+                          (utility/assoc-some
+                           (assoc (select-keys transfer
+                                               [:transfer-id :bank-id
+                                                :transaction-id :amount
+                                                :currency])
+                                  :creditor-provider-account-id
+                                  creditor)
+                           :debtor-provider-account-id
+                           debtor))]
+        (message-bus/send bus
+                          scheme-payment-command-channel
+                          {:command "transfer-between-accounts"
+                           :id (str (utility/uuidv7))
+                           :correlation-id (str (utility/uuidv7))
+                           :causation-id transaction-id
+                           :payload payload})))))
 
 (defn mirror-posted
   "Where the provider holds a balance for each account, record and send

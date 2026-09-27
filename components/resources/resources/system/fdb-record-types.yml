@@ -571,5 +571,9 @@ stores:
       - name: ProviderTransfer_by_transaction_pair
         added: 63
         modified: 63
-        fields: [transaction_id, debtor_provider_account_id, creditor_provider_account_id]
+        fields: [transaction_id, debtor_account_id, creditor_account_id]
         unique: true
+      - name: ProviderTransfer_by_status
+        added: 63
+        modified: 63
+        fields: [status, created_at]

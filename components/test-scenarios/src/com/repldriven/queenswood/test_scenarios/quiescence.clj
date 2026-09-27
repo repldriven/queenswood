@@ -67,7 +67,7 @@
   "Poll the OutboundPayment record until its `:payment-status` is
   `:outbound-payment-status-completed`. submit-outbound returns
   immediately after debiting the debtor and publishing the scheme
-  command; ClearBank settles asynchronously and the bank-payment
+  command; the provider settles asynchronously and the bank-payment
   event-processor flips the status (Debit event → settle-outbound).
   The verb that just submitted needs to block until that hop lands
   so the surrounding model-eq check sees a consistent state."
@@ -105,10 +105,10 @@
 (defn wait-for-credit
   "Poll the default-posted balance of `account-id` until its net
   (credit − debit) is at least `target`. Use after an outbound
-  payment with an internal creditor — ClearBank fires the Debit
+  payment with an internal creditor — the provider reports the Debit
   (settle-outbound, marks the OutboundPayment :completed) and
-  Credit (settle-inbound, credits the creditor) events as two
-  separate transaction-settled webhooks, so
+  Credit (settle-inbound, credits the creditor) as two separate
+  transaction-settled events, so
   `wait-for-outbound-completed` only catches the first hop."
   ([bank bank-real-id account-id currency target]
    (wait-for-credit bank
@@ -145,6 +145,18 @@
       (let [n (count-fn)]
         (if (or (error/anomaly? n) (>= n target) (>= (utility/now) deadline))
           n
+          (do (Thread/sleep poll-interval-ms) (recur)))))))
+
+(defn wait-until
+  "Poll `value-fn` until `done?` holds of what it returns or `deadline-ms`
+  passes. Returns the last value, so the caller asserts on what was seen
+  rather than on a timeout."
+  [value-fn done? deadline-ms]
+  (let [deadline (+ (utility/now) deadline-ms)]
+    (loop []
+      (let [v (value-fn)]
+        (if (or (done? v) (>= (utility/now) deadline))
+          v
           (do (Thread/sleep poll-interval-ms) (recur)))))))
 
 (defn wait

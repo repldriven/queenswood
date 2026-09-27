@@ -8,8 +8,9 @@
 
     [com.repldriven.queenswood.test-scenarios.interface :as SUT]
 
-    [com.repldriven.queenswood.clearbank-adapter.interface :as cb-adapter]
-    [com.repldriven.queenswood.clearbank-simulator.interface :as cb-simulator]
+    [com.repldriven.queenswood.modulr-adapter.interface :as modulr-adapter]
+    [com.repldriven.queenswood.modulr-simulator.interface :as
+     modulr-simulator]
     [com.repldriven.queenswood.test-model.interface :as model]
     [com.repldriven.queenswood.test-projections.interface :as projections]
     [com.repldriven.queenswood.zyphe-adapter.interface :as zyphe-adapter]
@@ -29,10 +30,10 @@
 (defn- patch-handlers
   [defs]
   (-> defs
-      (assoc-in [:system/defs :clearbank-simulator-server :handler]
-                cb-simulator/app)
-      (assoc-in [:system/defs :clearbank-adapter-server :handler]
-                cb-adapter/app)
+      (assoc-in [:system/defs :modulr-simulator-server :handler]
+                modulr-simulator/app)
+      (assoc-in [:system/defs :modulr-adapter-server :handler]
+                modulr-adapter/app)
       (assoc-in [:system/defs :zyphe-simulator-server :handler]
                 zyphe-simulator/app)
       (assoc-in [:system/defs :zyphe-adapter-server :handler]
@@ -48,7 +49,10 @@
    :payment-provider (:payment-provider
                       (:config (system/instance sys [:payments :processor])))
    :zyphe-simulator-url (system/instance sys
-                                         [:zyphe-simulator-server :http-url])})
+                                         [:zyphe-simulator-server :http-url])
+   :payment-simulator-url (system/instance sys
+                                           [:modulr-simulator-server
+                                            :http-url])})
 
 (deftest model-generates-plausible-sequences-test
   (testing "fugato produces vectors of {:command :args} maps"

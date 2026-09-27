@@ -3,7 +3,7 @@
  ;; The second submit carries the first's idempotency key and finds its
  ;; payment still `pending`, so it answers with that payment and
  ;; publishes the scheme command again. The adapter records one intent
- ;; per end-to-end id, so the two commands make one ClearBank submission,
+ ;; per end-to-end id, so the two commands make one submission to the provider,
  ;; one settlement and one debit.
  :given [{:command :create-bank :args []}
          {:command :inbound-transfer :args [:acct-0 1000]}]

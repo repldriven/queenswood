@@ -4,8 +4,9 @@
 
     [com.repldriven.queenswood.test-scenarios.interface :as SUT]
 
-    [com.repldriven.queenswood.clearbank-adapter.interface :as cb-adapter]
-    [com.repldriven.queenswood.clearbank-simulator.interface :as cb-simulator]
+    [com.repldriven.queenswood.modulr-adapter.interface :as modulr-adapter]
+    [com.repldriven.queenswood.modulr-simulator.interface :as
+     modulr-simulator]
     [com.repldriven.queenswood.test-model.interface :as model]
     [com.repldriven.queenswood.test-projections.interface :as projections]
     [com.repldriven.queenswood.zyphe-adapter.interface :as zyphe-adapter]
@@ -24,10 +25,10 @@
 (defn- patch-handlers
   [defs]
   (-> defs
-      (assoc-in [:system/defs :clearbank-simulator-server :handler]
-                cb-simulator/app)
-      (assoc-in [:system/defs :clearbank-adapter-server :handler]
-                cb-adapter/app)
+      (assoc-in [:system/defs :modulr-simulator-server :handler]
+                modulr-simulator/app)
+      (assoc-in [:system/defs :modulr-adapter-server :handler]
+                modulr-adapter/app)
       (assoc-in [:system/defs :zyphe-simulator-server :handler]
                 zyphe-simulator/app)
       (assoc-in [:system/defs :zyphe-adapter-server :handler]
@@ -40,8 +41,8 @@
    ;; `payment/submit-outbound` publishes a schemes-payment-command
    ;; on the bus when the outbound is created — wire the bus,
    ;; schemas, and channel keyword through so it lands on the right
-   ;; topic. The clearbank-adapter command-processor consumes it,
-   ;; ClearBank settles, and bank-payment's event-processor on
+   ;; topic. The payment adapter's command-processor consumes it, the
+   ;; provider settles, and bank-payment's event-processor on
    ;; schemes-payments-event credits the inbound side.
    :bus (system/instance sys [:message-bus :bus])
    :schemas (system/instance sys [:avro :serde])
@@ -49,7 +50,10 @@
    :payment-provider (:payment-provider
                       (:config (system/instance sys [:payments :processor])))
    :zyphe-simulator-url (system/instance sys
-                                         [:zyphe-simulator-server :http-url])})
+                                         [:zyphe-simulator-server :http-url])
+   :payment-simulator-url (system/instance sys
+                                           [:modulr-simulator-server
+                                            :http-url])})
 
 (defn- start-observers
   [sys]
@@ -120,7 +124,7 @@
 (def ^:private assertion-verbs
   #{:assert-balance :assert-dead-lettered :assert-inbound-status :assert-intents
     :assert-no-anomaly :assert-outbound-status :assert-outcome
-    :assert-rejection-kind :assert-scheme-commands})
+    :assert-provider-balances :assert-rejection-kind :assert-scheme-commands})
 
 (defn- run-with-model-check
   "Folds `steps` through the runner *and* the model in lock-step.

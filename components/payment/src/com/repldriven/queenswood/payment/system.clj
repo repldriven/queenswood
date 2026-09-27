@@ -58,8 +58,25 @@
                    :report-after-ms twenty-four-hours-ms}
    :system/instance-schema map?})
 
+(def ^:private thirty-seconds-ms 30000)
+
+(def ^:private transfer-sweep
+  {:system/start (fn [{:system/keys [config instance]}]
+                   (or instance (sweep/start-transfer-runner config)))
+   :system/stop (fn [{:system/keys [instance]}]
+                  (when-let [{:keys [stop]} instance] (stop)))
+   :system/config {:record-db system/required-component
+                   :record-store system/required-component
+                   :schemas system/required-component
+                   :bus system/required-component
+                   :scheme-payment-command-channel system/required-component
+                   :interval-ms thirty-seconds-ms
+                   :resend-after-ms thirty-seconds-ms}
+   :system/instance-schema map?})
+
 (system/defcomponents :payment
                       {:processor processor
                        :event-processor event-processor
                        :transaction-event-processor transaction-event-processor
-                       :outbound-sweep outbound-sweep})
+                       :outbound-sweep outbound-sweep
+                       :transfer-sweep transfer-sweep})

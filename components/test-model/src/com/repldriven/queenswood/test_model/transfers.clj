@@ -76,7 +76,7 @@
   bank-payment event-processor recognises the creditor BBAN as
   internal on the schemes-payments-event settled callback and
   credits it. The verb publishes the schemes-payment-command on
-  the bus; ClearBank settles it asynchronously and the
+  the bus; the provider settles it asynchronously and the
   event-processor flips the OutboundPayment to `:completed`. The
   model mirrors that auto-settle here by marking `:status
   :completed` straight away (so by the time the next model-eq
