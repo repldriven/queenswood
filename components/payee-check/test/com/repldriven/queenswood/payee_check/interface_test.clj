@@ -61,8 +61,24 @@
                                :request
                                :creditor-name)))]))))
 
+(defn- test-check-payee-from-an-unknown-account
+  [proc schemas]
+  (testing "a check made from an account the bank does not hold is refused"
+    (let [result (send-command proc
+                               schemas
+                               "check-payee"
+                               {:bank-id test-bank-id
+                                :creditor-name "Ada Lovelace"
+                                :account {:sort-code "123456"
+                                          :account-number "12345678"}
+                                :account-type :account-type-personal
+                                :account-id "acc.01kprbmgcj35ptc8npmybhh4sa"})]
+      (is (error/rejection? result))
+      (is (= :cash-account/not-found (error/kind result))))))
+
 (deftest process-check-payee-test
   (with-test-system [sys "classpath:payee-check/application-test.yml"]
                     (let [proc (system/instance sys [:payee-checks :processor])
                           schemas (system/instance sys [:avro :serde])]
-                      (test-check-payee-unavailable proc schemas))))
+                      (test-check-payee-unavailable proc schemas)
+                      (test-check-payee-from-an-unknown-account proc schemas))))

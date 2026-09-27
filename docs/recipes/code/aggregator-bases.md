@@ -82,7 +82,7 @@ The exception is scoped to the aggregators — it doesn't license
 base-to-base dependency anywhere else. Giving a composed base an
 interface is what keeps the exception narrow: the dependency is still
 base-to-base, but it crosses at a declared surface rather than reaching
-into another base's internals. The composed bases are the ClearBank,
+into another base's internals. The composed bases are the Modulr,
 Companies House and Zyphe adapters and simulators. They stay bases for
 the same reason `api` is one: each carries a large surface — routes,
 handlers, examples, wire schemas — rather than the require bundle a thin

@@ -159,7 +159,12 @@ interest math (see interest TDD).
   pending).
 - Creates a Leg per input leg, linking each to the
   transaction.
-- Persists both. **Does not touch balances.**
+- Persists both, and co-commits a `transaction-posted`
+  changelog entry carrying the legs and, where the payment
+  scheme settled the posting, the cash account it moved the
+  money through, which `payment` mirrors at the payment
+  provider — see [payments.md](payments.md). **Does not touch
+  balances.**
 
 The split is deliberate. The Transaction is the immutable
 record of what happened; the Balance update is a separate

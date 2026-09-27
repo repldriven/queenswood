@@ -8,8 +8,10 @@ adapter meets. Modulr becomes the default provider: `modulr-adapter`,
 beside ClearBank's, the deployed builds move to them, and ClearBank's
 stay in the development project on the neutral contract, passing their
 tests. This plan maps each part of the contract onto Modulr's API and
-lists what only the sandbox can settle. The sandbox is requested once
-the simulator covers every row below.
+lists what only the sandbox can settle. The four bricks are built, and
+the simulator covers every row below but returned payments, which come
+with returned outbound payments. The sandbox is requested once it
+covers those too.
 
 Sources: the API docs at modulr.readme.io (index at
 modulr.readme.io/llms.txt) and the OpenAPI 3.1 document at
@@ -66,22 +68,29 @@ it, and whether the docs settle it (**documented**) or the sandbox must
   in major units, `currency`, `reference`, `externalReference` (the
   end-to-end id) and `nameCheck.id` where a check was made. Documented.
 - **Transfers between accounts.** `POST /payments` with
-  `destination {type: ACCOUNT, id}`. Documented; confirm it reports
-  through PAYOUT and PAYIN like a scheme payment.
+  `destination {type: ACCOUNT, id}` and the transfer id as
+  `externalReference`. Documented; confirm it reports through PAYOUT
+  and PAYIN like a scheme payment, as the simulator assumes, with the
+  PAYIN's `SourceExternalReference` naming the transfer, which the
+  adapter reads to leave it unreported.
 - **Settled or failed outbound.** The PAYOUT webhook at a final status:
   `PROCESSED` is `transaction-settled` (debit), `CANCELLED` and every
   `ER_*` are `transaction-rejected` with `failure_kind` `declined`.
   Documented, except that PAYOUT does not fire for `ER_EXPIRED`, which
   reconciliation covers.
-- **Held outbound.** Statuses `PENDING_FOR_FUNDS` and `HELD`. Confirm
-  whether either is delivered, or only seen by a lookup.
+- **Held outbound.** The PAYMENTCOMPLIANCESTATUS notification, `HELD`
+  then `RELEASED` or `DECLINED`, which the adapter reads beside a lookup
+  of the payment it names. Documented. `PENDING_FOR_FUNDS` is seen only
+  by a lookup, and the adapter waits it out.
 - **Refused submission.** A 400 carrying `{field, code, errorCode,
   message}` is `refused`. Documented.
 - **Inbound payment.** The PAYIN webhook with `Type: PI_FAST` is
   `transaction-settled` (credit), resolving the creditor by `Payee`'s
   sort code and account number. Documented.
-- **Held inbound.** Confirm whether Modulr holds an inbound for
-  screening and reports it; nothing in the docs does.
+- **Held inbound.** PAYMENTCOMPLIANCESTATUS `HELD`, then `RELEASED`
+  and the PAYIN, or `RETURNED`. Documented; confirm the PAYIN's
+  `PaymentId` is the notification's `PaymentBid`, as the adapter
+  matches the hold on it.
 - **Returned outbound.** A PAYIN with `Type: PO_REV`, `ReturnReason`
   and `OriginalSchemeId`, matched to the original payment by
   `GET /payments?schemeId=PAYPORT:<OriginalSchemeId>`. Documented.
@@ -91,10 +100,11 @@ it, and whether the docs settle it (**documented**) or the sandbox must
 - **Authenticating deliveries.** HMAC as for calls, keyed by the
   webhook's id and the 32-character secret set at registration, with
   the algorithm chosen there. Confirm: which headers carry it, and
-  what is signed.
+  what is signed; the simulator signs `Date` and `x-mod-nonce` as a
+  call does.
 - **Registering webhooks.** `POST
   /customers/{customerId}/integration-notifications` per customer, for
-  `PAYIN` and `PAYOUT`. Documented.
+  `PAYIN`, `PAYOUT` and `PAYMENT_COMPLIANCE_STATUS`. Documented.
 - **Delivery.** A non-2xx answer is retried five times over about 13
   hours, then dropped, so reconciliation is not optional. Documented.
 - **Reconciling.** `GET /payments?id=` or `?externalReference=`.
@@ -104,8 +114,11 @@ it, and whether the docs settle it (**documented**) or the sandbox must
   `accountNumber`, `accountType` and `name`; `result.code` maps to
   match, close match, no match or unavailable. The sandbox answers
   `MATCHED` unless `secondaryAccountId` carries `%<RESULT>`. Documented.
-- **Funding the sandbox.** `POST /credit` credits a sandbox account.
-  Documented.
+- **Funding the sandbox.** `POST /credit` credits a sandbox account,
+  which the adapter uses for money that reaches the ledger from outside
+  the scheme, with the transfer id as its `description`. Documented;
+  confirm its PAYIN carries the description as `PaymentReference`,
+  which the adapter reads to leave it unreported.
 
 ## Reason codes
 
@@ -120,8 +133,13 @@ adapter.
 1. Partner access, and one customer per bank or one per party.
 2. The headers and signed string on an incoming webhook.
 3. When a new account becomes `ACTIVE`, and how that is reported.
-4. Whether held outbound and inbound payments are reported, and how.
+4. Whether a compliance notification's `PaymentBid` is the `PaymentId`
+   of the PAYIN that follows a release.
 5. Whether a transfer between two Modulr accounts reports as PAYOUT
-   and PAYIN.
+   and PAYIN, and which references each carries.
 6. Sandbox rate limits, and whether keys can outlive a month for an
    open-source project's CI.
+7. Whether a sandbox credit's PAYIN carries its description as
+   `PaymentReference`.
+8. Whether a PAYIN from another Modulr client always names the Payee,
+   which the internal transfer example omits.
