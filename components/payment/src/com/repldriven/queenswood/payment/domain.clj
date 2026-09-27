@@ -491,6 +491,17 @@
      :failure-reason
      cancellation-reason)))
 
+(defn returned-outbound-payment
+  [payment returned]
+  (let [{:keys [reason-code reason]} returned]
+    (utility/assoc-some
+     (assoc payment
+            :payment-status :outbound-payment-status-returned
+            :return-reason-code reason-code
+            :updated-at (utility/now))
+     :return-reason
+     reason)))
+
 (defn outbound-settlement->transaction
   "The second hop, fired when the scheme confirms settlement. Converts the
   in-flight reservation into a real outflow: CREDIT the debtor's
@@ -559,6 +570,35 @@
              :balance-status :balance-status-pending-outgoing
              :side :leg-side-credit
              :amount amount}]}))
+
+(defn outbound-return->transaction
+  "Bring back a settled outbound the scheme returned: DEBIT 1100
+  cash-at-correspondent (the money arrives back from the scheme) and
+  CREDIT the debtor's posted balance, by the amount the scheme returned.
+  The scheme moved the money through the debtor's account, so a provider
+  holding a balance for each account has credited that account already."
+  [payment debtor-account cash-at-correspondent-id amount]
+  (let [{:keys [bank-id currency payment-id debtor-account-id reference]}
+        payment]
+    (utility/assoc-some
+     {:bank-id bank-id
+      :idempotency-key (str "return-out-" payment-id)
+      :transaction-type :transaction-type-outbound-return
+      :currency currency
+      :scheme-account-id debtor-account-id
+      :legs [{:account-id cash-at-correspondent-id
+              :balance-type :balance-type-default
+              :balance-status :balance-status-posted
+              :side :leg-side-debit
+              :amount amount}
+             {:account-id debtor-account-id
+              :product-type (:product-type debtor-account)
+              :balance-type :balance-type-default
+              :balance-status :balance-status-posted
+              :side :leg-side-credit
+              :amount amount}]}
+     :reference
+     reference)))
 
 (defn new-internal-payment
   [data business-day transaction-id]

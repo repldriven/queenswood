@@ -314,11 +314,11 @@ same status.
   told apart by the status left — `pending` or none for an opening,
   `suspended` for a resumption. A creation, landing on `pending`, is
   not told: the caller holds that answer.
-- `payment.outbound-held`, `payment.outbound-completed` and
-  `payment.outbound-failed` — `outbound-payment-status-changed` with
-  `change_kind` hold, settle and fail, `OutboundPayment`, by bank and
-  payment id. Submission is not told, since the caller already holds
-  that answer.
+- `payment.outbound-held`, `payment.outbound-completed`,
+  `payment.outbound-failed` and `payment.outbound-returned` —
+  `outbound-payment-status-changed` with `change_kind` hold, settle,
+  fail and return, `OutboundPayment`, by bank and payment id.
+  Submission is not told, since the caller already holds that answer.
 - `payment.inbound-settled`, `payment.inbound-held`,
   `payment.inbound-released`, `payment.inbound-suspended` and
   `payment.inbound-returned` — `inbound-payment-status-changed` with

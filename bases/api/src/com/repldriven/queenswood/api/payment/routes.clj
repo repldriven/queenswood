@@ -92,7 +92,10 @@
                       " `failed` as the scheme responds, with a "
                       "`payment.outbound-held`, `payment.outbound-completed` "
                       "or `payment.outbound-failed` webhook notification for "
-                      "each. A failure releases the reservation.")
+                      "each. A failure releases the reservation. A completed "
+                      "payment the beneficiary's bank sends back moves to "
+                      "`returned`, crediting the account, with a "
+                      "`payment.outbound-returned` notification.")
                  :requestBody {:required true}
                  :parameters ^:replace
                              [shared.parameters/ref-bank-id-header

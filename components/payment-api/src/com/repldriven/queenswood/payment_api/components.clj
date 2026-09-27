@@ -54,6 +54,11 @@
    [:reason-code string?]
    [:reason {:optional true} [:maybe string?]]])
 
+(def OutboundPaymentReturn
+  [:map {:json-schema/example examples/OutboundPaymentReturn}
+   [:reason-code string?]
+   [:reason {:optional true} [:maybe string?]]])
+
 (def SubmitOutboundPaymentRequest
   [:map
    {:json-schema/example examples/SubmitOutboundPaymentRequest}
@@ -79,6 +84,7 @@
    [:transaction-id [:ref "TransactionId"]]
    [:reference {:optional true} [:maybe string?]]
    [:failure {:optional true} [:ref "OutboundPaymentFailure"]]
+   [:return {:optional true} [:ref "OutboundPaymentReturn"]]
    [:business-day [:ref "BusinessDay"]]
    [:created-at {:optional true} [:maybe [:ref "Timestamp"]]]
    [:updated-at {:optional true} [:maybe [:ref "Timestamp"]]]])
@@ -112,8 +118,9 @@
   (components-registry
    [#'PaymentId #'PaymentScheme #'SubmitInternalPaymentRequest #'InternalPayment
     #'OutboundPaymentStatus #'OutboundPaymentFailureKind
-    #'OutboundPaymentFailure #'SubmitOutboundPaymentRequest #'OutboundPayment
-    #'InboundPaymentStatus #'InboundPayment #'InboundPaymentList]))
+    #'OutboundPaymentFailure #'OutboundPaymentReturn
+    #'SubmitOutboundPaymentRequest #'OutboundPayment #'InboundPaymentStatus
+    #'InboundPayment #'InboundPaymentList]))
 
 (defn- declared-keys
   [component]
@@ -134,11 +141,21 @@
                           :reason
                           failure-reason))))
 
+(defn- return
+  [payment]
+  (let [{:keys [return-reason-code return-reason]} payment]
+    (when return-reason-code
+      (utility/assoc-some {:reason-code return-reason-code}
+                          :reason
+                          return-reason))))
+
 (defn ->outbound-body
   [payment]
   (utility/assoc-some (select-keys payment outbound-payment-keys)
                       :failure
-                      (failure payment)))
+                      (failure payment)
+                      :return
+                      (return payment)))
 
 (defn ->inbound-body
   [payment]

@@ -7,7 +7,10 @@
   until money arrives or `pending-for-funds-ms` passes, when it expires
   without a notification, as Modulr's do. A payment it can cover is
   processed: the source is debited and told, and where the destination
-  is an account the simulator holds, it is credited and told."
+  is an account the simulator holds, it is credited and told. A payment
+  to an account the simulator has closed is returned to its source, as
+  the beneficiary's bank would, and a control route returns any other
+  processed payment the same way."
   (:require
     [com.repldriven.queenswood.modulr-simulator.deliveries :as deliveries]
     [com.repldriven.queenswood.modulr-simulator.ledger :as ledger]
@@ -32,6 +35,14 @@
                 :SortCode (:sort-code account)
                 :AccountNumber (:account-number account)}})
 
+(def ^:private scheme-id-prefix "PAYPORT:")
+
+(defn- scheme-id
+  "The scheme's own id for a payment, as a PAYOUT's `SchemeInfo` and a
+  return's `OriginalSchemeId` carry it."
+  [p]
+  (str "MODULO00" (:id p)))
+
 (defn- payout
   [p status]
   (let [{:keys [id details externalReference transaction-id]} p
@@ -50,7 +61,7 @@
      :DateTime (ledger/timestamp)
      :Reference reference
      :ExternalReference externalReference
-     :SchemeInfo {:Id (str "MODULO00" id) :ResponseCode "0000"}}))
+     :SchemeInfo {:Id (scheme-id p) :ResponseCode "0000"}}))
 
 (defn payin
   [{:keys [payment-id transaction-id type account payer amount currency
@@ -98,32 +109,44 @@
     (ledger/account state id)
     (ledger/account-by-scan state sortCode accountNumber)))
 
-(declare release-pending)
+(declare release-pending return-payment)
 
 (defn- arrive
-  "Credit the destination, where the simulator holds it, and tell it."
+  "Credit the destination, where the simulator holds it, and tell it; or
+  return the payment where the simulator has closed it."
   [state config p]
   (let [{:keys [details externalReference]} p
         {:keys [destination amount currency reference sourceAccountId]} details
         target (destination-account state destination)
         source (ledger/account state sourceAccountId)]
-    (when (and target (not= "CLOSED" (:status target)))
-      (ledger/credit state (:id target) amount)
-      (deliveries/notify
-       state
-       (:customer-id target)
-       "PAYIN"
-       (payin {:payment-id (str (:id p) "-IN")
-               :transaction-id (str "T" (:id p))
-               :type
-               (if (= "ACCOUNT" (:type destination)) "INT_INTERC" "PI_FAST")
-               :account target
-               :payer (party source nil)
-               :amount amount
-               :currency currency
-               :reference reference
-               :source-external-reference externalReference}))
-      (release-pending state config (:id target)))))
+    (cond
+     (nil? target)
+     nil
+
+     (= "CLOSED" (:status target))
+     (do (pause config) (return-payment state config (:id p) "BENACCCLOSED"))
+
+     :else
+     (do
+       (ledger/credit state (:id target) amount)
+       (ledger/update-payment state
+                              (:id p)
+                              (fn [p] (assoc p :arrived-at (:id target))))
+       (deliveries/notify
+        state
+        (:customer-id target)
+        "PAYIN"
+        (payin {:payment-id (str (:id p) "-IN")
+                :transaction-id (str "T" (:id p))
+                :type
+                (if (= "ACCOUNT" (:type destination)) "INT_INTERC" "PI_FAST")
+                :account target
+                :payer (party source nil)
+                :amount amount
+                :currency currency
+                :reference reference
+                :source-external-reference externalReference}))
+       (release-pending state config (:id target))))))
 
 (def ^:private unsettled #{"SUBMITTED" "PENDING_FOR_FUNDS"})
 
@@ -145,7 +168,9 @@
                               (fn [p]
                                 (assoc p
                                        :status "PROCESSED"
-                                       :transaction-id (str "T" (:id p)))))
+                                       :transaction-id (str "T" (:id p))
+                                       :schemeId (str scheme-id-prefix
+                                                      (scheme-id p)))))
 
        :else
        (do (ledger/update-payment state
@@ -181,6 +206,65 @@
   [state config account-id]
   (doseq [p (ledger/pending-for-funds state account-id)]
     (settle state config p)))
+
+(defn- take-back
+  "Mark a processed payout returned and move its money back to the
+  source, taking it from the destination where the simulator credited
+  one, as one step. The payment, or `{:refused message}`."
+  [state payment-id]
+  (locking state
+    (let [{:keys [status type returned arrived-at details] :as p}
+          (ledger/payment state payment-id)
+          {:keys [sourceAccountId amount]} details]
+      (cond
+       (not (and (= "PAYOUT" type) (= "PROCESSED" status)))
+       {:refused "Only a processed payment can be returned"}
+
+       returned
+       {:refused "The payment has already been returned"}
+
+       (and arrived-at (not (ledger/debit state arrived-at amount)))
+       {:refused "The destination no longer holds the payment's amount"}
+
+       :else
+       (do (ledger/credit state sourceAccountId amount)
+           (ledger/update-payment state
+                                  payment-id
+                                  (fn [p] (assoc p :returned true)))
+           p)))))
+
+(defn return-payment
+  "Return a processed payout to its source, telling the source with a
+  PAYIN of type `PO_REV` that names the payment it returns and Modulr's
+  `reason`. The payment, or `{:refused message}`."
+  [state _config payment-id reason]
+  (let [p (take-back state payment-id)]
+    (if (:refused p)
+      p
+      (let [{:keys [details]} p
+            {:keys [sourceAccountId amount currency reference destination]}
+            details
+            source (ledger/account state sourceAccountId)
+            back (ledger/new-payment state
+                                     {:status "PROCESSED"
+                                      :type "PAYIN"
+                                      :details {:accountId sourceAccountId
+                                                :amount amount
+                                                :reference reference}})]
+        (deliveries/notify state
+                           (:customer-id source)
+                           "PAYIN"
+                           (assoc (payin {:payment-id (:id back)
+                                          :transaction-id (str "T" (:id back))
+                                          :type "PO_REV"
+                                          :account source
+                                          :payer {:Name (:name destination)}
+                                          :amount amount
+                                          :currency currency
+                                          :reference reference})
+                                  :ReturnReason reason
+                                  :OriginalSchemeId (scheme-id p)))
+        p))))
 
 (defn process
   [state config payment-id]

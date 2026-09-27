@@ -1,11 +1,6 @@
 # Payments and the payment provider
 
-> **Status: proposal.** Internal, outbound and inbound payments, their
-> records and state machines, suspense, Confirmation of Payee and two
-> payment adapters exist, and Background names them. Everything under
-> Proposed Solution is the build list; all but returned outbound
-> payments is built, and [First slices](#first-slices) says what comes
-> next.
+> **Status: implemented.**
 
 ## Objective
 
@@ -106,7 +101,7 @@ later decision.
   [ADR-0020](../adr/0020-providers-are-deployment-facts.md), and
   `system/payment-provider.yml` declares what it carries.
 
-## Proposed Solution
+## Solution
 
 ### The provider declaration
 
@@ -309,9 +304,14 @@ beneficiary's bank cannot apply it:
   reported as a `transaction-settled` (credit) to the account it
   arrived at, so the money is never lost.
 - **The transition.** `completed → returned`, posting GL 1100 to the
-  debtor, as a transaction of the new type `outbound-return`, which
-  mirroring skips. `returned` is terminal; a return for a payment
-  that is not `completed` fails the handler.
+  debtor by the amount returned, as a transaction of the new type
+  `outbound-return`. It names the debtor as the account the scheme moved
+  the money through, so it nets to nothing at a provider holding a
+  balance for each account, which credited that account itself.
+  `returned` is terminal, and the payment carries the return's reason
+  code and reason as `return`; a second delivery of the return is a
+  no-op, and a return for a payment that is not `completed` fails the
+  handler.
 - **Notification.** The change kind `return` becomes
   `payment.outbound-returned`.
 
@@ -369,7 +369,9 @@ runs changes nothing outside it:
     the creditor name `6a41a29eafcf455493` held then declined;
   - `/simulate/inbound-payment` fires an inbound settlement, or a hold
     that settles or returns;
-  - `/simulate/outbound-return` returns a completed payment;
+  - `/simulate/outbound-return` returns a completed payment with the
+    ISO 20022 reason code given, `AC04` without one, and a payment to
+    an account the simulator has closed is returned coded `AC04`;
   - `/simulate/open-refused` makes the next account opening refused.
 
 The deployed builds compose the default adapter into
@@ -453,7 +455,7 @@ stateDiagram-v2
    netting it shares with one. Built with slice 3, so no deployed build
    holds balances that drift.
 5. **Returned outbound payments.** Proved by a completed payment
-   returned, and a return for a failed one dead-lettered.
+   returned, and a return for a failed one dead-lettered. Built.
 
 Running the default adapter against the provider's sandbox follows,
 once the simulator covers every flow above.
@@ -479,8 +481,8 @@ once the simulator covers every flow above.
 - **`<provider>-webhook`** — the signature against the provider's own
   worked example, and each way a delivery is refused.
 - **`<provider>-simulator`** — each control route, signatures checked
-  and made as the provider's are, and a payment beyond the balance
-  waiting for funds.
+  and made as the provider's are, a payment beyond the balance waiting
+  for funds, and a payment to a closed account returned.
 - **`test-api-scenarios`** — the payment and payee-check scenarios run
   on the default adapter's simulator, plus a scenario per new
   transition and refusal.
@@ -545,9 +547,11 @@ once the simulator covers every flow above.
 - **One customer at the provider.** Every bank's accounts sit under the
   customer the deployment names, until the provider's sandbox says
   whether it wants one per bank.
-- **A payment to a closed account lands nowhere.** The default
-  simulator takes it and credits no one, and the return that brings it
-  back comes with returned outbound payments.
+- **A return reaches a closed account.** A payment returned after its
+  debtor account closed credits that account, and the money waits there
+  for the bank to move by hand.
+- **The other adapter returns nothing.** Its simulator serves no
+  `/simulate/outbound-return`, and it maps no return from its provider.
 - **The default simulator forgets on restart.** It holds accounts and
   balances in memory, so after a restart it serves an account it no
   longer knows as holding whatever is asked of it, and it issues

@@ -347,6 +347,76 @@
        (is (= "CLOSED"
               (:status (edn (call :get (str "/accounts/" (:id a)))))))))))
 
+(defn- control
+  [path body]
+  (http/request {:method :post
+                 :url (str *base-url* path)
+                 :headers {"Content-Type" "application/json"}
+                 :body (json/write-str body)}))
+
+(deftest outbound-return-test
+  (let [queue (LinkedBlockingQueue.)
+        server (receiver queue)]
+    (try
+      (with-simulator
+       (subscribe server ["PAYOUT" "PAYIN"])
+       (let [a (open)
+             b (open)]
+         (call :post "/simulate/fund" {:bban (bban a) :amount 20})
+         (pay a (scan b "Ford") 12.5)
+         (let [payout (next-delivery queue)
+               _payin (next-delivery queue)
+               res (control "/simulate/outbound-return"
+                            {:end-to-end-id "pmt.01K6A3Z9X0"
+                             :reason-code "AC01"})
+               back (next-delivery queue)
+               scheme-id (get-in payout [:body :SchemeInfo :Id])]
+           (testing "a processed payment is returned to its source"
+             (is (= 202 (:status res)))
+             (is (= "PO_REV" (get-in back [:body :Type])))
+             (is (= (:id a) (get-in back [:body :AccountId])))
+             (is (= "12.50" (get-in back [:body :Amount])))
+             (is (= "BENSCANUNKNOWN" (get-in back [:body :ReturnReason])))
+             (is (= scheme-id (get-in back [:body :OriginalSchemeId]))))
+           (testing "naming the payment Modulr finds by its scheme id"
+             (is (= (get-in payout [:body :PaymentId])
+                    (-> (call :get
+                              (str "/payments?schemeId=PAYPORT:" scheme-id))
+                        edn
+                        :content
+                        first
+                        :id))))
+           (testing "the money moves back"
+             (is (= "20.00" (balance (:id a))))
+             (is (= "0.00" (balance (:id b)))))
+           (testing "a payment is returned once"
+             (is (= 409
+                    (:status (control "/simulate/outbound-return"
+                                      {:end-to-end-id "pmt.01K6A3Z9X0"})))))
+           (testing "a payment the simulator does not hold is not returned"
+             (is (= 404
+                    (:status (control "/simulate/outbound-return"
+                                      {:end-to-end-id "pmt.unknown"}))))))))
+      (finally (.stop server 0)))))
+
+(deftest payment-to-a-closed-account-is-returned-test
+  (let [queue (LinkedBlockingQueue.)
+        server (receiver queue)]
+    (try (with-simulator
+          (subscribe server ["PAYOUT" "PAYIN"])
+          (let [a (open)
+                c (open)]
+            (call :post (str "/accounts/" (:id c) "/block"))
+            (call :post (str "/accounts/" (:id c) "/close"))
+            (call :post "/simulate/fund" {:bban (bban a) :amount 5})
+            (pay a (scan c "Ford") 5)
+            (is (= "PROCESSED" (get-in (next-delivery queue) [:body :Status])))
+            (let [back (next-delivery queue)]
+              (is (= "PO_REV" (get-in back [:body :Type])))
+              (is (= "BENACCCLOSED" (get-in back [:body :ReturnReason]))))
+            (is (= "5.00" (balance (:id a))))))
+         (finally (.stop server 0)))))
+
 (deftest balances-test
   (with-simulator
    (let [a (open)]

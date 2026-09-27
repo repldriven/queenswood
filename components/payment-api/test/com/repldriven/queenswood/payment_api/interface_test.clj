@@ -68,7 +68,7 @@
 
 (deftest declared-keys-cover-the-fixtures-test
   (testing "each fixture carries every key its component declares"
-    (is (= (disj (set (declared-keys "OutboundPayment")) :failure)
+    (is (= (disj (set (declared-keys "OutboundPayment")) :failure :return)
            (set (filter (set (declared-keys "OutboundPayment"))
                         (keys stored-outbound)))))
     (is (= (set (declared-keys "InboundPayment"))
@@ -141,3 +141,17 @@
       (is (not (contains? (SUT/->outbound-body failed) :failure-kind))))
     (testing "a payment that has not failed has none"
       (is (not (contains? (SUT/->outbound-body stored-outbound) :failure))))))
+
+(deftest ->outbound-body-projects-a-return-test
+  (let [returned (assoc stored-outbound
+                        :payment-status :outbound-payment-status-returned
+                        :return-reason-code "AC04"
+                        :return-reason "Account closed")]
+    (testing "a returned payment's reason code and reason form its return"
+      (is (= {:reason-code "AC04" :reason "Account closed"}
+             (:return (SUT/->outbound-body returned)))))
+    (testing "and its status reaches the wire as the document admits"
+      (is (= "returned"
+             (name (:payment-status (SUT/->outbound-wire-body returned))))))
+    (testing "a payment that has not been returned has none"
+      (is (not (contains? (SUT/->outbound-body stored-outbound) :return))))))

@@ -74,6 +74,7 @@
    [:status string?]
    [:type {:optional true} [:maybe string?]]
    [:externalReference {:optional true} [:maybe string?]]
+   [:schemeId {:optional true} [:maybe string?]]
    [:createdDate {:optional true} [:maybe string?]]
    [:details {:optional true} [:maybe map?]]
    [:message {:optional true} [:maybe string?]]])
@@ -169,6 +170,12 @@
    [:debtor-name {:optional true} [:maybe string?]]
    [:outcome {:optional true} [:enum "release" "return"]]])
 
+(def OutboundReturnRequest
+  [:map
+   {:json-schema/example {:end-to-end-id "pmt.01k6a3z9x0" :reason-code "AC04"}}
+   [:end-to-end-id string?]
+   [:reason-code {:optional true} [:maybe string?]]])
+
 (def FundRequest
   [:map
    {:json-schema/example {:bban "04001000001457" :amount 25.0}}
@@ -182,4 +189,4 @@
            #'PaymentRequest #'Payment #'PaymentPage #'CreditRequest
            #'NotificationRequest #'Notification #'NameCheckRequest
            #'NameCheckResponse #'Problem #'InboundPaymentRequest
-           #'FundRequest]))
+           #'OutboundReturnRequest #'FundRequest]))

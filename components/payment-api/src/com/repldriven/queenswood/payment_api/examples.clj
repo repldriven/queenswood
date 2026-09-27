@@ -103,6 +103,9 @@
    :reason-code "AC04"
    :reason "The beneficiary's account is closed"})
 
+(def OutboundPaymentReturn
+  {:reason-code "AC04" :reason "The beneficiary's account is closed"})
+
 (def InboundPayment
   {:payment-id "pmt.01kprbmgcj35ptc8npmybhh4t0"
    :bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"

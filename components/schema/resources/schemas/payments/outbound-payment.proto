@@ -13,6 +13,7 @@ enum OutboundPaymentStatus {
   OUTBOUND_PAYMENT_STATUS_COMPLETED = 3;
   OUTBOUND_PAYMENT_STATUS_FAILED = 4;
   OUTBOUND_PAYMENT_STATUS_HELD = 5;
+  OUTBOUND_PAYMENT_STATUS_RETURNED = 6;
 }
 
 enum OutboundPaymentFailureKind {
@@ -44,4 +45,6 @@ message OutboundPayment {
   optional OutboundPaymentFailureKind failure_kind = 18;
   optional string failure_reason_code = 19;
   optional string failure_reason = 20;
+  optional string return_reason_code = 21;
+  optional string return_reason = 22;
 }

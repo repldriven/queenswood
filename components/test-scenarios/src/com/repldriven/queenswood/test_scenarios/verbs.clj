@@ -954,6 +954,55 @@
         (update :counter inc)
         (track result))))
 
+(def ^:private return-deadline-ms
+  "How long a return the simulator sends has to reach the payment."
+  10000)
+
+(defmethod dispatch :return-outbound-payment
+  [{:keys [bank payments] :as ctx} {[model-pmt] :args}]
+  (let [real-pmt-id (get-in payments [model-pmt :real-id])
+        res (http/request {:method :post
+                           :url (str (:payment-simulator-url bank)
+                                     "/simulate/outbound-return")
+                           :headers {"Content-Type" "application/json"}
+                           :body (json/write-str {:end-to-end-id real-pmt-id
+                                                  :reason-code "AC04"})})
+        returned (quiescence/wait-until
+                  (fn [] (payment-query/get-outbound-payment bank real-pmt-id))
+                  (fn [p]
+                    (= :outbound-payment-status-returned (:payment-status p)))
+                  return-deadline-ms)
+        result (if (and (not (error/anomaly? res))
+                        (= 202 (:status res))
+                        (= :outbound-payment-status-returned
+                           (:payment-status returned)))
+                 returned
+                 (error/fail :scenario/return-outbound
+                             {:message "The scheme's return did not land"
+                              :payment-id real-pmt-id
+                              :status (:status res)
+                              :payment-status (:payment-status returned)}))]
+    (-> ctx
+        (update :counter inc)
+        (track result))))
+
+(defmethod dispatch :return-outbound-event
+  [{:keys [bank payments] :as ctx} {[model-pmt amount] :args}]
+  (let [real-pmt-id (get-in payments [model-pmt :real-id])
+        result (payment/return-outbound
+                bank
+                {:end-to-end-id real-pmt-id
+                 :scheme "fps"
+                 :debit-credit-code :debit-credit-code-debit
+                 :scheme-transaction-id (str "scen-ret-" real-pmt-id)
+                 :amount amount
+                 :currency "GBP"
+                 :reason-code "AC04"
+                 :timestamp-returned (utility/now)})]
+    (-> ctx
+        (update :counter inc)
+        (track result))))
+
 (defmethod dispatch :wait
   [ctx {[duration-ms] :args}]
   (Thread/sleep ^long duration-ms)

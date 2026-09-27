@@ -155,8 +155,8 @@ interest math (see interest TDD).
 
 - Builds the Transaction map, generates a `:transaction-id`,
   sets the initial `:status` based on `:transaction-type`
-  (internal transfers post immediately; other types start
-  pending).
+  (internal and inbound transfers, rewards and outbound returns
+  post immediately; other types start pending).
 - Creates a Leg per input leg, linking each to the
   transaction.
 - Persists both, and co-commits a `transaction-posted`

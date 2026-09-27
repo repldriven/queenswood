@@ -4,8 +4,9 @@
   record; settlement events flip outbound payments to completed and post
   the customer legs for inbound payments. Hold events mark an outbound
   payment held while the scheme screens it; rejection events reverse the
-  in-flight legs (1200 → debtor) and flip the payment to failed. Returns
-  the payment map or an anomaly. The `payment/outbound-sweep` component
+  in-flight legs (1200 → debtor) and flip the payment to failed. Return
+  events bring a completed outbound's money back (1100 → debtor) and flip
+  it to returned. Returns the payment map or an anomaly. The `payment/outbound-sweep` component
   republishes the scheme command for an outbound payment left pending and
   logs one left pending or held past a day, changing no record.
 
@@ -133,6 +134,24 @@
   Returns the updated payment map or an anomaly."
   [config data]
   (events/reject-outbound config data))
+
+(defn return-outbound
+  "Process a `transaction-returned` event, which the scheme sends when the
+  beneficiary's bank returns a completed outbound. Credits the debtor's
+  customer account by the returned amount (DEBIT the bank's 1100
+  cash-at-correspondent GL account) as an `outbound-return` transaction
+  and flips the OutboundPayment to returned with the event's ISO 20022
+  reason code and reason. An already-returned payment is an idempotent
+  no-op; a payment that is not completed, or does not exist, is an
+  anomaly, so the event is redelivered and then dead-lettered.
+
+  Args:
+  - config: FDB handle.
+  - data: return event payload (end-to-end-id is our payment-id).
+
+  Returns the updated payment map or an anomaly."
+  [config data]
+  (events/return-outbound config data))
 
 (defn hold-inbound
   "Process an inbound `transaction-held` event. Records the inbound `held`

@@ -497,6 +497,7 @@
 
 (def ^:private categories
   {"outbound-transfer" "Payment"
+   "outbound-return" "Returned"
    "inbound-transfer" "Received"
    "internal-transfer" "Saved"
    "interest-accrual" "Interest earned"
@@ -548,6 +549,7 @@
              (or other "another account")))
       "inbound-transfer" "Received"
       "outbound-transfer" (or (payee-of leg payments) "Payment")
+      "outbound-return" "Returned payment"
       "fee" "Fee"
       "reward" "Welcome reward"
       "Interest")))
@@ -770,7 +772,8 @@
     (:creditor-account-id record)
     ("payment.outbound-held"
      "payment.outbound-completed"
-     "payment.outbound-failed")
+     "payment.outbound-failed"
+     "payment.outbound-returned")
     (:debtor-account-id record)
     "reward.paid" (:account-id record)
     nil))
@@ -814,14 +817,16 @@
       (assoc base :headline (str (money record) " was returned") :detail from)
       ("payment.outbound-completed"
        "payment.outbound-failed"
-       "payment.outbound-held")
+       "payment.outbound-held"
+       "payment.outbound-returned")
       (let [to (str "Payment to " (or (:creditor-name record) "your payee"))
             sent (str (money record)
                       (some->> (:reference record)
                                (str ", ")))
             outcome ({"payment.outbound-completed" " sent"
                       "payment.outbound-failed" " failed"
-                      "payment.outbound-held" " is held"}
+                      "payment.outbound-held" " is held"
+                      "payment.outbound-returned" " was returned"}
                      kind)]
         (assoc base :headline (str to outcome) :detail sent))
       "reward.paid"
