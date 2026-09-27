@@ -125,7 +125,9 @@
       (let-nom>
         [policies (get-policies txn bank-id product-id opts)
          existing (q/get-version txn bank-id product-id version-id)
-         published (domain/publish existing policies)
+         published (domain/publish existing
+                                   policies
+                                   (:payment-provider opts))
          _ (store/save-version txn published)]
         published)))))
 

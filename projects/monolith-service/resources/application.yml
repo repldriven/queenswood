@@ -77,6 +77,9 @@ system:
     interceptors: !system/component
       system/component-kind: server/interceptors
       identity-provider: !system/ref keycloak.identity-provider
+      # What the payment provider carries, which publishing a product
+      # version is checked against.
+      payment-provider: !include system/payment-provider.yml
       identity-providers:
         - !system/ref keycloak.identity-provider
         - !system/ref keycloak.identity-provider-ops

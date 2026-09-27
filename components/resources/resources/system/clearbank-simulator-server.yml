@@ -3,9 +3,15 @@ handler: !system/required-component
 state: !system/component
   system/component-kind: clearbank-simulator/state
 
+signing-key: !system/component
+  system/component-kind: clearbank-webhook/key-pair
+
 interceptors: !system/component
   system/component-kind: server/interceptors
   webhooks: !system/local-ref state
+  signing-key: !system/local-ref signing-key
+  # The adapter's key, whose public half verifies every request.
+  client-key: !system/ref clearbank-adapter.signing-key
   sort-code: "040004"
   webhook-delay-ms: 10
 

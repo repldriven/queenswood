@@ -4,6 +4,8 @@
 
     [com.repldriven.queenswood.clearbank-adapter.interface :as SUT]
 
+    [com.repldriven.queenswood.clearbank-webhook.interface :as
+     clearbank-webhook]
     [com.repldriven.queenswood.fdb.interface :as fdb]
 
     [com.repldriven.mono.avro.interface :as avro]
@@ -19,13 +21,23 @@
 
 (def ^:dynamic *base-url* "http://localhost:{PORT}")
 
+(def ^:dynamic *provider-key* nil)
+
+(defn- post-signed
+  [path body private-key]
+  (let [json-body (json/write-str body)]
+    (http/request
+     {:method :post
+      :url (str *base-url* path)
+      :headers (cond-> {"Content-Type" "application/json"}
+                       private-key
+                       (assoc clearbank-webhook/signature-header
+                              (clearbank-webhook/sign private-key json-body)))
+      :body json-body})))
+
 (defn- post
   [path body]
-  (http/request
-   {:method :post
-    :url (str *base-url* path)
-    :headers {"Content-Type" "application/json"}
-    :body (json/write-str body)}))
+  (post-signed path body (:private-key *provider-key*)))
 
 (defn- test-transaction-settled-credit
   []
@@ -274,6 +286,40 @@
                             [(:end-to-end-id command)])
        _ (is (= 1 intents))])))
 
+(def ^:private settled-webhook
+  {:Type "TransactionSettled"
+   :Version 6
+   :Payload {:TransactionId "txn-unsigned"
+             :Status "Settled"
+             :Scheme "FasterPayments"
+             :EndToEndTransactionId "e2e-unsigned"
+             :Amount 1.00
+             :CurrencyCode "GBP"
+             :DebitCreditCode "Debit"
+             :TimestampSettled "2026-04-01T12:00:00Z"
+             :TimestampCreated "2026-04-01T12:00:00Z"
+             :IsReturn false
+             :Account {}
+             :CounterpartAccount {}}
+   :Nonce 1})
+
+(defn- test-unauthenticated-webhooks
+  [config]
+  (let [before (outbox-size config)]
+    (nom-test>
+      [unsigned (post-signed "/webhooks/transaction-settled"
+                             settled-webhook
+                             nil)
+       _ (is (= 401 (:status unsigned)))
+       _ (is (= ":payment-webhook/unsigned" (:type (http/res->edn unsigned))))
+       forged (post-signed "/webhooks/transaction-settled"
+                           settled-webhook
+                           (:private-key (clearbank-webhook/key-pair)))
+       _ (is (= 401 (:status forged)))
+       _ (is (= ":payment-webhook/invalid-signature"
+                (:type (http/res->edn forged))))
+       _ (is (= before (outbox-size config)) "nothing is written")])))
+
 (deftest clearbank-adapter-test
   (with-test-system
    [sys
@@ -282,7 +328,8 @@
    (let [jetty (system/instance sys [:server :jetty-adapter])
          config {:record-db (system/instance sys [:fdb :record-db])
                  :record-store (system/instance sys [:fdb :meta-store])}]
-     (binding [*base-url* (server/http-local-url jetty)]
+     (binding [*base-url* (server/http-local-url jetty)
+               *provider-key* (system/instance sys [:server :provider-key])]
        (testing "TransactionSettled credit dispatches inbound"
          (test-transaction-settled-credit))
        (testing "TransactionSettled debit dispatches outbound"
@@ -301,4 +348,6 @@
        (testing "an assessment failure with no instructions answers 400"
          (test-assessment-failure-without-instructions config))
        (testing "a redelivered submit-payment enqueues one intent"
-         (test-submit-payment-twice sys config))))))
+         (test-submit-payment-twice sys config))
+       (testing "an unsigned or forged webhook answers 401 and writes nothing"
+         (test-unauthenticated-webhooks config))))))

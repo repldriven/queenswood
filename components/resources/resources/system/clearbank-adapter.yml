@@ -2,6 +2,12 @@ readiness: !system/component
   system/component-kind: clearbank-adapter/readiness
 
 
+# The key the adapter signs what it sends ClearBank with. ClearBank
+# holds the public half to verify each request.
+signing-key: !system/component
+  system/component-kind: clearbank-webhook/key-pair
+
+
 registrar: !system/component
   system/component-kind: clearbank-adapter/registrar
   simulator-url: !profile
@@ -33,6 +39,7 @@ command-processor-impl: !system/component
   schemas: !system/ref avro.serde
   record-db: !system/ref fdb.record-db
   record-store: !system/ref fdb.meta-store
+  payment-provider: !include system/payment-provider.yml
 
 
 command-processor: !system/component
@@ -52,6 +59,7 @@ outbound-runner: !system/component
     test: !system/ref clearbank-simulator-server.http-url
     default: !env CLEARBANK_SIMULATOR_URL
   schemas: !system/ref avro.serde
+  signing-key: !system/ref clearbank-adapter.signing-key
   max-attempts: 20
   initial-backoff-ms: 1000
   max-backoff-ms: 60000

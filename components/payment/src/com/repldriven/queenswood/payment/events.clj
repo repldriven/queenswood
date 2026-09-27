@@ -339,7 +339,7 @@
                "Outbound payment settlement skipped, not settleable: %s"
                {:payment-id payment-id
                 :payment-status (:payment-status payment)
-                :cancellation-code (:cancellation-code payment)
+                :failure-reason-code (:failure-reason-code payment)
                 :scheme-transaction-id (:scheme-transaction-id data)})
               payment)
 
@@ -521,12 +521,12 @@
 (defn reject-outbound
   "Process an outbound `transaction-rejected` event. Reverses the in-flight
   payment (DEBIT 1200 / CREDIT debtor) and flips the OutboundPayment to
-  failed with the scheme's cancellation code/reason. Pending and held
+  failed with the failure the event reports. Pending and held
   payments are reversible; an already-failed payment is an idempotent
   no-op; a completed (settled) payment cannot be reversed here."
   [config data]
   (let [{payment-id :end-to-end-id} data
-        {:keys [cancellation-code cancellation-reason]} data]
+        {:keys [reason-code]} data]
     (store/transact
      config
      (fn [txn]
@@ -551,9 +551,7 @@
 
           :else
           (let-nom>
-            [failed (domain/failed-outbound-payment payment
-                                                    cancellation-code
-                                                    cancellation-reason)
+            [failed (domain/failed-outbound-payment payment data)
              _ (store/save-outbound-payment
                 txn
                 failed
@@ -562,7 +560,7 @@
              _ (record-reversal-leg txn payment)]
             (log/infof "Outbound payment rejected and reversed: %s"
                        {:payment-id payment-id
-                        :cancellation-code cancellation-code})
+                        :reason-code reason-code})
             failed))))
      :payment/reject-outbound
      "Failed to reject outbound payment")))

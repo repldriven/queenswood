@@ -45,6 +45,12 @@
            :status 422
            :detail "Payment currency must match account currency"}})
 
+(def UnsupportedScheme
+  {:value {:title "REJECTED"
+           :type ":payment/unsupported-scheme"
+           :status 422
+           :detail "The payment provider does not carry chaps"}})
+
 (def PaymentId "pmt.01kprbmgcj35ptc8npmybhh4s5")
 
 (def SubmitInternalPaymentRequest
@@ -92,10 +98,15 @@
    :created-at "2025-01-01T00:00:00Z"
    :updated-at "2025-01-01T00:00:00Z"})
 
+(def OutboundPaymentFailure
+  {:kind "declined"
+   :reason-code "AC04"
+   :reason "The beneficiary's account is closed"})
+
 (def InboundPayment
   {:payment-id "pmt.01kprbmgcj35ptc8npmybhh4t0"
    :bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
-   :scheme "FasterPayments"
+   :scheme "fps"
    :scheme-transaction-id "8f3e2a1c-6b4d-4e7f-9a2b-1c3d5e7f9a0b"
    :end-to-end-id "E2E-20250101-0001"
    :creditor-account-id "acc.01kprbmgcj35ptc8npmybhh4s9"
@@ -149,6 +160,6 @@
   (examples-registry [#'PaymentNotFound #'BalanceNotFound #'InvalidAmount
                       #'DebtorAccountNotOperable #'CreditorAccountNotOperable
                       #'SelfTransferNotPermitted #'CurrencyMismatch
-                      #'SettledInboundPayment #'SuspendedInboundPayment
-                      #'HeldInboundPayment #'ReturnedInboundPayment
-                      #'InboundPaymentList]))
+                      #'UnsupportedScheme #'SettledInboundPayment
+                      #'SuspendedInboundPayment #'HeldInboundPayment
+                      #'ReturnedInboundPayment #'InboundPaymentList]))

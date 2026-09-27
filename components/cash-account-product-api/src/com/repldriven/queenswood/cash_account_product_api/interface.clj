@@ -87,6 +87,15 @@
 
 (def
   ^{:doc
+    "RFC 9457 body for a 422
+  `:cash-account-product/unsupported-address-scheme` rejection: the
+  version allows a payment address scheme the payment provider does not
+  issue."}
+  UnsupportedAddressScheme
+  examples/UnsupportedAddressScheme)
+
+(def
+  ^{:doc
     "RFC 9457 body for a 409 `:cash-account-product/version-immutable`
   rejection: Version is not a draft and cannot be modified."}
   VersionImmutable

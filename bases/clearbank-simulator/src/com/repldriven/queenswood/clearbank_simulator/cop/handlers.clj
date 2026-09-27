@@ -1,5 +1,6 @@
 (ns com.repldriven.queenswood.clearbank-simulator.cop.handlers
   (:require
+    [com.repldriven.queenswood.clearbank-simulator.signed :as signed]
     [com.repldriven.queenswood.clearbank-simulator.webhook
      :as webhook]
 
@@ -60,18 +61,19 @@
 
 (defn outbound-cop
   [_config]
-  (fn [request]
-    (let [{:keys [webhooks parameters]} request
-          {:keys [body]} parameters
-          {:keys [accountHolderName endToEndIdentification
-                  accountDetails]}
-          body
-          {:keys [sortCode]} accountDetails
-          config {:webhooks webhooks}
-          result (if (has-webhook? webhooks sortCode)
-                   (webhook-result config sortCode body)
-                   (simulated-result accountHolderName))]
-      {:status 200
-       :body (assoc result
-                    :endToEndIdentification
-                    endToEndIdentification)})))
+  (signed/verified
+   (fn [request]
+     (let [{:keys [webhooks signing-key parameters]} request
+           {:keys [body]} parameters
+           {:keys [accountHolderName endToEndIdentification
+                   accountDetails]}
+           body
+           {:keys [sortCode]} accountDetails
+           config {:webhooks webhooks :signing-key signing-key}
+           result (if (has-webhook? webhooks sortCode)
+                    (webhook-result config sortCode body)
+                    (simulated-result accountHolderName))]
+       {:status 200
+        :body (assoc result
+                     :endToEndIdentification
+                     endToEndIdentification)}))))

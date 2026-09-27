@@ -10,6 +10,7 @@
     {"name": "creditor_name",   "type": "string"},
     {"name": "amount",          "type": "long"},
     {"name": "currency",        "type": "string"},
-    {"name": "reference",       "type": ["null", "string"], "default": null}
+    {"name": "reference",       "type": ["null", "string"], "default": null},
+    {"name": "scheme",          "type": ["null", "string"], "default": null}
   ]
 }

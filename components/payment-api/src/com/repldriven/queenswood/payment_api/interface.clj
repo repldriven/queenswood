@@ -186,6 +186,11 @@
      CurrencyMismatch
   examples/CurrencyMismatch)
 
+(def ^{:doc
+       "RFC 9457 body for a scheme the payment provider does not carry — 422."}
+     UnsupportedScheme
+  examples/UnsupportedScheme)
+
 (def ^{:doc "RFC 9457 body for an amount the transaction rules refuse."}
      InvalidAmount
   examples/InvalidAmount)

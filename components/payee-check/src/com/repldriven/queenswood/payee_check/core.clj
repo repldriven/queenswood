@@ -48,10 +48,10 @@
 
 (defn check-and-save
   [config data]
-  (let [{:keys [clearbank-adapter-url]} config
+  (let [{:keys [payment-adapter-url]} config
         {:keys [bank-id]} data
         request (dissoc data :bank-id)
-        result (perform-cop-check clearbank-adapter-url request)]
+        result (perform-cop-check payment-adapter-url request)]
     (check-payee config bank-id request result)))
 
 (defn get-check

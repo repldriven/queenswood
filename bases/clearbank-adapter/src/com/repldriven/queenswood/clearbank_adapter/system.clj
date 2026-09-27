@@ -2,8 +2,9 @@
   (:require
     [com.repldriven.queenswood.clearbank-adapter.commands
      :as commands]
+    [com.repldriven.queenswood.clearbank-adapter.provider :as provider]
 
-    [com.repldriven.mono.error.interface :as error]
+    [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.http-client.interface :as http]
     [com.repldriven.mono.json.interface :as json]
     [com.repldriven.mono.log.interface :as log]
@@ -171,10 +172,13 @@
 
 (def ^:private command-processor
   {:system/start (fn [{:system/keys [config instance]}]
-                   (or instance (commands/->ClearBankCommandProcessor config)))
+                   (or instance
+                       (let-nom> [_ (provider/check (:payment-provider config))]
+                         (commands/->ClearBankCommandProcessor config))))
    :system/config {:schemas system/required-component
                    :record-db system/required-component
-                   :record-store system/required-component}
+                   :record-store system/required-component
+                   :payment-provider system/required-component}
    :system/instance-schema some?})
 
 (system/defcomponents :clearbank-adapter

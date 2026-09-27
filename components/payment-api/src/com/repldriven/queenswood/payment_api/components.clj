@@ -8,7 +8,9 @@
     [com.repldriven.queenswood.cash-account-api.interface :as
      cash-account-api]
     [com.repldriven.queenswood.transaction-api.interface :as
-     transaction-api]))
+     transaction-api]
+
+    [com.repldriven.mono.utility.interface :as utility]))
 
 (def PaymentId (schema/id-schema "PaymentId" "pmt" examples/PaymentId))
 
@@ -42,6 +44,16 @@
   (coercion/outbound-payment-status-enum-schema {:json-schema/example
                                                  "pending"}))
 
+(def OutboundPaymentFailureKind
+  (coercion/outbound-payment-failure-kind-enum-schema {:json-schema/example
+                                                       "declined"}))
+
+(def OutboundPaymentFailure
+  [:map {:json-schema/example examples/OutboundPaymentFailure}
+   [:kind [:ref "OutboundPaymentFailureKind"]]
+   [:reason-code string?]
+   [:reason {:optional true} [:maybe string?]]])
+
 (def SubmitOutboundPaymentRequest
   [:map
    {:json-schema/example examples/SubmitOutboundPaymentRequest}
@@ -66,8 +78,7 @@
    [:payment-status [:ref "OutboundPaymentStatus"]]
    [:transaction-id [:ref "TransactionId"]]
    [:reference {:optional true} [:maybe string?]]
-   [:cancellation-code {:optional true} [:maybe string?]]
-   [:cancellation-reason {:optional true} [:maybe string?]]
+   [:failure {:optional true} [:ref "OutboundPaymentFailure"]]
    [:business-day [:ref "BusinessDay"]]
    [:created-at {:optional true} [:maybe [:ref "Timestamp"]]]
    [:updated-at {:optional true} [:maybe [:ref "Timestamp"]]]])
@@ -100,7 +111,8 @@
 (def registry
   (components-registry
    [#'PaymentId #'PaymentScheme #'SubmitInternalPaymentRequest #'InternalPayment
-    #'OutboundPaymentStatus #'SubmitOutboundPaymentRequest #'OutboundPayment
+    #'OutboundPaymentStatus #'OutboundPaymentFailureKind
+    #'OutboundPaymentFailure #'SubmitOutboundPaymentRequest #'OutboundPayment
     #'InboundPaymentStatus #'InboundPayment #'InboundPaymentList]))
 
 (defn- declared-keys
@@ -113,9 +125,20 @@
 
 (def ^:private internal-payment-keys (declared-keys InternalPayment))
 
+(defn- failure
+  [payment]
+  (let [{:keys [failure-kind failure-reason-code failure-reason]} payment]
+    (when failure-kind
+      (utility/assoc-some {:kind failure-kind
+                           :reason-code (or failure-reason-code "NARR")}
+                          :reason
+                          failure-reason))))
+
 (defn ->outbound-body
   [payment]
-  (select-keys payment outbound-payment-keys))
+  (utility/assoc-some (select-keys payment outbound-payment-keys)
+                      :failure
+                      (failure payment)))
 
 (defn ->inbound-body
   [payment]

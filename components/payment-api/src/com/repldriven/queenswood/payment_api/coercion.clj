@@ -28,6 +28,16 @@
   (some-> ((:encode inbound-payment-status-enum) status)
           name))
 
+(def ^:private outbound-payment-failure-kind-enum
+  (coercion/enum-coercion {"declined" :outbound-payment-failure-kind-declined
+                           "refused" :outbound-payment-failure-kind-refused
+                           "undelivered"
+                           :outbound-payment-failure-kind-undelivered}
+                          :outbound-payment-failure-kind-unknown))
+
+(def outbound-payment-failure-kind-enum-schema
+  (:enum-schema outbound-payment-failure-kind-enum))
+
 (def ^:private payment-scheme-enum
   (coercion/enum-coercion {"fps" :payment-scheme-fps} :payment-scheme-unknown))
 

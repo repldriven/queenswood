@@ -36,6 +36,23 @@
 
 (def ^:private max-minor-units (BigDecimal/valueOf Long/MAX_VALUE))
 
+(def ^:private iso-reason-codes
+  #{"AB05" "AB06" "AC01" "AC02" "AC03" "AC04" "AC05" "AC06" "AC07" "AC13" "AC14"
+    "AG01" "AG02" "AM01" "AM02" "AM03" "AM04" "AM05" "AM06" "AM07" "AM09" "AM10"
+    "BE01" "BE04" "BE05" "BE06" "BE07" "CNOR" "DNOR" "DS0A" "DUPL" "ED05" "FF01"
+    "FF02" "MD01" "MS02" "MS03" "NARR" "NOAS" "RC01" "RR01" "RR02" "RR03" "RR04"
+    "TM01"})
+
+(defn- reason-code
+  [cancellation-code]
+  (if (contains? iso-reason-codes cancellation-code) cancellation-code "NARR"))
+
+(defn- scheme
+  [clearbank-scheme]
+  (case clearbank-scheme
+    (nil "FasterPayments") "fps"
+    clearbank-scheme))
+
 (defn- iso->epoch-millis
   [s]
   (.toEpochMilli (Instant/parse s)))
@@ -83,7 +100,7 @@
         :dedup-key (str TransactionId ":settled")
         :data {:scheme-transaction-id TransactionId
                :end-to-end-id EndToEndTransactionId
-               :scheme Scheme
+               :scheme (scheme Scheme)
                :debit-credit-code :debit-credit-code-credit
                :amount amount
                :currency CurrencyCode
@@ -103,7 +120,7 @@
         :dedup-key (str EndToEndTransactionId ":settled")
         :data {:scheme-transaction-id TransactionId
                :end-to-end-id EndToEndTransactionId
-               :scheme Scheme
+               :scheme (scheme Scheme)
                :debit-credit-code :debit-credit-code-debit
                :amount amount
                :currency CurrencyCode
@@ -125,9 +142,10 @@
       :dedup-key (str TransactionId ":rejected")
       :data (utility/assoc-some
              {:end-to-end-id EndToEndTransactionId
-              :scheme (or Scheme "FasterPayments")
+              :scheme (scheme Scheme)
               :debit-credit-code :debit-credit-code-credit
-              :cancellation-code CancellationCode
+              :cancellation-code (reason-code CancellationCode)
+              :reason-code (reason-code CancellationCode)
               :cancellation-reason CancellationReason
               :is-return IsReturn
               :timestamp-rejected (timestamp-rejected TimestampModified)}
@@ -142,9 +160,11 @@
     [{:event-name "transaction-rejected"
       :dedup-key (str EndToEndTransactionId ":rejected")
       :data {:end-to-end-id EndToEndTransactionId
-             :scheme (or Scheme "FasterPayments")
+             :scheme (scheme Scheme)
              :debit-credit-code :debit-credit-code-debit
-             :cancellation-code CancellationCode
+             :cancellation-code (reason-code CancellationCode)
+             :failure-kind :failure-kind-declined
+             :reason-code (reason-code CancellationCode)
              :cancellation-reason CancellationReason
              :is-return IsReturn
              :timestamp-rejected (timestamp-rejected TimestampModified)}}]))
@@ -171,9 +191,11 @@
          {:event-name "transaction-rejected"
           :dedup-key (str EndToEndId ":rejected")
           :data {:end-to-end-id EndToEndId
-                 :scheme (or PaymentMethodType "FasterPayments")
+                 :scheme (scheme PaymentMethodType)
                  :debit-credit-code :debit-credit-code-debit
-                 :cancellation-code "CB_AssessmentFailed"
+                 :cancellation-code "NARR"
+                 :failure-kind :failure-kind-declined
+                 :reason-code "NARR"
                  :cancellation-reason (str/join "; " Reasons)
                  :is-return false
                  :timestamp-rejected (utility/now)}})
@@ -193,7 +215,7 @@
                              [EndToEndTransactionId BBAN amount
                               TimestampCreated "held"])
         :data {:end-to-end-id EndToEndTransactionId
-               :scheme Scheme
+               :scheme (scheme Scheme)
                :debit-credit-code :debit-credit-code-credit
                :amount amount
                :currency "GBP"
@@ -212,7 +234,7 @@
       [{:event-name "transaction-held"
         :dedup-key (str EndToEndTransactionId ":held")
         :data {:end-to-end-id EndToEndTransactionId
-               :scheme Scheme
+               :scheme (scheme Scheme)
                :debit-credit-code :debit-credit-code-debit
                :amount amount
                :currency "GBP"

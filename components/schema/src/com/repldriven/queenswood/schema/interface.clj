@@ -734,25 +734,31 @@
 
 (defn pb->OutboundPayment
   "Parse OutboundPayment protobuf bytes into a Clojure map, stripping
-  every optional string that deserialises as the proto2 empty-string
-  default so each key is present only when the record carries a real
-  value: a payment the caller sent no `reference` for carries none, and
-  only a failed one carries a `cancellation-code` and
-  `cancellation-reason`.
+  every optional field that deserialises as its proto2 default so each
+  key is present only when the record carries a real value: a payment
+  the caller sent no `reference` for carries none, and only a failed one
+  carries a `failure-kind`, `failure-reason-code` and `failure-reason`.
+  Drops `cancellation-code` and `cancellation-reason`, which are
+  deprecated.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (let [payment (payments/pb->OutboundPayment input)]
+  (let [payment (dissoc (payments/pb->OutboundPayment input)
+                 :cancellation-code
+                 :cancellation-reason)]
     (cond-> payment
             (= "" (:reference payment))
             (dissoc :reference)
 
-            (= "" (:cancellation-code payment))
-            (dissoc :cancellation-code)
+            (= :outbound-payment-failure-kind-unknown (:failure-kind payment))
+            (dissoc :failure-kind)
 
-            (= "" (:cancellation-reason payment))
-            (dissoc :cancellation-reason))))
+            (= "" (:failure-reason-code payment))
+            (dissoc :failure-reason-code)
+
+            (= "" (:failure-reason payment))
+            (dissoc :failure-reason))))
 
 (defn OutboundPayment->pb
   "Serialise an OutboundPayment map to protobuf bytes.

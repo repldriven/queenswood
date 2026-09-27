@@ -5,4 +5,4 @@ processor: !system/component
   schemas: !system/ref avro.serde
   # Unreachable on purpose: the brick test exercises the CoP
   # adapter-unavailable degradation path without the adapter base.
-  clearbank-adapter-url: "http://localhost:1"
+  payment-adapter-url: "http://localhost:1"

@@ -39,6 +39,8 @@
     `:idv-provider` (required) is the provider declaration, and creation
     is rejected `:idv/unsupported-criteria` when the platform or tier
     policies require a verification or screening it does not establish;
+    `:payment-provider` is the payment provider declaration the house
+    product is published against;
     `:audience` (string) is the `aud` claim stamped on tokens minted
     for the new client; `:company-binding` (map, optional) is the
     confirmed legal-entity snapshot to bind the bank to (onboarding) —

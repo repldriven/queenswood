@@ -3,6 +3,7 @@ processor: !system/component
   record-db: !system/ref fdb.record-db
   record-store: !system/ref fdb.meta-store
   schemas: !system/ref avro.serde
+  payment-provider: !include system/payment-provider.yml
   business-day-cutoff:
     zone: Europe/London
     hour-of-day: 17

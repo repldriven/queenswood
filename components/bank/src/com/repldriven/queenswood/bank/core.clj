@@ -66,7 +66,7 @@
   customers from inside the bank (rewards, etc.). An ordinary
   `CashAccount` — BBAN-addressable, transactable — so external funding
   can land in it and internal transfers can move out of it."
-  [txn bank-id party-id sort-code currency policies]
+  [txn bank-id party-id sort-code currency policies payment-provider]
   (let-nom>
     [version (products/new-product
               txn
@@ -80,7 +80,8 @@
                          bank-id
                          (:product-id version)
                          (:version-id version)
-                         {:policies policies})]
+                         {:policies policies
+                          :payment-provider payment-provider})]
     (cash-accounts/new-account
      txn
      {:bank-id bank-id
@@ -92,14 +93,15 @@
      {:policies policies})))
 
 (defn- new-house-accounts
-  [txn bank-id party-id sort-code currencies policies]
+  [txn bank-id party-id sort-code currencies policies payment-provider]
   (reduce (fn [_ currency]
             (let [result (new-house-account txn
                                             bank-id
                                             party-id
                                             sort-code
                                             currency
-                                            policies)]
+                                            policies
+                                            payment-provider)]
               (if (error/anomaly? result) (reduced result) nil)))
           nil
           currencies))
@@ -161,8 +163,9 @@
   (store/transact
    txn
    (fn [txn]
-     (let [{:keys [identity-provider idv-provider company-binding membership
-                   owner-invitation idempotency-key]}
+     (let [{:keys [identity-provider idv-provider payment-provider
+                   company-binding membership owner-invitation
+                   idempotency-key]}
            opts
            {:keys [user-id role]} membership
            actor (domain/creation-actor (:actor opts) membership)]
@@ -223,7 +226,8 @@
                                 party-id
                                 sort-code
                                 currencies
-                                policies)
+                                policies
+                                payment-provider)
           _ (bind-policies txn bank-id tier-policies)
           _ (scheduler/seed-jobs txn bank-id)
           owner (when membership

@@ -1,5 +1,6 @@
 (ns com.repldriven.queenswood.clearbank-simulator.fps.handlers
   (:require
+    [com.repldriven.queenswood.clearbank-simulator.signed :as signed]
     [com.repldriven.queenswood.clearbank-simulator.webhook
      :as webhook]
 
@@ -86,40 +87,42 @@
 
 (defn payment
   [_config]
-  (fn [request]
-    (let [{:keys [webhooks sort-code webhook-delay-ms parameters]}
-          request
-          {:keys [body]} parameters
-          {:keys [paymentInstructions]} body
-          instruction (first paymentInstructions)
-          {:keys [creditTransfers]} instruction
-          transfer (first creditTransfers)
-          {:keys [paymentIdentification creditor
-                  creditorAccount amount
-                  remittanceInformation]}
-          transfer
-          {:keys [endToEndIdentification]} paymentIdentification
-          {:keys [name]} creditor
-          creditor-bban (get-in creditorAccount
-                                [:identification :other
-                                 :identification])
-          creditor-sort-code (sort-code-of creditor-bban)
-          reference (get-in remittanceInformation
-                            [:unstructured
-                             :additionalReferenceInformation
-                             :reference])
-          {:keys [instructedAmount currency]} amount]
-      (if (= submission-refused-sort-code creditor-sort-code)
-        (submission-response endToEndIdentification "Rejected")
-        (do (future
-             (fire-webhooks {:config {:webhooks webhooks}
-                             :sort-code sort-code
-                             :webhook-delay-ms webhook-delay-ms
-                             :end-to-end-id endToEndIdentification
-                             :creditor-sort-code creditor-sort-code
-                             :creditor-name name
-                             :creditor-bban creditor-bban
-                             :amount instructedAmount
-                             :currency currency
-                             :reference reference}))
-            (submission-response endToEndIdentification "Accepted"))))))
+  (signed/verified
+   (fn [request]
+     (let [{:keys [webhooks signing-key sort-code webhook-delay-ms parameters]}
+           request
+           {:keys [body]} parameters
+           {:keys [paymentInstructions]} body
+           instruction (first paymentInstructions)
+           {:keys [creditTransfers]} instruction
+           transfer (first creditTransfers)
+           {:keys [paymentIdentification creditor
+                   creditorAccount amount
+                   remittanceInformation]}
+           transfer
+           {:keys [endToEndIdentification]} paymentIdentification
+           {:keys [name]} creditor
+           creditor-bban (get-in creditorAccount
+                                 [:identification :other
+                                  :identification])
+           creditor-sort-code (sort-code-of creditor-bban)
+           reference (get-in remittanceInformation
+                             [:unstructured
+                              :additionalReferenceInformation
+                              :reference])
+           {:keys [instructedAmount currency]} amount]
+       (if (= submission-refused-sort-code creditor-sort-code)
+         (submission-response endToEndIdentification "Rejected")
+         (do (future
+              (fire-webhooks {:config {:webhooks webhooks
+                                       :signing-key signing-key}
+                              :sort-code sort-code
+                              :webhook-delay-ms webhook-delay-ms
+                              :end-to-end-id endToEndIdentification
+                              :creditor-sort-code creditor-sort-code
+                              :creditor-name name
+                              :creditor-bban creditor-bban
+                              :amount instructedAmount
+                              :currency currency
+                              :reference reference}))
+             (submission-response endToEndIdentification "Accepted")))))))

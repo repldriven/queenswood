@@ -5,6 +5,7 @@ processor: !system/component
   schemas: !system/ref avro.serde
   bus: !system/ref message-bus.bus
   scheme-payment-command-channel: !keyword schemes-payment-command
+  payment-provider: !include system/payment-provider.yml
   business-day-cutoff:
     zone: Europe/London
     hour-of-day: 17

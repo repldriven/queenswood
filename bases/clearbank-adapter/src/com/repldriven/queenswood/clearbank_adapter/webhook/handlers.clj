@@ -4,12 +4,37 @@
 
     [com.repldriven.queenswood.cash-account-query.interface :as cash-accounts]
     [com.repldriven.queenswood.clearbank-relay.interface :as relay]
+    [com.repldriven.queenswood.clearbank-webhook.interface :as
+     clearbank-webhook]
     [com.repldriven.queenswood.party-query.interface :as parties]
 
     [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.log.interface :as log]
-    [com.repldriven.mono.utility.interface :as utility]))
+    [com.repldriven.mono.utility.interface :as utility]
+
+    [clojure.string :as str]))
+
+(def ^:private signature-header
+  (str/lower-case clearbank-webhook/signature-header))
+
+(defn- verified
+  [handler]
+  (fn [request]
+    (let [{:keys [provider-key headers raw-body uri]} request
+          res (clearbank-webhook/verify (:public-key provider-key)
+                                        (get headers signature-header)
+                                        (or raw-body (byte-array 0)))]
+      (if (error/anomaly? res)
+        (let [kind (error/kind res)
+              {:keys [message]} (error/payload res)]
+          (log/warn "ClearBank webhook refused" {:uri uri :kind kind})
+          {:status 401
+           :body {:type (str kind)
+                  :title "UNAUTHORIZED"
+                  :status 401
+                  :detail message}})
+        (handler request)))))
 
 (defn- persist-one
   "Serialise one event descriptor and write it to the outbox. A
@@ -75,86 +100,91 @@
 
 (defn transaction-settled
   [_config]
-  (fn [request]
-    (let [{:keys [parameters]} request
-          {:keys [body]} parameters
-          {:keys [Payload Nonce]} body
-          {:keys [TransactionId EndToEndTransactionId Scheme DebitCreditCode]}
-          Payload]
-      (log/info "transaction-settled webhook received"
-                {:transaction-id TransactionId
-                 :e2e-id EndToEndTransactionId
-                 :scheme Scheme
-                 :debit-credit-code DebitCreditCode})
-      (webhook-response request
-                        "transaction-settled"
-                        (case DebitCreditCode
-                          "Credit" (publisher/inbound-payment-settled Payload)
-                          "Debit" (publisher/outbound-payment-settled Payload))
-                        Nonce))))
+  (verified
+   (fn [request]
+     (let [{:keys [parameters]} request
+           {:keys [body]} parameters
+           {:keys [Payload Nonce]} body
+           {:keys [TransactionId EndToEndTransactionId Scheme DebitCreditCode]}
+           Payload]
+       (log/info "transaction-settled webhook received"
+                 {:transaction-id TransactionId
+                  :e2e-id EndToEndTransactionId
+                  :scheme Scheme
+                  :debit-credit-code DebitCreditCode})
+       (webhook-response request
+                         "transaction-settled"
+                         (case DebitCreditCode
+                           "Credit" (publisher/inbound-payment-settled Payload)
+                           "Debit" (publisher/outbound-payment-settled Payload))
+                         Nonce)))))
 
 (defn transaction-rejected
   [_config]
-  (fn [request]
-    (let [{:keys [parameters]} request
-          {:keys [body]} parameters
-          {:keys [Payload Nonce]} body
-          {:keys [TransactionId EndToEndTransactionId DebitCreditCode
-                  CancellationCode]}
-          Payload]
-      (log/info "transaction-rejected webhook received"
-                {:transaction-id TransactionId
-                 :e2e-id EndToEndTransactionId
-                 :debit-credit-code DebitCreditCode
-                 :code CancellationCode})
-      (webhook-response request
-                        "transaction-rejected"
-                        (case DebitCreditCode
-                          "Credit" (publisher/inbound-payment-rejected Payload)
-                          (publisher/outbound-payment-rejected Payload))
-                        Nonce))))
+  (verified
+   (fn [request]
+     (let [{:keys [parameters]} request
+           {:keys [body]} parameters
+           {:keys [Payload Nonce]} body
+           {:keys [TransactionId EndToEndTransactionId DebitCreditCode
+                   CancellationCode]}
+           Payload]
+       (log/info "transaction-rejected webhook received"
+                 {:transaction-id TransactionId
+                  :e2e-id EndToEndTransactionId
+                  :debit-credit-code DebitCreditCode
+                  :code CancellationCode})
+       (webhook-response request
+                         "transaction-rejected"
+                         (case DebitCreditCode
+                           "Credit" (publisher/inbound-payment-rejected Payload)
+                           (publisher/outbound-payment-rejected Payload))
+                         Nonce)))))
 
 (defn payment-message-assessment-failed
   [_config]
-  (fn [request]
-    (let [{:keys [parameters]} request
-          {:keys [body]} parameters
-          {:keys [Payload Nonce]} body
-          {:keys [MessageId]} Payload]
-      (log/info "payment-message-assessment-failed webhook received"
-                {:message-id MessageId})
-      (webhook-response request
-                        "payment-message-assessment-failed"
-                        (publisher/outbound-payment-assessment-failed Payload)
-                        Nonce))))
+  (verified
+   (fn [request]
+     (let [{:keys [parameters]} request
+           {:keys [body]} parameters
+           {:keys [Payload Nonce]} body
+           {:keys [MessageId]} Payload]
+       (log/info "payment-message-assessment-failed webhook received"
+                 {:message-id MessageId})
+       (webhook-response request
+                         "payment-message-assessment-failed"
+                         (publisher/outbound-payment-assessment-failed Payload)
+                         Nonce)))))
 
 (defn inbound-held-transaction
   [_config]
-  (fn [request]
-    (let [{:keys [parameters]} request
-          {:keys [body]} parameters
-          {:keys [Payload Nonce]} body]
-      (log/info "inbound-held-transaction webhook received"
-                {:payload Payload})
-      (webhook-response request
-                        "inbound-held-transaction"
-                        (publisher/inbound-payment-held Payload)
-                        Nonce))))
+  (verified
+   (fn [request]
+     (let [{:keys [parameters]} request
+           {:keys [body]} parameters
+           {:keys [Payload Nonce]} body]
+       (log/info "inbound-held-transaction webhook received"
+                 {:payload Payload})
+       (webhook-response request
+                         "inbound-held-transaction"
+                         (publisher/inbound-payment-held Payload)
+                         Nonce)))))
 
 (defn outbound-held-transaction
   [_config]
-  (fn [request]
-    (let [{:keys [parameters]} request
-          {:keys [body]} parameters
-          {:keys [Payload Nonce]} body
-          {:keys [EndToEndTransactionId Scheme]} Payload]
-      (log/info "outbound-held-transaction webhook received"
-                {:e2e-id EndToEndTransactionId
-                 :scheme Scheme})
-      (webhook-response request
-                        "outbound-held-transaction"
-                        (publisher/outbound-payment-held Payload)
-                        Nonce))))
+  (verified
+   (fn [request]
+     (let [{:keys [parameters]} request
+           {:keys [body]} parameters
+           {:keys [Payload Nonce]} body
+           {:keys [EndToEndTransactionId Scheme]} Payload]
+       (log/info "outbound-held-transaction webhook received"
+                 {:e2e-id EndToEndTransactionId
+                  :scheme Scheme})
+       (webhook-response request
+                         "outbound-held-transaction"
+                         (publisher/outbound-payment-held Payload)
+                         Nonce)))))
 
 (defn- cop-result
   [match-keyword display-name]
@@ -175,33 +205,34 @@
 
 (defn inbound-cop-request-received
   [_config]
-  (fn [request]
-    (let [{:keys [parameters record-db record-store]} request
-          {:keys [body]} parameters
-          {:keys [Payload]} body
-          {:keys [RequestId AccountHolderName AccountDetails]} Payload
-          {:keys [SortCode AccountNumber]} AccountDetails
-          bban (str SortCode AccountNumber)
-          config {:record-db record-db
-                  :record-store record-store}]
-      (log/info "inbound-cop-request-received webhook"
-                {:request-id RequestId
-                 :bban bban
-                 :name AccountHolderName})
-      (let [account (cash-accounts/get-account-by-bban config bban)]
-        (if (or (nil? account) (error/anomaly? account))
-          {:status 200
-           :body {:matchResult "NoMatch"
-                  :reasonCode "ACNS"
-                  :reason "Account not found"}}
-          (let [{:keys [display-name]}
-                (let [party (parties/get-party config
-                                               (:bank-id account)
-                                               (:party-id account))]
-                  (when-not (error/anomaly? party) party))
-                result (if display-name
-                         (parties/match-name display-name
-                                             AccountHolderName)
-                         :no-match)]
-            {:status 200
-             :body (cop-result result display-name)}))))))
+  (verified
+   (fn [request]
+     (let [{:keys [parameters record-db record-store]} request
+           {:keys [body]} parameters
+           {:keys [Payload]} body
+           {:keys [RequestId AccountHolderName AccountDetails]} Payload
+           {:keys [SortCode AccountNumber]} AccountDetails
+           bban (str SortCode AccountNumber)
+           config {:record-db record-db
+                   :record-store record-store}]
+       (log/info "inbound-cop-request-received webhook"
+                 {:request-id RequestId
+                  :bban bban
+                  :name AccountHolderName})
+       (let [account (cash-accounts/get-account-by-bban config bban)]
+         (if (or (nil? account) (error/anomaly? account))
+           {:status 200
+            :body {:matchResult "NoMatch"
+                   :reasonCode "ACNS"
+                   :reason "Account not found"}}
+           (let [{:keys [display-name]}
+                 (let [party (parties/get-party config
+                                                (:bank-id account)
+                                                (:party-id account))]
+                   (when-not (error/anomaly? party) party))
+                 result (if display-name
+                          (parties/match-name display-name
+                                              AccountHolderName)
+                          :no-match)]
+             {:status 200
+              :body (cop-result result display-name)})))))))

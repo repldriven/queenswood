@@ -103,5 +103,9 @@
         {:keys [bank-id]} auth
         {:keys [path]} parameters
         {:keys [product-id version-id]} path]
-    (respond (products/publish (config request) bank-id product-id version-id)
+    (respond (products/publish (config request)
+                               bank-id
+                               product-id
+                               version-id
+                               (select-keys request [:payment-provider]))
              ok)))

@@ -19,6 +19,7 @@
                    :schemas system/required-component
                    :bus nil
                    :scheme-payment-command-channel nil
+                   :payment-provider system/required-component
                    :business-day-cutoff default-cutoff}
    :system/instance-schema some?})
 

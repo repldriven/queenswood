@@ -32,6 +32,7 @@
                                currencies
                                {:identity-provider (:identity-provider config)
                                 :idv-provider (:idv-provider config)
+                                :payment-provider (:payment-provider config)
                                 :audience audience
                                 :company-binding company-binding
                                 :membership membership

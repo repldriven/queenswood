@@ -149,7 +149,7 @@
              :auth :bank-0-token}
    :until {:status 200
            :body {:payment-status "failed"
-                  :cancellation-code "CB_AssessmentFailed"}}
+                  :failure {:kind "declined" :reason-code "NARR"}}}
    :timeout-ms 10000}
   {:command :api/poll
    :request {:method :get

@@ -7,6 +7,16 @@
 # — that's what posts the inbound credit when ClearBank settles
 # an outbound whose creditor BBAN matches an internal account.
 
+# The processor is started for its configuration alone: the verbs take
+# the provider declaration from it, so the rig submits against the same
+# declaration a deployment does.
+processor: !system/component
+  system/component-kind: payment/processor
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  schemas: !system/ref avro.serde
+  payment-provider: !include system/payment-provider.yml
+
 event-processor-impl: !system/component
   system/component-kind: payment/event-processor
   record-db: !system/ref fdb.record-db
