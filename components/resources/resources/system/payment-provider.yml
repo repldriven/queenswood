@@ -1,0 +1,10 @@
+# What the deployment's payment adapter can carry: the schemes an
+# outbound payment may go by, the address schemes it issues, whether the
+# provider holds a balance per account or one pooled balance, and the
+# name checks it makes. Checked when the adapter starts, when a product
+# version is published and when an outbound payment is submitted. See
+# docs/tdd/payments.md.
+schemes: [fps]
+addresses: [scan]
+balances: pooled
+payee-check: [outbound, inbound]

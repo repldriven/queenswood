@@ -2,6 +2,9 @@
   (:require
     [com.repldriven.queenswood.clearbank-relay.store :as store]
 
+    [com.repldriven.queenswood.clearbank-webhook.interface :as
+     clearbank-webhook]
+
     [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.http-client.interface :as http]
@@ -18,14 +21,19 @@
   adapter is `:payment/unavailable` — the kind names the domain, not the
   vendor, because a second scheme provider consuming this channel must
   not change what the failure is called (ADR-0020)."
-  [clearbank-url request-body]
+  [clearbank-url signing-key request-body]
   (error/try-nom
    :payment/unavailable
    "Failed to POST outbound payment to the scheme adapter"
-   (let [res (http/request {:method :post
-                            :url (str clearbank-url "/v3/payments/fps")
-                            :headers {"Content-Type" "application/json"}
-                            :body request-body})]
+   (let [res (let-nom> [signature (clearbank-webhook/sign
+                                   (:private-key signing-key)
+                                   request-body)]
+               (http/request {:method :post
+                              :url (str clearbank-url "/v3/payments/fps")
+                              :headers {"Content-Type" "application/json"
+                                        clearbank-webhook/signature-header
+                                        signature}
+                              :body request-body}))]
      (if (error/anomaly? res)
        (error/fail :payment/unavailable
                    {:message "Scheme adapter unreachable"
@@ -84,15 +92,17 @@
             (range (dec attempts)))))
 
 (defn- fail-intent
-  [config now intent attempts cancellation-code reason]
+  [config now intent attempts failure-kind reason]
   (let [{:keys [schemas]} config
         {:keys [intent-id dedup-key]} intent]
     (let-nom>
       [payload (avro/serialize (get schemas "transaction-rejected")
                                {:end-to-end-id dedup-key
-                                :scheme "FasterPayments"
+                                :scheme "fps"
                                 :debit-credit-code :debit-credit-code-debit
-                                :cancellation-code cancellation-code
+                                :cancellation-code "NARR"
+                                :failure-kind failure-kind
+                                :reason-code "NARR"
                                 :cancellation-reason reason
                                 :is-return false
                                 :timestamp-rejected now})]
@@ -116,12 +126,13 @@
   retried POST is safe — ClearBank dedupes on endToEndIdentification —
   which is what lets the schedule retry at all."
   [config now intent]
-  (let [{:keys [clearbank-url max-attempts post-fn]} config
+  (let [{:keys [clearbank-url signing-key max-attempts post-fn]} config
         {:keys [intent-id dedup-key request]} intent
         post (or post-fn post-fps)
         max-attempts (or max-attempts default-max-attempts)
         attempts (inc (or (:attempts intent) 0))
-        [outcome reason] (classify (post clearbank-url request) dedup-key)]
+        [outcome reason] (classify (post clearbank-url signing-key request)
+                                   dedup-key)]
     (cond
      (= :sent outcome)
      (store/mark-sent config intent-id)
@@ -133,7 +144,7 @@
                       now
                       intent
                       attempts
-                      "CB_SubmissionRefused"
+                      :failure-kind-refused
                       reason))
 
      (>= attempts max-attempts)
@@ -143,7 +154,7 @@
                       now
                       intent
                       attempts
-                      "CB_SubmissionFailed"
+                      :failure-kind-undelivered
                       reason))
 
      :else

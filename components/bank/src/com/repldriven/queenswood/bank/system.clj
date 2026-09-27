@@ -11,7 +11,8 @@
                    :record-store system/required-component
                    :schemas system/required-component
                    :identity-provider system/required-component
-                   :idv-provider nil}
+                   :idv-provider nil
+                   :payment-provider nil}
    :system/instance-schema some?})
 
 (system/defcomponents :bank {:processor processor})

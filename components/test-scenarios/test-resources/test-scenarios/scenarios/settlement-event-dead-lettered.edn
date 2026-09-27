@@ -8,7 +8,7 @@
  :when [{:command :publish-scheme-event
          :args ["transaction-rejected"
                 {:end-to-end-id :e2e-no-such-payment
-                 :scheme "FPS"
+                 :scheme "fps"
                  :debit-credit-code :debit-credit-code-debit
                  :cancellation-code "SCENARIO_REJECTED"
                  :timestamp-rejected 1789603200000}]}]

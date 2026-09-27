@@ -5,6 +5,9 @@
 
     [com.repldriven.queenswood.clearbank-simulator.api :as api]
 
+    [com.repldriven.queenswood.clearbank-webhook.interface :as
+     clearbank-webhook]
+
     [com.repldriven.mono.http-client.interface :as http]
     [com.repldriven.mono.json.interface :as json]
     [com.repldriven.mono.server.interface :as server]
@@ -16,13 +19,23 @@
 
 (def ^:dynamic *base-url* "http://localhost:{PORT}")
 
+(def ^:dynamic *client-key* nil)
+
+(defn- post-signed
+  [path body private-key]
+  (let [json-body (json/write-str body)]
+    (http/request
+     {:method :post
+      :url (str *base-url* path)
+      :headers (cond-> {"Content-Type" "application/json"}
+                       private-key
+                       (assoc clearbank-webhook/signature-header
+                              (clearbank-webhook/sign private-key json-body)))
+      :body json-body})))
+
 (defn- post
   [path body]
-  (http/request
-   {:method :post
-    :url (str *base-url* path)
-    :headers {"Content-Type" "application/json"}
-    :body (json/write-str body)}))
+  (post-signed path body (:private-key *client-key*)))
 
 (defn- get
   [path]
@@ -79,34 +92,29 @@
      res (delete "/v1/webhooks/TransactionSettled")
      _ (is (= 404 (:status res)))]))
 
+(def ^:private fps-payment
+  {:paymentInstructions
+   [{:paymentInstructionIdentification "instr-001"
+     :paymentTypeCode "SIP"
+     :debtorAccount {:identification
+                     {:other {:identification "12345678"
+                              :schemeName {:proprietary "SortCodeAccountNumber"}
+                              :issuer "123456"}}}
+     :creditTransfers
+     [{:paymentIdentification {:instructionIdentification "ct-001"
+                               :endToEndIdentification "e2e-001"}
+       :amount {:instructedAmount 100.00 :currency "GBP"}
+       :creditor {:name "Arthur Dent"}
+       :creditorAccount {:identification {:other {:identification "87654321"
+                                                  :schemeName
+                                                  {:proprietary
+                                                   "SortCodeAccountNumber"}
+                                                  :issuer "654321"}}}}]}]})
+
 (defn- test-fps-payment
   []
   (nom-test>
-    [res (post "/v3/payments/fps"
-               {:paymentInstructions
-                [{:paymentInstructionIdentification "instr-001"
-                  :paymentTypeCode "SIP"
-                  :debtorAccount
-                  {:identification
-                   {:other
-                    {:identification "12345678"
-                     :schemeName
-                     {:proprietary "SortCodeAccountNumber"}
-                     :issuer "123456"}}}
-                  :creditTransfers
-                  [{:paymentIdentification
-                    {:instructionIdentification "ct-001"
-                     :endToEndIdentification "e2e-001"}
-                    :amount {:instructedAmount 100.00
-                             :currency "GBP"}
-                    :creditor {:name "Arthur Dent"}
-                    :creditorAccount
-                    {:identification
-                     {:other
-                      {:identification "87654321"
-                       :schemeName
-                       {:proprietary "SortCodeAccountNumber"}
-                       :issuer "654321"}}}}]}]})
+    [res (post "/v3/payments/fps" fps-payment)
      _ (is (= 202 (:status res)))
      body (http/res->edn res)
      _ (is (= 1 (count (:transactions body))))
@@ -148,17 +156,32 @@
                      :outcome "return"})
      _ (is (= 202 (:status returned)))]))
 
+(defn- test-fps-payment-unsigned
+  []
+  (nom-test>
+    [unsigned (post-signed "/v3/payments/fps" fps-payment nil)
+     _ (is (= 401 (:status unsigned)))
+     forged (post-signed "/v3/payments/fps"
+                         fps-payment
+                         (:private-key (clearbank-webhook/key-pair)))
+     _ (is (= 401 (:status forged)))]))
+
 (deftest clearbank-simulator-test
   (with-test-system [sys
                      ["classpath:clearbank-simulator/application-test.yml"
                       #(assoc-in % [:system/defs :server :handler] api/app)]]
                     (let [jetty (system/instance sys [:server :jetty-adapter])]
-                      (binding [*base-url* (server/http-local-url jetty)]
+                      (binding [*base-url* (server/http-local-url jetty)
+                                *client-key* (system/instance sys
+                                                              [:server
+                                                               :client-key])]
                         (testing "GET /openapi.json returns valid OpenAPI spec"
                           (test-openapi-spec))
                         (testing "Webhook CRUD" (test-webhook-crud))
                         (testing "POST /v3/payments/fps returns 202"
                           (test-fps-payment))
+                        (testing "an unsigned or forged payment answers 401"
+                          (test-fps-payment-unsigned))
                         (testing "POST /simulate/inbound-payment returns 202"
                           (test-simulate-inbound-payment))
                         (testing "POST /simulate/inbound-payment held trigger"

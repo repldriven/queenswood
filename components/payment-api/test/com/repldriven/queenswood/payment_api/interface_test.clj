@@ -29,8 +29,6 @@
    :payment-status :outbound-payment-status-completed
    :transaction-id "txn.01kprbmgcj35ptc8npmybhh4s9"
    :reference "Towel"
-   :cancellation-code nil
-   :cancellation-reason nil
    :business-day "2023-11-14"
    :created-at 1700000000000
    :updated-at 1700000000001
@@ -70,7 +68,7 @@
 
 (deftest declared-keys-cover-the-fixtures-test
   (testing "each fixture carries every key its component declares"
-    (is (= (set (declared-keys "OutboundPayment"))
+    (is (= (disj (set (declared-keys "OutboundPayment")) :failure)
            (set (filter (set (declared-keys "OutboundPayment"))
                         (keys stored-outbound)))))
     (is (= (set (declared-keys "InboundPayment"))
@@ -123,3 +121,23 @@
     (testing "the stored idempotency key still does not reach a body"
       (is (not (contains? outbound :idempotency-key)))
       (is (not (contains? internal :idempotency-key))))))
+
+(deftest ->outbound-body-projects-a-failure-test
+  (let [failed (assoc stored-outbound
+                      :payment-status :outbound-payment-status-failed
+                      :failure-kind :outbound-payment-failure-kind-refused
+                      :failure-reason-code "NARR"
+                      :failure-reason "HTTP 400")]
+    (testing "a failed payment's kind, reason code and reason form its failure"
+      (is (= {:kind :outbound-payment-failure-kind-refused
+              :reason-code "NARR"
+              :reason "HTTP 400"}
+             (:failure (SUT/->outbound-body failed)))))
+    (testing "and reach the wire as the strings the document admits"
+      (is (= "refused"
+             (name (get-in (SUT/->outbound-wire-body failed)
+                           [:failure :kind])))))
+    (testing "the stored fields themselves are not published"
+      (is (not (contains? (SUT/->outbound-body failed) :failure-kind))))
+    (testing "a payment that has not failed has none"
+      (is (not (contains? (SUT/->outbound-body stored-outbound) :failure))))))

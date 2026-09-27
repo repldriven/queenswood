@@ -3,7 +3,9 @@
     [com.repldriven.queenswood.policy.interface :as policy]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
-    [com.repldriven.mono.utility.interface :as utility]))
+    [com.repldriven.mono.utility.interface :as utility]
+
+    [clojure.string :as str]))
 
 (defn- draft?
   [version]
@@ -234,13 +236,39 @@
        :effective-to effective-to
        :idempotency-key (:idempotency-key existing)))))
 
+(defn- check-address-schemes
+  [version payment-provider]
+  (when payment-provider
+    (let [{:keys [addresses]} payment-provider
+          issued (set (map (fn [scheme]
+                             (keyword (str "payment-address-scheme-" scheme)))
+                           addresses))
+          unsupported (remove issued
+                              (:allowed-payment-address-schemes version))]
+      (when (seq unsupported)
+        (error/reject :cash-account-product/unsupported-address-scheme
+                      {:message (str "The payment provider does not issue "
+                                     (str/join ", "
+                                               (map
+                                                (fn [scheme]
+                                                  (str/replace
+                                                   (name scheme)
+                                                   #"^payment-address-scheme-"
+                                                   ""))
+                                                unsupported))
+                                     " addresses")
+                       :product-id (:product-id version)
+                       :version-id (:version-id version)
+                       :unsupported (vec unsupported)})))))
+
 (defn publish
-  [existing policies]
+  [existing policies payment-provider]
   (let-nom>
     [_ (ensure-draft existing)
      _ (check-capability :cash-account-product-action-publish
                          (:product-type existing)
-                         policies)]
+                         policies)
+     _ (check-address-schemes existing payment-provider)]
     (assoc existing
            :status :cash-account-product-status-published
            :updated-at (utility/now))))

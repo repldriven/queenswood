@@ -582,3 +582,34 @@
     (is (= (day "2026-01-16")
            (SUT/current-business-day (ts "2026-01-15T23:30:00Z")
                                      {:zone "Asia/Tokyo" :hour-of-day 0})))))
+
+(deftest check-scheme-test
+  (let [provider {:schemes ["fps"]}]
+    (testing "a scheme the provider carries passes"
+      (is (nil? (SUT/check-scheme "fps" provider))))
+    (testing "one it does not is refused"
+      (let [res (SUT/check-scheme "chaps" provider)]
+        (is (error/rejection? res))
+        (is (= :payment/unsupported-scheme (error/kind res)))
+        (is (= "chaps" (:scheme (error/payload res))))))))
+
+(deftest failed-outbound-payment-test
+  (let [payment {:payment-id "pmt.1"
+                 :payment-status :outbound-payment-status-pending}]
+    (testing "the event's failure kind and reason code are recorded"
+      (let [failed (SUT/failed-outbound-payment
+                    payment
+                    {:failure-kind :failure-kind-refused
+                     :reason-code "AC01"
+                     :cancellation-reason "HTTP 400"})]
+        (is (= :outbound-payment-status-failed (:payment-status failed)))
+        (is (= :outbound-payment-failure-kind-refused (:failure-kind failed)))
+        (is (= "AC01" (:failure-reason-code failed)))
+        (is (= "HTTP 400" (:failure-reason failed)))))
+    (testing "an event that predates them is a decline coded NARR"
+      (let [failed (SUT/failed-outbound-payment payment
+                                                {:cancellation-code
+                                                 "SCENARIO_REJECTED"})]
+        (is (= :outbound-payment-failure-kind-declined (:failure-kind failed)))
+        (is (= "NARR" (:failure-reason-code failed)))
+        (is (not (contains? failed :failure-reason)))))))

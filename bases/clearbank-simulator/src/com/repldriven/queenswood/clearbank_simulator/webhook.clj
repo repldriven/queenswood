@@ -1,6 +1,9 @@
 (ns com.repldriven.queenswood.clearbank-simulator.webhook
   (:require
-    [com.repldriven.mono.error.interface :as error]
+    [com.repldriven.queenswood.clearbank-webhook.interface :as
+     clearbank-webhook]
+
+    [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.http-client.interface :as http]
     [com.repldriven.mono.json.interface :as json]
     [com.repldriven.mono.log.interface :as log]
@@ -30,11 +33,15 @@
                               1)
                    :Payload payload
                    :Nonce (nonce)})
-            res (http/request {:method :post
-                               :url url
-                               :headers {"Content-Type"
-                                         "application/json"}
-                               :body body})]
+            res (let-nom> [signature (clearbank-webhook/sign
+                                      (:private-key (:signing-key config))
+                                      body)]
+                  (http/request {:method :post
+                                 :url url
+                                 :headers {"Content-Type" "application/json"
+                                           clearbank-webhook/signature-header
+                                           signature}
+                                 :body body}))]
         (when (or (error/anomaly? res)
                   (and (:status res) (>= (:status res) 400)))
           (log/error "Webhook delivery failed for" type

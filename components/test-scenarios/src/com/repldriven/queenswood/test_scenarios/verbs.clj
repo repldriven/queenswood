@@ -639,7 +639,7 @@
                 bank
                 {:scheme-transaction-id stx-id
                  :end-to-end-id stx-id
-                 :scheme "FPS"
+                 :scheme "fps"
                  :debit-credit-code :debit-credit-code-credit
                  :amount amount
                  :currency "GBP"
@@ -665,7 +665,7 @@
               (str "scen-held-" run-id "-" next-inbound-id))
         result (payment/hold-inbound bank
                                      {:end-to-end-id e2e
-                                      :scheme "FPS"
+                                      :scheme "fps"
                                       :debit-credit-code
                                       :debit-credit-code-credit
                                       :amount amount
@@ -687,7 +687,7 @@
                 bank
                 {:scheme-transaction-id (str "scen-rel-" run-id "-" counter)
                  :end-to-end-id e2e
-                 :scheme "FPS"
+                 :scheme "fps"
                  :debit-credit-code :debit-credit-code-credit
                  :amount amount
                  :currency "GBP"
@@ -703,7 +703,7 @@
   (let [{:keys [e2e]} (get held-inbounds model-acct)
         result (payment/return-inbound bank
                                        {:end-to-end-id e2e
-                                        :scheme "FPS"
+                                        :scheme "fps"
                                         :debit-credit-code
                                         :debit-credit-code-credit
                                         :cancellation-code "HELD_DECLINED"
@@ -831,7 +831,7 @@
                 {:idempotency-key (str "scen-pay-" run-id "-" counter)
                  :bank-id bank-real-id
                  :debtor-account-id real-acct-id
-                 :scheme "FPS"
+                 :scheme "fps"
                  :currency "GBP"
                  :amount amount
                  :reference (str "scenario payment " counter)
@@ -873,7 +873,7 @@
      {:idempotency-key (str "scen-pay-" run-id "-" counter)
       :bank-id (get-in banks [model-bank :real-id])
       :debtor-account-id (id-mapping/real id-mapping model-acct)
-      :scheme "FPS"
+      :scheme "fps"
       :currency "GBP"
       :amount amount
       :reference (str "scenario payment " counter)
@@ -921,7 +921,7 @@
   (let [real-pmt-id (get-in payments [model-pmt :real-id])
         result (payment/reject-outbound bank
                                         {:end-to-end-id real-pmt-id
-                                         :scheme "FPS"
+                                         :scheme "fps"
                                          :debit-credit-code
                                          :debit-credit-code-debit
                                          :cancellation-code "SCENARIO_REJECTED"
@@ -942,7 +942,7 @@
                 bank
                 {:scheme-transaction-id stx-id
                  :end-to-end-id stx-id
-                 :scheme "FPS"
+                 :scheme "fps"
                  :debit-credit-code :debit-credit-code-credit
                  :amount amount
                  :currency "GBP"
@@ -961,7 +961,7 @@
                 bank
                 {:scheme-transaction-id (str "scen-stl-" run-id "-" counter)
                  :end-to-end-id real-pmt-id
-                 :scheme "FPS"
+                 :scheme "fps"
                  :debit-credit-code :debit-credit-code-debit
                  :amount 0
                  :currency "GBP"

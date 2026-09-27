@@ -103,14 +103,19 @@
 (defn publish
   "Publish an existing draft version. Returns the published
   version or an anomaly. Rejects if the version is not in draft
-  state.
+  state, and with `:cash-account-product/unsupported-address-scheme`
+  when it allows a payment address scheme the payment provider does not
+  issue.
 
   Args:
   - txn: FDB transaction or db handle.
   - bank-id: owning bank id.
   - product-id: product id.
   - version-id: version id.
-  - opts (optional): map; `:policies` overrides policy resolution."
+  - opts (optional): map; `:policies` overrides policy resolution, and
+    `:payment-provider` is the provider declaration, `{:addresses
+    [...]}` naming each address scheme without its prefix (`\"scan\"`),
+    checked when given."
   ([txn bank-id product-id version-id]
    (core/publish txn bank-id product-id version-id))
   ([txn bank-id product-id version-id opts]

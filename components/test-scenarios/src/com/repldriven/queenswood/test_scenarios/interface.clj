@@ -30,7 +30,9 @@
 
   Args:
   - bank: FDB config map (`:record-db` / `:record-store`), carrying the
-    `:bus` and `:schemas` the payment verbs publish with.
+    `:bus` and `:schemas` the payment verbs publish with, and the
+    `:payment-provider` declaration an outbound payment is checked
+    against.
   - observers (optional map):
     - `:scheme-commands` — an observer, from `start-observer`, of
       `topic-schemes-payment-command`.

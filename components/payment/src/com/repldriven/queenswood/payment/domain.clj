@@ -23,6 +23,16 @@
         .toLocalDate
         .toEpochDay)))
 
+(defn check-scheme
+  [scheme payment-provider]
+  (let [{:keys [schemes]} payment-provider]
+    (when-not (some #{scheme} schemes)
+      (error/reject :payment/unsupported-scheme
+                    {:message (str "The payment provider does not carry "
+                                   scheme)
+                     :scheme scheme
+                     :schemes schemes}))))
+
 (def ^:private operable-statuses #{:cash-account-status-opened})
 
 (def ^:private role->not-operable
@@ -456,14 +466,24 @@
          :payment-status :outbound-payment-status-held
          :updated-at (utility/now)))
 
+(def ^:private failure-kinds
+  {:failure-kind-declined :outbound-payment-failure-kind-declined
+   :failure-kind-refused :outbound-payment-failure-kind-refused
+   :failure-kind-undelivered :outbound-payment-failure-kind-undelivered})
+
 (defn failed-outbound-payment
-  [payment cancellation-code cancellation-reason]
-  (utility/assoc-some
-   (assoc payment
-          :payment-status :outbound-payment-status-failed
-          :updated-at (utility/now))
-   :cancellation-code cancellation-code
-   :cancellation-reason cancellation-reason))
+  [payment rejection]
+  (let [{:keys [failure-kind reason-code cancellation-reason]} rejection]
+    (utility/assoc-some
+     (assoc payment
+            :payment-status :outbound-payment-status-failed
+            :failure-kind (get failure-kinds
+                               failure-kind
+                               :outbound-payment-failure-kind-declined)
+            :failure-reason-code (or reason-code "NARR")
+            :updated-at (utility/now))
+     :failure-reason
+     cancellation-reason)))
 
 (defn outbound-settlement->transaction
   "The second hop, fired when the scheme confirms settlement. Converts the

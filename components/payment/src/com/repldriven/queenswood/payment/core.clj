@@ -94,7 +94,7 @@
   [config payment debtor-bban]
   (let [{:keys [bus schemas scheme-payment-command-channel]} config
         {:keys [payment-id creditor-bban creditor-name
-                currency amount reference]}
+                currency amount reference scheme]}
         payment
         schema (get schemas "submit-payment")]
     (when (and bus schema scheme-payment-command-channel)
@@ -107,7 +107,8 @@
                                                :creditor-name creditor-name
                                                :amount amount
                                                :currency currency
-                                               :reference reference})]
+                                               :reference reference
+                                               :scheme scheme})]
                      (message-bus/send bus
                                        scheme-payment-command-channel
                                        {:command "submit-payment"
@@ -145,7 +146,9 @@
                                txn
                                {:bank-id bank-id})]
                  (let-nom>
-                   [debtor-account (cash-accounts/get-account
+                   [_ (domain/check-scheme (:scheme data)
+                                           (:payment-provider config))
+                    debtor-account (cash-accounts/get-account
                                     txn
                                     bank-id
                                     debtor-account-id)

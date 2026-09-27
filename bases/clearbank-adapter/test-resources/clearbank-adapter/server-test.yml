@@ -1,5 +1,8 @@
 handler: !system/required-component
 
+provider-key: !system/component
+  system/component-kind: clearbank-webhook/key-pair
+
 interceptors: !system/component
   system/component-kind: server/interceptors
   bus: !system/ref message-bus.bus
@@ -7,6 +10,7 @@ interceptors: !system/component
   event-channel: !keyword schemes-payments-event
   record-db: !system/ref fdb.record-db
   record-store: !system/ref fdb.meta-store
+  provider-key: !system/local-ref provider-key
 
 jetty-adapter: !system/component
   system/component-kind: server/jetty-adapter

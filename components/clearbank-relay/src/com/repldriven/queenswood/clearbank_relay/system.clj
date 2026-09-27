@@ -12,6 +12,7 @@
    :system/config {:record-db system/required-component
                    :record-store system/required-component
                    :clearbank-url system/required-component
+                   :signing-key system/required-component
                    :schemas system/required-component
                    :max-attempts nil
                    :initial-backoff-ms nil

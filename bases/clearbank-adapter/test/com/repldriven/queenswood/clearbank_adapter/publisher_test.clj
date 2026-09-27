@@ -156,3 +156,34 @@
                                               :currency "GBP"})
                        (str "\"instructedAmount\":" rendered))
         (str minor-units))))
+
+(deftest neutral-values-test
+  (testing "ClearBank's scheme reads as fps"
+    (is (= "fps"
+           (get-in (SUT/outbound-payment-settled
+                    (settled {:EndToEndTransactionId "pmt.6"
+                              :DebitCreditCode "Debit"}))
+                   [0 :data :scheme]))))
+  (testing "a rejection's ISO 20022 code is kept as its reason code"
+    (let [[{:keys [data]}] (SUT/outbound-payment-rejected
+                            {:EndToEndTransactionId "pmt.7"
+                             :CancellationCode "AC04"
+                             :CancellationReason "Account closed"})]
+      (is (= :failure-kind-declined (:failure-kind data)))
+      (is (= "AC04" (:reason-code data)))
+      (is (= "Account closed" (:cancellation-reason data)))))
+  (testing "a code of ClearBank's own becomes NARR"
+    (let [[{:keys [data]}] (SUT/outbound-payment-rejected
+                            {:EndToEndTransactionId "pmt.8"
+                             :CancellationCode "HOPRJ"})]
+      (is (= "NARR" (:reason-code data)))
+      (is (= "NARR" (:cancellation-code data)))))
+  (testing "an assessment failure is a decline coded NARR"
+    (let [[{:keys [data]}] (SUT/outbound-payment-assessment-failed
+                            {:MessageId "msg-3"
+                             :AssessmentFailure [{:EndToEndId "pmt.9"
+                                                  :Reasons
+                                                  ["Bad sort code"]}]})]
+      (is (= :failure-kind-declined (:failure-kind data)))
+      (is (= "NARR" (:reason-code data)))
+      (is (= "fps" (:scheme data))))))

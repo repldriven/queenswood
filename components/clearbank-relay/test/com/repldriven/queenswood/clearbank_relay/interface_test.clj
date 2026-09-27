@@ -6,6 +6,8 @@
     [com.repldriven.queenswood.clearbank-relay.interface :as SUT]
     [com.repldriven.queenswood.clearbank-relay.outbound :as outbound]
     [com.repldriven.queenswood.changelog-relay.interface]
+    [com.repldriven.queenswood.clearbank-webhook.interface :as
+     clearbank-webhook]
 
     [com.repldriven.queenswood.fdb.interface :as fdb]
     [com.repldriven.queenswood.schema.interface :as schema]
@@ -85,9 +87,11 @@
                       (store/pending-intents config)))))
      (testing "a failed POST keeps the intent pending and bumps its attempt"
        (nom-test> [_ (SUT/save-intent config (intent-of "int.4" "e2e-C"))])
-       (outbound/drain-once
-        (assoc config :clearbank-url "http://localhost:1" :max-attempts 10)
-        (utility/now))
+       (outbound/drain-once (assoc config
+                                   :clearbank-url "http://localhost:1"
+                                   :signing-key (clearbank-webhook/key-pair)
+                                   :max-attempts 10)
+                            (utility/now))
        (let [i4 (first (filter #(= "int.4" (:intent-id %))
                                (store/pending-intents config)))]
          (is (some? i4) "still pending after an unreachable POST")
@@ -106,7 +110,7 @@
 
 (defn- answering
   [calls res]
-  (fn [_url _request] (swap! calls inc) res))
+  (fn [_url _signing-key _request] (swap! calls inc) res))
 
 (defn- fps-response
   [status end-to-end-id response]
@@ -147,7 +151,7 @@
                            (:payload event))))
 
 (defn- assert-failed
-  [config intent-id dedup-key cancellation-code]
+  [config intent-id dedup-key failure-kind]
   (let [intent (load-intent config intent-id)
         events (submission-rejections config dedup-key)
         rejection (some->> (first events)
@@ -156,7 +160,9 @@
     (is (= 1 (count events)) "one submission-rejected event")
     (is (= "transaction-rejected" (:event-name (first events))))
     (is (= dedup-key (:end-to-end-id rejection)))
-    (is (= cancellation-code (:cancellation-code rejection)))
+    (is (= failure-kind (:failure-kind rejection)))
+    (is (= "NARR" (:reason-code rejection)))
+    (is (= "fps" (:scheme rejection)))
     (is (= :debit-credit-code-debit (:debit-credit-code rejection)))
     (is (false? (:is-return rejection)))))
 
@@ -181,7 +187,7 @@
      (testing "a 500 at the last attempt fails the intent"
        (outbound/drain-once config (+ t0 3000))
        (is (= 3 @calls))
-       (assert-failed config "int.5" "e2e-D" "CB_SubmissionFailed")
+       (assert-failed config "int.5" "e2e-D" :failure-kind-undelivered)
        (outbound/drain-once config (+ t0 60000))
        (is (= 3 @calls) "a failed intent is not relayed")))))
 
@@ -189,21 +195,22 @@
   (with-test-system
    [sys "classpath:clearbank-relay/application-test.yml"]
    (let [config (relay-config sys nil)
-         relay (fn [res] (assoc config :post-fn (fn [_url _request] res)))
+         relay (fn [res]
+                 (assoc config :post-fn (fn [_url _signing-key _request] res)))
          now 1700000000000]
      (testing "a 400 fails the intent on its first attempt"
        (nom-test> [_ (SUT/save-intent config (intent-of "int.6" "e2e-E"))])
        (outbound/drain-once (relay (fps-response 400 nil nil)) now)
-       (assert-failed config "int.6" "e2e-E" "CB_SubmissionRefused"))
+       (assert-failed config "int.6" "e2e-E" :failure-kind-refused))
      (testing "a 202 whose transaction is Rejected fails the intent"
        (nom-test> [_ (SUT/save-intent config (intent-of "int.7" "e2e-F"))])
        (outbound/drain-once (relay (fps-response 202 "e2e-F" "Rejected")) now)
-       (assert-failed config "int.7" "e2e-F" "CB_SubmissionRefused"))
+       (assert-failed config "int.7" "e2e-F" :failure-kind-refused))
      (testing "a 202 with no transaction for the intent fails the intent"
        (nom-test> [_ (SUT/save-intent config (intent-of "int.8" "e2e-G"))])
        (outbound/drain-once (relay (fps-response 202 "e2e-other" "Accepted"))
                             now)
-       (assert-failed config "int.8" "e2e-G" "CB_SubmissionRefused"))
+       (assert-failed config "int.8" "e2e-G" :failure-kind-refused))
      (testing "a 202 whose transaction is Accepted marks the intent sent"
        (nom-test> [_ (SUT/save-intent config (intent-of "int.9" "e2e-H"))])
        (outbound/drain-once (relay (fps-response 202 "e2e-H" "Accepted")) now)

@@ -607,6 +607,6 @@
               (fn [payments]
                 (-> payments
                     (assoc-in [payment-id :payment-status] "failed")
-                    (assoc-in [payment-id :cancellation-code]
-                              "CB_AssessmentFailed"))))
+                    (assoc-in [payment-id :failure]
+                              {:kind "declined" :reason-code "NARR"}))))
             [:payments payment-id])))

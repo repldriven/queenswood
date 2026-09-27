@@ -112,9 +112,10 @@
   "Process an outbound `transaction-rejected` event. Reverses the
   in-flight payment (DEBIT the bank's 1200 pending-outbound GL account /
   CREDIT the debtor's customer account) and flips the OutboundPayment to
-  failed with the scheme's cancellation code/reason. Pending and held
-  payments are reversible; an already-failed payment is an idempotent
-  no-op; a settled payment cannot be reversed here.
+  failed with the failure the event reports — its kind and ISO 20022
+  reason code, a decline coded `NARR` when the event predates both.
+  Pending and held payments are reversible; an already-failed payment is
+  an idempotent no-op; a settled payment cannot be reversed here.
 
   Args:
   - config: FDB handle.

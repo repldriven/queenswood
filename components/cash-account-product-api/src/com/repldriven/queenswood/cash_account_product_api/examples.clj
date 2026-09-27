@@ -39,10 +39,16 @@
            :status 422
            :detail "Template does not match the product's template"}})
 
+(def UnsupportedAddressScheme
+  {:value {:title "REJECTED"
+           :type ":cash-account-product/unsupported-address-scheme"
+           :status 422
+           :detail "The payment provider does not issue scan addresses"}})
+
 (def registry
   (examples-registry [#'ProductNotFound #'VersionNotFound #'DraftAlreadyExists
-                      #'VersionImmutable #'CurrencyNotAllowed
-                      #'TemplateMismatch]))
+                      #'VersionImmutable #'CurrencyNotAllowed #'TemplateMismatch
+                      #'UnsupportedAddressScheme]))
 
 (def ProductId (schema/id-examples "ProductId"))
 (def VersionId (schema/id-examples "VersionId"))

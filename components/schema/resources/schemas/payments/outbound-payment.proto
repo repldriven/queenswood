@@ -15,6 +15,13 @@ enum OutboundPaymentStatus {
   OUTBOUND_PAYMENT_STATUS_HELD = 5;
 }
 
+enum OutboundPaymentFailureKind {
+  OUTBOUND_PAYMENT_FAILURE_KIND_UNKNOWN = 0;
+  OUTBOUND_PAYMENT_FAILURE_KIND_DECLINED = 1;
+  OUTBOUND_PAYMENT_FAILURE_KIND_REFUSED = 2;
+  OUTBOUND_PAYMENT_FAILURE_KIND_UNDELIVERED = 3;
+}
+
 message OutboundPayment {
   option (com.apple.foundationdb.record.record).usage = RECORD;
   required string payment_id = 1 [(com.apple.foundationdb.record.field).primary_key = true];
@@ -28,10 +35,13 @@ message OutboundPayment {
   required OutboundPaymentStatus payment_status = 9;
   required string transaction_id = 10;
   optional string reference = 11;
-  optional string cancellation_code = 12;
-  optional string cancellation_reason = 13;
+  optional string cancellation_code = 12 [deprecated = true];
+  optional string cancellation_reason = 13 [deprecated = true];
   required int64 created_at = 14;
   optional int64 updated_at = 15;
   required string bank_id = 16;
   required int64 business_day = 17;
+  optional OutboundPaymentFailureKind failure_kind = 18;
+  optional string failure_reason_code = 19;
+  optional string failure_reason = 20;
 }

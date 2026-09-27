@@ -3,7 +3,8 @@
  ;; ClearBank's documented sandbox trigger: an outbound Faster Payment
  ;; whose creditor Name is 6a41a29eafcf455493 is held for screening
  ;; (OutboundHeldTransaction), then declined — funds returned and a
- ;; TransactionRejected webhook with CancellationCode HOPRJ. The
+ ;; TransactionRejected webhook with a code of ClearBank's own, which
+ ;; the adapter reports as a decline coded NARR. The
  ;; bank-payment event-processor reverses the in-flight legs (DEBIT 1200
  ;; pending-outbound / CREDIT debtor) and flips the payment to "failed".
  ;;
@@ -143,7 +144,7 @@
    :assert {:status 201}}]
  :then
  ;; The payment is held for screening and then declined: it lands on
- ;; "failed" with the HOPRJ cancellation code, and the £25 returns to
+ ;; "failed" as a decline coded NARR, and the £25 returns to
  ;; the debtor's available balance.
  [{:command :api/poll
    :request {:method :get
@@ -151,7 +152,8 @@
              :path-params {:payment-id [:ref :payment :payment-id]}
              :auth :bank-0-token}
    :until {:status 200
-           :body {:payment-status "failed" :cancellation-code "HOPRJ"}}
+           :body {:payment-status "failed"
+                  :failure {:kind "declined" :reason-code "NARR"}}}
    :timeout-ms 10000}
   {:command :api/poll
    :request {:method :get

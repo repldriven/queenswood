@@ -85,9 +85,11 @@
   [ctx]
   (http/ring-handler
    (http/router (routes ctx)
-                (assoc-in server/standard-router-data
-                 [:data :coercion]
-                 coercion))
+                (-> server/standard-router-data
+                    (assoc-in [:data :coercion] coercion)
+                    (update-in [:data :interceptors]
+                               (fn [chain]
+                                 (into [clearbank-webhook/raw-body] chain)))))
    (ring/routes (server/standard-openapi-ui-handler)
                 (server/standard-default-handler))
    server/standard-executor))

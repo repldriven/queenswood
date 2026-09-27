@@ -97,20 +97,41 @@
       (is (= "renamed" (:name v)))
       (is (= :cash-account-product-status-draft (:status v))))))
 
+(def ^:private payment-provider {:addresses ["scan"]})
+
 (deftest publish-test
   (testing "rejects with :version-immutable when already published"
-    (let [r (SUT/publish published-version permissive-policies)]
+    (let [r
+          (SUT/publish published-version permissive-policies payment-provider)]
       (is (error/rejection? r))
       (is (= :cash-account-product/version-immutable (error/kind r)))))
   (testing "rejects with :version-immutable when discarded"
-    (let [r (SUT/publish discarded-version permissive-policies)]
+    (let [r
+          (SUT/publish discarded-version permissive-policies payment-provider)]
       (is (error/rejection? r))
       (is (= :cash-account-product/version-immutable (error/kind r)))))
   (testing "flips draft to :published, preserving other fields"
-    (let [v (SUT/publish draft-version permissive-policies)]
+    (let [v (SUT/publish draft-version permissive-policies payment-provider)]
       (is (= :cash-account-product-status-published (:status v)))
       (is (= "prv.3" (:version-id v)))
-      (is (= 3 (:version-number v))))))
+      (is (= 3 (:version-number v)))))
+  (testing "rejects an address scheme the payment provider does not issue"
+    (let [r (SUT/publish (assoc draft-version
+                                :allowed-payment-address-schemes
+                                [:payment-address-scheme-scan
+                                 :payment-address-scheme-iban])
+                         permissive-policies
+                         payment-provider)]
+      (is (error/rejection? r))
+      (is (= :cash-account-product/unsupported-address-scheme (error/kind r)))
+      (is (= [:payment-address-scheme-iban] (:unsupported (error/payload r))))))
+  (testing "publishes a scheme the provider issues"
+    (let [v (SUT/publish (assoc draft-version
+                                :allowed-payment-address-schemes
+                                [:payment-address-scheme-scan])
+                         permissive-policies
+                         payment-provider)]
+      (is (= :cash-account-product-status-published (:status v))))))
 
 (deftest discard-test
   (testing "rejects with :version-immutable when already published"

@@ -16,7 +16,8 @@
      [BalanceNotFound CreditorAccountNotOperable CurrencyMismatch
       DebtorAccountNotOperable HeldInboundPayment InboundPaymentList
       InvalidAmount PaymentNotFound ReturnedInboundPayment
-      SelfTransferNotPermitted SettledInboundPayment SuspendedInboundPayment]]
+      SelfTransferNotPermitted SettledInboundPayment SuspendedInboundPayment
+      UnsupportedScheme]]
 
     [com.repldriven.mono.server.interface :as server]))
 
@@ -83,7 +84,9 @@
        :openapi {:operationId "SubmitOutboundPayment"
                  :description
                  (str "The debtor account must be opened; otherwise the "
-                      "payment is refused with 409. The amount is reserved "
+                      "payment is refused with 409. A scheme the payment "
+                      "provider does not carry is refused with 422. The "
+                      "amount is reserved "
                       "from the account's available balance and the payment is"
                       " returned `pending`. It moves to `held`, `completed` or"
                       " `failed` as the scheme responds, with a "
@@ -107,7 +110,8 @@
                     404 (ErrorResponse [#'CashAccountNotFound
                                         #'BalanceNotFound])
                     409 (ErrorResponse [#'DebtorAccountNotOperable])
-                    422 (ErrorResponse [#'InvalidAmount #'CurrencyMismatch])
+                    422 (ErrorResponse [#'InvalidAmount #'CurrencyMismatch
+                                        #'UnsupportedScheme])
                     429 (ErrorResponse [#'api-schema/PolicyLimitExceeded])})
        :handler commands/submit-outbound-payment}}]
     ["/outbound/{payment-id}"
@@ -121,8 +125,9 @@
                        (str
                         "An outbound payment is `pending` until the scheme "
                         "responds, then `held`, `completed` or `failed`. A "
-                        "failed payment carries the scheme's cancellation code "
-                        "and reason.")}
+                        "failed payment carries its `failure`: whether the "
+                        "scheme declined it, the provider refused it or it was "
+                        "never delivered, with an ISO 20022 reason code.")}
              :responses {200 {:description "The outbound payment."
                               :body [:ref "OutboundPayment"]}
                          404 (ErrorResponse [#'PaymentNotFound])}

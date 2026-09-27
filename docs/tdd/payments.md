@@ -3,8 +3,9 @@
 > **Status: proposal.** Internal, outbound and inbound payments, their
 > records and state machines, suspense, Confirmation of Payee and one
 > payment adapter exist, and Background names them. Everything under
-> Proposed Solution is the build list, and
-> [First slices](#first-slices) says what comes first.
+> Proposed Solution is the build list; the declaration and the neutral
+> scheme events are built for the existing adapter, and
+> [First slices](#first-slices) says what comes next.
 
 ## Objective
 
@@ -92,18 +93,14 @@ later decision.
   `submit-payment` into an intent unique on the end-to-end id, serves
   the provider's webhooks into its outbox, and is composed into
   `external-adapters` and `monolith`; `exclusive-dispatchers-service`
-  relays its outbox. Only the simulator is reachable: the runner's
-  calls are unsigned, and the webhook routes authenticate nobody.
-- **Provider values past the adapter.** `transaction-rejected`'s
-  `cancellation_code` carries codes the adapter coins for its provider
-  into `OutboundPayment` and the public API; `OutboundPayment.scheme`
-  stores the provider's name for the scheme where the request enum
-  says `fps`; and `payee-check`'s configuration key and environment
-  variable for the adapter's URL name the provider.
+  relays its outbox. Only the simulator is reachable. The adapter signs
+  what it sends and verifies what it receives with the scheme its
+  provider uses, the simulator doing the reverse, each side's key a
+  key pair generated at start.
 - **The provider as a deployment fact.** Which adapter runs is decided
   by the service's `application.yml`, per
   [ADR-0020](../adr/0020-providers-are-deployment-facts.md), and
-  nothing declares what the provider can carry.
+  `system/payment-provider.yml` declares what it carries.
 
 ## Proposed Solution
 
@@ -420,7 +417,7 @@ stateDiagram-v2
    signed calls and authenticated webhooks on the existing adapter and
    its simulator, and the shared control routes. Proved by the payment
    scenarios passing with neutral values, and an unsigned webhook
-   refused.
+   refused. Built.
 2. **Addresses from the provider.** The account legs,
    `provider_account_id`, `refused`, and the counters retired. Proved
    by an account opened with its address from the simulator, an

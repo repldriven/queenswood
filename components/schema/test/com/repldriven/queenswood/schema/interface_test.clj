@@ -300,6 +300,47 @@
       (is (= (SUT/reward-status->int :reward-status-paid)
              (.getNumber (.getStatus (SUT/Reward->java paid))))))))
 
+(def ^:private failed-outbound
+  {:payment-id "pmt.01kprbmgcj35ptc8npmybhh4s6"
+   :idempotency-key "5b2f0f6e-outbound"
+   :scheme "fps"
+   :debtor-account-id "acc.01kprbmgcj35ptc8npmybhh4s8"
+   :creditor-bban "04000412345678"
+   :creditor-name "Arthur Dent"
+   :currency "GBP"
+   :amount 2500
+   :payment-status :outbound-payment-status-failed
+   :transaction-id "txn.01kprbmgcj35ptc8npmybhh4s9"
+   :created-at 1700000000000
+   :bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
+   :business-day 20713})
+
+(deftest outbound-payment-record-round-trip-test
+  (testing "a failed record keeps its failure"
+    (let [payment (SUT/pb->OutboundPayment
+                   (SUT/OutboundPayment->pb
+                    (assoc failed-outbound
+                           :failure-kind :outbound-payment-failure-kind-refused
+                           :failure-reason-code "NARR"
+                           :failure-reason "HTTP 400")))]
+      (is (= :outbound-payment-failure-kind-refused (:failure-kind payment)))
+      (is (= "NARR" (:failure-reason-code payment)))
+      (is (= "HTTP 400" (:failure-reason payment)))))
+  (testing "a record with no failure reads none"
+    (let [payment (SUT/pb->OutboundPayment (SUT/OutboundPayment->pb
+                                            failed-outbound))]
+      (is (not (contains? payment :failure-kind)))
+      (is (not (contains? payment :failure-reason-code)))
+      (is (not (contains? payment :failure-reason)))))
+  (testing "the deprecated cancellation fields are dropped"
+    (let [payment (SUT/pb->OutboundPayment
+                   (SUT/OutboundPayment->pb
+                    (assoc failed-outbound
+                           :cancellation-code "CB_SubmissionRefused"
+                           :cancellation-reason "HTTP 400")))]
+      (is (not (contains? payment :cancellation-code)))
+      (is (not (contains? payment :cancellation-reason))))))
+
 (def ^:private transaction-rejected-schema
   (avro/json->schema
    (slurp (io/resource

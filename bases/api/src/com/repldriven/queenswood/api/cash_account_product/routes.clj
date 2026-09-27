@@ -12,7 +12,7 @@
     [com.repldriven.queenswood.cash-account-product-api.interface :as
      cash-account-product-api :refer
      [CurrencyNotAllowed DraftAlreadyExists ProductNotFound TemplateMismatch
-      VersionImmutable VersionNotFound]]
+      UnsupportedAddressScheme VersionImmutable VersionNotFound]]
     [com.repldriven.queenswood.idempotency.interface :as bank-idempotency]
 
     [com.repldriven.mono.server.interface :as server]))
@@ -180,12 +180,15 @@
                               "opening day, and an existing account keeps "
                               "its version until a migration moves it. A "
                               "version that is not a draft is refused with "
-                              "409.")}
+                              "409, and one allowing a payment address scheme "
+                              "the payment provider does not issue is refused "
+                              "with 422.")}
                :responses
                {200 {:description "The published version."
                      :body [:ref "CashAccountProductVersion"]
                      :openapi {:links cash-account-product-api/from-published}}
                 403 (ErrorExamples [#'api-schema/PolicyDenied])
                 404 (ErrorResponse [#'VersionNotFound])
-                409 (ErrorResponse [#'VersionImmutable])}
+                409 (ErrorResponse [#'VersionImmutable])
+                422 (ErrorResponse [#'UnsupportedAddressScheme])}
                :handler handlers/publish-draft}}]]]]])
