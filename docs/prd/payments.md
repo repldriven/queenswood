@@ -13,6 +13,14 @@ confirms. Every payment is recorded against a transaction
 on the account ledger, and is safe to re-submit without
 double-processing.
 
+The platform reaches the scheme through a payment provider,
+which also issues each account's UK payment address. Which
+provider an installation uses is the operator's choice, and
+nothing a tenant does changes with it. Opening, rotating and
+closing an account are in [cash-accounts](cash-accounts.md);
+this PRD covers what the provider's part in them means for
+payments.
+
 ## Users and stakeholders
 
 **Customer engineering team.** Submits internal and outbound payments on behalf
@@ -28,15 +36,19 @@ Cares (implicitly) about: payments landing when expected,
 the available balance reflecting in-flight outbound
 payments, no double-debits or double-credits.
 
-**Platform operator.** Operates the scheme integration — the adapter that talks
-to the bank's clearing partner for UK FPS, and the simulator that stands in for
-it during development.
+**Platform operator.** Chooses the payment provider an installation uses, and
+runs its integration and the simulator that stands in for it during
+development. Reconciles the provider's records with the platform's when they
+disagree.
 
-**Clearing partner.** The third party that fronts UK
-Faster Payments for the platform. Receives outbound payment
-submissions, sends settlement notifications, and forwards
-inbound payments. Today the platform integrates with a
-simulator standing in for a real partner.
+**Payment provider.** The third party that fronts UK
+Faster Payments for the platform. Issues each account's
+sort code and account number, receives outbound payment
+submissions, sends settlement notifications, forwards
+inbound payments, and answers Confirmation of Payee. Some
+providers hold each account's money separately, others
+hold every account's money together. Today the platform
+integrates with simulators standing in for real providers.
 
 ## Goals
 
@@ -63,11 +75,34 @@ simulator standing in for a real partner.
   (the credit lands) or returns it to the sender (the
   account is never credited). The tenant doesn't have to
   do anything to receive it.
-- **Unmatched inbound payments are parked, not lost.**
-  When an inbound payment names an address that matches
-  no account on the platform, the platform parks it in a
-  suspense holding state rather than rejecting it, so the
-  receipt stays recoverable and can be reconciled later.
+- **Inbound payments that cannot land are parked, not
+  lost.** When an inbound payment is for an account that
+  cannot take it — frozen, not yet open, or over one of
+  the bank's limits — the platform parks it in a suspense
+  holding state rather than rejecting it, so the receipt
+  stays recoverable and can be reconciled later. One for
+  an address the platform never issued is set aside for
+  the platform operator to investigate.
+- **A returned payment comes back.** When the
+  beneficiary's bank returns an outbound payment after it
+  settled, the platform marks it *returned* and credits
+  the amount back to the account it left.
+- **Failures in standard terms.** A failed or returned
+  payment says what kind of failure it was — declined by
+  the scheme, refused by the provider, or never delivered
+  — and carries the standard ISO 20022 reason code the
+  industry uses, so it reads the same whichever provider
+  an installation uses.
+- **Missed notifications are recovered.** When the
+  provider's settlement notification for an outbound
+  payment does not arrive, the platform asks the provider
+  what happened to it, so the payment settles or fails
+  rather than staying open.
+- **Balances agree with the provider.** Where the provider
+  holds each account's money separately, every movement
+  the platform makes between accounts — transfers,
+  interest, rewards, fees — is made at the provider too,
+  so the money held there matches what the tenant sees.
 - **Confirmation of Payee.** Outbound payments can be
   checked against the beneficiary's bank for name
   agreement before going out. The platform compares the
@@ -133,7 +168,11 @@ The platform validates the inputs, records a transaction,
 and applies the legs to both balances in one atomic step.
 The reply confirms the transfer is settled. The end
 customer sees the balance change immediately on both
-accounts.
+accounts. Where the provider holds each account's money
+separately, the platform then moves the same amount
+between the two accounts at the provider; the tenant sees
+nothing of this, and the transfer stays settled whatever
+the provider answers.
 
 ### Outbound payment
 
@@ -158,7 +197,7 @@ straight away — the customer can't double-spend the held
 amount. The reply confirms the intent has been accepted.
 
 The platform then submits the payment to the scheme
-through the clearing partner. The scheme may hold the
+through the payment provider. The scheme may hold the
 payment for screening before it settles; while it is
 held the amount stays reserved and the payment reads as
 *held*. Some moments later, the scheme confirms
@@ -167,14 +206,21 @@ the amount out of pending-outgoing and marking the
 payment *settled*.
 
 If the scheme rejects the payment — whether it was still
-in flight or held for screening — the platform marks it
-*failed* and returns the held amount to the debtor's
-available balance.
+in flight or held for screening — or the provider refuses
+it, the platform marks it *failed*, records the kind of
+failure and its reason code, and returns the held amount
+to the debtor's available balance.
+
+A settled payment can still come back: the beneficiary's
+bank returns it when it cannot apply it, a closed account
+for example. The platform marks the payment *returned*,
+with the reason code, and credits the amount back to the
+debtor's account.
 
 ### Inbound payment
 
 When a UK Faster Payment arrives at one of the platform's
-sort code + account number addresses, the clearing partner
+sort code + account number addresses, the payment provider
 notifies the platform. The platform:
 
 - Identifies the receiving account from the address.
@@ -186,17 +232,21 @@ notifies the platform. The platform:
 Sometimes the scheme holds an inbound payment for
 screening before it settles. The platform records the
 held payment against the receiving account but credits
-nothing yet — the funds sit with the clearing partner.
+nothing yet — the funds sit with the payment provider.
 When the hold is released, the platform credits the
 account; if the payment is instead returned to the
 sender, the account is never credited and the record
 reads as *returned*.
 
-If the address on an inbound payment matches no account
-on the platform, the platform doesn't discard it. It
-parks the receipt in a suspense holding state for later
-reconciliation, so an inbound that arrives slightly
-early — or with a mistyped address — stays recoverable.
+If the account an inbound payment is for cannot take it —
+frozen, not yet open, or over one of the bank's limits —
+the platform doesn't discard it. It parks the receipt in
+a suspense holding state for later reconciliation, so the
+money stays recoverable. A payment to a closed account is
+returned to the sender by the provider where the provider
+closes the account with it, and parked otherwise. A
+payment naming an address the platform never issued is
+set aside for the platform operator.
 
 The tenant doesn't have to do anything to receive an
 inbound payment. They observe it by reading the account's
@@ -207,8 +257,9 @@ directly.
 
 Before an outbound payment is submitted, the tenant can
 ask the platform to check the beneficiary's name against
-the name on file at the beneficiary's bank. The platform
-returns one of three outcomes:
+the name on file at the beneficiary's bank, naming the
+account the payment will leave where it knows it. The
+platform returns one of three outcomes:
 
 - **Match** — the names agree.
 - **Close match** — the names look like they refer to the
@@ -229,8 +280,8 @@ debit the customer twice. The tenant is expected to use
 the same key when retrying after a network failure or
 timeout.
 
-For inbound payments, the clearing partner's transaction
-identifier serves as the equivalent. If the partner
+For inbound payments, the payment provider's identifier
+for the payment serves as the equivalent. If the provider
 re-sends a settlement notification, the platform treats
 the duplicate as a no-op.
 
@@ -257,7 +308,7 @@ balance change on both sides immediately.
 sequenceDiagram
     participant T as Customer engineer
     participant Q as Queenswood
-    participant S as Clearing partner
+    participant S as Payment provider
 
     T->>Q: submit outbound payment<br/>(debtor, beneficiary address + name, amount)
     Q->>Q: validate + record<br/>hold amount as pending-outgoing
@@ -280,7 +331,7 @@ the account.
 sequenceDiagram
     participant T as Customer engineer
     participant Q as Queenswood
-    participant S as Clearing partner
+    participant S as Payment provider
 
     T->>Q: submit outbound payment
     Q-->>T: submitted (intent accepted)
@@ -291,14 +342,14 @@ sequenceDiagram
 
 The platform releases the held amount back to the available
 balance and marks the payment failed. The tenant reads the
-payment to see the failure.
+payment to see the kind of failure and its reason code.
 
 ### 4. Inbound payment
 
 ```mermaid
 sequenceDiagram
     participant P as Payer's bank
-    participant S as Clearing partner
+    participant S as Payment provider
     participant Q as Queenswood
     participant T as Customer engineer
 
@@ -311,15 +362,15 @@ sequenceDiagram
 
 The platform handles inbound payments without any tenant
 action. The tenant sees the payment when they next read
-the account or its payments. If the address matches no
-account, the receipt is parked in suspense for
-reconciliation rather than discarded.
+the account or its payments. If the account cannot take
+it, the receipt is parked in suspense for reconciliation
+rather than discarded.
 
 ### 5. Inbound held, then released or returned
 
 ```mermaid
 sequenceDiagram
-    participant S as Clearing partner
+    participant S as Payment provider
     participant Q as Queenswood
     participant T as Customer engineer
 
@@ -347,7 +398,7 @@ the sender instead, the account is never touched.
 sequenceDiagram
     participant T as Customer engineer
     participant Q as Queenswood
-    participant S as Clearing partner
+    participant S as Payment provider
 
     T->>Q: Confirmation of Payee<br/>(beneficiary address + name)
     Q->>S: ask the beneficiary's bank
@@ -359,6 +410,30 @@ sequenceDiagram
 
 The tenant uses the result to inform the end customer or
 to decide whether to send.
+
+### 8. Outbound payment returned after settling
+
+```mermaid
+sequenceDiagram
+    participant T as Customer engineer
+    participant Q as Queenswood
+    participant S as Payment provider
+
+    T->>Q: submit outbound payment
+    Q-->>T: submitted (intent accepted)
+    S-->>Q: settlement notification
+    Q->>Q: mark payment settled
+    Note over S: beneficiary's bank cannot apply it
+    S-->>Q: return notification (reason)
+    Q->>Q: credit the amount back<br/>mark payment returned
+    T->>Q: read payment
+    Q-->>T: returned, with reason code
+```
+
+The payment had settled, so the money had left the
+account; the return brings it back as a credit, and the
+payment reads as returned with the reason the
+beneficiary's bank gave.
 
 ### 7. Idempotent retry
 
@@ -380,19 +455,19 @@ result; no duplicate payment is created.
 
 ## Open questions
 
-- **Reconciling missed settlement notifications.** If the
-  platform submits an outbound payment to the scheme but
-  the settlement notification never arrives (clearing
-  partner outage, network failure), the payment stays in
-  *submitted* indefinitely. There's no sweeper that polls
-  the partner to reconcile. A reconciliation flow is
-  needed for production operation.
-- **Outbound failure taxonomy.** The platform marks
-  rejected payments *failed* but the depth of distinction
-  (transient vs permanent, retry-eligible vs not) is
-  shallower than the scheme's actual error model. A
-  richer failure taxonomy would let the tenant make
-  better retry decisions.
+- **When the provider and the platform disagree.** Where
+  the provider holds each account's money separately and
+  refuses one of the movements the platform makes, the
+  two balances differ. The platform records the refusal;
+  it is assumed the operator reconciles by hand until the
+  platform offers more.
+- **Retrying a failed payment.** A failure carries its
+  kind and reason code, but the platform does not say
+  whether sending again could succeed. It is assumed the
+  tenant decides from the reason code.
+- **Two providers in one installation.** An installation
+  uses one payment provider. It is assumed a bank wanting
+  another provider is served by another installation.
 - **Payment cancellation / recall.** Once an outbound
   payment is submitted, the tenant can't recall it. UK
   FPS does have an indemnity-claim recall flow; the
@@ -420,15 +495,18 @@ result; no duplicate payment is created.
   FX handling, both inside the platform and at the
   scheme boundary.
 - **Settlement-time skew.** The platform trusts the
-  clearing partner's ordering of settlement notifications.
+  payment provider's ordering of settlement notifications.
   If notifications were ever delivered out of scheme
   order, downstream invariants might be affected.
-- **The clearing-partner integration is approximate
-  today.** A simulator stands in for the production
-  partner. The simulator covers the happy path and a
-  small set of named rejection scenarios; production
-  edge cases (partial scheme acceptance, retry storms,
-  malformed notifications) aren't covered.
+- **The provider integration is approximate today.** A
+  simulator stands in for each provider. The simulators
+  cover every journey above and a small set of named
+  rejection scenarios; production edge cases (partial
+  scheme acceptance, retry storms, malformed
+  notifications) aren't covered, and no provider's test
+  environment has been used yet. It is assumed the
+  default provider's test environment is used once the
+  simulator covers every journey.
 - **Confirmation of Payee placement.** CoP currently
   lives in the scheme adapter. Whether it stays there or
   moves into the payment surface is an open structural
@@ -437,9 +515,9 @@ result; no duplicate payment is created.
 ## References
 
 - **Engineering view**: [tdd/payments](../tdd/payments.md)
-  for the data model, the flow between the payment
-  processor, the scheme adapter, and the event processor,
-  and the simulator's coverage.
+  for the data model, the payment flows, the contract
+  every payment provider's integration meets, and the
+  simulators' coverage.
 - **Platform context**: [platform](platform.md);
   [cash-accounts](cash-accounts.md) — payments move
   money between accounts;

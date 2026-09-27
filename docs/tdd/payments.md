@@ -1,185 +1,375 @@
-# Payments and ClearBank choreography
+# Payments and the payment provider
 
-> **Status: implemented.**
+> **Status: proposal.** Internal, outbound and inbound payments, their
+> records and state machines, suspense, Confirmation of Payee and one
+> payment adapter exist, and Background names them. Everything under
+> Proposed Solution is the build list, and
+> [First slices](#first-slices) says what comes first.
 
 ## Objective
 
-Queenswood handles three kinds of payment: **internal** (one Queenswood
-account to another), **outbound** (money leaving Queenswood via UK Faster
-Payments Service through ClearBank), and **inbound** (money arriving at a
-Queenswood account via the same scheme). This TDD describes how each is
-structured, how the bank's payment records relate to the underlying
-double-entry transactions, and how Queenswood choreographs with ClearBank
-for the FPS-bound flows.
+Queenswood handles three kinds of payment: **internal**, from one
+Queenswood account to another; **outbound**, leaving through UK Faster
+Payments; and **inbound**, arriving through the same scheme. The bank
+never speaks to the scheme itself: a payment provider does, reached
+through a payment adapter. This TDD decides the contract every payment
+adapter meets whichever provider it speaks to, so an installation runs
+the provider it chooses and the payment bricks do not change: what the
+provider declares it can carry, how an account gets its payment address
+from the provider, how the provider's reports become scheme events,
+how the balances a provider holds for each account stay equal to the
+ledger, and how an outbound payment the scheme returns after it
+completed is recorded.
 
-In scope: the `payment` and `payment-query` bricks, the `clearbank-relay`,
-`clearbank-webhook` and `payee-check` components, the `clearbank-adapter`
-and `clearbank-simulator` bases, the three payment flows, settlement via
-webhook → outbox → event processor, and Confirmation of Payee.
+In scope: the `payment`, `payment-query` and `payee-check` bricks; the
+provider leg of `cash-account`'s opening and closing; the provider
+declaration and where it is checked; the payment adapter contract,
+covering accounts, submissions, reports, reconciliation and the
+simulator every adapter ships; balances at the provider; returned
+outbound payments; the three payment flows and their state machines.
 
-Out of scope: the underlying double-entry mechanics, see
-[transactions-and-balances.md](transactions-and-balances.md); the API-layer
-idempotency cache, see [idempotency.md](idempotency.md); how a policy is
-evaluated, see [policy-evaluation.md](policy-evaluation.md); what a bank
-and its customers need from payments, see
-[prd/payments.md](../prd/payments.md); the specific FPS scheme rules and
-messages, which ClearBank documents.
+Out of scope: the double-entry mechanics, see
+[transactions-and-balances.md](transactions-and-balances.md); the
+API-layer idempotency cache, see [idempotency.md](idempotency.md); how
+a policy is evaluated, see [policy-evaluation.md](policy-evaluation.md);
+what a bank and its customers need from payments, see
+[prd/payments.md](../prd/payments.md); how a particular provider's API
+maps onto the contract, which lives with its adapter; schemes other
+than Faster Payments, which the PRD leaves out; running two providers
+in one installation, which
+[ADR-0020](../adr/0020-providers-are-deployment-facts.md) leaves to a
+later decision.
 
 ## Background
 
-Three payment kinds; two settlement patterns.
+- **Payment records.** `payment` owns `InternalPayment`,
+  `OutboundPayment` and `InboundPayment` and every write to them;
+  `payment-query` holds the reads, the open-hold match and the
+  business-day counts the limit checks use. Each payment links to its
+  double-entry `Transaction` by `transaction-id`.
+- **Settlement.** An internal payment records and posts in one FDB
+  transaction. An outbound payment reserves its amount in the debtor's
+  `pending-outgoing` bucket against GL 1200 and settles, holds or
+  fails on a scheme event. An inbound payment settles to the account
+  its BBAN names, is held while the scheme screens it, is returned, or
+  is parked in the bank's GL 2500 suspense when no opened account can
+  take it or a policy refuses it.
+- **State machines.** `PaymentProcessor` handles
+  `submit-internal-payment` and `submit-outbound-payment`;
+  `PaymentEventProcessor` handles `transaction-settled`,
+  `transaction-held` and `transaction-rejected`, routed on the event's
+  `debit-credit-code`, in `payment`'s `commands.clj`, `core.clj` and
+  `events.clj`. An outbound payment is `pending`, `held`, `completed`
+  or `failed`; an inbound one `settled`, `held`, `returned` or
+  `suspended`. A rejection naming a completed outbound payment fails
+  the handler and is dead-lettered.
+- **Channels.** `payment` publishes `submit-payment` on
+  `schemes-payment-command` after the submission commits. The adapter's
+  outbox is relayed onto `schemes-payments-event`, whose consumer
+  dead-letters an event after five redeliveries. Each payment save
+  co-commits a status-changed entry relayed onto `payments-event`,
+  which the webhook catalogue turns into `payment.*` notifications.
+- **The sweep.** `payment/outbound-sweep`, in
+  `exclusive-dispatchers-service`, republishes a `pending` payment's
+  command after 15 minutes and reports one open for 24 hours.
+- **Payment addresses.** `bank` allocates each bank a sort code from a
+  counter in the unallocated `00` range, and `cash-account` mints an
+  account number from an address counter at `open-account`. Opening
+  and closing are two-step, `opening → opened` and `closing → closed`,
+  each completed by `cash-account`'s own changelog event. An inbound
+  resolves its creditor by BBAN, and one matching no account is parked
+  in the bank that owns its sort code.
+- **Confirmation of Payee.** `payee-check`'s processor handles
+  `POST /v1/payee-checks` by calling the adapter's `/cop/outbound`
+  over HTTP and persists each check for 24 hours. The adapter answers
+  the provider's inbound check requests from `cash-account-query` and
+  `party-query`.
+- **The adapter.** One exists: a base, `<provider>-adapter`; a
+  `<provider>-relay` component holding its outbox and outbound-intents
+  stores and the runner that calls the provider outside any
+  transaction; a `<provider>-webhook` component holding the provider's
+  wire schemas; and a `<provider>-simulator` base. The adapter consumes
+  `submit-payment` into an intent unique on the end-to-end id, serves
+  the provider's webhooks into its outbox, and is composed into
+  `external-adapters` and `monolith`; `exclusive-dispatchers-service`
+  relays its outbox. Only the simulator is reachable: the runner's
+  calls are unsigned, and the webhook routes authenticate nobody.
+- **Provider values past the adapter.** `transaction-rejected`'s
+  `cancellation_code` carries codes the adapter coins for its provider
+  into `OutboundPayment` and the public API; `OutboundPayment.scheme`
+  stores the provider's name for the scheme where the request enum
+  says `fps`; and `payee-check`'s configuration key and environment
+  variable for the adapter's URL name the provider.
+- **The provider as a deployment fact.** Which adapter runs is decided
+  by the service's `application.yml`, per
+  [ADR-0020](../adr/0020-providers-are-deployment-facts.md), and
+  nothing declares what the provider can carry.
 
-**Internal payment.** Both accounts are inside Queenswood. No external
-scheme is involved. The payment settles immediately — the bank moves money
-between two of its own ledgers, atomically.
+## Proposed Solution
 
-**Outbound payment.** Money leaves Queenswood through the FPS scheme. The
-bank doesn't itself talk to FPS — it talks to ClearBank, the clearing bank
-that fronts the scheme. At submission the payment is *intent*: until
-ClearBank confirms the scheme has accepted it, the money mustn't be
-considered gone. It is held in a `pending-outgoing` bucket. When ClearBank
-reports settlement by webhook, it moves from pending-outgoing to posted.
+### The provider declaration
 
-**Inbound payment.** Money arrives at one of our SCAN addresses (sort code
-and account number). ClearBank receives the scheme message and fires a
-settlement webhook with the creditor BBAN and amount. We look up the
-account, record a transaction, and credit the receiving balance.
+`system/payment-provider.yml` declares what the deployment's adapter
+can carry, in the same shape as the IDV provider's:
 
-The two settlement patterns:
-
-- **Atomic-now** (internal): record + apply in one FDB transaction. No
-  pending state.
-- **Two-phase** (outbound, inbound): record the intent or receipt, and
-  settle when the scheme confirms. The pending bucket is the "intent
-  registered, value not yet spendable" state.
-
-The choreography sits on the message-bus per
-[ADR-0003](../adr/0003-message-bus-abstraction.md) and Avro payloads per
-[ADR-0004](../adr/0004-avro-for-message-payloads.md). ClearBank is reached
-through a dedicated adapter base, and a simulator stands in for it (see
-"Reaching ClearBank").
-
-## Solution
-
-### Architecture
-
-- **`payment`** (component) — owns InternalPayment, OutboundPayment and
-  InboundPayment records and every write to them. Provides a
-  `PaymentProcessor` (consumes commands), a `PaymentEventProcessor`
-  (consumes scheme events) and the outbound sweep. The processors run in
-  `financial-processors-service`, the sweep in
-  `exclusive-dispatchers-service`.
-- **`payment-query`** (component) — the reads: bank-scoped reads by id,
-  unscoped reads for the event processors, the open-hold match, the reads
-  by status, and the business-day counts and sums the limit checks use.
-  `api` reads payments through it and never requires `payment`.
-- **`clearbank-adapter`** (base) — the only code that speaks ClearBank's
-  HTTP shape. Consumes scheme-level `submit-payment` commands and persists
-  each as an intent, receives webhooks and persists each as outbox events,
-  and serves Confirmation of Payee. Runs in `external-adapters-service`.
-- **`clearbank-relay`** (component) — the adapter's outbox and intent
-  stores, and the outbound runner that POSTs pending intents to ClearBank.
-- **`clearbank-webhook`** (component) — the Malli schemas and examples of
-  the webhook payloads the adapter's routes validate.
-- **`clearbank-simulator`** (base) — ClearBank's FPS and Confirmation of
-  Payee HTTP API, and the webhooks it fires back.
-- **`payee-check`** (component) — Confirmation of Payee checks, persisted
-  per bank.
-
-```mermaid
-graph LR
-    HTTP["HTTP API<br/>(api)"]
-    PP["payment<br/>PaymentProcessor"]
-    PEP["payment<br/>PaymentEventProcessor"]
-    SW["payment<br/>outbound sweep"]
-    BUS[("message-bus")]
-    FDB[("FDB")]
-    ADAPTER["clearbank-adapter<br/>(base)"]
-    RELAY["changelog relay<br/>(exclusive-dispatchers)"]
-    CB["ClearBank FPS<br/>(simulator)"]
-
-    HTTP -->|"submit-internal-payment<br/>submit-outbound-payment"| BUS
-    BUS -->|consume| PP
-    PP -->|"record + apply + save"| FDB
-    PP -->|"submit-payment<br/>(outbound only)"| BUS
-    SW -->|"republish submit-payment"| BUS
-    BUS -->|consume| ADAPTER
-    ADAPTER -->|"save intent<br/>save outbox event"| FDB
-    ADAPTER -->|"POST /v3/payments/fps"| CB
-    CB -.->|"webhooks"| ADAPTER
-    FDB -->|"clearbank-outbox changelog"| RELAY
-    RELAY -->|"transaction-settled<br/>transaction-held<br/>transaction-rejected"| BUS
-    BUS -->|consume| PEP
-    PEP -->|"record + apply + save"| FDB
+```yaml
+schemes: [fps]
+addresses: [scan]
+balances: per-account
+payee-check: [outbound]
 ```
 
-Two distinct paths through the message bus:
+- **`schemes`** — the `PaymentScheme` values an outbound payment may
+  go by.
+- **`addresses`** — the `PaymentAddressScheme` values the provider
+  issues to an account.
+- **`balances`** — `per-account` where the provider holds a balance
+  for each account it issues, `pooled` where one balance holds every
+  account's money and the addresses only route to it.
+- **`payee-check`** — `outbound` where the provider checks a payee's
+  name, and `inbound` where it asks the platform to answer a check
+  against one of its accounts rather than answering from the holder
+  name it was given.
 
-- **Command path** for submission (HTTP → PaymentProcessor).
-- **Event path** for settlement (adapter outbox → changelog relay →
-  PaymentEventProcessor).
+The file is included as plain config wherever it is read:
 
-### Payment records
+- **At start-up.** The adapter refuses to start when its configuration
+  does not cover what the file declares.
+- **At publish.** `cash-account-product` refuses a version whose
+  `allowed-payment-address-schemes` names a scheme `addresses` lacks,
+  with `:cash-account-product/unsupported-address-scheme` (422).
+- **At submission.** `payment` refuses an outbound payment whose scheme
+  `schemes` lacks, with `:payment/unsupported-scheme` (422).
+- **Wherever behaviour follows it.** `payment` mirrors movements at the
+  provider only under `per-account`, as
+  [Balances at the provider](#balances-at-the-provider) describes, and
+  the adapter serves inbound check requests only under `inbound`.
 
-Three record types in `payment`:
+### Neutral scheme events
 
-- **InternalPayment** — debtor account, creditor account, amount,
-  reference, transaction-id. No status field: an internal transfer is
-  settled atomically at submission.
-- **OutboundPayment** — debtor account, creditor BBAN and name, amount,
-  reference, transaction-id, status (`pending` / `held` / `completed` /
-  `failed`), plus cancellation code and reason on failure.
-- **InboundPayment** — creditor account, debtor name and BBAN, amount,
-  reference, transaction-id, scheme-transaction-id (ClearBank's
-  identifier), end-to-end-id, status (`settled` / `held` / `returned` /
-  `suspended`). A payment parked in suspense at settlement has no creditor
-  account. A hold that becomes `suspended` keeps the creditor it was held
-  for.
+Every value that crosses from the adapter is the platform's:
 
-Each payment links to a Transaction via `:transaction-id`. The Payment
-record carries the user-facing intent and the external-scheme metadata; the
-Transaction record carries the double-entry posting. They live in different
-bricks and join via the id.
+- **Scheme.** `submit-payment` and the three scheme events carry
+  `scheme` as the `PaymentScheme` value, `fps`, which
+  `OutboundPayment.scheme` stores.
+- **Failure.** `transaction-rejected` gains `failure_kind`, an enum of
+  `declined` (the scheme or the provider's assessment declined it),
+  `refused` (the provider refused the submission) and `undelivered`
+  (the runner gave up), and `reason_code`, an ISO 20022
+  `ExternalStatusReason1Code` the adapter maps from the provider's
+  own, `NARR` where it has none, beside the free-text reason.
+  `OutboundPayment` gains the same two fields, and the API answers
+  `failure: {kind, reason-code, reason}` on a failed payment.
+- **Deprecation.** `cancellation_code` becomes an optional Avro field
+  with a null default, and the proto field keeps its tag and is dropped
+  in the record conversion, per
+  [schema-evolution](../recipes/code/schema-evolution.md).
+- **Correlation.** Events carry the end-to-end id Queenswood issued,
+  the provider's payment id as `scheme-transaction-id`, and the
+  provider account id of the account concerned (see below), each
+  opaque.
 
-### Payment state machines
+### Addresses the provider issues
 
-A payment's lifecycle is driven by two processors, both wired in `payment`
-and dispatched in `commands.clj`:
+The provider issues every payment address, so an account's sort code
+and account number are the provider's, and each account records the
+provider account behind it:
 
-- **`PaymentProcessor`** (`dispatch`) consumes commands off the bus —
-  `submit-internal-payment` and `submit-outbound-payment` — and creates the
-  payment record. Submission handlers live in `core.clj`.
-- **`PaymentEventProcessor`** (`dispatch-event`) consumes the scheme events
-  the ClearBank adapter writes — `transaction-settled`, `transaction-held`,
-  `transaction-rejected` — and drives every post-submission transition.
-  Event handlers live in `events.clj`.
+- **Opening.** `open-account` still writes the account `opening`. The
+  `cash-account-status-changed` handler, for an account whose product
+  allows an address scheme, sends `open-payment-account` on
+  `schemes-account-command` — bank id, account id, holder name,
+  currency and the address schemes wanted — in place of flipping it.
+  A bank's own-funds account sends it whatever its product allows
+  under `per-account`, since it backs the bank's ledger money. An
+  account with no address scheme flips as it does now.
+- **Opened.** The adapter reports `payment-account-opened`, carrying
+  the provider account id and the issued addresses, on
+  `schemes-account-event`. `cash-account`'s event processor stores
+  them — `CashAccount` gains `provider_account_id` — and flips
+  `opening → opened`, gated on `opening`.
+- **Refused.** A provider refusing the account reports
+  `payment-account-refused` with a reason, and the account moves
+  `opening → refused`, a new terminal status taken through the
+  checklist in
+  [lifecycle-transitions](../recipes/code/lifecycle-transitions.md).
+- **Closing.** The `closing` handler sends `close-payment-account` for
+  an account with a provider account, and `payment-account-closed`
+  flips `closing → closed`. A provider refusing to close leaves the
+  account `closing` and is logged at ERROR.
+- **Rotating.** `rotate-cash-account-address` sends
+  `reissue-payment-address`, and the account keeps its address until
+  the adapter reports `payment-address-reissued` with the new one and,
+  where it changed, the new provider account id. A provider that
+  issues an address only with an account blocks the old provider
+  account, opens a new one, moves the balance across and closes the
+  old one.
+- **Closed and frozen accounts.** A closed account's provider account
+  is closed, so the provider returns money sent to it rather than the
+  platform parking it. A frozen account's provider account stays open,
+  and an inbound for it parks in 2500 as now.
+- **Retired.** `bank`'s sort-code counter, `cash-account`'s address
+  counter and `get-bank-by-sort-code`; `Bank.sort_code` is deprecated.
+  An inbound whose BBAN matches no account now fails the handler and is
+  dead-lettered, since every address was issued through the adapter.
+  An inbound to an account that is not opened still parks in that
+  account's bank.
+- **Submission.** `submit-payment` gains `debtor_provider_account_id`,
+  read with the debtor's BBAN inside the submission's transaction.
 
-The same three scheme events serve both inbound and outbound; the
-`debit-credit-code` on the event discriminates. A **debit** is the outbound
-side (our customer paying out), a **credit** the inbound side (money
-arriving). `dispatch-event` routes on the `(event, debit-credit-code)`
-pair:
+The holder name reaches the provider at opening, so a provider that
+answers inbound checks itself answers from it.
 
-| Event | debit → outbound | credit → inbound |
-|-------|------------------|-------------------|
-| `transaction-settled` | `settle-outbound` | `settle-inbound` |
-| `transaction-held` | `hold-outbound` | `hold-inbound` |
-| `transaction-rejected` | `reject-outbound` | `return-inbound` |
+### Balances at the provider
 
-A `transaction-rejected` with an absent or unknown code defaults to the
-outbound path.
+Under `balances: per-account` the money is in the provider's
+accounts, one per cash account, so the ledger and the provider must
+move it together. Each provider account's balance equals the posted
+balance of the cash account it backs, except the bank's own-funds
+account, whose provider account also holds the money the ledger keeps
+in the bank's GL accounts — 2500 suspense, and what 5100 interest
+expense has paid out.
 
-#### Internal payment
+- **What moves itself.** The scheme's own settlements — an inbound
+  landing in the creditor's provider account, an outbound leaving the
+  debtor's — are made by the provider, and are never mirrored.
+- **What is mirrored.** Every other posting that changes a cash
+  account's posted balance: an internal payment, interest capitalised,
+  a reward, a fee. Between two cash accounts the movement is mirrored
+  between their provider accounts; between a cash account and a GL
+  account, against the bank's own-funds provider account. An inbound
+  parked in 2500 after a policy refusal is mirrored from the
+  receiving account's provider account to own-funds.
+- **The trigger.** `transaction` co-commits a `transaction-posted`
+  changelog entry — bank id, transaction id, type and legs — with each
+  posted transaction, relayed onto `transactions-event`. `payment`'s
+  new `transaction-event-processor` skips the inbound and outbound
+  transfer types and, for the rest, nets each transaction's legs per
+  cash account and pairs the nets into transfers.
+- **The record.** Each transfer is a `ProviderTransfer` in a new
+  `provider-transfers` store — transaction id, debtor and creditor
+  provider account ids, amount, status `pending`, `completed` or
+  `failed` — unique on transaction id and pair, and sent as
+  `transfer-between-accounts` on `schemes-payment-command`. The adapter
+  reports `transfer-completed` or `transfer-failed` on
+  `schemes-payments-event`.
+- **A failed transfer.** The ledger is not reversed: the customer's
+  payment stands, and the failure is logged at ERROR with the
+  transaction id for the bank to reconcile.
 
-No status field and no state machine: an internal transfer is recorded and
-posted in one FDB transaction at `submit-internal-payment`, so it is
-settled the moment it exists. There is no scheme leg and no later event.
+Under `pooled` the addresses route into one balance the ledger already
+divides, and nothing is mirrored.
+
+### Submitting to the provider
+
+- **Intent.** The adapter consumes `submit-payment` and
+  `transfer-between-accounts` into intents unique on the end-to-end id
+  and the transfer id, and acks.
+- **Retrying as the same request.** The intent stores whatever the
+  provider needs to recognise a retry as the request it already has,
+  so a retry after a restart is not a second payment.
+- **Outcome.** Sent, retried with backoff, or failed as now, a failure
+  writing `transaction-rejected` with `failure_kind` `refused` or
+  `undelivered`.
+- **Payee check.** `submit-payment` carries the payee check made for
+  this payment where the tenant names one, and an adapter whose
+  provider links a check to a payment passes it on.
+
+### Reconciling with the provider
+
+An intent sent with no settlement or rejection reported within the
+relay's `reconcile-after-ms` is looked up at the provider, and what the
+provider reports is written to the outbox with the dedup key its
+webhook would carry, so a late webhook finds it already there. A
+payment whose webhook never arrives settles or fails on the lookup
+rather than staying open. The sweep's 24-hour report stays for a
+payment the provider does not know.
+
+### Returned outbound payments
+
+The scheme can return a payment after it completed, when the
+beneficiary's bank cannot apply it:
+
+- **The event.** The adapter maps the provider's return to
+  `transaction-returned` (debit), carrying the original end-to-end id,
+  amount, `reason_code` and reason, deduplicated on
+  `<end-to-end id>:returned`. A return it cannot match to a payment is
+  reported as a `transaction-settled` (credit) to the account it
+  arrived at, so the money is never lost.
+- **The transition.** `completed → returned`, posting GL 1100 to the
+  debtor, as a transaction of the new type `outbound-return`, which
+  mirroring skips. `returned` is terminal; a return for a payment
+  that is not `completed` fails the handler.
+- **Notification.** The change kind `return` becomes
+  `payment.outbound-returned`.
+
+A `transaction-rejected` naming a completed payment still fails the
+handler: a rejection is not a return.
+
+### Confirmation of Payee
+
+- **Configuration.** `payee-check`'s key becomes `payment-adapter-url`,
+  set from `PAYMENT_ADAPTER_URL`.
+- **The payer.** `POST /v1/payee-checks` takes an optional
+  `account-id`, the account the payment will leave; the adapter checks
+  from that account's provider account, and from the bank's own-funds
+  account without one.
+- **Inbound.** Under `payee-check: [inbound]` the adapter answers the
+  provider's requests from `cash-account-query` and `party-query` as
+  now; otherwise the provider answers from the holder name.
+
+### The payment adapter contract
+
+Every payment adapter, `<provider>-adapter` with its relay, webhook and
+simulator bricks, meets the same contract, so which one a deployment
+runs changes nothing outside it:
+
+- **Declares.** It ships the `payment-provider.yml` its provider
+  supports, and refuses to start when its configuration does not cover
+  it.
+- **Issues accounts.** It consumes `open-payment-account`,
+  `reissue-payment-address` and `close-payment-account` into intents,
+  and its runner opens, reissues and closes at the provider, reporting
+  on `schemes-account-event`.
+- **Submits.** It consumes `submit-payment` and
+  `transfer-between-accounts` as above, signing each call as the
+  provider requires.
+- **Reports.** It authenticates each delivery as the provider signs it
+  before anything else, converts each amount exactly to minor units,
+  maps each provider event to the scheme events, and writes one outbox
+  entry per event, deduplicated on the provider's payment id and the
+  outcome.
+- **Reconciles.** It asks the provider about a payment it has not heard
+  of, as above.
+- **Stays neutral.** Its anomalies are the `:payment/*` kinds, its
+  reason codes ISO 20022, its correlation opaque ids, and no provider
+  name leaves its bricks.
+- **Ships a simulator.** `<provider>-simulator` serves the provider's
+  API as the adapter calls it, checks the adapter's signatures, signs
+  its deliveries as the provider does, and holds a balance per account
+  where the provider does, so a payment beyond it is held or declined
+  as the provider would. Every simulator serves the same control
+  routes and test values, so a scenario runs on either:
+  - a creditor sort code `000000` is declined, `999998` refused, and
+    the creditor name `6a41a29eafcf455493` held then declined;
+  - `/simulate/inbound-payment` fires an inbound settlement, or a hold
+    that settles or returns;
+  - `/simulate/outbound-return` returns a completed payment;
+  - `/simulate/open-refused` makes the next account opening refused.
+
+The deployed builds compose the default adapter into
+`external-adapters` and `monolith`; the other stays in the development
+project with its tests. Only one adapter consumes
+`schemes-payment-command` and `schemes-account-command` in a JVM.
+`exclusive-dispatchers-service` runs the relay runners for the
+adapter's outbox and the transactions store's changelog.
+
+### The payment flows
+
+The internal, outbound and inbound flows keep their shape. The state
+machines below are the whole of each, the new transitions marked.
 
 #### Outbound payment
-
-States are `OutboundPaymentStatus`: `pending`, `held`, `completed`,
-`failed`. (`processing` is defined in the enum but unused, and `unknown` is
-the proto zero-value guard.)
 
 ```mermaid
 stateDiagram-v2
@@ -189,657 +379,180 @@ stateDiagram-v2
     pending --> failed: transaction-rejected (debit)<br/>release reservation
     held --> completed: transaction-settled (debit)
     held --> failed: transaction-rejected (debit)
+    completed --> returned: transaction-returned (debit), new<br/>1100 to debtor
     completed --> [*]
     failed --> [*]
+    returned --> [*]
 ```
 
-| From | Driving event | To | Funds |
-|------|---------------|----|-------|
-| (new) | `submit-outbound-payment` command | `pending` | reserve: debtor pending-outgoing debited, 1200 credited |
-| `pending` | `transaction-held` (debit) | `held` | none — stays in 1200 while the scheme screens |
-| `held` / `completed` / `failed` | `transaction-held` (debit) | unchanged | none — ignored |
-| `pending` / `held` | `transaction-settled` (debit) | `completed` | post the outflow: 1200 → 1100, debtor posted debited |
-| `pending` / `held` | `transaction-rejected` (debit) | `failed` | reverse reservation: 1200 → debtor, available restored |
-| `completed` | `transaction-settled` (debit) | `completed` | idempotent no-op |
-| `failed` | `transaction-settled` (debit) | `failed` | none — skipped, logged at ERROR with the payment's status and cancellation code |
-| `failed` | `transaction-rejected` (debit) | `failed` | idempotent no-op |
-| `completed` | `transaction-rejected` (debit) | (handler fails) | none — a settled outbound cannot be reversed, and the event is dead-lettered |
-| (no payment) | any debit event | (handler fails) | none — dead-lettered |
-
-A `transaction-rejected` (debit) comes from a scheme decline, an assessment
-failure, or the outbound runner failing the intent (see "The outbound
-runner").
-
-Every save the transitions above make co-commits a changelog entry,
-`outbound-payment-status-changed`, carrying the bank and payment ids,
-the statuses before and after and the change kind — `submit`, `hold`,
-`settle` or `fail` — with the payment id as its ordering key. A relay
-runner over the outbound store republishes each on `payments-event`,
-where the webhook catalogue turns every kind but `submit` into a
-notification named for where it lands: `payment.outbound-held`,
-`payment.outbound-completed` or `payment.outbound-failed`. See
-[webhooks](webhooks.md).
+- A held, settled or rejected event for a payment already past it is
+  an idempotent no-op; a settlement for a `failed` payment is skipped
+  and logged at ERROR.
+- A rejection for a `completed` payment, a return for one that is not
+  `completed`, and any event for a payment that does not exist fail the
+  handler and are dead-lettered.
 
 #### Inbound payment
-
-States are `InboundPaymentStatus`: `settled`, `held`, `returned`,
-`suspended`. Inbound has no submission command — every transition is
-event-driven, and the entry state depends on whether the creditor BBAN
-matches an opened account and whether the bank's policies accept the
-money.
 
 ```mermaid
 stateDiagram-v2
     [*] --> settled: transaction-settled (credit)<br/>opened account, checks pass
-    [*] --> suspended: transaction-settled (credit)<br/>no account, not opened, or refused<br/>park in 2500
+    [*] --> suspended: transaction-settled (credit)<br/>account not opened, or refused<br/>park in 2500
     [*] --> held: transaction-held (credit)<br/>opened account, no money move
     held --> settled: transaction-settled (credit)<br/>release, checks pass
     held --> suspended: transaction-settled (credit)<br/>release refused, park in 2500
-    held --> returned: transaction-rejected (credit)<br/>return to remitter, nothing posts
+    held --> returned: transaction-rejected (credit)<br/>return to remitter
     settled --> [*]
     returned --> [*]
     suspended --> [*]
 ```
 
-| From | Driving event | Guard | To | Funds |
-|------|---------------|-------|----|-------|
-| (new) | `transaction-settled` (credit) | BBAN matches an opened account, checks pass | `settled` | credit the creditor (1100 → creditor) |
-| (new) | `transaction-settled` (credit) | BBAN matches an opened account, checks refuse | `suspended` | park in that bank's 2500 (1100 → 2500) |
-| (new) | `transaction-settled` (credit) | BBAN matches an account that is not opened | `suspended` | park in 2500 (1100 → 2500), and a hold for that account stays `held` |
-| (new) | `transaction-settled` (credit) | no account matches, a bank owns the sort code | `suspended` | park in that bank's 2500 (1100 → 2500) |
-| (new) | `transaction-settled` (credit) | no bank owns the sort code | (handler fails) | none — dead-lettered |
-| (new) | `transaction-held` (credit) | BBAN matches an opened account | `held` | none — funds held at ClearBank |
-| (new) | `transaction-held` (credit) | BBAN matches an account that is not opened | (ignored) | none — not recorded |
-| (new) | `transaction-held` (credit) | no matching BBAN | (ignored) | none — not recorded |
-| `held` | `transaction-held` (credit) | an open hold with the same end-to-end id, creditor and amount | `held` | idempotent no-op |
-| `held` | `transaction-settled` (credit) | open hold matched by end-to-end id, creditor and amount, checks pass | `settled` | release: credit the creditor |
-| `held` | `transaction-settled` (credit) | open hold matched, checks refuse | `suspended` | park in 2500 (1100 → 2500) |
-| `held` | `transaction-rejected` (credit) | BBAN on the event, open hold for that creditor and end-to-end id | `returned` | none — funds returned to remitter |
-| `held` | `transaction-rejected` (credit) | no BBAN, one open hold for the end-to-end id | `returned` | none — funds returned to remitter |
-| `held` | `transaction-rejected` (credit) | no BBAN, several open holds for the end-to-end id | (handler fails) | none — dead-lettered |
-| (none) | `transaction-rejected` (credit) | no open hold matches | (ignored) | none |
-| `settled` / `suspended` | `transaction-settled` (credit) | duplicate scheme-transaction-id | unchanged | idempotent no-op |
-
-`suspended` and `returned` are terminal.
-
-Each inbound save co-commits `inbound-payment-status-changed` the same
-way, with the change kind `settle`, `hold`, `release`, `suspend` or
-`return`, and a second runner over the inbound store republishes it on
-the same channel, where each kind becomes a notification of its own:
-`payment.inbound-settled`, `payment.inbound-held`,
-`payment.inbound-released`, `payment.inbound-suspended` or
-`payment.inbound-returned`. An internal payment's
-save co-commits `internal-payment-settled`, its one transition, with
-the change kind `settle`, and a third runner over the internal store
-republishes it on the same channel as `payment.internal-settled`: the
-account it credits is not the caller, and is told the same way.
-
-### Internal payment flow
-
-```mermaid
-sequenceDiagram
-    participant H as HTTP handler
-    participant P as PaymentProcessor
-    participant F as FDB
-
-    H->>P: submit-internal-payment (envelope on bus)
-    P->>F: BEGIN
-    P->>F: get-account (debtor)
-    P->>F: get-account (creditor)
-    P->>F: record-transaction (status=posted)
-    P->>F: apply-legs<br/>(debit debtor, credit creditor)
-    P->>F: save InternalPayment
-    P->>F: COMMIT
-    P-->>H: ACCEPTED + payment
-```
-
-One processor, one FDB transaction, atomic. No external scheme and no
-pending state. The reply returns immediately.
-
-### Outbound payment flow
-
-```mermaid
-sequenceDiagram
-    participant P as PaymentProcessor
-    participant F as FDB
-    participant B as message-bus
-    participant A as clearbank-adapter
-    participant C as ClearBank
-    participant X as exclusive-dispatchers
-    participant E as PaymentEventProcessor
-
-    Note over P,F: intent accepted, one transaction
-    P->>F: read debtor account and BBAN, reserve in pending-outgoing, save OutboundPayment, COMMIT
-    P->>B: submit-payment (scheme command)
-
-    Note over B,C: outbound call, relayed
-    B->>A: consume submit-payment
-    A->>F: save outbound intent (pending), COMMIT, then ack
-    A->>C: outbound runner POSTs FPS outside any FDB txn
-    C-->>A: 202, Accepted for the instruction
-    A->>F: mark intent sent
-
-    Note over C,E: settlement, outbox-relayed
-    C->>A: webhook TransactionSettled (debit)
-    A->>F: save outbox event, COMMIT, return 200
-    X->>F: read clearbank-outbox changelog
-    X->>B: publish transaction-settled
-    B->>E: consume transaction-settled
-    E->>F: settle OutboundPayment, pending-outgoing to posted, COMMIT
-```
-
-The HTTP response returns *intent accepted*, not *money sent*. The amount
-is held in `pending-outgoing` (visible to the customer via the
-available-balance derivation) until ClearBank confirms.
-
-**Submission.** `submit-outbound` reads the debtor account inside its
-transaction. After the commit it publishes `submit-payment`, built from the
-OutboundPayment and the debtor's BBAN, with the payment id as end-to-end
-id. A publish failure is logged at ERROR, and the submission is still
-answered ACCEPTED. From there the adapter makes the submission durable: it
-persists the command as an intent and acks, and settlement comes back
-through its outbox. See
-[transaction-processing.md](transaction-processing.md) for the general
-outbox-and-intent model.
-
-**Redelivered submission.** A submit whose idempotency key the bank has
-already used meets `OutboundPayment_by_idempotency_key`. The processor
-reads the existing payment back and answers it as ACCEPTED. While that
-payment is `pending`, it reads the debtor account again and publishes the
-command again. The adapter's intent store is unique on the end-to-end id,
-so a command published twice makes one intent.
-
-**The sweep.** `payment/outbound-sweep` runs in
-`exclusive-dispatchers-service`, which has one replica, and in the
-monolith. Every five minutes it reads every `pending` and `held`
-OutboundPayment, across banks, from `OutboundPayment_by_status_created_at`:
-
-- a `pending` payment older than 15 minutes has its command republished,
-  as a redelivered submission does;
-- a `pending` or `held` payment older than 24 hours is logged at ERROR with
-  its payment id, bank id, status and age.
-
-The sweep writes nothing and changes no payment's status. The three
-durations are the component's `interval-ms`, `republish-after-ms` and
-`report-after-ms`.
-
-### Inbound payment flow
-
-```mermaid
-sequenceDiagram
-    participant C as ClearBank
-    participant A as clearbank-adapter
-    participant X as exclusive-dispatchers
-    participant B as message-bus
-    participant E as PaymentEventProcessor
-    participant F as FDB
-
-    C->>A: webhook TransactionSettled (credit)
-    A->>F: save outbox event, COMMIT, return 200
-    X->>B: relay publishes transaction-settled
-    B->>E: consume event
-    E->>F: BEGIN
-    E->>F: get-account-by-bban (creditor)
-    E->>F: get-inbound-payment (scheme-transaction-id)
-    E->>F: find-open-hold (end-to-end id, creditor, amount)
-    alt already recorded
-        E->>F: COMMIT (no-op)
-    else no account, or account not opened
-        E->>F: DEBIT 1100, CREDIT 2500, save suspended InboundPayment, COMMIT
-    else open hold, or no hold
-        E->>F: policy checks
-        alt checks pass
-            E->>F: DEBIT 1100, CREDIT creditor, save settled InboundPayment, COMMIT
-        else checks refuse
-            E->>F: DEBIT 1100, CREDIT 2500, save suspended InboundPayment, COMMIT
-        end
-    end
-```
-
-Inbound payments are *triggered by* the scheme — there's no prior HTTP
-request. The webhook arrives, the adapter records an event, the event
-processor settles.
-
-**Unmatched inbound → suspense.** When the creditor BBAN matches no
-account, the receipt is *not* dropped: the owning bank is resolved from the
-BBAN's sort code (`bank/get-bank-by-sort-code`, per-bank sort codes), and
-the funds are parked in that bank's `2500` suspense GL account (DEBIT
-`1100` / CREDIT `2500`) with a `suspended` InboundPayment recorded for
-later reconciliation. A BBAN that resolves to an account that is not
-`:cash-account-status-opened` parks the same way, in the account's bank,
-because the credit cannot land on it. A sort code that matches no bank is
-foreign, and the handler fails (we only receive inbounds for sort codes we
-own).
-
-**Money that has arrived.** An inbound settlement is money ClearBank has
-already received for Queenswood, so a policy never refuses it back to the
-sender. A settlement to an opened account runs the checks an inbound
-payment runs: the currency matches the account's, the bank's policies
-permit `receive` on `inbound-payment`, and the business day's count of
-inbound payments stays within the daily limit, as
-[policy-evaluation.md](policy-evaluation.md) describes. When a check refuses, the
-receipt is parked in that bank's 2500 suspense exactly as an unmatched one
-is — DEBIT 1100 / CREDIT 2500, a `suspended` InboundPayment carrying the
-scheme transaction id, and an INFO log naming the refusal kind — and the
-handler returns the parked payment rather than the refusal. A release of a
-held inbound runs the same checks, its count leaving out the hold being
-released when the hold was recorded on the same business day. A refused
-release posts DEBIT 1100 / CREDIT 2500, and the hold becomes `suspended`,
-stamped with the scheme transaction id and transaction id. A hold runs no
-checks and moves no money. An inbound parked because no account matched,
-or because the account is not opened, runs no checks.
-
-**Held inbound → release / return.** ClearBank can hold an inbound for
-screening (`InboundHeldTransaction` → `transaction-held` credit). It's
-recorded `held` — the creditor resolved by BBAN — but **no money moves**,
-because the funds are held *at* ClearBank, not ours yet. An inbound's
-end-to-end id is whatever the sending bank supplied, often `NOTPROVIDED`,
-so a hold is matched on its end-to-end id, creditor account and amount.
-The hold then resolves:
-
-- **Release** — a `TransactionSettled` (credit) whose end-to-end id,
-  creditor and amount match an open hold settles it, subject to the checks
-  above (DEBIT `1100` / CREDIT creditor), and the held record flips
-  `held → settled`, stamped with the now-known scheme transaction id.
-- **Return** — a `TransactionRejected` (credit) flips the matching hold
-  `held → returned`, and nothing posts (the funds went back to the
-  remitter). When the event carries the creditor's BBAN, the match is the
-  oldest open hold for that creditor and end-to-end id. Without one, it is
-  the only open hold for the end-to-end id, and several open holds fail
-  the handler rather than return the wrong one.
-
-`transaction-rejected` carries a `debit-credit-code`, so the event
-processor routes the debit side to the outbound reversal and the credit
-side to the inbound return.
-
-### ClearBank adapter
-
-`clearbank-adapter` is its own base, with its stores in `clearbank-relay`.
-Its egress is an outbox on the webhook edge and an intent on the ClearBank
-edge. The Onfido adapter uses the same pattern via `onfido-relay`; see
-[transaction-processing.md](transaction-processing.md) for the general
-model.
-
-#### Webhooks
-
-The webhook receiver is HTTP endpoints under the adapter's own server,
-separate from `api`. It maps each scheme-specific payload to one or more
-internal events and writes them to the `clearbank-outbox` store in one
-transaction, answering 200 only on commit, so a failed write is answered
-500 and redelivered by ClearBank rather than lost. It authenticates nobody
-(see "Reaching ClearBank").
-
-**Amounts.** ClearBank sends an amount as a decimal number of pounds. The
-adapter converts it to minor units exactly, through `BigDecimal`, so `0.29`
-is 29 pence. An amount that is missing, negative or carries more than two
-decimal places is refused: the webhook is answered 400 with an RFC 9457
-problem body whose `type` is `:payment/invalid-scheme-amount`, the refusal
-is logged at ERROR, and nothing is written. The FPS request renders the
-amount back as an exact two-place decimal.
-
-**Dedup keys.** Every outbox event carries a `dedup-key`, unique in the
-store, so a redelivered webhook is answered 200 without a second event:
-
-- an inbound settlement is `<TransactionId>:settled`, and an inbound
-  rejection `<TransactionId>:rejected`;
-- an outbound settlement is `<EndToEndTransactionId>:settled`, and an
-  outbound rejection `<EndToEndTransactionId>:rejected`;
-- an assessment failure is `<EndToEndId>:rejected` per instruction;
-- an inbound hold is
-  `<EndToEndTransactionId>:<BBAN>:<minor units>:<TimestampCreated>:held`,
-  since the held webhook carries no `TransactionId`;
-- an outbound hold is `<EndToEndTransactionId>:held`.
-
-An outbound's end-to-end id is the payment id Queenswood issued, so it is
-unique. An inbound's is the sending bank's, so two receipts can share it.
-
-**Assessment failures.** When ClearBank rejects a payment at
-pre-settlement assessment, it fires `PaymentMessageAssessmentFailed`, a
-batch webhook listing `{EndToEndId, Reasons}` instructions. ClearBank's
-payload spells the list `AssesmentFailure`; the adapter reads that key or
-`AssessmentFailure`, and the route's `PaymentMessageAssessmentFailedWebhook`
-schema admits either. Each instruction becomes a `transaction-rejected`
-(debit) event with the code `CB_AssessmentFailed` and the joined reasons,
-so the payment, still `pending`, is reversed and failed as a scheme decline
-is. A payload listing no instructions under either key is answered 400 with
-`:payment/invalid-assessment-payload`.
-
-#### Scheme command consumer
-
-A message-bus consumer for `submit-payment` commands. Each is persisted as
-a `pending` outbound intent, unique on its end-to-end id, and acked. The
-consumer makes no HTTP call.
-
-#### The outbound runner
-
-A daemon in `clearbank-relay` polls pending intents every 200 ms and POSTs
-each one that is due to ClearBank's `/v3/payments/fps`, outside any FDB
-transaction. ClearBank de-duplicates on the end-to-end id, so a retried
-POST is safe. The response decides what happens:
-
-- **Sent** — a 2xx whose per-instruction `response` for the intent's
-  end-to-end id is `Accepted`. The intent is marked `sent`.
-- **Retried** — a transport failure, a 5xx, a 408, a 429, or any status
-  outside 2xx and 4xx. The intent records the attempt and a
-  `next_attempt_at`, the delay starting at one second and doubling to at
-  most 60 seconds: 1, 2, 4, 8, 16 and 32 seconds before attempts 2 to 7,
-  then 60 seconds before each attempt to the twentieth.
-- **Refused** — any other 4xx, or a 2xx whose `response` for the intent is
-  not `Accepted` or is missing.
-
-A refused intent, and one still retried at its twentieth attempt, about
-fourteen minutes after the first, is failed. In one FDB transaction, and
-only while the intent is still `pending`, the runner marks it `failed` and
-writes a `transaction-rejected` (debit) outbox event keyed
-`<end-to-end id>:submission-rejected`, carrying the cancellation code
-`CB_SubmissionRefused` or `CB_SubmissionFailed` and a reason naming the
-last status or response. The payment event processor then reverses the
-reservation and fails the payment, as it does for a scheme decline. The
-attempt limit and both backoff bounds are set on the `outbound-runner` in
-`clearbank-adapter.yml`.
-
-#### The changelog relay
-
-The adapter's webhook events and the runner's failures land in the
-`clearbank-outbox` store. The changelog relay that reads that store's
-changelog and publishes each event to `topic-schemes-payments-event` runs
-in `exclusive-dispatchers-service`, beside every other store's runner,
-since a changelog cursor admits one dispatcher, per
-[ADR-0019](../adr/0019-processor-packaging.md). "Webhook received" and
-"downstream told" cannot diverge.
-
-#### Confirmation of Payee
-
-The `payee-check` processor, in `financial-processors-service`, handles a
-bank's `POST /v1/payee-checks` by calling the adapter's `/cop/outbound`,
-which calls ClearBank's Confirmation of Payee API, and persists the check
-— request and match result — for 24 hours. `GET /v1/payee-checks` and
-`GET /v1/payee-checks/{check-id}` read them back. The adapter also answers
-ClearBank's inbound CoP request webhook from the cash-account and party
-reads.
-
-### Reaching ClearBank
-
-Only the simulator is reachable. The `dev` and `test` profiles point the
-outbound runner, the adapter's CoP handler and the webhook registrar at the
-simulator server started in the same system. Every other profile points
-them at `CLEARBANK_SIMULATOR_URL`, which the Helm values set to the
-simulator running beside the adapter in `external-adapters-service`. The
-FPS POST carries only a content type.
-
-A live integration needs:
-
-- ClearBank's API URL and credentials, under a setting named for
-  ClearBank.
-- Request signing on every call to ClearBank.
-- Verification of ClearBank's signature on every webhook. The receiver's
-  routes carry no security metadata, the chain ahead of them only injects
-  components, and no adapter config holds a signing secret, so anything
-  that reaches the port can post an event.
-- Webhook registration done outside the adapter, whose registrar registers
-  its webhooks by POSTing to the simulator.
-
-### ClearBank simulator
-
-`clearbank-simulator` is its own base. It exposes the subset of ClearBank's
-HTTP API that Queenswood uses:
-
-- **`/v3/payments/fps`** — accepts payment submissions, answers 202 with
-  `Accepted` per instruction, and after a configurable delay fires the
-  webhooks back to the adapter. A creditor BBAN with sort code `000000`
-  fires `PaymentMessageAssessmentFailed`. A creditor BBAN with sort code
-  `999998` is answered 202 with the instruction `Rejected`, and nothing is
-  fired. The sandbox sentinel creditor name `6a41a29eafcf455493` fires
-  `OutboundHeldTransaction`, then a `TransactionRejected` with
-  `CancellationCode HOPRJ`, since ClearBank exposes no sandbox control for
-  release. Anything else settles, debit then credit.
-- **`/simulate/inbound-payment`** — fires an inbound `TransactionSettled`
-  (credit). The sentinel debtor name `6a41a29eafcf455493` instead fires an
-  `InboundHeldTransaction`, then resolves per the request `outcome`
-  (`return` → a `TransactionRejected`, carrying the creditor's BBAN when
-  the request names one, anything else → settled).
-- **CoP endpoints** — the same idea for Confirmation of Payee.
-
-The simulator is approximate (happy paths plus the named rejection
-scenarios above), but covers the choreography end to end, so tests exercise
-the full settlement loop without external calls.
-
-### Failures and the dead-letter topic
-
-The `schemes-payments-event` consumer in `financial-processors-service`
-leaves an event unacknowledged when its handler throws or returns an
-anomaly, so the event is redelivered. Past `max-redeliveries` (5), the
-consumer sends the raw message to `topic-schemes-payments-event-dlq`. An
-event lands there when:
-
-- an unmatched inbound's sort code belongs to no bank
-  (`:payment/no-bank-for-sort-code`);
-- a `transaction-rejected` (debit) names an outbound payment that is
-  `completed`;
-- a debit event names an outbound payment that does not exist;
-- a return without a BBAN matches several open holds
-  (`:payment/ambiguous-hold`);
-- any handler fails on every delivery, whatever the cause.
-
-Nothing reads or replays the dead-letter topic. The monolith's local bus
-has no dead-letter path.
-
-### Atomicity, ordering, idempotency
-
-**Atomicity.** Each settlement is one FDB transaction — record + apply +
-save commits together. Cross-process the choreography is asynchronous, but
-each leg of it (the processor's commit, the adapter's webhook handling, the
-runner's failure of an intent, the event processor's settlement) is locally
-atomic.
-
-**Ordering.** Every payment topic has one partition, and
-`financial-processors-service` runs one replica, so the payment event
-processor handles scheme events one at a time, in the order the changelog
-relay read them from the outbox. Outbox events carry no ordering key, so a
-second partition could deliver a hold's settlement before the hold.
-Webhooks arrive in the order ClearBank emits them.
-
-**Idempotency.**
-
-- **Submissions** are covered by the API-layer FDB-backed idempotency cache
-  (`idempotency/cache-response`), scoped by
-  `[principal_id, operation, idempotency_key]`. Duplicate requests within
-  the 24 h window receive the original response. See
-  [idempotency.md](idempotency.md).
-- **At the store layer**, `InternalPayment_by_idempotency_key` and
-  `OutboundPayment_by_idempotency_key` are unique on
-  `[bank_id, idempotency_key]`. A redelivered command, or a retry the cache
-  no longer covers, meets the index, and the processor answers the
-  original payment as ACCEPTED. A retry under a different key is a new
-  request to both layers, and creates a second payment.
-- **Webhooks** dedup on the outbox `dedup-key`, and **scheme commands** on
-  the intent's end-to-end id (see "ClearBank adapter").
-- **Inbound settlement** dedups on `scheme-transaction-id`, whatever the
-  recorded payment's status. The check is FDB-indexed and atomic with the
-  settlement transaction.
-- **Inbound holds** dedup on an open hold with the same end-to-end id,
-  creditor and amount.
-- **Outbound settlement and rejection** dedup on the outbound payment's
-  status.
-
-### Reading payments
-
-Every payment read `api` serves is scoped to the caller's bank and gated
-`org:viewer`:
-
-- `GET /v1/payments/internal/{payment-id}`,
-  `GET /v1/payments/outbound/{payment-id}` and
-  `GET /v1/payments/inbound/{payment-id}` answer the payment, and 404
-  `payment/not-found` when it belongs to another bank, as when it does not
-  exist.
-- `GET /v1/payments/inbound?status=<status>` lists the bank's inbound
-  payments in one status — `settled`, `suspended`, `held` or `returned`,
-  required — newest first, from `InboundPayment_by_bank_status_created_at`,
-  paged with the shared page parameters and cursor links.
-
-The event processors receive no bank, and read outbound payments by id and
-inbound payments by scheme transaction id unscoped.
-
-### Three roles for the message bus in this flow
-
-- **HTTP-facing command channel** — submit-internal-payment /
-  submit-outbound-payment commands from the API.
-- **Scheme command channel** — submit-payment commands from `payment` to
-  the ClearBank adapter (separate channel to keep scheme traffic distinct).
-- **Event channel** — `transaction-settled`, `transaction-held` and
-  `transaction-rejected` events from the adapter's outbox to the payment
-  event processor, with its dead-letter topic.
-
-All three sit on the same message-bus abstraction; the channel separation
-is configuration, not infrastructure.
+- A hold is matched on end-to-end id, creditor and amount, and a
+  settlement deduplicated on `scheme-transaction-id`, as now.
+- A BBAN matching no account fails the handler and is dead-lettered,
+  replacing the sort-code suspense path.
+- A policy-refused park is mirrored to own-funds under `per-account`.
+
+### First slices
+
+1. **Neutral contract.** The declaration and its three checks, neutral
+   `scheme`, `failure_kind` and `reason_code`, the payee-check key,
+   signed calls and authenticated webhooks on the existing adapter and
+   its simulator, and the shared control routes. Proved by the payment
+   scenarios passing with neutral values, and an unsigned webhook
+   refused.
+2. **Addresses from the provider.** The account legs,
+   `provider_account_id`, `refused`, and the counters retired. Proved
+   by an account opened with its address from the simulator, an
+   opening refused, a rotation and a closing.
+3. **The default adapter.** A second adapter meeting the contract, with
+   per-account balances in its simulator and reconciliation. The
+   deployed builds and scenario rigs move to it, and the existing
+   adapter stays in the development project.
+4. **Balances at the provider.** `transaction-posted`,
+   `ProviderTransfer` and mirroring. Proved by an internal payment,
+   interest capitalised, a reward and a refused inbound each leaving
+   every simulated provider balance equal to the ledger. Built with
+   slice 3, so no deployed build holds balances that drift.
+5. **Returned outbound payments.** Proved by a completed payment
+   returned, and a return for a failed one dead-lettered.
+
+Running the default adapter against the provider's sandbox follows,
+once the simulator covers every flow above.
 
 ### Tests
 
-- **Brick tests.** `clearbank-adapter`'s `publisher_test.clj` (every amount
-  from 0.00 to 999.99, the dedup keys, both assessment spellings, the FPS
-  body) and `interface_test.clj` (settlements sharing an end-to-end id, the
-  400s, a redelivered `submit-payment`); `clearbank-relay`'s
-  `interface_test.clj` (backoff, refusal, failing an intent once);
-  `payment`'s `domain_test.clj`, `store_test.clj` (scoped reads, the hold
-  match, the reads by status) and `sweep_test.clj`; `schema`'s
-  `transaction-rejected` old-reader test; and `fdb`'s multi-record compound
-  query.
-- **Domain scenarios**, in `test-scenarios`:
-  - Internal: `intra-bank-internal-transfer.edn`,
-    `cross-bank-internal-transfer-rejected.edn`,
-    `self-transfer-rejected.edn`,
-    `zero-amount-internal-transfer-rejected.edn`,
-    `unknown-currency-internal-rejected.edn`,
-    `daily-limit-breach-internal.edn`.
-  - Outbound: `simple-outbound.edn`, `outbound-payment.edn`,
-    `capability-denied-outbound.edn`,
-    `negative-amount-outbound-rejected.edn`,
-    `daily-limit-breach-outbound.edn`, `outbound-reject-completed.edn`,
-    `outbound-reject-then-settle.edn`, `outbound-submit-redelivered.edn`.
-  - Inbound: `simple-inbound.edn`, `daily-limit-breach-inbound.edn`,
-    `curative-inbound-when-in-breach.edn`, `inbound-held-released.edn`,
-    `inbound-held-returned.edn`, `inbound-held-to-closed-ignored.edn`,
-    `inbound-hold-then-settle-one-credit.edn`,
-    `inbound-held-release-refused.edn`, `inbound-two-holds-one-e2e.edn`.
-  - Redelivery and failure: `payment-event-idempotency.edn`,
-    `settlement-event-dead-lettered.edn`.
-  - Every flow: `full-happy-path.edn`.
-- **API scenarios**, in `test-api-scenarios` under `payments/`:
-  - Internal: `internal-replay.edn`, `internal-race.edn`,
-    `internal-lost-reply.edn`, `two-banks-one-key.edn`.
-  - Outbound: `outbound-assessment-failed.edn`,
-    `outbound-held-then-declined.edn`, `outbound-submission-refused.edn`,
-    `outbound-two-keys-two-payments.edn`.
-  - Inbound: `inbound-pence-amount.edn`, `inbound-unmatched-suspense.edn`,
-    `inbound-to-closed-bban-suspense.edn`, `inbound-suspended-list.edn`,
-    `inbound-held-released.edn`, `inbound-held-returned.edn`.
-  - Reads: `cross-bank-payment-read.edn`.
-  - Every flow: `e2e/full-happy-path.edn`, and Confirmation of Payee under
-    `payee-checks/`.
+- **`payment`** — the unsupported scheme, the failure fields, the
+  return transition and its refusals, netting a transaction's legs
+  into transfers, and skipping the scheme's own settlements.
+- **`cash-account`** — opening waiting on the provider, refused,
+  rotating and closing through it.
+- **`cash-account-product`** — a version refused for an address scheme
+  the declaration lacks.
+- **`payee-check`** — the payer account passed through.
+- **`transaction`** — `transaction-posted` co-committed with each
+  posting.
+- **`<provider>-adapter`** — each provider event mapped to its scheme
+  event with the platform's reason code, every amount converted, an
+  unauthenticated delivery refused, and the refusal to start on a
+  declaration its configuration does not cover.
+- **`<provider>-relay`** — backoff, refusal, a retry recognised as the
+  same request, and reconciliation writing what a late webhook would.
+- **`<provider>-simulator`** — each control route, and signatures
+  checked and made as the provider's are.
+- **`test-api-scenarios`** — the payment and payee-check scenarios run
+  on each adapter's simulator, plus a scenario per new transition and
+  refusal.
+- **`test-scenarios`** — every flow on the default adapter's simulator,
+  and each simulated provider balance equal to the ledger at the end
+  of a run.
 
 ## Alternatives Considered
 
-- **Synchronous call to ClearBank from the HTTP handler.** Submit the
-  payment over the wire to ClearBank in-band with the HTTP request, and
-  respond with the scheme outcome directly. Rejected — it ties HTTP
-  thread-pool capacity to ClearBank's latency, a failure during the call
-  leaves the bank's records in an unknown state, and replay is awkward.
-  The fire-and-forget-with-events pattern decouples the bank from
-  ClearBank's response time and gives durable intent records to retry
-  against.
-- **Single Payment record, no separate Transaction record.** Combine the
-  user-facing payment intent and the financial posting into one record.
-  Rejected — Payment carries scheme metadata (BBAN, scheme-transaction-id)
-  that the bookkeeping layer doesn't care about, and Transaction carries
-  posting metadata (legs, balance buckets) that the user doesn't see.
-- **Direct ClearBank dependency in the payment processor.** Have `payment`
-  call ClearBank's HTTP API directly. Rejected — it couples the payment
-  brick to an external vendor's API. The adapter base is the only place
-  that knows ClearBank's wire shape; the rest of the system sees bus
-  messages.
-- **Eventual-consistency-only (no settlement step).** Apply outbound to the
-  posted bucket immediately and reconcile later if the scheme rejects.
-  Rejected — it shows the customer money as "spent" when ClearBank may
-  still reject it, and reconciliation is operationally painful.
-- **One message-bus topic for everything.** Submit, scheme command and
-  settlement events all on one channel. Rejected — it confuses tracing and
-  mixes traffic with very different reliability needs (settlement events
-  are audit-relevant; scheme commands can be retried freely).
-- **Polling ClearBank instead of webhooks.** Periodically ask ClearBank for
-  payment status. Rejected — webhooks are the standard FPS pattern, and
-  polling adds latency and load when ClearBank already pushes.
-- **Returning money a policy refuses.** Send a refused inbound back to the
-  remitter instead of parking it. Rejected — it needs an outbound return
-  instruction that neither ClearBank's API nor this code has, while
-  parking keeps the receipt and leaves the decision to the bank.
+- **Queenswood mints addresses, the provider routes them.** Rejected:
+  a provider holding a balance per account issues the address with the
+  account, and lets only selected partners choose one.
+- **Internal payments two-phase, settling when the provider moves the
+  money.** Rejected: an internal transfer settles immediately for the
+  customer, and a mirror failing is the bank's reconciliation, not the
+  customer's payment.
+- **Mirroring from each brick that posts.** Rejected: `interest`,
+  `reward` and `payment` would each learn the provider's balance
+  model, where one consumer of the transactions changelog sees every
+  posting.
+- **One pooled provider account per bank.** Rejected: a provider
+  holding a balance per account offers no address that routes to a
+  shared one.
+- **Keeping the provider's codes on the payment.** Rejected: they are
+  the API's public contract, and ISO 20022 already names every reason
+  a payment scheme gives.
+- **Per-bank routing to two providers.** Rejected for now: ADR-0020
+  makes the provider a deployment fact, and routing on a bank's value
+  is dispatch it keeps out of the bricks.
+- **Synchronous call to the provider from the HTTP handler.**
+  Rejected: it ties the request to the provider's latency, and a
+  failure mid-call leaves the bank's records unknown.
+- **Returning money a policy refuses.** Rejected: it needs an outbound
+  return instruction no adapter has, while parking keeps the receipt
+  and leaves the decision to the bank.
 
 ## Known Limitations
 
-- **A missing webhook leaves a payment open.** If ClearBank settles or
-  declines an outbound payment but the webhook never arrives, the payment
-  stays `pending` or `held`, with its funds reserved. The sweep republishes
-  a `pending` payment's command and reports a payment stuck for 24 hours,
-  but it never fails or completes a payment, and nothing asks ClearBank
-  for the payment's status.
-- **The payment-side publish is best-effort.** The publish of
-  `submit-payment` after the submission commits has no outbox: when the
-  broker is unavailable the command is lost, and the payment stays
-  `pending` until a redelivered submission or the sweep republishes it,
-  15 minutes or more later. The sweep reports it after 24 hours, and never
-  fails it. The producer-edge outbox is deferred with the others in
-  [transaction-processing.md](transaction-processing.md).
-- **Outbound held then released is not exercised.** The simulator declines
-  every held outbound, so no scenario drives `held → completed`, and the
-  model-equality property test generates no hold, rejection or suspense.
-- **Kafka redeliveries have no delay.** A handler failing on a transient
-  fault uses its five redeliveries in quick succession, and the event is
-  dead-lettered.
-- **A suspended inbound is never resolved.** Nothing matches it to an
-  account or returns it, and a payment parked by a policy refusal does not
-  record the refusal's kind or the account it was for.
-- **The inbound list reads a whole status.** It reads every record of the
-  bank's status in one FDB transaction before paging, so a bank whose
-  `settled` history outgrows one transaction's read limits gets a 500.
-- **The status indexes on a populated store.**
-  `OutboundPayment_by_status_created_at` and
-  `InboundPayment_by_bank_status_created_at` are built inline only while a
-  store is small. Past a few hundred records they stay disabled until an
-  `OnlineIndexer` runs, and until then the sweep logs a read failure every
-  interval and the inbound list answers 500.
-- **Meta-data version 54 is one-way.** Once the migrator saves it, an image
-  built at 53 cannot open the stores, so a bad deploy is rolled forward.
-- **Identical holds are one hold.** Two holds with the same end-to-end id,
-  creditor and amount are indistinguishable to the payment brick: a
-  settlement or return resolves the older first.
-- **Settlement order is ClearBank's.** If ClearBank delivered webhooks out
-  of scheme order, a settlement could arrive before its hold, settle as a
-  new inbound, and leave the later hold `held`.
-- **The simulator is approximate.** Real-world edge cases (partial scheme
-  acceptance, retry storms, malformed webhooks) aren't simulated.
-- **No FX.** Inbound and outbound payments are single-currency end to end.
-  Cross-currency would need explicit FX legs (transactions-and-balances
-  TDD) plus scheme-side currency translation that ClearBank handles at its
-  boundary.
+- **A failed mirror leaves the balances apart.** Nothing retries a
+  failed `ProviderTransfer` or compares the provider's balances with
+  the ledger.
+- **A payment can overtake its funding.** An outbound submitted just
+  after an internal payment into the same account can reach the
+  provider before the mirror, and a provider that declines rather than
+  waits fails it.
+- **Own funds at the provider is not the own-funds account.** Its
+  provider balance also carries suspense and paid interest, which the
+  bank reconciles by hand.
+- **A rename does not reach the provider.** The holder name is given
+  at opening, so a provider answering inbound checks answers from the
+  name the party had then.
+- **A provider refusing to close leaves the account `closing`.**
+- **A rotation is not instant.** The old address takes payments until
+  the provider reports the new one, and where the provider moves the
+  account, a payment arriving while the old one is blocked is returned
+  to the sender.
+- **The payment-side publish is best-effort.** A lost `submit-payment`
+  waits for the sweep, as now.
+- **Outbound held then released is not exercised.** The shared test
+  values decline every held outbound.
+- **Kafka redeliveries have no delay.**
+- **A suspended inbound is never resolved.**
+- **Identical holds are one hold.**
+- **Settlement order is the provider's.** A settlement delivered before
+  its hold settles as a new inbound and leaves the hold `held`.
+- **No FX.**
 
 ## References
 
-- [ADR-0002](../adr/0002-foundationdb-record-layer.md) — FoundationDB
-  Record Layer (atomic record + apply)
-- [ADR-0003](../adr/0003-message-bus-abstraction.md) — Message-bus
-  abstraction
-- [ADR-0004](../adr/0004-avro-for-message-payloads.md) — Avro for message
-  payloads
-- [ADR-0019](../adr/0019-processor-packaging.md) — Processor packaging
-- [ADR-0020](../adr/0020-providers-are-deployment-facts.md) — External
-  providers are deployment facts
-- [prd/payments.md](../prd/payments.md) — Payments requirements
-- [policy-evaluation.md](policy-evaluation.md) — Policy evaluation engine
-- [transaction-processing.md](transaction-processing.md) — Transaction
-  processing (the command/event substrate)
-- [transactions-and-balances.md](transactions-and-balances.md) —
-  Transactions and balances (the bookkeeping substrate)
-- [service-apis.md](service-apis.md) — Service APIs (HTTP surface;
-  ClearBank simulator and adapter HTTP shapes)
-- [idempotency.md](idempotency.md) — Idempotency
-- `payment` and `payment-query` brick interfaces
-- `clearbank-adapter` and `clearbank-simulator` bases
+- [payments](../prd/payments.md) — the product requirements this design
+  serves.
+- [cash-accounts](cash-accounts.md) — opening and closing, which gain
+  the provider leg.
+- [transactions-and-balances](transactions-and-balances.md) — the
+  postings mirroring follows.
+- [chart-of-accounts](chart-of-accounts.md) — GL 1100, 1200, 2500 and
+  5100 and the own-funds account.
+- [parties](parties.md) — the IDV adapter contract this one follows.
+- [transaction-processing](transaction-processing.md) — the intent and
+  outbox pattern every adapter follows.
+- [policy-evaluation](policy-evaluation.md) — the checks an inbound
+  runs.
+- [idempotency](idempotency.md) — the submission cache.
+- [webhooks](webhooks.md) — the `payment.*` catalogue.
+- [ADR-0019](../adr/0019-processor-packaging.md) — where the adapter
+  and its runners run.
+- [ADR-0020](../adr/0020-providers-are-deployment-facts.md) — the
+  provider as a deployment fact.
+- [ADR-0021](../adr/0021-changelog-relay.md) — the changelog relay the
+  mirroring and account legs run on.
+- [lifecycle-transitions](../recipes/code/lifecycle-transitions.md) —
+  the checklist for `refused` and `returned`.
+- [schema-evolution](../recipes/code/schema-evolution.md) — the
+  deprecated fields and the new stores.
+- [ISO 20022 external code sets](https://www.iso20022.org/catalogue-messages/additional-content-messages/external-code-sets)
+  — the status and return reason codes.

@@ -6,18 +6,19 @@ A **cash account** is what an end customer holds and
 transacts through. Each account belongs to one tenant, is
 held by one party (person or organisation), is opened under
 one published version of a cash account product, and is
-denominated in one currency. At open time the account is
-assigned a UK payment address — a sort code and account
-number — that lets it receive money from any UK bank via
-Faster Payments. From that point on, the account is the
+denominated in one currency. As it opens, the account is
+issued a UK payment address — a sort code and account
+number — by the installation's payment provider, which
+lets it receive money from any UK bank via Faster
+Payments. From that point on, the account is the
 identity that every movement of money references.
 
 ## Users and stakeholders
 
 **Customer engineering team.** Opens and closes accounts on behalf of their end
 customers, looks accounts up, and reads them. Cares about: open succeeding only
-when the customer is properly set up, the assigned payment address being usable
-immediately, the eventual close being final.
+when the customer is properly set up, the payment address being usable as soon
+as the account opens, the eventual close being final.
 
 **End customer.** The party who holds the account. Doesn't
 interact with the platform directly; the account is the
@@ -27,8 +28,8 @@ when expected, balances and statements being correct, the
 sort code and account number staying stable.
 
 **Platform operator.** Sets the policies that cap how many accounts a tenant can
-open, of which type, in which currency. Issues each bank its own clearing
-identity — the sort code its accounts' payment addresses are built from.
+open, of which type, in which currency. Chooses the payment provider that
+issues every account's payment address, described in [payments](payments.md).
 
 ## Goals
 
@@ -42,10 +43,12 @@ identity — the sort code its accounts' payment addresses are built from.
   validation) reads them from that version. This is the
   cohort property described in
   [cash-account-products](cash-account-products.md).
-- **A UK payment address at open time.** Every account
-  receives a unique sort code and account number when it
-  opens. The address is usable for inbound and outbound
-  Faster Payments from that point.
+- **A UK payment address as it opens.** Every account is
+  issued a unique sort code and account number by the
+  payment provider, and opens once it has one. The
+  address is usable for inbound and outbound Faster
+  Payments from that point. A provider that declines to
+  issue one leaves the account *refused*.
 - **Owned by an active party.** An account can only be
   opened against a party that has been verified — see
   [parties](parties.md). Person parties must have passed
@@ -80,10 +83,9 @@ identity — the sort code its accounts' payment addresses are built from.
 
 ## Non-goals
 
-- **Tenant choice of sort code.** Each bank is issued its
-  own sort code when it is created, and every payment
-  address on that bank is built from it. Tenants don't
-  select or vary it.
+- **Tenant choice of sort code.** The payment provider
+  issues every sort code and account number. Tenants don't
+  select or vary them.
 - **Multi-currency on a single account.** A customer who
   holds GBP and EUR holds two accounts.
 - **Dormancy.** An account left unused indefinitely is not
@@ -132,15 +134,17 @@ Before the account is created, the platform checks:
 
 If all checks pass, the platform:
 
-- Generates a unique UK payment address (sort code +
-  account number).
 - Records the account, pinned to the product version.
 - Sets the account's status to **opening**.
 - Creates the balance structure the account will use.
+- Asks the payment provider for a UK payment address (sort
+  code + account number).
 
-A moment later the platform finishes the transition and
-the account becomes **opened** — the state in which it can
-hold balances and appear on transactions.
+Once the provider has issued the address, the account
+becomes **opened**, carrying it — the state in which it can
+hold balances and appear on transactions. If the provider
+declines to issue one, the account becomes **refused**,
+which is final.
 
 ### Account types
 
@@ -163,10 +167,8 @@ party", "business customers cannot open term deposits".
 ### Payment addresses
 
 Every account is given a UK SCAN address (sort code +
-account number) at open time. The sort code is the bank's
-own clearing identity, issued to it when the bank is
-created; the account number is unique within that sort
-code, and is never issued twice.
+account number) as it opens, issued by the payment
+provider. No address is ever issued twice.
 
 The address is the route money travels along: a UK Faster
 Payment to that sort code and account number lands in this
@@ -174,9 +176,10 @@ account.
 
 A tenant can rotate an open account's address — after a
 suspected compromise, for example — trading the sort code
-and account number for a fresh pair. The old address is
-retired permanently and kept on the account's history; there
-is no window in which a payment can still reach it.
+and account number for a fresh pair the provider issues.
+The account keeps its old address until the new one is
+issued; the old address is then retired permanently and
+kept on the account's history.
 
 ### Closing an account
 
@@ -211,13 +214,13 @@ address, its balance and its history, and it goes on
 earning interest. What it cannot do is move money. A
 payment from a frozen account is refused, and a payment
 arriving for one is held by the platform for
-reconciliation rather than credited, exactly as a payment
-to an address the platform does not recognise is.
+reconciliation rather than credited.
 
-The same is true of a closed account, whose payment
-address is never reissued to anyone else: money sent to it
-is held for reconciliation rather than landing on an
-account nobody is watching.
+A closed account's payment address is never reissued to
+anyone else, and money sent to it never lands on an
+account nobody is watching: the provider returns it to the
+sender where it closes the account with it, and the
+platform holds it for reconciliation otherwise.
 
 ### Moving an account to another product
 
@@ -262,17 +265,17 @@ sequenceDiagram
     Note over T,Q: customer's party already active
     T->>Q: open account (party, product, currency, name)
     Q->>Q: validate party + product + currency<br/>check policy + count limits
-    Q->>Q: generate sort code + account number<br/>create balance structure
-    Q-->>T: account opening (with payment address)
-    Note over Q: transition completes in the background
+    Q->>Q: create balance structure
+    Q-->>T: account opening
+    Note over Q: the payment provider issues the address
     T->>Q: read account
-    Q-->>T: account opened
+    Q-->>T: account opened (with payment address)
 ```
 
 The tenant opens the account in a single call. The platform
-validates the inputs, generates a payment address, and
-returns the account immediately in the opening state. A
-moment later the account is opened and ready to use.
+validates the inputs and returns the account immediately in
+the opening state. Once the payment provider has issued its
+address, the account is opened and ready to use.
 
 ### 2. Multi-currency: same customer, two accounts
 
@@ -340,10 +343,11 @@ someone else.
   regimes for accounts unused for long periods (flagged,
   then closed, sometimes escheated to the state). None
   of that is modelled.
-- **A second sort code for one bank.** A bank is issued one
-  sort code and keeps it. A bank that outgrows the account
-  numbers under a single code, or wants to route some
-  customers separately, has no way to hold a second.
+- **Retrying a refused account.** A provider declining to
+  issue an address refuses the account for good. It is
+  assumed the tenant opens another account, after finding
+  out from the provider's reason why the first was
+  declined.
 - **International payment addresses.** No IBAN or BIC
   today. Cross-border payments are out of scope at the
   platform level.
