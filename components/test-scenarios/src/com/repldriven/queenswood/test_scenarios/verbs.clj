@@ -674,6 +674,33 @@
         (update :counter inc)
         (track result))))
 
+(defmethod dispatch :admit-inbound
+  [{:keys [bank accounts] :as ctx} {[model-acct amount e2e-ref] :args}]
+  (let [bban (if (string? model-acct)
+               model-acct
+               (get-in accounts [model-acct :bban]))
+        result (payment/admit-inbound bank
+                                      {:end-to-end-id (end-to-end-id ctx
+                                                                     e2e-ref)
+                                       :scheme "fps"
+                                       :creditor-bban bban
+                                       :amount amount
+                                       :currency "GBP"
+                                       :debtor-name "Scenario Admitted Sender"
+                                       :reference "scenario admission"})]
+    (-> ctx
+        (assoc :last-admission result)
+        (update :counter inc)
+        (track result))))
+
+(defmethod dispatch :assert-admission
+  [{:keys [last-admission] :as ctx} {[admitted reason-code] :args}]
+  (is (= {:admitted admitted :reason-code reason-code}
+         (select-keys (merge {:reason-code nil} last-admission)
+                      [:admitted :reason-code]))
+      "the last admission's decision")
+  ctx)
+
 ;; Held-inbound lifecycle — reality-only verbs (no model counterpart). The
 ;; model-eq runner stops tracking after the first of these but still runs the
 ;; scenario's explicit `:assert-balance` calls.
@@ -1508,7 +1535,8 @@
   [:inbound-payment-status-settled
    :inbound-payment-status-suspended
    :inbound-payment-status-held
-   :inbound-payment-status-returned])
+   :inbound-payment-status-returned
+   :inbound-payment-status-admitted])
 
 (defn- inbound-statuses
   "The statuses of the inbound payments carrying `e2e` in the run's banks,
@@ -1539,7 +1567,7 @@
   (let [e2e (end-to-end-id ctx e2e-ref)
         account-id (when model-acct (id-mapping/real id-mapping model-acct))
         actual (inbound-statuses bank banks e2e account-id)]
-    (is (= [expected] actual)
+    (is (= (if expected [expected] []) actual)
         (str "inbound payments for end-to-end id "
              e2e
              (when model-acct (str " crediting " model-acct))))

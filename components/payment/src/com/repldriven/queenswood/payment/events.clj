@@ -207,6 +207,112 @@
                  :status-before (:payment-status held)})]
             released))))))
 
+(defn- record-admitted-settlement
+  "Settle an admitted inbound: post DEBIT 1100 / CREDIT creditor without
+  checking again, and flip the admitted record to `settled`."
+  [txn data account admitted]
+  (let [{:keys [bank-id]} account
+        {:keys [scheme-transaction-id]} data
+        {:keys [currency]} admitted]
+    (let-nom>
+      [cash (ledger-accounts/find-by-code
+             txn
+             bank-id
+             :gl-account-code-cash-at-correspondent
+             currency)
+       transaction (domain/admitted-inbound->transaction
+                    admitted
+                    account
+                    (:ledger-account-id cash))
+       expanded-legs (ledger-accounts/add-control-legs
+                      txn
+                      bank-id
+                      currency
+                      (:legs transaction))
+       recorded (transactions/record-transaction
+                 txn
+                 (assoc transaction :legs expanded-legs))
+       {:keys [transaction-id transaction-type legs]} recorded
+       _ (balances/apply-legs txn bank-id legs transaction-type)
+       settled (domain/settled-from-held admitted
+                                         scheme-transaction-id
+                                         transaction-id)
+       _ (store/save-inbound-payment
+          txn
+          settled
+          {:change-kind :inbound-payment-change-kind-settle
+           :status-before (:payment-status admitted)})]
+      settled)))
+
+(defn- admit
+  [txn data account business-day]
+  (let [{:keys [account-id bank-id]} account]
+    (let-nom>
+      [policies (policy/get-effective-policies txn {:bank-id bank-id})
+       today-count (q/count-inbound-by-org-business-day txn
+                                                        bank-id
+                                                        business-day)]
+      (let [accepted (domain/check-inbound-acceptance
+                      data
+                      account
+                      policies
+                      {:inbound-payment {#{:bank-id :business-day}
+                                         today-count}})]
+        (cond
+         (domain/refused? accepted)
+         (let [refusal (domain/acceptance-refusal accepted)]
+           (log/infof "Inbound payment rejected at admission: %s"
+                      (assoc refusal :end-to-end-id (:end-to-end-id data)))
+           (merge {:admitted false} refusal))
+
+         (error/anomaly? accepted)
+         accepted
+
+         :else
+         (let [admitted (domain/admitted-inbound-payment data
+                                                         account-id
+                                                         bank-id
+                                                         business-day)]
+           (let-nom> [_ (store/save-inbound-payment
+                         txn
+                         admitted
+                         {:change-kind :inbound-payment-change-kind-admit})]
+             (log/infof "Inbound payment admitted: %s"
+                        {:payment-id (:payment-id admitted)
+                         :account-id account-id})
+             {:admitted true :payment-id (:payment-id admitted)})))))))
+
+(defn admit-inbound
+  [config data]
+  (let [{:keys [creditor-bban end-to-end-id amount]} data
+        business-day (domain/current-business-day
+                      (utility/now)
+                      (:business-day-cutoff config))]
+    (store/transact
+     config
+     (fn [txn]
+       (let-nom>
+         [account (cash-accounts/get-account-by-bban txn creditor-bban)
+          admitted (when account
+                     (q/find-open-admission txn
+                                            end-to-end-id
+                                            (:account-id account)
+                                            amount))
+          refusal (when-not admitted (domain/account-refusal account))]
+         (cond
+          admitted
+          {:admitted true :payment-id (:payment-id admitted)}
+
+          refusal
+          (do (log/infof "Inbound payment rejected at admission: %s"
+                         (assoc refusal :end-to-end-id end-to-end-id))
+              (merge {:admitted false} refusal))
+
+          :else
+          (admit txn data account business-day))))
+     :payment/admit-inbound
+     "Failed to admit inbound payment")))
+
 (defn settle-inbound
   "Settle an inbound ClearBank credit against the creditor resolved by
   BBAN. A creditor that is not opened — suspended, closing, closed, or
@@ -226,6 +332,11 @@
          [_ (check-debit-credit-code debit-credit-code)
           account (cash-accounts/get-account-by-bban txn creditor-bban)
           settled (q/get-inbound-payment txn scheme-transaction-id)
+          admitted (when account
+                     (q/find-open-admission txn
+                                            end-to-end-id
+                                            (:account-id account)
+                                            amount))
           held (when account
                  (q/find-open-hold txn
                                    end-to-end-id
@@ -237,6 +348,12 @@
                          scheme-transaction-id)
               settled)
 
+          (and admitted (not (domain/operable? account)))
+          (do (log/infof "Admitted inbound to a non-operable account: %s"
+                         {:account-id (:account-id account)
+                          :account-status (:account-status account)})
+              (suspend-held txn data admitted))
+
           ;; The BBAN resolves, but the account cannot take a credit —
           ;; park the funds in suspense as an unmatched BBAN is, so the
           ;; receipt stays recoverable.
@@ -245,6 +362,9 @@
                          {:account-id (:account-id account)
                           :account-status (:account-status account)})
               (park-in-suspense txn data account business-day))
+
+          admitted
+          (record-admitted-settlement txn data account admitted)
 
           ;; Release of a previously-held inbound — settle it to the
           ;; account and flip the held record to settled.

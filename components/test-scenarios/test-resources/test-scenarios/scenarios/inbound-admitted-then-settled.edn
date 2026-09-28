@@ -1,0 +1,22 @@
+{:name "An admitted inbound settles without checking again"
+ :tags #{:inbound :payments :admission}
+ ;; Where the provider asks the platform to admit each inbound before it
+ ;; settles, an admission to an opened account records the payment
+ ;; admitted with nothing posted; asking again answers the same. The
+ ;; settlement that follows posts it and the payment reads settled.
+ :given [{:command :create-bank :args []}
+         {:command :inbound-transfer :args [:acct-0 1000]}]
+ :when [{:command :admit-inbound :args [:acct-0 250 :e2e-admitted]}
+        {:command :assert-admission :args [true nil]}
+        {:command :assert-inbound-status
+         :args [:e2e-admitted :inbound-payment-status-admitted]}
+        {:command :assert-balance :args [:acct-0 1000]}
+        {:command :admit-inbound :args [:acct-0 250 :e2e-admitted]}
+        {:command :assert-admission :args [true nil]}
+        {:command :inbound-transfer :args [:acct-0 250 :e2e-admitted]}]
+ :then [{:command :assert-no-anomaly :args []}
+        {:command :assert-inbound-status
+         :args [:e2e-admitted :inbound-payment-status-settled]}
+        {:command :assert-balance :args [:acct-0 1250]}
+        {:command :assert-gl-balance
+         :args [:bank-0 :gl-account-code-suspense "GBP" 0]}]}

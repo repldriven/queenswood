@@ -1,0 +1,30 @@
+{:name "An inbound is refused at admission for each reason, recording nothing"
+ :tags #{:inbound :payments :admission :unhappy}
+ ;; An address no account holds is refused AC01. Once the daily count is
+ ;; spent, a policy refuses the next AG01. A closed account is refused
+ ;; AC04. None is recorded, so no inbound carries the refused ids.
+ :given [{:command :create-bank :args []}
+         {:command :inbound-transfer :args [:acct-0 1000]}]
+ :when [{:command :admit-inbound :args ["04001099999999" 100 :e2e-nobody]}
+        {:command :assert-admission :args [false "AC01"]}
+        {:command :bind-policy
+         :args
+         [:bank-0
+          {:name "Test: max 1 inbound payment per day"
+           :category :policy-category-restricted
+           :limits
+           [{:kind {:inbound-payment {}}
+             :bound {:kind {:max {:aggregate
+                                  {:kind
+                                   {:count {:value 1
+                                            :window :time-window-daily}}}}}}
+             :reason "Test-bound daily count cap"}]}]}
+        {:command :admit-inbound :args [:acct-0 100 :e2e-over-limit]}
+        {:command :assert-admission :args [false "AG01"]}
+        {:command :outbound-payment :args [:acct-0 1000]}
+        {:command :close-account :args [:acct-0]}
+        {:command :admit-inbound :args [:acct-0 100 :e2e-closed]}
+        {:command :assert-admission :args [false "AC04"]}]
+ :then [{:command :assert-inbound-status :args [:e2e-nobody nil]}
+        {:command :assert-inbound-status :args [:e2e-over-limit nil]}
+        {:command :assert-inbound-status :args [:e2e-closed nil]}]}

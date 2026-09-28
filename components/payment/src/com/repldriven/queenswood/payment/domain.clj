@@ -334,6 +334,73 @@
          :transaction-id transaction-id
          :updated-at (utility/now)))
 
+(def ^:private closed-statuses
+  #{:cash-account-status-closing :cash-account-status-closed})
+
+(defn account-refusal
+  "Why an inbound to `account` is refused at admission, as the ISO 20022
+  reason `{:reason-code :reason}`: `AC01` where no account holds the
+  address, `AC04` for one closing or closed, `AC06` for one not opened
+  or suspended. Nil for an opened account."
+  [account]
+  (cond
+   (nil? account)
+   {:reason-code "AC01" :reason "No account holds the address"}
+
+   (contains? closed-statuses (:account-status account))
+   {:reason-code "AC04" :reason "The account is closed"}
+
+   (not (operable? account))
+   {:reason-code "AC06" :reason "The account is not open for payments"}
+
+   :else
+   nil))
+
+(defn acceptance-refusal
+  "The ISO 20022 reason for a refusal from `check-inbound-acceptance`:
+  `AM03` for a currency the account does not hold, `AG01` for anything a
+  policy forbids."
+  [refused]
+  (if (= :payment/currency-mismatch (error/kind refused))
+    {:reason-code "AM03" :reason (:message (error/payload refused))}
+    {:reason-code "AG01" :reason (:message (error/payload refused))}))
+
+(defn admitted-inbound-payment
+  "An admitted inbound: recorded `admitted` for the creditor the BBAN
+  resolved, with nothing posted until the scheme settles it. The
+  admission carries no scheme transaction id, so a placeholder is
+  generated; the settlement replaces it."
+  [data creditor-account-id bank-id business-day]
+  (assoc (held-inbound-payment data creditor-account-id bank-id business-day)
+         :scheme-transaction-id (str "admitted-" (utility/uuidv7))
+         :payment-status :inbound-payment-status-admitted))
+
+(defn admitted-inbound->transaction
+  "DEBIT 1100 cash-at-correspondent / CREDIT creditor — settle an admitted
+  inbound. Its checks ran at admission, so none run again."
+  [admitted creditor-account cash-at-correspondent-id]
+  (let [{:keys [bank-id currency amount payment-id reference]} admitted
+        {creditor-account-id :account-id} creditor-account]
+    (utility/assoc-some
+     {:bank-id bank-id
+      :idempotency-key (str "admit-in-" payment-id)
+      :transaction-type :transaction-type-inbound-transfer
+      :currency currency
+      :scheme-account-id creditor-account-id
+      :legs [{:account-id cash-at-correspondent-id
+              :balance-type :balance-type-default
+              :balance-status :balance-status-posted
+              :side :leg-side-debit
+              :amount amount}
+             {:account-id creditor-account-id
+              :product-type (:product-type creditor-account)
+              :balance-type :balance-type-default
+              :balance-status :balance-status-posted
+              :side :leg-side-credit
+              :amount amount}]}
+     :reference
+     reference)))
+
 (defn select-hold-to-return
   [holds end-to-end-id]
   (case (count holds)

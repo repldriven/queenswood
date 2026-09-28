@@ -72,7 +72,8 @@
   GL account / CREDIT the creditor's customer account), posts balance
   legs, and persists an InboundPayment. A settlement matching an open
   hold on its end-to-end id, creditor and amount releases that hold
-  instead. Money that has arrived is never refused: a creditor that is
+  instead, and one matching an open admission posts it without checking
+  again. Money that has arrived is never refused: a creditor that is
   not opened, or a settlement or release the currency, receive
   capability or daily count checks refuse, is posted DEBIT 1100 /
   CREDIT 2500 suspense and recorded `suspended`. A BBAN no account
@@ -152,6 +153,27 @@
   Returns the updated payment map or an anomaly."
   [config data]
   (events/return-outbound config data))
+
+(defn admit-inbound
+  "Process an `admit-inbound-payment` command, which a provider asking
+  the platform to admit each inbound before it settles sends through its
+  adapter. Admits where the BBAN names an opened account and the checks
+  a settlement runs pass, recording the `InboundPayment` `admitted` with
+  nothing posted; the `transaction-settled` that follows posts it
+  without checking again. Rejects otherwise, recording nothing, with the
+  ISO 20022 reason: `AC01` for no account, `AC04` for one closed, `AC06`
+  for one not opened, `AM03` for another currency, `AG01` for a payment a
+  policy refuses. An admission repeated for an open one answers it again.
+
+  Args:
+  - config: FDB handle.
+  - data: `{:end-to-end-id :scheme :creditor-bban :amount :currency
+    :debtor-name :reference}`.
+
+  Returns `{:admitted true :payment-id}`, `{:admitted false :reason-code
+  :reason}`, or an anomaly."
+  [config data]
+  (events/admit-inbound config data))
 
 (defn hold-inbound
   "Process an inbound `transaction-held` event. Records the inbound `held`
