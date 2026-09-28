@@ -1,7 +1,10 @@
 (ns com.repldriven.queenswood.payment.commands
   (:require
     [com.repldriven.queenswood.payment.core :as core]
-    [com.repldriven.queenswood.payment.events :as events]
+    [com.repldriven.queenswood.payment.events.inbound :as inbound]
+    [com.repldriven.queenswood.payment.events.outbound :as outbound]
+    [com.repldriven.queenswood.payment.events.provider-transfer :as
+     provider-transfer]
 
     [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
@@ -19,9 +22,10 @@
   {"submit-internal-payment"
    (fn [config data]
      (->response config "internal-payment" (core/submit-internal config data)))
-   "admit-inbound-payment"
-   (fn [config data]
-     (->response config "inbound-admission" (events/admit-inbound config data)))
+   "admit-inbound-payment" (fn [config data]
+                             (->response config
+                                         "inbound-admission"
+                                         (inbound/admit-inbound config data)))
    "submit-outbound-payment" (fn [config data]
                                (->response config
                                            "outbound-payment"
@@ -64,10 +68,10 @@
           "transaction-settled"
           (case debit-credit-code
             :debit-credit-code-credit
-            (events/settle-inbound config data)
+            (inbound/settle-inbound config data)
 
             :debit-credit-code-debit
-            (events/settle-outbound config data)
+            (outbound/settle-outbound config data)
 
             (error/fail :payment/unknown-debit-credit-code
                         {:message "Unknown debit-credit-code"
@@ -76,10 +80,10 @@
           "transaction-held"
           (case debit-credit-code
             :debit-credit-code-credit
-            (events/hold-inbound config data)
+            (inbound/hold-inbound config data)
 
             :debit-credit-code-debit
-            (events/hold-outbound config data)
+            (outbound/hold-outbound config data)
 
             (error/fail :payment/unknown-debit-credit-code
                         {:message "Unknown debit-credit-code"
@@ -88,24 +92,24 @@
           "transaction-rejected"
           (case debit-credit-code
             :debit-credit-code-credit
-            (events/return-inbound config data)
+            (inbound/return-inbound config data)
 
             ;; Outbound declines default to debit; treat an absent/unknown
             ;; code as the outbound path for backward compatibility.
-            (events/reject-outbound config data))
+            (outbound/reject-outbound config data))
 
           "transaction-returned"
           (if (= :debit-credit-code-debit debit-credit-code)
-            (events/return-outbound config data)
+            (outbound/return-outbound config data)
             (error/fail :payment/unknown-debit-credit-code
                         {:message "A return names an outbound payment"
                          :debit-credit-code debit-credit-code}))
 
           "transfer-completed"
-          (events/complete-transfer config data)
+          (provider-transfer/complete-transfer config data)
 
           "transfer-failed"
-          (events/fail-transfer config data)
+          (provider-transfer/fail-transfer config data)
 
           (error/fail :payment/unknown-event
                       {:message "Unknown event"
@@ -123,7 +127,7 @@
       (error/fail :payment/unknown-event
                   {:message "Unknown transaction event" :event event})
       (let-nom> [data (avro/deserialize-same schema payload)]
-        (events/mirror-posted config data)))))
+        (provider-transfer/mirror-posted config data)))))
 
 (defrecord TransactionEventProcessor [config]
   processor/Processor

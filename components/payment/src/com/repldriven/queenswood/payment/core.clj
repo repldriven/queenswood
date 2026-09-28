@@ -1,6 +1,8 @@
 (ns com.repldriven.queenswood.payment.core
   (:require
-    [com.repldriven.queenswood.payment.domain :as domain]
+    [com.repldriven.queenswood.payment.domain.checks :as checks]
+    [com.repldriven.queenswood.payment.domain.internal :as internal]
+    [com.repldriven.queenswood.payment.domain.outbound :as outbound]
     [com.repldriven.queenswood.payment.store :as store]
 
     [com.repldriven.queenswood.balance.interface :as balances]
@@ -46,7 +48,7 @@
       (let [{:keys [bank-id debtor-account-id
                     creditor-account-id currency]}
             data
-            business-day (domain/current-business-day
+            business-day (checks/current-business-day
                           (utility/now)
                           (:business-day-cutoff config))
             policies (policy/get-effective-policies
@@ -67,7 +69,7 @@
                         business-day)
            aggregates {:internal-payment
                        {#{:bank-id :business-day} today-count}}
-           payment-transaction (domain/internal-payment->transaction
+           payment-transaction (internal/internal-payment->transaction
                                 data
                                 debtor-account
                                 creditor-account
@@ -83,9 +85,9 @@
                         (assoc payment-transaction :legs expanded-legs))
            {:keys [transaction-id transaction-type legs]} transaction
            _ (balances/apply-legs txn bank-id legs transaction-type)
-           payment (domain/new-internal-payment data
-                                                business-day
-                                                transaction-id)
+           payment (internal/new-internal-payment data
+                                                  business-day
+                                                  transaction-id)
            _ (store/save-internal-payment txn payment)]
           payment))))
    q/find-internal-payment-by-idempotency-key))
@@ -142,15 +144,15 @@
         raw (store/transact
              config
              (fn [txn]
-               (let [business-day (domain/current-business-day
+               (let [business-day (checks/current-business-day
                                    (utility/now)
                                    (:business-day-cutoff config))
                      policies (policy/get-effective-policies
                                txn
                                {:bank-id bank-id})]
                  (let-nom>
-                   [_ (domain/check-scheme (:scheme data)
-                                           (:payment-provider config))
+                   [_ (outbound/check-scheme (:scheme data)
+                                             (:payment-provider config))
                     debtor-account (cash-accounts/get-account
                                     txn
                                     bank-id
@@ -174,7 +176,7 @@
                                  today-count
                                  #{:bank-id :business-day :amount}
                                  today-sum}}
-                    transaction (domain/outbound-payment->transaction
+                    transaction (outbound/outbound-payment->transaction
                                  data
                                  debtor-account
                                  (:ledger-account-id pending-outbound)
@@ -193,9 +195,9 @@
                     {:keys [transaction-id transaction-type legs]}
                     transaction+legs
                     _ (balances/apply-legs txn bank-id legs transaction-type)
-                    payment (domain/new-outbound-payment data
-                                                         business-day
-                                                         transaction-id)
+                    payment (outbound/new-outbound-payment data
+                                                           business-day
+                                                           transaction-id)
                     _ (store/save-outbound-payment
                        txn
                        payment
@@ -207,7 +209,7 @@
                            data
                            raw
                            q/find-outbound-payment-by-idempotency-key)]
-        (when (domain/republishable-outbound? existing)
+        (when (outbound/republishable-outbound? existing)
           (republish-pending config existing))
         existing)
       (let-nom> [{:keys [payment debtor-account]} raw]

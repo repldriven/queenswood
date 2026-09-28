@@ -1,8 +1,9 @@
 (ns com.repldriven.queenswood.payment.sweep
   (:require
     [com.repldriven.queenswood.payment.core :as core]
-    [com.repldriven.queenswood.payment.domain :as domain]
-    [com.repldriven.queenswood.payment.events :as events]
+    [com.repldriven.queenswood.payment.domain.outbound :as outbound]
+    [com.repldriven.queenswood.payment.events.provider-transfer :as
+     provider-transfer]
     [com.repldriven.queenswood.payment.store :as store]
 
     [com.repldriven.queenswood.payment-query.interface :as q]
@@ -20,7 +21,8 @@
                   held (q/find-outbound-payments-by-status
                         config
                         :outbound-payment-status-held)
-                  actions (domain/sweep-actions (into pending held) now config)
+                  actions
+                  (outbound/sweep-actions (into pending held) now config)
                   {:keys [republish report]} actions]
                  (doseq [payment republish]
                    (core/republish-pending config payment))
@@ -42,7 +44,7 @@
                  (doseq [transfer pending
                          :when (> (- now (:created-at transfer))
                                   resend-after-ms)]
-                   (let [res (events/send-transfer config transfer)]
+                   (let [res (provider-transfer/send-transfer config transfer)]
                      (when (error/anomaly? res)
                        (log/error "Provider transfer resend failed"
                                   {:transfer-id (:transfer-id transfer)

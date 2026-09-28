@@ -35,6 +35,9 @@ Overrides:
 
 ## Checks
 
+A check naming `domain.clj` or `events.clj` also scans every file in a
+`domain/` or `events/` folder.
+
 | Check | What it flags | Source invariant |
 |-------|---------------|-------------------|
 | `fdb-leak` | a require of `com.repldriven.queenswood.fdb.interface` in any file other than `store.clj` | TDD: "FDB is required only in `store.clj`" |

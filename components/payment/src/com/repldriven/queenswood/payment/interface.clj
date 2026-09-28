@@ -24,7 +24,10 @@
     [com.repldriven.queenswood.payment.system]
 
     [com.repldriven.queenswood.payment.core :as core]
-    [com.repldriven.queenswood.payment.events :as events]))
+    [com.repldriven.queenswood.payment.events.inbound :as inbound]
+    [com.repldriven.queenswood.payment.events.outbound :as outbound]
+    [com.repldriven.queenswood.payment.events.provider-transfer :as
+     provider-transfer]))
 
 (defn submit-internal
   "Submit an internal (same-org) payment between two cash accounts.
@@ -87,7 +90,7 @@
 
   Returns the payment map or an anomaly."
   [config data]
-  (events/settle-inbound config data))
+  (inbound/settle-inbound config data))
 
 (defn settle-outbound
   "Process an outbound `transaction-settled` event by flipping the
@@ -103,7 +106,7 @@
 
   Returns the updated payment map or an anomaly."
   [config data]
-  (events/settle-outbound config data))
+  (outbound/settle-outbound config data))
 
 (defn hold-outbound
   "Process an outbound `transaction-held` event by flipping the matching
@@ -117,7 +120,7 @@
 
   Returns the updated payment map or an anomaly."
   [config data]
-  (events/hold-outbound config data))
+  (outbound/hold-outbound config data))
 
 (defn reject-outbound
   "Process an outbound `transaction-rejected` event. Reverses the
@@ -134,7 +137,7 @@
 
   Returns the updated payment map or an anomaly."
   [config data]
-  (events/reject-outbound config data))
+  (outbound/reject-outbound config data))
 
 (defn return-outbound
   "Process a `transaction-returned` event, which the scheme sends when the
@@ -152,7 +155,7 @@
 
   Returns the updated payment map or an anomaly."
   [config data]
-  (events/return-outbound config data))
+  (outbound/return-outbound config data))
 
 (defn admit-inbound
   "Process an `admit-inbound-payment` command, which a provider asking
@@ -173,7 +176,7 @@
   Returns `{:admitted true :payment-id}`, `{:admitted false :reason-code
   :reason}`, or an anomaly."
   [config data]
-  (events/admit-inbound config data))
+  (inbound/admit-inbound config data))
 
 (defn hold-inbound
   "Process an inbound `transaction-held` event. Records the inbound `held`
@@ -187,7 +190,7 @@
 
   Returns the held InboundPayment map or an anomaly."
   [config data]
-  (events/hold-inbound config data))
+  (inbound/hold-inbound config data))
 
 (defn return-inbound
   "Process an inbound `transaction-rejected` event. Transitions the matching
@@ -203,7 +206,7 @@
 
   Returns the updated payment map or an anomaly."
   [config data]
-  (events/return-inbound config data))
+  (inbound/return-inbound config data))
 
 (defn mirror-posted
   "Process a `transaction-posted` event where the payment provider holds
@@ -221,7 +224,7 @@
 
   Returns nil or an anomaly."
   [config data]
-  (events/mirror-posted config data))
+  (provider-transfer/mirror-posted config data))
 
 (defn complete-transfer
   "Process a `transfer-completed` event: the pending provider transfer
@@ -234,7 +237,7 @@
   Returns the transfer or an anomaly, `:payment/unknown-transfer` where
   no transfer has the id."
   [config data]
-  (events/complete-transfer config data))
+  (provider-transfer/complete-transfer config data))
 
 (defn fail-transfer
   "Process a `transfer-failed` event: the pending provider transfer
@@ -247,4 +250,4 @@
 
   Returns the transfer or an anomaly."
   [config data]
-  (events/fail-transfer config data))
+  (provider-transfer/fail-transfer config data))
