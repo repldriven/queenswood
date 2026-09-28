@@ -3,8 +3,9 @@
 
      Four steps in a single centred column: enter a company number,
      look it up, confirm the matched entity, then name the bank
-     (pre-filled with the registered name). A success step confirms
-     the bank is provisioned and bound.
+     (pre-filled with the registered name) and choose a provider of
+     each kind the installation offers, its default selected. A success
+     step confirms the bank is provisioned and bound.
 
      All lookups go through the backend (/v1/companies/...);
      onboarding re-confirms and snapshots the entity onto the bank.
@@ -15,7 +16,7 @@
      bank exists. */
 
   import { AppNav } from "@queenswood/ui";
-  import { create_bank, lookup_company } from "./api.mjs";
+  import { create_bank, list_providers, lookup_company } from "./api.mjs";
   import {
     companyTypeLabel,
     jurisdictionLabel,
@@ -26,6 +27,7 @@
     sanitiseNumber,
     COMPANY_NUMBER_LENGTH,
   } from "./companies.mjs";
+  import { defaultChoice, kindLabel, providerLabel, providersLine } from "./providers.mjs";
 
   let { onComplete, onSignOut, onCancel, fresh = false } = $props();
 
@@ -36,6 +38,9 @@
   let match = $state(null);
   let bankName = $state("");
   let result = $state(null);
+  let offered = $state([]);
+  let choice = $state({});
+  let providersError = $state(null);
 
   let looking = $state(false);
   let lookupError = $state(null);
@@ -47,9 +52,27 @@
   const LEDES = {
     1: "First, find your company on the official register.",
     2: "Confirm this is the legal entity your bank will be bound to.",
-    3: "Give your bank its public-facing name.",
+    3: "Name your bank and choose the providers it runs on.",
     4: "You're all set.",
   };
+
+  async function loadProviders() {
+    try {
+      const res = await list_providers();
+      if (res.status === 200) {
+        offered = res.body?.items ?? [];
+        choice = defaultChoice(offered);
+      } else {
+        providersError = res.body?.detail ?? `status ${res.status}`;
+      }
+    } catch (err) {
+      providersError = err.message;
+    }
+  }
+
+  $effect(() => {
+    loadProviders();
+  });
 
   function onNumberInput(e) {
     number = sanitiseNumber(e.target.value);
@@ -98,6 +121,7 @@
       const res = await create_bank({
         companyNumber: number,
         bankName: bankName.trim(),
+        providers: offered.length ? { ...choice } : undefined,
       });
       if (res.status === 201) {
         result = res.body;
@@ -134,7 +158,7 @@
 
     {#if step < 4}
       <ol class="pips" aria-label="Progress">
-        {#each ["Company", "Confirm", "Name"] as label, i (label)}
+        {#each ["Company", "Confirm", "Bank"] as label, i (label)}
           <li class:done={step > i + 1} class:current={step === i + 1}>
             <span class="pip">{step > i + 1 ? "✓" : i + 1}</span>
             {label}
@@ -213,8 +237,30 @@
             bank trades under a different name — this is the public-facing name
             customers see.
           </span>
-          {#if createError}<p class="error" role="alert">{createError}</p>{/if}
         </div>
+        {#if offered.length}
+          <fieldset class="field providers">
+            <legend class="flabel">Providers</legend>
+            {#each offered as k (k.kind)}
+              <div class="kind" role="radiogroup" aria-label={kindLabel(k.kind)}>
+                <span class="kind-label">{kindLabel(k.kind)}</span>
+                <div class="choices">
+                  {#each k.providers as p (p)}
+                    <label class="choice" class:on={choice[k.kind] === p}>
+                      <input type="radio" name={`provider-${k.kind}`} value={p} bind:group={choice[k.kind]} />
+                      {providerLabel(p)}
+                      {#if p === k.default}<span class="tag">default</span>{/if}
+                    </label>
+                  {/each}
+                </div>
+              </div>
+            {/each}
+            <span class="hint">Your bank runs on these for good: a provider can't be changed once the bank exists.</span>
+          </fieldset>
+        {:else if providersError}
+          <p class="hint">The providers on offer couldn't be read ({providersError}), so your bank takes the installation's defaults.</p>
+        {/if}
+        {#if createError}<p class="error" role="alert">{createError}</p>{/if}
         <div class="actions">
           <button class="btn solid lg" disabled={!bankName.trim() || creating} onclick={create}>
             {creating ? "Provisioning…" : "Create bank"}
@@ -228,6 +274,7 @@
           </span>
           <h2 class="done-title"><em>{bankName}</em> is ready.</h2>
           <p class="done-sub">Bound to {match["company-name"]} · No. {match["company-number"]}</p>
+          {#if result?.providers}<p class="done-sub">{providersLine(result.providers)}</p>{/if}
           <button class="btn solid lg" onclick={goToConsole}>Go to console</button>
           <p class="meta">tenant provisioned · {match["company-number"]}</p>
         </div>
@@ -293,6 +340,21 @@
   .num-input::placeholder { letter-spacing: 0.28em; color: var(--fg-muted); }
   .name-input { height: 48px; font-size: 17px; border: 1px solid var(--rule); border-radius: 9px; background: var(--surface); color: var(--fg); padding: 0 14px; font-family: var(--grotesk); }
   .name-input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px color-mix(in oklch, var(--gold) 26%, transparent); }
+
+  .providers { border: 0; padding: 0; margin: 0; gap: 12px; }
+  .providers legend { padding: 0; margin-bottom: 4px; }
+  .kind { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .kind-label { font-size: 14px; color: var(--fg-2); }
+  .choices { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+  .choice {
+    display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 12px;
+    border: 1px solid var(--rule); border-radius: 9px; background: var(--surface);
+    font-size: 14px; color: var(--fg-2); cursor: pointer;
+  }
+  .choice.on { border-color: var(--gold); color: var(--fg); box-shadow: 0 0 0 3px color-mix(in oklch, var(--gold) 20%, transparent); }
+  .choice input { accent-color: var(--gold-deep); margin: 0; }
+  .choice:has(input:focus-visible) { outline: 2px solid var(--gold); outline-offset: 2px; }
+  .tag { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; color: var(--fg-muted); }
 
   .error { display: flex; align-items: center; gap: 7px; margin: 0; color: var(--danger); font-size: 13px; }
   .error svg { width: 15px; height: 15px; flex: 0 0 auto; }

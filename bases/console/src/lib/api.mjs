@@ -71,15 +71,28 @@ export function lookup_company(number) {
   return request(`/v1/companies/${number}`);
 }
 
+// Each kind of provider the installation offers, with its providers' keys
+// and the default a bank takes where its create names none.
+export function list_providers() {
+  return request("/v1/providers");
+}
+
+// The bank the console acts on, with the provider of each kind it runs on.
+export function get_bank() {
+  return request("/v1/bank");
+}
+
 // A person creates a bank for the confirmed legal entity and becomes its
 // owner; the answer is the bank with the person's owner membership.
-// `{ companyNumber, bankName }`.
-export function create_bank({ companyNumber, bankName }) {
+// `{ companyNumber, bankName, providers }`, `providers` a map from kind
+// to provider key, each kind left out taking its default.
+export function create_bank({ companyNumber, bankName, providers }) {
   return mutate("/v1/banks", {
     method: "POST",
     body: JSON.stringify({
       name: bankName,
       "company-number": companyNumber,
+      ...(providers ? { providers } : {}),
     }),
   });
 }
