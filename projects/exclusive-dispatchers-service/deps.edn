@@ -11,7 +11,9 @@
   ;; `cash-account-product` is here rather than in `:deps` because only
   ;; the cash-account rotation test needs it — to author the product
   ;; version an account is opened against — and this service writes no
-  ;; products at runtime.
+  ;; products at runtime. `payment-provider` is here for the same reason:
+  ;; payment's test rig declares the provider, and this service runs no
+  ;; component that reads the declaration.
   :test
   {:extra-deps
    {ext/mono {:local/root "../../deps/mono-test"}
@@ -21,7 +23,9 @@
     component/test-schema {:local/root "../../components/test-schema"}
     component/test-startup {:local/root "../../components/test-startup"}
     component/cash-account-product
-    {:local/root "../../components/cash-account-product"}}}}
+    {:local/root "../../components/cash-account-product"}
+    component/payment-provider
+    {:local/root "../../components/payment-provider"}}}}
  :deps
  {ext/mono {:local/root "../../deps/mono"}
   component/fdb {:local/root "../../components/fdb"}
