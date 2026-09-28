@@ -22,6 +22,7 @@
     [com.repldriven.queenswood.schemas.interest :as interest]
     [com.repldriven.queenswood.schemas.ledger_accounts :as ledger-accounts]
     [com.repldriven.queenswood.schemas.memberships :as memberships]
+    [com.repldriven.queenswood.schemas.form3 :as form3]
     [com.repldriven.queenswood.schemas.modulr :as modulr]
     [com.repldriven.queenswood.schemas.onfido :as onfido]
     [com.repldriven.queenswood.schemas.party :as party]
@@ -113,6 +114,9 @@
     (com.repldriven.queenswood.schemas.zyphe
      ZypheOutboxProto$ZypheOutboxEvent
      ZypheOutboxProto$ZypheOutboundIntent)
+    (com.repldriven.queenswood.schemas.form3
+     Form3OutboxProto$Form3OutboundIntent
+     Form3OutboxProto$Form3OutboxEvent)
     (com.repldriven.queenswood.schemas.modulr
      ModulrOutboxProto$ModulrOutboxEvent
      ModulrOutboxProto$ModulrOutboundIntent)))
@@ -1045,6 +1049,35 @@
   [m]
   (ModulrOutboxProto$ModulrOutboundIntent/parseFrom
    (ModulrOutboundIntent->pb m)))
+
+(def ^{:doc "Parse Form3OutboxEvent protobuf bytes into a Clojure map."}
+     pb->Form3OutboxEvent
+  form3/pb->Form3OutboxEvent)
+
+(defn Form3OutboxEvent->pb
+  "Serialise a Form3OutboxEvent map to protobuf bytes."
+  [m]
+  (proto/->pb (form3/new-Form3OutboxEvent m)))
+
+(defn Form3OutboxEvent->java
+  "Parse a Form3OutboxEvent map into the generated Java protobuf class."
+  [m]
+  (Form3OutboxProto$Form3OutboxEvent/parseFrom (Form3OutboxEvent->pb m)))
+
+(def ^{:doc "Parse Form3OutboundIntent protobuf bytes into a Clojure map."}
+     pb->Form3OutboundIntent
+  form3/pb->Form3OutboundIntent)
+
+(defn Form3OutboundIntent->pb
+  "Serialise a Form3OutboundIntent map to protobuf bytes."
+  [m]
+  (proto/->pb (form3/new-Form3OutboundIntent m)))
+
+(defn Form3OutboundIntent->java
+  "Parse a Form3OutboundIntent map into the generated Java protobuf class."
+  [m]
+  (Form3OutboxProto$Form3OutboundIntent/parseFrom
+   (Form3OutboundIntent->pb m)))
 
 (defn pb->ProviderTransfer
   "Parse ProviderTransfer protobuf bytes into a Clojure map, stripping

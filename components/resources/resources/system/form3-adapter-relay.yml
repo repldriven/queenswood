@@ -1,0 +1,16 @@
+relay-handler: !system/component
+  system/component-kind: changelog-relay/envelope-handler
+  bus: !system/ref message-bus.bus
+  store-name: form3-outbox
+  event-channel: !keyword schemes-payments-event
+  event-channels: !include system/payment-account-event-channels.yml
+
+
+relay-runners: !system/component
+  system/component-kind: changelog-relay/runners
+  form3-outbox:
+    record-db: !system/ref fdb.record-db
+    keyspace-prefix: !system/ref fdb.keyspace-prefix
+    consumer-id: form3-relay
+    store-name: form3-outbox
+    handler: !system/local-ref relay-handler

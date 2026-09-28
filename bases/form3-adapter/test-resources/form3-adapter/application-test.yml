@@ -1,0 +1,4 @@
+system:
+  avro: !include system/avro.yml
+  fdb: !include system/fdb-test.yml
+  server: !include form3-adapter/server-test.yml

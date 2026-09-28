@@ -156,7 +156,7 @@
              :auth :org-0-token}
    :until {:status 200
            :body {:payment-status "returned"
-                  :return {:reason-code "AC01" :reason "BENSCANUNKNOWN"}}}
+                  :return {:reason-code "AC01"}}}
    :timeout-ms 10000}
   {:command :api/request
    :request {:method :get

@@ -9,8 +9,8 @@ money in its own settlement account, asks the bank to admit each
 inbound, lets it return one, and screens nothing. This plan maps each
 part of the contract onto Form3's API and lists what only a Form3
 environment can settle. `form3-webhook`, holding the request signing and
-the notification schema, and `form3-simulator` are built from this
-plan; `form3-adapter` and `form3-relay` follow.
+the notification schema, `form3-simulator`, `form3-relay` and
+`form3-adapter` are built from this plan, in the development project.
 
 Sources: the Swagger 2.0 document at
 api-docs.form3.tech/assets/swagger/form3-swagger.yaml, from which

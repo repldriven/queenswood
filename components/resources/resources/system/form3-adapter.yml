@@ -1,0 +1,74 @@
+readiness: !system/component
+  system/component-kind: form3-adapter/readiness
+
+
+# The key id and RSA key pair the adapter signs each call to Form3 with.
+# Generated at start where none is given, as the simulator verifies with
+# this same component.
+credentials: !system/component
+  system/component-kind: form3-webhook/credentials
+  key-id: !profile
+    dev: null
+    test: null
+    default: !env FORM3_KEY_ID
+  private-key: !profile
+    dev: null
+    test: null
+    default: !env FORM3_PRIVATE_KEY
+
+
+registrar: !system/component
+  system/component-kind: form3-adapter/registrar
+  form3-url: !profile
+    dev: !system/ref form3-simulator-server.http-url
+    test: !system/ref form3-simulator-server.http-url
+    default: !env FORM3_URL
+  credentials: !system/local-ref credentials
+  webhook-url: !profile
+    dev: !system/ref form3-adapter-server.http-url
+    test: !system/ref form3-adapter-server.http-url
+    default: !env FORM3_ADAPTER_PUBLIC_URL
+  readiness: !system/local-ref readiness
+
+
+command-processor-impl: !system/component
+  system/component-kind: form3-adapter/command-processor
+  schemas: !system/ref avro.serde
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  payment-provider: !include system/form3-payment-provider.yml
+
+
+command-processor: !system/component
+  system/component-kind: command-processor/command-processor
+  bus: !system/ref message-bus.bus
+  processor: !system/local-ref command-processor-impl
+  command-channel: !keyword schemes-payment-command
+  command-response-channel: !keyword schemes-payment-command-response
+
+
+account-command-processor: !system/component
+  system/component-kind: command-processor/command-processor
+  bus: !system/ref message-bus.bus
+  processor: !system/local-ref command-processor-impl
+  command-channel: !keyword schemes-account-command
+  command-response-channel: !keyword schemes-account-command-response
+
+
+outbound-runner: !system/component
+  system/component-kind: form3-relay/outbound-runner
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  form3-url: !profile
+    dev: !system/ref form3-simulator-server.http-url
+    test: !system/ref form3-simulator-server.http-url
+    default: !env FORM3_URL
+  credentials: !system/local-ref credentials
+  sort-code: !or [!env FORM3_SORT_CODE, "040075"]
+  schemas: !system/ref avro.serde
+  max-attempts: 20
+  initial-backoff-ms: 1000
+  max-backoff-ms: 60000
+  reconcile-after-ms: !profile
+    test: 5000
+    default: 300000

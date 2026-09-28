@@ -1,0 +1,31 @@
+handler: !system/required-component
+
+state: !system/component
+  system/component-kind: form3-simulator/state
+
+# The bank completes an admission task within admission-deadline-ms or
+# the admission fails, and the simulator waits webhook-delay-ms before
+# each delivery.
+interceptors: !system/component
+  system/component-kind: server/interceptors
+  state: !system/local-ref state
+  # The adapter's credentials, whose public key verifies every call.
+  credentials: !system/ref form3-adapter.credentials
+  organisation-id: ee2fb143-6dfe-4787-b183-ca8ddd4164d2
+  sort-code: "040075"
+  webhook-delay-ms: 10
+  admission-deadline-ms: 5000
+
+jetty-adapter: !system/component
+  system/component-kind: server/jetty-adapter
+  handler: !system/ref form3-simulator-server.handler
+  interceptors: !system/ref form3-simulator-server.interceptors
+  options: !profile
+    test:
+      port: 0
+    default:
+      port: 8087
+
+http-url: !system/component
+  system/component-kind: server/http-url
+  jetty-adapter: !system/local-ref jetty-adapter

@@ -84,6 +84,12 @@ The HTTP API bases in the codebase today:
   its endpoints are narrow and webhook-shaped, with auth
   following Modulr's notification signing rather than bearer
   tokens.
+- **`form3-simulator`** and **`form3-adapter`** — the same
+  pair for Form3, in the development project only. The
+  simulator checks Form3's HTTP Signatures on every call and
+  serves JSON:API bodies; the adapter reads each notification's
+  resource back from Form3 before recording anything, since
+  Form3 does not sign its deliveries.
 
 ```mermaid
 graph LR
