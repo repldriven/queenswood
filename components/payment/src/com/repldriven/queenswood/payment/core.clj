@@ -3,6 +3,7 @@
     [com.repldriven.queenswood.payment.domain.checks :as checks]
     [com.repldriven.queenswood.payment.domain.internal :as internal]
     [com.repldriven.queenswood.payment.domain.outbound :as outbound]
+    [com.repldriven.queenswood.payment.provider :as provider]
     [com.repldriven.queenswood.payment.store :as store]
 
     [com.repldriven.queenswood.balance.interface :as balances]
@@ -94,13 +95,14 @@
 
 (defn- publish-scheme-command
   [config payment debtor-account]
-  (let [{:keys [bus schemas scheme-payment-command-channel]} config
+  (let [{:keys [bus schemas]} config
+        channel (provider/payment-command-channel config)
         {:keys [payment-id creditor-bban creditor-name
                 currency amount reference scheme]}
         payment
         {:keys [bban provider-account-id]} debtor-account
         schema (get schemas "submit-payment")]
-    (when (and bus schema scheme-payment-command-channel)
+    (when (and bus schema channel)
       (let [result (let-nom>
                      [payload (avro/serialize schema
                                               {:payment-id payment-id
@@ -115,7 +117,7 @@
                                                :reference reference
                                                :scheme scheme})]
                      (message-bus/send bus
-                                       scheme-payment-command-channel
+                                       channel
                                        {:command "submit-payment"
                                         :id (str (utility/uuidv7))
                                         :correlation-id (str (utility/uuidv7))
@@ -152,7 +154,7 @@
                                {:bank-id bank-id})]
                  (let-nom>
                    [_ (outbound/check-scheme (:scheme data)
-                                             (:payment-provider config))
+                                             (provider/declaration config))
                     debtor-account (cash-accounts/get-account
                                     txn
                                     bank-id

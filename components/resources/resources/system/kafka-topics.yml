@@ -26,9 +26,9 @@
     partitions: 1
   - topic: topic-companies-command-response
     partitions: 1
-  - topic: topic-idv-command
+  - topic: topic-zyphe-idv-command
     partitions: 1
-  - topic: topic-idv-command-dlq
+  - topic: topic-zyphe-idv-command-dlq
     partitions: 1
   - topic: topic-idv-command-response
     partitions: 1
@@ -76,9 +76,13 @@
     partitions: 1
   - topic: topic-payments-command-response
     partitions: 1
-  - topic: topic-schemes-account-command
+  - topic: topic-modulr-account-command
     partitions: 1
-  - topic: topic-schemes-account-command-dlq
+  - topic: topic-form3-account-command
+    partitions: 1
+  - topic: topic-modulr-account-command-dlq
+    partitions: 1
+  - topic: topic-form3-account-command-dlq
     partitions: 1
   - topic: topic-schemes-account-command-response
     partitions: 1
@@ -86,9 +90,13 @@
     partitions: 1
   - topic: topic-schemes-account-event-dlq
     partitions: 1
-  - topic: topic-schemes-payment-command
+  - topic: topic-modulr-payment-command
     partitions: 1
-  - topic: topic-schemes-payment-command-dlq
+  - topic: topic-form3-payment-command
+    partitions: 1
+  - topic: topic-modulr-payment-command-dlq
+    partitions: 1
+  - topic: topic-form3-payment-command-dlq
     partitions: 1
   - topic: topic-schemes-payment-command-response
     partitions: 1

@@ -1,9 +1,15 @@
-# What the deployment's IDV adapter can establish, the hand-offs it
-# offers, and what it needs as input. Checked against the platform
-# policy at start-up and against a tier's policies when a bank is
-# created or changes tier. See docs/tdd/parties.md.
-verifies: [identity, liveness, claimed-identity, address]
-screens: [sanctions, pep]
-channels: [web, mobile]
-hand-offs: [url]
-needs: [email]
+# The IDV providers a system offers, each provider's declaration under
+# its key, and the providers component naming the default and the
+# channel that reaches each provider's adapter. A system includes it as
+# its `idv-provider` group; an adapter refers to its own declaration,
+# `idv-provider.<key>`, and every other component that reads one refers
+# to `idv-provider.providers`. See docs/tdd/bank-providers.md.
+zyphe: !include system/idv-providers/zyphe.yml
+
+providers: !system/component
+  system/component-kind: idv-provider/providers
+  default: zyphe
+  providers:
+    zyphe:
+      declaration: !system/local-ref zyphe
+      command-channel: !keyword zyphe-idv-command

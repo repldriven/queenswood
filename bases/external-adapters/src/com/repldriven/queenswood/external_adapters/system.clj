@@ -13,6 +13,7 @@
     [com.repldriven.queenswood.company.interface]
     [com.repldriven.queenswood.email.interface]
     [com.repldriven.queenswood.fdb.interface]
+    [com.repldriven.queenswood.idv-provider.interface]
     [com.repldriven.queenswood.modulr-adapter.interface]
     [com.repldriven.queenswood.modulr-relay.interface]
     [com.repldriven.queenswood.modulr-simulator.interface]

@@ -58,12 +58,12 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-parties-event
           acks: all
-      schemes-payment-command:
+      modulr-payment-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          topic: topic-schemes-payment-command
+          topic: topic-modulr-payment-command
           acks: all
       schemes-payments-event:
         schemas: !system/local-ref schemas
@@ -102,8 +102,8 @@ system:
         producer: !system/local-ref producers.invitations-event
       parties-event:
         producer: !system/local-ref producers.parties-event
-      schemes-payment-command:
-        producer: !system/local-ref producers.schemes-payment-command
+      modulr-payment-command:
+        producer: !system/local-ref producers.modulr-payment-command
       schemes-payments-event:
         producer: !system/local-ref producers.schemes-payments-event
       schemes-account-event:
@@ -252,5 +252,6 @@ system:
         store-name: rewards
         handler: !system/local-ref rewards-handler
   scheduler: !include system/scheduler.yml
+  payment-provider: !include system/payment-provider.yml
   payment-sweep: !include system/payment-outbound-sweep.yml
   telemetry: !include system/telemetry.yml

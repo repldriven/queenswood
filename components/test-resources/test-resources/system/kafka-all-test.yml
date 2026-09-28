@@ -113,19 +113,19 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-companies-command-response
       acks: all
-  idv-command:
+  zyphe-idv-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
     schema: !keyword command
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
-      topic: topic-idv-command
+      topic: topic-zyphe-idv-command
       acks: all
-  idv-command-dlq:
+  zyphe-idv-command-dlq:
     _: !system/local-ref topics
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
-      topic: topic-idv-command-dlq
+      topic: topic-zyphe-idv-command-dlq
       acks: all
   idv-command-response:
     _: !system/local-ref topics
@@ -277,19 +277,33 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-payments-command-response
       acks: all
-  schemes-account-command:
+  modulr-account-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
     schema: !keyword command
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
-      topic: topic-schemes-account-command
+      topic: topic-modulr-account-command
       acks: all
-  schemes-account-command-dlq:
+  form3-account-command:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword command
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      topic: topic-form3-account-command
+      acks: all
+  modulr-account-command-dlq:
     _: !system/local-ref topics
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
-      topic: topic-schemes-account-command-dlq
+      topic: topic-modulr-account-command-dlq
+      acks: all
+  form3-account-command-dlq:
+    _: !system/local-ref topics
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      topic: topic-form3-account-command-dlq
       acks: all
   schemes-account-command-response:
     _: !system/local-ref topics
@@ -327,19 +341,33 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-transactions-event-dlq
       acks: all
-  schemes-payment-command:
+  modulr-payment-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
     schema: !keyword command
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
-      topic: topic-schemes-payment-command
+      topic: topic-modulr-payment-command
       acks: all
-  schemes-payment-command-dlq:
+  form3-payment-command:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword command
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      topic: topic-form3-payment-command
+      acks: all
+  modulr-payment-command-dlq:
     _: !system/local-ref topics
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
-      topic: topic-schemes-payment-command-dlq
+      topic: topic-modulr-payment-command-dlq
+      acks: all
+  form3-payment-command-dlq:
+    _: !system/local-ref topics
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      topic: topic-form3-payment-command-dlq
       acks: all
   schemes-payment-command-response:
     _: !system/local-ref topics
@@ -499,16 +527,16 @@ consumers: !system/component
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       group.id: test-companies-command-response
-  idv-command:
+  zyphe-idv-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
     schema: !keyword command
-    topics: [topic-idv-command]
-    dead-letter-producer: !system/local-ref producers.idv-command-dlq
+    topics: [topic-zyphe-idv-command]
+    dead-letter-producer: !system/local-ref producers.zyphe-idv-command-dlq
     max-redeliveries: 5
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
-      group.id: test-idv-command
+      group.id: test-zyphe-idv-command
   idv-command-response:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -639,16 +667,26 @@ consumers: !system/component
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       group.id: test-payments-command-response
-  schemes-account-command:
+  modulr-account-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
     schema: !keyword command
-    topics: [topic-schemes-account-command]
-    dead-letter-producer: !system/local-ref producers.schemes-account-command-dlq
+    topics: [topic-modulr-account-command]
+    dead-letter-producer: !system/local-ref producers.modulr-account-command-dlq
     max-redeliveries: 5
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
-      group.id: test-schemes-account-command
+      group.id: test-modulr-account-command
+  form3-account-command:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword command
+    topics: [topic-form3-account-command]
+    dead-letter-producer: !system/local-ref producers.form3-account-command-dlq
+    max-redeliveries: 5
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      group.id: test-form3-account-command
   schemes-account-command-response:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -677,22 +715,32 @@ consumers: !system/component
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       group.id: test-transactions-event
-  schemes-payment-command:
+  modulr-payment-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
     schema: !keyword command
-    topics: [topic-schemes-payment-command]
-    dead-letter-producer: !system/local-ref producers.schemes-payment-command-dlq
+    topics: [topic-modulr-payment-command]
+    dead-letter-producer: !system/local-ref producers.modulr-payment-command-dlq
     max-redeliveries: 5
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
-      group.id: test-schemes-payment-command
-  schemes-payment-command-observer:
+      group.id: test-modulr-payment-command
+  form3-payment-command:
     _: !system/local-ref topics
-    topics: [topic-schemes-payment-command]
+    schemas: !system/local-ref schemas
+    schema: !keyword command
+    topics: [topic-form3-payment-command]
+    dead-letter-producer: !system/local-ref producers.form3-payment-command-dlq
+    max-redeliveries: 5
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
-      group.id: test-schemes-payment-command-observer
+      group.id: test-form3-payment-command
+  modulr-payment-command-observer:
+    _: !system/local-ref topics
+    topics: [topic-modulr-payment-command]
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      group.id: test-modulr-payment-command-observer
   schemes-payment-command-response:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -756,8 +804,8 @@ message-bus-producers: !system/component
     producer: !system/local-ref producers.companies-command
   companies-command-response:
     producer: !system/local-ref producers.companies-command-response
-  idv-command:
-    producer: !system/local-ref producers.idv-command
+  zyphe-idv-command:
+    producer: !system/local-ref producers.zyphe-idv-command
   idv-command-response:
     producer: !system/local-ref producers.idv-command-response
   idv-event:
@@ -788,16 +836,20 @@ message-bus-producers: !system/component
     producer: !system/local-ref producers.payments-command
   payments-command-response:
     producer: !system/local-ref producers.payments-command-response
-  schemes-account-command:
-    producer: !system/local-ref producers.schemes-account-command
+  modulr-account-command:
+    producer: !system/local-ref producers.modulr-account-command
+  form3-account-command:
+    producer: !system/local-ref producers.form3-account-command
   schemes-account-command-response:
     producer: !system/local-ref producers.schemes-account-command-response
   schemes-account-event:
     producer: !system/local-ref producers.schemes-account-event
   transactions-event:
     producer: !system/local-ref producers.transactions-event
-  schemes-payment-command:
-    producer: !system/local-ref producers.schemes-payment-command
+  modulr-payment-command:
+    producer: !system/local-ref producers.modulr-payment-command
+  form3-payment-command:
+    producer: !system/local-ref producers.form3-payment-command
   schemes-payment-command-response:
     producer: !system/local-ref producers.schemes-payment-command-response
   schemes-payments-event:
@@ -848,8 +900,8 @@ message-bus-consumers: !system/component
   companies-command-response:
     consumer: !system/local-ref consumers.companies-command-response
     timeout: 500
-  idv-command:
-    consumer: !system/local-ref consumers.idv-command
+  zyphe-idv-command:
+    consumer: !system/local-ref consumers.zyphe-idv-command
     timeout: 500
   idv-command-response:
     consumer: !system/local-ref consumers.idv-command-response
@@ -896,8 +948,11 @@ message-bus-consumers: !system/component
   payments-command-response:
     consumer: !system/local-ref consumers.payments-command-response
     timeout: 500
-  schemes-account-command:
-    consumer: !system/local-ref consumers.schemes-account-command
+  modulr-account-command:
+    consumer: !system/local-ref consumers.modulr-account-command
+    timeout: 500
+  form3-account-command:
+    consumer: !system/local-ref consumers.form3-account-command
     timeout: 500
   schemes-account-command-response:
     consumer: !system/local-ref consumers.schemes-account-command-response
@@ -908,8 +963,11 @@ message-bus-consumers: !system/component
   transactions-event:
     consumer: !system/local-ref consumers.transactions-event
     timeout: 500
-  schemes-payment-command:
-    consumer: !system/local-ref consumers.schemes-payment-command
+  modulr-payment-command:
+    consumer: !system/local-ref consumers.modulr-payment-command
+    timeout: 500
+  form3-payment-command:
+    consumer: !system/local-ref consumers.form3-payment-command
     timeout: 500
   schemes-payment-command-response:
     consumer: !system/local-ref consumers.schemes-payment-command-response

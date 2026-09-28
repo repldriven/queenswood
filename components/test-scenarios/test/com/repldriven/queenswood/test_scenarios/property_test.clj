@@ -45,8 +45,8 @@
    :record-store (system/instance sys [:fdb :store])
    :bus (system/instance sys [:message-bus :bus])
    :schemas (system/instance sys [:avro :serde])
-   :scheme-payment-command-channel :schemes-payment-command
-   :payment-provider (system/instance sys [:payment-provider :declaration])
+   :payment-providers (system/instance sys [:payment-provider :providers])
+   :idv-providers (system/instance sys [:idv-provider :providers])
    :zyphe-simulator-url (system/instance sys
                                          [:zyphe-simulator-server :http-url])
    :payment-simulator-url (system/instance sys

@@ -30,12 +30,13 @@
 
   Args:
   - bank: FDB config map (`:record-db` / `:record-store`), carrying the
-    `:bus` and `:schemas` the payment verbs publish with, and the
-    `:payment-provider` declaration an outbound payment is checked
-    against.
+    `:bus` and `:schemas` the payment verbs publish with, the
+    `:payment-providers` instance whose default provider an outbound
+    payment is checked against and sent to, and the `:idv-providers`
+    instance a verification is opened through.
   - observers (optional map):
     - `:scheme-commands` — an observer, from `start-observer`, of
-      `topic-schemes-payment-command`.
+      `topic-modulr-payment-command`.
     - `:dead-letters` — an observer of
       `topic-schemes-payments-event-dlq`.
     - `:envelope-schemas` — the serde the Kafka envelopes are written

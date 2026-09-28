@@ -19,13 +19,6 @@
 
 (def ^:private poll-interval-ms 50)
 
-(def ^:private idv-provider
-  "The provider declaration the scenario rig's adapter runs under."
-  {:verifies ["identity" "liveness" "claimed-identity" "address"]
-   :screens ["sanctions" "pep"]
-   :channels ["web" "mobile"]
-   :needs ["email"]})
-
 (defn- poll
   [what f]
   (let [deadline (+ (utility/now) deadline-ms)]
@@ -57,15 +50,13 @@
   that matches `person`, the payload it was created with. Returns the
   ready session or an anomaly.
 
-  `bank` carries the FDB config, the bus and schemas, and
-  `:zyphe-simulator-url`."
+  `bank` carries the FDB config, the bus and schemas, the
+  `:idv-providers` instance, and `:zyphe-simulator-url`."
   [bank bank-id party-id person]
   (let [{:keys [zyphe-simulator-url]} bank
         {:keys [given-name middle-names family-name date-of-birth]} person]
     (let-nom>
-      [session (idv/open-session (assoc bank
-                                        :idv-command-channel :idv-command
-                                        :idv-provider idv-provider)
+      [session (idv/open-session bank
                                  {:bank-id bank-id
                                   :party-id party-id
                                   :channel "web"

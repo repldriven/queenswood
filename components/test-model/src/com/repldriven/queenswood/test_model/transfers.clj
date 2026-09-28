@@ -75,8 +75,8 @@
   `[debtor creditor amount]` pays a known model account; the
   bank-payment event-processor recognises the creditor BBAN as
   internal on the schemes-payments-event settled callback and
-  credits it. The verb publishes the schemes-payment-command on
-  the bus; the provider settles it asynchronously and the
+  credits it. The verb publishes submit-payment on the provider's
+  channel; the provider settles it asynchronously and the
   event-processor flips the OutboundPayment to `:completed`. The
   model mirrors that auto-settle here by marking `:status
   :completed` straight away (so by the time the next model-eq

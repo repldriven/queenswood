@@ -1,6 +1,7 @@
 system:
   avro: !include system/avro.yml
-  payment-provider: !include system/form3-payment-provider.yml
+  payment-provider: !include test-api-scenarios/form3-payment-provider-test.yml
+  idv-provider: !include system/idv-provider.yml
   banks: !include system/bank.yml
   banks-dispatcher: !include system/bank-dispatcher.yml
   cash-account-product-templates: !include system/cash-account-product-templates.yml

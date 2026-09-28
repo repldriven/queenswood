@@ -1,8 +1,20 @@
 system:
+  idv-provider:
+    zyphe: !include system/idv-providers/zyphe.yml
+    unverified: !system/component
+      system/component-kind: idv-provider/declaration
+      verifies: [identity, liveness, claimed-identity]
+      screens: [sanctions, pep]
+    providers: !system/component
+      system/component-kind: idv-provider/providers
+      default: zyphe
+      providers:
+        zyphe:
+          declaration: !system/local-ref zyphe
+        unverified:
+          declaration: !system/local-ref unverified
   idv:
     criteria-check: !system/component
       system/component-kind: idv/criteria-check
       policy: !include policies/platform/restricted/policy.yml
-      idv-provider:
-        verifies: [identity, liveness, claimed-identity]
-        screens: [sanctions, pep]
+      idv-providers: !system/ref idv-provider.providers

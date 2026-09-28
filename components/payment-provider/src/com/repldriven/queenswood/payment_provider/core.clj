@@ -2,6 +2,8 @@
   (:require
     [com.repldriven.mono.error.interface :as error]))
 
+(def kind "payment")
+
 (def defaults {:inbound "notified" :returns [] :screening "provider"})
 
 (defn declared
@@ -38,3 +40,51 @@
                   {:message
                    "The payment provider declaration asks more than it carries"
                    :uncovered missing}))))
+
+(defn- offered
+  [providers]
+  (mapv name (keys providers)))
+
+(defn providers
+  [config]
+  (let [{:keys [default providers]} config
+        entries (into {}
+                      (map (fn [[k entry]]
+                             [(keyword k) (assoc entry :provider (name k))]))
+                      providers)
+        default (some-> default
+                        name
+                        keyword)]
+    (if (contains? entries default)
+      {:default default :providers entries}
+      (error/fail :payment-provider/unknown-default
+                  {:message "The default payment provider is not offered"
+                   :default (some-> default
+                                    name)
+                   :offered (offered entries)}))))
+
+(defn default
+  [instance]
+  (let [{:keys [default providers]} instance]
+    (get providers default)))
+
+(defn entries
+  [instance]
+  (vals (:providers instance)))
+
+(defn- chosen
+  [bank]
+  (some (fn [{bank-kind :kind :keys [provider]}]
+          (when (= kind bank-kind) provider))
+        (:providers bank)))
+
+(defn for-bank
+  [instance bank]
+  (let [provider (chosen bank)]
+    (if (nil? provider)
+      (default instance)
+      (or (get-in instance [:providers (keyword provider)])
+          (error/reject :payment-provider/unknown
+                        {:message "The bank's payment provider is not offered"
+                         :provider provider
+                         :offered (offered (:providers instance))})))))

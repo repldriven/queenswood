@@ -1,0 +1,15 @@
+# What the Modulr adapter can carry: Faster Payments, a sort code and
+# account number issued per account, a balance held for each account,
+# name checks made outbound, inbound payments told once settled, nothing
+# returned by the platform, and screening by Modulr. Checked when the
+# adapter starts, when a product version is published and when an
+# outbound payment is submitted. See docs/tdd/payments.md.
+!system/component
+system/component-kind: payment-provider/declaration
+schemes: [fps]
+addresses: [scan]
+balances: per-account
+payee-check: [outbound]
+inbound: notified
+returns: []
+screening: provider

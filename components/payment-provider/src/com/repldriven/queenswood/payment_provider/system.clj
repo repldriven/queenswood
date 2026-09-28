@@ -10,4 +10,12 @@
    :system/config {}
    :system/instance-schema map?})
 
-(system/defcomponents :payment-provider {:declaration declaration})
+(def ^:private providers
+  {:system/start (fn [{:system/keys [config instance]}]
+                   (or instance (core/providers config)))
+   :system/config {:default system/required-component
+                   :providers system/required-component}
+   :system/instance-schema map?})
+
+(system/defcomponents :payment-provider
+                      {:declaration declaration :providers providers})

@@ -35,26 +35,25 @@ running any provider's sandbox, a known limitation of
 
 ## Background
 
-- **The payment declaration.** `system/payment-provider.yml` holds one
-  `payment-provider/declaration` component, registered by
-  `components/payment-provider`, which every top-level system includes
-  once as its `payment-provider` group. `payment`, `bank`, `api`'s
-  interceptors and each payment adapter refer to
-  `payment-provider.declaration`; each adapter checks it at start-up
-  against what it carries.
-- **The IDV declaration.** `system/idv-provider.yml` is plain config,
-  included into `idv`'s processor, `bank`'s processor and the
-  `idv/criteria-check` component, which refuses to start while the
-  platform policy asks what it lacks. `new-bank` and `change-bank-tier`
-  check a tier's criteria against it.
+- **The declarations.** `payment-provider` and `idv-provider` each
+  register a `declaration` kind, one component per provider in a
+  file under `system/payment-providers/` or `system/idv-providers/`,
+  and a `providers` kind naming the default and each provider's
+  channels. `system/payment-provider.yml` and
+  `system/idv-provider.yml`, which every system includes as its group,
+  offer Modulr and Zyphe. Each adapter refers to its own declaration
+  and checks it at start-up against what it carries; every other
+  reader takes the default's entry, and `idv/criteria-check` refuses to
+  start while the platform policy asks what any provider offered
+  lacks.
 - **Command channels.** `payment` publishes `submit-payment`,
-  `return-payment` and `transfer-between-accounts` on
-  `schemes-payment-command`, `cash-account` publishes the account
-  commands on `schemes-account-command`, and `idv` sends
-  `submit-idv-check` on `idv-command`. Whichever adapter runs consumes
-  each, so only one of a kind runs in a JVM. Replies and events come
-  back on `schemes-payments-event`, `schemes-account-event` and
-  `idv-event`.
+  `return-payment` and `transfer-between-accounts` on the default's
+  `payment-command-channel`, `cash-account` publishes the account
+  commands on its `account-command-channel`, and `idv` sends
+  `submit-idv-check` on its `command-channel`. Each adapter consumes
+  its own, `modulr-payment-command` or `zyphe-idv-command` for example.
+  Replies and events come back on `schemes-payments-event`,
+  `schemes-account-event` and `idv-event`.
 - **Payee checks.** `payee-check` calls one adapter over HTTP, at
   `payment-adapter-url`.
 - **Bank creation.** `POST /v1/banks` sends `create-bank`, and
@@ -215,7 +214,7 @@ it is written.
 1. **Declarations by name.** `payment-provider/providers` and
    `idv-provider/providers`, per-provider command channels, and every
    reader taking the default's entry. Proved by every scenario passing
-   unchanged on each rig.
+   unchanged on each rig. Built.
 2. **The bank's providers.** `Bank.providers`, the create and its
    refusals, `GET /v1/providers`, every reader resolving the bank's
    provider, and the guardrail. Proved by a bank created on each

@@ -3,7 +3,7 @@ processor: !system/component
   record-db: !system/ref fdb.record-db
   record-store: !system/ref fdb.meta-store
   schemas: !system/ref avro.serde
-  payment-provider: !system/ref payment-provider.declaration
+  payment-providers: !system/ref payment-provider.providers
   business-day-cutoff:
     zone: Europe/London
     hour-of-day: 17
@@ -17,4 +17,4 @@ event-processor: !system/component
     hour-of-day: 17
 bus: !system/component
   system/component-kind: message-bus/local-bus
-  channels: [schemes-payment-command]
+  channels: [modulr-payment-command]

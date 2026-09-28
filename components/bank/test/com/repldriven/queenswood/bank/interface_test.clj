@@ -19,6 +19,7 @@
     [com.repldriven.queenswood.cash-account-product-query.interface :as
      products]
     [com.repldriven.queenswood.cash-account-query.interface :as cash-accounts]
+    [com.repldriven.queenswood.idv-provider.interface :as idv-provider]
     [com.repldriven.queenswood.ledger-account.interface :as ledger-accounts]
     [com.repldriven.queenswood.membership.interface :as memberships]
     [com.repldriven.queenswood.membership-query.interface :as q]
@@ -48,6 +49,13 @@
   the platform policy requires."
   {:verifies ["identity" "liveness" "claimed-identity" "address"]
    :screens ["sanctions" "pep"]})
+
+(def ^:private providers
+  "The providers a dispatched command reads, offering one IDV provider
+  declaring `idv-provider`."
+  {:idv (idv-provider/providers {:default "verifier"
+                                 :providers {:verifier {:declaration
+                                                        idv-provider}}})})
 
 (def ^:private operator
   {:kind :actor-kind-operator :principal-id "queenswood-admin"})
@@ -254,7 +262,7 @@
          config (assoc (fdb-config sys)
                        :schemas schemas
                        :identity-provider idp
-                       :idv-provider idv-provider)
+                       :providers providers)
          user-id "usr.delivered-twice"
          message (fn [id data]
                    {:command "create-bank"

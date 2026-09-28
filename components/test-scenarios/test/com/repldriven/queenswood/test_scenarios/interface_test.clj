@@ -38,16 +38,16 @@
   [sys]
   {:record-db (system/instance sys [:fdb :record-db])
    :record-store (system/instance sys [:fdb :store])
-   ;; `payment/submit-outbound` publishes a schemes-payment-command
-   ;; on the bus when the outbound is created — wire the bus,
-   ;; schemas, and channel keyword through so it lands on the right
+   ;; `payment/submit-outbound` publishes a submit-payment on the default
+   ;; provider's payment command channel when the outbound is created —
+   ;; wire the bus, schemas and providers through so it lands on the right
    ;; topic. The payment adapter's command-processor consumes it, the
    ;; provider settles, and bank-payment's event-processor on
    ;; schemes-payments-event credits the inbound side.
    :bus (system/instance sys [:message-bus :bus])
    :schemas (system/instance sys [:avro :serde])
-   :scheme-payment-command-channel :schemes-payment-command
-   :payment-provider (system/instance sys [:payment-provider :declaration])
+   :payment-providers (system/instance sys [:payment-provider :providers])
+   :idv-providers (system/instance sys [:idv-provider :providers])
    :zyphe-simulator-url (system/instance sys
                                          [:zyphe-simulator-server :http-url])
    :payment-simulator-url (system/instance sys
@@ -59,7 +59,7 @@
   {:scheme-commands (SUT/start-observer
                      (system/instance sys
                                       [:kafka :consumers
-                                       :schemes-payment-command-observer]))
+                                       :modulr-payment-command-observer]))
    :dead-letters (SUT/start-observer
                   (system/instance sys
                                    [:kafka :consumers

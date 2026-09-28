@@ -43,12 +43,12 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-cash-accounts-command-response
           acks: all
-      idv-command:
+      zyphe-idv-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          topic: topic-idv-command
+          topic: topic-zyphe-idv-command
           acks: all
       banks-command-dlq:
         conf:
@@ -90,12 +90,12 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-parties-event-dlq
           acks: all
-      schemes-account-command:
+      modulr-account-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          topic: topic-schemes-account-command
+          topic: topic-modulr-account-command
           acks: all
       schemes-account-event-dlq:
         conf:
@@ -204,10 +204,10 @@ system:
         producer: !system/local-ref producers.idvs-command-response
       cash-accounts-command-response:
         producer: !system/local-ref producers.cash-accounts-command-response
-      idv-command:
-        producer: !system/local-ref producers.idv-command
-      schemes-account-command:
-        producer: !system/local-ref producers.schemes-account-command
+      zyphe-idv-command:
+        producer: !system/local-ref producers.zyphe-idv-command
+      modulr-account-command:
+        producer: !system/local-ref producers.modulr-account-command
     message-bus-consumers: !system/component
       system/component-kind: kafka/message-bus-consumers
       banks-command:
@@ -245,6 +245,7 @@ system:
   avro: !include system/avro.yml
   keycloak: !include system/keycloak.yml
   payment-provider: !include system/payment-provider.yml
+  idv-provider: !include system/idv-provider.yml
   banks: !include system/bank.yml
   memberships: !include system/membership.yml
   parties: !include system/party.yml

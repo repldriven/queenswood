@@ -6,7 +6,6 @@
     [com.repldriven.queenswood.payment.system]
 
     [com.repldriven.queenswood.fdb.interface]
-    ;; enforce-idioms: brick-test-scope -- the rig's declaration kind
     [com.repldriven.queenswood.payment-provider.interface]
     [com.repldriven.queenswood.policy.interface]
     [com.repldriven.queenswood.testcontainers.interface]

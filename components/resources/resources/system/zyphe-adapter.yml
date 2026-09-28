@@ -9,7 +9,7 @@ command-processor: !system/component
   system/component-kind: command-processor/command-processor
   bus: !system/ref message-bus.bus
   processor: !system/local-ref command-processor-impl
-  command-channel: !keyword idv-command
+  command-channel: !keyword zyphe-idv-command
   command-response-channel: !keyword idv-command-response
 
 
@@ -18,7 +18,7 @@ outbound-runner: !system/component
   record-db: !system/ref fdb.record-db
   record-store: !system/ref fdb.meta-store
   schemas: !system/ref avro.serde
-  idv-provider: !include system/idv-provider.yml
+  idv-provider: !system/ref idv-provider.zyphe
   zyphe-url: !profile
     dev: !system/ref zyphe-simulator-server.http-url
     test: !system/ref zyphe-simulator-server.http-url

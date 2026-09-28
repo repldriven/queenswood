@@ -66,7 +66,7 @@
     (with-test-system [sys "classpath:idv/criteria-test.yml"]
                       (is (some? (system/instance sys
                                                   [:idv :criteria-check])))))
-  (testing "refuses to start when the provider does not verify an address"
+  (testing "refuses to start when a provider offered verifies no address"
     (let [result (nom-> (env/config "classpath:idv/criteria-unmet-test.yml"
                                     :test)
                         system/defs

@@ -4,7 +4,7 @@ runner: !system/component
   record-store: !system/ref fdb.meta-store
   schemas: !system/ref avro.serde
   bus: !system/ref message-bus.bus
-  scheme-payment-command-channel: !keyword schemes-payment-command
+  payment-providers: !system/ref payment-provider.providers
 
 # Sends again a provider transfer still pending, as one waiting for a
 # provider account the provider has since opened.
@@ -14,7 +14,7 @@ transfer-runner: !system/component
   record-store: !system/ref fdb.meta-store
   schemas: !system/ref avro.serde
   bus: !system/ref message-bus.bus
-  scheme-payment-command-channel: !keyword schemes-payment-command
+  payment-providers: !system/ref payment-provider.providers
   interval-ms: !profile
     test: 1000
     default: 30000

@@ -4,8 +4,7 @@ processor: !system/component
   record-store: !system/ref fdb.meta-store
   schemas: !system/ref avro.serde
   bus: !system/ref message-bus.bus
-  scheme-payment-command-channel: !keyword schemes-payment-command
-  payment-provider: !system/ref payment-provider.declaration
+  payment-providers: !system/ref payment-provider.providers
   business-day-cutoff:
     zone: Europe/London
     hour-of-day: 17
@@ -23,8 +22,7 @@ event-processor-impl: !system/component
   record-store: !system/ref fdb.meta-store
   schemas: !system/ref avro.serde
   bus: !system/ref message-bus.bus
-  scheme-payment-command-channel: !keyword schemes-payment-command
-  payment-provider: !system/ref payment-provider.declaration
+  payment-providers: !system/ref payment-provider.providers
   business-day-cutoff:
     zone: Europe/London
     hour-of-day: 17
@@ -43,8 +41,7 @@ transaction-event-processor-impl: !system/component
   record-store: !system/ref fdb.meta-store
   schemas: !system/ref avro.serde
   bus: !system/ref message-bus.bus
-  scheme-payment-command-channel: !keyword schemes-payment-command
-  payment-provider: !system/ref payment-provider.declaration
+  payment-providers: !system/ref payment-provider.providers
 
 transaction-event-processor: !system/component
   system/component-kind: event-processor/event-processor

@@ -59,8 +59,8 @@
   command when that payment is still pending.
 
   Args:
-  - config: FDB handle plus :bus, :schemas,
-    :scheme-payment-command-channel.
+  - config: FDB handle plus :bus, :schemas, and :payment-providers,
+    whose default provider the payment is checked against and sent to.
   - data: submission map (bank-id, debtor-account-id,
     creditor-bban, currency, amount, reference, ...).
 
@@ -82,16 +82,15 @@
   CREDIT 2500 suspense and recorded `suspended` with the ISO 20022
   reason it was refused for. Where the provider declares `returns:
   [inbound]`, a suspended inbound is then sent back to its sender with
-  `return-payment` on the scheme payment command channel, and again on
+  `return-payment` on the provider's payment command channel, and again on
   a redelivery of the settlement. A BBAN no account holds fails
   `:payment/unknown-creditor`, since the payment provider issued every
   address an account holds. GL accounts are resolved per-bank from the
   chart of accounts at runtime.
 
   Args:
-  - config: FDB handle, plus :bus, :schemas,
-    :scheme-payment-command-channel and :payment-provider to return a
-    suspended inbound.
+  - config: FDB handle, plus :bus, :schemas and :payment-providers to
+    return a suspended inbound through the default provider.
   - data: settlement event payload.
 
   Returns the payment map or an anomaly."
@@ -224,8 +223,8 @@
   needs the bank's own funds and the provider has not opened them.
 
   Args:
-  - config: FDB handle plus :bus, :schemas,
-    :scheme-payment-command-channel, :payment-provider.
+  - config: FDB handle plus :bus, :schemas and :payment-providers,
+    whose default provider's balances and channel it follows.
   - data: the transaction-posted payload.
 
   Returns nil or an anomaly."

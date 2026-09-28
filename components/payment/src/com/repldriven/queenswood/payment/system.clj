@@ -18,8 +18,7 @@
                    :record-store system/required-component
                    :schemas system/required-component
                    :bus nil
-                   :scheme-payment-command-channel nil
-                   :payment-provider system/required-component
+                   :payment-providers system/required-component
                    :business-day-cutoff default-cutoff}
    :system/instance-schema some?})
 
@@ -30,8 +29,7 @@
                    :record-store system/required-component
                    :schemas system/required-component
                    :bus nil
-                   :scheme-payment-command-channel nil
-                   :payment-provider nil
+                   :payment-providers nil
                    :business-day-cutoff default-cutoff}
    :system/instance-schema some?})
 
@@ -42,8 +40,7 @@
                    :record-store system/required-component
                    :schemas system/required-component
                    :bus system/required-component
-                   :scheme-payment-command-channel system/required-component
-                   :payment-provider system/required-component}
+                   :payment-providers system/required-component}
    :system/instance-schema some?})
 
 (def ^:private outbound-sweep
@@ -55,7 +52,7 @@
                    :record-store system/required-component
                    :schemas system/required-component
                    :bus system/required-component
-                   :scheme-payment-command-channel system/required-component
+                   :payment-providers system/required-component
                    :interval-ms five-minutes-ms
                    :republish-after-ms fifteen-minutes-ms
                    :report-after-ms twenty-four-hours-ms}
@@ -72,7 +69,7 @@
                    :record-store system/required-component
                    :schemas system/required-component
                    :bus system/required-component
-                   :scheme-payment-command-channel system/required-component
+                   :payment-providers system/required-component
                    :interval-ms thirty-seconds-ms
                    :resend-after-ms thirty-seconds-ms}
    :system/instance-schema map?})

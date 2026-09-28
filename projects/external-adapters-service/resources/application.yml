@@ -43,10 +43,10 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-companies-command-response
           acks: all
-      schemes-payment-command-dlq:
+      modulr-payment-command-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          topic: topic-schemes-payment-command-dlq
+          topic: topic-modulr-payment-command-dlq
           acks: all
       cash-accounts-event-dlq:
         conf:
@@ -87,33 +87,35 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-schemes-account-command-response
           acks: all
-      schemes-account-command-dlq:
+      modulr-account-command-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          topic: topic-schemes-account-command-dlq
+          topic: topic-modulr-account-command-dlq
           acks: all
     # The group.ids name the per-adapter services this one absorbed.
     # They are carried over verbatim: a consumer group identifies the
     # consumer role, not the pod hosting it, and renaming one
-    # re-consumes or skips (ADR-0019 cursor continuity).
+    # re-consumes or skips (ADR-0019 cursor continuity). A provider's
+    # command channel is a topic of its own, whose group is named for
+    # this service.
     consumers: !system/component
       system/component-kind: kafka/consumers
-      schemes-payment-command:
+      modulr-payment-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
-        topics: [topic-schemes-payment-command]
-        dead-letter-producer: !system/local-ref producers.schemes-payment-command-dlq
+        topics: [topic-modulr-payment-command]
+        dead-letter-producer: !system/local-ref producers.modulr-payment-command-dlq
         max-redeliveries: 5
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          group.id: clearbank-adapter-service-schemes-payment-command
-      idv-command:
+          group.id: external-adapters-service-modulr-payment-command
+      zyphe-idv-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
-        topics: [topic-idv-command]
+        topics: [topic-zyphe-idv-command]
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          group.id: onfido-adapter-service-idv-command
+          group.id: external-adapters-service-zyphe-idv-command
       companies-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
@@ -173,15 +175,15 @@ system:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           group.id: email-service-memberships-command-response
-      schemes-account-command:
+      modulr-account-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
-        topics: [topic-schemes-account-command]
-        dead-letter-producer: !system/local-ref producers.schemes-account-command-dlq
+        topics: [topic-modulr-account-command]
+        dead-letter-producer: !system/local-ref producers.modulr-account-command-dlq
         max-redeliveries: 5
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          group.id: clearbank-adapter-service-schemes-account-command
+          group.id: external-adapters-service-modulr-account-command
     message-bus-producers: !system/component
       system/component-kind: kafka/message-bus-producers
       schemes-payment-command-response:
@@ -200,11 +202,11 @@ system:
         producer: !system/local-ref producers.schemes-account-command-response
     message-bus-consumers: !system/component
       system/component-kind: kafka/message-bus-consumers
-      schemes-payment-command:
-        consumer: !system/local-ref consumers.schemes-payment-command
+      modulr-payment-command:
+        consumer: !system/local-ref consumers.modulr-payment-command
         timeout: 500
-      idv-command:
-        consumer: !system/local-ref consumers.idv-command
+      zyphe-idv-command:
+        consumer: !system/local-ref consumers.zyphe-idv-command
         timeout: 500
       companies-command:
         consumer: !system/local-ref consumers.companies-command
@@ -227,8 +229,8 @@ system:
       memberships-command-response:
         consumer: !system/local-ref consumers.memberships-command-response
         timeout: 500
-      schemes-account-command:
-        consumer: !system/local-ref consumers.schemes-account-command
+      modulr-account-command:
+        consumer: !system/local-ref consumers.modulr-account-command
         timeout: 500
   message-bus: !include system/message-bus.yml
   fdb: !include system/fdb.yml
@@ -237,6 +239,7 @@ system:
   modulr-simulator-server: !include system/modulr-simulator-server.yml
   modulr-adapter-server: !include system/modulr-adapter-server.yml
   payment-provider: !include system/payment-provider.yml
+  idv-provider: !include system/idv-provider.yml
   modulr-adapter: !include system/modulr-adapter.yml
   zyphe-simulator-server: !include system/zyphe-simulator-server.yml
   zyphe-adapter-server: !include system/zyphe-adapter-server.yml

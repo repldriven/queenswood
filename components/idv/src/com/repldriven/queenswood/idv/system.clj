@@ -4,6 +4,8 @@
     [com.repldriven.queenswood.idv.domain :as domain]
     [com.repldriven.queenswood.idv.events :as events]
 
+    [com.repldriven.queenswood.idv-provider.interface :as idv-provider]
+
     [com.repldriven.mono.error.interface :refer [let-nom>]]
     [com.repldriven.mono.system.interface :as system]))
 
@@ -14,8 +16,7 @@
                    :record-store system/required-component
                    :schemas system/required-component
                    :bus nil
-                   :idv-command-channel nil
-                   :idv-provider nil}
+                   :idv-providers nil}
    :system/instance-schema some?})
 
 (def ^:private event-processor
@@ -35,13 +36,16 @@
    :system/instance-schema some?})
 
 (def ^:private criteria-check
-  {:system/start (fn [{:system/keys [config instance]}]
-                   (or instance
-                       (let [{:keys [policy idv-provider]} config]
-                         (let-nom> [_ (domain/check-criteria [policy]
-                                                             idv-provider)]
-                           idv-provider))))
-   :system/config {:policy system/required-component :idv-provider nil}
+  {:system/start
+   (fn [{:system/keys [config instance]}]
+     (or instance
+         (let [{:keys [policy idv-providers]} config]
+           (let-nom> [_ (some (fn [{:keys [declaration]}]
+                                (domain/check-criteria [policy] declaration))
+                              (idv-provider/entries idv-providers))]
+             idv-providers))))
+   :system/config {:policy system/required-component
+                   :idv-providers system/required-component}
    :system/instance-schema some?})
 
 (system/defcomponents :idv

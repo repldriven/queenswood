@@ -1,20 +1,16 @@
-# What the deployment's payment adapter can carry: the schemes an
-# outbound payment may go by, the address schemes it issues, whether the
-# provider holds a balance per account or one pooled balance, the name
-# checks it makes, whether it tells of an inbound once settled or asks
-# for it to be admitted first, the payments the platform may return, and
-# who screens payments. Checked when the adapter starts, when a product
-# version is published and when an outbound payment is submitted. See
-# docs/tdd/payments.md.
-#
-# A system includes one declaration as its `payment-provider` group, and
-# every component that reads it refers to `payment-provider.declaration`.
-declaration: !system/component
-  system/component-kind: payment-provider/declaration
-  schemes: [fps]
-  addresses: [scan]
-  balances: per-account
-  payee-check: [outbound]
-  inbound: notified
-  returns: []
-  screening: provider
+# The payment providers a system offers, each provider's declaration
+# under its key, and the providers component naming the default and the
+# channels that reach each provider's adapter. A system includes it as
+# its `payment-provider` group; an adapter refers to its own declaration,
+# `payment-provider.<key>`, and every other component that reads one
+# refers to `payment-provider.providers`. See docs/tdd/bank-providers.md.
+modulr: !include system/payment-providers/modulr.yml
+
+providers: !system/component
+  system/component-kind: payment-provider/providers
+  default: modulr
+  providers:
+    modulr:
+      declaration: !system/local-ref modulr
+      payment-command-channel: !keyword modulr-payment-command
+      account-command-channel: !keyword modulr-account-command

@@ -39,7 +39,7 @@ command-processor-impl: !system/component
   schemas: !system/ref avro.serde
   record-db: !system/ref fdb.record-db
   record-store: !system/ref fdb.meta-store
-  payment-provider: !system/ref payment-provider.declaration
+  payment-provider: !system/ref payment-provider.clearbank
   # The sort code ClearBank assigned, under which the adapter issues an
   # account number for every account it opens.
   sort-code: "040004"
@@ -49,7 +49,7 @@ command-processor: !system/component
   system/component-kind: command-processor/command-processor
   bus: !system/ref message-bus.bus
   processor: !system/local-ref command-processor-impl
-  command-channel: !keyword schemes-payment-command
+  command-channel: !keyword clearbank-payment-command
   command-response-channel: !keyword schemes-payment-command-response
 
 
@@ -57,7 +57,7 @@ account-command-processor: !system/component
   system/component-kind: command-processor/command-processor
   bus: !system/ref message-bus.bus
   processor: !system/local-ref command-processor-impl
-  command-channel: !keyword schemes-account-command
+  command-channel: !keyword clearbank-account-command
   command-response-channel: !keyword schemes-account-command-response
 
 

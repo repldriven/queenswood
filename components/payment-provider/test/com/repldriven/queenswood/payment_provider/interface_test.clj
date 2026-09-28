@@ -46,3 +46,40 @@
            (uncovered {:schemes ["fps"] :balances "pooled"} rails))))
   (testing "a key the adapter does not name is not checked"
     (is (nil? (SUT/check {:addresses ["iban"]} {:schemes #{"fps"}})))))
+
+(def ^:private offered
+  (SUT/providers {:default "modulr"
+                  :providers
+                  {:modulr {:declaration {:balances "per-account"}
+                            :payment-command-channel :modulr-payment-command}
+                   :form3 {:declaration {:balances "pooled"}
+                           :payment-command-channel :form3-payment-command}}}))
+
+(deftest providers-test
+  (testing "each entry carries its key"
+    (is (= "form3" (get-in offered [:providers :form3 :provider]))))
+  (testing "a default naming no provider is refused"
+    (let [res (SUT/providers {:default "clearbank"
+                              :providers {:modulr {:declaration {}}}})]
+      (is (= :payment-provider/unknown-default (error/kind res)))
+      (is (= ["modulr"] (:offered (error/payload res)))))))
+
+(deftest default-test
+  (is (= :modulr-payment-command
+         (:payment-command-channel (SUT/default offered)))))
+
+(deftest for-bank-test
+  (testing "a bank recording a provider takes its entry"
+    (is (= "form3"
+           (:provider (SUT/for-bank offered
+                                    {:providers [{:kind "idv" :provider "zyphe"}
+                                                 {:kind "payment"
+                                                  :provider "form3"}]})))))
+  (testing "a bank recording none takes the default's"
+    (is (= "modulr" (:provider (SUT/for-bank offered {})))))
+  (testing "a provider not offered is refused"
+    (let [res (SUT/for-bank offered
+                            {:providers [{:kind "payment"
+                                          :provider "clearbank"}]})]
+      (is (= :payment-provider/unknown (error/kind res)))
+      (is (= "clearbank" (:provider (error/payload res)))))))

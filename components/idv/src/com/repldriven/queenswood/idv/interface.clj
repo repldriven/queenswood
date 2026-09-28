@@ -11,7 +11,8 @@
   follow. The owning party stays pending until the IDV accepts or
   rejects; the IDV record is the source of truth for why.
   A bank's criteria are denies on `idv-action-accept`, checked against
-  the deployment's provider declaration (`system/idv-provider.yml`).
+  the provider's declaration, and at start-up the platform policy's
+  against every provider offered.
   Registers IDV component kinds (processor, event-processor,
   party-event-processor, criteria-check) through this brick's `system`
   namespace."
@@ -43,8 +44,9 @@
 
   Args:
   - config: the processor's config — `:record-db`, `:record-store`,
-    `:idv-provider`, and `:bus`, `:schemas` and `:idv-command-channel`
-    to reach the adapter.
+    `:idv-providers`, whose default provider's declaration the session
+    is checked against and whose command channel reaches its adapter,
+    and `:bus` and `:schemas`.
   - data: `{:bank-id :party-id :channel :return-url :email}`, the
     channel `\"web\"` or `\"mobile\"`."
   [config data]

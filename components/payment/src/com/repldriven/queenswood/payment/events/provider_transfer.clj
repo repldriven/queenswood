@@ -2,6 +2,7 @@
   (:require
     [com.repldriven.queenswood.payment.domain.provider-transfer :as
      provider-transfer]
+    [com.repldriven.queenswood.payment.provider :as provider]
     [com.repldriven.queenswood.payment.store :as store]
 
     [com.repldriven.queenswood.cash-account-query.interface :as cash-accounts]
@@ -91,7 +92,7 @@
   provider accounts its cash accounts now have. One whose provider
   account is not yet opened is left for the sweep to send."
   [config transfer]
-  (let [{:keys [bus schemas scheme-payment-command-channel]} config
+  (let [{:keys [bus schemas]} config
         {:keys [bank-id transaction-id debtor-account-id creditor-account-id]}
         transfer
         debtor (provider-account config bank-id debtor-account-id)
@@ -111,7 +112,7 @@
                            :debtor-provider-account-id
                            debtor))]
         (message-bus/send bus
-                          scheme-payment-command-channel
+                          (provider/payment-command-channel config)
                           {:command "transfer-between-accounts"
                            :id (str (utility/uuidv7))
                            :correlation-id (str (utility/uuidv7))
@@ -124,7 +125,7 @@
   transaction left in the ledger. A redelivery sends again those still
   pending, which the adapter takes as the transfers it already has."
   [config posted]
-  (if-not (= "per-account" (get-in config [:payment-provider :balances]))
+  (if-not (= "per-account" (:balances (provider/declaration config)))
     nil
     (let-nom> [transfers (record-transfers config posted)]
       (reduce (fn [_ t]

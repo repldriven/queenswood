@@ -250,9 +250,11 @@ system:
     interceptors: !system/component
       system/component-kind: server/interceptors
       identity-provider: !system/ref keycloak.identity-provider
-      # What the payment provider carries, which publishing a product
-      # version is checked against.
-      payment-provider: !system/ref payment-provider.declaration
+      # The providers the installation offers, by kind. Publishing a
+      # product version is checked against the payment provider's
+      # declaration.
+      providers:
+        payment: !system/ref payment-provider.providers
       # All identity-provider instances the auth interceptor may use
       # to verify an incoming JWT. The interceptor extracts the
       # unverified `iss`, picks the matching provider, then verifies.
