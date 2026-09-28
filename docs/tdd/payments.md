@@ -112,7 +112,10 @@ settlement reports, which are the bank's operations.
 - **The provider as a deployment fact.** Which adapter runs is decided
   by the service's `application.yml`, per
   [ADR-0020](../adr/0020-providers-are-deployment-facts.md), and
-  `system/payment-provider.yml` declares what it carries.
+  `system/payment-provider.yml` declares what it carries. The
+  `payment-provider` component reads a declaration with its defaults
+  and holds the start-up check each adapter makes against what it
+  carries.
 
 ## Proposed Solution
 
@@ -154,7 +157,9 @@ screening: provider
 The file is included as plain config wherever it is read:
 
 - **At start-up.** The adapter refuses to start when its configuration
-  does not cover what the file declares.
+  does not cover what the file declares, a left-out key read as its
+  default, so an adapter that only admits refuses a file silent on
+  `inbound`.
 - **At publish.** `cash-account-product` refuses a version whose
   `allowed-payment-address-schemes` names a scheme `addresses` lacks,
   with `:cash-account-product/unsupported-address-scheme` (422).
@@ -597,7 +602,7 @@ stateDiagram-v2
 7. **The declaration's new keys.** `inbound`, `returns` and
    `screening`, each existing adapter declaring its values, and the
    start-up check covering them. Proved by the payment scenarios
-   passing unchanged.
+   passing unchanged. Built.
 8. **The rails adapter and admission.** The third adapter, issuing
    account numbers under its configured sort code, and
    `admit-inbound-payment` in `payment`. Proved by the payment and
@@ -622,6 +627,8 @@ once the simulator covers every flow above.
 - **`cash-account-product`** — a version refused for an address scheme
   the declaration lacks.
 - **`payee-check`** — the payer account passed through.
+- **`payment-provider`** — a left-out key read as its default, and the
+  start-up check naming each value asked and not carried.
 - **`transaction`** — `transaction-posted` co-committed with each
   posting.
 - **`<provider>-adapter`** — each provider event mapped to its scheme

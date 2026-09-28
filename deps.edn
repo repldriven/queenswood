@@ -83,6 +83,7 @@
     components/test-projections {:local/root "components/test-projections"}
     components/test-startup {:local/root "components/test-startup"}
     components/payee-check {:local/root "components/payee-check"}
+    components/payment-provider {:local/root "components/payment-provider"}
     components/payment {:local/root "components/payment"}
     components/payment-query {:local/root "components/payment-query"}
     components/reward-query {:local/root "components/reward-query"}
@@ -188,6 +189,7 @@
                        "components/zyphe-relay/test-resources"
                        "components/zyphe-webhook/test"
                        "components/modulr-webhook/test"
+                       "components/payment-provider/test"
                        "components/form3-webhook/test"
                        "components/modulr-relay/test"
                        "components/modulr-relay/test-resources"

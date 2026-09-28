@@ -50,6 +50,7 @@
   component/cash-account-product-query
   {:local/root "../../components/cash-account-product-query"}
   component/modulr-webhook {:local/root "../../components/modulr-webhook"}
+  component/payment-provider {:local/root "../../components/payment-provider"}
   component/changelog-relay {:local/root "../../components/changelog-relay"}
   component/modulr-relay {:local/root "../../components/modulr-relay"}
   component/company {:local/root "../../components/company"}
