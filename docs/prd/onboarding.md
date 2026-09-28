@@ -3,13 +3,14 @@
 ## Objective
 
 A new customer comes onto the Queenswood platform via a single creation
-operation. One call by a platform operator produces the customer's
-organisation, a credential for the customer's own systems, a party
-representing the customer in the bank's books, a default product, a
-cash account per requested currency, the appropriate policy bindings,
-and an invitation to the person who will own it — all or nothing. The
-credential is handed over once. The customer immediately has a working
-starting state: their systems can begin operating without further
+operation. One call by a platform operator produces the customer's organisation,
+a credential for the customer's own systems, a party representing the customer
+in the bank's books, a default product, a cash account per requested currency,
+the appropriate policy bindings, and an invitation to the person who will own it
+— all or nothing. The same call settles which of the installation's providers
+the organisation runs on, one of each kind the installation offers, for as long
+as it exists. The credential is handed over once. The customer immediately has a
+working starting state: their systems can begin operating without further
 bootstrap.
 
 This PRD is the organisation as a banking entity: what it is created
@@ -20,9 +21,9 @@ Who signs in to it, and what each of them may do, is
 ## Users and stakeholders
 
 **Platform operator.** Drives the onboarding operation. Decides the
-organisation's type (customer or internal), status (live or test), tier
-(which bundle of policies binds), supported currencies, and who will
-own it. Receives the credential, delivered once, to forward to the
+organisation's type (customer or internal), status (live or test), tier (which
+bundle of policies binds), supported currencies, the providers it runs on, and
+who will own it. Receives the credential, delivered once, to forward to the
 customer.
 
 **Customer engineering team.** The downstream recipient of the
@@ -54,6 +55,12 @@ else, and the company its people act for.
   tiers can ship with different rule sets, and a platform operator uses
   the banking API to move an organisation to another tier afterwards,
   which rebinds it to that tier's bundle.
+- **Providers chosen at creation.** The organisation runs on the
+  payment provider and the identity-verification provider named when it
+  was created, from those the installation offers, or on the
+  installation's default for each kind not named. The choice holds for
+  the organisation's life, and a kind of provider the installation
+  comes to offer later is chosen the same way.
 - **An owner from the start.** An organisation an operator creates
   names the person who will own it, and one a person creates from the
   console is owned by that person. Either way, from the moment it
@@ -70,6 +77,10 @@ else, and the company its people act for.
 ## Non-goals
 
 - **Billing or pricing.** No subscription, metering, or invoicing.
+- **Changing providers.** An organisation keeps the providers it was
+  created with. Moving one to another payment provider moves its
+  accounts' addresses and its money, which is a migration outside the
+  platform.
 - **Deactivation, closure, or off-boarding.** Organisations once
   created are permanent. No flow to close one.
 - **More than one credential per organisation.** Only the default
@@ -98,6 +109,10 @@ a single call.
 - Tier — a string label identifying the policy bundle that should bind
   to this organisation.
 - Currencies — list of ISO 4217 codes (e.g. `"GBP"` or `"GBP" "EUR"`).
+- The providers it runs on — its payment provider and its
+  identity-verification provider, each from those the installation
+  offers. One left out is the installation's default for its kind, and
+  one the installation does not offer is refused.
 - The email address of the person who will own it, invited as
   [access](access.md) describes.
 
@@ -117,8 +132,9 @@ whole organisation rolls back. There is no partial state to clean up.
 the console — the journey is [access](access.md)'s — the banking API
 looks the company they named up in the registry of record, refuses one
 that is not active, and creates the organisation in the same single
-call: test status, the entry tier, sterling, bound to the confirmed
-company, with the signed-in person as its owner. The call returns the
+call: test status, the entry tier, sterling, on the providers the person
+chose or the installation's defaults, bound to the confirmed company,
+with the signed-in person as its owner. The call returns the
 same starting state the operator's route returns.
 
 **Moving an organisation afterwards.** A platform operator uses the
@@ -136,7 +152,7 @@ sequenceDiagram
     participant Q as Queenswood
     participant T as Customer engineer
 
-    A->>Q: create organisation<br/>(name, type, status, tier, currencies, owner)
+    A->>Q: create organisation<br/>(name, type, status, tier, currencies, providers, owner)
     Note over Q: One call, all or nothing
     Q->>Q: validate capability + count limit
     Q->>Q: create organisation record
@@ -152,7 +168,8 @@ sequenceDiagram
 ```
 
 A new fintech wants to integrate with Queenswood. The platform operator
-decides the organisation's tier, uses the banking API to create it,
+decides the organisation's tier and the providers it runs on, uses the
+banking API to create it,
 receives the bootstrap output, and forwards the credential to the
 fintech via a secure channel. The fintech now has a working starting
 state, and the person named as owner has an invitation waiting.

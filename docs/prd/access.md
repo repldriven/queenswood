@@ -165,14 +165,14 @@ creating an organisation of their own by mistake.
 
 ### Creating an organisation
 
-**By the person who will own it.** From the console, with nothing
-waiting for them or from the organisation switcher, a person finds the
-company they act for on the official register, confirms it, and names
-the organisation. The platform creates it as [onboarding](onboarding.md)
-describes — test, the entry tier, sterling, bound to the confirmed
-company — with the person as its only owner, and shows them the
-credential once. A person who already belongs to an organisation may
-create another, each bound to its own company.
+**By the person who will own it.** From the console, with nothing waiting for
+them or from the organisation switcher, a person finds the company they act for
+on the official register, confirms it, chooses the providers it runs on from
+those the installation offers, and names the organisation. The platform creates
+it as [onboarding](onboarding.md) describes — test, the entry tier, sterling, on
+the providers chosen, bound to the confirmed company — with the person as its
+only owner, and shows them the credential once. A person who already belongs to
+an organisation may create another, each bound to its own company.
 
 **By an operator, for a customer.** The operator's creation call names
 the email address of the person who will own the organisation. The call
@@ -389,7 +389,7 @@ sequenceDiagram
     participant Q as Queenswood
     participant D as Colleague
 
-    F->>C: sign in, find company, name organisation
+    F->>C: sign in, find company, choose providers,<br/>name organisation
     C->>Q: create organisation
     Q-->>C: organisation, owner membership,<br/>credential (shown once)
     F->>C: invite colleague (email, developer)
@@ -414,7 +414,7 @@ sequenceDiagram
     participant P as First owner
     participant C as Console
 
-    O->>Q: create organisation (name, type, status,<br/>tier, currencies, owner email)
+    O->>Q: create organisation (name, type, status,<br/>tier, currencies, providers, owner email)
     Q-->>O: organisation, credential (handed over once)
     Q-->>P: owner invitation email
     O->>P: hand over the credential via secure channel
