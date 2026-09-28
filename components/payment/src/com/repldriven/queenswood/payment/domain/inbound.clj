@@ -97,8 +97,9 @@
 
 (defn suspended-inbound-payment
   "An inbound with no matching creditor account — recorded with status
-  `suspended` and no creditor, the credit posted to 2500 suspense."
-  [data bank-id business-day transaction-id]
+  `suspended` and no creditor, the credit posted to 2500 suspense, and the
+  ISO 20022 reason it was parked for."
+  [data bank-id business-day transaction-id refusal]
   (let [{:keys [scheme-transaction-id end-to-end-id scheme
                 currency amount debtor-name reference]}
         data
@@ -114,12 +115,15 @@
       :amount amount
       :transaction-id transaction-id
       :payment-status :inbound-payment-status-suspended
+      :suspense-reason-code (:reason-code refusal)
       :created-at now
       :updated-at now}
      :debtor-name
      debtor-name
      :reference
-     reference)))
+     reference
+     :suspense-reason
+     (:reason refusal))))
 
 (defn held-inbound-payment
   "A held inbound — recorded `held` with the creditor resolved by BBAN, no
@@ -190,12 +194,15 @@
          :updated-at (utility/now)))
 
 (defn suspended-from-held
-  [held scheme-transaction-id transaction-id]
-  (assoc held
-         :payment-status :inbound-payment-status-suspended
-         :scheme-transaction-id scheme-transaction-id
-         :transaction-id transaction-id
-         :updated-at (utility/now)))
+  [held scheme-transaction-id transaction-id refusal]
+  (utility/assoc-some (assoc held
+                             :payment-status :inbound-payment-status-suspended
+                             :scheme-transaction-id scheme-transaction-id
+                             :transaction-id transaction-id
+                             :suspense-reason-code (:reason-code refusal)
+                             :updated-at (utility/now))
+                      :suspense-reason
+                      (:reason refusal)))
 
 (def ^:private closed-statuses
   #{:cash-account-status-closing :cash-account-status-closed})
@@ -281,3 +288,52 @@
   (assoc held
          :payment-status :inbound-payment-status-returned
          :updated-at (utility/now)))
+
+(defn returnable?
+  "True where `payment` is parked in suspense and the provider declares
+  that an inbound may be returned."
+  [payment payment-provider]
+  (and (= :inbound-payment-status-suspended (:payment-status payment))
+       (some #{"inbound"} (:returns payment-provider))))
+
+(defn return-payment
+  "The `return-payment` command sending a suspended inbound back to its
+  sender, for the reason it was parked."
+  [payment]
+  (let [{:keys [payment-id end-to-end-id scheme-transaction-id amount
+                currency suspense-reason-code suspense-reason]}
+        payment]
+    {:payment-id payment-id
+     :end-to-end-id end-to-end-id
+     :scheme-transaction-id scheme-transaction-id
+     :amount amount
+     :currency currency
+     :reason-code suspense-reason-code
+     :reason suspense-reason}))
+
+(defn inbound-return->transaction
+  "DEBIT 2500 suspense / CREDIT 1100 cash-at-correspondent — a suspended
+  inbound sent back to its sender, emptying suspense of it."
+  [payment cash-at-correspondent-id suspense-account-id]
+  (let [{:keys [bank-id currency amount payment-id creditor-account-id
+                reference]}
+        payment]
+    (utility/assoc-some
+     {:bank-id bank-id
+      :idempotency-key (str "return-in-" payment-id)
+      :transaction-type :transaction-type-inbound-return
+      :currency currency
+      :legs [{:account-id suspense-account-id
+              :balance-type :balance-type-default
+              :balance-status :balance-status-posted
+              :side :leg-side-debit
+              :amount amount}
+             {:account-id cash-at-correspondent-id
+              :balance-type :balance-type-default
+              :balance-status :balance-status-posted
+              :side :leg-side-credit
+              :amount amount}]}
+     :scheme-account-id
+     creditor-account-id
+     :reference
+     reference)))

@@ -29,8 +29,8 @@
 (defn inbound-payment
   [request]
   (let [{:keys [state parameters sort-code]} request
-        {:keys [bban currency reference debtor-name] :as body} (:body
-                                                                parameters)
+        {:keys [bban currency reference debtor-name settle] :as body}
+        (:body parameters)
         account (account-for state sort-code bban)]
     (if (nil? account)
       not-held-here
@@ -41,11 +41,28 @@
                            :amount (amount (:amount body))
                            :currency currency
                            :reference reference
-                           :debtor-name (or debtor-name "Simulated Debtor")})]
+                           :debtor-name (or debtor-name "Simulated Debtor")
+                           :hold-settlement? (= "held" settle)})]
         {:status 202
          :body {:endToEndIdentification payment-id
                 :admission-status admission-status
                 :status-reason status-reason}}))))
+
+(defn inbound-settlement
+  [request]
+  (let [{:keys [state parameters]} request
+        {:keys [end-to-end-id]} (:body parameters)
+        res (scheme/settle-held state (responses/config request) end-to-end-id)]
+    (if (nil? res)
+      {:status 404
+       :body {:title "NOT_FOUND"
+              :type "simulate/no-held-settlement"
+              :status 404
+              :detail "No inbound here is holding its settlement"}}
+      {:status 202
+       :body {:endToEndIdentification (:payment-id res)
+              :admission-status (:admission-status res)
+              :status-reason (:status-reason res)}})))
 
 (defn outbound-return
   [request]

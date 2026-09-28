@@ -310,6 +310,32 @@
                                   :amount 1
                                   :currency "GBP"})))))))))
 
+(deftest held-settlement-test
+  (with-receiver
+   [queue server]
+   (with-simulator
+    (subscribe server ["payment_admission_tasks" "payment_admissions"])
+    (let [number (account-number)
+          _ (register number)
+          answer (future (edn (control "/simulate/inbound-payment"
+                                       {:bban (str sort-code number)
+                                        :amount 25
+                                        :currency "GBP"
+                                        :settle "held"})))
+          _ (complete (next-delivery queue) "passed")
+          settle (fn []
+                   (control "/simulate/inbound-settlement"
+                            {:end-to-end-id (:endToEndIdentification
+                                             @answer)}))]
+      (testing "an admitted inbound holding its settlement stays pending"
+        (is (= "pending" (:admission-status @answer))))
+      (testing "until it is settled by hand"
+        (let [res (settle)]
+          (is (= 202 (:status res)))
+          (is (= "confirmed" (:admission-status (edn res))))
+          (is (= "confirmed" (status (next-delivery queue))))))
+      (testing "once" (is (= 404 (:status (settle)))))))))
+
 (deftest inbound-to-a-closed-account-test
   (with-receiver
    [queue server]

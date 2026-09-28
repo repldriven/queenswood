@@ -52,6 +52,25 @@
                        :currency currency
                        :submission-id (str (utility/uuidv7))})}))
 
+(defn- return-intent
+  [data]
+  (let [{:keys [payment-id end-to-end-id scheme-transaction-id amount currency
+                reason-code reason]}
+        data]
+    {:dedup-key (str "return:" payment-id)
+     :kind "return"
+     :provider-payment-id scheme-transaction-id
+     :request (json/write-str {:amount (relay/->major-units amount)
+                               :currency currency
+                               :return_code reason-code})
+     :context (pr-str {:return-id (str (utility/uuidv7))
+                       :submission-id (str (utility/uuidv7))
+                       :end-to-end-id end-to-end-id
+                       :amount amount
+                       :currency currency
+                       :reason-code reason-code
+                       :reason reason})}))
+
 (defn- open-intent
   [data]
   (let [{:keys [bank-id account-id holder-name currency]} data]
@@ -93,6 +112,7 @@
       (let-nom> [data (avro/deserialize-same schema payload)]
         (case command
           "submit-payment" (save-intent config (payment-intent data))
+          "return-payment" (save-intent config (return-intent data))
           "open-payment-account" (save-intent config (open-intent data))
           "close-payment-account" (save-intent config (close-intent data))
           "reissue-payment-address" (save-intent config (reissue-intent data))

@@ -10,7 +10,9 @@
   registered and open itself, failing the admission otherwise, then
   gives the bank an `account_check` task and waits for it to be
   completed, failing the admission when `admission-deadline-ms` passes
-  first. Form3 screens nothing, so no inbound is held."
+  first. Form3 screens nothing, so no inbound is held. An inbound asked
+  to hold its settlement stays `pending` once the task passes it, until
+  it is settled by hand."
   (:require
     [com.repldriven.queenswood.form3-simulator.deliveries :as deliveries]
     [com.repldriven.queenswood.form3-simulator.records :as records]
@@ -77,27 +79,53 @@
     (notify state config "payment_admission_tasks" "created" task)
     task))
 
+(defn- hold-settlement
+  [state payment-id admission-id decided]
+  (swap! state
+    assoc-in
+    [:held-settlements payment-id]
+    (assoc decided :admission-id admission-id))
+  {:payment-id payment-id :admission-status "pending"})
+
 (defn- await-decision
-  [state config admission-id task]
+  [state config payment-id admission-id task hold?]
   (let [deadline (or (:admission-deadline-ms config)
                      default-admission-deadline-ms)
         decided (deref (records/decision state admission-id) deadline nil)]
-    (if decided
-      (decide state config admission-id (:status decided) (:reason decided))
-      (do (records/change state
-                          :tasks
-                          (:id task)
-                          (fn [a] (assoc a :status "failed")))
-          (log/info "Form3 simulator admission timed out"
-                    {:admission-id admission-id})
-          (decide state config admission-id "failed" timeout-reason)))))
+    (cond
+     (and decided hold? (= "confirmed" (:status decided)))
+     (hold-settlement state payment-id admission-id decided)
+
+     decided
+     (decide state config admission-id (:status decided) (:reason decided))
+
+     :else
+     (do (records/change state
+                         :tasks
+                         (:id task)
+                         (fn [a] (assoc a :status "failed")))
+         (log/info "Form3 simulator admission timed out"
+                   {:admission-id admission-id})
+         (decide state config admission-id "failed" timeout-reason)))))
+
+(defn settle-held
+  "Settle an inbound admitted with its settlement held, as the admission
+  would have: `{:payment-id :admission-status :status-reason}`, or nil
+  where none is held under `payment-id`."
+  [state config payment-id]
+  (when-let [{:keys [admission-id status reason]}
+             (get-in @state [:held-settlements payment-id])]
+    (swap! state update :held-settlements dissoc payment-id)
+    (decide state config admission-id status reason)))
 
 (defn admit
   "Receive an inbound to the registered `account` and admit it, blocking
-  until it is decided: `{:payment-id :admission-status :status-reason}`."
+  until it is decided: `{:payment-id :admission-status :status-reason}`.
+  With `hold-settlement?`, one the bank admits stays `pending` until
+  `settle-held`."
   [state config
    {:keys [account amount currency reference debtor-name debtor
-           end-to-end-reference]}]
+           end-to-end-reference hold-settlement?]}]
   (let [payment-id (records/new-id)
         admission-id (records/new-id)
         {:keys [bank_id account_number name status]} (:attributes account)
@@ -142,8 +170,10 @@
       (decide state config admission-id "failed" "account_closed")
       (await-decision state
                       config
+                      payment-id
                       admission-id
-                      (open-task state config payment-id admission-id)))))
+                      (open-task state config payment-id admission-id)
+                      hold-settlement?))))
 
 (defn complete-task
   "Complete an admission task as the bank does: the task, or `:conflict`

@@ -12,11 +12,13 @@
    :balances "pooled"
    :payee-check ["outbound"]
    :inbound "admitted"
-   :returns []
+   :returns ["inbound"]
    :screening "bank"})
 
 (deftest check-test
   (testing "the rails declaration passes" (is (nil? (SUT/check declaration))))
+  (testing "a declaration returning nothing passes too"
+    (is (nil? (SUT/check (assoc declaration :returns [])))))
   (testing "a declaration silent on admission reads as notified, and fails"
     (is (= ["notified"]
            (get-in (error/payload (SUT/check (dissoc declaration :inbound)))

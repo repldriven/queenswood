@@ -9,7 +9,7 @@
    :balances #{"pooled"}
    :payee-check #{"outbound"}
    :inbound #{"admitted"}
-   :returns #{}
+   :returns #{"inbound"}
    :screening #{"bank"}})
 
 (defn check

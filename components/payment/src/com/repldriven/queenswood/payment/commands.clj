@@ -99,10 +99,15 @@
             (outbound/reject-outbound config data))
 
           "transaction-returned"
-          (if (= :debit-credit-code-debit debit-credit-code)
+          (case debit-credit-code
+            :debit-credit-code-credit
+            (inbound/return-suspended config data)
+
+            :debit-credit-code-debit
             (outbound/return-outbound config data)
+
             (error/fail :payment/unknown-debit-credit-code
-                        {:message "A return names an outbound payment"
+                        {:message "Unknown debit-credit-code"
                          :debit-credit-code debit-credit-code}))
 
           "transfer-completed"

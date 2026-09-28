@@ -29,6 +29,9 @@
    :system/config {:record-db system/required-component
                    :record-store system/required-component
                    :schemas system/required-component
+                   :bus nil
+                   :scheme-payment-command-channel nil
+                   :payment-provider nil
                    :business-day-cutoff default-cutoff}
    :system/instance-schema some?})
 

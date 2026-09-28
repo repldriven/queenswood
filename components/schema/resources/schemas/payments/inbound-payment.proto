@@ -32,4 +32,6 @@ message InboundPayment {
   required string bank_id = 13;
   required int64 business_day = 14;
   required InboundPaymentStatus payment_status = 15;
+  optional string suspense_reason_code = 16;
+  optional string suspense_reason = 17;
 }

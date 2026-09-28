@@ -39,7 +39,14 @@
    [:currency string?]
    [:reference {:optional true} [:maybe string?]]
    [:debtor-name {:optional true} [:maybe string?]]
-   [:outcome {:optional true} [:maybe string?]]])
+   [:outcome {:optional true} [:maybe string?]]
+   [:settle {:optional true} [:maybe [:enum "held"]]]])
+
+(def InboundSettlementRequest
+  [:map
+   {:json-schema/example {:end-to-end-id
+                          "01a0e3cb-b4af-7eb0-a1c3-12c26c98fc41"}}
+   [:end-to-end-id string?]])
 
 (def InboundPaymentResponse
   [:map
@@ -58,4 +65,4 @@
           {}
           [#'ResourceRequest #'ResourceResponse #'ResourceListResponse
            #'ApiError #'InboundPaymentRequest #'InboundPaymentResponse
-           #'OutboundReturnRequest]))
+           #'InboundSettlementRequest #'OutboundReturnRequest]))

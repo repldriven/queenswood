@@ -18,7 +18,8 @@
     "interest-accrual" :transaction-type-interest-accrual
     "interest-capital" :transaction-type-interest-capital
     "reward" :transaction-type-reward
-    "outbound-return" :transaction-type-outbound-return}
+    "outbound-return" :transaction-type-outbound-return
+    "inbound-return" :transaction-type-inbound-return}
    :transaction-type-unknown))
 
 (def ^:private leg-side-enum

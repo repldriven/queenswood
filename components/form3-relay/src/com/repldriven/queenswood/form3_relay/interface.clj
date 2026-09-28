@@ -51,9 +51,10 @@
   Args:
   - txn: an open FDB transaction or `{:record-db :record-store}` config.
   - intent: a map with `:intent-id`, `:dedup-key`, `:kind` (`payment`,
-    `open-account`, `close-account` or `reissue-address`), `:request`
-    (a payment's attributes as JSON), `:provider-payment-id` (the id the
-    payment is created under), `:status` (\"pending\"), `:attempts`,
+    `return`, `open-account`, `close-account` or `reissue-address`),
+    `:request` (a payment's or a return's attributes as JSON),
+    `:provider-payment-id` (the id the payment is created under, or the
+    inbound a return sends back), `:status` (\"pending\"), `:attempts`,
     `:created-at` and `:context`, EDN of what the runner needs to make
     the call and report its outcome."
   [txn intent]
