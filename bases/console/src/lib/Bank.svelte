@@ -1,6 +1,7 @@
 <script>
-  /* Bank — the bank this console acts on, the others the person
-     belongs to, and the danger zone where a fresh one comes from.
+  /* Bank — the bank this console acts on with the providers it runs
+     on, the others the person belongs to, and the danger zone where a
+     fresh one comes from.
 
      The platform never deletes a bank. What a fresh sandbox bank does
      is leave the old one standing, with its books intact, and move the
@@ -10,6 +11,8 @@
      job; this page only asks for it. */
 
   import { PageHeader, Panel, PanelHead, Button, Badge, RolePill, accessEnum } from "@queenswood/ui";
+  import { get_bank } from "./api.mjs";
+  import { kindLabel, providerLabel } from "./providers.mjs";
 
   let { user, memberships = [], onSwitch, onFreshBank } = $props();
 
@@ -17,6 +20,21 @@
   const kicker = $derived(current?.["bank-name"]);
   const others = $derived(memberships.slice(1));
   const isCurrent = (m) => m["bank-id"] === current?.["bank-id"];
+
+  let providers = $state(null);
+
+  async function loadBank() {
+    try {
+      const res = await get_bank();
+      providers = res.status === 200 ? (res.body?.providers ?? {}) : null;
+    } catch {
+      providers = null;
+    }
+  }
+
+  $effect(() => {
+    loadBank();
+  });
 
   const fmtDate = (iso) =>
     iso
@@ -37,6 +55,9 @@
     <div><dt>Bank id</dt><dd class="mono">{current?.["bank-id"] ?? "—"}</dd></div>
     <div><dt>Your role</dt><dd><RolePill role={accessEnum(current?.role)} /></dd></div>
     <div><dt>Member since</dt><dd>{fmtDate(current?.["created-at"])}</dd></div>
+    {#each Object.entries(providers ?? {}) as [kind, key] (kind)}
+      <div><dt>{kindLabel(kind)}</dt><dd>{providerLabel(key)}</dd></div>
+    {/each}
   </dl>
 </Panel>
 

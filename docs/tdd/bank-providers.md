@@ -58,7 +58,8 @@ running any provider's sandbox, a known limitation of
   over HTTP, at the URL its `adapter-urls` names for that provider.
 - **The bank's providers.** `Bank.providers` records the provider of
   each kind offered, chosen at creation, and `GET /v1/bank` answers it;
-  `GET /v1/providers` lists what the installation offers.
+  `GET /v1/providers` lists what the installation offers. The console's
+  create form offers that choice, and its Bank page shows the bank's.
 - **Bank creation.** `POST /v1/banks` sends `create-bank`, and
   `bank/new-bank` opens the house accounts under the payment
   declaration and checks the tier's IDV criteria. An operator may name
@@ -145,7 +146,8 @@ payment-provider:
   and its default.
 - **The console.** Its create form, after the company is confirmed,
   offers a choice of provider for each kind from `GET /v1/providers`,
-  the default selected, and sends the choice with the create.
+  the default selected, and sends the choice with the create. The Bank
+  page shows the bank's providers from `GET /v1/bank`.
 
 ### Routing a command
 
@@ -223,13 +225,15 @@ for an exception, so a branch on a key is caught where it is written.
    provider, and the guardrail. Proved by a bank created on each
    provider, one naming a kind or a provider the installation does not
    offer refused, and every scenario passing. Built.
-3. **The console's choice.** The create form's provider choice.
-   Proved by a bank created from the console on a provider other than
-   the default.
+3. **The console's choice.** The create form's provider choice and
+   the Bank page's providers. Proved by the form offering each kind's
+   providers with the default selected, and a bank created from it
+   showing them. Built.
 4. **Payment providers side by side.** Every payment adapter in the
    monolith and the API rig. Proved by a bank on the per-account
    provider and a bank on rails paying each other, each provider's
-   simulator seeing only its own bank's payments.
+   simulator seeing only its own bank's payments, and a bank created
+   from the console on a provider other than the default.
 5. **IDV providers side by side.** Both IDV adapters in the monolith
    and the rig. Proved by a bank on each verifying a person, and a tier
    refused at creation where its chosen provider lacks the criteria.
@@ -251,7 +255,8 @@ for an exception, so a branch on a key is caught where it is written.
   provider, banks on different providers paying each other, what an
   installation offers, and the create's refusals.
 - **`console`** — the create form offering each kind's providers, the
-  default selected.
+  default selected, checked by driving it against the monolith, since
+  the console has no test suite of its own.
 
 ## Alternatives Considered
 
