@@ -48,14 +48,22 @@
   - `:zyphe-simulator-url` (optional) — root URL of the booted
     identity-provider simulator, whose decision route a verification
     step posts the person's answers to.
+  - `:providers` (optional) — the providers, a map from kind to key,
+    that a bank created naming none is created on.
+  - `:key-suffix` (optional) — appended to every idempotency key, so a
+    run of the same scenarios on another provider in one boot replays
+    none of the first run's requests.
   - `:run-id` (optional) — caller-supplied tag for log lines.
 
   The fresh `:captures` map isolates scenarios from each other so
   one boot can serve many, and the fresh `:banks` map limits the
   standing invariants to the banks this scenario created."
   [{:keys [base-url admin-token token-endpoints signing-key mail-url
-           payment-simulator-url zyphe-simulator-url run-id]}]
+           payment-simulator-url zyphe-simulator-url providers key-suffix
+           run-id]}]
   {:base-url base-url
+   :providers providers
+   :key-suffix key-suffix
    :payment-simulator-url payment-simulator-url
    :zyphe-simulator-url zyphe-simulator-url
    :mail-url mail-url

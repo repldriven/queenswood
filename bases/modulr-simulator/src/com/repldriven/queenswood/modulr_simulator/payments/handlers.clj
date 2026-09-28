@@ -12,7 +12,9 @@
 
 (defn- config
   [request]
-  (select-keys request [:webhook-delay-ms :pending-for-funds-ms]))
+  (select-keys request
+               [:webhook-delay-ms :pending-for-funds-ms
+                :payment-scheme]))
 
 (def create
   (signed/verified

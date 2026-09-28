@@ -3,8 +3,9 @@
   simulator shares decide an outbound's outcome: a beneficiary sort code
   `000000` is declined, and the beneficiary name `6a41a29eafcf455493`
   held on a limit check then declined. A payment to an account
-  registered here is an inbound to it, and one to anywhere else is
-  delivered.
+  registered here is an inbound to it, one to an account another
+  simulator on the scheme holds is sent there, failing where that
+  simulator refuses it, and one to anywhere else is delivered.
 
   An inbound is admitted before it settles. Form3 checks the account is
   registered and open itself, failing the admission otherwise, then
@@ -17,6 +18,10 @@
     [com.repldriven.queenswood.form3-simulator.deliveries :as deliveries]
     [com.repldriven.queenswood.form3-simulator.records :as records]
 
+    [com.repldriven.queenswood.scheme-simulator.interface :as
+     scheme-simulator]
+
+    [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.log.interface :as log]))
 
 (def held-name "6a41a29eafcf455493")
@@ -239,6 +244,38 @@
                          "delivery_failed"
                          status-reason))))
 
+(defn- refusal
+  "The status reason where the member holding the beneficiary refused
+  the payment."
+  [res]
+  (cond
+   (or (error/anomaly? res) (= 404 (:status res)))
+   "invalid_beneficiary_details"
+
+   (= "failed" (get-in res [:body :admission-status]))
+   (or (get-in res [:body :status-reason]) "invalid_beneficiary_details")))
+
+(defn- send-on
+  "Send an outbound to an account not registered here to the member of
+  the scheme holding it, failing it where that member refuses it, and
+  deliver it where no member holds it."
+  [state config payment submission-id]
+  (let [{:keys [amount currency reference debtor_party beneficiary_party]}
+        (:attributes payment)
+        {:keys [bank_id account_number]} beneficiary_party
+        res (when (and bank_id account_number)
+              (scheme-simulator/send-inbound
+               (:payment-scheme config)
+               {:bban (str bank_id account_number)
+                :amount (bigdec amount)
+                :currency currency
+                :reference reference
+                :debtor-name (:account_name debtor_party)}))]
+    (if-let [reason (some-> res
+                            refusal)]
+      (finish-submission state config submission-id "delivery_failed" reason)
+      (finish-submission state config submission-id "delivery_confirmed" nil))))
+
 (defn- process-submission
   [state config payment submission-id]
   (let [{:keys [bank_id account_number account_name name]}
@@ -271,7 +308,7 @@
      (on-us state config payment submission-id target)
 
      :else
-     (finish-submission state config submission-id "delivery_confirmed" nil))))
+     (send-on state config payment submission-id))))
 
 (defn submit
   "Accept a payment's submission and process it on another thread, as

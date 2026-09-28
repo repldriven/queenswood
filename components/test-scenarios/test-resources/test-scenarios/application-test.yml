@@ -14,6 +14,7 @@ system:
   modulr-adapter-relay: !include system/modulr-adapter-relay.yml
   modulr-adapter-server: !include system/modulr-adapter-server.yml
   modulr-simulator-server: !include system/modulr-simulator-server.yml
+  scheme-simulator: !include system/scheme-simulator.yml
   parties: !include test-scenarios/party-test.yml
   parties-relay: !include system/party-relay.yml
   payments: !include test-scenarios/payment-test.yml

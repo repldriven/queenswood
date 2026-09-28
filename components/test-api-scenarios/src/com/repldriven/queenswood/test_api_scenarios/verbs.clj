@@ -128,11 +128,37 @@
     :payment-simulator payment-simulator-url
     base-url))
 
+(defn- for-run
+  "The request as the run it belongs to sends it: a bank created naming
+  no providers names the run's, and an idempotency key carries the
+  run's suffix, so a second run in one boot replays nothing of the
+  first."
+  [{:keys [providers key-suffix]} {:keys [method path body] :as request}]
+  (cond-> request
+          (and providers
+               (= :post method)
+               (= "/v1/banks" path)
+               (map? body)
+               (not (contains? body :providers)))
+          (assoc-in [:body :providers] providers)
+
+          key-suffix
+          (update :headers
+                  (fn [headers]
+                    (into {}
+                          (map (fn [[k v]]
+                                 (if (= "idempotency-key"
+                                        (str/lower-case (header-name k)))
+                                   [k (str v "-" key-suffix)]
+                                   [k v])))
+                          headers)))))
+
 (defn- build-request
-  [ctx
-   {:keys [base method url path path-params query-params body form auth
-           headers]}]
-  (let [token (resolve-auth ctx auth)
+  [ctx request]
+  (let [{:keys [base method url path path-params query-params body form auth
+                headers]}
+        (for-run ctx request)
+        token (resolve-auth ctx auth)
         base-headers (cond-> {}
                              body
                              (assoc "Content-Type" "application/json")

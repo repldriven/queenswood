@@ -14,6 +14,10 @@
     [com.repldriven.queenswood.test-api-scenarios.interface :as SUT]
 
     [com.repldriven.queenswood.api.api :as api]
+    [com.repldriven.queenswood.clearbank-adapter.interface :as
+     clearbank-adapter]
+    [com.repldriven.queenswood.clearbank-simulator.interface :as
+     clearbank-simulator]
     ;; The closed-control deftest sets up a state no route reaches. This
     ;; brick belongs to the development project alone, and the namespace
     ;; already loads api.api, which requires both of these.
@@ -110,6 +114,13 @@
   [defs]
   (-> defs
       (assoc-in [:system/defs :server :handler] app-with-fault)
+      (assoc-in [:system/defs :clearbank-simulator-server :handler]
+                clearbank-simulator/app)
+      (assoc-in [:system/defs :clearbank-adapter-server :handler]
+                clearbank-adapter/app)
+      (assoc-in [:system/defs :form3-simulator-server :handler]
+                form3-simulator/app)
+      (assoc-in [:system/defs :form3-adapter-server :handler] form3-adapter/app)
       (assoc-in [:system/defs :modulr-simulator-server :handler]
                 modulr-simulator/app)
       (assoc-in [:system/defs :modulr-adapter-server :handler]
@@ -262,10 +273,63 @@
     (is (= {} reused)
         "an Idempotency-Key literal shared by two scenario files replays")))
 
+(defn- skipped-tags
+  "The tags naming what a payment provider cannot run, read off its
+  declaration: telling of an inbound once settled, admitting one before
+  it settles, and screening an outbound itself."
+  [{:keys [inbound screening]}]
+  (cond-> #{}
+          (not= "notified" inbound)
+          (conj :inbound-notified)
+
+          (not= "admitted" inbound)
+          (conj :inbound-admitted)
+
+          (not= "provider" screening)
+          (conj :screened)))
+
+(def ^:private unbuilt
+  "The tags naming what a provider's adapter does not carry yet, by
+  provider, as distinct from what its declaration rules out: ClearBank's
+  adapter and simulator return no outbound payment."
+  {"clearbank" #{:outbound-returned}})
+
+(defn- runs
+  "Every scenario on the default payment provider, then the payment and
+  payee-check scenarios on each other provider offered, each run with
+  its provider's simulator and the tags it skips."
+  [sys]
+  (let [{:keys [default providers]} (system/instance sys
+                                                     [:payment-provider
+                                                      :providers])
+        run (fn [provider files]
+              {:provider (name provider)
+               :files files
+               :skips (into (skipped-tags (system/instance
+                                           sys
+                                           [:payment-provider
+                                            (keyword provider)]))
+                            (get unbuilt (name provider)))
+               :payment-simulator-url (system/instance
+                                       sys
+                                       [(keyword (str (name provider)
+                                                      "-simulator-server"))
+                                        :http-url])})
+        payment-files (filter (fn [{:keys [relative]}]
+                                (re-find #"^(payments|payee-checks)/"
+                                         relative))
+                              (scenario-files))]
+    (cons (run default (scenario-files))
+          (for [provider (sort (map (comp name :provider) (vals providers)))
+                :when (not= (name default) provider)]
+            (assoc (run provider payment-files)
+                   :providers {:payment provider}
+                   :key-suffix provider)))))
+
 (deftest api-scenarios-test
-  ;; One test system serves every scenario. Per-scenario isolation
-  ;; comes from a fresh runner context (own captures map), so
-  ;; scenarios cannot read each other's state.
+  ;; One test system serves every scenario, on every payment provider.
+  ;; Per-scenario isolation comes from a fresh runner context (own
+  ;; captures map), so scenarios cannot read each other's state.
   (let [files (scenario-files)]
     (is (seq files) "expected scenarios on the classpath")
     (log/info "api scenarios starting" {:count (count files)})
@@ -279,9 +343,6 @@
            endpoints (token-endpoints sys)
            key-pair (signing-key)
            mail-url (system/instance sys [:smtp :container-api-url])
-           payment-simulator-url (system/instance sys
-                                                  [:modulr-simulator-server
-                                                   :http-url])
            zyphe-simulator-url (system/instance sys
                                                 [:zyphe-simulator-server
                                                  :http-url])]
@@ -290,26 +351,32 @@
        ;; keeps a second run in the same JVM — a REPL re-run — losing
        ;; the replies the lost-reply scenarios need to go missing.
        (fault/reset-lost!)
-       (doseq [{:keys [relative]} files]
+       (doseq [{:keys [provider files skips payment-simulator-url providers
+                       key-suffix]}
+               (runs sys)
+               {:keys [relative]} files]
          (let [resource-path (str "test-api-scenarios/scenarios/" relative)]
-           (testing relative
+           (testing (str provider " " relative)
              (nom-test> [loaded (SUT/from-resource resource-path)
-                         _ (log/info "api scenario running"
-                                     {:file relative
-                                      :name (:name loaded)
-                                      :steps (count (SUT/steps loaded))})
-                         _ (SUT/run-scenario
-                            (SUT/fresh-context
-                             {:base-url base-url
-                              :admin-token admin-token
-                              :token-endpoints endpoints
-                              :signing-key key-pair
-                              :mail-url mail-url
-                              :payment-simulator-url payment-simulator-url
-                              :zyphe-simulator-url zyphe-simulator-url
-                              :run-id (str (util/uuidv7))})
-                            resource-path)
-                         _ (log/info "api scenario complete" {:file relative})]))))
+                         _ (when-not (some skips (:tags loaded))
+                             (log/info "api scenario running"
+                                       {:provider provider
+                                        :file relative
+                                        :name (:name loaded)
+                                        :steps (count (SUT/steps loaded))})
+                             (SUT/run-scenario
+                              (SUT/fresh-context
+                               {:base-url base-url
+                                :admin-token admin-token
+                                :token-endpoints endpoints
+                                :signing-key key-pair
+                                :mail-url mail-url
+                                :payment-simulator-url payment-simulator-url
+                                :zyphe-simulator-url zyphe-simulator-url
+                                :providers providers
+                                :key-suffix key-suffix
+                                :run-id (str (util/uuidv7))})
+                              resource-path))]))))
        (testing "the run is traced end to end"
          (let [spans (test-telemetry/finished-spans
                       (system/instance sys [:telemetry :otel-sdk]))
@@ -410,79 +477,3 @@
                (is (= (count account-events)
                       (count (filter #(contains? traces (trace-id %))
                                      account-events))))))))))))
-
-(def ^:private form3-skips
-  "Tags naming what a provider that holds the money does and rails do
-  not: tell of an inbound once settled, so it can be held or returned,
-  and screen an outbound."
-  #{:inbound-notified :screened})
-
-(defn- form3-files
-  "The payment and payee-check scenarios a rails provider can run, then
-  the scenarios only it runs."
-  []
-  (concat
-   (->> (scenario-files)
-        (filter (fn [{:keys [relative]}]
-                  (re-find #"^(payments|payee-checks)/" relative)))
-        (map (fn [f]
-               (assoc f
-                      :resource-path
-                      (str "test-api-scenarios/scenarios/"
-                           (:relative f))))))
-   (map (fn [f]
-          (assoc f
-                 :resource-path
-                 (str "test-api-scenarios/scenarios-form3/"
-                      (:relative f))))
-        (scenario-files "test-api-scenarios/scenarios-form3"))))
-
-(defn- form3-handlers
-  [defs]
-  (-> defs
-      (assoc-in [:system/defs :server :handler] app-with-fault)
-      (assoc-in [:system/defs :form3-simulator-server :handler]
-                form3-simulator/app)
-      (assoc-in [:system/defs :form3-adapter-server :handler] form3-adapter/app)
-      (assoc-in [:system/defs :zyphe-simulator-server :handler]
-                zyphe-simulator/app)
-      (assoc-in [:system/defs :zyphe-adapter-server :handler]
-                zyphe-adapter/app)
-      (assoc-in [:system/defs :uk-companies-house-simulator-server :handler]
-                ukch-simulator/app)))
-
-(deftest form3-scenarios-test
-  ;; The payment and payee-check scenarios again, on the Form3 adapter
-  ;; and its simulator, skipping those a rails provider cannot run.
-  (with-test-system
-   [sys
-    ["classpath:test-api-scenarios/form3-application-test.yml"
-     form3-handlers]]
-   (let [jetty (system/instance sys [:server :jetty-adapter])
-         base-url (server/http-local-url jetty)
-         admin-token (mint-admin-token base-url)
-         endpoints (token-endpoints sys)
-         key-pair (signing-key)
-         mail-url (system/instance sys [:smtp :container-api-url])
-         payment-simulator-url (system/instance sys
-                                                [:form3-simulator-server
-                                                 :http-url])
-         zyphe-simulator-url (system/instance sys
-                                              [:zyphe-simulator-server
-                                               :http-url])]
-     (fault/reset-lost!)
-     (doseq [{:keys [relative resource-path]} (form3-files)]
-       (testing (str "form3 " relative)
-         (nom-test> [loaded (SUT/from-resource resource-path)
-                     _ (when-not (some form3-skips (:tags loaded))
-                         (SUT/run-scenario
-                          (SUT/fresh-context
-                           {:base-url base-url
-                            :admin-token admin-token
-                            :token-endpoints endpoints
-                            :signing-key key-pair
-                            :mail-url mail-url
-                            :payment-simulator-url payment-simulator-url
-                            :zyphe-simulator-url zyphe-simulator-url
-                            :run-id (str (util/uuidv7))})
-                          resource-path))]))))))

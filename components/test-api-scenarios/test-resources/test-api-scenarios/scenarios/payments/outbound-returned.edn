@@ -1,5 +1,5 @@
 {:name "A completed payment the beneficiary's bank sends back is returned"
- :tags #{:api :outbound :payments :unhappy}
+ :tags #{:api :outbound :payments :unhappy :outbound-returned}
  ;; An outbound to another bank completes, then that bank returns it,
  ;; coded AC01: the payment reads returned with the reason, the debtor is
  ;; credited again as an outbound-return, and a second return of the same

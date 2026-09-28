@@ -1,5 +1,5 @@
 {:name "The bank admits an inbound to an opened account, and refuses one to a suspended account"
- :tags #{:api :inbound :payments :admission}
+ :tags #{:api :inbound :payments :admission :inbound-admitted}
  ;; Form3 asks the bank to admit each inbound before it settles. One to
  ;; an opened account is admitted and credited. Once the account is
  ;; suspended the bank refuses the next, which Form3 fails as a blocked

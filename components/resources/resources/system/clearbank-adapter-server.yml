@@ -22,11 +22,11 @@ jetty-adapter: !system/component
   ready-fn: !system/ref clearbank-adapter.readiness
   options: !profile
     dev:
-      port: 8082
+      port: 8092
     test:
       port: 0
     default:
-      port: 8082
+      port: 8092
 
 http-url: !system/component
   system/component-kind: server/http-url

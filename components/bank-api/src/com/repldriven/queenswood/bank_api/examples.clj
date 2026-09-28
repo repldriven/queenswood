@@ -136,7 +136,7 @@
          :owner-invitation owner-invitation))
 
 ;; nosemgrep: provider-name-in-domain — an example of the keys offered
-(def Provider {:kind "payment" :providers ["modulr" "form3"] :default "modulr"})
+(def Provider {:kind "payment" :providers ["form3" "modulr"] :default "modulr"})
 
 ;; nosemgrep: provider-name-in-domain — an example of the keys offered
 (def ^:private idv-provider {:kind "idv" :providers ["zyphe"] :default "zyphe"})

@@ -150,5 +150,5 @@
 
 (deftest the-providers-offered-are-listed-test
   (is (= [{:kind "idv" :providers ["verifier"] :default "verifier"}
-          {:kind "payment" :providers ["rails" "pooled"] :default "rails"}]
+          {:kind "payment" :providers ["pooled" "rails"] :default "rails"}]
          (get-in (SUT/list-providers offering) [:body :items]))))

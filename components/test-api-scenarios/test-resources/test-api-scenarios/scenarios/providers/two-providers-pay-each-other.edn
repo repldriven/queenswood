@@ -1,0 +1,302 @@
+{:name "Banks on two payment providers pay each other"
+ :tags #{:api :payments :providers :happy}
+ ;; One bank on a provider holding a balance for each account, one on
+ ;; rails admitting each inbound, in one installation. A payment from
+ ;; each reaches the other through the scheme the simulators share: the
+ ;; per-account provider's simulator debits and credits the first
+ ;; bank's account and holds none of the second's, and the second's
+ ;; inbound is admitted by its bank before it settles. All amounts in
+ ;; pence.
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-two-providers-per-account-bank"}
+             :body {:name "Per Account Bank"
+                    :status "test"
+                    :tier "micro"
+                    :currencies ["GBP"]
+                    :providers {:payment "modulr"}}}
+   :as :per-account
+   :assert {:status 201 :body {:providers {:payment "modulr" :idv "zyphe"}}}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :per-account :client-id]
+         :client-secret [:ref :per-account :client-secret]
+         :status :test}
+   :as :per-account-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth :per-account-token
+             :headers {:idempotency-key "ik-two-providers-per-account-party"}
+             :body {:type "person"
+                    :display-name "Per Account Bank Customer"
+                    :given-name "Per"
+                    :family-name "Customer"
+                    :date-of-birth "1970-01-01"
+                    :nationality "GB"
+                    :address {:building-number "42"
+                              :street "Country Lane"
+                              :town "Cottington"
+                              :postcode "CT12 4XY"
+                              :country "GBR"}
+                    :national-identifier {:type "national-insurance"
+                                          :value "TN889012A"
+                                          :issuing-country "GB"}}}
+   :as :per-account-party
+   :assert {:status 201}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}"
+             :path-params {:party-id [:ref :per-account-party :party-id]}
+             :auth :per-account-token}
+   :until {:status 200 :body {:status "active"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :per-account-token
+             :headers {:idempotency-key "ik-two-providers-per-account-product"}
+             :body {:name "Current Account"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-01-01"}}
+   :as :per-account-product
+   :assert {:status 201}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :per-account-product :product-id]
+                  :version-id [:ref :per-account-product :version-id]}
+    :auth :per-account-token}
+   :assert {:status 200 :body {:status "published"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :per-account-token
+             :headers {:idempotency-key "ik-two-providers-per-account-account"}
+             :body {:party-id [:ref :per-account-party :party-id]
+                    :name "Current"
+                    :currency "GBP"
+                    :product-id [:ref :per-account-product :product-id]}}
+   :as :per-account-account
+   :assert {:status 201}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :per-account-account :account-id]}
+             :auth :per-account-token}
+   :until {:status 200 :body {:account-status "opened"}}
+   :as :per-account-account}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-two-providers-rails-bank"}
+             :body {:name "Rails Bank"
+                    :status "test"
+                    :tier "micro"
+                    :currencies ["GBP"]
+                    :providers {:payment "form3"}}}
+   :as :rails
+   :assert {:status 201 :body {:providers {:payment "form3" :idv "zyphe"}}}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :rails :client-id]
+         :client-secret [:ref :rails :client-secret]
+         :status :test}
+   :as :rails-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth :rails-token
+             :headers {:idempotency-key "ik-two-providers-rails-party"}
+             :body {:type "person"
+                    :display-name "Rails Bank Customer"
+                    :given-name "Rails"
+                    :family-name "Customer"
+                    :date-of-birth "1970-01-01"
+                    :nationality "GB"
+                    :address {:building-number "42"
+                              :street "Country Lane"
+                              :town "Cottington"
+                              :postcode "CT12 4XY"
+                              :country "GBR"}
+                    :national-identifier {:type "national-insurance"
+                                          :value "TN889013A"
+                                          :issuing-country "GB"}}}
+   :as :rails-party
+   :assert {:status 201}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}"
+             :path-params {:party-id [:ref :rails-party :party-id]}
+             :auth :rails-token}
+   :until {:status 200 :body {:status "active"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :rails-token
+             :headers {:idempotency-key "ik-two-providers-rails-product"}
+             :body {:name "Current Account"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-01-01"}}
+   :as :rails-product
+   :assert {:status 201}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :rails-product :product-id]
+                  :version-id [:ref :rails-product :version-id]}
+    :auth :rails-token}
+   :assert {:status 200 :body {:status "published"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :rails-token
+             :headers {:idempotency-key "ik-two-providers-rails-account"}
+             :body {:party-id [:ref :rails-party :party-id]
+                    :name "Current"
+                    :currency "GBP"
+                    :product-id [:ref :rails-product :product-id]}}
+   :as :rails-account
+   :assert {:status 201}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :rails-account :account-id]}
+             :auth :rails-token}
+   :until {:status 200 :body {:account-status "opened"}}
+   :as :rails-account}
+  ;; Fund the first bank's customer so the payment can leave.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/simulate/inbound-transfer"
+             :auth :admin
+             :headers {:bank-id [:ref :per-account :bank-id]
+                       :idempotency-key "ik-two-providers-fund"}
+             :body {:amount 100000 :currency "GBP"}}
+   :as :funded
+   :assert {:status 200}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/payments/internal"
+             :auth :per-account-token
+             :headers {:idempotency-key "ik-two-providers-fund-pay"}
+             :body {:debtor-account-id [:ref :funded :account-id]
+                    :creditor-account-id [:ref :per-account-account :account-id]
+                    :currency "GBP"
+                    :amount 100000
+                    :reference "Funding"}}
+   :assert {:status 201}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :per-account-account :account-id]}
+             :auth :per-account-token}
+   :until {:status 200
+           :body {:posted-balance {:value 100000 :currency "GBP"}
+                  :available-balance {:value 100000 :currency "GBP"}}}
+   :timeout-ms 15000}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/payments/outbound"
+             :auth :per-account-token
+             :headers {:idempotency-key "ik-two-providers-to-rails"}
+             :body {:debtor-account-id [:ref :per-account-account :account-id]
+                    :creditor-bban
+                    [:str
+                     [:ref :rails-account :payment-addresses 0 :scan :sort-code]
+                     [:ref :rails-account :payment-addresses 0 :scan
+                      :account-number]]
+                    :creditor-name "Rails Customer"
+                    :currency "GBP"
+                    :amount 4200
+                    :scheme "fps"
+                    :reference "To the rails bank"}}
+   :as :to-rails
+   :assert {:status 201}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/payments/outbound/{payment-id}"
+             :path-params {:payment-id [:ref :to-rails :payment-id]}
+             :auth :per-account-token}
+   :until {:status 200 :body {:payment-status "completed"}}
+   :timeout-ms 15000}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :rails-account :account-id]}
+             :auth :rails-token}
+   :until {:status 200
+           :body {:posted-balance {:value 4200 :currency "GBP"}
+                  :available-balance {:value 4200 :currency "GBP"}}}
+   :timeout-ms 15000}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/payments/outbound"
+             :auth :rails-token
+             :headers {:idempotency-key "ik-two-providers-to-per-account"}
+             :body {:debtor-account-id [:ref :rails-account :account-id]
+                    :creditor-bban
+                    [:str
+                     [:ref :per-account-account :payment-addresses 0 :scan
+                      :sort-code]
+                     [:ref :per-account-account :payment-addresses 0 :scan
+                      :account-number]]
+                    :creditor-name "Per-account Customer"
+                    :currency "GBP"
+                    :amount 1000
+                    :scheme "fps"
+                    :reference "Back to the per-account bank"}}
+   :as :to-per-account
+   :assert {:status 201}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/payments/outbound/{payment-id}"
+             :path-params {:payment-id [:ref :to-per-account :payment-id]}
+             :auth :rails-token}
+   :until {:status 200 :body {:payment-status "completed"}}
+   :timeout-ms 15000}]
+ :then
+ [{:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :per-account-account :account-id]}
+             :auth :per-account-token}
+   :until {:status 200
+           :body {:posted-balance {:value 96800 :currency "GBP"}
+                  :available-balance {:value 96800 :currency "GBP"}}}
+   :timeout-ms 15000}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :rails-account :account-id]}
+             :auth :rails-token}
+   :until {:status 200
+           :body {:posted-balance {:value 3200 :currency "GBP"}
+                  :available-balance {:value 3200 :currency "GBP"}}}
+   :timeout-ms 15000}
+  ;; The per-account provider holds the first bank's account, with both
+  ;; payments on it, and none of the second bank's.
+  {:command :api/request
+   :request {:method :get :path "/simulate/balances" :base :payment-simulator}
+   :assert {:status 200
+            :body {:accounts
+                   [:m/all-of
+                    [:m/embeds
+                     [{:balance "968.00"
+                       :identifiers
+                       [{:accountNumber [:ref :per-account-account
+                                         :payment-addresses 0 :scan
+                                         :account-number]}]}]]
+                    [:m/mismatch
+                     [:m/embeds
+                      [{:identifiers
+                        [{:sortCode [:ref :rails-account :payment-addresses 0
+                                     :scan :sort-code]}]}]]]]}}}]}

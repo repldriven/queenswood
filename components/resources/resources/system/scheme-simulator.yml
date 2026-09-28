@@ -1,0 +1,6 @@
+# The payment scheme the payment simulators in a system share, so a
+# payment one sends to an account another holds arrives there. Each
+# simulator joins it under its own sort code. See
+# docs/tdd/bank-providers.md.
+scheme: !system/component
+  system/component-kind: scheme-simulator/scheme

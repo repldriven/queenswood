@@ -11,6 +11,7 @@ interceptors: !system/component
   # The adapter's credentials, which verify every call.
   credentials: !system/ref modulr-adapter.credentials
   sort-code: "040010"
+  payment-scheme: !system/ref scheme-simulator.scheme
   webhook-delay-ms: 10
   pending-for-funds-ms: 30000
 
@@ -29,3 +30,9 @@ jetty-adapter: !system/component
 http-url: !system/component
   system/component-kind: server/http-url
   jetty-adapter: !system/local-ref jetty-adapter
+
+scheme-member: !system/component
+  system/component-kind: scheme-simulator/member
+  scheme: !system/ref scheme-simulator.scheme
+  sort-code: "040010"
+  url: !system/local-ref http-url

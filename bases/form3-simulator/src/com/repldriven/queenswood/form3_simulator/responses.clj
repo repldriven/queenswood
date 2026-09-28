@@ -16,4 +16,4 @@
   [request]
   (select-keys request
                [:organisation-id :sort-code :webhook-delay-ms
-                :admission-deadline-ms]))
+                :admission-deadline-ms :payment-scheme]))
