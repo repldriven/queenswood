@@ -16,6 +16,16 @@ the admission's task, or once the deadline has passed."
        :parameters {:body [:ref "InboundPaymentRequest"]}
        :responses {202 {:body [:ref "InboundPaymentResponse"]} 404 {:body map?}}
        :handler handlers/inbound-payment}}]
+    ["/inbound-settlement"
+     {:post
+      {:summary "Settle an inbound admitted with its settlement held"
+       :description
+       "An inbound sent with `settle: held` stays pending once the bank
+admits it, until this confirms the admission."
+       :openapi {:operationId "SimulateInboundSettlement"}
+       :parameters {:body [:ref "InboundSettlementRequest"]}
+       :responses {202 {:body [:ref "InboundPaymentResponse"]} 404 {:body map?}}
+       :handler handlers/inbound-settlement}}]
     ["/outbound-return"
      {:post
       {:summary "Return a delivered payment to the bank that sent it"

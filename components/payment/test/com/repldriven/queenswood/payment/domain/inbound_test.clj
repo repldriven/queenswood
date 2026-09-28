@@ -194,12 +194,82 @@
               :scheme-transaction-id "held-placeholder"
               :payment-status :inbound-payment-status-held
               :updated-at 1700000000000}
-        suspended (SUT/suspended-from-held held "stx-9" "txn-9")]
+        suspended (SUT/suspended-from-held held
+                                           "stx-9"
+                                           "txn-9"
+                                           {:reason-code "AC04"
+                                            :reason "The account is closed"})]
     (is (= :inbound-payment-status-suspended (:payment-status suspended)))
     (is (= "stx-9" (:scheme-transaction-id suspended)))
     (is (= "txn-9" (:transaction-id suspended)))
     (is (= "creditor" (:creditor-account-id suspended)))
+    (is (= "AC04" (:suspense-reason-code suspended)))
+    (is (= "The account is closed" (:suspense-reason suspended)))
     (is (>= (:updated-at suspended) (:updated-at held)))))
+
+(deftest suspended-inbound-payment-test
+  (let [suspended (SUT/suspended-inbound-payment {:scheme-transaction-id "stx-3"
+                                                  :end-to-end-id "e2e-3"
+                                                  :scheme "fps"
+                                                  :currency "GBP"
+                                                  :amount 500}
+                                                 "bank" 20000
+                                                 "txn-3" {:reason-code "AG01"
+                                                          :reason "Refused"})]
+    (testing "carries the reason it was parked for"
+      (is (= :inbound-payment-status-suspended (:payment-status suspended)))
+      (is (= "AG01" (:suspense-reason-code suspended)))
+      (is (= "Refused" (:suspense-reason suspended))))))
+
+(def ^:private suspended
+  {:payment-id "pmt-s"
+   :bank-id "bank"
+   :scheme-transaction-id "stx-s"
+   :end-to-end-id "e2e-s"
+   :creditor-account-id "creditor"
+   :currency "GBP"
+   :amount 700
+   :reference "Rent"
+   :payment-status :inbound-payment-status-suspended
+   :suspense-reason-code "AC04"
+   :suspense-reason "The account is closed"})
+
+(deftest returnable?-test
+  (testing "a suspended inbound is returned where the provider returns"
+    (is (SUT/returnable? suspended {:returns ["inbound"]})))
+  (testing "and parked where it does not"
+    (is (not (SUT/returnable? suspended {:returns []})))
+    (is (not (SUT/returnable? suspended nil))))
+  (testing "only a suspended one is returned"
+    (is (not (SUT/returnable?
+              (assoc suspended :payment-status :inbound-payment-status-settled)
+              {:returns ["inbound"]})))))
+
+(deftest return-payment-test
+  (is (= {:payment-id "pmt-s"
+          :end-to-end-id "e2e-s"
+          :scheme-transaction-id "stx-s"
+          :amount 700
+          :currency "GBP"
+          :reason-code "AC04"
+          :reason "The account is closed"}
+         (SUT/return-payment suspended))))
+
+(deftest inbound-return->transaction-test
+  (let [tx (SUT/inbound-return->transaction suspended "cash" "suspense")]
+    (testing "is an inbound return"
+      (is (= :transaction-type-inbound-return (:transaction-type tx)))
+      (is (= "return-in-pmt-s" (:idempotency-key tx))))
+    (testing "debits suspense and credits 1100 by the amount parked"
+      (is (= {:account-id "suspense" :amount 700}
+             (select-keys (fixtures/side tx :leg-side-debit)
+                          [:account-id :amount])))
+      (is (= {:account-id "cash" :amount 700}
+             (select-keys (fixtures/side tx :leg-side-credit)
+                          [:account-id :amount])))
+      (is (fixtures/balanced? tx)))
+    (testing "names the account it was paid into"
+      (is (= "creditor" (:scheme-account-id tx))))))
 
 (deftest select-hold-to-return-test
   (let [hold-a {:payment-id "pmt-a"}

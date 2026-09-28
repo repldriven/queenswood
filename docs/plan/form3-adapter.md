@@ -91,10 +91,12 @@ environment must (**confirm**).
   which is `transaction-settled` (credit), or `failed`. Documented;
   confirm the task names and the deadline for completing one.
 - **Returning an inbound.** `POST /transaction/payments/{id}/returns`
-  with the original amount, currency and a `return_code`, then `POST
-  .../returns/{returnId}/submissions`; the submission reaching
-  `delivery_confirmed` is `transaction-returned` (credit). Documented;
-  confirm the `return_code` values Form3 accepts for FPS.
+  with the original amount, currency and the ISO 20022 reason as
+  `return_code`, then `POST .../returns/{returnId}/submissions`; the
+  submission, read back by `GET .../submissions/{submissionId}`,
+  reaching `delivery_confirmed` is `transaction-returned` (credit).
+  Documented; confirm the `return_code` values Form3 accepts for FPS,
+  and whether a `return_submissions` notification names its payment.
 - **Returned outbound.** A notification with `record_type:
   return_admissions` for one of our payments: its return's `amount`
   and `return_code` are `transaction-returned` (debit), matched to the

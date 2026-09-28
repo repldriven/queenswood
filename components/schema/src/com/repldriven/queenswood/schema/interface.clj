@@ -699,8 +699,9 @@
   every optional string that deserialises as the proto2 empty-string
   default so each key is present only when the record carries a real
   value: a suspended inbound credits no account, a held or returned one
-  posts no transaction, and the scheme supplies `debtor-name` and
-  `reference` only when the debtor's bank sent them.
+  posts no transaction, the scheme supplies `debtor-name` and
+  `reference` only when the debtor's bank sent them, and only a suspended
+  or returned one carries a `suspense-reason-code` and `suspense-reason`.
 
   Args:
   - input: protobuf bytes."
@@ -717,7 +718,13 @@
             (dissoc :debtor-name)
 
             (= "" (:reference payment))
-            (dissoc :reference))))
+            (dissoc :reference)
+
+            (= "" (:suspense-reason-code payment))
+            (dissoc :suspense-reason-code)
+
+            (= "" (:suspense-reason payment))
+            (dissoc :suspense-reason))))
 
 (defn InboundPayment->pb
   "Serialise an InboundPayment map to protobuf bytes.

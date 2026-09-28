@@ -200,3 +200,93 @@
      (is (= "AC04"
             (:reason-code (decoded config
                                    (outbox-event config "P3:rejected"))))))))
+
+(def ^:private return-context
+  {:return-id "R1"
+   :submission-id "RS1"
+   :end-to-end-id "e2e-in"
+   :amount 700
+   :currency "GBP"
+   :reason-code "AC04"
+   :reason "The account is closed"})
+
+(deftest return-created-then-submitted-test
+  (with-test-system
+   [sys "classpath:form3-relay/application-test.yml"]
+   (let [calls (atom [])
+         config
+         (runner-config sys (recording calls (fn [_] (json-response 201 {}))))]
+     (nom-test> [_ (relay/save-intent
+                    config
+                    (intent "int.r1"
+                            "return"
+                            "return:pmt.in1"
+                            return-context
+                            {:provider-payment-id "IN1"
+                             :request (json/write-str {:amount "7.00"
+                                                       :currency "GBP"
+                                                       :return_code "AC04"})}))])
+     (SUT/drain-once config 0)
+     (testing "the return is created on the inbound, then submitted"
+       (is (= [["/v1/transaction/payments/IN1/returns" "R1"]
+               ["/v1/transaction/payments/IN1/returns/R1/submissions" "RS1"]]
+              (mapv (fn [{:keys [path body]}] [path (get-in body [:data :id])])
+                    @calls)))
+       (is (= "AC04"
+              (get-in (first @calls) [:body :data :attributes :return_code]))))
+     (testing "and waits for Form3 to deliver it"
+       (is (= "sent" (:status (load-intent config "int.r1"))))))))
+
+(deftest return-refused-test
+  (with-test-system
+   [sys "classpath:form3-relay/application-test.yml"]
+   (let [config (runner-config sys
+                               (fn [_ _]
+                                 (json-response 404 {:error_message "No"})))]
+     (nom-test> [_ (relay/save-intent config
+                                      (intent "int.r2"
+                                              "return"
+                                              "return:pmt.in2"
+                                              return-context
+                                              {:provider-payment-id "IN2"}))])
+     (SUT/drain-once config 0)
+     (testing "a return Form3 refuses fails, and reports nothing"
+       (is (= "failed" (:status (load-intent config "int.r2"))))
+       (is (nil? (outbox-event config "IN2:returned")))))))
+
+(deftest reconcile-reads-the-return-back-test
+  (with-test-system
+   [sys "classpath:form3-relay/application-test.yml"]
+   (let [calls (atom [])
+         config (runner-config sys
+                               (recording
+                                calls
+                                (fn [_]
+                                  (json-response
+                                   200
+                                   {:data {:attributes
+                                           {:status "delivery_confirmed"}}}))))]
+     (nom-test> [_ (relay/save-intent config
+                                      (intent "int.r3"
+                                              "return"
+                                              "return:pmt.in3"
+                                              return-context
+                                              {:provider-payment-id "IN3"
+                                               :status "sent"
+                                               :next-attempt-at 0}))])
+     (SUT/drain-once config 1)
+     (testing "the return's submission is read back"
+       (is (= "/v1/transaction/payments/IN3/returns/R1/submissions/RS1"
+              (:path (first @calls)))))
+     (testing "and a delivered one reports the inbound returned"
+       (is (= "settled" (:status (load-intent config "int.r3"))))
+       (is (= {:end-to-end-id "e2e-in"
+               :debit-credit-code :debit-credit-code-credit
+               :scheme-transaction-id "IN3"
+               :amount 700
+               :reason-code "AC04"
+               :reason "The account is closed"}
+              (select-keys (decoded config (outbox-event config "IN3:returned"))
+                           [:end-to-end-id :debit-credit-code
+                            :scheme-transaction-id :amount :reason-code
+                            :reason])))))))

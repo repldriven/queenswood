@@ -7,7 +7,8 @@
   {:transaction-type-internal-transfer :transaction-status-posted
    :transaction-type-inbound-transfer :transaction-status-posted
    :transaction-type-reward :transaction-status-posted
-   :transaction-type-outbound-return :transaction-status-posted})
+   :transaction-type-outbound-return :transaction-status-posted
+   :transaction-type-inbound-return :transaction-status-posted})
 
 (defn new-transaction
   [data]

@@ -165,6 +165,49 @@
      :else
      (retry config now intent attempts result))))
 
+;; ---- returns
+
+(defn- return-path
+  [provider-payment-id return-id]
+  (str (payment-path provider-payment-id) "/returns/" return-id))
+
+(defn- relay-return
+  [config now intent]
+  (let [{:keys [intent-id request provider-payment-id]} intent
+        {:keys [return-id submission-id]} (context intent)
+        [outcome result] (steps config
+                                [{:method :post
+                                  :path (str (payment-path provider-payment-id)
+                                             "/returns")
+                                  :body {:data {:id return-id
+                                                :type "returns"
+                                                :attributes (json/read-str
+                                                             request
+                                                             :key-fn
+                                                             keyword)}}}
+                                 {:method :post
+                                  :path (str (return-path provider-payment-id
+                                                          return-id)
+                                             "/submissions")
+                                  :body {:data {:id submission-id
+                                                :type "return_submissions"}}}])
+        attempts (inc (or (:attempts intent) 0))
+        intent (assoc intent :attempts attempts)]
+    (cond
+     (done? outcome)
+     (store/mark-sent config
+                      intent-id
+                      provider-payment-id
+                      (reconcile-at config now))
+
+     (or (= :refused outcome) (give-up? config attempts))
+     (do (log/error "Form3 did not take the return; it stays in suspense"
+                    {:intent-id intent-id :reason result})
+         (finish config now intent "failed" nil))
+
+     :else
+     (retry config now intent attempts result))))
+
 ;; ---- accounts
 
 (defn- account-event
@@ -413,7 +456,16 @@
                                            submission-id)})]
     (when (= :ok outcome) (get-in result [:data :attributes]))))
 
-(defn- reconcile
+(defn- wait
+  [config now intent]
+  (store/update-intent
+   config
+   (:intent-id intent)
+   "sent"
+   (fn [i] (assoc i :next-attempt-at (reconcile-at config now)))
+   nil))
+
+(defn- reconcile-payment
   "Ask Form3 what became of a submitted payment no notification has
   settled, and record what it reports under the dedup key its
   notification would carry, so a late one finds it already there."
@@ -433,17 +485,53 @@
       (do (log/info "Reconciled a Form3 payment"
                     {:intent-id intent-id :status status})
           (finish config now intent "sent" "settled" descriptor))
-      (store/update-intent
-       config
-       intent-id
-       "sent"
-       (fn [i] (assoc i :next-attempt-at (reconcile-at config now)))
-       nil))))
+      (wait config now intent))))
+
+(defn- reconcile-return
+  "Ask Form3 what became of a submitted return, and report a delivered
+  one as the inbound it sent back returned."
+  [config now intent]
+  (let [{:keys [intent-id provider-payment-id]} intent
+        {:keys [return-id submission-id end-to-end-id amount currency
+                reason-code reason]}
+        (context intent)
+        [outcome result] (call config
+                               {:method :get
+                                :path (str (return-path provider-payment-id
+                                                        return-id)
+                                           "/submissions/"
+                                           submission-id)})
+        status (when (= :ok outcome)
+                 (get-in result [:data :attributes :status]))
+        descriptor (outcomes/returned {:provider-payment-id provider-payment-id
+                                       :end-to-end-id end-to-end-id
+                                       :amount amount
+                                       :currency currency
+                                       :reason-code reason-code
+                                       :reason reason
+                                       :status status
+                                       :at now})]
+    (cond
+     descriptor
+     (do (log/info "Form3 delivered a return" {:intent-id intent-id})
+         (finish config now intent "sent" "settled" descriptor))
+
+     (= :failed (outcomes/outcome status))
+     (do (log/error "Form3 did not deliver a return; it stays in suspense"
+                    {:intent-id intent-id :status status})
+         (finish config now intent "sent" "failed" nil))
+
+     :else
+     (wait config now intent))))
+
+(def ^:private reconciles
+  {"payment" reconcile-payment "return" reconcile-return})
 
 ;; ---- the loop
 
 (def ^:private relays
   {"payment" relay-payment
+   "return" relay-return
    "open-account" relay-open
    "close-account" relay-close
    "reissue-address" relay-reissue})
@@ -454,7 +542,7 @@
 
 (defn drain-once
   "Make every due pending call once, then reconcile every due sent
-  payment. Reads are transactional; each call and the write recording it
+  payment and return. Reads are transactional; each call and the write recording it
   are separate, so no network I/O happens inside an FDB transaction."
   [config now]
   (let [pending (store/intents-with-status config "pending")
@@ -468,8 +556,11 @@
           (log/error "Unknown Form3 intent kind" {:intent intent}))))
     (when-not (error/anomaly? sent)
       (doseq [intent sent
-              :when (due? now intent)]
-        (reconcile config now intent)))))
+              :when (due? now intent)
+              :let [reconcile (get reconciles (:kind intent))]]
+        (if reconcile
+          (reconcile config now intent)
+          (log/error "Unknown sent Form3 intent kind" {:intent intent}))))))
 
 (defn start-runner
   [config]

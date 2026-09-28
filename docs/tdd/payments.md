@@ -1,12 +1,6 @@
 # Payments and the payment provider
 
-> **Status: proposal.** Internal, outbound and inbound payments, the
-> provider declaration, the payment adapter contract and two adapters
-> meeting it exist, and Background names them. Everything under
-> Proposed Solution is the build list; all but
-> [Three kinds of provider](#three-kinds-of-provider) and the sections
-> it introduces is built, and [First slices](#first-slices) says what
-> comes next.
+> **Status: implemented.**
 
 ## Objective
 
@@ -118,7 +112,7 @@ settlement reports, which are the bank's operations.
   with its defaults and holds the start-up check each adapter makes
   against what it carries.
 
-## Proposed Solution
+## Solution
 
 ### The provider declaration
 
@@ -228,7 +222,7 @@ Under `inbound: admitted` the provider asks before an inbound settles:
   `payments-command-response` until the provider's deadline.
 - **The decision.** `payment` admits where the BBAN names an opened
   account and `check-inbound-acceptance` passes, as a settlement
-  checks now, recording the `InboundPayment` as `admitted` with no
+  checks, recording the `InboundPayment` as `admitted` with no
   posting; the business-day counts a limit reads include admitted
   payments, so two admitted at once cannot pass one limit between them.
   It rejects otherwise, recording nothing, with an ISO 20022 reason:
@@ -240,9 +234,8 @@ Under `inbound: admitted` the provider asks before an inbound settles:
   with the reason, and rejects with `NARR` where no reply came before
   the deadline.
 - **Settlement.** The `transaction-settled` (credit) that follows
-  settles the admitted payment and posts it as now, without checking
-  again; a settlement for no admitted payment settles as under
-  `notified`.
+  settles the admitted payment and posts it without checking again; a
+  settlement for no admitted payment settles as under `notified`.
 
 ### Returning an inbound payment
 
@@ -251,16 +244,24 @@ apply rather than keeping it:
 
 - **The trigger.** An inbound parked in 2500 suspense, because its
   account is not opened or a policy refused it, is returned: `payment`
-  parks it as now, then publishes `return-payment` on
-  `schemes-payment-command` with the original end-to-end id, amount and
-  an ISO 20022 reason.
-- **The adapter.** It consumes `return-payment` into an intent and its
-  runner sends the return to the provider, reporting
-  `transaction-returned` (credit), deduplicated on
-  `<end-to-end id>:returned`, when it is done.
-- **The transition.** `suspended → returned`, posting DEBIT 2500 /
-  CREDIT 1100, which empties suspense of the payment. A second report
-  is a no-op.
+  parks it, recording the ISO 20022 reason it was parked for as
+  `suspense-reason-code` and `suspense-reason`, then publishes
+  `return-payment` on `schemes-payment-command` with its payment id,
+  end-to-end id, the provider's id for it, amount and that reason. A
+  redelivered settlement finding the payment still suspended publishes
+  it again.
+- **The adapter.** It consumes `return-payment` into an intent keyed
+  on the payment id, and its runner sends the return to the provider,
+  then asks the provider what became of it, reporting
+  `transaction-returned` (credit), deduplicated on the provider's id
+  for the inbound and `:returned`, once it is delivered. A return the
+  provider refuses or does not deliver is logged, and the payment stays
+  suspended.
+- **The transition.** `suspended → returned`, matched on the provider's
+  id, posting DEBIT 2500 / CREDIT 1100 as an `inbound-return`
+  transaction, which empties suspense of the payment. A second
+  report is a no-op, and a report for a payment not suspended fails the
+  handler.
 
 Under `inbound: admitted` most of what would be returned is rejected
 at admission instead; a return remains for an account closed between
@@ -273,17 +274,17 @@ Every value that crosses from the adapter is the platform's:
 - **Scheme.** `submit-payment` and the three scheme events carry
   `scheme` as the `PaymentScheme` value, `fps`, which
   `OutboundPayment.scheme` stores.
-- **Failure.** `transaction-rejected` gains `failure_kind`, an enum of
+- **Failure.** `transaction-rejected` carries `failure_kind`, an enum of
   `declined` (the scheme or the provider's assessment declined it),
   `refused` (the provider refused the submission) and `undelivered`
   (the runner gave up), and `reason_code`, an ISO 20022
   `ExternalStatusReason1Code` the adapter maps from the provider's
   own, `NARR` where it has none, beside the free-text reason.
-  `OutboundPayment` gains the same two fields, and the API answers
+  `OutboundPayment` stores the same two fields, and the API answers
   `failure: {kind, reason-code, reason}` on a failed payment.
-- **Deprecation.** `cancellation_code` becomes an optional Avro field
-  with a null default, and the proto field keeps its tag and is dropped
-  in the record conversion, per
+- **Deprecation.** `cancellation_code` is an optional Avro field with
+  a null default, and the proto field keeps its tag and is dropped in
+  the record conversion, per
   [schema-evolution](../recipes/code/schema-evolution.md).
 - **Correlation.** Events carry the end-to-end id Queenswood issued,
   the provider's payment id as `scheme-transaction-id`, and the
@@ -296,22 +297,22 @@ The provider issues every payment address, so an account's sort code
 and account number are the provider's, and each account records the
 provider account behind it:
 
-- **Opening.** `open-account` still writes the account `opening`. The
+- **Opening.** `open-account` writes the account `opening`. The
   `cash-account-status-changed` handler, for an account whose product
   allows an address scheme, sends `open-payment-account` on
   `schemes-account-command` — bank id, account id, holder name,
-  currency and the address schemes wanted — in place of flipping it.
+  currency and the address schemes wanted — rather than opening it.
   A bank's own-funds account sends it whatever its product allows
   under `per-account`, since it backs the bank's ledger money. An
-  account with no address scheme flips as it does now.
+  account with no address scheme opens at once.
 - **Opened.** The adapter reports `payment-account-opened`, carrying
   the provider account id and the issued addresses, on
   `schemes-account-event`. `cash-account`'s event processor stores
-  them — `CashAccount` gains `provider_account_id` — and flips
-  `opening → opened`, gated on `opening`.
+  them, the provider account id as `CashAccount.provider_account_id`,
+  and flips `opening → opened`, gated on `opening`.
 - **Refused.** A provider refusing the account reports
   `payment-account-refused` with a reason, and the account moves
-  `opening → refused`, a new terminal status taken through the
+  `opening → refused`, a terminal status taken through the
   checklist in
   [lifecycle-transitions](../recipes/code/lifecycle-transitions.md).
 - **Closing.** The `closing` handler sends `close-payment-account` for
@@ -328,14 +329,13 @@ provider account behind it:
 - **Closed and frozen accounts.** A closed account's provider account
   is closed, so the provider returns money sent to it rather than the
   platform parking it. A frozen account's provider account stays open,
-  and an inbound for it parks in 2500 as now.
-- **Retired.** `bank`'s sort-code counter, `cash-account`'s address
-  counter and `get-bank-by-sort-code`; `Bank.sort_code` is deprecated.
-  An inbound whose BBAN matches no account now fails the handler and is
-  dead-lettered, since every address was issued through the adapter.
-  An inbound to an account that is not opened still parks in that
-  account's bank.
-- **Submission.** `submit-payment` gains `debtor_provider_account_id`,
+  and an inbound for it parks in 2500.
+- **No address of the platform's.** Neither a bank nor an account
+  counts out addresses, and `Bank.sort_code` is deprecated. An inbound
+  whose BBAN matches no account fails the handler and is dead-lettered,
+  since every address was issued through the adapter. An inbound to an
+  account that is not opened parks in that account's bank.
+- **Submission.** `submit-payment` carries `debtor_provider_account_id`,
   read with the debtor's BBAN inside the submission's transaction.
 
 The holder name reaches the provider at opening, so a provider that
@@ -375,7 +375,7 @@ expense has paid out.
   does not; and the bank's own funds for any other GL account and
   whatever the legs leave unbalanced. It pairs the nets into
   transfers, so a scheme's own settlement nets to nothing.
-- **The record.** Each transfer is a `ProviderTransfer` in a new
+- **The record.** Each transfer is a `ProviderTransfer` in the
   `provider-transfers` store — transaction id, debtor and creditor cash
   account ids, the debtor absent for money from outside, amount, status
   `pending`, `completed` or `failed` — unique on transaction id and
@@ -400,7 +400,7 @@ divides, and nothing is mirrored.
 - **Retrying as the same request.** The intent stores whatever the
   provider needs to recognise a retry as the request it already has,
   so a retry after a restart is not a second payment.
-- **Outcome.** Sent, retried with backoff, or failed as now, a failure
+- **Outcome.** Sent, retried with backoff, or failed, a failure
   writing `transaction-rejected` with `failure_kind` `refused` or
   `undelivered`.
 - **Payee check.** `submit-payment` carries the payee check made for
@@ -429,31 +429,31 @@ beneficiary's bank cannot apply it:
   reported as a `transaction-settled` (credit) to the account it
   arrived at, so the money is never lost.
 - **The transition.** `completed → returned`, posting GL 1100 to the
-  debtor by the amount returned, as a transaction of the new type
-  `outbound-return`. It names the debtor as the account the scheme moved
+  debtor by the amount returned, as an `outbound-return` transaction.
+  It names the debtor as the account the scheme moved
   the money through, so it nets to nothing at a provider holding a
   balance for each account, which credited that account itself.
   `returned` is terminal, and the payment carries the return's reason
   code and reason as `return`; a second delivery of the return is a
   no-op, and a return for a payment that is not `completed` fails the
   handler.
-- **Notification.** The change kind `return` becomes
+- **Notification.** The change kind `return` is notified as
   `payment.outbound-returned`.
 
-A `transaction-rejected` naming a completed payment still fails the
-handler: a rejection is not a return.
+A `transaction-rejected` naming a completed payment fails the handler:
+a rejection is not a return.
 
 ### Confirmation of Payee
 
-- **Configuration.** `payee-check`'s key becomes `payment-adapter-url`,
+- **Configuration.** `payee-check`'s key is `payment-adapter-url`,
   set from `PAYMENT_ADAPTER_URL`.
 - **The payer.** `POST /v1/payee-checks` takes an optional
   `account-id`, the account the payment will leave; the adapter checks
   from that account's provider account, and from the bank's own-funds
   account without one.
 - **Inbound.** Under `payee-check: [inbound]` the adapter answers the
-  provider's requests from `cash-account-query` and `party-query` as
-  now; otherwise the provider answers from the holder name.
+  provider's requests from `cash-account-query` and `party-query`;
+  otherwise the provider answers from the holder name.
 
 ### The payment adapter contract
 
@@ -511,7 +511,10 @@ runs changes nothing outside it:
   admission is decided, with its status and reason. A payment to an
   account it has closed fails admission, so the sender's payment is
   rejected rather than returned, and under `screening: bank` the held
-  name is declined with no hold.
+  name is declined with no hold. An inbound sent with `settle: held`
+  stays pending once the bank admits it, until
+  `/simulate/inbound-settlement` settles it, so an account can close in
+  between.
 
 The deployed builds compose the default adapter into
 `external-adapters` and `monolith`; the others stay in the development
@@ -522,8 +525,8 @@ adapter's outbox and the transactions store's changelog.
 
 ### The payment flows
 
-The internal, outbound and inbound flows keep their shape. The state
-machines below are the whole of each, the new transitions marked.
+An internal payment records and posts at once. The state machines
+below are the whole of the outbound and inbound flows.
 
 #### Outbound payment
 
@@ -535,7 +538,7 @@ stateDiagram-v2
     pending --> failed: transaction-rejected (debit)<br/>release reservation
     held --> completed: transaction-settled (debit)
     held --> failed: transaction-rejected (debit)
-    completed --> returned: transaction-returned (debit), new<br/>1100 to debtor
+    completed --> returned: transaction-returned (debit)<br/>1100 to debtor
     completed --> [*]
     failed --> [*]
     returned --> [*]
@@ -552,75 +555,26 @@ stateDiagram-v2
 
 ```mermaid
 stateDiagram-v2
-    [*] --> admitted: admit-inbound-payment, new<br/>opened account, checks pass
-    admitted --> settled: transaction-settled (credit), new<br/>no checks
+    [*] --> admitted: admit-inbound-payment<br/>opened account, checks pass
+    admitted --> settled: transaction-settled (credit)<br/>no checks
     [*] --> settled: transaction-settled (credit)<br/>opened account, checks pass
     [*] --> suspended: transaction-settled (credit)<br/>account not opened, or refused<br/>park in 2500
     [*] --> held: transaction-held (credit)<br/>opened account, no money move
     held --> settled: transaction-settled (credit)<br/>release, checks pass
     held --> suspended: transaction-settled (credit)<br/>release refused, park in 2500
     held --> returned: transaction-rejected (credit)<br/>return to remitter
-    suspended --> returned: transaction-returned (credit), new<br/>2500 to 1100
+    suspended --> returned: transaction-returned (credit)<br/>2500 to 1100
     settled --> [*]
     returned --> [*]
     suspended --> [*]
 ```
 
 - A hold is matched on end-to-end id, creditor and amount, and a
-  settlement deduplicated on `scheme-transaction-id`, as now.
-- A BBAN matching no account fails the handler and is dead-lettered,
-  replacing the sort-code suspense path.
+  settlement deduplicated on `scheme-transaction-id`.
+- A BBAN matching no account fails the handler and is dead-lettered.
 - A policy-refused park is mirrored to own-funds under `per-account`.
 - An admission rejected records nothing, since the payment never
   arrived.
-
-### First slices
-
-1. **Neutral contract.** The declaration and its three checks, neutral
-   `scheme`, `failure_kind` and `reason_code`, the payee-check key,
-   signed calls and authenticated webhooks on the existing adapter and
-   its simulator, and the shared control routes. Proved by the payment
-   scenarios passing with neutral values, and an unsigned webhook
-   refused. Built.
-2. **Addresses from the provider.** The account legs,
-   `provider_account_id`, `refused`, and the counters retired. Proved
-   by an account opened with its address from the simulator, an
-   opening refused, a rotation and a closing. Built.
-3. **The default adapter.** A second adapter meeting the contract, with
-   per-account balances in its simulator and reconciliation. The
-   deployed builds and scenario rigs move to it, and the existing
-   adapter stays in the development project. Proved by the payment and
-   payee-check scenarios passing on its simulator. Built.
-4. **Balances at the provider.** `transaction-posted`,
-   `ProviderTransfer` and mirroring. Proved by an internal payment,
-   interest capitalised and a refused inbound each leaving every
-   simulated provider balance equal to the ledger, and a reward, which
-   pays from the house account as an internal payment does, by the
-   netting it shares with one. Built with slice 3, so no deployed build
-   holds balances that drift.
-5. **Returned outbound payments.** Proved by a completed payment
-   returned, and a return for a failed one dead-lettered. Built.
-6. **The rails simulator.** A third simulator serving the rails
-   provider's API as its reference documents it: account routing,
-   outbound submission, admission requests, returns, Confirmation of
-   Payee and its signatures, with the shared control routes. Proved by
-   its own tests, before any adapter calls it. Built.
-7. **The declaration's new keys.** `inbound`, `returns` and
-   `screening`, each existing adapter declaring its values, and the
-   start-up check covering them. Proved by the payment scenarios
-   passing unchanged. Built.
-8. **The rails adapter and admission.** The third adapter, issuing
-   account numbers under its configured sort code, and
-   `admit-inbound-payment` in `payment`. Proved by the payment and
-   payee-check scenarios on its simulator, and an inbound rejected at
-   admission for each reason. Built.
-9. **Returning an inbound payment.** `return-payment`, the
-   `suspended → returned` transition and its posting. Proved by an
-   inbound to a closed account and one a policy refuses each returned
-   under the rails adapter, and parked under the others.
-
-Running the default adapter against the provider's sandbox follows,
-once the simulator covers every flow above.
 
 ### Tests
 
@@ -649,10 +603,10 @@ once the simulator covers every flow above.
   and made as the provider's are, a payment beyond the balance waiting
   for funds, and a payment to a closed account returned.
 - **`test-api-scenarios`** — the payment and payee-check scenarios run
-  on the default adapter's simulator, plus a scenario per new
-  transition and refusal, and again on the rails adapter's simulator,
+  on the default adapter's simulator, plus a scenario per transition
+  and refusal, and again on the rails adapter's simulator,
   skipping those tagged `:inbound-notified` or `:screened`, with an
-  admission admitted and one refused.
+  admission admitted and one refused, and an inbound returned.
 - **`test-scenarios`** — every flow on the default adapter's simulator,
   and a scenario checking every simulated provider balance against the
   ledger after each mirrored flow.
@@ -718,7 +672,7 @@ once the simulator covers every flow above.
   account, a payment arriving while the old one is blocked is returned
   to the sender.
 - **The payment-side publish is best-effort.** A lost `submit-payment`
-  waits for the sweep, as now.
+  waits for the sweep.
 - **Outbound held then released is not exercised.** The shared test
   values decline every held outbound.
 - **One customer at the provider.** Every bank's accounts sit under the
@@ -747,9 +701,17 @@ once the simulator covers every flow above.
 - **A name check needs the bank's own funds opened.** A check made from
   no named account is made from the own-funds account's provider
   account, and is unavailable until the provider has opened it.
+- **No provider's sandbox has been run.** Every flow is proved against
+  the simulators alone.
 - **Kafka redeliveries have no delay.**
 - **A suspended inbound is never resolved** except by a return under
   `returns: [inbound]`.
+- **A return the provider refuses stays in suspense.** The adapter logs
+  it and tells the platform nothing, so the payment stays `suspended`
+  for the bank to resolve by hand.
+- **A return is reported by asking.** The provider's notification of a
+  delivered return names no payment, so the adapter learns of it when
+  it next reconciles, after `reconcile-after-ms`.
 - **An admitted inbound the scheme never settles stays `admitted`.**
 - **Identical holds are one hold.**
 - **Settlement order is the provider's.** A settlement delivered before
@@ -782,6 +744,6 @@ once the simulator covers every flow above.
 - [lifecycle-transitions](../recipes/code/lifecycle-transitions.md) —
   the checklist for `refused` and `returned`.
 - [schema-evolution](../recipes/code/schema-evolution.md) — the
-  deprecated fields and the new stores.
+  deprecated fields, and the stores and fields added.
 - [ISO 20022 external code sets](https://www.iso20022.org/catalogue-messages/additional-content-messages/external-code-sets)
   — the status and return reason codes.

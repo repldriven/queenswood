@@ -1,8 +1,8 @@
 # What a deployment running the Form3 adapter declares: Faster Payments
 # for a bank holding the money in its own settlement account, name checks
 # made outbound and answered by Form3 from each registration's name,
-# every inbound admitted by the platform before it settles, and nothing
-# screened by Form3. See docs/tdd/payments.md.
+# every inbound admitted by the platform before it settles, one it cannot
+# apply sent back, and nothing screened by Form3. See docs/tdd/payments.md.
 declaration: !system/component
   system/component-kind: payment-provider/declaration
   schemes: [fps]
@@ -10,5 +10,5 @@ declaration: !system/component
   balances: pooled
   payee-check: [outbound]
   inbound: admitted
-  returns: []
+  returns: [inbound]
   screening: bank

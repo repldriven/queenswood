@@ -11,8 +11,10 @@
     [com.repldriven.queenswood.policy.interface :as policy]
     [com.repldriven.queenswood.transaction.interface :as transactions]
 
+    [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.log.interface :as log]
+    [com.repldriven.mono.message-bus.interface :as message-bus]
     [com.repldriven.mono.utility.interface :as utility]))
 
 (defn- check-debit-credit-code
@@ -50,9 +52,9 @@
 
 (defn- park-in-suspense
   "Park an inbound the receiving account could not take in its bank's
-  2500 suspense and persist a `suspended` InboundPayment for later
-  reconciliation."
-  [txn data account business-day]
+  2500 suspense and persist a `suspended` InboundPayment, with the reason
+  it was refused, for later reconciliation."
+  [txn data account business-day refusal]
   (let-nom>
     [recorded (post-to-suspense txn
                                 data
@@ -62,7 +64,8 @@
      payment (inbound/suspended-inbound-payment data
                                                 (:bank-id account)
                                                 business-day
-                                                transaction-id)
+                                                transaction-id
+                                                refusal)
      _ (store/save-inbound-payment
         txn
         payment
@@ -98,7 +101,11 @@
           (do (log/infof "Inbound settlement refused, parked in suspense: %s"
                          {:kind (error/kind transaction)
                           :account-id account-id})
-              (park-in-suspense txn data account business-day))
+              (park-in-suspense txn
+                                data
+                                account
+                                business-day
+                                (inbound/acceptance-refusal transaction)))
           (let-nom>
             [_ transaction
              expanded-legs (ledger-accounts/add-control-legs
@@ -123,7 +130,7 @@
             payment))))))
 
 (defn- suspend-held
-  [txn data held]
+  [txn data held refusal]
   (let [{:keys [bank-id creditor-account-id]} held
         {:keys [scheme-transaction-id]} data]
     (let-nom>
@@ -131,7 +138,8 @@
        {:keys [transaction-id]} recorded
        suspended (inbound/suspended-from-held held
                                               scheme-transaction-id
-                                              transaction-id)
+                                              transaction-id
+                                              refusal)
        _ (store/save-inbound-payment
           txn
           suspended
@@ -174,7 +182,10 @@
           (do (log/infof "Inbound release refused, parked in suspense: %s"
                          {:kind (error/kind transaction)
                           :account-id account-id})
-              (suspend-held txn data held))
+              (suspend-held txn
+                            data
+                            held
+                            (inbound/acceptance-refusal transaction)))
           (let-nom>
             [_ transaction
              expanded-legs (ledger-accounts/add-control-legs
@@ -303,11 +314,7 @@
      :payment/admit-inbound
      "Failed to admit inbound payment")))
 
-(defn settle-inbound
-  "Settle an inbound ClearBank credit against the creditor resolved by
-  BBAN. A creditor that is not opened — suspended, closing, closed, or
-  still opening — is parked in 2500 suspense rather than credited, as
-  an unmatched BBAN is; a held record for it, if any, stays `held`."
+(defn- settle
   [config data]
   (let [{:keys [debit-credit-code creditor-bban
                 scheme-transaction-id end-to-end-id amount]}
@@ -342,7 +349,10 @@
           (do (log/infof "Admitted inbound to a non-operable account: %s"
                          {:account-id (:account-id account)
                           :account-status (:account-status account)})
-              (suspend-held txn data admitted))
+              (suspend-held txn
+                            data
+                            admitted
+                            (inbound/account-refusal account)))
 
           ;; The BBAN resolves, but the account cannot take a credit —
           ;; park the funds in suspense as an unmatched BBAN is, so the
@@ -351,7 +361,11 @@
           (do (log/infof "Inbound settlement to a non-operable account: %s"
                          {:account-id (:account-id account)
                           :account-status (:account-status account)})
-              (park-in-suspense txn data account business-day))
+              (park-in-suspense txn
+                                data
+                                account
+                                business-day
+                                (inbound/account-refusal account)))
 
           admitted
           (record-admitted-settlement txn data account admitted)
@@ -370,6 +384,41 @@
           (record-inbound-settlement txn data account business-day))))
      :payment/settle-inbound
      "Failed to settle inbound payment")))
+
+(defn- send-return
+  "Publish `return-payment` for `payment` where it is returnable, and
+  return it, or the anomaly publishing gave."
+  [config payment]
+  (let [{:keys [bus schemas scheme-payment-command-channel payment-provider]}
+        config
+        {:keys [payment-id suspense-reason-code]} payment]
+    (if-not (inbound/returnable? payment payment-provider)
+      payment
+      (let-nom>
+        [payload (avro/serialize (get schemas "return-payment")
+                                 (inbound/return-payment payment))
+         _ (message-bus/send bus
+                             scheme-payment-command-channel
+                             {:command "return-payment"
+                              :id (str (utility/uuidv7))
+                              :correlation-id (str (utility/uuidv7))
+                              :causation-id payment-id
+                              :payload payload})]
+        (log/infof "Suspended inbound sent back to its sender: %s"
+                   {:payment-id payment-id
+                    :reason-code suspense-reason-code})
+        payment))))
+
+(defn settle-inbound
+  "Settle an inbound credit against the creditor resolved by BBAN. A
+  creditor that is not opened — suspended, closing, closed, or still
+  opening — is parked in 2500 suspense rather than credited, as one a
+  check refuses is; a held record for it, if any, stays `held`. Where
+  the provider declares `returns: [inbound]`, a parked inbound is then
+  sent back with `return-payment`, and again on a redelivery."
+  [config data]
+  (let-nom> [payment (settle config data)]
+    (send-return config payment)))
 
 (defn hold-inbound
   "An inbound ClearBank is holding for screening. Record it `held` (creditor
@@ -460,5 +509,66 @@
              (log/infof "Inbound held transaction returned: %s"
                         {:end-to-end-id end-to-end-id})
              returned))))
+     :payment/return-inbound
+     "Failed to return inbound payment")))
+
+(defn return-suspended
+  "A suspended inbound the provider sent back to its sender: post DEBIT
+  2500 suspense / CREDIT 1100 and move it to `returned`. A second report
+  is a no-op; one for no payment, or for one not suspended, fails."
+  [config data]
+  (let [{:keys [scheme-transaction-id]} data]
+    (store/transact
+     config
+     (fn [txn]
+       (let-nom>
+         [payment (q/get-inbound-payment txn scheme-transaction-id)]
+         (cond
+          (nil? payment)
+          (error/fail :payment/return-inbound
+                      {:message "No inbound payment carries the returned id"
+                       :scheme-transaction-id scheme-transaction-id})
+
+          (= :inbound-payment-status-returned (:payment-status payment))
+          (do (log/infof "Inbound payment return already processed: %s"
+                         {:payment-id (:payment-id payment)})
+              payment)
+
+          (not= :inbound-payment-status-suspended (:payment-status payment))
+          (error/fail :payment/return-inbound
+                      {:message "Cannot return an inbound payment not suspended"
+                       :payment-id (:payment-id payment)
+                       :payment-status (:payment-status payment)})
+
+          :else
+          (let [{:keys [bank-id currency]} payment]
+            (let-nom>
+              [cash (ledger-accounts/find-by-code
+                     txn
+                     bank-id
+                     :gl-account-code-cash-at-correspondent
+                     currency)
+               suspense (ledger-accounts/find-by-code
+                         txn
+                         bank-id
+                         :gl-account-code-suspense
+                         currency)
+               recorded (transactions/record-transaction
+                         txn
+                         (inbound/inbound-return->transaction
+                          payment
+                          (:ledger-account-id cash)
+                          (:ledger-account-id suspense)))
+               {:keys [transaction-type legs]} recorded
+               _ (balances/apply-legs txn bank-id legs transaction-type)
+               returned (inbound/returned-inbound-payment payment)
+               _ (store/save-inbound-payment
+                  txn
+                  returned
+                  {:change-kind :inbound-payment-change-kind-return
+                   :status-before (:payment-status payment)})]
+              (log/infof "Suspended inbound payment returned: %s"
+                         {:payment-id (:payment-id payment)})
+              returned)))))
      :payment/return-inbound
      "Failed to return inbound payment")))

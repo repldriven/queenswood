@@ -79,13 +79,19 @@
   again. Money that has arrived is never refused: a creditor that is
   not opened, or a settlement or release the currency, receive
   capability or daily count checks refuse, is posted DEBIT 1100 /
-  CREDIT 2500 suspense and recorded `suspended`. A BBAN no account
-  holds fails `:payment/unknown-creditor`, since the payment provider
-  issued every address an account holds. GL accounts are resolved
-  per-bank from the chart of accounts at runtime.
+  CREDIT 2500 suspense and recorded `suspended` with the ISO 20022
+  reason it was refused for. Where the provider declares `returns:
+  [inbound]`, a suspended inbound is then sent back to its sender with
+  `return-payment` on the scheme payment command channel, and again on
+  a redelivery of the settlement. A BBAN no account holds fails
+  `:payment/unknown-creditor`, since the payment provider issued every
+  address an account holds. GL accounts are resolved per-bank from the
+  chart of accounts at runtime.
 
   Args:
-  - config: FDB handle.
+  - config: FDB handle, plus :bus, :schemas,
+    :scheme-payment-command-channel and :payment-provider to return a
+    suspended inbound.
   - data: settlement event payload.
 
   Returns the payment map or an anomaly."

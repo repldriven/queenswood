@@ -1,5 +1,7 @@
 (ns com.repldriven.queenswood.form3-relay.outcomes
   (:require
+    [com.repldriven.mono.utility.interface :as utility]
+
     [clojure.string :as str]))
 
 (def ^:private succeeded #{"delivery_confirmed"})
@@ -83,3 +85,23 @@
             :timestamp-rejected at}}
 
     nil))
+
+(defn returned
+  "The scheme event a return's final submission `status` reports for the
+  inbound it sent back, keyed on Form3's id for that inbound, or nil
+  while it is not final or where it failed."
+  [{:keys [provider-payment-id end-to-end-id amount currency reason-code
+           reason status at]}]
+  (when (= :succeeded (outcome status))
+    {:event-name "transaction-returned"
+     :dedup-key (str provider-payment-id ":returned")
+     :data (utility/assoc-some {:end-to-end-id end-to-end-id
+                                :scheme "fps"
+                                :debit-credit-code :debit-credit-code-credit
+                                :scheme-transaction-id provider-payment-id
+                                :amount amount
+                                :currency currency
+                                :reason-code reason-code
+                                :timestamp-returned at}
+                               :reason
+                               reason)}))
