@@ -18,6 +18,8 @@
     ;; brick belongs to the development project alone, and the namespace
     ;; already loads api.api, which requires both of these.
     ;; enforce-idioms: brick-test-scope -- see above.
+    [com.repldriven.queenswood.form3-adapter.interface :as form3-adapter]
+    [com.repldriven.queenswood.form3-simulator.interface :as form3-simulator]
     [com.repldriven.queenswood.ledger-account.interface :as ledger-accounts]
     [com.repldriven.queenswood.modulr-adapter.interface :as modulr-adapter]
     [com.repldriven.queenswood.modulr-simulator.interface :as
@@ -41,6 +43,7 @@
     [com.repldriven.mono.utility.interface :as util]
 
     [clojure.java.io :as io]
+    [clojure.walk :as walk]
     [clojure.test :refer [deftest is testing]])
   (:import
     (io.opentelemetry.api.common AttributeKey)
@@ -120,21 +123,21 @@
                 ukch-simulator/app)))
 
 (defn- scenario-files
-  "Walk `bank-test-api-scenarios/scenarios/` recursively, returning
-  `{:file File :relative \"<sub>/<name>.edn\"}` entries sorted by
-  relative path so domain-grouped runs stay deterministic."
-  []
-  (let [root (io/file (.getFile (io/resource
-                                 "test-api-scenarios/scenarios")))
-        prefix-len (inc (count (.getPath root)))]
-    (->> (file-seq root)
-         (filter (fn [f]
-                   (and (.isFile ^java.io.File f)
-                        (.endsWith (.getName f) ".edn"))))
-         (map (fn [f]
-                {:file f
-                 :relative (subs (.getPath f) prefix-len)}))
-         (sort-by :relative))))
+  "Walk `dir`, `test-api-scenarios/scenarios/` unless named, recursively,
+  returning `{:file File :relative \"<sub>/<name>.edn\"}` entries sorted
+  by relative path so domain-grouped runs stay deterministic."
+  ([] (scenario-files "test-api-scenarios/scenarios"))
+  ([dir]
+   (let [root (io/file (.getFile (io/resource dir)))
+         prefix-len (inc (count (.getPath root)))]
+     (->> (file-seq root)
+          (filter (fn [f]
+                    (and (.isFile ^java.io.File f)
+                         (.endsWith (.getName f) ".edn"))))
+          (map (fn [f]
+                 {:file f
+                  :relative (subs (.getPath f) prefix-len)}))
+          (sort-by :relative)))))
 
 (defn- span->map
   "One finished span as data: enough to rebuild the tree and time
@@ -408,3 +411,93 @@
                (is (= (count account-events)
                       (count (filter #(contains? traces (trace-id %))
                                      account-events))))))))))))
+
+(def ^:private form3-skips
+  "Tags naming what a provider that holds the money does and rails do
+  not: tell of an inbound once settled, so it can be held or returned,
+  and screen an outbound."
+  #{:inbound-notified :screened})
+
+(defn- form3-files
+  "The payment and payee-check scenarios a rails provider can run, then
+  the scenarios only it runs."
+  []
+  (concat
+   (->> (scenario-files)
+        (filter (fn [{:keys [relative]}]
+                  (re-find #"^(payments|payee-checks)/" relative)))
+        (map (fn [f]
+               (assoc f
+                      :resource-path
+                      (str "test-api-scenarios/scenarios/"
+                           (:relative f))))))
+   (map (fn [f]
+          (assoc f
+                 :resource-path
+                 (str "test-api-scenarios/scenarios-form3/"
+                      (:relative f))))
+        (scenario-files "test-api-scenarios/scenarios-form3"))))
+
+(defn- form3-declaration
+  "Every component's payment provider declaration replaced by the Form3
+  adapter's, as a deployment on rails declares it."
+  [defs]
+  (let [declaration (get-in defs
+                            [:system/defs :form3-adapter :command-processor-impl
+                             :system/config :payment-provider])]
+    (walk/postwalk (fn [x]
+                     (if (and (map? x) (contains? x :payment-provider))
+                       (assoc x :payment-provider declaration)
+                       x))
+                   defs)))
+
+(defn- form3-handlers
+  [defs]
+  (-> defs
+      form3-declaration
+      (assoc-in [:system/defs :server :handler] app-with-fault)
+      (assoc-in [:system/defs :form3-simulator-server :handler]
+                form3-simulator/app)
+      (assoc-in [:system/defs :form3-adapter-server :handler] form3-adapter/app)
+      (assoc-in [:system/defs :zyphe-simulator-server :handler]
+                zyphe-simulator/app)
+      (assoc-in [:system/defs :zyphe-adapter-server :handler]
+                zyphe-adapter/app)
+      (assoc-in [:system/defs :uk-companies-house-simulator-server :handler]
+                ukch-simulator/app)))
+
+(deftest form3-scenarios-test
+  ;; The payment and payee-check scenarios again, on the Form3 adapter
+  ;; and its simulator, skipping those a rails provider cannot run.
+  (with-test-system
+   [sys
+    ["classpath:test-api-scenarios/form3-application-test.yml"
+     form3-handlers]]
+   (let [jetty (system/instance sys [:server :jetty-adapter])
+         base-url (server/http-local-url jetty)
+         admin-token (mint-admin-token base-url)
+         endpoints (token-endpoints sys)
+         key-pair (signing-key)
+         mail-url (system/instance sys [:smtp :container-api-url])
+         payment-simulator-url (system/instance sys
+                                                [:form3-simulator-server
+                                                 :http-url])
+         zyphe-simulator-url (system/instance sys
+                                              [:zyphe-simulator-server
+                                               :http-url])]
+     (fault/reset-lost!)
+     (doseq [{:keys [relative resource-path]} (form3-files)]
+       (testing (str "form3 " relative)
+         (nom-test> [loaded (SUT/from-resource resource-path)
+                     _ (when-not (some form3-skips (:tags loaded))
+                         (SUT/run-scenario
+                          (SUT/fresh-context
+                           {:base-url base-url
+                            :admin-token admin-token
+                            :token-endpoints endpoints
+                            :signing-key key-pair
+                            :mail-url mail-url
+                            :payment-simulator-url payment-simulator-url
+                            :zyphe-simulator-url zyphe-simulator-url
+                            :run-id (str (util/uuidv7))})
+                          resource-path))]))))))

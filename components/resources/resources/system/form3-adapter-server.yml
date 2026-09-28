@@ -1,0 +1,28 @@
+handler: !system/required-component
+
+interceptors: !system/component
+  system/component-kind: server/interceptors
+  avro: !system/ref avro.serde
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  form3-url: !profile
+    dev: !system/ref form3-simulator-server.http-url
+    test: !system/ref form3-simulator-server.http-url
+    default: !env FORM3_URL
+  credentials: !system/ref form3-adapter.credentials
+  dispatcher: !system/ref payments-dispatcher.dispatcher
+
+jetty-adapter: !system/component
+  system/component-kind: server/jetty-adapter
+  handler: !system/ref form3-adapter-server.handler
+  interceptors: !system/ref form3-adapter-server.interceptors
+  ready-fn: !system/ref form3-adapter.readiness
+  options: !profile
+    test:
+      port: 0
+    default:
+      port: 8088
+
+http-url: !system/component
+  system/component-kind: server/http-url
+  jetty-adapter: !system/local-ref jetty-adapter

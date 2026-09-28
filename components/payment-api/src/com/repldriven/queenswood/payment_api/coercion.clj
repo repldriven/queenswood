@@ -18,7 +18,8 @@
   (coercion/enum-coercion {"settled" :inbound-payment-status-settled
                            "suspended" :inbound-payment-status-suspended
                            "held" :inbound-payment-status-held
-                           "returned" :inbound-payment-status-returned}
+                           "returned" :inbound-payment-status-returned
+                           "admitted" :inbound-payment-status-admitted}
                           :inbound-payment-status-unknown))
 
 (def inbound-payment-status-enum-schema

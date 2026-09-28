@@ -24,4 +24,13 @@
     (is (= {:balances ["per-account"]}
            (:uncovered (error/payload (SUT/check (assoc declaration
                                                         :balances
-                                                        "per-account"))))))))
+                                                        "per-account")))))))
+  (testing "a declaration leaving the new keys out reads as what it carries"
+    (is (nil? (SUT/check (dissoc declaration :inbound :returns :screening)))))
+  (testing "admission, returns and the bank's own screening are not ClearBank's"
+    (is (= {:inbound ["admitted"] :returns ["inbound"] :screening ["bank"]}
+           (:uncovered (error/payload (SUT/check (assoc declaration
+                                                        :inbound "admitted"
+                                                        :returns ["inbound"]
+                                                        :screening
+                                                        "bank"))))))))

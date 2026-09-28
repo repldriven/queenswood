@@ -22,6 +22,7 @@ import "schemas/memberships/access-event.proto";
 import "schemas/memberships/invitation.proto";
 import "schemas/memberships/membership.proto";
 import "schemas/modulr/outbox.proto";
+import "schemas/form3/outbox.proto";
 import "schemas/banks/bank.proto";
 import "schemas/onfido/outbox.proto";
 import "schemas/zyphe/outbox.proto";
@@ -104,4 +105,6 @@ message RecordTypeUnion {
   optional com.repldriven.queenswood.schemas.modulr.ModulrOutboxEvent _ModulrOutboxEvent = 50;
   optional com.repldriven.queenswood.schemas.modulr.ModulrOutboundIntent _ModulrOutboundIntent = 51;
   optional com.repldriven.queenswood.schemas.payments.ProviderTransfer _ProviderTransfer = 52;
+  optional com.repldriven.queenswood.schemas.form3.Form3OutboxEvent _Form3OutboxEvent = 53;
+  optional com.repldriven.queenswood.schemas.form3.Form3OutboundIntent _Form3OutboundIntent = 54;
 }

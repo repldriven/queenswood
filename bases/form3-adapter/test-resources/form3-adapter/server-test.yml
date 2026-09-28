@@ -1,0 +1,19 @@
+handler: !system/required-component
+
+credentials: !system/component
+  system/component-kind: form3-webhook/credentials
+
+interceptors: !system/component
+  system/component-kind: server/interceptors
+  avro: !system/ref avro.serde
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  form3-url: http://form3.invalid
+  credentials: !system/local-ref credentials
+
+jetty-adapter: !system/component
+  system/component-kind: server/jetty-adapter
+  handler: !system/ref server.handler
+  interceptors: !system/ref server.interceptors
+  options:
+    port: 0

@@ -10,7 +10,10 @@
   {:schemes ["fps"]
    :addresses ["scan"]
    :balances "per-account"
-   :payee-check ["outbound"]})
+   :payee-check ["outbound"]
+   :inbound "notified"
+   :returns []
+   :screening "provider"})
 
 (deftest check-test
   (testing "a declaration the adapter carries passes"
@@ -22,4 +25,11 @@
   (testing "a pooled balance is not what the adapter holds"
     (is (= {:balances ["pooled"]}
            (:uncovered (error/payload
-                        (SUT/check (assoc declaration :balances "pooled"))))))))
+                        (SUT/check (assoc declaration :balances "pooled")))))))
+  (testing "admission, returns and the bank's own screening are not Modulr's"
+    (is (= {:inbound ["admitted"] :returns ["inbound"] :screening ["bank"]}
+           (:uncovered (error/payload (SUT/check (assoc declaration
+                                                        :inbound "admitted"
+                                                        :returns ["inbound"]
+                                                        :screening
+                                                        "bank"))))))))

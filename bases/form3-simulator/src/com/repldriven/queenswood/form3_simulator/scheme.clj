@@ -222,7 +222,7 @@
                         config
                         submission-id
                         "delivery_failed"
-                        "transaction_forbidden")
+                        "invalid_beneficiary_details")
 
      (= held-name (or account_name name))
      (do (finish-submission state

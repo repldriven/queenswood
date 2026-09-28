@@ -270,6 +270,61 @@
                                                        {:reason-code "NARR"})
                         :return-reason)))))
 
+(deftest account-refusal-test
+  (is (= "AC01" (:reason-code (SUT/account-refusal nil))))
+  (is (= "AC04"
+         (:reason-code (SUT/account-refusal
+                        (account "a" "GBP" :cash-account-status-closed)))))
+  (is (= "AC04"
+         (:reason-code (SUT/account-refusal
+                        (account "a" "GBP" :cash-account-status-closing)))))
+  (is (= "AC06"
+         (:reason-code (SUT/account-refusal
+                        (account "a" "GBP" :cash-account-status-suspended)))))
+  (is (= "AC06"
+         (:reason-code (SUT/account-refusal
+                        (account "a" "GBP" :cash-account-status-opening)))))
+  (is (nil? (SUT/account-refusal (account "a" "GBP")))))
+
+(deftest acceptance-refusal-test
+  (testing "another currency is AM03"
+    (is (= "AM03"
+           (:reason-code (SUT/acceptance-refusal (SUT/check-inbound-acceptance
+                                                  {:currency "EUR"}
+                                                  (account "a" "GBP")
+                                                  (allow-all)
+                                                  (empty-aggregates
+                                                   :inbound-payment)))))))
+  (testing "a policy refusal is AG01"
+    (is (= "AG01"
+           (:reason-code (SUT/acceptance-refusal (SUT/check-inbound-acceptance
+                                                  {:currency "GBP"}
+                                                  (account "a" "GBP")
+                                                  []
+                                                  (empty-aggregates
+                                                   :inbound-payment))))))))
+
+(deftest admitted-inbound-test
+  (let [admitted (SUT/admitted-inbound-payment {:end-to-end-id "e2e-1"
+                                                :scheme "fps"
+                                                :currency "GBP"
+                                                :amount 250
+                                                :reference "Lunch"}
+                                               "acc.1"
+                                               "bnk.1"
+                                               20260928)
+        tx (SUT/admitted-inbound->transaction admitted
+                                              (account "acc.1" "GBP")
+                                              "1100")]
+    (testing "an admission is recorded admitted, with nothing posted"
+      (is (= :inbound-payment-status-admitted (:payment-status admitted)))
+      (is (not (contains? admitted :transaction-id))))
+    (testing "its settlement credits the account from 1100"
+      (is (= "acc.1" (:account-id (side tx :leg-side-credit))))
+      (is (= "1100" (:account-id (side tx :leg-side-debit))))
+      (is (= "Lunch" (:reference tx)))
+      (is (balanced? tx)))))
+
 (deftest operable?-test
   (testing "opened alone is operable"
     (is (SUT/operable? (account "debtor" "GBP")))

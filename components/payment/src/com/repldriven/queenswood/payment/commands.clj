@@ -19,6 +19,9 @@
   {"submit-internal-payment"
    (fn [config data]
      (->response config "internal-payment" (core/submit-internal config data)))
+   "admit-inbound-payment"
+   (fn [config data]
+     (->response config "inbound-admission" (events/admit-inbound config data)))
    "submit-outbound-payment" (fn [config data]
                                (->response config
                                            "outbound-payment"

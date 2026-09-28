@@ -1,5 +1,5 @@
 {:name "An inbound held for screening, then returned, credits no one"
- :tags #{:api :inbound :payments :unhappy}
+ :tags #{:api :inbound :payments :unhappy :inbound-notified}
  ;; A test value every payment simulator shares: an inbound whose debtor
  ;; name is 6a41a29eafcf455493 is held for screening. The simulator then resolves it
  ;; by the request's `outcome`, here a return, whose rejection carries the

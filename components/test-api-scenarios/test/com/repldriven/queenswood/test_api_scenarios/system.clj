@@ -14,6 +14,8 @@
     [com.repldriven.queenswood.changelog-relay.interface]
     [com.repldriven.queenswood.email.interface]
     [com.repldriven.queenswood.fdb.interface]
+    [com.repldriven.queenswood.form3-relay.interface]
+    [com.repldriven.queenswood.form3-webhook.interface]
     [com.repldriven.queenswood.idv.interface]
     [com.repldriven.queenswood.idv.system]
     [com.repldriven.queenswood.membership.interface]

@@ -1,5 +1,5 @@
 {:name "A suspended inbound is listed, read by id, and hidden from another bank"
- :tags #{:api :inbound :payments :unhappy}
+ :tags #{:api :inbound :payments :unhappy :inbound-notified}
  ;; An inbound to an account that cannot take it is parked in 2500
  ;; suspense and recorded `suspended`. The bank lists its suspended
  ;; inbounds and finds the amount and the scheme transaction id, reads the

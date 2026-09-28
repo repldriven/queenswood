@@ -5,7 +5,7 @@
 # its record type arrived on as since, and a store lists the indexes
 # removed from it under former-indexes with the versions they were added
 # and removed at. See docs/recipes/code/schema-evolution.md.
-version: 64
+version: 65
 stores:
   assertions:
     record-type: Assertion
@@ -562,6 +562,30 @@ stores:
       - name: ModulrOutboundIntent_by_status
         added: 63
         modified: 63
+        field: status
+  form3-outbox:
+    record-type: Form3OutboxEvent
+    since: 65
+    primary-key: [outbox_id]
+    indexes:
+      - name: Form3OutboxEvent_by_dedup_key
+        added: 65
+        modified: 65
+        field: dedup_key
+        unique: true
+  form3-outbound-intents:
+    record-type: Form3OutboundIntent
+    since: 65
+    primary-key: [intent_id]
+    indexes:
+      - name: Form3OutboundIntent_by_dedup_key
+        added: 65
+        modified: 65
+        field: dedup_key
+        unique: true
+      - name: Form3OutboundIntent_by_status
+        added: 65
+        modified: 65
         field: status
   provider-transfers:
     record-type: ProviderTransfer

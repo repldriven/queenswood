@@ -1,0 +1,140 @@
+{:name "The bank admits an inbound to an opened account, and refuses one to a suspended account"
+ :tags #{:api :inbound :payments :admission}
+ ;; Form3 asks the bank to admit each inbound before it settles. One to
+ ;; an opened account is admitted and credited. Once the account is
+ ;; suspended the bank refuses the next, which Form3 fails as a blocked
+ ;; account, and the balance does not move. Balances are in pence.
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-f3adm-create-bank-001"}
+             :body {:name "Form3 Admission"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :bank-0
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :bank-0 :client-id]
+         :client-secret [:ref :bank-0 :client-secret]
+         :status :live}
+   :as :bank-0-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-f3adm-create-prod-001"}
+             :body {:name "Current"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-01-01"}}
+   :as :current-draft
+   :assert {:status 201 :body {:status "draft"}}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :current-draft :product-id]
+                  :version-id [:ref :current-draft :version-id]}
+    :auth :bank-0-token}
+   :assert {:status 200 :body {:status "published"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-f3adm-create-party"}
+             :body {:type "person"
+                    :display-name "Trillian Astra"
+                    :given-name "Trillian"
+                    :family-name "Astra"
+                    :date-of-birth "1960-03-11"
+                    :nationality "GB"
+                    :address {:building-number "7"
+                              :street "Islington Row"
+                              :town "London"
+                              :postcode "N1 8QH"
+                              :country "GBR"}
+                    :national-identifier {:type "national-insurance"
+                                          :value "TN555933A"
+                                          :issuing-country "GB"}}}
+   :as :trillian
+   :assert {:status 201 :body {:status "pending"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}"
+             :path-params {:party-id [:ref :trillian :party-id]}
+             :auth :bank-0-token}
+   :until {:status 200 :body {:status "active"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-f3adm-open-creditor"}
+             :body {:party-id [:ref :trillian :party-id]
+                    :name "Trillian Current"
+                    :currency "GBP"
+                    :product-id [:ref :current-draft :product-id]}}
+   :as :creditor
+   :assert {:status 201 :body {:account-status "opening"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :creditor :account-id]}
+             :auth :bank-0-token}
+   :until {:status 200 :body {:account-status "opened"}}
+   :as :creditor}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :creditor :account-id]}
+             :auth :bank-0-token}
+   :assert {:status 200
+            :body {:posted-balance {:value 0 :currency "GBP"}}}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :base :payment-simulator
+             :path "/simulate/inbound-payment"
+             :body {:bban [:ref :creditor :bban]
+                    :amount 25
+                    :currency "GBP"
+                    :reference "Admitted"
+                    :debtor-name "Admitted Sender"}}
+   :assert {:status 202 :body {:admission-status "confirmed"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :creditor :account-id]}
+             :auth :bank-0-token}
+   :until {:status 200 :body {:posted-balance {:value 2500 :currency "GBP"}}}
+   :timeout-ms 10000}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts/{account-id}/suspend"
+             :path-params {:account-id [:ref :creditor :account-id]}
+             :auth :bank-0-token
+             :headers {:idempotency-key "ik-f3adm-suspend"}}
+   :assert {:status 200 :body {:account-status "suspended"}}}
+  {:command :api/request
+   :request {:method :post
+             :base :payment-simulator
+             :path "/simulate/inbound-payment"
+             :body {:bban [:ref :creditor :bban]
+                    :amount 10
+                    :currency "GBP"
+                    :reference "Refused"
+                    :debtor-name "Refused Sender"}}
+   :assert {:status 202
+            :body {:admission-status "failed"
+                   :status-reason "blocked_account"}}}]
+ :then
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :creditor :account-id]}
+             :auth :bank-0-token}
+   :assert {:status 200
+            :body {:posted-balance {:value 2500 :currency "GBP"}}}}]}

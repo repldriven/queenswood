@@ -97,22 +97,25 @@ settlement reports, which are the bank's operations.
   `POST /v1/payee-checks` by calling the adapter's `/cop/outbound`
   over HTTP, with the bank and the account the payment will leave, and
   persists each check for 24 hours.
-- **The adapters.** Two exist, each four bricks: a base,
+- **The adapters.** Three exist, each four bricks: a base,
   `<provider>-adapter`; a `<provider>-relay` component holding its
   outbox and outbound-intents stores and the runner that calls the
   provider outside any transaction; a `<provider>-webhook` component
   holding the provider's wire schemas and signature; and a
   `<provider>-simulator` base. The default adapter is composed into
   `external-adapters` and `monolith`, and
-  `exclusive-dispatchers-service` relays its outbox; the other stays in
-  the development project with its tests. Only the simulators are
+  `exclusive-dispatchers-service` relays its outbox; the others stay in
+  the development project with their tests. Only the simulators are
   reachable. Each adapter signs what it sends and verifies what it
   receives with the scheme its provider uses, the simulator doing the
   reverse.
 - **The provider as a deployment fact.** Which adapter runs is decided
   by the service's `application.yml`, per
   [ADR-0020](../adr/0020-providers-are-deployment-facts.md), and
-  `system/payment-provider.yml` declares what it carries.
+  `system/payment-provider.yml` declares what it carries. The
+  `payment-provider` component reads a declaration with its defaults
+  and holds the start-up check each adapter makes against what it
+  carries.
 
 ## Proposed Solution
 
@@ -154,7 +157,9 @@ screening: provider
 The file is included as plain config wherever it is read:
 
 - **At start-up.** The adapter refuses to start when its configuration
-  does not cover what the file declares.
+  does not cover what the file declares, a left-out key read as its
+  default, so an adapter that only admits refuses a file silent on
+  `inbound`.
 - **At publish.** `cash-account-product` refuses a version whose
   `allowed-payment-address-schemes` names a scheme `addresses` lacks,
   with `:cash-account-product/unsupported-address-scheme` (422).
@@ -503,8 +508,8 @@ runs changes nothing outside it:
   name is declined with no hold.
 
 The deployed builds compose the default adapter into
-`external-adapters` and `monolith`; the other stays in the development
-project with its tests. Only one adapter consumes
+`external-adapters` and `monolith`; the others stay in the development
+project with their tests. Only one adapter consumes
 `schemes-payment-command` and `schemes-account-command` in a JVM.
 `exclusive-dispatchers-service` runs the relay runners for the
 adapter's outbox and the transactions store's changelog.
@@ -597,12 +602,12 @@ stateDiagram-v2
 7. **The declaration's new keys.** `inbound`, `returns` and
    `screening`, each existing adapter declaring its values, and the
    start-up check covering them. Proved by the payment scenarios
-   passing unchanged.
+   passing unchanged. Built.
 8. **The rails adapter and admission.** The third adapter, issuing
    account numbers under its configured sort code, and
    `admit-inbound-payment` in `payment`. Proved by the payment and
    payee-check scenarios on its simulator, and an inbound rejected at
-   admission for each reason.
+   admission for each reason. Built.
 9. **Returning an inbound payment.** `return-payment`, the
    `suspended → returned` transition and its posting. Proved by an
    inbound to a closed account and one a policy refuses each returned
@@ -622,6 +627,8 @@ once the simulator covers every flow above.
 - **`cash-account-product`** — a version refused for an address scheme
   the declaration lacks.
 - **`payee-check`** — the payer account passed through.
+- **`payment-provider`** — a left-out key read as its default, and the
+  start-up check naming each value asked and not carried.
 - **`transaction`** — `transaction-posted` co-committed with each
   posting.
 - **`<provider>-adapter`** — each provider event mapped to its scheme
@@ -637,7 +644,9 @@ once the simulator covers every flow above.
   for funds, and a payment to a closed account returned.
 - **`test-api-scenarios`** — the payment and payee-check scenarios run
   on the default adapter's simulator, plus a scenario per new
-  transition and refusal.
+  transition and refusal, and again on the rails adapter's simulator,
+  skipping those tagged `:inbound-notified` or `:screened`, with an
+  admission admitted and one refused.
 - **`test-scenarios`** — every flow on the default adapter's simulator,
   and a scenario checking every simulated provider balance against the
   ledger after each mirrored flow.
@@ -720,7 +729,14 @@ once the simulator covers every flow above.
 - **Settlement at the scheme is reconciled by hand.** On rails, GL
   1100 is the bank's settlement account, whose funding and the
   scheme's settlement reports are the bank's operations.
-- **The other adapter returns nothing.** Its simulator serves no
+- **Choosing a provider replaces the declaration everywhere.**
+  `system/payment-provider.yml` is included into each component that
+  reads it, so a deployment on another provider replaces every include,
+  as the rails rig does by patching its system before it starts.
+- **An admission answered after the deadline is lost.** Form3 fails
+  the admission; a payment the platform admitted by then stays
+  `admitted`.
+- **The clearing-bank adapter returns nothing.** Its simulator serves no
   `/simulate/outbound-return`, and it maps no return from its provider.
 - **The default simulator forgets on restart.** It holds accounts and
   balances in memory, so after a restart it serves an account it no

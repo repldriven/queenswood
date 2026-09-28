@@ -2,6 +2,8 @@
   (:require
     [com.repldriven.queenswood.testcontainers.interface]
 
+    [com.repldriven.mono.message-bus.interface]
+
     [com.repldriven.queenswood.clearbank-adapter.interface :as SUT]
 
     [com.repldriven.queenswood.clearbank-webhook.interface :as

@@ -122,9 +122,10 @@
                        model-state)})
 
 (def ^:private assertion-verbs
-  #{:assert-balance :assert-dead-lettered :assert-inbound-status :assert-intents
-    :assert-no-anomaly :assert-outbound-status :assert-outcome
-    :assert-provider-balances :assert-rejection-kind :assert-scheme-commands})
+  #{:assert-admission :assert-balance :assert-dead-lettered
+    :assert-inbound-status :assert-intents :assert-no-anomaly
+    :assert-outbound-status :assert-outcome :assert-provider-balances
+    :assert-rejection-kind :assert-scheme-commands})
 
 (defn- run-with-model-check
   "Folds `steps` through the runner *and* the model in lock-step.
