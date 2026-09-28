@@ -9,17 +9,27 @@
 (def BankStatus
   (coercion/bank-status-enum-schema {:json-schema/example "test"}))
 
+(def BankProviders
+  [:map-of
+   {:json-schema/example examples/BankProviders
+    :description
+    "The key of the provider of each kind the bank runs on, by kind. A
+    bank's providers are chosen when it is created and never change."}
+   keyword? string?])
+
 (def CreateBankRequest
   [:map
    {:closed true
     :json-schema/example examples/CreateBankRequest
     :description
-    "A person names the company the bank is for and nothing else, and
-    becomes its owner. An operator may name a company too, may choose the
-    status, tier and currencies, which default to test, micro and GBP,
-    and may name an owner by email."}
+    "A person names the company the bank is for and its providers, and
+    becomes its owner. An operator may name a company and providers too,
+    may choose the status, tier and currencies, which default to test,
+    micro and GBP, and may name an owner by email. A kind of provider
+    left out takes the installation's default."}
    [:name [:ref "Name"]]
    [:company-number {:optional true} string?]
+   [:providers {:optional true} [:ref "BankProviders"]]
    [:status {:optional true} [:ref "BankStatus"]]
    [:tier {:optional true} [:ref "Name"]]
    [:currencies {:optional true} [:unique-vector {:min 1} [:ref "Currency"]]]
@@ -42,6 +52,7 @@
    [:name [:ref "Name"]]
    [:status [:ref "BankStatus"]]
    [:tier {:optional true} [:ref "Name"]]
+   [:providers [:ref "BankProviders"]]
    [:party [:ref "Party"]]
    [:accounts [:vector [:ref "CashAccount"]]]
    ;; Optional because `Bank` is also the body of the tier and status
@@ -82,6 +93,7 @@
    ;; one, while `Bank` describes any bank on record — including those
    ;; stored before the tier was demanded.
    [:tier [:ref "Name"]]
+   [:providers [:ref "BankProviders"]]
    [:party [:ref "Party"]]
    [:accounts [:vector [:ref "CashAccount"]]]
    [:client-id [:ref "BankId"]]
@@ -104,8 +116,23 @@
 
 (def ChangeBankStatusResponse [:ref "Bank"])
 
+(def Provider
+  [:map
+   {:closed true
+    :json-schema/example examples/Provider
+    :description
+    "A kind of provider the installation offers: the key of each provider
+    of that kind, and the default a bank takes where its create names
+    none."}
+   [:kind string?]
+   [:providers [:vector string?]]
+   [:default string?]])
+
+(def ProviderList (list-schema "Provider" examples/ProviderList))
+
 (def registry
-  (components-registry [#'BankStatus #'CreateBankRequest #'Owner #'Bank
-                        #'BankList #'CompanyBinding #'CreateBankResponse
+  (components-registry [#'BankStatus #'BankProviders #'CreateBankRequest #'Owner
+                        #'Bank #'BankList #'CompanyBinding #'CreateBankResponse
                         #'ChangeBankTierRequest #'ChangeBankTierResponse
-                        #'ChangeBankStatusRequest #'ChangeBankStatusResponse]))
+                        #'ChangeBankStatusRequest #'ChangeBankStatusResponse
+                        #'Provider #'ProviderList]))

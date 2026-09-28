@@ -27,6 +27,12 @@ message BankCompanyBinding {
   optional string registered_office_address = 8; // joined address lines
 }
 
+// The provider of one kind a bank runs on, chosen when it was created.
+message BankProvider {
+  optional string kind = 1; // e.g. "payment"
+  optional string provider = 2; // e.g. "modulr"
+}
+
 message Bank {
   option (com.apple.foundationdb.record.record).usage = RECORD;
 
@@ -42,4 +48,5 @@ message Bank {
   required string sort_code = 8 [deprecated = true];
   optional BankCompanyBinding company_binding = 9;
   optional string tier = 10;
+  repeated BankProvider providers = 11;
 }

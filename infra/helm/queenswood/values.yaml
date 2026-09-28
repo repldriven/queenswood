@@ -493,8 +493,8 @@ services:
       requests: { cpu: "200m", memory: "768Mi" }
 
   # Money path: payment, transaction, payee-check processors
-  # in one JVM. Payee-check invokes the payment adapter for
-  # Confirmation of Payee, hence PAYMENT_ADAPTER_URL.
+  # in one JVM. Payee-check invokes the bank's payment adapter for
+  # Confirmation of Payee, hence an adapter URL per provider.
   financial-processors-service:
     enabled: true
     replicas: 1
@@ -502,7 +502,7 @@ services:
       limits: { cpu: "1500m", memory: "2Gi" }
       requests: { cpu: "300m", memory: "1Gi" }
     extraEnv:
-      PAYMENT_ADAPTER_URL: "http://{{ .Release.Name }}-external-adapters-service:8082"
+      MODULR_ADAPTER_URL: "http://{{ .Release.Name }}-external-adapters-service:8082"
 
   # Provisioning + identity: bank, party, cash-account, product, idv
   # processors in one JVM. Bank provisioning issues service-account

@@ -13,21 +13,25 @@
   (:require
     [com.repldriven.queenswood.api.errors :as errors]
 
+    [com.repldriven.queenswood.bank-query.interface :as banks]
     [com.repldriven.queenswood.cash-account-product.interface :as products]
     [com.repldriven.queenswood.payment-provider.interface :as
      payment-provider]
 
-    [com.repldriven.mono.error.interface :as error]))
+    [com.repldriven.mono.error.interface :as error :refer [let-nom>]]))
 
 (defn- config
   [{:keys [record-db record-store]}]
   {:record-db record-db :record-store record-store})
 
 (defn- payment-declaration
-  [request]
-  (some-> (get-in request [:providers :payment])
-          payment-provider/default
-          :declaration))
+  "The declaration of the bank's payment provider."
+  [request bank-id]
+  (let-nom> [bank (banks/get-bank (config request) bank-id)
+             entry (payment-provider/for-bank (get-in request
+                                                      [:providers :payment])
+                                              bank)]
+    (:declaration entry)))
 
 (defn- version-uri
   [{:keys [product-id version-id]}]
@@ -111,10 +115,10 @@
         {:keys [bank-id]} auth
         {:keys [path]} parameters
         {:keys [product-id version-id]} path]
-    (respond (products/publish (config request)
-                               bank-id
-                               product-id
-                               version-id
-                               {:payment-provider (payment-declaration
-                                                   request)})
+    (respond (let-nom> [declaration (payment-declaration request bank-id)]
+               (products/publish (config request)
+                                 bank-id
+                                 product-id
+                                 version-id
+                                 {:payment-provider declaration}))
              ok)))

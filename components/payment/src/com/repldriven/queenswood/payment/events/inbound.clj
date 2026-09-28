@@ -391,23 +391,25 @@
   return it, or the anomaly publishing gave."
   [config payment]
   (let [{:keys [bus schemas]} config
-        {:keys [payment-id suspense-reason-code]} payment]
-    (if-not (inbound/returnable? payment (provider/declaration config))
-      payment
-      (let-nom>
-        [payload (avro/serialize (get schemas "return-payment")
-                                 (inbound/return-payment payment))
-         _ (message-bus/send bus
-                             (provider/payment-command-channel config)
-                             {:command "return-payment"
-                              :id (str (utility/uuidv7))
-                              :correlation-id (str (utility/uuidv7))
-                              :causation-id payment-id
-                              :payload payload})]
-        (log/infof "Suspended inbound sent back to its sender: %s"
-                   {:payment-id payment-id
-                    :reason-code suspense-reason-code})
-        payment))))
+        {:keys [payment-id bank-id suspense-reason-code]} payment]
+    (let-nom> [declaration (provider/declaration config config bank-id)]
+      (if-not (inbound/returnable? payment declaration)
+        payment
+        (let-nom>
+          [channel (provider/payment-command-channel config config bank-id)
+           payload (avro/serialize (get schemas "return-payment")
+                                   (inbound/return-payment payment))
+           _ (message-bus/send bus
+                               channel
+                               {:command "return-payment"
+                                :id (str (utility/uuidv7))
+                                :correlation-id (str (utility/uuidv7))
+                                :causation-id payment-id
+                                :payload payload})]
+          (log/infof "Suspended inbound sent back to its sender: %s"
+                     {:payment-id payment-id
+                      :reason-code suspense-reason-code})
+          payment)))))
 
 (defn settle-inbound
   "Settle an inbound credit against the creditor resolved by BBAN. A

@@ -11,7 +11,8 @@
     [com.repldriven.queenswood.api-schema.interface :as api-schema :refer
      [ErrorExamples ErrorResponse]]
     [com.repldriven.queenswood.bank-api.interface :refer
-     [BankInvalidStatus BankNotFound BankUnknownTier BankUnnamed
+     [BankInvalidStatus BankNotFound BankUnknownProvider BankUnknownTier
+      BankUnnamed
       CompanyNotActive CompanyRequired IdvUnsupportedCriteria
       OperatorFieldRefused]]
     [com.repldriven.queenswood.company-api.interface :as company-api]
@@ -52,7 +53,11 @@
                           "404, and one that is not active is refused with "
                           "422, as is a tier with no policies and one "
                           "requiring a verification or screening the "
-                          "identity provider does not establish. The response "
+                          "identity provider does not establish. A kind of "
+                          "provider left out of `providers` takes the "
+                          "installation's default, and a kind or a provider "
+                          "the installation does not offer is refused with "
+                          "422. The response "
                           "carries the bank's client secret, returned only "
                           "here, the person's owner membership, and with "
                           "`owner-email` the owner invitation emailed to that "
@@ -70,8 +75,9 @@
          403 (ErrorExamples [#'api-schema/PolicyDenied
                              #'OperatorFieldRefused])
          404 (ErrorResponse [#'company-api/CompanyNotFound])
-         422 (ErrorResponse [#'BankUnknownTier #'CompanyNotActive
-                             #'CompanyRequired #'IdvUnsupportedCriteria])
+         422 (ErrorResponse [#'BankUnknownProvider #'BankUnknownTier
+                             #'CompanyNotActive #'CompanyRequired
+                             #'IdvUnsupportedCriteria])
          503 (ErrorExamples [#'company-api/CompanyRegistryUnavailable])})
        :handler bank-commands/create-bank}}]]
    ["/bank"
@@ -85,10 +91,10 @@
                                  {"bearerAuth" ["admin"]}]
                       :description
                       (str "The bank the `Bank-Id` header names, with its "
-                           "party, its cash accounts and their balances, its"
-                           " tier and its active owners, as the bank list "
-                           "shows it. An operator naming no bank is refused "
-                           "with 403.")
+                           "providers, its party, its cash accounts and their"
+                           " balances, its tier and its active owners, as the"
+                           " bank list shows it. An operator naming no bank "
+                           "is refused with 403.")
                       :parameters ^:replace
                                   [shared.parameters/ref-bank-id-header]}
             :responses {200 {:description "The bank." :body [:ref "Bank"]}
@@ -140,4 +146,18 @@
                          403 (ErrorExamples [#'BankUnnamed])
                          404 (ErrorResponse [#'BankNotFound])
                          409 (ErrorResponse [#'BankInvalidStatus])}
-             :handler bank-commands/change-bank-status}}]]])
+             :handler bank-commands/change-bank-status}}]]
+   ["/providers"
+    {:openapi {:tags ["Banks"]
+               :security [{"bearerAuth" ["admin"]} {"bearerAuth" ["user"]}]}}
+    [""
+     {:get {:summary "List the providers offered"
+            :openapi {:operationId "ListProviders"
+                      :description
+                      (str "Each kind of provider the installation offers, "
+                           "with the key of each provider of that kind and "
+                           "the default a bank takes where its create names "
+                           "none, as a bank's create may name them.")}
+            :responses {200 {:description "The kinds of provider offered."
+                             :body [:ref "ProviderList"]}}
+            :handler queries/list-providers}}]]])

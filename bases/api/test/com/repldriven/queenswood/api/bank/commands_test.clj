@@ -116,3 +116,9 @@
   (let [{:keys [status body]} (SUT/create-bank (person-request {}))]
     (is (= 422 status))
     (is (= ":bank/company-required" (:type body)))))
+
+(deftest create-sends-the-providers-named-test
+  (let [data (SUT/create-bank-data (create-request {:providers {:payment
+                                                                "rails"}})
+                                   nil)]
+    (is (= [{:kind "payment" :provider "rails"}] (:providers data)))))

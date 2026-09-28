@@ -190,6 +190,7 @@ system:
   avro: !include system/avro.yml
   keycloak: !include system/keycloak.yml
   payment-provider: !include system/payment-provider.yml
+  idv-provider: !include system/idv-provider.yml
   banks:
     dispatcher: !system/component
       system/component-kind: command/dispatcher
@@ -250,11 +251,12 @@ system:
     interceptors: !system/component
       system/component-kind: server/interceptors
       identity-provider: !system/ref keycloak.identity-provider
-      # The providers the installation offers, by kind. Publishing a
-      # product version is checked against the payment provider's
-      # declaration.
+      # The providers the installation offers, by kind: what a bank's
+      # create may name, and what its reads and product publishing
+      # resolve against.
       providers:
         payment: !system/ref payment-provider.providers
+        idv: !system/ref idv-provider.providers
       # All identity-provider instances the auth interceptor may use
       # to verify an incoming JWT. The interceptor extracts the
       # unverified `iss`, picks the matching provider, then verifies.

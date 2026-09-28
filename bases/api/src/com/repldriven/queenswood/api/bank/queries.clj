@@ -10,6 +10,33 @@
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]))
 
+(defn- offered
+  "The providers instance of each kind the installation offers."
+  [request]
+  (vals (:providers request)))
+
+(defn with-providers
+  "`bank` with `:providers` the key of its provider of each kind offered,
+  by kind: the one it records, or the default where it records none."
+  [request bank]
+  (let [recorded (into {} (map (juxt :kind :provider)) (:providers bank))]
+    (assoc bank
+           :providers
+           (into {}
+                 (map (fn [{:keys [kind default]}]
+                        [(keyword kind) (get recorded kind (name default))]))
+                 (offered request)))))
+
+(defn list-providers
+  [request]
+  {:status 200
+   :body {:items (->> (offered request)
+                      (sort-by :kind)
+                      (mapv (fn [{:keys [kind default providers]}]
+                              {:kind kind
+                               :providers (mapv name (keys providers))
+                               :default (name default)})))}})
+
 (defn- with-owners
   [found owners-of]
   (reduce (fn [enriched bank]
@@ -22,10 +49,13 @@
 
 (defn banks-response
   "The 200 body for one page of banks, `found` as `get-banks` returns it,
-  each bank given the owners `owners-of` names for its id."
-  [page found owners-of]
+  each bank given the owners `owners-of` names for its id and the
+  providers `request` offers."
+  [request page found owners-of]
   (let [result (let-nom> [{:keys [banks]} found]
-                 (with-owners banks owners-of))]
+                 (with-owners (mapv (fn [bank] (with-providers request bank))
+                                    banks)
+                              owners-of))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       {:status 200 :body (cursor/page-body "/v1/banks" page result found)})))
@@ -57,7 +87,7 @@
                  [bank (banks/get-bank-view config bank-id)
                   {:keys [list-active lookup]} (owner-lookups config [bank])
                   owners (names/owners list-active lookup bank-id)]
-                 (assoc bank :owners owners))]
+                 (assoc (with-providers request bank) :owners owners))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       {:status 200 :body result})))
@@ -74,7 +104,8 @@
     (if (error/anomaly? lookups)
       (errors/anomaly->response lookups)
       (let [{:keys [list-active lookup]} lookups]
-        (banks-response page
+        (banks-response request
+                        page
                         found
                         (fn [bank-id]
                           (names/owners list-active lookup bank-id)))))))

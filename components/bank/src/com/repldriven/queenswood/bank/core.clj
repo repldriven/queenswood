@@ -7,6 +7,7 @@
     [com.repldriven.queenswood.bank-query.interface :as bank-query]
     [com.repldriven.queenswood.cash-account-product.interface :as products]
     [com.repldriven.queenswood.cash-account.interface :as cash-accounts]
+    [com.repldriven.queenswood.idv-provider.interface :as idv-provider]
     [com.repldriven.queenswood.ledger-account.interface :as ledger-accounts]
     [com.repldriven.queenswood.membership.interface :as memberships]
     [com.repldriven.queenswood.party.interface :as party]
@@ -156,6 +157,10 @@
                         {:actor actor
                          :reason owner-invitation-reason})))
 
+(defn choose-providers
+  [offered requested]
+  (domain/choose-providers offered requested))
+
 (defn new-bank
   [txn bank-name bank-status tier currencies opts]
   (store/transact
@@ -187,13 +192,14 @@
           tier-policies (if (some? tier)
                           (policy/get-policies-by-tier txn tier)
                           [])
-          bank (domain/new-bank bank-name
-                                bank-status
-                                tier
-                                company-binding
-                                tier-policies
-                                policies
-                                idv-provider)
+          bank (error/nom-> (domain/new-bank bank-name
+                                             bank-status
+                                             tier
+                                             company-binding
+                                             tier-policies
+                                             policies
+                                             idv-provider)
+                            (utility/assoc-seq :providers (:providers opts)))
           bank-id (:bank-id bank)
 
           ;; Issue the service-account client BEFORE the FDB write so an
@@ -249,13 +255,15 @@
    (fn [txn]
      (let-nom>
        [bank (bank-query/get-bank txn bank-id)
+        {:keys [declaration]} (idv-provider/for-bank (:idv-providers opts)
+                                                     bank)
         new-tier-policies (policy/get-policies-by-tier txn tier)
         policies (policy/get-effective-policies txn {})
         updated (domain/change-tier bank
                                     tier
                                     new-tier-policies
                                     policies
-                                    (:idv-provider opts))
+                                    declaration)
         _ (unbind-tier-policies txn bank-id)
         _ (bind-policies txn bank-id new-tier-policies)
         entry (changelog/tier-changed {:bank-id bank-id

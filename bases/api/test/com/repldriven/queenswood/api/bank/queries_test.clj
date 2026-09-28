@@ -6,7 +6,8 @@
 
   No system is booted, and no var is redefined: the bank list and the
   membership and user reads are the functions each test hands to
-  `banks-response` and `names/owners`."
+  `banks-response` and `names/owners`. A bank shows the provider of each
+  kind offered it records, and the default where it records none."
   (:require
     [com.repldriven.queenswood.api.bank.queries :as SUT]
 
@@ -78,7 +79,8 @@
                  :list-active active-memberships-of
                  :lookup find-person}
                 reads)]
-     (SUT/banks-response nil
+     (SUT/banks-response {}
+                         nil
                          found
                          (fn [bank-id]
                            (names/owners list-active lookup bank-id))))))
@@ -130,3 +132,23 @@
           response (list-banks {:found failure})]
       (is (= 500 (:status response)))
       (is (= ":bank/read" (get-in response [:body :type]))))))
+
+(def ^:private offering
+  {:providers
+   {:payment {:kind "payment" :default :rails :providers {:rails {} :pooled {}}}
+    :idv {:kind "idv" :default :verifier :providers {:verifier {}}}}})
+
+(deftest a-bank-shows-its-providers-test
+  (testing "the provider it records, and the default of a kind it does not"
+    (is (= {:payment "pooled" :idv "verifier"}
+           (:providers (SUT/with-providers
+                        offering
+                        {:providers [{:kind "payment" :provider "pooled"}]})))))
+  (testing "the default of every kind for a bank recording none"
+    (is (= {:payment "rails" :idv "verifier"}
+           (:providers (SUT/with-providers offering {:providers []}))))))
+
+(deftest the-providers-offered-are-listed-test
+  (is (= [{:kind "idv" :providers ["verifier"] :default "verifier"}
+          {:kind "payment" :providers ["rails" "pooled"] :default "rails"}]
+         (get-in (SUT/list-providers offering) [:body :items]))))

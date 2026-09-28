@@ -4,6 +4,7 @@
     [com.repldriven.queenswood.idv.domain :as domain]
     [com.repldriven.queenswood.idv.store :as store]
 
+    [com.repldriven.queenswood.bank-query.interface :as bank-query]
     [com.repldriven.queenswood.idv-provider.interface :as idv-provider]
     [com.repldriven.queenswood.idv-query.interface :as idv-query]
     [com.repldriven.queenswood.party-query.interface :as party-query]
@@ -21,15 +22,16 @@
   [config]
   (select-keys config [:record-db :record-store]))
 
-(defn- provider
-  [config]
-  (some-> (:idv-providers config)
-          idv-provider/default))
+(defn- bank-provider
+  [config txn bank-id]
+  (when-let [providers (:idv-providers config)]
+    (let-nom> [bank (bank-query/find-bank txn bank-id)]
+      (idv-provider/for-bank providers bank))))
 
 (defn- publish-submit-idv-check
-  [config session identification criteria]
+  [config provider session identification criteria]
   (let [{:keys [bus schemas]} config
-        {:keys [command-channel]} (provider config)
+        {:keys [command-channel]} provider
         {:keys [bank-id verification-id party-id session-id channel
                 return-url email]}
         session
@@ -165,6 +167,7 @@
                 (fn [txn]
                   (let-nom>
                     [idv (get-party-idv txn bank-id party-id)
+                     provider (bank-provider config txn bank-id)
                      policies (policy/get-effective-policies txn
                                                              {:bank-id
                                                               bank-id})
@@ -173,8 +176,7 @@
                                    bank-id
                                    (utility/today))
                      _ (domain/check-open-session idv
-                                                  (:declaration
-                                                   (provider config))
+                                                  (:declaration provider)
                                                   data
                                                   policies
                                                   opened-today)
@@ -186,14 +188,16 @@
                                                  (domain/new-session idv data)
                                                  nil)]
                     {:session session
+                     :provider provider
                      :identification identification
                      :criteria (domain/required-criteria policies)}))
                 :idv/open-session
                 "Failed to open a verification session")]
     (if (error/anomaly? opened)
       opened
-      (let [{:keys [session identification criteria]} opened]
+      (let [{:keys [session provider identification criteria]} opened]
         (publish-submit-idv-check config
+                                  provider
                                   (assoc session
                                          :channel (:channel data)
                                          :email (:email data))

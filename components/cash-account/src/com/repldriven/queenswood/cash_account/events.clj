@@ -3,6 +3,7 @@
     [com.repldriven.queenswood.cash-account.core :as core]
     [com.repldriven.queenswood.cash-account.domain :as domain]
 
+    [com.repldriven.queenswood.bank-query.interface :as bank-query]
     [com.repldriven.queenswood.cash-account-product-query.interface :as
      products]
     [com.repldriven.queenswood.cash-account-query.interface :as q]
@@ -23,10 +24,12 @@
 
 (defn- send-command
   [config command account-id data]
-  (let [{:keys [bus schemas payment-providers]} config
-        {:keys [account-command-channel]} (payment-provider/default
-                                           payment-providers)]
-    (let-nom> [payload (avro/serialize (get schemas command) data)]
+  (let [{:keys [bus schemas payment-providers]} config]
+    (let-nom> [bank (bank-query/find-bank (fdb config) (:bank-id data))
+               {:keys [account-command-channel]} (payment-provider/for-bank
+                                                  payment-providers
+                                                  bank)
+               payload (avro/serialize (get schemas command) data)]
       (message-bus/send bus
                         account-command-channel
                         {:command command

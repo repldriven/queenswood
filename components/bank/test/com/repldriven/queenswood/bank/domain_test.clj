@@ -3,8 +3,9 @@
   the tier resolves to no policies, `:bank/company-not-active`
   when the bound company snapshot is not active, the actor a create
   records when its command carries none, `:bank/already-exists`
-  when a key has already created a bank, and `:idv/unsupported-criteria`
-  when a tier requires what the identity provider does not establish."
+  when a key has already created a bank, `:idv/unsupported-criteria`
+  when a tier requires what the identity provider does not establish,
+  and the providers a create chooses."
   (:require
     [com.repldriven.queenswood.bank.domain :as SUT]
 
@@ -186,3 +187,30 @@
     (let [r (SUT/change-status test-bank :bank-status-live)]
       (is (error/rejection? r))
       (is (= :bank/invalid-status (error/kind r))))))
+
+(def ^:private offered
+  "Two kinds offered, as their providers instances carry them."
+  [{:kind "payment" :default :rails :providers {:rails {} :pooled {}}}
+   {:kind "idv" :default :verifier :providers {:verifier {}}}])
+
+(deftest choose-providers-test
+  (testing "a kind named takes the provider named"
+    (is (= [{:kind "idv" :provider "verifier"}
+            {:kind "payment" :provider "pooled"}]
+           (SUT/choose-providers offered
+                                 [{:kind "payment" :provider "pooled"}]))))
+  (testing "every kind offered is recorded, the default for one not named"
+    (is (= [{:kind "idv" :provider "verifier"}
+            {:kind "payment" :provider "rails"}]
+           (SUT/choose-providers offered []))))
+  (testing "a provider not offered is refused, naming what is offered"
+    (let [r (SUT/choose-providers offered
+                                  [{:kind "payment" :provider "other"}])]
+      (is (= :bank/unknown-provider (error/kind r)))
+      (is (= {"payment" ["rails" "pooled"] "idv" ["verifier"]}
+             (:offered (error/payload r))))))
+  (testing "a kind not offered is refused"
+    (is (= :bank/unknown-provider
+           (error/kind (SUT/choose-providers offered
+                                             [{:kind "banking"
+                                               :provider "rails"}]))))))

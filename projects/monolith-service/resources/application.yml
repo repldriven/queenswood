@@ -84,11 +84,12 @@ system:
     interceptors: !system/component
       system/component-kind: server/interceptors
       identity-provider: !system/ref keycloak.identity-provider
-      # The providers the installation offers, by kind. Publishing a
-      # product version is checked against the payment provider's
-      # declaration.
+      # The providers the installation offers, by kind: what a bank's
+      # create may name, and what its reads and product publishing
+      # resolve against.
       providers:
         payment: !system/ref payment-provider.providers
+        idv: !system/ref idv-provider.providers
       identity-providers:
         - !system/ref keycloak.identity-provider
         - !system/ref keycloak.identity-provider-ops

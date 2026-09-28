@@ -3,7 +3,9 @@ processor: !system/component
   record-db: !system/ref fdb.record-db
   record-store: !system/ref fdb.meta-store
   schemas: !system/ref avro.serde
-  payment-adapter-url: !system/ref form3-adapter-server.http-url
+  payment-providers: !system/ref payment-provider.providers
+  adapter-urls:
+    form3: !system/ref form3-adapter-server.http-url
 command-processor: !system/component
   system/component-kind: command-processor/command-processor
   bus: !system/ref message-bus.bus

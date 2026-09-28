@@ -237,7 +237,9 @@ own-funds account per currency named.
 
 `POST /v1/banks` sends `create-bank`, gated `admin` or `user`. Either
 caller may name a company in `company-number`, which the handler looks
-up in the registry and snapshots as the `:company-binding`.
+up in the registry and snapshots as the `:company-binding`, and the
+bank's `providers`, one per kind, which the bank records for good, as
+[bank-providers.md](bank-providers.md) describes.
 
 - An operator may choose the status, tier and currencies, which
   default to test, `micro` and `["GBP"]`, and may name an owner by

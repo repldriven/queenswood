@@ -56,7 +56,7 @@
                         name
                         keyword)]
     (if (contains? entries default)
-      {:default default :providers entries}
+      {:kind kind :default default :providers entries}
       (error/fail :payment-provider/unknown-default
                   {:message "The default payment provider is not offered"
                    :default (some-> default

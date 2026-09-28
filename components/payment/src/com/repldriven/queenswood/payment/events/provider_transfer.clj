@@ -100,7 +100,9 @@
     (if (or (nil? creditor) (and debtor-account-id (nil? debtor)))
       (log/info "Provider transfer waits for a provider account"
                 {:transfer-id (:transfer-id transfer)})
-      (let-nom> [payload (avro/serialize
+      (let-nom> [channel
+                 (provider/payment-command-channel config config bank-id)
+                 payload (avro/serialize
                           (get schemas "transfer-between-accounts")
                           (utility/assoc-some
                            (assoc (select-keys transfer
@@ -112,7 +114,7 @@
                            :debtor-provider-account-id
                            debtor))]
         (message-bus/send bus
-                          (provider/payment-command-channel config)
+                          channel
                           {:command "transfer-between-accounts"
                            :id (str (utility/uuidv7))
                            :correlation-id (str (utility/uuidv7))
@@ -125,16 +127,16 @@
   transaction left in the ledger. A redelivery sends again those still
   pending, which the adapter takes as the transfers it already has."
   [config posted]
-  (if-not (= "per-account" (:balances (provider/declaration config)))
-    nil
-    (let-nom> [transfers (record-transfers config posted)]
-      (reduce (fn [_ t]
-                (if (= :provider-transfer-status-pending (:status t))
-                  (let [res (send-transfer config t)]
-                    (if (error/anomaly? res) (reduced res) nil))
-                  nil))
-              nil
-              transfers))))
+  (let-nom> [declaration (provider/declaration config config (:bank-id posted))]
+    (when (= "per-account" (:balances declaration))
+      (let-nom> [transfers (record-transfers config posted)]
+        (reduce (fn [_ t]
+                  (if (= :provider-transfer-status-pending (:status t))
+                    (let [res (send-transfer config t)]
+                      (if (error/anomaly? res) (reduced res) nil))
+                    nil))
+                nil
+                transfers)))))
 
 (defn- finish-transfer
   [config data status reason]
