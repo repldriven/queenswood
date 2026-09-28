@@ -52,11 +52,11 @@
   core/kind)
 
 (defn providers
-  "The instance of a `payment-provider/providers` component: `:default`,
-  the default provider's key, and `:providers`, each provider's entry by
-  key, every entry carrying its key as `:provider`. A
-  `:payment-provider/unknown-default` failure where the default names no
-  provider.
+  "The instance of a `payment-provider/providers` component: `:kind`,
+  `\"payment\"`, `:default`, the default provider's key, and `:providers`,
+  each provider's entry by key, every entry carrying its key as
+  `:provider`. A `:payment-provider/unknown-default` failure where the
+  default names no provider.
 
   Args:
   - config: `{:default :providers}`, the default's key and a map of key

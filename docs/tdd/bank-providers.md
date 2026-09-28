@@ -43,19 +43,22 @@ running any provider's sandbox, a known limitation of
   `system/idv-provider.yml`, which every system includes as its group,
   offer Modulr and Zyphe. Each adapter refers to its own declaration
   and checks it at start-up against what it carries; every other
-  reader takes the default's entry, and `idv/criteria-check` refuses to
-  start while the platform policy asks what any provider offered
-  lacks.
+  reader takes the entry of the bank's provider, and
+  `idv/criteria-check` refuses to start while the platform policy asks
+  what any provider offered lacks.
 - **Command channels.** `payment` publishes `submit-payment`,
-  `return-payment` and `transfer-between-accounts` on the default's
-  `payment-command-channel`, `cash-account` publishes the account
+  `return-payment` and `transfer-between-accounts` on the bank's
+  provider's `payment-command-channel`, `cash-account` publishes the account
   commands on its `account-command-channel`, and `idv` sends
   `submit-idv-check` on its `command-channel`. Each adapter consumes
   its own, `modulr-payment-command` or `zyphe-idv-command` for example.
   Replies and events come back on `schemes-payments-event`,
   `schemes-account-event` and `idv-event`.
-- **Payee checks.** `payee-check` calls one adapter over HTTP, at
-  `payment-adapter-url`.
+- **Payee checks.** `payee-check` calls the bank's provider's adapter
+  over HTTP, at the URL its `adapter-urls` names for that provider.
+- **The bank's providers.** `Bank.providers` records the provider of
+  each kind offered, chosen at creation, and `GET /v1/bank` answers it;
+  `GET /v1/providers` lists what the installation offers.
 - **Bank creation.** `POST /v1/banks` sends `create-bank`, and
   `bank/new-bank` opens the house accounts under the payment
   declaration and checks the tier's IDV criteria. An operator may name
@@ -83,7 +86,8 @@ every system that offers it:
   and whose start refuses a default that names no provider.
   `<kind>-provider/for-bank` takes the instance and a bank and answers
   the bank's provider's entry, the default's for a bank naming none,
-  or `:<kind>-provider/unknown` for a key not offered.
+  or `:<kind>-provider/unknown` for a key not offered. Its instance
+  carries its kind, so `bank` and `api` treat every kind alike.
 - **The kinds offered.** `bank`'s processor and `api` take a
   `providers` map from kind to its providers component, whose keys are
   the kinds the installation offers. A kind added later is a new brick,
@@ -103,12 +107,10 @@ payment-provider:
         declaration: !system/local-ref modulr
         payment-command-channel: !keyword modulr-payment-command
         account-command-channel: !keyword modulr-account-command
-        adapter-url: !system/ref modulr-adapter-server.http-url
       form3:
         declaration: !system/local-ref form3
         payment-command-channel: !keyword form3-payment-command
         account-command-channel: !keyword form3-account-command
-        adapter-url: !system/ref form3-adapter-server.http-url
 ```
 
 - **Payments.** `components/payment-provider` gains the providers
@@ -148,8 +150,8 @@ payment-provider:
 ### Routing a command
 
 A domain brick reads the bank inside its transaction through
-`bank-query`, takes its provider of the command's kind from `for-bank`,
-and publishes to the entry's channel:
+`bank-query/find-bank`, takes its provider of the command's kind from
+`for-bank`, and publishes to the entry's channel:
 
 - **`payment`.** `submit-payment` and `return-payment` go to the
   bank's `payment-command-channel`, as the sweep's republish does, and
@@ -158,8 +160,9 @@ and publishes to the entry's channel:
   and `reissue-payment-address` go to the bank's
   `account-command-channel`.
 - **`idv`.** `submit-idv-check` goes to the bank's `command-channel`.
-- **`payee-check`.** It calls the bank's `adapter-url`, and
-  `payment-adapter-url` goes.
+- **`payee-check`.** It calls the adapter URL its `adapter-urls` names
+  for the bank's provider, and `payment-adapter-url` goes. A provider
+  with no URL there answers `unavailable`, as an unreachable one does.
 
 Replies share the response channels they use now, correlated by command
 id. Events share `schemes-payments-event`, `schemes-account-event` and
@@ -190,11 +193,11 @@ Every check that reads a declaration reads the bank's provider's:
 
 ### The provider-name guardrail
 
-`enforce-idioms.sh` gains `provider-name-in-domain`, refusing a
-provider key or vendor name in the source of any brick not named after
-that provider, with `;; enforce-idioms: provider-name -- <reason>` on
-the line above for an exception, so a branch on a key is caught where
-it is written.
+The semgrep rule `provider-name-in-domain` refuses a provider's key as
+a string or keyword in the source of any brick not named after that
+provider, the aggregators, `schema` and the test bricks aside, with
+`;; nosemgrep: provider-name-in-domain — <reason>` on the line above
+for an exception, so a branch on a key is caught where it is written.
 
 ### Deployment and rigs
 
@@ -219,7 +222,7 @@ it is written.
    refusals, `GET /v1/providers`, every reader resolving the bank's
    provider, and the guardrail. Proved by a bank created on each
    provider, one naming a kind or a provider the installation does not
-   offer refused, and every scenario passing.
+   offer refused, and every scenario passing. Built.
 3. **The console's choice.** The create form's provider choice.
    Proved by a bank created from the console on a provider other than
    the default.
@@ -258,6 +261,11 @@ it is written.
 - **A list of providers in each consumer's config.** Rejected: every
   consumer would repeat it, which the declaration component was made to
   stop.
+- **The adapter URL on the providers entry.** Rejected: only
+  `payee-check` reads it, and where an adapter is reached differs by
+  deployment, which a providers component shared by every system cannot
+  say; `payee-check`'s own configuration, already per project, holds
+  it.
 - **A response channel per provider.** Rejected: a reply is correlated
   by command id, so one response channel serves every adapter.
 - **Resolving the provider from the account.** Rejected: an account

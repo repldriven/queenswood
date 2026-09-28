@@ -62,3 +62,35 @@ rules:
     paths:
       include:
         - "**/watcher.clj"
+
+  - id: provider-name-in-domain
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      A provider's key as a string or keyword outside the bricks named
+      after it: which provider answers is the bank's choice, resolved
+      through its `<kind>-provider/providers` entry, never a branch on a
+      key in a domain brick (tdd/bank-providers.md). Read what varies from
+      the provider's declaration instead. An example or a fixture that
+      names a key puts `;; nosemgrep: provider-name-in-domain — <reason>`
+      on the line immediately above it.
+    pattern-regex: '(?i)[":](modulr|form3|clearbank|zyphe|onfido)\b'
+    paths:
+      include:
+        - "/components/*/src/**"
+        - "/bases/*/src/**"
+      exclude:
+        - "/components/modulr-*/**"
+        - "/components/form3-*/**"
+        - "/components/clearbank-*/**"
+        - "/components/zyphe-*/**"
+        - "/components/onfido-*/**"
+        - "/components/test-*/**"
+        - "/components/schema/**"
+        - "/bases/modulr-*/**"
+        - "/bases/form3-*/**"
+        - "/bases/clearbank-*/**"
+        - "/bases/zyphe-*/**"
+        - "/bases/onfido-*/**"
+        - "/bases/external-adapters/**"
+        - "/bases/monolith/**"

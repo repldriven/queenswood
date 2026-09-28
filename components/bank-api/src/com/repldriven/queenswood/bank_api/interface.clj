@@ -14,10 +14,10 @@
   ^{:doc
     "Malli registry of the bank schemas, keyed by the name each appears
   under in the document's `components/schemas`: `BankStatus`,
-  `CreateBankRequest`, `Owner`, `Bank`, `BankList`,
+  `BankProviders`, `CreateBankRequest`, `Owner`, `Bank`, `BankList`,
   `CompanyBinding`, `CreateBankResponse`, `ChangeBankTierRequest`,
   `ChangeBankTierResponse`, `ChangeBankStatusRequest`,
-  `ChangeBankStatusResponse`. Merged into the coercion registry in
+  `ChangeBankStatusResponse`, `Provider`, `ProviderList`. Merged into the coercion registry in
   `api.clj`, so `[:ref \"X\"]` resolves them on any route."}
   registry
   components/registry)
@@ -52,6 +52,13 @@
   policies found for tier."}
   BankUnknownTier
   examples/BankUnknownTier)
+
+(def
+  ^{:doc
+    "RFC 9457 body for a 422 `:bank/unknown-provider` rejection: the
+  create names a kind or a provider the installation does not offer."}
+  BankUnknownProvider
+  examples/BankUnknownProvider)
 
 (def
   ^{:doc

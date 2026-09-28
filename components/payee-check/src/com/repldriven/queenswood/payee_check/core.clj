@@ -3,7 +3,10 @@
     [com.repldriven.queenswood.payee-check.domain :as domain]
     [com.repldriven.queenswood.payee-check.store :as store]
 
+    [com.repldriven.queenswood.bank-query.interface :as bank-query]
     [com.repldriven.queenswood.cash-account-query.interface :as cash-accounts]
+    [com.repldriven.queenswood.payment-provider.interface :as
+     payment-provider]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.http-client.interface :as http]
@@ -15,28 +18,29 @@
    :reason "CoP service unavailable"})
 
 (defn- perform-cop-check
-  "Invoke the CoP adapter for a single check request. A transport
-  failure or non-200 response degrades to an `unavailable` result
-  rather than an anomaly, so the check is still persisted."
+  "Invoke the CoP adapter for a single check request. No adapter, a
+  transport failure or a non-200 response degrades to an `unavailable`
+  result rather than an anomaly, so the check is still persisted."
   [adapter-url bank-id request]
   (let [{:keys [creditor-name account account-type account-id]} request
         {:keys [sort-code account-number]} account
-        res (error/try-nom
-             :payee-check/cop
-             "CoP request to adapter failed"
-             (http/request
-              {:method :post
-               :url (str adapter-url "/cop/outbound")
-               :headers {"Content-Type" "application/json"}
-               :body (json/write-str
-                      (cond-> {:creditor-name creditor-name
-                               :account {:sort-code sort-code
-                                         :account-number account-number}
-                               :account-type account-type
-                               :bank-id bank-id}
-                              account-id
-                              (assoc :account-id account-id)))}))]
-    (if (or (error/anomaly? res) (not= 200 (:status res)))
+        res (when adapter-url
+              (error/try-nom
+               :payee-check/cop
+               "CoP request to adapter failed"
+               (http/request
+                {:method :post
+                 :url (str adapter-url "/cop/outbound")
+                 :headers {"Content-Type" "application/json"}
+                 :body (json/write-str
+                        (cond-> {:creditor-name creditor-name
+                                 :account {:sort-code sort-code
+                                           :account-number account-number}
+                                 :account-type account-type
+                                 :bank-id bank-id}
+                                account-id
+                                (assoc :account-id account-id)))})))]
+    (if (or (nil? res) (error/anomaly? res) (not= 200 (:status res)))
       unavailable
       (let [{:keys [match-result actual-name reason-code reason]}
             (http/res->edn res)]
@@ -53,16 +57,21 @@
 
 (defn check-and-save
   [config data]
-  (let [{:keys [payment-adapter-url]} config
+  (let [{:keys [payment-providers adapter-urls]} config
         {:keys [bank-id account-id]} data
         request (dissoc data :bank-id :account-id)]
     (let-nom> [_ (when account-id
-                   (cash-accounts/get-account config bank-id account-id))]
+                   (cash-accounts/get-account config bank-id account-id))
+               bank (bank-query/find-bank config bank-id)
+               {:keys [provider]} (when payment-providers
+                                    (payment-provider/for-bank
+                                     payment-providers
+                                     bank))]
       (check-payee config
                    bank-id
                    request
                    (perform-cop-check
-                    payment-adapter-url
+                    (get adapter-urls (keyword provider))
                     bank-id
                     (assoc request :account-id account-id))))))
 

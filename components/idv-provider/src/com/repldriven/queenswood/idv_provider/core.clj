@@ -19,7 +19,7 @@
                         name
                         keyword)]
     (if (contains? entries default)
-      {:default default :providers entries}
+      {:kind kind :default default :providers entries}
       (error/fail :idv-provider/unknown-default
                   {:message "The default IDV provider is not offered"
                    :default (some-> default

@@ -33,6 +33,12 @@
            :status 403
            :detail "Name the bank in the Bank-Id header"}})
 
+(def BankUnknownProvider
+  {:value {:title "REJECTED"
+           :type ":bank/unknown-provider"
+           :status 422
+           :detail "The installation offers no payment provider other"}})
+
 (def CompanyNotActive
   {:value {:title "REJECTED"
            :type ":bank/company-not-active"
@@ -61,7 +67,7 @@
 
 (def registry
   (examples-registry [#'BankNotFound #'BankInvalidStatus #'BankUnknownTier
-                      #'CompanyNotActive #'CompanyRequired
+                      #'BankUnknownProvider #'CompanyNotActive #'CompanyRequired
                       #'IdvUnsupportedCriteria #'OperatorFieldRefused
                       #'BankUnnamed]))
 
@@ -72,11 +78,15 @@
 (def Owner
   (select-keys me-api/Membership [:membership-id :user-id :name :email]))
 
+;; nosemgrep: provider-name-in-domain — an example of the keys a bank records
+(def BankProviders {:payment "modulr" :idv "zyphe"})
+
 (def Bank
   {:bank-id BankId
    :name "Galactic Bank"
    :status :test
    :tier "micro"
+   :providers BankProviders
    :created-at "2025-01-01T00:00:00Z"
    :updated-at "2025-01-01T00:00:00Z"
    :party (assoc party-api/Party :type :organization)
@@ -92,6 +102,7 @@
    :status :test
    :tier "micro"
    :currencies ["GBP"]
+   :providers BankProviders
    :owner-email "zaphod@example.com"})
 
 (def ChangeBankTierRequest {:tier "growth"})
@@ -123,3 +134,11 @@
          :client-secret ClientSecret
          :company-binding CompanyBinding
          :owner-invitation owner-invitation))
+
+;; nosemgrep: provider-name-in-domain — an example of the keys offered
+(def Provider {:kind "payment" :providers ["modulr" "form3"] :default "modulr"})
+
+;; nosemgrep: provider-name-in-domain — an example of the keys offered
+(def ^:private idv-provider {:kind "idv" :providers ["zyphe"] :default "zyphe"})
+
+(def ProviderList {:items [Provider idv-provider]})

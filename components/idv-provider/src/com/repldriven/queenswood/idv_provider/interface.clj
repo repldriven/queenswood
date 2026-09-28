@@ -21,11 +21,11 @@
 (def ^{:doc "The kind a bank records its IDV provider under."} kind core/kind)
 
 (defn providers
-  "The instance of an `idv-provider/providers` component: `:default`,
-  the default provider's key, and `:providers`, each provider's entry by
-  key, every entry carrying its key as `:provider`. An
-  `:idv-provider/unknown-default` failure where the default names no
-  provider.
+  "The instance of an `idv-provider/providers` component: `:kind`,
+  `\"idv\"`, `:default`, the default provider's key, and `:providers`,
+  each provider's entry by key, every entry carrying its key as
+  `:provider`. An `:idv-provider/unknown-default` failure where the
+  default names no provider.
 
   Args:
   - config: `{:default :providers}`, the default's key and a map of key

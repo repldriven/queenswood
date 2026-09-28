@@ -30,6 +30,34 @@
                   {:message "A bank was already created by this command"
                    :idempotency-key idempotency-key})))
 
+(defn- offering
+  [offered]
+  (into {}
+        (map (fn [{:keys [kind providers]}]
+               [kind (mapv name (keys providers))]))
+        offered))
+
+(defn choose-providers
+  [offered requested]
+  (let [offering (offering offered)
+        unknown (some (fn [{:keys [kind provider] :as choice}]
+                        (when-not (some #{provider} (get offering kind))
+                          choice))
+                      requested)
+        chosen (into {} (map (juxt :kind :provider)) requested)]
+    (if unknown
+      (error/reject :bank/unknown-provider
+                    {:message (str "The installation offers no "
+                                   (:kind unknown)
+                                   " provider "
+                                   (:provider unknown))
+                     :kind (:kind unknown)
+                     :provider (:provider unknown)
+                     :offered offering})
+      (mapv (fn [{:keys [kind default]}]
+              {:kind kind :provider (get chosen kind (name default))})
+            (sort-by :kind offered)))))
+
 (def ^:private placeholder-sort-code
   "What the deprecated, required `sort_code` field is written with: the
   payment provider issues every address, and the Record Layer will not

@@ -5,4 +5,5 @@ processor: !system/component
   schemas: !system/ref avro.serde
   # Unreachable on purpose: the brick test exercises the CoP
   # adapter-unavailable degradation path without the adapter base.
-  payment-adapter-url: "http://localhost:1"
+  adapter-urls:
+    modulr: "http://localhost:1"

@@ -316,6 +316,19 @@
                               (mapv :invitation-id invitations)))
                      _ (is (= operator (:invited-by (first invitations))))]))))))
 
+(deftest new-bank-records-providers-test
+  (with-test-system
+   [sys "classpath:bank/application-test.yml"]
+   (let [config (fdb-config sys)
+         idp (identity-provider/local-provider {})
+         chosen [{:kind "idv" :provider "verifier"}]]
+     (nom-test> [{:keys [bank]}
+                 (create-bank config idp "Provider Bank" {:providers chosen})
+                 read (bank-query/get-bank config (:bank-id bank))
+                 _ (testing "the providers chosen are recorded on the bank"
+                     (is (= chosen (:providers bank)))
+                     (is (= chosen (:providers read))))]))))
+
 (deftest new-bank-unknown-tier-test
   (with-test-system
    [sys "classpath:bank/application-test.yml"]
@@ -417,7 +430,7 @@
                  updated (SUT/change-tier config
                                           bank-id
                                           "test-scenario"
-                                          {:idv-provider idv-provider})
+                                          {:idv-providers (:idv providers)})
                  bindings-after (policy/get-bindings-for-bank config bank-id)
                  _ (testing
                      "change-tier stamps the new tier and rebinds its policies"
@@ -432,7 +445,8 @@
                      (let [r (SUT/change-tier config
                                               bank-id
                                               "no-such-tier"
-                                              {:idv-provider idv-provider})]
+                                              {:idv-providers (:idv
+                                                               providers)})]
                        (is (error/rejection? r))
                        (is (= :bank/unknown-tier (error/kind r)))
                        (is (= (set (map :policy-id bindings-after))
@@ -499,7 +513,7 @@
         _ (SUT/change-tier config
                            bank-id
                            "test-scenario"
-                           {:idv-provider idv-provider})
+                           {:idv-providers (:idv providers)})
         ;; `:deduplicate? false` matters: the default keeps only
         ;; the latest entry per record id, which would collapse
         ;; both writes on this one bank into one.

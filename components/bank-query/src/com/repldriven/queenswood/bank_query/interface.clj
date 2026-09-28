@@ -18,6 +18,16 @@
   [txn bank-id]
   (store/get-bank txn bank-id))
 
+(defn find-bank
+  "Load a flat bank map by id. Returns the bank, nil where no bank has
+  that id, or an anomaly.
+
+  Args:
+  - txn: FDB transaction or db handle.
+  - bank-id: bank id."
+  [txn bank-id]
+  (store/find-bank txn bank-id))
+
 (defn get-bank-view
   "Load a bank by id enriched with its party, its accounts (with
   balances and GL codes), and `:client-id`. Returns the rich bank map,

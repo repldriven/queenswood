@@ -1,6 +1,7 @@
 (ns com.repldriven.queenswood.api.bank.commands
   (:require
     [com.repldriven.queenswood.api.access.handlers :as access-handlers]
+    [com.repldriven.queenswood.api.bank.queries :as queries]
     [com.repldriven.queenswood.api.commands :as commands]
     [com.repldriven.queenswood.api.companies.queries :as companies]
     [com.repldriven.queenswood.api.errors :as errors]
@@ -59,7 +60,9 @@
                                       " credential before the bank is used")
                         :bank-id bank-id}))
        bank (banks/get-bank-view txn bank-id)]
-      (assoc bank :client-secret client-secret))))
+      (assoc (queries/with-providers request bank)
+             :client-secret
+             client-secret))))
 
 (defn- owner-invitation
   "The owner invitation the create wrote, loaded by the id its reply
@@ -132,7 +135,7 @@
   [request company]
   (let [{:keys [auth parameters audiences-by-status]} request
         {:keys [body]} parameters
-        {:keys [name status tier currencies owner-email]} body
+        {:keys [name status tier currencies owner-email providers]} body
         status (or status default-status)
         person? (not (operator? auth))]
     ;; `audiences-by-status` is bank-api deployment config (sits in
@@ -151,7 +154,10 @@
                         (->binding (:registry-id company) company))
      :membership (when person?
                    {:user-id (:principal-id auth) :role :role-owner})
-     :owner-invitation (when owner-email {:email owner-email}))))
+     :owner-invitation (when owner-email {:email owner-email})
+     :providers (mapv (fn [[kind provider]]
+                        {:kind (clojure.core/name kind) :provider provider})
+                      providers))))
 
 (defn- company
   "The company the body names, looked up in the registry: the
@@ -217,7 +223,7 @@
             bank (banks/get-bank-view txn bank-id)]
         (if (error/anomaly? bank)
           (errors/anomaly->response bank)
-          {:status 200 :body bank})))))
+          {:status 200 :body (queries/with-providers request bank)})))))
 
 (defn change-bank-status
   [request]
@@ -243,4 +249,4 @@
             bank (banks/get-bank-view txn bank-id)]
         (if (error/anomaly? bank)
           (errors/anomaly->response bank)
-          {:status 200 :body bank})))))
+          {:status 200 :body (queries/with-providers request bank)})))))

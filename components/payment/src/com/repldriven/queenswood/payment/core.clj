@@ -96,15 +96,16 @@
 (defn- publish-scheme-command
   [config payment debtor-account]
   (let [{:keys [bus schemas]} config
-        channel (provider/payment-command-channel config)
-        {:keys [payment-id creditor-bban creditor-name
+        {:keys [payment-id bank-id creditor-bban creditor-name
                 currency amount reference scheme]}
         payment
+        channel (provider/payment-command-channel config config bank-id)
         {:keys [bban provider-account-id]} debtor-account
         schema (get schemas "submit-payment")]
     (when (and bus schema channel)
       (let [result (let-nom>
-                     [payload (avro/serialize schema
+                     [channel channel
+                      payload (avro/serialize schema
                                               {:payment-id payment-id
                                                :end-to-end-id payment-id
                                                :debtor-bban bban
@@ -153,8 +154,8 @@
                                txn
                                {:bank-id bank-id})]
                  (let-nom>
-                   [_ (outbound/check-scheme (:scheme data)
-                                             (provider/declaration config))
+                   [declaration (provider/declaration config txn bank-id)
+                    _ (outbound/check-scheme (:scheme data) declaration)
                     debtor-account (cash-accounts/get-account
                                     txn
                                     bank-id

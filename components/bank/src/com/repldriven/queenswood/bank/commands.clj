@@ -10,17 +10,16 @@
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.processor.interface :as processor]))
 
-(defn- idv-declaration
-  [config]
-  (some-> (get-in config [:providers :idv])
-          idv-provider/default
-          :declaration))
-
-(defn- payment-declaration
-  [config]
-  (some-> (get-in config [:providers :payment])
-          payment-provider/default
-          :declaration))
+(defn- declarations
+  "The declaration of each provider `chosen` names, by kind."
+  [config chosen]
+  (let [{:keys [idv payment]} (:providers config)
+        bank {:providers chosen}]
+    (let-nom> [idv-entry (some-> idv
+                                 (idv-provider/for-bank bank))
+               payment-entry (some-> payment
+                                     (payment-provider/for-bank bank))]
+      {:idv (:declaration idv-entry) :payment (:declaration payment-entry)})))
 
 (defn- ->response
   [config result]
@@ -41,20 +40,26 @@
                 membership owner-invitation actor idempotency-key]}
         data]
     (->response config
-                (core/new-bank config
-                               name
-                               status
-                               tier
-                               currencies
-                               {:identity-provider (:identity-provider config)
-                                :idv-provider (idv-declaration config)
-                                :payment-provider (payment-declaration config)
-                                :audience audience
-                                :company-binding company-binding
-                                :membership membership
-                                :owner-invitation owner-invitation
-                                :actor actor
-                                :idempotency-key idempotency-key}))))
+                (let-nom> [chosen (core/choose-providers
+                                   (vals (:providers config))
+                                   (:providers data))
+                           declared (declarations config chosen)]
+                  (core/new-bank config
+                                 name
+                                 status
+                                 tier
+                                 currencies
+                                 {:identity-provider (:identity-provider
+                                                      config)
+                                  :idv-provider (:idv declared)
+                                  :payment-provider (:payment declared)
+                                  :providers chosen
+                                  :audience audience
+                                  :company-binding company-binding
+                                  :membership membership
+                                  :owner-invitation owner-invitation
+                                  :actor actor
+                                  :idempotency-key idempotency-key})))))
 
 (defn- change-bank-tier
   [config data]
@@ -62,7 +67,9 @@
         result (core/change-tier config
                                  bank-id
                                  tier
-                                 {:idv-provider (idv-declaration config)})]
+                                 {:idv-providers (get-in config
+                                                         [:providers
+                                                          :idv])})]
     (if (error/anomaly? result)
       result
       (->response config {:bank result}))))

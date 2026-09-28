@@ -10,7 +10,8 @@
    :system/config {:record-db system/required-component
                    :record-store system/required-component
                    :schemas system/required-component
-                   :payment-adapter-url system/required-component}
+                   :payment-providers nil
+                   :adapter-urls {}}
    :system/instance-schema some?})
 
 (system/defcomponents :payee-check {:processor processor})

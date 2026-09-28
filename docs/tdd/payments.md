@@ -451,8 +451,9 @@ a rejection is not a return.
 
 ### Confirmation of Payee
 
-- **Configuration.** `payee-check`'s key is `payment-adapter-url`,
-  set from `PAYMENT_ADAPTER_URL`.
+- **Configuration.** `payee-check`'s `adapter-urls` gives each payment
+  provider's adapter URL by key, Modulr's set from `MODULR_ADAPTER_URL`,
+  and a check calls the bank's provider's.
 - **The payer.** `POST /v1/payee-checks` takes an optional
   `account-id`, the account the payment will leave; the adapter checks
   from that account's provider account, and from the bank's own-funds

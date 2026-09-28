@@ -1,0 +1,10 @@
+{:name "The providers the installation offers are listed with each kind's default"
+ :tags #{:api :banks :happy}
+ :when
+ [{:command :api/request
+   :request {:method :get :path "/v1/providers" :auth :admin}
+   :assert {:status 200
+            :body {:items [{:kind "idv" :providers ["zyphe"] :default "zyphe"}
+                           {:kind "payment"
+                            :providers ["modulr"]
+                            :default "modulr"}]}}}]}

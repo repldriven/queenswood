@@ -40,7 +40,8 @@
     is rejected `:idv/unsupported-criteria` when the platform or tier
     policies require a verification or screening it does not establish;
     `:payment-provider` is the payment provider declaration the house
-    product is published against;
+    product is published against; `:providers` is the bank's provider of
+    each kind, `[{:kind :provider}]`, recorded on it;
     `:audience` (string) is the `aud` claim stamped on tokens minted
     for the new client; `:company-binding` (map, optional) is the
     confirmed legal-entity snapshot to bind the bank to (onboarding) —
@@ -84,7 +85,8 @@
   - bank-id: bank id string.
   - tier: tier name (string) selecting `tier=<name>`-labelled
     policies to bind.
-  - opts: map; `:idv-provider` (required) is the provider declaration."
+  - opts: map; `:idv-providers` (required) is the `idv-provider/providers`
+    instance, whose entry for the bank gives the declaration checked."
   [txn bank-id tier opts]
   (core/change-tier txn bank-id tier opts))
 

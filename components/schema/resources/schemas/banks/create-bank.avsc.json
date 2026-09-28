@@ -10,6 +10,15 @@
                                             "BANK_STATUS_TEST",
                                             "BANK_STATUS_LIVE"]}},
     {"name": "tier", "type": ["null", "string"], "default": null},
+    {"name": "providers", "type": ["null", {"type": "array", "items": {
+      "type": "record",
+      "name": "BankProvider",
+      "fields": [
+        {"name": "kind",     "type": "string"},
+        {"name": "provider", "type": "string"}
+      ]
+    }}], "default": null,
+     "doc": "The provider of each kind the bank is created on; a kind left out takes the installation's default"},
     {"name": "currencies", "type": {"type": "array", "items": "string"}},
     {"name": "audience", "type": ["null", "string"], "default": null,
      "doc": "JWT aud claim for the bank's service-account client, resolved by bank-api from its status->audience config"},
