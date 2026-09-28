@@ -11,8 +11,8 @@
 (defn register-webhook
   [_config]
   (fn [request]
-    (let [{:keys [state parameters]} request
-          {:keys [url]} (:body parameters)
+    (let [{:keys [state parameters webhook-token]} request
+          {:keys [url events]} (:body parameters)
           existing (some (fn [w] (when (= url (:url w)) w))
                          (:webhooks @state))]
       (if existing
@@ -24,7 +24,8 @@
         ;; periodic re-register-on-poll a no-op.
         {:status 200 :body existing}
         (let [id (str (uuidv7))
-              webhook {:id id :url url}]
+              webhook
+              {:id id :url url :token webhook-token :events (vec events)}]
           (swap! state update :webhooks conj webhook)
           {:status 201 :body webhook})))))
 

@@ -12,35 +12,29 @@
   [vars]
   (reduce (fn [m v] (assoc m (vname v) @v)) {} vars))
 
-(def CheckCompletedObject
+(def WebhookObject
   [:map
-   {:json-schema/example examples/CheckCompletedObject}
+   {:json-schema/example examples/WebhookObject}
    [:id string?]
-   [:status [:= "complete"]]
-   [:result [:enum "clear" "consider"]]
+   [:status {:optional true} [:maybe string?]]
    [:completed_at_iso8601 {:optional true} [:maybe string?]]
-   ;; Simulator-only field. Real Onfido `check.completed` carries no
-   ;; external correlation key; production would correlate via
-   ;; Onfido `tags` or a persistent check-id lookup.
-   [:external_id {:optional true} [:maybe string?]]])
+   [:href {:optional true} [:maybe string?]]])
 
-(def CheckCompletedPayload
+(def WebhookPayload
   [:map
-   {:json-schema/example examples/CheckCompletedPayload}
-   [:resource_type [:= "check"]]
-   [:action [:= "check.completed"]]
-   [:object [:ref "CheckCompletedObject"]]])
+   {:json-schema/example examples/WebhookPayload}
+   [:resource_type string?]
+   [:action string?]
+   [:object [:ref "WebhookObject"]]])
 
-(def CheckCompletedWebhook
+(def WebhookEvent
   [:map
-   {:json-schema/example examples/CheckCompletedWebhook}
-   [:payload [:ref "CheckCompletedPayload"]]])
+   {:json-schema/example examples/WebhookEvent}
+   [:payload [:ref "WebhookPayload"]]])
 
 (def component-registry
-  (components-registry [#'CheckCompletedObject #'CheckCompletedPayload
-                        #'CheckCompletedWebhook]))
+  (components-registry [#'WebhookObject #'WebhookPayload #'WebhookEvent]))
 
 (def example-registry
-  (examples-registry [#'examples/CheckCompletedObject
-                      #'examples/CheckCompletedPayload
-                      #'examples/CheckCompletedWebhook]))
+  (examples-registry [#'examples/WebhookObject #'examples/WebhookPayload
+                      #'examples/WebhookEvent]))

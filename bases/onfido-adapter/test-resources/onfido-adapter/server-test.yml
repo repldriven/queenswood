@@ -7,6 +7,9 @@ interceptors: !system/component
   event-channel: !keyword idv-event
   record-db: !system/ref fdb.record-db
   record-store: !system/ref fdb.meta-store
+  onfido-url: http://localhost:1
+  api-token: api_sandbox.test
+  webhook-token: test-token
 
 jetty-adapter: !system/component
   system/component-kind: server/jetty-adapter

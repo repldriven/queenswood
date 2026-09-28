@@ -2,6 +2,8 @@
   (:require
     [com.repldriven.queenswood.onfido-adapter.commands :as commands]
 
+    [com.repldriven.queenswood.onfido-webhook.interface :as onfido-webhook]
+
     [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.http-client.interface :as http]
     [com.repldriven.mono.json.interface :as json]
@@ -12,7 +14,7 @@
 
 (defn- adapter-webhook-url
   [adapter-url]
-  (str adapter-url "/webhooks/onfido/check-completed"))
+  (str adapter-url onfido-webhook/path))
 
 (defn- register-webhook
   [onfido-url adapter-url]
@@ -20,7 +22,8 @@
    {:method :post
     :url (str onfido-url "/v3.6/webhooks")
     :headers {"Content-Type" "application/json"}
-    :body (json/write-str {:url (adapter-webhook-url adapter-url)})}))
+    :body (json/write-str {:url (adapter-webhook-url adapter-url)
+                           :events ["workflow_run.completed"]})}))
 
 (defn- registered?
   "Polls the simulator's webhook list and returns true iff the
@@ -52,7 +55,7 @@
   endpoint. The two services start in parallel so registration
   often races against simulator readiness; without retry the
   adapter fails to register on the first attempt and the
-  simulator silently has nowhere to deliver check.completed
+  simulator silently has nowhere to deliver its
   webhooks. Caps at ~2 minutes (24 attempts × 5s)."
   [onfido-url adapter-url]
   (loop [attempt 1]

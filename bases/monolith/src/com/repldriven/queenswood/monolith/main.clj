@@ -12,6 +12,9 @@
     [com.repldriven.queenswood.modulr-adapter.interface :as modulr-adapter]
     [com.repldriven.queenswood.modulr-simulator.interface :as
      modulr-simulator]
+    [com.repldriven.queenswood.onfido-adapter.interface :as onfido-adapter]
+    [com.repldriven.queenswood.onfido-simulator.interface :as
+     onfido-simulator]
     [com.repldriven.queenswood.uk-companies-house-simulator.interface :as
      ukch-simulator]
     [com.repldriven.queenswood.zyphe-adapter.interface :as zyphe-adapter]
@@ -32,6 +35,8 @@
    :form3-adapter-server form3-adapter/app
    :modulr-simulator-server modulr-simulator/app
    :modulr-adapter-server modulr-adapter/app
+   :onfido-simulator-server onfido-simulator/app
+   :onfido-adapter-server onfido-adapter/app
    :uk-companies-house-simulator-server ukch-simulator/app
    :zyphe-simulator-server zyphe-simulator/app
    :zyphe-adapter-server zyphe-adapter/app})

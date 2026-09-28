@@ -7,6 +7,7 @@ interceptors: !system/component
   system/component-kind: server/interceptors
   state: !system/local-ref state
   webhook-delay-ms: 10
+  webhook-token: test-token
 
 jetty-adapter: !system/component
   system/component-kind: server/jetty-adapter

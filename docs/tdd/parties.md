@@ -3,8 +3,8 @@
 > **Status: proposal.** Parties, the IDV record, the activation chain
 > and the IDV adapters exist, and Background names them. Everything
 > under Proposed Solution is the build list; the criteria, the provider
-> declaration, evidence and sessions are built for the deployed
-> adapter, and [First slices](#first-slices) says what comes next.
+> declaration, evidence and sessions are built for both adapters, and
+> [First slices](#first-slices) says what comes next.
 
 ## Objective
 
@@ -58,9 +58,8 @@ organisation (KYB) verification, which no adapter offers yet.
   `party-status-changed` off the parties changelog. `idv`'s
   `party-event-processor` creates the IDV, which waits pending for a
   verification session. An IDV adapter turns the provider's webhook
-  into an event on `idv-event`: `idv-evidence` from the deployed
-  adapter, `idv-completed` `{bank-id verification-id status}` from the
-  development-only one. `idv`'s `event-processor` moves the IDV, the
+  into an `idv-evidence` event on `idv-event`. `idv`'s
+  `event-processor` moves the IDV, the
   idvs changelog relays
   `idv-status-changed` on `idvs-event`, and `party`'s
   `idv-event-processor` activates or rejects the party. Each hop
@@ -75,15 +74,14 @@ organisation (KYB) verification, which no adapter offers yet.
   `submit-idv-check` into an intent, the runner starts the provider's
   run carrying the bank and verification ids for correlation, and the
   adapter serves the provider's webhook and writes what it reports to
-  its outbox, relayed to `idv-event`. Two adapters exist. Every
-  deployable build composes one into `external-adapters` and
-  `monolith`, and the other stays in the development project with its
-  tests.
-- **Simulators.** The development-only adapter's simulator settles a
-  run without a person, rejecting a check whose given name contains
-  "reject". The deployed adapter's simulator waits for a decision, and
-  the scenario rigs in `test-scenarios` and `test-api-scenarios` run
-  it.
+  its outbox, relayed to `idv-event`. Two adapters exist, Zyphe's and
+  Onfido's. The deployed builds compose Zyphe's into
+  `external-adapters` and `monolith-service`, and the development
+  monolith and the API scenario rig run both side by side.
+- **Simulators.** Each adapter's simulator waits for a decision, made
+  on the hosted page `idv-simulator-page` serves for both or through
+  its decision route. `test-scenarios` runs Zyphe's, and
+  `test-api-scenarios` runs both.
 - **The provider as a deployment fact.** Which adapter runs is decided
   by the service's `application.yml`, never by a request, per
   [ADR-0020](../adr/0020-providers-are-deployment-facts.md). Each
@@ -259,7 +257,6 @@ fails the IDV. A claimed identity with no family name stays
 outstanding. Redelivered evidence merges to the same record and
 decides the same way, so it needs no dedup beyond the outbox's, and an
 IDV no longer pending or in review takes no more.
-`idv-completed` retires once every adapter reports evidence.
 
 ### Verification sessions
 
@@ -366,9 +363,14 @@ runs changes nothing outside it:
    the person to it. Proved by API scenarios for the hand-off and the
    refusals. Built, with slice 2, so no build has persons who cannot
    activate.
+4. **The second adapter.** Onfido's adapter to the contract: its
+   declaration, a Studio workflow run started or resumed by its tags,
+   the run's link as the hand-off, evidence read back from the run's
+   reports once a signed `workflow_run.completed` arrives, and its
+   simulator on the shared hosted page. `idv-completed` retires.
+   Proved by the party scenarios on Onfido. Built.
 
-Resolving a review, re-verification and bringing the
-development-only adapter up to the contract follow under this TDD.
+Resolving a review and re-verification follow under this TDD.
 The demo bank's onboarding screens follow under
 [demo-digital-bank.md](demo-digital-bank.md).
 
@@ -450,9 +452,10 @@ The demo bank's onboarding screens follow under
 - **Reviews have no resolution.** A PEP or a possible sanctions match
   leaves the IDV `in-review`, and nothing lets an operator accept or
   reject it.
-- **The development-only adapter reports no evidence.** It reports an
-  overall outcome, and never reports a hand-off, so it cannot meet the
-  platform floor or open a session until it meets the contract.
+- **An Onfido hand-off is the run's own link.** Onfido mints no fresh
+  link for a run, so a session resuming one hands the person the link
+  it was created with, and a run whose link has expired is left and
+  another started.
 - **Party webhooks are not delivered.** The catalogue lists the
   `party.*` kinds, but no webhook consumer reads `parties-event`, so a
   tenant learns a party opened or was rejected only by reading it.

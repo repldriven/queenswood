@@ -316,6 +316,51 @@
                               (mapv :invitation-id invitations)))
                      _ (is (= operator (:invited-by (first invitations))))]))))))
 
+(deftest create-bank-checks-the-chosen-idv-provider-test
+  (with-test-system
+   [sys "classpath:bank/application-test.yml"]
+   (let [schema-for (fn [path] (avro/json->schema (slurp (io/resource path))))
+         schemas {"create-bank" (schema-for
+                                 "schemas/banks/create-bank.avsc.json")
+                  "bank" (schema-for "schemas/banks/bank.avsc.json")}
+         offered {:idv (idv-provider/providers
+                        {:default "verifier"
+                         :providers {:verifier {:declaration idv-provider}
+                                     :no-address {:declaration
+                                                  (update idv-provider
+                                                          :verifies
+                                                          (fn [v]
+                                                            (remove #{"address"}
+                                                                    v)))}}})}
+         config (assoc (fdb-config sys)
+                       :schemas schemas
+                       :identity-provider (identity-provider/local-provider {})
+                       :providers offered)
+         create (fn [id bank-name provider]
+                  (#'commands/dispatch
+                   config
+                   {:command "create-bank"
+                    :id id
+                    :payload (avro/serialize (schemas "create-bank")
+                                             {:name bank-name
+                                              :status :bank-status-test
+                                              :tier "micro"
+                                              :currencies ["GBP"]
+                                              :actor operator
+                                              :providers [{:kind "idv"
+                                                           :provider
+                                                           provider}]})}))]
+     (testing "a bank on a provider lacking what the policies ask is refused"
+       (let [reply
+             (create "ik-bank-chosen-idv-0001" "Partial Bank" "no-address")]
+         (is (= :idv/unsupported-criteria (error/kind reply)))
+         (is (= [:idv-verification-address] (:unmet (error/payload reply))))))
+     (testing "a bank on a provider establishing it is created"
+       (is (= "ACCEPTED"
+              (:status (create "ik-bank-chosen-idv-0002"
+                               "Verified Bank"
+                               "verifier"))))))))
+
 (deftest new-bank-records-providers-test
   (with-test-system
    [sys "classpath:bank/application-test.yml"]

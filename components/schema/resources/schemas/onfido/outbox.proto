@@ -6,9 +6,10 @@ import "record_metadata_options.proto";
 
 option java_outer_classname = "OnfidoOutboxProto";
 
-// Durable egress event for the Onfido adapter — an idv-completed event
-// derived from a check.completed webhook. Written atomically with the
-// webhook receipt, relayed to the bus by a changelog watcher.
+// Durable egress event for the Onfido adapter — the evidence a finished
+// workflow run reports, or the hand-off the relay composed for a session.
+// Written atomically with the webhook receipt or the intent it settles,
+// relayed to the bus by a changelog watcher.
 message OnfidoOutboxEvent {
   option (com.apple.foundationdb.record.record).usage = RECORD;
 

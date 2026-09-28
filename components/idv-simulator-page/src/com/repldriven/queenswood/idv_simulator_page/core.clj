@@ -1,16 +1,4 @@
-(ns com.repldriven.queenswood.zyphe-simulator.page
-  "The hosted page a hand-off points the person at. It asks what their
-  document says and offers the outcomes a person or a reviewer
-  produces; submitting posts that to the decision route, the same body a
-  test sends, and returns the person to the tenant's return URL. The
-  page finds the decision route from its own path, so it works behind a
-  prefix the simulator does not know about. A sandbox playing a person
-  through the page appends `simulate`, an outcome, and the document's
-  `givenNames`, `familyName` and `dateOfBirth` to the hand-off URL: the
-  page fills itself in, submits, and stays where it is. Adding `pace`, in
-  milliseconds, has it do so at a speed a viewer can follow: it holds,
-  types the details, brings the outcome into view, and holds again
-  before submitting."
+(ns com.repldriven.queenswood.idv-simulator-page.core
   (:require
     [clojure.string :as str]))
 
@@ -225,9 +213,8 @@
    "'</p></div>'};" "f.addEventListener('submit',async e=>{"
    "e.preventDefault();err.textContent='';"
    "btn.disabled=true;btn.textContent='Checking\\u2026';"
-   "const base=location.pathname.replace(/\\/(sandbox\\/)?flow\\/.*$/,'');"
-   "try{const r=await fetch(base+'/simulator/verification-requests/'+"
-   "encodeURIComponent(vr)+'/decision',{method:'POST',"
+   "const base=location.pathname.replace(new RegExp(page),'');"
+   "try{const r=await fetch(base+decision,{method:'POST',"
    "headers:{'Content-Type':'application/json'},"
    "body:JSON.stringify(Object.fromEntries(new FormData(f)))});"
    "if(!r.ok)throw new Error(r.status);"
@@ -252,7 +239,7 @@
    "await wait(pace*1.5);" "f.requestSubmit()})()}"))
 
 (defn form
-  [vr-id return-url]
+  [page-path decision-path return-url]
   (document
    "Identity verification"
    (str
@@ -270,8 +257,10 @@
     "</fieldset><div class=\"actions\">"
     "<button type=\"submit\">Continue</button>"
     "<p class=\"error\" id=\"error\" role=\"alert\"></p></div></form>"
-    "<script>const vr="
-    (js-string vr-id)
+    "<script>const page="
+    (js-string page-path)
+    ";const decision="
+    (js-string decision-path)
     ";const back="
     (js-string return-url)
     ";const tick="

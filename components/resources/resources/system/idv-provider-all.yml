@@ -1,0 +1,16 @@
+# Every IDV provider there is an adapter for, Zyphe the default: the
+# `idv-provider` group of a system running every adapter side by side,
+# the monolith and the API scenario rig. See docs/tdd/bank-providers.md.
+zyphe: !include system/idv-providers/zyphe.yml
+onfido: !include system/idv-providers/onfido.yml
+
+providers: !system/component
+  system/component-kind: idv-provider/providers
+  default: zyphe
+  providers:
+    zyphe:
+      declaration: !system/local-ref zyphe
+      command-channel: !keyword zyphe-idv-command
+    onfido:
+      declaration: !system/local-ref onfido
+      command-channel: !keyword onfido-idv-command

@@ -7,6 +7,9 @@ interceptors: !system/component
   system/component-kind: server/interceptors
   state: !system/local-ref state
   webhook-delay-ms: 10
+  # The token a registered webhook is given and every delivery is signed
+  # with, as the adapter holds it.
+  webhook-token: 4b1d9e2c7a6f3058e1c2d4b6a8f0e3c5
 
 jetty-adapter: !system/component
   system/component-kind: server/jetty-adapter

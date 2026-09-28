@@ -78,3 +78,65 @@
                                                 :http-client/request
                                                 {:message
                                                  "HTTP request failed"}))))))))
+
+(def ^:private full
+  {:id "wf-full"
+   :verifies ["identity" "liveness" "claimed-identity" "address"]
+   :screens ["sanctions" "pep"]})
+
+(def ^:private screening
+  {:id "wf-screening" :verifies [] :screens ["sanctions"]})
+
+(deftest select-workflow-test
+  (testing "the smallest workflow covering what is asked"
+    (is (= "wf-screening"
+           (:id (SUT/select-workflow [full screening] ["sanctions"]))))
+    (is (= "wf-full"
+           (:id (SUT/select-workflow [full screening]
+                                     ["identity" "sanctions"])))))
+  (testing "none where no workflow covers it"
+    (is (nil? (SUT/select-workflow [screening] ["address"])))))
+
+(deftest uncovered-test
+  (is (= #{"address"}
+         (SUT/uncovered [screening]
+                        {:verifies ["address"] :screens ["sanctions"]})))
+  (is (empty? (SUT/uncovered [full] {:verifies ["address"] :screens ["pep"]}))))
+
+(deftest applicant-test
+  (is
+   (= {:first_name "Arthur Philip"
+       :last_name "Dent"
+       :dob "1952-03-11"
+       :email "arthur@example.test"
+       :address {:street "Country Lane"
+                 :town "Cottington"
+                 :postcode "CT12 4XY"
+                 :country "GBR"
+                 :building_number "155"}}
+      (SUT/applicant {:first-name "Arthur"
+                      :middle-names "Philip"
+                      :last-name "Dent"
+                      :date-of-birth "1952-03-11"
+                      :email "arthur@example.test"
+                      :address {:building-number "155"
+                                :street "Country Lane"
+                                :town "Cottington"
+                                :postcode "CT12 4XY"
+                                :country "GBR"}}))))
+
+(deftest workflow-run-test
+  (let [run (SUT/workflow-run {:hand-off-ttl-ms 60000}
+                              full
+                              "app-1"
+                              {:bank-id "bnk.1"
+                               :verification-id "idv.1"
+                               :party-id "pty.1"
+                               :return-url "https://tenant/back"})]
+    (testing "the run is tagged with the bank and verification it serves"
+      (is (= ["bank:bnk.1" "verification:idv.1"] (:tags run)))
+      (is (= "pty.1" (:customer_user_id run))))
+    (testing "its link returns the person to the tenant"
+      (is (= "https://tenant/back"
+             (get-in run [:link :completed_redirect_url])))
+      (is (string? (get-in run [:link :expires_at]))))))

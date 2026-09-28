@@ -127,66 +127,6 @@
       payload
       (processor/process event-proc {:event event-name :payload payload}))))
 
-(defn- initiate
-  [proc schemas]
-  (let [result (send-command proc
-                             schemas
-                             "initiate-idv"
-                             {:bank-id test-bank-id
-                              :party-id (utility/generate-id "pty")})]
-    (decode-payload schemas "idv" result)))
-
-(defn- complete
-  [event-proc schemas verification-id status]
-  (send-event event-proc
-              schemas
-              "idv-completed"
-              {:bank-id test-bank-id
-               :verification-id verification-id
-               :status status}))
-
-(deftest idv-completed-in-review-and-failed-test
-  (with-test-system
-   [sys "classpath:idv/application-test.yml"]
-   (let [proc (system/instance sys [:idv :processor])
-         event-proc (system/instance sys [:idv :event-processor])
-         schemas (system/instance sys [:avro :serde])]
-     (testing "IN_REVIEW moves a pending IDV to in-review, awaiting resolution"
-       (let [{:keys [verification-id]} (initiate proc schemas)
-             updated (complete event-proc schemas verification-id "IN_REVIEW")]
-         (is (= :idv-status-in-review (:status updated)))
-         (is (not (pos? (:completed-at updated))))))
-     (testing "IN_REVIEW then ACCEPTED still resolves the IDV"
-       (let [{:keys [verification-id]} (initiate proc schemas)
-             _ (complete event-proc schemas verification-id "IN_REVIEW")
-             updated (complete event-proc schemas verification-id "ACCEPTED")]
-         (is (= :idv-status-accepted (:status updated)))
-         (is (some? (:completed-at updated)))))
-     (testing "FAILED marks a pending IDV as retryable, not terminal"
-       (let [{:keys [verification-id]} (initiate proc schemas)
-             updated (complete event-proc schemas verification-id "FAILED")]
-         (is (= :idv-status-failed (:status updated)))
-         (is (some? (:completed-at updated)))))
-     (testing
-       "a FAILED IDV does not resolve in place — retrying means a new verification"
-       (let [{:keys [verification-id]} (initiate proc schemas)
-             _ (complete event-proc schemas verification-id "FAILED")
-             skipped (complete event-proc schemas verification-id "ACCEPTED")]
-         (is (nil? skipped))))
-     (testing
-       "a late duplicate webhook against a terminal IDV is skipped, not applied"
-       (let [{:keys [verification-id]} (initiate proc schemas)
-             _ (complete event-proc schemas verification-id "ACCEPTED")
-             skipped (complete event-proc schemas verification-id "IN_REVIEW")]
-         (is (nil? skipped))
-         (nom-test> [result (send-command proc
-                                          schemas
-                                          "get-idv"
-                                          {:bank-id test-bank-id
-                                           :verification-id verification-id})
-                     decoded (decode-payload schemas "idv" result)
-                     _ (is (= :idv-status-accepted (:status decoded)))]))))))
-
 (def ^:private everything
   {:document {:outcome :idv-evidence-outcome-passed
               :given-names "Arthur"

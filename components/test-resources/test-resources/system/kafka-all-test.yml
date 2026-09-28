@@ -121,11 +121,25 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-zyphe-idv-command
       acks: all
+  onfido-idv-command:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword command
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      topic: topic-onfido-idv-command
+      acks: all
   zyphe-idv-command-dlq:
     _: !system/local-ref topics
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-zyphe-idv-command-dlq
+      acks: all
+  onfido-idv-command-dlq:
+    _: !system/local-ref topics
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      topic: topic-onfido-idv-command-dlq
       acks: all
   idv-command-response:
     _: !system/local-ref topics
@@ -565,6 +579,16 @@ consumers: !system/component
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       group.id: test-zyphe-idv-command
+  onfido-idv-command:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword command
+    topics: [topic-onfido-idv-command]
+    dead-letter-producer: !system/local-ref producers.onfido-idv-command-dlq
+    max-redeliveries: 5
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      group.id: test-onfido-idv-command
   idv-command-response:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -854,6 +878,8 @@ message-bus-producers: !system/component
     producer: !system/local-ref producers.companies-command-response
   zyphe-idv-command:
     producer: !system/local-ref producers.zyphe-idv-command
+  onfido-idv-command:
+    producer: !system/local-ref producers.onfido-idv-command
   idv-command-response:
     producer: !system/local-ref producers.idv-command-response
   idv-event:
@@ -954,6 +980,9 @@ message-bus-consumers: !system/component
     timeout: 500
   zyphe-idv-command:
     consumer: !system/local-ref consumers.zyphe-idv-command
+    timeout: 500
+  onfido-idv-command:
+    consumer: !system/local-ref consumers.onfido-idv-command
     timeout: 500
   idv-command-response:
     consumer: !system/local-ref consumers.idv-command-response

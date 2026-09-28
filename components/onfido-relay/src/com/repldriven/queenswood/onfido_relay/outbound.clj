@@ -1,48 +1,30 @@
 (ns com.repldriven.queenswood.onfido-relay.outbound
-  "The outbound Onfido relay: makes the create-applicant + create-check
-  call pair for each pending intent, OUTSIDE any FDB transaction. The
-  `:verification-id` is smuggled to Onfido as the check `:external_id` so
-  the webhook can correlate the result back."
   (:require
     [com.repldriven.queenswood.onfido-relay.store :as store]
 
-    [com.repldriven.mono.error.interface :as error]
+    [com.repldriven.mono.avro.interface :as avro]
+    [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.http-client.interface :as http]
     [com.repldriven.mono.json.interface :as json]
     [com.repldriven.mono.log.interface :as log]
+    [com.repldriven.mono.utility.interface :as utility]
 
     [clojure.edn :as edn]
-    [clojure.string :as str]))
+    [clojure.set :as set]
+    [clojure.string :as str])
+  (:import
+    (java.net URLEncoder)
+    (java.nio.charset StandardCharsets)
+    (java.time Instant)))
 
 (def ^:private default-poll-ms 200)
 (def ^:private default-max-attempts 10)
+(def ^:private default-hand-off-ttl-ms (* 15 60 1000))
 
-(defn composite-external-id
-  "Pack `:bank-id` and `:verification-id` into Onfido's single opaque
-  correlation field, separated by `|`."
-  [bank-id verification-id]
-  (str bank-id "|" verification-id))
-
-(defn parse-external-id
-  "Inverse of `composite-external-id`. Returns
-  `{:bank-id ... :verification-id ...}` or nil."
-  [s]
-  (when (and s (.contains ^String s "|"))
-    (let [[bnk vid] (.split ^String s "\\|" 2)]
-      {:bank-id bnk :verification-id vid})))
+(def ^:private bank-tag "bank:")
+(def ^:private verification-tag "verification:")
 
 (defn- classify
-  "Turn a provider response into itself or the anomaly that names what
-  went wrong. Kinds stay in the `:idv/*` namespace rather than naming
-  the vendor — they surface as the API's RFC 9457 `type`, and a second
-  identity provider consuming this channel must not change the contract
-  (ADR-0020). An unreachable provider, a 5xx and a 429 are retryable and
-  say so, a remaining 4xx means our request is wrong and keeps the
-  call-site name.
-
-  Separate from the call so it can be tested as the pure function it is
-  — stubbing the HTTP layer would mean a global redef, which is not safe
-  alongside a parallel test suite."
   [url res]
   (let [status (:status res)]
     (cond
@@ -79,16 +61,43 @@
      :else
      res)))
 
-(defn- post
-  [url body]
-  (error/try-nom
-   :idv/unavailable
-   "Identity verification provider call failed"
-   (classify url
-             (http/request {:method :post
-                            :url url
-                            :headers {"Content-Type" "application/json"}
-                            :body (json/write-str body)}))))
+(defn- call
+  [{:keys [onfido-url api-token]} method path body]
+  (let [url (str onfido-url "/v3.6" path)]
+    (error/try-nom
+     :idv/unavailable
+     "Identity verification provider call failed"
+     (let-nom> [res (classify url
+                              (http/request
+                               (cond-> {:method method
+                                        :url url
+                                        :headers
+                                        {"Content-Type" "application/json"
+                                         "Authorization"
+                                         (str "Token token=" api-token)}}
+                                       body
+                                       (assoc :body (json/write-str body)))))]
+       (http/res->edn res)))))
+
+(defn- encode
+  [v]
+  (URLEncoder/encode (str v) StandardCharsets/UTF_8))
+
+(defn- covers
+  [workflow]
+  (set (concat (:verifies workflow) (:screens workflow))))
+
+(defn uncovered
+  [workflows declaration]
+  (set/difference (set (concat (:verifies declaration) (:screens declaration)))
+                  (reduce set/union #{} (map covers workflows))))
+
+(defn select-workflow
+  [workflows requested]
+  (->> workflows
+       (filter (fn [workflow] (set/subset? (set requested) (covers workflow))))
+       (sort-by (fn [workflow] (count (covers workflow))))
+       first))
 
 (defn- full-first-name
   [first-name middle-names]
@@ -98,66 +107,127 @@
 
 (defn- address->onfido
   [{:keys [flat-number building-number building-name street sub-street
-           town state postcode country start-date]}]
-  (cond-> {:street street
-           :town town
-           :postcode postcode
-           :country country}
-          flat-number
-          (assoc :flat_number flat-number)
+           town state postcode country]}]
+  (utility/assoc-some {:street street
+                       :town town
+                       :postcode postcode
+                       :country country}
+                      :flat_number flat-number
+                      :building_number building-number
+                      :building_name building-name
+                      :sub_street sub-street
+                      :state state))
 
-          building-number
-          (assoc :building_number building-number)
+(defn applicant
+  [{:keys [first-name middle-names last-name date-of-birth address email]}]
+  (utility/assoc-some {:first_name (full-first-name first-name middle-names)
+                       :last_name last-name}
+                      :dob date-of-birth
+                      :email (when-not (str/blank? email) email)
+                      :address (when address (address->onfido address))))
 
-          building-name
-          (assoc :building_name building-name)
+(defn- expires-at
+  [{:keys [hand-off-ttl-ms]}]
+  (+ (utility/now) (or hand-off-ttl-ms default-hand-off-ttl-ms)))
 
-          sub-street
-          (assoc :sub_street sub-street)
+(defn workflow-run
+  [config workflow applicant-id
+   {:keys [bank-id verification-id party-id return-url]}]
+  {:workflow_id (:id workflow)
+   :applicant_id applicant-id
+   :customer_user_id party-id
+   :tags [(str bank-tag bank-id) (str verification-tag verification-id)]
+   :link (utility/assoc-some {:expires_at (str (Instant/ofEpochMilli
+                                                (expires-at config)))}
+                             :completed_redirect_url
+                             (when-not (str/blank? return-url) return-url))})
 
-          state
-          (assoc :state state)
+(defn- waiting?
+  [now {:keys [status link]}]
+  (and (= "awaiting_input" status)
+       (:url link)
+       (or (nil? (:expires_at link))
+           (< now (.toEpochMilli (Instant/parse (:expires_at link)))))))
 
-          start-date
-          (assoc :start_date start-date)))
+(defn- open-run
+  [config verification-id]
+  (let-nom> [found (call config
+                         :get
+                         (str "/workflow_runs?tags="
+                              (encode (str verification-tag verification-id)))
+                         nil)]
+    (some (fn [run] (when (waiting? (utility/now) run) run))
+          (if (sequential? found) found (:workflow_runs found)))))
 
-(defn- create-applicant
-  [onfido-url {:keys [first-name middle-names last-name date-of-birth address]}]
-  (post (str onfido-url "/v3.6/applicants")
-        (cond-> {:first_name (full-first-name first-name middle-names)
-                 :last_name last-name
-                 :address (address->onfido address)}
-                date-of-birth
-                (assoc :dob date-of-birth))))
+(defn- start-run
+  [config workflow data]
+  (let-nom> [created (call config :post "/applicants" (applicant data))]
+    (call config
+          :post
+          "/workflow_runs"
+          (workflow-run config workflow (:id created) data))))
 
-(defn- create-check
-  [onfido-url applicant-id bank-id verification-id]
-  (post (str onfido-url "/v3.6/checks")
-        {:applicant_id applicant-id
-         :report_names ["document" "facial_similarity_photo"]
-         :external_id (composite-external-id bank-id verification-id)}))
+(defn- run-for
+  [config workflow data]
+  (let-nom> [existing (open-run config (:verification-id data))]
+    (or existing (start-run config workflow data))))
 
-(defn- submit-idv-check
-  "The create-applicant + create-check pair. Returns the check response
-  or an anomaly."
-  [onfido-url {:keys [bank-id verification-id] :as data}]
-  (let [applicant (create-applicant onfido-url data)]
-    (if (error/anomaly? applicant)
-      applicant
-      (create-check onfido-url
-                    (:id (http/res->edn applicant))
-                    bank-id
-                    verification-id))))
+(defn- session-opened
+  [config data run]
+  (let [{:keys [schemas]} config
+        {:keys [bank-id verification-id session-id]} data
+        {:keys [url expires_at]} (:link run)]
+    (let-nom> [payload (avro/serialize
+                        (get schemas "idv-session-opened")
+                        {:bank-id bank-id
+                         :verification-id verification-id
+                         :session-id session-id
+                         :url url
+                         :expires-at (if expires_at
+                                       (.toEpochMilli (Instant/parse
+                                                       expires_at))
+                                       (expires-at config))})]
+      {:outbox-id (str (utility/uuidv7))
+       :dedup-key (str session-id ":opened")
+       :event-name "idv-session-opened"
+       :payload payload
+       :correlation-id (str (utility/uuidv7))
+       :causation-id session-id
+       :created-at (utility/now)})))
+
+(defn- record-opened
+  [config intent-id data run]
+  (if (nil? (:session-id data))
+    (store/mark-sent config intent-id)
+    (let-nom> [event (session-opened config data run)]
+      (store/transact config
+                      (fn [txn]
+                        (let [saved (store/save-event txn event)]
+                          (if (and (error/anomaly? saved)
+                                   (not (store/uniqueness-violation? saved)))
+                            saved
+                            (store/mark-sent txn intent-id))))
+                      :onfido-outbound/opened
+                      "Failed to record the opened session"))))
 
 (defn- relay-one
   [config {:keys [intent-id request attempts]}]
-  (let [{:keys [onfido-url max-attempts]} config
+  (let [{:keys [max-attempts workflows]} config
         max-attempts (or max-attempts default-max-attempts)
-        res (submit-idv-check onfido-url (edn/read-string request))
+        data (edn/read-string request)
+        workflow (select-workflow workflows
+                                  (concat (:verifications data)
+                                          (:screenings data)))
+        res (if workflow
+              (run-for config workflow data)
+              (error/fail :idv/unsupported-criteria
+                          {:message "No configured workflow covers the request"
+                           :verifications (:verifications data)
+                           :screenings (:screenings data)}))
         next-attempts (inc (or attempts 0))]
     (cond
      (not (error/anomaly? res))
-     (store/mark-sent config intent-id)
+     (record-opened config intent-id data res)
 
      (>= next-attempts max-attempts)
      (do (log/error "Onfido intent giving up after max attempts"
@@ -170,16 +240,12 @@
          (store/mark-attempt config intent-id next-attempts)))))
 
 (defn drain-once
-  "Relay every pending intent once. The Onfido calls per intent run
-  outside any FDB transaction."
   [config]
   (let [pending (store/pending-intents config)]
     (when-not (error/anomaly? pending)
       (doseq [i pending] (relay-one config i)))))
 
-(defn start-runner
-  "Start the daemon poll loop that drains pending outbound intents.
-  Returns `{:stop fn}`."
+(defn- start-loop
   [config]
   (let [running (atom true)
         poll-ms (or (:poll-ms config) default-poll-ms)
@@ -197,3 +263,48 @@
             (.setName "onfido-outbound-relay")
             (.start))]
     {:stop (fn [] (reset! running false) (.interrupt t))}))
+
+(defn start-runner
+  [config]
+  (let [missing (uncovered (:workflows config) (:idv-provider config))]
+    (if (seq missing)
+      (error/fail :idv/unsupported-criteria
+                  {:message (str "No configured workflow establishes "
+                                 (str/join ", " (sort missing)))
+                   :missing missing})
+      (start-loop config))))
+
+(defn- tagged
+  [tags prefix]
+  (some (fn [tag]
+          (when (str/starts-with? tag prefix) (subs tag (count prefix))))
+        tags))
+
+(defn- items
+  [res k]
+  (if (sequential? res) res (get res k)))
+
+(defn read-run
+  [config run-id]
+  (let-nom> [run (call config :get (str "/workflow_runs/" run-id) nil)
+             checks (call config
+                          :get
+                          (str "/checks?applicant_id="
+                               (encode (:applicant_id
+                                        run)))
+                          nil)
+             reports (reduce
+                      (fn [acc {:keys [id]}]
+                        (let [res (call config
+                                        :get
+                                        (str "/reports?check_id=" (encode id))
+                                        nil)]
+                          (if (error/anomaly? res)
+                            (reduced res)
+                            (into acc (items res :reports)))))
+                      []
+                      (items checks :checks))]
+    {:run run
+     :bank-id (tagged (:tags run) bank-tag)
+     :verification-id (tagged (:tags run) verification-tag)
+     :reports reports}))

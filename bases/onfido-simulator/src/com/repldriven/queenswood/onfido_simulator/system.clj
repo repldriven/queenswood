@@ -2,9 +2,12 @@
   (:require
     [com.repldriven.mono.system.interface :as system]))
 
-(system/defcomponents
- :onfido-simulator
- {:state {:system/start (fn [{:system/keys [instance]}]
-                          (or instance
-                              (atom {:applicants {} :checks {} :webhooks []})))
-          :system/instance-schema some?}})
+(system/defcomponents :onfido-simulator
+                      {:state {:system/start (fn [{:system/keys [instance]}]
+                                               (or instance
+                                                   (atom {:applicants {}
+                                                          :workflow-runs {}
+                                                          :checks {}
+                                                          :reports {}
+                                                          :webhooks []})))
+                               :system/instance-schema some?}})

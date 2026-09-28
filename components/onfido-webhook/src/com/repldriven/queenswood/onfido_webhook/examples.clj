@@ -1,14 +1,15 @@
 (ns com.repldriven.queenswood.onfido-webhook.examples)
 
-(def CheckCompletedObject
-  {:id "9b6e8d8f-5b9a-4f4f-9f4d-1234567890ab"
-   :status "complete"
-   :result "clear"
-   :completed_at_iso8601 "2026-05-02T12:00:00Z"})
+(def WebhookObject
+  {:id "01a0e8a1-3c2b-7e10-9c4a-805e275f8533"
+   :status "approved"
+   :completed_at_iso8601 "2026-09-28T12:00:00Z"
+   :href
+   "https://api.eu.onfido.com/v3.6/workflow_runs/01a0e8a1-3c2b-7e10-9c4a-805e275f8533"})
 
-(def CheckCompletedPayload
-  {:resource_type "check"
-   :action "check.completed"
-   :object CheckCompletedObject})
+(def WebhookPayload
+  {:resource_type "workflow_run"
+   :action "workflow_run.completed"
+   :object WebhookObject})
 
-(def CheckCompletedWebhook {:payload CheckCompletedPayload})
+(def WebhookEvent {:payload WebhookPayload})

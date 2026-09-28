@@ -8,16 +8,14 @@
      applicants.examples]
     [com.repldriven.queenswood.onfido-simulator.applicants.routes :as
      applicants]
-    [com.repldriven.queenswood.onfido-simulator.checks.components :as
-     checks.components]
-    [com.repldriven.queenswood.onfido-simulator.checks.examples :as
-     checks.examples]
     [com.repldriven.queenswood.onfido-simulator.checks.routes :as checks]
     [com.repldriven.queenswood.onfido-simulator.webhooks.components :as
      webhooks.components]
     [com.repldriven.queenswood.onfido-simulator.webhooks.examples :as
      webhooks.examples]
     [com.repldriven.queenswood.onfido-simulator.webhooks.routes :as webhooks]
+    [com.repldriven.queenswood.onfido-simulator.workflow-runs.routes :as
+     workflow-runs]
 
     [com.repldriven.queenswood.onfido-webhook.interface :as onfido-webhook]
 
@@ -49,10 +47,6 @@
   (examples-registry [#'applicants.examples/CreateApplicantRequest
                       #'applicants.examples/Applicant]))
 
-(def ^:private checks-examples
-  (examples-registry [#'checks.examples/CreateCheckRequest
-                      #'checks.examples/Check]))
-
 (def ^:private webhooks-examples
   (examples-registry [#'webhooks.examples/RegisterWebhookRequest
                       #'webhooks.examples/Webhook
@@ -66,7 +60,6 @@
     :options {:registry (merge (m/default-schemas)
                                {"ErrorResponse" schema/ErrorResponseSchema}
                                applicants.components/registry
-                               checks.components/registry
                                webhooks.components/registry
                                onfido-webhook/component-registry)}}))
 
@@ -81,12 +74,12 @@
                     :description "Simulates the Onfido IDV API for testing"
                     :version "0.0.6"}
              :components {:examples (merge applicants-examples
-                                           checks-examples
                                            webhooks-examples
                                            onfido-webhook/example-registry)}}
             :handler (server/standard-openapi-handler)}}]
     (into ["" {:interceptors (:interceptors ctx)}]
           (concat applicants/routes
+                  workflow-runs/routes
                   checks/routes
                   webhooks/routes))]))
 

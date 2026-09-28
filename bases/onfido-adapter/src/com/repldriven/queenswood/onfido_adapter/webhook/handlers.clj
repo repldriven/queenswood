@@ -3,11 +3,14 @@
     [com.repldriven.queenswood.onfido-adapter.publisher :as publisher]
 
     [com.repldriven.queenswood.onfido-relay.interface :as relay]
+    [com.repldriven.queenswood.onfido-webhook.interface :as onfido-webhook]
 
     [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.log.interface :as log]
     [com.repldriven.mono.utility.interface :as utility]))
+
+(def ^:private run-completed "workflow_run.completed")
 
 (defn- record-event
   "Serialise the event descriptor and write it to the outbox in one FDB
@@ -33,20 +36,41 @@
             :ok
             res))))))
 
-(defn check-completed
+(defn- record
+  "Read the finished run back from Onfido, since the delivery names it
+  and none of its results, and record its evidence."
+  [request run-id]
+  (let [{:keys [onfido-url api-token]} request
+        res (let-nom> [read (relay/read-run {:onfido-url onfido-url
+                                             :api-token api-token}
+                                            run-id)]
+              (if-let [descriptor (publisher/->idv-evidence read)]
+                (record-event request descriptor)
+                (log/info "Onfido run carries no evidence; acknowledged"
+                          {:run-id run-id})))]
+    (if (error/anomaly? res)
+      (do (log/error "Failed to record Onfido evidence" res)
+          {:status 500 :body {:error "webhook not recorded"}})
+      {:status 200 :body {:received true}})))
+
+(defn receive
   [_config]
   (fn [request]
-    (let [{:keys [parameters]} request
-          {:keys [body]} parameters
-          {:keys [payload]} body
-          {:keys [object]} payload
-          {:keys [id result external_id]} object]
-      (log/info "Onfido check.completed webhook received"
-                {:check-id id
-                 :result result
-                 :external-id external_id})
-      (let [res (record-event request (publisher/->idv-completed payload))]
-        (if (error/anomaly? res)
-          (do (log/error "Failed to record idv-completed webhook" res)
-              {:status 500 :body {:error "webhook not recorded"}})
-          {:status 200 :body {:received true}})))))
+    (let [{:keys [parameters headers raw-body webhook-token]} request
+          {:keys [action object]} (get-in parameters [:body :payload])
+          verified (onfido-webhook/verify webhook-token
+                                          (get headers
+                                               onfido-webhook/signature-header)
+                                          (or raw-body (byte-array 0)))]
+      (log/info "Onfido webhook received"
+                {:action action :id (:id object) :status (:status object)})
+      (cond
+       (error/anomaly? verified)
+       (do (log/warn "Onfido webhook refused" {:kind (error/kind verified)})
+           {:status 401 :body {:error (:message (error/payload verified))}})
+
+       (= run-completed action)
+       (record request (:id object))
+
+       :else
+       {:status 200 :body {:received true}}))))

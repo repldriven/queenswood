@@ -1,5 +1,7 @@
 (ns com.repldriven.queenswood.onfido-adapter.api
   (:require
+    [com.repldriven.queenswood.onfido-adapter.webhook.interceptors
+     :as interceptors]
     [com.repldriven.queenswood.onfido-adapter.webhook.routes :as webhook]
 
     [com.repldriven.queenswood.onfido-webhook.interface :as onfido-webhook]
@@ -40,7 +42,7 @@
      {:get {:no-doc true
             :openapi {:info {:title "Onfido Adapter"
                              :description
-                             "Receives Onfido check.completed webhooks"
+                             "Receives Onfido's signed webhooks"
                              :version "0.0.6"}
                       :components
                       {:examples onfido-webhook/example-registry}}
@@ -51,9 +53,11 @@
   [ctx]
   (http/ring-handler
    (http/router (routes ctx)
-                (assoc-in server/standard-router-data
-                 [:data :coercion]
-                 coercion))
+                (-> server/standard-router-data
+                    (assoc-in [:data :coercion] coercion)
+                    (update-in [:data :interceptors]
+                               (fn [chain]
+                                 (into [interceptors/raw-body] chain)))))
    (ring/routes (server/standard-openapi-ui-handler)
                 (server/standard-default-handler))
    server/standard-executor))

@@ -1,10 +1,17 @@
 (ns com.repldriven.queenswood.onfido-relay.interface
-  "Transactional-outbox egress for the Onfido adapter. The webhook handler
-  persists an `idv-completed` event with `save-event` (co-committed to the
-  outbox changelog, relayed to the bus at-least-once), and the
-  submit-idv-check consumer persists an outbound intent with `save-intent`
-  (the out-of-transaction runner makes the Onfido create-applicant +
-  create-check calls)."
+  "Transactional-outbox egress for the Onfido adapter. The
+  submit-idv-check consumer persists an outbound intent with
+  `save-intent`, and the `onfido-relay/outbound-runner` component drains
+  them outside any transaction: it resumes the workflow run the
+  verification already has waiting on the person, or creates an
+  applicant and a run on the smallest configured workflow covering the
+  verifications and screenings asked for, tagged with the bank and
+  verification ids, and records the run's link as `idv-session-opened`.
+  It refuses to start while the configured workflows do not cover what
+  the provider's declaration says. The webhook handler reads a finished
+  run back with `read-run` and persists its evidence with `save-event`,
+  co-committed to the outbox changelog and relayed to the bus
+  at-least-once."
   (:require
     [com.repldriven.queenswood.onfido-relay.system]
 
@@ -12,7 +19,7 @@
     [com.repldriven.queenswood.onfido-relay.store :as store]))
 
 (defn save-event
-  "Persist an `idv-completed` outbox event and append it to the changelog
+  "Persist an outbox event and append it to the changelog
   in one FDB transaction. Returns the event, or an `:onfido-outbox/save`
   anomaly (a uniqueness violation when the `dedup-key` was already
   recorded — a redelivered webhook).
@@ -33,7 +40,7 @@
 
   Args:
   - txn: an open FDB transaction or `{:record-db :record-store}` config.
-  - intent: a map with `:intent-id`, `:dedup-key` (verification-id),
+  - intent: a map with `:intent-id`, `:dedup-key` (the session id),
     `:request` (EDN-encoded command data), `:status` (\"pending\"),
     `:attempts`, `:created-at`."
   [txn intent]
@@ -45,8 +52,14 @@
   [result]
   (store/uniqueness-violation? result))
 
-(defn parse-external-id
-  "Unpack Onfido's composite `external_id` into
-  `{:bank-id ... :verification-id ...}`, or nil."
-  [external-id]
-  (outbound/parse-external-id external-id))
+(defn read-run
+  "The workflow run `run-id` as Onfido holds it, with every report of its
+  applicant's checks: `{:run :bank-id :verification-id :reports}`, the
+  ids read off the run's tags. An `:idv/*` failure where Onfido cannot
+  be read.
+
+  Args:
+  - config: `{:onfido-url :api-token}`.
+  - run-id: the workflow run's id."
+  [config run-id]
+  (outbound/read-run config run-id))

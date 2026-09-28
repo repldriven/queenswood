@@ -63,11 +63,15 @@
   component/idempotency {:local/root "../../components/idempotency"}
   component/idv {:local/root "../../components/idv"}
   component/idv-provider {:local/root "../../components/idv-provider"}
+  component/idv-simulator-page {:local/root
+                                "../../components/idv-simulator-page"}
   component/idv-query {:local/root "../../components/idv-query"}
   component/interest {:local/root "../../components/interest"}
   component/ledger-account {:local/root "../../components/ledger-account"}
   component/membership {:local/root "../../components/membership"}
   component/membership-query {:local/root "../../components/membership-query"}
+  component/onfido-relay {:local/root "../../components/onfido-relay"}
+  component/onfido-webhook {:local/root "../../components/onfido-webhook"}
   component/party {:local/root "../../components/party"}
   component/party-query {:local/root "../../components/party-query"}
   component/payee-check {:local/root "../../components/payee-check"}
@@ -95,6 +99,8 @@
   base/form3-simulator {:local/root "../../bases/form3-simulator"}
   base/modulr-adapter {:local/root "../../bases/modulr-adapter"}
   base/modulr-simulator {:local/root "../../bases/modulr-simulator"}
+  base/onfido-adapter {:local/root "../../bases/onfido-adapter"}
+  base/onfido-simulator {:local/root "../../bases/onfido-simulator"}
   base/uk-companies-house-adapter {:local/root
                                    "../../bases/uk-companies-house-adapter"}
   base/uk-companies-house-simulator {:local/root

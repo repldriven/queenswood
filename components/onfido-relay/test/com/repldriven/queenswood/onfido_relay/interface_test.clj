@@ -17,17 +17,11 @@
 
     [clojure.test :refer [deftest is testing]]))
 
-(deftest external-id-round-trip-test
-  (is (= {:bank-id "bnk.1" :verification-id "iv.1"}
-         (SUT/parse-external-id (outbound/composite-external-id "bnk.1"
-                                                                "iv.1"))))
-  (is (nil? (SUT/parse-external-id "no-separator"))))
-
 (defn- event
   [outbox-id dedup-key]
   {:outbox-id outbox-id
    :dedup-key dedup-key
-   :event-name "idv-completed"
+   :event-name "idv-evidence"
    :payload (.getBytes "avro-payload-bytes")
    :correlation-id "corr-1"
    :causation-id "caus-1"
@@ -68,15 +62,18 @@
                                  (system/instance sys [:fdb :keyspace-prefix])})
          (let [e (deref received 5000 ::timeout)]
            (is (not= ::timeout e))
-           (when (not= ::timeout e) (is (= "idv-completed" (:event e)))))))
+           (when (not= ::timeout e) (is (= "idv-evidence" (:event e)))))))
      (testing "a duplicate intent dedup-key is rejected"
        (nom-test> [_ (SUT/save-intent config (intent-of "int.1" "iv-A"))])
        (is (SUT/uniqueness-violation?
             (SUT/save-intent config (intent-of "int.2" "iv-A")))))
      (testing "a failed submit keeps the intent pending and bumps its attempt"
        (nom-test> [_ (SUT/save-intent config (intent-of "int.3" "iv-B"))])
-       (outbound/drain-once
-        (assoc config :onfido-url "http://localhost:1" :max-attempts 10))
+       (outbound/drain-once (assoc config
+                                   :onfido-url "http://localhost:1"
+                                   :workflows
+                                   [{:id "wf" :verifies [] :screens []}]
+                                   :max-attempts 10))
        (let [i3 (first (filter #(= "int.3" (:intent-id %))
                                (store/pending-intents config)))]
          (is (some? i3) "still pending after an unreachable submit")
