@@ -29,6 +29,7 @@
         component/party-query {:local/root "../../components/party-query"}
         component/payee-check {:local/root "../../components/payee-check"}
         component/payment {:local/root "../../components/payment"}
+        component/payment-provider {:local/root "../../components/payment-provider"}
         component/payment-query {:local/root "../../components/payment-query"}
         component/person-identification
         {:local/root "../../components/person-identification"}

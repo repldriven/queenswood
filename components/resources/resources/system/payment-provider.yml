@@ -6,10 +6,15 @@
 # who screens payments. Checked when the adapter starts, when a product
 # version is published and when an outbound payment is submitted. See
 # docs/tdd/payments.md.
-schemes: [fps]
-addresses: [scan]
-balances: per-account
-payee-check: [outbound]
-inbound: notified
-returns: []
-screening: provider
+#
+# A system includes one declaration as its `payment-provider` group, and
+# every component that reads it refers to `payment-provider.declaration`.
+declaration: !system/component
+  system/component-kind: payment-provider/declaration
+  schemes: [fps]
+  addresses: [scan]
+  balances: per-account
+  payee-check: [outbound]
+  inbound: notified
+  returns: []
+  screening: provider

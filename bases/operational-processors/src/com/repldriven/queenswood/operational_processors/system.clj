@@ -13,6 +13,7 @@
     [com.repldriven.queenswood.idv.interface]
     [com.repldriven.queenswood.membership.interface]
     [com.repldriven.queenswood.party.interface]
+    [com.repldriven.queenswood.payment-provider.interface]
     [com.repldriven.queenswood.schema.interface]
 
     [com.repldriven.mono.avro.interface]

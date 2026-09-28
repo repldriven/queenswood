@@ -138,6 +138,7 @@ system:
   message-bus: !include system/message-bus.yml
   fdb: !include system/fdb.yml
   avro: !include system/avro.yml
+  payment-provider: !include system/payment-provider.yml
   payments: !include system/payment.yml
   transactions: !include system/transaction.yml
   payee-checks: !include system/payee-check.yml

@@ -21,6 +21,7 @@
         component/cash-account-api
         {:local/root "../../components/cash-account-api"}
         component/payment-api {:local/root "../../components/payment-api"}
+        component/payment-provider {:local/root "../../components/payment-provider"}
         component/reward-api {:local/root "../../components/reward-api"}
         component/access-api {:local/root "../../components/access-api"}
         component/balance-api {:local/root "../../components/balance-api"}

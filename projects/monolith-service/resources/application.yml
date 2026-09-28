@@ -44,6 +44,7 @@ system:
   fdb: !include system/fdb.yml
   avro: !include system/avro.yml
   keycloak: !include system/keycloak.yml
+  payment-provider: !include system/payment-provider.yml
   banks: !include system/bank.yml
   cash-accounts: !include system/cash-account.yml
   memberships: !include system/membership.yml
@@ -84,7 +85,7 @@ system:
       identity-provider: !system/ref keycloak.identity-provider
       # What the payment provider carries, which publishing a product
       # version is checked against.
-      payment-provider: !include system/payment-provider.yml
+      payment-provider: !system/ref payment-provider.declaration
       identity-providers:
         - !system/ref keycloak.identity-provider
         - !system/ref keycloak.identity-provider-ops

@@ -1,10 +1,12 @@
 # What a deployment running the ClearBank adapter declares: one pooled
 # balance its virtual accounts route to, name checks both ways, inbound
 # payments told once settled, and screening by ClearBank.
-schemes: [fps]
-addresses: [scan]
-balances: pooled
-payee-check: [outbound, inbound]
-inbound: notified
-returns: []
-screening: provider
+declaration: !system/component
+  system/component-kind: payment-provider/declaration
+  schemes: [fps]
+  addresses: [scan]
+  balances: pooled
+  payee-check: [outbound, inbound]
+  inbound: notified
+  returns: []
+  screening: provider

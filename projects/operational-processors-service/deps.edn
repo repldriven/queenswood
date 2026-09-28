@@ -38,6 +38,7 @@
   component/membership {:local/root "../../components/membership"}
   component/membership-query {:local/root "../../components/membership-query"}
   component/party {:local/root "../../components/party"}
+  component/payment-provider {:local/root "../../components/payment-provider"}
   component/party-query {:local/root "../../components/party-query"}
   component/person-identification {:local/root
                                    "../../components/person-identification"}

@@ -17,6 +17,7 @@
     [com.repldriven.queenswood.modulr-relay.interface]
     [com.repldriven.queenswood.modulr-simulator.interface]
     [com.repldriven.queenswood.modulr-webhook.interface]
+    [com.repldriven.queenswood.payment-provider.interface]
     [com.repldriven.queenswood.schema.interface]
     [com.repldriven.queenswood.uk-companies-house-adapter.interface]
     [com.repldriven.queenswood.uk-companies-house-simulator.interface]

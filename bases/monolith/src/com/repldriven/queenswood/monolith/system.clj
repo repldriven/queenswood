@@ -12,6 +12,7 @@
     [com.repldriven.queenswood.modulr-simulator.interface]
     [com.repldriven.queenswood.modulr-webhook.interface]
     [com.repldriven.queenswood.party.interface]
+    [com.repldriven.queenswood.payment-provider.interface]
     [com.repldriven.queenswood.payment.interface]
     [com.repldriven.queenswood.scheduler.interface]
     [com.repldriven.queenswood.schema.interface]

@@ -236,6 +236,7 @@ system:
   telemetry: !include system/telemetry.yml
   modulr-simulator-server: !include system/modulr-simulator-server.yml
   modulr-adapter-server: !include system/modulr-adapter-server.yml
+  payment-provider: !include system/payment-provider.yml
   modulr-adapter: !include system/modulr-adapter.yml
   zyphe-simulator-server: !include system/zyphe-simulator-server.yml
   zyphe-adapter-server: !include system/zyphe-adapter-server.yml
