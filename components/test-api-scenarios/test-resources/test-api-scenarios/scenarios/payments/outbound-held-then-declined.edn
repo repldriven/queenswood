@@ -133,7 +133,7 @@
              :auth :bank-0-token
              :headers {:idempotency-key "ik-obd-outbound-001"}
              :body {:debtor-account-id [:ref :debtor :account-id]
-                    :creditor-bban "04000400000001"
+                    :creditor-bban "04006200000001"
                     :creditor-name "6a41a29eafcf455493"
                     :currency "GBP"
                     :amount 2500

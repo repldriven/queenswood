@@ -69,8 +69,11 @@ running any provider's sandbox, a known limitation of
 - **The adapters.** Payments have `modulr-adapter`, `clearbank-adapter`
   and `form3-adapter`, and IDV `zyphe-adapter` and `onfido-adapter`,
   each with its relay, webhook and simulator. The deployed builds
-  compose one of each kind; the others run in the development project
-  under their own rigs.
+  compose one of each kind. The development monolith and the API
+  scenario rig run every payment adapter side by side, their simulators
+  sharing `scheme-simulator` so a payment between two banks on
+  different providers arrives, and the IDV adapters other than Zyphe
+  run in the development project under their own rigs.
 
 ## Proposed Solution
 
@@ -209,10 +212,20 @@ for an exception, so a branch on a key is caught where it is written.
   installation's `application.yml` includes the declarations it offers
   and names its defaults.
 - **Rigs.** The API scenario rig runs every payment and IDV adapter
-  with its simulator, the bank each scenario creates naming the
-  provider the run is for. The Form3 run stops being a rig of its own,
-  and a scenario tag names what a provider cannot run, as
-  `:inbound-notified` does.
+  with its simulator in one boot: every scenario on the default
+  provider, then the payment and payee-check scenarios on each other
+  provider, the bank each creates naming that provider and each
+  idempotency key suffixed with it so no run replays another. A tag
+  names what a provider cannot run, `:inbound-notified`,
+  `:inbound-admitted` or `:screened`, and a run skips the tags its
+  provider's declaration rules out, and those naming what its adapter
+  does not carry yet, `:outbound-returned` on ClearBank's. A scenario
+  between banks on different providers lives under
+  `scenarios/providers/` and runs once.
+- **The scheme.** The payment simulators share `scheme-simulator`,
+  which each joins under the sort code it issues addresses from, so a
+  payment one sends to an account another holds arrives there as an
+  inbound, and is returned or failed where that simulator refuses it.
 
 ### First slices
 
@@ -233,7 +246,7 @@ for an exception, so a branch on a key is caught where it is written.
    monolith and the API rig. Proved by a bank on the per-account
    provider and a bank on rails paying each other, each provider's
    simulator seeing only its own bank's payments, and a bank created
-   from the console on a provider other than the default.
+   from the console on a provider other than the default. Built.
 5. **IDV providers side by side.** Both IDV adapters in the monolith
    and the rig. Proved by a bank on each verifying a person, and a tier
    refused at creation where its chosen provider lacks the criteria.
@@ -251,6 +264,8 @@ for an exception, so a branch on a key is caught where it is written.
 - **`cash-account`** — the account commands on the bank's channel.
 - **`idv`** — the check on the bank's channel, and the criteria check
   over every provider run.
+- **`scheme-simulator`** — a payment sent to a sort code no member
+  holds, to a member that cannot be reached, and after a member leaves.
 - **`test-api-scenarios`** — every payment and IDV scenario on each
   provider, banks on different providers paying each other, what an
   installation offers, and the create's refusals.

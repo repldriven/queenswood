@@ -1,5 +1,5 @@
 {:name "A payment to a closed account's address is returned"
- :tags #{:api :outbound :payments :unhappy :inbound-notified}
+ :tags #{:api :outbound :payments :unhappy :inbound-notified :outbound-returned}
  ;; A closed account's provider account is closed too, so the provider
  ;; takes nothing in for it: an outbound from a funded account to the
  ;; closed account's own address completes, then comes back as a return

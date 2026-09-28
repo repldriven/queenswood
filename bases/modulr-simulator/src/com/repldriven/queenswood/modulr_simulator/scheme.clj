@@ -7,14 +7,20 @@
   until money arrives or `pending-for-funds-ms` passes, when it expires
   without a notification, as Modulr's do. A payment it can cover is
   processed: the source is debited and told, and where the destination
-  is an account the simulator holds, it is credited and told. A payment
-  to an account the simulator has closed is returned to its source, as
-  the beneficiary's bank would, and a control route returns any other
+  is an account the simulator holds, it is credited and told; where
+  another simulator on the scheme holds it, the payment is sent there.
+  A payment to an account the simulator has closed, or one the
+  simulator holding it refuses, is returned to its source, as the
+  beneficiary's bank would, and a control route returns any other
   processed payment the same way."
   (:require
     [com.repldriven.queenswood.modulr-simulator.deliveries :as deliveries]
     [com.repldriven.queenswood.modulr-simulator.ledger :as ledger]
 
+    [com.repldriven.queenswood.scheme-simulator.interface :as
+     scheme-simulator]
+
+    [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.log.interface :as log]
     [com.repldriven.mono.utility.interface :as utility]))
 
@@ -111,9 +117,41 @@
 
 (declare release-pending return-payment)
 
+(defn- refusal
+  "Modulr's return reason where the member holding the destination
+  refused the payment: unknown where it holds no such account."
+  [res]
+  (cond
+   (or (error/anomaly? res) (= 404 (:status res)))
+   "BENSCANUNKNOWN"
+
+   (= "failed" (get-in res [:body :admission-status]))
+   "BENACCCLOSED"))
+
+(defn- send-on
+  "Send a payment to an account the simulator does not hold to the
+  member of the scheme holding it, and return it where that member
+  refuses it. Nothing where no member holds it."
+  [state config p source]
+  (let [{:keys [destination amount currency reference]} (:details p)
+        {:keys [sortCode accountNumber]} destination
+        res (when (and sortCode accountNumber)
+              (scheme-simulator/send-inbound
+               (:payment-scheme config)
+               {:bban (str sortCode accountNumber)
+                :amount amount
+                :currency currency
+                :reference reference
+                :debtor-name (:Name (party source nil))}))]
+    (when-let [reason (some-> res
+                              refusal)]
+      (pause config)
+      (return-payment state config (:id p) reason))))
+
 (defn- arrive
-  "Credit the destination, where the simulator holds it, and tell it; or
-  return the payment where the simulator has closed it."
+  "Credit the destination, where the simulator holds it, and tell it;
+  return the payment where the simulator has closed it; or send it on
+  where it does not hold it."
   [state config p]
   (let [{:keys [details externalReference]} p
         {:keys [destination amount currency reference sourceAccountId]} details
@@ -121,7 +159,7 @@
         source (ledger/account state sourceAccountId)]
     (cond
      (nil? target)
-     nil
+     (send-on state config p source)
 
      (= "CLOSED" (:status target))
      (do (pause config) (return-payment state config (:id p) "BENACCCLOSED"))

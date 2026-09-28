@@ -34,7 +34,8 @@
                       (sort-by :kind)
                       (mapv (fn [{:keys [kind default providers]}]
                               {:kind kind
-                               :providers (mapv name (keys providers))
+                               :providers (vec (sort (map name
+                                                          (keys providers))))
                                :default (name default)})))}})
 
 (defn- with-owners

@@ -17,6 +17,7 @@ interceptors: !system/component
   # The adapter's key, whose public half verifies every request.
   client-key: !system/ref clearbank-adapter.signing-key
   sort-code: "040004"
+  payment-scheme: !system/ref scheme-simulator.scheme
   webhook-delay-ms: 10
 
 jetty-adapter: !system/component
@@ -25,12 +26,18 @@ jetty-adapter: !system/component
   interceptors: !system/ref clearbank-simulator-server.interceptors
   options: !profile
     dev:
-      port: 8081
+      port: 8091
     test:
       port: 0
     default:
-      port: 8081
+      port: 8091
 
 http-url: !system/component
   system/component-kind: server/http-url
   jetty-adapter: !system/local-ref jetty-adapter
+
+scheme-member: !system/component
+  system/component-kind: scheme-simulator/member
+  scheme: !system/ref scheme-simulator.scheme
+  sort-code: "040004"
+  url: !system/local-ref http-url

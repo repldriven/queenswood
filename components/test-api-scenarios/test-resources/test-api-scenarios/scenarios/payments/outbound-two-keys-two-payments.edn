@@ -113,7 +113,7 @@
              :auth :bank-0-token
              :headers {:idempotency-key "ik-otk-outbound-001"}
              :body {:debtor-account-id [:ref :debtor :account-id]
-                    :creditor-bban "04000400000001"
+                    :creditor-bban "04006200000001"
                     :creditor-name "Ford Prefect"
                     :currency "GBP"
                     :amount 2500
@@ -127,7 +127,7 @@
              :auth :bank-0-token
              :headers {:idempotency-key "ik-otk-outbound-002"}
              :body {:debtor-account-id [:ref :debtor :account-id]
-                    :creditor-bban "04000400000001"
+                    :creditor-bban "04006200000001"
                     :creditor-name "Ford Prefect"
                     :currency "GBP"
                     :amount 2500

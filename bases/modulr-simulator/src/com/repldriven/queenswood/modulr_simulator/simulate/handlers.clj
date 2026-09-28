@@ -18,7 +18,9 @@
 
 (defn- config
   [request]
-  (select-keys request [:webhook-delay-ms :pending-for-funds-ms]))
+  (select-keys request
+               [:webhook-delay-ms :pending-for-funds-ms
+                :payment-scheme]))
 
 (defn- pause
   [{:keys [webhook-delay-ms]}]

@@ -128,6 +128,7 @@ system:
       options:
         port: 8080
   modulr-simulator-server: !include system/modulr-simulator-server.yml
+  scheme-simulator: !include system/scheme-simulator.yml
   modulr-adapter-server: !include system/modulr-adapter-server.yml
   modulr-adapter: !include system/modulr-adapter.yml
   modulr-adapter-relay: !include system/modulr-adapter-relay.yml

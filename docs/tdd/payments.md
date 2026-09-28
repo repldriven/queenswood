@@ -510,7 +510,11 @@ runs changes nothing outside it:
   - `/simulate/outbound-return` returns a completed payment with the
     ISO 20022 reason code given, `AC04` without one, and a payment to
     an account the simulator has closed is returned coded `AC04`;
-  - `/simulate/open-refused` makes the next account opening refused.
+  - `/simulate/open-refused` makes the next account opening refused;
+  - a payment to an account another simulator holds reaches it through
+    `scheme-simulator`, which each simulator joins under its sort code,
+    as an inbound to that simulator's `/simulate/inbound-payment`, and
+    is returned or failed where that simulator refuses it.
 
   A simulator for a provider that asks for admission sends the request
   before each inbound from `/simulate/inbound-payment` settles, and
@@ -524,8 +528,9 @@ runs changes nothing outside it:
   between.
 
 The deployed builds compose the default adapter into
-`external-adapters` and `monolith`; the others stay in the development
-project with their tests. Each adapter consumes its own command
+`external-adapters` and `monolith-service`; the development monolith
+and the API scenario rig compose every adapter, side by side. Each
+adapter consumes its own command
 channels, `<key>-payment-command` and `<key>-account-command`.
 `exclusive-dispatchers-service` runs the relay runners for the
 adapter's outbox and the transactions store's changelog.
@@ -682,6 +687,10 @@ stateDiagram-v2
   waits for the sweep.
 - **Outbound held then released is not exercised.** The shared test
   values decline every held outbound.
+- **ClearBank returns no outbound.** Its adapter and simulator carry no
+  returned outbound payment, and its simulator credits a payment to an
+  account it has closed, so the API scenario rig's ClearBank run skips
+  the scenarios tagged `:outbound-returned`.
 - **One customer at the provider.** Every bank's accounts sit under the
   customer the deployment names, until the provider's sandbox says
   whether it wants one per bank.

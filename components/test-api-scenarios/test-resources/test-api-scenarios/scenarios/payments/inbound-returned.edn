@@ -1,5 +1,5 @@
 {:name "An inbound admitted to an account that closes before it settles is returned"
- :tags #{:api :inbound :payments :returns}
+ :tags #{:api :inbound :payments :returns :inbound-admitted}
  ;; Form3 settles an inbound once the bank has admitted it. One admitted
  ;; to an account that closes before it settles is parked in 2500
  ;; suspense, and the bank sends it back: the return is delivered, the

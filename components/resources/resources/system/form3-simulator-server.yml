@@ -13,6 +13,7 @@ interceptors: !system/component
   credentials: !system/ref form3-adapter.credentials
   organisation-id: ee2fb143-6dfe-4787-b183-ca8ddd4164d2
   sort-code: "040075"
+  payment-scheme: !system/ref scheme-simulator.scheme
   webhook-delay-ms: 10
   admission-deadline-ms: 5000
 
@@ -24,8 +25,14 @@ jetty-adapter: !system/component
     test:
       port: 0
     default:
-      port: 8087
+      port: 8089
 
 http-url: !system/component
   system/component-kind: server/http-url
   jetty-adapter: !system/local-ref jetty-adapter
+
+scheme-member: !system/component
+  system/component-kind: scheme-simulator/member
+  scheme: !system/ref scheme-simulator.scheme
+  sort-code: "040075"
+  url: !system/local-ref http-url

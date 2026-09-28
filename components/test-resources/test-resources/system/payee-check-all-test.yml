@@ -1,3 +1,4 @@
+# Payee checks in a system running every payment adapter.
 processor: !system/component
   system/component-kind: payee-check/processor
   record-db: !system/ref fdb.record-db
@@ -5,7 +6,9 @@ processor: !system/component
   schemas: !system/ref avro.serde
   payment-providers: !system/ref payment-provider.providers
   adapter-urls:
+    modulr: !system/ref modulr-adapter-server.http-url
     form3: !system/ref form3-adapter-server.http-url
+    clearbank: !system/ref clearbank-adapter-server.http-url
 command-processor: !system/component
   system/component-kind: command-processor/command-processor
   bus: !system/ref message-bus.bus

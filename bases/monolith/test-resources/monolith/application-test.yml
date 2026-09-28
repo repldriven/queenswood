@@ -1,6 +1,6 @@
 system:
   avro: !include system/avro.yml
-  payment-provider: !include system/payment-provider.yml
+  payment-provider: !include system/payment-provider-all.yml
   idv-provider: !include system/idv-provider.yml
   banks: !include system/bank.yml
   banks-dispatcher: !include system/bank-dispatcher.yml
@@ -8,9 +8,17 @@ system:
   cash-accounts: !include system/cash-account.yml
   cash-accounts-dispatcher: !include system/cash-account-dispatcher.yml
   cash-accounts-relay: !include system/cash-account-relay.yml
+  clearbank-adapter: !include system/clearbank-adapter.yml
+  clearbank-adapter-relay: !include system/clearbank-adapter-relay.yml
+  clearbank-adapter-server: !include system/clearbank-adapter-server.yml
+  clearbank-simulator-server: !include system/clearbank-simulator-server.yml
   companies-dispatcher: !include system/company-dispatcher.yml
   email: !include system/email.yml
   fdb: !include system/fdb-test.yml
+  form3-adapter: !include system/form3-adapter.yml
+  form3-adapter-relay: !include system/form3-adapter-relay.yml
+  form3-adapter-server: !include system/form3-adapter-server.yml
+  form3-simulator-server: !include system/form3-simulator-server.yml
   idv: !include system/idv.yml
   idvs-relay: !include system/idv-relay.yml
   idvs-dispatcher: !include system/idv-dispatcher.yml
@@ -25,10 +33,11 @@ system:
   modulr-adapter-relay: !include system/modulr-adapter-relay.yml
   modulr-adapter-server: !include system/modulr-adapter-server.yml
   modulr-simulator-server: !include system/modulr-simulator-server.yml
+  scheme-simulator: !include system/scheme-simulator.yml
   parties: !include system/party.yml
   parties-dispatcher: !include system/party-dispatcher.yml
   parties-relay: !include system/party-relay.yml
-  payee-checks: !include system/payee-check-test.yml
+  payee-checks: !include system/payee-check-all-test.yml
   payments: !include system/payment.yml
   payments-dispatcher: !include system/payment-dispatcher.yml
   payment-sweep: !include system/payment-outbound-sweep.yml

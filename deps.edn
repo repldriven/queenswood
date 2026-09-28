@@ -79,6 +79,7 @@
     components/reward {:local/root "components/reward"}
     components/scheduler {:local/root "components/scheduler"}
     components/schema {:local/root "components/schema"}
+    components/scheme-simulator {:local/root "components/scheme-simulator"}
     components/test-api-scenarios {:local/root "components/test-api-scenarios"}
     components/test-scenarios {:local/root "components/test-scenarios"}
     components/test-model {:local/root "components/test-model"}
@@ -194,6 +195,8 @@
                        "components/zyphe-webhook/test"
                        "components/modulr-webhook/test"
                        "components/payment-provider/test"
+                       "components/scheme-simulator/test"
+                       "components/scheme-simulator/test-resources"
                        "components/form3-webhook/test"
                        "components/modulr-relay/test"
                        "components/modulr-relay/test-resources"

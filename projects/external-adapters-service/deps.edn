@@ -50,6 +50,8 @@
   component/policy {:local/root "../../components/policy"}
   component/resources {:local/root "../../components/resources"}
   component/schema {:local/root "../../components/schema"}
+  component/scheme-simulator {:local/root
+                              "../../components/scheme-simulator"}
   component/transaction {:local/root "../../components/transaction"}
   component/user {:local/root "../../components/user"}
   component/webhook {:local/root "../../components/webhook"}

@@ -4,6 +4,11 @@
     [com.repldriven.queenswood.clearbank-simulator.webhook
      :as webhook]
 
+    [com.repldriven.queenswood.scheme-simulator.interface :as
+     scheme-simulator]
+
+    [com.repldriven.mono.error.interface :as error]
+    [com.repldriven.mono.log.interface :as log]
     [com.repldriven.mono.utility.interface :refer [uuidv7]]))
 
 ;; ClearBank's documented sandbox trigger: a Faster Payment whose creditor
@@ -32,9 +37,29 @@
                           :response response}]
           :halLinks []}})
 
+(defn- sent-on?
+  "True where another member of the scheme holds the creditor's sort code
+  and the payment was sent to it, logging its refusal where it refused."
+  [{:keys [payment-scheme sort-code creditor-sort-code creditor-bban amount
+           currency
+           reference]}]
+  (when (not= sort-code creditor-sort-code)
+    (when-let [res (scheme-simulator/send-inbound payment-scheme
+                                                  {:bban creditor-bban
+                                                   :amount amount
+                                                   :currency currency
+                                                   :reference reference})]
+      (when (or (error/anomaly? res)
+                (not= 202 (:status res))
+                (= "failed" (get-in res [:body :admission-status])))
+        (log/warn "ClearBank simulator payment refused by the scheme"
+                  {:creditor-bban creditor-bban :res res}))
+      true)))
+
 (defn- fire-webhooks
   [{:keys [config sort-code webhook-delay-ms end-to-end-id creditor-sort-code
-           creditor-name creditor-bban amount currency reference]}]
+           creditor-name creditor-bban amount currency reference]
+    :as payment}]
   (let [pause (fn []
                 (when (pos? (or webhook-delay-ms 0))
                   (Thread/sleep webhook-delay-ms)))]
@@ -74,22 +99,25 @@
         :debit
         {:amount amount :currency currency :reference reference})
        (pause)
-       (webhook/fire-transaction-settled
-        config
-        sort-code
-        (str (uuidv7))
-        :credit
-        {:amount amount
-         :currency currency
-         :creditor-bban creditor-bban
-         :debtor-name creditor-name
-         :reference reference})))))
+       (when-not (sent-on? payment)
+         (webhook/fire-transaction-settled
+          config
+          sort-code
+          (str (uuidv7))
+          :credit
+          {:amount amount
+           :currency currency
+           :creditor-bban creditor-bban
+           :debtor-name creditor-name
+           :reference reference}))))))
 
 (defn payment
   [_config]
   (signed/verified
    (fn [request]
-     (let [{:keys [webhooks signing-key sort-code webhook-delay-ms parameters]}
+     (let [{:keys [webhooks signing-key sort-code webhook-delay-ms
+                   payment-scheme
+                   parameters]}
            request
            {:keys [body]} parameters
            {:keys [paymentInstructions]} body
@@ -117,6 +145,7 @@
               (fire-webhooks {:config {:webhooks webhooks
                                        :signing-key signing-key}
                               :sort-code sort-code
+                              :payment-scheme payment-scheme
                               :webhook-delay-ms webhook-delay-ms
                               :end-to-end-id endToEndIdentification
                               :creditor-sort-code creditor-sort-code

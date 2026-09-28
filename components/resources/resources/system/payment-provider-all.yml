@@ -1,0 +1,24 @@
+# Every payment provider there is an adapter for, Modulr the default: the
+# `payment-provider` group of a system running every adapter side by
+# side, the monolith and the API scenario rig. See
+# docs/tdd/bank-providers.md.
+modulr: !include system/payment-providers/modulr.yml
+form3: !include system/payment-providers/form3.yml
+clearbank: !include system/payment-providers/clearbank.yml
+
+providers: !system/component
+  system/component-kind: payment-provider/providers
+  default: modulr
+  providers:
+    modulr:
+      declaration: !system/local-ref modulr
+      payment-command-channel: !keyword modulr-payment-command
+      account-command-channel: !keyword modulr-account-command
+    form3:
+      declaration: !system/local-ref form3
+      payment-command-channel: !keyword form3-payment-command
+      account-command-channel: !keyword form3-account-command
+    clearbank:
+      declaration: !system/local-ref clearbank
+      payment-command-channel: !keyword clearbank-payment-command
+      account-command-channel: !keyword clearbank-account-command

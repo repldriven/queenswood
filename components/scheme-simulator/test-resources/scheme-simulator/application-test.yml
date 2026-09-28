@@ -1,0 +1,9 @@
+system:
+  scheme-simulator:
+    scheme: !system/component
+      system/component-kind: scheme-simulator/scheme
+    member: !system/component
+      system/component-kind: scheme-simulator/member
+      scheme: !system/local-ref scheme
+      sort-code: "040099"
+      url: "http://127.0.0.1:1"
