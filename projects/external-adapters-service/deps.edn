@@ -40,6 +40,8 @@
   component/modulr-relay {:local/root "../../components/modulr-relay"}
   component/modulr-webhook {:local/root "../../components/modulr-webhook"}
   component/idv-provider {:local/root "../../components/idv-provider"}
+  component/idv-simulator-page {:local/root
+                                "../../components/idv-simulator-page"}
   component/payment-provider {:local/root "../../components/payment-provider"}
   component/company {:local/root "../../components/company"}
   component/email {:local/root "../../components/email"}

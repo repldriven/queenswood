@@ -1,10 +1,6 @@
 # A bank's providers
 
-> **Status: proposal.** Payments and identity verification each run one
-> provider per installation, behind a contract every adapter meets, and
-> Background names what exists. Everything under Proposed Solution is
-> the build list, and [First slices](#first-slices) says what comes
-> first.
+> **Status: implemented.**
 
 ## Objective
 
@@ -35,31 +31,6 @@ running any provider's sandbox, a known limitation of
 
 ## Background
 
-- **The declarations.** `payment-provider` and `idv-provider` each
-  register a `declaration` kind, one component per provider in a
-  file under `system/payment-providers/` or `system/idv-providers/`,
-  and a `providers` kind naming the default and each provider's
-  channels. `system/payment-provider.yml` and
-  `system/idv-provider.yml`, which every system includes as its group,
-  offer Modulr and Zyphe. Each adapter refers to its own declaration
-  and checks it at start-up against what it carries; every other
-  reader takes the entry of the bank's provider, and
-  `idv/criteria-check` refuses to start while the platform policy asks
-  what any provider offered lacks.
-- **Command channels.** `payment` publishes `submit-payment`,
-  `return-payment` and `transfer-between-accounts` on the bank's
-  provider's `payment-command-channel`, `cash-account` publishes the account
-  commands on its `account-command-channel`, and `idv` sends
-  `submit-idv-check` on its `command-channel`. Each adapter consumes
-  its own, `modulr-payment-command` or `zyphe-idv-command` for example.
-  Replies and events come back on `schemes-payments-event`,
-  `schemes-account-event` and `idv-event`.
-- **Payee checks.** `payee-check` calls the bank's provider's adapter
-  over HTTP, at the URL its `adapter-urls` names for that provider.
-- **The bank's providers.** `Bank.providers` records the provider of
-  each kind offered, chosen at creation, and `GET /v1/bank` answers it;
-  `GET /v1/providers` lists what the installation offers. The console's
-  create form offers that choice, and its Bank page shows the bank's.
 - **Bank creation.** `POST /v1/banks` sends `create-bank`, and
   `bank/new-bank` opens the house accounts under the payment
   declaration and checks the tier's IDV criteria. An operator may name
@@ -68,14 +39,11 @@ running any provider's sandbox, a known limitation of
   console finds on the register first.
 - **The adapters.** Payments have `modulr-adapter`, `clearbank-adapter`
   and `form3-adapter`, and IDV `zyphe-adapter` and `onfido-adapter`,
-  each with its relay, webhook and simulator. The deployed builds
-  compose one of each kind. The development monolith and the API
-  scenario rig run every payment adapter side by side, their simulators
-  sharing `scheme-simulator` so a payment between two banks on
-  different providers arrives, and the IDV adapters other than Zyphe
-  run in the development project under their own rigs.
+  each with its relay, webhook and simulator, meeting the contract
+  [payments.md](payments.md) or [parties.md](parties.md) sets. The
+  deployed builds offer Modulr and Zyphe.
 
-## Proposed Solution
+## Solution
 
 ### A kind of provider
 
@@ -117,20 +85,20 @@ payment-provider:
         account-command-channel: !keyword form3-account-command
 ```
 
-- **Payments.** `components/payment-provider` gains the providers
+- **Payments.** `components/payment-provider` holds the providers
   component beside its declaration.
-- **IDV.** `idv-provider` becomes a brick of the same shape, with a
-  `command-channel` per provider, and `system/idv-provider.yml` becomes
+- **IDV.** `idv-provider` is a brick of the same shape, with a
+  `command-channel` per provider, and each provider's declaration is
   `system/idv-providers/<key>.yml`.
 - **Adapters.** Each refers to its own declaration,
   `payment-provider.form3` or `idv-provider.zyphe`, and consumes its
-  own command channels. The one-adapter-per-JVM limit goes.
+  own command channels, so several run in one JVM.
 - **Start-up.** `idv/criteria-check` checks the platform policy against
   every IDV provider offered, since any bank may choose any of them.
 
 ### The bank's providers
 
-- **The record.** `Bank` gains `providers`, a repeated `BankProvider`
+- **The record.** `Bank` holds `providers`, a repeated `BankProvider`
   of `kind` and `provider` keys, bumping the meta-data version per
   [schema-evolution](../recipes/code/schema-evolution.md). A bank
   created before carries none and reads as the installation's default
@@ -166,7 +134,7 @@ A domain brick reads the bank inside its transaction through
   `account-command-channel`.
 - **`idv`.** `submit-idv-check` goes to the bank's `command-channel`.
 - **`payee-check`.** It calls the adapter URL its `adapter-urls` names
-  for the bank's provider, and `payment-adapter-url` goes. A provider
+  for the bank's provider. A provider
   with no URL there answers `unavailable`, as an unreachable one does.
 
 Replies share the response channels they use now, correlated by command
@@ -174,7 +142,7 @@ id. Events share `schemes-payments-event`, `schemes-account-event` and
 `idv-event`: a handler resolves an inbound by BBAN and everything else
 by an id the platform or the provider issued, each unique across
 providers. `kafka-topics.yml` and every local bus declare the
-per-provider channels in place of the shared command channels.
+per-provider channels.
 
 ### Reading the bank's declaration
 
@@ -206,19 +174,22 @@ for an exception, so a branch on a key is caught where it is written.
 
 ### Deployment and rigs
 
-- **Deployed builds.** `external-adapters-service` and `monolith`
-  compose every adapter the installation offers, and
-  `exclusive-dispatchers-service` relays every adapter's outbox. An
-  installation's `application.yml` includes the declarations it offers
-  and names its defaults.
+- **Deployed builds.** `external-adapters-service` and
+  `monolith-service` compose the adapters their `application.yml`
+  offers, and `exclusive-dispatchers-service` relays each one's outbox.
+  The development monolith offers every provider through
+  `system/payment-provider-all.yml` and `system/idv-provider-all.yml`,
+  and its entry point fills the handler of each adapter and simulator
+  server the configuration declares, so one base serves both.
 - **Rigs.** The API scenario rig runs every payment and IDV adapter
   with its simulator in one boot: every scenario on the default
-  provider, then the payment and payee-check scenarios on each other
-  provider, the bank each creates naming that provider and each
-  idempotency key suffixed with it so no run replays another. A tag
-  names what a provider cannot run, `:inbound-notified`,
-  `:inbound-admitted` or `:screened`, and a run skips the tags its
-  provider's declaration rules out, and those naming what its adapter
+  providers, then the payment and payee-check scenarios on each other
+  payment provider and the party scenarios on each other IDV provider,
+  the bank each creates naming that provider and each idempotency key
+  suffixed with it so no run replays another. A tag names what a
+  provider cannot run, `:inbound-notified`, `:inbound-admitted`,
+  `:screened` or `:needs-email`, and a run skips the tags its
+  providers' declarations rule out, and those naming what an adapter
   does not carry yet, `:outbound-returned` on ClearBank's. A scenario
   between banks on different providers lives under
   `scenarios/providers/` and runs once.
@@ -226,30 +197,6 @@ for an exception, so a branch on a key is caught where it is written.
   which each joins under the sort code it issues addresses from, so a
   payment one sends to an account another holds arrives there as an
   inbound, and is returned or failed where that simulator refuses it.
-
-### First slices
-
-1. **Declarations by name.** `payment-provider/providers` and
-   `idv-provider/providers`, per-provider command channels, and every
-   reader taking the default's entry. Proved by every scenario passing
-   unchanged on each rig. Built.
-2. **The bank's providers.** `Bank.providers`, the create and its
-   refusals, `GET /v1/providers`, every reader resolving the bank's
-   provider, and the guardrail. Proved by a bank created on each
-   provider, one naming a kind or a provider the installation does not
-   offer refused, and every scenario passing. Built.
-3. **The console's choice.** The create form's provider choice and
-   the Bank page's providers. Proved by the form offering each kind's
-   providers with the default selected, and a bank created from it
-   showing them. Built.
-4. **Payment providers side by side.** Every payment adapter in the
-   monolith and the API rig. Proved by a bank on the per-account
-   provider and a bank on rails paying each other, each provider's
-   simulator seeing only its own bank's payments, and a bank created
-   from the console on a provider other than the default. Built.
-5. **IDV providers side by side.** Both IDV adapters in the monolith
-   and the rig. Proved by a bank on each verifying a person, and a tier
-   refused at creation where its chosen provider lacks the criteria.
 
 ### Tests
 

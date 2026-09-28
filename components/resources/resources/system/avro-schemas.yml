@@ -38,7 +38,6 @@ idv: schemas/idv/idv.avsc.json
 initiate-idv: schemas/idv/initiate-idv.avsc.json
 get-idv: schemas/idv/get-idv.avsc.json
 submit-idv-check: schemas/idv/submit-idv-check.avsc.json
-idv-completed: schemas/idv/idv-completed.avsc.json
 idv-status-changed: schemas/idv/idv-status-changed.avsc.json
 idv-evidence: schemas/idv/idv-evidence.avsc.json
 idv-session-opened: schemas/idv/idv-session-opened.avsc.json

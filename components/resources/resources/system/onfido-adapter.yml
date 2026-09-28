@@ -34,7 +34,22 @@ outbound-runner: !system/component
   system/component-kind: onfido-relay/outbound-runner
   record-db: !system/ref fdb.record-db
   record-store: !system/ref fdb.meta-store
+  schemas: !system/ref avro.serde
+  idv-provider: !system/ref idv-provider.onfido
   onfido-url: !profile
     dev: !system/ref onfido-simulator-server.http-url
     test: !system/ref onfido-simulator-server.http-url
     default: !env ONFIDO_URL
+  api-token: !profile
+    dev: api_sandbox.simulator
+    test: api_sandbox.simulator
+    default: !env ONFIDO_API_TOKEN
+  # Each Studio workflow the account runs, with what it establishes; a
+  # run starts on the smallest one covering what the bank's policies ask.
+  workflows:
+    - id: !profile
+        dev: 7c1f0b2e-4d8a-4e6b-9a35-2f7d1c9e8b40
+        test: 7c1f0b2e-4d8a-4e6b-9a35-2f7d1c9e8b40
+        default: !env ONFIDO_WORKFLOW_ID
+      verifies: [identity, liveness, claimed-identity, address]
+      screens: [sanctions, pep]

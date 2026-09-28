@@ -74,7 +74,8 @@ Four things the design reuses exist today:
   statuses; there is no attempted one. It polls at a fixed interval
   with no backoff. A retried POST is safe for ClearBank, which dedupes
   on the end-to-end identification the request body carries; the
-  Onfido runner's two calls carry no such key.
+  Onfido runner looks for the verification's run by its tags before
+  creating one, and its two creating calls carry no such key.
 - **Resource rendering.** The cash-account read routes project a
   loaded record onto the keys its Malli component declares: `->body`
   selects `cash-account-keys`, derived from the `CashAccount`

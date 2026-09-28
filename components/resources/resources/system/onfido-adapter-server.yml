@@ -7,6 +7,20 @@ interceptors: !system/component
   event-channel: !keyword idv-event
   record-db: !system/ref fdb.record-db
   record-store: !system/ref fdb.meta-store
+  # What reads a finished run back, since a delivery names no results.
+  onfido-url: !profile
+    dev: !system/ref onfido-simulator-server.http-url
+    test: !system/ref onfido-simulator-server.http-url
+    default: !env ONFIDO_URL
+  api-token: !profile
+    dev: api_sandbox.simulator
+    test: api_sandbox.simulator
+    default: !env ONFIDO_API_TOKEN
+  # The token of the webhook Onfido delivers to, which signs each delivery.
+  webhook-token: !profile
+    dev: 4b1d9e2c7a6f3058e1c2d4b6a8f0e3c5
+    test: 4b1d9e2c7a6f3058e1c2d4b6a8f0e3c5
+    default: !env ONFIDO_WEBHOOK_TOKEN
 
 jetty-adapter: !system/component
   system/component-kind: server/jetty-adapter

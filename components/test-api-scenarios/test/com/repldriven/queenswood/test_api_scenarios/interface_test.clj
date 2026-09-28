@@ -28,6 +28,9 @@
     [com.repldriven.queenswood.modulr-adapter.interface :as modulr-adapter]
     [com.repldriven.queenswood.modulr-simulator.interface :as
      modulr-simulator]
+    [com.repldriven.queenswood.onfido-adapter.interface :as onfido-adapter]
+    [com.repldriven.queenswood.onfido-simulator.interface :as
+     onfido-simulator]
     ;; enforce-idioms: brick-test-scope -- see the note above.
     [com.repldriven.queenswood.policy.interface :as policy]
     [com.repldriven.queenswood.uk-companies-house-simulator.interface :as
@@ -125,6 +128,10 @@
                 modulr-simulator/app)
       (assoc-in [:system/defs :modulr-adapter-server :handler]
                 modulr-adapter/app)
+      (assoc-in [:system/defs :onfido-simulator-server :handler]
+                onfido-simulator/app)
+      (assoc-in [:system/defs :onfido-adapter-server :handler]
+                onfido-adapter/app)
       (assoc-in [:system/defs :zyphe-simulator-server :handler]
                 zyphe-simulator/app)
       (assoc-in [:system/defs :zyphe-adapter-server :handler]
@@ -288,13 +295,44 @@
           (not= "provider" screening)
           (conj :screened)))
 
+(defn- idv-skipped-tags
+  "The tags naming what an IDV provider cannot run, read off its
+  declaration: refusing a session opened without the email it needs."
+  [{:keys [needs]}]
+  (cond-> #{}
+          (not (some #{"email"} needs))
+          (conj :needs-email)))
+
 (def ^:private unbuilt
   "The tags naming what a provider's adapter does not carry yet, by
   provider, as distinct from what its declaration rules out: ClearBank's
   adapter and simulator return no outbound payment."
   {"clearbank" #{:outbound-returned}})
 
-(defn- runs
+(defn- idv-runs
+  "The party scenarios on each IDV provider offered but the default,
+  with the default payment provider's simulator."
+  [sys payment-run]
+  (let [{:keys [default providers]} (system/instance sys
+                                                     [:idv-provider
+                                                      :providers])
+        party-files (filter (fn [{:keys [relative]}]
+                              (re-find #"^parties/" relative))
+                            (scenario-files))]
+    (for [provider (sort (map (comp name :provider) (vals providers)))
+          :when (not= (name default) provider)]
+      (assoc payment-run
+             :provider provider
+             :files party-files
+             :skips (into (:skips payment-run)
+                          (idv-skipped-tags (system/instance
+                                             sys
+                                             [:idv-provider
+                                              (keyword provider)])))
+             :providers {:idv provider}
+             :key-suffix provider))))
+
+(defn- payment-runs
   "Every scenario on the default payment provider, then the payment and
   payee-check scenarios on each other provider offered, each run with
   its provider's simulator and the tags it skips."
@@ -325,6 +363,18 @@
             (assoc (run provider payment-files)
                    :providers {:payment provider}
                    :key-suffix provider)))))
+
+(defn- runs
+  "The payment runs, then the IDV runs, which take the default payment
+  provider's."
+  [sys]
+  (let [default-idv (:default (system/instance sys [:idv-provider :providers]))
+        idv-skips (idv-skipped-tags (system/instance sys
+                                                     [:idv-provider
+                                                      (keyword default-idv)]))
+        payment (payment-runs sys)]
+    (concat (map (fn [run] (update run :skips into idv-skips)) payment)
+            (idv-runs sys (first payment)))))
 
 (deftest api-scenarios-test
   ;; One test system serves every scenario, on every payment provider.

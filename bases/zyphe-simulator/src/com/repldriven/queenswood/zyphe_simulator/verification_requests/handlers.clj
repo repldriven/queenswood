@@ -1,7 +1,8 @@
 (ns com.repldriven.queenswood.zyphe-simulator.verification-requests.handlers
   (:require
-    [com.repldriven.queenswood.zyphe-simulator.page :as page]
     [com.repldriven.queenswood.zyphe-simulator.webhook :as webhook]
+
+    [com.repldriven.queenswood.idv-simulator-page.interface :as page]
 
     [com.repldriven.mono.log.interface :as log]
     [com.repldriven.mono.utility.interface :as utility]))
@@ -189,4 +190,9 @@
        (page/response 409 (page/message "This verification is finished"))
 
        :else
-       (page/response 200 (page/form zypheVr zypheHandoffBaseUrl))))))
+       (page/response 200
+                      (page/form "/(sandbox/)?flow/[^/]*$"
+                                 (str "/simulator/verification-requests/"
+                                      zypheVr
+                                      "/decision")
+                                 zypheHandoffBaseUrl))))))

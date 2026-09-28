@@ -342,13 +342,31 @@
                                       :auth auth})]
        (when (= "ready" (:status body)) body)))))
 
+(def ^:private zyphe-run #"[?&]zypheVr=([^&]+)")
+
+(def ^:private onfido-link #"^(https?://[^/]+).*/l/([^/?#]+)")
+
+(defn- decision-url
+  "The decision route of the simulator a hand-off `url` points at: a
+  Zyphe run's, named by its `zypheVr`, or an Onfido workflow run's,
+  named by its link's path. Nil for a hand-off neither simulator
+  issued."
+  [zyphe-simulator-url url]
+  (if-let [vr (some->> url
+                       (re-find zyphe-run)
+                       second)]
+    (str zyphe-simulator-url "/simulator/verification-requests/" vr "/decision")
+    (when-let [[_ origin run] (some->> url
+                                       (re-find onfido-link))]
+      (str origin "/simulator/workflow-runs/" run "/decision"))))
+
 (defn- verify-party
   "Stand in for the tenant's app and the person: open a session for
   `party`, wait for its hand-off, and submit `outcome` (default a
   document that matches) with what `document` says (default the party's
-  own details) to the simulator's decision route — the body its hosted
-  page posts. Returns the ready session, or nil having failed an
-  assertion saying where it stopped."
+  own details) to the decision route of the simulator the hand-off
+  points at — the body its hosted page posts. Returns the ready session,
+  or nil having failed an assertion saying where it stopped."
   [{:keys [zyphe-simulator-url] :as ctx}
    {:keys [party auth outcome document channel email]}]
   (let [opened (open-session ctx
@@ -361,18 +379,13 @@
         (str "opening a verification session: " (pr-str opened)))
     (when session-id
       (let [ready (ready-session ctx auth party session-id)
-            url (get-in ready [:hand-off :url])
-            vr (some->> url
-                        (re-find #"[?&]zypheVr=([^&]+)")
-                        second)]
-        (is (some? vr) (str "the session never became ready: " party))
-        (when vr
+            decide (decision-url zyphe-simulator-url
+                                 (get-in ready [:hand-off :url]))]
+        (is (some? decide) (str "the session never became ready: " party))
+        (when decide
           (let [res (http/request
                      {:method :post
-                      :url (str zyphe-simulator-url
-                                "/simulator/verification-requests/"
-                                vr
-                                "/decision")
+                      :url decide
                       :headers {"Content-Type" "application/json"}
                       :body (json/write-str
                              (merge {:outcome (or outcome "match")}

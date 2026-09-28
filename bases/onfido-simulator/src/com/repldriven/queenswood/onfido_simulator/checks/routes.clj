@@ -7,16 +7,21 @@
   [["/v3.6/checks"
     {:openapi {:tags ["Checks"]}}
     [""
-     {:post {:summary "Create a check on an applicant"
-             :openapi {:operationId "CreateCheck"}
-             :parameters {:body [:ref "CreateCheckRequest"]}
-             :responses {201 {:body [:ref "Check"]}
-                         422 {:body [:ref "ErrorResponse"]}}
-             :handler (handlers/create-check nil)}}]
+     {:get {:summary "List an applicant's checks"
+            :openapi {:operationId "ListChecks"}
+            :parameters {:query [:map [:applicant_id string?]]}
+            :responses {200 {:body [:map [:checks [:vector map?]]]}}
+            :handler (handlers/list-checks nil)}}]
     ["/{id}"
      {:get {:summary "Get a check"
             :openapi {:operationId "GetCheck"}
             :parameters {:path {:id string?}}
-            :responses {200 {:body [:ref "Check"]}
-                        404 {:body [:ref "ErrorResponse"]}}
-            :handler (handlers/get-check nil)}}]]])
+            :responses {200 {:body map?} 404 {:body [:ref "ErrorResponse"]}}
+            :handler (handlers/get-check nil)}}]]
+   ["/v3.6/reports"
+    {:openapi {:tags ["Reports"]}
+     :get {:summary "List a check's reports"
+           :openapi {:operationId "ListReports"}
+           :parameters {:query [:map [:check_id string?]]}
+           :responses {200 {:body [:map [:reports [:vector map?]]]}}
+           :handler (handlers/list-reports nil)}}]])

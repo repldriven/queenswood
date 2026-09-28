@@ -1,4 +1,4 @@
-{:name "Opening a verification session is refused without what the provider needs"
+{:name "Opening a verification session is refused where the request is not one it takes"
  :tags #{:api :idv :parties :unhappy}
  :given
  [{:command :api/request
@@ -45,14 +45,6 @@
              :path-params {:party-id [:ref :party-0 :party-id]}
              :auth :org-0-token}
    :until {:status 200 :body {:status "pending"}}}
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/parties/{party-id}/verification-sessions"
-             :path-params {:party-id [:ref :party-0 :party-id]}
-             :auth :org-0-token
-             :headers {:idempotency-key "ik-verification-session-refusals-001"}
-             :body {:channel "web" :return-url "https://app.example.test/back"}}
-   :assert {:status 422 :body {:type ":idv/missing-email"}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/parties/{party-id}/verification-sessions"

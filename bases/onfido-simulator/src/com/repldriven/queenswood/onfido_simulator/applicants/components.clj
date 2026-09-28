@@ -25,7 +25,8 @@
    [:first_name string?]
    [:last_name string?]
    [:dob {:optional true} [:maybe string?]]
-   [:address [:ref "Address"]]])
+   [:email {:optional true} [:maybe string?]]
+   [:address {:optional true} [:ref "Address"]]])
 
 (def Applicant
   [:map
@@ -35,7 +36,8 @@
    [:first_name string?]
    [:last_name string?]
    [:dob {:optional true} [:maybe string?]]
-   [:address [:ref "Address"]]])
+   [:email {:optional true} [:maybe string?]]
+   [:address {:optional true} [:ref "Address"]]])
 
 (def registry
   (schema/components-registry [#'Address #'CreateApplicantRequest #'Applicant]))

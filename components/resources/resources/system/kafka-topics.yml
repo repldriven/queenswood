@@ -28,7 +28,11 @@
     partitions: 1
   - topic: topic-zyphe-idv-command
     partitions: 1
+  - topic: topic-onfido-idv-command
+    partitions: 1
   - topic: topic-zyphe-idv-command-dlq
+    partitions: 1
+  - topic: topic-onfido-idv-command-dlq
     partitions: 1
   - topic: topic-idv-command-response
     partitions: 1

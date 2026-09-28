@@ -5,42 +5,59 @@
 
     [com.repldriven.queenswood.onfido-adapter.interface :as SUT]
 
+    [com.repldriven.queenswood.onfido-webhook.interface :as onfido-webhook]
+
     [com.repldriven.mono.http-client.interface :as http]
     [com.repldriven.mono.json.interface :as json]
     [com.repldriven.mono.server.interface :as server]
     [com.repldriven.mono.system.interface :as system]
-    [com.repldriven.mono.test-system.interface :refer
-     [with-test-system nom-test>]]
+    [com.repldriven.mono.test-system.interface :refer [with-test-system]]
 
-    [clojure.test :refer [deftest is testing]]))
+    [clojure.test :refer [deftest is testing]])
+  (:import
+    (java.nio.charset StandardCharsets)))
 
-(def ^:dynamic *base-url* "http://localhost:{PORT}")
+(defn- event
+  [action]
+  {:payload {:resource_type "workflow_run"
+             :action action
+             :object {:id "run-1" :status "approved"}}})
 
-(defn- post
-  [path body]
-  (http/request {:method :post
-                 :url (str *base-url* path)
-                 :headers {"Content-Type" "application/json"}
-                 :body (json/write-str body)}))
+(defn- deliver-event
+  [base-url body token]
+  (let [raw (.getBytes ^String (json/write-str body) StandardCharsets/UTF_8)]
+    (http/request {:method :post
+                   :url (str base-url onfido-webhook/path)
+                   :headers (cond-> {"Content-Type" "application/json"}
+                                    token
+                                    (assoc "X-SHA2-Signature"
+                                           (onfido-webhook/sign token raw)))
+                   :body raw})))
 
-(deftest check-completed-test
+(deftest webhook-test
   (with-test-system
    [sys
     ["classpath:onfido-adapter/application-test.yml"
      #(assoc-in % [:system/defs :server :handler] SUT/app)]]
-   (let [jetty (system/instance sys [:server :jetty-adapter])]
-     (binding [*base-url* (server/http-local-url jetty)]
-       (testing "POST /webhooks/onfido/check-completed acknowledges 200"
-         (nom-test> [res (post "/webhooks/onfido/check-completed"
-                               {:payload
-                                {:resource_type "check"
-                                 :action "check.completed"
-                                 :object
-                                 {:id "ch.test-001"
-                                  :status "complete"
-                                  :result "clear"
-                                  :completed_at_iso8601 "2026-05-02T12:00:00Z"
-                                  :external_id "bnk.test-001|iv.test-001"}}})
-                     _ (is (= 200 (:status res)))
-                     body (http/res->edn res)
-                     _ (is (true? (:received body)))]))))))
+   (let [base-url (server/http-local-url (system/instance sys
+                                                          [:server
+                                                           :jetty-adapter]))]
+     (testing "an unsigned delivery is refused"
+       (is (= 401
+              (:status
+               (deliver-event base-url (event "workflow_run.completed") nil)))))
+     (testing "one signed with another token is refused"
+       (is (= 401
+              (:status (deliver-event base-url
+                                      (event "workflow_run.completed")
+                                      "other-token")))))
+     (testing "a signed event naming no finished run is acknowledged"
+       (is (= 200
+              (:status (deliver-event base-url
+                                      (event "workflow_task.completed")
+                                      "test-token")))))
+     (testing "a finished run Onfido cannot be asked about is not recorded"
+       (is (= 500
+              (:status (deliver-event base-url
+                                      (event "workflow_run.completed")
+                                      "test-token"))))))))

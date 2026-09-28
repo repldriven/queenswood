@@ -1,7 +1,7 @@
 system:
   avro: !include system/avro.yml
   payment-provider: !include system/payment-provider-all.yml
-  idv-provider: !include system/idv-provider.yml
+  idv-provider: !include system/idv-provider-all.yml
   banks: !include system/bank.yml
   banks-dispatcher: !include system/bank-dispatcher.yml
   cash-account-product-templates: !include system/cash-account-product-templates.yml
@@ -34,6 +34,10 @@ system:
   modulr-adapter-server: !include system/modulr-adapter-server.yml
   modulr-simulator-server: !include system/modulr-simulator-server.yml
   scheme-simulator: !include system/scheme-simulator.yml
+  onfido-adapter: !include system/onfido-adapter.yml
+  onfido-adapter-relay: !include system/onfido-adapter-relay.yml
+  onfido-adapter-server: !include system/onfido-adapter-server.yml
+  onfido-simulator-server: !include system/onfido-simulator-server.yml
   parties: !include system/party.yml
   parties-dispatcher: !include system/party-dispatcher.yml
   parties-relay: !include system/party-relay.yml

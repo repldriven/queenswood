@@ -77,7 +77,7 @@
    :until {:status 200
            :body {:status "ready"
                   :hand-off {:type "url"
-                             :url [:m/regex "zypheVr=.+zypheFullscreen=true"]
+                             :url [:m/regex "^https?://"]
                              :expires-at [:m/regex "^\\d{4}-"]}}}}
   {:command :api/request
    :request {:method :post

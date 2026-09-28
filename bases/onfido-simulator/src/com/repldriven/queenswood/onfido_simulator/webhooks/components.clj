@@ -7,13 +7,16 @@
 (def RegisterWebhookRequest
   [:map
    {:json-schema/example examples/RegisterWebhookRequest}
-   [:url string?]])
+   [:url string?]
+   [:events {:optional true} [:vector string?]]])
 
 (def Webhook
   [:map
    {:json-schema/example examples/Webhook}
    [:id string?]
-   [:url string?]])
+   [:url string?]
+   [:token {:optional true} [:maybe string?]]
+   [:events {:optional true} [:vector string?]]])
 
 (def WebhookList
   [:map
