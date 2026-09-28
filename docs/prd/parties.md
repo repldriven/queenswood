@@ -25,8 +25,8 @@ customer-facing surface — but their personal data ends up
 in the party record.
 
 **Platform operator.** Indirectly involved. Operates the platform that runs IDV
-and stores PII; needs the model to support the compliance posture the platform
-takes on.
+and stores PII, and chooses which IDV providers an installation offers; needs
+the model to support the compliance posture the platform takes on.
 
 ## Goals
 
@@ -120,8 +120,10 @@ completes.
 ### Identity verification (person parties)
 
 When a person party is registered, the platform sends the
-person's details to an IDV provider, Zyphe (or a
-simulator standing in for it), and begins an identity
+person's details to the organisation's IDV provider — the
+one chosen when the organisation was created, from those
+the installation offers, Zyphe for example, or a simulator
+standing in for it — and begins an identity
 check in the background. The tenant doesn't wait for it —
 the registration call returns straight away with a pending
 party. The provider does its checks asynchronously and

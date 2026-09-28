@@ -85,9 +85,17 @@ What Queenswood delivers.
   (sort code + account number) assigned at open.
 - **Internal transfers** between two accounts of the same
   tenant. Settle immediately.
-- **UK Faster Payments.** Inbound and outbound, via a
-  pluggable scheme adapter (a simulator base today; a
-  clearing-bank partner adapter as the production target).
+- **UK Faster Payments.** Inbound and outbound, through the
+  payment provider the organisation runs on.
+- **Providers chosen per organisation.** An installation
+  offers one or more providers of each kind the platform
+  integrates with — payment providers and
+  identity-verification providers today — and every one it
+  offers runs at once. Each organisation runs on the one of
+  each kind it chose when it was created, so organisations
+  on different providers share one installation. A kind the
+  platform comes to integrate with later, such as open
+  banking, is offered the same way.
 - **Interest accrual.** Daily accrual on posted balances with
   sub-minor-unit fractional carry; capitalisation at any
   cadence the operator schedules (daily, weekly, monthly,
@@ -136,7 +144,8 @@ The platform is delivered through these capabilities, each covered by
 its own PRD.
 
 - **Onboarding** — multi-tenant tenancy creation:
-  organisation setup, credential issuance, default product and
+  organisation setup, the providers it runs on, credential
+  issuance, default product and
   bookkeeping accounts bootstrapped in one transaction.
   PRD: [onboarding](onboarding.md).
 - **Parties and identity** — customer registration with

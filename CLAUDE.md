@@ -97,6 +97,11 @@ non-trivial work on their topic.
   See [tdd/service-apis.md](docs/tdd/service-apis.md),
   [ADR-0013](docs/adr/0013-single-unified-api.md),
   [ADR-0014](docs/adr/0014-openapi-3x-compliance.md).
+- **A bank's providers** — proposed: each bank runs on the payment and
+  IDV providers it named when created, every provider an installation
+  offers running side by side on a command channel of its own.
+  See [ADR-0030](docs/adr/0030-a-bank-chooses-its-providers-when-it-is-created.md)
+  and [tdd/bank-providers.md](docs/tdd/bank-providers.md).
 - **Lifecycle transitions** — the ten-point definition-of-done for
   a new entity state or transition, source-state guards in
   `domain.clj` (`:<entity>/invalid-status`, HTTP 409), and event-
@@ -338,7 +343,7 @@ non-trivial work on their topic.
 ### Domain reference
 
 - **Per-capability designs** — `docs/tdd/` has one TDD per
-  capability or subsystem (access, authentication, banks,
+  capability or subsystem (access, authentication, bank-providers, banks,
   cash-account-migration, cash-account-products, cash-accounts,
   demo-digital-bank, idempotency, infrastructure, interest, onboarding,
   outbound-email, parties, payments, policy-evaluation, rewards,

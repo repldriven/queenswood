@@ -14,9 +14,11 @@ on the account ledger, and is safe to re-submit without
 double-processing.
 
 The platform reaches the scheme through a payment provider,
-which also issues each account's UK payment address. Which
-provider an installation uses is the operator's choice, and
-nothing a tenant does changes with it. Opening, rotating and
+which also issues each account's UK payment address. An
+installation offers one or more payment providers, and each
+organisation runs on the one chosen when it was created, as
+[onboarding](onboarding.md) describes; nothing a tenant
+does day to day changes with it. Opening, rotating and
 closing an account are in [cash-accounts](cash-accounts.md);
 this PRD covers what the provider's part in them means for
 payments.
@@ -36,10 +38,10 @@ Cares (implicitly) about: payments landing when expected,
 the available balance reflecting in-flight outbound
 payments, no double-debits or double-credits.
 
-**Platform operator.** Chooses the payment provider an installation uses, and
-runs its integration and the simulator that stands in for it during
-development. Reconciles the provider's records with the platform's when they
-disagree.
+**Platform operator.** Chooses which payment providers an installation offers,
+and which is the default, and runs each one's integration and the simulator that
+stands in for it during development. Reconciles the provider's records with the
+platform's when they disagree.
 
 **Payment provider.** The third party that fronts UK
 Faster Payments for the platform. Issues each account's
@@ -126,6 +128,9 @@ integrates with simulators standing in for real providers.
 - **Cross-border payments.** No SEPA, no SWIFT, no
   international wires. UK Faster Payments is the only
   scheme today.
+- **Moving an organisation to another provider.** An
+  organisation keeps the payment provider it was created
+  with; moving it is a migration outside the platform.
 - **Cross-currency (FX) payments.** Both legs of every
   payment are in the same currency. No FX conversion at
   the platform level.
