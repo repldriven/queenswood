@@ -1,6 +1,12 @@
 # Payments and the payment provider
 
-> **Status: implemented.**
+> **Status: proposal.** Internal, outbound and inbound payments, the
+> provider declaration, the payment adapter contract and two adapters
+> meeting it exist, and Background names them. Everything under
+> Proposed Solution is the build list; all but
+> [Three kinds of provider](#three-kinds-of-provider) and the sections
+> it introduces is built, and [First slices](#first-slices) says what
+> comes next.
 
 ## Objective
 
@@ -14,15 +20,19 @@ the provider it chooses and the payment bricks do not change: what the
 provider declares it can carry, how an account gets its payment address
 from the provider, how the provider's reports become scheme events,
 how the balances a provider holds for each account stay equal to the
-ledger, and how an outbound payment the scheme returns after it
-completed is recorded.
+ledger, how an outbound payment the scheme returns after it completed
+is recorded, and how one contract serves a provider that holds the
+bank's money and one that only carries the scheme's messages for a bank
+holding its own.
 
 In scope: the `payment`, `payment-query` and `payee-check` bricks; the
 provider leg of `cash-account`'s opening and closing; the provider
 declaration and where it is checked; the payment adapter contract,
 covering accounts, submissions, reports, reconciliation and the
-simulator every adapter ships; balances at the provider; returned
-outbound payments; the three payment flows and their state machines.
+simulator every adapter ships; the kinds of provider the contract
+serves; balances at the provider; admitting an inbound payment;
+returned outbound payments and returning an inbound one; the three
+payment flows and their state machines.
 
 Out of scope: the double-entry mechanics, see
 [transactions-and-balances.md](transactions-and-balances.md); the
@@ -34,7 +44,10 @@ maps onto the contract, which lives with its adapter; schemes other
 than Faster Payments, which the PRD leaves out; running two providers
 in one installation, which
 [ADR-0020](../adr/0020-providers-are-deployment-facts.md) leaves to a
-later decision.
+later decision; screening payments for sanctions and fraud where the
+provider does not, which a screening design of its own will decide;
+funding a settlement account at the scheme and reconciling the scheme's
+settlement reports, which are the bank's operations.
 
 ## Background
 
@@ -101,7 +114,7 @@ later decision.
   [ADR-0020](../adr/0020-providers-are-deployment-facts.md), and
   `system/payment-provider.yml` declares what it carries.
 
-## Solution
+## Proposed Solution
 
 ### The provider declaration
 
@@ -113,6 +126,9 @@ schemes: [fps]
 addresses: [scan]
 balances: per-account
 payee-check: [outbound]
+inbound: notified
+returns: []
+screening: provider
 ```
 
 - **`schemes`** — the `PaymentScheme` values an outbound payment may
@@ -126,6 +142,14 @@ payee-check: [outbound]
   name, and `inbound` where it asks the platform to answer a check
   against one of its accounts rather than answering from the holder
   name it was given.
+- **`inbound`** — `notified` where the provider settles an inbound
+  payment and then tells the platform, `admitted` where it asks the
+  platform to admit or reject each one before it settles.
+- **`returns`** — `inbound` where the platform may send an inbound
+  payment it cannot apply back to its sender; without it, the payment
+  is parked in suspense.
+- **`screening`** — `provider` where the provider screens payments and
+  reports those it holds, `bank` where it screens nothing.
 
 The file is included as plain config wherever it is read:
 
@@ -138,8 +162,98 @@ The file is included as plain config wherever it is read:
   `schemes` lacks, with `:payment/unsupported-scheme` (422).
 - **Wherever behaviour follows it.** `payment` mirrors movements at the
   provider only under `per-account`, as
-  [Balances at the provider](#balances-at-the-provider) describes, and
-  the adapter serves inbound check requests only under `inbound`.
+  [Balances at the provider](#balances-at-the-provider) describes, the
+  adapter serves inbound check requests only under `payee-check:
+  [inbound]`, admission requests only under `inbound: admitted`, and
+  `payment` returns rather than parks only under `returns: [inbound]`.
+  A missing key reads as the value a provider holding the money has:
+  `notified`, no returns, and `provider` screening.
+
+### Three kinds of provider
+
+The contract is designed against three kinds of provider, each an
+installation's choice as
+[ADR-0020](../adr/0020-providers-are-deployment-facts.md) decides, and
+each an adapter of its own:
+
+- **A provider holding a balance for each account.** It issues each
+  account with its address, holds its money, screens payments and
+  tells the platform of an inbound once it has settled. Modulr is the
+  worked example: `balances: per-account`, `payee-check: [outbound]`,
+  `inbound: notified`, `screening: provider`.
+- **A clearing bank holding one balance.** It issues addresses that
+  route to one balance holding every account's money, screens, and
+  tells the platform of an inbound once it has settled. ClearBank is
+  the worked example: `balances: pooled`, `payee-check: [outbound,
+  inbound]`, `inbound: notified`, `screening: provider`.
+- **Rails.** It carries the scheme's messages for a bank that holds
+  the money in its own settlement account, asks the bank to admit each
+  inbound before it settles, lets the bank return one, and screens
+  nothing. Form3 is the worked example: `balances: pooled`,
+  `payee-check: [outbound]`, `inbound: admitted`, `returns: [inbound]`,
+  `screening: bank`.
+
+Everything that differs between them is a declared key, so `payment`,
+`cash-account` and `payee-check` read the declaration and never the
+provider. What differs inside an adapter stays there:
+
+- **Where an address comes from.** An adapter whose provider issues
+  accounts opens one there. One whose provider does not issues the
+  account number itself, under the sort code its configuration names,
+  and registers it with the provider so inbound payments route to it.
+  Either way it answers `open-payment-account` on
+  `schemes-account-event`.
+- **What 1100 is.** GL 1100 cash-at-correspondent is the money held at
+  the provider, whether that is each account's balance, the pooled
+  balance, or the bank's settlement account at the scheme.
+
+### Admitting an inbound payment
+
+Under `inbound: admitted` the provider asks before an inbound settles:
+
+- **The request.** The adapter sends `admit-inbound-payment` on
+  `payments-command` with the end-to-end id, creditor BBAN, amount,
+  currency, debtor name and reference, and waits for the reply on
+  `payments-command-response` until the provider's deadline.
+- **The decision.** `payment` admits where the BBAN names an opened
+  account and `check-inbound-acceptance` passes, as a settlement
+  checks now, recording the `InboundPayment` as `admitted` with no
+  posting; the business-day counts a limit reads include admitted
+  payments, so two admitted at once cannot pass one limit between them.
+  It rejects otherwise, recording nothing, with an ISO 20022 reason:
+  `AC01` for a BBAN matching no account, `AC04` for one closed, `AC06`
+  for one not opened, `AG01` for a payment a policy refuses. An
+  admission redelivered for an end-to-end id already admitted answers
+  admitted.
+- **The answer.** The adapter tells the provider admitted or rejected
+  with the reason, and rejects with `NARR` where no reply came before
+  the deadline.
+- **Settlement.** The `transaction-settled` (credit) that follows
+  settles the admitted payment and posts it as now, without checking
+  again; a settlement for no admitted payment settles as under
+  `notified`.
+
+### Returning an inbound payment
+
+Under `returns: [inbound]` the platform sends back what it cannot
+apply rather than keeping it:
+
+- **The trigger.** An inbound parked in 2500 suspense, because its
+  account is not opened or a policy refused it, is returned: `payment`
+  parks it as now, then publishes `return-payment` on
+  `schemes-payment-command` with the original end-to-end id, amount and
+  an ISO 20022 reason.
+- **The adapter.** It consumes `return-payment` into an intent and its
+  runner sends the return to the provider, reporting
+  `transaction-returned` (credit), deduplicated on
+  `<end-to-end id>:returned`, when it is done.
+- **The transition.** `suspended → returned`, posting DEBIT 2500 /
+  CREDIT 1100, which empties suspense of the payment. A second report
+  is a no-op.
+
+Under `inbound: admitted` most of what would be returned is rejected
+at admission instead; a return remains for an account closed between
+admission and settlement.
 
 ### Neutral scheme events
 
@@ -339,6 +453,12 @@ runs changes nothing outside it:
 - **Declares.** It ships the `payment-provider.yml` its provider
   supports, and refuses to start when its configuration does not cover
   it.
+- **Admits.** Under `inbound: admitted`, it answers the provider's
+  admission requests from `payment`'s reply, as
+  [Admitting an inbound payment](#admitting-an-inbound-payment)
+  describes.
+- **Returns.** Under `returns: [inbound]`, it consumes
+  `return-payment` and reports the return.
 - **Issues accounts.** It consumes `open-payment-account`,
   `reissue-payment-address` and `close-payment-account` into intents,
   and its runner opens, reissues and closes at the provider, reporting
@@ -373,6 +493,14 @@ runs changes nothing outside it:
     ISO 20022 reason code given, `AC04` without one, and a payment to
     an account the simulator has closed is returned coded `AC04`;
   - `/simulate/open-refused` makes the next account opening refused.
+
+  A simulator for a provider that asks for admission sends the request
+  before each inbound from `/simulate/inbound-payment` settles, and
+  settles only one admitted, answering the control route once the
+  admission is decided, with its status and reason. A payment to an
+  account it has closed fails admission, so the sender's payment is
+  rejected rather than returned, and under `screening: bank` the held
+  name is declined with no hold.
 
 The deployed builds compose the default adapter into
 `external-adapters` and `monolith`; the other stays in the development
@@ -413,12 +541,15 @@ stateDiagram-v2
 
 ```mermaid
 stateDiagram-v2
+    [*] --> admitted: admit-inbound-payment, new<br/>opened account, checks pass
+    admitted --> settled: transaction-settled (credit), new<br/>no checks
     [*] --> settled: transaction-settled (credit)<br/>opened account, checks pass
     [*] --> suspended: transaction-settled (credit)<br/>account not opened, or refused<br/>park in 2500
     [*] --> held: transaction-held (credit)<br/>opened account, no money move
     held --> settled: transaction-settled (credit)<br/>release, checks pass
     held --> suspended: transaction-settled (credit)<br/>release refused, park in 2500
     held --> returned: transaction-rejected (credit)<br/>return to remitter
+    suspended --> returned: transaction-returned (credit), new<br/>2500 to 1100
     settled --> [*]
     returned --> [*]
     suspended --> [*]
@@ -429,6 +560,8 @@ stateDiagram-v2
 - A BBAN matching no account fails the handler and is dead-lettered,
   replacing the sort-code suspense path.
 - A policy-refused park is mirrored to own-funds under `per-account`.
+- An admission rejected records nothing, since the payment never
+  arrived.
 
 ### First slices
 
@@ -456,6 +589,24 @@ stateDiagram-v2
    holds balances that drift.
 5. **Returned outbound payments.** Proved by a completed payment
    returned, and a return for a failed one dead-lettered. Built.
+6. **The rails simulator.** A third simulator serving the rails
+   provider's API as its reference documents it: account routing,
+   outbound submission, admission requests, returns, Confirmation of
+   Payee and its signatures, with the shared control routes. Proved by
+   its own tests, before any adapter calls it. Built.
+7. **The declaration's new keys.** `inbound`, `returns` and
+   `screening`, each existing adapter declaring its values, and the
+   start-up check covering them. Proved by the payment scenarios
+   passing unchanged.
+8. **The rails adapter and admission.** The third adapter, issuing
+   account numbers under its configured sort code, and
+   `admit-inbound-payment` in `payment`. Proved by the payment and
+   payee-check scenarios on its simulator, and an inbound rejected at
+   admission for each reason.
+9. **Returning an inbound payment.** `return-payment`, the
+   `suspended → returned` transition and its posting. Proved by an
+   inbound to a closed account and one a policy refuses each returned
+   under the rails adapter, and parked under the others.
 
 Running the default adapter against the provider's sandbox follows,
 once the simulator covers every flow above.
@@ -463,7 +614,8 @@ once the simulator covers every flow above.
 ### Tests
 
 - **`payment`** — the unsupported scheme, the failure fields, the
-  return transition and its refusals, netting a transaction's legs
+  return transitions and their refusals, admission and each reason it
+  rejects with, netting a transaction's legs
   into transfers, and the scheme's own settlements netting to nothing.
 - **`cash-account`** — opening waiting on the provider, refused,
   rotating and closing through it.
@@ -515,9 +667,19 @@ once the simulator covers every flow above.
 - **Synchronous call to the provider from the HTTP handler.**
   Rejected: it ties the request to the provider's latency, and a
   failure mid-call leaves the bank's records unknown.
-- **Returning money a policy refuses.** Rejected: it needs an outbound
-  return instruction no adapter has, while parking keeps the receipt
-  and leaves the decision to the bank.
+- **Returning money a policy refuses, whatever the provider.**
+  Rejected: a provider that only notifies has no return instruction,
+  so parking stays the path wherever `returns` lacks `inbound`.
+- **A contract for each kind of provider.** Rejected: the kinds differ
+  in a few declared facts, and a second contract would double what
+  `payment` knows about providers.
+- **The adapter deciding an admission from the query bricks.**
+  Rejected: the limit checks and business-day counts are `payment`'s,
+  and a second copy in the adapter would drift from the one a
+  settlement applies.
+- **Admitting every inbound and parking what cannot be applied.**
+  Rejected under `inbound: admitted`: where the scheme asks, refusing
+  at the door keeps money the bank cannot apply out of suspense.
 
 ## Known Limitations
 
@@ -550,6 +712,14 @@ once the simulator covers every flow above.
 - **A return reaches a closed account.** A payment returned after its
   debtor account closed credits that account, and the money waits there
   for the bank to move by hand.
+- **Nothing is screened under `screening: bank`.** No payment is held
+  until a screening design exists, so an installation on rails
+  screens outside the platform.
+- **An admission not answered in time is rejected.** The payment is
+  refused with `NARR` and the sender's bank tells its customer.
+- **Settlement at the scheme is reconciled by hand.** On rails, GL
+  1100 is the bank's settlement account, whose funding and the
+  scheme's settlement reports are the bank's operations.
 - **The other adapter returns nothing.** Its simulator serves no
   `/simulate/outbound-return`, and it maps no return from its provider.
 - **The default simulator forgets on restart.** It holds accounts and
@@ -560,7 +730,9 @@ once the simulator covers every flow above.
   no named account is made from the own-funds account's provider
   account, and is unavailable until the provider has opened it.
 - **Kafka redeliveries have no delay.**
-- **A suspended inbound is never resolved.**
+- **A suspended inbound is never resolved** except by a return under
+  `returns: [inbound]`.
+- **An admitted inbound the scheme never settles stays `admitted`.**
 - **Identical holds are one hold.**
 - **Settlement order is the provider's.** A settlement delivered before
   its hold settles as a new inbound and leaves the hold `held`.

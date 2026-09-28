@@ -144,3 +144,6 @@ adapter.
    `PaymentReference`.
 8. Whether a PAYIN from another Modulr client always names the Payee,
    which the internal transfer example omits.
+9. Whether the id a PAYOUT's `SchemeInfo` carries is the
+   `OriginalSchemeId` a `PO_REV` names, which the adapter matches a
+   return on.
