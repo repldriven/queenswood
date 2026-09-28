@@ -26,7 +26,7 @@ command-processor: !system/component
   system/component-kind: command-processor/command-processor
   bus: !system/ref message-bus.bus
   processor: !system/local-ref command-processor-impl
-  command-channel: !keyword idv-command
+  command-channel: !keyword onfido-idv-command
   command-response-channel: !keyword idv-command-response
 
 

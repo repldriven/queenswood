@@ -86,7 +86,9 @@
                  :record-store (system/instance sys [:fdb :store])
                  :schemas schemas
                  :bus bus
-                 :scheme-payment-command-channel :schemes-payment-command
+                 :payment-providers (system/instance sys
+                                                     [:payment-provider
+                                                      :providers])
                  :republish-after-ms 900000
                  :report-after-ms 86400000}
          created-at (utility/now)
@@ -94,7 +96,7 @@
          published (atom [])
          drained (promise)]
      (message-bus/subscribe bus
-                            :schemes-payment-command
+                            :modulr-payment-command
                             (fn [command]
                               (if (= sentinel (:command command))
                                 (deliver drained true)
@@ -123,7 +125,7 @@
                      (is (= ["pmt.pending"]
                             (mapv :payment-id (:report actions)))))
                  _ (message-bus/send bus
-                                     :schemes-payment-command
+                                     :modulr-payment-command
                                      {:command sentinel})
                  _ (is
                     (true? (deref drained 5000 false))

@@ -4,6 +4,7 @@
     [com.repldriven.queenswood.idv.domain :as domain]
     [com.repldriven.queenswood.idv.store :as store]
 
+    [com.repldriven.queenswood.idv-provider.interface :as idv-provider]
     [com.repldriven.queenswood.idv-query.interface :as idv-query]
     [com.repldriven.queenswood.party-query.interface :as party-query]
     [com.repldriven.queenswood.person-identification.interface :as
@@ -20,16 +21,22 @@
   [config]
   (select-keys config [:record-db :record-store]))
 
+(defn- provider
+  [config]
+  (some-> (:idv-providers config)
+          idv-provider/default))
+
 (defn- publish-submit-idv-check
   [config session identification criteria]
-  (let [{:keys [bus schemas idv-command-channel]} config
+  (let [{:keys [bus schemas]} config
+        {:keys [command-channel]} (provider config)
         {:keys [bank-id verification-id party-id session-id channel
                 return-url email]}
         session
         {:keys [given-name middle-names family-name date-of-birth address]}
         identification
         schema (clojure.core/get schemas "submit-idv-check")]
-    (when (and bus schema idv-command-channel)
+    (when (and bus schema command-channel)
       (let [payload (avro/serialize
                      schema
                      {:bank-id bank-id
@@ -60,7 +67,7 @@
                           :correlation-id (str (utility/uuidv7))
                           :causation-id session-id
                           :payload payload}]
-            (message-bus/send bus idv-command-channel envelope)))))))
+            (message-bus/send bus command-channel envelope)))))))
 
 (defn save-idv
   "Save an IDV, converting a uniqueness-violation result into an
@@ -166,7 +173,8 @@
                                    bank-id
                                    (utility/today))
                      _ (domain/check-open-session idv
-                                                  (:idv-provider config)
+                                                  (:declaration
+                                                   (provider config))
                                                   data
                                                   policies
                                                   opened-today)

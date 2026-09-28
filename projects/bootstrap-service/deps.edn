@@ -26,6 +26,7 @@
         {:local/root "../../components/cash-account-product-query"}
         component/fdb {:local/root "../../components/fdb"}
         component/idv {:local/root "../../components/idv"}
+        component/idv-provider {:local/root "../../components/idv-provider"}
         component/idv-query {:local/root "../../components/idv-query"}
         component/party-query {:local/root "../../components/party-query"}
         component/person-identification {:local/root

@@ -86,8 +86,9 @@ organisation (KYB) verification, which no adapter offers yet.
   it.
 - **The provider as a deployment fact.** Which adapter runs is decided
   by the service's `application.yml`, never by a request, per
-  [ADR-0020](../adr/0020-providers-are-deployment-facts.md). Only one
-  adapter may consume `idv-command` in a JVM.
+  [ADR-0020](../adr/0020-providers-are-deployment-facts.md). Each
+  adapter consumes its own command channel, `zyphe-idv-command` for
+  Zyphe.
 - **Capabilities.** `policy`'s `check-capability` takes a kind and a
   request map. A capability matches when its kind and its fields beside
   `filters` equal the request's, and when it has no filters or any one
@@ -183,10 +184,13 @@ record's nested capability, which bumps the meta-data version per
 
 ### The provider declaration
 
-`system/idv-provider.yml` declares what the deployment's adapter can
-establish, the hand-offs it offers, and what it needs as input:
+`system/idv-providers/<key>.yml` declares what a provider's adapter
+can establish, the hand-offs it offers, and what it needs as input,
+`zyphe.yml` for Zyphe:
 
 ```yaml
+!system/component
+system/component-kind: idv-provider/declaration
 verifies: [identity, liveness, claimed-identity, address]
 screens: [sanctions, pep]
 channels: [web, mobile]
@@ -194,18 +198,23 @@ hand-offs: [url]
 needs: [email]
 ```
 
-The file is included as plain config wherever the agreement is
-checked, so a bank changes its criteria rather than a request changing
-the provider:
+A system's `idv-provider` group includes each provider's file under its
+key, and its `idv-provider/providers` component names the default and
+each provider's command channel, as
+[bank-providers.md](bank-providers.md) describes. An adapter refers to
+its own declaration, `idv-provider.<key>`, and every other component
+that reads one takes it through `idv-provider.providers`, so a bank
+changes its criteria rather than a request changing the provider:
 
 - **At start-up.** A new component kind, `idv/criteria-check`, takes
-  the seeded platform policy and the declaration and fails to start
-  while `unmet-criteria` is not empty. `bootstrap` and `monolith`
-  include it, so a floor the provider cannot meet stops the bootstrap.
-- **At bank creation and tier change.** `bank`'s processor includes
-  the declaration, and `new-bank` and `change-bank-tier` call
-  `idv/check-criteria` on the platform and tier policies, which rejects
-  `:idv/unsupported-criteria` (422) naming what is missing.
+  the seeded platform policy and the providers and fails to start
+  while `unmet-criteria` is not empty for any provider offered.
+  `bootstrap` and `monolith` include it, so a floor a provider cannot
+  meet stops the bootstrap.
+- **At bank creation and tier change.** `bank`'s processor takes the
+  default provider's declaration, and `new-bank` and `change-bank-tier`
+  call `idv/check-criteria` on the platform and tier policies, which
+  rejects `:idv/unsupported-criteria` (422) naming what is missing.
 
 ### The evidence contract
 
@@ -300,9 +309,10 @@ Every IDV adapter, `<provider>-adapter` with its relay, webhook and
 simulator bricks, meets the same contract, so which one a deployment
 runs changes nothing outside it:
 
-- **Declares.** It ships the `idv-provider.yml` its provider supports,
-  verifying `claimed-identity` only where the provider returns the
-  document's extracted name and date of birth. Its config maps
+- **Declares.** It ships its provider's declaration,
+  `system/idv-providers/<key>.yml`, verifying `claimed-identity` only
+  where the provider returns the document's extracted name and date of
+  birth. Its config maps
   provider configurations to the verifications and screenings each
   establishes, and it refuses to start when they do not cover what the
   file declares.

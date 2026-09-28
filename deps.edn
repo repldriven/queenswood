@@ -55,6 +55,7 @@
     components/idempotency {:local/root "components/idempotency"}
     components/idv {:local/root "components/idv"}
     components/idv-query {:local/root "components/idv-query"}
+    components/idv-provider {:local/root "components/idv-provider"}
     components/onfido-webhook {:local/root "components/onfido-webhook"}
     components/onfido-relay {:local/root "components/onfido-relay"}
     components/zyphe-webhook {:local/root "components/zyphe-webhook"}
@@ -149,6 +150,7 @@
                        "components/idempotency/test-resources"
                        "components/idv/test"
                        "components/idv/test-resources"
+                       "components/idv-provider/test"
                        "components/interest/test"
                        "components/ledger-account/test"
                        "components/ledger-account/test-resources"

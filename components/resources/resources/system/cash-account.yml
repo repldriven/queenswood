@@ -17,7 +17,7 @@ event-processor-impl: !system/component
   record-store: !system/ref fdb.meta-store
   schemas: !system/ref avro.serde
   bus: !system/ref message-bus.bus
-  scheme-account-command-channel: !keyword schemes-account-command
+  payment-providers: !system/ref payment-provider.providers
 
 event-consumer: !system/component
   system/component-kind: event-processor/event-processor

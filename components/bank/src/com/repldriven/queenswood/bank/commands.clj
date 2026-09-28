@@ -2,9 +2,25 @@
   (:require
     [com.repldriven.queenswood.bank.core :as core]
 
+    [com.repldriven.queenswood.idv-provider.interface :as idv-provider]
+    [com.repldriven.queenswood.payment-provider.interface :as
+     payment-provider]
+
     [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.processor.interface :as processor]))
+
+(defn- idv-declaration
+  [config]
+  (some-> (get-in config [:providers :idv])
+          idv-provider/default
+          :declaration))
+
+(defn- payment-declaration
+  [config]
+  (some-> (get-in config [:providers :payment])
+          payment-provider/default
+          :declaration))
 
 (defn- ->response
   [config result]
@@ -31,8 +47,8 @@
                                tier
                                currencies
                                {:identity-provider (:identity-provider config)
-                                :idv-provider (:idv-provider config)
-                                :payment-provider (:payment-provider config)
+                                :idv-provider (idv-declaration config)
+                                :payment-provider (payment-declaration config)
                                 :audience audience
                                 :company-binding company-binding
                                 :membership membership
@@ -46,7 +62,7 @@
         result (core/change-tier config
                                  bank-id
                                  tier
-                                 {:idv-provider (:idv-provider config)})]
+                                 {:idv-provider (idv-declaration config)})]
     (if (error/anomaly? result)
       result
       (->response config {:bank result}))))

@@ -27,13 +27,13 @@ system:
         - cash-accounts-event
         - payments-event
         - rewards-event
-        - schemes-payment-command
+        - modulr-payment-command
         - schemes-payment-command-response
-        - schemes-account-command
+        - modulr-account-command
         - schemes-account-command-response
         - schemes-account-event
         - transactions-event
-        - idv-command
+        - zyphe-idv-command
         - idv-command-response
         - companies-command
         - companies-command-response
@@ -45,6 +45,7 @@ system:
   avro: !include system/avro.yml
   keycloak: !include system/keycloak.yml
   payment-provider: !include system/payment-provider.yml
+  idv-provider: !include system/idv-provider.yml
   banks: !include system/bank.yml
   cash-accounts: !include system/cash-account.yml
   memberships: !include system/membership.yml
@@ -83,9 +84,11 @@ system:
     interceptors: !system/component
       system/component-kind: server/interceptors
       identity-provider: !system/ref keycloak.identity-provider
-      # What the payment provider carries, which publishing a product
-      # version is checked against.
-      payment-provider: !system/ref payment-provider.declaration
+      # The providers the installation offers, by kind. Publishing a
+      # product version is checked against the payment provider's
+      # declaration.
+      providers:
+        payment: !system/ref payment-provider.providers
       identity-providers:
         - !system/ref keycloak.identity-provider
         - !system/ref keycloak.identity-provider-ops

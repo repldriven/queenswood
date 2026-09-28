@@ -67,12 +67,13 @@ settlement reports, which are the bank's operations.
   `suspended`. A rejection naming a completed outbound payment fails
   the handler and is dead-lettered.
 - **Channels.** `payment` publishes `submit-payment` and
-  `transfer-between-accounts` on `schemes-payment-command`. The
-  adapter's outbox is relayed onto `schemes-payments-event`, whose
-  consumer dead-letters an event after five redeliveries. Each payment
-  save co-commits a status-changed entry relayed onto `payments-event`,
-  which the webhook catalogue turns into `payment.*` notifications, and
-  each posted transaction a `transaction-posted` entry relayed onto
+  `transfer-between-accounts` on the provider's payment command
+  channel, `modulr-payment-command` for Modulr. The adapter's outbox is
+  relayed onto `schemes-payments-event`, whose consumer dead-letters an
+  event after five redeliveries. Each payment save co-commits a
+  status-changed entry relayed onto `payments-event`, which the webhook
+  catalogue turns into `payment.*` notifications, and each posted
+  transaction a `transaction-posted` entry relayed onto
   `transactions-event`.
 - **The sweeps.** `payment/outbound-sweep`, in
   `exclusive-dispatchers-service`, republishes a `pending` payment's
@@ -81,8 +82,8 @@ settlement reports, which are the bank's operations.
   still pending after 30 seconds.
 - **Payment addresses.** The provider issues every account's sort code
   and account number. `cash-account` writes an account `opening`, its
-  opening event sends `open-payment-account` on
-  `schemes-account-command`, and the adapter's answer on
+  opening event sends `open-payment-account` on the provider's account
+  command channel, and the adapter's answer on
   `schemes-account-event` opens it with the addresses and the provider
   account id, or refuses it; closing and rotation go the same way. A
   bank holds no sort code. An inbound resolves its creditor by BBAN,
@@ -105,30 +106,32 @@ settlement reports, which are the bank's operations.
   reverse.
 - **The provider as a deployment fact.** Which adapter runs is decided
   by the service's `application.yml`, per
-  [ADR-0020](../adr/0020-providers-are-deployment-facts.md), and
-  `system/payment-provider.yml` declares what it carries, as the one
-  `payment-provider/declaration` component a system holds. The
-  `payment-provider` component registers that kind, reads a declaration
-  with its defaults and holds the start-up check each adapter makes
-  against what it carries.
+  [ADR-0020](../adr/0020-providers-are-deployment-facts.md), and a file
+  under `system/payment-providers/` declares what each provider
+  carries, as a `payment-provider/declaration` component. The
+  `payment-provider` component registers that kind and the
+  `payment-provider/providers` kind naming the default provider and
+  each one's channels, reads a declaration with its defaults and holds
+  the start-up check each adapter makes against what it carries, as
+  [bank-providers.md](bank-providers.md) describes.
 
 ## Solution
 
 ### The provider declaration
 
-`system/payment-provider.yml` declares what the deployment's adapter
-can carry:
+`system/payment-providers/<key>.yml` declares what a provider's
+adapter can carry, `modulr.yml` for Modulr:
 
 ```yaml
-declaration: !system/component
-  system/component-kind: payment-provider/declaration
-  schemes: [fps]
-  addresses: [scan]
-  balances: per-account
-  payee-check: [outbound]
-  inbound: notified
-  returns: []
-  screening: provider
+!system/component
+system/component-kind: payment-provider/declaration
+schemes: [fps]
+addresses: [scan]
+balances: per-account
+payee-check: [outbound]
+inbound: notified
+returns: []
+screening: provider
 ```
 
 - **`schemes`** — the `PaymentScheme` values an outbound payment may
@@ -151,10 +154,13 @@ declaration: !system/component
 - **`screening`** — `provider` where the provider screens payments and
   reports those it holds, `bank` where it screens nothing.
 
-A system includes the file once, as its `payment-provider` group, and
-every component that reads the declaration refers to
-`payment-provider.declaration`, so a deployment on another provider
-includes another file there and changes nothing else:
+A system's `payment-provider` group includes each provider's file under
+its key, and its `payment-provider/providers` component names the
+default. An adapter refers to its own declaration,
+`payment-provider.<key>`, and every other component that reads one
+takes the default's through `payment-provider.providers`, so a
+deployment on another provider names another default and changes
+nothing else:
 
 - **At start-up.** The adapter refuses to start when its configuration
   does not cover what the file declares, a left-out key read as its
@@ -246,10 +252,10 @@ apply rather than keeping it:
   account is not opened or a policy refused it, is returned: `payment`
   parks it, recording the ISO 20022 reason it was parked for as
   `suspense-reason-code` and `suspense-reason`, then publishes
-  `return-payment` on `schemes-payment-command` with its payment id,
-  end-to-end id, the provider's id for it, amount and that reason. A
-  redelivered settlement finding the payment still suspended publishes
-  it again.
+  `return-payment` on the provider's payment command channel with its
+  payment id, end-to-end id, the provider's id for it, amount and that
+  reason. A redelivered settlement finding the payment still suspended
+  publishes it again.
 - **The adapter.** It consumes `return-payment` into an intent keyed
   on the payment id, and its runner sends the return to the provider,
   then asks the provider what became of it, reporting
@@ -299,8 +305,8 @@ provider account behind it:
 
 - **Opening.** `open-account` writes the account `opening`. The
   `cash-account-status-changed` handler, for an account whose product
-  allows an address scheme, sends `open-payment-account` on
-  `schemes-account-command` — bank id, account id, holder name,
+  allows an address scheme, sends `open-payment-account` on the
+  provider's account command channel — bank id, account id, holder name,
   currency and the address schemes wanted — rather than opening it.
   A bank's own-funds account sends it whatever its product allows
   under `per-account`, since it backs the bank's ledger money. An
@@ -379,8 +385,8 @@ expense has paid out.
   `provider-transfers` store — transaction id, debtor and creditor cash
   account ids, the debtor absent for money from outside, amount, status
   `pending`, `completed` or `failed` — unique on transaction id and
-  pair. It is sent as `transfer-between-accounts` on
-  `schemes-payment-command`, naming the provider accounts the cash
+  pair. It is sent as `transfer-between-accounts` on the provider's
+  payment command channel, naming the provider accounts the cash
   accounts have when it is sent, and one the provider has not yet
   opened waits for `payment/transfer-sweep`. The adapter reports
   `transfer-completed` or `transfer-failed` on
@@ -461,9 +467,9 @@ Every payment adapter, `<provider>-adapter` with its relay, webhook and
 simulator bricks, meets the same contract, so which one a deployment
 runs changes nothing outside it:
 
-- **Declares.** It ships the `payment-provider.yml` its provider
-  supports, and refuses to start when its configuration does not cover
-  it.
+- **Declares.** It ships its provider's declaration,
+  `system/payment-providers/<key>.yml`, and refuses to start when its
+  configuration does not cover it.
 - **Admits.** Under `inbound: admitted`, it answers the provider's
   admission requests from `payment`'s reply, as
   [Admitting an inbound payment](#admitting-an-inbound-payment)
@@ -518,8 +524,8 @@ runs changes nothing outside it:
 
 The deployed builds compose the default adapter into
 `external-adapters` and `monolith`; the others stay in the development
-project with their tests. Only one adapter consumes
-`schemes-payment-command` and `schemes-account-command` in a JVM.
+project with their tests. Each adapter consumes its own command
+channels, `<key>-payment-command` and `<key>-account-command`.
 `exclusive-dispatchers-service` runs the relay runners for the
 adapter's outbox and the transactions store's changelog.
 

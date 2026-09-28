@@ -391,7 +391,8 @@ store's changelog and republishes each entry as a
 message per write.
 
 `events.clj` handles that event, reading the account as it now
-stands, and sends a command on `schemes-account-command`:
+stands, and sends a command on the payment provider's account command
+channel, `modulr-account-command` for Modulr:
 
 - `:cash-account-status-opening` → `open-payment-account`,
   with the holder party's display name, the currency and the

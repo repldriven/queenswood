@@ -15,12 +15,12 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-payments-command-response
           acks: all
-      schemes-payment-command:
+      modulr-payment-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          topic: topic-schemes-payment-command
+          topic: topic-modulr-payment-command
           acks: all
       transactions-command-response:
         schemas: !system/local-ref schemas
@@ -112,8 +112,8 @@ system:
       system/component-kind: kafka/message-bus-producers
       payments-command-response:
         producer: !system/local-ref producers.payments-command-response
-      schemes-payment-command:
-        producer: !system/local-ref producers.schemes-payment-command
+      modulr-payment-command:
+        producer: !system/local-ref producers.modulr-payment-command
       transactions-command-response:
         producer: !system/local-ref producers.transactions-command-response
       payee-checks-command-response:

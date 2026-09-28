@@ -2,6 +2,7 @@
   (:require
     [com.repldriven.queenswood.payment.domain.checks :as checks]
     [com.repldriven.queenswood.payment.domain.inbound :as inbound]
+    [com.repldriven.queenswood.payment.provider :as provider]
     [com.repldriven.queenswood.payment.store :as store]
 
     [com.repldriven.queenswood.balance.interface :as balances]
@@ -389,16 +390,15 @@
   "Publish `return-payment` for `payment` where it is returnable, and
   return it, or the anomaly publishing gave."
   [config payment]
-  (let [{:keys [bus schemas scheme-payment-command-channel payment-provider]}
-        config
+  (let [{:keys [bus schemas]} config
         {:keys [payment-id suspense-reason-code]} payment]
-    (if-not (inbound/returnable? payment payment-provider)
+    (if-not (inbound/returnable? payment (provider/declaration config))
       payment
       (let-nom>
         [payload (avro/serialize (get schemas "return-payment")
                                  (inbound/return-payment payment))
          _ (message-bus/send bus
-                             scheme-payment-command-channel
+                             (provider/payment-command-channel config)
                              {:command "return-payment"
                               :id (str (utility/uuidv7))
                               :correlation-id (str (utility/uuidv7))

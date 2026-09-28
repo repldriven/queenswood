@@ -14,12 +14,20 @@
     [com.repldriven.queenswood.api.errors :as errors]
 
     [com.repldriven.queenswood.cash-account-product.interface :as products]
+    [com.repldriven.queenswood.payment-provider.interface :as
+     payment-provider]
 
     [com.repldriven.mono.error.interface :as error]))
 
 (defn- config
   [{:keys [record-db record-store]}]
   {:record-db record-db :record-store record-store})
+
+(defn- payment-declaration
+  [request]
+  (some-> (get-in request [:providers :payment])
+          payment-provider/default
+          :declaration))
 
 (defn- version-uri
   [{:keys [product-id version-id]}]
@@ -107,5 +115,6 @@
                                bank-id
                                product-id
                                version-id
-                               (select-keys request [:payment-provider]))
+                               {:payment-provider (payment-declaration
+                                                   request)})
              ok)))

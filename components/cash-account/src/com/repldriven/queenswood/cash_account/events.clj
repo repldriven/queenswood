@@ -7,6 +7,8 @@
      products]
     [com.repldriven.queenswood.cash-account-query.interface :as q]
     [com.repldriven.queenswood.party-query.interface :as parties]
+    [com.repldriven.queenswood.payment-provider.interface :as
+     payment-provider]
 
     [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
@@ -21,10 +23,12 @@
 
 (defn- send-command
   [config command account-id data]
-  (let [{:keys [bus schemas scheme-account-command-channel]} config]
+  (let [{:keys [bus schemas payment-providers]} config
+        {:keys [account-command-channel]} (payment-provider/default
+                                           payment-providers)]
     (let-nom> [payload (avro/serialize (get schemas command) data)]
       (message-bus/send bus
-                        scheme-account-command-channel
+                        account-command-channel
                         {:command command
                          :id (str (utility/uuidv7))
                          :correlation-id (str (utility/uuidv7))

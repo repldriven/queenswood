@@ -20,7 +20,7 @@
                    :record-store system/required-component
                    :schemas system/required-component
                    :bus system/required-component
-                   :scheme-account-command-channel system/required-component}
+                   :payment-providers system/required-component}
    :system/instance-schema some?})
 
 (def ^:private payment-account-event-processor
