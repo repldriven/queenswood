@@ -9,6 +9,7 @@
     [com.repldriven.queenswood.changelog-relay.interface]
     [com.repldriven.queenswood.fdb.interface]
     [com.repldriven.queenswood.payee-check.interface]
+    [com.repldriven.queenswood.payment-provider.interface]
     [com.repldriven.queenswood.payment.interface]
     [com.repldriven.queenswood.schema.interface]
     [com.repldriven.queenswood.transaction.interface]

@@ -3,4 +3,4 @@ command-processor: !system/component
   schemas: !system/ref avro.serde
   record-db: !system/ref fdb.record-db
   record-store: !system/ref fdb.meta-store
-  payment-provider: !include system/payment-provider.yml
+  payment-provider: !system/ref payment-provider.declaration

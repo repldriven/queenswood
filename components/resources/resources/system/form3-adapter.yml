@@ -36,7 +36,7 @@ command-processor-impl: !system/component
   schemas: !system/ref avro.serde
   record-db: !system/ref fdb.record-db
   record-store: !system/ref fdb.meta-store
-  payment-provider: !include system/form3-payment-provider.yml
+  payment-provider: !system/ref payment-provider.declaration
 
 
 command-processor: !system/component

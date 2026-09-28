@@ -43,7 +43,6 @@
     [com.repldriven.mono.utility.interface :as util]
 
     [clojure.java.io :as io]
-    [clojure.walk :as walk]
     [clojure.test :refer [deftest is testing]])
   (:import
     (io.opentelemetry.api.common AttributeKey)
@@ -438,23 +437,9 @@
                       (:relative f))))
         (scenario-files "test-api-scenarios/scenarios-form3"))))
 
-(defn- form3-declaration
-  "Every component's payment provider declaration replaced by the Form3
-  adapter's, as a deployment on rails declares it."
-  [defs]
-  (let [declaration (get-in defs
-                            [:system/defs :form3-adapter :command-processor-impl
-                             :system/config :payment-provider])]
-    (walk/postwalk (fn [x]
-                     (if (and (map? x) (contains? x :payment-provider))
-                       (assoc x :payment-provider declaration)
-                       x))
-                   defs)))
-
 (defn- form3-handlers
   [defs]
   (-> defs
-      form3-declaration
       (assoc-in [:system/defs :server :handler] app-with-fault)
       (assoc-in [:system/defs :form3-simulator-server :handler]
                 form3-simulator/app)

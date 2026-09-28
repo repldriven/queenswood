@@ -3,10 +3,12 @@
 # made outbound and answered by Form3 from each registration's name,
 # every inbound admitted by the platform before it settles, and nothing
 # screened by Form3. See docs/tdd/payments.md.
-schemes: [fps]
-addresses: [scan]
-balances: pooled
-payee-check: [outbound]
-inbound: admitted
-returns: []
-screening: bank
+declaration: !system/component
+  system/component-kind: payment-provider/declaration
+  schemes: [fps]
+  addresses: [scan]
+  balances: pooled
+  payee-check: [outbound]
+  inbound: admitted
+  returns: []
+  screening: bank

@@ -47,8 +47,7 @@
    :bus (system/instance sys [:message-bus :bus])
    :schemas (system/instance sys [:avro :serde])
    :scheme-payment-command-channel :schemes-payment-command
-   :payment-provider (:payment-provider
-                      (:config (system/instance sys [:payments :processor])))
+   :payment-provider (system/instance sys [:payment-provider :declaration])
    :zyphe-simulator-url (system/instance sys
                                          [:zyphe-simulator-server :http-url])
    :payment-simulator-url (system/instance sys

@@ -5,7 +5,7 @@ processor: !system/component
   schemas: !system/ref avro.serde
   identity-provider: !system/ref keycloak.identity-provider
   idv-provider: !include system/idv-provider.yml
-  payment-provider: !include system/payment-provider.yml
+  payment-provider: !system/ref payment-provider.declaration
 
 command-processor: !system/component
   system/component-kind: command-processor/command-processor

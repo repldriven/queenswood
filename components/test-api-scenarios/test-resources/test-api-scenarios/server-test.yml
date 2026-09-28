@@ -4,7 +4,7 @@ interceptors: !system/component
   identity-provider: !system/ref keycloak.identity-provider
   # What the payment provider carries, which publishing a product
   # version is checked against.
-  payment-provider: !include system/payment-provider.yml
+  payment-provider: !system/ref payment-provider.declaration
   # API-scenario tests only ever mint service JWTs from the orgs
   # realm; the ops identity-provider is wired alongside so the
   # auth dispatch logic stays uniform with bank-api-service and

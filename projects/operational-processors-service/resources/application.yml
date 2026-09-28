@@ -244,6 +244,7 @@ system:
   fdb: !include system/fdb.yml
   avro: !include system/avro.yml
   keycloak: !include system/keycloak.yml
+  payment-provider: !include system/payment-provider.yml
   banks: !include system/bank.yml
   memberships: !include system/membership.yml
   parties: !include system/party.yml

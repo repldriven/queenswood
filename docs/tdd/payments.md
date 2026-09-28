@@ -112,26 +112,29 @@ settlement reports, which are the bank's operations.
 - **The provider as a deployment fact.** Which adapter runs is decided
   by the service's `application.yml`, per
   [ADR-0020](../adr/0020-providers-are-deployment-facts.md), and
-  `system/payment-provider.yml` declares what it carries. The
-  `payment-provider` component reads a declaration with its defaults
-  and holds the start-up check each adapter makes against what it
-  carries.
+  `system/payment-provider.yml` declares what it carries, as the one
+  `payment-provider/declaration` component a system holds. The
+  `payment-provider` component registers that kind, reads a declaration
+  with its defaults and holds the start-up check each adapter makes
+  against what it carries.
 
 ## Proposed Solution
 
 ### The provider declaration
 
 `system/payment-provider.yml` declares what the deployment's adapter
-can carry, in the same shape as the IDV provider's:
+can carry:
 
 ```yaml
-schemes: [fps]
-addresses: [scan]
-balances: per-account
-payee-check: [outbound]
-inbound: notified
-returns: []
-screening: provider
+declaration: !system/component
+  system/component-kind: payment-provider/declaration
+  schemes: [fps]
+  addresses: [scan]
+  balances: per-account
+  payee-check: [outbound]
+  inbound: notified
+  returns: []
+  screening: provider
 ```
 
 - **`schemes`** — the `PaymentScheme` values an outbound payment may
@@ -154,7 +157,10 @@ screening: provider
 - **`screening`** — `provider` where the provider screens payments and
   reports those it holds, `bank` where it screens nothing.
 
-The file is included as plain config wherever it is read:
+A system includes the file once, as its `payment-provider` group, and
+every component that reads the declaration refers to
+`payment-provider.declaration`, so a deployment on another provider
+includes another file there and changes nothing else:
 
 - **At start-up.** The adapter refuses to start when its configuration
   does not cover what the file declares, a left-out key read as its
@@ -729,10 +735,6 @@ once the simulator covers every flow above.
 - **Settlement at the scheme is reconciled by hand.** On rails, GL
   1100 is the bank's settlement account, whose funding and the
   scheme's settlement reports are the bank's operations.
-- **Choosing a provider replaces the declaration everywhere.**
-  `system/payment-provider.yml` is included into each component that
-  reads it, so a deployment on another provider replaces every include,
-  as the rails rig does by patching its system before it starts.
 - **An admission answered after the deadline is lost.** Form3 fails
   the admission; a payment the platform admitted by then stays
   `admitted`.

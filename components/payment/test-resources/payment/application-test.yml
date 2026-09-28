@@ -1,5 +1,6 @@
 system:
   avro: !include system/avro.yml
   fdb: !include system/fdb-test.yml
+  payment-provider: !include system/payment-provider.yml
   payment: !include payment/payment-test.yml
   policies: !include system/policy-test.yml

@@ -17,6 +17,7 @@
     [com.repldriven.queenswood.modulr-webhook.interface]
     [com.repldriven.queenswood.party.interface]
     [com.repldriven.queenswood.party.system]
+    [com.repldriven.queenswood.payment-provider.interface]
     [com.repldriven.queenswood.payment.interface]
     [com.repldriven.queenswood.policy.interface]
     [com.repldriven.queenswood.schema.interface]

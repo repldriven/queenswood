@@ -1,5 +1,6 @@
 system:
   avro: !include system/avro.yml
+  payment-provider: !include system/form3-payment-provider.yml
   banks: !include system/bank.yml
   banks-dispatcher: !include system/bank-dispatcher.yml
   cash-account-product-templates: !include system/cash-account-product-templates.yml

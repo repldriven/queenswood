@@ -8,6 +8,7 @@ system:
   idvs-relay: !include system/idv-relay.yml
   kafka: !include system/kafka-all-test.yml
   message-bus: !include system/message-bus-test.yml
+  payment-provider: !include system/payment-provider.yml
   modulr-adapter: !include system/modulr-adapter.yml
   modulr-adapter-relay: !include system/modulr-adapter-relay.yml
   modulr-adapter-server: !include system/modulr-adapter-server.yml
