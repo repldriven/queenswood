@@ -68,7 +68,7 @@ settlement reports, which are the bank's operations.
   `PaymentEventProcessor` handles `transaction-settled`,
   `transaction-held` and `transaction-rejected`, routed on the event's
   `debit-credit-code`, in `payment`'s `commands.clj`, `core.clj` and
-  `events.clj`. An outbound payment is `pending`, `held`, `completed`
+  `events/`. An outbound payment is `pending`, `held`, `completed`
   or `failed`; an inbound one `settled`, `held`, `returned` or
   `suspended`. A rejection naming a completed outbound payment fails
   the handler and is dead-lettered.

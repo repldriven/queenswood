@@ -75,6 +75,14 @@ bases/<group>-processors/    # one per processor group
     system.clj         # bare-require bundle for the group
 ```
 
+A `domain.clj` or `events.clj` that grows past a few hundred lines
+becomes a folder of the same name, split along the domain's own seam —
+`payment/domain/` and `payment/events/` split inbound, outbound and
+provider transfers, and `interest/domain/` splits the steps of an
+interest run. Callers require the sub-namespaces directly, and every
+rule below for `domain.clj` or `events.clj` holds for each file in its
+folder.
+
 The base contains no business logic — its `system.clj` is a
 bundle of `require` forms so the group's component-kinds are
 registered, and `main.clj` starts the system per

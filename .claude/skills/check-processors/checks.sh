@@ -158,7 +158,7 @@ for b in "${STORE_BRICKS[@]}"; do
   bu=$(printf '%s' "$b" | tr - _)
   src="components/$b/src/com/repldriven/queenswood/$bu"
   [ -d "$src" ] || continue
-  for f in "$src"/*.clj; do
+  for f in "$src"/*.clj "$src"/domain/*.clj "$src"/events/*.clj; do
     [ -f "$f" ] || continue
     case "$f" in
       */store.clj) ;;
@@ -171,11 +171,11 @@ for b in "${PROCESSORS[@]}"; do
   bu=$(printf '%s' "$b" | tr - _)
   src="components/$b/src/com/repldriven/queenswood/$bu"
   [ -d "$src" ] || continue
-  for f in "$src"/*.clj; do
+  for f in "$src"/*.clj "$src"/domain/*.clj "$src"/events/*.clj; do
     [ -f "$f" ] || continue
     ALL_BRICK_FILES+=("$f")
     case "$f" in
-      */domain.clj)  DOMAIN_FILES+=("$f") ;;
+      */domain.clj|*/domain/*.clj)  DOMAIN_FILES+=("$f") ;;
       */store.clj)   STORE_FILES+=("$f") ;;
       */watcher.clj) WATCHER_FILES+=("$f") ;;
     esac
@@ -184,7 +184,7 @@ for b in "${PROCESSORS[@]}"; do
       *) NON_STORE+=("$f") ;;
     esac
     case "$f" in
-      */store.clj|*/interface.clj|*/events.clj|*/system.clj)
+      */store.clj|*/interface.clj|*/events.clj|*/events/*.clj|*/system.clj)
         REJECTION_FORBIDDEN+=("$f") ;;
       */core.clj)
         REJECTION_ADVISORY+=("$f") ;;

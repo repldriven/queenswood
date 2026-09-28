@@ -766,7 +766,7 @@
 (defmethod dispatch :outbound-transfer
   [{:keys [bank counter id-mapping banks accounts run-id] :as ctx}
    {[model-id amount] :args}]
-  ;; Reserve, don't post — the shape `payment/domain.clj`'s
+  ;; Reserve, don't post — the shape `payment/domain/outbound.clj`'s
   ;; `outbound-payment->transaction` produces: the customer's funds
   ;; move to their pending-outgoing bucket and the bank's 1200 claim
   ;; is likewise pending, so available drops while posted is
