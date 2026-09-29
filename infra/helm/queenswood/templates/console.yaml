@@ -46,6 +46,8 @@ spec:
               value: {{ default (printf "http://%s:8080" (include "queenswood.keycloakServiceName" .)) (tpl .Values.console.keycloakUpstream .) | quote }}
             - name: IDENTITY_PROVIDER_UPSTREAM
               value: {{ tpl .Values.console.identityProviderUpstream . | quote }}
+            - name: ONFIDO_IDENTITY_PROVIDER_UPSTREAM
+              value: {{ tpl .Values.console.onfidoIdentityProviderUpstream . | quote }}
             # Runtime config the SPA reads via /env.js. Derived from
             # the issuer where Keycloak is published, and the SPA's own
             # same-origin `/keycloak` path where it is not.

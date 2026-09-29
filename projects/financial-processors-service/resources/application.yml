@@ -22,6 +22,20 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-modulr-payment-command
           acks: all
+      form3-payment-command:
+        schemas: !system/local-ref schemas
+        schema: !keyword command
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          topic: topic-form3-payment-command
+          acks: all
+      clearbank-payment-command:
+        schemas: !system/local-ref schemas
+        schema: !keyword command
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          topic: topic-clearbank-payment-command
+          acks: all
       transactions-command-response:
         schemas: !system/local-ref schemas
         schema: !keyword command-response
@@ -114,6 +128,10 @@ system:
         producer: !system/local-ref producers.payments-command-response
       modulr-payment-command:
         producer: !system/local-ref producers.modulr-payment-command
+      form3-payment-command:
+        producer: !system/local-ref producers.form3-payment-command
+      clearbank-payment-command:
+        producer: !system/local-ref producers.clearbank-payment-command
       transactions-command-response:
         producer: !system/local-ref producers.transactions-command-response
       payee-checks-command-response:

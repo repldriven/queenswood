@@ -65,6 +65,20 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-modulr-payment-command
           acks: all
+      form3-payment-command:
+        schemas: !system/local-ref schemas
+        schema: !keyword command
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          topic: topic-form3-payment-command
+          acks: all
+      clearbank-payment-command:
+        schemas: !system/local-ref schemas
+        schema: !keyword command
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          topic: topic-clearbank-payment-command
+          acks: all
       schemes-payments-event:
         schemas: !system/local-ref schemas
         schema: !keyword event
@@ -104,6 +118,10 @@ system:
         producer: !system/local-ref producers.parties-event
       modulr-payment-command:
         producer: !system/local-ref producers.modulr-payment-command
+      form3-payment-command:
+        producer: !system/local-ref producers.form3-payment-command
+      clearbank-payment-command:
+        producer: !system/local-ref producers.clearbank-payment-command
       schemes-payments-event:
         producer: !system/local-ref producers.schemes-payments-event
       schemes-account-event:
@@ -130,7 +148,6 @@ system:
       system/component-kind: changelog-relay/envelope-handler
       bus: !system/ref message-bus.bus
       event-channel: !keyword idv-event
-      store-name: zyphe-outbox
     idvs-handler: !system/component
       system/component-kind: changelog-relay/envelope-handler
       bus: !system/ref message-bus.bus
@@ -166,7 +183,6 @@ system:
       bus: !system/ref message-bus.bus
       event-channel: !keyword schemes-payments-event
       event-channels: !include system/payment-account-event-channels.yml
-      store-name: modulr-outbox
     transactions-handler: !system/component
       system/component-kind: changelog-relay/envelope-handler
       bus: !system/ref message-bus.bus
@@ -190,6 +206,18 @@ system:
         keyspace-prefix: !system/ref fdb.keyspace-prefix
         consumer-id: modulr-relay
         store-name: modulr-outbox
+        handler: !system/local-ref schemes-payments-handler
+      form3-outbox:
+        record-db: !system/ref fdb.record-db
+        keyspace-prefix: !system/ref fdb.keyspace-prefix
+        consumer-id: form3-relay
+        store-name: form3-outbox
+        handler: !system/local-ref schemes-payments-handler
+      clearbank-outbox:
+        record-db: !system/ref fdb.record-db
+        keyspace-prefix: !system/ref fdb.keyspace-prefix
+        consumer-id: clearbank-relay
+        store-name: clearbank-outbox
         handler: !system/local-ref schemes-payments-handler
       transactions:
         record-db: !system/ref fdb.record-db
@@ -220,6 +248,12 @@ system:
         keyspace-prefix: !system/ref fdb.keyspace-prefix
         consumer-id: zyphe-relay
         store-name: zyphe-outbox
+        handler: !system/local-ref idv-handler
+      onfido-outbox:
+        record-db: !system/ref fdb.record-db
+        keyspace-prefix: !system/ref fdb.keyspace-prefix
+        consumer-id: onfido-relay
+        store-name: onfido-outbox
         handler: !system/local-ref idv-handler
       parties:
         record-db: !system/ref fdb.record-db

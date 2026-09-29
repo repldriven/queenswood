@@ -28,12 +28,17 @@ system:
         - payments-event
         - rewards-event
         - modulr-payment-command
+        - form3-payment-command
+        - clearbank-payment-command
         - schemes-payment-command-response
         - modulr-account-command
+        - form3-account-command
+        - clearbank-account-command
         - schemes-account-command-response
         - schemes-account-event
         - transactions-event
         - zyphe-idv-command
+        - onfido-idv-command
         - idv-command-response
         - companies-command
         - companies-command-response
@@ -136,5 +141,17 @@ system:
   zyphe-adapter-server: !include system/zyphe-adapter-server.yml
   zyphe-adapter: !include system/zyphe-adapter.yml
   zyphe-adapter-relay: !include system/zyphe-adapter-relay.yml
+  form3-simulator-server: !include system/form3-simulator-server.yml
+  form3-adapter-server: !include system/form3-adapter-server.yml
+  form3-adapter: !include system/form3-adapter.yml
+  form3-adapter-relay: !include system/form3-adapter-relay.yml
+  clearbank-simulator-server: !include system/clearbank-simulator-server.yml
+  clearbank-adapter-server: !include system/clearbank-adapter-server.yml
+  clearbank-adapter: !include system/clearbank-adapter.yml
+  clearbank-adapter-relay: !include system/clearbank-adapter-relay.yml
+  onfido-simulator-server: !include system/onfido-simulator-server.yml
+  onfido-adapter-server: !include system/onfido-adapter-server.yml
+  onfido-adapter: !include system/onfido-adapter.yml
+  onfido-adapter-relay: !include system/onfido-adapter-relay.yml
   uk-companies-house-simulator-server: !include system/uk-companies-house-simulator-server.yml
   uk-companies-house-adapter: !include system/uk-companies-house-adapter.yml

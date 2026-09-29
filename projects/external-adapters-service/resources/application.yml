@@ -48,6 +48,16 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-modulr-payment-command-dlq
           acks: all
+      form3-payment-command-dlq:
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          topic: topic-form3-payment-command-dlq
+          acks: all
+      clearbank-payment-command-dlq:
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          topic: topic-clearbank-payment-command-dlq
+          acks: all
       cash-accounts-event-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
@@ -80,6 +90,13 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-memberships-command
           acks: all
+      payments-command:
+        schemas: !system/local-ref schemas
+        schema: !keyword command
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          topic: topic-payments-command
+          acks: all
       schemes-account-command-response:
         schemas: !system/local-ref schemas
         schema: !keyword command-response
@@ -91,6 +108,16 @@ system:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-modulr-account-command-dlq
+          acks: all
+      form3-account-command-dlq:
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          topic: topic-form3-account-command-dlq
+          acks: all
+      clearbank-account-command-dlq:
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          topic: topic-clearbank-account-command-dlq
           acks: all
     # The group.ids name the per-adapter services this one absorbed.
     # They are carried over verbatim: a consumer group identifies the
@@ -109,6 +136,24 @@ system:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           group.id: external-adapters-service-modulr-payment-command
+      form3-payment-command:
+        schemas: !system/local-ref schemas
+        schema: !keyword command
+        topics: [topic-form3-payment-command]
+        dead-letter-producer: !system/local-ref producers.form3-payment-command-dlq
+        max-redeliveries: 5
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          group.id: external-adapters-service-form3-payment-command
+      clearbank-payment-command:
+        schemas: !system/local-ref schemas
+        schema: !keyword command
+        topics: [topic-clearbank-payment-command]
+        dead-letter-producer: !system/local-ref producers.clearbank-payment-command-dlq
+        max-redeliveries: 5
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          group.id: external-adapters-service-clearbank-payment-command
       zyphe-idv-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
@@ -116,6 +161,13 @@ system:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           group.id: external-adapters-service-zyphe-idv-command
+      onfido-idv-command:
+        schemas: !system/local-ref schemas
+        schema: !keyword command
+        topics: [topic-onfido-idv-command]
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          group.id: external-adapters-service-onfido-idv-command
       companies-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
@@ -175,6 +227,13 @@ system:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           group.id: email-service-memberships-command-response
+      payments-command-response:
+        schemas: !system/local-ref schemas
+        schema: !keyword command-response
+        topics: [topic-payments-command-response]
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          group.id: external-adapters-service-payments-command-response
       modulr-account-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
@@ -184,6 +243,24 @@ system:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           group.id: external-adapters-service-modulr-account-command
+      form3-account-command:
+        schemas: !system/local-ref schemas
+        schema: !keyword command
+        topics: [topic-form3-account-command]
+        dead-letter-producer: !system/local-ref producers.form3-account-command-dlq
+        max-redeliveries: 5
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          group.id: external-adapters-service-form3-account-command
+      clearbank-account-command:
+        schemas: !system/local-ref schemas
+        schema: !keyword command
+        topics: [topic-clearbank-account-command]
+        dead-letter-producer: !system/local-ref producers.clearbank-account-command-dlq
+        max-redeliveries: 5
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          group.id: external-adapters-service-clearbank-account-command
     message-bus-producers: !system/component
       system/component-kind: kafka/message-bus-producers
       schemes-payment-command-response:
@@ -198,6 +275,8 @@ system:
         producer: !system/local-ref producers.companies-command-response
       memberships-command:
         producer: !system/local-ref producers.memberships-command
+      payments-command:
+        producer: !system/local-ref producers.payments-command
       schemes-account-command-response:
         producer: !system/local-ref producers.schemes-account-command-response
     message-bus-consumers: !system/component
@@ -205,8 +284,17 @@ system:
       modulr-payment-command:
         consumer: !system/local-ref consumers.modulr-payment-command
         timeout: 500
+      form3-payment-command:
+        consumer: !system/local-ref consumers.form3-payment-command
+        timeout: 500
+      clearbank-payment-command:
+        consumer: !system/local-ref consumers.clearbank-payment-command
+        timeout: 500
       zyphe-idv-command:
         consumer: !system/local-ref consumers.zyphe-idv-command
+        timeout: 500
+      onfido-idv-command:
+        consumer: !system/local-ref consumers.onfido-idv-command
         timeout: 500
       companies-command:
         consumer: !system/local-ref consumers.companies-command
@@ -229,8 +317,17 @@ system:
       memberships-command-response:
         consumer: !system/local-ref consumers.memberships-command-response
         timeout: 500
+      payments-command-response:
+        consumer: !system/local-ref consumers.payments-command-response
+        timeout: 500
       modulr-account-command:
         consumer: !system/local-ref consumers.modulr-account-command
+        timeout: 500
+      form3-account-command:
+        consumer: !system/local-ref consumers.form3-account-command
+        timeout: 500
+      clearbank-account-command:
+        consumer: !system/local-ref consumers.clearbank-account-command
         timeout: 500
   message-bus: !include system/message-bus.yml
   fdb: !include system/fdb.yml
@@ -245,9 +342,19 @@ system:
   zyphe-simulator-server: !include system/zyphe-simulator-server.yml
   zyphe-adapter-server: !include system/zyphe-adapter-server.yml
   zyphe-adapter: !include system/zyphe-adapter.yml
+  form3-simulator-server: !include system/form3-simulator-server.yml
+  form3-adapter-server: !include system/form3-adapter-server.yml
+  form3-adapter: !include system/form3-adapter.yml
+  clearbank-simulator-server: !include system/clearbank-simulator-server.yml
+  clearbank-adapter-server: !include system/clearbank-adapter-server.yml
+  clearbank-adapter: !include system/clearbank-adapter.yml
+  onfido-simulator-server: !include system/onfido-simulator-server.yml
+  onfido-adapter-server: !include system/onfido-adapter-server.yml
+  onfido-adapter: !include system/onfido-adapter.yml
   uk-companies-house-simulator-server: !include system/uk-companies-house-simulator-server.yml
   uk-companies-house-adapter: !include system/uk-companies-house-adapter.yml
   webhook: !include system/webhook.yml
   email: !include system/email.yml
   memberships-dispatcher: !include system/membership-dispatcher.yml
+  payments-dispatcher: !include system/payment-dispatcher.yml
   smtp: !include system/smtp.yml

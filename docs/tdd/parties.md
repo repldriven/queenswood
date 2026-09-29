@@ -75,9 +75,7 @@ organisation (KYB) verification, which no adapter offers yet.
   run carrying the bank and verification ids for correlation, and the
   adapter serves the provider's webhook and writes what it reports to
   its outbox, relayed to `idv-event`. Two adapters exist, Zyphe's and
-  Onfido's. The deployed builds compose Zyphe's into
-  `external-adapters` and `monolith-service`, and the development
-  monolith and the API scenario rig run both side by side.
+  Onfido's, and every build runs both side by side.
 - **Simulators.** Each adapter's simulator waits for a decision, made
   on the hosted page `idv-simulator-page` serves for both or through
   its decision route. `test-scenarios` runs Zyphe's, and

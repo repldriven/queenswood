@@ -20,11 +20,12 @@
   [id]
   (error 404 "workflow_run/not-found" (str "No workflow run with id: " id)))
 
-(defn- origin
-  "The root URL the request reached the simulator at, which the person
-  reaches it at too."
-  [{:keys [scheme headers]}]
-  (str (name (or scheme :http)) "://" (get headers "host")))
+(defn- link-base
+  "The root URL a run's link sends the person to: `link-url` where the
+  simulator is reached through a proxy, otherwise the one the request
+  reached it at."
+  [{:keys [link-url scheme headers]}]
+  (or link-url (str (name (or scheme :http)) "://" (get headers "host"))))
 
 (defn create-workflow-run
   [_config]
@@ -45,7 +46,7 @@
                    :customer_user_id customer_user_id
                    :tags (vec tags)
                    :status "awaiting_input"
-                   :link (assoc link :url (str (origin request) "/l/" id))
+                   :link (assoc link :url (str (link-base request) "/l/" id))
                    :created_at now
                    :updated_at now}]
           (swap! state assoc-in [:workflow-runs id] run)

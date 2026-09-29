@@ -1,7 +1,7 @@
 (ns com.repldriven.queenswood.external-adapters.system
-  "Bare-require bundle for the external adapters service — the
-  Modulr, Zyphe and Companies House adapters plus the simulators
-  that stand in for those vendors, and the webhook and email consumers
+  "Bare-require bundle for the external adapters service — every
+  payment and IDV adapter and the Companies House adapter, plus the
+  simulators that stand in for those vendors, and the webhook and email consumers
   and delivery runners — every brick whose component-kinds its
   application.yml instantiates. Each composed base is reached
   through its `interface.clj`, which registers that base's own
@@ -10,16 +10,29 @@
   application.yml (ADR-0019)."
   (:require
     [com.repldriven.queenswood.cash-account-query.interface]
+    [com.repldriven.queenswood.clearbank-adapter.interface]
+    [com.repldriven.queenswood.clearbank-relay.interface]
+    [com.repldriven.queenswood.clearbank-simulator.interface]
+    [com.repldriven.queenswood.clearbank-webhook.interface]
     [com.repldriven.queenswood.company.interface]
     [com.repldriven.queenswood.email.interface]
     [com.repldriven.queenswood.fdb.interface]
+    [com.repldriven.queenswood.form3-adapter.interface]
+    [com.repldriven.queenswood.form3-relay.interface]
+    [com.repldriven.queenswood.form3-simulator.interface]
+    [com.repldriven.queenswood.form3-webhook.interface]
     [com.repldriven.queenswood.idv-provider.interface]
     [com.repldriven.queenswood.modulr-adapter.interface]
     [com.repldriven.queenswood.modulr-relay.interface]
     [com.repldriven.queenswood.modulr-simulator.interface]
     [com.repldriven.queenswood.modulr-webhook.interface]
+    [com.repldriven.queenswood.onfido-adapter.interface]
+    [com.repldriven.queenswood.onfido-relay.interface]
+    [com.repldriven.queenswood.onfido-simulator.interface]
+    [com.repldriven.queenswood.onfido-webhook.interface]
     [com.repldriven.queenswood.payment-provider.interface]
     [com.repldriven.queenswood.schema.interface]
+    [com.repldriven.queenswood.scheme-simulator.interface]
     [com.repldriven.queenswood.uk-companies-house-adapter.interface]
     [com.repldriven.queenswood.uk-companies-house-simulator.interface]
     [com.repldriven.queenswood.webhook.interface]

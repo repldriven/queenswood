@@ -10,6 +10,12 @@ interceptors: !system/component
   # The token a registered webhook is given and every delivery is signed
   # with, as the adapter holds it.
   webhook-token: 4b1d9e2c7a6f3058e1c2d4b6a8f0e3c5
+  # Where a run's link sends the person, when not the address the adapter
+  # called: the hosted page through the console's proxy, once deployed.
+  link-url: !profile
+    dev: null
+    test: null
+    default: !env ONFIDO_LINK_URL
 
 jetty-adapter: !system/component
   system/component-kind: server/jetty-adapter

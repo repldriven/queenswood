@@ -55,6 +55,15 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    # Onfido's, the longer prefix, so it wins over the one above.
+    location /identity-provider/onfido/ {
+        proxy_pass ${ONFIDO_IDENTITY_PROVIDER_UPSTREAM}/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
     # Same-origin Keycloak proxy. Browser hits
     # `${current-origin}/keycloak/...`; nginx forwards the path
     # unchanged to upstream, where Keycloak runs natively under

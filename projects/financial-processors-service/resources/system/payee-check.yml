@@ -6,6 +6,8 @@ processor: !system/component
   payment-providers: !system/ref payment-provider.providers
   adapter-urls:
     modulr: !env MODULR_ADAPTER_URL
+    form3: !env FORM3_ADAPTER_URL
+    clearbank: !env CLEARBANK_ADAPTER_URL
 
 command-processor: !system/component
   system/component-kind: command-processor/command-processor
