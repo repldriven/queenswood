@@ -314,8 +314,8 @@ recipe of their own.
 
 An installation also supports local development. Its local project runs
 nothing and holds the Google OAuth client a developer's machine uses, so
-developers can sign in with Google to the platform
-[run on a laptop](#run-on-a-laptop) as they would to a deployed instance. It
+developers can sign in to the platform [run on a laptop](#run-on-a-laptop)
+with Google as the identity provider, as they would to a deployed instance. It
 needs an installation to exist first, and
 [Google sign-in for local development](docs/recipes/infra/local-install.md)
 sets it up.
