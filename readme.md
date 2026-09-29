@@ -338,9 +338,13 @@ sets it up.
 - **Privileged access management.** On Google Cloud, nobody holds standing
   privileges. People hold read-only access, since GitOps makes every routine
   change, and an intervention means joining an empty break-glass group for its
-  duration and leaving again. The identity that bootstraps an installation
-  holds its organisation rights for the bootstrap alone and is closed
-  afterwards. No service-account key exists for any identity. See
+  duration and leaving again. The groups are Google Workspace or Cloud
+  Identity groups, which an installation names rather than creates, so a
+  privileged access management tool is added by having it put people in a
+  group and take them out again, and nothing in the installation changes. The
+  identity that bootstraps an installation holds its organisation rights for
+  the bootstrap alone and is closed afterwards. No service-account key exists
+  for any identity. See
   [ADR-0023](docs/adr/0023-installation-naming-and-access.md).
 - **Cloud security.** On Google Cloud, each installation is a folder of its
   own, following Google's
