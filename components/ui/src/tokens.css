@@ -136,6 +136,13 @@
   --debit:  light-dark(oklch(0.52 0.090 55),  oklch(0.78 0.080 60));
   --credit: light-dark(oklch(0.50 0.080 245), oklch(0.78 0.072 245));
   --ok:     light-dark(oklch(0.46 0.070 145), oklch(0.66 0.065 145));
+
+  /* ===== Sandbox banner — an installation whose providers are
+     simulated. A warm gold band, distinct from every status tone. */
+
+  --sandbox-bg:   light-dark(oklch(0.93 0.07 88), oklch(0.33 0.06 75));
+  --sandbox-fg:   light-dark(var(--gold-5), var(--gold-1));
+  --sandbox-rule: light-dark(oklch(0.84 0.10 84), oklch(0.42 0.08 75));
 }
 
 /* Explicit user choice — overrides the system preference. */

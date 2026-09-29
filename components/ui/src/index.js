@@ -1,7 +1,7 @@
 // Public entry point of the @queenswood/ui design system.
 //
 //   import {
-//     Logo, Wordmark, AppNav, ThemeToggle,
+//     Logo, Wordmark, AppNav, ThemeToggle, SandboxBanner,
 //     Button, Badge,
 //     Sidenav, SidenavGroup, SidenavItem,
 //     PageHeader, Drawer,
@@ -19,6 +19,7 @@ export { default as Logo } from "./Logo.svelte";
 export { default as Wordmark } from "./Wordmark.svelte";
 export { default as AppNav } from "./AppNav.svelte";
 export { default as ThemeToggle } from "./ThemeToggle.svelte";
+export { default as SandboxBanner } from "./SandboxBanner.svelte";
 
 export { default as Button } from "./Button.svelte";
 export { default as Badge } from "./Badge.svelte";
