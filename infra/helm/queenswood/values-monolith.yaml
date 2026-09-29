@@ -21,6 +21,7 @@ migrator:
 console:
   apiUpstream: "http://{{ .Release.Name }}-monolith-service:8080"
   identityProviderUpstream: "http://{{ .Release.Name }}-monolith-service:8086"
+  onfidoIdentityProviderUpstream: "http://{{ .Release.Name }}-monolith-service:8083"
 
 services:
   # The single all-in-one service. Adapters and simulators share this
@@ -35,6 +36,8 @@ services:
     extraPorts:
       - name: zyphe-sim
         port: 8086
+      - name: onfido-sim
+        port: 8083
     replicas: 1
     resources:
       limits: { cpu: "2000m", memory: "3Gi" }
@@ -50,6 +53,21 @@ services:
       ZYPHE_WEBHOOK_SECRET: "9f2b7c1d4e6a8035b1c9d2e4f6a80351d7e9b2c4f6a803517d9e2b4c6f8a0351"
       IDV_ZYPHE_ADAPTER_PUBLIC_URL: "http://localhost:8087"
       ZYPHE_VERIFY_URL: "{{ include \"queenswood.mailConsoleUrl\" . }}/identity-provider"
+      # The Form3, ClearBank and Onfido simulators likewise generate or
+      # share every credential their adapters use.
+      FORM3_URL: "http://localhost:8089"
+      FORM3_ADAPTER_PUBLIC_URL: "http://localhost:8088"
+      FORM3_SORT_CODE: "040075"
+      CLEARBANK_SIMULATOR_URL: "http://localhost:8091"
+      CLEARBANK_ADAPTER_PUBLIC_URL: "http://localhost:8092"
+      ONFIDO_URL: "http://localhost:8083"
+      ONFIDO_API_TOKEN: "api_sandbox.simulator"
+      ONFIDO_WORKFLOW_ID: "7c1f0b2e-4d8a-4e6b-9a35-2f7d1c9e8b40"
+      ONFIDO_WEBHOOK_TOKEN: "4b1d9e2c7a6f3058e1c2d4b6a8f0e3c5"
+      IDV_ONFIDO_ADAPTER_PUBLIC_URL: "http://localhost:8084"
+      # Where a run's link sends the person: the Onfido simulator's hosted
+      # page, through the console's `/identity-provider/onfido/` proxy.
+      ONFIDO_LINK_URL: "{{ include \"queenswood.mailConsoleUrl\" . }}/identity-provider/onfido"
 
   # Everything the monolith subsumes is turned off. The monolith hosts
   # the changelog relay runners and the scheduler in-process too.

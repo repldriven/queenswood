@@ -50,6 +50,13 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-zyphe-idv-command
           acks: all
+      onfido-idv-command:
+        schemas: !system/local-ref schemas
+        schema: !keyword command
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          topic: topic-onfido-idv-command
+          acks: all
       banks-command-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
@@ -96,6 +103,20 @@ system:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-modulr-account-command
+          acks: all
+      form3-account-command:
+        schemas: !system/local-ref schemas
+        schema: !keyword command
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          topic: topic-form3-account-command
+          acks: all
+      clearbank-account-command:
+        schemas: !system/local-ref schemas
+        schema: !keyword command
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          topic: topic-clearbank-account-command
           acks: all
       schemes-account-event-dlq:
         conf:
@@ -206,8 +227,14 @@ system:
         producer: !system/local-ref producers.cash-accounts-command-response
       zyphe-idv-command:
         producer: !system/local-ref producers.zyphe-idv-command
+      onfido-idv-command:
+        producer: !system/local-ref producers.onfido-idv-command
       modulr-account-command:
         producer: !system/local-ref producers.modulr-account-command
+      form3-account-command:
+        producer: !system/local-ref producers.form3-account-command
+      clearbank-account-command:
+        producer: !system/local-ref producers.clearbank-account-command
     message-bus-consumers: !system/component
       system/component-kind: kafka/message-bus-consumers
       banks-command:

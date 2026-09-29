@@ -527,11 +527,10 @@ runs changes nothing outside it:
   `/simulate/inbound-settlement` settles it, so an account can close in
   between.
 
-The deployed builds compose the default adapter into
-`external-adapters` and `monolith-service`; the development monolith
-and the API scenario rig compose every adapter, side by side. Each
-adapter consumes its own command
-channels, `<key>-payment-command` and `<key>-account-command`.
+Every build composes every adapter, side by side, each deployed one
+against its simulator until it is pointed at the provider. Each
+adapter consumes its own command channels, `<key>-payment-command`
+and `<key>-account-command`.
 `exclusive-dispatchers-service` runs the relay runners for the
 adapter's outbox and the transactions store's changelog.
 

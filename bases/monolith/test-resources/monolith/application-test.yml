@@ -1,7 +1,7 @@
 system:
   avro: !include system/avro.yml
-  payment-provider: !include system/payment-provider-all.yml
-  idv-provider: !include system/idv-provider-all.yml
+  payment-provider: !include system/payment-provider.yml
+  idv-provider: !include system/idv-provider.yml
   banks: !include system/bank.yml
   banks-dispatcher: !include system/bank-dispatcher.yml
   cash-account-product-templates: !include system/cash-account-product-templates.yml

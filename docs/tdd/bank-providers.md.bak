@@ -41,7 +41,7 @@ running any provider's sandbox, a known limitation of
   and `form3-adapter`, and IDV `zyphe-adapter` and `onfido-adapter`,
   each with its relay, webhook and simulator, meeting the contract
   [payments.md](payments.md) or [parties.md](parties.md) sets. The
-  deployed builds run each against its simulator.
+  deployed builds offer Modulr and Zyphe.
 
 ## Solution
 
@@ -174,19 +174,13 @@ for an exception, so a branch on a key is caught where it is written.
 
 ### Deployment and rigs
 
-- **Builds.** Every service offers the providers
-  `system/payment-provider.yml` and `system/idv-provider.yml` offer,
-  which is every one with an adapter, Modulr and Zyphe the defaults, so
-  every service routes to the same set. `external-adapters-service`
-  and `monolith-service` compose every adapter and its simulator,
-  `exclusive-dispatchers-service` relays each one's outbox, and the
-  processor services publish on each one's channels. The image carries
-  every capability and the configuration decides which run: the
-  external-adapters and monolith entry points fill the handler of each
-  adapter and simulator server the configuration declares. The Helm
-  values point each deployed adapter at its simulator, and the console
-  proxies each IDV simulator's hosted page, Onfido's at
-  `/identity-provider/onfido/`.
+- **Deployed builds.** `external-adapters-service` and
+  `monolith-service` compose the adapters their `application.yml`
+  offers, and `exclusive-dispatchers-service` relays each one's outbox.
+  The development monolith offers every provider through
+  `system/payment-provider-all.yml` and `system/idv-provider-all.yml`,
+  and its entry point fills the handler of each adapter and simulator
+  server the configuration declares, so one base serves both.
 - **Rigs.** The API scenario rig runs every payment and IDV adapter
   with its simulator in one boot: every scenario on the default
   providers, then the payment and payee-check scenarios on each other

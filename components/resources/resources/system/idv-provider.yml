@@ -5,6 +5,7 @@
 # `idv-provider.<key>`, and every other component that reads one refers
 # to `idv-provider.providers`. See docs/tdd/bank-providers.md.
 zyphe: !include system/idv-providers/zyphe.yml
+onfido: !include system/idv-providers/onfido.yml
 
 providers: !system/component
   system/component-kind: idv-provider/providers
@@ -13,3 +14,6 @@ providers: !system/component
     zyphe:
       declaration: !system/local-ref zyphe
       command-channel: !keyword zyphe-idv-command
+    onfido:
+      declaration: !system/local-ref onfido
+      command-channel: !keyword onfido-idv-command

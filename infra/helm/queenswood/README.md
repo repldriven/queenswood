@@ -15,9 +15,9 @@ Kubernetes:
   cash-account, cash-account-product, idv)
 - **exclusive-dispatchers-service** — the changelog relay
   runners and the cron scheduler, pinned to one replica
-- **external-adapters-service** — the Modulr, Companies
-  House and Zyphe adapters plus their simulators, in one
-  JVM on ports 8081, 8082 and 8085-8087
+- **external-adapters-service** — every payment and IDV
+  adapter and the Companies House adapter, plus their
+  simulators, in one JVM on ports 8081-8089, 8091 and 8092
 - **console** (Svelte SPA served via nginx)
 - **Keycloak** with embedded H2 on a volume, for standalone
   installs (`keycloak.mode: dev`, the default), with no user
