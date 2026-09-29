@@ -53,7 +53,8 @@ test("a new customer signs up and opens two accounts", async ({ page }) => {
   await button(page, "Get started").click();
 
   // Sign up: the number, the code the app fills in itself, the details,
-  // the identity provider's page and back, and a passcode chosen twice.
+  // a document scan and a selfie, the identity provider's page and back,
+  // and a passcode chosen twice.
   await expect(screen(page, "Mobile number")).toBeVisible();
   await type(page.locator('input.inp[placeholder="7700 900123"]'), phone);
   await page.waitForTimeout(600);
@@ -70,9 +71,18 @@ test("a new customer signs up and opens two accounts", async ({ page }) => {
   await type(page.locator('input.inp[placeholder="QQ123456C"]'), nino);
   await page.waitForTimeout(600);
   await button(page, "Continue").click();
-  await expect(screen(page, "ID check")).toBeVisible();
+  await expect(screen(page, "Photo ID")).toBeVisible();
   await page.waitForTimeout(BEAT);
-  await button(page, "Verify my identity").click();
+  await button(page, "Scan document").click();
+  await expect(button(page, "Continue")).toBeVisible({ timeout: 60_000 });
+  await page.waitForTimeout(BEAT);
+  await button(page, "Continue").click();
+  await expect(screen(page, "Selfie check")).toBeVisible();
+  await page.waitForTimeout(BEAT);
+  await button(page, "Start selfie check").click();
+  await expect(button(page, "Continue")).toBeVisible({ timeout: 10_000 });
+  await page.waitForTimeout(BEAT);
+  await button(page, "Continue").click();
 
   // The provider's page: what the document says, and a check that passes.
   await expect(page.getByRole("heading", { name: "Verify your identity" })).toBeVisible({

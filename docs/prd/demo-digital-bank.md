@@ -459,10 +459,12 @@ savings account shows the payment as a line of its own.
   Whether the demos move to a repository of their own, consuming only
   the platform's published API description to prove the API stands
   alone, is open.
-- **Identity documents.** The demonstration collects typed details and
+- **Identity documents.** The demonstration collects typed details,
+  shows a photo ID screen and a selfie screen that capture nothing, and
   the simulator decides the outcome. A real provider expects a
   photographed document and a face, captured in the provider's own
-  way, and where that sits in the sign-up screens is not designed.
+  way. Whether that capture can run inside the bank's two screens, or
+  only on the provider's page after them, is open.
 - **Support.** The bank's staff have the console for the organisation
   and nothing for a customer: finding a person from their name, seeing
   their accounts, or suspending them. A support screen in the bank is

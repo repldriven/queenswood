@@ -1,9 +1,11 @@
-// Onboarding: welcome → mobile → code → about you → ID → passcode → done,
-// each step a call to the bank; and signing in, for a returning
-// customer. The code fills itself in, standing in for what a real
-// sign-up would do off the phone. At the ID step the bank registers the
-// person and the app hands them to the identity provider's page, which
-// returns them here at `#verified` to choose a passcode.
+// Onboarding: welcome → mobile → code → about you → photo ID → selfie →
+// passcode → done, each step a call to the bank; and signing in, for a
+// returning customer. The code fills itself in, standing in for what a
+// real sign-up would do off the phone, and the document scan and the
+// selfie stand in the same way for the identity provider's own capture.
+// While the document scans the bank registers the person; once the
+// selfie is taken the app hands them to the identity provider's page,
+// which returns them here at `#verified` to choose a passcode.
 import { useState, useEffect } from "react";
 import { brand } from "./brand.js";
 import { Ic, Top, Field, Pad, Err } from "./ui.jsx";
@@ -44,12 +46,21 @@ const isoDob = (s) => {
 };
 
 const NI = /^[A-Z]{2}\d{6}[A-D]$/;
+
+// What the selfie asks of the person, one cue at a time.
+const CUES = [
+  "Look straight at the camera",
+  "Turn your head slowly left",
+  "Now slowly right",
+  "Hold still…",
+];
+const CUE_MS = 1100;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // The sign-up the app left for the identity provider's page, kept so it
 // can carry on when the page returns the person.
 const HANDED_OFF = "xepha.handed-off";
-const PASSCODE_STEP = 5;
+const PASSCODE_STEP = 6;
 const returning = () => {
   if (!location.hash.startsWith("#verified")) return null;
   try {
@@ -184,6 +195,8 @@ export default function Onboarding({ onDone }) {
   });
   const [idState, setIdState] = useState("idle");
   const [verification, setVerification] = useState(null);
+  const [handOff, setHandOff] = useState(null);
+  const [face, setFace] = useState(-1);
   const [pin, setPin] = useState("");
   const [pin2, setPin2] = useState("");
   const [err, setErr] = useState(null);
@@ -235,19 +248,20 @@ export default function Onboarding({ onDone }) {
         delay(2200),
       ]);
       setVerification(registered.verification);
-      if (registered["hand-off-url"]) {
-        sessionStorage.setItem(
-          HANDED_OFF,
-          JSON.stringify({ id: signUp.id, first: me.first.trim() }),
-        );
-        location.assign(registered["hand-off-url"]);
-        return;
-      }
+      setHandOff(registered["hand-off-url"] ?? null);
       setIdState("done");
     } catch (e) {
       setErr(e.message);
       setIdState("idle");
     }
+  };
+  const verify = () => {
+    if (!handOff) return next();
+    sessionStorage.setItem(
+      HANDED_OFF,
+      JSON.stringify({ id: signUp.id, first: me.first.trim() }),
+    );
+    location.assign(handOff);
   };
   const finish = async () => {
     setBusy(true);
@@ -281,6 +295,11 @@ export default function Onboarding({ onDone }) {
       live = false;
     };
   }, [code, step]);
+  useEffect(() => {
+    if (face < 0 || face >= CUES.length) return;
+    const t = setTimeout(() => setFace((f) => f + 1), CUE_MS);
+    return () => clearTimeout(t);
+  }, [face]);
   useEffect(() => {
     if (pin.length !== 4 || pin2.length !== 4) return;
     if (pin !== pin2) {
@@ -330,6 +349,7 @@ export default function Onboarding({ onDone }) {
     me.postcode.trim().length >= 5 &&
     EMAIL.test(me.email.trim()) &&
     NI.test(me.ni);
+  const faceDone = face >= CUES.length;
   const screens = [
     <div
       className={cls}
@@ -494,13 +514,15 @@ export default function Onboarding({ onDone }) {
         </button>
       </div>
     </div>,
-    <div className={cls} key="i" data-screen-label="ID check">
+    <div className={cls} key="i" data-screen-label="Photo ID">
       <Top onBack={back} />
       <div className="body">
-        <h1>Confirm your identity</h1>
+        <div className="eyebrow" style={{ marginBottom: 8 }}>
+          Step 1 of 2 · Photo ID
+        </div>
+        <h1>Scan your photo ID</h1>
         <p className="sub">
-          We'll take you to our identity partner to scan your passport or
-          driving licence and take a quick selfie, then bring you back here.
+          Passport or UK driving licence. Lay it flat in good light.
         </p>
         <div
           className="card"
@@ -523,8 +545,8 @@ export default function Onboarding({ onDone }) {
               {idState === "idle"
                 ? "camera view · passport in frame"
                 : idState === "scanning"
-                  ? "Opening identity check…"
-                  : "Passport read · selfie matched"}
+                  ? "Reading document…"
+                  : "Passport read · details match"}
             </div>
           </div>
         </div>
@@ -536,7 +558,13 @@ export default function Onboarding({ onDone }) {
       </div>
       <div className="foot">
         {idState === "done" ? (
-          <button className="btn" onClick={next}>
+          <button
+            className="btn"
+            onClick={() => {
+              setFace(-1);
+              next();
+            }}
+          >
             Continue
           </button>
         ) : (
@@ -545,7 +573,105 @@ export default function Onboarding({ onDone }) {
             disabled={idState === "scanning"}
             onClick={scan}
           >
-            {idState === "scanning" ? "Opening…" : "Verify my identity"}
+            {idState === "scanning" ? "Scanning…" : "Scan document"}
+          </button>
+        )}
+      </div>
+    </div>,
+    <div className={cls} key="l" data-screen-label="Selfie check">
+      <Top onBack={back} />
+      <div className="body">
+        <div className="eyebrow" style={{ marginBottom: 8 }}>
+          Step 2 of 2 · Selfie
+        </div>
+        <h1>Take a quick selfie</h1>
+        <p className="sub">
+          We'll match your face to your ID and check it's really you.
+        </p>
+        <div
+          style={{ display: "grid", placeItems: "center", margin: "8px 0 4px" }}
+        >
+          <div style={{ position: "relative", width: 236, height: 292 }}>
+            <svg
+              width="236"
+              height="292"
+              viewBox="0 0 236 292"
+              style={{ position: "absolute", inset: 0 }}
+            >
+              <ellipse
+                cx="118"
+                cy="146"
+                rx="110"
+                ry="138"
+                fill="var(--bg-2)"
+                stroke="var(--line-2)"
+                strokeWidth="2"
+                strokeDasharray={face < 0 ? "6 6" : "0"}
+              />
+              {face >= 0 && (
+                <path
+                  d="M118 8 A110 138 0 1 1 117.99 8"
+                  fill="none"
+                  stroke="var(--lime)"
+                  strokeWidth="4"
+                  strokeLinecap="round"
+                  pathLength="100"
+                  strokeDasharray={`${(Math.min(face, CUES.length) / CUES.length) * 100} 100`}
+                  style={{ transition: "stroke-dasharray .9s ease" }}
+                />
+              )}
+            </svg>
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                display: "grid",
+                placeItems: "center",
+                textAlign: "center",
+                color: faceDone ? "var(--lime)" : "var(--muted)",
+              }}
+            >
+              <div>
+                {faceDone ? Ic.check : Ic.cam}
+                <div style={{ fontSize: 14, marginTop: 10, padding: "0 28px" }}>
+                  {face < 0
+                    ? "front camera · face in oval"
+                    : faceDone
+                      ? "Selfie taken"
+                      : "Checking…"}
+                </div>
+              </div>
+            </div>
+          </div>
+          <div
+            style={{
+              marginTop: 18,
+              minHeight: 24,
+              fontSize: 17,
+              fontWeight: 500,
+              textAlign: "center",
+            }}
+          >
+            {face < 0 ? "" : faceDone ? "All done" : CUES[face]}
+          </div>
+        </div>
+        <div style={{ marginTop: 8 }} className="hint">
+          Remove glasses or hats. Your selfie is only used to confirm your
+          identity.
+        </div>
+      </div>
+      <div className="foot">
+        {faceDone ? (
+          <button className="btn" onClick={verify}>
+            Continue
+          </button>
+        ) : (
+          <button
+            className="btn"
+            disabled={face >= 0}
+            onClick={() => setFace(0)}
+          >
+            {face >= 0 ? "Hold steady…" : "Start selfie check"}
           </button>
         )}
       </div>

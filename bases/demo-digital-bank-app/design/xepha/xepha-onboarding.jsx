@@ -1,12 +1,15 @@
-// Onboarding: welcome → mobile → code → about you → ID → passcode → done
+// Onboarding: welcome → mobile → code → about you → photo ID → liveness → passcode → done
 function Onboarding({onDone}){
   const [step,setStep]=useState(0);const [dir,setDir]=useState('fwd');
   const [phone,setPhone]=useState('');const [code,setCode]=useState('');const [me,setMe]=useState({first:'',last:'',dob:'',postcode:''});
-  const [idState,setIdState]=useState('idle');const [pin,setPin]=useState('');const [pin2,setPin2]=useState('');
+  const [idState,setIdState]=useState('idle');const [face,setFace]=useState(-1);const [pin,setPin]=useState('');const [pin2,setPin2]=useState('');
   const next=()=>{setDir('fwd');setStep(s=>s+1)};const back=()=>{setDir('back');setStep(s=>s-1)};
   useEffect(()=>{if(step===2&&code.length<6){const t=setTimeout(()=>setCode(c=>c+'482913'[c.length]),code.length?140:900);return()=>clearTimeout(t)}},[step,code]);
   useEffect(()=>{if(step===2&&code.length===6){const t=setTimeout(next,500);return()=>clearTimeout(t)}},[code,step]);
   useEffect(()=>{if(idState==='scanning'){const t=setTimeout(()=>setIdState('done'),2200);return()=>clearTimeout(t)}},[idState]);
+  const cues=['Look straight at the camera','Turn your head slowly left','Now slowly right','Hold still…'];
+  useEffect(()=>{if(face>=0&&face<cues.length){const t=setTimeout(()=>setFace(f=>f+1),1100);return()=>clearTimeout(t)}},[face]);
+  const faceDone=face>=cues.length;
   useEffect(()=>{if(pin.length===4&&pin2.length===4){const t=setTimeout(()=>{if(pin===pin2)next();else{setPin('');setPin2('')}},300);return()=>clearTimeout(t)}},[pin,pin2]);
   const cls='scr'+(dir==='back'?' back':'');
   const key=k=>{const set=pin.length<4?setPin:setPin2;const v=pin.length<4?pin:pin2;if(k==='⌫')set(v.slice(0,-1));else if(k!=='.'&&v.length<4)set(v+k)};
@@ -43,15 +46,33 @@ function Onboarding({onDone}){
       </div>
       <div className="foot"><button className="btn" disabled={!meOk} onClick={next}>Continue</button></div>
     </div>,
-    <div className={cls} key="i" data-screen-label="ID check">
+    <div className={cls} key="i" data-screen-label="Photo ID">
       <Top onBack={back}/>
-      <div className="body"><h1>Confirm your identity</h1><p className="sub">Scan your passport or driving licence, then take a quick selfie.</p>
+      <div className="body"><div className="eyebrow" style={{marginBottom:8}}>Step 1 of 2 · Photo ID</div><h1>Scan your photo ID</h1><p className="sub">Passport or UK driving licence. Lay it flat in good light.</p>
         <div className="card" style={{height:300,display:'grid',placeItems:'center',background:idState==='done'?'rgba(200,245,66,.1)':'var(--bg-2)',border:'1px dashed var(--line-2)',color:idState==='done'?'var(--lime)':'var(--muted)',position:'relative',overflow:'hidden'}}>
           {idState==='scanning'&&<div style={{position:'absolute',left:0,right:0,height:2,background:'var(--lime)',animation:'scan 1.1s ease-in-out infinite alternate'}}></div>}
-          <div style={{textAlign:'center'}}>{idState==='done'?Ic.check:Ic.cam}<div style={{fontSize:14,marginTop:10}}>{idState==='idle'?'camera view · passport in frame':idState==='scanning'?'Reading document…':'Passport read · selfie matched'}</div></div>
+          <div style={{textAlign:'center'}}>{idState==='done'?Ic.check:Ic.cam}<div style={{fontSize:14,marginTop:10}}>{idState==='idle'?'camera view · passport in frame':idState==='scanning'?'Reading document…':'Passport read · details match'}</div></div>
         </div>
         <div style={{marginTop:16}} className="hint">Your documents are checked automatically and never stored on your phone.</div></div>
-      <div className="foot">{idState==='done'?<button className="btn" onClick={next}>Continue</button>:<button className="btn" disabled={idState==='scanning'} onClick={()=>setIdState('scanning')}>{idState==='scanning'?'Scanning…':'Scan document'}</button>}</div>
+      <div className="foot">{idState==='done'?<button className="btn" onClick={()=>{setFace(-1);next()}}>Continue</button>:<button className="btn" disabled={idState==='scanning'} onClick={()=>setIdState('scanning')}>{idState==='scanning'?'Scanning…':'Scan document'}</button>}</div>
+    </div>,
+    <div className={cls} key="l" data-screen-label="Liveness check">
+      <Top onBack={back}/>
+      <div className="body"><div className="eyebrow" style={{marginBottom:8}}>Step 2 of 2 · Liveness</div><h1>Take a quick selfie</h1><p className="sub">We'll match your face to your ID and check it's really you.</p>
+        <div style={{display:'grid',placeItems:'center',margin:'8px 0 4px'}}>
+          <div style={{position:'relative',width:236,height:292}}>
+            <svg width="236" height="292" viewBox="0 0 236 292" style={{position:'absolute',inset:0}}>
+              <ellipse cx="118" cy="146" rx="110" ry="138" fill="var(--bg-2)" stroke="var(--line-2)" strokeWidth="2" strokeDasharray={face<0?'6 6':'0'}/>
+              {face>=0&&<path d="M118 8 A110 138 0 1 1 117.99 8" fill="none" stroke="var(--lime)" strokeWidth="4" strokeLinecap="round" pathLength="100" strokeDasharray={`${Math.min(face,cues.length)/cues.length*100} 100`} style={{transition:'stroke-dasharray .9s ease'}}/>}
+            </svg>
+            <div style={{position:'absolute',inset:0,display:'grid',placeItems:'center',textAlign:'center',color:faceDone?'var(--lime)':'var(--muted)'}}>
+              <div>{faceDone?Ic.check:Ic.cam}<div style={{fontSize:14,marginTop:10,padding:'0 28px'}}>{face<0?'front camera · face in oval':faceDone?'Face matched to ID':'Checking…'}</div></div>
+            </div>
+          </div>
+          <div style={{marginTop:18,minHeight:24,fontSize:17,fontWeight:500,textAlign:'center'}}>{face<0?'':faceDone?'You\'re verified':cues[face]}</div>
+        </div>
+        <div style={{marginTop:8}} className="hint">Remove glasses or hats. Your selfie is only used to confirm your identity.</div></div>
+      <div className="foot">{faceDone?<button className="btn" onClick={next}>Continue</button>:<button className="btn" disabled={face>=0} onClick={()=>setFace(0)}>{face>=0?'Hold steady…':'Start selfie check'}</button>}</div>
     </div>,
     <div className={cls} key="pc" data-screen-label="Passcode">
       <Top onBack={back}/>
