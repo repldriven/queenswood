@@ -1,7 +1,7 @@
 <script>
   import Router, { push } from "svelte-spa-router";
   import { wrap } from "svelte-spa-router/wrap";
-  import { ensure_session, sign_in, sign_out, token_claims } from "./lib/auth.mjs";
+  import { ensure_session, sign_in, sign_out } from "./lib/auth.mjs";
   import { get_me, list_my_memberships, set_bank_id } from "./lib/api.mjs";
   import Landing from "./lib/Landing.svelte";
   import SignInPage from "./lib/SignInPage.svelte";
@@ -206,11 +206,6 @@
   function startFreshBank() {
     stage = "fresh-bank";
   }
-
-  function defaultOrgName() {
-    const claims = token_claims();
-    return claims?.name ? `${claims.name}'s Organization` : "";
-  }
 </script>
 
 {#if stage === "loading"}
@@ -226,13 +221,9 @@
     onSignOut={sign_out}
   />
 {:else if stage === "onboarding"}
-  <Onboarding
-    defaultName={defaultOrgName()}
-    onComplete={handleOnboardComplete}
-    onSignOut={sign_out}
-  />
+  <Onboarding {user} onComplete={handleOnboardComplete} onSignOut={sign_out} />
 {:else if stage === "fresh-bank"}
-  <Onboarding fresh onComplete={handleOnboardComplete} onCancel={() => (stage = "app")} onSignOut={sign_out} />
+  <Onboarding fresh {user} onComplete={handleOnboardComplete} onCancel={() => (stage = "app")} onSignOut={sign_out} />
 {:else if stage === "app"}
   <AppShell {user} onSignOut={sign_out}>
     <!-- The router takes its routes at mount, so a bank switch remounts

@@ -72,7 +72,8 @@
             sys (start config-file (keyword profile))]
         (if (error/anomaly? sys)
           (cli/exit false sys)
-          (do (log/info "System started successfully")
+          (do (system/stop-on-shutdown sys)
+              (log/info "System started successfully")
               (when-let [inbox (system/instance sys [:smtp :container-api-url])]
                 (log/info "Mail catcher inbox:" inbox))
               @(promise)))))))

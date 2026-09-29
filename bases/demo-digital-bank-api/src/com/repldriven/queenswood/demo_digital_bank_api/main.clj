@@ -37,4 +37,5 @@
             result (start config-file (keyword profile))]
         (if (error/anomaly? result)
           (cli/exit false result)
-          (log/info "System started successfully"))))))
+          (do (system/stop-on-shutdown result)
+              (log/info "System started successfully")))))))
