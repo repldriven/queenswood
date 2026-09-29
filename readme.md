@@ -312,6 +312,14 @@ replacing the
 [debugging an installation](docs/recipes/infra/crossplane-debug.md) each have a
 recipe of their own.
 
+An installation also supports local development. Its local project runs
+nothing and holds the Google OAuth client a developer's machine uses, so
+developers can sign in with Google to the platform
+[run on a laptop](#run-on-a-laptop) as they would to a deployed instance. It
+needs an installation to exist first, and
+[Google sign-in for local development](docs/recipes/infra/local-install.md)
+sets it up.
+
 ## For security engineers
 
 - **Identity and access management.** People sign in through Keycloak over
