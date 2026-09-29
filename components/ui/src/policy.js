@@ -66,6 +66,18 @@ export const CATEGORY_TONE = {
   emergency: "emergency",
 };
 
+// A domain's capabilities with each action's together, actions in the
+// order the policy first names them, and within an action the allow
+// ahead of the denies that carve exceptions out of it.
+function byAction(caps) {
+  const first = new Map();
+  for (const c of caps) if (!first.has(c.action)) first.set(c.action, first.size);
+  const rank = (c) => (c.effect === "allow" ? 0 : 1);
+  return [...caps].sort(
+    (a, b) => first.get(a.action) - first.get(b.action) || rank(a) - rank(b),
+  );
+}
+
 // Collapse a policy's flat capabilities + limits into a per-domain map:
 //   { [domainKey]: { caps: Capability[], lims: Limit[] } }
 // Domains the policy never mentions are simply absent (they "inherit the
@@ -75,6 +87,7 @@ export function groupByDomain(policy) {
   const slot = (d) => (map[d] ||= { caps: [], lims: [] });
   for (const c of policy.capabilities ?? []) slot(c.domain).caps.push(c);
   for (const l of policy.limits ?? []) slot(l.domain).lims.push(l);
+  for (const d of Object.values(map)) d.caps = byAction(d.caps);
   return map;
 }
 
