@@ -68,4 +68,6 @@
             sys (start config-file (keyword profile))]
         (if (error/anomaly? sys)
           (cli/exit false sys)
-          (do (log/info "System started successfully") @(promise)))))))
+          (do (system/stop-on-shutdown sys)
+              (log/info "System started successfully")
+              @(promise)))))))
