@@ -312,6 +312,14 @@ replacing the
 [debugging an installation](docs/recipes/infra/crossplane-debug.md) each have a
 recipe of their own.
 
+An installation also supports local development. Its local project runs
+nothing and holds the Google OAuth client a developer's machine uses, so
+developers can sign in to the platform [run on a laptop](#run-on-a-laptop)
+with Google as the identity provider, as they would to a deployed instance. It
+needs an installation to exist first, and
+[Google sign-in for local development](docs/recipes/infra/local-install.md)
+sets it up.
+
 ## For security engineers
 
 - **Identity and access management.** People sign in through Keycloak over
@@ -348,7 +356,13 @@ recipe of their own.
   and its private half never leaves the pods that sign with it.
 - **Encryption.** On Google Cloud, TLS terminates at the gateway on
   Google-managed certificates, and FoundationDB backups are encrypted under a
-  key held in Secret Manager.
+  key held in Secret Manager. Traffic between the cluster's nodes, the
+  platform's own services calling each other included, is encrypted by
+  [GKE Dataplane V2](https://cloud.google.com/kubernetes-engine/docs/concepts/dataplane-v2)'s
+  inter-node transparent encryption, which is WireGuard, so no service mesh
+  or per-service TLS is needed for it. Two pods on one node talk without
+  leaving it, so that traffic is not encrypted. Network policies restricting
+  which services may call which are to follow.
 - **Vulnerability management.** Dependencies are scanned for known CVEs
   against the National Vulnerability Database, and Renovate opens and merges
   their updates weekly. On Google Cloud, the organisation is scanned against
