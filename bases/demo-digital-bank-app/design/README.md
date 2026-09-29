@@ -18,7 +18,7 @@ Everything in this bundle is a **design reference written in HTML/React (Babel-i
 - `Xepha Bank.html` — entry point (fonts, React/Babel CDN, script order)
 - `xepha/xepha.css` — all tokens and component classes (`:root` vars at the top)
 - `xepha/xepha-ui.jsx` — shared: `gbp()` formatter, `Ic` icon set (inline SVG, 24-grid, stroke 1.8–2.2), `Top`, `Field`, `Pad`, `Sheet`, `Tabs`, `Spark`, and `SEED` demo data
-- `xepha/xepha-onboarding.jsx` — 7-step onboarding
+- `xepha/xepha-onboarding.jsx` — 8-step onboarding (identity check split into photo ID + liveness)
 - `xepha/xepha-home.jsx` — Home, Account, TxnDetail, Activity, Me, OpenAccount
 - `xepha/xepha-move.jsx` — Pay (6 steps), Move (3 steps), shared `Amount` + `useAmt`
 - `xepha/xepha-app.jsx` — root: state, navigation stack, mutations
@@ -58,6 +58,7 @@ Motion
 - Button press: scale .98, 120ms. Input focus: border → lime, 150ms.
 - Toast: slides in like a screen, auto-dismisses after 1.8s.
 - ID scan line: 2px lime bar, 1.1s ease-in-out alternate between 10%–90%.
+- Liveness ring: 4px lime stroke on the face oval, starts at 12 o'clock, fills clockwise in quarters (one per cue), 900ms ease per quarter.
 
 ## Navigation model
 - `mode`: `onboarding` | `app`.
@@ -71,9 +72,10 @@ Motion
 2. **Mobile number** — "+44" fixed prefix box (84px) + tel input; terms/privacy links in hint. "Send code" enabled at ≥10 digits.
 3. **Verify code** — 6 OTP cells, active cell lime border. Prototype auto-fills `482913` (900ms delay then 140ms/digit) and auto-advances 500ms after completion. Real app: SMS autofill + manual entry, resend link.
 4. **About you** — first/last name (side by side), DOB (mono, `DD / MM / YYYY`), postcode (mono, uppercased; hint "We'll find your address from this."). Continue requires all four (DOB ≥8 chars, postcode ≥5).
-5. **ID check** — 300px dashed camera card. States: idle (camera icon) → scanning (lime scan line, button "Scanning…" disabled, 2.2s) → done (lime tint, tick, "Passport read · selfie matched", button becomes "Continue").
-6. **Passcode** — 4 dots (14px, lime when filled) + numeric keypad; heading switches to "Enter it once more"; mismatch clears both silently, match advances after 300ms.
-7. **Account ready** — 96px lime success disc, "You're in, {first}.", Everyday account card with £0.00 and sort code/account number; "Go to my account".
+5. **Photo ID** — eyebrow "Step 1 of 2 · Photo ID". 300px dashed camera card. States: idle (camera icon) → scanning (lime scan line, button "Scanning…" disabled, 2.2s) → done (lime tint, tick, "Passport read · details match", button becomes "Continue").
+6. **Liveness check** — eyebrow "Step 2 of 2 · Liveness". 236×292 face oval (dashed when idle). "Start selfie check" runs four cues, 1.1s each: "Look straight at the camera" → "Turn your head slowly left" → "Now slowly right" → "Hold still…"; a lime ring fills around the oval per cue. Done: tick, "Face matched to ID", "You're verified", button "Continue". Real app: provider liveness SDK drives cues and result.
+7. **Passcode** — 4 dots (14px, lime when filled) + numeric keypad; heading switches to "Enter it once more"; mismatch clears both silently, match advances after 300ms.
+8. **Account ready** — 96px lime success disc, "You're in, {first}.", Everyday account card with £0.00 and sort code/account number; "Go to my account".
 
 ### Home
 Greeting eyebrow + first name; avatar button (initials) → Me. "Total balance" eyebrow + 46px sum. Quick actions 3-up grid (Pay / Move / Open) — tile 16px radius `--bg-2`, 40px lime icon disc, 13px label. Account cards (gradient by kind) with name, type line, right-aligned 22px balance, 56px sparkline of last 7 balances. "Recent" + "See all" (→ Activity), first 4 transactions.
