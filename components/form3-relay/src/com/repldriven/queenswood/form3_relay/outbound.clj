@@ -8,6 +8,7 @@
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.json.interface :as json]
     [com.repldriven.mono.log.interface :as log]
+    [com.repldriven.mono.telemetry.interface :as telemetry]
     [com.repldriven.mono.utility.interface :as utility]
 
     [clojure.edn :as edn]))
@@ -540,6 +541,17 @@
   [now intent]
   (<= (or (:next-attempt-at intent) 0) now))
 
+(defn- in-intent-trace
+  [span-name intent f]
+  (telemetry/with-span-parent span-name
+                              (telemetry/extract-parent-context intent)
+                              (utility/assoc-some {}
+                                                  "intent.id"
+                                                  (:intent-id intent)
+                                                  "intent.kind"
+                                                  (:kind intent))
+                              f))
+
 (defn drain-once
   "Make every due pending call once, then reconcile every due sent
   payment and return. Reads are transactional; each call and the write recording it
@@ -551,16 +563,25 @@
       (doseq [intent pending
               :when (due? now intent)
               :let [relay (get relays (:kind intent))]]
-        (if relay
-          (relay config now intent)
-          (log/error "Unknown Form3 intent kind" {:intent intent}))))
+        (in-intent-trace
+         "form3-outbound"
+         intent
+         (fn []
+           (if relay
+             (relay config now intent)
+             (log/error "Unknown Form3 intent kind" {:intent intent}))))))
     (when-not (error/anomaly? sent)
       (doseq [intent sent
               :when (due? now intent)
               :let [reconcile (get reconciles (:kind intent))]]
-        (if reconcile
-          (reconcile config now intent)
-          (log/error "Unknown sent Form3 intent kind" {:intent intent}))))))
+        (in-intent-trace
+         "form3-reconcile"
+         intent
+         (fn []
+           (if reconcile
+             (reconcile config now intent)
+             (log/error "Unknown sent Form3 intent kind"
+                        {:intent intent}))))))))
 
 (defn start-runner
   [config]

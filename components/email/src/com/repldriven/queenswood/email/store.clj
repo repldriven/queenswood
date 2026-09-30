@@ -3,7 +3,9 @@
     [com.repldriven.queenswood.fdb.interface :as fdb]
     [com.repldriven.queenswood.schema.interface :as schema]
 
-    [com.repldriven.mono.error.interface :as error]))
+    [com.repldriven.mono.error.interface :as error]
+    [com.repldriven.mono.telemetry.interface :as telemetry]
+    [com.repldriven.mono.utility.interface :as utility]))
 
 (def ^:private deliveries-store-name "email-deliveries")
 
@@ -20,7 +22,12 @@
    txn
    (fn [txn]
      (fdb/save-record (fdb/open txn deliveries-store-name)
-                      (schema/EmailDelivery->java delivery)))
+                      (schema/EmailDelivery->java
+                       (cond-> delivery
+                               (nil? (:traceparent delivery))
+                               (utility/assoc-some
+                                :traceparent
+                                (telemetry/inject-traceparent))))))
    :email-delivery/save
    "Failed to save email delivery"))
 

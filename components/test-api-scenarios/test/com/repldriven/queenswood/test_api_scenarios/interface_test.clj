@@ -451,12 +451,10 @@
            ;; traceparent and the thing nothing else here would notice
            ;; breaking.
            ;;
-           ;; Some, not all: a command a watcher dispatches in reaction
-           ;; to a changelog entry (`submit-idv-check`, `submit-payment`)
-           ;; opens its own trace, because the record change is what
-           ;; caused it rather than any request thread (ADR-0008). Those
-           ;; carry a `causation_id` naming the entity; the ones the API
-           ;; dispatches carry `correlation_id` equal to their own id.
+           ;; Onward too: a command sent in reaction to an event, such as
+           ;; `open-payment-account` from `cash-account-status-changed`,
+           ;; carries the event's trace to the adapter, and the relay
+           ;; resumes it from the intent when it calls the provider.
            (let [trace-id (fn [^SpanData s] (.getTraceId (.getSpanContext s)))
                  server? #(#{"GET" "POST" "PUT" "DELETE"} (method %))
                  traces (set (map trace-id (filter server? spans)))
@@ -465,6 +463,16 @@
                           (count (filter #(contains? traces (trace-id %))
                                          (named n))))]
              (is (pos? (joined "process-command")))
+             (is (some #(and (= "open-payment-account"
+                                (.get (.getAttributes ^SpanData %)
+                                      (AttributeKey/stringKey "command")))
+                             (contains? traces (trace-id %)))
+                       (named "process-command"))
+                 "a provider command joins the request that caused it")
+             (is (some #(and (str/ends-with? (.getName ^SpanData %) "-outbound")
+                             (contains? traces (trace-id %)))
+                       spans)
+                 "a relay's call to its provider joins the request's trace")
              ;; Events too, since the outbox and changelog carry the
              ;; writer's traceparent.
              (is (pos? (joined "process-event")))
@@ -485,13 +493,12 @@
              ;;
              ;; An account's opening, closing and rotation complete when
              ;; the payment provider reports back, in a write made while
-             ;; handling that report. The command that asked the provider
-             ;; was sent in reaction to a changelog entry, so it opened
-             ;; its own trace, and the write it leads to carries that
-             ;; trace rather than a request's. Only a write made handling
-             ;; an API-dispatched command is caused by a request, so the
-             ;; property holds over events whose writer's nearest handling
-             ;; span is a `process-command`.
+             ;; handling that report. The report is a webhook the provider
+             ;; sends in its own time, carrying no trace of ours, so the
+             ;; write it leads to starts a trace rather than joining a
+             ;; request's. Only a write made handling a command is caused
+             ;; by a request, so the property holds over events whose
+             ;; writer's nearest handling span is a `process-command`.
              (let [event-attr (fn [^SpanData s]
                                 (.get (.getAttributes s)
                                       (AttributeKey/stringKey "event")))

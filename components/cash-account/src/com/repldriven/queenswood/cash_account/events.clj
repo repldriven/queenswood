@@ -16,6 +16,7 @@
     [com.repldriven.mono.log.interface :as log]
     [com.repldriven.mono.message-bus.interface :as message-bus]
     [com.repldriven.mono.processor.interface :as processor]
+    [com.repldriven.mono.telemetry.interface :as telemetry]
     [com.repldriven.mono.utility.interface :as utility]))
 
 (defn- fdb
@@ -36,6 +37,7 @@
                          :id (str (utility/uuidv7))
                          :correlation-id (str (utility/uuidv7))
                          :causation-id account-id
+                         :traceparent (telemetry/inject-traceparent)
                          :payload payload}))))
 
 (defn- open-at-provider

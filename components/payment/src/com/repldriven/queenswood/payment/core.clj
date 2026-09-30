@@ -21,6 +21,7 @@
      :refer [let-nom>]]
     [com.repldriven.mono.log.interface :as log]
     [com.repldriven.mono.message-bus.interface :as message-bus]
+    [com.repldriven.mono.telemetry.interface :as telemetry]
     [com.repldriven.mono.utility.interface :as utility]))
 
 (defn- or-already-submitted
@@ -123,6 +124,8 @@
                                         :id (str (utility/uuidv7))
                                         :correlation-id (str (utility/uuidv7))
                                         :causation-id payment-id
+                                        :traceparent
+                                        (telemetry/inject-traceparent)
                                         :payload payload}))]
         (when (error/anomaly? result)
           (log/error "Failed to publish submit-payment"

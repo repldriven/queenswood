@@ -1,0 +1,28 @@
+{{- /*
+  A SavedView resource per file under files/signoz/views/, which the
+  SigNoz Operator creates in SigNoz's explorer and puts back when
+  somebody edits it in the UI. Each file is the SigNoz request body,
+  sent as it is.
+
+  No `interval`, for the reason signoz-dashboards.yaml gives.
+*/}}
+{{- if and .Values.signoz.enabled .Values.signozOperator.enabled }}
+{{- range $path, $_ := .Files.Glob "files/signoz/views/*.json" }}
+{{- $name := base $path | trimSuffix ".json" }}
+---
+apiVersion: resources.signoz.io/v1alpha1
+kind: SavedView
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "queenswood.labels" $ | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  providerConfigRef:
+    name: {{ $.Release.Name }}
+  objectTemplate:
+    jsonSpec: |
+      {{- $.Files.Get $path | nindent 6 }}
+{{- end }}
+{{- end }}

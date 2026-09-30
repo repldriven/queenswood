@@ -47,7 +47,10 @@
    txn
    (fn [txn]
      (fdb/save-record (fdb/open txn intents-store-name)
-                      (schema/ZypheOutboundIntent->java intent)))
+                      (schema/ZypheOutboundIntent->java
+                       (assoc-some intent
+                                   :traceparent
+                                   (telemetry/inject-traceparent)))))
    :zyphe-outbound/save
    "Failed to save zyphe outbound intent"))
 
