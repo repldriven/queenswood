@@ -24,6 +24,27 @@ multiple stores runs inside a single FDB transaction — the mechanism
 multi-record atomicity depends on.
 See [ADR-0002](../../../docs/adr/0002-foundationdb-record-layer.md).
 
+## Traces go to SigNoz, in the cluster that produces them
+
+Every deployment of the chart runs SigNoz in its own cluster, and every
+service sends its traces there over OTLP/HTTP. SigNoz is a dependency
+of the queenswood chart from `charts.signoz.io`, pinned and on by
+default, and each service's `OTEL_ENDPOINT` points at its collector
+unless `otel.endpoint` names another. Provision SigNoz's root user at
+startup, because its collector refuses OTLP until an organisation
+exists and that user creates one; generate its password in the
+cluster, by a Job, into `queenswood-signoz-root`, keep it nowhere else,
+and type a pair only in `values-local.yaml` and
+`infra/signoz/casting.yaml`. Turn SigNoz's stats reporter off wherever
+it runs. Run the monolith loop's SigNoz from `infra/signoz/casting.yaml`
+through the pinned `foundryctl`, with the chart's images and its UI on
+3301, since the monolith holds 8080. Export traces only: logs and
+metrics over OTLP are a change to mono's telemetry component, made
+there.
+Commands: `just telemetry-start`, `just telemetry-stop`,
+`just telemetry-ui`.
+See [ADR-0031](../../../docs/adr/0031-traces-go-to-signoz-in-the-cluster-that-produces-them.md).
+
 ## Record meta-data evolves by declared versions
 
 `fdb-record-types.yml` declares the meta-data `version`, every index

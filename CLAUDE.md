@@ -102,6 +102,11 @@ non-trivial work on their topic.
   offers running side by side on a command channel of its own.
   See [ADR-0030](docs/adr/0030-a-bank-chooses-its-providers-when-it-is-created.md)
   and [tdd/bank-providers.md](docs/tdd/bank-providers.md).
+- **Telemetry** — traces over OTLP to SigNoz in the cluster that
+  produces them, its root user provisioned at startup with a password
+  generated in the cluster, and the monolith loop's SigNoz through
+  Foundry. See
+  [ADR-0031](docs/adr/0031-traces-go-to-signoz-in-the-cluster-that-produces-them.md).
 - **Lifecycle transitions** — the ten-point definition-of-done for
   a new entity state or transition, source-state guards in
   `domain.clj` (`:<entity>/invalid-status`, HTTP 409), and event-

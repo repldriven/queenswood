@@ -269,15 +269,16 @@ spec:
                 # cluster answers to the same bindings.
                 workloadIdentityConfig:
                   workloadPool: {{ $xr.spec.projectId }}.svc.id.goog
-                # Encryption in transit, for the ten paths inside the
+                # Encryption in transit, for the paths inside the
                 # cluster that are not TLS: the backup agents to
                 # s3proxy, the Gateway to console, api and Keycloak,
                 # the services to Kafka and to FoundationDB,
                 # FoundationDB between its own processes, Keycloak and
-                # the realm exporter to the Cloud SQL proxy, and
-                # everything to Jaeger. The control asks whether data
-                # in transit is encrypted rather than whether it is
-                # TLS, so this answers all ten at once.
+                # the realm exporter to the Cloud SQL proxy, everything
+                # to SigNoz's collector, and SigNoz to its ClickHouse.
+                # The control asks whether data in transit is encrypted
+                # rather than whether it is TLS, so this answers every
+                # one at once.
                 #
                 # Both fields or neither: the encryption is a
                 # Dataplane V2 feature and inert on LEGACY_DATAPATH,

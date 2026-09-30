@@ -123,6 +123,10 @@ With no cluster, from a checkout with the
 [development environment](#nix) active:
 
 ```bash
+# Traces, in SigNoz on http://localhost:3301 as dev@example.com /
+# Queenswood-dev-1. Optional, and first, so the platform's spans land.
+just telemetry-start
+
 # The platform, as one process with its containers.
 just monolith-start
 
@@ -259,7 +263,7 @@ helm install queenswood \
 ```bash
 kubectl -n queenswood port-forward svc/queenswood-api-service 8080:8080
 kubectl -n queenswood port-forward svc/queenswood-console     8081:8080
-kubectl -n queenswood port-forward svc/queenswood-jaeger      16686:16686
+kubectl -n queenswood port-forward svc/queenswood-signoz      3301:8080
 ```
 
 Open the console at [localhost:8081](http://localhost:8081) and sign in as
@@ -267,9 +271,9 @@ Open the console at [localhost:8081](http://localhost:8081) and sign in as
 that address, and the API refuses a token issued for any other.
 
 In the console, **Sandbox › Scenarios** runs the platform for real
-against your cluster — open Jaeger alongside it at
-[localhost:16686](http://localhost:16686) to watch the spans each
-scenario produces.
+against your cluster — open SigNoz alongside it at
+[localhost:3301](http://localhost:3301), signed in as `dev@example.com` /
+`Queenswood-dev-1`, to watch the spans each scenario produces.
 
 The full quickstart — including tear-down — ships with
 each
@@ -387,7 +391,7 @@ sets it up.
 - **Observability.** Every request is traced with OpenTelemetry across the
   HTTP edge and the message bus, and a correlation id follows a user action
   through every command, event and processor it touches. Traces are exported
-  over OTLP to any collector, to the bundled Jaeger by default, and logs are
+  over OTLP to any collector, to the bundled SigNoz by default, and logs are
   structured JSON.
 - **Health checks.** Every service answers liveness and readiness under
   `/actuator/health`, and its probes use them. A service starts only once
