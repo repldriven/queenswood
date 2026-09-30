@@ -162,6 +162,9 @@ interceptor chain. On `:enter`:
 - Sets the span as the current context for the rest of the
   request (synchronous; safe because Reitit/Sieppari run on a
   single thread per request).
+- Names the span for the Reitit route the request matched,
+  `GET /v1/parties/{party-id}`, and records the template as
+  `http.route`, since `url.path` carries resource ids.
 
 On `:leave` or exception, records HTTP response status and ends
 the span.
@@ -187,7 +190,18 @@ an event):
    span captures the *child* span's traceparent for the
    outbound envelope.
 
+4. Record the outcome. `process-command` and `command-send`
+   carry the reply as `command.status` — `ACCEPTED`, `REJECTED`
+   or `FAILED` — and the anomaly kind as `command.reason`, and
+   only a `FAILED` command marks its span as an error: a
+   rejection is the bank correctly declining.
+
 The chain continues for as many hops as the action takes.
+
+`fdb-transaction` records its outcome the same way, as
+`fdb.outcome` — `committed`, `rejected` or `failed` — with the
+anomaly kind as `fdb.reason`. A rejection rolls the transaction
+back without marking the span, so an error on it is a fault.
 
 ### Logging
 

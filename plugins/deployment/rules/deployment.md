@@ -642,6 +642,22 @@ Commands: `just queenswood-recovery-backup-key`, `just
 gcp-secret-version`.
 See [external-secrets](../../../docs/recipes/infra/external-secrets.md).
 
+## A dashboard is a file the operator keeps
+
+Keep each SigNoz dashboard as a file under
+`infra/helm/queenswood/files/signoz/dashboards/`, named for its `name`,
+holding `name`, `schemaVersion` `v6`, `tags` and `spec` — the UI's JSON
+editor leaves out the first two. Suspend a dashboard's resource before
+editing it in the SigNoz UI, since the operator puts it back otherwise,
+and lift the suspension once its file is installed. Put several series
+in one panel as a `signoz/CompositeQuery`, lay panels on a grid twelve
+wide, and group a numeric attribute as a `number`. Never set `interval`,
+or any field the operator writes a default into, on a `Dashboard` the
+chart renders, and never keep a dashboard only in SigNoz: nothing
+declares it, and it goes with the cluster's volumes.
+Commands: `just helm-install`, `just telemetry-ui`.
+See [signoz-dashboards](../../../docs/recipes/infra/signoz-dashboards.md).
+
 ## Google sign-in is two console acts and an Admin API call
 
 Configure the consent screen first, since the client cannot be created

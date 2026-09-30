@@ -1,0 +1,30 @@
+{{- /*
+  A Dashboard resource per file under files/signoz/dashboards/, which
+  the SigNoz Operator creates in SigNoz and puts back when somebody
+  edits it in the UI. Each file is the SigNoz request body, sent as it
+  is: `name`, `schemaVersion` and `spec`, as the UI's JSON editor shows
+  a dashboard with the first two added.
+
+  No `interval`: the operator writes its default into that field, and a
+  value here conflicts with it on every server-side apply.
+*/}}
+{{- if and .Values.signoz.enabled .Values.signozOperator.enabled }}
+{{- range $path, $_ := .Files.Glob "files/signoz/dashboards/*.json" }}
+{{- $name := base $path | trimSuffix ".json" }}
+---
+apiVersion: resources.signoz.io/v1alpha1
+kind: Dashboard
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "queenswood.labels" $ | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  providerConfigRef:
+    name: {{ $.Release.Name }}
+  objectTemplate:
+    jsonSpec: |
+      {{- $.Files.Get $path | nindent 6 }}
+{{- end }}
+{{- end }}

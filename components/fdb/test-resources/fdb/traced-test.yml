@@ -1,0 +1,7 @@
+# fdb's own rig, with spans collected in memory rather than shipped.
+system:
+  fdb: !include fdb/fdb-test.yml
+  telemetry:
+    otel-sdk: !system/component
+      system/component-kind: test-telemetry/otel-sdk
+      service-name: fdb

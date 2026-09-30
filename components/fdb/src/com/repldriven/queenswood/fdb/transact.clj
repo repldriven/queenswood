@@ -46,6 +46,20 @@
   [open-store-fn ctx store-name]
   (open-store-fn ctx store-name))
 
+(defn- trace-outcome
+  [result]
+  (cond (error/error? result)
+        (do (telemetry/set-attribute "fdb.outcome" "failed")
+            (telemetry/set-attribute "fdb.reason" (str (error/kind result)))
+            (telemetry/set-error (:message (error/payload result))))
+
+        (error/anomaly? result)
+        (do (telemetry/set-attribute "fdb.outcome" "rejected")
+            (telemetry/set-attribute "fdb.reason" (str (error/kind result))))
+
+        :else
+        (telemetry/set-attribute "fdb.outcome" "committed")))
+
 (defrecord Txn [open prefix])
 
 (defn open
@@ -62,38 +76,42 @@
      (let [{:keys [record-db record-store]} txn-or-config
            keyspace-prefix (or (:keyspace-prefix txn-or-config)
                                (:keyspace-prefix (meta record-store)))]
-       (try
-         (telemetry/with-span
-          {:name "fdb-transaction"
-           :attributes {:fdb.category (str category)}}
-          (.run ^FDBDatabase record-db
-                ^Function
-                (fn [ctx]
-                  (let [cache (atom {})
-                        open-fn (fn [store-name]
-                                  (or (get @cache store-name)
-                                      (let [s (open-store record-store
-                                                          ctx
-                                                          store-name)]
-                                        (swap! cache assoc store-name s)
-                                        s)))
-                        result (try-nom category
-                                        message
-                                        (f (->Txn open-fn keyspace-prefix)))]
-                    (if (error/anomaly? result)
-                      ;; nosemgrep: no-raw-throw
-                      (throw (ex-info "Transaction rolled back"
-                                      {::anomaly result}))
-                      result)))))
-         (catch Exception e
-           (reclassify
-            (or (::anomaly (ex-data e))
-                (error/fail category
-                            {:message message
-                             :exception e
-                             :stack-trace
-                             (with-out-str
-                               (.printStackTrace
-                                e
-                                (java.io.PrintWriter. *out*
-                                                      true)))})))))))))
+       (telemetry/with-span
+        {:name "fdb-transaction"
+         :attributes {:fdb.category (str category)}}
+        (let [result
+              (try
+                (.run ^FDBDatabase record-db
+                      ^Function
+                      (fn [ctx]
+                        (let [cache (atom {})
+                              open-fn (fn [store-name]
+                                        (or (get @cache store-name)
+                                            (let [s (open-store record-store
+                                                                ctx
+                                                                store-name)]
+                                              (swap! cache assoc store-name s)
+                                              s)))
+                              result (try-nom category
+                                              message
+                                              (f (->Txn open-fn
+                                                        keyspace-prefix)))]
+                          (if (error/anomaly? result)
+                            ;; nosemgrep: no-raw-throw
+                            (throw (ex-info "Transaction rolled back"
+                                            {::anomaly result}))
+                            result))))
+                (catch Exception e
+                  (reclassify
+                   (or (::anomaly (ex-data e))
+                       (error/fail category
+                                   {:message message
+                                    :exception e
+                                    :stack-trace
+                                    (with-out-str
+                                      (.printStackTrace
+                                       e
+                                       (java.io.PrintWriter. *out*
+                                                             true)))})))))]
+          (trace-outcome result)
+          result))))))

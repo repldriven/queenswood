@@ -50,6 +50,7 @@
     [com.repldriven.mono.utility.interface :as util]
 
     [clojure.java.io :as io]
+    [clojure.string :as str]
     [clojure.test :refer [deftest is testing]])
   (:import
     (io.opentelemetry.api.common AttributeKey)
@@ -430,15 +431,20 @@
        (testing "the run is traced end to end"
          (let [spans (test-telemetry/finished-spans
                       (system/instance sys [:telemetry :otel-sdk]))
-               names (frequencies (map #(.getName ^SpanData %) spans))]
+               names (frequencies (map #(.getName ^SpanData %) spans))
+               method (fn [^SpanData s] (first (str/split (.getName s) #" " 2)))
+               methods (frequencies (map method spans))]
            (dump-spans! (system/instance sys [:test-api-scenarios :span-dump])
                         spans)
            ;; Every scenario drives at least one request, so this floor
            ;; holds however many scenarios there are.
            (is (>= (count spans) (count files)))
-           ;; Server spans: the API is instrumented on the request path.
-           (is (pos? (get names "GET" 0)))
-           (is (pos? (get names "POST" 0)))
+           ;; Server spans: the API is instrumented on the request path,
+           ;; each named for the route it matched.
+           (is (pos? (get methods "GET" 0)))
+           (is (pos? (get methods "POST" 0)))
+           (is (some #(re-matches #"GET /v1/.*\{.+\}.*" %) (keys names))
+               "a server span is named for a route template, not a path")
            (is (pos? (get names "process-command" 0)))
            ;; The trace carries from the HTTP thread across the bus into
            ;; the processor, which is the point of propagating
@@ -452,8 +458,7 @@
            ;; carry a `causation_id` naming the entity; the ones the API
            ;; dispatches carry `correlation_id` equal to their own id.
            (let [trace-id (fn [^SpanData s] (.getTraceId (.getSpanContext s)))
-                 server? #(#{"GET" "POST" "PUT" "DELETE"}
-                            (.getName ^SpanData %))
+                 server? #(#{"GET" "POST" "PUT" "DELETE"} (method %))
                  traces (set (map trace-id (filter server? spans)))
                  named (fn [n] (filter #(= n (.getName ^SpanData %)) spans))
                  joined (fn [n]
