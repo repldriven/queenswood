@@ -388,11 +388,23 @@ sets it up.
 
 ## For site reliability engineers
 
-- **Observability.** Every request is traced with OpenTelemetry across the
-  HTTP edge and the message bus, and a correlation id follows a user action
-  through every command, event and processor it touches. Traces are exported
-  over OTLP to any collector, to the bundled SigNoz by default, and logs are
-  structured JSON.
+- **Tracing.** Every request is traced with OpenTelemetry, and one trace
+  follows it through every command, event and processor it causes, the call
+  to a payment or identity provider, and the email or webhook that results.
+  A provider's report back and a scheduled run start traces of their own. On
+  Kafka, each hop records its topic, partition, offset and consumer group.
+  Traces are exported over OTLP to any collector, and to SigNoz in the same
+  cluster by default. Logs are structured JSON.
+- **Dashboards.** SigNoz holds four dashboards the chart declares — the API,
+  commands, events and the bus, and storage with outbound calls — and an API
+  requests view listing each request's method, route, status and duration.
+  Its operator puts back any edit made in the UI, so a change is a file in
+  the chart.
+
+<p align="center">
+  <img src="docs/assets/telemetry-trace.png" width="720" alt="One trace in SigNoz: creating a bank, from POST /v1/banks through its commands, events and a call to Modulr">
+</p>
+
 - **Health checks.** Every service answers liveness and readiness under
   `/actuator/health`, and its probes use them. A service starts only once
   the migrations and bootstrap it depends on have completed, and the services
