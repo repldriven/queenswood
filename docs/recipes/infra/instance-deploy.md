@@ -252,7 +252,6 @@ because pods with no requests read as uncommitted to the scheduler.
   and merge it. Without it no other plane can ever adopt the project,
   and the day one has to it is answered `409 Requested entity already
   exists`.
-
 - Render the unit with `just queenswood-instance-manifest`, which mints
   the project id once and writes it into every file that carries it.
   Where one is written by hand instead, they have to agree: a wrong id
@@ -260,6 +259,8 @@ because pods with no requests read as uncommitted to the scheduler.
   bound to, not an error.
 - Give the instance its own `access` mapping, and let it reconcile
   before writing any secret version.
+- Write the secret versions as the instance's own secrets admin, not
+  the installation's.
 - Put the unit declaration at the top of the installation's directory,
   never inside the unit's folder.
 - Compose this environment's zone with `just queenswood-zone-manifest`
@@ -290,6 +291,9 @@ because pods with no requests read as uncommitted to the scheduler.
 
 **MUST NOT:**
 
+- Add `adopt` before the project exists. An external name set on a
+  project that does not exist yet makes the first observation fail, and
+  creation never follows.
 - Create an instance with `state: down`. Cloud SQL refuses to create an
   already-stopped instance, and the refusal is a 400.
 - Share an `ingress.domain` between two instances. Both compose a
@@ -310,6 +314,8 @@ because pods with no requests read as uncommitted to the scheduler.
   so, and a default that moves under a live instance is refused rather
   than applied.
 - Take the instance down once it is up, which is a one-word change.
+- Re-render a unit as often as you like until it is committed. No plane
+  has read an uncommitted one.
 - Stand an instance up with no `ingress` at all, which answers on no
   name and composes no certificate.
 

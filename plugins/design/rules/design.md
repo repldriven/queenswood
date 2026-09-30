@@ -7,21 +7,26 @@ choices, not portable Polylith or Clojure conventions.
 
 ## Queenswood consumes `mono` as a pinned dependency
 
-Queenswood consumes `mono` as a pinned git-dependency, not a fork. The
-workspace holds only Queenswood's own domain bricks
-(`com.repldriven.queenswood.*`); shared infrastructure comes from
-`com.repldriven/mono` on the classpath (`com.repldriven.mono.*`), pinned
-to a tag/sha via the `ext/mono` shims under `deps/`. An improvement that
-isn't domain-specific belongs in `mono` — made there, released, and
-pulled down by bumping the shim; upgrading mono is that one-line bump.
+Consume `mono` as a pinned git-dependency, not a fork. The workspace
+holds only Queenswood's domain bricks (`com.repldriven.queenswood.*`);
+shared infrastructure comes from `com.repldriven/mono`
+(`com.repldriven.mono.*`), pinned to a tag and sha in the `deps/mono`
+and `deps/mono-test` shims, which every project references as
+`ext/mono` — a project's `:test` alias re-points it at the test
+superset — so upgrading mono is a one-line bump there. mono's
+practices — its ADRs, recipes, slide deck, Tessl plugins, hook
+library, semgrep rules and justfiles — are laid down by
+`just mono-import` at the sha `deps/mono-dev` pins, untracked and never
+edited here, and may move ahead of or behind the code. The two
+repositories share one ADR number space and one recipe namespace, and
+the import refuses to overwrite a path this tree tracks.
 See [ADR-0001](../../../docs/adr/0001-reuse-mono-as-upstream.md).
 
 ## Persistence is FoundationDB Record Layer
 
 Use FoundationDB with the Record Layer for all persistence. Each
-entity type lives in its own record store; an operation spanning
-multiple stores runs inside a single FDB transaction — the mechanism
-multi-record atomicity depends on.
+entity type lives in its own record store, and an operation spanning
+multiple stores runs inside a single FDB transaction.
 See [ADR-0002](../../../docs/adr/0002-foundationdb-record-layer.md).
 
 ## Traces go to SigNoz, in the cluster that produces them
@@ -37,12 +42,10 @@ cluster, by a Job, into `queenswood-signoz-root`, keep it nowhere else,
 and type a pair only in `values-local.yaml` and
 `infra/signoz/casting.yaml`. Turn SigNoz's stats reporter off wherever
 it runs. Run the monolith loop's SigNoz from `infra/signoz/casting.yaml`
-through the pinned `foundryctl`, with the chart's images and its UI on
-3301, since the monolith holds 8080. Export traces only: logs and
-metrics over OTLP are a change to mono's telemetry component, made
-there.
-Commands: `just telemetry-start`, `just telemetry-stop`,
-`just telemetry-ui`.
+through the `foundryctl` that `justfiles/telemetry.just` pins, with the
+chart's images and its UI on 3301, since the monolith holds 8080.
+Export traces only: logs and metrics over OTLP are a change to mono's
+telemetry component, made there.
 See [ADR-0031](../../../docs/adr/0031-traces-go-to-signoz-in-the-cluster-that-produces-them.md).
 
 ## SigNoz is configured through its operator
@@ -65,24 +68,21 @@ See [ADR-0032](../../../docs/adr/0032-signoz-is-configured-through-its-operator.
 
 ## Record meta-data evolves by declared versions
 
-`fdb-record-types.yml` declares the meta-data `version`, every index
-its `added` and `modified` versions, and under a store's
-`former-indexes` the indexes removed from it. Every change to a record
-type, primary key or index bumps `version`; a store added after the
-first version takes it as `since`, declared there and never as a proto
-`since_version` option, and never changed afterwards; an index whose
-key, type or uniqueness changed keeps its name and its `added` and takes
-the new version as `modified` — never a rename in place of the bump; a
-new index takes it as both; a removed or renamed index becomes a former
-entry with its `name`, `added` and `removed`, and its name is never
-reused. A proto field, once written, is deprecated with its tag kept and
-dropped in the record conversion — never removed or reserved. The
-migrator saves with a validator that allows index rebuilds and refuses
-everything else: a change at the stored version, or older meta-data than
-the store's, fails the Job rather than being skipped, and a store's
-meta-data is never cleared to make a refused save land. `just test-all`
-runs the migrator's guard whatever changed, validating the working
-tree's meta-data as an evolution of the last `stable-*` tag's.
+Every change to a record type, primary key or index bumps the
+meta-data `version` in the declaration, `fdb-record-types.yml`. An
+index whose key, type or uniqueness changed keeps its name and its
+`added` and takes the new version as `modified` — never a rename in
+place of the bump; a new index takes the new version as both `added`
+and `modified`; a store added after the first version takes it as
+`since`, declared there rather than as a proto option. An index's
+`added` and a record type's `since` never change afterwards. A removed
+or renamed index is listed under its store's `former-indexes` with its
+`name`, its `added` and the version it was removed at, and a new index
+never takes a former index's name. A proto field no longer wanted is
+deprecated with its tag kept and dropped in the record conversion —
+never removed, nor its tag reserved, once a record has been written
+with it. Never clear a store's meta-data to make a refused save land.
+`just test-all` runs the guard whatever changed.
 Commands: `just test-all`.
 See [schema-evolution](../../../docs/recipes/code/schema-evolution.md).
 
@@ -168,12 +168,11 @@ See [ADR-0017](../../../docs/adr/0017-query-write-brick-split.md),
 
 ## Processors are packaged by deployment-time composition
 
-Processors are packaged by deployment-time composition, not one
-microservice per domain: one thin base per service group (a
-boilerplate main plus a require bundle registering that group's
-component-kinds) and one project per group, whose `application.yml`
-alone decides which processors and event consumers that
-JVM hosts. Bases are group-scoped, not one shared superset, so each
+Processors are packaged by deployment-time composition: one thin base
+per service group (a boilerplate main plus a require bundle registering
+that group's component-kinds) and one project per group, whose
+`application.yml` alone decides which processors and event consumers
+that JVM hosts. Bases are group-scoped, not one shared superset, so each
 project's deps carry only the bricks its group runs. Group by
 boundary, not throughput — financial processors (payment,
 transaction, interest, payee-check) never share a JVM with
@@ -191,23 +190,31 @@ When a processor moves between groups its consumer groups and changelog
 `consumer-id`s move with it verbatim, or the cursor is abandoned.
 See [ADR-0019](../../../docs/adr/0019-processor-packaging.md).
 
-## External providers are deployment facts
+## A bank chooses its providers when it is created
 
-Which external provider answers is settled by which adapter service
-runs and how it is configured — never by a request parameter validated
-against a list. Pluggability comes from the command channel: a second
-provider is a second adapter base consuming the same channel, routed by
-configuration and consumer groups, not by a conditional inside a brick.
-A domain component (`company`, `idv`, `payment`) never names a provider
-and never takes a provider parameter; the vendor's HTTP contract — the
-outbound call and the translation of its wire shape — lives in that
-vendor's adapter, the only thing named after it. Anomaly kinds stay
-provider-neutral even when raised inside a vendor's adapter, because
-they surface as the API's RFC 9457 `type`. Recording a provider is
-still fine: if a value selects behaviour it is dispatch and belongs in
-deployment, but if it only records what happened it is provenance and
-may travel on the reply.
-See [ADR-0020](../../../docs/adr/0020-providers-are-deployment-facts.md).
+A bank chooses one provider of each kind its installation offers —
+payments and identity verification today — when it is created, and
+keeps them for its life. Record them at creation as one provider per
+kind, each defaulting to the installation's default for its kind where
+the create names none, whoever creates the bank. Refuse a create naming
+a provider the installation does not run, and never change a bank's
+provider afterwards: moving a running bank is a migration, not a
+request. Declare every provider an installation runs by name, with one
+default per kind, and check each adapter at start-up against its own
+declaration. Give each provider its own command channels and route a
+command to the bank's provider's channel from configuration; share the
+event channels, whose ids and addresses are unique across providers.
+Read the bank's provider's declaration wherever behaviour follows a
+declaration, never the installation's. A domain component never names a
+provider: it holds the bank's provider as a key into configuration and
+branches on the declaration the key selects, never on the key. Offer a
+new kind of provider the same way — a declaration per provider, a
+default, a channel per provider and the kind's entry on the bank — with
+no change to how the bank records the others. The rest of ADR-0020
+stands: a vendor's HTTP contract lives in its adapter alone, anomaly
+kinds stay provider-neutral, and a company register stays one per
+installation.
+See [ADR-0030](../../../docs/adr/0030-a-bank-chooses-its-providers-when-it-is-created.md).
 
 ## One API, fully OpenAPI-compliant
 
@@ -276,13 +283,12 @@ See [ADR-0009](../../../docs/adr/0009-model-equality-property-testing.md).
 
 ## Bank-specific code generation follows the shared prep-lib pattern
 
-Code generation from a source artefact (currently protobuf record
-definitions for `schema`) uses Clojure's standard `:deps/prep-lib`
-mechanism, never a build-system plugin or a custom run-script. A
-`build.clj` co-located in the brick delegates the work to
-`bases/build`, where new generation logic goes first so other bricks
-can reuse it. Generated code lands in a `gen/` folder with its own
-`.gitignore` (`*` / `!.gitignore`) — never committed. After a
-source-schema change `:force true` is required — the prep marker is
-stale on its own.
+Generate code from a source artefact with Clojure's standard
+`:deps/prep-lib` mechanism, never an external build system — a Maven
+plugin, Gradle or a Babashka task. A `build.clj` co-located in the
+brick delegates the work to `bases/build`, where new generation logic
+goes first so other bricks can reuse it. Generated code lands in a
+`gen/` folder inside the brick, with a `gen/.gitignore` of `*` and
+`!.gitignore`, and is never committed. After a source-schema change
+`:force true` is required — the prep marker is stale.
 See [code-generation](../../../docs/recipes/code/code-generation.md).

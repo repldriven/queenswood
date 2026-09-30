@@ -316,6 +316,14 @@ the caller lacks — see [gcp-iam](gcp-iam.md).
   a registrar points at, its nameservers change when it is recreated,
   and each fresh zone draws from a finite per-domain pool.
 - Fix a default VPC in a composition. It cannot be undone there.
+- Apply the manifest from a boot cluster with `just boot-mgmt-apply`
+  to an installation that already has a management plane. It flips the
+  `Release`s installing Crossplane and Argo to `Create, Update`, and two
+  planes then reconcile the same composite.
+- Run a cluster's nodes as the default compute service account. A node
+  pool asks for `cloud-platform` scopes, so whatever its identity holds
+  is reachable by every workload on the cluster through the metadata
+  server.
 - Render a manifest over one that already exists. The management
   project id is minted per call, so the second render replaces the
   recorded id with one no project answers to, and the redirect

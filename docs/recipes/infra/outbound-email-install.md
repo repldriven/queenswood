@@ -178,7 +178,10 @@ domain.
 **MUST:**
 
 - Send from the instance's own domain and publish its records in the
-  instance's zone, through `spec.records` in `<label>.zone.yml`.
+  instance's zone, through `spec.records` in `<label>.zone.yml`: the
+  provider's DKIM records, its return-path CNAME or, where it asks for
+  one instead, an SPF include, and a DMARC record.
+- Submit on port 587 with `security: starttls`.
 - Publish one entry per name and type, with every value for that pair
   in its `rrdatas`.
 - Write the password with `just queenswood-instance-smtp-secret`, as

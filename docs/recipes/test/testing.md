@@ -129,7 +129,8 @@ the component runs its tests.
 **MUST:**
 
 - Use `clojure.test/deftest` for pure functions, and for a brick's own
-  store and changelog against FDB under `with-test-system`.
+  store and changelog against FDB under `with-test-system`, reading back
+  through the brick's query sibling.
 - Use the scenario runner for system-level tests: anything that crosses
   a brick boundary or drives the command pipeline.
 - Pin the HTTP contract as an EDN scenario in `test-api-scenarios`,
@@ -139,6 +140,9 @@ the component runs its tests.
   start-up check of every service project and the migrator's guard,
   whatever changed.
 - Run one brick with `project:dev brick:<name> :all`.
+- Cap the JVM's processor count and set `TEST_SYSTEM_PERMITS` to
+  Docker's CPU count on a raw `clojure -M:poly test`, as `just test`
+  and `just test-all` do.
 
 **MUST NOT:**
 

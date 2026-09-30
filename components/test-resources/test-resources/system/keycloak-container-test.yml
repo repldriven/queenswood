@@ -1,5 +1,7 @@
 container: !system/component
   system/component-kind: keycloak/container
+  # The chart's version, which check-versions asserts.
+  docker-image-name: quay.io/keycloak/keycloak:26.7.4
   reuse: !env TESTCONTAINERS_REUSE_ENABLE
   # Imported at container boot. Each realm carries audience scopes
   # + a `queenswood-admin` service-account client for the keycloak

@@ -6,30 +6,27 @@ library versions pinned under `deps/`.
 
 ## Aggregator bases are the one base-on-base exception
 
-Bases never depend on other bases, except a designated multi-base
-aggregator — `monolith` (the whole bank, for local dev and end-to-end
-tests) and `external-adapters` (every vendor adapter and its simulator)
-— on the bases it composes. A base that only ever appears inside an
-aggregator is a composed base: it has no project and no `-main`, and
-carries an `interface.clj` that bare-requires its own `system`
-namespace and exposes what the aggregator wires in (typically `app`).
-An aggregator reaches a composed base by that interface and nothing
-else — `.api` is reserved for a base that has none. `poly` still treats
-it as a base, so `enforce-idioms.sh` enforces this, not Polylith. A
-base never owns a store: it may bare-require `fdb.interface` from its
-`system.clj` to register FDB component-kinds and nothing more, and
-`store-in-a-base` in `enforce-idioms.sh` blocks the rest.
+Bases never depend on other bases, except a designated aggregator —
+`monolith` or `external-adapters` — on the bases it composes. A composed
+base has no project and no `-main`, and carries an `interface.clj` that
+bare-requires its own `system` namespace and exposes whatever the
+aggregator wires in (typically `app`). An aggregator reaches a composed
+base by that interface and nothing else, never by `.api` or `.system`;
+`.api` is reserved for a base that has no interface. A base never owns
+a store — persistence belongs in a component: it may bare-require
+`fdb.interface` from its `system.clj` to register FDB component-kinds
+and nothing more, and `store-in-a-base` in
+`scripts/hooks/enforce-idioms.sh` enforces it.
 See [aggregator-bases](../../../docs/recipes/code/aggregator-bases.md).
 
 ## Library versions are pinned once, under `deps/`
 
 Pin a library several bricks or projects share in one shim under
-`deps/`, referenced as `pin/<name>` — `pin/protojure`, `pin/fdb`,
-`pin/clojure-core-async` — never declared in a brick or project
-directly. Pinning down needs the competing copy excluded where it
-enters, since a shim one level below a direct dependency loses; that is
-what `pin/protojure` and `pin/fdb` do. Every project repeats
-`org.clojure/clojure`, and `just check-versions` asserts the copies
-against the root `deps.edn`. Renovate owns the bumps.
+`deps/`, referenced as `pin/<name>`, and never declare a shimmed
+library's version in a brick or project directly. When pinning a
+library down, exclude the competing copy where it enters: a shim one
+level below a direct dependency loses. Repeat `org.clojure/clojure` in
+every project and keep the copies equal. Never bump a version Renovate
+manages by hand.
 Commands: `just check-versions`.
 See [library-pins](../../../docs/recipes/code/library-pins.md).

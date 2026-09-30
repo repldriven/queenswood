@@ -25,15 +25,15 @@ See [git-hooks](../../../docs/recipes/practices/git-hooks.md).
 
 ## mono's share of the tree is imported, never committed
 
-The ADRs, recipes, slides, plugins, hook library and justfiles mono owns are
-laid down by `just mono-import` at the sha `deps/mono-dev/deps.edn` pins —
-untracked, excluded, and reverted to the pinned copy on the next
-import. Run it after bumping the pin, then `just tessl-plugins-install`;
-`just mono-check` says whether the tree is current. Never edit or
-commit an imported file: change it in mono, release, bump. Give a new
-ADR a number above both trees and a new recipe a filename neither tree
-uses, since the import refuses to overwrite a tracked path. Link an imported doc
-from `readme.md` by its mono GitHub URL, never relatively.
-Commands: `just mono-import`, `just tessl-plugins-install`,
-`just mono-check`.
+Never edit or commit a file `just mono-import` laid down: change it in
+mono, release, and bump. Run `just mono-import` after bumping
+`deps/mono-dev/deps.edn`, then `just tessl-plugins-install`, so mono's
+rules are reinstalled at the new sha, and check a tree with
+`just mono-check` before trusting its docs, hooks or rules. Take a new
+ADR's number above the highest in both trees, and a new recipe's
+filename from neither. Link an imported doc from `readme.md` by its
+mono GitHub URL, never relatively: GitHub renders a link to an
+untracked file as a 404.
+Commands: `just mono-import`, `just tessl-plugins-install`, `just
+mono-check`.
 See [mono-import](../../../docs/recipes/practices/mono-import.md).

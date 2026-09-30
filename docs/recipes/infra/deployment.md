@@ -367,6 +367,10 @@ hangs the same way.
   Dockerfile. The arch-aware `libfdb_c.so` install and the
   shared base layer are the parts that need to stay
   consistent across services.
+- Reference `PROJECT_NAME` in the shared Dockerfile's `deps`
+  stage. It first appears in the thin `build` stage that
+  makes the uberjar; named earlier, it gives every bake
+  target its own cache key for identical work.
 
 **MAY:**
 

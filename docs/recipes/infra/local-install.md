@@ -142,9 +142,13 @@ grant is made once by an administrator of the account — see
   on its own.
 - Create the client in the local project, never in an instance's. One
   client per environment, and local development is one.
+- Give the client the one redirect URI
+  `http://localhost:8090/realms/queenswood/broker/google/endpoint`.
 - Store the id at `queenswood/local/dev/auth/clients/ids/google` and
   the secret at `queenswood/local/dev/auth/clients/google`, where `just
   monolith-start` and the dev profile read them.
+- Restart the monolith after storing either. The container imports the
+  realm when it starts, and nothing reaches a running one.
 
 **MUST NOT:**
 

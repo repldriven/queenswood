@@ -328,6 +328,8 @@ are different paths.
 - Set `compositionUpdatePolicy: Manual` on an XR. Pinning divides an
   estate into the XRs that took an edit and the ones that did not,
   which is the problem versioning an XRD would have caused.
+- Give a default to a field whose `Required` patch switches a group of
+  composed resources on and off. A default makes it always present.
 - Expect a Composition to withhold a field.
 - Compose a cluster-scoped kind from a namespaced XR.
 - Compose resources with different deletion criteria into one kind.

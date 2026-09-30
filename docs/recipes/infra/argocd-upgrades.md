@@ -242,6 +242,8 @@ gets deleted may be carrying state.
   merging a version change, and read the Argo CD release notes for
   the app versions it crosses.
 - Confirm `management-plane` still exists before anything else.
+- Roll back a newest revision that is not `deployed`, or not the
+  version pinned, to a release revision rather than a chart version.
 - Join `cluster-admin` for the upgrade itself and leave again.
   Everything else here is a viewer's.
 

@@ -107,9 +107,9 @@ tree's.
 
 **MUST:**
 
-- Bump `version` in the declaration on every change to a record type,
-  primary key or index. `just test-all` runs the guard whatever
-  changed.
+- Bump `version` in the declaration, `fdb-record-types.yml`, on every
+  change to a record type, primary key or index. `just test-all` runs
+  the guard whatever changed.
 - Set `modified` to the new version on an index whose key, type or
   uniqueness changed, keeping its name and its `added`.
 - Give a new index `added` and `modified` equal to the new version.

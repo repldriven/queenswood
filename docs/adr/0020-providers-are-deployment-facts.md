@@ -1,10 +1,13 @@
 # 20. External providers are deployment facts, not request parameters
 
-<!-- tessl-plugin: design -->
-
 ## Status
 
-Accepted.
+**Superseded by** [ADR-0030](0030-a-bank-chooses-its-providers-when-it-is-created.md).
+
+A bank now chooses its payment and identity-verification providers when
+it is created. What survives is what ADR-0030 keeps: a vendor's HTTP
+contract lives in its adapter alone, anomaly kinds stay provider-neutral,
+and a company register stays one per installation.
 
 ## Context
 

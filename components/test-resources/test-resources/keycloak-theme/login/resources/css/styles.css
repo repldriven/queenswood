@@ -268,9 +268,12 @@ button[type="submit"]:hover {
   border-color: #2a2622 !important;
 }
 
-/* Social provider section. Keycloak ships icon-only links with the
-   provider name only in aria-label; reveal it via a generated text
-   node so users see "Continue with Google" / GitHub. */
+/* Social provider section. Keycloak renders each provider as a
+   PatternFly button holding an icon and a name span; select by
+   #kc-social-providers, hide the span, and reveal the name via a
+   generated text node so users see "Continue with Google" / GitHub.
+   PatternFly draws the button's border in an absolutely positioned
+   ::after, which the label resets. */
 #kc-social-providers,
 .kc-social-section,
 .kc-social-gray,
@@ -291,7 +294,7 @@ button[type="submit"]:hover {
   text-align: center !important;
   margin: 12px 0 16px !important;
 }
-.pf-v5-c-login__main-footer-links {
+#kc-social-providers ul {
   list-style: none !important;
   display: flex !important;
   flex-direction: column !important;
@@ -299,11 +302,11 @@ button[type="submit"]:hover {
   margin: 8px 0 0 !important;
   padding: 0 !important;
 }
-.pf-v5-c-login__main-footer-links-item {
+#kc-social-providers li {
   margin: 0 !important;
   padding: 0 !important;
 }
-.pf-v5-c-login__main-footer-links-item-link {
+#kc-social-providers a {
   display: flex !important;
   align-items: center !important;
   justify-content: flex-start !important;
@@ -320,18 +323,24 @@ button[type="submit"]:hover {
   text-decoration: none !important;
   transition: background 0.12s, border-color 0.12s !important;
 }
-.pf-v5-c-login__main-footer-links-item-link::after {
+#kc-social-providers a > span {
+  display: none !important;
+}
+#kc-social-providers a::after {
   content: "Continue with " attr(aria-label);
+  position: static !important;
+  inset: auto !important;
+  border: 0 !important;
   font-family: var(--grotesk);
   font-size: 15px;
   font-weight: 500;
   color: var(--ink);
 }
-.pf-v5-c-login__main-footer-links-item-link:hover {
+#kc-social-providers a:hover {
   background: rgba(20, 15, 10, 0.04) !important;
   border-color: rgba(20, 15, 10, 0.18) !important;
 }
-.pf-v5-c-login__main-footer-links-item-link svg {
+#kc-social-providers a svg {
   width: 20px !important;
   height: 20px !important;
   flex: 0 0 20px !important;
