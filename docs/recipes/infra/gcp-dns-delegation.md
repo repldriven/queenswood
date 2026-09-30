@@ -158,6 +158,14 @@ authoritative and everything in its panel stops applying.
 - Delete the old records at the registrar as part of the move. They are
   the way back.
 - Re-enable DNSSEC at the registrar after moving.
+- Diff against a public resolver. It answers from whichever authority
+  is delegated and says nothing about the other.
+
+**MAY:**
+
+- Let the SOA and the NS records differ between the two sweeps, each
+  naming its own authority. Anything else that differs is something the
+  new zone does not yet carry.
 
 **SHOULD:**
 

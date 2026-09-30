@@ -196,6 +196,18 @@ an event):
    only a `FAILED` command marks its span as an error: a
    rejection is the bank correctly declining.
 
+On Kafka, both ends of a hop say where the message went. `bus-send`
+records `messaging.system` `kafka`, the topic as
+`messaging.destination.name`, `messaging.destination.partition.id`,
+`messaging.kafka.offset` and the key as `messaging.kafka.message.key`,
+and the consumer's `process-command` or `process-event` records the
+same for the record it read, with the consumer group as
+`messaging.consumer.group.name`. The offset, group and operation are
+written under the older conventions' names as well —
+`messaging.kafka.message.offset`, `messaging.kafka.consumer.group` and
+`messaging.operation` — which SigNoz's Messaging Queues view reads. On
+the local bus, `bus-send` names the channel and nothing more.
+
 The chain continues for as many hops as the action takes.
 
 Work done later on a poll loop's thread, where no span is active,

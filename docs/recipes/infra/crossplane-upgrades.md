@@ -214,6 +214,8 @@ helm --kube-context "$QW_CODE-mgmt" rollback crossplane <revision> \
 - Render both chart versions before merging a version change, and read
   the release notes for the versions it crosses.
 - Check every provider and function is healthy afterwards.
+- Roll back a newest revision that is not `deployed`, or not the
+  version pinned, to a release revision rather than a chart version.
 - Join `cluster-admin` for the upgrade itself and leave again.
 
 **MUST NOT:**

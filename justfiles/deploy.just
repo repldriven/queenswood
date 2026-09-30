@@ -188,11 +188,11 @@ keycloak-up:
     docker run --rm \
       --name queenswood-keycloak-dev \
       -p 8090:8080 \
-      -e KEYCLOAK_ADMIN=admin \
-      -e KEYCLOAK_ADMIN_PASSWORD=admin \
+      -e KC_BOOTSTRAP_ADMIN_USERNAME=admin \
+      -e KC_BOOTSTRAP_ADMIN_PASSWORD=admin \
       -v "$PWD/components/test-resources/test-resources/queenswood-realm.json:/opt/keycloak/data/import/realm.json:ro" \
       -v "$PWD/components/test-resources/test-resources/queenswood-ops-realm.json:/opt/keycloak/data/import/realm-ops.json:ro" \
-      quay.io/keycloak/keycloak:26.0 \
+      quay.io/keycloak/keycloak:26.7.4 \
       start-dev --import-realm
 
 # Force-stop a stray dev Keycloak container (Ctrl+C is normally enough)

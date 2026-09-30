@@ -133,6 +133,15 @@ check "keycloak-operator vendored image" "$keycloak" \
   "$(grep -oE 'quay.io/keycloak/keycloak-operator:[0-9.]+' \
       infra/helm/queenswood/charts/keycloak-operator/templates/operator.yaml \
       | head -1 | cut -d: -f2)"
+check "keycloak testcontainer (monolith and scenarios)" "$keycloak" \
+  "$(sed -n 's|^  docker-image-name: quay.io/keycloak/keycloak:\(.*\)$|\1|p' \
+      components/test-resources/test-resources/system/keycloak-container-test.yml)"
+check "keycloak testcontainer (deployed realm)" "$keycloak" \
+  "$(sed -n 's|^ *docker-image-name: quay.io/keycloak/keycloak:\(.*\)$|\1|p' \
+      components/test-api-scenarios/test-resources/test-api-scenarios/deployed-realm-test.yml)"
+check "keycloak-up (justfiles/deploy.just)" "$keycloak" \
+  "$(grep -oE 'quay.io/keycloak/keycloak:[0-9.]+' justfiles/deploy.just \
+      | head -1 | cut -d: -f2)"
 check "keycloak-operator vendored CRD accepts server schema" "yes" \
   "$(grep -q 'webAuthnPolicyResidentKey:' \
       infra/helm/queenswood/charts/keycloak-operator/crds/crd-keycloakrealmimports.yaml \

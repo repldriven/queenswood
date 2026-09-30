@@ -171,10 +171,10 @@ permission and is meant for a project.
 ## Rules
 
 **MUST:**
+
 - Grant bucket-metadata read alongside object access where the client
   is S3-compatible. `storage.objectAdmin` has no `storage.buckets.get`,
   and a HEAD-bucket is the first thing such a client sends.
-
 - Give every node pool its own service account with
   `roles/container.defaultNodeServiceAccount`.
 - Grant both halves of Workload Identity, and pin the Kubernetes
@@ -195,6 +195,8 @@ permission and is meant for a project.
 
 - Rely on the default compute service account being powerless. That is
   an org policy enforced elsewhere.
+- Assume an organisation policy constraint is on without reading it. A
+  composition can say a constraint prevents something it does not.
 - Assume a role can be granted at the scope its feature acts on.
 - Assume `gcloud auth login` refreshed ADC.
 - Assume ADC impersonation makes `gcloud` act as that identity.

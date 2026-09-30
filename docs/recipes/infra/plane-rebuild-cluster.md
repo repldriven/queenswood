@@ -656,6 +656,8 @@ successor before scaling anything again.
 - Record the slot list and the external names before, and diff them
   after. Adoption is the whole procedure, and nothing else reports
   whether it happened.
+- Write both lists outside every repository. They are the estate's own
+  identifiers.
 - Merge an `adopt` for every project in the estate before swapping. One
   whose manifest lacks it cannot be adopted by any plane that did not
   create it.
@@ -703,6 +705,15 @@ successor before scaling anything again.
   [instance-rebuild-cluster](instance-rebuild-cluster.md) — and never as
   a way to retire an installation, which takes the recovery project and
   the backups with it.
+- Never use this where no plane is running at all. Nothing is left to
+  build a successor, so raise a boot plane and install, which adopts
+  what survived.
+
+**MAY:**
+
+- Carry a ForceNew field along with the rename. The successor is
+  created rather than altered, which is the only way the plane's
+  cluster acquires an immutable field it was built without.
 
 Commands: `just crossplane-slots`, `just crossplane-external-names`,
 `just crossplane-drift`, `just crossplane-unready`, `just

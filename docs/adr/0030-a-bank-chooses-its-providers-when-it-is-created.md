@@ -4,7 +4,7 @@
 
 ## Status
 
-**Proposed**
+**Accepted**
 
 ## Context
 
@@ -110,6 +110,6 @@ Harder:
   must not collide with another adapter's, and only configuration keeps
   them apart.
 
-Supersedes [ADR-0020](0020-providers-are-deployment-facts.md) once
-accepted. Related: [ADR-0019](0019-processor-packaging.md), on which
+Supersedes [ADR-0020](0020-providers-are-deployment-facts.md).
+Related: [ADR-0019](0019-processor-packaging.md), on which
 service hosts the adapters.

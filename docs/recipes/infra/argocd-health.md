@@ -122,6 +122,12 @@ status matters.
   registering a check for `argoproj.io/Application`.
 - Read `Synced` before `Ready`, in a pass of its own, when writing a
   check.
+- Read the plane's Argo CD version before reading anything into a green
+  estate. Older than 3.5.3, every managed resource reports Healthy
+  while it is still provisioning.
+- Add a status-less kind to `LISTED_CROSSPLANE` or `LISTED_UPBOUND` in
+  `justfiles/argo.just` once the release whose script lists it is the
+  one the plane runs.
 
 **MUST NOT:**
 

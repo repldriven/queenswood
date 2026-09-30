@@ -97,7 +97,7 @@ non-trivial work on their topic.
   See [tdd/service-apis.md](docs/tdd/service-apis.md),
   [ADR-0013](docs/adr/0013-single-unified-api.md),
   [ADR-0014](docs/adr/0014-openapi-3x-compliance.md).
-- **A bank's providers** — proposed: each bank runs on the payment and
+- **A bank's providers** — each bank runs on the payment and
   IDV providers it named when created, every provider an installation
   offers running side by side on a command channel of its own.
   See [ADR-0030](docs/adr/0030-a-bank-chooses-its-providers-when-it-is-created.md)
