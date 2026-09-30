@@ -372,6 +372,21 @@ signoz:
             name: queenswood-signoz-root
             key: password
 
+# The SigNoz Operator, which keeps SigNoz's dashboards to the Dashboard
+# resources this chart declares from files/signoz/dashboards/. It signs
+# in as `key.account`, a SigNoz service account holding `key.role`,
+# whose API key a Job issues into `key.secretName` -- see
+# templates/signoz-operator.yaml.
+signozOperator:
+  enabled: true
+  # The operator's chart names things after the chart, which the alias
+  # makes camel case and Kubernetes refuses.
+  nameOverride: signoz-operator
+  key:
+    secretName: queenswood-signoz-operator-key
+    account: queenswood-operator
+    role: signoz-editor
+
 # -- Outbound email. The services on `consumers` send invitation emails
 # through the SMTP server named here, and every link they carry opens the
 # console at `consoleUrl`.

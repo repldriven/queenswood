@@ -1,0 +1,191 @@
+{{- /*
+  The SigNoz Operator's way in: a service account in SigNoz, its API key
+  in a Secret, and the ProviderConfig every managed resource names.
+
+  SigNoz issues a key only through its API, and only to somebody signed
+  in, so the Job signs in as the root user templates/signoz-root.yaml
+  provisions, finds or creates the service account, gives it
+  `role`, and issues a key. It carries forward a key SigNoz still
+  accepts, and issues another when SigNoz refuses the one it holds --
+  which is what a SigNoz whose volume was lost does -- on its next run.
+
+  Not rendered by the chart, and not in Secret Manager, for the reasons
+  templates/signoz-root.yaml gives: the key grants nothing outside this
+  cluster's SigNoz, and is issued again from the root user at will.
+*/}}
+{{- define "queenswood.signozRootPasswordEnv" -}}
+{{- $password := .Values.signoz.signoz.env.signoz_user_root_password -}}
+- name: ROOT_PASSWORD
+{{- if and (kindIs "map" $password) $password.value }}
+  value: {{ $password.value | quote }}
+{{- else if kindIs "map" $password }}
+  valueFrom:
+    {{- toYaml $password.valueFrom | nindent 4 }}
+{{- else }}
+  value: {{ $password | quote }}
+{{- end }}
+{{- end -}}
+
+{{- define "queenswood.signozOperatorKeyPodSpec" -}}
+restartPolicy: OnFailure
+serviceAccountName: {{ .Release.Name }}-signoz-operator-key
+containers:
+  - name: issue
+    image: {{ $.Values.tools.k8s.image | quote }}
+    env:
+      - name: SIGNOZ_URL
+        value: {{ printf "http://%s-signoz:8080" .Release.Name | quote }}
+      - name: SECRET_NAME
+        value: {{ .Values.signozOperator.key.secretName | quote }}
+      - name: ACCOUNT
+        value: {{ .Values.signozOperator.key.account | quote }}
+      - name: ROLE_NAME
+        value: {{ .Values.signozOperator.key.role | quote }}
+      - name: ROOT_EMAIL
+        value: {{ .Values.signoz.signoz.env.signoz_user_root_email | quote }}
+      {{- include "queenswood.signozRootPasswordEnv" . | nindent 6 }}
+    command:
+      - sh
+      - -c
+      - |
+        set -eu
+        B="$SIGNOZ_URL"
+        until curl -fsS -o /dev/null "$B/api/v1/health"; do
+          echo "waiting for SigNoz at $B"
+          sleep 5
+        done
+        existing=$(kubectl get secret "$SECRET_NAME" \
+          -o jsonpath='{.data.token}' 2>/dev/null || true)
+        if [ -n "$existing" ]; then
+          KEY=$(printf '%s' "$existing" | base64 -d)
+          if curl -fsS -o /dev/null -H "SIGNOZ-API-KEY: $KEY" \
+               "$B/api/v1/service_accounts/me"; then
+            echo "carrying forward the key in $SECRET_NAME"
+            exit 0
+          fi
+          echo "SigNoz refuses the key in $SECRET_NAME; issuing another"
+        fi
+        ORG=$(curl -fsS -G "$B/api/v2/sessions/context" \
+          --data-urlencode "email=$ROOT_EMAIL" --data-urlencode "ref=$B" \
+          | jq -r '.data.orgs[0].id')
+        TOKEN=$(jq -n --arg e "$ROOT_EMAIL" --arg p "$ROOT_PASSWORD" --arg o "$ORG" \
+            '{email: $e, password: $p, orgId: $o}' \
+          | curl -fsS -H 'content-type: application/json' \
+              "$B/api/v2/sessions/email_password" -d @- \
+          | jq -r .data.accessToken)
+        api() {
+          curl -fsS -H "Authorization: Bearer $TOKEN" \
+            -H 'content-type: application/json' "$@"
+        }
+        SA=$(api "$B/api/v1/service_accounts" \
+          | jq -r --arg n "$ACCOUNT" \
+              '[.data[]? | select(.name == $n and .status != "deleted")][0].id // empty')
+        if [ -z "$SA" ]; then
+          SA=$(jq -n --arg n "$ACCOUNT" '{name: $n}' \
+            | api "$B/api/v1/service_accounts" -d @- | jq -r .data.id)
+        fi
+        ROLE=$(api "$B/api/v1/roles" \
+          | jq -r --arg r "$ROLE_NAME" '.data[] | select(.name == $r) | .id')
+        if ! api "$B/api/v1/service_accounts/$SA/roles" \
+             | jq -e --arg r "$ROLE" '.data[]? | select(.id == $r)' > /dev/null; then
+          jq -n --arg s "$SA" --arg r "$ROLE" '{serviceAccountId: $s, roleId: $r}' \
+            | api "$B/api/v1/service_account_roles" -d @- > /dev/null
+        fi
+        KEY=$(jq -n --arg n "operator-$(date +%s)" '{name: $n, expiresAt: 0}' \
+          | api "$B/api/v1/service_accounts/$SA/keys" -d @- | jq -r .data.key)
+        if [ -z "$KEY" ] || [ "$KEY" = null ]; then
+          echo "SigNoz issued no key" >&2
+          exit 1
+        fi
+        kubectl patch secret "$SECRET_NAME" --type merge -p "$(
+          printf '{"data":{"token":"%s"}}' \
+            "$(printf '%s' "$KEY" | base64 -w0)")" > /dev/null
+        echo "issued a key for $ACCOUNT and stored it in $SECRET_NAME"
+{{- end -}}
+
+{{- if and .Values.signoz.enabled .Values.signozOperator.enabled }}
+{{- $name := printf "%s-signoz-operator-key" .Release.Name -}}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Values.signozOperator.key.secretName }}
+  labels:
+    {{- include "queenswood.labels" . | nindent 4 }}
+type: Opaque
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "queenswood.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "queenswood.labels" . | nindent 4 }}
+rules:
+  # resourceNames, so this is a grant on one Secret rather than on
+  # secrets. No `create`: the Secret is rendered above.
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: [{{ .Values.signozOperator.key.secretName | quote }}]
+    verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "queenswood.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $name }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $name }}
+    namespace: {{ .Release.Namespace }}
+---
+# The name hashes the pod spec, so anything changing what the Job runs
+# changes its name. A pod template is immutable once the Job exists.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ printf "%s-%s" $name (include "queenswood.signozOperatorKeyPodSpec" . | sha256sum | trunc 10) }}
+  labels:
+    {{- include "queenswood.labels" . | nindent 4 }}
+    app.kubernetes.io/component: signoz-operator-key
+spec:
+  backoffLimit: 6
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        {{- include "queenswood.podLabels" . | nindent 8 }}
+        app.kubernetes.io/component: signoz-operator-key
+    spec:
+      {{- include "queenswood.signozOperatorKeyPodSpec" . | nindent 6 }}
+---
+# What every resource the operator manages names: SigNoz at its Service,
+# which is the same address in every cluster, and the key above.
+apiVersion: resources.signoz.io/v1alpha1
+kind: ProviderConfig
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    {{- include "queenswood.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  endpoint:
+    value: {{ printf "http://%s-signoz:8080" .Release.Name | quote }}
+  auth:
+    header:
+      valueFrom:
+        secretKeyRef:
+          name: {{ .Values.signozOperator.key.secretName | quote }}
+          key: token
+{{- end }}

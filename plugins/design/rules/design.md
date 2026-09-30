@@ -45,6 +45,23 @@ Commands: `just telemetry-start`, `just telemetry-stop`,
 `just telemetry-ui`.
 See [ADR-0031](../../../docs/adr/0031-traces-go-to-signoz-in-the-cluster-that-produces-them.md).
 
+## SigNoz is configured through its operator
+
+Declare SigNoz's content in the queenswood chart as the SigNoz
+Operator's resources, and let the operator create and keep it in each
+cluster's SigNoz. The operator's chart is vendored under
+`charts/signoz-operator` with its CRDs in `crds/`, because upstream
+ships them as templates Helm would not install ahead of the chart's own
+resources. The operator signs in as the SigNoz service account
+`queenswood-operator`, holding `signoz-editor`, whose API key a Job
+issues in the cluster into `queenswood-signoz-operator-key` by signing
+in as the root user, and the key is kept nowhere else. One
+`ProviderConfig` names SigNoz at its Service, the same address in every
+cluster. A `Dashboard` is rendered per file under
+`files/signoz/dashboards/`, each the body SigNoz's API takes, and no
+field the operator writes a default into is set on it.
+See [ADR-0032](../../../docs/adr/0032-signoz-is-configured-through-its-operator.md).
+
 ## Record meta-data evolves by declared versions
 
 `fdb-record-types.yml` declares the meta-data `version`, every index

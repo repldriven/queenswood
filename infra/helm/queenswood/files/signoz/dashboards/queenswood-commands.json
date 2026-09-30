@@ -1,0 +1,805 @@
+{
+  "name": "queenswood-commands",
+  "schemaVersion": "v6",
+  "tags": [
+    {
+      "key": "team",
+      "value": "queenswood"
+    }
+  ],
+  "spec": {
+    "display": {
+      "name": "Queenswood commands",
+      "description": "Commands on the bus. `command-send` times the round trip a caller waits for, reply included; `process-command` times the processor's own work. Both record the reply as `command.status`, and only a FAILED command is marked as an error."
+    },
+    "variables": [
+      {
+        "kind": "ListVariable",
+        "spec": {
+          "name": "service",
+          "display": {
+            "name": "service",
+            "description": "The services this dashboard reads"
+          },
+          "allowAllValue": true,
+          "allowMultiple": true,
+          "sort": "alphabetical-asc",
+          "plugin": {
+            "kind": "signoz/DynamicVariable",
+            "spec": {
+              "name": "service.name",
+              "signal": "traces"
+            }
+          }
+        }
+      }
+    ],
+    "panels": {
+      "2d0db05a-623f-5424-ac29-94b03c3016f2": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Commands processed",
+            "description": ""
+          },
+          "links": [],
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "global_time",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "reqps",
+                "decimalPrecision": "2"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none"
+              },
+              "axes": {
+                "softMin": 0,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list"
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "name": "A",
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "traces",
+                    "stepInterval": 60,
+                    "aggregations": [
+                      {
+                        "expression": "rate()"
+                      }
+                    ],
+                    "filter": {
+                      "expression": "name = 'process-command' AND service.name IN $service"
+                    },
+                    "having": {
+                      "expression": ""
+                    },
+                    "legend": "{{command}}",
+                    "groupBy": [
+                      {
+                        "name": "command",
+                        "fieldContext": "attribute",
+                        "fieldDataType": "string"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "9ce2351c-54be-57e5-b00f-023a1c329620": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Commands in the time range",
+            "description": ""
+          },
+          "links": [],
+          "plugin": {
+            "kind": "signoz/TablePanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "global_time"
+              },
+              "formatting": {
+                "decimalPrecision": "2"
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "scalar",
+              "spec": {
+                "name": "A",
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "traces",
+                    "stepInterval": 60,
+                    "aggregations": [
+                      {
+                        "expression": "count()",
+                        "alias": "commands"
+                      }
+                    ],
+                    "filter": {
+                      "expression": "name = 'process-command' AND service.name IN $service"
+                    },
+                    "having": {
+                      "expression": ""
+                    },
+                    "legend": "",
+                    "groupBy": [
+                      {
+                        "name": "command",
+                        "fieldContext": "attribute",
+                        "fieldDataType": "string"
+                      }
+                    ],
+                    "limit": 25,
+                    "order": [
+                      {
+                        "key": {
+                          "name": "count()"
+                        },
+                        "direction": "desc"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "a5295646-0531-5dfd-aa44-01518a101b9b": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Commands, by outcome",
+            "description": "REJECTED is the bank correctly declining; FAILED is a fault"
+          },
+          "links": [],
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "global_time",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "reqps",
+                "decimalPrecision": "2"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none"
+              },
+              "axes": {
+                "softMin": 0,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list"
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "name": "A",
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "traces",
+                    "stepInterval": 60,
+                    "aggregations": [
+                      {
+                        "expression": "rate()"
+                      }
+                    ],
+                    "filter": {
+                      "expression": "name = 'process-command' AND service.name IN $service"
+                    },
+                    "having": {
+                      "expression": ""
+                    },
+                    "legend": "{{command.status}}",
+                    "groupBy": [
+                      {
+                        "name": "command.status",
+                        "fieldContext": "attribute",
+                        "fieldDataType": "string"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "b855cfdb-155a-56a3-9a38-ea3a8aeebdee": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Failed commands",
+            "description": ""
+          },
+          "links": [],
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "global_time",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "",
+                "decimalPrecision": "2"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none"
+              },
+              "axes": {
+                "softMin": 0,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list"
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "name": "A",
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "traces",
+                    "stepInterval": 60,
+                    "aggregations": [
+                      {
+                        "expression": "count()"
+                      }
+                    ],
+                    "filter": {
+                      "expression": "name = 'process-command' AND service.name IN $service AND command.status = 'FAILED'"
+                    },
+                    "having": {
+                      "expression": ""
+                    },
+                    "legend": "{{command}} {{command.reason}}",
+                    "groupBy": [
+                      {
+                        "name": "command",
+                        "fieldContext": "attribute",
+                        "fieldDataType": "string"
+                      },
+                      {
+                        "name": "command.reason",
+                        "fieldContext": "attribute",
+                        "fieldDataType": "string"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "5f19a678-364e-520a-96da-0e2050402b8b": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Rejections, by command and reason",
+            "description": ""
+          },
+          "links": [],
+          "plugin": {
+            "kind": "signoz/TablePanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "global_time"
+              },
+              "formatting": {
+                "decimalPrecision": "2"
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "scalar",
+              "spec": {
+                "name": "A",
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "traces",
+                    "stepInterval": 60,
+                    "aggregations": [
+                      {
+                        "expression": "count()",
+                        "alias": "rejections"
+                      }
+                    ],
+                    "filter": {
+                      "expression": "name = 'process-command' AND service.name IN $service AND command.status = 'REJECTED'"
+                    },
+                    "having": {
+                      "expression": ""
+                    },
+                    "legend": "",
+                    "groupBy": [
+                      {
+                        "name": "command",
+                        "fieldContext": "attribute",
+                        "fieldDataType": "string"
+                      },
+                      {
+                        "name": "command.reason",
+                        "fieldContext": "attribute",
+                        "fieldDataType": "string"
+                      }
+                    ],
+                    "limit": 25,
+                    "order": [
+                      {
+                        "key": {
+                          "name": "count()"
+                        },
+                        "direction": "desc"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "8d1d5165-d076-5fbb-93df-cdebbc7c72c5": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Failed round trips, by command and reason",
+            "description": "A send that failed, or whose reply did not come in time"
+          },
+          "links": [],
+          "plugin": {
+            "kind": "signoz/TablePanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "global_time"
+              },
+              "formatting": {
+                "decimalPrecision": "2"
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "scalar",
+              "spec": {
+                "name": "A",
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "traces",
+                    "stepInterval": 60,
+                    "aggregations": [
+                      {
+                        "expression": "count()",
+                        "alias": "failures"
+                      }
+                    ],
+                    "filter": {
+                      "expression": "name = 'command-send' AND service.name IN $service AND command.status = 'FAILED'"
+                    },
+                    "having": {
+                      "expression": ""
+                    },
+                    "legend": "",
+                    "groupBy": [
+                      {
+                        "name": "command",
+                        "fieldContext": "attribute",
+                        "fieldDataType": "string"
+                      },
+                      {
+                        "name": "command.reason",
+                        "fieldContext": "attribute",
+                        "fieldDataType": "string"
+                      }
+                    ],
+                    "limit": 25,
+                    "order": [
+                      {
+                        "key": {
+                          "name": "count()"
+                        },
+                        "direction": "desc"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "8569de70-8862-5111-83f0-5527e857e98b": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Round trip p95, by command",
+            "description": "From the send to the reply arriving"
+          },
+          "links": [],
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "global_time",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "ns",
+                "decimalPrecision": "2"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none"
+              },
+              "axes": {
+                "softMin": 0,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list"
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "name": "A",
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "traces",
+                    "stepInterval": 60,
+                    "aggregations": [
+                      {
+                        "expression": "p95(duration_nano)"
+                      }
+                    ],
+                    "filter": {
+                      "expression": "name = 'command-send' AND service.name IN $service"
+                    },
+                    "having": {
+                      "expression": ""
+                    },
+                    "legend": "{{command}}",
+                    "groupBy": [
+                      {
+                        "name": "command",
+                        "fieldContext": "attribute",
+                        "fieldDataType": "string"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "ab582763-10d1-5b2d-b262-9907d02a5f8d": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Processing p95, by command",
+            "description": "The processor's own work, its FDB transactions included"
+          },
+          "links": [],
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "global_time",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "ns",
+                "decimalPrecision": "2"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none"
+              },
+              "axes": {
+                "softMin": 0,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list"
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "name": "A",
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "traces",
+                    "stepInterval": 60,
+                    "aggregations": [
+                      {
+                        "expression": "p95(duration_nano)"
+                      }
+                    ],
+                    "filter": {
+                      "expression": "name = 'process-command' AND service.name IN $service"
+                    },
+                    "having": {
+                      "expression": ""
+                    },
+                    "legend": "{{command}}",
+                    "groupBy": [
+                      {
+                        "name": "command",
+                        "fieldContext": "attribute",
+                        "fieldDataType": "string"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "d43eeefd-67e1-503d-8bdb-e264a4357819": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Slowest commands, p99 processing",
+            "description": ""
+          },
+          "links": [],
+          "plugin": {
+            "kind": "signoz/TablePanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "global_time"
+              },
+              "formatting": {
+                "decimalPrecision": "2",
+                "columnUnits": {
+                  "A": "ns"
+                }
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "scalar",
+              "spec": {
+                "name": "A",
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "traces",
+                    "stepInterval": 60,
+                    "aggregations": [
+                      {
+                        "expression": "p99(duration_nano)",
+                        "alias": "p99"
+                      }
+                    ],
+                    "filter": {
+                      "expression": "name = 'process-command' AND service.name IN $service"
+                    },
+                    "having": {
+                      "expression": ""
+                    },
+                    "legend": "",
+                    "groupBy": [
+                      {
+                        "name": "command",
+                        "fieldContext": "attribute",
+                        "fieldDataType": "string"
+                      }
+                    ],
+                    "limit": 15,
+                    "order": [
+                      {
+                        "key": {
+                          "name": "p99(duration_nano)"
+                        },
+                        "direction": "desc"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "layouts": [
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "Volume",
+            "collapse": {
+              "open": true
+            }
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 6,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/2d0db05a-623f-5424-ac29-94b03c3016f2"
+              }
+            },
+            {
+              "x": 6,
+              "y": 0,
+              "width": 6,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/9ce2351c-54be-57e5-b00f-023a1c329620"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "Outcomes",
+            "collapse": {
+              "open": true
+            }
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 6,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/a5295646-0531-5dfd-aa44-01518a101b9b"
+              }
+            },
+            {
+              "x": 6,
+              "y": 0,
+              "width": 6,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/b855cfdb-155a-56a3-9a38-ea3a8aeebdee"
+              }
+            },
+            {
+              "x": 0,
+              "y": 8,
+              "width": 6,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/5f19a678-364e-520a-96da-0e2050402b8b"
+              }
+            },
+            {
+              "x": 6,
+              "y": 8,
+              "width": 6,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/8d1d5165-d076-5fbb-93df-cdebbc7c72c5"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "Latency",
+            "collapse": {
+              "open": true
+            }
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 6,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/8569de70-8862-5111-83f0-5527e857e98b"
+              }
+            },
+            {
+              "x": 6,
+              "y": 0,
+              "width": 6,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/ab582763-10d1-5b2d-b262-9907d02a5f8d"
+              }
+            },
+            {
+              "x": 0,
+              "y": 8,
+              "width": 6,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/d43eeefd-67e1-503d-8bdb-e264a4357819"
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "links": []
+  }
+}

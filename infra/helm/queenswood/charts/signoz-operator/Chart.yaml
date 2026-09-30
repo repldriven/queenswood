@@ -1,0 +1,18 @@
+apiVersion: v2
+appVersion: v0.0.2
+description: Helm chart for the SigNoz Kubernetes operator
+home: https://signoz.io
+icon: https://signoz.io/img/SigNozLogo-orange.svg
+keywords:
+- SigNoz
+- kubernetes
+- operator
+maintainers:
+- email: hello@signoz.io
+  name: SigNoz
+  url: https://signoz.io
+name: signoz-operator
+sources:
+- https://github.com/SigNoz/signoz-operator
+type: application
+version: 0.0.2

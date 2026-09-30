@@ -43,3 +43,13 @@ dependencies:
     version: "0.144.0"
     repository: "https://charts.signoz.io"
     condition: signoz.enabled
+
+  # The SigNoz Operator, vendored for the reason keycloak-operator is:
+  # upstream ships its CRDs as templates, which Helm would not install
+  # ahead of the Dashboard resources this chart declares. See
+  # charts/signoz-operator/README.md.
+  - name: signoz-operator
+    version: "0.0.2"
+    repository: "file://charts/signoz-operator"
+    alias: signozOperator
+    condition: signozOperator.enabled
