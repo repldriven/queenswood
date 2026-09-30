@@ -117,6 +117,9 @@ file each under `files/signoz/dashboards/`. The SigNoz Operator
 (`signozOperator.enabled`, on by default, vendored under
 `charts/signoz-operator`) creates them and puts back any edit made in
 the UI; `docs/recipes/infra/signoz-dashboards.md` is how to change one.
+The explorer's **Views** hold **API requests**, from
+`files/signoz/views/`: the API's request spans with their method,
+route, path, status and duration, newest first.
 
 To ship elsewhere, set `otel.endpoint` (it wins over the in-chart
 SigNoz); to turn tracing off entirely, set `signoz.enabled=false` and

@@ -53,9 +53,10 @@ The parts:
   and keep the key nowhere else.
 - Name SigNoz at its Service in one `ProviderConfig`, the same address
   in every cluster.
-- Render a `Dashboard` per file under `files/signoz/dashboards/`, each
-  the body SigNoz's API takes, and set no field the operator writes a
-  default into.
+- Render a `Dashboard` per file under `files/signoz/dashboards/` and a
+  `SavedView` per file under `files/signoz/views/`, each the body
+  SigNoz's API takes, and set no field the operator writes a default
+  into.
 
 ## Consequences
 

@@ -198,6 +198,18 @@ an event):
 
 The chain continues for as many hops as the action takes.
 
+Work done later on a poll loop's thread, where no span is active,
+continues the trace that asked for it. The record the loop claims —
+a provider relay's intent, an `EmailDelivery`, a
+`WebhookNotification` — stores the `traceparent` of the span that
+wrote it, and the runner opens its span on that context: the relay's
+`<provider>-outbound` and `<provider>-reconcile`, `email-delivery`
+and `webhook-delivery`. So a request's trace runs through the
+provider call it caused, the event that call's outcome publishes, and
+the email or webhook it leads to. What starts a trace of its own is
+what arrives from outside with none of ours: a provider's webhook
+reporting back, and a scheduled run.
+
 `fdb-transaction` records its outcome the same way, as
 `fdb.outcome` — `committed`, `rejected` or `failed` — with the
 anomaly kind as `fdb.reason`. A rejection rolls the transaction

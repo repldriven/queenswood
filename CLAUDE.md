@@ -107,8 +107,9 @@ non-trivial work on their topic.
   generated in the cluster, and the monolith loop's SigNoz through
   Foundry. See
   [ADR-0031](docs/adr/0031-traces-go-to-signoz-in-the-cluster-that-produces-them.md).
-- **SigNoz's dashboards** — declared in the chart and kept by the SigNoz
-  Operator, its API key issued in the cluster, and how to change one.
+- **SigNoz's dashboards and saved views** — declared in the chart and
+  kept by the SigNoz Operator, its API key issued in the cluster, and
+  how to change one.
   See
   [ADR-0032](docs/adr/0032-signoz-is-configured-through-its-operator.md)
   and [signoz-dashboards](docs/recipes/infra/signoz-dashboards.md).

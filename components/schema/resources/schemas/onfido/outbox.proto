@@ -38,4 +38,5 @@ message OnfidoOutboundIntent {
   optional int64  attempts = 6;
   optional int64  created_at = 7;
   optional int64  sent_at = 8;
+  optional string traceparent = 9;     // W3C, see ChangelogEvent
 }

@@ -171,7 +171,15 @@
     (if (error/anomaly? claimed)
       (log/error "Failed to claim due email deliveries" {:anomaly claimed})
       (run! deref
-            (mapv (fn [delivery] (future (deliver-claimed config delivery)))
+            (mapv (fn [delivery]
+                    (future
+                     (telemetry/with-span-parent
+                      "email-delivery"
+                      (telemetry/extract-parent-context delivery)
+                      (utility/assoc-some {}
+                                          "delivery.id"
+                                          (:delivery-id delivery))
+                      (fn [] (deliver-claimed config delivery)))))
                   claimed)))))
 
 (defn start-runner

@@ -5,7 +5,9 @@
     [com.repldriven.queenswood.fdb.interface :as fdb]
     [com.repldriven.queenswood.schema.interface :as schema]
 
-    [com.repldriven.mono.error.interface :as error :refer [let-nom>]]))
+    [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
+    [com.repldriven.mono.telemetry.interface :as telemetry]
+    [com.repldriven.mono.utility.interface :as utility]))
 
 (def ^:private endpoints-store-name "webhook-endpoints")
 (def ^:private notifications-store-name "webhook-notifications")
@@ -104,7 +106,12 @@
    txn
    (fn [txn]
      (fdb/save-record (fdb/open txn notifications-store-name)
-                      (schema/WebhookNotification->java notification)))
+                      (schema/WebhookNotification->java
+                       (cond-> notification
+                               (nil? (:traceparent notification))
+                               (utility/assoc-some
+                                :traceparent
+                                (telemetry/inject-traceparent))))))
    :webhook-notification/save
    "Failed to save webhook notification"))
 

@@ -11,8 +11,8 @@ Operator v0.0.2.
 
 ## Problem
 
-You want to change a SigNoz dashboard, or add one, so that every
-deployment of the chart has it.
+You want to change a SigNoz dashboard or saved view, or add one, so
+that every deployment of the chart has it.
 
 ## Solution
 
@@ -26,7 +26,13 @@ deployment of the chart has it.
 export DASHBOARD=queenswood-api
 ```
 
-Start at step 3 for a new dashboard.
+Start at step 3 for a new dashboard. A saved view follows the same
+steps with `savedviews.resources.signoz.io` in place of
+`dashboards.resources.signoz.io` and its file under
+`infra/helm/queenswood/files/signoz/views/`. The explorer shows no JSON
+for a view, so write its file from the `SavedView` CRD's schema, with
+`name` the file's name, `schemaVersion` `v2`, `source` `traces` and
+the title the UI shows as `spec.displayName`.
 
 ### 1. Open SigNoz
 
@@ -87,6 +93,10 @@ query, found 3`, since several series in a panel go in as one
 `signoz/CompositeQuery`. A rejection is terminal until the resource
 changes, so fix the file and install it again.
 
+**A saved view `Rejected` with `a lowercase RFC 1123 label`.** Its
+`name` is a title rather than a slug. Put the title in
+`spec.displayName`.
+
 **Edits made in the SigNoz UI gone within minutes.** The operator puts a
 dashboard back to its resource at every interval. Step 2 is what stops
 it.
@@ -116,6 +126,10 @@ kubectl -n queenswood delete job \
 - Keep each dashboard as a file under
   `infra/helm/queenswood/files/signoz/dashboards/`, named for its
   `name`, holding `name`, `schemaVersion` `v6`, `tags` and `spec`.
+- Keep each saved view as a file under
+  `infra/helm/queenswood/files/signoz/views/`, named for its `name`,
+  holding `name`, `schemaVersion` `v2`, `source` and `spec`, its title
+  in `spec.displayName`.
 - Suspend a dashboard's resource before editing it in the SigNoz UI, and
   lift the suspension once its file is installed.
 - Put several series in one panel as a `signoz/CompositeQuery`, and lay
@@ -133,9 +147,9 @@ kubectl -n queenswood delete job \
 
 ## Discussion
 
-We declare SigNoz's dashboards in the chart, as JSON the UI's editor
-produces, and let the SigNoz Operator create them in each deployment's
-SigNoz and put them back when they drift.
+We declare SigNoz's dashboards and saved views in the chart, as the
+JSON SigNoz's API takes, and let the SigNoz Operator create them in
+each deployment's SigNoz and put them back when they drift.
 
 **Why no host appears in a dashboard.** A dashboard queries span names
 and attributes, and each cluster runs its own SigNoz, so one file serves

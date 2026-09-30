@@ -58,8 +58,9 @@ issues in the cluster into `queenswood-signoz-operator-key` by signing
 in as the root user, and the key is kept nowhere else. One
 `ProviderConfig` names SigNoz at its Service, the same address in every
 cluster. A `Dashboard` is rendered per file under
-`files/signoz/dashboards/`, each the body SigNoz's API takes, and no
-field the operator writes a default into is set on it.
+`files/signoz/dashboards/` and a `SavedView` per file under
+`files/signoz/views/`, each the body SigNoz's API takes, and no field
+the operator writes a default into is set on either.
 See [ADR-0032](../../../docs/adr/0032-signoz-is-configured-through-its-operator.md).
 
 ## Record meta-data evolves by declared versions

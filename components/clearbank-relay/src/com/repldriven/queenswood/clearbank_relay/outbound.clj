@@ -9,6 +9,7 @@
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.http-client.interface :as http]
     [com.repldriven.mono.log.interface :as log]
+    [com.repldriven.mono.telemetry.interface :as telemetry]
     [com.repldriven.mono.utility.interface :as utility]
 
     [clojure.edn :as edn]))
@@ -310,6 +311,17 @@
     (relay-account-call config now intent)
     (relay-payment config now intent)))
 
+(defn- in-intent-trace
+  [span-name intent f]
+  (telemetry/with-span-parent span-name
+                              (telemetry/extract-parent-context intent)
+                              (utility/assoc-some {}
+                                                  "intent.id"
+                                                  (:intent-id intent)
+                                                  "intent.kind"
+                                                  (:kind intent))
+                              f))
+
 (defn drain-once
   "Relay every pending intent whose `next-attempt-at` is not after `now`
   once. Reads are transactional; the HTTP call and status write per
@@ -320,7 +332,9 @@
     (when-not (error/anomaly? pending)
       (doseq [i pending
               :when (<= (or (:next-attempt-at i) 0) now)]
-        (relay-one config now i)))))
+        (in-intent-trace "clearbank-outbound"
+                         i
+                         (fn [] (relay-one config now i)))))))
 
 (defn start-runner
   "Start the daemon poll loop that drains pending outbound intents.

@@ -8,6 +8,7 @@
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.http-client.interface :as http]
     [com.repldriven.mono.log.interface :as log]
+    [com.repldriven.mono.telemetry.interface :as telemetry]
     [com.repldriven.mono.utility.interface :as utility])
   (:import
     (java.io InputStream)))
@@ -142,29 +143,34 @@
      notification (store/find-notification config
                                            (:bank-id delivery)
                                            (:notification-id delivery))]
-    (let [started (utility/now)
-          body (:body notification)
-          outcome (outcome-of config
-                              endpoint
-                              body
-                              (:delivery-id delivery)
-                              started)
-          now (utility/now)
-          updated (domain/record-outcome delivery outcome now)]
-      (let-nom>
-        [_ (store/save-outcome config
-                               updated
-                               (attempt-row delivery
-                                            outcome
-                                            now
-                                            (- now started)))]
-        (if (domain/delivered? (:status outcome))
-          (record-success config endpoint now)
-          (when (domain/should-pause? (:last-success-at endpoint)
-                                      now
-                                      (:attempts updated))
-            (pause-endpoint config endpoint)))
-        updated))))
+    (telemetry/with-span-parent
+     "webhook-delivery"
+     (telemetry/extract-parent-context notification)
+     (utility/assoc-some {} "delivery.id" (:delivery-id delivery))
+     (fn []
+       (let [started (utility/now)
+             body (:body notification)
+             outcome (outcome-of config
+                                 endpoint
+                                 body
+                                 (:delivery-id delivery)
+                                 started)
+             now (utility/now)
+             updated (domain/record-outcome delivery outcome now)]
+         (let-nom>
+           [_ (store/save-outcome config
+                                  updated
+                                  (attempt-row delivery
+                                               outcome
+                                               now
+                                               (- now started)))]
+           (if (domain/delivered? (:status outcome))
+             (record-success config endpoint now)
+             (when (domain/should-pause? (:last-success-at endpoint)
+                                         now
+                                         (:attempts updated))
+               (pause-endpoint config endpoint)))
+           updated))))))
 
 (defn drain-once
   "Claim the deliveries that are due and send them. Each claim commits

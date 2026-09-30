@@ -1484,7 +1484,8 @@
    :invitation-id ""
    :last-error ""
    :message-id ""
-   :next-attempt-at 0})
+   :next-attempt-at 0
+   :traceparent ""})
 
 (defn pb->EmailDelivery
   "Parse EmailDelivery protobuf bytes into a Clojure map. Each optional

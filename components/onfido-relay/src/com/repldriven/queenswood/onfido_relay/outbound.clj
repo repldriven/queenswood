@@ -7,6 +7,7 @@
     [com.repldriven.mono.http-client.interface :as http]
     [com.repldriven.mono.json.interface :as json]
     [com.repldriven.mono.log.interface :as log]
+    [com.repldriven.mono.telemetry.interface :as telemetry]
     [com.repldriven.mono.utility.interface :as utility]
 
     [clojure.edn :as edn]
@@ -239,11 +240,21 @@
                    {:intent-id intent-id :attempt next-attempts})
          (store/mark-attempt config intent-id next-attempts)))))
 
+(defn- in-intent-trace
+  [span-name intent f]
+  (telemetry/with-span-parent span-name
+                              (telemetry/extract-parent-context intent)
+                              (utility/assoc-some {}
+                                                  "intent.id"
+                                                  (:intent-id intent))
+                              f))
+
 (defn drain-once
   [config]
   (let [pending (store/pending-intents config)]
     (when-not (error/anomaly? pending)
-      (doseq [i pending] (relay-one config i)))))
+      (doseq [i pending]
+        (in-intent-trace "onfido-outbound" i (fn [] (relay-one config i)))))))
 
 (defn- start-loop
   [config]

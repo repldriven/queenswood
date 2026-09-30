@@ -32,4 +32,7 @@ message WebhookNotification {
   // notification.
   required string changelog_event_id = 13;
   required int64 created_at = 14;
+  // The W3C traceparent of the event the notification reports, which
+  // the delivery runner resumes so each delivery joins that trace.
+  optional string traceparent = 15;
 }

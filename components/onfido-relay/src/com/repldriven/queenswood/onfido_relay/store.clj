@@ -47,7 +47,10 @@
    txn
    (fn [txn]
      (fdb/save-record (fdb/open txn intents-store-name)
-                      (schema/OnfidoOutboundIntent->java intent)))
+                      (schema/OnfidoOutboundIntent->java
+                       (assoc-some intent
+                                   :traceparent
+                                   (telemetry/inject-traceparent)))))
    :onfido-outbound/save
    "Failed to save onfido outbound intent"))
 

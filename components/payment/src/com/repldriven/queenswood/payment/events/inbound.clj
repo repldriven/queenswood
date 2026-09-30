@@ -16,6 +16,7 @@
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.log.interface :as log]
     [com.repldriven.mono.message-bus.interface :as message-bus]
+    [com.repldriven.mono.telemetry.interface :as telemetry]
     [com.repldriven.mono.utility.interface :as utility]))
 
 (defn- check-debit-credit-code
@@ -405,6 +406,7 @@
                                 :id (str (utility/uuidv7))
                                 :correlation-id (str (utility/uuidv7))
                                 :causation-id payment-id
+                                :traceparent (telemetry/inject-traceparent)
                                 :payload payload})]
           (log/infof "Suspended inbound sent back to its sender: %s"
                      {:payment-id payment-id

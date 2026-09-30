@@ -48,4 +48,7 @@ message EmailDelivery {
   optional string message_id = 13;
   required int64 created_at = 14;
   required int64 updated_at = 15;
+  // The W3C traceparent of the event that asked for the email, which the
+  // runner resumes so the send joins that trace.
+  optional string traceparent = 16;
 }

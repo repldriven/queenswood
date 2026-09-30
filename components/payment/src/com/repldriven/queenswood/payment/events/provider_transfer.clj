@@ -12,6 +12,7 @@
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.log.interface :as log]
     [com.repldriven.mono.message-bus.interface :as message-bus]
+    [com.repldriven.mono.telemetry.interface :as telemetry]
     [com.repldriven.mono.utility.interface :as utility]))
 
 (defn- mirror-context
@@ -119,6 +120,7 @@
                            :id (str (utility/uuidv7))
                            :correlation-id (str (utility/uuidv7))
                            :causation-id transaction-id
+                           :traceparent (telemetry/inject-traceparent)
                            :payload payload})))))
 
 (defn mirror-posted
