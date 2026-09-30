@@ -70,14 +70,14 @@ fsGroup: 10001
 
 {{/*
 OTLP traces endpoint. An explicit otel.endpoint wins; otherwise the
-in-chart Jaeger's Service is used when enabled. Empty disables the SDK
-rather than failing, so no fallback is required.
+in-chart SigNoz collector's Service is used when enabled. Empty disables
+the SDK rather than failing, so no fallback is required.
 */}}
 {{- define "queenswood.otelEndpoint" -}}
 {{- if .Values.otel.endpoint -}}
 {{ .Values.otel.endpoint }}
-{{- else if .Values.jaeger.enabled -}}
-http://{{ .Release.Name }}-jaeger:4318/v1/traces
+{{- else if .Values.signoz.enabled -}}
+http://{{ .Release.Name }}-signoz-otel-collector:4318/v1/traces
 {{- end -}}
 {{- end -}}
 

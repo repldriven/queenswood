@@ -50,8 +50,8 @@ port-forward).
 {{- if .Values.console.enabled }}
   kubectl -n {{ .Release.Namespace }} port-forward svc/{{ .Release.Name }}-console 8081:{{ .Values.console.port }}
 {{- end }}
-{{- if .Values.jaeger.enabled }}
-  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ .Release.Name }}-jaeger 16686:16686
+{{- if .Values.signoz.enabled }}
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ .Release.Name }}-signoz 3301:8080
 {{- end }}
 {{- if .Values.mail.catcher.enabled }}
   kubectl -n {{ .Release.Namespace }} port-forward svc/{{ .Release.Name }}-mailpit 8025:8025
@@ -66,16 +66,16 @@ Then open:
   http://localhost:8081              (console -- the realm has no user to sign in as; install with -f values-local.yaml for `dev` / `dev`)
 {{- end }}
 {{- end }}
-{{- if .Values.jaeger.enabled }}
-  http://localhost:16686             (Jaeger -- pick a service, Find Traces to see spans)
+{{- if .Values.signoz.enabled }}
+  http://localhost:3301              (SigNoz -- create its first user, then Traces to see spans)
 {{- end }}
 {{- if .Values.mail.catcher.enabled }}
   http://localhost:8025              (Mailpit -- every invitation email the platform sends)
 {{- end }}
-{{- if and .Values.console.enabled .Values.jaeger.enabled }}
+{{- if and .Values.console.enabled .Values.signoz.enabled }}
 
 To watch the platform run for real, use the console's
-Sandbox > Scenarios page and read the spans it produces back in Jaeger.
+Sandbox > Scenarios page and read the spans it produces back in SigNoz.
 {{- end }}
 {{- if eq (include "queenswood.keycloakMode" .) "dev" }}
 

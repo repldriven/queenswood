@@ -344,18 +344,33 @@ otel:
   endpoint: ""
 
 # ---------------------------------------------------------------------
-# All-in-one Jaeger for the kind dev loop. Receives OTLP/HTTP on 4318 and
-# serves its UI on 16686. Storage is in-memory. Production sets
-# enabled=false and points otel.endpoint at a real collector.
-jaeger:
+# SigNoz, where every service's traces go: its collector takes OTLP/HTTP
+# on 4318, ClickHouse keeps the spans on a volume, and its UI serves on
+# 8080, forwarded to 3301 since the API holds 8080. Setting otel.endpoint
+# sends the traces elsewhere instead.
+signoz:
   enabled: true
-  image: jaegertracing/jaeger:2.21.0
-  resources:
-    requests:
-      cpu: 100m
-      memory: 256Mi
-    limits:
-      memory: 1Gi
+  # SigNoz's root user. Its collector takes no OTLP until an organisation
+  # exists, and provisioning this user at startup creates one. The
+  # password is generated in the cluster into this Secret -- see
+  # templates/signoz-root.yaml -- and read below by the same name, which
+  # a subchart's values cannot template.
+  root:
+    secretName: queenswood-signoz-root
+  signoz:
+    env:
+      # Alert notifications link back to the UI at the forwarded port.
+      signoz_alertmanager_signoz_external__url: http://localhost:3301
+      # Off: it reports usage, users' emails included, to SigNoz.
+      signoz_statsreporter_enabled: false
+      signoz_user_root_enabled: true
+      signoz_user_root_email: admin@example.com
+      signoz_user_root_org_name: queenswood
+      signoz_user_root_password:
+        valueFrom:
+          secretKeyRef:
+            name: queenswood-signoz-root
+            key: password
 
 # -- Outbound email. The services on `consumers` send invitation emails
 # through the SMTP server named here, and every link they carry opens the

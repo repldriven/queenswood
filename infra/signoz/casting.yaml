@@ -1,0 +1,38 @@
+# SigNoz for the monolith loop, rendered to Docker Compose by Foundry.
+# `just telemetry-start` casts it; the monolith ships OTLP to
+# localhost:4318 and the UI serves on localhost:3301, since the monolith
+# holds 8080. Images follow the Helm chart's signoz dependency.
+apiVersion: v1alpha1
+kind: Installation
+metadata:
+  name: signoz
+spec:
+  deployment:
+    flavor: compose
+    mode: docker
+  signoz:
+    spec:
+      image: signoz/signoz:v0.144.0
+      env:
+        # Alert notifications link back to the UI at the published port.
+        SIGNOZ_ALERTMANAGER_SIGNOZ_EXTERNAL__URL: http://localhost:3301
+        # Off: it reports usage, users' emails included, to SigNoz.
+        SIGNOZ_STATSREPORTER_ENABLED: "false"
+        # A root user from the start: until an organisation exists the
+        # ingester takes no OTLP, and creating the first user creates it.
+        SIGNOZ_USER_ROOT_ENABLED: "true"
+        SIGNOZ_USER_ROOT_EMAIL: dev@example.com
+        SIGNOZ_USER_ROOT_PASSWORD: Queenswood-dev-1
+        SIGNOZ_USER_ROOT_ORG_NAME: queenswood
+  ingester:
+    spec:
+      image: signoz/signoz-otel-collector:v0.144.12
+  patches:
+    - target: deployment/compose.yaml
+      operations:
+        - op: replace
+          path: /services/signoz-signoz-0/ports/0
+          value: 3301:8080
+        - op: replace
+          path: /services/signoz-telemetrystore-migrator/image
+          value: signoz/signoz-otel-collector:v0.144.12

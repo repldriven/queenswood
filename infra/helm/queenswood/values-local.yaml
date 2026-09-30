@@ -10,3 +10,16 @@ keycloak:
       username: dev
       password: dev
       email: dev@queenswood.local
+
+# SigNoz's root user as a pair to type rather than one generated in the
+# cluster, and the same pair `just telemetry-start` gives the monolith
+# loop's SigNoz.
+signoz:
+  signoz:
+    env:
+      signoz_user_root_email: dev@example.com
+      # A map, as the default is, with its valueFrom removed: a string
+      # over a map still wins, but Helm warns on every install.
+      signoz_user_root_password:
+        value: Queenswood-dev-1
+        valueFrom: null

@@ -1,0 +1,119 @@
+{{- /*
+  The password of SigNoz's root user, generated in the cluster and
+  written into the Secret SigNoz's environment reads.
+
+  SigNoz's collector takes no OTLP until an organisation exists, and the
+  root user SigNoz provisions at startup is what creates one. SigNoz
+  reconciles that user to its environment on every start, so a password
+  regenerated here is taken on the next restart.
+
+  Not rendered by the chart, for the reason templates/secret-keycloak.yaml
+  gives: Argo renders with `helm template`, where `lookup` returns
+  nothing, so a value minted here would be a new one on every sync. Not
+  in Secret Manager either. It grants nothing outside SigNoz, whose data
+  lives and dies with this cluster, which is the rotatable case in
+  docs/recipes/infra/external-secrets.md: keep no copy anywhere. Whoever
+  needs it reads the Secret.
+
+  The SigNoz pod waits in CreateContainerConfigError until the Job has
+  written the key, then starts.
+*/}}
+{{- define "queenswood.signozRootPodSpec" -}}
+restartPolicy: OnFailure
+serviceAccountName: {{ .Release.Name }}-signoz-root
+containers:
+  - name: generate
+    image: {{ $.Values.tools.k8s.image | quote }}
+    env:
+      - name: SECRET_NAME
+        value: {{ .Values.signoz.root.secretName | quote }}
+    command:
+      - sh
+      - -c
+      - |
+        set -eu
+        existing=$(kubectl get secret "$SECRET_NAME" \
+          -o jsonpath='{.data.password}' 2>/dev/null || true)
+        if [ -n "$existing" ]; then
+          echo "carrying forward the password in $SECRET_NAME"
+          exit 0
+        fi
+        # SigNoz wants twelve or more characters with an upper, a lower,
+        # a digit and a symbol; the suffix guarantees the last three.
+        PASSWORD="$(head -c 48 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 32)-Aa1"
+        if [ ${#PASSWORD} -ne 36 ]; then
+          echo "could not generate a 36-character password" >&2
+          exit 1
+        fi
+        kubectl patch secret "$SECRET_NAME" --type merge -p "$(
+          printf '{"data":{"password":"%s"}}' \
+            "$(printf '%s' "$PASSWORD" | base64 -w0)")" > /dev/null
+        echo "generated the password and stored it in $SECRET_NAME"
+{{- end -}}
+
+{{- if .Values.signoz.enabled }}
+{{- $name := printf "%s-signoz-root" .Release.Name -}}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Values.signoz.root.secretName }}
+  labels:
+    {{- include "queenswood.labels" . | nindent 4 }}
+type: Opaque
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "queenswood.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "queenswood.labels" . | nindent 4 }}
+rules:
+  # resourceNames, so this is a grant on one Secret rather than on
+  # secrets. No `create`: the Secret is rendered above.
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: [{{ .Values.signoz.root.secretName | quote }}]
+    verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "queenswood.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $name }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $name }}
+    namespace: {{ .Release.Namespace }}
+---
+# The name hashes the pod spec, so anything changing what the Job runs
+# changes its name. A pod template is immutable once the Job exists.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ printf "%s-%s" $name (include "queenswood.signozRootPodSpec" . | sha256sum | trunc 10) }}
+  labels:
+    {{- include "queenswood.labels" . | nindent 4 }}
+    app.kubernetes.io/component: signoz-root
+spec:
+  backoffLimit: 6
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        {{- include "queenswood.podLabels" . | nindent 8 }}
+        app.kubernetes.io/component: signoz-root
+    spec:
+      {{- include "queenswood.signozRootPodSpec" . | nindent 6 }}
+{{- end }}

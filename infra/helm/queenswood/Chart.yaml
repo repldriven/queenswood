@@ -36,3 +36,10 @@ dependencies:
     repository: "file://charts/fdb-operator"
     alias: fdbOperator
     condition: fdbOperator.enabled
+
+  # SigNoz from its own repository: the services' OTLP traces land in its
+  # collector, and ClickHouse keeps them.
+  - name: signoz
+    version: "0.144.0"
+    repository: "https://charts.signoz.io"
+    condition: signoz.enabled

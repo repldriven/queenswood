@@ -219,7 +219,7 @@ bricks it reads through.
 - **The kind cluster.** A `mailpit.yaml` template, rendered when
   `mail.catcher.enabled`, runs `axllent/mailpit` with a Service on 1025
   and 8025, its inbox reached by the port-forward the install notes
-  print, as Jaeger's is. `values-dev.yaml`, which both kind recipes
+  print, as SigNoz's is. `values-dev.yaml`, which both kind recipes
   layer, enables it, and the services on `mail.consumers` then send to
   the Service with `SMTP_SECURITY` `none`. The emailed link opens
   `mail.consoleUrl`, or the gateway's console host, or the console's

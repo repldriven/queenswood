@@ -38,7 +38,7 @@ helm install queenswood \
 
 `helm install`'s `NOTES.txt` prints the `kubectl port-forward`
 commands you need to reach the API, the console SPA, and the
-Jaeger UI from your host. The bundled Keycloak needs none — the
+SigNoz UI from your host. The bundled Keycloak needs none — the
 SPA reverse-proxies it at `/keycloak/*`.
 
 To install from a checkout instead (useful while iterating
@@ -84,23 +84,36 @@ curl http://localhost:8080/openapi.json
 
 ## Tracing
 
-Every service ships OTLP spans to the in-chart Jaeger
-(`jaeger.enabled`, on by default). Reach its UI with `just
-telemetry-ui`, or port-forward directly:
+Every service ships OTLP spans to the in-chart SigNoz
+(`signoz.enabled`, on by default), a dependency from
+`charts.signoz.io` whose ClickHouse keeps them on a volume. Reach its
+UI with `just telemetry-ui`, or port-forward directly:
 
 ```bash
-kubectl -n queenswood port-forward svc/queenswood-jaeger 16686:16686
+kubectl -n queenswood port-forward svc/queenswood-signoz 3301:8080
 ```
 
-Pick a service in the UI and **Find Traces**. The usual way to
-generate some is the console's **Sandbox > Scenarios** page, which
-drives the platform for real against the cluster — run one there,
-then read back the spans it produced.
+Sign in as SigNoz's root user: `dev@example.com` /
+`Queenswood-dev-1` with `values-local.yaml`, and otherwise
+`admin@example.com` with the password a Job generates into the
+`queenswood-signoz-root` Secret:
 
-Storage is in-memory, so spans are lost when the pod restarts. To
-ship elsewhere, set `otel.endpoint` (it wins over the in-chart
-Jaeger); to turn tracing off entirely, set `jaeger.enabled=false`
-and leave `otel.endpoint` empty, which disables the SDK rather than
+```bash
+kubectl -n queenswood get secret queenswood-signoz-root \
+  -o jsonpath='{.data.password}' | base64 -d
+```
+
+SigNoz takes no spans until that user exists, which is why it is
+provisioned at startup rather than signed up in the UI.
+
+Open **Traces** in the UI. The usual way to generate some is the
+console's **Sandbox > Scenarios** page, which drives the platform for
+real against the cluster — run one there, then read back the spans it
+produced.
+
+To ship elsewhere, set `otel.endpoint` (it wins over the in-chart
+SigNoz); to turn tracing off entirely, set `signoz.enabled=false` and
+leave `otel.endpoint` empty, which disables the SDK rather than
 failing.
 
 ## v1 limitations
