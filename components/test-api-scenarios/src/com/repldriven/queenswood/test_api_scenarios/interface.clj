@@ -61,13 +61,16 @@
     generated when absent.
   - `:await-timeout-ms` (optional) — how long a step waiting on the
     system waits before failing, unless the step names its own.
+  - `:receiver` (optional) — the webhook receiver, as `{:url
+    :received}`: its root URL and an atom of every request it has been
+    sent, for the `:webhook/*` verbs.
 
   The fresh `:captures` map isolates scenarios from each other so
   one boot can serve many, and the fresh `:banks` map limits the
   standing invariants to the banks this scenario created."
   [{:keys [base-url admin-token token-endpoints signing-key mail-url
            payment-simulator-url zyphe-simulator-url providers key-suffix
-           run-id await-timeout-ms]}]
+           run-id await-timeout-ms receiver]}]
   {:base-url base-url
    :providers providers
    :key-suffix key-suffix
@@ -79,6 +82,7 @@
    :signing-key signing-key
    :run-id (or run-id (str (utility/uuidv7)))
    :await-timeout-ms await-timeout-ms
+   :receiver receiver
    :captures {}
    :banks {}
    :skipped-banks []

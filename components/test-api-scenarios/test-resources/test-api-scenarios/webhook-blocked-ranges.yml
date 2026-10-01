@@ -1,0 +1,13 @@
+# The ranges no tenant address may resolve into, as
+# `webhook.domain/blocked-ranges` holds them, less 127.0.0.0/8, where the
+# rig's receiver listens. Registration and the runner both read this.
+- ["0.0.0.0", 8, unspecified]
+- ["10.0.0.0", 8, private]
+- ["100.64.0.0", 10, carrier-grade NAT]
+- ["169.254.0.0", 16, link-local]
+- ["172.16.0.0", 12, private]
+- ["192.168.0.0", 16, private]
+- ["::", 128, unspecified]
+- ["::1", 128, loopback]
+- ["fc00::", 7, unique-local]
+- ["fe80::", 10, link-local]

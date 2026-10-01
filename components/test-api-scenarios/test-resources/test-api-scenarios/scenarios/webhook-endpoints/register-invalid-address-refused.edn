@@ -1,23 +1,12 @@
 {:name "Registering an address the platform will not deliver to is refused"
- ;; Plain HTTP, and a host in each range the platform will not call:
- ;; loopback, link-local, private, and the cloud metadata service. An IP
- ;; literal resolves to itself, so the rule decides on the address as
- ;; written and no DNS is involved.
+ ;; A host in each range the platform will not call: link-local,
+ ;; private, and the cloud metadata service. An IP literal resolves to
+ ;; itself, so the rule decides on the address as written and no DNS is
+ ;; involved. The rig admits plain HTTP and loopback, where its receiver
+ ;; listens.
  :given [{:fixture :bank :as :org-0 :with {:name "Webhook Address Org"}}]
  :when
  [{:command :api/request
-   :request {:method :post
-             :path "/v1/webhook-endpoints"
-             :auth [:ref :org-0 :token]
-             :body {:address "http://93.184.216.34/hooks"}}
-   :assert {:status 422 :problem {:type ":webhook-endpoint/invalid-address"}}}
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/webhook-endpoints"
-             :auth [:ref :org-0 :token]
-             :body {:address "https://127.0.0.1/hooks"}}
-   :assert {:status 422 :problem {:type ":webhook-endpoint/invalid-address"}}}
-  {:command :api/request
    :request {:method :post
              :path "/v1/webhook-endpoints"
              :auth [:ref :org-0 :token]

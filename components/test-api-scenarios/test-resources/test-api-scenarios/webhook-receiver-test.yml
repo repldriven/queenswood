@@ -1,0 +1,19 @@
+# A tenant's endpoint: every request it receives is kept, for
+# `:webhook/await-delivery` to read.
+received: !system/component
+  system/component-kind: test-api-scenarios/received
+
+handler: !system/component
+  system/component-kind: test-api-scenarios/receiver-handler
+  received: !system/local-ref received
+
+jetty-adapter: !system/component
+  system/component-kind: server/jetty-adapter
+  handler: !system/local-ref handler
+  options:
+    host: 127.0.0.1
+    port: 0
+
+http-url: !system/component
+  system/component-kind: server/http-url
+  jetty-adapter: !system/local-ref jetty-adapter

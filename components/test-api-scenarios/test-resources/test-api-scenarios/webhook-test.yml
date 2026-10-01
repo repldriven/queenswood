@@ -1,0 +1,45 @@
+# The webhook consumers and runner, so a registered endpoint is
+# delivered to. Each consumer reads its topic under a channel of its
+# own, `webhook-<name>-event` in kafka-all-test.yml, since the
+# processors already hold the plain ones.
+event-processor-impl: !system/component
+  system/component-kind: webhook/event-processor
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  schemas: !system/ref avro.serde
+
+event-consumer: !system/component
+  system/component-kind: event-processor/event-processor
+  bus: !system/ref message-bus.bus
+  processor: !system/local-ref event-processor-impl
+  event-channel: !keyword webhook-cash-accounts-event
+
+payments-event-consumer: !system/component
+  system/component-kind: event-processor/event-processor
+  bus: !system/ref message-bus.bus
+  processor: !system/local-ref event-processor-impl
+  event-channel: !keyword webhook-payments-event
+
+rewards-event-consumer: !system/component
+  system/component-kind: event-processor/event-processor
+  bus: !system/ref message-bus.bus
+  processor: !system/local-ref event-processor-impl
+  event-channel: !keyword webhook-rewards-event
+
+idvs-event-consumer: !system/component
+  system/component-kind: event-processor/event-processor
+  bus: !system/ref message-bus.bus
+  processor: !system/local-ref event-processor-impl
+  event-channel: !keyword webhook-idvs-event
+
+outbound-runner: !system/component
+  system/component-kind: webhook/outbound-runner
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  poll-ms: 50
+  # Plain HTTP only, which is the receiver's scheme: every HTTPS address
+  # a scenario registers is refused at send time, so no delivery leaves
+  # the machine.
+  address-rule:
+    allowed-schemes: [http]
+    blocked-ranges: !include test-api-scenarios/webhook-blocked-ranges.yml
