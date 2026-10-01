@@ -4,6 +4,38 @@
 
     [clojure.test :refer [deftest is testing]]))
 
+;; A platform policy in the shapes the rig's carries: the available
+;; balance kept non-negative unless a move improves it, the capabilities
+;; the commands need, and one interest run of each kind per date.
+(def ^:private platform
+  {:name "Platform policy"
+   :capabilities (mapv (fn [[kind action]]
+                         {:effect :effect-allow :kind {kind {:action action}}})
+                       [[:cash-account :cash-account-action-open]
+                        [:cash-account :cash-account-action-close]
+                        [:inbound-payment :inbound-payment-action-receive]
+                        [:outbound-payment :outbound-payment-action-send]
+                        [:internal-payment :internal-payment-action-submit]
+                        [:interest :interest-action-accrue]
+                        [:interest :interest-action-capitalize]])
+   :limits
+   [{:kind {:balance {:filters [{:kind {:computed {:name "available"}}
+                                 :transaction-type
+                                 :transaction-type-inbound-transfer}]}}
+     :bound {:kind {:min {:aggregate {:kind {:amount
+                                             {:value {:value 0 :currency "GBP"}
+                                              :window :time-window-instant}}}}}}
+     :allow :limit-allow-improving}
+    {:kind {:interest {:filters [{:action :interest-action-accrue}]}}
+     :bound {:kind {:max {:aggregate
+                          {:kind {:count {:value 1
+                                          :window :time-window-daily}}}}}}}]})
+
+(def ^:private tier {:name "Test-scenario policy"})
+
+(def ^:private init
+  (SUT/with-policies SUT/init-state {:platform platform :tier tier}))
+
 (defn- step
   "Applies the named command's `:next-state` with the given args
   vector to `state`. Mirrors how the runner threads commands."
@@ -25,7 +57,7 @@
 (deftest create-bank-test
   (testing
     "create-bank allocates a bank, settlement product, org-party, and settlement account"
-    (let [s (step SUT/init-state :create-bank [])]
+    (let [s (step init :create-bank [])]
       (is (= [:acct-0] (SUT/known-accounts s)))
       (is (= [:bank-0] (keys (:banks s))))
       (is (= [:prod-0] (keys (:products s))))
@@ -46,7 +78,7 @@
       (is (= 1 (:next-party-id s)))))
   (testing
     "successive create-bank calls make distinct banks, products, and parties"
-    (let [s (-> SUT/init-state
+    (let [s (-> init
                 (step :create-bank [])
                 (step :create-bank []))]
       (is (= #{:acct-0 :acct-1} (set (SUT/known-accounts s))))
@@ -59,7 +91,7 @@
       (is (= :party-1 (get-in s [:accounts :acct-1 :party]))))))
 
 (deftest create-and-publish-product-test
-  (let [s0 (step SUT/init-state :create-bank [])]
+  (let [s0 (step init :create-bank [])]
     (testing "create-product opens v1 as draft, attached to an org"
       (let [s1 (step s0 :create-product [:bank-0 :current 0])]
         (is (= 1 (:next-product-id s0))
@@ -124,7 +156,7 @@
         (is (= s0 s10))))))
 
 (deftest inbound-transfer-test
-  (let [s (-> SUT/init-state
+  (let [s (-> init
               (step :create-bank []))]
     (testing "credits a fresh account"
       (let [s' (step s :inbound-transfer [:acct-0 500])]
@@ -140,7 +172,7 @@
         (is (= 50 (SUT/balance s' :acct-0)))))))
 
 (deftest outbound-payment-test
-  (let [s (-> SUT/init-state
+  (let [s (-> init
               (step :create-bank []))]
     (testing "a payment from a zero account is denied (would go negative)"
       (let [s' (step s :outbound-payment [:acct-0 100])]
@@ -180,7 +212,7 @@
 (deftest internal-transfer-test
   ;; The same-org-only paths use a single org with two accounts, the
   ;; second added directly to the model state.
-  (let [s (-> SUT/init-state
+  (let [s (-> init
               (step :create-bank [])
               (assoc-in [:accounts :acct-1] {:bank :bank-0 :status :open}))]
     (testing "two-leg transfer between funded and zero account"
@@ -201,7 +233,7 @@
         (is (= -50 (SUT/balance s' :acct-0)) "improving — permitted")
         (is (= 150 (SUT/balance s' :acct-1))))))
   (testing "cross-org transfer is a no-op (model mirrors API rejection)"
-    (let [s (-> SUT/init-state
+    (let [s (-> init
                 (step :create-bank [])
                 (step :create-bank [])
                 (assoc-in [:accounts :acct-0 :available] 1000))
@@ -210,7 +242,7 @@
       (is (= 0 (SUT/balance s' :acct-1)) "creditor balance unchanged"))))
 
 (deftest create-person-party-test
-  (let [s0 (step SUT/init-state :create-bank [])]
+  (let [s0 (step init :create-bank [])]
     (testing "create-person-party records a person-party as :active"
       ;; The model treats the IDV chain as deterministic — the
       ;; default `\"Scenario\"` given-name routes to clear, so the
@@ -222,7 +254,7 @@
         (is (= [:party-0 :party-1] (get-in s [:banks :bank-0 :parties])))))))
 
 (deftest open-account-test
-  (let [s (-> SUT/init-state
+  (let [s (-> init
               (step :create-bank [])
               (step :create-person-party [:bank-0]))]
     (testing "opens on an active party and a published product"
@@ -251,7 +283,7 @@
 
 (deftest fund-house-test
   (testing "the house account is not modelled, so nothing changes"
-    (let [s (step SUT/init-state :create-bank [])]
+    (let [s (step init :create-bank [])]
       (is (= s (step s :fixture/fund-house [:bank-0 500000]))))))
 
 (deftest weights-test
@@ -261,7 +293,7 @@
         (is (< create-bank freq) (str command))))))
 
 (deftest apply-fee-test
-  (let [s (-> SUT/init-state
+  (let [s (-> init
               (step :create-bank []))]
     (testing "fee posts on a positive account"
       (let [funded (assoc-in s [:accounts :acct-0 :available] 100)
@@ -272,3 +304,93 @@
             s' (step funded :fixture/apply-fee [:acct-0 200])]
         (is (= -150 (SUT/balance s' :acct-0))
             "fees ignore the available-balance rule by design")))))
+
+(defn- count-limit
+  [kind window value]
+  {:kind {kind {}}
+   :bound {:kind {:max {:aggregate {:kind {:count {:value value
+                                                   :window window}}}}}}})
+
+(defn- bound
+  [state bank-id policy]
+  (step state :bind-policy [bank-id (merge {:name "Test"} policy)]))
+
+(deftest policies-test
+  (let [s (-> init
+              (step :create-bank [])
+              (step :inbound-transfer [:acct-0 1000]))]
+    (testing "a bank is bound to the tier at creation"
+      (is (= [tier] (get-in s [:banks :bank-0 :policies]))))
+    (testing "the available rule comes from the platform policy"
+      (is (= {:min 0 :improving? true} (get-in s [:policies :available]))))
+    (testing "a capability nothing allows is refused"
+      (let [bare (-> SUT/init-state
+                     (step :create-bank [])
+                     (step :inbound-transfer [:acct-0 100]))]
+        (is (= 0 (SUT/balance bare :acct-0)))))
+    (testing "a bound deny refuses what the platform allows"
+      (let [s' (-> s
+                   (bound :bank-0
+                          {:capabilities
+                           [{:effect :effect-deny
+                             :kind {:outbound-payment
+                                    {:action :outbound-payment-action-send}}}]})
+                   (step :outbound-payment [:acct-0 100]))]
+        (is (= 1000 (SUT/balance s' :acct-0)))))
+    (testing "a daily count lets payments through up to its value"
+      (let [s' (-> s
+                   (bound :bank-0
+                          {:limits [(count-limit :outbound-payment
+                                                 :time-window-daily
+                                                 2)]})
+                   (step :outbound-payment [:acct-0 100])
+                   (step :outbound-payment [:acct-0 100])
+                   (step :outbound-payment [:acct-0 100]))]
+        (is (= 800 (SUT/balance s' :acct-0)))))
+    (testing "an inbound over the daily count is received and not credited"
+      (let [s' (-> s
+                   (bound :bank-0
+                          {:limits [(count-limit :inbound-payment
+                                                 :time-window-daily
+                                                 1)]})
+                   (step :inbound-transfer [:acct-0 50]))]
+        (is (= 1000 (SUT/balance s' :acct-0)))
+        (is (= #{:in-0 :in-1} (:inbound-payments s')))))
+    (testing "the account count counts the house account too"
+      (let [s' (-> s
+                   (step :create-person-party [:bank-0])
+                   (bound :bank-0
+                          {:limits [(count-limit :cash-account
+                                                 :time-window-instant
+                                                 3)]})
+                   (step :open-account [:bank-0 :party-1 :prod-0])
+                   (step :open-account [:bank-0 :party-1 :prod-0]))]
+        (is (some? (get-in s' [:accounts :acct-1])))
+        (is (nil? (get-in s' [:accounts :acct-2])))))
+    (testing "closing a funded account takes a bound allow"
+      (is (= :open
+             (get-in (step s :close-account [:acct-0])
+                     [:accounts :acct-0 :status])))
+      (is (= :closed
+             (get-in (-> s
+                         (bound :bank-0
+                                {:capabilities
+                                 [{:effect :effect-allow
+                                   :kind
+                                   {:cash-account
+                                    {:action
+                                     :cash-account-action-close-non-zero}}}]})
+                         (step :close-account [:acct-0]))
+                     [:accounts :acct-0 :status]))))
+    (testing "the platform allows one accrual run per date"
+      (let [rated (-> s
+                      (step :create-product [:bank-0 :savings 3650])
+                      (step :publish-product [:prod-1])
+                      (step :create-person-party [:bank-0])
+                      (step :open-account [:bank-0 :party-1 :prod-1])
+                      (assoc-in [:accounts :acct-1 :available] 100000))
+            once (step rated :accrue-interest [:bank-0 20260501])
+            twice (step once :accrue-interest [:bank-0 20260501])]
+        (is (pos? (get-in once [:accounts :acct-1 :interest-accrued])))
+        (is (= (get-in once [:accounts :acct-1 :interest-accrued])
+               (get-in twice [:accounts :acct-1 :interest-accrued])))))))

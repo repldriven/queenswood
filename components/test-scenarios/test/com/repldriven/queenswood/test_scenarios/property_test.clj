@@ -23,8 +23,7 @@
 
 (deftest model-generates-plausible-sequences-test
   (testing "fugato produces vectors of {:command :args} maps"
-    (let [samples (gen/sample (fugato/commands model/model model/init-state 3)
-                              5)
+    (let [samples (gen/sample (fugato/commands model/model rig/model-init 3) 5)
           known (set (keys model/model))]
       (doseq [s samples]
         (is (>= (count s) 3))
@@ -36,7 +35,10 @@
   "Runs `cmds` against reality and the model, and returns why the trial
   fails, or nil when it holds."
   [bank cmds]
-  (let [final (SUT/run-commands (SUT/fresh-context bank) cmds)
+  (let [final (SUT/run-commands (SUT/fresh-context bank
+                                                   {}
+                                                   {:model-init rig/model-init})
+                                cmds)
         {:keys [invariant-failures runner-errors]} final]
     (cond
      (seq runner-errors)
@@ -47,7 +49,7 @@
 
      :else
      (let [expected (SUT/projected-model
-                     (fugato/execute model/model model/init-state cmds))
+                     (fugato/execute model/model rig/model-init cmds))
            actual (SUT/projected-real final)]
        (when-not (= expected actual)
          {:end-states-differ true})))))
@@ -93,19 +95,21 @@
    [sys [rig/config-file rig/patch-handlers]]
    (let [bank (rig/bank sys)
          stats (atom {:trials 0 :total-commands 0 :by-command {} :lengths []})
-         result (tc/quick-check
-                 num-tests
-                 (prop/for-all [cmds
-                                (fugato/commands model/model model/init-state)]
-                               (swap! stats record-trial cmds)
-                               (nil? (trial bank cmds)))
-                 :max-size
-                 max-size)]
+         result (tc/quick-check num-tests
+                                (prop/for-all [cmds
+                                               (fugato/commands model/model
+                                                                rig/model-init)]
+                                              (swap! stats record-trial cmds)
+                                              (nil? (trial bank cmds)))
+                                :max-size
+                                max-size)]
      (summarise @stats)
      (when-not (:pass? result)
        (let [smallest (get-in result [:shrunk :smallest 0])
              why (trial bank smallest)
-             walked (SUT/first-divergence (SUT/fresh-context bank) smallest)]
+             walked (SUT/first-divergence
+                     (SUT/fresh-context bank {} {:model-init rig/model-init})
+                     smallest)]
          (is (:pass? result)
              (str "shrunk to " (pr-str smallest)
                   "\n  why: " (pr-str why)

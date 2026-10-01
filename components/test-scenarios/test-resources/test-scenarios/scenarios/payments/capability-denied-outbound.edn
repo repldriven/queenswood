@@ -1,5 +1,4 @@
 {:name "Outbound payment is denied when capability is explicitly denied"
- :model :reality
  ;; Bind a deny rule for `:outbound-payment-action-send` to org-0.
  ;; The platform-tier rule still allows, but explicit deny wins
  ;; (see `bank-policy/capability.clj`). Submitting an outbound

@@ -149,10 +149,9 @@ Some brick tests cross the line on purpose, each carrying its reason:
 - `:fixture`: a write beneath the domain that sets up a state the domain
   then reacts to, and that the model mirrors: `:fixture/apply-fee`, and
   `:fixture/fund-house`, whose house account the model does not hold.
-- `:reality`: a production path the model has no rule for — a policy
-  bound, a held inbound, a provider event such as
-  `:settle-outbound-event`, a redelivered submit, a ledger account
-  closed.
+- `:reality`: a production path the model has no rule for — a held
+  inbound, a provider event such as `:settle-outbound-event`, a
+  redelivered submit, a ledger account closed.
 - `:read` and `:assert`: change no state, and never stop a comparison.
 
 **Compared or reality-only.** A scenario carries `:model :compared`, the
@@ -187,6 +186,19 @@ payments, found by the scheme transaction ids the runner records. A
 projection reads through the query path the API uses rather than the
 store, and lets no timestamp or generated id through.
 
+**Policies.** The model is held to the policies reality boots with:
+`model-init` reads the platform policy and the tier policy scenario
+banks are created on out of the rig's own configuration, and hands
+them to `test-model` as data, so the model drifts from neither. Every
+bank is held to the platform policy, `:create-bank` binds the tier, and
+`:bind-policy`, a `:model` verb fugato never generates, binds a
+scenario's own. The model's evaluator, written apart from the `policy`
+brick's, reads the shapes it acts on: capabilities, where an action
+needs an allow and a deny wins; count limits, daily on payments and
+interest runs and instant on accounts, which count the bank's house
+account; and the available balance limit. `:bind-policy`'s schema
+admits only those shapes.
+
 **Waiting.** `await.clj` is the one loop, with one timeout,
 `:await-timeout-ms` on the runner context. `:close-account` waits for no
 provider: the close records `closing` before it returns, which the
@@ -200,8 +212,9 @@ The directories take the API corpus's names — `payments/`,
 runs. The reality-only files hold what the API cannot reach: a
 dead-lettered settlement, a provider event delivered twice, provider
 balance mirroring, a redelivered submit, the intent and scheme-command
-assertions, policies bound mid-scenario, held inbounds, and a closed
-control met by a posting.
+assertions, held inbounds, and a closed control met by a posting. The
+policy scenarios — daily limits, a denied capability, the account cap, a
+waived close and an interest run limit — are compared.
 
 ### API scenario fixtures
 
@@ -376,11 +389,12 @@ Three things keep scenarios apart:
 
 ## Known Limitations
 
-- **The model has no rule for policies, holds or provider events.** A
-  scenario that binds a policy, holds an inbound or delivers a provider
-  event runs reality-only, which is most of the domain corpus. A model
-  rule for a bound limit or capability would bring the limit and
-  capability scenarios back to compared.
+- **The model has no rule for holds or provider events.** A scenario
+  that holds an inbound or delivers a provider event runs reality-only.
+- **The model reads part of a policy.** Filtered capabilities and
+  amount limits are not read, and `:create-product` and
+  `:create-person-party` meet no count limit, since no scenario comes
+  near one.
 - **The property's failure paths are unproved.** No test drives a broken
   invariant or a timed-out step through a trial.
 - **PRD journeys with no scenario.** Webhook notifications, outages and

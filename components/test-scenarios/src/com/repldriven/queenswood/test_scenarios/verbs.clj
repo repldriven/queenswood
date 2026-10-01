@@ -243,6 +243,13 @@
   {:verifies ["identity" "liveness" "claimed-identity" "address"]
    :screens ["sanctions" "pep"]})
 
+(def
+  ^{:doc
+    "The tier every scenario bank is created on, whose policy the
+  model binds each bank to as reality does."}
+  bank-tier
+  "test-scenario")
+
 (defmulti dispatch (fn [_ctx command] (:command command)))
 
 (defn dispatched
@@ -277,7 +284,7 @@
         result (banks/new-bank bank
                                bank-name
                                :bank-status-test
-                               "test-scenario"
+                               bank-tier
                                ["GBP"]
                                {:identity-provider identity-provider
                                 :idv-provider idv-provider

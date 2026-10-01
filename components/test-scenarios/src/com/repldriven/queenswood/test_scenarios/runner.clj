@@ -11,12 +11,13 @@
 
 (defn fresh-context
   [bank {:keys [scheme-commands dead-letters envelope-schemas]}
-   {:keys [await-timeout-ms]}]
+   {:keys [await-timeout-ms model-init]}]
   {:bank bank
    :scheme-commands scheme-commands
    :dead-letters dead-letters
    :envelope-schemas envelope-schemas
    :await-timeout-ms (or await-timeout-ms await/default-timeout-ms)
+   :model-init model-init
    :identity-provider (identity-provider/local-provider {})
    :id-mapping id-mapping/init
    :banks {}

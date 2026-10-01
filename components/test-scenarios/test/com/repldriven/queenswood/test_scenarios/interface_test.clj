@@ -3,8 +3,6 @@
     [com.repldriven.queenswood.test-scenarios.interface :as SUT]
     [com.repldriven.queenswood.test-scenarios.rig :as rig]
 
-    [com.repldriven.queenswood.test-model.interface :as model]
-
     [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.log.interface :as log]
     [com.repldriven.mono.test-system.interface :refer [with-test-system]]
@@ -39,9 +37,12 @@
                 (testing relative
                   (if (error/anomaly? loaded)
                     (is (not (error/anomaly? loaded)) (pr-str loaded))
-                    (let [report (SUT/run-scenario
-                                  (SUT/fresh-context (rig/bank sys) observers)
-                                  loaded)]
+                    (let [report (SUT/run-scenario (SUT/fresh-context
+                                                    (rig/bank sys)
+                                                    observers
+                                                    {:model-init
+                                                     rig/model-init})
+                                                   loaded)]
                       (log/info "scenario complete"
                                 {:file relative
                                  :compared? (:compared? report)
@@ -58,7 +59,7 @@
            {:keys [divergence]} (SUT/first-divergence
                                  (SUT/fresh-context (rig/bank sys))
                                  steps
-                                 (assoc model/init-state :next-id 5))]
+                                 (assoc rig/model-init :next-id 5))]
        (is (= 0 (:index divergence)))
        (is (= (first steps) (:step divergence)))
        (is (contains? (:balances (:only-model divergence)) :acct-5))

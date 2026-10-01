@@ -1,5 +1,4 @@
 {:name "Daily inbound-payment count limit is enforced per org"
- :model :reality
  ;; Bind a tight `max 2 inbound-payments per day` policy to org-0,
  ;; then settle two inbound transfers (within cap) and a third
  ;; (over cap). Money that has arrived is never refused: the third is

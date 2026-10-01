@@ -4,11 +4,17 @@
 
     [clojure.test.check.generators :as gen]))
 
-;; Epoch-days the runner's product verbs send: every create and
-;; open-draft carries 20089 (2025-01-01), and an update moves the
-;; window without letting it stop containing today.
-(def ^:private default-effective-from 20089)
+(def
+  ^{:private true
+    :doc
+    "The effective-from the runner's product verbs send, 2025-01-01
+  as an epoch day, so a published version is in force when an account
+  opens."}
+  default-effective-from
+  20089)
+
 (def ^:private later-effective-from 20454)
+
 (def ^:private far-effective-to 21184)
 
 (defn version
@@ -89,17 +95,14 @@
                                          later-effective-from])
                      to (gen/elements [nil far-effective-to])]
              [prod-id {:effective-from from :effective-to to}]))
-   :next-state
-   ;; Reality rejects an update whose target is unknown or no longer a
-   ;; draft — predict a no-op, same convention as `close-account`.
-   (fn [state {[prod-id data] :args}]
-     (if (= :draft (:status (state/latest-version state prod-id)))
-       (flip-latest state
-                    prod-id
-                    (fn [v]
-                      (assoc v
-                             :effective-from (:effective-from data)
-                             :effective-to (:effective-to data))))
-       state))
+   :next-state (fn [state {[prod-id data] :args}]
+                 (if (= :draft (:status (state/latest-version state prod-id)))
+                   (flip-latest state
+                                prod-id
+                                (fn [v]
+                                  (assoc v
+                                         :effective-from (:effective-from data)
+                                         :effective-to (:effective-to data))))
+                   state))
    :valid? (fn [state {[prod-id] :args}]
              (= :draft (:status (state/latest-version state prod-id))))})

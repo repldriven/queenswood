@@ -1,5 +1,4 @@
 {:name "Daily outbound-payment count limit is enforced per org"
- :model :reality
  ;; Bind a tight `max 2 outbound-payments per day` policy to org-0,
  ;; then submit two outbound payments (within cap) and a third
  ;; (over cap). The third must be rejected with

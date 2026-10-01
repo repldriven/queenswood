@@ -17,7 +17,7 @@
     state))
 
 (defn walk
-  ([ctx steps] (walk ctx steps model/init-state))
+  ([ctx steps] (walk ctx steps (:model-init ctx)))
   ([ctx steps init-state]
    (loop [ctx ctx
           state init-state

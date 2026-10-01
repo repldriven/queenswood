@@ -1,9 +1,8 @@
 {:name "Cash-account count limit is enforced per bank"
- :model :reality
- ;; Bind a tight `max 2 cash accounts` policy to bank-0, which already
- ;; holds the one account `:create-bank` opens, then open a second
- ;; (at the cap) and a third (over it). The third must be rejected
- ;; with `:policy/limit-exceeded`.
+ ;; Bind a tight `max 3 cash accounts` policy to bank-0, which already
+ ;; holds two: its house account and the one `:create-bank` opens. A
+ ;; third opens at the cap, and a fourth is rejected with
+ ;; `:policy/limit-exceeded`.
  ;;
  ;; This exercises (a) the per-bank PolicyBinding resolution that
  ;; `get-effective-policies` does, and (b) the count the open reads
@@ -15,13 +14,13 @@
   {:command :bind-policy
    :args
    [:bank-0
-    {:name "Test: max 2 cash accounts"
+    {:name "Test: max 3 cash accounts"
      :category :policy-category-restricted
      :limits
      [{:kind {:cash-account {}}
        :bound {:kind {:max {:aggregate
                             {:kind
-                             {:count {:value 2
+                             {:count {:value 3
                                       :window :time-window-instant}}}}}}
        :reason "Test-bound cash-account count cap"}]}]}
   {:command :open-account :args [:bank-0 :party-1 :prod-0]}]
