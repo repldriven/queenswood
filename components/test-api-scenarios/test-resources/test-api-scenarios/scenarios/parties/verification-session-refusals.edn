@@ -53,7 +53,7 @@
              :headers {:idempotency-key "ik-verification-session-refusals-002"}
              :body {:channel "web"
                     :return-url "http://app.example.test/back"
-                    :email "ford@example.test"}}
+                    :email "ford.refusals@example.test"}}
    :assert {:status 400}}
   {:command :api/request
    :request {:method :post
@@ -63,7 +63,7 @@
              :headers {:idempotency-key "ik-verification-session-refusals-003"}
              :body {:channel "web"
                     :return-url "https://app.example.test/back"
-                    :email "ford@example.test"}}
+                    :email "ford.refusals@example.test"}}
    :assert {:status 404 :body {:type ":idv/not-found"}}}
   {:command :api/request
    :request {:method :get

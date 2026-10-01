@@ -427,10 +427,11 @@
 (defn hold-inbound
   "An inbound ClearBank is holding for screening. Record it `held` (creditor
   resolved by BBAN); no money moves — the funds are held at ClearBank, not
-  ours yet. Idempotent on an open hold for the same end-to-end id, creditor
-  and amount; a held to an unmatched BBAN, or to a creditor that is not
-  opened, is logged and ignored — the settle that follows finds no held
-  record and parks in suspense."
+  ours yet. Idempotent on any inbound recorded for the same end-to-end
+  id, creditor and amount, whatever its status, so a hold redelivered
+  after its settlement records nothing; a held to an unmatched BBAN, or to
+  a creditor that is not opened, is logged and ignored — the settle that
+  follows finds no held record and parks in suspense."
   [config data]
   (let [{:keys [creditor-bban end-to-end-id amount]} data
         business-day (checks/current-business-day
@@ -442,13 +443,15 @@
        (let-nom>
          [account (cash-accounts/get-account-by-bban txn creditor-bban)
           existing (when account
-                     (q/find-open-hold txn
-                                       end-to-end-id
-                                       (:account-id account)
-                                       amount))]
+                     (q/find-matching-inbound txn
+                                              end-to-end-id
+                                              (:account-id account)
+                                              amount))]
          (cond
           existing
-          (do (log/infof "Inbound hold already recorded: %s" end-to-end-id)
+          (do (log/infof "Inbound hold already recorded: %s"
+                         {:end-to-end-id end-to-end-id
+                          :payment-status (:payment-status existing)})
               existing)
 
           (and account (not (checks/operable? account)))

@@ -1,103 +1,36 @@
 {:name "Tenant closes an open cash account"
  :tags #{:api :cash-accounts :happy :lifecycle}
  :given
- [{:command :api/request
-   :request {:method :post
-             :path "/v1/banks"
-             :auth :admin
-             :headers {:idempotency-key "ik-close-account-happy-bank-001"}
-             :body {:name "Close Account Test Org"
-                    :status "live"
-                    :tier "micro"
-                    :currencies ["GBP"]}}
-   :as :org-0
-   :assert {:status 201}}
-  {:command :auth/mint-token
-   :for {:client-id [:ref :org-0 :client-id]
-         :client-secret [:ref :org-0 :client-secret]
-         :status :live}
-   :as :org-0-token}
-  ;; Active party
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/parties"
-             :auth :org-0-token
-             :headers {:idempotency-key "ik-close-account-party"}
-             :body {:type "person"
-                    :display-name "Closing Customer"
-                    :given-name "Closing"
-                    :family-name "Customer"
-                    :date-of-birth "1970-01-01"
-                    :nationality "GB"
-                    :address {:building-number "155"
-                              :street "Country Lane"
-                              :town "Cottington"
-                              :postcode "CT12 4XY"
-                              :country "GBR"}
-                    :national-identifier {:type "national-insurance"
-                                          :value "TN888001A"
-                                          :issuing-country "GB"}}}
-   :as :party-0
-   :assert {:status 201 :body {:status "pending"}}}
-  {:command :api/poll
-   :request {:method :get
-             :path "/v1/parties/{party-id}"
-             :path-params {:party-id [:ref :party-0 :party-id]}
-             :auth :org-0-token}
-   :until {:status 200 :body {:status "active"}}}
-  ;; Published product
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/cash-account-products"
-             :auth :org-0-token
-             :headers {:idempotency-key "ik-close-account-happy-prod-001"}
-             :body {:name "Current Account"
-                    :template-id "tpl.00000000000000000000000001"
-                    :currency "GBP"
-                    :interest-rate-bps 0
-                    :effective-from "2026-01-01"}}
-   :as :draft
-   :assert {:status 201 :body {:status "draft"}}}
-  {:command :api/request
-   :request
-   {:method :post
-    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
-    :path-params {:product-id [:ref :draft :product-id]
-                  :version-id [:ref :draft :version-id]}
-    :auth :org-0-token}
-   :assert {:status 200 :body {:status "published"}}}
-  ;; Open the cash-account and wait for opened
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/cash-accounts"
-             :auth :org-0-token
-             :headers {:idempotency-key "ik-close-account-open"}
-             :body {:party-id [:ref :party-0 :party-id]
-                    :name "To Be Closed"
-                    :currency "GBP"
-                    :product-id [:ref :draft :product-id]}}
+ [{:fixture :bank :as :bank-0 :with {:name "Close Account Test Org"
+                                     :status "live"}}
+  {:fixture :person
+   :as :customer
+   :with {:token [:ref :bank-0 :token]
+          :display-name "Closing Customer"
+          :given-name "Closing"
+          :family-name "Customer"
+          :national-insurance "TN888001A"}}
+  {:fixture :product :as :current :with {:token [:ref :bank-0 :token]}}
+  {:fixture :account
    :as :account-0
-   :assert {:status 201 :body {:account-status "opening"}}}
-  {:command :api/poll
-   :request {:method :get
-             :path "/v1/cash-accounts/{account-id}"
-             :path-params {:account-id [:ref :account-0 :account-id]}
-             :auth :org-0-token}
-   :until {:status 200 :body {:account-status "opened"}}}]
+   :with {:token [:ref :bank-0 :token]
+          :party-id [:ref :customer :party :party-id]
+          :product-id [:ref :current :product :product-id]
+          :name "To Be Closed"}}]
  :when
  [{:command :api/request
    :request {:method :post
              :path "/v1/cash-accounts/{account-id}/close"
-             :path-params {:account-id [:ref :account-0 :account-id]}
-             :auth :org-0-token
+             :path-params {:account-id [:ref :account-0 :account :account-id]}
+             :auth [:ref :bank-0 :token]
              :headers {:idempotency-key "ik-close-account-close"}}
    :assert {:status 200
-            :body {:account-id [:ref :account-0 :account-id]
+            :body {:account-id [:ref :account-0 :account :account-id]
                    :account-status "closing"}}}
   ;; Watcher transitions closing -> closed
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}"
-             :path-params {:account-id [:ref :account-0 :account-id]}
-             :auth :org-0-token}
+             :path-params {:account-id [:ref :account-0 :account :account-id]}
+             :auth [:ref :bank-0 :token]}
    :until {:status 200 :body {:account-status "closed"}}}]}

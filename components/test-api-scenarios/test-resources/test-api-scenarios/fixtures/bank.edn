@@ -1,0 +1,17 @@
+{:doc "A bank on the run's providers, with a token minted for it."
+ :params {:name "Scenario Bank"
+          :status "test"
+          :tier "micro"
+          :currencies ["GBP"]}
+ :steps
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :body {:name [:param :name]
+                    :status [:param :status]
+                    :tier [:param :tier]
+                    :currencies [:param :currencies]}}
+   :as :bank
+   :token-as :token
+   :assert {:status 201}}]}

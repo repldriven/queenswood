@@ -117,16 +117,20 @@
    :payment/find-inbound-payment
    "Failed to find inbound payment"))
 
-(defn- open-with-status
-  [txn end-to-end-id status]
+(defn- by-end-to-end-id
+  [txn end-to-end-id]
   (->> (fdb/query-records (fdb/open txn inbound-payments-store-name)
                           "InboundPayment"
                           "end_to_end_id"
                           end-to-end-id
                           {:index "InboundPayment_by_end_to_end_id"})
        (map schema/pb->InboundPayment)
-       (filter (fn [payment] (= status (:payment-status payment))))
        oldest-first))
+
+(defn- open-with-status
+  [txn end-to-end-id status]
+  (filterv (fn [payment] (= status (:payment-status payment)))
+           (by-end-to-end-id txn end-to-end-id)))
 
 (defn- open-holds
   [txn end-to-end-id]
@@ -157,6 +161,19 @@
           first))
    :payment/find-open-hold
    {:message "Failed to find open hold"
+    :end-to-end-id end-to-end-id}))
+
+(defn find-matching-inbound
+  [txn end-to-end-id creditor-account-id amount]
+  (fdb/transact
+   txn
+   (fn [txn]
+     (->> (by-end-to-end-id txn end-to-end-id)
+          (filter (fn [payment]
+                    (matches-hold? creditor-account-id amount payment)))
+          first))
+   :payment/find-matching-inbound
+   {:message "Failed to find matching inbound"
     :end-to-end-id end-to-end-id}))
 
 (defn find-open-admission

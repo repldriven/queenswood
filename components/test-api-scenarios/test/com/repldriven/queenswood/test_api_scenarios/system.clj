@@ -49,4 +49,33 @@
    :system/config-schema [:map [:path {:optional true} [:maybe string?]]]
    :system/instance-schema [:maybe string?]})
 
-(system/defcomponents :test-api-scenarios {:span-dump span-dump})
+;; How the run is paced: how many scenarios run at once, which the rig
+;; reads from `TEST_API_SCENARIO_WORKERS` and otherwise takes from the
+;; processors the JVM may use; how long a step waits on the system; and
+;; the capabilities each provider's adapter does not carry yet, as
+;; distinct from what its declaration rules out.
+(def settings
+  {:system/start (fn [{:system/keys [config]}]
+                   (let [{:keys [workers await-timeout-ms unbuilt]} config]
+                     {:workers (or (some-> workers
+                                           str
+                                           parse-long)
+                                   (.availableProcessors (Runtime/getRuntime)))
+                      :await-timeout-ms await-timeout-ms
+                      :unbuilt (update-vals (or unbuilt {})
+                                            (fn [tags]
+                                              (set (map keyword tags))))}))
+   :system/config {:workers nil :await-timeout-ms 15000 :unbuilt {}}
+   :system/config-schema [:map
+                          [:workers {:optional true}
+                           [:maybe [:or string? int?]]]
+                          [:await-timeout-ms {:optional true} pos-int?]
+                          [:unbuilt {:optional true}
+                           [:map-of keyword? [:sequential string?]]]]
+   :system/instance-schema [:map
+                            [:workers pos-int?]
+                            [:await-timeout-ms pos-int?]
+                            [:unbuilt [:map-of keyword? [:set keyword?]]]]})
+
+(system/defcomponents :test-api-scenarios
+                      {:span-dump span-dump :settings settings})

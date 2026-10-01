@@ -1,0 +1,27 @@
+{:doc "A published cash-account product, from a template."
+ :required #{:token}
+ :params {:name "Current Account"
+          :template-id "tpl.00000000000000000000000001"
+          :currency "GBP"
+          :interest-rate-bps 0
+          :effective-from "2026-01-01"}
+ :steps
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth [:param :token]
+             :body {:name [:param :name]
+                    :template-id [:param :template-id]
+                    :currency [:param :currency]
+                    :interest-rate-bps [:param :interest-rate-bps]
+                    :effective-from [:param :effective-from]}}
+   :as :product
+   :assert {:status 201 :body {:status "draft"}}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :product :product-id]
+                  :version-id [:ref :product :version-id]}
+    :auth [:param :token]}
+   :assert {:status 200 :body {:status "published"}}}]}

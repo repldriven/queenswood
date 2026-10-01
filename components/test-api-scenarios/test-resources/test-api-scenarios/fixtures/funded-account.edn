@@ -1,0 +1,42 @@
+{:doc
+ "A cash account, opened and holding `:amount`, paid in from the bank's
+  own funds after an inbound transfer to them."
+ :required #{:bank-id :token :party-id :product-id}
+ :params {:name "Current Account"
+          :currency "GBP"
+          :amount 100000}
+ :steps
+ [{:fixture :account
+   :as :opened
+   :with {:token [:param :token]
+          :party-id [:param :party-id]
+          :product-id [:param :product-id]
+          :name [:param :name]
+          :currency [:param :currency]}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/simulate/inbound-transfer"
+             :auth :admin
+             :headers {:bank-id [:param :bank-id]}
+             :body {:amount [:param :amount]
+                    :currency [:param :currency]}}
+   :as :own-funds
+   :assert {:status 200}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/payments/internal"
+             :auth [:param :token]
+             :body {:debtor-account-id [:ref :own-funds :account-id]
+                    :creditor-account-id [:ref :opened :account :account-id]
+                    :currency [:param :currency]
+                    :amount [:param :amount]
+                    :reference "Funding"}}
+   :assert {:status 201}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :opened :account :account-id]}
+             :auth [:param :token]}
+   :until {:status 200
+           :body {:available-balance {:value [:param :amount]
+                                      :currency [:param :currency]}}}}]}

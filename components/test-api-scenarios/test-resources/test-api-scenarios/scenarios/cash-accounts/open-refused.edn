@@ -1,5 +1,5 @@
 {:name "An account the payment provider declines is refused"
- :tags #{:api :cash-accounts :unhappy}
+ :tags #{:serial :api :cash-accounts :unhappy}
  ;; The simulator declines the next account it is asked to open. The
  ;; account, written opening, becomes refused with the provider's reason
  ;; and never carries an address.

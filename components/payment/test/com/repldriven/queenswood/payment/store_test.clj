@@ -245,7 +245,14 @@
                    hold (q/find-open-hold config e2e "acc.b" 2500)
                    _ (is (nil? hold))
                    holds (q/find-open-holds config "e2e.missing")
-                   _ (is (= [] holds))])))))
+                   _ (is (= [] holds))]))
+     (testing "a matching inbound is found whatever its status, oldest first"
+       (nom-test> [payment (q/find-matching-inbound config e2e "acc.a" 1000)
+                   _ (is (= "pmt.h4" (:payment-id payment)))
+                   payment (q/find-matching-inbound config e2e "acc.b" nil)
+                   _ (is (= "pmt.h2" (:payment-id payment)))
+                   payment (q/find-matching-inbound config e2e "acc.c" nil)
+                   _ (is (nil? payment))])))))
 
 (deftest payment-status-list-test
   (with-test-system

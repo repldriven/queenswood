@@ -1,0 +1,21 @@
+{:doc "A cash account, opened."
+ :required #{:token :party-id :product-id}
+ :params {:name "Current Account"
+          :currency "GBP"}
+ :steps
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth [:param :token]
+             :body {:party-id [:param :party-id]
+                    :name [:param :name]
+                    :currency [:param :currency]
+                    :product-id [:param :product-id]}}
+   :as :account
+   :assert {:status 201 :body {:account-status "opening"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :account :account-id]}
+             :auth [:param :token]}
+   :until {:status 200 :body {:account-status "opened"}}}]}

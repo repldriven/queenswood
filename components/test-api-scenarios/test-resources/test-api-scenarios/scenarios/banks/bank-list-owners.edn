@@ -1,5 +1,5 @@
 {:name "The bank list shows a bank's owner once the owner invitation is accepted"
- :tags #{:api :banks :access :happy}
+ :tags #{:serial :api :banks :access :happy}
  ;; Every scenario shares the bank list, so each read embeds the bank
  ;; this file created rather than asserting the list's length. A pending
  ;; owner invitation is not an owner.

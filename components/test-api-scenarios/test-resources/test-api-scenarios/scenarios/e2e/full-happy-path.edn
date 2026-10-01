@@ -298,35 +298,34 @@
  ;;   Arthur sav                  + 750_00            =    75_000
  ;;   Ford   cur          1_000_00 - 350_00 - 25_00   =    62_500
  ;;   Ford   sav                  + 350_00            =    35_000
- [{:command :wait :duration-ms 2000}
-  {:command :api/request
+ [{:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}/balances"
              :path-params {:account-id [:ref :bank-0 :accounts 0 :account-id]}
              :auth :bank-0-token}
-   :assert {:status 200
-            :body {:available-balance {:value 4800000 :currency "GBP"}}}}
-  {:command :api/request
+   :until {:status 200
+           :body {:available-balance {:value 4800000 :currency "GBP"}}}}
+  {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}/balances"
              :path-params {:account-id [:ref :arthur-current :account-id]}
              :auth :bank-0-token}
-   :assert {:status 200
-            :body {:available-balance {:value 27500 :currency "GBP"}}}}
-  {:command :api/request
+   :until {:status 200
+           :body {:available-balance {:value 27500 :currency "GBP"}}}}
+  {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}/balances"
              :path-params {:account-id [:ref :arthur-savings :account-id]}
              :auth :bank-0-token}
-   :assert {:status 200
-            :body {:available-balance {:value 75000 :currency "GBP"}}}}
-  {:command :api/request
+   :until {:status 200
+           :body {:available-balance {:value 75000 :currency "GBP"}}}}
+  {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}/balances"
              :path-params {:account-id [:ref :ford-current :account-id]}
              :auth :bank-0-token}
-   :assert {:status 200
-            :body {:available-balance {:value 62500 :currency "GBP"}}}}
+   :until {:status 200
+           :body {:available-balance {:value 62500 :currency "GBP"}}}}
   ;; The settled outbound reads as a posted debit on Ford's statement: the
   ;; submit reserved in pending-outgoing, and settlement cleared the
   ;; reservation and posted the real outflow. Phase is the leg's

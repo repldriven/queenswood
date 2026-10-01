@@ -1,11 +1,13 @@
 (ns com.repldriven.queenswood.test-api-scenarios.interface-test
   "Single-boot runner for EDN-defined API scenarios.
 
-  Boots one bank-api system, then iterates every `.edn` file under
-  `bank-test-api-scenarios/scenarios/` on the classpath. Each
-  scenario gets its own runner context (fresh captures map) so
-  scenarios cannot leak state into one another; the booted system
-  is shared to amortise startup cost."
+  Boots one bank-api system, loads every `.edn` file under
+  `test-api-scenarios/scenarios/` on the classpath, and runs each on
+  every provider run it belongs to, several at once, then the ones
+  tagged `:serial` one at a time. Each execution gets its own runner
+  context (fresh captures map, run id and keys) so scenarios cannot
+  leak state into one another; the booted system is shared to amortise
+  startup cost."
   (:require
     [com.repldriven.queenswood.test-api-scenarios.system]
 
@@ -37,6 +39,7 @@
     [com.repldriven.queenswood.zyphe-adapter.interface :as zyphe-adapter]
     [com.repldriven.queenswood.zyphe-simulator.interface :as zyphe-simulator]
 
+    [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.http-client.interface :as http]
     [com.repldriven.mono.identity-provider.interface :as identity-provider]
     [com.repldriven.mono.json.interface :as json]
@@ -46,15 +49,15 @@
     [com.repldriven.mono.test-telemetry.interface :as test-telemetry]
     [com.repldriven.mono.test-system.interface :refer
      [with-test-system nom-test>]]
-    [com.repldriven.mono.utility.interface :as util]
 
     [clojure.java.io :as io]
     [clojure.string :as str]
-    [clojure.test :refer [deftest is testing]])
+    [clojure.test :refer [deftest do-report is testing]])
   (:import
     (io.opentelemetry.api.common AttributeKey)
     (io.opentelemetry.sdk.trace.data SpanData)
-    (java.security KeyPairGenerator)))
+    (java.security KeyPairGenerator)
+    (java.util.concurrent Executors Future)))
 
 (defn- mint-admin-token
   "Exchange the seeded queenswood-admin client_credentials for an
@@ -138,23 +141,6 @@
                 zyphe-adapter/app)
       (assoc-in [:system/defs :uk-companies-house-simulator-server :handler]
                 ukch-simulator/app)))
-
-(defn- scenario-files
-  "Walk `dir`, `test-api-scenarios/scenarios/` unless named, recursively,
-  returning `{:file File :relative \"<sub>/<name>.edn\"}` entries sorted
-  by relative path so domain-grouped runs stay deterministic."
-  ([] (scenario-files "test-api-scenarios/scenarios"))
-  ([dir]
-   (let [root (io/file (.getFile (io/resource dir)))
-         prefix-len (inc (count (.getPath root)))]
-     (->> (file-seq root)
-          (filter (fn [f]
-                    (and (.isFile ^java.io.File f)
-                         (.endsWith (.getName f) ".edn"))))
-          (map (fn [f]
-                 {:file f
-                  :relative (subs (.getPath f) prefix-len)}))
-          (sort-by :relative)))))
 
 (defn- span->map
   "One finished span as data: enough to rebuild the tree and time
@@ -262,28 +248,16 @@
                      (is (= ":ledger-account/closed"
                             (get-in refused [:body :type]))))]))))
 
-(deftest idempotency-keys-are-unique-across-files-test
-  ;; Bank creation sits in the `:given` of almost every scenario file
-  ;; and the admin principal is shared by the whole boot, so a key
-  ;; literal that appears in two files replays the other file's bank
-  ;; rather than creating one.
-  (let [owners (reduce (fn [m {:keys [file relative]}]
-                         (reduce
-                          (fn [m [_ k]]
-                            (update m k (fnil conj (sorted-set)) relative))
-                          m
-                          (re-seq #"\"(ik-[^\"]+)\"" (slurp file))))
-                       {}
-                       (scenario-files))
-        reused (into (sorted-map)
-                     (filter (fn [[_ files]] (< 1 (count files))) owners))]
-    (is (= {} reused)
-        "an Idempotency-Key literal shared by two scenario files replays")))
+;; The capabilities a scenario may require, which a provider either
+;; carries or does not.
+(def ^:private capabilities
+  #{:inbound-notified :inbound-admitted :screened :outbound-returned
+    :needs-email})
 
-(defn- skipped-tags
-  "The tags naming what a payment provider cannot run, read off its
-  declaration: telling of an inbound once settled, admitting one before
-  it settles, and screening an outbound itself."
+(defn- payment-missing
+  "What a payment provider cannot run, read off its declaration: telling
+  of an inbound once settled, admitting one before it settles, and
+  screening an outbound itself."
   [{:keys [inbound screening]}]
   (cond-> #{}
           (not= "notified" inbound)
@@ -295,94 +269,114 @@
           (not= "provider" screening)
           (conj :screened)))
 
-(defn- idv-skipped-tags
-  "The tags naming what an IDV provider cannot run, read off its
-  declaration: refusing a session opened without the email it needs."
+(defn- idv-missing
+  "What an IDV provider cannot run, read off its declaration: refusing
+  a session opened without the email it needs."
   [{:keys [needs]}]
   (cond-> #{}
           (not (some #{"email"} needs))
           (conj :needs-email)))
 
-(def ^:private unbuilt
-  "The tags naming what a provider's adapter does not carry yet, by
-  provider, as distinct from what its declaration rules out: ClearBank's
-  adapter and simulator return no outbound payment."
-  {"clearbank" #{:outbound-returned}})
-
-(defn- idv-runs
-  "The party scenarios on each IDV provider offered but the default,
-  with the default payment provider's simulator."
-  [sys payment-run]
-  (let [{:keys [default providers]} (system/instance sys
-                                                     [:idv-provider
-                                                      :providers])
-        party-files (filter (fn [{:keys [relative]}]
-                              (re-find #"^parties/" relative))
-                            (scenario-files))]
-    (for [provider (sort (map (comp name :provider) (vals providers)))
-          :when (not= (name default) provider)]
-      (assoc payment-run
-             :provider provider
-             :files party-files
-             :skips (into (:skips payment-run)
-                          (idv-skipped-tags (system/instance
-                                             sys
-                                             [:idv-provider
-                                              (keyword provider)])))
-             :providers {:idv provider}
-             :key-suffix provider))))
-
-(defn- payment-runs
-  "Every scenario on the default payment provider, then the payment and
-  payee-check scenarios on each other provider offered, each run with
-  its provider's simulator and the tags it skips."
-  [sys]
-  (let [{:keys [default providers]} (system/instance sys
-                                                     [:payment-provider
-                                                      :providers])
-        run (fn [provider files]
-              {:provider (name provider)
-               :files files
-               :skips (into (skipped-tags (system/instance
-                                           sys
-                                           [:payment-provider
-                                            (keyword provider)]))
-                            (get unbuilt (name provider)))
+(defn- runs
+  "Every scenario on the default providers, then each other payment
+  provider and each other IDV provider in turn, each with the
+  capabilities it lacks and its payment provider's simulator."
+  [sys {:keys [unbuilt]}]
+  (let [payments (system/instance sys [:payment-provider :providers])
+        idvs (system/instance sys [:idv-provider :providers])
+        default-payment (name (:default payments))
+        default-idv (name (:default idvs))
+        others (fn [{:keys [default providers]}]
+                 (remove #{(name default)}
+                         (sort (map (comp name :provider) (vals providers)))))
+        run (fn [scope payment idv]
+              {:scope scope
+               :provider (if (= :idv scope) idv payment)
+               :missing (into (payment-missing (system/instance
+                                                sys
+                                                [:payment-provider
+                                                 (keyword payment)]))
+                              (concat (get unbuilt (keyword payment))
+                                      (idv-missing (system/instance
+                                                    sys
+                                                    [:idv-provider
+                                                     (keyword idv)]))))
                :payment-simulator-url (system/instance
                                        sys
-                                       [(keyword (str (name provider)
+                                       [(keyword (str payment
                                                       "-simulator-server"))
-                                        :http-url])})
-        payment-files (filter (fn [{:keys [relative]}]
-                                (re-find #"^(payments|payee-checks)/"
-                                         relative))
-                              (scenario-files))]
-    (cons (run default (scenario-files))
-          (for [provider (sort (map (comp name :provider) (vals providers)))
-                :when (not= (name default) provider)]
-            (assoc (run provider payment-files)
-                   :providers {:payment provider}
-                   :key-suffix provider)))))
+                                        :http-url])})]
+    (concat [(run :default default-payment default-idv)]
+            (map (fn [p]
+                   (assoc (run :payment p default-idv)
+                          :providers {:payment p}
+                          :key-suffix p))
+                 (others payments))
+            (map (fn [i]
+                   (assoc (run :idv default-payment i)
+                          :providers {:idv i}
+                          :key-suffix i))
+                 (others idvs)))))
 
-(defn- runs
-  "The payment runs, then the IDV runs, which take the default payment
-  provider's."
-  [sys]
-  (let [default-idv (:default (system/instance sys [:idv-provider :providers]))
-        idv-skips (idv-skipped-tags (system/instance sys
-                                                     [:idv-provider
-                                                      (keyword default-idv)]))
-        payment (payment-runs sys)]
-    (concat (map (fn [run] (update run :skips into idv-skips)) payment)
-            (idv-runs sys (first payment)))))
+(defn- runs-on?
+  "Whether a scenario runs on a run of `scope`: every scenario on the
+  defaults, and on another provider the ones that declare it. A scenario
+  declaring nothing runs on another payment provider when it lives under
+  `payments/` or `payee-checks/`, and on another IDV provider when it
+  lives under `parties/`."
+  [scope {:keys [relative scenario]}]
+  (let [{:keys [runs-on]} scenario]
+    (case scope
+      :default true
+      :payment (if runs-on
+                 (= :every (:payment runs-on))
+                 (boolean (re-find #"^(payments|payee-checks)/" relative)))
+      :idv (if runs-on
+             (= :every (:idv runs-on))
+             (boolean (re-find #"^parties/" relative))))))
+
+(defn- requirements
+  [{:keys [requires tags]}]
+  (into (or requires #{}) (filter capabilities) tags))
+
+(defn- executions
+  "Each scenario on each run it belongs to, with what the run lacks of
+  what the scenario requires."
+  [runs loaded]
+  (for [{:keys [scope missing] :as run} runs
+        entry loaded
+        :when (runs-on? scope entry)]
+    (assoc entry
+           :run run
+           :lacks (into (sorted-set)
+                        (filter missing)
+                        (requirements (:scenario entry))))))
+
+(defn- run-on-pool
+  "Run `tasks` on `workers` threads, each carrying the test's bindings
+  so its assertions count, and wait for every one."
+  [workers tasks]
+  (let [pool (Executors/newFixedThreadPool workers)]
+    (try (->> tasks
+              (mapv (fn [task] (.submit pool ^Callable (bound-fn [] (task)))))
+              (run! (fn [^Future f] (.get f))))
+         (finally (.shutdown pool)))))
 
 (deftest api-scenarios-test
-  ;; One test system serves every scenario, on every payment provider.
-  ;; Per-scenario isolation comes from a fresh runner context (own
-  ;; captures map), so scenarios cannot read each other's state.
-  (let [files (scenario-files)]
+  ;; One test system serves every scenario, on every provider. Per-scenario
+  ;; isolation comes from a fresh runner context (own captures map, run id
+  ;; and keys), so scenarios cannot read each other's state.
+  (let [files (SUT/scenario-files)
+        loaded (keep (fn [{:keys [relative]}]
+                       (let [scenario (SUT/from-resource (SUT/scenario-resource
+                                                          relative))]
+                         (is
+                          (not (error/anomaly? scenario))
+                          (str relative " does not load: " (pr-str scenario)))
+                         (when-not (error/anomaly? scenario)
+                           {:relative relative :scenario scenario})))
+                     files)]
     (is (seq files) "expected scenarios on the classpath")
-    (log/info "api scenarios starting" {:count (count files)})
     (with-test-system
      [sys
       ["classpath:test-api-scenarios/application-test.yml"
@@ -395,26 +389,27 @@
            mail-url (system/instance sys [:smtp :container-api-url])
            zyphe-simulator-url (system/instance sys
                                                 [:zyphe-simulator-server
-                                                 :http-url])]
-       ;; The seam remembers which ids it has already lost, and it
-       ;; outlives the system this boot tears down. Clearing it here
-       ;; keeps a second run in the same JVM — a REPL re-run — losing
-       ;; the replies the lost-reply scenarios need to go missing.
-       (fault/reset-lost!)
-       (doseq [{:keys [provider files skips payment-simulator-url providers
-                       key-suffix]}
-               (runs sys)
-               {:keys [relative]} files]
-         (let [resource-path (str "test-api-scenarios/scenarios/" relative)]
-           (testing (str provider " " relative)
-             (nom-test> [loaded (SUT/from-resource resource-path)
-                         _ (when-not (some skips (:tags loaded))
-                             (log/info "api scenario running"
+                                                 :http-url])
+           {:keys [workers await-timeout-ms] :as settings}
+           (system/instance sys [:test-api-scenarios :settings])
+           all (executions (runs sys settings) loaded)
+           {skipped true runnable false} (group-by (comp boolean seq :lacks)
+                                                   all)
+           {serial true pooled false} (group-by (fn [{:keys [scenario]}]
+                                                  (contains? (:tags scenario)
+                                                             :serial))
+                                                runnable)
+           task (fn [{:keys [relative scenario run]}]
+                  (let [{:keys [provider payment-simulator-url providers
+                                key-suffix]}
+                        run]
+                    (fn []
+                      (testing (str provider " " relative)
+                        (try (log/info "api scenario running"
                                        {:provider provider
                                         :file relative
-                                        :name (:name loaded)
-                                        :steps (count (SUT/steps loaded))})
-                             (SUT/run-scenario
+                                        :name (:name scenario)})
+                             (SUT/run-commands
                               (SUT/fresh-context
                                {:base-url base-url
                                 :admin-token admin-token
@@ -425,8 +420,33 @@
                                 :zyphe-simulator-url zyphe-simulator-url
                                 :providers providers
                                 :key-suffix key-suffix
-                                :run-id (str (util/uuidv7))})
-                              resource-path))]))))
+                                :await-timeout-ms await-timeout-ms})
+                              (SUT/steps scenario))
+                             (catch Throwable e
+                               (do-report {:type :error
+                                           :message
+                                           (str provider " " relative " threw")
+                                           :expected nil
+                                           :actual e})))))))]
+       (log/info "api scenarios starting"
+                 {:scenarios (count loaded)
+                  :executions (count runnable)
+                  :serial (count serial)
+                  :workers workers})
+       ;; The seam remembers which ids it has already lost, and it
+       ;; outlives the system this boot tears down. Clearing it here
+       ;; keeps a second run in the same JVM — a REPL re-run — losing
+       ;; the replies the lost-reply scenarios need to go missing.
+       (fault/reset-lost!)
+       (run-on-pool workers (map task pooled))
+       (run! (fn [execution] ((task execution))) serial)
+       (log/info "api scenarios finished"
+                 {:executed (count runnable)
+                  :skipped (mapv (fn [{:keys [relative run lacks]}]
+                                   {:file relative
+                                    :provider (:provider run)
+                                    :lacks lacks})
+                                 skipped)})
        (testing "the run is traced end to end"
          (let [spans (test-telemetry/finished-spans
                       (system/instance sys [:telemetry :otel-sdk]))

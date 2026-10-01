@@ -53,5 +53,5 @@
              :headers {:idempotency-key "ik-verification-session-after-decision-001"}
              :body {:channel "web"
                     :return-url "https://app.example.test/back"
-                    :email "ford@example.test"}}
+                    :email "ford.after-decision@example.test"}}
    :assert {:status 409 :body {:type ":idv/invalid-status"}}}]}
