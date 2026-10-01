@@ -5,17 +5,15 @@
   envelope around it does (AC-10).
 
   Envelopes are built here from the same Avro schema the cash-account
-  writer serialises with and handed to the processor directly, and once
-  through the bus. Driving the `cash-account` brick instead would need
-  a system this brick's own tests do not host.
+  writer serialises with and handed to the processor directly. The
+  bus subscription and the delivery the runner makes of what this
+  writes are API scenarios', in `webhook-endpoints/`.
 
   The endpoint lifecycle lives in `interface-test`, the record types in
   `store-test`, and the runner that sends what this writes in
   `outbound-test`."
   (:require
     [com.repldriven.queenswood.webhook.test-system]
-
-    [com.repldriven.queenswood.webhook.events :as SUT]
 
     [com.repldriven.queenswood.webhook.store :as store]
 
@@ -29,7 +27,6 @@
 
     [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.error.interface :as error]
-    [com.repldriven.mono.event.interface :as event]
     [com.repldriven.mono.json.interface :as json]
     [com.repldriven.mono.processor.interface :as processor]
     [com.repldriven.mono.system.interface :as system]
@@ -173,18 +170,6 @@
   (json/read-str (String. ^bytes (:body notification) "UTF-8")
                  :key-fn
                  keyword))
-
-(defn- eventually
-  "Poll until `f` answers truthy, or give up. The local bus delivers on
-  its own thread, so a consume driven through it has no completion the
-  test can wait on."
-  [f]
-  (let [deadline (+ (utility/now) 10000)]
-    (loop []
-      (or (f)
-          (when (< (utility/now) deadline)
-            (Thread/sleep 50)
-            (recur))))))
 
 (deftest opening-notifies-once-on-the-terminal-leg-test
   (with-test-system
@@ -588,52 +573,6 @@
         _ (testing "and only the endpoint's chosen kind is delivered"
             (nom-test> [chosen (deliveries config (str "whe.p." suffix))
                         _ (is (= 1 (count chosen)))]))]))))
-
-(deftest the-bus-subscription-reaches-the-consumer-test
-  (with-test-system
-   [sys config-file]
-   (let [config (processor-config sys)
-         bus (system/instance sys [:message-bus :bus])
-         bank-id "bnk.events.bus"
-         account-id (utility/generate-id "acc")
-         suffix (str (utility/uuidv7))
-         endpoint-id (str "whe." suffix)]
-     (nom-test> [_ (seed-account
-                    config
-                    (account bank-id account-id "20000007" "ik-bus")
-                    (balance bank-id account-id))
-                 _ (store/save-endpoint config
-                                        (endpoint
-                                         bank-id
-                                         endpoint-id
-                                         :webhook-endpoint-status-enabled
-                                         [kind]))
-                 opened (envelope sys
-                                  {:event-id (str "evt." suffix)
-                                   :bank-id bank-id
-                                   :account-id account-id
-                                   :status-before :cash-account-status-opening
-                                   :status-after :cash-account-status-opened})
-                 _ (testing
-                     "the registered kind starts this brick's own processor"
-                     (is (= (type (SUT/->WebhookEventProcessor config))
-                            (type (system/instance sys
-                                                   [:webhook
-                                                    :event-processor-impl])))))
-                 ;; until webhooks.md slice 2's scenarios
-                 ;; nosemgrep: brick-test-drives-pipeline
-                 _ (event/publish bus
-                                  opened
-                                  {:event-channel :cash-accounts-event})
-                 _ (testing "and the subscription carries an envelope to it"
-                     (is (eventually (fn []
-                                       (let [written (notifications config
-                                                                    bank-id)]
-                                         (and (not (error/anomaly? written))
-                                              (= 1 (count written))))))))
-                 _ (testing "and the delivery it wrote is there to be claimed"
-                     (nom-test> [sent (deliveries config endpoint-id)
-                                 _ (is (= 1 (count sent)))]))]))))
 
 (def ^:private outbound-event-name "outbound-payment-status-changed")
 

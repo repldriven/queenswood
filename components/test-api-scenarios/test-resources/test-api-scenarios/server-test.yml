@@ -40,6 +40,12 @@ interceptors: !system/component
   # One of the platform's own hosts, as WEBHOOK_PLATFORM_HOSTS names them
   # in a deployment: webhook-endpoints/platform-host-refused.edn registers it.
   platform-hosts: "93.184.216.35"
+  # The webhook address rule, as registration reads it: HTTP admitted
+  # and loopback reachable, so an endpoint on the rig's receiver may be
+  # registered.
+  webhook-address-rule:
+    allowed-schemes: [http, https]
+    blocked-ranges: !include test-api-scenarios/webhook-blocked-ranges.yml
   record-db: !system/ref fdb.record-db
   record-store: !system/ref fdb.meta-store
 jetty-adapter: !system/component

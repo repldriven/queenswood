@@ -79,6 +79,15 @@
                            [:timeout-ms {:optional true} pos-int?]
                            [:as {:optional true} alias-key]]
    :wait [[:duration-ms pos-int?]]
+   :webhook/open-receiver [[:as alias-key]]
+   :webhook/await-delivery [[:address any?]
+                            [:where {:optional true} map?]
+                            [:count {:optional true} pos-int?]
+                            [:secret {:optional true} any?]
+                            [:timeout-ms {:optional true} pos-int?]
+                            [:as {:optional true} alias-key]]
+   :assert/equals [[:actual any?]
+                   [:expected any?]]
    :keycloak/add-signing-key [[:realm keyword?]
                               [:as {:optional true} alias-key]]})
 

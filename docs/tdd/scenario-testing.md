@@ -19,8 +19,7 @@ pairs it compares; and the `test-api-scenarios` runner, its fixtures,
 schema, layout, provider runs, waits and concurrency.
 
 Out of scope: scenarios for PRD journeys that have none, which each
-capability's TDD schedules (Known Limitations lists them); the webhook
-delivery scenarios, which [webhooks.md](webhooks.md) schedules;
+capability's TDD schedules (Known Limitations lists them);
 `with-test-system`, its permits and the runner's parallelism, which
 mono's [test-system](../recipes/test/test-system.md) covers; the commands
 that run each tier and the service-project test matrix, which
@@ -127,9 +126,6 @@ Some brick tests cross the line on purpose, each carrying its reason:
 - **A brick's own event handler.** `email`'s deliveries test and
   `webhook`'s events test hand the handler an envelope with no bus, to
   prove a redelivered event produces one delivery.
-- **The webhook bus tests.** `webhook`'s end-to-end test and the
-  subscription case in its events test publish to the bus until the
-  delivery scenarios in [webhooks.md](webhooks.md) replace them.
 - **The cap race.** `cash-account-product`'s concurrent creates at the
   cap hold both creates past their reads on a latch, which no race over
   HTTP can promise.
@@ -310,8 +306,26 @@ logged with its reason and counted in the run's summary, and reports no
 assertion holds or a deadline passes, and `:api/poll`,
 `:mail/await-invitation`, `:idv/verify` and the invariants' settle all
 use it. The timeout is one config key, `await-timeout-ms`, in the rig's
-YAML. `:wait` is for a token's expiry only. [webhooks.md](webhooks.md)
-builds its receiver verb and delivery wait on the same loop.
+YAML. `:wait` is for a token's expiry only. `:webhook/await-delivery`
+uses the same loop, so a delivery's wait reaches past the relay to the
+bus, the webhook consumer's commit, the runner's poll and its call.
+
+### Webhook delivery
+
+The rig hosts the webhook consumers and runner, and a receiver: mono's
+Jetty adapter on 127.0.0.1, keeping every request it is sent. Its
+address rule admits plain HTTP and loopback at registration, and its
+runner sends over plain HTTP only, so an HTTPS address a scenario
+registers is refused at send time and never called.
+
+- `:webhook/open-receiver` captures an address on the receiver no other
+  step uses.
+- `:webhook/await-delivery` waits for `:count` requests to it, checks
+  each signature under the endpoint's `:secret`, and captures each
+  request's headers and parsed body.
+- `:assert/equals` holds two captured values exactly equal, with no
+  matcher between them: a notification's `data` and the read route's
+  body.
 
 ### Running concurrently
 
@@ -398,13 +412,13 @@ Three things keep scenarios apart:
   amount limits are not read, and `:create-product` and
   `:create-person-party` meet no count limit, since no scenario comes
   near one.
-- **PRD journeys with no scenario.** Webhook notifications, outages and
-  IDV events; interest beyond the end-to-end journey; curative transfers
-  and daily limits over HTTP; organisation parties; a customer's second
-  currency; the payment refusals the domain corpus holds and the API
-  does not; and routes no scenario calls, among them the policy and tier
-  reads, a balance by type, a migration's cancel, a run by id, webhook
-  test notifications and resends, and the discovery documents.
+- **PRD journeys with no scenario.** Webhook notifications beyond an account's
+  opening, outages and IDV events; interest beyond the end-to-end journey;
+  curative transfers and daily limits over HTTP; organisation parties; a
+  customer's second currency; the payment refusals the domain corpus holds and
+  the API does not; and routes no scenario calls, among them the policy and tier
+  reads, a balance by type, a migration's cancel, a run by id, webhook test
+  notifications and resends, and the discovery documents.
 - **The demo bank's tests.** `demo-digital-bank`'s interface test and the
   `demo-digital-bank-api` base test drive its own app end to end, and
   have no scenario tier to move to.
@@ -429,8 +443,8 @@ Three things keep scenarios apart:
   both runners assert after every step.
 - [bank-providers.md](bank-providers.md) — the providers a scenario runs
   on, and their declarations.
-- [webhooks.md](webhooks.md) — the delivery scenarios built on the
-  receiver verb and the await.
+- [webhooks.md](webhooks.md) — the notification contract the delivery
+  scenario holds.
 - [idempotency.md](idempotency.md) — the replay and race contract the
   API scenarios prove.
 - [service-apis.md](service-apis.md) — the API surface the scenarios

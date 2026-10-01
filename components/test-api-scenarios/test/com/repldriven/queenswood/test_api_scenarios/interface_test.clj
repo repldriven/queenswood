@@ -284,6 +284,9 @@
            zyphe-simulator-url (system/instance sys
                                                 [:zyphe-simulator-server
                                                  :http-url])
+           receiver {:url (system/instance sys [:webhook-receiver :http-url])
+                     :received (system/instance sys
+                                                [:webhook-receiver :received])}
            {:keys [workers await-timeout-ms] :as settings}
            (system/instance sys [:test-api-scenarios :settings])
            all (executions (runs sys settings) loaded)
@@ -314,7 +317,8 @@
                                 :zyphe-simulator-url zyphe-simulator-url
                                 :providers providers
                                 :key-suffix key-suffix
-                                :await-timeout-ms await-timeout-ms})
+                                :await-timeout-ms await-timeout-ms
+                                :receiver receiver})
                               (SUT/steps scenario))
                              (catch Throwable e
                                (do-report {:type :error
@@ -389,20 +393,18 @@
              ;; Events too, since the outbox and changelog carry the
              ;; writer's traceparent.
              (is (pos? (joined "process-event")))
-             ;; Scoped to one event name, and within it to the spans
-             ;; that arrived under a traceparent. Rigs share one Kafka
-             ;; testcontainer, and while this rig is up its test SDK is
-             ;; the JVM's default tracer, so this exporter also collects
-             ;; spans another rig opened: `webhook`'s tests publish
-             ;; cash-account-status-changed on a local bus from an
-             ;; envelope they build by hand. Those carry no traceparent,
-             ;; so the span is a root whose trace holds no server span
-             ;; and can never join. Every one of this rig's is caused by
-             ;; an API request and carries the writer's, so the property
-             ;; is exact over the carried ones: all of them join, not
-             ;; most. The `pos?` floor still catches total loss; the
-             ;; partial case, one event that lost its traceparent on the
-             ;; way, is what the filter gives up.
+             ;; Scoped to one event name, and within it to the spans that
+             ;; arrived under a traceparent. Rigs share one Kafka
+             ;; testcontainer, and while this rig is up its test SDK is the
+             ;; JVM's default tracer, so this exporter also collects spans
+             ;; another rig opened from an envelope it built by hand. Those
+             ;; carry no traceparent, so the span is a root whose trace
+             ;; holds no server span and can never join. Every one of this
+             ;; rig's is caused by an API request and carries the writer's,
+             ;; so the property is exact over the carried ones: all of them
+             ;; join, not most. The `pos?` floor still catches total loss;
+             ;; the partial case, one event that lost its traceparent on
+             ;; the way, is what the filter gives up.
              ;;
              ;; An account's opening, closing and rotation complete when
              ;; the payment provider reports back, in a write made while

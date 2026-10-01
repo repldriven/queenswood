@@ -704,22 +704,14 @@ on it. The first slice is:
    runner, hosted in `external-adapters-service`.
 5. Add the endpoint and delivery routes, signing, and the policy
    bounds.
-6. Land the end-to-end test in the `webhook` brick's own tests: an
-   opening consumed, a signed notification delivered to a receiver the
-   test starts, and exactly one notification for that opening, which is
-   what holds the terminal-leg rule against the two entries an opening
-   writes.
-
-Running that scenario over HTTP is slice 2 content, because
-`test-api-scenarios` has none of what it needs: it boots the ClearBank
-and Onfido simulators but hosts no receiver and has no verb for one,
-its assertions are matcher-combinators shape markers rather than
-equality, and its only waits are a fixed sleep and a poll of the API.
-Slice 2 adds a receiver verb, an equality assertion between `data` and
-the read route's response, and a delivery-quiescence wait reaching past
-changelog cursor catch-up to the bus hop, the consumer's commit, the
-runner's poll and the HTTP call.
-[scenario-testing.md](scenario-testing.md) describes all three.
+6. Land the end-to-end scenario,
+   `webhook-endpoints/account-opened-delivered.edn` in
+   `test-api-scenarios`: an account opened over HTTP, a signed
+   notification delivered to the rig's receiver whose `data` equals the
+   read route's body, and exactly one delivery for that opening, which
+   is what holds the terminal-leg rule against the two entries an
+   opening writes. [scenario-testing.md](scenario-testing.md) describes
+   the receiver, its verbs and the delivery wait.
 
 Cash accounts go first because their events already exist and are
 relayed, their opening transition is two-phase so "told rather than
@@ -753,9 +745,8 @@ neither.
   each extraction, and holds with it that each kind is listed in the
   document's `webhooks` object.
 - **API scenarios** in `test-api-scenarios` cover the endpoint
-  lifecycle, secret rotation and the count limit from slice 1, and the
-  end-to-end scenario over HTTP from slice 2, whose equality assertion
-  is the design's contract.
+  lifecycle, secret rotation, the count limit and an opening's delivery
+  over HTTP, whose equality assertion is the design's contract.
 
 ## Alternatives Considered
 
@@ -832,7 +823,7 @@ stated as unobserved, with what would observe it.
   and re-runs it from the last checkpoint.
 - **The count of envelopes an opening produces.** The two-entry case is
   read off the store's co-commit rule rather than shown. Slice 1's
-  end-to-end test counts them.
+  delivery scenario counts the deliveries they produce.
 - **A read body other than a cash account's, held against its
   component's declared keys.** The leak is proven for ledger accounts
   by the chart-of-accounts gap report and inferred everywhere else.

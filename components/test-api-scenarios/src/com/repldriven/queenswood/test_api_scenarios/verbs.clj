@@ -16,7 +16,10 @@
     [clojure.test :refer [is]]
     [clojure.walk :as walk])
   (:import
-    (java.security KeyPair)))
+    (java.security KeyPair)
+    (java.util Base64)
+    (javax.crypto Mac)
+    (javax.crypto.spec SecretKeySpec)))
 
 (def ^:private matcher-constructors
   "EDN `:m/<name>` markers → matcher-combinators constructors.
@@ -413,7 +416,17 @@
   would: it opens a verification session and submits a document that
   matches the party through the identity-provider simulator, or another
   `:outcome` or `:document`, capturing the ready session under `:as`. A
-  person party a step creates is not verified unless a step says so."
+  person party a step creates is not verified unless a step says so.
+
+  `:webhook/open-receiver` captures under `:as` an `:address` on the
+  rig's receiver that no other step uses. `:webhook/await-delivery`
+  waits for `:count` requests (default one) to that `:address` whose
+  body matches `:where`, asserts no more than that arrived, checks each
+  one's signature under `:secret` where the step names it, and captures
+  each as `{:headers :body}`, the body parsed.
+
+  `:assert/equals` asserts `:actual` is exactly `:expected`, each
+  resolved from the captures, with no matcher between them."
   (fn [_ctx command] (:command command)))
 
 (def ^:private write-methods #{:post :put :patch :delete})
@@ -764,3 +777,87 @@
                  (pr-str realm)
                  " — known: " (pr-str (vec (sort (keys token-endpoints))))))
         ctx)))
+
+(defmethod dispatch :webhook/open-receiver
+  [{:keys [receiver run-id counter] :as ctx} {:keys [as]}]
+  (capture ctx as {:address (str (:url receiver) "/r/" run-id "-" counter)}))
+
+(defn- received-at
+  [received address]
+  (let [path (.getPath (java.net.URI. ^String address))]
+    (filterv (fn [request] (= path (:path request))) @received)))
+
+(defn- matching
+  [requests matcher]
+  (filterv (fn [request]
+             (standalone/match? matcher
+                                (json/read-str (:body request)
+                                               :key-fn
+                                               keyword)))
+           requests))
+
+(defn- signed?
+  "Whether the request carries a signature over its id, timestamp and
+  body under `secret`, as the Standard Webhooks specification has a
+  tenant check it."
+  [secret {:keys [headers body]}]
+  (let [material (.decode (Base64/getUrlDecoder)
+                          (str/replace-first secret #"^whsec_" ""))
+        mac (doto (Mac/getInstance "HmacSHA256")
+              (.init (SecretKeySpec. material "HmacSHA256")))
+        content (str (get headers "webhook-id")
+                     "."
+                     (get headers "webhook-timestamp")
+                     "."
+                     body)
+        expected (str "v1,"
+                      (.encodeToString (Base64/getEncoder)
+                                       (.doFinal mac
+                                                 (.getBytes content
+                                                            "UTF-8"))))]
+    (some #{expected}
+          (str/split (get headers "webhook-signature" "") #" "))))
+
+(defn- delivery
+  [{:keys [headers body]}]
+  {:headers (update-keys headers keyword)
+   :body (json/read-str body :key-fn keyword)})
+
+(defmethod dispatch :webhook/await-delivery
+  [{:keys [captures receiver await-timeout-ms] :as ctx} step]
+  (let [{:keys [address where secret timeout-ms as] n :count}
+        (refs/resolve-all captures step)
+        n (or n 1)
+        matcher (expand-matchers (or where {}))
+        {:keys [done? value]}
+        (await/until
+         {:timeout-ms (or timeout-ms await-timeout-ms)}
+         (fn [] (matching (received-at (:received receiver) address) matcher))
+         (fn [requests] (<= n (count requests))))]
+    (if done?
+      (do (is (= n (count value))
+              (str ":webhook/await-delivery expected " n
+                   " delivery(s) to " address
+                   ", received " (count value)))
+          (when secret
+            (doseq [request value]
+              (is (signed? secret request)
+                  (str "a delivery to " address
+                       " does not verify under its endpoint's secret: "
+                       (pr-str (:headers request))))))
+          (cond-> ctx
+                  as
+                  (capture as (mapv delivery value))))
+      (do (is false
+              (str ":webhook/await-delivery timed out waiting for " n
+                   " delivery(s) to " address
+                   "; received " (count value)))
+          ctx))))
+
+(defmethod dispatch :assert/equals
+  [{:keys [captures] :as ctx} step]
+  (let [{:keys [actual expected]} (refs/resolve-all captures step)]
+    (is (= expected actual)
+        (str ":assert/equals\n  expected: " (pr-str expected)
+             "\n  actual: " (pr-str actual))))
+  ctx)

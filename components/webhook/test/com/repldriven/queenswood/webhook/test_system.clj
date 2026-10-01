@@ -1,7 +1,7 @@
 (ns com.repldriven.queenswood.webhook.test-system
   "Bare-require bundle for the tests that boot
   `webhook/application-test.yml`. A `defcomponents` registration fires
-  only when its namespace loads, and that rig now names kinds from six
+  only when its namespace loads, and that rig names kinds from several
   bricks, so each test namespace bare-requires this one rather than
   repeating them.
 
@@ -14,6 +14,4 @@
     [com.repldriven.queenswood.policy.interface]
     [com.repldriven.queenswood.testcontainers.interface]
 
-    [com.repldriven.mono.avro.interface]
-    [com.repldriven.mono.event-processor.interface]
-    [com.repldriven.mono.message-bus.interface]))
+    [com.repldriven.mono.avro.interface]))

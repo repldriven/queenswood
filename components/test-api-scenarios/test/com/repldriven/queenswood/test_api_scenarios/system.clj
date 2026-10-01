@@ -28,6 +28,7 @@
     [com.repldriven.queenswood.testcontainers.interface]
     [com.repldriven.queenswood.transaction.interface]
     [com.repldriven.queenswood.uk-companies-house-adapter.interface]
+    [com.repldriven.queenswood.webhook.interface]
 
     [com.repldriven.mono.avro.interface]
     [com.repldriven.mono.command-processor.interface]
@@ -77,5 +78,31 @@
                             [:await-timeout-ms pos-int?]
                             [:unbuilt [:map-of keyword? [:set keyword?]]]]})
 
+;; Every request the webhook receiver has been sent, oldest first.
+(def received
+  {:system/start (fn [{:system/keys [instance]}] (or instance (atom [])))
+   :system/config {}
+   :system/instance-schema some?})
+
+;; The receiver's ring handler: keeps each request whole, its body as it
+;; arrived so its signature can be checked, and answers 200.
+(def receiver-handler
+  {:system/start (fn [{:system/keys [config instance]}]
+                   (or instance
+                       (let [{:keys [received]} config]
+                         (fn [_ctx]
+                           (fn [{:keys [uri headers body]}]
+                             (swap! received conj
+                               {:path uri
+                                :headers headers
+                                :body (some-> body
+                                              slurp)})
+                             {:status 200 :body "{}"})))))
+   :system/config {:received system/required-component}
+   :system/instance-schema fn?})
+
 (system/defcomponents :test-api-scenarios
-                      {:span-dump span-dump :settings settings})
+                      {:span-dump span-dump
+                       :settings settings
+                       :received received
+                       :receiver-handler receiver-handler})
