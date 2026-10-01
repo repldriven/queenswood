@@ -42,8 +42,7 @@
       :refused (error/reject
                 :payment-webhook/unknown-resource
                 {:message
-                 "The notification names a resource
-Form3 does not hold"
+                 "The notification names a resource Form3 does not hold"
                  :path path
                  :reason result})
       (error/fail :payment/unavailable

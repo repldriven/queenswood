@@ -1,7 +1,6 @@
 (ns com.repldriven.queenswood.form3-adapter.api
   (:require
-    [com.repldriven.queenswood.form3-adapter.cop.components :as
-     cop.components]
+    [com.repldriven.queenswood.form3-adapter.cop.components :as cop.components]
     [com.repldriven.queenswood.form3-adapter.cop.routes :as cop]
     [com.repldriven.queenswood.form3-adapter.webhook.routes :as webhook]
 
