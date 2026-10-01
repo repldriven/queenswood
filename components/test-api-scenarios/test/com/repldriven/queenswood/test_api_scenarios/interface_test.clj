@@ -1,5 +1,4 @@
-(ns ^:eftest/synchronized
-    com.repldriven.queenswood.test-api-scenarios.interface-test
+(ns com.repldriven.queenswood.test-api-scenarios.interface-test
   "Single-boot runner for EDN-defined API scenarios.
 
   Boots one bank-api system, then iterates every `.edn` file under
