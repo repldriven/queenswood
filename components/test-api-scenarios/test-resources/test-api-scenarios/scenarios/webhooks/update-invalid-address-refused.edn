@@ -1,0 +1,41 @@
+{:name "Moving an endpoint to an address the platform will not deliver to is refused"
+ :given
+ [{:fixture :bank :as :org-0 :with {:name "Webhook Update Address Org"}}
+  {:fixture :webhook-endpoint :as :hook :with {:token [:ref :org-0 :token]}}]
+ :when
+ [{:command :api/request
+   :request {:method :put
+             :path "/v1/webhook-endpoints/{endpoint-id}"
+             :path-params {:endpoint-id [:ref :hook :registered :endpoint :endpoint-id]}
+             :auth [:ref :org-0 :token]
+             :body {:address "http://93.184.216.34/hooks"}}
+   :assert {:status 422 :problem {:type ":webhook-endpoint/invalid-address"}}}
+  {:command :api/request
+   :request {:method :put
+             :path "/v1/webhook-endpoints/{endpoint-id}"
+             :path-params {:endpoint-id [:ref :hook :registered :endpoint :endpoint-id]}
+             :auth [:ref :org-0 :token]
+             :body {:address "https://127.0.0.1/hooks"}}
+   :assert {:status 422 :problem {:type ":webhook-endpoint/invalid-address"}}}
+  {:command :api/request
+   :request {:method :put
+             :path "/v1/webhook-endpoints/{endpoint-id}"
+             :path-params {:endpoint-id [:ref :hook :registered :endpoint :endpoint-id]}
+             :auth [:ref :org-0 :token]
+             :body {:address "https://10.1.2.3/hooks"}}
+   :assert {:status 422 :problem {:type ":webhook-endpoint/invalid-address"}}}
+  {:command :api/request
+   :request {:method :put
+             :path "/v1/webhook-endpoints/{endpoint-id}"
+             :path-params {:endpoint-id [:ref :hook :registered :endpoint :endpoint-id]}
+             :auth [:ref :org-0 :token]
+             :body {:address "https://169.254.169.254/latest"}}
+   :assert {:status 422 :problem {:type ":webhook-endpoint/invalid-address"}}}]
+ :then
+ ;; The endpoint keeps the address it was registered with.
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/webhook-endpoints/{endpoint-id}"
+             :path-params {:endpoint-id [:ref :hook :registered :endpoint :endpoint-id]}
+             :auth [:ref :org-0 :token]}
+   :assert {:status 200 :body {:address "https://93.184.216.34/hooks"}}}]}

@@ -2,10 +2,11 @@
 
 > **Status: proposal.** Both scenario bricks, the model, the projections,
 > the standing invariants and the brick-test scope check exist, and
-> Background describes them as they were before slice 1. Slices 1 and 2
-> are built: the API runner's building blocks, and the API corpus on
-> them. Proposed Solution is the design the tests move to, and its build
-> list. "Five slices" gives the order.
+> Background describes them as they were before slice 1. Slices 1 to 3
+> are built: the API runner's building blocks, the API corpus on them,
+> and the brick tests narrowed to their tier. Proposed Solution is the
+> design the tests move to, and its build list. "Five slices" gives the
+> order.
 
 ## Objective
 
@@ -207,19 +208,23 @@ Two checks hold the line:
 
 - **`brick-test-drives-pipeline`**, a new rule in
   [semgrep.yml](/.config/semgrep/semgrep.yml), matching
-  `processor/process`, `commands/dispatch`, `message-bus/send` and
-  `message-bus/subscribe` under `/components/*/test/**` and
-  `/bases/*/test/**`, excluding the `test-*` bricks and `changelog-relay`.
-  A site that must stay carries `;; nosemgrep: brick-test-drives-pipeline`
-  with its reason on the line above.
+  `processor/process`, `commands/dispatch`, `message-bus/send`,
+  `message-bus/subscribe` and `event/publish` under
+  `/components/*/test/**` and `/bases/*/test/**`, excluding the `test-*`
+  bricks and `changelog-relay`. A site that must stay carries
+  `;; nosemgrep: brick-test-drives-pipeline` with its reason on the
+  comment line above. An adapter's test calling its own command
+  processor, and a brick's test handing its own event handler an
+  envelope with no bus, are the sites that stay.
 - **`brick-test-scope`** in `enforce-idioms.sh` lists bases as well as
   components, so a base test requiring another base, as
   `uk-companies-house-adapter`'s does the simulator, is refused.
 
 A rig boots what its tests use. The payment rig's processor and event
-processor, the transaction rig's processor and the webhook rig's three
-consumers are booted by tests that call none of them, and come out of
-those `application-test.yml` files.
+processor and the transaction rig's processor are booted by tests that
+call none of them, and come out of those `application-test.yml` files.
+The webhook rig's three consumers come out with the tests that use them,
+once the delivery scenarios in [webhooks.md](webhooks.md) slice 2 pass.
 
 ### Where the crossing tests go
 
@@ -232,8 +237,8 @@ Components:
 - **`bank/interface_test.clj`.** The dispatch, replay, provider, tier and
   status tests go, `onboarding/banks/*.edn` and `access/*.edn` covering
   them. The
-  changelog dedup test stays. The rollback test is narrowed to the bank's
-  own record and changelog.
+  changelog dedup test stays, and so does the rollback test: what it
+  calls across bricks are reads.
 - **`idv/interface_test.clj`.** `process-idv-test` and
   `session-and-evidence-test` go, the `parties/verification-*.edn`
   scenarios covering them. The rest are narrowed to `core` and the store.
@@ -257,11 +262,15 @@ Components:
 - **The four relays' interface tests.** The publish-to-bus cases go;
   `changelog-relay`'s own test covers the handler.
 - **`cash-account-product/interface_test.clj`.** The concurrent creates
-  at the cap become an API scenario using `:api/race`.
+  at the cap stay: a latch holds both creates past their reads, which no
+  race over HTTP can promise.
 - **`ledger-account/interface_test.clj`.** Closing an account with a
   balance becomes a reality-only domain scenario.
 - **`scheduler/core_test.clj`.** The cron-trigger wait goes; it tests the
   scheduling library.
+- **Unknown-command tests.** The `bank`, `idv`, `party` and
+  `cash-account` tests that a command name outside the table is refused
+  go: dispatch is the processor's, and no client can send one.
 
 Bases:
 
@@ -277,6 +286,9 @@ Bases:
   `access/person-creates-second-bank.edn` covering it.
 - **`api/cash_account/queries_test.clj`.** Goes after a
   `cash-accounts/get-not-found.edn` scenario.
+- **`uk-companies-house-adapter/interface_test.clj`.** Goes, with its
+  rig, `onboarding/company-lookup.edn` covering the lookup and the
+  company the register does not hold.
 - **`api/bank/commands_test.clj`, `api/auth_test.clj` and
   `api/oauth/handlers_test.clj`.** The cases `me/`, `auth/`, `access/`
   and `oauth/` scenarios repeat go; the store-failure 503 and the pure
@@ -560,7 +572,7 @@ the CI time of its job recorded.
   and daily limits over HTTP; organisation parties; a customer's second
   currency; the payment refusals the domain corpus holds and the API
   does not; and routes no scenario calls, among them the policy and tier
-  reads, a company lookup, a balance by type, a migration's cancel, a run
+  reads, a balance by type, a migration's cancel, a run
   by id, webhook test notifications and resends, and the discovery
   documents.
 - **The demo bank's tests.** `demo-digital-bank`'s interface test and the

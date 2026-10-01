@@ -14,8 +14,6 @@
 
     [com.repldriven.queenswood.webhook.interface :as SUT]
 
-    [com.repldriven.queenswood.policy.interface :as policy]
-
     [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.system.interface :as system]
     [com.repldriven.mono.test-system.interface :refer
@@ -29,12 +27,6 @@
    :record-store (system/instance sys [:fdb :store])})
 
 (def ^:private config-file "classpath:webhook/application-test.yml")
-
-(def ^:private micro-endpoint-limit
-  "The count the micro tier seeds. AC-21 asserts against the seeded
-  value rather than a literal of its own, so moving the seed moves
-  this test with it."
-  2)
 
 (def ^:private no-policies
   "A bank with no policy at all — the shape AC-21's first half needs,
@@ -117,60 +109,6 @@
          result (SUT/get-endpoint config "bnk.missing" "whe.absent")]
      (is (= :webhook-endpoint/not-found (error/kind result))))))
 
-(deftest the-lifecycle-runs-end-to-end-test
-  (with-test-system
-   [sys config-file]
-   (let [config (fdb-config sys)
-         bank-id "bnk.lifecycle"]
-     (nom-test> [registered (register config
-                                      bank-id
-                                      (endpoint-data "ik-lifecycle")
-                                      allow-manage)
-                 id (:endpoint-id registered)
-                 disabled
-                 (SUT/disable config bank-id id {:policies allow-manage})
-                 _ (is (= :webhook-endpoint-status-disabled (:status disabled)))
-                 enabled (SUT/enable config bank-id id {:policies allow-manage})
-                 _ (is (= :webhook-endpoint-status-enabled (:status enabled)))
-                 updated (SUT/update-endpoint config
-                                              bank-id
-                                              id
-                                              {:address
-                                               "https://93.184.216.35/v2"
-                                               :description "Moved"
-                                               :kinds ["cash-account.opened"]}
-                                              {:policies allow-manage})
-                 _ (testing "the update is an absolute set"
-                     (is (= "https://93.184.216.35/v2" (:address updated)))
-                     (is (= "Moved" (:description updated))))
-                 rotated (SUT/rotate-secret config
-                                            bank-id
-                                            id
-                                            {:idempotency-key "ik-rotate"}
-                                            {:policies allow-manage})
-                 _ (testing "rotation keeps the previous secret and its expiry"
-                     (is (not= (:secret registered) (:secret rotated)))
-                     (is (= (:secret registered) (:previous-secret rotated)))
-                     (is (pos? (:previous-secret-expires-at rotated))))
-                 replayed (SUT/rotate-secret config
-                                             bank-id
-                                             id
-                                             {:idempotency-key "ik-rotate"}
-                                             {:policies allow-manage})
-                 _ (testing "and a retry under that key mints no third secret"
-                     (is (= (:secret rotated) (:secret replayed))))
-                 removed (SUT/remove-endpoint config
-                                              bank-id
-                                              id
-                                              {:policies allow-manage})
-                 _ (is (= :webhook-endpoint-status-removed (:status removed)))
-                 _
-                 (let [refused
-                       (SUT/enable config bank-id id {:policies allow-manage})]
-                   (testing "a removed endpoint takes no further transition"
-                     (is (= :webhook-endpoint/invalid-status
-                            (error/kind refused)))))]))))
-
 (deftest a-bank-without-the-capability-is-refused-test
   (with-test-system
    [sys config-file]
@@ -183,36 +121,6 @@
      (nom-test> [listed (SUT/get-endpoints config bank-id)
                  _ (testing "and the store holds nothing afterwards"
                      (is (empty? (:endpoints listed))))]))))
-
-(deftest a-bank-at-its-count-limit-is-refused-test
-  (with-test-system
-   [sys config-file]
-   (let [config (fdb-config sys)
-         bank-id "bnk.at.the.cap"]
-     (nom-test>
-       ;; Binding the tier rather than passing :policies puts the policy
-       ;; read inside register's own transaction, where production has
-       ;; it, and asserts against the seeded count rather than a literal.
-       [micro (policy/get-policies-by-tier config "micro")
-        _ (is (= 1 (count micro)))
-        _ (policy/new-binding config
-                              {:policy-id (:policy-id (first micro))
-                               :target {:kind {:bank {:bank-id bank-id}}}})
-        _ (doseq [n (range micro-endpoint-limit)]
-            (is (not (error/anomaly? (SUT/register config
-                                                   bank-id
-                                                   (endpoint-data (str "ik-cap-"
-                                                                       n)))))))
-        listed (SUT/get-endpoints config bank-id)
-        _ (testing "the bank sits at the seeded cap"
-            (is (= micro-endpoint-limit (count (:endpoints listed)))))
-        _ (let [refused
-                (SUT/register config bank-id (endpoint-data "ik-cap-over"))]
-            (testing "the next registration is refused before any write"
-              (is (= :policy/limit-exceeded (error/kind refused)))))
-        after (SUT/get-endpoints config bank-id)
-        _ (testing "and the store still holds only what it admitted"
-            (is (= micro-endpoint-limit (count (:endpoints after)))))]))))
 
 (deftest a-test-notification-answers-with-its-delivery-test
   (with-test-system

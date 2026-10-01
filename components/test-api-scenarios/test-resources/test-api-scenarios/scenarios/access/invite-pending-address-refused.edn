@@ -1,0 +1,60 @@
+{:name "Inviting an address that already has a pending invitation is refused"
+ ;; One pending invitation per address in a bank: a second invite to the
+ ;; same address while the first is pending is refused, and the first is
+ ;; the only one listed.
+ :given
+ [{:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "pending-owner"
+   :password "pending-owner"
+   :as :owner-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :body {:name "Pending Invitation Bank"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]
+                    :owner-email "pending-owner@queenswood.local"}}
+   :as :bank
+   :assert {:status 201}}
+  {:command :mail/await-invitation
+   :to "pending-owner@queenswood.local"
+   :invitation-id [:ref :bank :owner-invitation :invitation-id]
+   :as :owner-email}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :owner-email :invitation-id]}
+             :auth :owner-token
+             :headers {:invitation-token [:ref :owner-email :token]}}
+   :assert {:status 201}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/invitations"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :body {:email "pending-twice@example.test" :role "developer"}}
+   :as :invitation
+   :assert {:status 201 :body {:status "pending"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/invitations"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :body {:email "pending-twice@example.test" :role "viewer"}}
+   :assert {:status 409 :problem {:type ":invitation/already-exists"}}}]
+ :then
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/invitations"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 200
+            :body {:items [:m/embeds
+                           [{:invitation-id [:ref :invitation :invitation-id]
+                             :email "pending-twice@example.test"
+                             :role "developer"}]]}}}]}

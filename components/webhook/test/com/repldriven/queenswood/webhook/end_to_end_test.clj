@@ -256,9 +256,13 @@
                                      :account-id account-id
                                      :status-before :cash-account-status-opening
                                      :status-after :cash-account-status-opened})
+                   ;; until webhooks.md slice 2's scenarios
+                   ;; nosemgrep: brick-test-drives-pipeline
                    _ (event/publish bus
                                     opening
                                     {:event-channel :cash-accounts-event})
+                   ;; until webhooks.md slice 2's scenarios
+                   ;; nosemgrep: brick-test-drives-pipeline
                    _ (event/publish bus
                                     opened
                                     {:event-channel :cash-accounts-event})

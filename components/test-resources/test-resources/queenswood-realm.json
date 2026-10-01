@@ -727,6 +727,51 @@
       ]
     },
     {
+      "username": "pending-owner",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "pending-owner@queenswood.local",
+      "firstName": "Pending",
+      "lastName": "Owner",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "pending-owner",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "member-owner",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "member-owner@queenswood.local",
+      "firstName": "Member",
+      "lastName": "Owner",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "member-owner",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "company-lookup",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "company-lookup@queenswood.local",
+      "firstName": "Company",
+      "lastName": "Lookup",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "company-lookup",
+          "temporary": false
+        }
+      ]
+    },
+    {
       "username": "replay-invitee",
       "enabled": true,
       "emailVerified": true,

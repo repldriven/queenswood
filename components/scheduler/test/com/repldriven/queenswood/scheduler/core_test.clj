@@ -11,7 +11,6 @@
     [com.repldriven.queenswood.scheduler.store :as store]
 
     [com.repldriven.mono.error.interface :as error]
-    [com.repldriven.mono.scheduler.interface :as scheduler]
     [com.repldriven.mono.system.interface :as system]
     [com.repldriven.mono.test-system.interface :refer
      [with-test-system nom-test>]]
@@ -37,19 +36,6 @@
                   (fn [txn] (SUT/seed-jobs txn bank-id))
                   :test/seed
                   "Failed to seed the jobs"))
-
-(deftest the-rig-s-scheduler-fires-test
-  (with-test-system
-   [sys config-file]
-   (let [sched (:scheduler (runner sys))
-         fired (promise)]
-     (testing "a trigger registered on the rig's scheduler fires"
-       (is
-        (=
-         "tick"
-         (scheduler/schedule sched "tick" "* * * * * ?" #(deliver fired true))))
-       (is (true? (deref fired 3000 false)))
-       (is (nil? (scheduler/unschedule sched "tick")))))))
 
 (deftest reconcile-registers-a-bank-seeded-after-start-test
   (with-test-system

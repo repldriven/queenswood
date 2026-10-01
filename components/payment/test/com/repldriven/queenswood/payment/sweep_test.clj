@@ -29,7 +29,6 @@
 (def ^:private debtor-account-id "acc.sweep-debtor")
 (def ^:private sort-code "040404")
 (def ^:private account-number "12345678")
-(def ^:private sentinel "sweep-test-sentinel")
 
 (defn- debtor-account
   [created-at]
@@ -77,30 +76,33 @@
                 :test/save-account
                 "Failed to save the debtor account"))
 
+(defn- capturing-bus
+  "A bus whose one producer records what it is sent, so the sweep's
+  republish is read as it is made rather than through a broker."
+  [sent]
+  (let [record (fn [message] (swap! sent conj message) message)]
+    {:producers {:modulr-payment-command
+                 (reify
+                  message-bus/Producer
+                    (send [_ message] (record message))
+                    (send [_ message _opts] (record message)))}}))
+
 (deftest sweep-republishes-a-stuck-pending-payment-test
   (with-test-system
    [sys "classpath:payment/application-test.yml"]
-   (let [bus (system/instance sys [:payment :bus])
+   (let [published (atom [])
          schemas (system/instance sys [:avro :serde])
          config {:record-db (system/instance sys [:fdb :record-db])
                  :record-store (system/instance sys [:fdb :store])
                  :schemas schemas
-                 :bus bus
+                 :bus (capturing-bus published)
                  :payment-providers (system/instance sys
                                                      [:payment-provider
                                                       :providers])
                  :republish-after-ms 900000
                  :report-after-ms 86400000}
          created-at (utility/now)
-         now (+ created-at 86400001)
-         published (atom [])
-         drained (promise)]
-     (message-bus/subscribe bus
-                            :modulr-payment-command
-                            (fn [command]
-                              (if (= sentinel (:command command))
-                                (deliver drained true)
-                                (swap! published conj command))))
+         now (+ created-at 86400001)]
      (nom-test> [_ (save-account config (debtor-account created-at))
                  _ (store/save-outbound-payment
                     config
@@ -124,12 +126,6 @@
                  _ (testing "the sweep reports the pending payment"
                      (is (= ["pmt.pending"]
                             (mapv :payment-id (:report actions)))))
-                 _ (message-bus/send bus
-                                     :modulr-payment-command
-                                     {:command sentinel})
-                 _ (is
-                    (true? (deref drained 5000 false))
-                    "every command published before the sentinel is delivered")
                  _ (testing "exactly one submit-payment is published"
                      (is (= ["submit-payment"] (mapv :command @published))))
                  command (first @published)

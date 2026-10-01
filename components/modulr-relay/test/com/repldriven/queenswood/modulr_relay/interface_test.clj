@@ -4,9 +4,6 @@
 
     [com.repldriven.queenswood.modulr-relay.interface :as SUT]
 
-    [com.repldriven.queenswood.fdb.interface :as fdb]
-
-    [com.repldriven.mono.message-bus.interface :as message-bus]
     [com.repldriven.mono.system.interface :as system]
     [com.repldriven.mono.test-system.interface :refer
      [with-test-system nom-test>]]
@@ -29,11 +26,10 @@
   {:record-db (system/instance sys [:fdb :record-db])
    :record-store (system/instance sys [:fdb :store])})
 
-(deftest outbox-dedup-and-relay-test
+(deftest outbox-dedup-test
   (with-test-system
    [sys "classpath:modulr-relay/application-test.yml"]
-   (let [config (config sys)
-         bus (system/instance sys [:message-bus :bus])]
+   (let [config (config sys)]
      (testing "a duplicate dedup-key is rejected by the unique index"
        (nom-test> [_ (SUT/save-event
                       config
@@ -41,32 +37,7 @@
        (is (SUT/uniqueness-violation?
             (SUT/save-event
              config
-             (event "obx.2" "P1:settled" "transaction-settled")))))
-     (testing "the relay routes account events to their own channel"
-       (let [payments (promise)
-             accounts (promise)
-             handler (system/instance sys [:relay-handler :handler])]
-         (message-bus/subscribe bus
-                                :schemes-payments-event
-                                (fn [e] (deliver payments e)))
-         (message-bus/subscribe bus
-                                :schemes-account-event
-                                (fn [e] (deliver accounts e)))
-         (nom-test> [_ (SUT/save-event
-                        config
-                        (event "obx.3" "P2:settled" "transaction-settled"))
-                     _ (SUT/save-event
-                        config
-                        (event "obx.4" "open:acc.1" "payment-account-opened"))])
-         (fdb/process-changelog (:record-db config)
-                                "test-relay"
-                                "modulr-outbox"
-                                handler
-                                {:keyspace-prefix
-                                 (system/instance sys [:fdb :keyspace-prefix])})
-         (is (= "transaction-settled" (:event (deref payments 5000 nil))))
-         (is (= "payment-account-opened"
-                (:event (deref accounts 5000 nil)))))))))
+             (event "obx.2" "P1:settled" "transaction-settled"))))))))
 
 (deftest intent-dedup-test
   (with-test-system

@@ -38,6 +38,8 @@
 
 (defn- consume
   [sys message]
+  ;; this brick's own event handler, handed an envelope, no bus
+  ;; nosemgrep: brick-test-drives-pipeline
   (processor/process (system/instance sys [:email :event-processor-impl])
                      message))
 

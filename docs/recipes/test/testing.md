@@ -8,20 +8,18 @@ You want to write a test for some part of Queenswood.
 
 ## Solution
 
-We use two test forms, chosen by what's being tested:
+We use three tiers of test, each with one job:
 
-- **`clojure.test/deftest`** for a brick's own logic: pure functions
-  exercised by passing values and asserting on the return, and the
-  brick's own store and changelog against a real FDB under
-  `with-test-system`.
-- **The scenario runner** for system-level behaviour — anything that
-  crosses a brick boundary: the command pipeline, a fixture another
-  write brick has to put on record, or multi-component interaction.
-  Fugato property tests and hand-authored EDN scenarios share the same
-  runner. Two sibling bricks split the layer: `test-scenarios` drives
-  the domain via component interfaces (and owns the model-equality
-  property test); `test-api-scenarios` drives the HTTP surface via real
-  `api` requests.
+- **A brick test**, a `clojure.test/deftest`, for a brick's own logic:
+  pure functions exercised by passing values and asserting on the
+  return, and the brick's own store and changelog against a real FDB
+  under `with-test-system`.
+- **A domain scenario**, in `test-scenarios`, for the bank's rules over
+  sequences of commands, driven through component interfaces. Fugato
+  property tests and hand-authored EDN scenarios share its runner, which
+  owns the model-equality property test.
+- **An API scenario**, in `test-api-scenarios`, for the HTTP contract and
+  the PRDs' user journeys, driven through real `api` requests.
 
 System tests manage lifecycle explicitly with `with-test-system` — not
 `use-fixtures` — and assert anomaly-freeness with `nom-test>`. Both are
@@ -84,30 +82,39 @@ clojure -M:poly test project:dev brick:balance:cash-account :all
 test` needs both set the same way. No test recipe starts docker;
 `just docker-start` does, once.
 
-### Choosing a test form
+### Choosing a tier
 
-- **Pure function, deterministic** → `deftest`.
-- **The brick's own store or changelog against FDB** → `deftest` under
-  `with-test-system`, reading back through the brick's query sibling.
-- **Needs a party, a product version, a policy or a balance on record
-  first** → scenario runner. Driving another write brick to build a
-  fixture is the boundary, however small the case.
-- **Cross-component behaviour** → scenario runner.
-- **Specific case to lock down explicitly** → EDN scenario.
-- **Exploring command sequences for bugs** → fugato property test in
-  `test-scenarios`.
-- **HTTP contract — status codes, error bodies, hypermedia links, auth
-  boundaries on the public API** → EDN scenario in
-  `test-api-scenarios`, not a brick `interface_test.clj`.
+A case goes to the first tier whose question it answers yes:
 
-Don't write `deftest`-style integration tests against the command
-pipeline. The scenario runner is the only sanctioned path for
-system-level tests. See
+1. Is it a pure function, or the brick's own store or changelog? A brick
+   test, reading back through the brick's query sibling.
+2. Is it what a client sees: a status, a problem body, a header, a link,
+   an auth boundary, or a step of a PRD journey? An API scenario.
+3. Is it a rule over a sequence the model can express? A domain
+   scenario compared against the model.
+4. Can a client reach it through the public API, including the provider
+   simulators the rig boots? An API scenario.
+5. Otherwise, a reality-only domain scenario.
+
+A case lives in one tier. Needing a party, a product version, a policy
+or a balance on record first puts a case in a scenario, however small:
+driving another write brick to build a fixture is the boundary. See
 [ADR-0009](../../adr/0009-model-equality-property-testing.md) and
 [docs/tdd/scenario-testing.md](../../tdd/scenario-testing.md) for the
 architecture.
 
-### What a brick's tests may require
+### What a brick's tests may do
+
+A brick test never sends a command or an event, never subscribes to a
+channel, and never writes a record through another write brick's
+interface. The semgrep rule `brick-test-drives-pipeline` fails on
+`processor/process`, `commands/dispatch`, `message-bus/send`,
+`message-bus/subscribe` and `event/publish` in a brick's or a base's test
+tree, the `test-*` bricks and `changelog-relay` excepted. An adapter's
+test calling its own command processor, and a brick's test handing its
+own event handler an envelope with no bus, carry the reason on a comment
+line and `;; nosemgrep: brick-test-drives-pipeline` on the line below
+it, directly above the call.
 
 A brick's test tree may require test infrastructure (`fdb`,
 `testcontainers`, `schema`, `changelog-relay`, the `test-*` bricks),
@@ -117,7 +124,8 @@ the case rather than adding the component to a service project's
 `:test` alias so the namespace loads.
 
 The pre-commit hook (`scripts/hooks/enforce-idioms.sh`, check
-`brick-test-scope`) fails on such a require. The rare sanctioned
+`brick-test-scope`) fails on such a require, in a base's tests as in a
+component's. The rare sanctioned
 exception carries `;; enforce-idioms: brick-test-scope -- <reason>` on
 the line above the require, with the reason on that one line.
 Polylith's `poly check` validates `src` requires only, which is why the
@@ -131,8 +139,14 @@ the component runs its tests.
 - Use `clojure.test/deftest` for pure functions, and for a brick's own
   store and changelog against FDB under `with-test-system`, reading back
   through the brick's query sibling.
-- Use the scenario runner for system-level tests: anything that crosses
-  a brick boundary or drives the command pipeline.
+- Put a case in the first tier whose question it answers yes: a brick
+  test for a pure function or the brick's own store or changelog; an API
+  scenario for what a client sees or a PRD journey step; a compared
+  domain scenario for a rule the model can express; an API scenario for
+  anything else a client can reach; otherwise a reality-only domain
+  scenario.
+- Use a scenario for anything that crosses a brick boundary or drives
+  the command pipeline.
 - Pin the HTTP contract as an EDN scenario in `test-api-scenarios`,
   never in a brick's `interface_test.clj`.
 - Run `just test` as the default, the changed bricks in the development
@@ -155,7 +169,16 @@ the component runs its tests.
   on the line above the require.
 - Add a component to a service project's `:test` alias so a brick's
   test namespace loads. Narrow the test instead.
-- Write `deftest`-style integration tests against the command pipeline.
+- Write `deftest`-style integration tests against the command pipeline:
+  a brick test never sends a command or an event, subscribes to a
+  channel, or writes through another write brick's interface. An
+  adapter's own command processor and a brick's own event handler handed
+  an envelope MAY stay, the reason on the comment line above
+  `;; nosemgrep: brick-test-drives-pipeline`. Check the tree with
+  `just semgrep`.
+- Keep a case in two tiers. Where a domain scenario and an API scenario
+  assert the same thing, the API scenario keeps it unless the domain one
+  is compared.
 - Put projections inside production components — they live in
   `test-projections`; the dependency arrow points test → production,
   never the reverse.
@@ -173,11 +196,10 @@ the component runs its tests.
 
 ## Discussion
 
-The two-test-forms split keeps fast tests fast and slow tests
-predictable. `deftest` for pure functions is cheap, parallel, and
-doesn't need infrastructure. The scenario runner is deliberately heavier
-— it boots real components — and is the only place where system-level
-guarantees are established.
+The tiers keep fast tests fast and slow tests predictable. A brick test
+of a pure function is cheap, parallel, and needs no infrastructure. A
+scenario is heavier — it boots real components — and is the only place
+where system-level guarantees are established.
 
 The scope rule for a brick's tests is what keeps the split honest. A
 test that drives another write brick to put a party or a product on
