@@ -15,14 +15,16 @@
   they could not.
 
   Scenarios call the API over HTTP. One booted system serves every
-  scenario; per-scenario isolation is the fresh `:captures` map
-  plus a fresh request counter."
+  scenario; per-scenario isolation is the fresh `:captures` map, and
+  the run id and step counter every generated idempotency key is made
+  of."
   (:require
     [com.repldriven.queenswood.test-api-scenarios.invariants :as invariants]
     [com.repldriven.queenswood.test-api-scenarios.scenario :as scenario]
     [com.repldriven.queenswood.test-api-scenarios.verbs :as verbs]
 
-    [com.repldriven.mono.error.interface :as error]))
+    [com.repldriven.mono.error.interface :as error]
+    [com.repldriven.mono.utility.interface :as utility]))
 
 (defn fresh-context
   "Build the initial runner context for one scenario.
@@ -53,14 +55,19 @@
   - `:key-suffix` (optional) — appended to every idempotency key, so a
     run of the same scenarios on another provider in one boot replays
     none of the first run's requests.
-  - `:run-id` (optional) — caller-supplied tag for log lines.
+  - `:run-id` (optional) — identifies this execution of a scenario.
+    A write naming no idempotency key is sent under one made of it
+    and the step's number, so it is unique to the execution. One is
+    generated when absent.
+  - `:await-timeout-ms` (optional) — how long a step waiting on the
+    system waits before failing, unless the step names its own.
 
   The fresh `:captures` map isolates scenarios from each other so
   one boot can serve many, and the fresh `:banks` map limits the
   standing invariants to the banks this scenario created."
   [{:keys [base-url admin-token token-endpoints signing-key mail-url
            payment-simulator-url zyphe-simulator-url providers key-suffix
-           run-id]}]
+           run-id await-timeout-ms]}]
   {:base-url base-url
    :providers providers
    :key-suffix key-suffix
@@ -70,7 +77,8 @@
    :admin-token admin-token
    :token-endpoints token-endpoints
    :signing-key signing-key
-   :run-id run-id
+   :run-id (or run-id (str (utility/uuidv7)))
+   :await-timeout-ms await-timeout-ms
    :captures {}
    :banks {}
    :skipped-banks []
@@ -89,7 +97,8 @@
   fails the scenario at the offending step."
   [ctx commands]
   (reduce (fn [ctx command]
-            (invariants/verify-books-tie (verbs/dispatch ctx command)))
+            (invariants/verify-books-tie
+             (verbs/dispatch (update ctx :counter inc) command)))
           ctx
           commands))
 
@@ -106,8 +115,9 @@
 (def
   ^{:doc
     "Read and validate an EDN scenario at a classpath path.
-  Returns the parsed scenario map or a
-  `:bank-test-api-scenarios/scenario` anomaly. Args:
+  Fixture steps are expanded into the fixtures' own steps. Returns
+  the parsed scenario map or a `:test-api-scenarios/scenario`
+  anomaly. Args:
   - resource-path: classpath path to the scenario EDN."}
   from-resource
   scenario/from-resource)
@@ -119,3 +129,30 @@
   - scenario: parsed scenario map."}
   steps
   scenario/steps)
+
+(defn scenario-files
+  "Every scenario EDN file on the classpath, under
+  `test-api-scenarios/scenarios/`, as `{:file :relative}` maps sorted by
+  their path relative to that directory."
+  []
+  (scenario/resource-files scenario/scenarios-dir))
+
+(defn scenario-resource
+  "The classpath path of the scenario at `relative`, as `scenario-files`
+  names it."
+  [relative]
+  (str scenario/scenarios-dir "/" relative))
+
+(defn fixture-files
+  "Every fixture EDN file on the classpath, under
+  `test-api-scenarios/fixtures/`, as `{:file :relative}` maps."
+  []
+  (scenario/resource-files scenario/fixtures-dir))
+
+(def
+  ^{:doc
+    "Read and validate the fixture named by keyword `fixture`. Returns
+  the fixture map or a `:test-api-scenarios/scenario` anomaly. Args:
+  - fixture: the fixture's name, its file's name without `.edn`."}
+  fixture
+  scenario/load-fixture)

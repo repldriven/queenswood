@@ -32,6 +32,8 @@
   as a momentary imbalance, so a disagreeing reading is taken again
   before anything is asserted; the assertion fires on the last one."
   (:require
+    [com.repldriven.queenswood.test-api-scenarios.await :as await]
+
     [com.repldriven.queenswood.ledger-account.interface :as ledger-accounts]
 
     [com.repldriven.mono.http-client.interface :as http]
@@ -153,22 +155,18 @@
        (ties? ledger)
        (reconciles? ledger sub-ledgers)))
 
-(def ^:private settle-attempts 5)
-(def ^:private settle-interval-ms 50)
+(def ^:private settle-timeout-ms 250)
 
 (defn- settle
-  "Read the books until they agree or the attempts run out, returning
-  the last reading. A reading that disagrees because a commit landed
+  "Read the books until they agree or the time runs out, returning the
+  last reading. A reading that disagrees because a commit landed
   between two of the endpoint's per-account reads agrees on the next
   one; a reading that disagrees because the books are wrong never
   does, and is what gets asserted."
   [base-url token]
-  (loop [attempt 1]
-    (let [reading (read-books base-url token)]
-      (if (or (agree? reading) (>= attempt settle-attempts))
-        reading
-        (do (Thread/sleep settle-interval-ms)
-            (recur (inc attempt)))))))
+  (:value (await/until {:timeout-ms settle-timeout-ms}
+                       (fn [] (read-books base-url token))
+                       agree?)))
 
 (defn- assert-reads
   "Assert both reads answered. A read that fails names the bank rather

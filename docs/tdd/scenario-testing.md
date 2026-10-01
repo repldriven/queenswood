@@ -2,7 +2,10 @@
 
 > **Status: proposal.** Both scenario bricks, the model, the projections,
 > the standing invariants and the brick-test scope check exist, and
-> Background describes them as they are. Proposed Solution is the design
+> Background describes them as they were before slice 1. Slice 1 is
+> built: the API runner's closed schema, fixtures, generated keys,
+> declared fault and token, provider declarations, await and worker
+> pool, with two scenarios on fixtures. Proposed Solution is the design
 > the tests move to, and its build list. "Five slices" gives the order.
 
 ## Objective

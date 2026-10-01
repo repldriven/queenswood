@@ -139,6 +139,22 @@
   [txn end-to-end-id creditor-account-id amount]
   (store/find-open-hold txn end-to-end-id creditor-account-id amount))
 
+(defn find-matching-inbound
+  "Return the oldest InboundPayment for `end-to-end-id` that credits
+  `creditor-account-id` and, when `amount` is non-nil, carries that
+  amount, whatever its status. A read primitive for the write sibling's
+  hold handler, which a hold redelivered after its settlement must find.
+
+  Args:
+  - txn: FDB handle or open transaction.
+  - end-to-end-id: the scheme's end-to-end identifier.
+  - creditor-account-id: the account the payment credits.
+  - amount: the amount in minor units, or nil to match any.
+
+  Returns the payment map or nil."
+  [txn end-to-end-id creditor-account-id amount]
+  (store/find-matching-inbound txn end-to-end-id creditor-account-id amount))
+
 (defn find-open-admission
   "Return the oldest `admitted` InboundPayment for `end-to-end-id` that
   credits `creditor-account-id` and, when `amount` is non-nil, carries

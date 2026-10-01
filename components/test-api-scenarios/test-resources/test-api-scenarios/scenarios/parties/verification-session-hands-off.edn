@@ -59,7 +59,7 @@
              :headers {:idempotency-key "ik-verification-session-hands-off-001"}
              :body {:channel "mobile"
                     :return-url "ford-app://verified"
-                    :email "ford@example.test"}}
+                    :email "ford.hands-off@example.test"}}
    :as :session-0
    :assert {:status 202
             :headers {:location [:m/regex "^/v1/parties/pty\\.[^/]+/verification-sessions/ses\\."]}
@@ -87,7 +87,7 @@
              :headers {:idempotency-key "ik-verification-session-hands-off-002"}
              :body {:channel "web"
                     :return-url "http://localhost:5173/#verified"
-                    :email "ford@example.test"}}
+                    :email "ford.hands-off@example.test"}}
    :assert {:status 202
             :body {:channel "web"
                    :return-url "http://localhost:5173/#verified"

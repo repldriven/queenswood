@@ -53,6 +53,12 @@ system:
     span-dump: !system/component
       system/component-kind: test-api-scenarios/span-dump
       path: !env QW_SPAN_DUMP
+    settings: !system/component
+      system/component-kind: test-api-scenarios/settings
+      workers: !env TEST_API_SCENARIO_WORKERS
+      await-timeout-ms: 15000
+      unbuilt:
+        clearbank: [outbound-returned]
   transactions: !include system/transaction.yml
   transactions-dispatcher: !include system/transaction-dispatcher.yml
   transactions-relay: !include system/transaction-relay.yml

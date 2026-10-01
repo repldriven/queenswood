@@ -1,5 +1,6 @@
 (ns com.repldriven.queenswood.test-api-scenarios.verbs
   (:require
+    [com.repldriven.queenswood.test-api-scenarios.await :as await]
     [com.repldriven.queenswood.test-api-scenarios.refs :as refs]
 
     [com.repldriven.mono.http-client.interface :as http]
@@ -61,6 +62,10 @@
   (walk/postwalk
    (fn [x] (if (matcher-marker? x) (expand-marker x) x))
    form))
+
+(defn- capture
+  [ctx as value]
+  (assoc-in ctx (into [:captures] (if (vector? as) as [as])) value))
 
 (defn- resolve-auth
   [{:keys [admin-token captures]} auth]
@@ -280,8 +285,6 @@
 
 (def ^:private verification-return-url "https://app.example.test/verified")
 
-(def ^:private verification-timeout-ms 15000)
-
 (defn- iso-date
   [yyyymmdd]
   (when (and (int? yyyymmdd) (pos? yyyymmdd))
@@ -305,16 +308,6 @@
      :familyName family-name
      :dateOfBirth (iso-date date-of-birth)}))
 
-(defn- until-deadline
-  "Call `f` until it returns non-nil or `timeout-ms` passes; nil then."
-  [timeout-ms f]
-  (let [deadline (+ (utility/now) timeout-ms)]
-    (loop []
-      (or (f)
-          (when (< (utility/now) deadline)
-            (Thread/sleep 50)
-            (recur))))))
-
 (defn- open-session
   "Open a verification session for `party-id` straight after its
   creation, as a tenant's app would."
@@ -330,17 +323,18 @@
                             (assoc :email email))}))
 
 (defn- ready-session
-  [ctx auth party-id session-id]
-  (until-deadline
-   verification-timeout-ms
-   (fn []
-     (let [{:keys [body]} (send-once ctx
-                                     {:method :get
-                                      :path (str "/v1/parties/" party-id
-                                                 "/verification-sessions/"
-                                                 session-id)
-                                      :auth auth})]
-       (when (= "ready" (:status body)) body)))))
+  [{:keys [await-timeout-ms] :as ctx} auth party-id session-id]
+  (let [{:keys [done? value]}
+        (await/until {:timeout-ms await-timeout-ms}
+                     (fn []
+                       (:body (send-once ctx
+                                         {:method :get
+                                          :path (str "/v1/parties/" party-id
+                                                     "/verification-sessions/"
+                                                     session-id)
+                                          :auth auth})))
+                     (fn [body] (= "ready" (:status body))))]
+    (when done? value)))
 
 (def ^:private zyphe-run #"[?&]zypheVr=([^&]+)")
 
@@ -373,7 +367,15 @@
                              auth
                              party
                              channel
-                             (or email "person@example.test"))
+                             ;; Unique per verification: the Zyphe
+                             ;; simulator resumes a pending run for the
+                             ;; same email, so a shared address hands one
+                             ;; scenario's run to another running beside
+                             ;; it.
+                             (or email
+                                 (str "person+"
+                                      (utility/uuidv7)
+                                      "@example.test")))
         session-id (get-in opened [:body :session-id])]
     (is (= 202 (:status opened))
         (str "opening a verification session: " (pr-str opened)))
@@ -423,16 +425,64 @@
   created earlier, capturing the ready session under `:as`."
   (fn [_ctx command] (:command command)))
 
+(def ^:private write-methods #{:post :put :patch :delete})
+
+(def ^:private lost-reply-prefix
+  "The key prefix the lost-reply seam in the test tree loses the reply to."
+  "ik-lost-reply-")
+
+(defn- idempotency-header
+  [headers]
+  (some (fn [k] (when (= "idempotency-key" (str/lower-case (header-name k))) k))
+        (keys headers)))
+
+(defn- with-idempotency-key
+  "The request with the key it is sent under: its own, or one generated
+  for the run and the step when it names none and the step does not
+  say `:idempotency-key false`. A `:fault :lost-reply` step's key
+  carries the prefix the lost-reply seam acts on."
+  [{:keys [run-id counter]} {:keys [fault] :as step}
+   {:keys [method] :as request}]
+  (let [header (idempotency-header (:headers request))
+        generate? (and (write-methods method)
+                       (nil? header)
+                       (not (false? (:idempotency-key step))))
+        lose (fn [k]
+               (if (str/starts-with? k lost-reply-prefix)
+                 k
+                 (str lost-reply-prefix k)))]
+    (cond-> request
+            generate?
+            (assoc-in [:headers :idempotency-key]
+             (str "ik-gen-" run-id "-" counter))
+
+            (= :lost-reply fault)
+            (update-in [:headers (or header :idempotency-key)] lose))))
+
+(defn- capture-bank-token
+  "Capture the token `track-bank` minted for the bank this step created."
+  [ctx token-as response]
+  (let [token (get-in ctx [:banks (get-in response [:body :bank-id]) :token])]
+    (is (some? token)
+        (str "no token was minted for the bank this step created: "
+             (pr-str (:body response))))
+    (capture ctx token-as token)))
+
 (defmethod dispatch :api/request
-  [{:keys [captures] :as ctx} {:keys [request as verify] :as step}]
-  (let [resolved (refs/resolve-all captures request)
+  [{:keys [captures] :as ctx} {:keys [request as verify token-as] :as step}]
+  (let [resolved
+        (with-idempotency-key ctx step (refs/resolve-all captures request))
         response (send-once ctx resolved)
+        created-bank (created-bank? resolved response)
         ctx' (cond-> (assoc ctx :last-response response)
                      as
-                     (assoc-in [:captures as] (:body response))
+                     (capture as (:body response))
 
-                     (created-bank? resolved response)
-                     (track-bank (:body response)))
+                     created-bank
+                     (track-bank (:body response))
+
+                     (and created-bank token-as)
+                     (capture-bank-token token-as response))
         ctx'' (if-let [expect (:assert step)]
                 (dispatch ctx' {:command :assert/response :assert expect})
                 ctx')]
@@ -450,7 +500,7 @@
   (let [session (verify-party ctx (refs/resolve-all captures step))]
     (cond-> ctx
             as
-            (assoc-in [:captures as] session))))
+            (capture as session))))
 
 (defmethod dispatch :api/race
   [{:keys [captures] :as ctx} {:keys [request as] n :count :as step}]
@@ -501,45 +551,35 @@
     ;; handler, not whichever future was built first.
     (cond-> (assoc ctx :last-response (or original (first responses)))
             as
-            (assoc-in [:captures as] (into (vec fresh-responses) others)))))
+            (capture as (into (vec fresh-responses) others)))))
 
 (defmethod dispatch :wait
   [ctx {:keys [duration-ms]}]
   (Thread/sleep ^long duration-ms)
   ctx)
 
-(def ^:private default-poll-timeout-ms 10000)
-(def ^:private default-poll-interval-ms 50)
-
 (defmethod dispatch :api/poll
-  [{:keys [captures] :as ctx} {:keys [request until timeout-ms interval-ms as]}]
+  [{:keys [captures await-timeout-ms] :as ctx}
+   {:keys [request until timeout-ms interval-ms as]}]
   (let [resolved-request (refs/resolve-all captures request)
         until-matcher (expand-matchers (refs/resolve-all captures until))
-        timeout (or timeout-ms default-poll-timeout-ms)
-        interval (or interval-ms default-poll-interval-ms)
-        deadline (+ (utility/now) timeout)]
-    (loop [last-response nil]
-      (let [res (http/request (build-request ctx resolved-request))
-            body (http/res->edn res)
-            response {:status (:status res) :body body :headers (:headers res)}]
-        (cond
-         (standalone/match? until-matcher response)
-         (cond-> (assoc ctx :last-response response)
-                 as
-                 (assoc-in [:captures as] body))
-
-         (>= (utility/now) deadline)
-         (do (is false
-                 (str "poll timed out after "
-                      timeout
-                      "ms waiting for response"
-                      " to match\n  expected: " (pr-str until)
-                      "\n  last actual: " (pr-str (or last-response response))))
-             ctx)
-
-         :else
-         (do (Thread/sleep ^long interval)
-             (recur response)))))))
+        timeout (or timeout-ms await-timeout-ms)
+        {:keys [done? value]} (await/until
+                               {:timeout-ms timeout :interval-ms interval-ms}
+                               (fn [] (send-once ctx resolved-request))
+                               (fn [response]
+                                 (standalone/match? until-matcher response)))]
+    (if done?
+      (cond-> (assoc ctx :last-response value)
+              as
+              (capture as (:body value)))
+      (do (is false
+              (str "poll timed out after "
+                   (or timeout await/default-timeout-ms)
+                   "ms waiting for response"
+                   " to match\n  expected: " (pr-str until)
+                   "\n  last actual: " (pr-str value)))
+          ctx))))
 
 ;; An invitation email's link, `/#/invitations/<id>?token=<token>`.
 (def ^:private invitation-link
@@ -566,39 +606,24 @@
           (reverse (:messages found)))))
 
 (defmethod dispatch :mail/await-invitation
-  [{:keys [captures mail-url] :as ctx} step]
+  [{:keys [captures mail-url await-timeout-ms] :as ctx} step]
   (let [{:keys [to invitation-id nth timeout-ms as]} (refs/resolve-all captures
                                                                        step)
         n (or nth 1)
-        deadline (+ (utility/now) (or timeout-ms default-poll-timeout-ms))]
-    (loop []
-      (let [emails (invitation-emails mail-url to invitation-id)]
-        (cond
-         (<= n (count emails))
-         (cond-> ctx
-                 as
-                 (assoc-in [:captures as] (get emails (dec n))))
-
-         (>= (utility/now) deadline)
-         (do (is false
-                 (str ":mail/await-invitation timed out waiting for email "
-                      n
-                      " to " to
-                      " for " invitation-id
-                      "; found " (count emails)))
-             ctx)
-
-         :else
-         (do (Thread/sleep ^long default-poll-interval-ms)
-             (recur)))))))
-
-(defmethod dispatch :assert/status
-  [{:keys [last-response] :as ctx} {[expected] :args}]
-  (is (= expected (:status last-response))
-      (str "expected status " expected
-           " got " (:status last-response)
-           "; body: " (pr-str (:body last-response))))
-  ctx)
+        {:keys [done? value]}
+        (await/until {:timeout-ms (or timeout-ms await-timeout-ms)}
+                     (fn [] (invitation-emails mail-url to invitation-id))
+                     (fn [emails] (<= n (count emails))))]
+    (if done?
+      (cond-> ctx
+              as
+              (capture as (get value (dec n))))
+      (do (is false
+              (str ":mail/await-invitation timed out waiting for email " n
+                   " to " to
+                   " for " invitation-id
+                   "; found " (count value)))
+          ctx))))
 
 (defmethod dispatch :assert/response
   [{:keys [captures last-response] :as ctx} {expectation :assert}]
@@ -629,7 +654,7 @@
                " body: " (pr-str (:body response)))))
     (cond-> ctx
             as
-            (assoc-in [:captures as] token))))
+            (capture as token))))
 
 (def ^:private token-path "/protocol/openid-connect/token")
 
@@ -673,7 +698,7 @@
                    " body: " (pr-str body))))
         (cond-> ctx
                 as
-                (assoc-in [:captures as] token))))))
+                (capture as token))))))
 
 (defmethod dispatch :auth/sign-token
   [{:keys [captures signing-key token-endpoints] :as ctx}
@@ -694,7 +719,7 @@
                                   :typ "JWT"}})]
     (cond-> ctx
             as
-            (assoc-in [:captures as] token))))
+            (capture as token))))
 
 (def ^:private admin-service-client
   "The operator service-account client both test realms seed. The
@@ -742,8 +767,9 @@
       (if (= 201 (:status res))
         (cond-> ctx
                 as
-                (assoc-in [:captures as]
-                 (last (str/split (get-in res [:headers :location] "") #"/"))))
+                (capture as
+                         (last (str/split (get-in res [:headers :location] "")
+                                          #"/"))))
         (do (is false
                 (str ":keycloak/add-signing-key was refused by " base
                      " — status: " (:status res)

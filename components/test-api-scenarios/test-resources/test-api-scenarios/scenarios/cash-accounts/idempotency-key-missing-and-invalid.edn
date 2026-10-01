@@ -23,8 +23,9 @@
          :status :live}
    :as :bank-0-token}]
  :when
- ;; No header at all.
+ ;; No header at all, and none generated for it.
  [{:command :api/request
+   :idempotency-key false
    :request {:method :post
              :path "/v1/cash-accounts"
              :auth :bank-0-token
