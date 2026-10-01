@@ -171,6 +171,21 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-clojure-
 
+      # The FDB test image, keyed on its build context. The component tags
+      # the image by a hash of the same files and builds only when that tag
+      # is missing, so a hit downloads nothing from GitHub releases; a miss
+      # builds once and the step after the tests saves it.
+      - name: Restore FDB test image
+        id: fdb-image
+        uses: actions/cache@v6
+        with:
+          path: ~/fdb-test-image.tar
+          key: fdb-test-image-${{ runner.os }}-${{ hashFiles('components/testcontainers/resources/fdb/**', 'components/testcontainers/src/com/repldriven/queenswood/testcontainers/system/components/fdb.clj') }}
+
+      - name: Load FDB test image
+        if: steps.fdb-image.outputs.cache-hit == 'true'
+        run: docker load -i ~/fdb-test-image.tar
+
       # The coverage floor is 80 for a `dev-` entry and 0 for a service
       # project: a service imports its infra from mono without mono's tests,
       # so the coverage measured here is not representative of the code it
@@ -207,6 +222,14 @@ jobs:
               clojure -M:poly test project:${{ matrix.project }} :all
               ;;
           esac
+
+      - name: Save FDB test image
+        if: always() && steps.fdb-image.outputs.cache-hit != 'true'
+        run: |
+          images=$(docker images queenswood/foundationdb --format '{{.Repository}}:{{.Tag}}')
+          if [ -n "$images" ]; then
+            docker save $images -o ~/fdb-test-image.tar
+          fi
 
       - name: Publish test report
         uses: dorny/test-reporter@v3

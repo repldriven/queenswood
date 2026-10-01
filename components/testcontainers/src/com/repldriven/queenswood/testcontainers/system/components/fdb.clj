@@ -1,9 +1,15 @@
 (ns com.repldriven.queenswood.testcontainers.system.components.fdb
   (:require
+    [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.log.interface :as log]
-    [com.repldriven.mono.testcontainers.interface :as testcontainers])
+    [com.repldriven.mono.testcontainers.interface :as testcontainers]
+
+    [clojure.java.io :as io])
   (:import
+    (com.github.dockerjava.api.exception NotFoundException)
+    (java.security MessageDigest)
     (java.time Duration)
+    (org.testcontainers DockerClientFactory)
     (org.testcontainers.containers GenericContainer)
     (org.testcontainers.containers.wait.strategy Wait)
     (org.testcontainers.images.builder ImageFromDockerfile)))
@@ -13,7 +19,23 @@
 ;; between client and cluster, so a mismatch fails at connect time with an
 ;; error naming neither. `version-test` asserts the two agree.
 (def fdb-version "7.3.79")
-(def default-image-name (str "queenswood/foundationdb:" fdb-version))
+
+(defn- build-context-hash
+  "The first twelve hex digits of a SHA-256 over the image's build context
+  and the server version it builds."
+  []
+  (let [digest (MessageDigest/getInstance "SHA-256")]
+    (doseq [part [(slurp (io/resource "fdb/Dockerfile"))
+                  (slurp (io/resource "fdb/fdb.bash"))
+                  fdb-version]]
+      (.update digest (.getBytes ^String part "UTF-8")))
+    (subs (format "%064x" (BigInteger. 1 (.digest digest))) 0 12)))
+
+;; Tagged by its build context, so an edit to the Dockerfile or the script
+;; builds a new image, and an image already built from this one is used
+;; as it is. CI caches the image under a key over the same files.
+(def default-image-name
+  (str "queenswood/foundationdb:" fdb-version "-" (build-context-hash)))
 
 ;; The port fdbserver binds inside the container, and the only one the
 ;; image exposes. Docker maps it to a host port of its own choosing.
@@ -88,11 +110,24 @@
 ;; never comes up.
 (def ^:private build-lock (Object.))
 
+(defn- image-present?
+  [image-name]
+  (not (error/anomaly?
+        (error/try-nom-ex :fdb/image
+                          NotFoundException
+                          "FDB image not present"
+                          (-> (DockerClientFactory/instance)
+                              (.client)
+                              (.inspectImageCmd image-name)
+                              (.exec))))))
+
 (defn- build-image!
   [image-name]
   (locking build-lock
-    (log/info "Building FDB image:" image-name)
-    (.get (fdb-image image-name))))
+    (if (image-present? image-name)
+      image-name
+      (do (log/info "Building FDB image:" image-name)
+          (.get (fdb-image image-name))))))
 
 (defn- start-container
   "Starts FDB on a Docker-assigned host port, in two phases.
