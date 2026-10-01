@@ -149,9 +149,9 @@ Some brick tests cross the line on purpose, each carrying its reason:
 - `:fixture`: a write beneath the domain that sets up a state the domain
   then reacts to, and that the model mirrors: `:fixture/apply-fee`, and
   `:fixture/fund-house`, whose house account the model does not hold.
-- `:reality`: a production path the model has no rule for — a held
-  inbound, a provider event such as `:settle-outbound-event`, a
-  redelivered submit, a ledger account closed.
+- `:reality`: a production path the model has no rule for — a provider
+  event such as `:settle-outbound-event`, a redelivered submit, an
+  admission, a ledger account closed.
 - `:read` and `:assert`: change no state, and never stop a comparison.
 
 **Compared or reality-only.** A scenario carries `:model :compared`, the
@@ -212,9 +212,10 @@ The directories take the API corpus's names — `payments/`,
 runs. The reality-only files hold what the API cannot reach: a
 dead-lettered settlement, a provider event delivered twice, provider
 balance mirroring, a redelivered submit, the intent and scheme-command
-assertions, held inbounds, and a closed control met by a posting. The
+assertions, admissions, and a closed control met by a posting. The
 policy scenarios — daily limits, a denied capability, the account cap, a
-waived close and an interest run limit — are compared.
+waived close and an interest run limit — and the held inbound scenarios
+are compared.
 
 ### API scenario fixtures
 
@@ -389,8 +390,9 @@ Three things keep scenarios apart:
 
 ## Known Limitations
 
-- **The model has no rule for holds or provider events.** A scenario
-  that holds an inbound or delivers a provider event runs reality-only.
+- **The model has no rule for provider events.** A scenario that
+  delivers a provider event, redelivers a submit or asks for an
+  admission runs reality-only.
 - **The model reads part of a policy.** Filtered capabilities and
   amount limits are not read, and `:create-product` and
   `:create-person-party` meet no count limit, since no scenario comes

@@ -1,5 +1,4 @@
 {:name "A hold redelivered after its settlement records nothing"
- :model :reality
  ;; Delivery is at-least-once, so a hold can arrive again after the
  ;; settlement that released it. It names the settled record's end-to-end
  ;; id, creditor and amount, and that record answers it: no second hold is

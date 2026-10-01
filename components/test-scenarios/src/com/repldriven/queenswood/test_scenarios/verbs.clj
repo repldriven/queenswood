@@ -787,20 +787,6 @@
         (update :counter inc)
         (track result))))
 
-(defmethod dispatch :return-inbound
-  [{:keys [bank held-inbounds] :as ctx} {[model-acct] :args}]
-  (let [{:keys [e2e]} (get held-inbounds model-acct)
-        result (payment/return-inbound bank
-                                       {:end-to-end-id e2e
-                                        :scheme "fps"
-                                        :debit-credit-code
-                                        :debit-credit-code-credit
-                                        :cancellation-code "HELD_DECLINED"
-                                        :timestamp-rejected (utility/now)})]
-    (-> ctx
-        (update :counter inc)
-        (track result))))
-
 (defmethod dispatch :bind-policy
   [{:keys [bank banks] :as ctx} {[model-bank policy-data] :args}]
   (let [bank-real-id (get-in banks [model-bank :real-id])

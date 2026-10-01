@@ -104,14 +104,13 @@
    :internal-transfer {:kind :model :args [:cat acct acct int? [:? currency]]}
    :accrue-interest {:kind :model :args [:cat bank int?]}
    :capitalize-interest {:kind :model :args [:cat bank int?]}
+   :hold-inbound {:kind :model :args [:cat acct int? [:? e2e]]}
+   :release-inbound {:kind :model :args [:cat acct]}
    :bind-policy {:kind :model :args [:cat bank policy]}
    :fixture/apply-fee {:kind :fixture :args [:cat acct int?]}
    :fixture/fund-house {:kind :fixture :args [:cat bank int?]}
    :close-ledger-account {:kind :reality :args [:cat bank gl-account-code]}
    :admit-inbound {:kind :reality :args [:cat [:or acct string?] int? e2e]}
-   :hold-inbound {:kind :reality :args [:cat acct int? [:? e2e]]}
-   :release-inbound {:kind :reality :args [:cat acct]}
-   :return-inbound {:kind :reality :args [:cat acct]}
    :settle-inbound-event {:kind :reality :args [:cat acct int? string?]}
    :outbound-payment-pending {:kind :reality :args [:cat acct int?]}
    :outbound-payment-redelivered {:kind :reality :args [:cat acct int?]}

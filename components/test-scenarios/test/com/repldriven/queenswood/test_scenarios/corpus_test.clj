@@ -34,18 +34,19 @@
     (let [parsed (SUT/parse "inline.edn"
                             {:name "compared"
                              :given bank
-                             :when [{:command :hold-inbound
-                                     :args [:acct-0 100]}]})]
+                             :when [{:command :reject-outbound-payment
+                                     :args [:pmt-0]}]})]
       (is (= :test-scenarios/scenario (error/kind parsed)))
-      (is (= [:hold-inbound] (:verbs (error/payload parsed))))
+      (is (= [:reject-outbound-payment] (:verbs (error/payload parsed))))
       (is (= "inline.edn" (:resource (error/payload parsed))))))
   (testing "the same scenario marked reality-only loads"
     (is (not (error/anomaly? (SUT/parse "inline.edn"
                                         {:name "reality"
                                          :model :reality
                                          :given bank
-                                         :when [{:command :hold-inbound
-                                                 :args [:acct-0 100]}]}))))))
+                                         :when [{:command
+                                                 :reject-outbound-payment
+                                                 :args [:pmt-0]}]}))))))
 
 (deftest sections-test
   (testing "a :given step never asserts"

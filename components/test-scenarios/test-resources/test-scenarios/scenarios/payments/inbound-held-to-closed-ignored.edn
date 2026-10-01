@@ -1,5 +1,4 @@
 {:name "Inbound held for a closed account — the hold is ignored"
- :model :reality
  ;; A closed account keeps its BBAN, so the address still resolves — it
  ;; is the credit the account refuses. The hold is logged and dropped
  ;; rather than recorded, so the release that follows finds no held
