@@ -41,6 +41,7 @@
     [com.repldriven.mono.system.interface :as system]
     [com.repldriven.mono.test-telemetry.interface :as test-telemetry]
     [com.repldriven.mono.test-system.interface :refer [with-test-system]]
+    [com.repldriven.mono.utility.interface :as utility]
 
     [clojure.java.io :as io]
     [clojure.string :as str]
@@ -251,13 +252,46 @@
 
 (defn- run-on-pool
   "Run `tasks` on `workers` threads, each carrying the test's bindings
-  so its assertions count, and wait for every one."
+  so its assertions count, and wait for every one. Returns what each
+  task returned."
   [workers tasks]
   (let [pool (Executors/newFixedThreadPool workers)]
     (try (->> tasks
               (mapv (fn [task] (.submit pool ^Callable (bound-fn [] (task)))))
-              (run! (fn [^Future f] (.get f))))
+              (mapv (fn [^Future f] (.get f))))
          (finally (.shutdown pool)))))
+
+(def ^:private settle-timeout-ms 30000)
+
+(defn- opening-accounts
+  [base-url {:keys [token]}]
+  (->> (http/request {:method :get
+                      :url (str base-url "/v1/cash-accounts")
+                      :headers {"Authorization" (str "Bearer " token)}})
+       http/res->edn
+       :items
+       (filterv (fn [account] (= "opening" (:account-status account))))))
+
+(defn- settle
+  "Wait until no account any of `banks` holds is still opening, so a
+  serial scenario that changes what the provider does next is not
+  answered for an account an earlier scenario left in flight."
+  [base-url banks]
+  (let [deadline (+ (utility/now) settle-timeout-ms)]
+    (loop []
+      (let [opening (into []
+                          (mapcat (fn [bank] (opening-accounts base-url bank)))
+                          banks)]
+        (cond
+         (empty? opening)
+         nil
+
+         (> (utility/now) deadline)
+         (log/info "api scenarios unsettled before the serial ones"
+                   {:opening (mapv :account-id opening)})
+
+         :else
+         (do (Thread/sleep 100) (recur)))))))
 
 (deftest api-scenarios-test
   ;; One test system serves every scenario, on every provider. Per-scenario
@@ -339,8 +373,15 @@
        ;; keeps a second run in the same JVM — a REPL re-run — losing
        ;; the replies the lost-reply scenarios need to go missing.
        (fault/reset-lost!)
-       (run-on-pool workers (map task pooled))
-       (run! (fn [execution] ((task execution))) serial)
+       (let [banks (atom (into []
+                               (comp (keep identity)
+                                     (mapcat (comp vals :banks)))
+                               (run-on-pool workers (map task pooled))))]
+         (run! (fn [execution]
+                 (settle base-url @banks)
+                 (when-let [ctx ((task execution))]
+                   (swap! banks into (vals (:banks ctx)))))
+               serial))
        (log/info "api scenarios finished"
                  {:executed (count runnable)
                   :skipped (mapv (fn [{:keys [relative run lacks scenario]}]

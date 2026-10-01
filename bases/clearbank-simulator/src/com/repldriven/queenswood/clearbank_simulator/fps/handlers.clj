@@ -99,7 +99,7 @@
         :debit
         {:amount amount :currency currency :reference reference})
        (pause)
-       (when-not (sent-on? payment)
+       (when (and (not (sent-on? payment)) (= sort-code creditor-sort-code))
          (webhook/fire-transaction-settled
           config
           sort-code

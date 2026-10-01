@@ -224,6 +224,13 @@
   [party]
   (select-keys party party-keys))
 
+(def ^:private party-detail-keys
+  (into [] (comp (filter vector?) (map first)) PartyDetail))
+
+(defn ->detail-body
+  [party]
+  (select-keys party party-detail-keys))
+
 (def ^:private encode-party
   (schema/api-encoder Party (merge schema/registry registry)))
 

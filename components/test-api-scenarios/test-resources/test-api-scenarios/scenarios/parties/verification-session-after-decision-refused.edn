@@ -1,5 +1,4 @@
 {:name "A verification that has decided opens no more sessions"
- :runs-on {:idv :every}
  :given
  [{:fixture :bank
    :as :org-0

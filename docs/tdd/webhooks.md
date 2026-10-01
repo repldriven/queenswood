@@ -812,6 +812,10 @@ neither.
 - **The interest entry waits on its event.** Until the interest brick
   publishes capitalisation, a posting is heard only through the payment
   or reward that made it.
+- **One event is consumed many times under load.** In the API scenario
+  run the consumer is handed the same `cash-account.opened` event as
+  many as thirty times, each recognised as already written and
+  acknowledged; the cause is not yet found.
 
 Five things this design reasons from have never been observed. Each is
 stated as unobserved, with what would observe it.

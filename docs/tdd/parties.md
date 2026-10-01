@@ -468,6 +468,8 @@ The demo bank's onboarding screens follow under
   and screening is not repeated.
 - **No organisation verification.** An organisation party starts
   active, and no adapter verifies a company or its owners.
+- **No organisation party over the API.** The create route takes person
+  parties only, so the PRD's organisation journey cannot run.
 - **The hand-off URL is a credential at rest.** It is stored unencrypted
   until it expires, as is all PII in FDB.
 - **Party and User are not linked.** A `User` and a `Party` coexist

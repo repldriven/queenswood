@@ -15,7 +15,7 @@
              :path "/v1/payee-checks"
              :auth [:ref :bank-0 :token]
              :body {:creditor-name "Arthur Dent"
-                    :account {:sort-code "040062" :account-number "12345678"}
+                    :account {:sort-code "200000" :account-number "12345678"}
                     :account-type "personal"
                     :account-id [:ref :debtor :opened :account :account-id]}}
    :assert {:status 201 :body {:result {:match-result "match"}}}}
@@ -26,7 +26,7 @@
              :auth [:ref :bank-0 :token]
              :body {:debtor-account-id [:ref :debtor :opened :account
                                         :account-id]
-                    :creditor-bban "04006212345678"
+                    :creditor-bban "20000012345678"
                     :creditor-name "Arthur Dent"
                     :currency "GBP"
                     :amount 2500

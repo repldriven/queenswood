@@ -18,7 +18,7 @@
              :auth [:ref :bank-0 :token]
              :body {:debtor-account-id [:ref :debtor :opened :account
                                         :account-id]
-                    :creditor-bban "04000412345678"
+                    :creditor-bban "20000012345678"
                     :creditor-name "Arthur Dent"
                     :currency "GBP"
                     :amount 2500

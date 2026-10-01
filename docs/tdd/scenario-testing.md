@@ -377,6 +377,11 @@ Three things keep scenarios apart:
 - **Every bank's page.** `banks/bank-list-owners.edn` reads the
   newest-first first page of every bank, and is `:serial`.
 
+Before each `:serial` scenario the runner waits until no account a bank
+the run created holds is still opening, so a refusal set for the next
+account opened is not answered for one an earlier scenario left in
+flight.
+
 ### Tests
 
 - **`test-api-scenarios`.** `corpus_test.clj`, booting nothing, holds
@@ -448,13 +453,14 @@ Three things keep scenarios apart:
   amount limits are not read, and `:create-product` and
   `:create-person-party` meet no count limit, since no scenario comes
   near one.
-- **PRDs with no journey scenarios.** Only `payments` and
-  `cash-accounts` have a directory under `journeys/`. The access,
-  cash-account-products, interest, onboarding, parties, platform,
-  policies and webhooks PRDs have none, so their journeys go unchecked,
-  and `journeys/full-happy-path.edn` covers parts of several of them.
-- **Unbuilt journeys.** `cash-accounts/2` is skipped: no template a
-  customer's account opens under allows a second currency.
+- **PRDs with no journey scenarios.** Only `payments`, `cash-accounts`
+  and `parties` have a directory under `journeys/`. The access,
+  cash-account-products, interest, onboarding, platform, policies and
+  webhooks PRDs have none, so their journeys go unchecked, and
+  `journeys/full-happy-path.edn` covers parts of several of them.
+- **Unbuilt journeys.** `cash-accounts/2` is skipped, since no template
+  a customer's account opens under allows a second currency, and
+  `parties/2`, since the create route takes person parties only.
 - **Cases with no scenario.** Curative transfers and daily limits over
   HTTP; organisation parties; the payment
   refusals the domain corpus holds and the API does not; and routes no

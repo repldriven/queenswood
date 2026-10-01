@@ -117,19 +117,26 @@ active immediately. For person parties, status starts as
 pending; activation follows once identity verification
 completes.
 
+Internal parties hold the bank's own books — settlement,
+fee P&L, suspense and so on. A customer does not usually
+register one: they are seeded when the organisation is
+created, as [onboarding](onboarding.md) describes.
+
 ### Identity verification (person parties)
 
-When a person party is registered, the platform sends the
-person's details to the organisation's IDV provider — the
-one chosen when the organisation was created, from those
-the installation offers, Zyphe for example, or a simulator
-standing in for it — and begins an identity
-check in the background. The tenant doesn't wait for it —
-the registration call returns straight away with a pending
-party. The provider does its checks asynchronously and
-notifies the platform when it's done; the platform then
-flips the party to active (or rejected) and the tenant
-sees the new status the next time they read the party.
+A person party is registered pending, and the customer's
+system then uses the banking API to open a verification
+session for the person. The platform asks the
+organisation's IDV provider — the one chosen when the
+organisation was created, from those the installation
+offers, Zyphe for example, or a simulator standing in for
+it — for a page the person completes, and hands its link
+back on the session. The person completes the provider's
+checks there; the provider notifies the platform when it's
+done, and the platform flips the party to active (or
+rejected). The customer sees the new status the next time
+they read the party, and is told by webhook where they have
+an endpoint.
 
 A check can take anywhere from seconds to minutes for an
 automated outcome, or hours to days for a human-review
@@ -181,9 +188,9 @@ return one of three outcomes:
   on either side.
 - **No match** — they don't.
 
-Used by Confirmation of Payee in the outbound payments flow,
-and anywhere else a name needs to be compared with some
-tolerance.
+Used by Confirmation of Payee before an outbound payment, as
+[payments](payments.md) journey 6 shows, and anywhere else a
+name needs to be compared with some tolerance.
 
 ### Multi-tenant isolation
 
@@ -193,34 +200,39 @@ banking API.
 
 ## User journeys
 
-### 1. Tenant registers a person party
+### 1. Registering a person party
 
 ```mermaid
 sequenceDiagram
+    participant E as End customer
     participant T as Customer system
     participant Q as Queenswood
     participant I as IDV provider<br/>(or simulator)
 
     T->>Q: register person party (name, identifiers)
-    Q->>Q: create party (status pending)
-    Q->>I: submit identity check
     Q-->>T: pending party
-    Note over I: provider runs the check
+    T->>Q: open a verification session
+    Q->>I: start a check for the person
+    I-->>Q: link to the provider's page
+    Q-->>T: session ready, with the link
+    T->>E: hand over the link
+    E->>I: completes the checks
     I-->>Q: check completed (accepted or rejected)
     Q->>Q: update IDV record, then party
     T->>Q: read party
     Q-->>T: active party (or rejected)
 ```
 
-The tenant registers a person party for one of their
-customers. The platform submits an identity check to the
-IDV provider in the background and returns a pending party
-straight away. When the provider notifies the platform
-that the check is complete, the party becomes active (or
-rejected). The tenant sees the new status the next time
-they read the party.
+The customer registers a person party for one of their end
+customers and gets a pending party straight away. It opens a
+verification session, and hands the link the session carries
+to the end customer, who completes the provider's checks.
+When the provider notifies the platform that the check is
+complete, the party becomes active (or rejected). The
+customer sees the new status the next time they read the
+party.
 
-### 2. Tenant registers an organisation party
+### 2. Registering an organisation party
 
 ```mermaid
 sequenceDiagram
@@ -235,35 +247,6 @@ sequenceDiagram
 Non-person legal entities don't carry KYC. The party is
 created active and is immediately usable — accounts can be
 opened against it, payments can name it.
-
-### 3. Internal bookkeeping party
-
-The platform maintains internal parties for the bank's own
-books — settlement, fee P&L, suspense, and so on. Tenants
-don't typically register internal parties through the
-banking API; they're seeded as part of the tenant's
-bootstrap — see [onboarding](onboarding.md).
-
-### 4. Confirmation of Payee on an outbound payment
-
-```mermaid
-sequenceDiagram
-    participant T as Customer system
-    participant Q as Queenswood
-    participant S as Scheme adapter
-
-    T->>Q: outbound payment (beneficiary name)
-    Q->>S: Confirmation of Payee request
-    S-->>Q: name on file
-    Q->>Q: compare names
-    Q-->>T: payment proceeds or warns
-```
-
-The outbound payments flow compares the beneficiary name the
-tenant submitted with the name returned by Confirmation of
-Payee. The result shapes whether the payment proceeds,
-warns, or is held — the policy belongs to payments, the
-name comparison belongs here.
 
 ## Open questions
 

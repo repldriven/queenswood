@@ -838,7 +838,17 @@
       (do (is (= n (count value))
               (str ":webhook/await-delivery expected " n
                    " delivery(s) to " address
-                   ", received " (count value)))
+                   ", received " (count value)
+                   ": " (pr-str
+                         (mapv
+                          (fn [request]
+                            (-> (json/read-str (:body request) :key-fn keyword)
+                                (select-keys [:id :kind :resource-id])
+                                (assoc :webhook-id
+                                       (get-in request
+                                               [:headers
+                                                "webhook-id"]))))
+                          value))))
           (when secret
             (doseq [request value]
               (is (signed? secret request)

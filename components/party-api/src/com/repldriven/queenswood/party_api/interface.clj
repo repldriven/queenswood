@@ -46,6 +46,15 @@
   [party]
   (components/->body party))
 
+(defn ->detail-body
+  "Project a stored party, with whatever the read embedded, onto the
+  keys `PartyDetail` declares, in the shape the by-id route returns.
+
+  Args:
+  - party: a party detail as the read hands it back."
+  [party]
+  (components/->detail-body party))
+
 (defn ->session-body
   "Project a verification session view, as `idv-query/session` hands it
   back, onto `VerificationSession`: the hand-off only while it is ready.

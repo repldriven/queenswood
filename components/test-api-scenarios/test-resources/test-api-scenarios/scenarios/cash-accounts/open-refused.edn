@@ -34,7 +34,13 @@
                     :street "Fjord Lane"
                     :town "Cottington"
                     :postcode "CT12 4XY"
-                    :country "GBR"}}}]
+                    :country "GBR"}}}
+  ;; The bank's own account opens first, so the refusal is not its.
+  {:command :api/poll
+   :request {:method :get :path "/v1/cash-accounts" :auth :bank-a-token}
+   :until {:status 200
+           :body {:items [{:product-type "own-funds"
+                           :account-status "opened"}]}}}]
  :when
  [{:command :api/request
    :request {:method :post
