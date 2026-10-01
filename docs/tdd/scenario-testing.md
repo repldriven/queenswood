@@ -235,7 +235,7 @@ scenario repeats is deleted.
 Components:
 
 - **`bank/interface_test.clj`.** The dispatch, replay, provider, tier and
-  status tests go, `onboarding/banks/*.edn` and `access/*.edn` covering
+  status tests go, `banks/*.edn` and `memberships/*.edn` covering
   them. The
   changelog dedup test stays, and so does the rollback test: what it
   calls across bricks are reads.
@@ -243,17 +243,17 @@ Components:
   `session-and-evidence-test` go, the `parties/verification-*.edn`
   scenarios covering them. The rest are narrowed to `core` and the store.
 - **`reward/interface_test.clj`.** Goes. The defer and pay cases are
-  `cash-account-products/rewards/opening-reward-*.edn`; a rerun paying
+  `rewards/opening-reward-*.edn`; a rerun paying
   nothing twice becomes an
   API scenario forcing the job twice.
 - **`webhook/end_to_end_test.clj`** and the bus-subscription test in
   `webhook/events_test.clj`. Go once the delivery scenarios in
   [webhooks.md](webhooks.md) slice 2 pass.
 - **`webhook/interface_test.clj`.** The lifecycle and count-limit tests go,
-  `webhooks/endpoint-lifecycle.edn`, `secret-rotation.edn` and
+  `webhook-endpoints/endpoint-lifecycle.edn`, `secret-rotation.edn` and
   `endpoint-count-limit.edn` covering them.
 - **`membership/interface_test.clj`.** The removal-and-reinvitation story
-  becomes an `access/` scenario, and the test building a user through
+  becomes a `memberships/` scenario, and the test building a user through
   `user/upsert-by-sub` goes. The concurrency and latch tests stay.
 - **`payee-check/interface_test.clj`.** `process-check-payee-test` is
   narrowed to the core call it wraps.
@@ -274,25 +274,26 @@ Components:
 
 Bases:
 
-- **`api/webhook/writes_test.clj`.** Becomes `webhooks/`
+- **`api/webhook/writes_test.clj`.** Becomes `webhook-endpoints/`
   scenarios for an invalid address, a missing endpoint and delivery, and
   a create replay, using IP-literal addresses so no DNS double is needed.
   Its payload check moves to `webhook`'s domain test.
 - **`api/access/handlers_test.clj`.** The refusal, 404, `Location` and
-  actor-naming tests go, the `access/` scenarios covering them, after new
+  actor-naming tests go, the `invitations/`, `memberships/` and `me/`
+  scenarios covering them, after new
   scenarios for `:invitation/already-exists` and
   `:membership/already-exists`. The command-payload tests stay.
 - **`api/bank/person_create_test.clj`.** Goes,
-  `access/person-creates-second-bank.edn` covering it.
+  `banks/person-creates-second-bank.edn` covering it.
 - **`api/cash_account/queries_test.clj`.** Goes after a
   `cash-accounts/get-not-found.edn` scenario.
 - **`uk-companies-house-adapter/interface_test.clj`.** Goes, with its
-  rig, `onboarding/company-lookup.edn` covering the lookup and the
+  rig, `companies/company-lookup.edn` covering the lookup and the
   company the register does not hold.
 - **`api/bank/commands_test.clj`, `api/auth_test.clj` and
-  `api/oauth/handlers_test.clj`.** The cases `me/`, `auth/`, `access/`
-  and `oauth/` scenarios repeat go; the store-failure 503 and the pure
-  data tests stay.
+  `api/oauth/handlers_test.clj`.** The cases `me/`, `auth/`,
+  `memberships/` and `oauth/` scenarios repeat go; the store-failure 503
+  and the pure data tests stay.
 
 ### The domain runner
 
@@ -354,8 +355,8 @@ comparing each account's accrued interest and carry with the model's,
 and the inbound payments are projected from the scheme transaction ids
 the runner records, so EDN scenarios compare them too.
 
-**The corpus.** EDN files move into the API corpus's capability
-directories, with `interest/` for the interest runs. Tags go. Files
+**The corpus.** EDN files move into the API corpus's directories, with
+`interest/` for the interest runs. Tags go. Files
 repeating an API scenario go: the full happy path, held release and
 return, outbound return, the admitted inbound, migration commit, the
 forced job run and the not-found kinds. The admission refusals stay,
@@ -432,12 +433,16 @@ the unused context `:counter` and the unused markers go.
 of the execution's run id and the step's number. A literal is written only where
 a scenario proves a replay, and the uniqueness lint keeps holding literals.
 
-**Layout and names.** Directories follow the PRDs, a resource that
-shares one keeping a subdirectory of its own: `access/`, `onboarding/`
-(`banks/`, `auth/`, `oauth/` and `me/`), `parties/` (`payee-checks/`),
-`cash-account-products/` (`rewards/`), `cash-accounts/` (`migrations/`),
-`payments/`, `webhooks/`, and `platform/` (`e2e/`, `jobs/`,
-`providers/`, `simulate/` and `ledger-accounts/`). A file is named for
+**Layout and names.** One directory per OpenAPI tag, named for it in
+kebab case, holds the scenarios whose subject is a route under that tag:
+`me/`, `memberships/`, `invitations/` and `audit/` where a person's
+access to a bank is concerned, `banks/`, `companies/`, `oauth/`,
+`parties/`, `payee-checks/`, `cash-account-products/`, `rewards/`,
+`cash-accounts/`, `cash-account-migrations/`, `payments/`,
+`ledger-accounts/`, `jobs/`, `webhook-endpoints/` and `simulate/`. Three
+directories hold what no one tag does: `auth/` the token and role checks
+every route makes, `providers/` the runs across payment and IDV
+providers, and `journeys/` the end-to-end journey. A file is named for
 the behaviour, a refusal ending `-refused` and a missing resource
 `-not-found`; `-happy` goes.
 
@@ -460,7 +465,7 @@ run's summary, and reports no `testing` block.
 deadline passes, and `:api/poll`, `:mail/await-invitation`, `:idv/verify` and
 the invariants' settle all use it. The timeout is one config key,
 `await-timeout-ms`, in the rig's YAML. `:wait` stays for a token's expiry only;
-`platform/e2e/full-happy-path.edn`'s fixed wait becomes polls.
+`journeys/full-happy-path.edn`'s fixed wait becomes polls.
 
 The receiver verb, the equality assertion and the delivery wait
 [webhooks.md](webhooks.md) slice 2 needs are built on `await.clj`: a
@@ -487,7 +492,7 @@ Two clashes are removed first:
 - **The global refusal.** `POST /simulate/open-refused` refuses the next
   account any bank opens. `cash-accounts/open-refused.edn` is `:serial`.
 
-`onboarding/banks/bank-list-owners.edn`, which reads the newest-first first
+`banks/bank-list-owners.edn`, which reads the newest-first first
 page of every bank, is `:serial` too.
 
 The namespace carries no `^:eftest/synchronized`, so its tests run
@@ -520,7 +525,7 @@ the CI time of its job recorded.
    fault; provider declarations and reported skips; `await.clj`; and the
    pool with `bound-fn`, the serial pass and unique verification emails.
 2. **The API corpus on them.** Every existing scenario moved to fixtures,
-   the sections, the PRD directories, the names and the vocabulary,
+   the sections, the directories, the names and the vocabulary,
    scripted, with every scenario on every provider it ran on before;
    `open-refused` and `bank-list-owners` serial; the happy path's fixed
    wait replaced by polls.

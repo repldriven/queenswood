@@ -38,7 +38,7 @@ interceptors: !system/component
     idvs: !system/ref idvs-dispatcher.dispatcher
   avro: !system/ref avro.serde
   # One of the platform's own hosts, as WEBHOOK_PLATFORM_HOSTS names them
-  # in a deployment: webhooks/platform-host-refused.edn registers it.
+  # in a deployment: webhook-endpoints/platform-host-refused.edn registers it.
   platform-hosts: "93.184.216.35"
   record-db: !system/ref fdb.record-db
   record-store: !system/ref fdb.meta-store
