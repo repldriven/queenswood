@@ -1,0 +1,14 @@
+{:name "A payee check naming an account the bank does not hold is not found"
+ :runs-on {:payment :every}
+ :given
+ [{:fixture :bank :as :bank-0 :with {:name "Payee Check Unknown Account"}}]
+ :when [{:command :api/request
+         :request {:method :post
+                   :path "/v1/payee-checks"
+                   :auth [:ref :bank-0 :token]
+                   :body {:creditor-name "Arthur Dent"
+                          :account
+                          {:sort-code "040062" :account-number "12345678"}
+                          :account-type "personal"
+                          :account-id "acc.01kprbmgcj35ptc8npmybhh4sa"}}
+         :assert {:status 404 :body {:type ":cash-account/not-found"}}}]}

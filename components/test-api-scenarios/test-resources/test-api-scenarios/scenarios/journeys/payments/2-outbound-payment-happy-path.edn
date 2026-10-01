@@ -1,0 +1,71 @@
+{:name "A customer engineer pays a beneficiary at another bank"
+ :runs-on {:payment :every}
+ :given
+ [{:fixture :bank :as :bank-0 :with {:name "Outbound Payment Journey"}}
+  {:fixture :product :as :current :with {:token [:ref :bank-0 :token]}}
+  {:fixture :person :as :arthur :with {:token [:ref :bank-0 :token]}}
+  {:fixture :funded-account
+   :as :debtor
+   :with {:bank-id [:ref :bank-0 :bank :bank-id]
+          :token [:ref :bank-0 :token]
+          :party-id [:ref :arthur :party :party-id]
+          :product-id [:ref :current :product :product-id]}}
+  {:fixture :webhook-receiver :as :hook :with {:token [:ref :bank-0 :token]}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/payments/outbound"
+             :auth [:ref :bank-0 :token]
+             :body {:debtor-account-id [:ref :debtor :opened :account
+                                        :account-id]
+                    :creditor-bban "04000412345678"
+                    :creditor-name "Arthur Dent"
+                    :currency "GBP"
+                    :amount 2500
+                    :scheme "fps"
+                    :reference "Invoice 123"}}
+   :as :payment
+   :assert {:status 201}}]
+ :then
+ ;; The amount is held at once, so the available balance drops before
+ ;; the scheme answers.
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :debtor :opened :account
+                                        :account-id]}
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200
+            :body {:available-balance {:value 97500 :currency "GBP"}}}}
+  ;; Once the scheme settles it, nothing is left held.
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/payments/outbound/{payment-id}"
+             :path-params {:payment-id [:ref :payment :payment-id]}
+             :auth [:ref :bank-0 :token]}
+   :until {:status 200 :body {:payment-status "completed"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :debtor :opened :account
+                                        :account-id]}
+             :auth [:ref :bank-0 :token]}
+   :until {:status 200
+           :body {:posted-balance {:value 97500 :currency "GBP"}
+                  :available-balance {:value 97500 :currency "GBP"}}}}
+  {:command :webhook/await-delivery
+   :address [:ref :hook :receiver :address]
+   :where {:kind "payment.outbound-completed"
+           :resource-id [:ref :payment :payment-id]}
+   :secret [:ref :hook :registered :secret]
+   :as :notified}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/payments/outbound/{payment-id}"
+             :path-params {:payment-id [:ref :payment :payment-id]}
+             :auth [:ref :bank-0 :token]}
+   :as :read
+   :assert {:status 200}}
+  {:command :assert/equals
+   :actual [:ref :notified 0 :body :data]
+   :expected [:ref :read]}]}

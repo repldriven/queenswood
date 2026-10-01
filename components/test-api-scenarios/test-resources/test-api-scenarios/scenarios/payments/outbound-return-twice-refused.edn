@@ -1,0 +1,54 @@
+{:name "A payment already returned cannot be returned again"
+ :requires #{:outbound-returned}
+ :runs-on {:payment :every}
+ :given
+ [{:fixture :bank :as :org-0 :with {:name "Outbound Returned Twice Org"}}
+  {:fixture :person
+   :as :party-0
+   :with {:token [:ref :org-0 :token] :national-insurance "TN889012A"}}
+  {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}
+  {:fixture :funded-account
+   :as :debtor
+   :with {:bank-id [:ref :org-0 :bank :bank-id]
+          :token [:ref :org-0 :token]
+          :party-id [:ref :party-0 :party :party-id]
+          :product-id [:ref :draft :product :product-id]}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/payments/outbound"
+             :auth [:ref :org-0 :token]
+             :body {:debtor-account-id [:ref :debtor :opened :account
+                                        :account-id]
+                    :creditor-bban "20000012345678"
+                    :creditor-name "Marvin"
+                    :currency "GBP"
+                    :amount 4200
+                    :scheme "fps"
+                    :reference "Sent back"}}
+   :as :outbound
+   :assert {:status 201}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/payments/outbound/{payment-id}"
+             :path-params {:payment-id [:ref :outbound :payment-id]}
+             :auth [:ref :org-0 :token]}
+   :until {:status 200 :body {:payment-status "completed"}}}
+  {:command :api/request
+   :request {:method :post
+             :base :payment-simulator
+             :path "/simulate/outbound-return"
+             :body {:end-to-end-id [:ref :outbound :payment-id]
+                    :reason-code "AC01"}}
+   :assert {:status 202}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/payments/outbound/{payment-id}"
+             :path-params {:payment-id [:ref :outbound :payment-id]}
+             :auth [:ref :org-0 :token]}
+   :until {:status 200 :body {:payment-status "returned"}}}]
+ :when [{:command :api/request
+         :request {:method :post
+                   :base :payment-simulator
+                   :path "/simulate/outbound-return"
+                   :body {:end-to-end-id [:ref :outbound :payment-id]}}
+         :assert {:status 409}}]}

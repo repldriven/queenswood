@@ -1,13 +1,16 @@
 (ns com.repldriven.queenswood.test-api-scenarios.corpus-test
   "Checks over the scenario corpus that need no running system: every
-  scenario and fixture validates, every fixture is used, and no
-  idempotency key literal is shared between files."
+  scenario and fixture validates, every fixture is used, no idempotency
+  key literal is shared between files, and a PRD's journeys and its
+  directory under `journeys/` name the same journeys."
   (:require
     [com.repldriven.queenswood.test-api-scenarios.interface :as SUT]
 
     [com.repldriven.mono.error.interface :as error]
 
     [clojure.edn :as edn]
+    [clojure.java.io :as io]
+    [clojure.string :as str]
     [clojure.test :refer [deftest is testing]]
     [clojure.walk :as walk]))
 
@@ -61,3 +64,60 @@
                      (filter (fn [[_ files]] (< 1 (count files))) owners))]
     (is (= {} reused)
         "an Idempotency-Key literal shared by two scenario files replays")))
+
+(defn- workspace-root
+  []
+  (loop [dir (.getAbsoluteFile (io/file (System/getProperty "user.dir")))]
+    (cond
+     (nil? dir)
+     nil
+
+     (.exists (io/file dir "workspace.edn"))
+     dir
+
+     :else
+     (recur (.getParentFile dir)))))
+
+(defn- journey-file
+  "The scenario file a PRD journey heading names: `2. Outbound payment
+  (happy path)` is `2-outbound-payment-happy-path.edn`."
+  [heading]
+  (-> heading
+      str/lower-case
+      (str/replace #"[^a-z0-9]+" "-")
+      (str/replace #"^-|-$" "")
+      (str ".edn")))
+
+(defn- prd-journeys
+  [doc]
+  (->> (slurp doc)
+       str/split-lines
+       (drop-while (fn [line] (not= "## User journeys" line)))
+       rest
+       (take-while (fn [line] (not (str/starts-with? line "## "))))
+       (keep (fn [line] (second (re-matches #"### (\d+\. .+)" line))))
+       (map journey-file)
+       set))
+
+(defn- journey-scenarios
+  "PRD name → the files under `journeys/<prd>/`."
+  []
+  (reduce (fn [m {:keys [relative]}]
+            (let [[top prd file & more] (str/split relative #"/")]
+              (if (and (= "journeys" top) file (empty? more))
+                (update m prd (fnil conj #{}) file)
+                m)))
+          {}
+          (SUT/scenario-files)))
+
+(deftest every-prd-journey-has-a-scenario-test
+  (let [root (workspace-root)]
+    (is (some? root) "no workspace.edn above the working directory")
+    (doseq [[prd files] (journey-scenarios)]
+      (testing prd
+        (let [doc (io/file root "docs" "prd" (str prd ".md"))]
+          (is (.exists doc) (str "journeys/" prd "/ names no PRD"))
+          (when (.exists doc)
+            (is
+             (= (prd-journeys doc) files)
+             (str "journeys/" prd "/ and the PRD's user journeys differ"))))))))

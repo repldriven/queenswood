@@ -16,10 +16,10 @@ call, the semgrep rule and scope check that hold it, and what stays in a
 brick test; the `test-scenarios` runner, its verb kinds, its corpus and
 the model-equality property, with the `test-model` and `test-projections`
 pairs it compares; and the `test-api-scenarios` runner, its fixtures,
-schema, layout, provider runs, waits and concurrency.
+schema, layout, PRD journeys, provider runs, waits and concurrency.
 
-Out of scope: scenarios for PRD journeys that have none, which each
-capability's TDD schedules (Known Limitations lists them);
+Out of scope: journey scenarios for the PRDs that have none yet, which
+Known Limitations lists;
 `with-test-system`, its permits and the runner's parallelism, which
 mono's [test-system](../recipes/test/test-system.md) covers; the commands
 that run each tier and the service-project test matrix, which
@@ -282,12 +282,32 @@ access to a bank is concerned, `banks/`, `companies/`, `oauth/`,
 `ledger-accounts/`, `jobs/`, `webhook-endpoints/` and `simulate/`. Three
 directories hold what no one tag does: `auth/` the token and role checks
 every route makes, `providers/` the runs across payment and IDV
-providers, and `journeys/` the end-to-end journey. A file is named for
+providers, and `journeys/` the PRDs' user journeys. A file is named for
 the behaviour, a refusal ending `-refused` and a missing resource
 `-not-found`.
 
 **Tags.** One closed vocabulary: `:serial`. Provider capabilities are
 `:requires`.
+
+### PRD journeys
+
+A PRD's user journeys are scenarios under `journeys/<prd>/`, one file per
+journey, named for its heading: `### 2. Outbound payment (happy path)` is
+`2-outbound-payment-happy-path.edn`. A journey's steps are the beats of
+the PRD's diagram, the path it draws, asserted as the tenant sees them:
+the reply, the balances, the record the tenant reads and the notification
+its endpoint is sent. A journey runs on every provider of the kinds it
+touches, `:runs-on {:payment :every}` for a payment.
+
+The tag directories keep what a journey does not assert: refusals,
+replays, races and faults, a route's contract shape, such as its paging,
+filters and headers, and what one provider does differently. A journey
+deletes, in the change that adds it, a tag scenario that asserted only
+its path, and a tag scenario that asserted that and more keeps the rest.
+
+`corpus_test.clj` holds each `journeys/<prd>/` directory to its PRD:
+every numbered journey has a file, and every file is a journey. A PRD
+with no directory is not checked.
 
 ### Provider runs
 
@@ -349,8 +369,9 @@ Three things keep scenarios apart:
 ### Tests
 
 - **`test-api-scenarios`.** `corpus_test.clj`, booting nothing, holds
-  that every scenario and fixture validates, every fixture is used and
-  every key literal is unique. `api-scenarios-test` runs every scenario
+  that every scenario and fixture validates, every fixture is used, every
+  key literal is unique, and each PRD's journey directory names its
+  journeys. `api-scenarios-test` runs every scenario
   on each provider it declares, reports each skip, and asserts the run's
   spans. `realm_test.clj` holds the deployed realm's token claims.
 - **`test-scenarios`.** `corpus_test.clj`, booting nothing, holds that
@@ -398,8 +419,12 @@ Three things keep scenarios apart:
   reads one file's tokens, which belongs in the semgrep rules, where a
   site gets an opt-out.
 - **Directories by PRD.** Rejected: a scenario's subject is a route, and
-  the OpenAPI tags already group the routes; the PRDs group journeys,
-  which cross tags.
+  the OpenAPI tags already group the routes. Taken in part: a PRD's
+  journeys, which cross tags, sit under `journeys/<prd>/`.
+- **Tag scenarios reduced to refusals, with journeys carrying every happy
+  path.** Rejected: a route's happy path also pins its contract, its
+  shape, paging, filters and replays, which no journey asserts, and a
+  failing tag scenario names its route where a journey names a step.
 - **Deleting every crossing brick test at once.** Rejected: some were the
   only coverage of a refusal, and moved first.
 
@@ -412,13 +437,17 @@ Three things keep scenarios apart:
   amount limits are not read, and `:create-product` and
   `:create-person-party` meet no count limit, since no scenario comes
   near one.
-- **PRD journeys with no scenario.** Webhook notifications beyond an account's
-  opening, outages and IDV events; interest beyond the end-to-end journey;
-  curative transfers and daily limits over HTTP; organisation parties; a
-  customer's second currency; the payment refusals the domain corpus holds and
-  the API does not; and routes no scenario calls, among them the policy and tier
-  reads, a balance by type, a migration's cancel, a run by id, webhook test
-  notifications and resends, and the discovery documents.
+- **PRDs with no journey scenarios.** Only `payments` has a directory
+  under `journeys/`. The access, cash-account-products, cash-accounts,
+  interest, onboarding, parties, platform, policies and webhooks PRDs
+  have none, so their journeys go unchecked, and
+  `journeys/full-happy-path.edn` covers parts of several of them.
+- **Cases with no scenario.** Curative transfers and daily limits over
+  HTTP; organisation parties; a customer's second currency; the payment
+  refusals the domain corpus holds and the API does not; and routes no
+  scenario calls, among them the policy and tier reads, a balance by
+  type, a migration's cancel, a run by id, webhook test notifications and
+  resends, and the discovery documents.
 - **The demo bank's tests.** `demo-digital-bank`'s interface test and the
   `demo-digital-bank-api` base test drive its own app end to end, and
   have no scenario tier to move to.

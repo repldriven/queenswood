@@ -155,6 +155,10 @@ the component runs its tests.
   reads and assertions in `:then`.
 - Pin the HTTP contract as an EDN scenario in `test-api-scenarios`,
   never in a brick's `interface_test.clj`.
+- Write a PRD's user journey as a scenario under `journeys/<prd>/`, one
+  file per journey named for its heading, running on every provider it
+  touches, and delete in the same change a tag scenario that asserted
+  only that journey's path.
 - Run `just test` as the default, the changed bricks in the development
   project, and `just test-all` as the full suite: the default plus the
   start-up check of every service project and the migrator's guard,

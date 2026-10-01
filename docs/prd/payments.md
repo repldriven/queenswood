@@ -416,6 +416,24 @@ sequenceDiagram
 The tenant uses the result to inform the end customer or
 to decide whether to send.
 
+### 7. Idempotent retry
+
+```mermaid
+sequenceDiagram
+    participant T as Customer engineer
+    participant Q as Queenswood
+
+    T->>Q: submit outbound payment (key=K)
+    Note over T: timeout — no response
+    T->>Q: submit outbound payment (key=K)
+    Q-->>T: same payment as before
+```
+
+If the tenant doesn't get a response — network blip,
+gateway timeout — they can re-submit with the same
+idempotency key. The platform returns the original
+result; no duplicate payment is created.
+
 ### 8. Outbound payment returned after settling
 
 ```mermaid
@@ -439,24 +457,6 @@ The payment had settled, so the money had left the
 account; the return brings it back as a credit, and the
 payment reads as returned with the reason the
 beneficiary's bank gave.
-
-### 7. Idempotent retry
-
-```mermaid
-sequenceDiagram
-    participant T as Customer engineer
-    participant Q as Queenswood
-
-    T->>Q: submit outbound payment (key=K)
-    Note over T: timeout — no response
-    T->>Q: submit outbound payment (key=K)
-    Q-->>T: same payment as before
-```
-
-If the tenant doesn't get a response — network blip,
-gateway timeout — they can re-submit with the same
-idempotency key. The platform returns the original
-result; no duplicate payment is created.
 
 ## Open questions
 
