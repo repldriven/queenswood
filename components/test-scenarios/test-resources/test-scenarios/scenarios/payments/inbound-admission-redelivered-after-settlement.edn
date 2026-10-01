@@ -1,0 +1,17 @@
+{:name "An admission redelivered after its settlement answers the first"
+ :model :reality
+ ;; A provider that asks the platform to admit each inbound may redeliver
+ ;; the admission after the payment has settled. The redelivery answers
+ ;; the decision already made and records nothing, so the end-to-end id
+ ;; carries one inbound payment, settled, and the account is credited
+ ;; once.
+ :given [{:command :create-bank :args []}
+         {:command :inbound-transfer :args [:acct-0 1000]}]
+ :when [{:command :admit-inbound :args [:acct-0 250 :e2e-admitted]}
+        {:command :assert-admission :args [true nil]}
+        {:command :inbound-transfer :args [:acct-0 250 :e2e-admitted]}
+        {:command :admit-inbound :args [:acct-0 250 :e2e-admitted]}]
+ :then [{:command :assert-admission :args [true nil]}
+        {:command :assert-inbound-status
+         :args [:e2e-admitted :inbound-payment-status-settled]}
+        {:command :assert-balance :args [:acct-0 1250]}]}

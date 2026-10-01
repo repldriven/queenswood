@@ -171,7 +171,8 @@
   without checking again. Rejects otherwise, recording nothing, with the
   ISO 20022 reason: `AC01` for no account, `AC04` for one closed, `AC06`
   for one not opened, `AM03` for another currency, `AG01` for a payment a
-  policy refuses. An admission repeated for an open one answers it again.
+  policy refuses. An admission repeated for one already recorded, settled
+  or not, answers it again and records nothing.
 
   Args:
   - config: FDB handle.

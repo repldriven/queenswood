@@ -234,8 +234,8 @@ Under `inbound: admitted` the provider asks before an inbound settles:
   It rejects otherwise, recording nothing, with an ISO 20022 reason:
   `AC01` for a BBAN matching no account, `AC04` for one closed, `AC06`
   for one not opened, `AG01` for a payment a policy refuses. An
-  admission redelivered for an end-to-end id already admitted answers
-  admitted.
+  admission redelivered for a payment already recorded, whatever its
+  status since, answers admitted and records nothing.
 - **The answer.** The adapter tells the provider admitted or rejected
   with the reason, and rejects with `NARR` where no reply came before
   the deadline.

@@ -143,7 +143,8 @@
   "Return the oldest InboundPayment for `end-to-end-id` that credits
   `creditor-account-id` and, when `amount` is non-nil, carries that
   amount, whatever its status. A read primitive for the write sibling's
-  hold handler, which a hold redelivered after its settlement must find.
+  hold and admit handlers, which a hold or an admission redelivered after
+  its settlement must find.
 
   Args:
   - txn: FDB handle or open transaction.
@@ -159,8 +160,7 @@
   "Return the oldest `admitted` InboundPayment for `end-to-end-id` that
   credits `creditor-account-id` and, when `amount` is non-nil, carries
   that amount: one the platform admitted and the scheme has not yet
-  settled. A read primitive for the write sibling's admit and settle
-  handlers.
+  settled. A read primitive for the write sibling's settle handler.
 
   Args:
   - txn: FDB handle or open transaction.
