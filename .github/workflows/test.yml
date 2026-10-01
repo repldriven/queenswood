@@ -121,6 +121,7 @@ jobs:
             echo "fdb=$(jq -r '.foundationdb.version' versions.json)"
             echo "protoc=$(jq -r '.protoc.version' versions.json)"
             echo "protoc_gen_clojure=$(jq -r '."protoc-gen-clojure".version' versions.json)"
+            echo "image=${ImageOS}-${ImageVersion}"
           } >> "$GITHUB_OUTPUT"
 
       - name: Setup Java
@@ -140,20 +141,43 @@ jobs:
           version: ${{ steps.versions.outputs.protoc }}
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install protoc-gen-clojure
-        env:
-          VERSION: ${{ steps.versions.outputs.protoc_gen_clojure }}
-        run: |
-          sudo curl -L "https://github.com/protojure/protoc-plugin/releases/download/v${VERSION}/protoc-gen-clojure" -o /usr/local/bin/protoc-gen-clojure
-          sudo chmod +x /usr/local/bin/protoc-gen-clojure
+      # protoc-gen-clojure and the FDB client come from GitHub releases, and
+      # lcov and the Perl packages it needs from the Ubuntu mirror, which has
+      # served them at a few kB/s and held a job for minutes. All of them
+      # are kept in one cache, keyed on the runner image so the packages
+      # match the system they install onto. A run on main saves it and
+      # every branch restores it.
+      - name: Restore CI packages
+        id: ci-packages
+        uses: actions/cache@v6
+        with:
+          path: ~/ci-packages
+          key: ci-packages-${{ steps.versions.outputs.image }}-fdb-${{ steps.versions.outputs.fdb }}-pgc-${{ steps.versions.outputs.protoc_gen_clojure }}-lcov
 
-      - name: Install FoundationDB client library and lcov
+      - name: Download CI packages
+        if: steps.ci-packages.outputs.cache-hit != 'true'
         env:
-          VERSION: ${{ steps.versions.outputs.fdb }}
+          FDB: ${{ steps.versions.outputs.fdb }}
+          PGC: ${{ steps.versions.outputs.protoc_gen_clojure }}
         run: |
-          curl -LO "https://github.com/apple/foundationdb/releases/download/${VERSION}/foundationdb-clients_${VERSION}-1_amd64.deb"
-          sudo dpkg -i "foundationdb-clients_${VERSION}-1_amd64.deb"
-          sudo apt-get install -y lcov
+          mkdir -p ~/ci-packages/fdb ~/ci-packages/apt/partial
+          curl -fsSL --retry 10 --retry-delay 5 --retry-all-errors \
+            -o ~/ci-packages/protoc-gen-clojure \
+            "https://github.com/protojure/protoc-plugin/releases/download/v${PGC}/protoc-gen-clojure"
+          curl -fsSL --retry 10 --retry-delay 5 --retry-all-errors \
+            -o ~/ci-packages/fdb/foundationdb-clients.deb \
+            "https://github.com/apple/foundationdb/releases/download/${FDB}/foundationdb-clients_${FDB}-1_amd64.deb"
+          sudo apt-get install -y --download-only \
+            -o Dir::Cache::archives="$HOME/ci-packages/apt" lcov
+          sudo rm -rf ~/ci-packages/apt/partial ~/ci-packages/apt/lock
+          sudo chown -R "$(id -u):$(id -g)" ~/ci-packages
+
+      - name: Install CI packages
+        run: |
+          sudo install -m 0755 ~/ci-packages/protoc-gen-clojure \
+            /usr/local/bin/protoc-gen-clojure
+          sudo dpkg -i ~/ci-packages/fdb/foundationdb-clients.deb
+          sudo dpkg -i ~/ci-packages/apt/*.deb
           sudo sed -i 's/lcov_branch_coverage/branch_coverage/' /etc/lcovrc
 
       - name: Verify Docker
