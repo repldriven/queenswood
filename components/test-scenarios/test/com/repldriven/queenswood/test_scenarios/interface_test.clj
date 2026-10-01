@@ -3,6 +3,8 @@
     [com.repldriven.queenswood.test-scenarios.interface :as SUT]
     [com.repldriven.queenswood.test-scenarios.rig :as rig]
 
+    [com.repldriven.queenswood.balance.interface :as balances]
+
     [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.log.interface :as log]
     [com.repldriven.mono.test-system.interface :refer [with-test-system]]
@@ -64,3 +66,35 @@
        (is (= (first steps) (:step divergence)))
        (is (contains? (:balances (:only-model divergence)) :acct-5))
        (is (contains? (:balances (:only-reality divergence)) :acct-0))))))
+
+(deftest a-trial-fails-on-a-timeout-or-a-broken-invariant-test
+  (with-test-system
+   [sys [rig/config-file rig/patch-handlers]]
+   (let [bank (rig/bank sys)
+         fresh (fn [opts]
+                 (SUT/fresh-context bank
+                                    {}
+                                    (merge {:model-init rig/model-init} opts)))
+         create-bank [{:command :create-bank :args []}]]
+     (testing "a step that times out fails the trial as a runner error"
+       (is (seq (:runner-errors (SUT/trial-failure (fresh {:await-timeout-ms 1})
+                                                   create-bank)))))
+     (testing "books a step leaves untied fail the trial"
+       (let [ctx (SUT/run-commands (fresh {}) create-bank)
+             bank-id (get-in ctx [:banks :bank-0 :real-id])
+             acct-id (get-in ctx [:id-mapping :model->real :acct-0])]
+         (is (nil? (balances/apply-legs bank
+                                        bank-id
+                                        [{:account-id acct-id
+                                          :product-type
+                                          :product-type-sub-ledger-current
+                                          :balance-type :balance-type-default
+                                          :balance-status :balance-status-posted
+                                          :currency "GBP"
+                                          :side :leg-side-credit
+                                          :amount 100}]
+                                        :transaction-type-fee)))
+         (is (seq (:invariant-failures (SUT/trial-failure
+                                        ctx
+                                        [{:command :inbound-transfer
+                                          :args [:acct-0 100]}])))))))))

@@ -32,27 +32,9 @@
           (is (vector? (:args c))))))))
 
 (defn- trial
-  "Runs `cmds` against reality and the model, and returns why the trial
-  fails, or nil when it holds."
   [bank cmds]
-  (let [final (SUT/run-commands (SUT/fresh-context bank
-                                                   {}
-                                                   {:model-init rig/model-init})
-                                cmds)
-        {:keys [invariant-failures runner-errors]} final]
-    (cond
-     (seq runner-errors)
-     {:runner-errors runner-errors}
-
-     (seq invariant-failures)
-     {:invariant-failures invariant-failures}
-
-     :else
-     (let [expected (SUT/projected-model
-                     (fugato/execute model/model rig/model-init cmds))
-           actual (SUT/projected-real final)]
-       (when-not (= expected actual)
-         {:end-states-differ true})))))
+  (SUT/trial-failure (SUT/fresh-context bank {} {:model-init rig/model-init})
+                     cmds))
 
 (defn- record-trial
   [stats cmds]
