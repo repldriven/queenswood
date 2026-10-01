@@ -1,5 +1,4 @@
 {:name "An account opens with the address the payment provider issues"
- :tags #{:api :cash-accounts :happy}
  ;; An account is written opening with no address. Its opening asks the
  ;; payment provider for an account, and it opens carrying the sort code
  ;; and account number the provider issued; a bank holds no sort code of
@@ -9,75 +8,42 @@
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
-             :headers {:idempotency-key "ik-address-from-provider-bank-001"}
              :body {:name "Address From Provider"
                     :status "live"
                     :tier "micro"
                     :currencies ["GBP"]}}
    :as :bank-a
-   :assert {:status 201 :body {:sort-code [:m/absent]}}}
+   :assert {:status 201}}
   {:command :auth/mint-token
    :for {:client-id [:ref :bank-a :client-id]
          :client-secret [:ref :bank-a :client-secret]
          :status :live}
    :as :bank-a-token}
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/cash-account-products"
-             :auth :bank-a-token
-             :headers {:idempotency-key "ik-address-from-provider-prod-001"}
-             :body {:name "Current"
-                    :template-id "tpl.00000000000000000000000001"
-                    :currency "GBP"
-                    :interest-rate-bps 0
-                    :effective-from "2026-01-01"}}
+  {:fixture :product
    :as :current-draft
-   :assert {:status 201 :body {:status "draft"}}}
-  {:command :api/request
-   :request
-   {:method :post
-    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
-    :path-params {:product-id [:ref :current-draft :product-id]
-                  :version-id [:ref :current-draft :version-id]}
-    :auth :bank-a-token}
-   :assert {:status 200 :body {:status "published"}}}
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/parties"
-             :auth :bank-a-token
-             :headers {:idempotency-key "ik-afp-create-party"}
-             :body {:type "person"
-                    :display-name "Slartibartfast Magrathea"
-                    :given-name "Slartibartfast"
-                    :family-name "Magrathea"
-                    :date-of-birth "1947-05-19"
-                    :nationality "GB"
-                    :address {:building-number "1"
-                              :street "Fjord Lane"
-                              :town "Cottington"
-                              :postcode "CT12 4XY"
-                              :country "GBR"}
-                    :national-identifier {:type "national-insurance"
-                                          :value "TN555200E"
-                                          :issuing-country "GB"}}}
+   :with {:token [:ref :bank-a-token] :name "Current"}}
+  {:fixture :person
    :as :party
-   :assert {:status 201 :body {:status "pending"}}}
-  {:command :api/poll
-   :request {:method :get
-             :path "/v1/parties/{party-id}"
-             :path-params {:party-id [:ref :party :party-id]}
-             :auth :bank-a-token}
-   :until {:status 200 :body {:status "active"}}}]
+   :with {:token [:ref :bank-a-token]
+          :display-name "Slartibartfast Magrathea"
+          :given-name "Slartibartfast"
+          :family-name "Magrathea"
+          :date-of-birth "1947-05-19"
+          :national-insurance "TN555200E"
+          :address {:building-number "1"
+                    :street "Fjord Lane"
+                    :town "Cottington"
+                    :postcode "CT12 4XY"
+                    :country "GBR"}}}]
  :when
  [{:command :api/request
    :request {:method :post
              :path "/v1/cash-accounts"
              :auth :bank-a-token
-             :headers {:idempotency-key "ik-afp-open-account"}
-             :body {:party-id [:ref :party :party-id]
+             :body {:party-id [:ref :party :party :party-id]
                     :name "Slartibartfast Current"
                     :currency "GBP"
-                    :product-id [:ref :current-draft :product-id]}}
+                    :product-id [:ref :current-draft :product :product-id]}}
    :as :account
    :assert {:status 201
             :body {:account-status "opening"

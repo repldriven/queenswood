@@ -1,0 +1,20 @@
+{:name "Admin changes a bank's status from test to live"
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :body {:name "Status Change Test Org"
+                    :status "test"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :bank-0
+   :assert {:status 201}}]
+ :when [{:command :api/request
+         :request {:method :post
+                   :path "/v1/bank/change-status"
+                   :auth :admin
+                   :headers {:bank-id [:ref :bank-0 :bank-id]}
+                   :body {:status "live"}}
+         :assert {:status 200
+                  :body {:bank-id [:ref :bank-0 :bank-id] :status "live"}}}]}

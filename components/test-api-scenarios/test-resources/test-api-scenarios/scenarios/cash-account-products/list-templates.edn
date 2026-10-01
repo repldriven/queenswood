@@ -1,22 +1,8 @@
 {:name "The template menu lists the customer templates and not the internal one"
- :tags #{:api :cash-account-products :happy}
  :given
- [{:command :api/request
-   :request {:method :post
-             :path "/v1/banks"
-             :auth :admin
-             :headers {:idempotency-key "ik-list-templates-bank-001"}
-             :body {:name "List Templates Test Org"
-                    :status "live"
-                    :tier "micro"
-                    :currencies ["GBP"]}}
+ [{:fixture :bank
    :as :org-0
-   :assert {:status 201}}
-  {:command :auth/mint-token
-   :for {:client-id [:ref :org-0 :client-id]
-         :client-secret [:ref :org-0 :client-secret]
-         :status :live}
-   :as :org-0-token}]
+   :with {:name "List Templates Test Org" :status "live"}}]
  :when
  ;; A vector in expected position matches on length and order, so the
  ;; three customer templates sorted by product-type is also the
@@ -24,7 +10,7 @@
  [{:command :api/request
    :request {:method :get
              :path "/v1/cash-account-product-templates"
-             :auth :org-0-token}
+             :auth [:ref :org-0 :token]}
    :assert {:status 200
             :body {:items [{:template-id "tpl.00000000000000000000000001"
                             :name "Current account"

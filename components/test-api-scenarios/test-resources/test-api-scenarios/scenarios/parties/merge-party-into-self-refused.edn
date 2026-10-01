@@ -1,0 +1,20 @@
+{:name "Merging a party into itself is rejected"
+ :runs-on {:idv :every}
+ :given
+ [{:fixture :bank
+   :as :org-0
+   :with {:name "Merge Into Self Test Org" :status "live"}}
+  {:fixture :person
+   :as :party-0
+   :with {:token [:ref :org-0 :token]
+          :display-name "Self Merging Customer"
+          :given-name "Self"
+          :family-name "Merging"
+          :national-insurance "TN888010A"}}]
+ :when [{:command :api/request
+         :request {:method :post
+                   :path "/v1/parties/{party-id}/merge"
+                   :path-params {:party-id [:ref :party-0 :party :party-id]}
+                   :auth [:ref :org-0 :token]
+                   :body {:into-party-id [:ref :party-0 :party :party-id]}}
+         :assert {:status 422 :body {:type ":party/merge-into-self"}}}]}

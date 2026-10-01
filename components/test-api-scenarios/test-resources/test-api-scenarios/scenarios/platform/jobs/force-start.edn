@@ -1,0 +1,38 @@
+{:name "Force-starting a job records a forced run"
+ :given
+ [{:fixture :bank
+   :as :org-0
+   :with {:name "Force Start Test Bank" :status "live"}}]
+ :when
+ ;; The seeded daily-interest job runs accrue + capitalize. On a freshly
+ ;; provisioned bank (interest-payable account seeded, no customer
+ ;; accounts, no daily-limit policy bound) both tasks are a clean no-op,
+ ;; so the forced run succeeds.
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/jobs/{job-id}/runs"
+             :path-params {:job-id "daily-interest"}
+             :auth [:ref :org-0 :token]}
+   :assert {:status 201
+            :body {:job-id "daily-interest"
+                   :trigger-source "forced"
+                   :status "succeeded"
+                   ;; Both tasks ran, in the order the job declares
+                   ;; them, and neither failed an account.
+                   ;;
+                   ;; The processed count is left open on purpose. The
+                   ;; only account a fresh bank holds is its own funding
+                   ;; account, which provisioning creates asynchronously
+                   ;; — so a forced run this soon after may scan before
+                   ;; or after it lands, and the two tasks can disagree
+                   ;; within the same run. What the count means is
+                   ;; pinned by the scheduler's own tests, against a
+                   ;; task result that isn't racing anything.
+                   :tasks [{:label "accrue"
+                            :status "succeeded"
+                            :records-processed [:m/any]
+                            :records-failed 0}
+                           {:label "capitalize"
+                            :status "succeeded"
+                            :records-processed [:m/any]
+                            :records-failed 0}]}}}]}

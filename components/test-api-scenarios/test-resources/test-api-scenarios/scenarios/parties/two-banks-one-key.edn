@@ -1,40 +1,24 @@
 {:name "Two banks reusing one idempotency key each get their own party"
- :tags #{:api :idempotency :parties :happy}
+ :runs-on {:idv :every}
  ;; An idempotency key is unique within a principal, not across the
  ;; platform. Two tenants that happen to pick the same key each get
  ;; their own party: neither is refused, and neither is handed the
  ;; other's. This is what pins the cache's scope to the principal.
  :given
- [{:command :api/request
-   :request {:method :post
-             :path "/v1/banks"
-             :auth :admin
-             :headers {:idempotency-key "ik-parties-two-banks-a-001"}
-             :body {:name "Parties Key Scope A"
-                    :status "live"
-                    :tier "micro"
-                    :currencies ["GBP"]}}
+ [{:fixture :bank
    :as :bank-a
-   :assert {:status 201}}
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/banks"
-             :auth :admin
-             :headers {:idempotency-key "ik-parties-two-banks-b-001"}
-             :body {:name "Parties Key Scope B"
-                    :status "live"
-                    :tier "micro"
-                    :currencies ["GBP"]}}
+   :with {:name "Parties Key Scope A" :status "live"}}
+  {:fixture :bank
    :as :bank-b
-   :assert {:status 201}}
+   :with {:name "Parties Key Scope B" :status "live"}}
   {:command :auth/mint-token
-   :for {:client-id [:ref :bank-a :client-id]
-         :client-secret [:ref :bank-a :client-secret]
+   :for {:client-id [:ref :bank-a :bank :client-id]
+         :client-secret [:ref :bank-a :bank :client-secret]
          :status :live}
    :as :bank-a-token}
   {:command :auth/mint-token
-   :for {:client-id [:ref :bank-b :client-id]
-         :client-secret [:ref :bank-b :client-secret]
+   :for {:client-id [:ref :bank-b :bank :client-id]
+         :client-secret [:ref :bank-b :bank :client-secret]
          :status :live}
    :as :bank-b-token}]
  :when
@@ -59,7 +43,10 @@
                                           :value "TN555301B"
                                           :issuing-country "GB"}}}
    :as :party-a
-   :assert {:status 201 :body {:bank-id [:ref :bank-a :bank-id]}}}
+   :assert {:status 201 :body {:bank-id [:ref :bank-a :bank :bank-id]}}}
+  {:command :idv/verify
+   :party [:ref :party-a :party-id]
+   :auth [:ref :bank-a-token]}
   {:command :api/request
    :request {:method :post
              :path "/v1/parties"
@@ -80,7 +67,10 @@
                                           :value "TN555302C"
                                           :issuing-country "GB"}}}
    :as :party-b
-   :assert {:status 201 :body {:bank-id [:ref :bank-b :bank-id]}}}]
+   :assert {:status 201 :body {:bank-id [:ref :bank-b :bank :bank-id]}}}
+  {:command :idv/verify
+   :party [:ref :party-b :party-id]
+   :auth [:ref :bank-b-token]}]
  :then
  ;; Two parties, not one replayed twice — B's answer is B's own party,
  ;; with B's own name, not A's read back.
@@ -91,7 +81,7 @@
              :auth :bank-b-token}
    :assert {:status 200
             :body {:display-name "Slartibartfast"
-                   :bank-id [:ref :bank-b :bank-id]}}}
+                   :bank-id [:ref :bank-b :bank :bank-id]}}}
   ;; Each bank's listing holds its own party and only its own.
   {:command :api/request
    :request {:method :get :path "/v1/parties" :auth :bank-a-token}

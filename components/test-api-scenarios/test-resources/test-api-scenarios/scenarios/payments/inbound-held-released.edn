@@ -1,5 +1,6 @@
 {:name "An inbound held for screening, then released, settles to the creditor"
- :tags #{:api :inbound :payments :happy :inbound-notified}
+ :requires #{:inbound-notified}
+ :runs-on {:payment :every}
  ;; A test value every payment simulator shares: an inbound whose debtor
  ;; name is 6a41a29eafcf455493 is held for screening. The simulator then resolves it
  ;; by the request's `outcome`, here a release, which settles the credit.
@@ -8,85 +9,40 @@
  ;; creditor once. The simulator's amount is in pounds; balances are in
  ;; pence.
  :given
- [{:command :api/request
-   :request {:method :post
-             :path "/v1/banks"
-             :auth :admin
-             :headers {:idempotency-key "ik-ihrel-bank-001"}
-             :body {:name "Inbound Held Released"
-                    :status "live"
-                    :tier "micro"
-                    :currencies ["GBP"]}}
+ [{:fixture :bank
    :as :bank-0
-   :assert {:status 201}}
-  {:command :auth/mint-token
-   :for {:client-id [:ref :bank-0 :client-id]
-         :client-secret [:ref :bank-0 :client-secret]
-         :status :live}
-   :as :bank-0-token}
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/cash-account-products"
-             :auth :bank-0-token
-             :headers {:idempotency-key "ik-ihrel-prod-001"}
-             :body {:name "Current"
-                    :template-id "tpl.00000000000000000000000001"
-                    :currency "GBP"
-                    :interest-rate-bps 0
-                    :effective-from "2026-01-01"}}
+   :with {:name "Inbound Held Released" :status "live"}}
+  {:fixture :product
    :as :current-draft
-   :assert {:status 201 :body {:status "draft"}}}
-  {:command :api/request
-   :request
-   {:method :post
-    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
-    :path-params {:product-id [:ref :current-draft :product-id]
-                  :version-id [:ref :current-draft :version-id]}
-    :auth :bank-0-token}
-   :assert {:status 200 :body {:status "published"}}}
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/parties"
-             :auth :bank-0-token
-             :headers {:idempotency-key "ik-ihrel-party-001"}
-             :body {:type "person"
-                    :display-name "Slartibartfast Fjord"
-                    :given-name "Slartibartfast"
-                    :family-name "Fjord"
-                    :date-of-birth "1948-02-02"
-                    :nationality "GB"
-                    :address {:building-number "3"
-                              :street "Magrathea Lane"
-                              :town "Cottington"
-                              :postcode "CT12 4XY"
-                              :country "GBR"}
-                    :national-identifier {:type "national-insurance"
-                                          :value "TN556221A"
-                                          :issuing-country "GB"}}}
+   :with {:token [:ref :bank-0 :token] :name "Current"}}
+  {:fixture :person
    :as :party
-   :assert {:status 201 :body {:status "pending"}}}
-  {:command :api/poll
-   :request {:method :get
-             :path "/v1/parties/{party-id}"
-             :path-params {:party-id [:ref :party :party-id]}
-             :auth :bank-0-token}
-   :until {:status 200 :body {:status "active"}}}
+   :with {:token [:ref :bank-0 :token]
+          :display-name "Slartibartfast Fjord"
+          :given-name "Slartibartfast"
+          :family-name "Fjord"
+          :date-of-birth "1948-02-02"
+          :national-insurance "TN556221A"
+          :address {:building-number "3"
+                    :street "Magrathea Lane"
+                    :town "Cottington"
+                    :postcode "CT12 4XY"
+                    :country "GBR"}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/cash-accounts"
-             :auth :bank-0-token
-             :headers {:idempotency-key "ik-ihrel-open-creditor"}
-             :body {:party-id [:ref :party :party-id]
+             :auth [:ref :bank-0 :token]
+             :body {:party-id [:ref :party :party :party-id]
                     :name "Slartibartfast Current"
                     :currency "GBP"
-                    :product-id [:ref :current-draft :product-id]}}
+                    :product-id [:ref :current-draft :product :product-id]}}
    :as :creditor
-   :assert {:status 201 :body {:account-status "opening"}}}
+   :assert {:status 201}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}"
              :path-params {:account-id [:ref :creditor :account-id]}
-             :auth :bank-0-token}
+             :auth [:ref :bank-0 :token]}
    :until {:status 200 :body {:account-status "opened"}}
    :as :creditor}]
  :when
@@ -108,11 +64,11 @@
    :request {:method :get
              :path "/v1/payments/inbound"
              :query-params {"status" "settled"}
-             :auth :bank-0-token}
+             :auth [:ref :bank-0 :token]}
    :until {:status 200
            :body {:items
                   [{:end-to-end-id [:ref :inbound :endToEndIdentification]
-                    :bank-id [:ref :bank-0 :bank-id]
+                    :bank-id [:ref :bank-0 :bank :bank-id]
                     :creditor-account-id [:ref :creditor :account-id]
                     :amount 2500
                     :currency "GBP"
@@ -124,7 +80,7 @@
    :request {:method :get
              :path "/v1/payments/inbound/{payment-id}"
              :path-params {:payment-id [:ref :settled :items 0 :payment-id]}
-             :auth :bank-0-token}
+             :auth [:ref :bank-0 :token]}
    :assert {:status 200
             :body {:payment-id [:ref :settled :items 0 :payment-id]
                    :end-to-end-id [:ref :inbound :endToEndIdentification]
@@ -134,13 +90,13 @@
    :request {:method :get
              :path "/v1/payments/inbound"
              :query-params {"status" "held"}
-             :auth :bank-0-token}
+             :auth [:ref :bank-0 :token]}
    :assert {:status 200 :body {:items []}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}/balances"
              :path-params {:account-id [:ref :creditor :account-id]}
-             :auth :bank-0-token}
+             :auth [:ref :bank-0 :token]}
    :until {:status 200
            :body {:available-balance {:value 2500 :currency "GBP"}}}
    :timeout-ms 10000}]}

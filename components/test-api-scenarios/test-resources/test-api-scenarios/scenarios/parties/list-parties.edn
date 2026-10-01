@@ -1,27 +1,13 @@
 {:name "Tenant lists their parties"
- :tags #{:api :happy :parties}
+ :runs-on {:idv :every}
  :given
- [{:command :api/request
-   :request {:method :post
-             :path "/v1/banks"
-             :auth :admin
-             :headers {:idempotency-key "ik-list-parties-bank-001"}
-             :body {:name "List Parties Test Org"
-                    :status "live"
-                    :tier "micro"
-                    :currencies ["GBP"]}}
+ [{:fixture :bank
    :as :org-0
-   :assert {:status 201}}
-  {:command :auth/mint-token
-   :for {:client-id [:ref :org-0 :client-id]
-         :client-secret [:ref :org-0 :client-secret]
-         :status :live}
-   :as :org-0-token}
+   :with {:name "List Parties Test Org" :status "live"}}
   {:command :api/request
    :request {:method :post
              :path "/v1/parties"
-             :auth :org-0-token
-             :headers {:idempotency-key "ik-list-parties-create-a"}
+             :auth [:ref :org-0 :token]
              :body {:type "person"
                     :display-name "Zaphod Beeblebrox"
                     :given-name "Zaphod"
@@ -37,12 +23,14 @@
                                           :value "TN000003C"
                                           :issuing-country "GB"}}}
    :as :party-1
-   :assert {:status 201 :body {:party-id [:m/regex "^pty\\."]}}}
+   :assert {:status 201}}
+  {:command :idv/verify
+   :party [:ref :party-1 :party-id]
+   :auth [:ref :org-0 :token]}
   {:command :api/request
    :request {:method :post
              :path "/v1/parties"
-             :auth :org-0-token
-             :headers {:idempotency-key "ik-list-parties-create-b"}
+             :auth [:ref :org-0 :token]
              :body {:type "person"
                     :display-name "Trillian Astra"
                     :given-name "Trillian"
@@ -58,12 +46,15 @@
                                           :value "TN000004D"
                                           :issuing-country "GB"}}}
    :as :party-2
-   :assert {:status 201 :body {:party-id [:m/regex "^pty\\."]}}}]
+   :assert {:status 201}}
+  {:command :idv/verify
+   :party [:ref :party-2 :party-id]
+   :auth [:ref :org-0 :token]}]
  :when
  [{:command :api/request
    :request {:method :get
              :path "/v1/parties"
-             :auth :org-0-token
+             :auth [:ref :org-0 :token]
              :query-params {"page[size]" 1}}
    :as :page-1
    :assert
@@ -71,43 +62,43 @@
     :body
     {:items
      [{:party-id [:m/any-of
-                  [:m/equals [:ref :org-0 :party :party-id]]
+                  [:m/equals [:ref :org-0 :bank :party :party-id]]
                   [:m/equals [:ref :party-1 :party-id]]
                   [:m/equals [:ref :party-2 :party-id]]]}]
      :links {:next [:m/regex ".+"] :prev [:m/absent]}}}}
   {:command :api/request
-   :request {:method :get :url [:ref :page-1 :links :next] :auth :org-0-token}
+   :request {:method :get :url [:ref :page-1 :links :next] :auth [:ref :org-0 :token]}
    :as :page-2
    :assert
    {:status 200
     :body
     {:items
      [{:party-id [:m/any-of
-                  [:m/equals [:ref :org-0 :party :party-id]]
+                  [:m/equals [:ref :org-0 :bank :party :party-id]]
                   [:m/equals [:ref :party-1 :party-id]]
                   [:m/equals [:ref :party-2 :party-id]]]}]
      :links {:prev [:m/regex ".+"] :next [:m/regex ".+"]}}}}
   {:command :api/request
-   :request {:method :get :url [:ref :page-2 :links :next] :auth :org-0-token}
+   :request {:method :get :url [:ref :page-2 :links :next] :auth [:ref :org-0 :token]}
    :as :page-3
    :assert
    {:status 200
     :body
     {:items
      [{:party-id [:m/any-of
-                  [:m/equals [:ref :org-0 :party :party-id]]
+                  [:m/equals [:ref :org-0 :bank :party :party-id]]
                   [:m/equals [:ref :party-1 :party-id]]
                   [:m/equals [:ref :party-2 :party-id]]]}]
      :links {:prev [:m/regex ".+"] :next [:m/absent]}}}}
   {:command :api/request
-   :request {:method :get :url [:ref :page-3 :links :prev] :auth :org-0-token}
+   :request {:method :get :url [:ref :page-3 :links :prev] :auth [:ref :org-0 :token]}
    :as :back-2
    :assert
    {:status 200
     :body {:items [{:party-id [:ref :page-2 :items 0 :party-id]}]
            :links {:prev [:m/regex ".+"] :next [:m/regex ".+"]}}}}
   {:command :api/request
-   :request {:method :get :url [:ref :back-2 :links :prev] :auth :org-0-token}
+   :request {:method :get :url [:ref :back-2 :links :prev] :auth [:ref :org-0 :token]}
    :assert
    {:status 200
     :body {:items [{:party-id [:ref :page-1 :items 0 :party-id]}]

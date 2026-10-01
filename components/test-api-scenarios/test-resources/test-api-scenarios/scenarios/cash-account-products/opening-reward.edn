@@ -1,29 +1,14 @@
 {:name "A version promises an opening reward, fixed once published"
- :tags #{:api :cash-account-products :lifecycle :happy}
  :given
- [{:command :api/request
-   :request {:method :post
-             :path "/v1/banks"
-             :auth :admin
-             :headers {:idempotency-key "ik-opening-reward-bank-001"}
-             :body {:name "Opening Reward Test Org"
-                    :status "live"
-                    :tier "test-scenario"
-                    :currencies ["GBP"]}}
+ [{:fixture :bank
    :as :org-0
-   :assert {:status 201}}
-  {:command :auth/mint-token
-   :for {:client-id [:ref :org-0 :client-id]
-         :client-secret [:ref :org-0 :client-secret]
-         :status :live}
-   :as :org-0-token}]
+   :with {:name "Opening Reward Test Org" :status "live" :tier "test-scenario"}}]
  :when
  [;; The reward is declared at create, in minor units of the currency.
   {:command :api/request
    :request {:method :post
              :path "/v1/cash-account-products"
-             :auth :org-0-token
-             :headers {:idempotency-key "ik-opening-reward-prod-001"}
+             :auth [:ref :org-0 :token]
              :body {:name "Welcome Current Account"
                     :template-id "tpl.00000000000000000000000001"
                     :currency "GBP"
@@ -39,7 +24,7 @@
    :request {:method :get
              :path "/v1/cash-account-products/{product-id}"
              :path-params {:product-id [:ref :v1 :product-id]}
-             :auth :org-0-token}
+             :auth [:ref :org-0 :token]}
    :assert {:status 200
             :body {:versions [{:version-id [:ref :v1 :version-id]
                                :opening-reward {:amount 1000}}]}}}
@@ -50,7 +35,7 @@
              "/v1/cash-account-products/{product-id}/versions/{version-id}"
              :path-params {:product-id [:ref :v1 :product-id]
                            :version-id [:ref :v1 :version-id]}
-             :auth :org-0-token
+             :auth [:ref :org-0 :token]
              :body {:name "Welcome Current Account"
                     :template-id "tpl.00000000000000000000000001"
                     :currency "GBP"
@@ -63,8 +48,7 @@
   {:command :api/request
    :request {:method :post
              :path "/v1/cash-account-products"
-             :auth :org-0-token
-             :headers {:idempotency-key "ik-opening-reward-prod-002"}
+             :auth [:ref :org-0 :token]
              :body {:name "Nothing Account"
                     :template-id "tpl.00000000000000000000000001"
                     :currency "GBP"
@@ -80,7 +64,7 @@
     :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
     :path-params {:product-id [:ref :v1 :product-id]
                   :version-id [:ref :v1 :version-id]}
-    :auth :org-0-token}
+    :auth [:ref :org-0 :token]}
    :assert {:status 200
             :body {:status "published"
                    :opening-reward {:amount 2500}}}}
@@ -90,7 +74,7 @@
              "/v1/cash-account-products/{product-id}/versions/{version-id}"
              :path-params {:product-id [:ref :v1 :product-id]
                            :version-id [:ref :v1 :version-id]}
-             :auth :org-0-token
+             :auth [:ref :org-0 :token]
              :body {:name "Welcome Current Account"
                     :template-id "tpl.00000000000000000000000001"
                     :currency "GBP"
@@ -103,7 +87,7 @@
    :request {:method :get
              :path "/v1/cash-account-products/{product-id}"
              :path-params {:product-id [:ref :v1 :product-id]}
-             :auth :org-0-token}
+             :auth [:ref :org-0 :token]}
    :assert {:status 200
             :body {:versions [{:version-id [:ref :v1 :version-id]
                                :status "published"

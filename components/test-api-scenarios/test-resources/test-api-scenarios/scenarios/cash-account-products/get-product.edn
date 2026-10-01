@@ -1,27 +1,12 @@
 {:name "Tenant retrieves a product with its version inline"
- :tags #{:api :cash-account-products :happy}
  :given
- [{:command :api/request
-   :request {:method :post
-             :path "/v1/banks"
-             :auth :admin
-             :headers {:idempotency-key "ik-get-product-bank-001"}
-             :body {:name "Get Product Test Org"
-                    :status "live"
-                    :tier "micro"
-                    :currencies ["GBP"]}}
+ [{:fixture :bank
    :as :org-0
-   :assert {:status 201}}
-  {:command :auth/mint-token
-   :for {:client-id [:ref :org-0 :client-id]
-         :client-secret [:ref :org-0 :client-secret]
-         :status :live}
-   :as :org-0-token}
+   :with {:name "Get Product Test Org" :status "live"}}
   {:command :api/request
    :request {:method :post
              :path "/v1/cash-account-products"
-             :auth :org-0-token
-             :headers {:idempotency-key "ik-get-product-prod-001"}
+             :auth [:ref :org-0 :token]
              :body {:name "Savings Account"
                     :template-id "tpl.00000000000000000000000002"
                     :currency "GBP"
@@ -34,7 +19,7 @@
    :request {:method :get
              :path "/v1/cash-account-products/{product-id}"
              :path-params {:product-id [:ref :product-0 :product-id]}
-             :auth :org-0-token}
+             :auth [:ref :org-0 :token]}
    :assert
    {:status 200
     :body {:product-id [:ref :product-0 :product-id]

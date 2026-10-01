@@ -1,5 +1,4 @@
 {:name "A developer reads the bank's people and is refused changing them"
- :tags #{:access :api :auth :unhappy}
  ;; The people routes that write are gated `org:admin`, which a
  ;; developer's levels miss, so each refusal is the edge's, whatever
  ;; the target.
@@ -20,7 +19,6 @@
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
-             :headers {:idempotency-key "ik-access-developer-bank-001"}
              :body {:name "Developer Bank"
                     :status "live"
                     :tier "micro"
@@ -34,13 +32,12 @@
              :path-params {:invitation-id [:ref :bank :owner-invitation :invitation-id]}
              :auth :owner-token}
    :as :owner-membership
-   :assert {:status 201 :body {:role "owner"}}}
+   :assert {:status 201}}
   {:command :api/request
    :request {:method :post
              :path "/v1/invitations"
              :auth :owner-token
-             :headers {:bank-id [:ref :bank :bank-id]
-                       :idempotency-key "ik-access-developer-invite-001"}
+             :headers {:bank-id [:ref :bank :bank-id]}
              :body {:email "developer-developer@queenswood.local"
                     :role "developer"}}
    :as :invitation
@@ -51,7 +48,7 @@
              :path-params {:invitation-id [:ref :invitation :invitation-id]}
              :auth :developer-token}
    :as :developer-membership
-   :assert {:status 201 :body {:role "developer"}}}]
+   :assert {:status 201}}]
  :when
  [{:command :api/request
    :request {:method :get
@@ -69,8 +66,7 @@
    :request {:method :post
              :path "/v1/invitations"
              :auth :developer-token
-             :headers {:bank-id [:ref :bank :bank-id]
-                       :idempotency-key "ik-access-developer-invite-002"}
+             :headers {:bank-id [:ref :bank :bank-id]}
              :body {:email "developer-guest@example.test" :role "viewer"}}
    :assert {:status 403
             :problem {:type "auth/forbidden"

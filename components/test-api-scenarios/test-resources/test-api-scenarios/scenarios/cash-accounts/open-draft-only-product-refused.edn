@@ -1,0 +1,36 @@
+{:name "Opening a cash account against a draft-only product is rejected"
+ ;; The product exists, so this is not the unknown-product refusal: it
+ ;; has no version published and effective today.
+ :given
+ [{:fixture :bank
+   :as :org-0
+   :with {:name "Open Draft Only Product Test Org" :status "live"}}
+  {:fixture :person
+   :as :party-0
+   :with {:token [:ref :org-0 :token]
+          :display-name "Draft Product Holder"
+          :given-name "Draft"
+          :family-name "Holder"
+          :national-insurance "TN889009A"}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth [:ref :org-0 :token]
+             :body {:name "Current Account"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-01-01"}}
+   :as :draft
+   :assert {:status 201}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth [:ref :org-0 :token]
+             :body {:party-id [:ref :party-0 :party :party-id]
+                    :name "Draft Product Current"
+                    :currency "GBP"
+                    :product-id [:ref :draft :product-id]}}
+   :assert {:status 422
+            :problem {:type ":cash-account/product-not-published"}}}]}

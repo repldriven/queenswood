@@ -1,0 +1,40 @@
+{:name "Rotating a closed cash account's payment address is rejected"
+ :given
+ [{:fixture :bank
+   :as :org-0
+   :with {:name "Rotate Address Closed Test Org" :status "live"}}
+  ;; Active party
+  {:fixture :person
+   :as :party-0
+   :with {:token [:ref :org-0 :token]
+          :display-name "Closed Rotating Customer"
+          :given-name "Closed"
+          :family-name "Rotator"
+          :national-insurance "TN888005A"}}
+  ;; Published product
+  {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}
+  ;; Open, then close the cash-account
+  {:fixture :account
+   :as :account-0
+   :with {:token [:ref :org-0 :token]
+          :party-id [:ref :party-0 :party :party-id]
+          :product-id [:ref :draft :product :product-id]
+          :name "To Be Closed Then Rotated"}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts/{account-id}/close"
+             :path-params {:account-id [:ref :account-0 :account :account-id]}
+             :auth [:ref :org-0 :token]}
+   :assert {:status 200}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :account-0 :account :account-id]}
+             :auth [:ref :org-0 :token]}
+   :until {:status 200 :body {:account-status "closed"}}}]
+ :when [{:command :api/request
+         :request {:method :post
+                   :path "/v1/cash-accounts/{account-id}/rotate-address"
+                   :path-params {:account-id [:ref :account-0 :account :account-id]}
+                   :auth [:ref :org-0 :token]}
+         :assert {:status 409 :body {:type ":cash-account/invalid-status"}}}]}

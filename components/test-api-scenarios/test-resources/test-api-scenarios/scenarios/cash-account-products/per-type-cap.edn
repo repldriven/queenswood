@@ -1,28 +1,12 @@
 {:name "Micro tier caps cash-account-products at one per product type"
- :tags #{:api :cash-account-products :policy :unhappy}
  :given
- [{:command :api/request
-   :request
-   {:method :post
-    :path "/v1/banks"
-    :auth :admin
-    :headers {:idempotency-key "ik-per-type-cap-bank-001"}
-    :body
-    {:name "Per-Type Cap Org" :status "live" :tier "micro" :currencies ["GBP"]}}
-   :as :org-0
-   :assert {:status 201}}
-  {:command :auth/mint-token
-   :for {:client-id [:ref :org-0 :client-id]
-         :client-secret [:ref :org-0 :client-secret]
-         :status :live}
-   :as :org-0-token}
+ [{:fixture :bank :as :org-0 :with {:name "Per-Type Cap Org" :status "live"}}
   ;; First current product is fine (the own-funds house product is a
   ;; separate, internal product type that the cap excludes).
   {:command :api/request
    :request {:method :post
              :path "/v1/cash-account-products"
-             :auth :org-0-token
-             :headers {:idempotency-key "ik-per-type-cap-prod-001"}
+             :auth [:ref :org-0 :token]
              :body {:name "Current Account"
                     :template-id "tpl.00000000000000000000000001"
                     :currency "GBP"
@@ -34,8 +18,7 @@
  [{:command :api/request
    :request {:method :post
              :path "/v1/cash-account-products"
-             :auth :org-0-token
-             :headers {:idempotency-key "ik-per-type-cap-prod-002"}
+             :auth [:ref :org-0 :token]
              :body {:name "Second Current"
                     :template-id "tpl.00000000000000000000000001"
                     :currency "GBP"

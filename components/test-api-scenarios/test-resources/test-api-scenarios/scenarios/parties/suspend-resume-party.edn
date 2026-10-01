@@ -1,0 +1,30 @@
+{:name "Tenant suspends and resumes a party"
+ :runs-on {:idv :every}
+ :given
+ [{:fixture :bank
+   :as :org-0
+   :with {:name "Suspend Resume Party Test Org" :status "live"}}
+  {:fixture :person
+   :as :party-0
+   :with {:token [:ref :org-0 :token]
+          :display-name "Suspending Party"
+          :given-name "Suspending"
+          :family-name "Party"
+          :national-insurance "TN888013A"}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/parties/{party-id}/suspend"
+             :path-params {:party-id [:ref :party-0 :party :party-id]}
+             :auth [:ref :org-0 :token]}
+   :assert {:status 200
+            :body {:party-id [:ref :party-0 :party :party-id]
+                   :status "suspended"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties/{party-id}/resume"
+             :path-params {:party-id [:ref :party-0 :party :party-id]}
+             :auth [:ref :org-0 :token]}
+   :assert {:status 200
+            :body {:party-id [:ref :party-0 :party :party-id]
+                   :status "active"}}}]}

@@ -1,0 +1,45 @@
+{:name "An internal payment from a suspended account is rejected"
+ ;; The debtor's status is read before its balance, so an unfunded
+ ;; pair still proves that the status is what refuses.
+ :given
+ [{:fixture :bank
+   :as :org-0
+   :with {:name "Pay From Suspended Test Org" :status "live"}}
+  {:fixture :person
+   :as :party-0
+   :with {:token [:ref :org-0 :token]
+          :display-name "Suspended Payer"
+          :given-name "Suspended"
+          :family-name "Payer"
+          :national-insurance "TN889001A"}}
+  {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}
+  {:fixture :account
+   :as :debtor
+   :with {:token [:ref :org-0 :token]
+          :party-id [:ref :party-0 :party :party-id]
+          :product-id [:ref :draft :product :product-id]
+          :name "Suspended Debtor"}}
+  {:fixture :account
+   :as :creditor
+   :with {:token [:ref :org-0 :token]
+          :party-id [:ref :party-0 :party :party-id]
+          :product-id [:ref :draft :product :product-id]
+          :name "Open Creditor"}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts/{account-id}/suspend"
+             :path-params {:account-id [:ref :debtor :account :account-id]}
+             :auth [:ref :org-0 :token]}
+   :assert {:status 200}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/payments/internal"
+             :auth [:ref :org-0 :token]
+             :body {:debtor-account-id [:ref :debtor :account :account-id]
+                    :creditor-account-id [:ref :creditor :account :account-id]
+                    :currency "GBP"
+                    :amount 2500
+                    :reference "From a suspended account"}}
+   :assert {:status 409
+            :problem {:type ":payment/debtor-account-not-operable"}}}]}

@@ -1,0 +1,28 @@
+{:name "Opening a cash account in a currency the version bars is rejected"
+ ;; The bank declares EUR and the current-account template does not, so
+ ;; the published version is what refuses.
+ :given
+ [{:fixture :bank
+   :as :org-0
+   :with {:name "Open Currency Not Allowed Test Org"
+          :status "live"
+          :currencies ["EUR" "GBP"]}}
+  {:fixture :person
+   :as :party-0
+   :with {:token [:ref :org-0 :token]
+          :display-name "Euro Holder"
+          :given-name "Euro"
+          :family-name "Holder"
+          :national-insurance "TN889007A"}}
+  {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth [:ref :org-0 :token]
+             :body {:party-id [:ref :party-0 :party :party-id]
+                    :name "Euro Current"
+                    :currency "EUR"
+                    :product-id [:ref :draft :product :product-id]}}
+   :assert {:status 422
+            :problem {:type ":cash-account/invalid-currency"}}}]}

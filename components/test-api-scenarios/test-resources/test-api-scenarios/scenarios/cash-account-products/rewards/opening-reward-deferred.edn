@@ -1,0 +1,102 @@
+{:name "A reward the house account cannot cover is due until the bank is funded"
+ :given
+ [{:fixture :bank
+   :as :org-0
+   :with {:name "Reward Deferred Test Org" :tier "test-scenario"}}
+  ;; A version that promises £10 to every account opened under it.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth [:ref :org-0 :token]
+             :body {:name "Welcome Current"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :opening-reward {:amount 1000}
+                    :effective-from "2026-01-01"}}
+   :as :product
+   :assert {:status 201}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :product :product-id]
+                  :version-id [:ref :product :version-id]}
+    :auth [:ref :org-0 :token]}
+   :assert {:status 200}}
+  {:fixture :person
+   :as :arthur
+   :with {:token [:ref :org-0 :token]
+          :date-of-birth "1952-03-11"
+          :national-insurance "TN555202A"}}
+  {:fixture :account
+   :as :account
+   :with {:token [:ref :org-0 :token]
+          :party-id [:ref :arthur :party :party-id]
+          :product-id [:ref :product :product-id]
+          :name "Arthur Current"}}]
+ :when
+ [;; The house account holds nothing, so the posting is refused and the reward left due.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/jobs/{job-id}/runs"
+             :path-params {:job-id "hourly-rewards"}
+             :auth [:ref :org-0 :token]}
+   :assert {:status 201
+            :body {:job-id "hourly-rewards"
+                   :trigger-source "forced"
+                   :status "succeeded"
+                   :tasks [{:label "reward"
+                            :status "succeeded"
+                            :records-processed 0
+                            :records-failed 1}]}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :account :account :account-id]}
+             :auth [:ref :org-0 :token]}
+   :assert {:status 200
+            :body {:available-balance {:value 0 :currency "GBP"}}}}
+  ;; Money from outside into the bank's own-funds house account, which
+  ;; is what a reward is paid from.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/simulate/inbound-transfer"
+             :auth :admin
+             :headers {:bank-id [:ref :org-0 :bank :bank-id]}
+             :body {:amount 500000
+                    :currency "GBP"}}
+   :assert {:status 200}}
+  ;; Funded, the next run pays what was due.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/jobs/{job-id}/runs"
+             :path-params {:job-id "hourly-rewards"}
+             :auth [:ref :org-0 :token]}
+   :assert {:status 201
+            :body {:job-id "hourly-rewards"
+                   :trigger-source "forced"
+                   :status "succeeded"
+                   :tasks [{:label "reward"
+                            :status "succeeded"
+                            :records-processed 1
+                            :records-failed 0}]}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :account :account :account-id]}
+             :auth [:ref :org-0 :token]}
+   :assert {:status 200
+            :body {:available-balance {:value 1000 :currency "GBP"}}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/transactions"
+             :path-params {:account-id [:ref :account :account :account-id]}
+             :auth [:ref :org-0 :token]}
+   :assert {:status 200
+            :body {:items [:m/embeds
+                                  [{:reference "Welcome reward"
+                                    :transaction-type "reward"
+                                    :side "credit"
+                                    :balance-status "posted"
+                                    :amount 1000}]]}}}]}

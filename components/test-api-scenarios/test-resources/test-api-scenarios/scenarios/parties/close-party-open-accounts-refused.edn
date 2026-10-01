@@ -1,0 +1,29 @@
+{:name "Closing a party with an open cash account is rejected"
+ :runs-on {:idv :every}
+ :given
+ [{:fixture :bank
+   :as :org-0
+   :with {:name "Close Party Open Accounts Test Org" :status "live"}}
+  ;; Active party
+  {:fixture :person
+   :as :party-0
+   :with {:token [:ref :org-0 :token]
+          :display-name "Open Accounts Party"
+          :given-name "Open"
+          :family-name "Accounts"
+          :national-insurance "TN888015A"}}
+  ;; Published product
+  {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}
+  ;; An account that stays open
+  {:fixture :account
+   :as :account-0
+   :with {:token [:ref :org-0 :token]
+          :party-id [:ref :party-0 :party :party-id]
+          :product-id [:ref :draft :product :product-id]
+          :name "Still Open"}}]
+ :when [{:command :api/request
+         :request {:method :post
+                   :path "/v1/parties/{party-id}/close"
+                   :path-params {:party-id [:ref :party-0 :party :party-id]}
+                   :auth [:ref :org-0 :token]}
+         :assert {:status 409 :body {:type ":party/open-accounts"}}}]}

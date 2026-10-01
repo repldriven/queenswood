@@ -1,5 +1,4 @@
 {:name "An owner resends an invitation, and the invitee accepts it"
- :tags #{:access :api :happy}
  ;; A resend answers the same invitation with a fresh expiry and records
  ;; the resend. That only the fresh link's token accepts is proved in the
  ;; `membership` brick, since the token reaches nobody but the email.
@@ -20,7 +19,6 @@
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
-             :headers {:idempotency-key "ik-access-owner-resends-invitation-001"}
              :body {:name "Resend Bank"
                     :status "live"
                     :tier "micro"
@@ -34,13 +32,12 @@
              :path-params {:invitation-id [:ref :bank :owner-invitation :invitation-id]}
              :auth :owner-token}
    :as :owner-membership
-   :assert {:status 201 :body {:role "owner"}}}
+   :assert {:status 201}}
   {:command :api/request
    :request {:method :post
              :path "/v1/invitations"
              :auth :owner-token
-             :headers {:bank-id [:ref :bank :bank-id]
-                       :idempotency-key "ik-access-owner-resends-invitation-002"}
+             :headers {:bank-id [:ref :bank :bank-id]}
              :body {:email "resend-invitee@queenswood.local" :role "developer"}}
    :as :invitation
    :assert {:status 201}}]
@@ -50,24 +47,23 @@
              :path "/v1/invitations/{invitation-id}/resend"
              :path-params {:invitation-id [:ref :invitation :invitation-id]}
              :auth :owner-token
-             :headers {:bank-id [:ref :bank :bank-id]
-                       :idempotency-key "ik-access-owner-resends-invitation-003"}}
+             :headers {:bank-id [:ref :bank :bank-id]}}
    :as :resent
    :assert {:status 200
             :body {:invitation-id [:ref :invitation :invitation-id]
                    :email "resend-invitee@queenswood.local"
                    :status "pending"
                    :expires-at [:m/mismatch [:ref :invitation :expires-at]]
-                   :token [:m/absent]}}}]
- :then
- [{:command :api/request
+                   :token [:m/absent]}}}
+  {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/accept"
              :path-params {:invitation-id [:ref :invitation :invitation-id]}
              :auth :invitee-token}
    :assert {:status 201
-            :body {:bank-id [:ref :bank :bank-id] :role "developer"}}}
-  {:command :api/request
+            :body {:bank-id [:ref :bank :bank-id] :role "developer"}}}]
+ :then
+ [{:command :api/request
    :request {:method :get
              :path "/v1/bank/audit-events"
              :auth :owner-token

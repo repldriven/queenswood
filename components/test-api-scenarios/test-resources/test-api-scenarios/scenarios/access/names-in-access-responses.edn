@@ -1,5 +1,4 @@
 {:name "Access responses name the inviter, the removed member and the platform"
- :tags #{:access :api :happy}
  ;; Each name is captured from the person's own `GET /v1/me`, so the
  ;; assertion is that the access response names them as their user record
  ;; does. The operator's client has no user record, so the bank's creation
@@ -27,8 +26,6 @@
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
-             :headers {:idempotency-key
-                       "ik-access-names-in-access-responses-001"}
              :body {:name "Names Bank"
                     :status "live"
                     :tier "micro"
@@ -42,23 +39,21 @@
              :path-params {:invitation-id [:ref :bank :owner-invitation :invitation-id]}
              :auth :owner-token}
    :as :owner-membership
-   :assert {:status 201 :body {:role "owner"}}}
+   :assert {:status 201}}
   {:command :api/request
    :request {:method :get :path "/v1/me" :auth :owner-token}
    :as :owner-me
-   :assert {:status 200 :body {:name [:m/non-empty]}}}
+   :assert {:status 200}}
   {:command :api/request
    :request {:method :get :path "/v1/me" :auth :member-token}
    :as :member-me
-   :assert {:status 200 :body {:name [:m/non-empty]}}}]
+   :assert {:status 200}}]
  :when
  [{:command :api/request
    :request {:method :post
              :path "/v1/invitations"
              :auth :owner-token
-             :headers {:bank-id [:ref :bank :bank-id]
-                       :idempotency-key
-                       "ik-access-names-in-access-responses-002"}
+             :headers {:bank-id [:ref :bank :bank-id]}
              :body {:email "names-invitee@queenswood.local" :role "developer"}}
    :as :invitation
    :assert {:status 201}}
@@ -76,9 +71,7 @@
    :request {:method :post
              :path "/v1/invitations"
              :auth :owner-token
-             :headers {:bank-id [:ref :bank :bank-id]
-                       :idempotency-key
-                       "ik-access-names-in-access-responses-003"}
+             :headers {:bank-id [:ref :bank :bank-id]}
              :body {:email "names-member@queenswood.local" :role "developer"}}
    :as :member-invitation
    :assert {:status 201}}

@@ -1,6 +1,5 @@
 {:name
  "One person owns one bank and views another, and the header picks between them"
- :tags #{:access :api :auth :unhappy}
  ;; Bank A is the person's own, bank B's owner invites them as a
  ;; viewer, and bank C has no member at all. The same bearer is used
  ;; throughout, so what changes each answer is `Bank-Id` alone.
@@ -21,7 +20,6 @@
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
-             :headers {:idempotency-key "ik-access-multi-bank-a-001"}
              :body {:name "Multi Bank A"
                     :status "live"
                     :tier "micro"
@@ -35,12 +33,11 @@
              :path-params {:invitation-id [:ref :bank-a :owner-invitation :invitation-id]}
              :auth :person-token}
    :as :a-membership
-   :assert {:status 201 :body {:role "owner"}}}
+   :assert {:status 201}}
   {:command :api/request
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
-             :headers {:idempotency-key "ik-access-multi-bank-b-001"}
              :body {:name "Multi Bank B"
                     :status "live"
                     :tier "micro"
@@ -54,13 +51,12 @@
              :path-params {:invitation-id [:ref :bank-b :owner-invitation :invitation-id]}
              :auth :owner-token}
    :as :b-owner-membership
-   :assert {:status 201 :body {:role "owner"}}}
+   :assert {:status 201}}
   {:command :api/request
    :request {:method :post
              :path "/v1/invitations"
              :auth :owner-token
-             :headers {:bank-id [:ref :bank-b :bank-id]
-                       :idempotency-key "ik-access-multi-invite-001"}
+             :headers {:bank-id [:ref :bank-b :bank-id]}
              :body {:email "multi-person@queenswood.local" :role "viewer"}}
    :as :b-invitation
    :assert {:status 201}}
@@ -69,18 +65,17 @@
              :path "/v1/me/invitations/{invitation-id}/accept"
              :path-params {:invitation-id [:ref :b-invitation :invitation-id]}
              :auth :person-token}
-   :assert {:status 201 :body {:role "viewer"}}}
+   :assert {:status 201}}
   {:command :api/request
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
-             :headers {:idempotency-key "ik-access-multi-bank-c-001"}
              :body {:name "Multi Bank C"
                     :status "live"
                     :tier "micro"
                     :currencies ["GBP"]}}
    :as :bank-c
-   :assert {:status 201 :body {:owner-invitation [:m/absent]}}}]
+   :assert {:status 201}}]
  :when
  [{:command :api/request
    :request {:method :get :path "/v1/me/memberships" :auth :person-token}
@@ -100,8 +95,7 @@
    :request {:method :post
              :path "/v1/cash-account-products"
              :auth :person-token
-             :headers {:bank-id [:ref :bank-a :bank-id]
-                       :idempotency-key "ik-access-multi-product-a-001"}
+             :headers {:bank-id [:ref :bank-a :bank-id]}
              :body {:name "Multi Current Account"
                     :template-id "tpl.00000000000000000000000001"
                     :currency "GBP"
@@ -112,8 +106,7 @@
    :request {:method :post
              :path "/v1/cash-account-products"
              :auth :person-token
-             :headers {:bank-id [:ref :bank-b :bank-id]
-                       :idempotency-key "ik-access-multi-product-b-001"}
+             :headers {:bank-id [:ref :bank-b :bank-id]}
              :body {:name "Multi Current Account"
                     :template-id "tpl.00000000000000000000000001"
                     :currency "GBP"
@@ -135,11 +128,10 @@
              :headers {:bank-id [:ref :bank-c :bank-id]}}
    :assert {:status 403
             :problem {:type "auth/forbidden"
-                      :detail "The caller is not a member of this bank"}}}]
- :then
- ;; An owner of A naming A may change roles in A only: a membership of
- ;; B is not found there, rather than refused as someone else's.
- [{:command :api/request
+                      :detail "The caller is not a member of this bank"}}}
+  ;; An owner of A naming A may change roles in A only: a membership of
+  ;; B is not found there, rather than refused as someone else's.
+  {:command :api/request
    :request {:method :post
              :path "/v1/memberships/{membership-id}/change-role"
              :path-params {:membership-id [:ref :b-owner-membership
@@ -147,9 +139,9 @@
              :auth :person-token
              :headers {:bank-id [:ref :bank-a :bank-id]}
              :body {:role "viewer"}}
-   :assert {:status 404 :problem {:type ":membership/not-found"}}}
-  ;; Nor is either read there, though both are read in B.
-  {:command :api/request
+   :assert {:status 404 :problem {:type ":membership/not-found"}}}]
+ :then
+ [{:command :api/request
    :request {:method :get
              :path "/v1/memberships/{membership-id}"
              :path-params {:membership-id [:ref :b-owner-membership

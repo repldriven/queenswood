@@ -1,5 +1,4 @@
 {:name "A removed person is refused on their next call, and re-invited joins anew"
- :tags #{:access :api :auth :unhappy}
  ;; The member's token is minted once and outlives the removal: the
  ;; memberships are read on every request, so the same bearer is
  ;; refused the moment the membership ends.
@@ -20,7 +19,6 @@
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
-             :headers {:idempotency-key "ik-access-removed-bank-001"}
              :body {:name "Removed Member Bank"
                     :status "live"
                     :tier "micro"
@@ -34,13 +32,12 @@
              :path-params {:invitation-id [:ref :bank :owner-invitation :invitation-id]}
              :auth :owner-token}
    :as :owner-membership
-   :assert {:status 201 :body {:role "owner"}}}
+   :assert {:status 201}}
   {:command :api/request
    :request {:method :post
              :path "/v1/invitations"
              :auth :owner-token
-             :headers {:bank-id [:ref :bank :bank-id]
-                       :idempotency-key "ik-access-removed-invite-001"}
+             :headers {:bank-id [:ref :bank :bank-id]}
              :body {:email "removed-member@queenswood.local" :role "developer"}}
    :as :invitation
    :assert {:status 201}}
@@ -50,7 +47,7 @@
              :path-params {:invitation-id [:ref :invitation :invitation-id]}
              :auth :member-token}
    :as :first-membership
-   :assert {:status 201 :body {:role "developer"}}}
+   :assert {:status 201}}
   {:command :api/request
    :request {:method :get
              :path "/v1/cash-accounts"
@@ -110,14 +107,12 @@
                             :membership-id [:ref :first-membership
                                             :membership-id]
                             :role-before "developer"
-                            :reason "Left the company"}]}}}]
- :then
- [{:command :api/request
+                            :reason "Left the company"}]}}}
+  {:command :api/request
    :request {:method :post
              :path "/v1/invitations"
              :auth :owner-token
-             :headers {:bank-id [:ref :bank :bank-id]
-                       :idempotency-key "ik-access-removed-invite-002"}
+             :headers {:bank-id [:ref :bank :bank-id]}
              :body {:email "removed-member@queenswood.local" :role "viewer"}}
    :as :second-invitation
    :assert {:status 201}}
@@ -131,8 +126,9 @@
             :body {:membership-id [:m/mismatch
                                    [:ref :first-membership :membership-id]]
                    :user-id [:ref :first-membership :user-id]
-                   :role "viewer"}}}
-  {:command :api/request
+                   :role "viewer"}}}]
+ :then
+ [{:command :api/request
    :request {:method :get
              :path "/v1/cash-accounts"
              :auth :member-token

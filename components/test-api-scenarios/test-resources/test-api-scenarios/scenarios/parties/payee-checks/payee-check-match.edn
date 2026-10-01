@@ -1,0 +1,26 @@
+{:name "Tenant runs a payee check and the name is a match"
+ :runs-on {:payment :every}
+ :given
+ [{:fixture :bank
+   :as :org-0
+   :with {:name "Payee Check Match Org" :status "live"}}
+  ;; A check is made from the bank's own funds, so it waits for the
+  ;; provider to open them.
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts"
+             :auth [:ref :org-0 :token]}
+   :until {:status 200
+           :body {:items [:m/embeds [{:account-status "opened"}]]}}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/payee-checks"
+             :auth [:ref :org-0 :token]
+             :body {:creditor-name "Arthur Dent"
+                    :account {:sort-code "040062" :account-number "12345678"}
+                    :account-type "personal"}}
+   :assert {:status 201
+            :headers {:location [:m/regex "^/v1/payee-checks/chk\\."]}
+            :body {:check-id [:m/regex "^chk\\."]
+                   :result {:match-result "match"}}}}]}

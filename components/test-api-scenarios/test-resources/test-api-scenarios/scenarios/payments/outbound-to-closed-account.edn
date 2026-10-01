@@ -1,133 +1,66 @@
 {:name "A payment to a closed account's address is returned"
- :tags #{:api :outbound :payments :unhappy :inbound-notified :outbound-returned}
+ :requires #{:inbound-notified :outbound-returned}
+ :runs-on {:payment :every}
  ;; A closed account's provider account is closed too, so the provider
  ;; takes nothing in for it: an outbound from a funded account to the
  ;; closed account's own address completes, then comes back as a return
  ;; coded AC04. The debtor is credited again, and neither the closed
  ;; account nor 2500 suspense is. All amounts in pence.
  :given
- [{:command :api/request
-   :request {:method :post
-             :path "/v1/banks"
-             :auth :admin
-             :headers {:idempotency-key "ik-inbound-to-closed-bban-bank-001"}
-             :body {:name "Inbound To Closed BBAN Test Org"
-                    :status "test"
-                    :tier "micro"
-                    :currencies ["GBP"]}}
-   :as :org-0
-   :assert {:status 201}}
-  {:command :auth/mint-token
-   :for {:client-id [:ref :org-0 :client-id]
-         :client-secret [:ref :org-0 :client-secret]
-         :status :test}
-   :as :org-0-token}
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/parties"
-             :auth :org-0-token
-             :headers {:idempotency-key "ik-inbound-to-closed-bban-party"}
-             :body {:type "person"
-                    :display-name "Closed Address Holder"
-                    :given-name "Closed"
-                    :family-name "Holder"
-                    :date-of-birth "1970-01-01"
-                    :nationality "GB"
-                    :address {:building-number "155"
-                              :street "Country Lane"
-                              :town "Cottington"
-                              :postcode "CT12 4XY"
-                              :country "GBR"}
-                    :national-identifier {:type "national-insurance"
-                                          :value "TN889011A"
-                                          :issuing-country "GB"}}}
+ [{:fixture :bank :as :org-0 :with {:name "Inbound To Closed BBAN Test Org"}}
+  {:fixture :person
    :as :party-0
-   :assert {:status 201 :body {:status "pending"}}}
-  {:command :api/poll
-   :request {:method :get
-             :path "/v1/parties/{party-id}"
-             :path-params {:party-id [:ref :party-0 :party-id]}
-             :auth :org-0-token}
-   :until {:status 200 :body {:status "active"}}}
+   :with {:token [:ref :org-0 :token]
+          :display-name "Closed Address Holder"
+          :given-name "Closed"
+          :family-name "Holder"
+          :national-insurance "TN889011A"}}
+  {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}
   {:command :api/request
-   :request {:method :post
-             :path "/v1/cash-account-products"
-             :auth :org-0-token
-             :headers {:idempotency-key "ik-inbound-to-closed-bban-prod-001"}
-             :body {:name "Current Account"
-                    :template-id "tpl.00000000000000000000000001"
-                    :currency "GBP"
-                    :interest-rate-bps 0
-                    :effective-from "2026-01-01"}}
-   :as :draft
-   :assert {:status 201 :body {:status "draft"}}}
-  {:command :api/request
-   :request
-   {:method :post
-    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
-    :path-params {:product-id [:ref :draft :product-id]
-                  :version-id [:ref :draft :version-id]}
-    :auth :org-0-token}
-   :assert {:status 200 :body {:status "published"}}}
-  {:command :api/request
-   :request {:method :get :path "/v1/ledger-accounts" :auth :org-0-token}
+   :request {:method :get :path "/v1/ledger-accounts" :auth [:ref :org-0 :token]}
    :as :ledgers
    :assert {:status 200}}
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/cash-accounts"
-             :auth :org-0-token
-             :headers {:idempotency-key "ik-inbound-to-closed-bban-open-debtor"}
-             :body {:party-id [:ref :party-0 :party-id]
-                    :name "Funded Debtor"
-                    :currency "GBP"
-                    :product-id [:ref :draft :product-id]}}
+  {:fixture :account
    :as :debtor
-   :assert {:status 201 :body {:account-status "opening"}}}
-  {:command :api/poll
-   :request {:method :get
-             :path "/v1/cash-accounts/{account-id}"
-             :path-params {:account-id [:ref :debtor :account-id]}
-             :auth :org-0-token}
-   :until {:status 200 :body {:account-status "opened"}}}
+   :with {:token [:ref :org-0 :token]
+          :party-id [:ref :party-0 :party :party-id]
+          :product-id [:ref :draft :product :product-id]
+          :name "Funded Debtor"}}
   {:command :api/request
    :request {:method :post
              :path "/v1/cash-accounts"
-             :auth :org-0-token
-             :headers {:idempotency-key "ik-inbound-to-closed-bban-open-closed"}
-             :body {:party-id [:ref :party-0 :party-id]
+             :auth [:ref :org-0 :token]
+             :body {:party-id [:ref :party-0 :party :party-id]
                     :name "Closed Creditor"
                     :currency "GBP"
-                    :product-id [:ref :draft :product-id]}}
+                    :product-id [:ref :draft :product :product-id]}}
    :as :closed
-   :assert {:status 201 :body {:account-status "opening"}}}
+   :assert {:status 201}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}"
              :path-params {:account-id [:ref :closed :account-id]}
-             :auth :org-0-token}
+             :auth [:ref :org-0 :token]}
    :until {:status 200 :body {:account-status "opened"}}
    :as :closed}
   {:command :api/request
    :request {:method :post
              :path "/v1/cash-accounts/{account-id}/close"
              :path-params {:account-id [:ref :closed :account-id]}
-             :auth :org-0-token
-             :headers {:idempotency-key "ik-inbound-to-closed-bban-close"}}
-   :assert {:status 200 :body {:account-status "closing"}}}
+             :auth [:ref :org-0 :token]}
+   :assert {:status 200}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}"
              :path-params {:account-id [:ref :closed :account-id]}
-             :auth :org-0-token}
+             :auth [:ref :org-0 :token]}
    :until {:status 200 :body {:account-status "closed"}}}
   ;; Fund the debtor so the outbound can leave.
   {:command :api/request
    :request {:method :post
              :path "/v1/simulate/inbound-transfer"
              :auth :admin
-             :headers {:bank-id [:ref :org-0 :bank-id]
-                       :idempotency-key "ik-inbound-to-closed-bban-fund"}
+             :headers {:bank-id [:ref :org-0 :bank :bank-id]}
              :body {:amount 100000
                     :currency "GBP"}}
    :as :funded-1
@@ -136,10 +69,9 @@
   {:command :api/request
    :request {:method :post
              :path "/v1/payments/internal"
-             :auth :org-0-token
-             :headers {:idempotency-key "ik-inbound-to-closed-bban-fund-pay"}
+             :auth [:ref :org-0 :token]
              :body {:debtor-account-id [:ref :funded-1 :account-id]
-                    :creditor-account-id [:ref :debtor :account-id]
+                    :creditor-account-id [:ref :debtor :account :account-id]
                     :currency "GBP"
                     :amount 100000
                     :reference "Funding"}}
@@ -147,17 +79,16 @@
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}/balances"
-             :path-params {:account-id [:ref :debtor :account-id]}
-             :auth :org-0-token}
+             :path-params {:account-id [:ref :debtor :account :account-id]}
+             :auth [:ref :org-0 :token]}
    :until {:status 200
            :body {:available-balance {:value 100000 :currency "GBP"}}}}]
  :when
  [{:command :api/request
    :request {:method :post
              :path "/v1/payments/outbound"
-             :auth :org-0-token
-             :headers {:idempotency-key "ik-inbound-to-closed-bban-outbound"}
-             :body {:debtor-account-id [:ref :debtor :account-id]
+             :auth [:ref :org-0 :token]
+             :body {:debtor-account-id [:ref :debtor :account :account-id]
                     :creditor-bban
                     [:str [:ref :closed :payment-addresses 0 :scan :sort-code]
                      [:ref :closed :payment-addresses 0 :scan
@@ -174,7 +105,7 @@
    :request {:method :get
              :path "/v1/payments/outbound/{payment-id}"
              :path-params {:payment-id [:ref :outbound :payment-id]}
-             :auth :org-0-token}
+             :auth [:ref :org-0 :token]}
    :until {:status 200
            :body {:payment-status "returned"
                   :return {:reason-code "AC04" :reason "BENACCCLOSED"}}}
@@ -182,16 +113,16 @@
   {:command :api/request
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}/balances"
-             :path-params {:account-id [:ref :debtor :account-id]}
-             :auth :org-0-token}
+             :path-params {:account-id [:ref :debtor :account :account-id]}
+             :auth [:ref :org-0 :token]}
    :assert {:status 200
             :body {:posted-balance {:value 100000 :currency "GBP"}
                    :available-balance {:value 100000 :currency "GBP"}}}}
   {:command :api/request
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}/transactions"
-             :path-params {:account-id [:ref :debtor :account-id]}
-             :auth :org-0-token}
+             :path-params {:account-id [:ref :debtor :account :account-id]}
+             :auth [:ref :org-0 :token]}
    :assert {:status 200
             :body {:items [:m/embeds
                            [{:reference "Inbound to a closed address"
@@ -203,7 +134,7 @@
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}/balances"
              :path-params {:account-id [:ref :closed :account-id]}
-             :auth :org-0-token}
+             :auth [:ref :org-0 :token]}
    :assert {:status 200
             :body {:posted-balance {:value 0 :currency "GBP"}
                    :available-balance {:value 0 :currency "GBP"}}}}
@@ -212,5 +143,5 @@
              :path "/v1/ledger-accounts/{account-id}/balances"
              :path-params {:account-id [:ref-find :ledgers :items
                                         :gl-code "2500" :account-id]}
-             :auth :org-0-token}
+             :auth [:ref :org-0 :token]}
    :assert {:status 200 :body {:items [:m/embeds [{:credit 0 :debit 0}]]}}}]}

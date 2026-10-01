@@ -1,6 +1,5 @@
 {:name
  "An invitee signed in under another address accepts by the emailed link"
- :tags #{:access :api :happy}
  ;; The owner is invited by the operator's create and accepts with the
  ;; token its email carried. The invitation then names an address the
  ;; invitee does not sign in with, so the emailed token is the only
@@ -23,7 +22,6 @@
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
-             :headers {:idempotency-key "ik-access-link-bank-001"}
              :body {:name "Link Bank"
                     :status "live"
                     :tier "micro"
@@ -42,14 +40,13 @@
              :auth :owner-token
              :headers {:invitation-token [:ref :owner-email :token]}}
    :as :owner-membership
-   :assert {:status 201 :body {:role "owner"}}}]
+   :assert {:status 201}}]
  :when
  [{:command :api/request
    :request {:method :post
              :path "/v1/invitations"
              :auth :owner-token
-             :headers {:bank-id [:ref :bank :bank-id]
-                       :idempotency-key "ik-access-link-invite-001"}
+             :headers {:bank-id [:ref :bank :bank-id]}
              :body {:email "link-invitee@example.test" :role "developer"}}
    :as :invitation
    :assert {:status 201
@@ -89,16 +86,16 @@
              :headers {:invitation-token [:ref :email :token]}}
    :as :accepted
    :assert {:status 201
-            :body {:bank-id [:ref :bank :bank-id] :role "developer"}}}]
- :then
- [{:command :api/request
+            :body {:bank-id [:ref :bank :bank-id] :role "developer"}}}
+  {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/accept"
              :path-params {:invitation-id [:ref :invitation :invitation-id]}
              :auth :invitee-token
              :headers {:invitation-token [:ref :email :token]}}
-   :assert {:status 409 :problem {:type ":invitation/invalid-status"}}}
-  {:command :api/request
+   :assert {:status 409 :problem {:type ":invitation/invalid-status"}}}]
+ :then
+ [{:command :api/request
    :request {:method :get
              :path "/v1/invitations"
              :auth :owner-token

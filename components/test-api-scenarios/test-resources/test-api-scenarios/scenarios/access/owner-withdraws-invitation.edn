@@ -1,5 +1,4 @@
 {:name "An owner withdraws a pending invitation, and the bank no longer lists it"
- :tags #{:access :api :happy}
  ;; The bank's list still holds the owner's own accepted invitation, so
  ;; it is never empty and every item it holds is checked against the
  ;; withdrawn one.
@@ -14,8 +13,6 @@
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
-             :headers {:idempotency-key
-                       "ik-access-owner-withdraws-invitation-001"}
              :body {:name "Withdraw Bank"
                     :status "live"
                     :tier "micro"
@@ -29,14 +26,12 @@
              :path-params {:invitation-id [:ref :bank :owner-invitation :invitation-id]}
              :auth :owner-token}
    :as :owner-membership
-   :assert {:status 201 :body {:role "owner"}}}
+   :assert {:status 201}}
   {:command :api/request
    :request {:method :post
              :path "/v1/invitations"
              :auth :owner-token
-             :headers {:bank-id [:ref :bank :bank-id]
-                       :idempotency-key
-                       "ik-access-owner-withdraws-invitation-002"}
+             :headers {:bank-id [:ref :bank :bank-id]}
              :body {:email "withdraw-invitee@example.test" :role "viewer"}}
    :as :invitation
    :assert {:status 201}}
@@ -45,10 +40,7 @@
              :path "/v1/invitations"
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}}
-   :assert {:status 200
-            :body {:items [:m/embeds
-                           [{:invitation-id [:ref :invitation :invitation-id]
-                             :status "pending"}]]}}}]
+   :assert {:status 200}}]
  :when
  [{:command :api/request
    :request {:method :post

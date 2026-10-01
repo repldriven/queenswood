@@ -1,5 +1,6 @@
 {:name "A suspended inbound is listed, read by id, and hidden from another bank"
- :tags #{:api :inbound :payments :unhappy :inbound-notified}
+ :requires #{:inbound-notified}
+ :runs-on {:payment :every}
  ;; An inbound to an account that cannot take it is parked in 2500
  ;; suspense and recorded `suspended`. The bank lists its suspended
  ;; inbounds and finds the amount and the scheme transaction id, reads the
@@ -9,92 +10,34 @@
  ;; bank A's, which the simulator settles to that account's BBAN. All
  ;; amounts in pence.
  :given
- [{:command :api/request
-   :request {:method :post
-             :path "/v1/banks"
-             :auth :admin
-             :headers {:idempotency-key "ik-isl-bank-a-001"}
-             :body {:name "Suspended List A"
-                    :status "test"
-                    :tier "micro"
-                    :currencies ["GBP"]}}
-   :as :bank-a
-   :assert {:status 201}}
-  {:command :auth/mint-token
-   :for {:client-id [:ref :bank-a :client-id]
-         :client-secret [:ref :bank-a :client-secret]
-         :status :test}
-   :as :bank-a-token}
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/cash-account-products"
-             :auth :bank-a-token
-             :headers {:idempotency-key "ik-isl-prod-a-001"}
-             :body {:name "Current"
-                    :template-id "tpl.00000000000000000000000001"
-                    :currency "GBP"
-                    :interest-rate-bps 0
-                    :effective-from "2026-01-01"}}
+ [{:fixture :bank :as :bank-a :with {:name "Suspended List A"}}
+  {:fixture :product
    :as :product-a
-   :assert {:status 201 :body {:status "draft"}}}
-  {:command :api/request
-   :request
-   {:method :post
-    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
-    :path-params {:product-id [:ref :product-a :product-id]
-                  :version-id [:ref :product-a :version-id]}
-    :auth :bank-a-token}
-   :assert {:status 200 :body {:status "published"}}}
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/parties"
-             :auth :bank-a-token
-             :headers {:idempotency-key "ik-isl-party-a-001"}
-             :body {:type "person"
-                    :display-name "Fenchurch Wells"
-                    :given-name "Fenchurch"
-                    :family-name "Wells"
-                    :date-of-birth "1955-06-09"
-                    :nationality "GB"
-                    :address {:building-number "12"
-                              :street "Rickmansworth Road"
-                              :town "Cottington"
-                              :postcode "CT12 4XY"
-                              :country "GBR"}
-                    :national-identifier {:type "national-insurance"
-                                          :value "TN556211A"
-                                          :issuing-country "GB"}}}
+   :with {:token [:ref :bank-a :token] :name "Current"}}
+  {:fixture :person
    :as :party-a
-   :assert {:status 201 :body {:status "pending"}}}
-  {:command :api/poll
-   :request {:method :get
-             :path "/v1/parties/{party-id}"
-             :path-params {:party-id [:ref :party-a :party-id]}
-             :auth :bank-a-token}
-   :until {:status 200 :body {:status "active"}}}
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/cash-accounts"
-             :auth :bank-a-token
-             :headers {:idempotency-key "ik-isl-debtor-a-001"}
-             :body {:party-id [:ref :party-a :party-id]
-                    :name "Fenchurch Current"
-                    :currency "GBP"
-                    :product-id [:ref :product-a :product-id]}}
+   :with {:token [:ref :bank-a :token]
+          :display-name "Fenchurch Wells"
+          :given-name "Fenchurch"
+          :family-name "Wells"
+          :date-of-birth "1955-06-09"
+          :national-insurance "TN556211A"
+          :address {:building-number "12"
+                    :street "Rickmansworth Road"
+                    :town "Cottington"
+                    :postcode "CT12 4XY"
+                    :country "GBR"}}}
+  {:fixture :account
    :as :debtor-a
-   :assert {:status 201 :body {:account-status "opening"}}}
-  {:command :api/poll
-   :request {:method :get
-             :path "/v1/cash-accounts/{account-id}"
-             :path-params {:account-id [:ref :debtor-a :account-id]}
-             :auth :bank-a-token}
-   :until {:status 200 :body {:account-status "opened"}}}
+   :with {:token [:ref :bank-a :token]
+          :party-id [:ref :party-a :party :party-id]
+          :product-id [:ref :product-a :product :product-id]
+          :name "Fenchurch Current"}}
   {:command :api/request
    :request {:method :post
              :path "/v1/simulate/inbound-transfer"
              :auth :admin
-             :headers {:bank-id [:ref :bank-a :bank-id]
-                       :idempotency-key "ik-isl-fund-a-001"}
+             :headers {:bank-id [:ref :bank-a :bank :bank-id]}
              :body {:amount 100000
                     :currency "GBP"}}
    :as :funded-1
@@ -103,10 +46,9 @@
   {:command :api/request
    :request {:method :post
              :path "/v1/payments/internal"
-             :auth :bank-a-token
-             :headers {:idempotency-key "ik-isl-fund-a-001-pay"}
+             :auth [:ref :bank-a :token]
              :body {:debtor-account-id [:ref :funded-1 :account-id]
-                    :creditor-account-id [:ref :debtor-a :account-id]
+                    :creditor-account-id [:ref :debtor-a :account :account-id]
                     :currency "GBP"
                     :amount 100000
                     :reference "Funding"}}
@@ -114,58 +56,40 @@
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}/balances"
-             :path-params {:account-id [:ref :debtor-a :account-id]}
-             :auth :bank-a-token}
+             :path-params {:account-id [:ref :debtor-a :account :account-id]}
+             :auth [:ref :bank-a :token]}
    :until {:status 200
            :body {:available-balance {:value 100000 :currency "GBP"}}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/cash-accounts"
-             :auth :bank-a-token
-             :headers {:idempotency-key "ik-isl-suspended-a-001"}
-             :body {:party-id [:ref :party-a :party-id]
+             :auth [:ref :bank-a :token]
+             :body {:party-id [:ref :party-a :party :party-id]
                     :name "Fenchurch Savings"
                     :currency "GBP"
-                    :product-id [:ref :product-a :product-id]}}
+                    :product-id [:ref :product-a :product :product-id]}}
    :as :suspended-a
-   :assert {:status 201 :body {:account-status "opening"}}}
+   :assert {:status 201}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}"
              :path-params {:account-id [:ref :suspended-a :account-id]}
-             :auth :bank-a-token}
+             :auth [:ref :bank-a :token]}
    :until {:status 200 :body {:account-status "opened"}}
    :as :suspended-a}
   {:command :api/request
    :request {:method :post
              :path "/v1/cash-accounts/{account-id}/suspend"
              :path-params {:account-id [:ref :suspended-a :account-id]}
-             :auth :bank-a-token
-             :headers {:idempotency-key "ik-isl-suspend-a-001"}}
-   :assert {:status 200 :body {:account-status "suspended"}}}
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/banks"
-             :auth :admin
-             :headers {:idempotency-key "ik-isl-bank-b-001"}
-             :body {:name "Suspended List B"
-                    :status "test"
-                    :tier "micro"
-                    :currencies ["GBP"]}}
-   :as :bank-b
-   :assert {:status 201}}
-  {:command :auth/mint-token
-   :for {:client-id [:ref :bank-b :client-id]
-         :client-secret [:ref :bank-b :client-secret]
-         :status :test}
-   :as :bank-b-token}]
+             :auth [:ref :bank-a :token]}
+   :assert {:status 200}}
+  {:fixture :bank :as :bank-b :with {:name "Suspended List B"}}]
  :when
  [{:command :api/request
    :request {:method :post
              :path "/v1/payments/outbound"
-             :auth :bank-a-token
-             :headers {:idempotency-key "ik-isl-outbound-001"}
-             :body {:debtor-account-id [:ref :debtor-a :account-id]
+             :auth [:ref :bank-a :token]
+             :body {:debtor-account-id [:ref :debtor-a :account :account-id]
                     :creditor-bban [:ref :suspended-a :bban]
                     :creditor-name "Fenchurch Wells"
                     :currency "GBP"
@@ -179,9 +103,9 @@
    :request {:method :get
              :path "/v1/payments/inbound"
              :query-params {"status" "suspended"}
-             :auth :bank-a-token}
+             :auth [:ref :bank-a :token]}
    :until {:status 200
-           :body {:items [{:bank-id [:ref :bank-a :bank-id]
+           :body {:items [{:bank-id [:ref :bank-a :bank :bank-id]
                            :amount 2500
                            :currency "GBP"
                            :payment-status "suspended"
@@ -192,10 +116,10 @@
    :request {:method :get
              :path "/v1/payments/inbound/{payment-id}"
              :path-params {:payment-id [:ref :suspended :items 0 :payment-id]}
-             :auth :bank-a-token}
+             :auth [:ref :bank-a :token]}
    :assert {:status 200
             :body {:payment-id [:ref :suspended :items 0 :payment-id]
-                   :bank-id [:ref :bank-a :bank-id]
+                   :bank-id [:ref :bank-a :bank :bank-id]
                    :scheme-transaction-id
                    [:ref :suspended :items 0 :scheme-transaction-id]
                    :amount 2500
@@ -205,7 +129,7 @@
    :request {:method :get
              :path "/v1/payments/inbound/{payment-id}"
              :path-params {:payment-id [:ref :suspended :items 0 :payment-id]}
-             :auth :bank-b-token}
+             :auth [:ref :bank-b :token]}
    :assert {:status 404
             :body [:m/equals {:title "REJECTED"
                               :type ":payment/not-found"
@@ -215,5 +139,5 @@
    :request {:method :get
              :path "/v1/payments/inbound"
              :query-params {"status" "suspended"}
-             :auth :bank-b-token}
+             :auth [:ref :bank-b :token]}
    :assert {:status 200 :body {:items []}}}]}

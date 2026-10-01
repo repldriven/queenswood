@@ -1,0 +1,119 @@
+{:name "Micro tier caps migration previews at ten per day"
+ ;; A preview reads every account of a product, so it is the cheapest
+ ;; thing on this resource to ask for and the most expensive to serve.
+ ;; The cap is what stops a dry run being used as a free full scan.
+ :given
+ [{:fixture :bank :as :org-0 :with {:name "Preview Cap Org" :status "live"}}
+  {:fixture :product
+   :as :v1
+   :with {:token [:ref :org-0 :token]
+          :name "Saver"
+          :template-id "tpl.00000000000000000000000002"
+          :interest-rate-bps 100}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products/{product-id}/versions"
+             :path-params {:product-id [:ref :v1 :product :product-id]}
+             :auth [:ref :org-0 :token]
+             :body {:name "Saver"
+                    :template-id "tpl.00000000000000000000000002"
+                    :currency "GBP"
+                    :interest-rate-bps 365
+                    :effective-from "2026-06-01"}}
+   :as :v2
+   :assert {:status 201}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :v2 :product-id]
+                  :version-id [:ref :v2 :version-id]}
+    :auth [:ref :org-0 :token]}
+   :assert {:status 200}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-migrations"
+             :auth [:ref :org-0 :token]
+             :body {:name "Saver holders onto v2"
+                    :source-product-id [:ref :v1 :product :product-id]
+                    :target-product-id [:ref :v2 :product-id]
+                    :target-version-id [:ref :v2 :version-id]}}
+   :as :migration
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-migrations/{migration-id}/previews"
+             :path-params {:migration-id [:ref :migration :migration-id]}
+             :auth [:ref :org-0 :token]}
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-migrations/{migration-id}/previews"
+             :path-params {:migration-id [:ref :migration :migration-id]}
+             :auth [:ref :org-0 :token]}
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-migrations/{migration-id}/previews"
+             :path-params {:migration-id [:ref :migration :migration-id]}
+             :auth [:ref :org-0 :token]}
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-migrations/{migration-id}/previews"
+             :path-params {:migration-id [:ref :migration :migration-id]}
+             :auth [:ref :org-0 :token]}
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-migrations/{migration-id}/previews"
+             :path-params {:migration-id [:ref :migration :migration-id]}
+             :auth [:ref :org-0 :token]}
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-migrations/{migration-id}/previews"
+             :path-params {:migration-id [:ref :migration :migration-id]}
+             :auth [:ref :org-0 :token]}
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-migrations/{migration-id}/previews"
+             :path-params {:migration-id [:ref :migration :migration-id]}
+             :auth [:ref :org-0 :token]}
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-migrations/{migration-id}/previews"
+             :path-params {:migration-id [:ref :migration :migration-id]}
+             :auth [:ref :org-0 :token]}
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-migrations/{migration-id}/previews"
+             :path-params {:migration-id [:ref :migration :migration-id]}
+             :auth [:ref :org-0 :token]}
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-migrations/{migration-id}/previews"
+             :path-params {:migration-id [:ref :migration :migration-id]}
+             :auth [:ref :org-0 :token]}
+   :assert {:status 201}}]
+ :when
+ ;; The eleventh is refused, and refused before a run is opened — a
+ ;; limit that recorded a run saying it started would misreport the
+ ;; day's count to the next caller.
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-migrations/{migration-id}/previews"
+             :path-params {:migration-id [:ref :migration :migration-id]}
+             :auth [:ref :org-0 :token]}
+   :assert {:status 429 :problem {:type ":policy/limit-exceeded"}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/cash-account-migrations/{migration-id}/previews"
+             :path-params {:migration-id [:ref :migration :migration-id]}
+             :auth [:ref :org-0 :token]}
+   :as :runs
+   :assert {:status 200}}]}

@@ -1,0 +1,56 @@
+{:name "A migration is refused when its target does not fit"
+ :given
+ [{:fixture :bank
+   :as :org-0
+   :with {:name "Migration Reject Test Org" :status "live"}}
+  {:fixture :product
+   :as :v1
+   :with {:token [:ref :org-0 :token]
+          :name "Saver"
+          :template-id "tpl.00000000000000000000000002"
+          :interest-rate-bps 100}}
+  ;; A second version, left in draft on purpose.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products/{product-id}/versions"
+             :path-params {:product-id [:ref :v1 :product :product-id]}
+             :auth [:ref :org-0 :token]
+             :body {:name "Saver"
+                    :template-id "tpl.00000000000000000000000002"
+                    :currency "GBP"
+                    :interest-rate-bps 365
+                    :effective-from "2026-06-01"}}
+   :as :draft
+   :assert {:status 201}}]
+ :when
+ ;; Accounts may only be held on terms the bank has committed to.
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-migrations"
+             :auth [:ref :org-0 :token]
+             :body {:name "Onto an unpublished version"
+                    :source-product-id [:ref :v1 :product :product-id]
+                    :target-product-id [:ref :draft :product-id]
+                    :target-version-id [:ref :draft :version-id]}}
+   :assert {:status 422
+            :problem {:type ":cash-account-migration/target-not-published"}}}
+  ;; Notice after the move is not notice.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-migrations"
+             :auth [:ref :org-0 :token]
+             :body {:name "Notice after the move"
+                    :source-product-id [:ref :v1 :product :product-id]
+                    :target-product-id [:ref :v1 :product :product-id]
+                    :target-version-id [:ref :v1 :product :version-id]
+                    :notified-on "2026-08-01"
+                    :due-on "2026-06-01"}}
+   :assert {:status 422
+            :problem {:type ":cash-account-migration/notice-after-due"}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/cash-account-migrations/{migration-id}"
+             :path-params {:migration-id "mig.01kz3wyzcjhkab9ch91x9ngedr"}
+             :auth [:ref :org-0 :token]}
+   :assert {:status 404
+            :problem {:type ":cash-account-migration/not-found"}}}]}

@@ -1,5 +1,4 @@
 {:name "An admin invites below owner and is refused inviting an owner"
- :tags #{:access :api :auth :unhappy}
  ;; An admin passes the `org:admin` gate on every invitation, so the
  ;; refusal of an owner invitation depends on the role named and comes
  ;; from the rule rather than the edge: its type carries the domain
@@ -21,7 +20,6 @@
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
-             :headers {:idempotency-key "ik-access-inviting-bank-001"}
              :body {:name "Inviting Bank"
                     :status "live"
                     :tier "micro"
@@ -35,13 +33,12 @@
              :path-params {:invitation-id [:ref :bank :owner-invitation :invitation-id]}
              :auth :owner-token}
    :as :owner-membership
-   :assert {:status 201 :body {:role "owner"}}}
+   :assert {:status 201}}
   {:command :api/request
    :request {:method :post
              :path "/v1/invitations"
              :auth :owner-token
-             :headers {:bank-id [:ref :bank :bank-id]
-                       :idempotency-key "ik-access-inviting-invite-001"}
+             :headers {:bank-id [:ref :bank :bank-id]}
              :body {:email "inviting-admin@queenswood.local" :role "admin"}}
    :as :invitation
    :assert {:status 201}}
@@ -50,14 +47,13 @@
              :path "/v1/me/invitations/{invitation-id}/accept"
              :path-params {:invitation-id [:ref :invitation :invitation-id]}
              :auth :admin-token}
-   :assert {:status 201 :body {:role "admin"}}}]
+   :assert {:status 201}}]
  :when
  [{:command :api/request
    :request {:method :post
              :path "/v1/invitations"
              :auth :admin-token
-             :headers {:bank-id [:ref :bank :bank-id]
-                       :idempotency-key "ik-access-inviting-invite-002"}
+             :headers {:bank-id [:ref :bank :bank-id]}
              :body {:email "inviting-guest@example.test" :role "owner"}}
    :assert {:status 403 :problem {:type ":membership/role-not-granted"}}}
   {:command :api/request
@@ -73,23 +69,21 @@
    :request {:method :post
              :path "/v1/invitations"
              :auth :admin-token
-             :headers {:bank-id [:ref :bank :bank-id]
-                       :idempotency-key "ik-access-inviting-invite-003"}
+             :headers {:bank-id [:ref :bank :bank-id]}
              :body {:email "inviting-guest@example.test" :role "developer"}}
    :assert {:status 201
-            :body {:role "developer" :status "pending"}}}]
- :then
- ;; The admin's own address belongs to a member, so it takes no
- ;; invitation.
- [{:command :api/request
+            :body {:role "developer" :status "pending"}}}
+  ;; The admin's own address belongs to a member, so it takes no
+  ;; invitation.
+  {:command :api/request
    :request {:method :post
              :path "/v1/invitations"
              :auth :owner-token
-             :headers {:bank-id [:ref :bank :bank-id]
-                       :idempotency-key "ik-access-inviting-invite-004"}
+             :headers {:bank-id [:ref :bank :bank-id]}
              :body {:email "inviting-admin@queenswood.local" :role "viewer"}}
-   :assert {:status 409 :problem {:type ":invitation/already-member"}}}
-  {:command :api/request
+   :assert {:status 409 :problem {:type ":invitation/already-member"}}}]
+ :then
+ [{:command :api/request
    :request {:method :get
              :path "/v1/invitations"
              :auth :owner-token

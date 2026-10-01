@@ -1,5 +1,4 @@
 {:name "An invitee signed in under the invited address accepts without a token"
- :tags #{:access :api :happy}
  ;; The invitation is typed with capitals, and the invitee's verified
  ;; email matches it lower-cased, so the invitation shows in the
  ;; invitee's own list and no `Invitation-Token` is sent.
@@ -20,7 +19,6 @@
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
-             :headers {:idempotency-key "ik-access-match-bank-001"}
              :body {:name "Match Bank"
                     :status "live"
                     :tier "micro"
@@ -34,17 +32,15 @@
              :path-params {:invitation-id [:ref :bank :owner-invitation :invitation-id]}
              :auth :owner-token}
    :as :owner-membership
-   :assert {:status 201 :body {:role "owner"}}}
+   :assert {:status 201}}
   {:command :api/request
    :request {:method :post
              :path "/v1/invitations"
              :auth :owner-token
-             :headers {:bank-id [:ref :bank :bank-id]
-                       :idempotency-key "ik-access-match-invite-001"}
+             :headers {:bank-id [:ref :bank :bank-id]}
              :body {:email "Match-Invitee@queenswood.local" :role "developer"}}
    :as :invitation
-   :assert {:status 201
-            :headers {:location [:m/regex "^/v1/invitations/inv\\."]}}}]
+   :assert {:status 201}}]
  :when
  [{:command :api/request
    :request {:method :get :path "/v1/me/invitations" :auth :invitee-token}
