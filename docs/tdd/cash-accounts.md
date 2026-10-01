@@ -688,6 +688,10 @@ What follows is what the model does not reach.
   waived past a non-zero balance records `closing`, and a
   provider that refuses to close an account holding money
   answers nothing that moves it on, so it stays `closing`.
+  At Modulr a refused close is retried, with backoff, until
+  its attempts run out, since a sweep sent just before it
+  may not have reached the provider; a close straight after
+  a sweep can therefore take tens of seconds to complete.
 
 ## References
 

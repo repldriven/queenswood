@@ -1,0 +1,84 @@
+{:name "The customer's system designs a savings product and publishes it"
+ :runs-on {:payment :every}
+ :given [{:fixture :bank :as :bank-0 :with {:name "Product Design Journey"}}
+         {:fixture :person :as :arthur :with {:token [:ref :bank-0 :token]}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth [:ref :bank-0 :token]
+             :body {:name "Easy Saver"
+                    :template-id "tpl.00000000000000000000000002"
+                    :currency "GBP"
+                    :interest-rate-bps 150
+                    :effective-from "2026-01-01"}}
+   :as :product
+   :assert {:status 201
+            :body {:product-id [:m/regex "^prd\\."]
+                   :version-id [:m/regex "^prv\\."]
+                   :version-number 1
+                   :status "draft"
+                   :name "Easy Saver"
+                   :product-type "savings"
+                   :balance-sheet-side "liability"
+                   :allowed-currencies ["GBP"]
+                   :allowed-payment-address-schemes ["scan"]
+                   :interest-rate-bps 150
+                   :effective-from "2026-01-01"}}}
+  ;; The terms are revised while the version is a draft.
+  {:command :api/request
+   :request {:method :put
+             :path
+             "/v1/cash-account-products/{product-id}/versions/{version-id}"
+             :path-params {:product-id [:ref :product :product-id]
+                           :version-id [:ref :product :version-id]}
+             :auth [:ref :bank-0 :token]
+             :body {:name "Easy Saver"
+                    :template-id "tpl.00000000000000000000000002"
+                    :currency "GBP"
+                    :interest-rate-bps 200
+                    :effective-from "2026-01-01"}}
+   :assert {:status 200
+            :body {:version-id [:ref :product :version-id]
+                   :version-number 1
+                   :status "draft"
+                   :interest-rate-bps 200}}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :product :product-id]
+                  :version-id [:ref :product :version-id]}
+    :auth [:ref :bank-0 :token]}
+   :assert {:status 200
+            :body {:version-id [:ref :product :version-id]
+                   :status "published"
+                   :interest-rate-bps 200}}}
+  ;; A new account opens under the version just published.
+  {:fixture :account
+   :as :saver
+   :with {:token [:ref :bank-0 :token]
+          :party-id [:ref :arthur :party :party-id]
+          :product-id [:ref :product :product-id]
+          :name "Easy Saver"}}]
+ :then
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/cash-account-products/{product-id}"
+             :path-params {:product-id [:ref :product :product-id]}
+             :auth [:ref :bank-0 :token]}
+   :assert
+   {:status 200
+    :body {:product-id [:ref :product :product-id]
+           :versions [{:version-id [:ref :product :version-id]
+                       :status "published"
+                       :name "Easy Saver"}]}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :saver :account :account-id]}
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200
+            :body {:product-id [:ref :product :product-id]
+                   :version-id [:ref :product :version-id]
+                   :product-type "savings"}}}]}

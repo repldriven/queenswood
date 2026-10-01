@@ -33,6 +33,9 @@
    :assert {:status 200
             :body {:account-id [:ref :leaving :opened :account :account-id]
                    :account-status "closing"}}}]
+ ;; It closes once the provider has closed it too. Where the provider
+ ;; holds each account's money, the close can reach it before the sweep
+ ;; does, and is retried until the sweep has emptied the account.
  :then [{:command :api/poll
          :request {:method :get
                    :path "/v1/cash-accounts/{account-id}"
@@ -40,6 +43,7 @@
                    {:account-id [:ref :leaving :opened :account :account-id]}
                    :auth [:ref :bank-0 :token]}
          :until {:status 200 :body {:account-status "closed"}}
+         :timeout-ms 45000
          :as :read}
         ;; The closed account keeps its address, so it is never issued
         ;; again.
