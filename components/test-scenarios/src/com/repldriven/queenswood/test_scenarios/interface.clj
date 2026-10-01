@@ -128,6 +128,20 @@
   [ctx loaded]
   (run/run-scenario ctx loaded))
 
+(defn trial-failure
+  "Why a property trial of `commands` fails, or nil when it holds: run
+  against reality from `ctx`, a step timed out, a standing invariant
+  broke after a step, or the end state reality projects differs from
+  the model's, run from the context's `:model-init`. Returns
+  `{:runner-errors}`, `{:invariant-failures}`, `{:end-states-differ
+  true}` or nil.
+
+  Args:
+  - ctx: runner context, from `fresh-context` with `:model-init`.
+  - commands: sequence of `{:command kw :args [...]}` maps."
+  [ctx commands]
+  (run/trial-failure ctx commands))
+
 (defn projected-real
   "The real side of every projection pair, for the run `ctx` drove.
   Args:

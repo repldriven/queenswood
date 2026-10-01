@@ -346,8 +346,9 @@ Three things keep scenarios apart:
   a step in the wrong section, a wrong argument and an unknown verb are
   each refused. `scenarios-test` runs every scenario, compared or not,
   and fails on a divergence, an invariant failure or a runner error. A
-  divergence is shown to name its first step, and the property test runs
-  on the weighted model.
+  divergence is shown to name its first step, a timed-out step and books
+  a step leaves untied are each shown to fail a trial, and the property
+  test runs on the weighted model.
 - **`test-model`.** Each command's `:next-state` in isolation, and the
   weights.
 - **`test-projections`.** Each model-side projection over a hand-built
@@ -397,8 +398,6 @@ Three things keep scenarios apart:
   amount limits are not read, and `:create-product` and
   `:create-person-party` meet no count limit, since no scenario comes
   near one.
-- **The property's failure paths are unproved.** No test drives a broken
-  invariant or a timed-out step through a trial.
 - **PRD journeys with no scenario.** Webhook notifications, outages and
   IDV events; interest beyond the end-to-end journey; curative transfers
   and daily limits over HTTP; organisation parties; a customer's second
