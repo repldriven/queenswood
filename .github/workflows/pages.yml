@@ -66,14 +66,14 @@ jobs:
         env:
           VERSION: ${{ steps.versions.outputs.protoc_gen_clojure }}
         run: |
-          sudo curl -L "https://github.com/protojure/protoc-plugin/releases/download/v${VERSION}/protoc-gen-clojure" -o /usr/local/bin/protoc-gen-clojure
+          sudo curl -fsSL --retry 10 --retry-delay 5 --retry-all-errors "https://github.com/protojure/protoc-plugin/releases/download/v${VERSION}/protoc-gen-clojure" -o /usr/local/bin/protoc-gen-clojure
           sudo chmod +x /usr/local/bin/protoc-gen-clojure
 
       - name: Install FoundationDB client library
         env:
           VERSION: ${{ steps.versions.outputs.fdb }}
         run: |
-          curl -LO "https://github.com/apple/foundationdb/releases/download/${VERSION}/foundationdb-clients_${VERSION}-1_amd64.deb"
+          curl -fsSLO --retry 10 --retry-delay 5 --retry-all-errors "https://github.com/apple/foundationdb/releases/download/${VERSION}/foundationdb-clients_${VERSION}-1_amd64.deb"
           sudo dpkg -i "foundationdb-clients_${VERSION}-1_amd64.deb"
 
       - name: Cache dependencies
