@@ -150,7 +150,7 @@ existing credential reaches. Its people carry across both moves.
 sequenceDiagram
     participant A as Platform operator
     participant Q as Queenswood
-    participant T as Customer engineer
+    participant T as Customer engineering team
 
     A->>Q: create organisation<br/>(name, type, status, tier, currencies, providers, owner)
     Note over Q: One call, all or nothing

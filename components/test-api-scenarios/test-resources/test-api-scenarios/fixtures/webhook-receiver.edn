@@ -1,0 +1,10 @@
+{:doc "An endpoint on the rig's receiver, registered for every kind."
+ :required #{:token}
+ :steps [{:command :webhook/open-receiver :as :receiver}
+         {:command :api/request
+          :request {:method :post
+                    :path "/v1/webhook-endpoints"
+                    :auth [:param :token]
+                    :body {:address [:ref :receiver :address]}}
+          :as :registered
+          :assert {:status 201}}]}

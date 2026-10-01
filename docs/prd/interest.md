@@ -234,8 +234,8 @@ sequenceDiagram
     participant Q as Queenswood
     participant L as Ledger
 
-    Note over Op,L: once per day per tenant
-    Op->>Q: accrue daily interest (tenant, date)
+    Note over Op,L: once per day per organisation
+    Op->>Q: accrue daily interest (organisation, date)
     loop for each customer account
         Q->>Q: compute today's interest<br/>using carry from yesterday
         alt at least one penny
@@ -261,7 +261,7 @@ sequenceDiagram
     participant L as Ledger
 
     Note over Op,L: at the operator's chosen cadence
-    Op->>Q: capitalise (tenant, date)
+    Op->>Q: capitalise (organisation, date)
     loop for each customer account
         alt accrued > 0
             Q->>L: drain accrued<br/>credit spendable balance
@@ -303,7 +303,7 @@ spendable balance and is now available to spend.
 
 ```mermaid
 sequenceDiagram
-    participant T as Customer engineer
+    participant T as Customer system
     participant Q as Queenswood
 
     Note over T,Q: existing accounts on product v1 (5% APR)

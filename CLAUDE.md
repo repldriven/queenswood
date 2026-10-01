@@ -134,7 +134,8 @@ non-trivial work on their topic.
   places a case in one; `test-scenarios` drives component interfaces
   beside the model, each scenario compared or reality-only;
   `test-api-scenarios` drives the `api` base over HTTP, its scenarios
-  grouped by OpenAPI tag and built from fixtures.
+  grouped by OpenAPI tag and built from fixtures, and each PRD's user
+  journeys under `journeys/<prd>/`.
   See [tdd/scenario-testing.md](docs/tdd/scenario-testing.md).
 
 ### Writing docs

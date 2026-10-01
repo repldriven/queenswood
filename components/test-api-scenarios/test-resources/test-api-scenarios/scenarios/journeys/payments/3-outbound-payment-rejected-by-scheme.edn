@@ -1,0 +1,62 @@
+{:name "A payment the scheme rejects fails, and its amount comes back"
+ :runs-on {:payment :every}
+ ;; A creditor sort code of 000000 is one every payment simulator
+ ;; declines before settlement.
+ :given
+ [{:fixture :bank :as :bank-0 :with {:name "Rejected Payment Journey"}}
+  {:fixture :product :as :current :with {:token [:ref :bank-0 :token]}}
+  {:fixture :person :as :arthur :with {:token [:ref :bank-0 :token]}}
+  {:fixture :funded-account
+   :as :debtor
+   :with {:bank-id [:ref :bank-0 :bank :bank-id]
+          :token [:ref :bank-0 :token]
+          :party-id [:ref :arthur :party :party-id]
+          :product-id [:ref :current :product :product-id]}}
+  {:fixture :webhook-receiver :as :hook :with {:token [:ref :bank-0 :token]}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/payments/outbound"
+             :auth [:ref :bank-0 :token]
+             :body {:debtor-account-id [:ref :debtor :opened :account
+                                        :account-id]
+                    :creditor-bban "00000000000001"
+                    :creditor-name "Unreachable Creditor"
+                    :currency "GBP"
+                    :amount 2500
+                    :scheme "fps"
+                    :reference "Rejected"}}
+   :as :payment
+   :assert {:status 201}}]
+ :then [{:command :api/poll
+         :request {:method :get
+                   :path "/v1/payments/outbound/{payment-id}"
+                   :path-params {:payment-id [:ref :payment :payment-id]}
+                   :auth [:ref :bank-0 :token]}
+         :until {:status 200
+                 :body {:payment-status "failed"
+                        :failure {:kind "declined" :reason-code "NARR"}}}}
+        {:command :api/poll
+         :request {:method :get
+                   :path "/v1/cash-accounts/{account-id}/balances"
+                   :path-params
+                   {:account-id [:ref :debtor :opened :account :account-id]}
+                   :auth [:ref :bank-0 :token]}
+         :until {:status 200
+                 :body {:available-balance {:value 100000 :currency "GBP"}}}}
+        {:command :webhook/await-delivery
+         :address [:ref :hook :receiver :address]
+         :where {:kind "payment.outbound-failed"
+                 :resource-id [:ref :payment :payment-id]}
+         :secret [:ref :hook :registered :secret]
+         :as :notified}
+        {:command :api/request
+         :request {:method :get
+                   :path "/v1/payments/outbound/{payment-id}"
+                   :path-params {:payment-id [:ref :payment :payment-id]}
+                   :auth [:ref :bank-0 :token]}
+         :as :read
+         :assert {:status 200}}
+        {:command :assert/equals
+         :actual [:ref :notified 0 :body :data]
+         :expected [:ref :read]}]}

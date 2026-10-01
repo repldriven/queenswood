@@ -1,0 +1,72 @@
+{:name "The customer's system moves money between two of the bank's accounts"
+ :runs-on {:payment :every}
+ :given
+ [{:fixture :bank :as :bank-0 :with {:name "Internal Transfer Journey"}}
+  {:fixture :product :as :current :with {:token [:ref :bank-0 :token]}}
+  {:fixture :person :as :arthur :with {:token [:ref :bank-0 :token]}}
+  {:fixture :person
+   :as :ford
+   :with {:token [:ref :bank-0 :token]
+          :display-name "Ford Prefect"
+          :given-name "Ford"
+          :family-name "Prefect"
+          :national-insurance "TN000002A"}}
+  {:fixture :funded-account
+   :as :debtor
+   :with {:bank-id [:ref :bank-0 :bank :bank-id]
+          :token [:ref :bank-0 :token]
+          :party-id [:ref :arthur :party :party-id]
+          :product-id [:ref :current :product :product-id]}}
+  {:fixture :account
+   :as :creditor
+   :with {:token [:ref :bank-0 :token]
+          :party-id [:ref :ford :party :party-id]
+          :product-id [:ref :current :product :product-id]}}
+  {:fixture :webhook-receiver :as :hook :with {:token [:ref :bank-0 :token]}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/payments/internal"
+             :auth [:ref :bank-0 :token]
+             :body {:debtor-account-id [:ref :debtor :opened :account
+                                        :account-id]
+                    :creditor-account-id [:ref :creditor :account :account-id]
+                    :currency "GBP"
+                    :amount 2500
+                    :reference "Towel"}}
+   :as :transfer
+   :assert {:status 201 :body {:amount 2500 :transaction-id [:m/non-empty]}}}]
+ :then
+ ;; Settled in the reply: both balances have already moved.
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :debtor :opened :account
+                                        :account-id]}
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200
+            :body {:available-balance {:value 97500 :currency "GBP"}}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :creditor :account :account-id]}
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200
+            :body {:available-balance {:value 2500 :currency "GBP"}}}}
+  ;; The customer is told, with the payment as its read route renders it.
+  {:command :webhook/await-delivery
+   :address [:ref :hook :receiver :address]
+   :where {:kind "payment.internal-settled"
+           :resource-id [:ref :transfer :payment-id]}
+   :secret [:ref :hook :registered :secret]
+   :as :notified}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/payments/internal/{payment-id}"
+             :path-params {:payment-id [:ref :transfer :payment-id]}
+             :auth [:ref :bank-0 :token]}
+   :as :read
+   :assert {:status 200}}
+  {:command :assert/equals
+   :actual [:ref :notified 0 :body :data]
+   :expected [:ref :read]}]}

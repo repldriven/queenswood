@@ -1,0 +1,108 @@
+{:name
+ "Inbounds held for screening are credited when released, never when returned"
+ :runs-on {:payment :every}
+ :requires #{:inbound-notified}
+ ;; A debtor name of 6a41a29eafcf455493 is one every payment simulator
+ ;; holds for screening, settling it as `:outcome` says.
+ :given
+ [{:fixture :bank :as :bank-0 :with {:name "Inbound Held Journey"}}
+  {:fixture :product :as :current :with {:token [:ref :bank-0 :token]}}
+  {:fixture :person :as :arthur :with {:token [:ref :bank-0 :token]}}
+  {:fixture :account
+   :as :creditor
+   :with {:token [:ref :bank-0 :token]
+          :party-id [:ref :arthur :party :party-id]
+          :product-id [:ref :current :product :product-id]}}
+  {:fixture :webhook-receiver :as :hook :with {:token [:ref :bank-0 :token]}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :base :payment-simulator
+             :path "/simulate/inbound-payment"
+             :body {:bban [:ref :creditor :account :bban]
+                    :amount 25
+                    :currency "GBP"
+                    :reference "Held then released"
+                    :debtor-name "6a41a29eafcf455493"
+                    :outcome "release"}}
+   :as :released
+   :assert {:status 202}}
+  {:command :api/request
+   :request {:method :post
+             :base :payment-simulator
+             :path "/simulate/inbound-payment"
+             :body {:bban [:ref :creditor :account :bban]
+                    :amount 15
+                    :currency "GBP"
+                    :reference "Held then returned"
+                    :debtor-name "6a41a29eafcf455493"
+                    :outcome "return"}}
+   :as :returned
+   :assert {:status 202}}]
+ :then
+ ;; Each reads as where its hold ended, and nothing is left held.
+ [{:command :api/poll
+   :request {:method :get
+             :path "/v1/payments/inbound"
+             :query-params {"status" "settled"}
+             :auth [:ref :bank-0 :token]}
+   :until
+   {:status 200
+    :body {:items [{:end-to-end-id [:ref :released :endToEndIdentification]
+                    :creditor-account-id [:ref :creditor :account :account-id]
+                    :amount 2500
+                    :payment-status "settled"
+                    :transaction-id [:m/non-empty]}]}}
+   :as :settled}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/payments/inbound"
+             :query-params {"status" "returned"}
+             :auth [:ref :bank-0 :token]}
+   :until
+   {:status 200
+    :body {:items [{:end-to-end-id [:ref :returned :endToEndIdentification]
+                    :creditor-account-id [:ref :creditor :account :account-id]
+                    :amount 1500
+                    :payment-status "returned"}]}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/payments/inbound"
+             :query-params {"status" "held"}
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200 :body {:items []}}}
+  ;; Only the released one reached the account.
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :creditor :account :account-id]}
+             :auth [:ref :bank-0 :token]}
+   :until {:status 200
+           :body {:posted-balance {:value 2500 :currency "GBP"}
+                  :available-balance {:value 2500 :currency "GBP"}}}}
+  ;; The customer is told of both holds and of how each ended.
+  {:command :webhook/await-delivery
+   :address [:ref :hook :receiver :address]
+   :where {:kind "payment.inbound-held"}
+   :count 2
+   :secret [:ref :hook :registered :secret]}
+  {:command :webhook/await-delivery
+   :address [:ref :hook :receiver :address]
+   :where {:kind "payment.inbound-returned"}
+   :secret [:ref :hook :registered :secret]}
+  {:command :webhook/await-delivery
+   :address [:ref :hook :receiver :address]
+   :where {:kind "payment.inbound-released"
+           :resource-id [:ref :settled :items 0 :payment-id]}
+   :secret [:ref :hook :registered :secret]
+   :as :notified}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/payments/inbound/{payment-id}"
+             :path-params {:payment-id [:ref :settled :items 0 :payment-id]}
+             :auth [:ref :bank-0 :token]}
+   :as :read
+   :assert {:status 200}}
+  {:command :assert/equals
+   :actual [:ref :notified 0 :body :data]
+   :expected [:ref :read]}]}

@@ -259,10 +259,10 @@ API.
 
 ```mermaid
 sequenceDiagram
-    participant T as Customer engineer
+    participant T as Customer system
     participant Q as Queenswood
 
-    Note over T,Q: customer's party already active
+    Note over T,Q: end customer's party already active
     T->>Q: open account (party, product, currency, name)
     Q->>Q: validate party + product + currency<br/>check policy + count limits
     Q->>Q: create balance structure
@@ -281,7 +281,7 @@ address, the account is opened and ready to use.
 
 ```mermaid
 sequenceDiagram
-    participant T as Customer engineer
+    participant T as Customer system
     participant Q as Queenswood
 
     T->>Q: open account (party, product, "GBP")
@@ -305,11 +305,11 @@ anything; the account simply credits.
 
 ```mermaid
 sequenceDiagram
-    participant T as Customer engineer
+    participant T as Customer system
     participant Q as Queenswood
 
-    Note over T: customer asks to close their account
-    Note over T: tenant sweeps the balance to zero
+    Note over T: end customer asks to close their account
+    Note over T: the customer sweeps the balance to zero
     T->>Q: close account
     Q->>Q: check policy + balance is empty
     Q-->>T: account closing

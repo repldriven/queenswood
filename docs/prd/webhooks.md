@@ -264,9 +264,9 @@ the tenant was told and when.
 
 ```mermaid
 sequenceDiagram
-    participant T as Customer engineer
+    participant T as Customer engineering team
     participant Q as Queenswood
-    participant E as Tenant's endpoint
+    participant E as Customer's endpoint
 
     T->>Q: register endpoint (address, kinds, description)
     Q-->>T: endpoint enabled, secret (handed over once)
@@ -285,10 +285,10 @@ signature check works, before anything real depends on it.
 
 ```mermaid
 sequenceDiagram
-    participant T as Customer engineer
+    participant T as Customer system
     participant Q as Queenswood
     participant S as Clearing partner
-    participant E as Tenant's endpoint
+    participant E as Customer's endpoint
 
     T->>Q: submit outbound payment (key=K)
     Q-->>T: submitted
@@ -297,7 +297,7 @@ sequenceDiagram
     Q->>Q: payment settled
     Q->>E: outbound payment settled (key=K, signed)
     E-->>Q: acknowledged
-    Note over E: tenant's app tells the end customer
+    Note over E: the customer's app tells the end customer
 ```
 
 The reply to the tenant said "submitted". Without a webhook, the
@@ -312,8 +312,8 @@ as "failed".
 ```mermaid
 sequenceDiagram
     participant Q as Queenswood
-    participant E as Tenant's endpoint
-    participant T as Customer engineer
+    participant E as Customer's endpoint
+    participant T as Customer engineering team
 
     Q->>E: delivery
     E-->>Q: error
@@ -337,10 +337,10 @@ identifier, and the tenant recognises it as done.
 
 ```mermaid
 sequenceDiagram
-    participant T as Customer engineer
+    participant T as Customer system
     participant Q as Queenswood
     participant I as IDV provider
-    participant E as Tenant's endpoint
+    participant E as Customer's endpoint
 
     T->>Q: register party (person)
     Q-->>T: party pending
@@ -350,7 +350,7 @@ sequenceDiagram
     Q->>Q: party active
     Q->>E: identity verification completed, party active (signed)
     E-->>Q: acknowledged
-    Note over E: tenant's app lets the customer open an account
+    Note over E: the customer's app lets the customer open an account
 ```
 
 A check that takes days is the case a webhook exists for. The tenant
