@@ -1,18 +1,14 @@
 (ns ^:eftest/synchronized com.repldriven.queenswood.bank.interface-test
-  "Unknown-command dispatch stays pure; the FDB-backed cases cover
-  what the API scenario suite can't see — that the owner membership,
-  the bank-created access event and the owner invitation commit
-  atomically with the bank, that a command delivered twice creates one
-  bank and one client, that a failure after the last write rolls every
-  earlier write back, that a tier change rebinds the underlying
-  `PolicyBinding` records rather than just stamping `:tier`. Happy-path admin
-  creation over the bus is covered by onboarding/banks/*.edn in
-  test-api-scenarios."
+  "What the API scenario suite can't see: that the owner membership, the
+  bank-created access event and the owner invitation commit atomically
+  with the bank, that a failure after the last write rolls every earlier
+  write back, and that the changelog separates a status change from a
+  tier change. Creating a bank over the bus, its providers, and changing
+  its tier and status are onboarding/banks/*.edn in test-api-scenarios."
   (:require
     [com.repldriven.queenswood.fdb.interface :as fdb]
     [com.repldriven.queenswood.testcontainers.interface]
 
-    [com.repldriven.queenswood.bank.commands :as commands]
     [com.repldriven.queenswood.bank.interface :as SUT]
 
     [com.repldriven.queenswood.bank-query.interface :as bank-query]
@@ -36,7 +32,6 @@
      [with-test-system nom-test>]]
 
     [clojure.java.io :as io]
-    [clojure.set :as set]
     [clojure.test :refer [deftest is testing]]))
 
 (defn- fdb-config
@@ -81,12 +76,7 @@
 
 (def ^:private ^:dynamic *fail-bank-created?* false)
 
-(def ^:private ^:dynamic *clients-created* nil)
-
 (def ^:private real-record-bank-created memberships/record-bank-created)
-
-(def ^:private real-create-service-account
-  identity-provider/create-service-account)
 
 (defn- probed-record-bank-created
   [txn-or-config bank-id opts]
@@ -96,20 +86,6 @@
           (error/fail :test/injected {:message "Injected after every write"})
           (real-record-bank-created txn-or-config bank-id opts)))
     (real-record-bank-created txn-or-config bank-id opts)))
-
-(defn- counted-create-service-account
-  [idp opts]
-  (when-let [created *clients-created*]
-    (swap! created inc))
-  (real-create-service-account idp opts))
-
-(deftest unknown-command-test
-  (testing "dispatch rejects command names not in the handler registry"
-    (let [result (#'commands/dispatch
-                  {:schemas {}}
-                  {:command "unknown-bank-command" :payload nil})]
-      (is (error/rejection? result))
-      (is (= :bank/unknown-command (error/kind result))))))
 
 (deftest create-bank-schema-test
   (let [create-schema (avro/json->schema
@@ -251,147 +227,6 @@
                                                            (:bank-id bank))
                    _ (is (empty? invitations))])))))
 
-(deftest create-bank-delivered-twice-test
-  (with-test-system
-   [sys "classpath:bank/application-test.yml"]
-   (let [schema-for (fn [path] (avro/json->schema (slurp (io/resource path))))
-         schemas {"create-bank" (schema-for
-                                 "schemas/banks/create-bank.avsc.json")
-                  "bank" (schema-for "schemas/banks/bank.avsc.json")}
-         idp (identity-provider/local-provider {})
-         config (assoc (fdb-config sys)
-                       :schemas schemas
-                       :identity-provider idp
-                       :providers providers)
-         user-id "usr.delivered-twice"
-         message (fn [id data]
-                   {:command "create-bank"
-                    :id id
-                    :payload (avro/serialize (schemas "create-bank") data)})
-         data {:name "Twice Bank"
-               :status :bank-status-test
-               :tier "micro"
-               :currencies ["GBP"]
-               :membership {:user-id user-id :role :role-owner}
-               :actor {:kind :actor-kind-member :principal-id user-id}}
-         clients (atom 0)
-         deliver (fn [msg]
-                   (with-redefs [identity-provider/create-service-account
-                                 counted-create-service-account]
-                     (binding [*clients-created* clients]
-                       (#'commands/dispatch config msg))))]
-     (testing "the same command id delivered twice writes one bank and client"
-       (let [first-reply (deliver (message "ik-bank-twice-0001" data))
-             second-reply (deliver (message "ik-bank-twice-0001" data))]
-         (is (= "ACCEPTED" (:status first-reply)))
-         (is (error/rejection? second-reply))
-         (is (= :bank/already-exists (error/kind second-reply)))
-         (is (= 1 @clients))
-         (nom-test> [{:keys [banks]} (bank-query/get-banks config)
-                     _ (is (= 1
-                              (count (filter #(= "Twice Bank" (:name %))
-                                             banks))))
-                     listed (q/list-by-user config user-id)
-                     _ (is (= 1 (count listed)))])))
-     (testing "another command id from the same person creates another bank"
-       (let [reply (deliver (message "ik-bank-twice-0002" data))]
-         (is (= "ACCEPTED" (:status reply)))
-         (is (= 2 @clients))))
-     (testing
-       "the command's actor and owner invitation reach new-bank, and the reply
-        carries the invitation id"
-       (let [reply (deliver (message "ik-bank-twice-0003"
-                                     (-> data
-                                         (dissoc :membership)
-                                         (assoc :name "Twice Invited Bank"
-                                                :actor operator
-                                                :owner-invitation
-                                                (owner-invitation
-                                                 "twice@example.com")))))]
-         (is (= "ACCEPTED" (:status reply)))
-         (nom-test> [{:keys [bank-id owner-invitation-id]}
-                     (avro/deserialize-same (schemas "bank") (:payload reply))
-                     invitations (q/list-invitations-by-bank config bank-id)
-                     _ (is (= [owner-invitation-id]
-                              (mapv :invitation-id invitations)))
-                     _ (is (= operator (:invited-by (first invitations))))]))))))
-
-(deftest create-bank-checks-the-chosen-idv-provider-test
-  (with-test-system
-   [sys "classpath:bank/application-test.yml"]
-   (let [schema-for (fn [path] (avro/json->schema (slurp (io/resource path))))
-         schemas {"create-bank" (schema-for
-                                 "schemas/banks/create-bank.avsc.json")
-                  "bank" (schema-for "schemas/banks/bank.avsc.json")}
-         offered {:idv (idv-provider/providers
-                        {:default "verifier"
-                         :providers {:verifier {:declaration idv-provider}
-                                     :no-address {:declaration
-                                                  (update idv-provider
-                                                          :verifies
-                                                          (fn [v]
-                                                            (remove #{"address"}
-                                                                    v)))}}})}
-         config (assoc (fdb-config sys)
-                       :schemas schemas
-                       :identity-provider (identity-provider/local-provider {})
-                       :providers offered)
-         create (fn [id bank-name provider]
-                  (#'commands/dispatch
-                   config
-                   {:command "create-bank"
-                    :id id
-                    :payload (avro/serialize (schemas "create-bank")
-                                             {:name bank-name
-                                              :status :bank-status-test
-                                              :tier "micro"
-                                              :currencies ["GBP"]
-                                              :actor operator
-                                              :providers [{:kind "idv"
-                                                           :provider
-                                                           provider}]})}))]
-     (testing "a bank on a provider lacking what the policies ask is refused"
-       (let [reply
-             (create "ik-bank-chosen-idv-0001" "Partial Bank" "no-address")]
-         (is (= :idv/unsupported-criteria (error/kind reply)))
-         (is (= [:idv-verification-address] (:unmet (error/payload reply))))))
-     (testing "a bank on a provider establishing it is created"
-       (is (= "ACCEPTED"
-              (:status (create "ik-bank-chosen-idv-0002"
-                               "Verified Bank"
-                               "verifier"))))))))
-
-(deftest new-bank-records-providers-test
-  (with-test-system
-   [sys "classpath:bank/application-test.yml"]
-   (let [config (fdb-config sys)
-         idp (identity-provider/local-provider {})
-         chosen [{:kind "idv" :provider "verifier"}]]
-     (nom-test> [{:keys [bank]}
-                 (create-bank config idp "Provider Bank" {:providers chosen})
-                 read (bank-query/get-bank config (:bank-id bank))
-                 _ (testing "the providers chosen are recorded on the bank"
-                     (is (= chosen (:providers bank)))
-                     (is (= chosen (:providers read))))]))))
-
-(deftest new-bank-unknown-tier-test
-  (with-test-system
-   [sys "classpath:bank/application-test.yml"]
-   (let [config (fdb-config sys)
-         idp (identity-provider/local-provider {})]
-     (testing "a tier resolving to no policies is rejected, leaving no bank"
-       (let [r (SUT/new-bank config
-                             "Unknown Tier Bank"
-                             :bank-status-test
-                             "no-such-tier"
-                             ["GBP"]
-                             {:identity-provider idp
-                              :idv-provider idv-provider})]
-         (is (error/rejection? r))
-         (is (= :bank/unknown-tier (error/kind r)))
-         (nom-test> [{:keys [banks]} (bank-query/get-banks config)
-                     _ (is (not-any? #(= "Unknown Tier Bank" (:name %)) banks))]))))))
-
 (deftest new-bank-rolls-back-on-failure-test
   (with-test-system
    [sys "classpath:bank/application-test.yml"]
@@ -450,88 +285,6 @@
                      {:keys [access-events]} (q/list-access-events config
                                                                    bank-id)
                      _ (is (empty? access-events))]))))))
-
-(deftest change-tier-test
-  (with-test-system
-   [sys "classpath:bank/application-test.yml"]
-   (let [config (fdb-config sys)
-         idp (identity-provider/local-provider {})]
-     (nom-test> [{:keys [bank]} (SUT/new-bank config
-                                              "Tier Change Bank"
-                                              :bank-status-test
-                                              "micro"
-                                              ["GBP"]
-                                              {:identity-provider idp
-                                               :idv-provider idv-provider})
-                 bank-id (:bank-id bank)
-                 micro-policies (policy/get-policies-by-tier config "micro")
-                 bindings-before (policy/get-bindings-for-bank config bank-id)
-                 _ (testing
-                     "the new bank is bound to its creation tier's policies"
-                     (is (= (set (map :policy-id micro-policies))
-                            (set (map :policy-id bindings-before)))))
-                 test-scenario-policies
-                 (policy/get-policies-by-tier config "test-scenario")
-                 updated (SUT/change-tier config
-                                          bank-id
-                                          "test-scenario"
-                                          {:idv-providers (:idv providers)})
-                 bindings-after (policy/get-bindings-for-bank config bank-id)
-                 _ (testing
-                     "change-tier stamps the new tier and rebinds its policies"
-                     (is (= "test-scenario" (:tier updated)))
-                     (is (= (set (map :policy-id test-scenario-policies))
-                            (set (map :policy-id bindings-after))))
-                     (is (empty? (set/intersection
-                                  (set (map :policy-id micro-policies))
-                                  (set (map :policy-id bindings-after))))))
-                 _ (testing
-                     "an unknown tier is rejected, leaving bindings untouched"
-                     (let [r (SUT/change-tier config
-                                              bank-id
-                                              "no-such-tier"
-                                              {:idv-providers (:idv
-                                                               providers)})]
-                       (is (error/rejection? r))
-                       (is (= :bank/unknown-tier (error/kind r)))
-                       (is (= (set (map :policy-id bindings-after))
-                              (set (map :policy-id
-                                        (policy/get-bindings-for-bank
-                                         config
-                                         bank-id)))))))]))))
-
-(deftest change-status-test
-  (with-test-system
-   [sys "classpath:bank/application-test.yml"]
-   (let [config (fdb-config sys)
-         idp (identity-provider/local-provider {})]
-     (nom-test> [{:keys [bank]} (SUT/new-bank config
-                                              "Status Change Bank"
-                                              :bank-status-test
-                                              "micro"
-                                              ["GBP"]
-                                              {:identity-provider idp
-                                               :idv-provider idv-provider
-                                               :audience "queenswood-api-test"})
-                 bank-id (:bank-id bank)
-                 updated (SUT/change-status config
-                                            bank-id
-                                            :bank-status-live
-                                            {:identity-provider idp
-                                             :idv-provider idv-provider
-                                             :audience "queenswood-api-live"})
-                 _ (testing "flips test to live"
-                     (is (= :bank-status-live (:status updated))))
-                 _ (testing "rejects flipping to the same status"
-                     (let [r (SUT/change-status config
-                                                bank-id
-                                                :bank-status-live
-                                                {:identity-provider idp
-                                                 :idv-provider idv-provider
-                                                 :audience
-                                                 "queenswood-api-live"})]
-                       (is (error/rejection? r))
-                       (is (= :bank/invalid-status (error/kind r)))))]))))
 
 (deftest changelog-separates-status-from-tier-test
   (with-test-system

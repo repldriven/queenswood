@@ -298,6 +298,8 @@
    (let [p (system/instance *sys* [:modulr-adapter :command-processor])]
      (testing "a payment names its source and a SCAN destination"
        (is (= {:status "ACCEPTED"}
+              ;; the adapter's own command processor making its intent
+              ;; nosemgrep: brick-test-drives-pipeline
               (processor/process p
                                  (command "submit-payment"
                                           {:payment-id "pmt.5"
@@ -325,6 +327,8 @@
          (is (= 1250 (:amount context)))))
      (testing "a redelivered command is accepted once"
        (is (= {:status "ACCEPTED"}
+              ;; the adapter's own command processor making its intent
+              ;; nosemgrep: brick-test-drives-pipeline
               (processor/process p
                                  (command "submit-payment"
                                           {:payment-id "pmt.5"
@@ -335,6 +339,8 @@
                                            :amount 1250
                                            :currency "GBP"})))))
      (testing "a transfer between accounts"
+       ;; the adapter's own command processor making its intent
+       ;; nosemgrep: brick-test-drives-pipeline
        (processor/process p
                           (command "transfer-between-accounts"
                                    {:transfer-id "ptr.5"
@@ -347,6 +353,8 @@
        (is (= {:type "ACCOUNT" :id "A2"}
               (:destination (:request (intent-for "ptr.5"))))))
      (testing "money from outside is a sandbox credit"
+       ;; the adapter's own command processor making its intent
+       ;; nosemgrep: brick-test-drives-pipeline
        (processor/process p
                           (command "transfer-between-accounts"
                                    {:transfer-id "ptr.6"
@@ -360,6 +368,8 @@
          (is (= {:accountId "A2" :description "ptr-6"}
                 (select-keys request [:accountId :description])))))
      (testing "an account opening"
+       ;; the adapter's own command processor making its intent
+       ;; nosemgrep: brick-test-drives-pipeline
        (processor/process p
                           (command "open-payment-account"
                                    {:bank-id "bnk.1"

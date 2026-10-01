@@ -1,11 +1,3 @@
 system:
   avro: !include system/avro.yml
   fdb: !include system/fdb-test.yml
-  message-bus: !include modulr-relay/message-bus-test.yml
-  relay-handler:
-    handler: !system/component
-      system/component-kind: changelog-relay/envelope-handler
-      bus: !system/ref message-bus.bus
-      store-name: modulr-outbox
-      event-channel: !keyword schemes-payments-event
-      event-channels: !include system/payment-account-event-channels.yml

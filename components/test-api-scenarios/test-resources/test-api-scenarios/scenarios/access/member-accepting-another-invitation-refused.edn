@@ -1,0 +1,64 @@
+{:name "A member accepting another invitation to the same bank is refused"
+ ;; The emailed token is the proof an accept needs, whoever signs in with
+ ;; it. The owner, already an active member, opens a link meant for
+ ;; someone else and is refused: one membership per person in a bank.
+ :given
+ [{:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "member-owner"
+   :password "member-owner"
+   :as :owner-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :body {:name "Member Accepting Bank"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]
+                    :owner-email "member-owner@queenswood.local"}}
+   :as :bank
+   :assert {:status 201}}
+  {:command :mail/await-invitation
+   :to "member-owner@queenswood.local"
+   :invitation-id [:ref :bank :owner-invitation :invitation-id]
+   :as :owner-email}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :owner-email :invitation-id]}
+             :auth :owner-token
+             :headers {:invitation-token [:ref :owner-email :token]}}
+   :assert {:status 201}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/invitations"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :body {:email "member-owner-colleague@example.test" :role "developer"}}
+   :as :invitation
+   :assert {:status 201}}
+  {:command :mail/await-invitation
+   :to "member-owner-colleague@example.test"
+   :invitation-id [:ref :invitation :invitation-id]
+   :as :email}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :invitation :invitation-id]}
+             :auth :owner-token
+             :headers {:invitation-token [:ref :email :token]}}
+   :assert {:status 409 :problem {:type ":membership/already-exists"}}}]
+ :then
+ ;; The invitation is still pending for the person it was meant for.
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/invitations"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 200
+            :body {:items [:m/embeds
+                           [{:invitation-id [:ref :invitation :invitation-id]
+                             :status "pending"}]]}}}]}

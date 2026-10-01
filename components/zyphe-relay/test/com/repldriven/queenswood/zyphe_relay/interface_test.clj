@@ -5,11 +5,7 @@
     [com.repldriven.queenswood.zyphe-relay.store :as store]
     [com.repldriven.queenswood.zyphe-relay.interface :as SUT]
     [com.repldriven.queenswood.zyphe-relay.outbound :as outbound]
-    [com.repldriven.queenswood.changelog-relay.interface]
 
-    [com.repldriven.queenswood.fdb.interface :as fdb]
-
-    [com.repldriven.mono.message-bus.interface :as message-bus]
     [com.repldriven.mono.system.interface :as system]
     [com.repldriven.mono.test-system.interface :refer
      [with-test-system nom-test>]]
@@ -55,26 +51,11 @@
   (with-test-system
    [sys "classpath:zyphe-relay/application-test.yml"]
    (let [config {:record-db (system/instance sys [:fdb :record-db])
-                 :record-store (system/instance sys [:fdb :store])}
-         bus (system/instance sys [:message-bus :bus])]
+                 :record-store (system/instance sys [:fdb :store])}]
      (testing "a duplicate outbox dedup-key is rejected"
        (nom-test> [_ (SUT/save-event config (event "obx.1" "iv-1:ACCEPTED"))])
        (is (SUT/uniqueness-violation?
             (SUT/save-event config (event "obx.2" "iv-1:ACCEPTED")))))
-     (testing "the relay publishes a stored event to the idv-event channel"
-       (let [received (promise)
-             handler (system/instance sys [:relay-handler :handler])]
-         (message-bus/subscribe bus :idv-event (fn [e] (deliver received e)))
-         (nom-test> [_ (SUT/save-event config (event "obx.3" "iv-2:ACCEPTED"))])
-         (fdb/process-changelog (:record-db config)
-                                "test-relay"
-                                "zyphe-outbox"
-                                handler
-                                {:keyspace-prefix
-                                 (system/instance sys [:fdb :keyspace-prefix])})
-         (let [e (deref received 5000 ::timeout)]
-           (is (not= ::timeout e))
-           (when (not= ::timeout e) (is (= "idv-evidence" (:event e)))))))
      (testing "a duplicate intent dedup-key is rejected"
        (nom-test> [_ (SUT/save-intent config (intent-of "int.1" "iv-A"))])
        (is (SUT/uniqueness-violation?

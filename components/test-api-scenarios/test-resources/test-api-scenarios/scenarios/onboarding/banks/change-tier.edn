@@ -1,21 +1,29 @@
 {:name "Admin changes a bank's tier"
- :given
+ ;; A tier change rebinds the bank's policies rather than only stamping
+ ;; the tier: the micro tier's policy goes, and the new tier's is bound.
+ :given [{:fixture :bank :as :bank-0 :with {:name "Tier Change Test Org"}}]
+ :when
  [{:command :api/request
+   :request {:method :get
+             :path "/v1/bank/policies"
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200
+            :body {:items [:m/embeds [{:name "Micro tier policy"}]]}}}
+  {:command :api/request
    :request {:method :post
-             :path "/v1/banks"
+             :path "/v1/bank/change-tier"
              :auth :admin
-             :body {:name "Tier Change Test Org"
-                    :status "live"
-                    :tier "micro"
-                    :currencies ["GBP"]}}
-   :as :bank-0
-   :assert {:status 201}}]
- :when [{:command :api/request
-         :request {:method :post
-                   :path "/v1/bank/change-tier"
-                   :auth :admin
-                   :headers {:bank-id [:ref :bank-0 :bank-id]}
-                   :body {:tier "test-scenario"}}
-         :assert {:status 200
-                  :body
-                  {:bank-id [:ref :bank-0 :bank-id] :tier "test-scenario"}}}]}
+             :headers {:bank-id [:ref :bank-0 :bank :bank-id]}
+             :body {:tier "test-scenario"}}
+   :assert {:status 200
+            :body {:bank-id [:ref :bank-0 :bank :bank-id]
+                   :tier "test-scenario"}}}]
+ :then
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/bank/policies"
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200
+            :body {:items [:m/all-of
+                           [:m/embeds [{:name "Test-scenario policy"}]]
+                           [:m/seq-of {:name [:m/mismatch "Micro tier policy"]}]]}}}]}

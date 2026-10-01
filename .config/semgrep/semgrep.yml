@@ -94,3 +94,24 @@ rules:
         - "/bases/onfido-*/**"
         - "/bases/external-adapters/**"
         - "/bases/monolith/**"
+
+  - id: brick-test-drives-pipeline
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      A brick test drives the command pipeline or the bus: it sends a
+      command or an event, or subscribes to a channel. A brick test proves
+      the brick's own functions and store; driving the pipeline is a
+      scenario (tdd/scenario-testing.md). Call the brick's core or domain
+      function instead, or move the case to test-scenarios or
+      test-api-scenarios. A site that must stay puts
+      `;; nosemgrep: brick-test-drives-pipeline` on the line immediately
+      above it, with its reason on the comment line above that.
+    pattern-regex: '(#''?)?\b(processor/process|commands/dispatch|message-bus/send|message-bus/subscribe|event/publish)\b'
+    paths:
+      include:
+        - "/components/*/test/**"
+        - "/bases/*/test/**"
+      exclude:
+        - "/components/test-*/**"
+        - "/components/changelog-relay/**"

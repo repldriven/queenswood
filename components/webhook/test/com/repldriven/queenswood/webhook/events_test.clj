@@ -155,6 +155,8 @@
   "Hand one envelope to the processor the rig started, which is what
   the bus subscription calls."
   [sys message]
+  ;; this brick's own event handler, handed an envelope, no bus
+  ;; nosemgrep: brick-test-drives-pipeline
   (processor/process (system/instance sys [:webhook :event-processor-impl])
                      message))
 
@@ -618,6 +620,8 @@
                             (type (system/instance sys
                                                    [:webhook
                                                     :event-processor-impl])))))
+                 ;; until webhooks.md slice 2's scenarios
+                 ;; nosemgrep: brick-test-drives-pipeline
                  _ (event/publish bus
                                   opened
                                   {:event-channel :cash-accounts-event})

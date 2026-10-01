@@ -1,0 +1,11 @@
+{:doc "A webhook endpoint, registered and enabled."
+ :required #{:token}
+ :params {:address "https://93.184.216.34/hooks"}
+ :steps
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/webhook-endpoints"
+             :auth [:param :token]
+             :body {:address [:param :address]}}
+   :as :registered
+   :assert {:status 201}}]}

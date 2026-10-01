@@ -1,9 +1,0 @@
-processor: !system/component
-  system/component-kind: payee-check/processor
-  record-db: !system/ref fdb.record-db
-  record-store: !system/ref fdb.meta-store
-  schemas: !system/ref avro.serde
-  # Unreachable on purpose: the brick test exercises the CoP
-  # adapter-unavailable degradation path without the adapter base.
-  adapter-urls:
-    modulr: "http://localhost:1"

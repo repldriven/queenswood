@@ -278,8 +278,12 @@
     (nom-test>
       [payload (avro/serialize (get schemas "submit-payment") command)
        message {:command "submit-payment" :payload payload}
+       ;; the adapter's own processor; no scenario redelivers a command
+       ;; nosemgrep: brick-test-drives-pipeline
        first-res (processor/process proc message)
        _ (is (= {:status "ACCEPTED"} first-res))
+       ;; the adapter's own processor; no scenario redelivers a command
+       ;; nosemgrep: brick-test-drives-pipeline
        second-res (processor/process proc message)
        _ (is (= {:status "ACCEPTED"} second-res))
        intents (dedup-count config
@@ -328,6 +332,8 @@
         schemas (system/instance sys [:avro :serde])
         send (fn [command data]
                (let [payload (avro/serialize (get schemas command) data)]
+                 ;; the adapter's own processor; no scenario redelivers one
+                 ;; nosemgrep: brick-test-drives-pipeline
                  (processor/process proc
                                     {:command command :payload payload})))
         intents (fn [dedup-key]

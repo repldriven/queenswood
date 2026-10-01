@@ -1,0 +1,21 @@
+{:name "An address naming one of the platform's own hosts is refused"
+ ;; The rig names 93.184.216.35 among the platform's hosts, as a
+ ;; deployment names its own through WEBHOOK_PLATFORM_HOSTS, so the
+ ;; refusal comes from that list and not from an address range.
+ :given
+ [{:fixture :bank :as :org-0 :with {:name "Webhook Platform Host Org"}}
+  {:fixture :webhook-endpoint :as :hook :with {:token [:ref :org-0 :token]}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/webhook-endpoints"
+             :auth [:ref :org-0 :token]
+             :body {:address "https://93.184.216.35/hooks"}}
+   :assert {:status 422 :problem {:type ":webhook-endpoint/invalid-address"}}}
+  {:command :api/request
+   :request {:method :put
+             :path "/v1/webhook-endpoints/{endpoint-id}"
+             :path-params {:endpoint-id [:ref :hook :registered :endpoint :endpoint-id]}
+             :auth [:ref :org-0 :token]
+             :body {:address "https://93.184.216.35/hooks"}}
+   :assert {:status 422 :problem {:type ":webhook-endpoint/invalid-address"}}}]}

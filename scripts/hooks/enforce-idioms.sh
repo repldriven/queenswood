@@ -449,7 +449,9 @@ report 'store-in-a-base' "$out"
 # record -- is a scenario, and belongs in `test-scenarios` or
 # `test-api-scenarios`. Read-side `*-query` bricks, `test-*` bricks and
 # the plumbing (`fdb`, `testcontainers`, `schema`, `changelog-relay`) are
-# always in scope. A `system.clj` in a test tree is the sanctioned home
+# always in scope. Bases count as bricks, so a base test reaching into
+# another base is caught too; the `test-*` bricks' own tests are exempt,
+# since crossing bricks is what they are for. A `system.clj` in a test tree is the sanctioned home
 # for bare registration requires and is skipped. An exception carries
 # `;; enforce-idioms: brick-test-scope -- <reason>` on the line above the
 # require.
@@ -464,7 +466,7 @@ TEST_CLJ=( $(printf '%s\n' "${SRC_CLJ[@]}" \
              | grep -E '^(components|bases)/[^/]+/test/' \
              | grep -v '/system\.clj$' || true) )
 if [ ${#TEST_CLJ[@]} -gt 0 ]; then
-  bricks_us=$(ls components 2>/dev/null | paste -sd, -)
+  bricks_us=$({ ls components; ls bases; } 2>/dev/null | paste -sd, -)
   # `unit:target` for every component each unit's own src requires.
   src_deps=""
   for u in $(printf '%s\n' "${TEST_CLJ[@]}" | cut -d/ -f1,2 | sort -u); do
@@ -486,6 +488,7 @@ if [ ${#TEST_CLJ[@]} -gt 0 ]; then
       plumbing["changelog-relay"] = 1
     }
     FNR == 1 { split(FILENAME, parts, "/"); own = parts[2]; prev = "" }
+    own ~ /^test-/ { next }
     {
       line = $0
       marked = (prev ~ /enforce-idioms: brick-test-scope/)

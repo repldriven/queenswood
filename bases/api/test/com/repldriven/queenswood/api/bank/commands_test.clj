@@ -97,26 +97,6 @@
     (is (= "queenswood-test" (:audience data)))
     (is (not (contains? data :membership)) "an operator is not the owner")))
 
-(defn- person-request
-  [body]
-  {:auth {:principal-type :user :principal-id "usr.x" :roles #{:user}}
-   :parameters {:body (merge {:name "Galactic Bank"} body)}})
-
-(deftest a-person-names-no-operator-field-test
-  (doseq [field [{:status :bank-status-live} {:tier "enterprise"}
-                 {:currencies ["EUR"]} {:owner-email "zaphod@example.com"}]]
-    (testing (str (key (first field)))
-      (let [{:keys [status body]} (SUT/create-bank
-                                   (person-request
-                                    (assoc field :company-number "SC998137")))]
-        (is (= 403 status))
-        (is (= "auth/forbidden" (:type body)))))))
-
-(deftest a-person-names-a-company-test
-  (let [{:keys [status body]} (SUT/create-bank (person-request {}))]
-    (is (= 422 status))
-    (is (= ":bank/company-required" (:type body)))))
-
 (deftest create-sends-the-providers-named-test
   (let [data (SUT/create-bank-data (create-request {:providers {:payment
                                                                 "rails"}})
