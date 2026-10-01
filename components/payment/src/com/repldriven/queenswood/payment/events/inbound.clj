@@ -297,10 +297,10 @@
        (let-nom>
          [account (cash-accounts/get-account-by-bban txn creditor-bban)
           admitted (when account
-                     (q/find-open-admission txn
-                                            end-to-end-id
-                                            (:account-id account)
-                                            amount))
+                     (q/find-matching-inbound txn
+                                              end-to-end-id
+                                              (:account-id account)
+                                              amount))
           refusal (when-not admitted (inbound/account-refusal account))]
          (cond
           admitted
