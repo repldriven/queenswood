@@ -98,5 +98,10 @@ Tests run against a FoundationDB server in a container, built from
 `versions.json`, so the containerised server and the client on the host cannot
 disagree on protocol version.
 
+The image is tagged with a hash of its Dockerfile, its start script and that
+version, and built only when no image carries the tag, so an edit to either
+file builds a new one and nothing else downloads the FDB binaries again. CI
+caches the image under a key over the same files.
+
 The host still needs `libfdb_c` installed, as above — the container provides
 the server, not the client.

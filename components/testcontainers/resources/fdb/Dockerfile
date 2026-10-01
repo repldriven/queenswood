@@ -3,21 +3,21 @@ FROM debian:13-slim
 # No default: the caller supplies it. fdb.clj passes this as a build arg so
 # the version has a single definition in this component.
 ARG FDB_VERSION
+# tini comes from Debian rather than its GitHub release. The FDB binaries
+# have no other source, so their downloads retry for up to five minutes,
+# and -S names the URL when one still fails.
 RUN ARCH=$(uname -m) && \
-  TINI_ARCH=$([ "$ARCH" = "aarch64" ] && echo "arm64" || echo "amd64") && \
-  FDB_ARCH=$ARCH && \
   apt-get update && \
-  apt-get install -y --no-install-recommends curl ca-certificates socat && \
+  apt-get install -y --no-install-recommends curl ca-certificates socat tini && \
   rm -rf /var/lib/apt/lists/* && \
-  curl -fsSL --retry 5 --retry-delay 2 --retry-all-errors https://github.com/krallin/tini/releases/download/v0.19.0/tini-${TINI_ARCH} \
-  -o /usr/bin/tini && \
-  chmod +x /usr/bin/tini && \
-  curl -fsSL --retry 5 --retry-delay 2 --retry-all-errors https://github.com/apple/foundationdb/releases/download/${FDB_VERSION}/fdbserver.${FDB_ARCH} \
-  -o /usr/bin/fdbserver && \
-  curl -fsSL --retry 5 --retry-delay 2 --retry-all-errors https://github.com/apple/foundationdb/releases/download/${FDB_VERSION}/fdbcli.${FDB_ARCH} \
-  -o /usr/bin/fdbcli && \
-  curl -fsSL --retry 5 --retry-delay 2 --retry-all-errors https://github.com/apple/foundationdb/releases/download/${FDB_VERSION}/libfdb_c.${FDB_ARCH}.so \
-  -o /usr/lib/libfdb_c.so && \
+  for f in fdbserver.${ARCH} fdbcli.${ARCH} libfdb_c.${ARCH}.so; do \
+    curl -fsSL --retry 10 --retry-delay 5 --retry-max-time 300 --retry-all-errors \
+      "https://github.com/apple/foundationdb/releases/download/${FDB_VERSION}/${f}" \
+      -o "/tmp/${f}" || exit 1; \
+  done && \
+  mv "/tmp/fdbserver.${ARCH}" /usr/bin/fdbserver && \
+  mv "/tmp/fdbcli.${ARCH}" /usr/bin/fdbcli && \
+  mv "/tmp/libfdb_c.${ARCH}.so" /usr/lib/libfdb_c.so && \
   chmod +x /usr/bin/fdbserver /usr/bin/fdbcli && \
   mkdir -p /var/fdb/data /var/fdb/logs /usr/local/etc/foundationdb
 
