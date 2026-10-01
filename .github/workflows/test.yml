@@ -82,12 +82,13 @@ jobs:
       - name: Discover projects
         id: projects
         run: |
-          # Every service project under projects/ plus a `dev` entry for
-          # the bricks that belong to no deployable service and so appear
-          # in no other matrix entry: test-scenarios, test-model,
-          # test-projections and test-api-scenarios, which carry the
-          # end-to-end and model-equality coverage.
-          matrix=$(ls projects/ | jq -Rc '[., inputs] + ["dev"]')
+          # Every service project under projects/ plus two `dev-` entries
+          # for the bricks that belong to no deployable service and so
+          # appear in no other matrix entry: test-api-scenarios on one
+          # runner, and test-scenarios, test-model and test-projections on
+          # the other. Each boots a whole system, and on one runner they
+          # contend for its CPUs and permits.
+          matrix=$(ls projects/ | jq -Rc '[., inputs] + ["dev-api-scenarios", "dev-domain-scenarios"]')
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
           echo "Discovered projects: $matrix"
 
@@ -170,14 +171,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-clojure-
 
-      # The coverage floor is 80 for dev and 0 for a service project: a
-      # service imports its infra from mono without mono's tests, so the
-      # coverage measured here is not representative of the code it runs.
+      # The coverage floor is 80 for a `dev-` entry and 0 for a service
+      # project: a service imports its infra from mono without mono's tests,
+      # so the coverage measured here is not representative of the code it
+      # runs.
       - name: Run tests
         env:
           TESTCONTAINERS_REUSE_ENABLE: "true"
           COVERAGE: "true"
-          COVERAGE_THRESHOLD: ${{ matrix.project == 'dev' && '80' || '0' }}
+          COVERAGE_THRESHOLD: ${{ startsWith(matrix.project, 'dev-') && '80' || '0' }}
           # The JUnit reporter trims this from suite and classname
           # attributes, so the published report reads `bank.core-test`
           # rather than the full namespace. mono's runner cannot default
@@ -193,13 +195,18 @@ jobs:
           # The runner parallelises vars as well as namespaces; the permit
           # is what bounds how many test systems are up at once.
           export TEST_SYSTEM_PERMITS=$(nproc)
-          if [[ "${{ matrix.project }}" == "dev" ]]; then
-            clojure -M:poly test project:dev \
-              brick:test-scenarios:test-model:test-projections:test-api-scenarios \
-              :all
-          else
-            clojure -M:poly test project:${{ matrix.project }} :all
-          fi
+          case "${{ matrix.project }}" in
+            dev-api-scenarios)
+              clojure -M:poly test project:dev brick:test-api-scenarios :all
+              ;;
+            dev-domain-scenarios)
+              clojure -M:poly test project:dev \
+                brick:test-scenarios:test-model:test-projections :all
+              ;;
+            *)
+              clojure -M:poly test project:${{ matrix.project }} :all
+              ;;
+          esac
 
       - name: Publish test report
         uses: dorny/test-reporter@v3
@@ -219,16 +226,15 @@ jobs:
           retention-days: 7
 
       # Polylith writes coverage to `target/coverage/<project-name>/`
-      # using the project NAME, not its alias. For the dev matrix
-      # entry the path is therefore `target/coverage/development/`,
-      # not `target/coverage/dev/`. The ternary keeps a single
-      # workflow expression for every entry.
+      # using the project NAME, not its alias. For the `dev-` matrix
+      # entries the path is therefore `target/coverage/development/`.
+      # The ternary keeps a single workflow expression for every entry.
       - name: Report coverage
         if: always()
         uses: zgosalvez/github-actions-report-lcov@v7.2.1
         with:
-          coverage-files: target/coverage/${{ matrix.project == 'dev' && 'development' || matrix.project }}/lcov.info
-          minimum-coverage: ${{ matrix.project == 'dev' && 80 || 0 }}
+          coverage-files: target/coverage/${{ startsWith(matrix.project, 'dev-') && 'development' || matrix.project }}/lcov.info
+          minimum-coverage: ${{ startsWith(matrix.project, 'dev-') && 80 || 0 }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           update-comment: true
           title-prefix: "[${{ matrix.project }}]"
@@ -238,7 +244,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: coverage-report-${{ matrix.project }}
-          path: target/coverage/${{ matrix.project == 'dev' && 'development' || matrix.project }}/
+          path: target/coverage/${{ startsWith(matrix.project, 'dev-') && 'development' || matrix.project }}/
           retention-days: 7
 
   # Compiles the console bundle, the ui showcase and the demo apps. These
