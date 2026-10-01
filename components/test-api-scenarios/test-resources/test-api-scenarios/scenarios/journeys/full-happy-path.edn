@@ -1,7 +1,6 @@
 {:name
  "Full happy path: two parties, two products, transfers, payment, interest"
- ;; Mirrors bank-test-scenarios/full-happy-path.edn end-to-end via the
- ;; API:
+ ;; End to end through the API:
  ;;
  ;;   - Customer bank (own-funds house account auto-created)
  ;;   - Two products: current (rate 0) and savings (rate 3650 bps)

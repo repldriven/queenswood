@@ -1,5 +1,5 @@
 # Test-only tier, bound by the model-equality scenario suite
-# (bank-test-scenarios) so those tests are decoupled from the production
+# (test-scenarios) so those tests are decoupled from the production
 # micro tier, whose limits evolve for production reasons. Capabilities and
 # safety limits come from the always-on platform policy
 # (get-effective-policies concats tier=platform unconditionally), so this

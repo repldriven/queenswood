@@ -468,12 +468,11 @@ Read operations skip the pipeline and query FDB directly.
 
 ### Testing
 
-HTTP-surface tests live in **`test-api-scenarios`**, the
-sibling of `test-scenarios` covered in
-[scenario-testing.md](scenario-testing.md). It boots the full
-test system (FDB, the message bus, ClearBank simulator, Onfido simulator)
-plus a live `api` and drives real HTTP requests via
-data-driven EDN scenarios.
+HTTP-surface tests live in **`test-api-scenarios`**, the API
+tier [scenario-testing.md](scenario-testing.md) designs. It boots
+the full test system — FDB, the message bus, Keycloak, and every
+payment and IDV adapter beside its simulator — plus a live `api`,
+and drives real HTTP requests from data-driven EDN scenarios.
 
 Each scenario is a map with `:given` / `:when` / `:then` step
 sequences. An `:api/request` verb makes an HTTP call; refs
@@ -481,15 +480,14 @@ sequences. An `:api/request` verb makes an HTTP call; refs
 including following `:links :next` across pages.
 `nubank/matcher-combinators` markers (`[:m/regex …]`,
 `[:m/embeds …]`, `[:m/seq-of …]`) shape body assertions without
-hand-rolled sub-match logic. Scenarios are grouped by domain
-under
-`test-resources/bank-test-api-scenarios/scenarios/<domain>/`.
+hand-rolled sub-match logic. Scenarios are grouped by OpenAPI tag
+under `test-resources/test-api-scenarios/scenarios/<tag>/`, and
+setup they share is a fixture under
+`test-resources/test-api-scenarios/fixtures/`.
 
-This brick replaced the per-base and per-component
-`*_test.clj` API tests under `bases/api/test/`,
-`components/api-key/test/`, and similar paths. New API
-contract tests — status codes, error bodies, hypermedia links,
-auth boundaries — go here, not into a brick's `interface_test.clj`.
+The API contract — status codes, error bodies, hypermedia links,
+auth boundaries — is pinned here, never in a brick's
+`interface_test.clj`.
 
 ## Alternatives Considered
 
