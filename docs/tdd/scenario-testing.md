@@ -294,9 +294,9 @@ the behaviour, a refusal ending `-refused` and a missing resource
 A PRD's user journeys are scenarios under `journeys/<prd>/`, one file per
 journey, named for its heading: `### 2. Outbound payment (happy path)` is
 `2-outbound-payment-happy-path.edn`. A journey's steps are the beats of
-the PRD's diagram, the path it draws, asserted as the tenant sees them:
-the reply, the balances, the record the tenant reads and the notification
-its endpoint is sent. A journey runs on every provider of the kinds it
+the PRD's diagram, the path it draws, asserted as the customer sees
+them: the reply, the balances, the record the customer reads and the
+notification its endpoint is sent. A journey runs on every provider of the kinds it
 touches, `:runs-on {:payment :every}` for a payment.
 
 The tag directories keep what a journey does not assert: refusals,

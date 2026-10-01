@@ -1,4 +1,4 @@
-{:name "A customer engineer checks the payee's name, then sends"
+{:name "The customer's system checks the payee's name, then sends"
  :runs-on {:payment :every}
  :given [{:fixture :bank :as :bank-0 :with {:name "Payee Check Journey"}}
          {:fixture :product :as :current :with {:token [:ref :bank-0 :token]}}
@@ -19,7 +19,7 @@
                     :account-type "personal"
                     :account-id [:ref :debtor :opened :account :account-id]}}
    :assert {:status 201 :body {:result {:match-result "match"}}}}
-  ;; The names agree, so the tenant sends.
+  ;; The names agree, so the customer sends.
   {:command :api/request
    :request {:method :post
              :path "/v1/payments/outbound"

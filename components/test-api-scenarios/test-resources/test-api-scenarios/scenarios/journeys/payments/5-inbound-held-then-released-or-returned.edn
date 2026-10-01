@@ -80,7 +80,7 @@
    :until {:status 200
            :body {:posted-balance {:value 2500 :currency "GBP"}
                   :available-balance {:value 2500 :currency "GBP"}}}}
-  ;; The tenant is told of both holds and of how each ended.
+  ;; The customer is told of both holds and of how each ended.
   {:command :webhook/await-delivery
    :address [:ref :hook :receiver :address]
    :where {:kind "payment.inbound-held"}

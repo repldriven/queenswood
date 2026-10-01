@@ -1,4 +1,4 @@
-{:name "A customer engineer pays a beneficiary at another bank"
+{:name "The customer's system pays a beneficiary at another bank"
  :runs-on {:payment :every}
  :given
  [{:fixture :bank :as :bank-0 :with {:name "Outbound Payment Journey"}}

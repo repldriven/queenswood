@@ -1,4 +1,4 @@
-{:name "A Faster Payment arrives and the customer engineer sees it"
+{:name "A Faster Payment arrives and the customer's system reads it"
  :runs-on {:payment :every}
  :given
  [{:fixture :bank :as :bank-0 :with {:name "Inbound Payment Journey"}}
@@ -24,7 +24,7 @@
    :as :inbound
    :assert {:status 202}}]
  :then
- ;; No action from the tenant: the account is credited and the payment
+ ;; No action from the customer: the account is credited and the payment
  ;; is there to read.
  [{:command :api/poll
    :request {:method :get
