@@ -1,0 +1,74 @@
+{:name "The customer's system abandons a draft, and may open another"
+ :given [{:fixture :bank :as :bank-0 :with {:name "Abandon Draft Journey"}}
+         {:fixture :product :as :v1 :with {:token [:ref :bank-0 :token]}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products/{product-id}/versions"
+             :path-params {:product-id [:ref :v1 :product :product-id]}
+             :auth [:ref :bank-0 :token]
+             :body {:name "Current Account"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-06-01"}}
+   :as :draft
+   :assert {:status 201 :body {:version-number 2 :status "draft"}}}
+  {:command :api/request
+   :request {:method :put
+             :path
+             "/v1/cash-account-products/{product-id}/versions/{version-id}"
+             :path-params {:product-id [:ref :v1 :product :product-id]
+                           :version-id [:ref :draft :version-id]}
+             :auth [:ref :bank-0 :token]
+             :body {:name "Current Account Plus"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-06-01"}}
+   :assert {:status 200 :body {:name "Current Account Plus"}}}
+  ;; The customer decides not to go ahead.
+  {:command :api/request
+   :request {:method :delete
+             :path
+             "/v1/cash-account-products/{product-id}/versions/{version-id}"
+             :path-params {:product-id [:ref :v1 :product :product-id]
+                           :version-id [:ref :draft :version-id]}
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 204}}
+  ;; The slot is free again.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products/{product-id}/versions"
+             :path-params {:product-id [:ref :v1 :product :product-id]}
+             :auth [:ref :bank-0 :token]
+             :body {:name "Current Account"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-07-01"}}
+   :as :next
+   :assert {:status 201 :body {:version-number 3 :status "draft"}}}]
+ :then
+ ;; The discarded draft is kept as history.
+ [{:command :api/request
+   :request {:method :get
+             :path
+             "/v1/cash-account-products/{product-id}/versions/{version-id}"
+             :path-params {:product-id [:ref :v1 :product :product-id]
+                           :version-id [:ref :draft :version-id]}
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200
+            :body {:version-id [:ref :draft :version-id] :status "discarded"}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/cash-account-products/{product-id}"
+             :path-params {:product-id [:ref :v1 :product :product-id]}
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200
+            :body
+            {:versions
+             [:m/in-any-order
+              [{:version-id [:ref :v1 :product :version-id] :status "published"}
+               {:version-id [:ref :draft :version-id] :status "discarded"}
+               {:version-id [:ref :next :version-id] :status "draft"}]]}}}]}

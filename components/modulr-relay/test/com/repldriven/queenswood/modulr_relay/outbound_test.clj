@@ -309,3 +309,56 @@
      (is (= "done"
             (:step (edn/read-string (:context (load-intent config
                                                            "int.r1")))))))))
+
+(deftest a-refused-close-is-retried-test
+  (with-test-system
+   [sys "classpath:modulr-relay/application-test.yml"]
+   (let [answers (atom [(json-response 400
+                                       "{\"message\":\"Balance is not zero\"}")
+                        (json-response 200 "{}")])
+         config (runner-config sys
+                               (recording (atom [])
+                                          (fn [_]
+                                            (let [a (first @answers)]
+                                              (swap! answers rest)
+                                              a))))]
+     (nom-test> [_ (relay/save-intent config
+                                      (intent "int.c1"
+                                              "close-account" "close:acc.1"
+                                              "{}" {:bank-id "bnk.1"
+                                                    :account-id "acc.1"
+                                                    :provider-account-id
+                                                    "A1"}))])
+     (SUT/drain-once config 0)
+     (testing "a refusal leaves the close for another attempt"
+       (let [i (load-intent config "int.c1")]
+         (is (= "pending" (:status i)))
+         (is (= 1 (:attempts i)))))
+     (SUT/drain-once config 10000)
+     (testing "and the next attempt closes the account"
+       (is (= "settled" (:status (load-intent config "int.c1"))))
+       (is (some? (outbox-event config
+                                "close:acc.1:payment-account-closed")))))))
+
+(deftest a-close-refused-every-time-fails-test
+  (with-test-system
+   [sys "classpath:modulr-relay/application-test.yml"]
+   (let [config (runner-config sys
+                               (recording
+                                (atom [])
+                                (fn [_]
+                                  (json-response
+                                   400
+                                   "{\"message\":\"Balance is not zero\"}"))))]
+     (nom-test> [_ (relay/save-intent config
+                                      (intent "int.c2"
+                                              "close-account" "close:acc.2"
+                                              "{}" {:bank-id "bnk.1"
+                                                    :account-id "acc.2"
+                                                    :provider-account-id
+                                                    "A2"}))])
+     (run! (fn [now] (SUT/drain-once config now)) [0 10000 100000])
+     (testing "the close fails once its attempts run out"
+       (let [i (load-intent config "int.c2")]
+         (is (= "failed" (:status i)))
+         (is (= 3 (:attempts i))))))))

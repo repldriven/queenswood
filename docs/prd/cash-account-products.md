@@ -203,7 +203,7 @@ see [policies](policies.md).
 
 ## User journeys
 
-### 1. Tenant designs and publishes a new product
+### 1. Designing and publishing a new product
 
 ```mermaid
 sequenceDiagram
@@ -225,7 +225,7 @@ The tenant designs the product as a draft, iterates on the
 terms, and publishes when ready. From publication onwards,
 new accounts open under v1 and inherit those terms.
 
-### 2. Tenant changes terms (new version)
+### 2. Changing terms (new version)
 
 ```mermaid
 sequenceDiagram
@@ -247,7 +247,7 @@ terms, the tenant publishes a new version. The previous
 cohort of accounts stays on the old terms; new customers
 sign up to the new terms.
 
-### 3. Tenant abandons a draft
+### 3. Abandoning a draft
 
 ```mermaid
 sequenceDiagram

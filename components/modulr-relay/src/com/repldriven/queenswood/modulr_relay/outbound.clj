@@ -251,6 +251,9 @@
      (retry config now intent attempts result))))
 
 (defn- relay-close
+  "Close the account at Modulr. A refusal is retried like a failed call:
+  Modulr refuses to close an account still holding money, and the
+  transfer that swept it may still be on its way through this relay."
   [config now intent]
   (let [{:keys [intent-id]} intent
         {:keys [bank-id account-id provider-account-id]} (context intent)
@@ -272,7 +275,7 @@
                             "payment-account-closed"
                             {:bank-id bank-id :account-id account-id}))
 
-     (or (= :refused outcome) (give-up? config attempts))
+     (give-up? config attempts)
      (do (log/error "Modulr did not close the account"
                     {:intent-id intent-id
                      :account-id account-id
