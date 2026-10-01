@@ -23,6 +23,8 @@
 
 (def ^:private cluster-file "/usr/local/etc/foundationdb/fdb.cluster")
 
+(def ^:private data-dir "/var/fdb/data")
+
 (defn- fdb-image
   "Build context for the FDB image, loaded from this component's own
   resources. Read from the classpath rather than a path relative to the
@@ -107,6 +109,9 @@
         container (doto (GenericContainer. ^String built-name)
                     (.addExposedPort (int listen-port))
                     (.withStartupTimeout (Duration/ofSeconds 120))
+                    ;; Every commit syncs the data directory, and a sync
+                    ;; to the VM's disk costs more than the commit itself.
+                    (.withTmpFs {data-dir "rw"})
                     ;; The server is not up at this point — the script is
                     ;; waiting to be told which port to advertise.
                     (.waitingFor (Wait/forLogMessage ".*Awaiting public port.*"

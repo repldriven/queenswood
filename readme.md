@@ -243,7 +243,7 @@ Kafka or Pulsar, FoundationDB) onto any Kubernetes cluster.
 
 ```bash
 brew install colima kind kubectl helm
-colima start --vm-type vz --vz-rosetta --cpu 6 --memory 24
+colima start --vm-type vz --cpu 6 --memory 24
 kind create cluster --name queenswood \
   --config <(curl -fsSL https://raw.githubusercontent.com/repldriven/queenswood/main/infra/kind/queenswood-config.yaml)
 ```
