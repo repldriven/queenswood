@@ -110,7 +110,9 @@
 
   Gated on no IDV already existing for the party, and skips silently
   when one does. Event redelivery and replay must be a no-op here, not
-  a rejection — a party arriving pending twice is the normal case."
+  a rejection — a party arriving pending twice is the normal case. A
+  session opened between the check and the save creates the IDV itself,
+  and the save's refusal is the same skip."
   [config bank-id party-id]
   (let-nom>
     [existing (idv-query/get-idv-by-party (fdb-config config) party-id)]
@@ -119,7 +121,11 @@
                 {:party-id party-id
                  :verification-id (:verification-id existing)
                  :status (:status existing)})
-      (initiate config {:bank-id bank-id :party-id party-id}))))
+      (let [result (initiate config {:bank-id bank-id :party-id party-id})]
+        (if (= :idv/already-exists (error/kind result))
+          (log/info "IDV already exists for party — skipping"
+                    {:party-id party-id})
+          result)))))
 
 (defn- no-verification
   [bank-id party-id]
@@ -264,7 +270,8 @@
 
 (defn record-hand-off
   "Make a session ready with the hand-off the adapter reported. Skips,
-  returning nil, a session that is missing or already completed."
+  returning nil, a session that is missing or already completed, and a
+  report of the hand-off the session already holds."
   [config data]
   (let [{:keys [bank-id session-id url expires-at]} data]
     (store/transact
@@ -275,7 +282,7 @@
          (if-let [ready (some-> session
                                 (domain/ready-session url expires-at))]
            (store/save-session txn ready (:status session))
-           (log/info "Hand-off for no open session — skipping"
+           (log/info "Hand-off already held or no open session — skipping"
                      {:session-id session-id}))))
      :idv/record-hand-off
      "Failed to record an IDV hand-off")))

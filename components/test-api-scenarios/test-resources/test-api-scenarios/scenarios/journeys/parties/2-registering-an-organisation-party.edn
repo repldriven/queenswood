@@ -1,0 +1,37 @@
+{:name "The customer's system registers a business, active at once"
+ :runs-on {:payment :every}
+ :unbuilt "The create route takes person parties only."
+ :given [{:fixture :bank :as :bank-0 :with {:name "Organisation Party Journey"}}
+         {:fixture :product :as :current :with {:token [:ref :bank-0 :token]}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth [:ref :bank-0 :token]
+             :body {:type "organization"
+                    :display-name "Megadodo Publications"
+                    :national-identifier {:type "tax-id"
+                                          :value "GB123456789"
+                                          :issuing-country "GB"}}}
+   :as :party
+   :assert {:status 201
+            :body {:party-id [:m/regex "^pty\\."]
+                   :type "organization"
+                   :status "active"}}}
+  ;; Usable straight away: an account opens against it.
+  {:fixture :account
+   :as :business
+   :with {:token [:ref :bank-0 :token]
+          :party-id [:ref :party :party-id]
+          :product-id [:ref :current :product :product-id]
+          :name "Megadodo Current"}}]
+ :then
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :business :account :account-id]}
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200
+            :body {:party-id [:ref :party :party-id]
+                   :account-type "business"
+                   :account-status "opened"}}}]}

@@ -303,8 +303,10 @@
 
 (defn ready-session
   [session url expires-at]
-  (when (#{:idv-session-status-opening :idv-session-status-ready}
-         (:status session))
+  (when (and (#{:idv-session-status-opening :idv-session-status-ready}
+              (:status session))
+             (not= {:url url :expires-at expires-at}
+                   (select-keys (:hand-off session) [:url :expires-at])))
     (assoc session
            :status :idv-session-status-ready
            :hand-off {:type :idv-hand-off-type-url

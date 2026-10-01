@@ -78,6 +78,11 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-idvs-event-dlq
           acks: all
+      parties-event-dlq:
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          topic: topic-parties-event-dlq
+          acks: all
       invitations-event-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
@@ -211,6 +216,15 @@ system:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           group.id: webhook-service-idvs-event
+      parties-event:
+        schemas: !system/local-ref schemas
+        schema: !keyword event
+        topics: [topic-parties-event]
+        dead-letter-producer: !system/local-ref producers.parties-event-dlq
+        max-redeliveries: 5
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          group.id: webhook-service-parties-event
       invitations-event:
         schemas: !system/local-ref schemas
         schema: !keyword event
@@ -310,6 +324,9 @@ system:
         timeout: 500
       idvs-event:
         consumer: !system/local-ref consumers.idvs-event
+        timeout: 500
+      parties-event:
+        consumer: !system/local-ref consumers.parties-event
         timeout: 500
       invitations-event:
         consumer: !system/local-ref consumers.invitations-event

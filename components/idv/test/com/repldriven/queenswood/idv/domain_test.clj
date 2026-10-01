@@ -1,7 +1,8 @@
 (ns com.repldriven.queenswood.idv.domain-test
   "The treatment table row by row, evidence merged in any order and
-  redelivered, and the refusals opening a session can meet — decided
-  against the platform policy as bootstrap seeds it."
+  redelivered, the refusals opening a session can meet — decided
+  against the platform policy as bootstrap seeds it — and a session's
+  hand-off, reported again."
   (:require
     [com.repldriven.queenswood.idv.domain :as SUT]
 
@@ -220,3 +221,24 @@
     (testing "a bank past its daily limit is refused"
       (is (error/anomaly?
            (SUT/check-open-session idv declaration data [platform] 100))))))
+
+(deftest ready-session-test
+  (let [opening {:session-id "ses.1" :status :idv-session-status-opening}
+        ready
+        (SUT/ready-session opening "https://idv.test/run/1" 1789000000000)]
+    (testing "an opening session takes the hand-off and becomes ready"
+      (is (= :idv-session-status-ready (:status ready)))
+      (is (= "https://idv.test/run/1" (get-in ready [:hand-off :url]))))
+    (testing "a report of the hand-off it already holds changes nothing"
+      (is (nil?
+           (SUT/ready-session ready "https://idv.test/run/1" 1789000000000))))
+    (testing "a fresh hand-off replaces the one it holds"
+      (is (= "https://idv.test/run/2"
+             (get-in
+              (SUT/ready-session ready "https://idv.test/run/2" 1789000600000)
+              [:hand-off :url]))))
+    (testing "a completed session takes none"
+      (is (nil? (SUT/ready-session
+                 (assoc ready :status :idv-session-status-completed)
+                 "https://idv.test/run/3"
+                 1789001200000))))))

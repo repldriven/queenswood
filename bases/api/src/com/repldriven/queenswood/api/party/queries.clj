@@ -41,7 +41,7 @@
                                           :national-identifier ni})]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
-      {:status 200 :body result})))
+      {:status 200 :body (party-api/->detail-body result)})))
 
 (defn- party-idv
   [request bank-id party-id]

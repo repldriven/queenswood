@@ -1,5 +1,4 @@
 {:name "Opening a verification session is refused where the request is not one it takes"
- :runs-on {:idv :every}
  :given
  [{:fixture :bank
    :as :org-0

@@ -553,6 +553,14 @@ consumers: !system/component
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       group.id: test-webhook-idvs-event
+  webhook-parties-event:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword event
+    topics: [topic-parties-event]
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      group.id: test-webhook-parties-event
   companies-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -971,6 +979,9 @@ message-bus-consumers: !system/component
     timeout: 500
   webhook-idvs-event:
     consumer: !system/local-ref consumers.webhook-idvs-event
+    timeout: 500
+  webhook-parties-event:
+    consumer: !system/local-ref consumers.webhook-parties-event
     timeout: 500
   companies-command:
     consumer: !system/local-ref consumers.companies-command
