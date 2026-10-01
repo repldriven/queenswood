@@ -1,5 +1,4 @@
 {:name "Unknown party id returns 404"
- :runs-on {:idv :every}
  :given
  [{:fixture :bank :as :org-0 :with {:name "404 Party Test Org" :status "live"}}]
  :when [{:command :api/request

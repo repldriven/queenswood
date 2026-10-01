@@ -172,7 +172,8 @@ provider. No address is ever issued twice.
 
 The address is the route money travels along: a UK Faster
 Payment to that sort code and account number lands in this
-account.
+account, with nothing for the customer to do, as
+[payments](payments.md) describes.
 
 A tenant can rotate an open account's address — after a
 suspected compromise, for example — trading the sort code
@@ -255,7 +256,7 @@ API.
 
 ## User journeys
 
-### 1. Tenant opens a customer's first account
+### 1. Opening a customer's first account
 
 ```mermaid
 sequenceDiagram
@@ -294,14 +295,7 @@ A customer who needs both GBP and EUR holds two accounts —
 one per currency. Each gets its own payment address; each
 is independent of the other.
 
-### 3. Inbound payment lands
-
-The platform looks accounts up by their UK payment address
-when an inbound Faster Payment arrives — see
-[payments](payments.md). The tenant doesn't have to do
-anything; the account simply credits.
-
-### 4. Closing an account
+### 3. Closing an account
 
 ```mermaid
 sequenceDiagram

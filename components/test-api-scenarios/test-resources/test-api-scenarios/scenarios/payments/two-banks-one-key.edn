@@ -1,5 +1,4 @@
 {:name "Two banks reusing one idempotency key each get their own payment"
- :runs-on {:payment :every}
  ;; The F1 collision, through HTTP. A payment's idempotency key is
  ;; unique within a bank, not across the platform: two tenants that
  ;; pick the same key each get their own payment, and neither is

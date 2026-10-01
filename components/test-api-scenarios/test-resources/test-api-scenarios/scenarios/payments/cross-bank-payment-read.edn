@@ -1,5 +1,4 @@
 {:name "Another bank's payment reads as not found"
- :runs-on {:payment :every}
  ;; A payment read is scoped to the caller's bank. Bank A submits an
  ;; internal and an outbound payment; bank B's token reads each by id and
  ;; gets the same 404 body a payment that does not exist answers, and bank

@@ -1,5 +1,4 @@
 {:name "Tenant lists their parties"
- :runs-on {:idv :every}
  :given
  [{:fixture :bank
    :as :org-0

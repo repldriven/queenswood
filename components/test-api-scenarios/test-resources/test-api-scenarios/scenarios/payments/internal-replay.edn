@@ -1,5 +1,4 @@
 {:name "An internal payment submitted twice under one key is one payment"
- :runs-on {:payment :every}
  ;; The second submission never reaches the handler: the cache answers
  ;; it from the first. Same status, same body, same payment id — so the
  ;; debtor is debited once. The replay says so in its headers: the

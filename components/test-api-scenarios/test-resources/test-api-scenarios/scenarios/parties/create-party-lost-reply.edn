@@ -1,6 +1,5 @@
 {:name "A lost create-party reply is retried under the same key and
         creates one party"
- :runs-on {:idv :every}
  ;; The command commits and its reply never arrives, so the API answers
  ;; 500 and the cache releases its claim rather than caching a failure.
  ;; The retry under the same key therefore runs the handler again -- it

@@ -1,5 +1,4 @@
 {:name "Two banks reusing one idempotency key each get their own party"
- :runs-on {:idv :every}
  ;; An idempotency key is unique within a principal, not across the
  ;; platform. Two tenants that happen to pick the same key each get
  ;; their own party: neither is refused, and neither is handed the

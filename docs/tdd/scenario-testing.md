@@ -305,6 +305,10 @@ filters and headers, and what one provider does differently. A journey
 deletes, in the change that adds it, a tag scenario that asserted only
 its path, and a tag scenario that asserted that and more keeps the rest.
 
+A journey the platform cannot run yet carries `:unbuilt` and the reason,
+is skipped on every run and reported with it, and starts running when
+the key goes.
+
 `corpus_test.clj` holds each `journeys/<prd>/` directory to its PRD:
 every numbered journey has a file, and every file is a journey. A PRD
 with no directory is not checked.
@@ -316,7 +320,14 @@ A scenario declares the providers it runs on: `:runs-on {:payment
 names the capabilities it needs, checked against each provider's
 declaration, and the rig's `application-test.yml` carries the `unbuilt`
 capabilities on its `test-api-scenarios/settings` component. A bank
-create naming no providers is sent with the run's. A skipped run is
+create naming no providers is sent with the run's.
+
+A tag scenario runs on every provider only where what it asserts passes
+through the provider: the provider's messages and refusals, a capability
+its declaration names, an identity verification's decision or a payee
+check's answer. Idempotency, another bank's read, a list, a not-found and
+a refusal answered before any provider is called run on the defaults,
+since the journeys prove each provider end to end. A skipped run is
 logged with its reason and counted in the run's summary, and reports no
 `testing` block.
 
@@ -437,13 +448,15 @@ Three things keep scenarios apart:
   amount limits are not read, and `:create-product` and
   `:create-person-party` meet no count limit, since no scenario comes
   near one.
-- **PRDs with no journey scenarios.** Only `payments` has a directory
-  under `journeys/`. The access, cash-account-products, cash-accounts,
-  interest, onboarding, parties, platform, policies and webhooks PRDs
-  have none, so their journeys go unchecked, and
-  `journeys/full-happy-path.edn` covers parts of several of them.
+- **PRDs with no journey scenarios.** Only `payments` and
+  `cash-accounts` have a directory under `journeys/`. The access,
+  cash-account-products, interest, onboarding, parties, platform,
+  policies and webhooks PRDs have none, so their journeys go unchecked,
+  and `journeys/full-happy-path.edn` covers parts of several of them.
+- **Unbuilt journeys.** `cash-accounts/2` is skipped: no template a
+  customer's account opens under allows a second currency.
 - **Cases with no scenario.** Curative transfers and daily limits over
-  HTTP; organisation parties; a customer's second currency; the payment
+  HTTP; organisation parties; the payment
   refusals the domain corpus holds and the API does not; and routes no
   scenario calls, among them the policy and tier reads, a balance by
   type, a migration's cancel, a run by id, webhook test notifications and

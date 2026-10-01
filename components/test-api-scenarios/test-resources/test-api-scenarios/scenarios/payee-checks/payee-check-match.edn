@@ -1,5 +1,4 @@
 {:name "Tenant runs a payee check and the name is a match"
- :runs-on {:payment :every}
  :given
  [{:fixture :bank
    :as :org-0

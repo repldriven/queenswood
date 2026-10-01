@@ -1,5 +1,4 @@
 {:name "Two outbound submissions with one body and two keys make two payments"
- :runs-on {:payment :every}
  ;; The idempotency key, not the body, identifies a submission. A caller
  ;; that retries with a new key has asked for a second payment and gets
  ;; one: two payment ids, both settled, and the debtor debited twice.

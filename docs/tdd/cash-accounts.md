@@ -659,6 +659,10 @@ The policy vocabulary, `CashAccountAction`, is open, close,
 suspend, resume, close-non-zero, rotate-address and migrate.
 What follows is what the model does not reach.
 
+- **A customer's account is GBP only.** The current, savings
+  and term-deposit templates allow GBP alone, so the PRD's
+  second-currency journey cannot run; only the bank's own
+  house accounts open in EUR or USD.
 - **SCAN is the only payment-address scheme implemented.**
   IBAN, BIC, and other international schemes are listed as
   enum values in some places but not generated. Cross-
