@@ -8,6 +8,7 @@
     [com.repldriven.queenswood.test-projections.accounts :as accounts]
     [com.repldriven.queenswood.test-projections.balances :as balances]
     [com.repldriven.queenswood.test-projections.banks :as banks]
+    [com.repldriven.queenswood.test-projections.interest :as interest]
     [com.repldriven.queenswood.test-projections.parties :as parties]
     [com.repldriven.queenswood.test-projections.payments :as payments]
     [com.repldriven.queenswood.test-projections.products :as products]
@@ -164,11 +165,10 @@
 (def
   ^{:doc
     "Real-side inbound-payment projection. Returns the set
-  of stx-markers actually present in the bank, looked up by
-  deterministic stx-id. Args:
+  of markers whose inbound payment the bank holds. Args:
   - bank: FDB config map.
-  - run-id: runner `:run-id` used to construct stx-ids.
-  - markers: collection of stx-marker keywords to probe."}
+  - stx-ids: `{marker scheme-transaction-id}`, one entry per inbound
+    the run settled."}
   project-inbound-payments
   payments/project-inbound-payments)
 
@@ -179,3 +179,23 @@
   - model-state: model state map."}
   project-model-inbound-payments
   payments/project-model-inbound-payments)
+
+(def
+  ^{:doc
+    "Real-side interest projection. Reads each account's
+  `interest-accrued / posted` bucket and returns
+  `{model-acct-id {:interest-accrued n :credit-carry micro-units}}`; an
+  account with no bucket projects zeros. Args:
+  - bank: FDB config map.
+  - real->bank-id: `{real-account-id -> real-bank-id}`, from `real->bank`.
+  - id-mapping: `{real-id -> model-id}` map of in-scope accounts."}
+  project-interest
+  interest/project-interest)
+
+(def
+  ^{:doc
+    "Model-side interest projection. Same shape as
+  `project-interest`. Args:
+  - model-state: model state map."}
+  project-model-interest
+  interest/project-model-interest)

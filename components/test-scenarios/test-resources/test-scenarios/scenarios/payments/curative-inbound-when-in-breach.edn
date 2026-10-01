@@ -1,0 +1,8 @@
+{:name "Fee drives breach; outbound denied; improving inbound permitted"
+ :given [{:command :create-bank :args []}
+         {:command :inbound-transfer :args [:acct-0 100]}
+         {:command :fixture/apply-fee :args [:acct-0 250]}]
+ :when [{:command :outbound-payment :args [:acct-0 50]}
+        {:command :inbound-transfer :args [:acct-0 100]}]
+ :then [{:command :assert-outcome :args [:succeeded]}
+        {:command :assert-balance :args [:acct-0 -50]}]}

@@ -1,23 +1,17 @@
 (ns com.repldriven.queenswood.test-scenarios.property-test
   "Fugato-driven model-equality property test. The same runner that
-  drives EDN scenarios drives generated command sequences here; on
-  each trial, the model end-state and the projected real-system end-
-  state must agree."
+  drives EDN scenarios drives generated command sequences here. A trial
+  holds when both standing invariants held after every step, no step
+  timed out, and the model's end state projects equal to reality's. A
+  failure is shrunk, then walked step by step to name the first step at
+  which the model and reality differ."
   (:require
-    [com.repldriven.queenswood.test-scenarios.system]
-
     [com.repldriven.queenswood.test-scenarios.interface :as SUT]
+    [com.repldriven.queenswood.test-scenarios.rig :as rig]
 
-    [com.repldriven.queenswood.modulr-adapter.interface :as modulr-adapter]
-    [com.repldriven.queenswood.modulr-simulator.interface :as
-     modulr-simulator]
     [com.repldriven.queenswood.test-model.interface :as model]
-    [com.repldriven.queenswood.test-projections.interface :as projections]
-    [com.repldriven.queenswood.zyphe-adapter.interface :as zyphe-adapter]
-    [com.repldriven.queenswood.zyphe-simulator.interface :as zyphe-simulator]
 
     [com.repldriven.mono.log.interface :as log]
-    [com.repldriven.mono.system.interface :as system]
     [com.repldriven.mono.test-system.interface :refer [with-test-system]]
 
     [fugato.core :as fugato]
@@ -26,32 +20,6 @@
     [clojure.test.check :as tc]
     [clojure.test.check.generators :as gen]
     [clojure.test.check.properties :as prop]))
-
-(defn- patch-handlers
-  [defs]
-  (-> defs
-      (assoc-in [:system/defs :modulr-simulator-server :handler]
-                modulr-simulator/app)
-      (assoc-in [:system/defs :modulr-adapter-server :handler]
-                modulr-adapter/app)
-      (assoc-in [:system/defs :zyphe-simulator-server :handler]
-                zyphe-simulator/app)
-      (assoc-in [:system/defs :zyphe-adapter-server :handler]
-                zyphe-adapter/app)))
-
-(defn- fdb-config
-  [sys]
-  {:record-db (system/instance sys [:fdb :record-db])
-   :record-store (system/instance sys [:fdb :store])
-   :bus (system/instance sys [:message-bus :bus])
-   :schemas (system/instance sys [:avro :serde])
-   :payment-providers (system/instance sys [:payment-provider :providers])
-   :idv-providers (system/instance sys [:idv-provider :providers])
-   :zyphe-simulator-url (system/instance sys
-                                         [:zyphe-simulator-server :http-url])
-   :payment-simulator-url (system/instance sys
-                                           [:modulr-simulator-server
-                                            :http-url])})
 
 (deftest model-generates-plausible-sequences-test
   (testing "fugato produces vectors of {:command :args} maps"
@@ -64,74 +32,25 @@
           (is (contains? known (:command c)))
           (is (vector? (:args c))))))))
 
-(defn- enrich-with-bank-real-id
-  "Walks `:products` / `:parties` in ctx and tacks the owning bank's
-  real-id on each, so a projection that reads from the real bank
-  can resolve `(get-product bank-id prod-id)` etc. without re-doing
-  the lookup. Returns `{model-id {:real-id ... :bank-real-id ...}}`."
-  [model->real banks]
-  (->> model->real
-       (map (fn [[model-id {:keys [real-id bank]}]]
-              [model-id
-               {:real-id real-id
-                :bank-real-id (get-in banks [bank :real-id])}]))
-       (into {})))
-
-(defn- project-real
-  [bank ctx]
-  (let [real->model (get-in ctx [:id-mapping :real->model])]
-    {:balances (projections/project-balances
-                bank
-                (projections/real->bank (:accounts ctx)
-                                        (:banks ctx)
-                                        (get-in ctx [:id-mapping :model->real]))
-                real->model)
-     :products (projections/project-products
-                bank
-                (enrich-with-bank-real-id (:products ctx) (:banks ctx)))
-     :parties (projections/project-parties
-               bank
-               (enrich-with-bank-real-id (:parties ctx) (:banks ctx)))
-     :banks (projections/project-banks bank ctx)
-     :accounts (projections/project-accounts bank ctx)
-     :transactions (projections/project-transactions bank real->model)
-     :outbound-payments (projections/project-outbound-payments
-                         bank
-                         (:payments ctx))
-     :inbound-payments (projections/project-inbound-payments
-                        bank
-                        (:run-id ctx)
-                        (set (map (fn [n] (keyword (str "in-" n)))
-                                  (range (:next-inbound-id ctx)))))}))
-
-(defn- project-model
-  [model-state]
-  {:balances (projections/project-model-balances model-state)
-   :products (projections/project-model-products model-state)
-   :parties (projections/project-model-parties model-state)
-   :banks (projections/project-model-banks model-state)
-   :accounts (projections/project-model-accounts model-state)
-   :transactions (projections/project-model-transactions model-state)
-   :outbound-payments (projections/project-model-outbound-payments
-                       model-state)
-   :inbound-payments (projections/project-model-inbound-payments
-                      model-state)})
-
-(defn- run-and-compare
-  "Drives `cmds` through both reality and the model, then compares
-  projected state across balances, products, and parties. Returns
-  true on agreement; false (with the diff logged) on divergence."
+(defn- trial
+  "Runs `cmds` against reality and the model, and returns why the trial
+  fails, or nil when it holds."
   [bank cmds]
-  (let [ctx (SUT/fresh-context bank)
-        final (SUT/run-commands ctx cmds)
-        real (project-real bank final)
-        model-end (fugato/execute model/model model/init-state cmds)
-        expected (project-model model-end)
-        ok (= expected real)]
-    (when-not ok
-      (log/error "model-eq-reality divergence"
-                 {:commands cmds :expected expected :real real}))
-    ok))
+  (let [final (SUT/run-commands (SUT/fresh-context bank) cmds)
+        {:keys [invariant-failures runner-errors]} final]
+    (cond
+     (seq runner-errors)
+     {:runner-errors runner-errors}
+
+     (seq invariant-failures)
+     {:invariant-failures invariant-failures}
+
+     :else
+     (let [expected (SUT/projected-model
+                     (fugato/execute model/model model/init-state cmds))
+           actual (SUT/projected-real final)]
+       (when-not (= expected actual)
+         {:end-states-differ true})))))
 
 (defn- record-trial
   [stats cmds]
@@ -167,25 +86,28 @@
 (def ^:private max-size 30)
 
 (deftest model-eq-reality
-  ;; One FDB container serves all trials; isolation comes from per-
-  ;; trial fresh runner contexts (own id-mapping, own `:run-id` salt
-  ;; for idempotency keys). The model resets per trial via
-  ;; `fugato/execute` reducing from `init-state`; the bank accumulates
-  ;; accounts across trials but the projection is keyed by the trial's
-  ;; id-mapping so prior trials' accounts are invisible.
+  ;; One FDB container serves all trials; each trial runs on a fresh
+  ;; runner context, with its own id mapping and `:run-id`, so the
+  ;; accounts earlier trials left in the bank are invisible to it.
   (with-test-system
-   [sys ["classpath:test-scenarios/application-test.yml" patch-handlers]]
-   (let [bank (fdb-config sys)
+   [sys [rig/config-file rig/patch-handlers]]
+   (let [bank (rig/bank sys)
          stats (atom {:trials 0 :total-commands 0 :by-command {} :lengths []})
-         _ (log/info "model-eq-reality starting"
-                     {:num-tests num-tests :max-size max-size})
          result (tc/quick-check
                  num-tests
                  (prop/for-all [cmds
                                 (fugato/commands model/model model/init-state)]
                                (swap! stats record-trial cmds)
-                               (run-and-compare bank cmds))
+                               (nil? (trial bank cmds)))
                  :max-size
                  max-size)]
      (summarise @stats)
-     (is (:result result) (str "shrunk failure: " (pr-str result))))))
+     (when-not (:pass? result)
+       (let [smallest (get-in result [:shrunk :smallest 0])
+             why (trial bank smallest)
+             walked (SUT/first-divergence (SUT/fresh-context bank) smallest)]
+         (is (:pass? result)
+             (str "shrunk to " (pr-str smallest)
+                  "\n  why: " (pr-str why)
+                  "\n  first divergence: " (pr-str (:divergence walked))))))
+     (is (:pass? result)))))

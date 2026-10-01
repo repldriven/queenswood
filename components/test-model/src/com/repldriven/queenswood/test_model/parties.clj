@@ -50,11 +50,3 @@
                        (fnil conj [])
                        party-id)))))
    :valid? (fn [state {[bank-id] :args}] (contains? (:banks state) bank-id))})
-
-(def activate-party
-  {:run? (fn [state] (seq (state/pending-parties state)))
-   :args (fn [state] (gen/tuple (gen/elements (state/pending-parties state))))
-   :next-state (fn [state {[party-id] :args}]
-                 (assoc-in state [:parties party-id :status] :active))
-   :valid? (fn [state {[party-id] :args}]
-             (= :pending (get-in state [:parties party-id :status])))})

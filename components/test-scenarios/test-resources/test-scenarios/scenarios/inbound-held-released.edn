@@ -1,9 +1,0 @@
-{:name "Inbound held then released — credit lands on release"
- :tags #{:held :inbound :transfers}
- ;; A held inbound parks nothing on our books (the funds are held at
- ;; the provider); the account is credited only when the hold is released.
- :given [{:command :create-bank :args []}]
- :when [{:command :hold-inbound :args [:acct-0 1000]}
-        {:command :release-inbound :args [:acct-0]}]
- :then [{:command :assert-no-anomaly :args []}
-        {:command :assert-balance :args [:acct-0 1000]}]}

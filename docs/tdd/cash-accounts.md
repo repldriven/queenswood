@@ -680,6 +680,10 @@ What follows is what the model does not reach.
   for N years → flagged → closed → escheated). None of
   that is modelled. Suspension is an operator's decision,
   not an automatic consequence of inactivity.
+- **A close the provider refuses stays closing.** A close
+  waived past a non-zero balance records `closing`, and a
+  provider that refuses to close an account holding money
+  answers nothing that moves it on, so it stays `closing`.
 
 ## References
 

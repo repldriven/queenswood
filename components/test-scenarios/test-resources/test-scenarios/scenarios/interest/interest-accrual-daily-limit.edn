@@ -1,0 +1,32 @@
+{:name "Interest accrual is limited to one run per org per business-day"
+ :model :reality
+ ;; Bind a `max 1 accrual run per day` policy to org-0, then run
+ ;; accrue twice for the same as-of-date. The first run records an
+ ;; InterestRun (status INTEREST_ACCRUE_DONE); the second must be
+ ;; rejected with `:policy/limit-exceeded`.
+ ;;
+ ;; The platform policy carries the same accrual limit, but the
+ ;; scenario harness reads policies from `:fdb :store` while the
+ ;; platform policies are seeded into the meta-store — so, like the
+ ;; daily-limit-breach payment scenarios, we bind the constraint here.
+ ;; Exercises end to end: the InterestRun count index, the
+ ;; `count-by-org-business-day-per-kind` store read, and the
+ ;; `check-daily-count` gate in the interest core. The date is the
+ ;; as-of-date passed to the run (deterministic dedup key), not
+ ;; wall-clock — a different date would be allowed again.
+ :given
+ [{:command :create-bank :args []}
+  {:command :bind-policy
+   :args
+   [:bank-0
+    {:name "Test: max 1 accrual run per day"
+     :category :policy-category-restricted
+     :limits
+     [{:kind {:interest {:filters [{:action :interest-action-accrue}]}}
+       :bound {:kind {:max {:aggregate
+                            {:kind
+                             {:count {:value 1 :window :time-window-daily}}}}}}
+       :reason "Test-bound daily accrual cap"}]}]}
+  {:command :accrue-interest :args [:bank-0 20260501]}]
+ :when [{:command :accrue-interest :args [:bank-0 20260501]}]
+ :then [{:command :assert-rejection-kind :args [:policy/limit-exceeded]}]}

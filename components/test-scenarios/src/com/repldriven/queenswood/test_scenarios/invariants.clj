@@ -1,6 +1,6 @@
 (ns com.repldriven.queenswood.test-scenarios.invariants
-  "The two standing accounting invariants, asserted after every
-  scenario step.
+  "The two standing accounting invariants, checked after every
+  scenario step and returned as failure messages.
 
   The trial balance ties — Sigma-debit == Sigma-credit per currency
   across the whole chart of accounts. A failure means a step committed
@@ -18,9 +18,9 @@
 
   Both read `default / posted` only, so in-flight buckets (held,
   pending, interest-accrued sub-ledger) don't perturb them. A balance
-  read that fails is never treated as zero: it fails an assertion
-  naming the account, because an invariant that holds vacuously is
-  worse than none.
+  read that fails is never treated as zero: it is a failure naming the
+  account, because an invariant that holds vacuously is worse than
+  none.
 
   `reduce-cash-accounts` is exposed for the scenario-level interest
   reconciliation, which reads the same sub-ledger inside its own
@@ -32,9 +32,7 @@
     [com.repldriven.queenswood.fdb.interface :as fdb]
     [com.repldriven.queenswood.ledger-account.interface :as ledger-accounts]
 
-    [com.repldriven.mono.error.interface :as error]
-
-    [clojure.test :refer [is]]))
+    [com.repldriven.mono.error.interface :as error]))
 
 (def
   ^{:private true
@@ -108,8 +106,8 @@
 (defn- posted-net
   "The credit-positive posted net of one ledger account, or the anomaly
   its balance read failed with. Never a zero standing in for a failed
-  read — `assert-books` turns the anomaly into a failing assertion
-  naming the account."
+  read — `books-failures` turns the anomaly into a failure naming the
+  account."
   [txn bank-id account-id]
   (let [bs (balances/get-balances txn bank-id account-id)]
     (if (error/anomaly? bs)
@@ -179,24 +177,25 @@
             [ledger-account-id value]))
         chart))
 
-(defn- assert-trial-balance-ties
-  "Assert the trial balance ties for one bank, per currency, over the
-  chart rows of a snapshot."
+(defn- trial-balance-failures
+  "Why the trial balance does not tie for one bank, per currency, over
+  the chart rows of a snapshot."
   [bank-id chart]
-  (doseq [{:keys [currency debit credit]} (balances/trial-balance chart)]
-    (is (= debit credit)
-        (str "trial balance must tie — bank "
-             bank-id
-             " "
-             currency
-             " (Dr "
-             debit
-             " / Cr "
-             credit
-             ")"))))
+  (keep (fn [{:keys [currency debit credit]}]
+          (when-not (= debit credit)
+            (str "trial balance must tie — bank "
+                 bank-id
+                 " "
+                 currency
+                 " (Dr "
+                 debit
+                 " / Cr "
+                 credit
+                 ")")))
+        (balances/trial-balance chart)))
 
-(defn- assert-control-reconciliation
-  "Assert every control account holds the live roll-up of its
+(defn- control-failures
+  "Why a control account does not hold the live roll-up of its
   sub-ledger, for each control role and each currency the bank's chart
   carries. A control the chart doesn't carry in that currency reads as
   nil, which fails against its sub-ledger total rather than passing
@@ -206,67 +205,62 @@
                       (map (fn [{:keys [gl-account-code currency value]}]
                              [[gl-account-code currency] value]))
                       chart)]
-    (doseq [code (distinct (vals ledger-accounts/product-type->control-code))
-            currency (distinct (map :currency chart))]
-      (let [expected (get sub-ledger [code currency] 0)
-            actual (get control [code currency])]
-        (is (= expected actual)
-            (str "control must hold its sub-ledger's roll-up — bank "
-                 bank-id
-                 " "
-                 (name code)
-                 " "
-                 currency
-                 " (sub-ledger "
-                 expected
-                 " / control "
-                 actual
-                 ")"))))))
+    (for [code (distinct (vals ledger-accounts/product-type->control-code))
+          currency (distinct (map :currency chart))
+          :let [expected (get sub-ledger [code currency] 0)
+                actual (get control [code currency])]
+          :when (not= expected actual)]
+      (str "control must hold its sub-ledger's roll-up — bank "
+           bank-id
+           " "
+           (name code)
+           " "
+           currency
+           " (sub-ledger "
+           expected
+           " / control "
+           actual
+           ")"))))
 
-(defn assert-books
-  "Assert both standing invariants for one bank, off a single snapshot
-  of its books. A snapshot that can't be read, or a chart row whose
-  balance can't be read, fails an assertion naming what failed instead
-  of leaving the invariants to hold over what was readable.
-
-  Args:
-  - config: FDB config map (`:record-db` / `:record-store`).
-  - bank-id: owning bank id."
+(defn- books-failures
+  "Both standing invariants for one bank, off a single snapshot of its
+  books, as failure messages. A snapshot that can't be read, or a chart
+  row whose balance can't be read, is a failure naming what failed
+  instead of leaving the invariants to hold over what was readable."
   [config bank-id]
   (let [snapshot (books-snapshot config bank-id)
         failure (unreadable snapshot)
         failures (failed-reads (:chart snapshot))]
     (cond
      (some? failure)
-     (is (nil? failure)
-         (str "books snapshot must be readable — bank "
-              bank-id
-              " ("
-              (pr-str failure)
-              ")"))
+     [(str "books snapshot must be readable — bank "
+           bank-id
+           " ("
+           (pr-str failure)
+           ")")]
 
      (seq failures)
-     (doseq [[ledger-account-id anomaly] failures]
-       (is (nil? anomaly)
-           (str "ledger account balance must be readable — bank "
-                bank-id
-                " account "
-                ledger-account-id
-                " ("
-                (pr-str anomaly)
-                ")")))
+     (mapv (fn [[ledger-account-id anomaly]]
+             (str "ledger account balance must be readable — bank "
+                  bank-id
+                  " account "
+                  ledger-account-id
+                  " ("
+                  (pr-str anomaly)
+                  ")"))
+           failures)
 
      :else
-     (do (assert-trial-balance-ties bank-id (:chart snapshot))
-         (assert-control-reconciliation bank-id snapshot)))))
+     (into (vec (trial-balance-failures bank-id (:chart snapshot)))
+           (control-failures bank-id snapshot)))))
 
-(defn verify-books-tie
-  "Assert both standing invariants against every bank created so far in
-  the run. Returns `ctx` unchanged so it can be threaded through the
-  step reducer. `ctx` is the runner context — `:bank` is the FDB config
-  and `:banks` holds the per-model `{:real-id ...}` entries."
-  [{:keys [bank banks] :as ctx}]
-  (doseq [{:keys [real-id]} (vals banks)]
-    (when real-id
-      (assert-books bank real-id)))
-  ctx)
+(defn check
+  "Both standing invariants against every bank created so far in the run,
+  as a vector of failure messages, empty when both hold. `ctx` is the
+  runner context: `:bank` is the FDB config and `:banks` holds the
+  per-model `{:real-id ...}` entries."
+  [{:keys [bank banks]}]
+  (into []
+        (mapcat (fn [{:keys [real-id]}]
+                  (when real-id (books-failures bank real-id))))
+        (vals banks)))

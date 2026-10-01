@@ -1,9 +1,0 @@
-{:name "Inbound held then returned — account never credited"
- :tags #{:held :inbound :transfers}
- ;; A held inbound that the provider declines is returned to the remitter:
- ;; nothing posts on our books, so the account stays at zero.
- :given [{:command :create-bank :args []}]
- :when [{:command :hold-inbound :args [:acct-0 1000]}
-        {:command :return-inbound :args [:acct-0]}]
- :then [{:command :assert-no-anomaly :args []}
-        {:command :assert-balance :args [:acct-0 0]}]}

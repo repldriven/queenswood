@@ -1,0 +1,14 @@
+{:name "A posting that meets a closed control is refused, and nothing lands"
+ :model :reality
+ ;; No route or command closes a ledger account. With the current-account
+ ;; deposits control closed while it holds nothing, an inbound to acct-0,
+ ;; whose credit fans out to that control, is refused rather than landing
+ ;; single-sided.
+ :given [{:command :create-bank :args []}
+         {:command :close-ledger-account
+          :args [:bank-0 :gl-account-code-customer-deposits-current]}]
+ :when [{:command :assert-outcome :args [:succeeded]}
+        {:command :inbound-transfer :args [:acct-0 250000]}]
+ :then [{:command :assert-outcome :args [:denied]}
+        {:command :assert-rejection-kind :args [:ledger-account/closed]}
+        {:command :assert-balance :args [:acct-0 0]}]}

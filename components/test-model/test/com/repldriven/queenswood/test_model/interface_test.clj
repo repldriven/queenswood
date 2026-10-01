@@ -139,25 +139,47 @@
             s' (step breached :inbound-transfer [:acct-0 100])]
         (is (= 50 (SUT/balance s' :acct-0)))))))
 
-(deftest outbound-transfer-test
+(deftest outbound-payment-test
   (let [s (-> SUT/init-state
               (step :create-bank []))]
-    (testing "debit on a zero account is denied (would go negative)"
-      (let [s' (step s :outbound-transfer [:acct-0 100])]
-        (is (= 0 (SUT/balance s' :acct-0)) "policy denies — state unchanged")))
-    (testing "debit that worsens an already-negative account is denied"
+    (testing "a payment from a zero account is denied (would go negative)"
+      (let [s' (step s :outbound-payment [:acct-0 100])]
+        (is (= s s') "policy denies — state unchanged")))
+    (testing "a payment that worsens an already-negative account is denied"
       (let [breached (assoc-in s [:accounts :acct-0 :available] -50)
-            s' (step breached :outbound-transfer [:acct-0 10])]
-        (is (= -50 (SUT/balance s' :acct-0)))))
-    (testing "debit on a positive account stays in-bound"
+            s' (step breached :outbound-payment [:acct-0 10])]
+        (is (= breached s'))))
+    (testing "a payment from a funded account completes at once"
       (let [funded (assoc-in s [:accounts :acct-0 :available] 200)
-            s' (step funded :outbound-transfer [:acct-0 80])]
-        (is (= 120 (SUT/balance s' :acct-0)))))))
+            s' (step funded :outbound-payment [:acct-0 80])]
+        (is (= 120 (SUT/balance s' :acct-0)))
+        (is (= {:debtor :acct-0 :amount 80 :status :completed}
+               (get-in s' [:payments :pmt-0])))
+        (is (= 3 (get-in s' [:accounts :acct-0 :transaction-legs]))
+            "the reservation, then its clearing credit and posted debit")))
+    (testing "a non-positive amount is a no-op"
+      (let [funded (assoc-in s [:accounts :acct-0 :available] 200)]
+        (is (= funded (step funded :outbound-payment [:acct-0 0])))
+        (is (= funded (step funded :outbound-payment [:acct-0 -5])))))
+    (testing "a payment to a known account credits it"
+      (let [funded (-> s
+                       (step :create-customer [:bank-0])
+                       (assoc-in [:accounts :acct-0 :available] 200))
+            s' (step funded :outbound-payment [:acct-0 :acct-1 50])]
+        (is (= 150 (SUT/balance s' :acct-0)))
+        (is (= 50 (SUT/balance s' :acct-1)))))
+    (testing "a payment to a closed account still debits, its credit parked"
+      (let [funded (-> s
+                       (step :create-customer [:bank-0])
+                       (step :close-account [:acct-1])
+                       (assoc-in [:accounts :acct-0 :available] 200))
+            s' (step funded :outbound-payment [:acct-0 :acct-1 50])]
+        (is (= 150 (SUT/balance s' :acct-0)))
+        (is (= 0 (SUT/balance s' :acct-1)))))))
 
 (deftest internal-transfer-test
-  ;; The same-org-only paths use a single org with two accounts.
-  ;; `:open-account` isn't in the model registry, so we add the
-  ;; second account directly to the model state.
+  ;; The same-org-only paths use a single org with two accounts, the
+  ;; second added directly to the model state.
   (let [s (-> SUT/init-state
               (step :create-bank [])
               (assoc-in [:accounts :acct-1] {:bank :bank-0 :status :open}))]
@@ -199,15 +221,54 @@
         (is (= :bank-0 (get-in s [:parties :party-1 :bank])))
         (is (= [:party-0 :party-1] (get-in s [:banks :bank-0 :parties])))))))
 
+(deftest open-account-test
+  (let [s (-> SUT/init-state
+              (step :create-bank [])
+              (step :create-person-party [:bank-0]))]
+    (testing "opens on an active party and a published product"
+      (let [s' (step s :open-account [:bank-0 :party-1 :prod-0])]
+        (is (= {:available 0
+                :credit-carry 0
+                :interest-accrued 0
+                :status :open
+                :bank :bank-0
+                :product :prod-0
+                :party :party-1}
+               (get-in s' [:accounts :acct-1])))
+        (is (= [:acct-0 :acct-1] (get-in s' [:banks :bank-0 :accounts])))
+        (is (= 2 (:next-id s')))))
+    (testing "a draft product opens nothing, and the id is taken"
+      (let [s' (-> s
+                   (step :create-product [:bank-0 :current 0])
+                   (step :open-account [:bank-0 :party-1 :prod-1]))]
+        (is (nil? (get-in s' [:accounts :acct-1])))
+        (is (= 2 (:next-id s')))))
+    (testing "a party of another bank opens nothing"
+      (let [s' (-> s
+                   (step :create-bank [])
+                   (step :open-account [:bank-0 :party-2 :prod-0]))]
+        (is (nil? (get-in s' [:accounts :acct-2])))))))
+
+(deftest fund-house-test
+  (testing "the house account is not modelled, so nothing changes"
+    (let [s (step SUT/init-state :create-bank [])]
+      (is (= s (step s :fixture/fund-house [:bank-0 500000]))))))
+
+(deftest weights-test
+  (testing "create-bank is generated less often than any other command"
+    (let [create-bank (get-in SUT/model [:create-bank :freq])]
+      (doseq [[command {:keys [freq]}] (dissoc SUT/model :create-bank)]
+        (is (< create-bank freq) (str command))))))
+
 (deftest apply-fee-test
   (let [s (-> SUT/init-state
               (step :create-bank []))]
     (testing "fee posts on a positive account"
       (let [funded (assoc-in s [:accounts :acct-0 :available] 100)
-            s' (step funded :apply-fee [:acct-0 30])]
+            s' (step funded :fixture/apply-fee [:acct-0 30])]
         (is (= 70 (SUT/balance s' :acct-0)))))
     (testing "fee bypasses the available rule and can drive negative"
       (let [funded (assoc-in s [:accounts :acct-0 :available] 50)
-            s' (step funded :apply-fee [:acct-0 200])]
+            s' (step funded :fixture/apply-fee [:acct-0 200])]
         (is (= -150 (SUT/balance s' :acct-0))
             "fees ignore the available-balance rule by design")))))

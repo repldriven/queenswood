@@ -60,15 +60,6 @@
                        (update :next-inbound-id inc))))
    :valid? (fn [state {[acct] :args}] (contains? (:accounts state) acct))})
 
-(def outbound-transfer
-  {:run? (fn [state] (seq (state/known-accounts state)))
-   :args (fn [state]
-           (gen/tuple (gen/elements (state/known-accounts state))
-                      (gen/choose 1 10000)))
-   :next-state (fn [state {[acct amount] :args}]
-                 (apply-delta state acct (- amount)))
-   :valid? (fn [state {[acct] :args}] (contains? (:accounts state) acct))})
-
 (def outbound-payment
   "Two-arg `[debtor amount]` pays an external creditor — debits the
   debtor and records the payment. Three-arg
@@ -80,9 +71,7 @@
   event-processor flips the OutboundPayment to `:completed`. The
   model mirrors that auto-settle here by marking `:status
   :completed` straight away (so by the time the next model-eq
-  check fires — possibly after an explicit `:wait` — the model
-  matches reality without depending on a hand-driven
-  `:settle-outbound-payment`)."
+  check fires the model matches reality)."
   {:run? (fn [state] (seq (state/known-accounts state)))
    :args (fn [state]
            (gen/tuple (gen/elements (state/known-accounts state))
@@ -131,19 +120,6 @@
                     (if (= 3 (count args))
                       (contains? (:accounts state) maybe-creditor)
                       true))))})
-
-(def settle-outbound-payment
-  "Idempotent on the model side: `:outbound-payment` already marked
-  the payment `:completed`, so re-marking it here is a no-op.
-  Reality's settle-outbound is similarly idempotent
-  (`Outbound payment settlement already completed`), so
-  hand-authored scenarios that drive a redelivery to exercise the
-  idempotency contract still match between model and reality."
-  {:run? (fn [state] (seq (:payments state)))
-   :args (fn [state] (gen/tuple (gen/elements (keys (:payments state)))))
-   :next-state (fn [state {[pmt-id] :args}]
-                 (assoc-in state [:payments pmt-id :status] :completed))
-   :valid? (fn [state {[pmt-id] :args}] (contains? (:payments state) pmt-id))})
 
 (defn- accounts-by-org
   "Returns a map of bank-id → vector of account-ids for known

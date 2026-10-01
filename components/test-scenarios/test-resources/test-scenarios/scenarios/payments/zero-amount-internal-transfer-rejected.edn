@@ -1,0 +1,13 @@
+{:name "Internal transfer with amount=0 is rejected"
+ ;; Two accounts in one org. Submitting an internal transfer with
+ ;; amount=0 must reject at the transaction-layer leg validation
+ ;; (`:transaction/invalid-amount`) — `<= 0` is treated as
+ ;; non-positive and never recorded.
+ :given [{:command :create-bank :args []}
+         {:command :create-person-party :args [:bank-0]}
+         {:command :open-account :args [:bank-0 :party-1 :prod-0]}
+         {:command :inbound-transfer :args [:acct-0 1000]}]
+ :when [{:command :internal-transfer :args [:acct-0 :acct-1 0]}]
+ :then [{:command :assert-rejection-kind :args [:transaction/invalid-amount]}
+        {:command :assert-balance :args [:acct-0 1000]}
+        {:command :assert-balance :args [:acct-1 0]}]}

@@ -1,0 +1,35 @@
+{:name "Settlement events are idempotent: re-delivery is a no-op"
+ :model :reality
+ ;; Pins the redelivery contract bank-payment surfaces for both
+ ;; sides of the scheme settlement path. The property test
+ ;; exercises happy-path settlements with fresh ids on every
+ ;; trial; idempotency only fires when the same id arrives twice,
+ ;; which scenarios drive explicitly here.
+ :given [;; org-0 with :acct-0 (settlement) and a small inbound balance
+         {:command :create-bank :args []}
+         {:command :inbound-transfer :args [:acct-0 1000]}]
+ :when [{:command :assert-no-anomaly :args []}
+        {:command :assert-balance :args [:acct-0 1000]}
+        ;; --- Inbound idempotency ---------------------------------------
+        ;; First settlement of `stx-A`: balance climbs by 500 → 1500
+        {:command :settle-inbound-event :args [:acct-0 500 "stx-redelivery-A"]}
+        {:command :assert-outcome :args [:succeeded]}
+        {:command :assert-balance :args [:acct-0 1500]}
+        ;; Same `stx-A` redelivered: balance must not double-credit
+        {:command :settle-inbound-event :args [:acct-0 500 "stx-redelivery-A"]}
+        {:command :assert-outcome :args [:succeeded]}
+        {:command :assert-balance :args [:acct-0 1500]}
+        ;; --- Outbound settlement idempotency --------------------------
+        ;; submit-outbound for 200 → :pending, debits 200 → 1300
+        {:command :outbound-payment :args [:acct-0 200]}
+        {:command :assert-outcome :args [:succeeded]}
+        {:command :assert-balance :args [:acct-0 1300]}
+        ;; First settlement of pmt-0: status flips :pending → :completed
+        {:command :settle-outbound-event :args [:pmt-0]}
+        {:command :assert-outcome :args [:succeeded]}
+        {:command :assert-balance :args [:acct-0 1300]}
+        ;; Re-delivered settlement on the same payment: still completed,
+        ;; no balance change, no anomaly
+        {:command :settle-outbound-event :args [:pmt-0]}]
+ :then [{:command :assert-outcome :args [:succeeded]}
+        {:command :assert-balance :args [:acct-0 1300]}]}

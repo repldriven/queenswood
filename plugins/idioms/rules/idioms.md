@@ -18,7 +18,11 @@ can express; an API scenario for anything else a client can reach; and
 otherwise a reality-only domain scenario. A case lives in one tier: where
 a domain and an API scenario assert the same thing, the API scenario
 keeps it unless the domain one is compared. Anything that crosses a
-brick boundary or drives the command pipeline is a scenario. A brick
+brick boundary or drives the command pipeline is a scenario. Mark a
+domain scenario `:model :reality` when it names a `:reality` verb; every
+other one is compared with the model after every step. Put a scenario's
+state-changing steps in `:given` and `:when`, and only reads and
+assertions in `:then`. A brick
 test never sends a command or an event, subscribes to a channel, or
 writes through another write brick's interface — a test that needs a
 party, a product version or a policy on record is a scenario; an
