@@ -1,31 +1,24 @@
 (ns com.repldriven.queenswood.test-scenarios.verbs
   (:require
+    [com.repldriven.queenswood.test-scenarios.await :as await]
     [com.repldriven.queenswood.test-scenarios.id-mapping :as id-mapping]
     [com.repldriven.queenswood.test-scenarios.invariants :as invariants]
     [com.repldriven.queenswood.test-scenarios.observer :as observer]
-    [com.repldriven.queenswood.test-scenarios.quiescence :as quiescence]
     [com.repldriven.queenswood.test-scenarios.verification :as verification]
 
     [com.repldriven.queenswood.balance-query.interface :as balances-query]
     [com.repldriven.queenswood.balance.interface :as balances]
-    [com.repldriven.queenswood.bank-query.interface :as banks-query]
     [com.repldriven.queenswood.bank.interface :as banks]
-    [com.repldriven.queenswood.cash-account-migration.interface :as
-     migrations]
-    [com.repldriven.queenswood.cash-account-product-query.interface :as
-     products-query]
     [com.repldriven.queenswood.cash-account-product.interface :as products]
     [com.repldriven.queenswood.cash-account-query.interface :as
      cash-accounts-query]
     [com.repldriven.queenswood.cash-account.interface :as cash-accounts]
     ;; nosemgrep: fdb-outside-store — seeds state below the interfaces
     [com.repldriven.queenswood.fdb.interface :as fdb]
-    [com.repldriven.queenswood.idv.interface :as idv]
     [com.repldriven.queenswood.interest.interface :as interest]
     [com.repldriven.queenswood.ledger-account.interface :as ledger-accounts]
     [com.repldriven.queenswood.party-query.interface :as party-query]
     [com.repldriven.queenswood.party.interface :as party]
-    [com.repldriven.queenswood.payee-check.interface :as payee-check]
     [com.repldriven.queenswood.payment-query.interface :as payment-query]
     [com.repldriven.queenswood.payment.interface :as payment]
     [com.repldriven.queenswood.policy.interface :as policy]
@@ -98,28 +91,93 @@
                                                          2)})})
           (update ctx :funded (fnil conj #{}) scheme-transaction-id)))))
 
-(defn- await-opened
-  [bank bank-real-id real-acct-id]
-  (quiescence/wait-for-account-status bank
-                                      bank-real-id
-                                      real-acct-id
-                                      :cash-account-status-opened))
+(defn- await-status
+  "The account once it reaches `status`, or `:scenario/timed-out`. An
+  account opens and closes once its event has asked the payment provider
+  and the provider's answer has come back through the adapter's outbox."
+  [{:keys [bank] :as ctx} bank-real-id real-acct-id status]
+  (await/value ctx
+               (str "account " real-acct-id " to reach " (name status))
+               (fn []
+                 (cash-accounts-query/find-account bank
+                                                   bank-real-id
+                                                   real-acct-id))
+               (fn [account]
+                 (and (not (error/anomaly? account))
+                      (= status (:account-status account))))))
 
-(defn- await-closed
-  [bank bank-real-id real-acct-id]
-  (quiescence/wait-for-account-status bank
+(defn- await-opened
+  [ctx bank-real-id real-acct-id]
+  (await-status ctx bank-real-id real-acct-id :cash-account-status-opened))
+
+(defn- await-party-active
+  [{:keys [bank] :as ctx} bank-real-id party-id]
+  (await/value ctx
+               (str "party " party-id " to become active")
+               (fn [] (party-query/get-party bank bank-real-id party-id))
+               (fn [party]
+                 (and (not (error/anomaly? party))
+                      (= :party-status-active (:status party))))))
+
+(defn- await-outbound-completed
+  "The outbound payment once the provider's settlement has completed it,
+  or `:scenario/timed-out`."
+  [{:keys [bank] :as ctx} payment-id]
+  (await/value ctx
+               (str "outbound payment " payment-id " to complete")
+               (fn [] (payment-query/get-outbound-payment bank payment-id))
+               (fn [payment]
+                 (and (not (error/anomaly? payment))
+                      (= :outbound-payment-status-completed
+                         (:payment-status payment))))))
+
+(defn- posted-net
+  [bank bank-real-id account-id]
+  (let [b (balances-query/get-balance bank
                                       bank-real-id
-                                      real-acct-id
-                                      :cash-account-status-closed))
+                                      account-id
+                                      :balance-type-default
+                                      "GBP"
+                                      :balance-status-posted)]
+    (when-not (error/anomaly? b) (- (:credit b 0) (:debit b 0)))))
+
+(defn- await-credit
+  "The creditor's posted net once it reaches `target`, or
+  `:scenario/timed-out`. A payment to an internal creditor settles in two
+  provider events, the debit completing the payment and the credit
+  landing on the creditor."
+  [{:keys [bank] :as ctx} bank-real-id account-id target]
+  (await/value ctx
+               (str "account " account-id " to reach " target)
+               (fn [] (posted-net bank bank-real-id account-id))
+               (fn [net] (and net (>= net target)))))
 
 (defn- track
   [ctx result]
-  (let [denied? (error/anomaly? result)
-        outcome (if denied? :denied :succeeded)]
-    (-> ctx
-        (assoc :last-outcome outcome)
-        (assoc :last-rejection-kind (when denied? (error/kind result)))
-        (update :outcomes (fnil conj []) outcome))))
+  (cond
+   (await/timed-out? result)
+   (-> ctx
+       (assoc :last-outcome :timed-out)
+       (assoc :last-rejection-kind nil)
+       (update :outcomes (fnil conj []) :timed-out)
+       (update :runner-errors (fnil conj []) (error/payload result)))
+
+   (error/anomaly? result)
+   (-> ctx
+       (assoc :last-outcome :denied)
+       (assoc :last-rejection-kind (error/kind result))
+       (update :outcomes (fnil conj []) :denied))
+
+   :else
+   (-> ctx
+       (assoc :last-outcome :succeeded)
+       (assoc :last-rejection-kind nil)
+       (update :outcomes (fnil conj []) :succeeded))))
+
+(defn- first-timed-out
+  "The first of `waits` that timed out, else `result`."
+  [result & waits]
+  (or (first (filter await/timed-out? waits)) result))
 
 (defn- model-id-for-next-account
   [next-model-id]
@@ -187,6 +245,10 @@
 
 (defmulti dispatch (fn [_ctx command] (:command command)))
 
+(defn dispatched
+  []
+  (set (keys (methods dispatch))))
+
 (defmethod dispatch :create-bank
   [{:keys [bank identity-provider counter next-model-id next-bank-id
            next-product-id next-party-id id-mapping]
@@ -250,8 +312,8 @@
                              :currency "GBP"
                              :name "Scenario Account"}))
         real-acct-id (:account-id scenario-account)
-        real-bban (when real-acct-id
-                    (:bban (await-opened bank real-bank-id real-acct-id)))]
+        opened (when real-acct-id (await-opened ctx real-bank-id real-acct-id))
+        real-bban (:bban opened)]
     (-> ctx
         (cond-> real-acct-id
                 (-> (assoc :id-mapping
@@ -279,7 +341,7 @@
         (update :next-product-id inc)
         (update :next-party-id inc)
         (update :counter inc)
-        (track (or scenario-account result)))))
+        (track (first-timed-out (or scenario-account result) opened)))))
 
 (defn- record-fresh-product
   [ctx model-prod model-bank product-type result]
@@ -325,35 +387,19 @@
              [:products model-prod :versions]
              (fn [versions] (conj (pop versions) (f (peek versions))))))
 
-(defn- resolve-product-id
-  [products product-ref]
-  (if (keyword? product-ref)
-    (get-in products [product-ref :real-id])
-    product-ref))
-
 (defmethod dispatch :publish-product
-  [{:keys [bank banks products] :as ctx} {args :args}]
-  (case (count args)
-    1 (let [[model-prod] args
-            product (get products model-prod)
-            {model-bank :bank :keys [real-id]} product
-            {version-real-id :real-id} (latest-version product)
-            bank-real-id (get-in banks [model-bank :real-id])
-            result (products/publish bank bank-real-id real-id version-real-id)]
-        (-> ctx
-            (cond-> (not (error/anomaly? result))
-                    (update-latest-version model-prod
-                                           (fn [v]
-                                             (assoc v :status :published))))
-            (update :counter inc)
-            (track result)))
-    3 (let [[model-bank product-ref version-id] args
-            bank-real-id (get-in banks [model-bank :real-id])
-            product-id (resolve-product-id products product-ref)
-            result (products/publish bank bank-real-id product-id version-id)]
-        (-> ctx
-            (update :counter inc)
-            (track result)))))
+  [{:keys [bank banks products] :as ctx} {[model-prod] :args}]
+  (let [product (get products model-prod)
+        {model-bank :bank :keys [real-id]} product
+        {version-real-id :real-id} (latest-version product)
+        bank-real-id (get-in banks [model-bank :real-id])
+        result (products/publish bank bank-real-id real-id version-real-id)]
+    (-> ctx
+        (cond-> (not (error/anomaly? result))
+                (update-latest-version model-prod
+                                       (fn [v] (assoc v :status :published))))
+        (update :counter inc)
+        (track result))))
 
 (defmethod dispatch :open-draft
   [{:keys [bank banks products] :as ctx} {[model-prod] :args}]
@@ -423,13 +469,11 @@
         result'
         (if (error/anomaly? result)
           result
-          (let [q (error/let-nom> [_ (verification/verify bank
+          (let [q (error/let-nom> [_ (verification/verify ctx
                                                           bank-real-id
                                                           (:party-id result)
                                                           payload)]
-                    (quiescence/wait-for-party-active bank
-                                                      bank-real-id
-                                                      (:party-id result)))]
+                    (await-party-active ctx bank-real-id (:party-id result)))]
             (if (error/anomaly? q) q result)))]
     (-> ctx
         (cond->
@@ -440,19 +484,6 @@
         (update :next-party-id inc)
         (update :counter inc)
         (track result'))))
-
-(defmethod dispatch :activate-party
-  [{:keys [bank banks parties] :as ctx} {[model-party] :args}]
-  ;; Creating a person already verifies it, so this verb degrades to a
-  ;; wait-and-verify. Kept for EDN scenarios that emit it; fugato never
-  ;; selects it because no parties enter pending in the model.
-  (let [{party-real-id :real-id model-bank :bank} (get parties model-party)
-        bank-real-id (get-in banks [model-bank :real-id])
-        result
-        (quiescence/wait-for-party-active bank bank-real-id party-real-id)]
-    (-> ctx
-        (update :counter inc)
-        (track result))))
 
 (defmethod dispatch :open-account
   [{:keys [bank counter next-model-id id-mapping banks products parties]
@@ -469,17 +500,16 @@
                                            :name (str "Scenario Account "
                                                       counter)})
         real-acct-id (:account-id result)
-        opened (when real-acct-id
-                 (await-opened bank bank-real-id real-acct-id))]
+        opened (when real-acct-id (await-opened ctx bank-real-id real-acct-id))]
     (-> ctx
         (cond-> real-acct-id
-                (assoc :id-mapping
-                       (id-mapping/add id-mapping model-acct real-acct-id)))
-        (assoc-in [:accounts model-acct]
-                  {:bank model-bank :bban (:bban opened)})
+                (-> (assoc :id-mapping
+                           (id-mapping/add id-mapping model-acct real-acct-id))
+                    (assoc-in [:accounts model-acct]
+                              {:bank model-bank :bban (:bban opened)})))
         (update :next-model-id inc)
         (update :counter inc)
-        (track result))))
+        (track (first-timed-out result opened)))))
 
 (defn- find-current-product
   "Returns the first tracked **published** `:current` product on
@@ -554,14 +584,13 @@
         party-result (if (error/anomaly? party-result)
                        party-result
                        (let [q (error/let-nom> [_ (verification/verify
-                                                   bank
+                                                   ctx
                                                    bank-real-id
                                                    (:party-id party-result)
                                                    party-payload)]
-                                 (quiescence/wait-for-party-active
-                                  bank
-                                  bank-real-id
-                                  (:party-id party-result)))]
+                                 (await-party-active ctx
+                                                     bank-real-id
+                                                     (:party-id party-result)))]
                          (if (error/anomaly? q) q party-result)))
         party-real-id (:party-id party-result)
         ;; Open the customer account.
@@ -577,7 +606,7 @@
                         :currency currency
                         :name (str "Scenario Customer Account " counter)}))
         real-acct-id (:account-id acct-result)
-        opened (when real-acct-id (await-opened bank bank-real-id real-acct-id))
+        opened (when real-acct-id (await-opened ctx bank-real-id real-acct-id))
         outcome (cond
                  (error/anomaly? party-result)
                  party-result
@@ -608,18 +637,19 @@
                     (update :next-model-id inc)))
         (update :next-party-id inc)
         (update :counter inc)
-        (track outcome))))
+        (track (first-timed-out outcome opened)))))
 
 (defmethod dispatch :close-account
+  ;; Waits for no provider: the close records `closing` before it
+  ;; returns, which the projection reads as closed, and a provider that
+  ;; refuses the close leaves it there.
   [{:keys [bank id-mapping accounts banks] :as ctx} {[model-acct] :args}]
   (let [model-bank (get-in accounts [model-acct :bank])
         bank-real-id (get-in banks [model-bank :real-id])
         real-acct-id (get-in id-mapping [:model->real model-acct])
         result (cash-accounts/close-account bank
                                             {:bank-id bank-real-id
-                                             :account-id real-acct-id})
-        _ (when-not (error/anomaly? result)
-            (await-closed bank bank-real-id real-acct-id))]
+                                             :account-id real-acct-id})]
     (-> ctx
         (update :counter inc)
         (track result))))
@@ -670,6 +700,7 @@
                  :timestamp-settled (utility/now)})]
     (-> ctx
         (fund-at-provider bban amount stx-id result)
+        (assoc-in [:inbound-stx marker] stx-id)
         (update :next-inbound-id inc)
         (update :counter inc)
         (track result))))
@@ -763,45 +794,6 @@
         (update :counter inc)
         (track result))))
 
-(defmethod dispatch :outbound-transfer
-  [{:keys [bank counter id-mapping banks accounts run-id] :as ctx}
-   {[model-id amount] :args}]
-  ;; Reserve, don't post — the shape `payment/domain/outbound.clj`'s
-  ;; `outbound-payment->transaction` produces: the customer's funds
-  ;; move to their pending-outgoing bucket and the bank's 1200 claim
-  ;; is likewise pending, so available drops while posted is
-  ;; untouched. Nothing reaches a posted bucket, so the transfer
-  ;; disturbs neither standing invariant until the scheme settles.
-  (let [real-id (id-mapping/real id-mapping model-id)
-        bank-id (bank-id-for-account banks accounts model-id)
-        pending-outbound
-        (gl-account-for bank bank-id :gl-account-code-pending-outbound "GBP")
-        result
-        (if (or (nil? pending-outbound) (error/anomaly? pending-outbound))
-          (error/reject :scenario/no-pending-outbound-account
-                        {:message "Bank has no 1200 pending-outbound account"
-                         :bank-id bank-id})
-          (record-and-apply
-           bank
-           bank-id
-           (transfer-tx
-            {:transaction-type :transaction-type-outbound-transfer
-             :idempotency-key (str "scen-out-" run-id "-" counter)
-             :reference (str "scenario outbound " counter)
-             :gl-leg {:account-id (:ledger-account-id pending-outbound)
-                      :balance-type :balance-type-default
-                      :balance-status :balance-status-pending-outgoing
-                      :side :leg-side-credit
-                      :amount amount}
-             :customer-leg {:account-id real-id
-                            :balance-type :balance-type-default
-                            :balance-status :balance-status-pending-outgoing
-                            :side :leg-side-debit
-                            :amount amount}})))]
-    (-> ctx
-        (update :counter inc)
-        (track result))))
-
 (defmethod dispatch :bind-policy
   [{:keys [bank banks] :as ctx} {[model-bank policy-data] :args}]
   (let [bank-real-id (get-in banks [model-bank :real-id])
@@ -814,6 +806,22 @@
                      :target {:kind {:bank {:bank-id bank-real-id}}}
                      :reason "scenario-bound test policy"})))]
     (track ctx result)))
+
+;; Closes a bank's own ledger account, which no route or command does, so
+;; a scenario can meet a closed control on a production path.
+(defmethod dispatch :close-ledger-account
+  [{:keys [bank banks] :as ctx} {[model-bank gl-account-code] :args}]
+  (let [{bank-real-id :real-id} (get banks model-bank)
+        result (error/let-nom> [account (gl-account-for bank
+                                                        bank-real-id
+                                                        gl-account-code
+                                                        "GBP")]
+                 (ledger-accounts/close-account bank
+                                                bank-real-id
+                                                (:ledger-account-id account)))]
+    (-> ctx
+        (update :counter inc)
+        (track result))))
 
 (defmethod dispatch :internal-transfer
   [{:keys [bank counter id-mapping run-id banks accounts] :as ctx}
@@ -868,15 +876,8 @@
         model-bank (get-in accounts [model-acct :bank])
         bank-real-id (get-in banks [model-bank :real-id])
         model-pmt (model-id-for-next-payment next-payment-id)
-        creditor-pre-net
-        (when creditor-real-id
-          (let [b (balances-query/get-balance bank
-                                              bank-real-id
-                                              creditor-real-id
-                                              :balance-type-default
-                                              "GBP"
-                                              :balance-status-posted)]
-            (when-not (error/anomaly? b) (- (:credit b 0) (:debit b 0)))))
+        creditor-pre-net (when creditor-real-id
+                           (posted-net bank bank-real-id creditor-real-id))
         result (payment/submit-outbound
                 bank
                 {:idempotency-key (str "scen-pay-" run-id "-" counter)
@@ -889,31 +890,24 @@
                  :creditor-bban creditor-bban
                  :creditor-name creditor-name})
         real-pmt-id (:payment-id result)
-        ;; The provider settles asynchronously; the bank-payment
-        ;; event-processor on schemes-payments-event fires both
-        ;; settle-outbound (Debit → flip OutboundPayment to
-        ;; :completed) and settle-inbound (Credit → credit the
-        ;; creditor when its BBAN matches an internal account).
-        ;; The model auto-completes on :outbound-payment, so the
-        ;; subsequent model-eq check needs reality at the same
-        ;; state. Poll the OutboundPayment for :completed (Debit
-        ;; hop) — and for the 3-arg form, also poll the creditor's
-        ;; balance to reach pre + amount (Credit hop, fired as a
-        ;; separate transaction-settled webhook).
-        _ (when real-pmt-id
-            (quiescence/wait-for-outbound-completed bank real-pmt-id))
-        _ (when (and real-pmt-id creditor-real-id creditor-pre-net)
-            (quiescence/wait-for-credit bank
-                                        bank-real-id
-                                        creditor-real-id
-                                        "GBP"
-                                        (+ creditor-pre-net amount)))]
+        ;; The model completes the payment at once, so the step waits for
+        ;; the provider's debit to complete it and, paying a known
+        ;; account, for its credit to land there too.
+        completed (when real-pmt-id (await-outbound-completed ctx real-pmt-id))
+        credited (when (and real-pmt-id
+                            creditor-real-id
+                            creditor-pre-net
+                            (not (error/anomaly? completed)))
+                   (await-credit ctx
+                                 bank-real-id
+                                 creditor-real-id
+                                 (+ creditor-pre-net amount)))]
     (-> ctx
         (cond-> real-pmt-id
                 (assoc-in [:payments model-pmt] {:real-id real-pmt-id}))
         (cond-> real-pmt-id (update :next-payment-id inc))
         (update :counter inc)
-        (track result))))
+        (track (first-timed-out result completed credited)))))
 
 (defn- submit-external-outbound
   [{:keys [bank counter id-mapping banks accounts run-id]} model-acct amount
@@ -942,7 +936,7 @@
                 (update :next-payment-id inc)))))
 
 (defmethod dispatch :outbound-payment-redelivered
-  [{:keys [bank] :as ctx} {[model-acct amount] :args}]
+  [ctx {[model-acct amount] :args}]
   (let [first-result
         (submit-external-outbound ctx model-acct amount external-creditor-bban)
         result (if (error/anomaly? first-result)
@@ -951,12 +945,12 @@
                                            model-acct
                                            amount
                                            external-creditor-bban))
-        _ (when-let [payment-id (:payment-id result)]
-            (quiescence/wait-for-outbound-completed bank payment-id))]
+        completed (when-let [payment-id (:payment-id result)]
+                    (await-outbound-completed ctx payment-id))]
     (-> ctx
         (record-payment result)
         (update :counter inc)
-        (track result))))
+        (track (first-timed-out result completed)))))
 
 (defmethod dispatch :outbound-payment-pending
   [ctx {[model-acct amount] :args}]
@@ -981,10 +975,6 @@
         (update :counter inc)
         (track result))))
 
-(def ^:private return-deadline-ms
-  "How long a return the simulator sends has to reach the payment."
-  10000)
-
 (defmethod dispatch :return-outbound-payment
   [{:keys [bank payments] :as ctx} {[model-pmt] :args}]
   (let [real-pmt-id (get-in payments [model-pmt :real-id])
@@ -994,21 +984,17 @@
                            :headers {"Content-Type" "application/json"}
                            :body (json/write-str {:end-to-end-id real-pmt-id
                                                   :reason-code "AC04"})})
-        returned (quiescence/wait-until
+        result (if (and (not (error/anomaly? res)) (= 202 (:status res)))
+                 (await/value
+                  ctx
+                  (str "outbound payment " real-pmt-id " to be returned")
                   (fn [] (payment-query/get-outbound-payment bank real-pmt-id))
                   (fn [p]
-                    (= :outbound-payment-status-returned (:payment-status p)))
-                  return-deadline-ms)
-        result (if (and (not (error/anomaly? res))
-                        (= 202 (:status res))
-                        (= :outbound-payment-status-returned
-                           (:payment-status returned)))
-                 returned
+                    (= :outbound-payment-status-returned (:payment-status p))))
                  (error/fail :scenario/return-outbound
-                             {:message "The scheme's return did not land"
+                             {:message "The simulator refused the return"
                               :payment-id real-pmt-id
-                              :status (:status res)
-                              :payment-status (:payment-status returned)}))]
+                              :status (:status res)}))]
     (-> ctx
         (update :counter inc)
         (track result))))
@@ -1030,11 +1016,6 @@
         (update :counter inc)
         (track result))))
 
-(defmethod dispatch :wait
-  [ctx {[duration-ms] :args}]
-  (Thread/sleep ^long duration-ms)
-  (update ctx :counter inc))
-
 (defmethod dispatch :settle-inbound-event
   [{:keys [bank accounts] :as ctx} {[model-acct amount stx-id] :args}]
   (let [bban (get-in accounts [model-acct :bban])
@@ -1055,7 +1036,7 @@
         (update :counter inc)
         (track result))))
 
-(defmethod dispatch :settle-outbound-payment
+(defmethod dispatch :settle-outbound-event
   [{:keys [bank counter payments run-id] :as ctx} {[model-pmt] :args}]
   (let [real-pmt-id (get-in payments [model-pmt :real-id])
         result (payment/settle-outbound
@@ -1091,7 +1072,7 @@
         (update :counter inc)
         (track result))))
 
-(defmethod dispatch :apply-fee
+(defmethod dispatch :fixture/apply-fee
   [{:keys [bank counter id-mapping banks accounts run-id] :as ctx}
    {[model-id amount] :args}]
   ;; Scenario fee: DEBIT customer.default, CREDIT 1100.default
@@ -1155,149 +1136,29 @@
         (update :counter inc)
         (track result))))
 
-(defmethod dispatch :get-product
-  [{:keys [bank banks products] :as ctx} {[model-bank product-ref] :args}]
-  (let [bank-real-id (get-in banks [model-bank :real-id])
-        product-id (resolve-product-id products product-ref)
-        result (products-query/get-product bank bank-real-id product-id)]
-    (-> ctx
-        (update :counter inc)
-        (track result))))
-
-(defmethod dispatch :get-product-version
-  [{:keys [bank banks products] :as ctx}
-   {[model-bank product-ref version-id] :args}]
-  (let [bank-real-id (get-in banks [model-bank :real-id])
-        product-id (resolve-product-id products product-ref)
-        result
-        (products-query/get-version bank bank-real-id product-id version-id)]
-    (-> ctx
-        (update :counter inc)
-        (track result))))
-
-(defn- resolve-real-id
-  [side-table key-or-literal]
-  (if (keyword? key-or-literal)
-    (get-in side-table [key-or-literal :real-id])
-    key-or-literal))
-
-(defmethod dispatch :get-account
-  [{:keys [bank banks id-mapping] :as ctx} {[model-bank account-ref] :args}]
-  (let [bank-real-id (get-in banks [model-bank :real-id])
-        account-id (if (keyword? account-ref)
-                     (get-in id-mapping [:model->real account-ref])
-                     account-ref)
-        result (cash-accounts-query/get-account bank bank-real-id account-id)]
-    (-> ctx
-        (update :counter inc)
-        (track result))))
-
-(defmethod dispatch :get-party
-  [{:keys [bank banks parties] :as ctx} {[model-bank party-ref] :args}]
-  (let [bank-real-id (get-in banks [model-bank :real-id])
-        party-id (resolve-real-id parties party-ref)
-        result (party-query/get-party bank bank-real-id party-id)]
-    (-> ctx
-        (update :counter inc)
-        (track result))))
-
-(defmethod dispatch :get-bank
-  [{:keys [bank banks] :as ctx} {[bank-ref] :args}]
-  (let [bank-id (resolve-real-id banks bank-ref)
-        result (banks-query/get-bank bank bank-id)]
-    (-> ctx
-        (update :counter inc)
-        (track result))))
-
-(defmethod dispatch :get-idv
-  [{:keys [bank banks] :as ctx} {[model-bank verification-id] :args}]
-  (let [bank-real-id (get-in banks [model-bank :real-id])
-        result (idv/get-idv bank bank-real-id verification-id)]
-    (-> ctx
-        (update :counter inc)
-        (track result))))
-
-(defmethod dispatch :get-payee-check
-  [{:keys [bank banks] :as ctx} {[model-bank check-id] :args}]
-  (let [bank-real-id (get-in banks [model-bank :real-id])
-        result (payee-check/get-check bank bank-real-id check-id)]
-    (-> ctx
-        (update :counter inc)
-        (track result))))
-
-(defmethod dispatch :get-policy
-  [{:keys [bank] :as ctx} {[policy-id] :args}]
-  (let [result (policy/get-policy bank policy-id)]
-    (-> ctx
-        (update :counter inc)
-        (track result))))
-
-(defmethod dispatch :get-policy-binding
-  [{:keys [bank] :as ctx} {[binding-id] :args}]
-  (let [result (policy/get-binding bank binding-id)]
-    (-> ctx
-        (update :counter inc)
-        (track result))))
-
-(defmethod dispatch :get-balance
-  [{:keys [bank banks accounts id-mapping] :as ctx}
-   {[account-ref balance-type currency balance-status] :args}]
-  (let [account-id (if (keyword? account-ref)
-                     (get-in id-mapping [:model->real account-ref])
-                     account-ref)
-        model-bank (get-in accounts [account-ref :bank])
-        bank-real-id (or (get-in banks [model-bank :real-id])
-                         ;; A scenario naming a raw account id, or an
-                         ;; account seeded by :create-bank, has no
-                         ;; entry to look through — every scenario runs
-                         ;; one bank, so that is the one it means.
-                         (:real-id (first (vals banks))))
-        result (balances-query/get-balance bank
-                                           bank-real-id
-                                           account-id
-                                           balance-type
-                                           currency
-                                           balance-status)]
-    (-> ctx
-        (update :counter inc)
-        (track result))))
-
 (defmethod dispatch :update-product-draft
-  [{:keys [bank banks products] :as ctx} {args :args}]
-  (case (count args)
-    ;; Model-driven: rewrite the tracked latest version of `model-prod`.
-    2 (let [[model-prod data] args
-            product (get products model-prod)
-            {model-bank :bank :keys [real-id]} product
-            {version-real-id :real-id :keys [number]} (latest-version product)
-            bank-real-id (get-in banks [model-bank :real-id])
-            result (products/update-draft
-                    bank
-                    bank-real-id
-                    real-id
-                    version-real-id
-                    (version-payload (str "Updated Version " number) data))]
-        (-> ctx
-            (cond-> (not (error/anomaly? result))
-                    (update-latest-version
-                     model-prod
-                     (fn [v]
-                       (assoc v
-                              :effective-from (:effective-from result)
-                              :effective-to (:effective-to result)))))
-            (update :counter inc)
-            (track result)))
-    (let [[model-bank product-ref version-id data] args
-          bank-real-id (get-in banks [model-bank :real-id])
-          product-id (resolve-product-id products product-ref)
-          result (products/update-draft bank
-                                        bank-real-id
-                                        product-id
-                                        version-id
-                                        (or data {}))]
-      (-> ctx
-          (update :counter inc)
-          (track result)))))
+  [{:keys [bank banks products] :as ctx} {[model-prod data] :args}]
+  (let [product (get products model-prod)
+        {model-bank :bank :keys [real-id]} product
+        {version-real-id :real-id :keys [number]} (latest-version product)
+        bank-real-id (get-in banks [model-bank :real-id])
+        result (products/update-draft
+                bank
+                bank-real-id
+                real-id
+                version-real-id
+                (version-payload (str "Updated Version " number) data))]
+    (-> ctx
+        (cond-> (not (error/anomaly? result))
+                (update-latest-version model-prod
+                                       (fn [v]
+                                         (assoc v
+                                                :effective-from
+                                                (:effective-from result)
+                                                :effective-to
+                                                (:effective-to result)))))
+        (update :counter inc)
+        (track result))))
 
 (defmethod dispatch :assert-balance
   [{:keys [bank banks accounts id-mapping] :as ctx} {[model-id expected] :args}]
@@ -1310,7 +1171,7 @@
     (is (= expected actual) (str "balance for " model-id))
     ctx))
 
-(defmethod dispatch :fund-house
+(defmethod dispatch :fixture/fund-house
   [{:keys [bank banks run-id counter] :as ctx} {[model-bank amount] :args}]
   ;; The bank's own money arriving from outside the scheme, as the
   ;; sandbox's simulated inbound posts it: 1100 up and the house account
@@ -1343,11 +1204,6 @@
     (-> ctx
         (update :counter inc)
         (track result))))
-
-(def ^:private provider-deadline-ms
-  "How long the provider has to catch the ledger up: each posting relays,
-  mirrors and reaches the simulator through the adapter's runner."
-  20000)
 
 (defn- simulated-balances
   "Each provider account the simulator holds, by id, in minor units."
@@ -1417,9 +1273,8 @@
 
 (defmethod dispatch :assert-provider-balances
   [ctx {[model-bank] :args}]
-  (let [check (quiescence/wait-until (fn [] (provider-check ctx model-bank))
-                                     agrees?
-                                     provider-deadline-ms)]
+  (let [{check :value}
+        (await/until ctx (fn [] (provider-check ctx model-bank)) agrees?)]
     (doseq [[account-id [provider ledger]] (:accounts check)]
       (is (= ledger provider) (str "provider balance of " account-id)))
     (is (apply = (:bank check))
@@ -1441,11 +1296,6 @@
     (is (= expected actual)
         (str "GL " (name gl-account-code) " balance for " model-bank))
     ctx))
-
-(def ^:private observed-deadline-ms
-  "How long an assertion waits for a Kafka observer, whose consumer polls
-  every 500 ms, to see what it expects."
-  10000)
 
 (defn- decode-message
   "Decode `bytes` as an envelope under `envelope-schemas`' `envelope-name`,
@@ -1477,10 +1327,10 @@
 (defmethod dispatch :assert-scheme-commands
   [{:keys [scheme-commands payments] :as ctx} {[model-pmt expected] :args}]
   (let [payment-id (get-in payments [model-pmt :real-id])
-        actual (quiescence/wait-for-count
-                (fn [] (scheme-command-count ctx payment-id))
-                expected
-                observed-deadline-ms)]
+        {actual :value} (await/until ctx
+                                     (fn []
+                                       (scheme-command-count ctx payment-id))
+                                     (fn [n] (>= n expected)))]
     (is (some? scheme-commands) "the runner has no scheme command observer")
     (is (= expected actual) (str "submit-payment commands for " model-pmt))
     ctx))
@@ -1501,15 +1351,15 @@
 (defmethod dispatch :assert-intents
   [{:keys [bank payments] :as ctx} {[model-pmt expected] :args}]
   (let [payment-id (get-in payments [model-pmt :real-id])
-        actual (quiescence/wait-for-count (fn [] (intent-count bank payment-id))
-                                          expected
-                                          observed-deadline-ms)]
+        {actual :value} (await/until
+                         ctx
+                         (fn [] (intent-count bank payment-id))
+                         (fn [n] (or (error/anomaly? n) (>= n expected))))]
     (is (= expected actual) (str "outbound intents for " model-pmt))
     ctx))
 
 (defmethod dispatch :assert-dead-lettered
-  [{:keys [bank dead-letters envelope-schemas] :as ctx}
-   {[e2e-ref timeout-ms] :args}]
+  [{:keys [bank dead-letters envelope-schemas] :as ctx} {[e2e-ref] :args}]
   (let [e2e (end-to-end-id ctx e2e-ref)
         dead-lettered (fn []
                         (->> (observer/records dead-letters)
@@ -1521,14 +1371,11 @@
                                                     bytes)))
                              (filter (fn [data] (= e2e (:end-to-end-id data))))
                              count))
-        actual (quiescence/wait-for-count dead-lettered 1 timeout-ms)]
+        {actual :value} (await/until ctx dead-lettered pos?)]
     (is (some? dead-letters) "the runner has no dead-letter observer")
-    (is (and (number? actual) (pos? actual))
-        (str "no event for end-to-end id "
-             e2e
-             " reached the dead-letter topic within "
-             timeout-ms
-             "ms"))
+    (is
+     (and (number? actual) (pos? actual))
+     (str "no event for end-to-end id " e2e " reached the dead-letter topic"))
     ctx))
 
 (def ^:private inbound-payment-statuses
@@ -1685,60 +1532,3 @@
   (is (every? (fn [o] (= :succeeded o)) outcomes)
       (str "expected no anomalies; outcomes were " outcomes))
   ctx)
-
-(defmethod dispatch :create-migration
-  [{:keys [bank banks products counter] :as ctx}
-   {[model-bank model-source model-target] :args}]
-  (let [{bank-real-id :real-id} (get banks model-bank)
-        source (get products model-source)
-        target (get products model-target)
-        {target-version-id :real-id} (latest-version target)
-        result (migrations/create-migration
-                bank
-                {:bank-id bank-real-id
-                 :name (str "Migration " counter)
-                 :source-product-id (:real-id source)
-                 :target-product-id (:real-id target)
-                 :target-version-id target-version-id})]
-    (-> ctx
-        (cond-> (not (error/anomaly? result))
-                (assoc-in [:migrations model-source]
-                 {:real-id (:migration-id result)
-                  :bank model-bank}))
-        (update :counter inc)
-        (track result))))
-
-(defmethod dispatch :preview-migration
-  [{:keys [bank banks migrations] :as ctx} {[model-bank model-source] :args}]
-  (let [{bank-real-id :real-id} (get banks model-bank)
-        {migration-real-id :real-id} (get migrations model-source)
-        result (migrations/preview-migration bank
-                                             bank-real-id
-                                             migration-real-id
-                                             (utility/today))]
-    (-> ctx
-        (cond-> (not (error/anomaly? result))
-                (assoc :last-preview result))
-        (track result))))
-
-(defmethod dispatch :assert-migration-preview
-  [{:keys [last-preview] :as ctx} {[expected] :args}]
-  (is (= expected (select-keys last-preview (keys expected)))
-      (str "migration preview — expected " expected))
-  ctx)
-
-;; Counts the preview's per-account verdicts by outcome, falling back to
-;; the ineligibility reason where there is one, so a scenario can assert
-;; why accounts were left rather than only how many.
-(defmethod dispatch :assert-migration-verdicts
-  [{:keys [bank banks last-preview] :as ctx} {[model-bank expected] :args}]
-  (let [{bank-real-id :real-id} (get banks model-bank)
-        {rows :account-runs}
-        (migrations/list-run-accounts bank bank-real-id (:run-id last-preview))
-        ;; An ineligible verdict is counted by its reason, which is
-        ;; the useful grouping; anything else by its outcome.
-        actual (frequencies (map (fn [r] (or (:ineligibility r) (:outcome r)))
-                                 rows))]
-    (is (= expected (select-keys actual (keys expected)))
-        (str "migration verdicts for " model-bank " — expected " expected))
-    ctx))

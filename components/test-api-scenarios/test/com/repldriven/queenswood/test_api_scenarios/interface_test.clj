@@ -19,21 +19,14 @@
      clearbank-adapter]
     [com.repldriven.queenswood.clearbank-simulator.interface :as
      clearbank-simulator]
-    ;; The closed-control deftest sets up a state no route reaches. This
-    ;; brick belongs to the development project alone, and the namespace
-    ;; already loads api.api, which requires both of these.
-    ;; enforce-idioms: brick-test-scope -- see above.
     [com.repldriven.queenswood.form3-adapter.interface :as form3-adapter]
     [com.repldriven.queenswood.form3-simulator.interface :as form3-simulator]
-    [com.repldriven.queenswood.ledger-account.interface :as ledger-accounts]
     [com.repldriven.queenswood.modulr-adapter.interface :as modulr-adapter]
     [com.repldriven.queenswood.modulr-simulator.interface :as
      modulr-simulator]
     [com.repldriven.queenswood.onfido-adapter.interface :as onfido-adapter]
     [com.repldriven.queenswood.onfido-simulator.interface :as
      onfido-simulator]
-    ;; enforce-idioms: brick-test-scope -- see the note above.
-    [com.repldriven.queenswood.policy.interface :as policy]
     [com.repldriven.queenswood.uk-companies-house-simulator.interface :as
      ukch-simulator]
     [com.repldriven.queenswood.zyphe-adapter.interface :as zyphe-adapter]
@@ -47,8 +40,7 @@
     [com.repldriven.mono.server.interface :as server]
     [com.repldriven.mono.system.interface :as system]
     [com.repldriven.mono.test-telemetry.interface :as test-telemetry]
-    [com.repldriven.mono.test-system.interface :refer
-     [with-test-system nom-test>]]
+    [com.repldriven.mono.test-system.interface :refer [with-test-system]]
 
     [clojure.java.io :as io]
     [clojure.string :as str]
@@ -170,83 +162,6 @@
         (.write w ^String (json/write-str (span->map s)))
         (.write w "\n")))
     (log/info "api scenario spans written" {:path path :count (count spans)})))
-
-(defn- fdb-config
-  "The booted system's own FDB handles, as the `txn-or-config` map a
-  brick interface takes. Lets a test reach a transition no route
-  exposes against the same records the API is serving."
-  [sys]
-  {:record-db (system/instance sys [:fdb :record-db])
-   :record-store (system/instance sys [:fdb :store])})
-
-(defn- post-json
-  "POST `body` as JSON to `path` on the booted API, bearing `token`,
-  `idempotency-key` and, when given, the `Bank-Id` header naming
-  `bank-id`, and return `{:status :body}`."
-  [base-url token idempotency-key bank-id path body]
-  (let [res (http/request {:method :post
-                           :url (str base-url path)
-                           :headers (cond-> {"content-type" "application/json"
-                                             "authorization" (str "Bearer "
-                                                                  token)
-                                             "idempotency-key" idempotency-key}
-                                            bank-id
-                                            (assoc "bank-id" bank-id))
-                           :body (json/write-str body)})]
-    {:status (:status res) :body (http/res->edn res)}))
-
-(deftest closed-control-refuses-a-posting-test
-  ;; The 409 half of the closed-control rule. No route or command
-  ;; closes a ledger account, so an EDN scenario cannot set the state
-  ;; up: the close runs through the brick's interface against the
-  ;; booted system's own FDB config, and the posting that meets it
-  ;; goes over HTTP. Closing is gated on the `:ledger-account` close
-  ;; capability, which the micro tier denies and the platform tier
-  ;; grants, so the platform policies are passed explicitly the way
-  ;; bank bootstrap passes them to `new-account`.
-  (with-test-system
-   [sys
-    ["classpath:test-api-scenarios/application-test.yml"
-     patch-handlers]]
-   (let [jetty (system/instance sys [:server :jetty-adapter])
-         base-url (server/http-local-url jetty)
-         admin-token (mint-admin-token base-url)
-         config (fdb-config sys)
-         created (post-json base-url
-                            admin-token
-                            "ik-closed-control-bank-001" nil
-                            "/v1/banks" {:name "Closed Control Bank"
-                                         :status "test"
-                                         :tier "micro"
-                                         :currencies ["GBP"]})
-         bank-id (get-in created [:body :bank-id])]
-     (is (= 201 (:status created)) (pr-str (:body created)))
-     (nom-test> [policies (policy/get-effective-policies config {})
-                 own-funds (ledger-accounts/find-by-code
-                            config
-                            bank-id
-                            :gl-account-code-own-funds
-                            "GBP")
-                 closed (ledger-accounts/close-account config
-                                                       bank-id
-                                                       (:ledger-account-id
-                                                        own-funds)
-                                                       {:policies policies})
-                 _ (is (= :ledger-account-status-closed (:status closed)))
-                 ;; The money lands on the house account, an own-funds
-                 ;; product, so its credit leg fans out to the 3100 control
-                 ;; just closed. The customer leg is never recorded without
-                 ;; its mirror, so the posting fails outright rather than
-                 ;; landing single-sided.
-                 _ (let [refused (post-json base-url
-                                            admin-token
-                                            "ik-closed-control-inbound-001"
-                                            bank-id
-                                            "/v1/simulate/inbound-transfer"
-                                            {:amount 250000 :currency "GBP"})]
-                     (is (= 409 (:status refused)) (pr-str (:body refused)))
-                     (is (= ":ledger-account/closed"
-                            (get-in refused [:body :type]))))]))))
 
 (defn- payment-missing
   "What a payment provider cannot run, read off its declaration: telling

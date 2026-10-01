@@ -17,7 +17,9 @@ We use three tiers of test, each with one job:
 - **A domain scenario**, in `test-scenarios`, for the bank's rules over
   sequences of commands, driven through component interfaces. Fugato
   property tests and hand-authored EDN scenarios share its runner, which
-  owns the model-equality property test.
+  owns the model-equality property test. An EDN scenario is compared with
+  the model after every step, or marked `:model :reality` when it names
+  a verb the model has no rule for.
 - **An API scenario**, in `test-api-scenarios`, for the HTTP contract and
   the PRDs' user journeys, driven through real `api` requests.
 
@@ -147,6 +149,10 @@ the component runs its tests.
   scenario.
 - Use a scenario for anything that crosses a brick boundary or drives
   the command pipeline.
+- Mark a domain scenario `:model :reality` when it names a `:reality`
+  verb; every other one is compared with the model after every step.
+- Put a scenario's state-changing steps in `:given` and `:when`, and only
+  reads and assertions in `:then`.
 - Pin the HTTP contract as an EDN scenario in `test-api-scenarios`,
   never in a brick's `interface_test.clj`.
 - Run `just test` as the default, the changed bricks in the development

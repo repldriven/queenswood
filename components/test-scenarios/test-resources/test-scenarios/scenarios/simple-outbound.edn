@@ -1,7 +1,0 @@
-{:name "Simple outbound — debit moves balance down"
- :tags #{:outbound :transfers}
- :given [{:command :create-bank :args []}
-         {:command :inbound-transfer :args [:acct-0 1000]}]
- :when [{:command :outbound-transfer :args [:acct-0 300]}]
- :then [{:command :assert-no-anomaly :args []}
-        {:command :assert-balance :args [:acct-0 700]}]}

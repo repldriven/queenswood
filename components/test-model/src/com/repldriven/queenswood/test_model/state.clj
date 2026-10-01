@@ -49,12 +49,6 @@
   [state]
   (keyword (str "in-" (:next-inbound-id state))))
 
-(defn pending-payments
-  [state]
-  (vec (for [[pmt-id p] (:payments state)
-             :when (= :pending (:status p))]
-         pmt-id)))
-
 (defn next-ni-id
   [state]
   (keyword (str "ni-" (:next-ni-id state))))
@@ -98,12 +92,6 @@
              :let [latest (latest-version state prod-id)]
              :when (and latest (not= :draft (:status latest)))]
          prod-id)))
-
-(defn pending-parties
-  [state]
-  (vec (for [[party-id p] (:parties state)
-             :when (= :pending (:status p))]
-         party-id)))
 
 (defn balance
   [state acct]

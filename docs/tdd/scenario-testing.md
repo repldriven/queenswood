@@ -2,11 +2,11 @@
 
 > **Status: proposal.** Both scenario bricks, the model, the projections,
 > the standing invariants and the brick-test scope check exist, and
-> Background describes them as they were before slice 1. Slices 1 to 3
+> Background describes them as they were before slice 1. Slices 1 to 4
 > are built: the API runner's building blocks, the API corpus on them,
-> and the brick tests narrowed to their tier. Proposed Solution is the
-> design the tests move to, and its build list. "Five slices" gives the
-> order.
+> the brick tests narrowed to their tier, and the domain runner. Proposed
+> Solution is the design the tests move to, and its build list. "Five
+> slices" gives the order.
 
 ## Objective
 
@@ -296,30 +296,38 @@ Bases:
 
 ### The domain runner
 
-**Verb kinds.** Every verb in `verbs.clj` is declared with one kind in a
-`verb-kinds` map in `scenario.clj`, which replaces `assertion-verbs`:
+**Verb kinds.** Every verb in `verbs.clj` is declared with one kind and
+a closed argument schema in a `verbs` map in `scenario.clj`, which
+replaces `assertion-verbs`:
 
 - `:model`: a command the model has a spec of the same name for.
+  `:open-account` gains a spec fugato never generates.
 - `:fixture`: a write beneath the domain that sets up a state the domain
   then reacts to, and that the model mirrors. `:apply-fee` and
-  `:fund-house` become `:fixture/apply-fee` and `:fixture/fund-house`.
+  `:fund-house` become `:fixture/apply-fee` and `:fixture/fund-house`,
+  the house account `:fixture/fund-house` credits being one the model
+  does not hold.
 - `:reality`: a production path the model has no rule for.
 - `:read` and `:assert`: change no state, and never stop a comparison.
 
 `:outbound-transfer` is retired in favour of `:outbound-payment`, which
-goes through production. `:activate-party` and `:settle-outbound-payment`
-are removed from the model and the runner.
+goes through production. `:activate-party` is removed from the model and
+the runner. `:settle-outbound-payment` is removed from the model, and its
+runner verb becomes `:settle-outbound-event`, a reality verb beside
+`:settle-inbound-event`: a settlement after a rejection and a redelivered
+settlement are reality-only cases the corpus keeps. The read verbs and
+the migration verbs go with the files that used them, and `:wait` goes.
 
 **Compared or reality-only.** A scenario carries `:model :compared`, the
 default, or `:model :reality`. A compared scenario naming a `:reality`
 verb is refused at load with `:test-scenarios/scenario`, naming the verb
 and the file. A compared scenario is compared after every step from first
-to last.
+to last, and stops at the first divergence.
 
-**Shape.** `:given` holds `:model` and `:fixture` steps, `:when` the steps
+**Shape.** `:given` holds the steps that change state, `:when` the steps
 under test, and `:then` only `:read` and `:assert` steps. Each verb's
-arguments have a closed Malli schema in `scenario.clj`, and the whole
-corpus is validated before the first scenario runs.
+arguments have a closed Malli schema, and `corpus_test.clj` validates the
+whole corpus with no system booted.
 
 **Divergence.** `divergence.clj` walks a failing sequence one step at a
 time, projecting after each, and returns the first step where the model
@@ -333,23 +341,33 @@ shrinks it; the EDN runner asserts the same data with `is`.
 
 **Waiting.** `quiescence.clj` goes. A verb that submits through the
 pipeline waits for the record it wrote through `await.clj`, one helper
-with one timeout. A timeout is recorded as `:timed-out` and fails the
-scenario as a runner error, never as a rejection the model would accept.
+with one timeout, `:await-timeout-ms` on the runner context. A timeout is
+recorded as `:timed-out` and fails the scenario as a runner error, never
+as a rejection the model would accept. `:close-account` waits for no
+provider: the close records `closing` before it returns, which the
+projection reads as closed, and a provider refusing the close leaves it
+there.
 
-**The model and projections.** `:create-bank` takes a low `:freq`.
-`test-projections` gains `project-interest`, comparing each account's
-accrued interest and carry with the model's.
+**The model and projections.** `:create-bank` takes a `:freq` a quarter
+of every other command's. `test-projections` gains `project-interest`,
+comparing each account's accrued interest and carry with the model's,
+and the inbound payments are projected from the scheme transaction ids
+the runner records, so EDN scenarios compare them too.
 
 **The corpus.** EDN files move into the API corpus's capability
-directories. Tags go. Files repeating an API scenario go: the full happy
-path, held release and return, outbound return, admission, migration
-commit, the forced job run, the product-count cap and the not-found
-kinds. Reality-only files the API cannot reach stay: the dead-lettered
+directories, with `interest/` for the interest runs. Tags go. Files
+repeating an API scenario go: the full happy path, held release and
+return, outbound return, the admitted inbound, migration commit, the
+forced job run and the not-found kinds. The admission refusals stay,
+since the API scenario refuses for one reason and this file for three.
+Reality-only files the API cannot reach stay: the dead-lettered
 settlement, a provider event delivered twice, provider balance
 mirroring, a redelivered submit, and the intent and scheme-command
 assertions. `closed-control-refuses-a-posting-test` moves here from the
-API test namespace as a reality-only scenario, on a new
-`:close-ledger-account` verb.
+API test namespace as a reality-only scenario on a new
+`:close-ledger-account` verb, closing the current-account deposits
+control and meeting it with an inbound, and the ledger close with a
+balance becomes a second.
 
 ### API scenario fixtures
 

@@ -20,17 +20,12 @@
   [model-state]
   (update-vals (:payments model-state) :status))
 
-(defn- inbound-stx-id
-  [run-id marker]
-  (str "scen-in-" run-id "-" (name marker)))
-
 (defn project-inbound-payments
-  [bank run-id markers]
-  (->> markers
-       (filter (fn [marker]
-                 (some? (payment/get-inbound-payment
-                         bank
-                         (inbound-stx-id run-id marker)))))
+  [bank stx-ids]
+  (->> stx-ids
+       (filter (fn [[_marker stx-id]]
+                 (some? (payment/get-inbound-payment bank stx-id))))
+       (map key)
        set))
 
 (defn project-model-inbound-payments

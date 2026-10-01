@@ -1,6 +1,0 @@
-{:name "Simple inbound — credit moves balance up"
- :tags #{:inbound :transfers}
- :given [{:command :create-bank :args []}]
- :when [{:command :inbound-transfer :args [:acct-0 1000]}]
- :then [{:command :assert-no-anomaly :args []}
-        {:command :assert-balance :args [:acct-0 1000]}]}

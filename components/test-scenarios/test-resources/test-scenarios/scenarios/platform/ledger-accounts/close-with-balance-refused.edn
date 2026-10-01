@@ -1,0 +1,13 @@
+{:name "A ledger account holding a balance is refused a close"
+ :model :reality
+ ;; An inbound to acct-0 leaves the current-account deposits control
+ ;; holding it, so closing that control is refused and it stays open:
+ ;; the inbound that follows lands.
+ :given [{:command :create-bank :args []}
+         {:command :inbound-transfer :args [:acct-0 1000]}]
+ :when [{:command :close-ledger-account
+         :args [:bank-0 :gl-account-code-customer-deposits-current]}
+        {:command :assert-rejection-kind :args [:gl/non-zero-on-close]}
+        {:command :inbound-transfer :args [:acct-0 500]}]
+ :then [{:command :assert-outcome :args [:succeeded]}
+        {:command :assert-balance :args [:acct-0 1500]}]}

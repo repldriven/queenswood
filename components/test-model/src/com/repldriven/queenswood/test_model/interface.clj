@@ -12,35 +12,38 @@
     [com.repldriven.queenswood.test-model.state :as state]
     [com.repldriven.queenswood.test-model.transfers :as transfers]))
 
+(def ^:private default-freq
+  "How often fugato picks a command beside `:create-bank`, which carries
+  its own `:freq` of 1 since it is the costliest to run."
+  4)
+
 (def
   ^{:doc
-    "Fugato-shape model: a map keyed by command keyword.
-  Each entry carries `:run?`, `:args`, `:next-state`, and (where
-  helpful) `:valid?`. `:open-account` (open an end-customer
-  account) is intentionally absent — its preconditions (active
-  person party + published tenant product) are heavy for the
-  marginal coverage on top of the settlement account that ships
-  with `:create-bank`. EDN scenarios still drive `:open-account`
-  explicitly when they need a second account."}
+    "Fugato-shape model: a map keyed by command keyword. Each entry
+  carries `:next-state`, and where it is generated `:run?`, `:args`,
+  `:freq` and `:valid?`. `:open-account` and `:fixture/fund-house`
+  are never generated; EDN scenarios drive them. A `:fixture/`
+  command is a write beneath the domain that sets up a state the
+  domain then reacts to."}
   model
-  {:create-bank balances/create-bank
-   :create-customer balances/create-customer
-   :close-account balances/close-account
-   :create-product products/create-product
-   :publish-product products/publish-product
-   :open-draft products/open-draft
-   :discard-draft products/discard-draft
-   :update-product-draft products/update-product-draft
-   :create-person-party parties/create-person-party
-   :activate-party parties/activate-party
-   :inbound-transfer transfers/inbound-transfer
-   :outbound-transfer transfers/outbound-transfer
-   :outbound-payment transfers/outbound-payment
-   :settle-outbound-payment transfers/settle-outbound-payment
-   :internal-transfer transfers/internal-transfer
-   :apply-fee fees/apply-fee
-   :accrue-interest interest/accrue-interest
-   :capitalize-interest interest/capitalize-interest})
+  (update-vals {:create-bank balances/create-bank
+                :create-customer balances/create-customer
+                :open-account balances/open-account
+                :close-account balances/close-account
+                :create-product products/create-product
+                :publish-product products/publish-product
+                :open-draft products/open-draft
+                :discard-draft products/discard-draft
+                :update-product-draft products/update-product-draft
+                :create-person-party parties/create-person-party
+                :inbound-transfer transfers/inbound-transfer
+                :outbound-payment transfers/outbound-payment
+                :internal-transfer transfers/internal-transfer
+                :fixture/apply-fee fees/apply-fee
+                :fixture/fund-house fees/fund-house
+                :accrue-interest interest/accrue-interest
+                :capitalize-interest interest/capitalize-interest}
+               (fn [spec] (merge {:freq default-freq} spec))))
 
 (def
   ^{:doc

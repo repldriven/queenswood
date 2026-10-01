@@ -6,7 +6,8 @@
     [clojure.test.check.generators :as gen]))
 
 (def create-bank
-  {:args (fn [_state] (gen/return []))
+  {:freq 1
+   :args (fn [_state] (gen/return []))
    :next-state (fn [state _command]
                  (let [bank-id (state/next-bank-id state)
                        acct-id (state/next-id state)
@@ -114,3 +115,38 @@
             (update-in [:banks bank-id :accounts] (fnil conj []) acct-id)
             (update :next-id inc)))))
    :valid? (fn [state {[bank-id] :args}] (contains? (:banks state) bank-id))})
+
+(defn- opens-on?
+  "True when reality opens an account for `party-id` on `prod-id` in
+  `bank-id`: the party is active and the product's latest version is
+  published, both in that bank."
+  [state bank-id party-id prod-id]
+  (let [party (get-in state [:parties party-id])
+        product (get-in state [:products prod-id])]
+    (and (= bank-id (:bank party))
+         (= :active (:status party))
+         (= bank-id (:bank product))
+         (= :published (:status (peek (:versions product)))))))
+
+(def open-account
+  "Open an account for an existing party on an existing product. The
+  id is taken whether or not reality opens it, as the runner takes it.
+  Never generated: its preconditions are heavy for what it adds beyond
+  `:create-customer`, so EDN scenarios drive it."
+  {:run? (constantly false)
+   :next-state
+   (fn [state {[bank-id party-id prod-id] :args}]
+     (let [acct-id (state/next-id state)]
+       (cond->
+        (update state :next-id inc)
+
+        (opens-on? state bank-id party-id prod-id)
+        (-> (assoc-in [:accounts acct-id]
+                      {:available 0
+                       :credit-carry 0
+                       :interest-accrued 0
+                       :status :open
+                       :bank bank-id
+                       :product prod-id
+                       :party party-id})
+            (update-in [:banks bank-id :accounts] (fnil conj []) acct-id)))))})

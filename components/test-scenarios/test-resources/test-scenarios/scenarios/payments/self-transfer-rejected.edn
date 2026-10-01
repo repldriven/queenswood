@@ -1,0 +1,11 @@
+{:name "Internal transfer to the same account is rejected"
+ ;; Submitting an internal transfer with the same account as both
+ ;; debtor and creditor must be rejected at the domain layer
+ ;; (`:payment/self-transfer-not-permitted`) before any leg is
+ ;; recorded. Funded balance must stay intact.
+ :given [{:command :create-bank :args []}
+         {:command :inbound-transfer :args [:acct-0 1000]}]
+ :when [{:command :internal-transfer :args [:acct-0 :acct-0 100]}]
+ :then [{:command :assert-rejection-kind
+         :args [:payment/self-transfer-not-permitted]}
+        {:command :assert-balance :args [:acct-0 1000]}]}

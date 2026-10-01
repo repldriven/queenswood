@@ -6,7 +6,6 @@
     [com.repldriven.queenswood.ledger-account.interface :as SUT]
 
     [com.repldriven.queenswood.balance-query.interface :as balances]
-    [com.repldriven.queenswood.balance.interface :as balance-writes]
     [com.repldriven.queenswood.policy.interface :as policy]
 
     [com.repldriven.mono.error.interface :as error]
@@ -338,31 +337,6 @@
                  (SUT/get-account config bank-id (:ledger-account-id account))
                  _ (is (= :ledger-account-status-closed (:status fetched))
                        "closed status round-trips through the store")]))))
-
-(deftest close-account-non-zero-balance-test
-  (with-test-system
-   [sys "classpath:ledger-account/application-test.yml"]
-   (let [config (fdb-config sys)
-         bank-id "bnk.test-close-nonzero"
-         seeded (seed! config bank-id)
-         account (suspense-account config bank-id)
-         posted (balance-writes/apply-legs
-                 config
-                 bank-id
-                 [{:account-id (:ledger-account-id account)
-                   :balance-type :balance-type-default
-                   :balance-status :balance-status-posted
-                   :side :leg-side-debit
-                   :amount 500}]
-                 :transaction-type-fee)
-         result (SUT/close-account config bank-id (:ledger-account-id account))
-         fetched (SUT/get-account config bank-id (:ledger-account-id account))]
-     (is (not (error/anomaly? seeded)))
-     (is (not (error/anomaly? posted)))
-     (is (error/anomaly? result))
-     (is (= :gl/non-zero-on-close (error/kind result)))
-     (is (not= :ledger-account-status-closed (:status fetched))
-         "a rejected close leaves the account open"))))
 
 (deftest close-account-already-closed-test
   (with-test-system

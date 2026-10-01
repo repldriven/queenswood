@@ -1,220 +1,65 @@
 (ns com.repldriven.queenswood.test-scenarios.interface-test
   (:require
-    [com.repldriven.queenswood.test-scenarios.system]
-
     [com.repldriven.queenswood.test-scenarios.interface :as SUT]
+    [com.repldriven.queenswood.test-scenarios.rig :as rig]
 
-    [com.repldriven.queenswood.modulr-adapter.interface :as modulr-adapter]
-    [com.repldriven.queenswood.modulr-simulator.interface :as
-     modulr-simulator]
     [com.repldriven.queenswood.test-model.interface :as model]
-    [com.repldriven.queenswood.test-projections.interface :as projections]
-    [com.repldriven.queenswood.zyphe-adapter.interface :as zyphe-adapter]
-    [com.repldriven.queenswood.zyphe-simulator.interface :as zyphe-simulator]
 
+    [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.log.interface :as log]
-    [com.repldriven.mono.system.interface :as system]
-    [com.repldriven.mono.test-system.interface :refer
-     [with-test-system nom-test>]]
+    [com.repldriven.mono.test-system.interface :refer [with-test-system]]
 
-    [fugato.core :as fugato]
-
-    [clojure.java.io :as io]
     [clojure.test :refer [deftest is testing]]))
 
-(defn- patch-handlers
-  [defs]
-  (-> defs
-      (assoc-in [:system/defs :modulr-simulator-server :handler]
-                modulr-simulator/app)
-      (assoc-in [:system/defs :modulr-adapter-server :handler]
-                modulr-adapter/app)
-      (assoc-in [:system/defs :zyphe-simulator-server :handler]
-                zyphe-simulator/app)
-      (assoc-in [:system/defs :zyphe-adapter-server :handler]
-                zyphe-adapter/app)))
-
-(defn- fdb-config
-  [sys]
-  {:record-db (system/instance sys [:fdb :record-db])
-   :record-store (system/instance sys [:fdb :store])
-   ;; `payment/submit-outbound` publishes a submit-payment on the default
-   ;; provider's payment command channel when the outbound is created —
-   ;; wire the bus, schemas and providers through so it lands on the right
-   ;; topic. The payment adapter's command-processor consumes it, the
-   ;; provider settles, and bank-payment's event-processor on
-   ;; schemes-payments-event credits the inbound side.
-   :bus (system/instance sys [:message-bus :bus])
-   :schemas (system/instance sys [:avro :serde])
-   :payment-providers (system/instance sys [:payment-provider :providers])
-   :idv-providers (system/instance sys [:idv-provider :providers])
-   :zyphe-simulator-url (system/instance sys
-                                         [:zyphe-simulator-server :http-url])
-   :payment-simulator-url (system/instance sys
-                                           [:modulr-simulator-server
-                                            :http-url])})
-
-(defn- start-observers
-  [sys]
-  {:scheme-commands (SUT/start-observer
-                     (system/instance sys
-                                      [:kafka :consumers
-                                       :modulr-payment-command-observer]))
-   :dead-letters (SUT/start-observer
-                  (system/instance sys
-                                   [:kafka :consumers
-                                    :schemes-payments-event-dlq]))
-   :envelope-schemas (system/instance sys [:kafka :schemas])})
-
-(defn- stop-observers
-  [{:keys [scheme-commands dead-letters]}]
-  (SUT/stop-observer scheme-commands)
-  (SUT/stop-observer dead-letters))
-
-(defn- scenario-files
-  []
-  (->> (io/file (.getFile (io/resource "test-scenarios/scenarios")))
-       (.listFiles)
-       (filter (fn [f] (.endsWith (.getName f) ".edn")))
-       (sort-by (fn [f] (.getName f)))))
-
-(defn- enrich-with-bank-real-id
-  [model->real banks]
-  (->> model->real
-       (map (fn [[model-id {:keys [real-id bank]}]]
-              [model-id
-               {:real-id real-id
-                :bank-real-id (get-in banks [bank :real-id])}]))
-       (into {})))
-
-(defn- project-real
-  [bank ctx]
-  (let [real->model (get-in ctx [:id-mapping :real->model])]
-    {:balances (projections/project-balances
-                bank
-                (projections/real->bank (:accounts ctx)
-                                        (:banks ctx)
-                                        (get-in ctx [:id-mapping :model->real]))
-                real->model)
-     :products (projections/project-products
-                bank
-                (enrich-with-bank-real-id (:products ctx) (:banks ctx)))
-     :parties (projections/project-parties
-               bank
-               (enrich-with-bank-real-id (:parties ctx) (:banks ctx)))
-     :banks (projections/project-banks bank ctx)
-     :accounts (projections/project-accounts bank ctx)
-     :transactions (projections/project-transactions bank real->model)
-     :outbound-payments (projections/project-outbound-payments
-                         bank
-                         (:payments ctx))}))
-
-(defn- project-model
-  [model-state]
-  {:balances (projections/project-model-balances model-state)
-   :products (projections/project-model-products model-state)
-   :parties (projections/project-model-parties model-state)
-   :banks (projections/project-model-banks model-state)
-   :accounts (projections/project-model-accounts model-state)
-   :transactions (projections/project-model-transactions model-state)
-   :outbound-payments (projections/project-model-outbound-payments
-                       model-state)})
-
-(def ^:private assertion-verbs
-  #{:assert-admission :assert-balance :assert-dead-lettered
-    :assert-inbound-status :assert-intents :assert-no-anomaly
-    :assert-outbound-status :assert-outcome :assert-provider-balances
-    :assert-rejection-kind :assert-scheme-commands})
-
-(defn- run-with-model-check
-  "Folds `steps` through the runner *and* the model in lock-step.
-  After every modelled step, projects both ends and asserts they
-  agree. Assertion verbs (`:assert-*`) are neutral wrt the model.
-  Any other command not in the model flips `tracking?` off — real
-  state has advanced in ways the model doesn't see, so further
-  model comparisons would diverge for reasons unrelated to bugs.
-  The runner keeps going either way so the scenario's
-  hand-computed `:assert-balance` calls still run.
-
-  Returns `{:ctx :model-eq-checks :modelled :asserts :unmodelled
-            :tracking-cut-off?}` so the caller can log a per-scenario
-  summary."
-  [scenario-name bank observers steps]
-  (loop [ctx (SUT/fresh-context bank observers)
-         model-state model/init-state
-         remaining steps
-         tracking? true
-         stats {:model-eq-checks 0
-                :modelled 0
-                :asserts 0
-                :unmodelled 0
-                :tracking-cut-off-at nil}]
-    (if-let [step (first remaining)]
-      (let [cmd (:command step)
-            ctx' (SUT/run-commands ctx [step])
-            assertion? (contains? assertion-verbs cmd)
-            modelled? (contains? model/model cmd)
-            tracking-after? (and tracking? (or assertion? modelled?))
-            stats' (-> stats
-                       (update (cond assertion?
-                                     :asserts
-
-                                     modelled?
-                                     :modelled
-
-                                     :else
-                                     :unmodelled)
-                               inc)
-                       (cond->
-                        (and tracking? (not tracking-after?))
-                        (assoc :tracking-cut-off-at cmd)))]
-        (if (and tracking? modelled?)
-          (let [model-state' (fugato/execute model/model model-state [step])
-                real (project-real bank ctx')
-                expected (project-model model-state')]
-            (is (= expected real)
-                (str scenario-name " — model-eq after " cmd))
-            (recur ctx'
-                   model-state'
-                   (rest remaining)
-                   tracking-after?
-                   (update stats' :model-eq-checks inc)))
-          (recur ctx' model-state (rest remaining) tracking-after? stats')))
-      (assoc stats :ctx ctx))))
+(defn- check-report
+  [{:keys [divergence invariant-failures runner-errors]}]
+  (is (nil? divergence)
+      (str "the model and reality diverge at step "
+           (:index divergence)
+           " "
+           (pr-str (:step divergence))
+           "\n  only in the model: "
+           (pr-str (:only-model divergence))
+           "\n  only in reality: "
+           (pr-str (:only-reality divergence))))
+  (is (empty? invariant-failures) (pr-str invariant-failures))
+  (is (empty? runner-errors) (str "runner error " (pr-str runner-errors))))
 
 (deftest scenarios-test
-  ;; One test system serves every scenario. Per-scenario isolation
-  ;; comes from `fresh-context` (own id-mapping, fresh `:run-id`
-  ;; salting idempotency keys) and per-scenario projections (keyed
-  ;; on the scenario's own model→real map, so prior scenarios'
-  ;; records are invisible). Sharing the boot drops total scenario
-  ;; runtime by ~6s × N scenarios.
-  (let [files (scenario-files)]
+  ;; One test system serves every scenario. Each runs on a fresh context,
+  ;; with its own banks and its own `:run-id` salting idempotency keys,
+  ;; and projects only the records its own id mapping names.
+  (let [files (SUT/scenario-files)]
     (is (seq files) "expected scenarios on the classpath")
-    (log/info "scenarios starting" {:count (count files)})
     (with-test-system
-     [sys ["classpath:test-scenarios/application-test.yml" patch-handlers]]
-     (let [observers (start-observers sys)]
-       (try
-         (doseq [f files]
-           (let [resource-path (str "test-scenarios/scenarios/" (.getName f))]
-             (nom-test> [loaded (SUT/from-resource resource-path)
-                         steps (SUT/steps loaded)
-                         _ (log/info "scenario running"
-                                     {:file (.getName f)
-                                      :name (:name loaded)
-                                      :steps (count steps)})
-                         stats (testing (:name loaded)
-                                 (run-with-model-check (:name loaded)
-                                                       (fdb-config sys)
-                                                       observers
-                                                       steps))
-                         _ (log/info "scenario complete"
-                                     {:file (.getName f)
-                                      :model-eq-checks (:model-eq-checks stats)
-                                      :modelled (:modelled stats)
-                                      :asserts (:asserts stats)
-                                      :unmodelled (:unmodelled stats)
-                                      :tracking-cut-off-at (:tracking-cut-off-at
-                                                            stats)})])))
-         (finally (stop-observers observers)))))))
+     [sys [rig/config-file rig/patch-handlers]]
+     (let [observers (rig/start-observers sys)]
+       (try (doseq [{:keys [relative]} files]
+              (let [loaded (SUT/from-resource (SUT/scenario-resource relative))]
+                (testing relative
+                  (if (error/anomaly? loaded)
+                    (is (not (error/anomaly? loaded)) (pr-str loaded))
+                    (let [report (SUT/run-scenario
+                                  (SUT/fresh-context (rig/bank sys) observers)
+                                  loaded)]
+                      (log/info "scenario complete"
+                                {:file relative
+                                 :compared? (:compared? report)
+                                 :steps (:step-index (:ctx report))})
+                      (check-report report))))))
+            (finally (rig/stop-observers observers)))))))
+
+(deftest a-divergence-names-its-first-step-test
+  (with-test-system
+   [sys [rig/config-file rig/patch-handlers]]
+   (testing "a model that numbers its accounts from 5 differs after step 0"
+     (let [steps [{:command :create-bank :args []}
+                  {:command :inbound-transfer :args [:acct-0 100]}]
+           {:keys [divergence]} (SUT/first-divergence
+                                 (SUT/fresh-context (rig/bank sys))
+                                 steps
+                                 (assoc model/init-state :next-id 5))]
+       (is (= 0 (:index divergence)))
+       (is (= (first steps) (:step divergence)))
+       (is (contains? (:balances (:only-model divergence)) :acct-5))
+       (is (contains? (:balances (:only-reality divergence)) :acct-0))))))

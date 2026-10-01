@@ -1,20 +1,21 @@
 (ns com.repldriven.queenswood.test-scenarios.interface
-  "Drives a model command sequence (from fugato or an EDN scenario)
-  against a real bank, threading a runner context through each step
-  and waiting for read-side quiescence before returning. Returns the
-  final context map; the caller pulls `:id-mapping` out of it to feed
-  into a projection for equality checks."
-  (:require
-    [com.repldriven.queenswood.test-scenarios.id-mapping :as id-mapping]
-    [com.repldriven.queenswood.test-scenarios.invariants :as invariants]
-    [com.repldriven.queenswood.test-scenarios.observer :as observer]
-    [com.repldriven.queenswood.test-scenarios.quiescence :as quiescence]
-    [com.repldriven.queenswood.test-scenarios.scenario :as scenario]
-    [com.repldriven.queenswood.test-scenarios.verbs :as verbs]
+  "Drives a command sequence, from fugato or an EDN scenario, against a
+  real bank, threading a runner context through each step and checking
+  both standing invariants after every step that changes state.
 
-    [com.repldriven.mono.error.interface :as error]
-    [com.repldriven.mono.identity-provider.interface :as identity-provider]
-    [com.repldriven.mono.utility.interface :as util]))
+  A compared scenario runs beside the model and compares their
+  projections after every step, stopping at the first divergence; a
+  reality-only scenario runs without it. What went wrong comes back as
+  data — a divergence, invariant failures, runner errors — for the
+  caller to assert on or to falsify a property trial with."
+  (:require
+    [com.repldriven.queenswood.test-scenarios.divergence :as divergence]
+    [com.repldriven.queenswood.test-scenarios.observer :as observer]
+    [com.repldriven.queenswood.test-scenarios.projection :as projection]
+    [com.repldriven.queenswood.test-scenarios.run :as run]
+    [com.repldriven.queenswood.test-scenarios.runner :as runner]
+    [com.repldriven.queenswood.test-scenarios.scenario :as scenario]
+    [com.repldriven.queenswood.test-scenarios.verbs :as verbs]))
 
 (defn fresh-context
   "Build the initial runner context for one command-sequence run.
@@ -40,30 +41,13 @@
     - `:dead-letters` — an observer of
       `topic-schemes-payments-event-dlq`.
     - `:envelope-schemas` — the serde the Kafka envelopes are written
-      with, `\"command\"` and `\"event\"`."
-  ([bank] (fresh-context bank {}))
-  ([bank {:keys [scheme-commands dead-letters envelope-schemas]}]
-   {:bank bank
-    :scheme-commands scheme-commands
-    :dead-letters dead-letters
-    :envelope-schemas envelope-schemas
-    :identity-provider (identity-provider/local-provider {})
-    :id-mapping id-mapping/init
-    :banks {}
-    :products {}
-    :migrations {}
-    :parties {}
-    :accounts {}
-    :payments {}
-    :next-model-id 0
-    :next-bank-id 0
-    :next-product-id 0
-    :next-party-id 0
-    :next-payment-id 0
-    :next-inbound-id 0
-    :run-id (str (util/uuidv7))
-    :counter 0
-    :outcomes []}))
+      with, `\"command\"` and `\"event\"`.
+  - opts (optional map):
+    - `:await-timeout-ms` — how long any step waits for reality to reach
+      the state it expects before the step is recorded `:timed-out`."
+  ([bank] (runner/fresh-context bank {} {}))
+  ([bank observers] (runner/fresh-context bank observers {}))
+  ([bank observers opts] (runner/fresh-context bank observers opts)))
 
 (defn start-observer
   "Collect every record on a Kafka consumer's topics, from the earliest
@@ -88,53 +72,103 @@
   (observer/stop observer))
 
 (defn run-commands
-  "Dispatch each command in `commands` against the real bank,
-  threading the runner context through. Waits for read-side
-  quiescence before returning the final context.
-
-  After every step both standing invariants fire (see
-  `invariants/verify-books-tie`), so any command that leaves a bank's
-  trial balance out of balance, or a control holding anything other
-  than its sub-ledger's roll-up, fails the scenario at the offending
-  step.
+  "Dispatch each command in `commands` against the real bank, threading
+  the runner context through and checking both standing invariants
+  after each one that changes state. Stops at a step that timed out.
+  Returns the final context, whose `:invariant-failures` holds
+  `{:index :command :failures}` for each step that broke one and whose
+  `:runner-errors` holds what a timed-out step waited for.
 
   Args:
   - ctx: runner context (typically from `fresh-context`).
   - commands: sequence of `{:command kw :args [...]}` maps."
   [ctx commands]
-  (let [final (reduce (fn [ctx command]
-                        (invariants/verify-books-tie (verbs/dispatch ctx
-                                                                     command)))
-                      ctx
-                      commands)]
-    (quiescence/wait (:bank final))
-    final))
+  (runner/run-commands ctx commands))
 
-(defn run-scenario
-  "Load and validate the EDN scenario at `resource-path`, then run
-  every step through the same dispatch as `run-commands`. Returns
-  the final context, or an anomaly if loading or schema validation
-  fails. Assertion steps inside the scenario fire `clojure.test/is`
-  on dispatch.
+(defn first-divergence
+  "Run `commands` beside the model from its initial state, comparing
+  their projections after every step. Returns `{:ctx :model}` with a
+  `:divergence` of `{:index :step :only-model :only-reality}` naming
+  the first step after which they differ, if one does. Stops there, or
+  at a step that timed out.
 
   Args:
-  - bank: FDB config map.
-  - resource-path: classpath path to the scenario EDN file."
-  [bank resource-path]
-  (let [loaded (scenario/from-resource resource-path)]
-    (if (error/anomaly? loaded)
-      loaded
-      (run-commands (fresh-context bank)
-                    (scenario/steps loaded)))))
+  - ctx: runner context, fresh.
+  - commands: sequence of `{:command kw :args [...]}` maps, every one a
+    `:model`, `:fixture`, `:read` or `:assert` verb.
+  - init-state (optional): the model state to start from, its initial
+    state by default."
+  ([ctx commands] (divergence/walk ctx commands))
+  ([ctx commands init-state] (divergence/walk ctx commands init-state)))
+
+(defn run-scenario
+  "Run a loaded scenario: beside the model when it is compared, without
+  it when it is reality-only. Returns `{:ctx :compared? :divergence
+  :invariant-failures :runner-errors}`, the last three nil when nothing
+  went wrong.
+
+  Args:
+  - ctx: runner context, fresh.
+  - loaded: a scenario from `from-resource`."
+  [ctx loaded]
+  (run/run-scenario ctx loaded))
+
+(defn projected-real
+  "The real side of every projection pair, for the run `ctx` drove.
+  Args:
+  - ctx: runner context after a run."
+  [ctx]
+  (projection/real (:bank ctx) ctx))
+
+(defn projected-model
+  "The model side of every projection pair. Args:
+  - state: model state."
+  [state]
+  (projection/model state))
+
+(defn scenario-files
+  "Every scenario EDN file on the classpath, under
+  `test-scenarios/scenarios/`, as `{:file :relative}` maps sorted by
+  their path relative to that directory."
+  []
+  (scenario/resource-files))
+
+(defn scenario-resource
+  "The classpath path of the scenario at `relative`, as `scenario-files`
+  names it."
+  [relative]
+  (str scenario/scenarios-dir "/" relative))
 
 (def
   ^{:doc
-    "Read and validate an EDN scenario at a classpath path.
-  Returns the parsed scenario map or a
-  `:bank-test-scenarios/scenario` anomaly. Args:
+    "Read and validate an EDN scenario at a classpath path. Returns the
+  parsed scenario map, or a `:test-scenarios/scenario` anomaly when it
+  fails its schema or is compared yet names a `:reality` verb. Args:
   - resource-path: classpath path to the scenario EDN."}
   from-resource
   scenario/from-resource)
+
+(def
+  ^{:doc
+    "Validate a scenario map read from `resource-path`, as
+  `from-resource` does after reading it. Args:
+  - resource-path: where the scenario came from, for the anomaly.
+  - parsed: the scenario map."}
+  parse
+  scenario/parse)
+
+(def
+  ^{:doc
+    "Every verb the runner dispatches, to `{:kind :args}`: its kind,
+  one of `:model`, `:fixture`, `:reality`, `:read` and `:assert`, and
+  the Malli schema of its arguments."}
+  verbs
+  scenario/verbs)
+
+(defn verb-methods
+  "The verbs the runner's dispatch has a method for."
+  []
+  (verbs/dispatched))
 
 (def
   ^{:doc
