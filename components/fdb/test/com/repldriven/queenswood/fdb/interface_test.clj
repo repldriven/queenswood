@@ -115,6 +115,76 @@
          _
          (is (= "rex-data" (String. ^bytes (second @received))))]))))
 
+(defn- handled
+  [received tag]
+  (count (filter (fn [bytes] (= tag (String. ^bytes bytes))) @received)))
+
+(defn- test-changelog-under-concurrent-writes
+  [sys pet-store]
+  (let [config {:record-db (system/instance sys [:fdb :record-db])
+                :record-store pet-store}
+        record-db (system/instance sys [:fdb :record-db])
+        opts {:keyspace-prefix (:keyspace-prefix (meta pet-store))}
+        consumer (str "concurrent-" (utility/uuidv7))
+        first-tag (str "first-" consumer)
+        second-tag (str "second-" consumer)
+        write (fn [tag]
+                (SUT/transact config
+                              (fn [txn]
+                                (SUT/write-changelog txn
+                                                     "pets"
+                                                     tag
+                                                     (.getBytes ^String tag)))))
+        received (atom [])
+        appended (atom false)
+        handler (fn [_ctx changelog-bytes]
+                  (swap! received conj changelog-bytes)
+                  (when (compare-and-set! appended false true)
+                    (write second-tag)))]
+    (testing "an entry appended while a pass runs is handled once, next pass"
+      (nom-test> [_ (write first-tag)
+                  _
+                  (SUT/process-changelog record-db consumer "pets" handler opts)
+                  _ (is (= 1 (handled received first-tag))
+                        "the pass did not run again for the append")
+                  _ (is (= 0 (handled received second-tag)))
+                  _
+                  (SUT/process-changelog record-db consumer "pets" handler opts)
+                  _ (is (= 1 (handled received first-tag)))
+                  _ (is (= 1 (handled received second-tag)))]))))
+
+(defn- test-changelog-pass-is-bounded
+  [sys pet-store]
+  (let [config {:record-db (system/instance sys [:fdb :record-db])
+                :record-store pet-store}
+        record-db (system/instance sys [:fdb :record-db])
+        consumer (str "bounded-" (utility/uuidv7))
+        tags (mapv (fn [n] (str consumer "-" n)) (range 3))
+        received (atom [])
+        handler (fn [_ctx changelog-bytes]
+                  (swap! received conj (String. ^bytes changelog-bytes)))
+        opts {:keyspace-prefix (:keyspace-prefix (meta pet-store)) :limit 2}
+        mine (fn [] (filterv (set tags) @received))]
+    (testing "a pass handles at most its limit, and the next the rest"
+      (nom-test>
+        [_ (SUT/transact config
+                         (fn [txn]
+                           (run! (fn [tag]
+                                   (SUT/write-changelog txn
+                                                        "pets"
+                                                        tag
+                                                        (.getBytes ^String
+                                                                   tag)))
+                                 tags)))
+         ;; A fresh consumer starts at the log's beginning, so its first
+         ;; passes drain what other tests wrote before reaching these.
+         _ (loop [n 0]
+             (let [before (count @received)]
+               (SUT/process-changelog record-db consumer "pets" handler opts)
+               (is (<= (- (count @received) before) 2))
+               (when (and (< (count (mine)) 3) (< n 50)) (recur (inc n)))))
+         _ (is (= tags (mine)))]))))
+
 (defn- test-query-records
   [sys pet-store]
   (let [whiskers {:pet-id "pet-10"
@@ -201,7 +271,9 @@
                       (test-record-layer sys pet-store)
                       (test-query-records sys pet-store)
                       (test-query-records-compound sys pet-store)
-                      (test-record-layer-consumer sys pet-store))))
+                      (test-record-layer-consumer sys pet-store)
+                      (test-changelog-under-concurrent-writes sys pet-store)
+                      (test-changelog-pass-is-bounded sys pet-store))))
 
 (deftest meta-store-test
   (with-test-system [sys "classpath:fdb/application-test.yml"]
@@ -210,4 +282,6 @@
                       (test-record-layer sys pet-store)
                       (test-query-records sys pet-store)
                       (test-query-records-compound sys pet-store)
-                      (test-record-layer-consumer sys pet-store))))
+                      (test-record-layer-consumer sys pet-store)
+                      (test-changelog-under-concurrent-writes sys pet-store)
+                      (test-changelog-pass-is-bounded sys pet-store))))
