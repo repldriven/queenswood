@@ -1,0 +1,34 @@
+{:name "Tenant closes an open cash account"
+ :given
+ [{:fixture :bank :as :bank-0 :with {:name "Close Account Test Org"
+                                     :status "live"}}
+  {:fixture :person
+   :as :customer
+   :with {:token [:ref :bank-0 :token]
+          :display-name "Closing Customer"
+          :given-name "Closing"
+          :family-name "Customer"
+          :national-insurance "TN888001A"}}
+  {:fixture :product :as :current :with {:token [:ref :bank-0 :token]}}
+  {:fixture :account
+   :as :account-0
+   :with {:token [:ref :bank-0 :token]
+          :party-id [:ref :customer :party :party-id]
+          :product-id [:ref :current :product :product-id]
+          :name "To Be Closed"}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts/{account-id}/close"
+             :path-params {:account-id [:ref :account-0 :account :account-id]}
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200
+            :body {:account-id [:ref :account-0 :account :account-id]
+                   :account-status "closing"}}}
+  ;; Watcher transitions closing -> closed
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :account-0 :account :account-id]}
+             :auth [:ref :bank-0 :token]}
+   :until {:status 200 :body {:account-status "closed"}}}]}

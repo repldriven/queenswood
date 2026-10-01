@@ -1,5 +1,5 @@
 {:name "An internal payment submitted twice under one key is one payment"
- :tags #{:api :idempotency :payments :happy}
+ :runs-on {:payment :every}
  ;; The second submission never reaches the handler: the cache answers
  ;; it from the first. Same status, same body, same payment id — so the
  ;; debtor is debited once. The replay says so in its headers: the
@@ -43,11 +43,10 @@
                     :reference "First submission"}}
    :as :payment
    ;; The first submission ran the handler, so it is not a replay.
-   :assert {:status 201 :headers {:idempotent-replayed [:m/absent]}}}]
- :then
- ;; The same key and the same body: answered from the cache, marked as
- ;; a replay, so the payment id is the first one's.
- [{:command :api/request
+   :assert {:status 201 :headers {:idempotent-replayed [:m/absent]}}}
+  ;; The same key and the same body: answered from the cache, marked as
+  ;; a replay, so the payment id is the first one's.
+  {:command :api/request
    :request {:method :post
              :path "/v1/payments/internal"
              :auth [:ref :bank-0 :token]
@@ -60,9 +59,9 @@
    :assert {:status 201
             :headers {:idempotent-replayed "true"}
             :body {:payment-id [:ref :payment :payment-id]
-                   :amount 2500}}}
-  ;; Debited once, not twice.
-  {:command :api/poll
+                   :amount 2500}}}]
+ :then
+ [{:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}/balances"
              :path-params {:account-id [:ref :debtor :opened :account :account-id]}

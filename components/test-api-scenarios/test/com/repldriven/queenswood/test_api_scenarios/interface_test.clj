@@ -248,12 +248,6 @@
                      (is (= ":ledger-account/closed"
                             (get-in refused [:body :type]))))]))))
 
-;; The capabilities a scenario may require, which a provider either
-;; carries or does not.
-(def ^:private capabilities
-  #{:inbound-notified :inbound-admitted :screened :outbound-returned
-    :needs-email})
-
 (defn- payment-missing
   "What a payment provider cannot run, read off its declaration: telling
   of an inbound once settled, admitting one before it settles, and
@@ -320,24 +314,9 @@
 
 (defn- runs-on?
   "Whether a scenario runs on a run of `scope`: every scenario on the
-  defaults, and on another provider the ones that declare it. A scenario
-  declaring nothing runs on another payment provider when it lives under
-  `payments/` or `payee-checks/`, and on another IDV provider when it
-  lives under `parties/`."
-  [scope {:keys [relative scenario]}]
-  (let [{:keys [runs-on]} scenario]
-    (case scope
-      :default true
-      :payment (if runs-on
-                 (= :every (:payment runs-on))
-                 (boolean (re-find #"^(payments|payee-checks)/" relative)))
-      :idv (if runs-on
-             (= :every (:idv runs-on))
-             (boolean (re-find #"^parties/" relative))))))
-
-(defn- requirements
-  [{:keys [requires tags]}]
-  (into (or requires #{}) (filter capabilities) tags))
+  defaults, and on another provider the ones that declare it."
+  [scope {:keys [scenario]}]
+  (or (= :default scope) (= :every (get-in scenario [:runs-on scope]))))
 
 (defn- executions
   "Each scenario on each run it belongs to, with what the run lacks of
@@ -350,7 +329,7 @@
            :run run
            :lacks (into (sorted-set)
                         (filter missing)
-                        (requirements (:scenario entry))))))
+                        (get-in entry [:scenario :requires])))))
 
 (defn- run-on-pool
   "Run `tasks` on `workers` threads, each carrying the test's bindings

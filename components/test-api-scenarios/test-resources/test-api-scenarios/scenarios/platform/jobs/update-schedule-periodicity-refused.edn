@@ -1,0 +1,16 @@
+{:name "A periodicity the job's tasks disallow is rejected"
+ :given
+ [{:fixture :bank
+   :as :org-0
+   :with {:name "Schedule Reject Test Org" :status "live"}}]
+ :when
+ ;; daily-interest carries accrue (daily-only), so its allowed set is
+ ;; daily — switching it to monthly is rejected.
+ [{:command :api/request
+   :request {:method :put
+             :path "/v1/jobs/{job-id}/schedule"
+             :path-params {:job-id "daily-interest"}
+             :auth [:ref :org-0 :token]
+             :body {:periodicity "monthly"}}
+   :assert {:status 422
+            :problem {:type ":scheduler/periodicity-not-allowed"}}}]}

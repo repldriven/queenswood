@@ -1,0 +1,12 @@
+{:name "Changing a bank to an unknown tier is rejected"
+ :given
+ [{:fixture :bank
+   :as :bank-0
+   :with {:name "Unknown Tier Test Org" :status "live"}}]
+ :when [{:command :api/request
+         :request {:method :post
+                   :path "/v1/bank/change-tier"
+                   :auth :admin
+                   :headers {:bank-id [:ref :bank-0 :bank :bank-id]}
+                   :body {:tier "no-such-tier"}}
+         :assert {:status 422 :body {:type ":bank/unknown-tier"}}}]}

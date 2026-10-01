@@ -1,5 +1,4 @@
 {:name "A resent invitation's email replaces the first email's link"
- :tags #{:access :api}
  ;; The first email is read before the resend, so both emails are sent.
  ;; The resend returns the token hash to the invitation's id and the
  ;; second email records its own, so only the newer link accepts.
@@ -20,7 +19,6 @@
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
-             :headers {:idempotency-key "ik-access-resend-link-bank-001"}
              :body {:name "Resend Link Bank"
                     :status "live"
                     :tier "micro"
@@ -34,13 +32,12 @@
              :path-params {:invitation-id [:ref :bank :owner-invitation
                                            :invitation-id]}
              :auth :owner-token}
-   :assert {:status 201 :body {:role "owner"}}}
+   :assert {:status 201}}
   {:command :api/request
    :request {:method :post
              :path "/v1/invitations"
              :auth :owner-token
-             :headers {:bank-id [:ref :bank :bank-id]
-                       :idempotency-key "ik-access-resend-link-invite-001"}
+             :headers {:bank-id [:ref :bank :bank-id]}
              :body {:email "link-invitee.resent@example.test" :role "viewer"}}
    :as :invitation
    :assert {:status 201}}
@@ -54,16 +51,14 @@
              :path "/v1/invitations/{invitation-id}/resend"
              :path-params {:invitation-id [:ref :invitation :invitation-id]}
              :auth :owner-token
-             :headers {:bank-id [:ref :bank :bank-id]
-                       :idempotency-key "ik-access-resend-link-resend-001"}}
+             :headers {:bank-id [:ref :bank :bank-id]}}
    :assert {:status 200 :body {:status "pending"}}}
   {:command :mail/await-invitation
    :to "link-invitee.resent@example.test"
    :invitation-id [:ref :invitation :invitation-id]
    :nth 2
-   :as :second-email}]
- :then
- [{:command :api/request
+   :as :second-email}
+  {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/accept"
              :path-params {:invitation-id [:ref :invitation :invitation-id]}

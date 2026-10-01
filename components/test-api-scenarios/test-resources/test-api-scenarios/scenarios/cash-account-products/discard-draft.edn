@@ -1,34 +1,19 @@
 {:name "Tenant discards a draft version"
- :tags #{:api :cash-account-products :happy :lifecycle}
  :given
- [{:command :api/request
-   :request {:method :post
-             :path "/v1/banks"
-             :auth :admin
-             :headers {:idempotency-key "ik-discard-draft-bank-001"}
-             :body {:name "Discard Draft Test Org"
-                    :status "live"
-                    :tier "micro"
-                    :currencies ["GBP"]}}
+ [{:fixture :bank
    :as :org-0
-   :assert {:status 201}}
-  {:command :auth/mint-token
-   :for {:client-id [:ref :org-0 :client-id]
-         :client-secret [:ref :org-0 :client-secret]
-         :status :live}
-   :as :org-0-token}
+   :with {:name "Discard Draft Test Org" :status "live"}}
   {:command :api/request
    :request {:method :post
              :path "/v1/cash-account-products"
-             :auth :org-0-token
-             :headers {:idempotency-key "ik-discard-draft-prod-001"}
+             :auth [:ref :org-0 :token]
              :body {:name "Throwaway"
                     :template-id "tpl.00000000000000000000000001"
                     :currency "GBP"
                     :interest-rate-bps 0
                     :effective-from "2026-01-01"}}
    :as :draft
-   :assert {:status 201 :body {:status "draft"}}}]
+   :assert {:status 201}}]
  :when
  [{:command :api/request
    :request {:method :delete
@@ -36,7 +21,7 @@
              "/v1/cash-account-products/{product-id}/versions/{version-id}"
              :path-params {:product-id [:ref :draft :product-id]
                            :version-id [:ref :draft :version-id]}
-             :auth :org-0-token}
+             :auth [:ref :org-0 :token]}
    :assert {:status 204}}
   {:command :api/request
    :request {:method :get
@@ -44,7 +29,7 @@
              "/v1/cash-account-products/{product-id}/versions/{version-id}"
              :path-params {:product-id [:ref :draft :product-id]
                            :version-id [:ref :draft :version-id]}
-             :auth :org-0-token}
+             :auth [:ref :org-0 :token]}
    :assert {:status 200
             :body {:version-id [:ref :draft :version-id]
                    :status "discarded"}}}]}

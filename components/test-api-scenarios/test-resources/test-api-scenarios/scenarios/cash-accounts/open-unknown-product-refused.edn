@@ -1,0 +1,27 @@
+{:name "Opening a cash account against an unknown product is rejected"
+ ;; The product read itself refuses an unknown id, so the kind carries
+ ;; the product brick's namespace.
+ :given
+ [{:fixture :bank
+   :as :org-0
+   :with {:name "Open Unknown Product Test Org" :status "live"}}
+  {:fixture :person
+   :as :party-0
+   :with {:token [:ref :org-0 :token]
+          :display-name "Unknown Product Holder"
+          :given-name "Unknown"
+          :family-name "Holder"
+          :national-insurance "TN889008A"}}
+  {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth [:ref :org-0 :token]
+             :body {:party-id [:ref :party-0 :party :party-id]
+                    :name "No Such Product"
+                    :currency "GBP"
+                    :product-id "prd.00000000000000000000000000"}}
+   :assert {:status 404
+            :problem
+            {:type ":cash-account-product/product-not-found"}}}]}

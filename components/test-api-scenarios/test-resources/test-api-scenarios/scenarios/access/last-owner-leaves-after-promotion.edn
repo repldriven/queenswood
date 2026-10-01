@@ -1,5 +1,4 @@
 {:name "The last owner is refused leaving, and leaves once an admin is promoted"
- :tags #{:access :api :unhappy}
  :given
  [{:command :auth/mint-user-token
    :realm :queenswood
@@ -17,7 +16,6 @@
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
-             :headers {:idempotency-key "ik-access-last-bank-001"}
              :body {:name "Last Owner Bank"
                     :status "live"
                     :tier "micro"
@@ -31,13 +29,12 @@
              :path-params {:invitation-id [:ref :bank :owner-invitation :invitation-id]}
              :auth :owner-token}
    :as :owner-membership
-   :assert {:status 201 :body {:role "owner"}}}
+   :assert {:status 201}}
   {:command :api/request
    :request {:method :post
              :path "/v1/invitations"
              :auth :owner-token
-             :headers {:bank-id [:ref :bank :bank-id]
-                       :idempotency-key "ik-access-last-invite-001"}
+             :headers {:bank-id [:ref :bank :bank-id]}
              :body {:email "last-admin@queenswood.local" :role "admin"}}
    :as :invitation
    :assert {:status 201}}
@@ -47,7 +44,7 @@
              :path-params {:invitation-id [:ref :invitation :invitation-id]}
              :auth :admin-token}
    :as :admin-membership
-   :assert {:status 201 :body {:role "admin"}}}]
+   :assert {:status 201}}]
  :when
  [{:command :api/request
    :request {:method :post
@@ -75,9 +72,8 @@
              :path-params {:membership-id [:ref :owner-membership
                                            :membership-id]}
              :auth :owner-token}
-   :assert {:status 204}}]
- :then
- [{:command :api/request
+   :assert {:status 204}}
+  {:command :api/request
    :request {:method :get :path "/v1/me/memberships" :auth :owner-token}
    :assert {:status 200 :body {:items []}}}
   {:command :api/request
@@ -86,8 +82,9 @@
              :path-params {:membership-id [:ref :owner-membership
                                            :membership-id]}
              :auth :owner-token}
-   :assert {:status 409 :problem {:type ":membership/invalid-status"}}}
-  {:command :api/request
+   :assert {:status 409 :problem {:type ":membership/invalid-status"}}}]
+ :then
+ [{:command :api/request
    :request {:method :get
              :path "/v1/memberships"
              :auth :admin-token

@@ -33,15 +33,6 @@
    [:headers {:optional true} map?]
    [:problem {:optional true} map?]])
 
-(def ^:private verification
-  [:or
-   false?
-   [:map {:closed true}
-    [:outcome {:optional true} any?]
-    [:document {:optional true} map?]
-    [:email {:optional true} any?]
-    [:channel {:optional true} any?]]])
-
 (def ^:private alias-key [:or keyword? [:vector keyword?]])
 
 (def ^:private verb-steps
@@ -49,7 +40,6 @@
                  [:assert {:optional true} response]
                  [:as {:optional true} alias-key]
                  [:token-as {:optional true} alias-key]
-                 [:verify {:optional true} verification]
                  [:fault {:optional true} [:enum :lost-reply]]
                  [:idempotency-key {:optional true} false?]]
    :api/poll [[:request request]
@@ -108,18 +98,39 @@
                                          entries)]))
         verb-steps))
 
+(defn- write-step?
+  [{:keys [command request]}]
+  (or (and (= :api/request command)
+           (contains? #{:post :put :patch :delete} (:method request)))
+      (contains? #{:api/race :idv/verify :keycloak/add-signing-key} command)))
+
+(def ^:private given-step
+  [:and
+   step
+   [:fn {:error/message "a :given step asserts its status and nothing else"}
+    (fn [s] (empty? (dissoc (:assert s) :status)))]])
+
+(def ^:private then-step
+  [:and
+   step
+   [:fn {:error/message "a :then step writes nothing"}
+    (fn [s] (not (write-step? s)))]])
+
 (def schema
   [:map {:closed true}
    [:name string?]
-   [:tags {:optional true} [:set keyword?]]
+   [:tags {:optional true} [:set [:enum :serial]]]
    [:runs-on {:optional true}
     [:map {:closed true}
      [:payment {:optional true} [:enum :every]]
      [:idv {:optional true} [:enum :every]]]]
-   [:requires {:optional true} [:set keyword?]]
-   [:given {:optional true} [:vector step]]
+   [:requires {:optional true}
+    [:set
+     [:enum :inbound-notified :inbound-admitted :screened :outbound-returned
+      :needs-email]]]
+   [:given {:optional true} [:vector given-step]]
    [:when [:vector step]]
-   [:then {:optional true} [:vector step]]])
+   [:then {:optional true} [:vector then-step]]])
 
 (def fixture-schema
   [:map {:closed true}

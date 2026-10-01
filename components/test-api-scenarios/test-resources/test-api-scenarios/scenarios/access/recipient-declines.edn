@@ -1,5 +1,4 @@
 {:name "A recipient declines an invitation by their verified email"
- :tags #{:access :api :happy}
  ;; The invitation names the address the recipient signs in with, so
  ;; their verified email is the proof that reaches it, and it still reads
  ;; the invitation once declined.
@@ -24,7 +23,6 @@
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
-             :headers {:idempotency-key "ik-access-recipient-declines-001"}
              :body {:name "Decline Bank"
                     :status "live"
                     :tier "micro"
@@ -38,13 +36,12 @@
              :path-params {:invitation-id [:ref :bank :owner-invitation :invitation-id]}
              :auth :owner-token}
    :as :owner-membership
-   :assert {:status 201 :body {:role "owner"}}}
+   :assert {:status 201}}
   {:command :api/request
    :request {:method :post
              :path "/v1/invitations"
              :auth :owner-token
-             :headers {:bank-id [:ref :bank :bank-id]
-                       :idempotency-key "ik-access-recipient-declines-002"}
+             :headers {:bank-id [:ref :bank :bank-id]}
              :body {:email "decline-invitee@queenswood.local" :role "developer"}}
    :as :invitation
    :assert {:status 201}}]
@@ -58,9 +55,8 @@
             :body {:invitation-id [:ref :invitation :invitation-id]
                    :bank-id [:ref :bank :bank-id]
                    :role "developer"
-                   :status "declined"}}}]
- :then
- [{:command :api/request
+                   :status "declined"}}}
+  {:command :api/request
    :request {:method :get
              :path "/v1/me/invitations/{invitation-id}"
              :path-params {:invitation-id [:ref :invitation :invitation-id]}
@@ -73,8 +69,9 @@
              :path "/v1/me/invitations/{invitation-id}/accept"
              :path-params {:invitation-id [:ref :invitation :invitation-id]}
              :auth :invitee-token}
-   :assert {:status 409 :problem {:type ":invitation/invalid-status"}}}
-  {:command :api/request
+   :assert {:status 409 :problem {:type ":invitation/invalid-status"}}}]
+ :then
+ [{:command :api/request
    :request {:method :get
              :path "/v1/bank/audit-events"
              :auth :owner-token

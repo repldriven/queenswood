@@ -1,5 +1,4 @@
 {:name "An invitation is not found without its token or a verified matching email"
- :tags #{:access :api :auth :unhappy}
  ;; Two people fail the proof. A verified stranger sends a token that
  ;; is not the invitation's. The invitee's address matches, but the
  ;; realm holds it unverified, so the token's `email_verified` claim is
@@ -28,7 +27,6 @@
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
-             :headers {:idempotency-key "ik-access-proof-bank-001"}
              :body {:name "Proof Bank"
                     :status "live"
                     :tier "micro"
@@ -41,13 +39,12 @@
              :path "/v1/me/invitations/{invitation-id}/accept"
              :path-params {:invitation-id [:ref :bank :owner-invitation :invitation-id]}
              :auth :owner-token}
-   :assert {:status 201 :body {:role "owner"}}}
+   :assert {:status 201}}
   {:command :api/request
    :request {:method :post
              :path "/v1/invitations"
              :auth :owner-token
-             :headers {:bank-id [:ref :bank :bank-id]
-                       :idempotency-key "ik-access-proof-invite-001"}
+             :headers {:bank-id [:ref :bank :bank-id]}
              :body {:email "proof-unverified@queenswood.local" :role "viewer"}}
    :as :invitation
    :assert {:status 201}}]

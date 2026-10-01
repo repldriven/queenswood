@@ -1,26 +1,13 @@
 {:name "A tenant opens a verification session and gets a hand-off for the person"
- :tags #{:api :idv :parties :happy}
+ :runs-on {:idv :every}
  :given
- [{:command :api/request
-   :request
-   {:method :post
-    :path "/v1/banks"
-    :auth :admin
-    :headers {:idempotency-key "ik-verification-session-hands-off-bank-001"}
-    :body
-    {:name "Verification Session Org" :status "live" :tier "micro" :currencies ["GBP"]}}
+ [{:fixture :bank
    :as :org-0
-   :assert {:status 201}}
-  {:command :auth/mint-token
-   :for {:client-id [:ref :org-0 :client-id]
-         :client-secret [:ref :org-0 :client-secret]
-         :status :live}
-   :as :org-0-token}
+   :with {:name "Verification Session Org" :status "live"}}
   {:command :api/request
    :request {:method :post
              :path "/v1/parties"
-             :auth :org-0-token
-             :headers {:idempotency-key "ik-verification-session-hands-off-party-001"}
+             :auth [:ref :org-0 :token]
              :body {:type "person"
                     :display-name "Ford Prefect"
                     :given-name "Ford"
@@ -36,14 +23,13 @@
                                           :value "TN300001S"
                                           :issuing-country "GB"}}}
    :as :party-0
-   :verify false
    :assert {:status 201}}]
  :when
  [{:command :api/poll
    :request {:method :get
              :path "/v1/parties/{party-id}/verification"
              :path-params {:party-id [:ref :party-0 :party-id]}
-             :auth :org-0-token}
+             :auth [:ref :org-0 :token]}
    :until {:status 200
            :body {:status "pending"
                   :criteria [:m/embeds
@@ -55,8 +41,7 @@
    :request {:method :post
              :path "/v1/parties/{party-id}/verification-sessions"
              :path-params {:party-id [:ref :party-0 :party-id]}
-             :auth :org-0-token
-             :headers {:idempotency-key "ik-verification-session-hands-off-001"}
+             :auth [:ref :org-0 :token]
              :body {:channel "mobile"
                     :return-url "ford-app://verified"
                     :email "ford.hands-off@example.test"}}
@@ -73,7 +58,7 @@
              :path "/v1/parties/{party-id}/verification-sessions/{session-id}"
              :path-params {:party-id [:ref :party-0 :party-id]
                            :session-id [:ref :session-0 :session-id]}
-             :auth :org-0-token}
+             :auth [:ref :org-0 :token]}
    :until {:status 200
            :body {:status "ready"
                   :hand-off {:type "url"
@@ -83,8 +68,7 @@
    :request {:method :post
              :path "/v1/parties/{party-id}/verification-sessions"
              :path-params {:party-id [:ref :party-0 :party-id]}
-             :auth :org-0-token
-             :headers {:idempotency-key "ik-verification-session-hands-off-002"}
+             :auth [:ref :org-0 :token]
              :body {:channel "web"
                     :return-url "http://localhost:5173/#verified"
                     :email "ford.hands-off@example.test"}}

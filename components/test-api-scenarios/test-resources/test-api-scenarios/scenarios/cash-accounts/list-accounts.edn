@@ -1,128 +1,41 @@
 {:name "Tenant lists their cash accounts across pages"
- :tags #{:api :cash-accounts :happy}
  :given
- [{:command :api/request
-   :request {:method :post
-             :path "/v1/banks"
-             :auth :admin
-             :headers {:idempotency-key "ik-list-accounts-bank-001"}
-             :body {:name "List Cash Accounts Test Org"
-                    :status "live"
-                    :tier "micro"
-                    :currencies ["GBP"]}}
+ [{:fixture :bank
    :as :org-0
-   :assert {:status 201}}
-  {:command :auth/mint-token
-   :for {:client-id [:ref :org-0 :client-id]
-         :client-secret [:ref :org-0 :client-secret]
-         :status :live}
-   :as :org-0-token}
+   :with {:name "List Cash Accounts Test Org" :status "live"}}
   ;; Active party (the holder of both accounts)
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/parties"
-             :auth :org-0-token
-             :headers {:idempotency-key "ik-list-accounts-party"}
-             :body {:type "person"
-                    :display-name "Account Holder"
-                    :given-name "Account"
-                    :family-name "Holder"
-                    :date-of-birth "1970-01-01"
-                    :nationality "GB"
-                    :address {:building-number "155"
-                              :street "Country Lane"
-                              :town "Cottington"
-                              :postcode "CT12 4XY"
-                              :country "GBR"}
-                    :national-identifier {:type "national-insurance"
-                                          :value "TN999001A"
-                                          :issuing-country "GB"}}}
+  {:fixture :person
    :as :party-0
-   :assert {:status 201 :body {:status "pending"}}}
-  {:command :api/poll
-   :request {:method :get
-             :path "/v1/parties/{party-id}"
-             :path-params {:party-id [:ref :party-0 :party-id]}
-             :auth :org-0-token}
-   :until {:status 200 :body {:status "active"}}}
+   :with {:token [:ref :org-0 :token]
+          :display-name "Account Holder"
+          :given-name "Account"
+          :family-name "Holder"
+          :national-insurance "TN999001A"}}
   ;; Product 1: Current — create + publish
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/cash-account-products"
-             :auth :org-0-token
-             :headers {:idempotency-key "ik-list-accounts-prod-001"}
-             :body {:name "Current"
-                    :template-id "tpl.00000000000000000000000001"
-                    :currency "GBP"
-                    :interest-rate-bps 0
-                    :effective-from "2026-01-01"}}
+  {:fixture :product
    :as :current-draft
-   :assert {:status 201 :body {:status "draft"}}}
-  {:command :api/request
-   :request
-   {:method :post
-    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
-    :path-params {:product-id [:ref :current-draft :product-id]
-                  :version-id [:ref :current-draft :version-id]}
-    :auth :org-0-token}
-   :assert {:status 200 :body {:status "published"}}}
+   :with {:token [:ref :org-0 :token] :name "Current"}}
   ;; Product 2: Savings — create + publish
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/cash-account-products"
-             :auth :org-0-token
-             :headers {:idempotency-key "ik-list-accounts-prod-002"}
-             :body {:name "Savings"
-                    :template-id "tpl.00000000000000000000000002"
-                    :currency "GBP"
-                    :interest-rate-bps 250
-                    :effective-from "2026-01-01"}}
+  {:fixture :product
    :as :savings-draft
-   :assert {:status 201 :body {:status "draft"}}}
-  {:command :api/request
-   :request
-   {:method :post
-    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
-    :path-params {:product-id [:ref :savings-draft :product-id]
-                  :version-id [:ref :savings-draft :version-id]}
-    :auth :org-0-token}
-   :assert {:status 200 :body {:status "published"}}}
+   :with {:token [:ref :org-0 :token]
+          :name "Savings"
+          :template-id "tpl.00000000000000000000000002"
+          :interest-rate-bps 250}}
   ;; Open current-account, wait for opened
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/cash-accounts"
-             :auth :org-0-token
-             :headers {:idempotency-key "ik-list-accounts-current"}
-             :body {:party-id [:ref :party-0 :party-id]
-                    :name "Current GBP"
-                    :currency "GBP"
-                    :product-id [:ref :current-draft :product-id]}}
+  {:fixture :account
    :as :account-1
-   :assert {:status 201 :body {:account-status "opening"}}}
-  {:command :api/poll
-   :request {:method :get
-             :path "/v1/cash-accounts/{account-id}"
-             :path-params {:account-id [:ref :account-1 :account-id]}
-             :auth :org-0-token}
-   :until {:status 200 :body {:account-status "opened"}}}
+   :with {:token [:ref :org-0 :token]
+          :party-id [:ref :party-0 :party :party-id]
+          :product-id [:ref :current-draft :product :product-id]
+          :name "Current GBP"}}
   ;; Open savings-account, wait for opened
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/cash-accounts"
-             :auth :org-0-token
-             :headers {:idempotency-key "ik-list-accounts-savings"}
-             :body {:party-id [:ref :party-0 :party-id]
-                    :name "Savings GBP"
-                    :currency "GBP"
-                    :product-id [:ref :savings-draft :product-id]}}
+  {:fixture :account
    :as :account-2
-   :assert {:status 201 :body {:account-status "opening"}}}
-  {:command :api/poll
-   :request {:method :get
-             :path "/v1/cash-accounts/{account-id}"
-             :path-params {:account-id [:ref :account-2 :account-id]}
-             :auth :org-0-token}
-   :until {:status 200 :body {:account-status "opened"}}}]
+   :with {:token [:ref :org-0 :token]
+          :party-id [:ref :party-0 :party :party-id]
+          :product-id [:ref :savings-draft :product :product-id]
+          :name "Savings GBP"}}]
  :when
  ;; 3 cash-accounts exist: the bank's own-funds house account (created
  ;; at provisioning) plus the 2 we opened. Walk the size=1 pagination
@@ -130,7 +43,7 @@
  [{:command :api/request
    :request {:method :get
              :path "/v1/cash-accounts"
-             :auth :org-0-token
+             :auth [:ref :org-0 :token]
              :query-params {"page[size]" 1}}
    :as :page-1
    :assert
@@ -138,30 +51,30 @@
     :body
     {:items
      [{:account-id [:m/any-of
-                    [:m/equals [:ref :org-0 :accounts 0 :account-id]]
-                    [:m/equals [:ref :account-1 :account-id]]
-                    [:m/equals [:ref :account-2 :account-id]]]}]
+                    [:m/equals [:ref :org-0 :bank :accounts 0 :account-id]]
+                    [:m/equals [:ref :account-1 :account :account-id]]
+                    [:m/equals [:ref :account-2 :account :account-id]]]}]
      :links {:next [:m/regex ".+"] :prev [:m/absent]}}}}
   {:command :api/request
-   :request {:method :get :url [:ref :page-1 :links :next] :auth :org-0-token}
+   :request {:method :get :url [:ref :page-1 :links :next] :auth [:ref :org-0 :token]}
    :as :page-2
    :assert
    {:status 200
     :body
     {:items
      [{:account-id [:m/any-of
-                    [:m/equals [:ref :org-0 :accounts 0 :account-id]]
-                    [:m/equals [:ref :account-1 :account-id]]
-                    [:m/equals [:ref :account-2 :account-id]]]}]
+                    [:m/equals [:ref :org-0 :bank :accounts 0 :account-id]]
+                    [:m/equals [:ref :account-1 :account :account-id]]
+                    [:m/equals [:ref :account-2 :account :account-id]]]}]
      :links {:next [:m/regex ".+"] :prev [:m/regex ".+"]}}}}
   {:command :api/request
-   :request {:method :get :url [:ref :page-2 :links :next] :auth :org-0-token}
+   :request {:method :get :url [:ref :page-2 :links :next] :auth [:ref :org-0 :token]}
    :assert
    {:status 200
     :body
     {:items
      [{:account-id [:m/any-of
-                    [:m/equals [:ref :org-0 :accounts 0 :account-id]]
-                    [:m/equals [:ref :account-1 :account-id]]
-                    [:m/equals [:ref :account-2 :account-id]]]}]
+                    [:m/equals [:ref :org-0 :bank :accounts 0 :account-id]]
+                    [:m/equals [:ref :account-1 :account :account-id]]
+                    [:m/equals [:ref :account-2 :account :account-id]]]}]
      :links {:next [:m/absent] :prev [:m/regex ".+"]}}}}]}

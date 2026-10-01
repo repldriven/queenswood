@@ -1,0 +1,47 @@
+{:name "Suspending a party IDV rejected is refused"
+ :runs-on {:idv :every}
+ :given
+ [{:fixture :bank
+   :as :org-0
+   :with {:name "Suspend Rejected Party Test Org" :status "live"}}
+  ;; The person is found on a sanctions list, so the verification
+  ;; rejects them and the party with it. Polling to that end state is
+  ;; what makes the source status deterministic.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth [:ref :org-0 :token]
+             :body {:type "person"
+                    :display-name "Reject Party"
+                    :given-name "Reject"
+                    :family-name "Party"
+                    :date-of-birth "1970-01-01"
+                    :nationality "GB"
+                    :address {:building-number "155"
+                              :street "Country Lane"
+                              :town "Cottington"
+                              :postcode "CT12 4XY"
+                              :country "GBR"}
+                    :national-identifier {:type "national-insurance"
+                                          :value "TN888014A"
+                                          :issuing-country "GB"}}}
+   :as :party-0
+   :assert {:status 201}}
+  {:command :idv/verify
+   :party [:ref :party-0 :party-id]
+   :auth [:ref :org-0 :token]
+   :outcome "sanctions-hit"}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}"
+             :path-params {:party-id [:ref :party-0 :party-id]}
+             :auth [:ref :org-0 :token]}
+   :until {:status 200
+           :body {:party-id [:ref :party-0 :party-id] :status "rejected"}}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/parties/{party-id}/suspend"
+             :path-params {:party-id [:ref :party-0 :party-id]}
+             :auth [:ref :org-0 :token]}
+   :assert {:status 409 :body {:type ":party/invalid-status"}}}]}

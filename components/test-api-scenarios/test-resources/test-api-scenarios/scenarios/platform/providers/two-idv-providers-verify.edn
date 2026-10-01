@@ -1,0 +1,145 @@
+{:name "Banks on two IDV providers each verify a person"
+ ;; One bank on each IDV provider the installation offers, in one
+ ;; installation. A person created at each is handed to that bank's
+ ;; provider, whose hand-off says which it is, verified there, and
+ ;; becomes active.
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :body {:name "First Verified Bank"
+                    :status "test"
+                    :tier "micro"
+                    :currencies ["GBP"]
+                    :providers {:idv "zyphe"}}}
+   :as :first
+   :assert {:status 201 :body {:providers {:idv "zyphe"}}}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :first :client-id]
+         :client-secret [:ref :first :client-secret]
+         :status :test}
+   :as :first-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth :first-token
+             :body {:type "person"
+                    :display-name "Arthur Dent"
+                    :given-name "Arthur"
+                    :family-name "Dent"
+                    :date-of-birth "1952-03-11"
+                    :nationality "GB"
+                    :address {:building-number "155"
+                              :street "Country Lane"
+                              :town "Cottington"
+                              :postcode "CT12 4XY"
+                              :country "GBR"}
+                    :national-identifier {:type "national-insurance"
+                                          :value "TN400001A"
+                                          :issuing-country "GB"}}}
+   :as :first-party
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :body {:name "Second Verified Bank"
+                    :status "test"
+                    :tier "micro"
+                    :currencies ["GBP"]
+                    :providers {:idv "onfido"}}}
+   :as :second
+   :assert {:status 201 :body {:providers {:idv "onfido"}}}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :second :client-id]
+         :client-secret [:ref :second :client-secret]
+         :status :test}
+   :as :second-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth :second-token
+             :body {:type "person"
+                    :display-name "Arthur Dent"
+                    :given-name "Arthur"
+                    :family-name "Dent"
+                    :date-of-birth "1952-03-11"
+                    :nationality "GB"
+                    :address {:building-number "155"
+                              :street "Country Lane"
+                              :town "Cottington"
+                              :postcode "CT12 4XY"
+                              :country "GBR"}
+                    :national-identifier {:type "national-insurance"
+                                          :value "TN400002A"
+                                          :issuing-country "GB"}}}
+   :as :second-party
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties/{party-id}/verification-sessions"
+             :path-params {:party-id [:ref :first-party :party-id]}
+             :auth :first-token
+             :body {:channel "web"
+                    :return-url "https://app.example.test/back"
+                    :email "arthur@example.test"}}
+   :as :first-session
+   :assert {:status 202}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}/verification-sessions/{session-id}"
+             :path-params {:party-id [:ref :first-party :party-id]
+                           :session-id [:ref :first-session :session-id]}
+             :auth :first-token}
+   :until {:status 200
+           :body {:status "ready" :hand-off {:url [:m/regex "zypheVr="]}}}}
+  {:command :idv/verify
+   :party [:ref :first-party :party-id]
+   :auth :first-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties/{party-id}/verification-sessions"
+             :path-params {:party-id [:ref :second-party :party-id]}
+             :auth :second-token
+             :body {:channel "web"
+                    :return-url "https://app.example.test/back"
+                    :email "arthur@example.test"}}
+   :as :second-session
+   :assert {:status 202}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}/verification-sessions/{session-id}"
+             :path-params {:party-id [:ref :second-party :party-id]
+                           :session-id [:ref :second-session :session-id]}
+             :auth :second-token}
+   :until {:status 200
+           :body {:status "ready" :hand-off {:url [:m/regex "/l/"]}}}}
+  {:command :idv/verify
+   :party [:ref :second-party :party-id]
+   :auth :second-token}]
+ :then
+ [{:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}"
+             :path-params {:party-id [:ref :first-party :party-id]}
+             :auth :first-token}
+   :until {:status 200 :body {:status "active"}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/parties/{party-id}/verification"
+             :path-params {:party-id [:ref :first-party :party-id]}
+             :auth :first-token}
+   :assert {:status 200 :body {:status "accepted"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}"
+             :path-params {:party-id [:ref :second-party :party-id]}
+             :auth :second-token}
+   :until {:status 200 :body {:status "active"}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/parties/{party-id}/verification"
+             :path-params {:party-id [:ref :second-party :party-id]}
+             :auth :second-token}
+   :assert {:status 200 :body {:status "accepted"}}}]}

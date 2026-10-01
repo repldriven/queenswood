@@ -1,0 +1,12 @@
+{:name "Unknown product id returns 404"
+ :given
+ [{:fixture :bank
+   :as :org-0
+   :with {:name "404 Product Test Org" :status "live"}}]
+ :when [{:command :api/request
+         :request {:method :get
+                   :path "/v1/cash-account-products/{product-id}"
+                   :path-params {:product-id "prd.00000000000000000000000000"}
+                   :auth [:ref :org-0 :token]}
+         :assert {:status 404
+                  :problem {:type ":cash-account-product/product-not-found"}}}]}

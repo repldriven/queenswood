@@ -1,0 +1,27 @@
+{:name "Merging an active (not suspended) party is rejected"
+ :runs-on {:idv :every}
+ :given
+ [{:fixture :bank
+   :as :org-0
+   :with {:name "Merge Active Party Test Org" :status "live"}}
+  {:fixture :person
+   :as :party-0
+   :with {:token [:ref :org-0 :token]
+          :display-name "Survivor Customer"
+          :given-name "Survivor"
+          :family-name "Customer"
+          :national-insurance "TN888011A"}}
+  {:fixture :person
+   :as :party-1
+   :with {:token [:ref :org-0 :token]
+          :display-name "Active Duplicate Customer"
+          :given-name "Active"
+          :family-name "Duplicate"
+          :national-insurance "TN888012A"}}]
+ :when [{:command :api/request
+         :request {:method :post
+                   :path "/v1/parties/{party-id}/merge"
+                   :path-params {:party-id [:ref :party-1 :party :party-id]}
+                   :auth [:ref :org-0 :token]
+                   :body {:into-party-id [:ref :party-0 :party :party-id]}}
+         :assert {:status 409 :body {:type ":party/invalid-status"}}}]}

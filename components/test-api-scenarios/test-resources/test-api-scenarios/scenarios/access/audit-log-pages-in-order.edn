@@ -1,5 +1,4 @@
 {:name "The audit log pages newest first, and its pages add up to the list"
- :tags #{:access :api :happy}
  ;; Seven events at two a page: the bank's creation and the owner's
  ;; invitation (one transaction), the owner's acceptance, then a
  ;; member's invitation, acceptance, role change and removal. The
@@ -21,7 +20,6 @@
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
-             :headers {:idempotency-key "ik-access-history-bank-001"}
              :body {:name "History Bank"
                     :status "live"
                     :tier "micro"
@@ -35,13 +33,12 @@
              :path-params {:invitation-id [:ref :bank :owner-invitation :invitation-id]}
              :auth :owner-token}
    :as :owner-membership
-   :assert {:status 201 :body {:role "owner"}}}
+   :assert {:status 201}}
   {:command :api/request
    :request {:method :post
              :path "/v1/invitations"
              :auth :owner-token
-             :headers {:bank-id [:ref :bank :bank-id]
-                       :idempotency-key "ik-access-history-invite-001"}
+             :headers {:bank-id [:ref :bank :bank-id]}
              :body {:email "history-member@queenswood.local"
                     :role "developer"
                     :reason "Joining the platform team"}}
@@ -53,7 +50,7 @@
              :path-params {:invitation-id [:ref :invitation :invitation-id]}
              :auth :member-token}
    :as :member-membership
-   :assert {:status 201 :body {:role "developer"}}}
+   :assert {:status 201}}
   {:command :api/request
    :request {:method :post
              :path "/v1/memberships/{membership-id}/change-role"
@@ -62,7 +59,7 @@
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}
              :body {:role "admin" :reason "Leads the platform team"}}
-   :assert {:status 200 :body {:role "admin"}}}
+   :assert {:status 200}}
   {:command :api/request
    :request {:method :post
              :path "/v1/memberships/{membership-id}/remove"

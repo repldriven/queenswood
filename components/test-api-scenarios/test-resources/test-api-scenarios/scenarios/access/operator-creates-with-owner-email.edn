@@ -1,5 +1,4 @@
 {:name "The operator creates a bank with an owner email, and the invitee owns it"
- :tags #{:access :api :banks :happy}
  ;; The bank has no member until the invitee accepts, so the operator's
  ;; member list is empty and the owner is shown as invited by the
  ;; operator. No response carries a token: the owner's link is emailed.
@@ -15,7 +14,6 @@
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
-             :headers {:idempotency-key "ik-access-handover-bank-001"}
              :body {:name "Handover Bank"
                     :status "live"
                     :tier "micro"

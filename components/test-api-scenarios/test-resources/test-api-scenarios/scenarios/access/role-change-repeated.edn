@@ -1,5 +1,4 @@
 {:name "Making a member admin twice answers both and records one change"
- :tags #{:access :api :idempotency :happy}
  ;; The body names the role, so the second call converges on the state
  ;; the first made and writes no event. The history's newest two events
  ;; are the one change and the acceptance before it.
@@ -20,7 +19,6 @@
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
-             :headers {:idempotency-key "ik-access-role-change-repeated-001"}
              :body {:name "Repeated Role Bank"
                     :status "live"
                     :tier "micro"
@@ -34,13 +32,12 @@
              :path-params {:invitation-id [:ref :bank :owner-invitation :invitation-id]}
              :auth :owner-token}
    :as :owner-membership
-   :assert {:status 201 :body {:role "owner"}}}
+   :assert {:status 201}}
   {:command :api/request
    :request {:method :post
              :path "/v1/invitations"
              :auth :owner-token
-             :headers {:bank-id [:ref :bank :bank-id]
-                       :idempotency-key "ik-access-role-change-repeated-002"}
+             :headers {:bank-id [:ref :bank :bank-id]}
              :body {:email "repeat-member@queenswood.local" :role "developer"}}
    :as :invitation
    :assert {:status 201}}
@@ -50,7 +47,7 @@
              :path-params {:invitation-id [:ref :invitation :invitation-id]}
              :auth :member-token}
    :as :member-membership
-   :assert {:status 201 :body {:role "developer"}}}]
+   :assert {:status 201}}]
  :when
  [{:command :api/request
    :request {:method :post

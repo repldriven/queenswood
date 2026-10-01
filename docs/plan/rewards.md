@@ -146,7 +146,7 @@ calls the run in process, as it calls interest's.
 
 ### 6. The scenarios
 
-- [ ] `scenarios/rewards/opening-reward-paid.edn`: a bank on the
+- [ ] `scenarios/cash-account-products/rewards/opening-reward-paid.edn`: a bank on the
       `test-scenario` tier, its house account funded through simulate,
       a product with a reward published, a party made active, an
       account opened and polled to `opened`; `POST
@@ -154,7 +154,7 @@ calls the run in process, as it calls interest's.
       processing one and failing none; the account's balance carries
       the reward and its transactions a `reward` referenced `Welcome
       reward`; a second forced run processes none.
-- [ ] `scenarios/rewards/opening-reward-deferred.edn`: the same with
+- [ ] `scenarios/cash-account-products/rewards/opening-reward-deferred.edn`: the same with
       the house account unfunded, so the first run fails one and the
       balance stays at zero; funded, the next run pays it.
 - [ ] `full-happy-path.edn` still passes: its rewards are internal

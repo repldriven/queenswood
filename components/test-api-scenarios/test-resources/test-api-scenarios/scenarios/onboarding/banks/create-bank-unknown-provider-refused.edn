@@ -1,0 +1,22 @@
+{:name "A create naming a provider or a kind the installation does not offer is refused"
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :body {:name "Unknown Provider Bank"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]
+                    :providers {:payment "no-such-provider"}}}
+   :assert {:status 422 :body {:type ":bank/unknown-provider"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :body {:name "Unknown Kind Bank"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]
+                    :providers {:no-such-kind "modulr"}}}
+   :assert {:status 422 :body {:type ":bank/unknown-provider"}}}]}

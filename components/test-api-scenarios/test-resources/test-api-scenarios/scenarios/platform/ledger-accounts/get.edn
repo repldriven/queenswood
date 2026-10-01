@@ -1,0 +1,38 @@
+{:name "Tenant retrieves one ledger account by id"
+ :given
+ [{:fixture :bank
+   :as :org-0
+   :with {:name "Single Ledger Account Bank" :status "live"}}
+  {:command :api/request
+   :request {:method :get :path "/v1/ledger-accounts" :auth [:ref :org-0 :token]}
+   :as :chart
+   :assert {:status 200}}]
+ :when
+ ;; The single-get answers the documented fields and nothing derived:
+ ;; `posted-balance` is the list route's server-side enrichment, so it
+ ;; is absent here, and `status` is the stored tag-13 field, open on
+ ;; every row the seed creates.
+ [{:command :api/request
+   :request
+   {:method :get
+    :path "/v1/ledger-accounts/{account-id}"
+    :path-params
+    {:account-id [:ref-find :chart :items :gl-code "2100"
+                  :account-id]}
+    :auth [:ref :org-0 :token]}
+   :assert
+   {:status 200
+    :body
+    {:bank-id [:ref :org-0 :bank :bank-id]
+     :account-id [:ref-find :chart :items :gl-code "2100"
+                  :account-id]
+     :gl-code "2100"
+     :name "Customer deposits - current"
+     :currency "GBP"
+     :gl-account-type "liability"
+     :gl-account-class "control"
+     :required "mandatory"
+     :status "open"
+     :posted-balance [:m/absent]
+     :created-at [:m/regex ".+"]
+     :updated-at [:m/regex ".+"]}}}]}

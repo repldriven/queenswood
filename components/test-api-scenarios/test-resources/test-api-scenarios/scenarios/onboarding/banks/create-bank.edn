@@ -1,0 +1,27 @@
+{:name "Admin creates a bank"
+ :when
+ [{:command :api/request
+   :request
+   {:method :post
+    :path "/v1/banks"
+    :auth :admin
+    :body
+    {:name "Galactic Bank" :status "live" :tier "micro" :currencies ["GBP"]}}
+   :as :bank-0
+   :assert {:status 201
+            :body
+            {:name "Galactic Bank"
+             :status "live"
+             :bank-id [:m/regex "^bnk\\."]
+             :client-id [:m/regex "^bnk\\."]
+             :client-secret [:m/regex ".+"]
+             :party {:party-id [:m/regex "^pty\\."]}
+             ;; A fresh bank owns its chart of ledger accounts
+             ;; (see /ledger-accounts) plus one cash account: the
+             ;; own-funds house account it funds and pays customers from.
+             :accounts
+             [:m/embeds
+              [{:account-id [:m/regex "^acc\\."] :balances [:m/non-empty]}]]}}}]
+ :then [{:command :api/request
+         :request {:method :get :path "/v1/banks" :auth :admin}
+         :assert {:status 200}}]}

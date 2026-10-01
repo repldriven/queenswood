@@ -6,8 +6,8 @@
   bank and one client, that a failure after the last write rolls every
   earlier write back, that a tier change rebinds the underlying
   `PolicyBinding` records rather than just stamping `:tier`. Happy-path admin
-  creation over the bus is covered by banks/*.edn in
-  bank-test-api-scenarios."
+  creation over the bus is covered by onboarding/banks/*.edn in
+  test-api-scenarios."
   (:require
     [com.repldriven.queenswood.fdb.interface :as fdb]
     [com.repldriven.queenswood.testcontainers.interface]

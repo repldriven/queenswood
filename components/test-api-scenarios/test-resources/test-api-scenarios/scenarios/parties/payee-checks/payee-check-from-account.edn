@@ -1,0 +1,59 @@
+{:name "A payee check made from the account the payment will leave"
+ :runs-on {:payment :every}
+ :given
+ [{:fixture :bank :as :bank-0 :with {:name "Payee Check From Account Test"}}
+  ;; Current product (0 bps), published.
+  {:fixture :product
+   :as :current-draft
+   :with {:token [:ref :bank-0 :token] :name "Current"}}
+  ;; Party → active.
+  {:fixture :person
+   :as :trillian
+   :with {:token [:ref :bank-0 :token]
+          :display-name "Trillian Astra"
+          :given-name "Trillian"
+          :family-name "Astra"
+          :date-of-birth "1958-09-03"
+          :national-insurance "TN555201D"
+          :address {:building-number "42"
+                    :street "Improbability Drive"
+                    :town "Cottington"
+                    :postcode "CT12 4XY"
+                    :country "GBR"}}}
+  ;; Debtor account → opened.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth [:ref :bank-0 :token]
+             :body {:party-id [:ref :trillian :party :party-id]
+                    :name "Trillian Current"
+                    :currency "GBP"
+                    :product-id [:ref :current-draft :product :product-id]}}
+   :as :debtor
+   :assert {:status 201}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :debtor :account-id]}
+             :auth [:ref :bank-0 :token]}
+   :until {:status 200 :body {:account-status "opened"}}
+   :as :debtor}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/payee-checks"
+             :auth [:ref :bank-0 :token]
+             :body {:creditor-name "Arthur Dent"
+                    :account {:sort-code "040062" :account-number "12345678"}
+                    :account-type "personal"
+                    :account-id [:ref :debtor :account-id]}}
+   :assert {:status 201 :body {:result {:match-result "match"}}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/payee-checks"
+             :auth [:ref :bank-0 :token]
+             :body {:creditor-name "Arthur Dent"
+                    :account {:sort-code "040062" :account-number "12345678"}
+                    :account-type "personal"
+                    :account-id "acc.01kprbmgcj35ptc8npmybhh4sa"}}
+   :assert {:status 404 :body {:type ":cash-account/not-found"}}}]}

@@ -1,0 +1,9 @@
+{:name "Unknown job id returns 404"
+ :given
+ [{:fixture :bank :as :org-0 :with {:name "404 Job Test Org" :status "live"}}]
+ :when [{:command :api/request
+         :request {:method :get
+                   :path "/v1/jobs/{job-id}"
+                   :path-params {:job-id "no-such-job"}
+                   :auth [:ref :org-0 :token]}
+         :assert {:status 404 :problem {:type ":scheduler/job-not-found"}}}]}

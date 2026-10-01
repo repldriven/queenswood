@@ -1,98 +1,51 @@
 {:name "The bank admits an inbound to an opened account, and refuses one to a suspended account"
- :tags #{:api :inbound :payments :admission :inbound-admitted}
+ :requires #{:inbound-admitted}
+ :runs-on {:payment :every}
  ;; Form3 asks the bank to admit each inbound before it settles. One to
  ;; an opened account is admitted and credited. Once the account is
  ;; suspended the bank refuses the next, which Form3 fails as a blocked
  ;; account, and the balance does not move. Balances are in pence.
  :given
- [{:command :api/request
-   :request {:method :post
-             :path "/v1/banks"
-             :auth :admin
-             :headers {:idempotency-key "ik-f3adm-create-bank-001"}
-             :body {:name "Form3 Admission"
-                    :status "live"
-                    :tier "micro"
-                    :currencies ["GBP"]}}
-   :as :bank-0
-   :assert {:status 201}}
-  {:command :auth/mint-token
-   :for {:client-id [:ref :bank-0 :client-id]
-         :client-secret [:ref :bank-0 :client-secret]
-         :status :live}
-   :as :bank-0-token}
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/cash-account-products"
-             :auth :bank-0-token
-             :headers {:idempotency-key "ik-f3adm-create-prod-001"}
-             :body {:name "Current"
-                    :template-id "tpl.00000000000000000000000001"
-                    :currency "GBP"
-                    :interest-rate-bps 0
-                    :effective-from "2026-01-01"}}
+ [{:fixture :bank :as :bank-0 :with {:name "Form3 Admission" :status "live"}}
+  {:fixture :product
    :as :current-draft
-   :assert {:status 201 :body {:status "draft"}}}
-  {:command :api/request
-   :request
-   {:method :post
-    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
-    :path-params {:product-id [:ref :current-draft :product-id]
-                  :version-id [:ref :current-draft :version-id]}
-    :auth :bank-0-token}
-   :assert {:status 200 :body {:status "published"}}}
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/parties"
-             :auth :bank-0-token
-             :headers {:idempotency-key "ik-f3adm-create-party"}
-             :body {:type "person"
-                    :display-name "Trillian Astra"
-                    :given-name "Trillian"
-                    :family-name "Astra"
-                    :date-of-birth "1960-03-11"
-                    :nationality "GB"
-                    :address {:building-number "7"
-                              :street "Islington Row"
-                              :town "London"
-                              :postcode "N1 8QH"
-                              :country "GBR"}
-                    :national-identifier {:type "national-insurance"
-                                          :value "TN555933A"
-                                          :issuing-country "GB"}}}
+   :with {:token [:ref :bank-0 :token] :name "Current"}}
+  {:fixture :person
    :as :trillian
-   :assert {:status 201 :body {:status "pending"}}}
-  {:command :api/poll
-   :request {:method :get
-             :path "/v1/parties/{party-id}"
-             :path-params {:party-id [:ref :trillian :party-id]}
-             :auth :bank-0-token}
-   :until {:status 200 :body {:status "active"}}}
+   :with {:token [:ref :bank-0 :token]
+          :display-name "Trillian Astra"
+          :given-name "Trillian"
+          :family-name "Astra"
+          :date-of-birth "1960-03-11"
+          :national-insurance "TN555933A"
+          :address {:building-number "7"
+                    :street "Islington Row"
+                    :town "London"
+                    :postcode "N1 8QH"
+                    :country "GBR"}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/cash-accounts"
-             :auth :bank-0-token
-             :headers {:idempotency-key "ik-f3adm-open-creditor"}
-             :body {:party-id [:ref :trillian :party-id]
+             :auth [:ref :bank-0 :token]
+             :body {:party-id [:ref :trillian :party :party-id]
                     :name "Trillian Current"
                     :currency "GBP"
-                    :product-id [:ref :current-draft :product-id]}}
+                    :product-id [:ref :current-draft :product :product-id]}}
    :as :creditor
-   :assert {:status 201 :body {:account-status "opening"}}}
+   :assert {:status 201}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}"
              :path-params {:account-id [:ref :creditor :account-id]}
-             :auth :bank-0-token}
+             :auth [:ref :bank-0 :token]}
    :until {:status 200 :body {:account-status "opened"}}
    :as :creditor}
   {:command :api/request
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}/balances"
              :path-params {:account-id [:ref :creditor :account-id]}
-             :auth :bank-0-token}
-   :assert {:status 200
-            :body {:posted-balance {:value 0 :currency "GBP"}}}}]
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200}}]
  :when
  [{:command :api/request
    :request {:method :post
@@ -108,15 +61,14 @@
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}/balances"
              :path-params {:account-id [:ref :creditor :account-id]}
-             :auth :bank-0-token}
+             :auth [:ref :bank-0 :token]}
    :until {:status 200 :body {:posted-balance {:value 2500 :currency "GBP"}}}
    :timeout-ms 10000}
   {:command :api/request
    :request {:method :post
              :path "/v1/cash-accounts/{account-id}/suspend"
              :path-params {:account-id [:ref :creditor :account-id]}
-             :auth :bank-0-token
-             :headers {:idempotency-key "ik-f3adm-suspend"}}
+             :auth [:ref :bank-0 :token]}
    :assert {:status 200 :body {:account-status "suspended"}}}
   {:command :api/request
    :request {:method :post
@@ -135,6 +87,6 @@
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}/balances"
              :path-params {:account-id [:ref :creditor :account-id]}
-             :auth :bank-0-token}
+             :auth [:ref :bank-0 :token]}
    :assert {:status 200
             :body {:posted-balance {:value 2500 :currency "GBP"}}}}]}

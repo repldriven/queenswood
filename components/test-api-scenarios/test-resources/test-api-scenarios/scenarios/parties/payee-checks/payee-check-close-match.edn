@@ -1,0 +1,28 @@
+{:name "Tenant runs a payee check and the simulator returns a close match"
+ :runs-on {:payment :every}
+ ;; Every payment simulator's name check recognises the test value
+ ;; `COP_CLOSEMATCH` in the creditor name and replies with a close-match
+ ;; result.
+ :given
+ [{:fixture :bank
+   :as :org-0
+   :with {:name "Payee Check Close Match Org" :status "live"}}
+  ;; A check is made from the bank's own funds, so it waits for the
+  ;; provider to open them.
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts"
+             :auth [:ref :org-0 :token]}
+   :until {:status 200
+           :body {:items [:m/embeds [{:account-status "opened"}]]}}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/payee-checks"
+             :auth [:ref :org-0 :token]
+             :body {:creditor-name "COP_CLOSEMATCH Jane"
+                    :account {:sort-code "040062" :account-number "12345678"}
+                    :account-type "personal"}}
+   :assert {:status 201
+            :body {:check-id [:m/regex "^chk\\."]
+                   :result {:match-result "close-match"}}}}]}

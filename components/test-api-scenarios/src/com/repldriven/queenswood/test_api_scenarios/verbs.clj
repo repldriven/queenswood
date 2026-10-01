@@ -397,14 +397,6 @@
                 (str "deciding the verification: " (pr-str res)))
             ready))))))
 
-(def ^:private create-party-request {:method :post :path "/v1/parties"})
-
-(defn- created-person?
-  [request response]
-  (and (= create-party-request (select-keys request [:method :path]))
-       (= 201 (:status response))
-       (= "person" (get-in response [:body :type]))))
-
 (defmulti dispatch
   "Scenario step dispatch. `:api/*` methods drive the bank API over
   HTTP; `:assert/*` methods check the previous response.
@@ -417,12 +409,11 @@
   idempotency invariant over the answers rather than their timing: see
   its own method.
 
-  A step creating a person party verifies it as the tenant's app and the
-  person would: it opens a verification session and submits a document
-  that matches the party through the identity-provider simulator. The
-  step's `:verify` names another `:outcome` or `:document`, or `false`
-  leaves the party pending. `:idv/verify` does the same for a `:party`
-  created earlier, capturing the ready session under `:as`."
+  `:idv/verify` verifies a `:party` as the tenant's app and the person
+  would: it opens a verification session and submits a document that
+  matches the party through the identity-provider simulator, or another
+  `:outcome` or `:document`, capturing the ready session under `:as`. A
+  person party a step creates is not verified unless a step says so."
   (fn [_ctx command] (:command command)))
 
 (def ^:private write-methods #{:post :put :patch :delete})
@@ -469,7 +460,7 @@
     (capture ctx token-as token)))
 
 (defmethod dispatch :api/request
-  [{:keys [captures] :as ctx} {:keys [request as verify token-as] :as step}]
+  [{:keys [captures] :as ctx} {:keys [request as token-as] :as step}]
   (let [resolved
         (with-idempotency-key ctx step (refs/resolve-all captures request))
         response (send-once ctx resolved)
@@ -486,13 +477,6 @@
         ctx'' (if-let [expect (:assert step)]
                 (dispatch ctx' {:command :assert/response :assert expect})
                 ctx')]
-    ;; A person the step creates is verified as the tenant's app would
-    ;; have it be, unless the step says `:verify false`.
-    (when (and (created-person? resolved response) (not (false? verify)))
-      (verify-party ctx''
-                    (merge (refs/resolve-all captures verify)
-                           {:party (get-in response [:body :party-id])
-                            :auth (:auth resolved)})))
     ctx''))
 
 (defmethod dispatch :idv/verify

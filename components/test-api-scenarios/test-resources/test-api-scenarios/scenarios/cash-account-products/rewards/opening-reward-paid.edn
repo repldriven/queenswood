@@ -1,0 +1,131 @@
+{:name "An account opened under a rewarding version is paid once, on the hour"
+ :given
+ [{:fixture :bank
+   :as :org-0
+   :with {:name "Reward Paid Test Org" :tier "test-scenario"}}
+  ;; Money from outside into the bank's own-funds house account, which
+  ;; is what a reward is paid from.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/simulate/inbound-transfer"
+             :auth :admin
+             :headers {:bank-id [:ref :org-0 :bank :bank-id]}
+             :body {:amount 500000
+                    :currency "GBP"}}
+   :assert {:status 200}}
+  ;; A version that promises £10 to every account opened under it.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth [:ref :org-0 :token]
+             :body {:name "Welcome Current"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :opening-reward {:amount 1000}
+                    :effective-from "2026-01-01"}}
+   :as :product
+   :assert {:status 201}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :product :product-id]
+                  :version-id [:ref :product :version-id]}
+    :auth [:ref :org-0 :token]}
+   :assert {:status 200}}
+  {:fixture :person
+   :as :arthur
+   :with {:token [:ref :org-0 :token]
+          :date-of-birth "1952-03-11"
+          :national-insurance "TN555202A"}}
+  {:fixture :account
+   :as :account
+   :with {:token [:ref :org-0 :token]
+          :party-id [:ref :arthur :party :party-id]
+          :product-id [:ref :product :product-id]
+          :name "Arthur Current"}}]
+ :when
+ [;; A forced run stands in for the hour's tick and pays the one account.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/jobs/{job-id}/runs"
+             :path-params {:job-id "hourly-rewards"}
+             :auth [:ref :org-0 :token]}
+   :assert {:status 201
+            :body {:job-id "hourly-rewards"
+                   :trigger-source "forced"
+                   :status "succeeded"
+                   :tasks [{:label "reward"
+                            :status "succeeded"
+                            :records-processed 1
+                            :records-failed 0}]}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :account :account :account-id]}
+             :auth [:ref :org-0 :token]}
+   :assert {:status 200
+            :body {:available-balance {:value 1000 :currency "GBP"}}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/transactions"
+             :path-params {:account-id [:ref :account :account :account-id]}
+             :auth [:ref :org-0 :token]}
+   :assert {:status 200
+            :body {:items [:m/embeds
+                                  [{:reference "Welcome reward"
+                                    :transaction-type "reward"
+                                    :side "credit"
+                                    :balance-status "posted"
+                                    :amount 1000}]]}}}
+  ;; The reward reads back, listed by the account and by its own id, as
+  ;; paid and carrying the transaction that paid it.
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/rewards"
+             :query-params {:account-id [:ref :account :account :account-id]}
+             :auth [:ref :org-0 :token]}
+   :as :rewards
+   :assert {:status 200
+            :body {:items [{:account-id [:ref :account :account :account-id]
+                            :kind "opening"
+                            :amount 1000
+                            :currency "GBP"
+                            :status "paid"}]}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/rewards/{reward-id}"
+             :path-params {:reward-id [:ref :rewards :items 0 :reward-id]}
+             :auth [:ref :org-0 :token]}
+   :assert {:status 200
+            :body {:reward-id [:ref :rewards :items 0 :reward-id]
+                   :status "paid"
+                   :transaction-id [:m/regex "^txn\\."]}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/rewards/{reward-id}"
+             :path-params {:reward-id "rwd.00000000000000000000000000"}
+             :auth [:ref :org-0 :token]}
+   :assert {:status 404 :body {:type ":reward/not-found"}}}
+  ;; A second run finds the reward paid and pays nothing.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/jobs/{job-id}/runs"
+             :path-params {:job-id "hourly-rewards"}
+             :auth [:ref :org-0 :token]}
+   :assert {:status 201
+            :body {:job-id "hourly-rewards"
+                   :trigger-source "forced"
+                   :status "succeeded"
+                   :tasks [{:label "reward"
+                            :status "succeeded"
+                            :records-processed 0
+                            :records-failed 0}]}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :account :account :account-id]}
+             :auth [:ref :org-0 :token]}
+   :assert {:status 200
+            :body {:available-balance {:value 1000 :currency "GBP"}}}}]}

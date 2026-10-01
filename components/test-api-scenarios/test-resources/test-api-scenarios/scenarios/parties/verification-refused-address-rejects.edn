@@ -1,27 +1,14 @@
 {:name "A refused proof of address rejects the person"
- :tags #{:api :idv :parties :unhappy}
+ :runs-on {:idv :every}
  :given
- [{:command :api/request
-   :request
-   {:method :post
-    :path "/v1/banks"
-    :auth :admin
-    :headers {:idempotency-key "ik-verification-refused-address-rejects-bank-001"}
-    :body
-    {:name "Verification Test Org" :status "live" :tier "micro" :currencies ["GBP"]}}
+ [{:fixture :bank
    :as :org-0
-   :assert {:status 201}}
-  {:command :auth/mint-token
-   :for {:client-id [:ref :org-0 :client-id]
-         :client-secret [:ref :org-0 :client-secret]
-         :status :live}
-   :as :org-0-token}]
+   :with {:name "Verification Test Org" :status "live"}}]
  :when
  [{:command :api/request
    :request {:method :post
              :path "/v1/parties"
-             :auth :org-0-token
-             :headers {:idempotency-key "ik-verification-refused-address-rejects-001"}
+             :auth [:ref :org-0 :token]
              :body {:type "person"
                     :display-name "Arthur Dent"
                     :given-name "Arthur"
@@ -37,17 +24,20 @@
                                           :value "TN200007V"
                                           :issuing-country "GB"}}}
    :as :party-0
-   :verify {:outcome "address-failed"}
    :assert {:status 201 :body {:status "pending"}}}
+  {:command :idv/verify
+   :party [:ref :party-0 :party-id]
+   :auth [:ref :org-0 :token]
+   :outcome "address-failed"}
   {:command :api/poll
    :request {:method :get
              :path "/v1/parties/{party-id}/verification"
              :path-params {:party-id [:ref :party-0 :party-id]}
-             :auth :org-0-token}
+             :auth [:ref :org-0 :token]}
    :until {:status 200 :body {:status "rejected" :criteria [:m/embeds [{:name "address" :state "failed"}]]}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/parties/{party-id}"
              :path-params {:party-id [:ref :party-0 :party-id]}
-             :auth :org-0-token}
+             :auth [:ref :org-0 :token]}
    :until {:status 200 :body {:status "rejected"}}}]}

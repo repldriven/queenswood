@@ -2,11 +2,10 @@
 
 > **Status: proposal.** Both scenario bricks, the model, the projections,
 > the standing invariants and the brick-test scope check exist, and
-> Background describes them as they were before slice 1. Slice 1 is
-> built: the API runner's closed schema, fixtures, generated keys,
-> declared fault and token, provider declarations, await and worker
-> pool, with two scenarios on fixtures. Proposed Solution is the design
-> the tests move to, and its build list. "Five slices" gives the order.
+> Background describes them as they were before slice 1. Slices 1 and 2
+> are built: the API runner's building blocks, and the API corpus on
+> them. Proposed Solution is the design the tests move to, and its build
+> list. "Five slices" gives the order.
 
 ## Objective
 
@@ -231,20 +230,22 @@ scenario repeats is deleted.
 Components:
 
 - **`bank/interface_test.clj`.** The dispatch, replay, provider, tier and
-  status tests go, `banks/*.edn` and `access/*.edn` covering them. The
+  status tests go, `onboarding/banks/*.edn` and `access/*.edn` covering
+  them. The
   changelog dedup test stays. The rollback test is narrowed to the bank's
   own record and changelog.
 - **`idv/interface_test.clj`.** `process-idv-test` and
   `session-and-evidence-test` go, the `parties/verification-*.edn`
   scenarios covering them. The rest are narrowed to `core` and the store.
 - **`reward/interface_test.clj`.** Goes. The defer and pay cases are
-  `rewards/opening-reward-*.edn`; a rerun paying nothing twice becomes an
+  `cash-account-products/rewards/opening-reward-*.edn`; a rerun paying
+  nothing twice becomes an
   API scenario forcing the job twice.
 - **`webhook/end_to_end_test.clj`** and the bus-subscription test in
   `webhook/events_test.clj`. Go once the delivery scenarios in
   [webhooks.md](webhooks.md) slice 2 pass.
 - **`webhook/interface_test.clj`.** The lifecycle and count-limit tests go,
-  `webhook-endpoints/endpoint-lifecycle.edn`, `secret-rotation.edn` and
+  `webhooks/endpoint-lifecycle.edn`, `secret-rotation.edn` and
   `endpoint-count-limit.edn` covering them.
 - **`membership/interface_test.clj`.** The removal-and-reinvitation story
   becomes an `access/` scenario, and the test building a user through
@@ -264,7 +265,7 @@ Components:
 
 Bases:
 
-- **`api/webhook/writes_test.clj`.** Becomes `webhook-endpoints/`
+- **`api/webhook/writes_test.clj`.** Becomes `webhooks/`
   scenarios for an invalid address, a missing endpoint and delivery, and
   a create replay, using IP-literal addresses so no DNS double is needed.
   Its payload check moves to `webhook`'s domain test.
@@ -344,16 +345,23 @@ A fixture is a named, parameterised block of steps in
 `test-resources/test-api-scenarios/fixtures/<name>.edn`:
 
 ```clojure
-{:doc "A bank on the run's providers, with its token."
- :params {:name "Acme Bank" :tier "micro" :currencies ["GBP"]}
+{:doc "A bank on the run's providers, with a token minted for it."
+ :params {:name "Scenario Bank"
+          :status "test"
+          :tier "micro"
+          :currencies ["GBP"]}
  :steps
  [{:command :api/request
-   :request {:method :post :path "/v1/banks"
-             :body {:name [:param :name] :status "live"
-                    :tier [:param :tier] :currencies [:param :currencies]
-                    :providers [:run :providers]}}
-   :assert {:status 201}
-   :as :bank}]}
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :body {:name [:param :name]
+                    :status [:param :status]
+                    :tier [:param :tier]
+                    :currencies [:param :currencies]}}
+   :as :bank
+   :token-as :token
+   :assert {:status 201}}]}
 ```
 
 A scenario step names one, its parameters and an alias:
@@ -385,48 +393,44 @@ the unused context `:counter` and the unused markers go.
 
 - The token a bank create mints is the `:bank` fixture's, captured as
   `[:ref <alias> :token]`; `:auth/mint-token` stays for a second token.
-- Identity verification runs in the `:person` fixture, on a `:verify`
-  parameter, and a bare `POST /v1/parties` verifies nothing.
+- Identity verification is a step, `:idv/verify`, which the `:person`
+  fixture carries, and a bare `POST /v1/parties` verifies nothing.
 - A lost reply is declared on its step, `:fault :lost-reply`, in place of
   the key prefix.
 
-**Idempotency keys.** A write with no `Idempotency-Key` header is given
-one derived from the run, the file and the step. A literal is written
-only where a scenario proves a replay, and the uniqueness lint keeps
-holding literals.
+**Idempotency keys.** A write with no `Idempotency-Key` header is given one made
+of the execution's run id and the step's number. A literal is written only where
+a scenario proves a replay, and the uniqueness lint keeps holding literals.
 
-**Layout and names.** Directories follow the PRDs: `access/`,
-`onboarding/` (banks, auth, OAuth and `me`), `parties/` (payee checks
-included), `cash-account-products/` (rewards included),
-`cash-accounts/` (migrations included), `payments/`, `interest/`,
-`policies/`, `webhooks/` and `platform/` (the end-to-end journey,
-providers, simulate and jobs). A file is named for the behaviour, a
-refusal ending `-refused` and a missing resource `-not-found`; `-happy`
-goes.
+**Layout and names.** Directories follow the PRDs, a resource that
+shares one keeping a subdirectory of its own: `access/`, `onboarding/`
+(`banks/`, `auth/`, `oauth/` and `me/`), `parties/` (`payee-checks/`),
+`cash-account-products/` (`rewards/`), `cash-accounts/` (`migrations/`),
+`payments/`, `webhooks/`, and `platform/` (`e2e/`, `jobs/`,
+`providers/`, `simulate/` and `ledger-accounts/`). A file is named for
+the behaviour, a refusal ending `-refused` and a missing resource
+`-not-found`; `-happy` goes.
 
 **Tags.** One closed vocabulary: `:serial`. Provider capabilities move to
 `:requires`.
 
 ### Provider runs
 
-A scenario declares the providers it runs on: `:runs-on {:payment
-:every}`, `{:idv :every}`, or nothing for the defaults alone. `:requires`
-names the capabilities it needs, checked against each provider's
-declaration, and the rig's `application-test.yml` carries the
-`unbuilt` capabilities under `test-api-scenarios/providers`. The run's
-providers reach the bank create through the `:bank` fixture's
-`[:run :providers]`, so `for-run`'s path match goes. A skipped run is
-logged with its reason and counted in the run's summary, and reports no
-`testing` block.
+A scenario declares the providers it runs on: `:runs-on {:payment :every}`,
+`{:idv :every}`, or nothing for the defaults alone. `:requires` names the
+capabilities it needs, checked against each provider's declaration, and the
+rig's `application-test.yml` carries the `unbuilt` capabilities on its
+`test-api-scenarios/settings` component. A bank create naming no providers is
+sent with the run's. A skipped run is logged with its reason and counted in the
+run's summary, and reports no `testing` block.
 
 ### Waiting
 
-`await.clj` is the one loop: it re-runs a step until its assertion holds
-or a deadline passes, and `:api/poll`, `:mail/await-invitation`,
-`:idv/verify` and the invariants' settle all use it. The timeout is one
-config key, `await-timeout-ms`, in the rig's YAML. `:wait` stays for a
-token's expiry only; `platform/full-happy-path.edn`'s fixed wait becomes
-polls.
+`await.clj` is the one loop: it re-runs a step until its assertion holds or a
+deadline passes, and `:api/poll`, `:mail/await-invitation`, `:idv/verify` and
+the invariants' settle all use it. The timeout is one config key,
+`await-timeout-ms`, in the rig's YAML. `:wait` stays for a token's expiry only;
+`platform/e2e/full-happy-path.edn`'s fixed wait becomes polls.
 
 The receiver verb, the equality assertion and the delivery wait
 [webhooks.md](webhooks.md) slice 2 needs are built on `await.clj`: a
@@ -447,13 +451,13 @@ Two clashes are removed first:
 
 - **Shared verification emails.** The Zyphe simulator resumes a pending
   run for the same person, as Zyphe does, and every automatic
-  verification sends `person@example.test`. The `:person` fixture sends
-  an address unique to the run and the step, and the files sharing
+  verification sends `person@example.test`. Each verification sends an
+  address of its own, and the files sharing
   `ford@example.test` take an address each.
 - **The global refusal.** `POST /simulate/open-refused` refuses the next
   account any bank opens. `cash-accounts/open-refused.edn` is `:serial`.
 
-`onboarding/bank-list-owners.edn`, which reads the newest-first first
+`onboarding/banks/bank-list-owners.edn`, which reads the newest-first first
 page of every bank, is `:serial` too.
 
 The namespace carries no `^:eftest/synchronized`, so its tests run

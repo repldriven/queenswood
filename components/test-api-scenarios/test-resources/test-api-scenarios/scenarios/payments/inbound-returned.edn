@@ -1,99 +1,52 @@
 {:name "An inbound admitted to an account that closes before it settles is returned"
- :tags #{:api :inbound :payments :returns :inbound-admitted}
+ :requires #{:inbound-admitted}
+ :runs-on {:payment :every}
  ;; Form3 settles an inbound once the bank has admitted it. One admitted
  ;; to an account that closes before it settles is parked in 2500
  ;; suspense, and the bank sends it back: the return is delivered, the
  ;; inbound becomes `returned` for the reason it was parked, and neither
  ;; suspense nor 1100 holds anything of it. Balances are in pence.
  :given
- [{:command :api/request
-   :request {:method :post
-             :path "/v1/banks"
-             :auth :admin
-             :headers {:idempotency-key "ik-f3ret-create-bank-001"}
-             :body {:name "Form3 Return"
-                    :status "live"
-                    :tier "micro"
-                    :currencies ["GBP"]}}
-   :as :bank-0
-   :assert {:status 201}}
-  {:command :auth/mint-token
-   :for {:client-id [:ref :bank-0 :client-id]
-         :client-secret [:ref :bank-0 :client-secret]
-         :status :live}
-   :as :bank-0-token}
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/cash-account-products"
-             :auth :bank-0-token
-             :headers {:idempotency-key "ik-f3ret-create-prod-001"}
-             :body {:name "Current"
-                    :template-id "tpl.00000000000000000000000001"
-                    :currency "GBP"
-                    :interest-rate-bps 0
-                    :effective-from "2026-01-01"}}
+ [{:fixture :bank :as :bank-0 :with {:name "Form3 Return" :status "live"}}
+  {:fixture :product
    :as :current-draft
-   :assert {:status 201 :body {:status "draft"}}}
-  {:command :api/request
-   :request
-   {:method :post
-    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
-    :path-params {:product-id [:ref :current-draft :product-id]
-                  :version-id [:ref :current-draft :version-id]}
-    :auth :bank-0-token}
-   :assert {:status 200 :body {:status "published"}}}
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/parties"
-             :auth :bank-0-token
-             :headers {:idempotency-key "ik-f3ret-create-party"}
-             :body {:type "person"
-                    :display-name "Trillian Astra"
-                    :given-name "Trillian"
-                    :family-name "Astra"
-                    :date-of-birth "1960-03-11"
-                    :nationality "GB"
-                    :address {:building-number "7"
-                              :street "Islington Row"
-                              :town "London"
-                              :postcode "N1 8QH"
-                              :country "GBR"}
-                    :national-identifier {:type "national-insurance"
-                                          :value "TN555933A"
-                                          :issuing-country "GB"}}}
+   :with {:token [:ref :bank-0 :token] :name "Current"}}
+  {:fixture :person
    :as :trillian
-   :assert {:status 201 :body {:status "pending"}}}
-  {:command :api/poll
-   :request {:method :get
-             :path "/v1/parties/{party-id}"
-             :path-params {:party-id [:ref :trillian :party-id]}
-             :auth :bank-0-token}
-   :until {:status 200 :body {:status "active"}}}
+   :with {:token [:ref :bank-0 :token]
+          :display-name "Trillian Astra"
+          :given-name "Trillian"
+          :family-name "Astra"
+          :date-of-birth "1960-03-11"
+          :national-insurance "TN555933A"
+          :address {:building-number "7"
+                    :street "Islington Row"
+                    :town "London"
+                    :postcode "N1 8QH"
+                    :country "GBR"}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/cash-accounts"
-             :auth :bank-0-token
-             :headers {:idempotency-key "ik-f3ret-open-creditor"}
-             :body {:party-id [:ref :trillian :party-id]
+             :auth [:ref :bank-0 :token]
+             :body {:party-id [:ref :trillian :party :party-id]
                     :name "Trillian Current"
                     :currency "GBP"
-                    :product-id [:ref :current-draft :product-id]}}
+                    :product-id [:ref :current-draft :product :product-id]}}
    :as :creditor
-   :assert {:status 201 :body {:account-status "opening"}}}
+   :assert {:status 201}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}"
              :path-params {:account-id [:ref :creditor :account-id]}
-             :auth :bank-0-token}
+             :auth [:ref :bank-0 :token]}
    :until {:status 200 :body {:account-status "opened"}}
    :as :creditor}
   {:command :api/request
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}/balances"
              :path-params {:account-id [:ref :creditor :account-id]}
-             :auth :bank-0-token}
-   :assert {:status 200
-            :body {:posted-balance {:value 0 :currency "GBP"}}}}]
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200}}]
  :when
  [{:command :api/request
    :request {:method :post
@@ -111,14 +64,13 @@
    :request {:method :post
              :path "/v1/cash-accounts/{account-id}/close"
              :path-params {:account-id [:ref :creditor :account-id]}
-             :auth :bank-0-token
-             :headers {:idempotency-key "ik-f3ret-close-account-001"}}
+             :auth [:ref :bank-0 :token]}
    :assert {:status 200 :body {:account-status "closing"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}"
              :path-params {:account-id [:ref :creditor :account-id]}
-             :auth :bank-0-token}
+             :auth [:ref :bank-0 :token]}
    :until {:status 200 :body {:account-status "closed"}}
    :timeout-ms 10000}
   {:command :api/request
@@ -132,14 +84,14 @@
    :request {:method :get
              :path "/v1/payments/inbound"
              :query-params {"status" "returned"}
-             :auth :bank-0-token}
+             :auth [:ref :bank-0 :token]}
    :until {:status 200
            :body {:items [{:amount 700
                            :currency "GBP"
                            :payment-status "returned"}]}}
    :timeout-ms 20000}
   {:command :api/request
-   :request {:method :get :path "/v1/ledger-accounts" :auth :bank-0-token}
+   :request {:method :get :path "/v1/ledger-accounts" :auth [:ref :bank-0 :token]}
    :assert {:status 200
             :body {:items [:m/embeds
                            [{:gl-code "1100"

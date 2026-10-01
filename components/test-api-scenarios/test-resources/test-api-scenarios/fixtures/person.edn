@@ -26,7 +26,6 @@
                     :national-identifier {:type "national-insurance"
                                           :value [:param :national-insurance]
                                           :issuing-country "GB"}}}
-   :verify false
    :as :party
    :assert {:status 201 :body {:status "pending"}}}
   {:command :idv/verify

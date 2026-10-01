@@ -1,5 +1,4 @@
 {:name "A write the tier refuses and a write the role refuses answer different types"
- :tags #{:access :api :auth :policy :unhappy}
  ;; The bank is on the `no-webhooks` tier, whose policy refuses
  ;; registering a webhook endpoint. The developer passes the gate and
  ;; is refused by the policy; demoted to viewer, the same write is
@@ -22,26 +21,24 @@
    :request {:method :post
              :path "/v1/banks"
              :auth :admin
-             :headers {:idempotency-key "ik-access-tier-bank-001"}
              :body {:name "No Webhooks Bank"
                     :status "live"
                     :tier "no-webhooks"
                     :currencies ["GBP"]
                     :owner-email "tier-owner@queenswood.local"}}
    :as :bank
-   :assert {:status 201 :body {:tier "no-webhooks"}}}
+   :assert {:status 201}}
   {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/accept"
              :path-params {:invitation-id [:ref :bank :owner-invitation :invitation-id]}
              :auth :owner-token}
-   :assert {:status 201 :body {:role "owner"}}}
+   :assert {:status 201}}
   {:command :api/request
    :request {:method :post
              :path "/v1/invitations"
              :auth :owner-token
-             :headers {:bank-id [:ref :bank :bank-id]
-                       :idempotency-key "ik-access-tier-invite-001"}
+             :headers {:bank-id [:ref :bank :bank-id]}
              :body {:email "tier-developer@queenswood.local"
                     :role "developer"}}
    :as :invitation
@@ -52,14 +49,13 @@
              :path-params {:invitation-id [:ref :invitation :invitation-id]}
              :auth :developer-token}
    :as :developer-membership
-   :assert {:status 201 :body {:role "developer"}}}]
+   :assert {:status 201}}]
  :when
  [{:command :api/request
    :request {:method :post
              :path "/v1/webhook-endpoints"
              :auth :developer-token
-             :headers {:bank-id [:ref :bank :bank-id]
-                       :idempotency-key "ik-access-tier-endpoint-001"}
+             :headers {:bank-id [:ref :bank :bank-id]}
              :body {:address "https://93.184.216.34/hooks"
                     :description "Refused hooks"
                     :kinds ["cash-account.opened"]}}
@@ -77,8 +73,7 @@
    :request {:method :post
              :path "/v1/webhook-endpoints"
              :auth :developer-token
-             :headers {:bank-id [:ref :bank :bank-id]
-                       :idempotency-key "ik-access-tier-endpoint-002"}
+             :headers {:bank-id [:ref :bank :bank-id]}
              :body {:address "https://93.184.216.34/hooks"
                     :description "Refused hooks"
                     :kinds ["cash-account.opened"]}}
