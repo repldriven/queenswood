@@ -118,16 +118,43 @@
 
 (def
   ^{:doc
-    "A credit of `amount` to `acct`, recorded and counted against the
-  bank's daily inbound count whatever becomes of it. It lands where the
-  account is open, the bank's policies permit receiving it within their
-  daily count, and the available balance rule allows; otherwise it parks
-  in suspense and the balance is untouched. Args:
+    "A credit of `amount` to `acct` the scheme has settled, under end-to-end
+  id `e2e`. One already settled under the same id changes nothing. Where
+  `acct` is not open it parks in suspense. Where a hold for `e2e`, `acct`
+  and `amount` is held it releases that hold, its checks counting today's
+  inbound payments without the hold itself. Otherwise it is recorded and
+  counted against the bank's daily inbound count. A release or a
+  settlement lands where the bank's policies permit receiving it within
+  their daily count, and parks in suspense, the balance untouched,
+  where they do not. Args:
+  - acct: model account id.
+  - amount: minor units.
+  - e2e (optional): an end-to-end id marker, the next inbound marker
+    where omitted."}
+  inbound-transfer
+  payments/inbound-transfer)
+
+(def
+  ^{:doc
+    "An inbound the payment provider holds for screening, recorded `held`
+  and counted against the bank's daily inbound count with no money
+  moved and no check run. A hold matching a recorded inbound by `e2e`,
+  `acct` and `amount`, whatever its status, records nothing, and one for
+  an account that is not open is dropped. Either way it is `acct`'s hold
+  for `release-inbound`. Never generated. Args:
   - acct: model account id.
   - amount: minor units.
   - e2e (optional): an end-to-end id marker."}
-  inbound-transfer
-  payments/inbound-transfer)
+  hold-inbound
+  payments/hold-inbound)
+
+(def
+  ^{:doc
+    "The settlement of `acct`'s last hold, as `inbound-transfer` settles
+  under that hold's end-to-end id and amount. Never generated. Args:
+  - acct: model account id."}
+  release-inbound
+  payments/release-inbound)
 
 (def
   ^{:doc
@@ -234,6 +261,8 @@
                 :update-product-draft update-product-draft
                 :create-person-party create-person-party
                 :inbound-transfer inbound-transfer
+                :hold-inbound hold-inbound
+                :release-inbound release-inbound
                 :outbound-payment outbound-payment
                 :internal-transfer internal-transfer
                 :bind-policy bind-policy

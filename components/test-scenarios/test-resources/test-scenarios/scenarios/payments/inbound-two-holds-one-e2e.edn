@@ -1,5 +1,4 @@
 {:name "Two holds share an end-to-end id — settling one leaves the other held"
- :model :reality
  ;; A hold is matched by end-to-end id, creditor and amount, so a second
  ;; account's hold on the same id and amount is recorded rather than
  ;; taken as already recorded. Settling acct-0's releases only acct-0's

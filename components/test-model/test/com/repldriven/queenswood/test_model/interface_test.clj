@@ -394,3 +394,57 @@
         (is (pos? (get-in once [:accounts :acct-1 :interest-accrued])))
         (is (= (get-in once [:accounts :acct-1 :interest-accrued])
                (get-in twice [:accounts :acct-1 :interest-accrued])))))))
+
+(defn- statuses
+  [state]
+  (mapv (juxt :acct :status) (:inbound-records state)))
+
+(deftest holds-test
+  (let [s (-> init
+              (step :create-bank [])
+              (step :create-person-party [:bank-0])
+              (step :open-account [:bank-0 :party-1 :prod-0]))]
+    (testing "a hold moves no money, and its release credits once"
+      (let [held (step s :hold-inbound [:acct-0 1000 :e2e-a])
+            released (step held :release-inbound [:acct-0])]
+        (is (= 0 (SUT/balance held :acct-0)))
+        (is (= [[:acct-0 :held]] (statuses held)))
+        (is (= 1000 (SUT/balance released :acct-0)))
+        (is (= [[:acct-0 :settled]] (statuses released)))))
+    (testing "a hold redelivered after its settlement records nothing"
+      (let [s' (-> s
+                   (step :hold-inbound [:acct-0 1000 :e2e-a])
+                   (step :release-inbound [:acct-0])
+                   (step :hold-inbound [:acct-0 1000 :e2e-a]))]
+        (is (= [[:acct-0 :settled]] (statuses s')))
+        (is (= 1000 (SUT/balance s' :acct-0)))))
+    (testing "a hold for another account under one id is its own"
+      (let [s' (-> s
+                   (step :hold-inbound [:acct-0 1000 :e2e-a])
+                   (step :hold-inbound [:acct-1 1000 :e2e-a])
+                   (step :release-inbound [:acct-0]))]
+        (is (= [[:acct-0 :settled] [:acct-1 :held]] (statuses s')))))
+    (testing "a hold for a closed account is dropped, its release parked"
+      (let [s' (-> s
+                   (step :close-account [:acct-0])
+                   (step :hold-inbound [:acct-0 1000])
+                   (step :release-inbound [:acct-0]))]
+        (is (= [[:acct-0 :suspended]] (statuses s')))
+        (is (= 0 (SUT/balance s' :acct-0)))))
+    (testing "a release the bank's policies refuse suspends the hold"
+      (let [s' (-> s
+                   (bound :bank-0
+                          {:capabilities
+                           [{:effect :effect-deny
+                             :kind {:inbound-payment
+                                    {:action
+                                     :inbound-payment-action-receive}}}]})
+                   (step :hold-inbound [:acct-0 1000])
+                   (step :release-inbound [:acct-0]))]
+        (is (= [[:acct-0 :suspended]] (statuses s')))
+        (is (= 0 (SUT/balance s' :acct-0)))))
+    (testing "an inbound settled twice under one id credits once"
+      (let [s' (-> s
+                   (step :inbound-transfer [:acct-0 100 :e2e-b])
+                   (step :inbound-transfer [:acct-0 100 :e2e-b]))]
+        (is (= 100 (SUT/balance s' :acct-0)))))))

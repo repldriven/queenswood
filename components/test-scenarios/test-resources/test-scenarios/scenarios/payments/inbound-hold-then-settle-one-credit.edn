@@ -1,5 +1,4 @@
 {:name "An inbound hold and its settlement share an end-to-end id — one credit"
- :model :reality
  ;; The hold and the settlement that releases it carry one end-to-end id
  ;; and different scheme transaction ids. The settlement releases the
  ;; hold rather than recording a second inbound: one record, settled,

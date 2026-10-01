@@ -13,14 +13,19 @@
   [state acct]
   (get-in state [:accounts acct :bank]))
 
-(defn- within-daily?
+(defn- day-count
   [state bank-id kind]
-  (policies/within-count? state
-                          bank-id
-                          kind
-                          nil
-                          :time-window-daily
-                          (get-in state [:banks bank-id :day-counts kind] 0)))
+  (get-in state [:banks bank-id :day-counts kind] 0))
+
+(defn- within-daily?
+  ([state bank-id kind] (within-daily? state bank-id kind 0))
+  ([state bank-id kind excluded]
+   (policies/within-count? state
+                           bank-id
+                           kind
+                           nil
+                           :time-window-daily
+                           (- (day-count state bank-id kind) excluded))))
 
 (defn- counted
   [state bank-id kind]
@@ -56,27 +61,100 @@
           (bump-legs from to))
       state)))
 
+(defn- receives?
+  [state acct excluded]
+  (let [bank-id (bank-of state acct)]
+    (and (policies/permitted? state
+                              bank-id
+                              :inbound-payment
+                              :inbound-payment-action-receive)
+         (within-daily? state bank-id :inbound-payment excluded))))
+
+(defn- matching
+  [state e2e acct amount]
+  (first (keep-indexed (fn [i record]
+                         (when (= [e2e acct amount]
+                                  ((juxt :e2e :acct :amount) record))
+                           i))
+                       (:inbound-records state))))
+
+(defn- record-inbound
+  [state record]
+  (-> state
+      (update :inbound-records (fnil conj []) record)
+      (counted (bank-of state (:acct record)) :inbound-payment)))
+
+(defn- credited
+  [state acct amount]
+  (let [credited (apply-delta state acct amount)]
+    [credited (if (= credited state) :suspended :settled)]))
+
+(defn- settle-inbound
+  [state acct amount e2e stx]
+  (let [held (matching state e2e acct amount)]
+    (cond
+     (and stx (some (fn [r] (= stx (:stx r))) (:inbound-records state)))
+     state
+
+     (not (operable? state acct))
+     (record-inbound state
+                     {:e2e e2e
+                      :acct acct
+                      :amount amount
+                      :stx stx
+                      :status :suspended})
+
+     (and held (= :held (get-in state [:inbound-records held :status])))
+     (if (receives? state acct 1)
+       (let [[state' status] (credited state acct amount)]
+         (assoc-in state' [:inbound-records held :status] status))
+       (assoc-in state [:inbound-records held :status] :suspended))
+
+     :else
+     (let [[state' status] (if (receives? state acct 0)
+                             (credited state acct amount)
+                             [state :suspended])]
+       (record-inbound state'
+                       {:e2e e2e
+                        :acct acct
+                        :amount amount
+                        :stx stx
+                        :status status})))))
+
 (def inbound-transfer
   {:run? (fn [state] (seq (state/known-accounts state)))
    :args (fn [state]
            (gen/tuple (gen/elements (state/known-accounts state))
                       (gen/choose 1 10000)))
-   :next-state
-   (fn [state {[acct amount] :args}]
-     (let [bank-id (bank-of state acct)
-           marker (state/next-inbound-id state)
-           lands? (and (operable? state acct)
-                       (policies/permitted? state
-                                            bank-id
-                                            :inbound-payment
-                                            :inbound-payment-action-receive)
-                       (within-daily? state bank-id :inbound-payment))
-           advanced (if lands? (apply-delta state acct amount) state)]
-       (-> advanced
-           (counted bank-id :inbound-payment)
-           (update :inbound-payments conj marker)
-           (update :next-inbound-id inc))))
+   :next-state (fn [state {[acct amount e2e] :args}]
+                 (let [marker (state/next-inbound-id state)
+                       e2e (or e2e marker)]
+                   (-> state
+                       (settle-inbound acct amount e2e e2e)
+                       (update :inbound-payments conj marker)
+                       (update :next-inbound-id inc))))
    :valid? (fn [state {[acct] :args}] (contains? (:accounts state) acct))})
+
+(def hold-inbound
+  {:run? (constantly false)
+   :next-state
+   (fn [state {[acct amount e2e] :args}]
+     (let [e2e (or e2e (keyword (str "held-" (:next-inbound-id state))))]
+       (cond->
+        (-> state
+            (assoc-in [:last-holds acct] {:e2e e2e :amount amount})
+            (update :next-inbound-id inc))
+
+        (and (operable? state acct) (nil? (matching state e2e acct amount)))
+        (record-inbound {:e2e e2e :acct acct :amount amount :status :held}))))})
+
+(def release-inbound
+  {:run? (constantly false)
+   :next-state (fn [state {[acct] :args}]
+                 (if-let [{:keys [e2e amount]} (get-in state
+                                                       [:last-holds acct])]
+                   (settle-inbound state acct amount e2e nil)
+                   state))})
 
 (def outbound-payment
   {:run? (fn [state] (seq (state/known-accounts state)))
