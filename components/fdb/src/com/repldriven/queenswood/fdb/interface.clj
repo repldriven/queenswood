@@ -251,14 +251,16 @@
   calling `(handler ctx changelog-bytes)` per entry and advancing the
   checkpoint — all in one transaction. Each consumer tracks its own
   checkpoint, so a fresh consumer-id starts from the beginning of the
-  log.
+  log. The log is read as a snapshot, so a writer appending to it does
+  not conflict the pass and have its handler run again; what it appends
+  is the next pass's.
 
   Args:
   - opts: `:deduplicate?` (default true) processes only the latest
     entry per record-id; set false for an audit consumer needing every
     write. `:keyspace-prefix` scopes the changelog and checkpoint keys,
     and must match the writing system's or this consumer reads an empty
-    log."
+    log. `:limit` (default 500) bounds the entries one pass reads."
   ([record-db consumer-id store-name handler]
    (changelog/process record-db consumer-id store-name handler))
   ([record-db consumer-id store-name handler opts]

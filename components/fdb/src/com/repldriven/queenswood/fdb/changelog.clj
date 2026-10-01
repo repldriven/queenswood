@@ -87,10 +87,22 @@
              (sentinel-key prefix store-name)
              (byte-array [1 0 0 0 0 0 0 0]))))
 
+(def
+  ^:private
+  ^{:doc
+    "How many entries one pass reads at most. A pass is one transaction,
+  and its handler's work happens inside it, so an unbounded backlog
+  would outlive the transaction's time limit and be retried whole."}
+  default-limit
+  500)
+
 (defn- scan
-  "Returns a Java List of KeyValues from the changelog for store-name
-  that come strictly after from-vs, or all entries when from-vs is nil."
-  [ctx prefix store-name from-vs]
+  "Returns a Java List of at most `limit` KeyValues from the changelog
+  for store-name that come strictly after from-vs, or from the start
+  when from-vs is nil. A snapshot read: an entry appended while the pass
+  runs does not conflict it, since it commits after the pass's read
+  version and so sorts after every entry the pass checkpoints."
+  [ctx prefix store-name from-vs limit]
   (let [subspace (changelog-subspace prefix store-name)
         begin (if from-vs
                 (KeySelector/firstGreaterThan
@@ -101,7 +113,10 @@
                                                  .end))]
     (.asyncToSync ctx
                   FDBStoreTimer$Waits/WAIT_SCAN_RECORDS
-                  (-> (.getRange (.ensureActive ctx) begin end)
+                  (-> (.getRange (.snapshot (.ensureActive ctx))
+                                 begin
+                                 end
+                                 (int limit))
                       .asList))))
 
 (defn- deduplicate
@@ -119,14 +134,16 @@
   ([^FDBDatabase record-db consumer-id store-name handler]
    (process record-db consumer-id store-name handler {}))
   ([^FDBDatabase record-db consumer-id store-name handler opts]
-   (let [{:keys [deduplicate? keyspace-prefix] :or {deduplicate? true}} opts
+   (let [{:keys [deduplicate? keyspace-prefix limit]
+          :or {deduplicate? true limit default-limit}}
+         opts
          cp-key (checkpoint-key keyspace-prefix consumer-id store-name)]
      (.run record-db
            ^Function
            (fn [ctx]
              (let [tr (.ensureActive ctx)
                    cp (read-checkpoint record-db cp-key)
-                   entries (scan ctx keyspace-prefix store-name cp)]
+                   entries (scan ctx keyspace-prefix store-name cp limit)]
                (when (seq entries)
                  (doseq [kv (cond-> entries
                                     deduplicate?
