@@ -1,5 +1,4 @@
 {:name "Tenant lists their payee checks"
- :runs-on {:payment :every}
  :given
  [{:fixture :bank
    :as :org-0

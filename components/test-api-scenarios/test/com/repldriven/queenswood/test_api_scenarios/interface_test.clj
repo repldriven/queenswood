@@ -235,16 +235,19 @@
 
 (defn- executions
   "Each scenario on each run it belongs to, with what the run lacks of
-  what the scenario requires."
+  what the scenario requires. A scenario the platform cannot run yet
+  lacks `:unbuilt` on every run."
   [runs loaded]
   (for [{:keys [scope missing] :as run} runs
         entry loaded
         :when (runs-on? scope entry)]
     (assoc entry
            :run run
-           :lacks (into (sorted-set)
-                        (filter missing)
-                        (get-in entry [:scenario :requires])))))
+           :lacks (cond-> (into (sorted-set)
+                                (filter missing)
+                                (get-in entry [:scenario :requires]))
+                          (get-in entry [:scenario :unbuilt])
+                          (conj :unbuilt)))))
 
 (defn- run-on-pool
   "Run `tasks` on `workers` threads, each carrying the test's bindings
@@ -340,10 +343,13 @@
        (run! (fn [execution] ((task execution))) serial)
        (log/info "api scenarios finished"
                  {:executed (count runnable)
-                  :skipped (mapv (fn [{:keys [relative run lacks]}]
-                                   {:file relative
-                                    :provider (:provider run)
-                                    :lacks lacks})
+                  :skipped (mapv (fn [{:keys [relative run lacks scenario]}]
+                                   (cond-> {:file relative
+                                            :provider (:provider run)
+                                            :lacks lacks}
+                                           (:unbuilt scenario)
+                                           (assoc :unbuilt
+                                                  (:unbuilt scenario))))
                                  skipped)})
        (testing "the run is traced end to end"
          (let [spans (test-telemetry/finished-spans

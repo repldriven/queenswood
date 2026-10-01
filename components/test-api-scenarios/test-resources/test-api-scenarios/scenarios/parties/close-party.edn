@@ -1,5 +1,4 @@
 {:name "Tenant closes a party that holds no open accounts"
- :runs-on {:idv :every}
  :given
  [{:fixture :bank
    :as :org-0

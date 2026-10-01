@@ -1,5 +1,4 @@
 {:name "Tenant retrieves a previously-created payee check by id"
- :runs-on {:payment :every}
  :given
  [{:fixture :bank :as :org-0 :with {:name "Payee Check Get Org" :status "live"}}
   ;; A check is made from the bank's own funds, so it waits for the

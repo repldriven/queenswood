@@ -133,6 +133,7 @@
     [:map {:closed true}
      [:payment {:optional true} [:enum :every]]
      [:idv {:optional true} [:enum :every]]]]
+   [:unbuilt {:optional true} string?]
    [:requires {:optional true}
     [:set
      [:enum :inbound-notified :inbound-admitted :screened :outbound-returned

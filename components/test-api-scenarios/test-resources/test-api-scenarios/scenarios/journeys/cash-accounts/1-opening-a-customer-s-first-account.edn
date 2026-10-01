@@ -1,0 +1,50 @@
+{:name "The customer's system opens an end customer's first account"
+ :runs-on {:payment :every}
+ :given
+ [{:fixture :bank :as :bank-0 :with {:name "Account Opening Journey"}}
+  {:fixture :product :as :current :with {:token [:ref :bank-0 :token]}}
+  {:fixture :person :as :arthur :with {:token [:ref :bank-0 :token]}}
+  {:fixture :webhook-receiver :as :hook :with {:token [:ref :bank-0 :token]}}]
+ :when
+ ;; The account comes back at once, opening, with no address yet.
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts"
+             :auth [:ref :bank-0 :token]
+             :body {:party-id [:ref :arthur :party :party-id]
+                    :name "Current GBP"
+                    :currency "GBP"
+                    :product-id [:ref :current :product :product-id]}}
+   :as :account
+   :assert {:status 201
+            :body {:account-id [:m/regex "^acc\\."]
+                   :party-id [:ref :arthur :party :party-id]
+                   :currency "GBP"
+                   :account-status "opening"
+                   :payment-addresses []
+                   :bban [:m/absent]}}}]
+ :then
+ ;; Once the payment provider issues its address, the account is opened.
+ [{:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :account :account-id]}
+             :auth [:ref :bank-0 :token]}
+   :until
+   {:status 200
+    :body
+    {:account-status "opened"
+     :bban [:m/regex "^[0-9]{14}$"]
+     :payment-addresses [{:scheme "scan"
+                          :scan {:sort-code [:m/regex "^[0-9]{6}$"]
+                                 :account-number [:m/regex "^[0-9]{8}$"]}}]}}
+   :as :read}
+  ;; The customer is told, with the account as its read route renders it.
+  {:command :webhook/await-delivery
+   :address [:ref :hook :receiver :address]
+   :where {:kind "cash-account.opened" :resource-id [:ref :account :account-id]}
+   :secret [:ref :hook :registered :secret]
+   :as :notified}
+  {:command :assert/equals
+   :actual [:ref :notified 0 :body :data]
+   :expected [:ref :read]}]}

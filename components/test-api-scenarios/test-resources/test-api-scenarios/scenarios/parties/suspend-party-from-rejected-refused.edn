@@ -1,5 +1,4 @@
 {:name "Suspending a party IDV rejected is refused"
- :runs-on {:idv :every}
  :given
  [{:fixture :bank
    :as :org-0

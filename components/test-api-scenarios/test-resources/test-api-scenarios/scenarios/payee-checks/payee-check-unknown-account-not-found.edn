@@ -1,5 +1,4 @@
 {:name "A payee check naming an account the bank does not hold is not found"
- :runs-on {:payment :every}
  :given
  [{:fixture :bank :as :bank-0 :with {:name "Payee Check Unknown Account"}}]
  :when [{:command :api/request

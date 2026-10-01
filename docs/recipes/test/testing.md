@@ -159,6 +159,9 @@ the component runs its tests.
   file per journey named for its heading, running on every provider it
   touches, and delete in the same change a tag scenario that asserted
   only that journey's path.
+- Run a tag scenario on every provider only where what it asserts passes
+  through the provider; idempotency, reads, not-founds and refusals
+  answered before any provider is called run on the defaults.
 - Run `just test` as the default, the changed bricks in the development
   project, and `just test-all` as the full suite: the default plus the
   start-up check of every service project and the migrator's guard,

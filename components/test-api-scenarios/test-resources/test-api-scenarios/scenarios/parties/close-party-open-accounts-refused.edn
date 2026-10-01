@@ -1,5 +1,4 @@
 {:name "Closing a party with an open cash account is rejected"
- :runs-on {:idv :every}
  :given
  [{:fixture :bank
    :as :org-0

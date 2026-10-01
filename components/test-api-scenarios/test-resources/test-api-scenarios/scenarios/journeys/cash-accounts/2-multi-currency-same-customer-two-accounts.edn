@@ -1,0 +1,46 @@
+{:name "One end customer holds a GBP account and a EUR account"
+ :runs-on {:payment :every}
+ :unbuilt "No product template a customer's account opens under allows EUR."
+ :given [{:fixture :bank
+          :as :bank-0
+          :with {:name "Multi-Currency Journey" :currencies ["GBP" "EUR"]}}
+         {:fixture :product :as :gbp :with {:token [:ref :bank-0 :token]}}
+         {:fixture :product
+          :as :eur
+          :with
+          {:token [:ref :bank-0 :token] :name "Euro Current" :currency "EUR"}}
+         {:fixture :person :as :arthur :with {:token [:ref :bank-0 :token]}}]
+ :when [{:fixture :account
+         :as :gbp-account
+         :with {:token [:ref :bank-0 :token]
+                :party-id [:ref :arthur :party :party-id]
+                :product-id [:ref :gbp :product :product-id]}}
+        {:fixture :account
+         :as :eur-account
+         :with {:token [:ref :bank-0 :token]
+                :party-id [:ref :arthur :party :party-id]
+                :product-id [:ref :eur :product :product-id]
+                :name "Euro Current"
+                :currency "EUR"}}]
+ :then
+ ;; Each account has its own currency and its own payment address.
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :gbp-account :account :account-id]}
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200
+            :body {:currency "GBP"
+                   :party-id [:ref :arthur :party :party-id]
+                   :account-status "opened"
+                   :bban [:ref :gbp-account :account :bban]}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :eur-account :account :account-id]}
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200
+            :body {:currency "EUR"
+                   :party-id [:ref :arthur :party :party-id]
+                   :account-status "opened"
+                   :bban [:m/mismatch [:ref :gbp-account :account :bban]]}}}]}

@@ -1,0 +1,57 @@
+{:name "An end customer leaves, and the customer's system closes their account"
+ :runs-on {:payment :every}
+ :given
+ [{:fixture :bank :as :bank-0 :with {:name "Account Closing Journey"}}
+  {:fixture :product :as :current :with {:token [:ref :bank-0 :token]}}
+  {:fixture :person :as :arthur :with {:token [:ref :bank-0 :token]}}
+  {:fixture :funded-account
+   :as :leaving
+   :with {:bank-id [:ref :bank-0 :bank :bank-id]
+          :token [:ref :bank-0 :token]
+          :party-id [:ref :arthur :party :party-id]
+          :product-id [:ref :current :product :product-id]}}
+  {:fixture :webhook-receiver :as :hook :with {:token [:ref :bank-0 :token]}}]
+ :when
+ ;; The customer sweeps the balance to zero, then closes the account.
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/payments/internal"
+             :auth [:ref :bank-0 :token]
+             :body {:debtor-account-id [:ref :leaving :opened :account
+                                        :account-id]
+                    :creditor-account-id [:ref :leaving :own-funds :account-id]
+                    :currency "GBP"
+                    :amount 100000
+                    :reference "Sweep"}}
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts/{account-id}/close"
+             :path-params {:account-id [:ref :leaving :opened :account
+                                        :account-id]}
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200
+            :body {:account-id [:ref :leaving :opened :account :account-id]
+                   :account-status "closing"}}}]
+ :then [{:command :api/poll
+         :request {:method :get
+                   :path "/v1/cash-accounts/{account-id}"
+                   :path-params
+                   {:account-id [:ref :leaving :opened :account :account-id]}
+                   :auth [:ref :bank-0 :token]}
+         :until {:status 200 :body {:account-status "closed"}}
+         :as :read}
+        ;; The closed account keeps its address, so it is never issued
+        ;; again.
+        {:command :assert/equals
+         :actual [:ref :read :bban]
+         :expected [:ref :leaving :opened :account :bban]}
+        {:command :webhook/await-delivery
+         :address [:ref :hook :receiver :address]
+         :where {:kind "cash-account.closed"
+                 :resource-id [:ref :leaving :opened :account :account-id]}
+         :secret [:ref :hook :registered :secret]
+         :as :notified}
+        {:command :assert/equals
+         :actual [:ref :notified 0 :body :data]
+         :expected [:ref :read]}]}

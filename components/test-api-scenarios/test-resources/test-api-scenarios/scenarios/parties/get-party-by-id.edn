@@ -1,5 +1,4 @@
 {:name "Tenant retrieves a party by id"
- :runs-on {:idv :every}
  :given
  [{:fixture :bank :as :org-0 :with {:name "Get Party Test Org" :status "live"}}
   {:command :api/request

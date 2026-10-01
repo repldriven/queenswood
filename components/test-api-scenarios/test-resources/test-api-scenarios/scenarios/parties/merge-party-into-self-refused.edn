@@ -1,5 +1,4 @@
 {:name "Merging a party into itself is rejected"
- :runs-on {:idv :every}
  :given
  [{:fixture :bank
    :as :org-0

@@ -1,5 +1,4 @@
 {:name "Three concurrent submissions on one key make one payment"
- :runs-on {:payment :every}
  ;; Whether a losing request finds the winner still in flight or
  ;; already committed is the scheduler's business, so the assertion is
  ;; the invariant: exactly one execution, and every other answer either

@@ -21,8 +21,11 @@ keeps it unless the domain one is compared. Write a PRD's user journey
 as a scenario under `journeys/<prd>/`, one file per journey named for
 its heading, running on every provider it touches, and delete in the
 same change a tag scenario that asserted only that journey's path.
-Anything that crosses a brick boundary or drives the command pipeline
-is a scenario. Mark a
+Run a tag scenario on every provider only where what it asserts passes
+through the provider; idempotency, reads, not-founds and refusals
+answered before any provider is called run on the defaults. Anything
+that crosses a brick boundary or drives the command pipeline is a
+scenario. Mark a
 domain scenario `:model :reality` when it names a `:reality` verb; every
 other one is compared with the model after every step. Put a scenario's
 state-changing steps in `:given` and `:when`, and only reads and
