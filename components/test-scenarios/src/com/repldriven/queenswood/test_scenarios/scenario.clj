@@ -43,6 +43,44 @@
 
 (def ^:private none [:cat])
 
+(def ^:private capability
+  [:map {:closed true}
+   [:effect [:enum :effect-allow :effect-deny]]
+   [:reason string?]
+   [:kind [:map-of simple-keyword? [:map {:closed true} [:action keyword?]]]]])
+
+(def ^:private count-limit
+  [:map {:closed true}
+   [:kind
+    [:map-of simple-keyword?
+     [:map {:closed true}
+      [:filters {:optional true}
+       [:vector [:map {:closed true} [:action keyword?]]]]]]]
+   [:bound
+    [:map {:closed true}
+     [:kind
+      [:map {:closed true}
+       [:max
+        [:map {:closed true}
+         [:aggregate
+          [:map {:closed true}
+           [:kind
+            [:map {:closed true}
+             [:count
+              [:map {:closed true}
+               [:value nat-int?]
+               [:window
+                [:enum :time-window-daily
+                 :time-window-instant]]]]]]]]]]]]]]
+   [:reason string?]])
+
+(def ^:private policy
+  [:map {:closed true}
+   [:name string?]
+   [:category keyword?]
+   [:capabilities {:optional true} [:vector capability]]
+   [:limits {:optional true} [:vector count-limit]]])
+
 (def verbs
   {:create-bank {:kind :model :args none}
    :create-customer {:kind :model :args [:cat bank [:? prod]]}
@@ -66,9 +104,9 @@
    :internal-transfer {:kind :model :args [:cat acct acct int? [:? currency]]}
    :accrue-interest {:kind :model :args [:cat bank int?]}
    :capitalize-interest {:kind :model :args [:cat bank int?]}
+   :bind-policy {:kind :model :args [:cat bank policy]}
    :fixture/apply-fee {:kind :fixture :args [:cat acct int?]}
    :fixture/fund-house {:kind :fixture :args [:cat bank int?]}
-   :bind-policy {:kind :reality :args [:cat bank map?]}
    :close-ledger-account {:kind :reality :args [:cat bank gl-account-code]}
    :admit-inbound {:kind :reality :args [:cat [:or acct string?] int? e2e]}
    :hold-inbound {:kind :reality :args [:cat acct int? [:? e2e]]}

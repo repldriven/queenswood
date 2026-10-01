@@ -1,5 +1,4 @@
 {:name "Interest accrual is limited to one run per org per business-day"
- :model :reality
  ;; Bind a `max 1 accrual run per day` policy to org-0, then run
  ;; accrue twice for the same as-of-date. The first run records an
  ;; InterestRun (status INTEREST_ACCRUE_DONE); the second must be

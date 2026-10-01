@@ -1,5 +1,4 @@
 {:name "A policy bound to the bank waives the non-zero balance check on close"
- :model :reality
  ;; Fund the account `:create-bank` opens, so its close is refused with
  ;; `:cash-account/non-zero-on-close` — the model predicts the same
  ;; no-op. Then bind a policy granting the waiver capability to bank-0

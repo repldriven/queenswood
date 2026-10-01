@@ -1,7 +1,5 @@
 (ns com.repldriven.queenswood.test-model.state)
 
-;; Synthetic ids use `:acct-<n>` (not `:acct/<n>`) because Clojure's
-;; reader rejects namespaced keywords whose name starts with a digit.
 
 (def init-state
   {:accounts {}
@@ -11,7 +9,8 @@
    :payments {}
    :inbound-payments #{}
    :nis-by-bank {}
-   :policies {:available {:min 0 :improving? true}}
+   :platform-policies []
+   :policies {}
    :next-id 0
    :next-bank-id 0
    :next-product-id 0
@@ -19,14 +18,15 @@
    :next-payment-id 0
    :next-inbound-id 0
    :next-ni-id 0
-   ;; Each accrue/capitalize call consumes the current value and
-   ;; increments — so every interest command is on a fresh date and
-   ;; the brick's date-keyed idempotency doesn't kick in. YYYYMMDD.
+   ;; A fresh date for every generated run: the platform allows one run
+   ;; of each kind per date.
    :next-interest-date 20260501
    :now 0})
 
 (defn next-id
   [state]
+  ;; Not `:acct/<n>`: the reader refuses a namespaced keyword whose name
+  ;; starts with a digit.
   (keyword (str "acct-" (:next-id state))))
 
 (defn next-bank-id

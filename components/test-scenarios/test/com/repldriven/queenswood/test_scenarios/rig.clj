@@ -17,6 +17,10 @@
 
 (def config-file "classpath:test-scenarios/application-test.yml")
 
+(def model-init
+  "The model's initial state, held to the policies this rig boots."
+  (scenarios/model-init config-file))
+
 (defn patch-handlers
   [defs]
   (-> defs

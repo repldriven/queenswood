@@ -1,5 +1,6 @@
 (ns com.repldriven.queenswood.test-model.interest
   (:require
+    [com.repldriven.queenswood.test-model.policies :as policies]
     [com.repldriven.queenswood.test-model.state :as state]
 
     [clojure.test.check.generators :as gen]))
@@ -28,11 +29,6 @@
 
 (defn- accrue-account
   [state customer-acct]
-  ;; Accrual is silent: it credits the customer's interest-accrued
-  ;; bucket and carries the remainder, and writes no transaction at
-  ;; all. The bank's side is one ledger entry for the whole run, which
-  ;; lands on GL accounts the rig doesn't track. So no leg count moves
-  ;; here, on the customer or on settlement.
   (let [account (get-in state [:accounts customer-acct])
         product-id (:product account)
         rate (get-in state [:products product-id :interest-rate-bps] 0)
@@ -59,14 +55,28 @@
                       (:accounts org))]
     (reduce accrue-account state custs)))
 
+(defn- run-once
+  [state bank-id date action f]
+  (let [runs (get-in state [:banks bank-id :interest-runs action date] 0)]
+    (if (and (policies/permitted? state bank-id :interest action)
+             (policies/within-count? state
+                                     bank-id
+                                     :interest
+                                     action
+                                     :time-window-daily
+                                     runs))
+      (-> (f state bank-id)
+          (assoc-in [:banks bank-id :interest-runs action date] (inc runs)))
+      state)))
+
 (def accrue-interest
   {:run? (fn [state] (seq (state/known-banks state)))
    :args (fn [state]
            (gen/tuple (gen/elements (state/known-banks state))
                       (gen/return (state/next-interest-date state))))
-   :next-state (fn [state {[bank-id _date] :args}]
+   :next-state (fn [state {[bank-id date] :args}]
                  (-> state
-                     (accrue-org bank-id)
+                     (run-once bank-id date :interest-action-accrue accrue-org)
                      (update :next-interest-date inc)))
    :valid? (fn [state {[bank-id] :args}] (contains? (:banks state) bank-id))})
 
@@ -78,19 +88,12 @@
       (-> state
           (update-in [:accounts customer-acct :available] + accrued)
           (assoc-in [:accounts customer-acct :interest-accrued] 0)
-          ;; Capitalisation touches the customer in two legs: the
-          ;; accrued bucket debited and the default bucket credited.
-          ;; The bank's side is one entry per currency and product
-          ;; type at close, and lands on GL accounts rather than here.
           (update-in [:accounts customer-acct :transaction-legs]
                      (fnil + 0)
                      2)))))
 
 (defn- capitalize-org
   [state bank-id]
-  ;; Post-CoA: capitalisation's bank-side legs land on GL 2400, not
-  ;; on the settlement-style tracked account. Settlement stays
-  ;; untouched.
   (let [org (get-in state [:banks bank-id])
         custs (filter (fn [a] (customer-account? state a))
                       (:accounts org))]
@@ -101,8 +104,9 @@
    :args (fn [state]
            (gen/tuple (gen/elements (state/known-banks state))
                       (gen/return (state/next-interest-date state))))
-   :next-state (fn [state {[bank-id _date] :args}]
-                 (-> state
-                     (capitalize-org bank-id)
-                     (update :next-interest-date inc)))
+   :next-state
+   (fn [state {[bank-id date] :args}]
+     (-> state
+         (run-once bank-id date :interest-action-capitalize capitalize-org)
+         (update :next-interest-date inc)))
    :valid? (fn [state {[bank-id] :args}] (contains? (:banks state) bank-id))})

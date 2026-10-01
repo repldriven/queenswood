@@ -1,4 +1,4 @@
-(ns com.repldriven.queenswood.test-model.fees
+(ns com.repldriven.queenswood.test-model.fixtures
   (:require
     [com.repldriven.queenswood.test-model.state :as state]
 
@@ -17,6 +17,4 @@
    :valid? (fn [state {[acct] :args}] (contains? (:accounts state) acct))})
 
 (def fund-house
-  "The bank's own money arriving on its house account. The house account
-  is not modelled, so the model's state is unchanged. Never generated."
   {:run? (constantly false) :next-state (fn [state _command] state)})

@@ -11,6 +11,7 @@
   (:require
     [com.repldriven.queenswood.test-scenarios.divergence :as divergence]
     [com.repldriven.queenswood.test-scenarios.observer :as observer]
+    [com.repldriven.queenswood.test-scenarios.policies :as policies]
     [com.repldriven.queenswood.test-scenarios.projection :as projection]
     [com.repldriven.queenswood.test-scenarios.run :as run]
     [com.repldriven.queenswood.test-scenarios.runner :as runner]
@@ -44,10 +45,24 @@
       with, `\"command\"` and `\"event\"`.
   - opts (optional map):
     - `:await-timeout-ms` — how long any step waits for reality to reach
-      the state it expects before the step is recorded `:timed-out`."
+      the state it expects before the step is recorded `:timed-out`.
+    - `:model-init` — the model state a compared scenario starts from,
+      from `model-init`."
   ([bank] (runner/fresh-context bank {} {}))
   ([bank observers] (runner/fresh-context bank observers {}))
   ([bank observers opts] (runner/fresh-context bank observers opts)))
+
+(defn model-init
+  "The model's initial state held to the policies the rig at
+  `config-file` boots: the platform policy every bank is held to, and
+  the tier policy scenario banks are created on. Returns the state, or
+  an anomaly where the configuration cannot be read.
+
+  Args:
+  - config-file: the rig's configuration, as `with-test-system` takes
+    it."
+  [config-file]
+  (policies/model-init config-file))
 
 (defn start-observer
   "Collect every record on a Kafka consumer's topics, from the earliest

@@ -1,16 +1,30 @@
-(ns com.repldriven.queenswood.test-model.transfers
+(ns com.repldriven.queenswood.test-model.payments
   (:require
-    [com.repldriven.queenswood.test-model.policy :as policy]
+    [com.repldriven.queenswood.test-model.policies :as policies]
     [com.repldriven.queenswood.test-model.state :as state]
 
     [clojure.test.check.generators :as gen]))
 
 (defn- operable?
-  "True when money may move on `acct` — reality's payment brick moves
-  it only on an opened account, and the model's only non-open status
-  is `:closed`."
   [state acct]
   (= :open (get-in state [:accounts acct :status])))
+
+(defn- bank-of
+  [state acct]
+  (get-in state [:accounts acct :bank]))
+
+(defn- within-daily?
+  [state bank-id kind]
+  (policies/within-count? state
+                          bank-id
+                          kind
+                          nil
+                          :time-window-daily
+                          (get-in state [:banks bank-id :day-counts kind] 0)))
+
+(defn- counted
+  [state bank-id kind]
+  (update-in state [:banks bank-id :day-counts kind] (fnil inc 0)))
 
 (defn- bump-legs
   [state & accts]
@@ -22,7 +36,7 @@
   [state acct delta]
   (let [pre (state/balance state acct)
         post (+ pre delta)]
-    (if (policy/permits? (:policies state) :available pre post)
+    (if (policies/permits? (:policies state) :available pre post)
       (-> state
           (assoc-in [:accounts acct :available] post)
           (bump-legs acct))
@@ -34,8 +48,8 @@
         post-from (- pre-from amount)
         pre-to (state/balance state to)
         post-to (+ pre-to amount)]
-    (if (and (policy/permits? (:policies state) :available pre-from post-from)
-             (policy/permits? (:policies state) :available pre-to post-to))
+    (if (and (policies/permits? (:policies state) :available pre-from post-from)
+             (policies/permits? (:policies state) :available pre-to post-to))
       (-> state
           (assoc-in [:accounts from :available] post-from)
           (assoc-in [:accounts to :available] post-to)
@@ -47,31 +61,24 @@
    :args (fn [state]
            (gen/tuple (gen/elements (state/known-accounts state))
                       (gen/choose 1 10000)))
-   :next-state (fn [state {[acct amount] :args}]
-                 ;; A credit to a non-operable account parks in the
-                 ;; bank's suspense instead of landing: the receipt is
-                 ;; still recorded, the account's balance is not.
-                 (let [marker (state/next-inbound-id state)
-                       advanced (if (operable? state acct)
-                                  (apply-delta state acct amount)
-                                  state)]
-                   (-> advanced
-                       (update :inbound-payments conj marker)
-                       (update :next-inbound-id inc))))
+   :next-state
+   (fn [state {[acct amount] :args}]
+     (let [bank-id (bank-of state acct)
+           marker (state/next-inbound-id state)
+           lands? (and (operable? state acct)
+                       (policies/permitted? state
+                                            bank-id
+                                            :inbound-payment
+                                            :inbound-payment-action-receive)
+                       (within-daily? state bank-id :inbound-payment))
+           advanced (if lands? (apply-delta state acct amount) state)]
+       (-> advanced
+           (counted bank-id :inbound-payment)
+           (update :inbound-payments conj marker)
+           (update :next-inbound-id inc))))
    :valid? (fn [state {[acct] :args}] (contains? (:accounts state) acct))})
 
 (def outbound-payment
-  "Two-arg `[debtor amount]` pays an external creditor — debits the
-  debtor and records the payment. Three-arg
-  `[debtor creditor amount]` pays a known model account; the
-  bank-payment event-processor recognises the creditor BBAN as
-  internal on the schemes-payments-event settled callback and
-  credits it. The verb publishes submit-payment on the provider's
-  channel; the provider settles it asynchronously and the
-  event-processor flips the OutboundPayment to `:completed`. The
-  model mirrors that auto-settle here by marking `:status
-  :completed` straight away (so by the time the next model-eq
-  check fires the model matches reality)."
   {:run? (fn [state] (seq (state/known-accounts state)))
    :args (fn [state]
            (gen/tuple (gen/elements (state/known-accounts state))
@@ -81,17 +88,19 @@
      (let [[debtor creditor amount] (case (count args)
                                       2 [(first args) nil (second args)]
                                       3 args)]
-       ;; Reality rejects non-positive amounts via
-       ;; `:transaction/invalid-amount` — predict no-op.
-       (if-not (pos? amount)
+       (if-not (and (pos? amount)
+                    (policies/permitted? state
+                                         (bank-of state debtor)
+                                         :outbound-payment
+                                         :outbound-payment-action-send)
+                    (within-daily? state
+                                   (bank-of state debtor)
+                                   :outbound-payment))
          state
          (let [advanced (cond
-                         ;; Reality refuses the submission outright.
                          (not (operable? state debtor))
                          state
 
-                         ;; The debit leaves either way; a non-operable
-                         ;; creditor's credit parks in suspense.
                          (and creditor (operable? state creditor))
                          (transfer-between state debtor creditor amount)
 
@@ -101,11 +110,7 @@
              state
              (let [pmt-id (state/next-payment-id advanced)]
                (-> advanced
-                   ;; Reservation model: the debtor carries three legs by
-                   ;; settlement — the pending-outgoing reservation at
-                   ;; submit, then its clearing credit plus the posted
-                   ;; debit at settle. `apply-delta` / `transfer-between`
-                   ;; counted the first; add the two settlement legs.
+                   (counted (bank-of state debtor) :outbound-payment)
                    (update-in [:accounts debtor :transaction-legs] (fnil + 0) 2)
                    (assoc-in [:payments pmt-id]
                              (cond-> {:debtor debtor
@@ -122,9 +127,6 @@
                       true))))})
 
 (defn- accounts-by-org
-  "Returns a map of bank-id → vector of account-ids for known
-  accounts. Used to constrain `internal-transfer` to same-org
-  pairs (the production API enforces same-org)."
   [state]
   (group-by (fn [a] (get-in state [:accounts a :bank]))
             (state/known-accounts state)))
@@ -143,25 +145,23 @@
                                          (gen/elements accts))
                        amount (gen/choose 1 10000)]
                [from to amount])))
-   :next-state (fn [state {[from to amount currency] :args}]
-                 ;; Generator is constrained to positive amounts,
-                 ;; same-org pairs, and distinct accounts. Explicit
-                 ;; scenarios may still pass cross-org / self / zero
-                 ;; / negative / currency-mismatch cases that reality
-                 ;; rejects (see the *-rejected.edn fixtures). The
-                 ;; model predicts a no-op for any rejection-bound
-                 ;; input. Scenario accounts are implicitly GBP
-                 ;; (the only currency the verbs allocate), so a
-                 ;; non-GBP explicit currency is a mismatch.
-                 (if (and (pos? amount)
+   :next-state
+   (fn [state {[from to amount currency] :args}]
+     (let [bank-id (bank-of state from)
+           moved (if (and (pos? amount)
                           (not= from to)
                           (operable? state from)
                           (operable? state to)
-                          (= (get-in state [:accounts from :bank])
-                             (get-in state [:accounts to :bank]))
-                          (or (nil? currency) (= "GBP" currency)))
+                          (= bank-id (bank-of state to))
+                          (or (nil? currency) (= "GBP" currency))
+                          (policies/permitted? state
+                                               bank-id
+                                               :internal-payment
+                                               :internal-payment-action-submit)
+                          (within-daily? state bank-id :internal-payment))
                    (transfer-between state from to amount)
-                   state))
+                   state)]
+       (if (= moved state) state (counted moved bank-id :internal-payment))))
    :valid? (fn [state {[from to] :args}]
              (and (contains? (:accounts state) from)
                   (contains? (:accounts state) to)))})
