@@ -189,14 +189,14 @@ for an exception, so a branch on a key is caught where it is written.
   `/identity-provider/onfido/`.
 - **Rigs.** The API scenario rig runs every payment and IDV adapter
   with its simulator in one boot: every scenario on the default
-  providers, then the payment and payee-check scenarios on each other
-  payment provider and the party scenarios on each other IDV provider,
-  the bank each creates naming that provider and each idempotency key
-  suffixed with it so no run replays another. A tag names what a
-  provider cannot run, `:inbound-notified`, `:inbound-admitted`,
-  `:screened` or `:needs-email`, and a run skips the tags its
-  providers' declarations rule out, and those naming what an adapter
-  does not carry yet, `:outbound-returned` on ClearBank's. A scenario
+  providers, then each scenario declaring `:runs-on {:payment :every}`
+  on each other payment provider and each declaring
+  `{:idv :every}` on each other IDV provider, the bank each creates
+  naming that provider. A scenario's `:requires` names what a provider
+  must offer, `:inbound-notified`, `:inbound-admitted`, `:screened` or
+  `:needs-email`, and a run skips, and reports, a scenario its
+  providers' declarations rule out or one needing what an adapter does
+  not carry yet, `:outbound-returned` on ClearBank's. A scenario
   between banks on different providers lives under
   `scenarios/providers/` and runs once.
 - **The scheme.** The payment simulators share `scheme-simulator`,

@@ -2,7 +2,7 @@
   "Read-side projections for scenario testing. Each `project-*` fn
   reduces real-system state — read through production component
   interfaces only — to the same shape as some part of the model
-  state in `bank-test-model`. The runner pairs a real projection
+  state in `test-model`. The runner pairs a real projection
   with its model counterpart and compares for equality."
   (:require
     [com.repldriven.queenswood.test-projections.accounts :as accounts]

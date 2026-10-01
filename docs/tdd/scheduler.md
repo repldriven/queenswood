@@ -209,10 +209,9 @@ since it needs the executor to run what it queues.
 - **test-scenarios** — `:force-start-job` enqueues and drains the
   queue, and the model-equality property test runs a crash between
   chunks followed by a resumed run.
-- **test-api-scenarios** — the rig includes `system/scheduler.yml`,
-  the seven scenarios that force a job wait for the run to finish, and
-  `jobs/` covers the 202, a past `as-of-date`, and the 409 and 422
-  refusals.
+- **test-api-scenarios** — the rig includes `system/scheduler.yml`, the
+  scenarios that force a job poll for the run to finish, and `jobs/`
+  covers the 202, a past `as-of-date`, and the 409 and 422 refusals.
 
 ## Alternatives Considered
 
