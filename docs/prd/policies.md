@@ -261,11 +261,11 @@ reason to their end customer, or take action themselves
 sequenceDiagram
     participant O as Platform operator
     participant Q as Queenswood
-    participant T as Customer engineer
+    participant T as Customer system
 
     O->>Q: create policy<br/>(capabilities + limits)
     Q-->>O: policy
-    O->>Q: bind policy to tenant
+    O->>Q: bind policy to the organisation
     Q-->>O: binding
     Note over T,Q: from this moment, the policy is in force
     T->>Q: action governed by the policy
@@ -281,16 +281,16 @@ in addition to whatever was already bound.
 
 ```mermaid
 sequenceDiagram
-    participant T as Customer engineer
+    participant T as Customer system
     participant Q as Queenswood
 
-    Note over T,Q: tenant has 9,999 accounts —<br/>limit is 10,000
+    Note over T,Q: the customer has 9,999 accounts —<br/>limit is 10,000
     T->>Q: open one more account
     Q->>Q: check capability + limit
     Q-->>T: allowed (now at 10,000)
     T->>Q: open another account
     Q->>Q: check capability + limit
-    Q-->>T: denied (would be 10,001 —<br/>over the per-tenant cap)
+    Q-->>T: denied (would be 10,001 —<br/>over the per-organisation cap)
 ```
 
 The tenant runs into the limit on the next request after
@@ -302,7 +302,7 @@ bit.
 ```mermaid
 sequenceDiagram
     participant E as End customer
-    participant T as Tenant
+    participant T as Customer system
     participant Q as Queenswood
 
     Note over E,Q: account at -£100 —<br/>min balance limit £0 (curative)
@@ -348,9 +348,9 @@ sequenceDiagram
     participant O as Platform operator
     participant Q as Queenswood
 
-    O->>Q: create tenant (tier = "test")
-    Q->>Q: bind tenant to every policy<br/>labelled tier=test
-    Q-->>O: tenant active
+    O->>Q: create organisation (tier = "test")
+    Q->>Q: bind the organisation to every policy<br/>labelled tier=test
+    Q-->>O: organisation active
 ```
 
 At onboarding, the tier label drives which bundle of

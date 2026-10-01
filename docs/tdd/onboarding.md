@@ -73,7 +73,7 @@ graph LR
     API["api<br/>auth interceptor + handlers"]
     BU["user<br/>(User store)"]
     BM["membership<br/>(Membership store)"]
-    BO["organization<br/>(existing tenant brick)"]
+    BO["bank<br/>(Bank store)"]
     FDB[("FDB")]
 
     SPA -->|sign in| KC
@@ -82,7 +82,7 @@ graph LR
     API -->|verify JWT| KC
     API -->|find / upsert| BU
     API -->|list / create| BM
-    API -->|provision tenant| BO
+    API -->|provision bank| BO
     BU --> FDB
     BM --> FDB
     BO --> FDB

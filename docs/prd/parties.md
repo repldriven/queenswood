@@ -197,7 +197,7 @@ banking API.
 
 ```mermaid
 sequenceDiagram
-    participant T as Customer engineer
+    participant T as Customer system
     participant Q as Queenswood
     participant I as IDV provider<br/>(or simulator)
 
@@ -224,7 +224,7 @@ they read the party.
 
 ```mermaid
 sequenceDiagram
-    participant T as Customer engineer
+    participant T as Customer system
     participant Q as Queenswood
 
     T->>Q: register organisation party (name, identifiers)
@@ -248,7 +248,7 @@ bootstrap — see [onboarding](onboarding.md).
 
 ```mermaid
 sequenceDiagram
-    participant T as Customer engineer
+    participant T as Customer system
     participant Q as Queenswood
     participant S as Scheme adapter
 

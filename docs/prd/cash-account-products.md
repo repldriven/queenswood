@@ -207,7 +207,7 @@ see [policies](policies.md).
 
 ```mermaid
 sequenceDiagram
-    participant T as Customer engineer
+    participant T as Customer system
     participant Q as Queenswood
 
     T->>Q: create product (name, template, currency, rate, dates)
@@ -229,7 +229,7 @@ new accounts open under v1 and inherit those terms.
 
 ```mermaid
 sequenceDiagram
-    participant T as Customer engineer
+    participant T as Customer system
     participant Q as Queenswood
 
     Note over T,Q: v1 is published — some accounts already exist
@@ -251,7 +251,7 @@ sign up to the new terms.
 
 ```mermaid
 sequenceDiagram
-    participant T as Customer engineer
+    participant T as Customer system
     participant Q as Queenswood
 
     T->>Q: open new draft on product
@@ -261,7 +261,7 @@ sequenceDiagram
     Note over T: decision: don't proceed
     T->>Q: discard draft
     Q-->>T: v3 discarded (terminal)
-    Note over T,Q: tenant may now open another draft
+    Note over T,Q: the customer may now open another draft
 ```
 
 The tenant can discard an in-flight draft. Once discarded,
@@ -273,13 +273,13 @@ draft on the same product if they want to start again.
 ```mermaid
 sequenceDiagram
     participant E as End customer
-    participant T as Tenant
+    participant T as Customer system
     participant Q as Queenswood
 
     E->>T: opens account
     T->>Q: open account (under product, v1)
     Q-->>T: account pinned to v1
-    Note over E,Q: months later, tenant publishes v2 with a lower rate
+    Note over E,Q: months later, the customer publishes v2 with a lower rate
     E->>T: continues earning v1's rate
     Note over E,Q: publishing alone moves nobody — new accounts open under v2
 ```

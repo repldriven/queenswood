@@ -296,7 +296,7 @@ the duplicate as a no-op.
 
 ```mermaid
 sequenceDiagram
-    participant T as Customer engineer
+    participant T as Customer system
     participant Q as Queenswood
 
     T->>Q: submit internal transfer<br/>(debtor, creditor, amount, reference)
@@ -311,7 +311,7 @@ balance change on both sides immediately.
 
 ```mermaid
 sequenceDiagram
-    participant T as Customer engineer
+    participant T as Customer system
     participant Q as Queenswood
     participant S as Payment provider
 
@@ -334,7 +334,7 @@ the account.
 
 ```mermaid
 sequenceDiagram
-    participant T as Customer engineer
+    participant T as Customer system
     participant Q as Queenswood
     participant S as Payment provider
 
@@ -356,7 +356,7 @@ sequenceDiagram
     participant P as Payer's bank
     participant S as Payment provider
     participant Q as Queenswood
-    participant T as Customer engineer
+    participant T as Customer system
 
     P->>S: Faster Payment to account address
     S->>Q: settlement notification (amount, address)
@@ -377,7 +377,7 @@ rather than discarded.
 sequenceDiagram
     participant S as Payment provider
     participant Q as Queenswood
-    participant T as Customer engineer
+    participant T as Customer system
 
     S->>Q: inbound held for screening
     Q->>Q: record held<br/>(account not yet credited)
@@ -401,7 +401,7 @@ the sender instead, the account is never touched.
 
 ```mermaid
 sequenceDiagram
-    participant T as Customer engineer
+    participant T as Customer system
     participant Q as Queenswood
     participant S as Payment provider
 
@@ -409,7 +409,7 @@ sequenceDiagram
     Q->>S: ask the beneficiary's bank
     S-->>Q: name on file
     Q-->>T: match / close match / no match
-    Note over T: tenant decides whether to proceed
+    Note over T: the customer decides whether to proceed
     T->>Q: submit outbound payment (or not)
 ```
 
@@ -420,7 +420,7 @@ to decide whether to send.
 
 ```mermaid
 sequenceDiagram
-    participant T as Customer engineer
+    participant T as Customer system
     participant Q as Queenswood
 
     T->>Q: submit outbound payment (key=K)
@@ -438,7 +438,7 @@ result; no duplicate payment is created.
 
 ```mermaid
 sequenceDiagram
-    participant T as Customer engineer
+    participant T as Customer system
     participant Q as Queenswood
     participant S as Payment provider
 

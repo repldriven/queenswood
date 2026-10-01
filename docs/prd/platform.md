@@ -191,13 +191,13 @@ end.
 sequenceDiagram
     participant A as Platform operator
     participant Q as Queenswood
-    participant T as Customer engineer
+    participant T as Customer engineering team
 
     A->>Q: create organisation (name, type, tier, currencies)
     Q->>Q: mint credential, party, default product,<br/>accounts, policy bindings
     Q-->>A: organisation, credential (handed over once)
     A->>T: hand over the credential
-    T->>Q: subsequent calls carry a token the tenant<br/>obtains with its credential
+    T->>Q: subsequent calls carry a token the customer<br/>obtains with its credential
 ```
 
 A platform admin creates a tenant in one operation. The
@@ -217,10 +217,10 @@ issued.
 
 ```mermaid
 sequenceDiagram
-    participant T as Customer engineer
+    participant T as Customer system
     participant Q as Queenswood
     participant I as IDV provider<br/>(or simulator)
-    participant E as End customer<br/>(via tenant's app)
+    participant E as End customer<br/>(via the customer's app)
 
     E->>T: signs up with personal details
     T->>Q: register party (type=person, identifiers)
@@ -240,7 +240,7 @@ active status the next time they read the party.
 
 ```mermaid
 sequenceDiagram
-    participant T as Customer engineer
+    participant T as Customer system
     participant Q as Queenswood
 
     T->>Q: open account (party, product, currency)

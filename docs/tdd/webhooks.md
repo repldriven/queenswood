@@ -223,7 +223,7 @@ sequenceDiagram
     participant R as Relay runner
     participant B as Bus
     participant W as webhook, in external-adapters
-    participant E as Tenant endpoint
+    participant E as Customer endpoint
 
     P->>F: record + ChangelogEvent, one transaction
     R->>F: tail cursor
