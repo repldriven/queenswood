@@ -11,10 +11,9 @@ payment provider opens and closes a bank's accounts, reissues their
 addresses, sends their payments and returns, and, where it holds each
 account's money separately, moves money between them to match the
 ledger. An identity verification provider runs a check on a party. The
-property wanted is that a provider sees the requests for one subject,
-an account or a party's verification, in the order the platform
-committed the changes that caused them, so it never acts on a subject
-in a state the ledger has already left.
+property wanted is that a provider is asked to act in the order the
+platform committed the changes that call for it, so it never acts on an
+account or a party in a state the ledger has already left.
 
 Inside the platform that order already holds. Every operation is an FDB
 transaction, so the records reflect one commit order, and a brick that
@@ -46,9 +45,17 @@ already replaced. The adapter's relay then reorders further, since a
 retry waits out its backoff while later calls go ahead. An identity
 verification provider has one route today, a session's submit sent
 after its commit, so nothing overtakes it yet; a second command, a
-party's closure or a re-verification, would make two. The commits
-themselves are totally ordered: a changelog entry's versionstamp is its
-commit version, comparable across every store in the database.
+party's closure or a re-verification, would make two.
+
+Every one of these changes already writes a changelog entry in the
+commit that makes it, and the entries are totally ordered: a changelog
+entry's versionstamp is its commit version, comparable across every
+store in the database. What is missing is a reader that keeps that
+order across stores. Each route also has a domain brick deciding what
+the provider must do, so the payment brick knows which providers hold
+each account's money and the cash-account brick that a closure needs a
+call, where ADR-0021 has bricks react to changelogs rather than
+orchestrate, and ADR-0030 keeps providers out of domain components.
 
 A customer told through webhooks keeps a copy too, and an account's
 notifications and its payments' travel on different topics. That is
@@ -72,51 +79,57 @@ The shortlist:
   every pair of commands needs its own check, a close waiting on
   transfers, a payment on its funding, and the check races the handler
   that has not yet recorded what it waits on.
-- **One outbox per provider, or per kind of provider.** Rejected: it
-  would put the provider into the storage, so adding one would mean a
-  store and a relay runner of its own, the per-provider plumbing
-  ADR-0030 keeps out of the domain.
-- **Write every provider command in the transaction that causes it, into
-  one provider-neutral outbox, relayed in commit order and sent in order
-  per subject.** The commit order is already total. Writing the command
-  with its cause keeps it, the bank's provider key on each entry routes
-  it as configuration already does, and the relay and the adapter only
-  have to not lose the order.
+- **Write each provider command in the transaction that causes it, into
+  one outbox, relayed in commit order.** Rejected: it keeps the order,
+  but every domain transaction then orchestrates its providers, deciding
+  what each must be asked, and the outbox is a new store beside the
+  changelogs that already record the same commits.
+- **Merge the changelogs a kind of provider acts on into one stream in
+  commit order, and let a reactor for that kind decide what to ask.** The
+  domain records what happened, as it already does; the order is the
+  commits'; and what a provider needs is known only on the provider's
+  side.
 
 ## Decision
 
-Every command to a provider, of any kind, is written to one
-provider-neutral outbox in the same transaction as the commit that
-causes it, relayed in versionstamp order onto the command channel of the
-bank's provider of that kind, keyed by the subject it acts on, and sent
-by the adapter in that order for each subject.
+The changelog entries a kind of provider acts on are relayed as one
+stream in versionstamp order, and a reactor for that kind consumes the
+stream in order, decides what the bank's provider must be asked, and
+sends it on that provider's command channel, which the adapter takes in
+order for each subject.
 
 The decision has these parts:
 
-- Write each provider command to the outbox in the transaction that
-  commits its cause: an account's open, close or reissue with its status
-  change, the transfers that mirror a posting with the posting, an
-  outbound payment's submit with the payment, an inbound's return with
-  its handling, and a verification session's submit with the session.
-  Never send one from a handler reacting to the commit afterwards.
-- Give each entry the neutral command, the kind of provider, the bank's
-  provider key for that kind, and its subject: the provider account a
-  payment command acts on, or the bank's own funds where it acts on no
-  account of its own, and the party a verification command acts on.
-  Never a provider's name or a vendor's request.
-- Relay the outbox in versionstamp order, publishing each entry onto the
-  command channel configuration names for its provider, keyed by its
-  subject. Each provider has one command channel, so a payment
-  provider's separate payment and account channels become one.
+- Record every change a provider must act on as an entry in its store's
+  changelog, in the commit that makes it: an account's status change, a
+  posting, an outbound payment's submission, an inbound's return and a
+  verification session's opening.
+- Carry on each entry what a reactor decides from, as it was at that
+  commit, the provider account an account is held in among it, so a
+  reactor reads nothing whose later value could disagree with the
+  stream.
+- Relay each kind of provider's changelogs as one stream: read them at
+  one snapshot read version, merge their entries in versionstamp order,
+  publish them verbatim, and advance one cursor, the last versionstamp
+  published, across them all.
+- Key the stream by bank, so a bank's entries keep their order however
+  the topic is partitioned.
+- Give each kind of provider one reactor, which handles its stream one
+  entry at a time in order, branches on the bank's provider's
+  declaration, never its name, and sends what that provider needs:
+  opens, closes and reissues, the transfers that mirror a posting where
+  the provider holds each account's money, submits and returns for
+  payments, and submits for verifications.
+- Make a reactor's sends idempotent, with each command's dedup key taken
+  from the entry it answers, so a redelivered entry asks nothing twice.
+- Give each provider one command channel, keyed by the subject a command
+  acts on, so a payment provider's separate payment and account
+  channels become one.
 - Send a provider's intents in order for each subject: a pending or
   retrying intent holds back later intents for its subject, and for no
-  other.
-- End a command the provider refuses for good, or that exhausts its
-  attempts, as a failure the domain hears, so that one subject's queue
-  cannot hold indefinitely.
-- Offer a new kind of provider the same way: its commands written to
-  the outbox with their causes, its subject named on each entry, and its
-  one channel in configuration.
+  other. End a command the provider refuses for good, or that exhausts
+  its attempts, as a failure the domain hears.
+- Never send a provider command from a domain brick.
 - Keep the rest of ADR-0030: configuration names each provider's
   channel, the event channels stay shared, and a domain component never
   names a provider.
@@ -128,37 +141,42 @@ Easier:
 - A payment provider closes an account only after the transfers that
   emptied it, pays from an account only after the transfer that funded
   it, and never moves money for an address a reissue has replaced.
+- The domain bricks stop knowing what providers need: the mirror
+  transfers and the provider calls leave the payment and cash-account
+  bricks for the reactor of their kind.
+- No new store: the changelogs already written are the record, and the
+  stream is a read across them.
 - A second command to an identity verification provider, or a new kind
-  of provider, is ordered from its first command, rather than when the
-  race it allows is found.
+  of provider, is ordered from its first command, as a reactor and a
+  stream of the changelogs it acts on.
 - A retry handles a provider's transient failure, not the platform's
   ordering, so the close relay's retry of a refusal can go.
-- The outbox is one ordered record of everything asked of every
-  provider, for each bank and each subject.
-- Adding a provider stays configuration: its adapter, its declaration
-  and its one channel, with no store, relay or domain brick changed.
 
 Harder:
 
-- The transfers that mirror a posting are worked out inside the
-  posting's transaction, reading the bank's provider declaration and the
-  accounts involved on a path every payment takes.
+- A reactor handles one bank's entries one at a time, so a bank's later
+  operations wait behind its earlier ones, across all its accounts, not
+  only the account an operation concerns.
 - An intent at the head of a subject's queue holds that subject's later
   commands until it settles or gives up, so a provider that is slow for
   one account is slow for everything asked of that account.
-- One relay serves every provider, so a provider's channel that is slow
-  to take a publish holds up the commands behind it for the others. A
-  cursor per provider over the same outbox removes that, should it come
-  to matter.
-- The outbox and its relay runner are new, in
-  `exclusive-dispatchers-service`, and moving a payment provider from
-  two command channels to one is a migration of its adapter's consumers.
-- A handler that sends a provider command after a commit, rather than
-  writing it with the commit, brings the race back unnoticed. A check in
-  `enforce-idioms.sh` refusing a provider command sent outside the
-  outbox writer is what makes the drift visible.
+- Entries carry values a reactor would otherwise look up, the provider
+  account among them, so their schemas grow with what reactors decide
+  from, and an entry written before a field was added lacks it.
+- A merged relay reads several changelogs each pass and moves one
+  cursor across them, so its passes are larger than one store's, and a
+  changelog it should read but does not leaves that store's changes out
+  of the order unnoticed.
+- The provider calls move out of the domain bricks into reactors, and a
+  payment provider moves from two command channels to one, a migration
+  of every adapter's consumers.
+- A domain brick that sends a provider command itself brings the race
+  back unnoticed. A check in `enforce-idioms.sh` refusing a provider
+  command sent outside a reactor is what makes the drift visible.
 
 Amends [ADR-0030](0030-a-bank-chooses-its-providers-when-it-is-created.md),
-whose payment providers' two command channels each become one. Related:
-[ADR-0021](0021-changelog-relay.md), whose relay this reuses, and
-[ADR-0019](0019-processor-packaging.md), on which service runs it.
+whose payment providers' two command channels each become one, and whose
+domain components no longer send provider commands at all. Related:
+[ADR-0021](0021-changelog-relay.md), whose relay this extends to read
+several changelogs as one, and [ADR-0019](0019-processor-packaging.md),
+on which service runs it.
