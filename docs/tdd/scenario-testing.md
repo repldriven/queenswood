@@ -468,11 +468,12 @@ flight.
   updates a policy; and `policies/3`, since no route takes an available
   balance below zero for a deposit to improve.
 - **Cases with no scenario.** Curative transfers and daily limits over
-  HTTP; organisation parties; the payment
-  refusals the domain corpus holds and the API does not; and routes no
-  scenario calls, among them the tier reads, a balance by
-  type, a migration's cancel, a run by id, webhook test notifications and
-  resends, and the discovery documents.
+  HTTP; organisation parties; the payment refusals the domain corpus
+  holds and the API does not; a deferred reward paid by a later run,
+  since a job runs once an hour at most and the next run is the next
+  hour's; and routes no scenario calls, among them the tier reads, a
+  balance by type, a migration's cancel, a run by id, a single
+  delivery's resend, and the discovery documents.
 - **The demo bank's tests.** `demo-digital-bank`'s interface test and the
   `demo-digital-bank-api` base test drive its own app end to end, and
   have no scenario tier to move to.

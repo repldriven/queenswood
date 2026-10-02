@@ -108,20 +108,15 @@
              :path-params {:reward-id "rwd.00000000000000000000000000"}
              :auth [:ref :org-0 :token]}
    :assert {:status 404 :body {:type ":reward/not-found"}}}
-  ;; A second run finds the reward paid and pays nothing.
+  ;; The job runs once an hour, so a second run this hour is refused.
   {:command :api/request
    :request {:method :post
              :path "/v1/jobs/{job-id}/runs"
              :path-params {:job-id "hourly-rewards"}
              :auth [:ref :org-0 :token]}
-   :assert {:status 201
-            :body {:job-id "hourly-rewards"
-                   :trigger-source "forced"
-                   :status "succeeded"
-                   :tasks [{:label "reward"
-                            :status "succeeded"
-                            :records-processed 0
-                            :records-failed 0}]}}}
+   :assert {:status 409
+            :problem {:type ":scheduler/period-already-run"
+                      :detail "The job has already run this period"}}}
   {:command :api/request
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}/balances"

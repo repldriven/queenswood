@@ -35,9 +35,16 @@
     :detail
     "System jobs have a fixed cadence; only the time of day is editable"}})
 
+(def PeriodAlreadyRun
+  {:value {:title "REJECTED"
+           :type ":scheduler/period-already-run"
+           :status 409
+           :detail "The job has already run this period"}})
+
 (def registry
   (examples-registry [#'JobNotFound #'RunNotFound #'PeriodicityNotAllowed
-                      #'SystemJobLocked #'RunTimeNotAllowed]))
+                      #'SystemJobLocked #'RunTimeNotAllowed
+                      #'PeriodAlreadyRun]))
 
 (def Job
   {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"

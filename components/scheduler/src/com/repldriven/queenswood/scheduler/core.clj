@@ -99,9 +99,26 @@
     (when-not (error/anomaly? runs)
       (first (filter #(= :scheduler-run-status-succeeded (:status %)) runs)))))
 
+(defn- open-run
+  "Write `run` as running, in the transaction that reads the job's runs,
+  unless `domain/period-refusal` refuses it, which it then returns."
+  [config job run]
+  (store/transact config
+                  (fn [txn]
+                    (let-nom>
+                      [runs (store/list-runs-by-job txn
+                                                    (:bank-id run)
+                                                    (:job-id run))
+                       _ (domain/period-refusal job runs (:started-at run))]
+                      (store/save-run txn run)))
+                  :scheduler/open-run
+                  "Failed to open scheduler run"))
+
 (defn run-job
   "Execute `job`'s tasks sequentially, recording a `SchedulerRun` with
-  task-granular progress. Opens the run as running, advances
+  task-granular progress. Refuses with `:scheduler/period-already-run`
+  when the job has run, or is running, in the period it starts in;
+  otherwise opens the run as running, advances
   `tasks-completed` / `current-task` after each task, and finishes
   succeeded or — on the first task anomaly — failed (remaining tasks are
   skipped). `as-of-date` is today (epoch-day); the underlying interest
@@ -123,66 +140,69 @@
                :tasks-total (count task-kinds)}
               :expected-end-at
               (domain/expected-end-at started-at prev))]
-    (store/save-run config
-                    (assoc base
-                           :status :scheduler-run-status-running
-                           :tasks-completed 0
-                           :current-task (task-label (first task-kinds))))
-    (loop [[task-kind & more] task-kinds
-           completed 0
-           tasks []]
-      (if (nil? task-kind)
-        (let [run (assoc base
-                         :status :scheduler-run-status-succeeded
-                         :tasks-completed completed
-                         :tasks tasks
-                         :finished-at (utility/now))]
-          (store/save-run config run)
-          (store/save-job config
-                          (assoc job
-                                 :last-run-at started-at
-                                 :next-run-at (scheduler/next-fire-at
-                                               (job-cron job)
-                                               started-at)
-                                 :updated-at (utility/now)))
-          run)
-        (let [label (task-label task-kind)
-              task (domain/started-task label (utility/now))
-              run-fn (get-in task-registry [task-kind :run])
-              result (if run-fn
-                       (run-fn config bank-id as-of-date)
-                       (error/reject :scheduler/unknown-task
-                                     {:message "No run registered for task"
-                                      :task-kind task-kind}))
-              finished-at (utility/now)]
-          (if (error/anomaly? result)
-            (let [run (assoc base
-                             :status :scheduler-run-status-failed
-                             :tasks-completed completed
-                             :current-task label
-                             :tasks (into (conj tasks
-                                                (domain/failed-task task
-                                                                    finished-at
-                                                                    result))
-                                          (domain/skipped-tasks
-                                           (map task-label more)))
-                             :finished-at (utility/now)
-                             :error (error/format-anomaly result))]
-              (store/save-run config run)
-              result)
-            (let [tasks (conj tasks
-                              (domain/finished-task task finished-at result))]
-              (store/save-run config
-                              (assoc base
-                                     :status :scheduler-run-status-running
-                                     :tasks-completed (inc completed)
-                                     :current-task label
-                                     :tasks tasks))
-              (recur more (inc completed) tasks))))))))
+    (let-nom>
+      [_ (open-run config
+                   job
+                   (assoc base
+                          :status :scheduler-run-status-running
+                          :tasks-completed 0
+                          :current-task (task-label (first task-kinds))))]
+      (loop [[task-kind & more] task-kinds
+             completed 0
+             tasks []]
+        (if (nil? task-kind)
+          (let [run (assoc base
+                           :status :scheduler-run-status-succeeded
+                           :tasks-completed completed
+                           :tasks tasks
+                           :finished-at (utility/now))]
+            (store/save-run config run)
+            (store/save-job config
+                            (assoc job
+                                   :last-run-at started-at
+                                   :next-run-at (scheduler/next-fire-at
+                                                 (job-cron job)
+                                                 started-at)
+                                   :updated-at (utility/now)))
+            run)
+          (let [label (task-label task-kind)
+                task (domain/started-task label (utility/now))
+                run-fn (get-in task-registry [task-kind :run])
+                result (if run-fn
+                         (run-fn config bank-id as-of-date)
+                         (error/reject :scheduler/unknown-task
+                                       {:message "No run registered for task"
+                                        :task-kind task-kind}))
+                finished-at (utility/now)]
+            (if (error/anomaly? result)
+              (let [run (assoc base
+                               :status :scheduler-run-status-failed
+                               :tasks-completed completed
+                               :current-task label
+                               :tasks (into (conj tasks
+                                                  (domain/failed-task
+                                                   task
+                                                   finished-at
+                                                   result))
+                                            (domain/skipped-tasks
+                                             (map task-label more)))
+                               :finished-at (utility/now)
+                               :error (error/format-anomaly result))]
+                (store/save-run config run)
+                result)
+              (let [tasks (conj tasks
+                                (domain/finished-task task finished-at result))]
+                (store/save-run config
+                                (assoc base
+                                       :status :scheduler-run-status-running
+                                       :tasks-completed (inc completed)
+                                       :current-task label
+                                       :tasks tasks))
+                (recur more (inc completed) tasks)))))))))
 
 (defn force-start
-  "Run `job-id` now with trigger source forced. Safe to repeat — the
-  tasks are idempotent and the daily limit guards double-accrual."
+  "Run `job-id` now with trigger source forced, in the period now falls
+  in, which a run that is running or succeeded there refuses."
   [config bank-id job-id]
   (let [job (store/get-job config bank-id job-id)]
     (cond

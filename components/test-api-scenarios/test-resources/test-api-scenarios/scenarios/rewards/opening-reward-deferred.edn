@@ -1,4 +1,4 @@
-{:name "A reward the house account cannot cover is due until the bank is funded"
+{:name "A reward the house account cannot cover is left due, with why"
  :given
  [{:fixture :bank
    :as :org-0
@@ -50,15 +50,8 @@
                             :status "succeeded"
                             :records-processed 0
                             :records-failed 1}]}}}
-  {:command :api/request
-   :request {:method :get
-             :path "/v1/cash-accounts/{account-id}/balances"
-             :path-params {:account-id [:ref :account :account :account-id]}
-             :auth [:ref :org-0 :token]}
-   :assert {:status 200
-            :body {:available-balance {:value 0 :currency "GBP"}}}}
-  ;; Money from outside into the bank's own-funds house account, which
-  ;; is what a reward is paid from.
+  ;; Funding the bank is the remedy, and the next hour's run pays it:
+  ;; this hour has had its run.
   {:command :api/request
    :request {:method :post
              :path "/v1/simulate/inbound-transfer"
@@ -67,36 +60,29 @@
              :body {:amount 500000
                     :currency "GBP"}}
    :assert {:status 200}}
-  ;; Funded, the next run pays what was due.
   {:command :api/request
    :request {:method :post
              :path "/v1/jobs/{job-id}/runs"
              :path-params {:job-id "hourly-rewards"}
              :auth [:ref :org-0 :token]}
-   :assert {:status 201
-            :body {:job-id "hourly-rewards"
-                   :trigger-source "forced"
-                   :status "succeeded"
-                   :tasks [{:label "reward"
-                            :status "succeeded"
-                            :records-processed 1
-                            :records-failed 0}]}}}
+   :assert {:status 409
+            :problem {:type ":scheduler/period-already-run"
+                      :detail "The job has already run this period"}}}]
+ :then
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/rewards"
+             :auth [:ref :org-0 :token]
+             :query-params {"account-id" [:ref :account :account :account-id]}}
+   :assert {:status 200
+            :body {:items [{:kind "opening"
+                            :amount 1000
+                            :status "due"
+                            :error [:m/regex ".+"]}]}}}
   {:command :api/request
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}/balances"
              :path-params {:account-id [:ref :account :account :account-id]}
              :auth [:ref :org-0 :token]}
    :assert {:status 200
-            :body {:available-balance {:value 1000 :currency "GBP"}}}}
-  {:command :api/request
-   :request {:method :get
-             :path "/v1/cash-accounts/{account-id}/transactions"
-             :path-params {:account-id [:ref :account :account :account-id]}
-             :auth [:ref :org-0 :token]}
-   :assert {:status 200
-            :body {:items [:m/embeds
-                                  [{:reference "Welcome reward"
-                                    :transaction-type "reward"
-                                    :side "credit"
-                                    :balance-status "posted"
-                                    :amount 1000}]]}}}]}
+            :body {:available-balance {:value 0 :currency "GBP"}}}}]}

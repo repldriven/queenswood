@@ -42,8 +42,12 @@
   (core/seed-jobs txn bank-id))
 
 (defn force-start
-  "Run `job-id` now (trigger source forced). Returns the final run map
-  or an anomaly. Safe to repeat — tasks are idempotent.
+  "Run `job-id` now (trigger source forced), in the period of the job's
+  periodicity that now falls in: its hour, day, month or year. Returns
+  the final run map or an anomaly. A run of the job that is running or
+  succeeded in that period refuses it with
+  `:scheduler/period-already-run`; a failed one does not, so a failed
+  run may be forced again.
 
   Args:
   - config: FDB+interfaces map.

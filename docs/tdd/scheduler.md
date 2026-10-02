@@ -35,10 +35,17 @@ progress route for an interest run in flight.
   `utility/today` and passes it to every task. `SchedulerRun` records
   status, per-task counts and timings, but not the date the run was
   for.
+- **A job runs once a period.** A run belongs to the hour, day, month or
+  year of the job's periodicity it starts in, in UTC. `run-job` reads
+  the job's runs and writes the new one `running` in one transaction,
+  and refuses with `:scheduler/period-already-run`, a 409, where a run
+  in that period is `running` or `succeeded`. A `failed` run leaves its
+  period open, so an operator may force it again. A fire and a
+  force-start meet the same check.
 - **A crashed run stays running.** `run-job` writes the run `running`,
   then writes it again after each task. A process that dies between
-  those writes leaves a `running` row that nothing reads again, and the
-  next fire is the next day's.
+  those writes leaves a `running` row that nothing reads again, and it
+  holds its period, so the job runs again only in the next one.
 - **A missed fire is lost.** Quartz holds its triggers in memory, so a
   process that is down when a trigger falls due never fires it, and
   nothing compares `next_run_at` with the clock.
@@ -179,8 +186,9 @@ date, to re-run a past day:
 
 - A future date is refused with 422, `:scheduler/invalid-as-of-date`.
 - A date before `catch-up-days` is refused the same way.
-- A run of the job already queued or running for that date is refused
-  with 409, `:scheduler/run-in-progress`.
+- A run of the job queued, running or succeeded for that date's period
+  is refused with 409, `:scheduler/period-already-run`, as today; a
+  failed one is not.
 
 `scheduler/force-start` becomes `scheduler/enqueue-run`. The console
 reads the run's status from `GET /v1/jobs/{job-id}/runs/{run-id}`,

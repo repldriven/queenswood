@@ -1,7 +1,8 @@
 (ns com.repldriven.queenswood.scheduler.domain-test
   "Pure-function tests for the scheduler domain: per-task periodicity
-  constraints, the job-allowed intersection, periodicity→cron, and the
-  expected-end estimate. No FDB, no scheduler."
+  constraints, the job-allowed intersection, periodicity→cron, the
+  expected-end estimate, and the period a run holds. No FDB, no
+  scheduler."
   (:require
     [com.repldriven.queenswood.scheduler.domain :as SUT]
 
@@ -171,3 +172,48 @@
       (is (not (contains? task :finished-at)))))
   (testing "nothing left to skip is an empty vector, not nil"
     (is (= [] (SUT/skipped-tasks [])))))
+
+(def ^:private noon-on-the-fifth
+  "2026-03-05T12:34:56Z, as epoch-ms."
+  1772714096000)
+
+(deftest period-start-test
+  (testing "a period begins at the top of its hour, day, month or year"
+    (is (= 1772712000000
+           (SUT/period-start :scheduler-periodicity-hourly noon-on-the-fifth)))
+    (is (= 1772668800000
+           (SUT/period-start :scheduler-periodicity-daily noon-on-the-fifth)))
+    (is (= 1772323200000
+           (SUT/period-start :scheduler-periodicity-monthly noon-on-the-fifth)))
+    (is (= 1767225600000
+           (SUT/period-start :scheduler-periodicity-yearly
+                             noon-on-the-fifth)))))
+
+(deftest period-refusal-test
+  (let [job {:job-id "daily-interest" :periodicity :scheduler-periodicity-daily}
+        hour (* 60 60 1000)
+        run (fn [status started-at]
+              {:run-id "run.1" :status status :started-at started-at})]
+    (testing "a run that succeeded or is running this period refuses another"
+      (is (= :scheduler/period-already-run
+             (error/kind (SUT/period-refusal job
+                                             [(run
+                                               :scheduler-run-status-succeeded
+                                               (- noon-on-the-fifth hour))]
+                                             noon-on-the-fifth))))
+      (is (= "The job is already running this period"
+             (:message (error/payload (SUT/period-refusal
+                                       job
+                                       [(run :scheduler-run-status-running
+                                             noon-on-the-fifth)]
+                                       noon-on-the-fifth))))))
+    (testing "a failed run leaves its period open"
+      (is (nil? (SUT/period-refusal job
+                                    [(run :scheduler-run-status-failed
+                                          (- noon-on-the-fifth hour))]
+                                    noon-on-the-fifth))))
+    (testing "a run in an earlier period refuses nothing"
+      (is (nil? (SUT/period-refusal job
+                                    [(run :scheduler-run-status-succeeded
+                                          (- noon-on-the-fifth (* 24 hour)))]
+                                    noon-on-the-fifth))))))

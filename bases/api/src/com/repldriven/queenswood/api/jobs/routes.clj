@@ -10,8 +10,8 @@
     [com.repldriven.queenswood.api-schema.interface :refer [ErrorResponse]]
     [com.repldriven.queenswood.idempotency.interface :as bank-idempotency]
     [com.repldriven.queenswood.job-api.interface :refer
-     [JobNotFound PeriodicityNotAllowed RunNotFound RunTimeNotAllowed
-      SystemJobLocked]]
+     [JobNotFound PeriodAlreadyRun PeriodicityNotAllowed RunNotFound
+      RunTimeNotAllowed SystemJobLocked]]
 
     [com.repldriven.mono.server.interface :as server]))
 
@@ -90,10 +90,14 @@
                          :description
                          (str "Runs the job's tasks in order, whether or not "
                               "the job is enabled, and returns the completed "
-                              "run. A failing task ends the run as failed, "
-                              "skips the tasks after it and is returned as "
-                              "the error, and the failed run stays readable "
-                              "among the job's runs.")
+                              "run. A job runs once in each period of its "
+                              "periodicity, the hour, day, month or year now "
+                              "falls in: a run there that is running or has "
+                              "succeeded refuses another with 409, and a "
+                              "failed one does not. A failing task ends the "
+                              "run as failed, skips the tasks after it and is "
+                              "returned as the error, and the failed run "
+                              "stays readable among the job's runs.")
                          :security [{"bearerAuth" ["org:developer"]}]
                          :parameters ^:replace
                                      [shared.parameters/ref-job-id
@@ -107,7 +111,8 @@
                                  :openapi {:headers {"Location"
                                                      (shared.headers/location
                                                       "run")}}}
-                            404 (ErrorResponse [#'JobNotFound])})
+                            404 (ErrorResponse [#'JobNotFound])
+                            409 (ErrorResponse [#'PeriodAlreadyRun])})
                :handler handlers/start-run}}]
       ["/{run-id}"
        {:parameters {:path {:run-id [:ref "RunId"]}}}
