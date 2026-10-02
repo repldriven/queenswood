@@ -58,6 +58,7 @@
                               "../../components/clearbank-webhook"}
   component/form3-relay {:local/root "../../components/form3-relay"}
   component/form3-webhook {:local/root "../../components/form3-webhook"}
+  component/intent-queue {:local/root "../../components/intent-queue"}
   component/modulr-relay {:local/root "../../components/modulr-relay"}
   component/company {:local/root "../../components/company"}
   component/email {:local/root "../../components/email"}

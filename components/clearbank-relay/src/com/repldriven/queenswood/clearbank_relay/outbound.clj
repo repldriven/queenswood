@@ -4,6 +4,7 @@
 
     [com.repldriven.queenswood.clearbank-webhook.interface :as
      clearbank-webhook]
+    [com.repldriven.queenswood.intent-queue.interface :as intent-queue]
 
     [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
@@ -323,18 +324,24 @@
                               f))
 
 (defn drain-once
-  "Relay every pending intent whose `next-attempt-at` is not after `now`
-  once. Reads are transactional; the HTTP call and status write per
-  intent are separate, so no network I/O happens inside an FDB
+  "Relay each pending intent whose `next-attempt-at` is not after `now`
+  once, oldest first, holding a call for an account while an earlier one
+  for it is unsent. Reads are transactional; the HTTP call and status
+  write per intent are separate, so no network I/O happens inside an FDB
   transaction."
   [config now]
   (let [pending (store/pending-intents config)]
     (when-not (error/anomaly? pending)
-      (doseq [i pending
-              :when (<= (or (:next-attempt-at i) 0) now)]
-        (in-intent-trace "clearbank-outbound"
-                         i
-                         (fn [] (relay-one config now i)))))))
+      (intent-queue/drain pending
+                          now
+                          {:settles-first? (constantly false)
+                           :run (fn [i]
+                                  (in-intent-trace "clearbank-outbound"
+                                                   i
+                                                   (fn []
+                                                     (relay-one config
+                                                                now
+                                                                i))))}))))
 
 (defn start-runner
   "Start the daemon poll loop that drains pending outbound intents.

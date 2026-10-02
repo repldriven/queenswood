@@ -60,4 +60,8 @@ message ModulrOutboundIntent {
   // Modulr's id for the payment the call created, which a
   // reconciliation looks up.
   optional string provider_payment_id = 14;
+  // What the call acts on at the provider, the cash accounts for a
+  // payment provider. The runner makes a subject's calls in the order
+  // they were accepted (ADR-0033).
+  repeated string subjects = 15;
 }

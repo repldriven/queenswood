@@ -103,6 +103,10 @@
                        :provider-account-id provider-account-id
                        :rotation-key rotation-key})}))
 
+(defn- subjects
+  [data]
+  (vec (keep data [:account-id :debtor-account-id])))
+
 (defn- dispatch
   [config message]
   (let [{:keys [command payload]} message
@@ -111,11 +115,21 @@
       (do (log/warnf "No schema found for command: %s" command) nil)
       (let-nom> [data (avro/deserialize-same schema payload)]
         (case command
-          "submit-payment" (save-intent config (payment-intent data))
-          "return-payment" (save-intent config (return-intent data))
-          "open-payment-account" (save-intent config (open-intent data))
-          "close-payment-account" (save-intent config (close-intent data))
-          "reissue-payment-address" (save-intent config (reissue-intent data))
+          "submit-payment"
+          (save-intent config
+                       (assoc (payment-intent data) :subjects (subjects data)))
+          "return-payment"
+          (save-intent config
+                       (assoc (return-intent data) :subjects (subjects data)))
+          "open-payment-account"
+          (save-intent config
+                       (assoc (open-intent data) :subjects (subjects data)))
+          "close-payment-account"
+          (save-intent config
+                       (assoc (close-intent data) :subjects (subjects data)))
+          "reissue-payment-address"
+          (save-intent config
+                       (assoc (reissue-intent data) :subjects (subjects data)))
           (do (log/warnf "Unsupported command: %s" command) nil))))))
 
 (defrecord Form3CommandProcessor [config]

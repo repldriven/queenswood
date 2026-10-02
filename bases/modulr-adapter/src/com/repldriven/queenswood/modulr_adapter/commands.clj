@@ -37,6 +37,7 @@
         data]
     {:dedup-key end-to-end-id
      :kind "payment"
+     :subjects (vec (keep identity [debtor-account-id]))
      :request (json/write-str
                (utility/assoc-some
                 {:sourceAccountId debtor-provider-account-id
@@ -57,6 +58,7 @@
                 currency]}
         data]
     {:dedup-key transfer-id
+     :subjects (vec (keep identity [debtor-account-id creditor-account-id]))
      :kind (if (or debtor-account-id debtor-provider-account-id)
              "transfer"
              "credit")
@@ -78,6 +80,7 @@
   (let [{:keys [bank-id account-id currency]} data]
     {:dedup-key (str "open:" account-id)
      :kind "open-account"
+     :subjects [account-id]
      :request (json/write-str
                (utility/assoc-some {:currency currency
                                     :externalReference (relay/->reference
@@ -91,6 +94,7 @@
   (let [{:keys [bank-id account-id provider-account-id]} data]
     {:dedup-key (str "close:" account-id)
      :kind "close-account"
+     :subjects [account-id]
      :request "{}"
      :context (pr-str {:bank-id bank-id
                        :account-id account-id
@@ -101,6 +105,7 @@
   (let [{:keys [bank-id account-id provider-account-id rotation-key]} data]
     {:dedup-key (str "reissue:" account-id ":" rotation-key)
      :kind "reissue-address"
+     :subjects [account-id]
      :request (json/write-str (utility/assoc-some {}
                                                   :productCode
                                                   (:product-code config)))

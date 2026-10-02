@@ -54,4 +54,8 @@ message ClearbankOutboundIntent {
   // the runner's outcome event carries, so the trace runs on through
   // the provider. See ChangelogEvent.
   optional string traceparent = 12;
+  // What the call acts on at the provider, the cash accounts for a
+  // payment provider. The runner makes a subject's calls in the order
+  // they were accepted (ADR-0033).
+  repeated string subjects = 13;
 }

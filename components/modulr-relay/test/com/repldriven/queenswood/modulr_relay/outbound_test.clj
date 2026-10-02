@@ -1,6 +1,8 @@
-(ns com.repldriven.queenswood.modulr-relay.outbound-test
+(ns ^:eftest/synchronized com.repldriven.queenswood.modulr-relay.outbound-test
   "Drives the runner with a `post-fn` standing in for Modulr, which the
-  runner takes as configuration, so nothing is redefined for the JVM."
+  runner takes as configuration, so nothing is redefined for the JVM. A
+  pass drains every intent in the store the tests share, so they run one
+  at a time."
   (:require
     [com.repldriven.queenswood.modulr-relay.test-system]
 
@@ -311,37 +313,7 @@
             (:step (edn/read-string (:context (load-intent config
                                                            "int.r1")))))))))
 
-(deftest a-refused-close-is-retried-test
-  (with-test-system
-   [sys "classpath:modulr-relay/application-test.yml"]
-   (let [answers (atom [(json-response 400
-                                       "{\"message\":\"Balance is not zero\"}")
-                        (json-response 200 "{}")])
-         config (runner-config sys
-                               (recording (atom [])
-                                          (fn [_]
-                                            (let [a (first @answers)]
-                                              (swap! answers rest)
-                                              a))))]
-     (nom-test> [_ (relay/save-intent config
-                                      (intent "int.c1"
-                                              "close-account" "close:acc.1"
-                                              "{}" {:bank-id "bnk.1"
-                                                    :account-id "acc.1"
-                                                    :provider-account-id
-                                                    "A1"}))])
-     (SUT/drain-once config 0)
-     (testing "a refusal leaves the close for another attempt"
-       (let [i (load-intent config "int.c1")]
-         (is (= "pending" (:status i)))
-         (is (= 1 (:attempts i)))))
-     (SUT/drain-once config 10000)
-     (testing "and the next attempt closes the account"
-       (is (= "settled" (:status (load-intent config "int.c1"))))
-       (is (some? (outbox-event config
-                                "close:acc.1:payment-account-closed")))))))
-
-(deftest a-close-refused-every-time-fails-test
+(deftest a-refused-close-fails-test
   (with-test-system
    [sys "classpath:modulr-relay/application-test.yml"]
    (let [config (runner-config sys
@@ -358,11 +330,69 @@
                                                     :account-id "acc.2"
                                                     :provider-account-id
                                                     "A2"}))])
-     (run! (fn [now] (SUT/drain-once config now)) [0 10000 100000])
-     (testing "the close fails once its attempts run out"
+     (SUT/drain-once config 0)
+     (testing "a refused close fails rather than being tried again"
        (let [i (load-intent config "int.c2")]
          (is (= "failed" (:status i)))
-         (is (= 3 (:attempts i))))))))
+         (is (= 1 (:attempts i))))))))
+
+(deftest a-close-waits-for-the-transfer-before-it-test
+  (with-test-system
+   [sys "classpath:modulr-relay/application-test.yml"]
+   (let [calls (atom [])
+         config (runner-config sys
+                               (recording
+                                calls
+                                (fn [{:keys [path]}]
+                                  (if (= "/payments" path)
+                                    (json-response
+                                     201
+                                     "{\"id\":\"P1\",\"status\":\"SUBMITTED\"}")
+                                    (json-response 200 "{}")))))
+         paths (fn []
+                 (filterv #{"/payments" "/accounts/A1/close"}
+                          (mapv :path @calls)))]
+     (nom-test> [_ (relay/save-intent
+                    config
+                    (assoc (intent "int.1-transfer"
+                                   "transfer" "ptr.wait.1"
+                                   "{}" {:bank-id "bnk.1"
+                                         :amount 150
+                                         :currency "GBP"
+                                         :debtor-account-id "acc.wait.1"
+                                         :creditor-account-id "acc.wait.2"
+                                         :debtor-provider-account-id "A1"
+                                         :creditor-provider-account-id "A2"})
+                           :subjects
+                           ["acc.wait.1" "acc.wait.2"]))
+                 _ (relay/save-intent config
+                                      (assoc (intent
+                                              "int.2-close"
+                                              "close-account" "close:acc.wait.1"
+                                              "{}" {:bank-id "bnk.1"
+                                                    :account-id "acc.wait.1"
+                                                    :provider-account-id "A1"})
+                                             :subjects
+                                             ["acc.wait.1"]))])
+     (SUT/drain-once config 0)
+     (testing "the transfer is sent and the close held while it is unsettled"
+       (is (= ["/payments"] (paths)))
+       (is (= "pending" (:status (load-intent config "int.2-close")))))
+     (relay/save-event config
+                       {:outbox-id "obx.wait.1"
+                        :dedup-key "P1:wait:settled"
+                        :event-name "transfer-completed"
+                        :payload (avro/serialize (get (:schemas config)
+                                                      "transfer-completed")
+                                                 {:transfer-id "ptr.wait.1"
+                                                  :bank-id "bnk.1"
+                                                  :timestamp-completed 0})
+                        :created-at 0}
+                       "ptr.wait.1")
+     (SUT/drain-once config 0)
+     (testing "once the transfer settles the close is made"
+       (is (= ["/payments" "/accounts/A1/close"] (paths)))
+       (is (= "settled" (:status (load-intent config "int.2-close"))))))))
 
 (defn- opened-as
   [provider-account-id]
@@ -383,7 +413,7 @@
                             (fn [{:keys [path raw-body]}]
                               (cond
                                (= "/customers/C1/accounts" path)
-                               (if (re-find #"acc-1" raw-body)
+                               (if (re-find #"acc-names-1" raw-body)
                                  (opened-as "A1")
                                  (opened-as "A2"))
 
@@ -399,35 +429,40 @@
                                          :externalReference (relay/->reference
                                                              account-id)})
                         {:bank-id "bnk.1" :account-id account-id}))]
-     (nom-test> [_ (relay/save-intent config (open "int.o1" "acc.1"))
-                 _ (relay/save-intent config (open "int.o2" "acc.2"))
+     (nom-test> [_ (relay/save-intent config
+                                      (open "int.names.o1" "acc.names.1"))
                  _ (relay/save-intent config
-                                      (intent "int.t1"
-                                              "transfer" "ptr.1"
-                                              "{}" {:bank-id "bnk.1"
-                                                    :amount 150
-                                                    :currency "GBP"
-                                                    :debtor-account-id "acc.1"
-                                                    :creditor-account-id
-                                                    "acc.2"}))])
+                                      (open "int.names.o2" "acc.names.2"))
+                 _ (relay/save-intent
+                    config
+                    (intent "int.names.t1"
+                            "transfer" "ptr.names.1"
+                            "{}" {:bank-id "bnk.1"
+                                  :amount 150
+                                  :currency "GBP"
+                                  :debtor-account-id "acc.names.1"
+                                  :creditor-account-id "acc.names.2"}))])
      (SUT/drain-once config 0)
      (testing "the transfer moves money between the accounts its opens made"
-       (let [transfer (last @calls)
+       (let [transfer (some (fn [{:keys [raw-body] :as call}]
+                              (when (re-find #"ptr-names-1" (str raw-body))
+                                call))
+                            @calls)
              body (json/read-str (:raw-body transfer) :key-fn keyword)]
          (is (= "/payments" (:path transfer)))
          (is (= "A1" (:sourceAccountId body)))
          (is (= {:type "ACCOUNT" :id "A2"} (:destination body)))))
      (testing "a transfer naming an account no open has made yet waits"
-       (nom-test> [_ (relay/save-intent config
-                                        (intent "int.t2"
-                                                "transfer" "ptr.2"
-                                                "{}" {:bank-id "bnk.1"
-                                                      :amount 150
-                                                      :currency "GBP"
-                                                      :debtor-account-id "acc.1"
-                                                      :creditor-account-id
-                                                      "acc.9"}))])
+       (nom-test> [_ (relay/save-intent
+                      config
+                      (intent "int.names.t2"
+                              "transfer" "ptr.names.2"
+                              "{}" {:bank-id "bnk.1"
+                                    :amount 150
+                                    :currency "GBP"
+                                    :debtor-account-id "acc.names.1"
+                                    :creditor-account-id "acc.9"}))])
        (SUT/drain-once config 0)
-       (let [i (load-intent config "int.t2")]
+       (let [i (load-intent config "int.names.t2")]
          (is (= "pending" (:status i)))
          (is (= 1 (:attempts i))))))))

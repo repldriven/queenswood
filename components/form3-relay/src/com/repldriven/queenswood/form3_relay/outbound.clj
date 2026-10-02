@@ -4,6 +4,8 @@
     [com.repldriven.queenswood.form3-relay.outcomes :as outcomes]
     [com.repldriven.queenswood.form3-relay.store :as store]
 
+    [com.repldriven.queenswood.intent-queue.interface :as intent-queue]
+
     [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.json.interface :as json]
@@ -553,23 +555,28 @@
                               f))
 
 (defn drain-once
-  "Make every due pending call once, then reconcile every due sent
-  payment and return. Reads are transactional; each call and the write recording it
-  are separate, so no network I/O happens inside an FDB transaction."
+  "Make each due pending call once, oldest first, holding a call for an
+  account while an earlier one for it is unsent, then reconcile every due
+  sent payment and return. Reads are transactional; each call and the
+  write recording it are separate, so no network I/O happens inside an
+  FDB transaction."
   [config now]
   (let [pending (store/intents-with-status config "pending")
         sent (store/intents-with-status config "sent")]
     (when-not (error/anomaly? pending)
-      (doseq [intent pending
-              :when (due? now intent)
-              :let [relay (get relays (:kind intent))]]
-        (in-intent-trace
-         "form3-outbound"
-         intent
-         (fn []
-           (if relay
-             (relay config now intent)
-             (log/error "Unknown Form3 intent kind" {:intent intent}))))))
+      (intent-queue/drain
+       pending
+       now
+       {:settles-first? (constantly false)
+        :run (fn [intent]
+               (in-intent-trace
+                "form3-outbound"
+                intent
+                (fn []
+                  (if-let [relay (get relays (:kind intent))]
+                    (relay config now intent)
+                    (log/error "Unknown Form3 intent kind"
+                               {:intent intent})))))}))
     (when-not (error/anomaly? sent)
       (doseq [intent sent
               :when (due? now intent)

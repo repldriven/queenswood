@@ -4,6 +4,7 @@
     [com.repldriven.queenswood.modulr-relay.outcomes :as outcomes]
     [com.repldriven.queenswood.modulr-relay.store :as store]
 
+    [com.repldriven.queenswood.intent-queue.interface :as intent-queue]
     [com.repldriven.queenswood.modulr-webhook.interface :as modulr-webhook]
 
     [com.repldriven.mono.avro.interface :as avro]
@@ -331,9 +332,6 @@
      (retry config now intent attempts result))))
 
 (defn- relay-close
-  "Close the account at Modulr. A refusal is retried like a failed call:
-  Modulr refuses to close an account still holding money, and the
-  transfer that swept it may still be on its way through this relay."
   [config now intent]
   (let [{:keys [intent-id]} intent
         {:keys [bank-id account-id provider-account-id]} (context intent)
@@ -353,6 +351,13 @@
              (account-event intent
                             "payment-account-closed"
                             {:bank-id bank-id :account-id account-id}))
+
+     (= :refused outcome)
+     (do (log/error "Modulr refused to close the account"
+                    {:intent-id intent-id
+                     :account-id account-id
+                     :reason result})
+         (finish config now intent "failed" nil))
 
      (give-up? config attempts)
      (do (log/error "Modulr did not close the account"
@@ -528,6 +533,10 @@
   [now intent]
   (<= (or (:next-attempt-at intent) 0) now))
 
+(def ^:private
+     ^{:doc "Kinds that wait for an account's calls to settle."} settles-first
+  #{"close-account" "reissue-address"})
+
 (defn- in-intent-trace
   [span-name intent f]
   (telemetry/with-span-parent span-name
@@ -540,24 +549,28 @@
                               f))
 
 (defn drain-once
-  "Make every due pending call once, then reconcile every due sent
-  payment and transfer. Reads are transactional; each call and the write
-  recording it are separate, so no network I/O happens inside an FDB
-  transaction."
+  "Make each due pending call once, oldest first, holding a call for an
+  account while an earlier one for it is unsent, and a close or reissue
+  while one is unsettled; then reconcile every due sent payment and
+  transfer. Reads are transactional; each call and the write recording
+  it are separate, so no network I/O happens inside an FDB transaction."
   [config now]
   (let [pending (store/intents-with-status config "pending")
         sent (store/intents-with-status config "sent")]
-    (when-not (error/anomaly? pending)
-      (doseq [intent pending
-              :when (due? now intent)
-              :let [relay (get relays (:kind intent))]]
-        (in-intent-trace
-         "modulr-outbound"
-         intent
-         (fn []
-           (if relay
-             (relay config now intent)
-             (log/error "Unknown Modulr intent kind" {:intent intent}))))))
+    (when-not (or (error/anomaly? pending) (error/anomaly? sent))
+      (intent-queue/drain
+       (into pending sent)
+       now
+       {:settles-first? (fn [intent] (contains? settles-first (:kind intent)))
+        :run (fn [intent]
+               (in-intent-trace
+                "modulr-outbound"
+                intent
+                (fn []
+                  (if-let [relay (get relays (:kind intent))]
+                    (relay config now intent)
+                    (log/error "Unknown Modulr intent kind"
+                               {:intent intent})))))}))
     (when-not (error/anomaly? sent)
       (doseq [intent sent
               :when (due? now intent)]
