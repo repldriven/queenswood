@@ -2,7 +2,7 @@
 
 ## Objective
 
-Customer accounts earn interest. The platform computes
+End-customer accounts earn interest. The platform computes
 interest daily on each account's settled balance, records
 it as accrued, and capitalises it — moving it into the
 account's spendable balance — at a cadence the operator
@@ -33,7 +33,7 @@ account.
 ## Goals
 
 - **Daily accrual on settled balance.** Every day, every
-  customer account earns interest based on its settled
+  end-customer account earns interest based on its settled
   balance and the rate from the product version it was
   opened under.
 - **Penny conservation.** Sub-penny daily interest is
@@ -43,8 +43,8 @@ account.
   balances.
 - **Rate from the product version.** The interest rate is
   a property of the product version the account is pinned
-  to. Customers earn the rate they signed up for, even
-  after the product publishes a new version with a
+  to. End customers earn the rate they signed up for,
+  even after the product publishes a new version with a
   different rate — see
   [cash-account-products](cash-account-products.md).
 - **Operator-scheduled capitalisation.** Capitalisation —
@@ -68,10 +68,10 @@ account.
 - **Audit trail.** Every accrual and capitalisation is
   recorded on the ledger. The bank's matching liability
   on the settlement account is recorded too — money
-  moves from somewhere identifiable to the customer's
+  moves from somewhere identifiable to the end customer's
   account.
-- **Multi-tenant isolation.** Each tenant's accruals run
-  against its own organisation. Tenants don't share
+- **Multi-tenant isolation.** Each customer's accruals run
+  against its own organisation. Customers don't share
   accrual state.
 
 ## Non-goals
@@ -91,7 +91,7 @@ account.
 - **Mid-period rate changes within a version.** Rate
   changes happen at the version boundary. There's no
   "rate effective from date X" within a version — to
-  change the rate, the tenant publishes a new product
+  change the rate, the customer publishes a new product
   version.
 - **Interest on pending balances.** Pending-incoming and
   pending-outgoing amounts don't earn interest. Only
@@ -112,14 +112,14 @@ account.
 ## Functional scope
 
 The platform provides two operations: daily accrual and
-capitalisation. Both are run per-tenant.
+capitalisation. Both are run per organisation.
 
 ### Daily accrual
 
 Once per day, the operator triggers the daily accrual run
-for each tenant. The platform:
+for each organisation. The platform:
 
-- Walks every customer account on that tenant.
+- Walks every end-customer account on that organisation.
 - For each account, reads the settled balance and the
   rate from the account's pinned product version.
 - Computes the day's interest using integer arithmetic
@@ -151,7 +151,7 @@ For each account:
   - Clears the matching liability on the bank's
     settlement account.
 - Records the audit trail of the bank paying out and the
-  customer receiving.
+  end customer receiving.
 
 After capitalisation, the account's spendable balance is
 larger by the accrued amount; the next day's accrual
@@ -161,16 +161,17 @@ makes compounding emerge from the cadence.
 ### Cadence choices
 
 The operator chooses the capitalisation cadence and the
-choice has real customer-facing consequences:
+choice has real end-customer-facing consequences:
 
-- **Daily.** The customer sees interest credited every
+- **Daily.** The end customer sees interest credited every
   day. Compounding is daily.
-- **Weekly / monthly.** The customer sees interest credited
-  at that cadence. Compounding is at the same cadence.
-- **Annually.** The customer sees interest credited once
-  a year. Compounding only on the anniversary.
+- **Weekly / monthly.** The end customer sees interest
+  credited at that cadence. Compounding is at the same
+  cadence.
+- **Annually.** The end customer sees interest credited
+  once a year. Compounding only on the anniversary.
 
-Less frequent capitalisation means the customer earns
+Less frequent capitalisation means the end customer earns
 less in absolute terms (since accrued interest doesn't
 itself earn interest until it has been capitalised). The
 trade-off is a product decision; the platform supports
@@ -180,7 +181,7 @@ any choice.
 
 Each account is pinned to the product version it was
 opened under. The interest rate comes from that version.
-When the tenant publishes a new product version with a
+When the customer publishes a new product version with a
 different rate, existing accounts continue to earn the
 rate from their original version. Only newly opened
 accounts pick up the new rate. This is the cohort
@@ -205,7 +206,7 @@ arithmetic conserves every micro-fraction of a penny.
 Accrual and capitalisation runs are safe to repeat for
 the same date. If a daily run is interrupted or has to
 be re-fired, the platform recognises the work already
-done on each account and skips it. The tenant and the
+done on each account and skips it. The customer and the
 operator can re-run safely.
 
 ### Per-account independence
@@ -218,10 +219,10 @@ held up by one bad account.
 
 ### The bank's settlement account
 
-Every tenant has a settlement account that holds the
-bank's liability to pay out accrued interest to its
+Every customer has a settlement account that holds the
+bank's liability to pay out accrued interest to its end
 customers. Accrual posts to it; capitalisation drains it.
-This is part of the tenant's bookkeeping, set up at
+This is part of the customer's bookkeeping, set up at
 [onboarding](onboarding.md).
 
 ## User journeys
@@ -236,7 +237,7 @@ sequenceDiagram
 
     Note over Op,L: once per day per organisation
     Op->>Q: accrue daily interest (organisation, date)
-    loop for each customer account
+    loop for each end-customer account
         Q->>Q: compute today's interest<br/>using carry from yesterday
         alt at least one penny
             Q->>L: post accrual (settlement → account)
@@ -248,7 +249,7 @@ sequenceDiagram
 ```
 
 The operator's scheduler triggers the run once per day
-per customer. The platform walks every customer account,
+per customer. The platform walks every end-customer account,
 computes the day's interest, posts where it's at least a
 penny, and advances the carry on every account.
 
@@ -262,7 +263,7 @@ sequenceDiagram
 
     Note over Op,L: at the operator's chosen cadence
     Op->>Q: capitalise (organisation, date)
-    loop for each customer account
+    loop for each end-customer account
         alt accrued > 0
             Q->>L: drain accrued<br/>credit spendable balance
         end
@@ -272,9 +273,9 @@ sequenceDiagram
 ```
 
 At the chosen cadence, the operator triggers
-capitalisation. Accrued interest moves into the customer's
-spendable balance, and each customer sees a statement line
-for what they were paid. The bank's own matching liability
+capitalisation. Accrued interest moves into the end
+customer's spendable balance, and each end customer sees a
+statement line for what they were paid. The bank's own matching liability
 clears once at the end of the run rather than account by
 account, which is what keeps a run over millions of accounts
 from queueing behind itself.
@@ -368,7 +369,7 @@ version with a different rate.
   for the integer-arithmetic carry mechanism, how each side of
   the bookkeeping is recorded, and the run pattern.
 - **Platform context**: [platform](platform.md);
-  [onboarding](onboarding.md) — the tenant's settlement
+  [onboarding](onboarding.md) — the customer's settlement
   account is set up here;
   [cash-account-products](cash-account-products.md) — the
   rate lives on the product version;

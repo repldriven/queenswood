@@ -2,8 +2,8 @@
 
 ## Objective
 
-Banking is full of rules: what a tenant is allowed to do,
-which kinds of accounts a customer can open, how many
+Banking is full of rules: what a customer is allowed to
+do, which kinds of accounts an end customer can open, how many
 payments can move on what cadence, what limits apply to
 balances and transfers. Queenswood treats these rules as
 **data** — every rule is a record the platform stores,
@@ -12,18 +12,19 @@ every check: **capabilities** (is this action allowed?)
 and **limits** (is this count or amount within bounds?).
 Rules are linked to the targets they apply to via
 **bindings**, so a small set of reusable policies can be
-composed into the rule set that governs each tenant.
+composed into the rule set that governs each organisation.
 
 ## Users and stakeholders
 
 **Platform operator.** The author of policies. Decides which capabilities
-tenants get and which limits apply to them, packages those decisions into
-policies, and binds the policies to tenants (or tenant groups). Cares about: the
-rule set being legible and editable, the deny outcome being explicit, the audit
-trail of who has what.
+organisations get and which limits apply to them, packages those decisions into
+policies, and binds the policies to organisations (or organisation groups).
+Cares about: the rule set being legible and editable, the deny outcome being
+explicit, the audit trail of who has what.
 
 **Customer engineering team.** Sees the *effects* of policies — calls to the
-banking API succeed or are denied based on the rules in force for their tenant.
+banking API succeed or are denied based on the rules in force for their
+organisation.
 Cares about: the denial reason being clear enough to act on, the limits in force
 matching what they expect from the tier they signed up under.
 
@@ -32,7 +33,7 @@ being centrally listable and inspectable, changes being observable, the policy
 catalogue not silently drifting.
 
 **End customer.** Doesn't see policies directly, but
-experiences them through the tenant's surface — an
+experiences them through the customer's surface — an
 attempted payment that exceeds a limit, an account type
 that isn't available. Cares about: clear feedback when a
 limit bites, and (where applicable) the *curative
@@ -50,41 +51,41 @@ without being locked out.
   (count or amount) within bounds?" — answered with
   permitted or breached.
 - **Composable.** Rules live in **policies**; policies
-  attach to targets via **bindings**. A tenant's rule
-  set is the union of every policy bound to them. Adding
+  attach to targets via **bindings**. An organisation's
+  rule set is the union of every policy bound to it. Adding
   a constraint is adding a policy and a binding.
 - **Pausable.** A policy carries an *enabled* flag. A
   policy can be turned off without deleting it. Disabled
   policies are skipped during evaluation.
 - **Tier labelling.** Policies carry labels (e.g. a tier
-  label). At tenant onboarding, the tenant is bound to
+  label). At customer onboarding, the organisation is bound to
   the bundle of policies sharing the requested tier
   label. Different tiers ship with different rule sets.
-- **Deny wins.** Within a tenant's rule set, an explicit
+- **Deny wins.** Within an organisation's rule set, an explicit
   deny overrides every allow in scope. The default in the
   absence of any matching rule is denial — the platform
   is positive, not permissive.
 - **Curative permits.** A limit can be marked
   *curative*: a request that would breach the limit is
-  permitted when the customer's pre-state already
-  breaches and the post-state is no worse. This lets a
-  customer correct themselves out of breach without
+  permitted when the end customer's pre-state already
+  breaches and the post-state is no worse. This lets an
+  end customer correct themselves out of breach without
   needing manual intervention.
 - **Centralised evaluation.** Every domain calls the
   same evaluator with a consistent shape. No domain
   implements its own rule logic.
 - **Audit trail.** Denials carry a human-readable reason.
   The rule set in force at any moment is inspectable.
-- **Multi-tenant isolation.** A tenant sees only the
-  rules that bind to it. Tenants don't see each other's
-  policies.
+- **Multi-tenant isolation.** An organisation sees only
+  the rules that bind to it. Organisations don't see each
+  other's policies.
 
 ## Non-goals
 
-- **Self-service policy editing by tenants.** Tenants
+- **Self-service policy editing by customers.** Customers
   don't author or edit their own policies. Operator-
   authored only.
-- **Per-end-customer policies.** Rules apply at tenant
+- **Per-end-customer policies.** Rules apply at organisation
   scope (and below — by product type, account type, and
   similar). They don't target individual end customers.
 - **A general-purpose rules language.** The platform
@@ -108,7 +109,7 @@ without being locked out.
 - **Policy simulation / dry-run.** No "would this
   request pass against this rule set?" surface for
   testing or audit without actually running the request.
-- **Tenant-supplied rule data at runtime.** Tenants
+- **Customer-supplied rule data at runtime.** Customers
   don't pass rule data in their requests. The rule set
   is whatever's bound to them at the moment of the call.
 
@@ -145,10 +146,10 @@ banking API.
 ### Bindings
 
 A **binding** links a policy to one or more targets. Its
-selectors describe the target — for example, a tenant
+selectors describe the target — for example, an
 organisation. Multiple bindings to the same target
-compose: a tenant's effective rule set is the union of
-every policy bound to that tenant.
+compose: an organisation's effective rule set is the union
+of every policy bound to that organisation.
 
 ### Capabilities
 
@@ -166,7 +167,7 @@ recognises:
 The rule's filters narrow when it applies. A capability
 might apply only to "personal current accounts in GBP",
 for instance. When the platform evaluates a capability
-check, it looks at the tenant's effective rule set,
+check, it looks at the organisation's effective rule set,
 finds the rules whose action and filters match the
 request, and decides:
 
@@ -187,21 +188,21 @@ rolling), and the value to check.
 Examples:
 
 - *Count, instant*: "at most 100,000 cash accounts per
-  tenant".
+  organisation".
 - *Count, instant*: "at most 10 personal GBP current
-  accounts per tenant".
+  accounts per organisation".
 - *Amount, daily*: "at most £100,000 in outbound
   payments per day".
 
 A limit can be *strict* — any breach is rejected — or
 *curative*. The curative mode is the platform's answer
-to a real banking situation: a customer is already in
+to a real banking situation: an end customer is already in
 breach and wants to correct themselves.
 
 ### Curative permits
 
 A curative limit permits a request that would breach the
-bound, provided the customer's pre-state already
+bound, provided the end customer's pre-state already
 breaches and the post-state is no worse than the
 pre-state.
 
@@ -212,14 +213,15 @@ account is at -£100 (overdrawn). An inbound transfer of
 below the minimum. With a curative limit, the platform
 recognises that the pre-state was already in breach and
 the post-state is better, so it permits the corrective
-inbound transfer. Without this, the customer would be
+inbound transfer. Without this, the end customer would be
 locked out of the very transaction that fixes their
 situation.
 
 ### Tiers and onboarding
 
-At [onboarding](onboarding.md), the tenant is created
-with a tier label. The platform binds the tenant to
+At [onboarding](onboarding.md), the organisation is
+created with a tier label. The platform binds the
+organisation to
 every policy whose label matches the requested tier.
 Different tiers ship with different rule sets — a "test"
 tier might allow only a small number of accounts and
@@ -227,10 +229,10 @@ modest payment amounts; a "production" tier might
 allow more.
 
 The tier choice is not permanent. A platform operator uses
-the banking API to move a tenant to another tier, which
-unbinds the policies the old tier brought and binds the new
-tier's bundle in their place. Policies bound to the tenant
-for any other reason are left alone.
+the banking API to move an organisation to another tier,
+which unbinds the policies the old tier brought and binds
+the new tier's bundle in their place. Policies bound to the
+organisation for any other reason are left alone.
 
 ### How domains use policies
 
@@ -241,7 +243,7 @@ the limit breaches, the call to the banking API is
 rejected with a clear reason; if it permits, the
 operation continues.
 
-The tenant doesn't have to do anything to "opt in" to
+The customer doesn't have to do anything to "opt in" to
 policies — every operation goes through the evaluator
 automatically.
 
@@ -249,8 +251,8 @@ automatically.
 
 A denied capability or breached limit comes back through
 the banking API as an authorisation error with a
-human-readable reason. The tenant can then surface the
-reason to their end customer, or take action themselves
+human-readable reason. The customer can then surface the
+reason to its end customer, or take action itself
 (e.g. archive accounts to come below a count limit).
 
 ## User journeys
@@ -313,10 +315,10 @@ sequenceDiagram
     Note over E,Q: balance now -£50 —<br/>still in breach but improving
 ```
 
-The customer's deposit is permitted because it improves
-their position, even though it doesn't fully cure the
-breach. Without the curative permit, the deposit would
-be rejected and the customer would have no clean path
+The end customer's deposit is permitted because it
+improves their position, even though it doesn't fully cure
+the breach. Without the curative permit, the deposit would
+be rejected and the end customer would have no clean path
 back into compliance.
 
 ### 4. Operator pauses a policy temporarily
@@ -361,12 +363,12 @@ single onboarding call — see [onboarding](onboarding.md).
 
 - **Per-target binding resolution.** The data model
   supports fine-grained "this policy binds only to this
-  tenant's accounts of type X" bindings, but the
+  organisation's accounts of type X" bindings, but the
   resolver isn't fully there yet. Today binding tends
-  to happen at tenant scope; finer-grained selectors
+  to happen at organisation scope; finer-grained selectors
   are partial.
 - **Per-binding override of deny.** Deny wins globally.
-  If two policies bind to the same tenant and one denies
+  If two policies bind to the same organisation and one denies
   while the other allows, the deny wins — there's no
   way for a binding to override that. If "this binding
   overrides that other binding's deny" becomes a real
@@ -378,7 +380,7 @@ single onboarding call — see [onboarding](onboarding.md).
   doesn't exist.
 - **Policy simulation / dry-run.** "Would this request
   pass against this rule set?" without actually running
-  the request would help operators and tenants debug
+  the request would help operators and customers debug
   unexpected denials. Not exposed today.
 - **Policy versioning at evaluation time.** A policy
   edit takes effect immediately for any subsequent
@@ -391,20 +393,20 @@ single onboarding call — see [onboarding](onboarding.md).
   the denial — useful for root-cause analysis. A future
   enrichment could include the policy and clause
   references.
-- **Self-service rule editing for tenants.** Today
-  tenants can't author or edit policies. Operator-
+- **Self-service rule editing for customers.** Today
+  customers can't author or edit policies. Operator-
   mediated only. A future product would likely give
-  tenants a sandboxed slice of the rule set they can
+  customers a sandboxed slice of the rule set they can
   edit themselves.
-- **Cross-tenant policy reuse.** Each policy is
-  authored once and bound to many tenants. There's no
-  inheritance, templating, or override flow that would
-  let a tenant get the standard bundle "plus a few
+- **Cross-organisation policy reuse.** Each policy is
+  authored once and bound to many organisations. There's
+  no inheritance, templating, or override flow that would
+  let an organisation get the standard bundle "plus a few
   tweaks" without authoring duplicates.
 - **In-process evaluation only.** The evaluator runs
   inside the platform. No remote evaluation service, no
   federated rule store. Acceptable for current scale;
-  would need rethinking at higher tenancy.
+  would need rethinking with many more organisations.
 - **Policy retirement and archival.** No flow to
   formally retire a policy that's no longer bound to
   anything. Operators can disable and leave it; there's

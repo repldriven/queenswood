@@ -542,10 +542,10 @@ role held there.
   a role; and whether the credential is one day a kind of membership,
   so that a person and a system are told apart by the same record.
 - **End customers who sign in.** The people who sign in today are the
-  customer's team, not the customer's customers. Whether an end customer
-  — a party — one day also gets an identity for self-service banking is
-  open. The separation between the two stays either way, and the bridge
-  is not designed.
+  customer's team, not the customer's end customers. Whether an end
+  customer — a party — one day also gets an identity for self-service
+  banking is open. The separation between the two stays either way, and
+  the bridge is not designed.
 
 ## References
 

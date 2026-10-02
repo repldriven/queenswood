@@ -3,8 +3,8 @@
 ## Objective
 
 A **cash account** is what an end customer holds and
-transacts through. Each account belongs to one tenant, is
-held by one party (person or organisation), is opened under
+transacts through. Each account belongs to one organisation,
+is held by one party (person or organisation), is opened under
 one published version of a cash account product, and is
 denominated in one currency. As it opens, the account is
 issued a UK payment address — a sort code and account
@@ -17,25 +17,26 @@ identity that every movement of money references.
 
 **Customer engineering team.** Opens and closes accounts on behalf of their end
 customers, looks accounts up, and reads them. Cares about: open succeeding only
-when the customer is properly set up, the payment address being usable as soon
-as the account opens, the eventual close being final.
+when the end customer is properly set up, the payment address being usable as
+soon as the account opens, the eventual close being final.
 
 **End customer.** The party who holds the account. Doesn't
 interact with the platform directly; the account is the
-thing the tenant exposes through their own customer-facing
+thing the customer exposes through its own end-customer-facing
 surface. Cares (implicitly) about: the account being open
 when expected, balances and statements being correct, the
 sort code and account number staying stable.
 
-**Platform operator.** Sets the policies that cap how many accounts a tenant can
-open, of which type, in which currency. Chooses the payment provider that
-issues every account's payment address, described in [payments](payments.md).
+**Platform operator.** Sets the policies that cap how many accounts an
+organisation can open, of which type, in which currency. Chooses the payment
+provider that issues every account's payment address, described in
+[payments](payments.md).
 
 ## Goals
 
 - **One account, one currency.** Each account is in exactly
   one currency. Multi-currency means multiple accounts —
-  one per currency the customer holds.
+  one per currency the end customer holds.
 - **Pinned to a product version.** At open time the account
   is pinned to a specific published version of the chosen
   product. Every subsequent operation that needs terms
@@ -71,30 +72,31 @@ issues every account's payment address, described in [payments](payments.md).
   owed. It can be closed without being unfrozen first.
 - **An account closes empty.** The platform refuses to
   close an account whose balance is not zero, and tells the
-  tenant which part of the balance is in the way.
+  customer which part of the balance is in the way.
 - **Multi-tenant isolation.** Every account belongs to one
-  tenant. Tenants don't see each other's accounts.
+  organisation. Organisations don't see each other's accounts.
 - **Policy-bounded.** Platform-level policies cap the
-  number of accounts a tenant can have, and can cap the
-  number per (product type, account type, currency)
-  combination. The cap counts every account the tenant has
-  ever had: a closed account still occupies its place, and
-  so do the bank's own bookkeeping accounts.
+  number of accounts an organisation can have, and can cap
+  the number per (product type, account type, currency)
+  combination. The cap counts every account the
+  organisation has ever had: a closed account still
+  occupies its place, and so do the bank's own bookkeeping
+  accounts.
 
 ## Non-goals
 
-- **Tenant choice of sort code.** The payment provider
-  issues every sort code and account number. Tenants don't
+- **Customer choice of sort code.** The payment provider
+  issues every sort code and account number. Customers don't
   select or vary them.
-- **Multi-currency on a single account.** A customer who
-  holds GBP and EUR holds two accounts.
+- **Multi-currency on a single account.** An end customer
+  who holds GBP and EUR holds two accounts.
 - **Dormancy.** An account left unused indefinitely is not
   flagged, closed or escheated by the platform. Freezing is
   an operator's decision, not something inactivity triggers.
-- **Re-opening a closed account.** Closing is terminal. A
-  customer who closes an account and wants it back opens
-  a fresh one — with a new identifier and a new payment
-  address.
+- **Re-opening a closed account.** Closing is terminal. An
+  end customer who closes an account and wants it back
+  opens a fresh one — with a new identifier and a new
+  payment address.
 - **Overriding the account-type derivation.** A person
   party always opens personal accounts; an organisation
   party always opens business accounts. There's no way to
@@ -107,12 +109,12 @@ issues every account's payment address, described in [payments](payments.md).
 
 ## Functional scope
 
-A tenant uses the banking API to open and close accounts on
+A customer uses the banking API to open and close accounts on
 behalf of its end customers, and to read accounts back.
 
 ### Opening an account
 
-The tenant supplies:
+The customer supplies:
 
 - The party that will hold the account (must be active).
 - The product the account is being opened under (must
@@ -126,11 +128,11 @@ Before the account is created, the platform checks:
 - The product has a published version.
 - The chosen currency is one of the product's allowed
   currencies.
-- The tenant is allowed (by policy) to open this kind of
-  account.
-- The tenant hasn't hit the platform's count limits — both
-  the per-tenant total and the per-(product type, account
-  type, currency) combination.
+- The organisation is allowed (by policy) to open this
+  kind of account.
+- The organisation hasn't hit the platform's count limits
+  — both the per-organisation total and the per-(product
+  type, account type, currency) combination.
 
 If all checks pass, the platform:
 
@@ -151,18 +153,18 @@ which is final.
 Two dimensions sit alongside each account:
 
 - **Product type** — current, savings, or term deposit
-  for customer-facing accounts; settlement or internal for
+  for end-customer-facing accounts; settlement or internal for
   the bank's own bookkeeping accounts. This comes from the
   product the account is opened under.
 - **Account type** — personal or business. This is
   derived from the party: a person party gets a personal
   account; a non-person party gets a business account.
-  The tenant doesn't supply the account type.
+  The customer doesn't supply the account type.
 
 Both dimensions are visible to the platform's policies, so
-rules can be expressed along either axis: "this tenant can
-have at most three personal current accounts in GBP per
-party", "business customers cannot open term deposits".
+rules can be expressed along either axis: "this organisation
+can have at most three personal current accounts in GBP per
+party", "business end customers cannot open term deposits".
 
 ### Payment addresses
 
@@ -175,7 +177,7 @@ Payment to that sort code and account number lands in this
 account, with nothing for the customer to do, as
 [payments](payments.md) describes.
 
-A tenant can rotate an open account's address — after a
+A customer can rotate an open account's address — after a
 suspected compromise, for example — trading the sort code
 and account number for a fresh pair the provider issues.
 The account keeps its old address until the new one is
@@ -184,20 +186,20 @@ kept on the account's history.
 
 ### Closing an account
 
-The tenant uses the banking API to close an account. An
+The customer uses the banking API to close an account. An
 account that is open, and an account that is frozen, can
 both be closed — a frozen account does not have to be
 unfrozen first. Before closing, the platform checks:
 
-- The tenant is allowed (by policy) to close this kind
-  of account.
+- The organisation is allowed (by policy) to close this
+  kind of account.
 - The balance is empty. Every part of the balance counts,
   including money set aside for a payment that has not
   settled yet, so an account with a pending outgoing hold
   is not empty even when the settled figure reads zero.
 
 If the balance is not empty the close is refused, and the
-refusal names the parts that are not empty so the tenant
+refusal names the parts that are not empty so the customer
 knows what to sweep. An operator who has to close a
 non-empty account can be granted that permission
 explicitly; no tier carries it by default.
@@ -208,7 +210,7 @@ becomes **closed** — its terminal state.
 
 ### Freezing and unfreezing an account
 
-A tenant can freeze a live account — pending a review, or
+A customer can freeze a live account — pending a review, or
 after a suspected compromise — and unfreeze it again. A
 frozen account is not a closed one: it keeps its payment
 address, its balance and its history, and it goes on
@@ -225,23 +227,23 @@ platform holds it for reconciliation otherwise.
 
 ### Moving an account to another product
 
-A tenant can move a live account onto another product, or
-onto a later version of the one it is already on — a
-customer changing to a different account, or a group of
-customers moved off terms that are being withdrawn. The
-account keeps its identifier, its payment address, its
+A customer can move a live account onto another product,
+or onto a later version of the one it is already on — an
+end customer changing to a different account, or a group
+of end customers moved off terms that are being withdrawn.
+The account keeps its identifier, its payment address, its
 balance and its history; only the terms it is held on
 change, and from that point the interest it earns and the
 payment schemes it supports are the new product's.
 
 Moving a group of accounts at once is a reviewed exercise:
-the tenant asks for the move, sees how many accounts it
+the customer asks for the move, sees how many accounts it
 would touch before anything changes, and approves it. See
 [cash-account-products](cash-account-products.md).
 
 ### Reading accounts
 
-The tenant can:
+The customer can:
 
 - Read an account by its identifier.
 - List the accounts the bank holds, a page at a time, with
@@ -250,13 +252,13 @@ The tenant can:
 
 ### Multi-tenant isolation
 
-Every account belongs to one tenant organisation.
-Cross-tenant reads are not possible through the banking
-API.
+Every account belongs to one organisation.
+Cross-organisation reads are not possible through the
+banking API.
 
 ## User journeys
 
-### 1. Opening a customer's first account
+### 1. Opening an end customer's first account
 
 ```mermaid
 sequenceDiagram
@@ -273,12 +275,12 @@ sequenceDiagram
     Q-->>T: account opened (with payment address)
 ```
 
-The tenant opens the account in a single call. The platform
+The customer opens the account in a single call. The platform
 validates the inputs and returns the account immediately in
 the opening state. Once the payment provider has issued its
 address, the account is opened and ready to use.
 
-### 2. Multi-currency: same customer, two accounts
+### 2. Multi-currency: same end customer, two accounts
 
 ```mermaid
 sequenceDiagram
@@ -291,9 +293,9 @@ sequenceDiagram
     Q-->>T: EUR account
 ```
 
-A customer who needs both GBP and EUR holds two accounts —
-one per currency. Each gets its own payment address; each
-is independent of the other.
+An end customer who needs both GBP and EUR holds two
+accounts — one per currency. Each gets its own payment
+address; each is independent of the other.
 
 ### 3. Closing an account
 
@@ -312,20 +314,20 @@ sequenceDiagram
     Q-->>T: account closed (terminal)
 ```
 
-The tenant closes the account when the customer ends the
-relationship. Closing is terminal; if the customer comes
-back, they open a fresh account with a new identifier and
-a new payment address.
+The customer closes the account when the end customer ends
+the relationship. Closing is terminal; if the end customer
+comes back, they open a fresh account with a new
+identifier and a new payment address.
 
 A closed account's payment address is retired for good —
-the platform never hands it to another customer, so there's
-no risk of a payment meant for the old customer reaching
-someone else.
+the platform never hands it to another end customer, so
+there's no risk of a payment meant for the old end
+customer reaching someone else.
 
 ## Open questions
 
 - **Re-opening a closed account.** Closed is terminal. If
-  a customer comes back after closing, they get a fresh
+  an end customer comes back after closing, they get a fresh
   account with a new payment address. Some operators
   prefer to retain the original identifier or address.
 - **Closing a non-empty account.** The permission that
@@ -339,7 +341,7 @@ someone else.
   of that is modelled.
 - **Retrying a refused account.** A provider declining to
   issue an address refuses the account for good. It is
-  assumed the tenant opens another account, after finding
+  assumed the customer opens another account, after finding
   out from the provider's reason why the first was
   declined.
 - **International payment addresses.** No IBAN or BIC
@@ -360,7 +362,7 @@ someone else.
   for the data model, lifecycle transitions, payment-
   address generation, and the lookup indices.
 - **Platform context**: [platform](platform.md);
-  [onboarding](onboarding.md) — the tenant's own
+  [onboarding](onboarding.md) — the customer's own
   bookkeeping accounts are opened as part of the bootstrap.
 - **Adjacent capabilities**: [parties](parties.md) — an
   account is owned by an active party;
