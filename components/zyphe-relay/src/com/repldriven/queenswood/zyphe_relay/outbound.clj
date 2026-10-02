@@ -111,19 +111,21 @@
   as `customData`, and the session webhook is keyed by the adapter's
   secret. Creating again for the same identity resumes the run, so a
   retried intent or a second session does not start a second one."
-  [{:keys [adapter-url webhook-secret]}
-   {:keys! [bank-id verification-id party-id session-id email]}]
-  (utility/assoc-some
-   {:credentials [{:type "EXTERNAL_ID" :externalId party-id}]
-    :customData (utility/assoc-some {:bankId bank-id
-                                     :verificationId verification-id}
-                                    :sessionId
-                                    session-id)
-    :webhook {:url (str adapter-url zyphe-webhook/path)
-              :secret webhook-secret
-              :payloadVersion "V2"}}
-   :email
-   (when-not (str/blank? email) email)))
+  [config data]
+  (let [{:keys [adapter-url webhook-secret]} config
+        {:keys! [bank-id verification-id party-id] :keys [session-id email]}
+        data]
+    (utility/assoc-some
+     {:credentials [{:type "EXTERNAL_ID" :externalId party-id}]
+      :customData (utility/assoc-some {:bankId bank-id
+                                       :verificationId verification-id}
+                                      :sessionId
+                                      session-id)
+      :webhook {:url (str adapter-url zyphe-webhook/path)
+                :secret webhook-secret
+                :payloadVersion "V2"}}
+     :email
+     (when-not (str/blank? email) email))))
 
 (defn- encode
   [v]
@@ -133,7 +135,7 @@
   "The hosted-flow URL the person is handed to, per Zyphe's session URL:
   the run, its token and access signature, the person's email, the
   tenant's return URL, and a full-screen layout for a mobile WebView."
-  [{:keys [verify-url sandbox]} {:keys! [channel return-url email]} reply]
+  [{:keys [verify-url sandbox]} {:keys [channel return-url email]} reply]
   (let [{:keys [verificationRequest zypheToken zypheAccessSig flowSlug]} reply
         params (cond-> [["zypheVr" (:id verificationRequest)]
                         ["zypheToken" zypheToken]
@@ -293,6 +295,22 @@
                                                   (:intent-id intent))
                               f))
 
+(defn- checked
+  "Run `f` on `intent`, failing the intent where its call throws, so it no
+  longer holds the intents behind it."
+  [config intent f]
+  (let [res (error/try-nom-ex :zyphe-relay/intent
+                              Exception
+                              "Zyphe intent could not be relayed"
+                              (f intent))]
+    (if (error/anomaly? res)
+      (let [{:keys [intent-id attempts]} intent]
+        (log/error "Zyphe intent could not be relayed; failing it"
+                   {:intent-id intent-id :anomaly res})
+        (store/mark-failed config intent-id (or attempts 0))
+        (assoc intent :status "failed"))
+      res)))
+
 (defn drain-once
   "Relay each pending intent once, oldest first, holding one for a
   verification while an earlier one for it is still pending. The Zyphe
@@ -307,8 +325,12 @@
                                   (in-intent-trace "zyphe-outbound"
                                                    i
                                                    (fn []
-                                                     (relay-one config
-                                                                i))))}))))
+                                                     (checked
+                                                      config
+                                                      i
+                                                      (fn [i]
+                                                        (relay-one config
+                                                                   i))))))}))))
 
 (defn- start-loop
   [config]

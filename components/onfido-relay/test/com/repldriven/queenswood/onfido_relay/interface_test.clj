@@ -29,18 +29,8 @@
    :dedup-key dedup-key
    :request (pr-str {:bank-id "bnk.1"
                      :verification-id dedup-key
-                     :party-id "pty.1"
                      :first-name "Ada"
-                     :middle-names nil
-                     :last-name "Lovelace"
-                     :date-of-birth nil
-                     :address nil
-                     :session-id nil
-                     :channel nil
-                     :return-url nil
-                     :email nil
-                     :verifications []
-                     :screenings []})
+                     :last-name "Lovelace"})
    :status "pending"
    :attempts 0
    :created-at (utility/now)})

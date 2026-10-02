@@ -270,18 +270,20 @@
       ctx)))
 
 (defn- registration
-  [config {:keys! [registration-id account-number holder-name currency]}]
-  {:method :post
-   :path "/v1/organisation/accounts"
-   :body {:data {:id registration-id
-                 :type "accounts"
-                 :attributes {:bank_id (:sort-code config)
-                              :bank_id_code "GBDSC"
-                              :account_number account-number
-                              :country "GB"
-                              :base_currency (or currency "GBP")
-                              :name [holder-name]
-                              :account_classification "personal"}}}})
+  [config ctx]
+  (let [{:keys! [registration-id account-number holder-name] :keys [currency]}
+        ctx]
+    {:method :post
+     :path "/v1/organisation/accounts"
+     :body {:data {:id registration-id
+                   :type "accounts"
+                   :attributes {:bank_id (:sort-code config)
+                                :bank_id_code "GBDSC"
+                                :account_number account-number
+                                :country "GB"
+                                :base_currency (or currency "GBP")
+                                :name [holder-name]
+                                :account_classification "personal"}}}}))
 
 (defn- register
   "Register the context's account, reading it back where Form3 already
@@ -554,7 +556,8 @@
   [config now intent]
   (let [{:keys [intent-id provider-payment-id]} intent
         {:keys! [return-id submission-id end-to-end-id amount currency
-                 reason-code reason]}
+                 reason-code]
+         :keys [reason]}
         (context intent)
         [outcome result] (call config
                                {:method :get
@@ -620,6 +623,22 @@
                                                   (:kind intent))
                               f))
 
+(defn- checked
+  "Run `f` on `intent`, failing the intent where its call throws, so it no
+  longer holds the intents behind it."
+  [config intent f]
+  (let [res (error/try-nom-ex :form3-relay/intent
+                              Exception
+                              "Form3 intent could not be relayed"
+                              (f intent))]
+    (if (error/anomaly? res)
+      (let [{:keys [intent-id kind status attempts]} intent]
+        (log/error "Form3 intent could not be relayed; failing it"
+                   {:intent-id intent-id :kind kind :anomaly res})
+        (store/finish config intent-id status "failed" attempts nil)
+        (assoc intent :status "failed"))
+      res)))
+
 (defn drain-once
   "Make each due pending call once, oldest first, holding a call for an
   account while an earlier one for it is unsent, then reconcile every due
@@ -640,7 +659,7 @@
                 intent
                 (fn []
                   (if-let [relay (get relays (:kind intent))]
-                    (relay config now intent)
+                    (checked config intent (fn [i] (relay config now i)))
                     (log/error "Unknown Form3 intent kind"
                                {:intent intent})))))}))
     (when-not (error/anomaly? sent)
@@ -652,7 +671,7 @@
          intent
          (fn []
            (if reconcile
-             (reconcile config now intent)
+             (checked config intent (fn [i] (reconcile config now i)))
              (log/error "Unknown sent Form3 intent kind"
                         {:intent intent}))))))))
 

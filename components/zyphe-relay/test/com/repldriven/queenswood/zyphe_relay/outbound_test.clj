@@ -79,14 +79,14 @@
                                reply))))
     (testing "a mobile hand-off asks for a full-screen layout"
       (is (re-find #"zypheFullscreen=true$"
-                   (SUT/hand-off-url
-                    config
-                    {:channel "mobile" :return-url "app://back" :email nil}
-                    reply))))
+                   (SUT/hand-off-url config
+                                     {:channel "mobile"
+                                      :return-url "app://back"}
+                                     reply))))
     (testing "production has no sandbox segment"
       (is (re-find #"^https://verify.zyphe.com/flow/onboarding\?"
                    (SUT/hand-off-url (assoc config :sandbox "false")
-                                     {:channel "web" :return-url nil :email nil}
+                                     {:channel "web"}
                                      reply))))))
 
 (deftest verification-request-test

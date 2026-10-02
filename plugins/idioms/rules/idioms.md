@@ -59,8 +59,9 @@ See [testing](../../../docs/recipes/test/testing.md).
 ## Checked keys where an intent's data leaves for a provider
 
 Read an intent's stored data in a relay — its `context`, or the command
-its `request` holds — with `:keys!` for every key the adapter always
-writes, and `:keys` only for a key it writes sometimes, in the same map.
-Use `:keys!` nowhere else: data inside the system is read with `:keys`, its
+its `request` holds — with `:keys!` for every key its call requires, and
+`:keys` for a key it takes only where present, in the same map, and run
+each intent's call through the relay's `checked` guard. Use `:keys!`
+nowhere else: data inside the system is read with `:keys`, its
 entry and exit already checked.
 See [checked-keys](../../../docs/recipes/code/checked-keys.md).

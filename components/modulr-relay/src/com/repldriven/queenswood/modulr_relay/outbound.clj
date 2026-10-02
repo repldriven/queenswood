@@ -621,6 +621,22 @@
                                                   (:kind intent))
                               f))
 
+(defn- checked
+  "Run `f` on `intent`, failing the intent where its call throws, so it no
+  longer holds the intents behind it."
+  [config intent f]
+  (let [res (error/try-nom-ex :modulr-relay/intent
+                              Exception
+                              "Modulr intent could not be relayed"
+                              (f intent))]
+    (if (error/anomaly? res)
+      (let [{:keys [intent-id kind status attempts]} intent]
+        (log/error "Modulr intent could not be relayed; failing it"
+                   {:intent-id intent-id :kind kind :anomaly res})
+        (store/finish config intent-id status "failed" attempts nil)
+        (assoc intent :status "failed"))
+      res)))
+
 (defn drain-once
   "Make each due pending call once, oldest first, holding a call for an
   account while an earlier one for it is unsent, and a close or reissue
@@ -641,7 +657,7 @@
                 intent
                 (fn []
                   (if-let [relay (get relays (:kind intent))]
-                    (relay config now intent)
+                    (checked config intent (fn [i] (relay config now i)))
                     (log/error "Unknown Modulr intent kind"
                                {:intent intent})))))}))
     (when-not (error/anomaly? sent)
@@ -649,7 +665,10 @@
               :when (due? now intent)]
         (in-intent-trace "modulr-reconcile"
                          intent
-                         (fn [] (reconcile config now intent)))))))
+                         (fn []
+                           (checked config
+                                    intent
+                                    (fn [i] (reconcile config now i)))))))))
 
 (defn start-runner
   [config]

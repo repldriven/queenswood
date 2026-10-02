@@ -109,41 +109,47 @@
     (str/trim (str first-name " " middle-names))))
 
 (defn- address->onfido
-  [{:keys! [flat-number building-number building-name street sub-street
-            town state postcode country]}]
-  (utility/assoc-some {:street street
-                       :town town
-                       :postcode postcode
-                       :country country}
-                      :flat_number flat-number
-                      :building_number building-number
-                      :building_name building-name
-                      :sub_street sub-street
-                      :state state))
+  [address]
+  (let [{:keys! [street town postcode country]
+         :keys [flat-number building-number building-name sub-street state]}
+        address]
+    (utility/assoc-some {:street street
+                         :town town
+                         :postcode postcode
+                         :country country}
+                        :flat_number flat-number
+                        :building_number building-number
+                        :building_name building-name
+                        :sub_street sub-street
+                        :state state)))
 
 (defn applicant
-  [{:keys! [first-name middle-names last-name date-of-birth address email]}]
-  (utility/assoc-some {:first_name (full-first-name first-name middle-names)
-                       :last_name last-name}
-                      :dob date-of-birth
-                      :email (when-not (str/blank? email) email)
-                      :address (when address (address->onfido address))))
+  [data]
+  (let [{:keys! [first-name last-name]
+         :keys [middle-names date-of-birth address email]}
+        data]
+    (utility/assoc-some {:first_name (full-first-name first-name middle-names)
+                         :last_name last-name}
+                        :dob date-of-birth
+                        :email (when-not (str/blank? email) email)
+                        :address (when address (address->onfido address)))))
 
 (defn- expires-at
   [{:keys [hand-off-ttl-ms]}]
   (+ (utility/now) (or hand-off-ttl-ms default-hand-off-ttl-ms)))
 
 (defn workflow-run
-  [config workflow applicant-id
-   {:keys! [bank-id verification-id party-id return-url]}]
-  {:workflow_id (:id workflow)
-   :applicant_id applicant-id
-   :customer_user_id party-id
-   :tags [(str bank-tag bank-id) (str verification-tag verification-id)]
-   :link (utility/assoc-some {:expires_at (str (Instant/ofEpochMilli
-                                                (expires-at config)))}
-                             :completed_redirect_url
-                             (when-not (str/blank? return-url) return-url))})
+  [config workflow applicant-id data]
+  (let [{:keys! [bank-id verification-id party-id] :keys [return-url]} data]
+    {:workflow_id (:id workflow)
+     :applicant_id applicant-id
+     :customer_user_id party-id
+     :tags [(str bank-tag bank-id) (str verification-tag verification-id)]
+     :link (utility/assoc-some {:expires_at (str (Instant/ofEpochMilli
+                                                  (expires-at config)))}
+                               :completed_redirect_url
+                               (when-not (str/blank? return-url)
+                                 return-url))}))
 
 (defn- waiting?
   [now {:keys [status link]}]
@@ -301,6 +307,22 @@
                                                   (:intent-id intent))
                               f))
 
+(defn- checked
+  "Run `f` on `intent`, failing the intent where its call throws, so it no
+  longer holds the intents behind it."
+  [config intent f]
+  (let [res (error/try-nom-ex :onfido-relay/intent
+                              Exception
+                              "Onfido intent could not be relayed"
+                              (f intent))]
+    (if (error/anomaly? res)
+      (let [{:keys [intent-id attempts]} intent]
+        (log/error "Onfido intent could not be relayed; failing it"
+                   {:intent-id intent-id :anomaly res})
+        (store/mark-failed config intent-id (or attempts 0))
+        (assoc intent :status "failed"))
+      res)))
+
 (defn drain-once
   [config]
   (let [pending (store/pending-intents config)]
@@ -312,8 +334,12 @@
                                   (in-intent-trace "onfido-outbound"
                                                    i
                                                    (fn []
-                                                     (relay-one config
-                                                                i))))}))))
+                                                     (checked
+                                                      config
+                                                      i
+                                                      (fn [i]
+                                                        (relay-one config
+                                                                   i))))))}))))
 
 (defn- start-loop
   [config]
