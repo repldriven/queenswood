@@ -70,11 +70,11 @@ for each provider account.
 The decision has these parts:
 
 - Write each provider command to the outbox in the transaction that
-  commits its cause: an account's open, close or
-  reissue with its status change, the transfers that mirror a posting
-  with the posting, an outbound payment's submit with the payment, and
-  an inbound's return with its handling. Never send one from a handler
-  reacting to the commit afterwards.
+  commits its cause: an account's open, close or reissue with its status
+  change, the transfers that mirror a posting with the posting, an
+  outbound payment's submit with the payment, and an inbound's return
+  with its handling. Never send one from a handler reacting to the
+  commit afterwards.
 - Give each entry the neutral command, the bank's provider key, and the
   provider account it acts on, or the bank's own funds where it acts on
   no account of its own; never a provider's name or a vendor's request.
