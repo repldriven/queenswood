@@ -60,10 +60,11 @@
             (SUT/save-intent config (intent-of "int.2" "e2e-A")))))
      (testing "a sent intent leaves the pending work-queue"
        (nom-test> [_ (SUT/save-intent config (intent-of "int.3" "e2e-B"))])
-       (is (some #(= "int.3" (:intent-id %)) (store/pending-intents config)))
+       (is (some #(= "int.3" (:intent-id %))
+                 (store/intents-with-status config "pending")))
        (nom-test> [_ (store/mark-sent config "int.3")])
        (is (not (some #(= "int.3" (:intent-id %))
-                      (store/pending-intents config)))))
+                      (store/intents-with-status config "pending")))))
      (testing "a failed POST keeps the intent pending and bumps its attempt"
        (nom-test> [_ (SUT/save-intent config (intent-of "int.4" "e2e-C"))])
        (outbound/drain-once (assoc config
@@ -72,7 +73,7 @@
                                    :max-attempts 10)
                             (utility/now))
        (let [i4 (first (filter #(= "int.4" (:intent-id %))
-                               (store/pending-intents config)))]
+                               (store/intents-with-status config "pending")))]
          (is (some? i4) "still pending after an unreachable POST")
          (is (= 1 (:attempts i4)) "attempt count bumped"))))))
 
@@ -206,12 +207,16 @@
                            "transaction-rejected"))]
      (nom-test> [_ (SUT/save-intent config (intent-of "int.10" "e2e-J"))])
      (testing "the first call fails the intent and writes the event"
-       (nom-test> [failed
-                   (store/fail-intent config "int.10" 4 (rejected "obx.10"))
+       (nom-test> [failed (store/finish config
+                                        "int.10"
+                                        "pending" "failed"
+                                        4 (rejected "obx.10"))
                    _ (is (= "failed" (:status failed)))]))
      (testing "a second call writes nothing"
-       (nom-test> [again
-                   (store/fail-intent config "int.10" 5 (rejected "obx.11"))
+       (nom-test> [again (store/finish config
+                                       "int.10"
+                                       "pending" "failed"
+                                       5 (rejected "obx.11"))
                    _ (is (= 4 (:attempts again)))])
        (is (= "failed" (:status (load-intent config "int.10"))))
        (is (= ["obx.10"]
@@ -275,7 +280,7 @@
           "{\"id\":\"va-1\",\"sortCode\":\"040004\",\"accountNumber\":\"20000001\"}"))
         now)
        (is (= "http://scheme.invalid/v1/virtual-accounts" (last @urls)))
-       (is (= "sent" (:status (load-intent config "int.20"))))
+       (is (= "settled" (:status (load-intent config "int.20"))))
        (let [event (outbox-event config "open:acc.1:payment-account-opened")]
          (is (= "payment-account-opened" (:event-name event)))
          (is (= {:bank-id "bnk.1"

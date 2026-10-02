@@ -33,7 +33,7 @@ message ZypheOutboundIntent {
   required string intent_id = 1;       // primary key (uuidv7)
   required string dedup_key = 2;       // unique: session-id
   required string request = 3;         // EDN-encoded submit-idv-check data
-  required string status = 4;          // pending | sent | failed
+  required string status = 4;          // pending | settled | failed
   optional string correlation_id = 5;
   optional int64  attempts = 6;
   optional int64  created_at = 7;
@@ -42,4 +42,6 @@ message ZypheOutboundIntent {
   // What the intent acts on at the provider, the verification, so an
   // intent waits behind an earlier one for it (ADR-0033).
   repeated string subjects = 10;
+  // Epoch millis, when to call next. Absent means now.
+  optional int64  next_attempt_at = 11;
 }

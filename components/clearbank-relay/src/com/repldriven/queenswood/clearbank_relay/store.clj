@@ -61,9 +61,8 @@
    :clearbank-outbound/save
    "Failed to save clearbank outbound intent"))
 
-(defn pending-intents
-  "Read every intent still `pending`, via the status index."
-  [txn]
+(defn intents-with-status
+  [txn status]
   (fdb/transact
    txn
    (fn [txn]
@@ -71,79 +70,60 @@
            (fdb/query-records (fdb/open txn intents-store-name)
                               "ClearbankOutboundIntent"
                               "status"
-                              "pending"
+                              status
                               {:index "ClearbankOutboundIntent_by_status"})))
-   :clearbank-outbound/pending
-   "Failed to read pending outbound intents"))
+   :clearbank-outbound/by-status
+   "Failed to read outbound intents"))
 
-(defn- update-intent
-  [txn intent-id f]
+(defn update-intent
+  "Apply `f` to the intent while it is still `status`, and write `event`,
+  when one is given, in the same transaction. An intent that is missing
+  or has moved on is returned unchanged with nothing written."
+  [txn intent-id status f event]
   (fdb/transact
    txn
    (fn [txn]
-     (let [store (fdb/open txn intents-store-name)]
-       (when-let [existing (some-> (fdb/load-record store intent-id)
-                                   schema/pb->ClearbankOutboundIntent)]
-         (fdb/save-record store
-                          (schema/ClearbankOutboundIntent->java (f
-                                                                 existing))))))
+     (let [store (fdb/open txn intents-store-name)
+           existing (some-> (fdb/load-record store intent-id)
+                            schema/pb->ClearbankOutboundIntent)]
+       (if (not= status (:status existing))
+         existing
+         (let [updated (f existing)]
+           (let-nom>
+             [_ (fdb/save-record store
+                                 (schema/ClearbankOutboundIntent->java updated))
+              _ (when event (save-event txn event))]
+             updated)))))
    :clearbank-outbound/update
    "Failed to update outbound intent"))
-
-(defn mark-sent
-  [txn intent-id]
-  (update-intent txn
-                 intent-id
-                 (fn [i] (assoc i :status "sent" :sent-at (utility/now)))))
 
 (defn mark-attempt
   [txn intent-id attempts next-attempt-at]
   (update-intent
    txn
    intent-id
+   "pending"
    (fn [i]
-     (assoc i :attempts attempts :next-attempt-at next-attempt-at))))
+     (assoc i :attempts attempts :next-attempt-at next-attempt-at))
+   nil))
 
-(defn fail-intent
-  "Save a still-`pending` intent `failed` and write `event` to the outbox
-  and its changelog in one transaction. An intent that is missing or no
-  longer `pending` is returned unchanged with nothing written."
-  [txn intent-id attempts event]
-  (fdb/transact
-   txn
-   (fn [txn]
-     (let [store (fdb/open txn intents-store-name)
-           existing (some-> (fdb/load-record store intent-id)
-                            schema/pb->ClearbankOutboundIntent)]
-       (if (not= "pending" (:status existing))
-         existing
-         (let [failed (assoc existing :status "failed" :attempts attempts)]
-           (let-nom>
-             [_ (fdb/save-record store
-                                 (schema/ClearbankOutboundIntent->java failed))
-              _ (when event (save-event txn event))]
-             failed)))))
-   :clearbank-outbound/fail
-   "Failed to fail outbound intent"))
+(defn mark-sent
+  [txn intent-id]
+  (update-intent txn
+                 intent-id
+                 "pending"
+                 (fn [i] (assoc i :status "sent" :sent-at (utility/now)))
+                 nil))
 
-(defn complete-intent
-  [txn intent-id event]
-  (fdb/transact
-   txn
-   (fn [txn]
-     (let [store (fdb/open txn intents-store-name)
-           existing (some-> (fdb/load-record store intent-id)
-                            schema/pb->ClearbankOutboundIntent)]
-       (if (not= "pending" (:status existing))
-         existing
-         (let [done (assoc existing :status "sent" :sent-at (utility/now))]
-           (let-nom>
-             [_ (fdb/save-record store
-                                 (schema/ClearbankOutboundIntent->java done))
-              _ (when event (save-event txn event))]
-             done)))))
-   :clearbank-outbound/complete
-   "Failed to complete outbound intent"))
+(defn finish
+  "Move a `status` intent to `outcome` with `event`."
+  [txn intent-id status outcome attempts event]
+  (update-intent txn
+                 intent-id
+                 status
+                 (fn [i]
+                   (assoc-some (assoc i :status outcome) :attempts attempts))
+                 event))
 
 (defn allocate-account-number
   [txn]

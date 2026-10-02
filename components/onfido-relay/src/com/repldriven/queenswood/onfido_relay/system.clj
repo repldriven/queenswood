@@ -18,6 +18,8 @@
                    :idv-provider system/required-component
                    :hand-off-ttl-ms nil
                    :max-attempts nil
+                   :initial-backoff-ms nil
+                   :max-backoff-ms nil
                    :poll-ms nil}
    :system/instance-schema map?})
 

@@ -66,16 +66,16 @@ Four things the design reuses exist today:
   identity is not on it: `bank_id` is a field inside the payload, and
   six of the nine registered event payloads carry one. The three
   scheme-level payment events — settled, held and rejected — do not.
-- **An intent poller.** The ClearBank relay's outbound runner drains a
+- **An intent poller.** Each provider relay's outbound runner drains a
   store of pending intents: read the pending rows, make the HTTP call
   outside any FDB transaction, then in a separate transaction mark the
-  row `sent`, mark it `failed` once the attempt cap is reached, or
-  bump the attempt count and leave it `pending`. Those three are the
-  statuses; there is no attempted one. It polls at a fixed interval
-  with no backoff. A retried POST is safe for ClearBank, which dedupes
-  on the end-to-end identification the request body carries; the
-  Onfido runner looks for the verification's run by its tags before
-  creating one, and its two creating calls carry no such key.
+  row `sent` or `settled`, mark it `failed` on a refusal or once the
+  attempt cap is reached, or bump the attempt count and set when the
+  next attempt is due, the wait doubling up to a minute. A retried POST
+  is safe for ClearBank, which dedupes on the end-to-end identification
+  the request body carries; the Onfido runner looks for the
+  verification's run by its tags before creating one, and its two
+  creating calls carry no such key.
 - **Resource rendering.** The cash-account read routes project a
   loaded record onto the keys its Malli component declares: `->body`
   selects `cash-account-keys`, derived from the `CashAccount`
