@@ -14,25 +14,29 @@ provider sees the requests for one account in the order the platform
 committed the changes that caused them, so it never acts on an account
 in a state the ledger has already left.
 
-Today the commands reach a provider by four routes. A status change on
-an account commits to the cash-accounts changelog, its relay publishes
-it, and the cash-account brick's handler sends the open, close or
-reissue on the provider's account command channel. A posting commits to
-the transactions changelog, its relay publishes it, and the payment
-brick's handler sends the transfers that mirror it on the payment
-command channel. An outbound payment's processor sends its submit
-straight after its commit, with no relay, and an inbound's handler
-sends its return. Each route has its own relay or none, its own topic
-and its own consumer, so the order the commands reach the adapter in is
-the order the routes happen to deliver, not the order of the commits.
-Under load the provider is asked to close an account before the
-transfer that emptied it arrives, to pay from an account before the
-transfer that funded it, and to move money for an account whose address
-a reissue has already replaced. The adapter's relay then reorders
-further, since a retry waits out its backoff while later calls go
-ahead. The commits themselves are totally ordered: a changelog entry's
-versionstamp is its commit version, comparable across every store in
-the database.
+Today the commands reach a provider by four routes:
+
+1. A status change on an account commits to the cash-accounts
+   changelog, its relay publishes it, and the cash-account brick's
+   handler sends the open, close or reissue on the provider's account
+   command channel.
+2. A posting commits to the transactions changelog, its relay publishes
+   it, and the payment brick's handler sends the transfers that mirror
+   it on the payment command channel.
+3. An outbound payment's processor sends its submit straight after its
+   commit, with no relay.
+4. An inbound's handler sends its return.
+
+Each route has its own relay or none, its own topic and its own
+consumer, so the order the commands reach the adapter in is the order
+the routes happen to deliver, not the order of the commits. Under load
+the provider is asked to close an account before the transfer that
+emptied it arrives, to pay from an account before the transfer that
+funded it, and to move money for an account whose address a reissue has
+already replaced. The adapter's relay then reorders further, since a
+retry waits out its backoff while later calls go ahead. The commits
+themselves are totally ordered: a changelog entry's versionstamp is its
+commit version, comparable across every store in the database.
 
 The shortlist:
 
