@@ -454,8 +454,8 @@ flight.
   `:create-person-party` meet no count limit, since no scenario comes
   near one.
 - **PRDs with no journey scenarios.** Only `payments`, `cash-accounts`,
-  `parties`, `cash-account-products`, `policies` and `onboarding` have a
-  directory under `journeys/`. The access, interest, platform and
+  `parties`, `cash-account-products`, `policies`, `onboarding` and
+  `memberships` have a directory under `journeys/`. The interest, platform and
   webhooks PRDs have none, so their journeys go unchecked, and
   `journeys/full-happy-path.edn` covers parts of several of them.
 - **Unbuilt journeys.** `cash-accounts/2` is skipped, since no template

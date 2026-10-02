@@ -132,7 +132,7 @@ FDB record-type registrations:
 
 #### `Membership`
 
-Superseded by [access.md](access.md).
+Superseded by [memberships.md](memberships.md).
 
 Lives in `components/schema/resources/schemas/
 memberships/`. Keyed by `membership-id` (ULID, prefix `mem`).
@@ -204,7 +204,7 @@ chart-resources sibling):
 
 ### api auth
 
-Superseded by [access.md](access.md).
+Superseded by [memberships.md](memberships.md).
 
 The existing authenticate interceptor at
 `bases/api/.../auth.clj` grows a user-JWT branch.

@@ -1,0 +1,149 @@
+{:name "A consultant owns one bank and views another, each call naming its bank"
+ :given
+ [{:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "consultant"
+   :password "consultant"
+   :as :consultant-token}
+  {:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "consultant-client"
+   :password "consultant-client"
+   :as :client-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :body {:name "Consultancy Bank"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]
+                    :owner-email "consultant@queenswood.local"}}
+   :as :own-bank
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :own-bank :owner-invitation
+                                           :invitation-id]}
+             :auth :consultant-token}
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :body {:name "Client Bank"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]
+                    :owner-email "consultant-client@queenswood.local"}}
+   :as :client-bank
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :client-bank :owner-invitation
+                                           :invitation-id]}
+             :auth :client-token}
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/invitations"
+             :auth :client-token
+             :headers {:bank-id [:ref :client-bank :bank-id]}
+             :body {:email "consultant@queenswood.local" :role "viewer"}}
+   :as :viewer-invitation
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :viewer-invitation
+                                           :invitation-id]}
+             :auth :consultant-token}
+   :assert {:status 201}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth :consultant-token
+             :headers {:bank-id [:ref :own-bank :bank-id]}
+             :body {:type "person"
+                    :display-name "Sarah Connor"
+                    :given-name "Sarah"
+                    :family-name "Connor"
+                    :date-of-birth "1965-01-13"
+                    :nationality "GB"
+                    :address {:building-number "1"
+                              :street "Tech Way"
+                              :town "Cottington"
+                              :postcode "CT12 4XY"
+                              :country "GBR"}
+                    :national-identifier {:type "national-insurance"
+                                          :value "TN000005A"
+                                          :issuing-country "GB"}}}
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth :consultant-token
+             :headers {:bank-id [:ref :client-bank :bank-id]}
+             :body {:type "person"
+                    :display-name "Sarah Connor"
+                    :given-name "Sarah"
+                    :family-name "Connor"
+                    :date-of-birth "1965-01-13"
+                    :nationality "GB"
+                    :address {:building-number "1"
+                              :street "Tech Way"
+                              :town "Cottington"
+                              :postcode "CT12 4XY"
+                              :country "GBR"}
+                    :national-identifier {:type "national-insurance"
+                                          :value "TN000005A"
+                                          :issuing-country "GB"}}}
+   :assert {:status 403
+            :problem {:type "auth/forbidden"
+                      :detail "Insufficient privileges"}}}]
+ :then
+ [{:command :api/request
+   :request {:method :get :path "/v1/me/memberships" :auth :consultant-token}
+   :assert {:status 200
+            :body {:items [:m/in-any-order
+                           [{:bank-id [:ref :own-bank :bank-id]
+                             :bank-name "Consultancy Bank"
+                             :role "owner"}
+                            {:bank-id [:ref :client-bank :bank-id]
+                             :bank-name "Client Bank"
+                             :role "viewer"}]]}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/bank"
+             :auth :consultant-token
+             :headers {:bank-id [:ref :own-bank :bank-id]}}
+   :assert {:status 200 :body {:name "Consultancy Bank"}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/bank"
+             :auth :consultant-token
+             :headers {:bank-id [:ref :client-bank :bank-id]}}
+   :assert {:status 200 :body {:name "Client Bank"}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/parties"
+             :auth :consultant-token
+             :headers {:bank-id [:ref :own-bank :bank-id]}}
+   :assert {:status 200
+            :body {:items [:m/in-any-order
+                           [{:type "organization"
+                             :display-name "Consultancy Bank"}
+                            {:type "person" :display-name "Sarah Connor"}]]}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/parties"
+             :auth :consultant-token
+             :headers {:bank-id [:ref :client-bank :bank-id]}}
+   :assert {:status 200
+            :body {:items [{:type "organization"
+                            :display-name "Client Bank"}]}}}]}

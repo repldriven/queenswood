@@ -200,7 +200,7 @@ route reading or writing one tenant's data takes a level. The bank's
 own record, and what describes it under `/v1/bank` — its policies, its
 effective policy and its audit log — takes `org:viewer` or `admin`.
 `org:owner` gates no route; the rules only an owner satisfies are
-described in [access.md](access.md).
+described in [memberships.md](memberships.md).
 
 **Every route names its roles.** A route or a method declares them in
 its OpenAPI security, `:security [{"bearerAuth" ["org:viewer"]}]`, and

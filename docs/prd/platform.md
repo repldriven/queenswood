@@ -173,9 +173,9 @@ its own PRD.
   data, bindings scoped to tenants. Curative permits let a
   customer self-correct out of breach. PRD:
   [policies](policies.md).
-- **Access** — the people who operate an organisation: signing in,
+- **Memberships** — the people who operate an organisation: signing in,
   invitations, roles, removal, working across organisations, and
-  operator recovery. PRD: [access](access.md).
+  operator recovery. PRD: [memberships](memberships.md).
 - **Webhooks** — the platform telling a customer's systems that a
   record changed, signed and retried until acknowledged. PRD:
   [webhooks](webhooks.md).
@@ -345,7 +345,7 @@ Things deliberately left unresolved or future work.
 ## References
 
 - **Per-capability PRDs**:
-  [onboarding](onboarding.md), [access](access.md),
+  [onboarding](onboarding.md), [memberships](memberships.md),
   [parties](parties.md),
   [cash-account-products](cash-account-products.md),
   [cash-accounts](cash-accounts.md), [payments](payments.md),

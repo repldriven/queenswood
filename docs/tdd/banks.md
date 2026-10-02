@@ -28,7 +28,7 @@ chart [chart-of-accounts.md](chart-of-accounts.md), product
 publish [cash-account-products.md](cash-account-products.md),
 account opening [cash-accounts.md](cash-accounts.md), policy
 bindings [policy-evaluation.md](policy-evaluation.md), memberships,
-invitations and access events [access.md](access.md).
+invitations and access events [memberships.md](memberships.md).
 
 ## Background
 

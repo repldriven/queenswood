@@ -1,4 +1,4 @@
-# Access
+# Memberships
 
 ## Objective
 
@@ -9,7 +9,7 @@ platform operator who creates an organisation for a customer gets a
 credential and nobody who can sign in. Neither can gain a second person,
 and nothing turns one into the other.
 
-Access is the journey that joins them: how a person signs in, how an
+Memberships are what join them: how a person signs in, how an
 organisation comes to have its first owner, how that owner brings
 colleagues in with a role that decides what each may do, how people
 change role and leave, how one person works across several
@@ -558,7 +558,7 @@ role held there.
   in.
 - **Platform context**: [platform](platform.md) — the persona set this
   PRD's readers come from.
-- **Engineering view**: [tdd/access](../tdd/access.md) for the design
+- **Engineering view**: [tdd/memberships](../tdd/memberships.md) for the design
   that serves this PRD;
   [tdd/outbound-email](../tdd/outbound-email.md) for how an invitation
   is emailed; [tdd/onboarding](../tdd/onboarding.md) for the

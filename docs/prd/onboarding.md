@@ -17,7 +17,7 @@ bootstrap.
 This PRD is the organisation as a banking entity: what it is created
 with, what its credential reaches, and how its tier and status move.
 Who signs in to it, and what each of them may do, is
-[access](access.md).
+[memberships](memberships.md).
 
 ## Users and stakeholders
 
@@ -92,7 +92,7 @@ else, and the company its people act for.
   customer for its end customers.
 - **People.** A customer's own systems act as the organisation when they
   call. Who signs in to it, with what role, and how they are invited and
-  removed is [access](access.md), which also records who created the
+  removed is [memberships](memberships.md), which also records who created the
   organisation.
 
 ## Functional scope
@@ -114,7 +114,7 @@ a single call.
   offers. One left out is the installation's default for its kind, and
   one the installation does not offer is refused.
 - The email address of the person who will own it, invited as
-  [access](access.md) describes.
+  [memberships](memberships.md) describes.
 
 **The call returns:**
 
@@ -129,7 +129,7 @@ limit exceeded, a currency rejected, the credential not minted — the
 whole organisation rolls back. There is no partial state to clean up.
 
 **Created from the console.** When a person creates an organisation from
-the console — the journey is [access](access.md)'s — the banking API
+the console — the journey is [memberships](memberships.md)'s — the banking API
 looks the company they named up in the registry of record, refuses one
 that is not active, and creates the organisation in the same single
 call: test status, the entry tier, sterling, on the providers the person
@@ -234,7 +234,7 @@ obtained with the new credential reaches what the new status does.
   all-or-nothing bootstrap; [tdd/authentication](../tdd/authentication.md)
   for the credential mechanism.
 - **Platform context**: [platform](platform.md).
-- **Access**: [access](access.md) — the first owner an operator names at
+- **Memberships**: [memberships](memberships.md) — the first owner an operator names at
   creation, and the people who carry across the move to live.
 - **Bootstrap side-effects** (each has its own PRD):
   [parties](parties.md) — the organisation's party is created here;

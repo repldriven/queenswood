@@ -268,7 +268,7 @@ bank's activity is caught the same way (ADR-0033).
   providers, chosen at creation.
 - [prd/platform.md](../prd/platform.md) — providers chosen per
   organisation, as a platform goal.
-- [prd/access.md](../prd/access.md) — creating an organisation from
+- [prd/memberships.md](../prd/memberships.md) — creating an organisation from
   the console.
 - [prd/payments.md](../prd/payments.md) — what a bank and its
   customers need from payments.

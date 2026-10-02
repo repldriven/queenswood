@@ -25,7 +25,7 @@ to Queenswood.
 
 The bank's own staff are not this PRD's either. The people who run the
 bank's relationship with the platform use the platform's console, which
-[access](access.md) describes, and the bank builds no surface for them.
+[memberships](memberships.md) describes, and the bank builds no surface for them.
 
 ## Users and stakeholders
 
@@ -98,7 +98,7 @@ whenever money crosses the bank's edge, and neither is a persona.
 ## Non-goals
 
 - **A surface for the bank's staff.** Team, roles, policies and
-  delivery health are the platform console's, in [access](access.md)
+  delivery health are the platform console's, in [memberships](memberships.md)
   and [webhooks](webhooks.md). A support lookup from a customer to
   their accounts is an open question below, not a goal.
 - **Anything the platform does not offer.** Cards, overdrafts and
@@ -491,7 +491,7 @@ savings account shows the payment as a line of its own.
   set this PRD's readers come from.
 - [onboarding](onboarding.md) — how the bank's organisation comes to
   exist, its credential, and its move from test to live.
-- [access](access.md) — the bank's staff: the console they use, and
+- [memberships](memberships.md) — the bank's staff: the console they use, and
   why a customer is never one of them.
 - [parties](parties.md) — a customer as the platform sees them, and
   identity verification.
