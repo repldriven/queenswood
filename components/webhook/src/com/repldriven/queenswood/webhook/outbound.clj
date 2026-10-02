@@ -156,7 +156,11 @@
                                  (:delivery-id delivery)
                                  started)
              now (utility/now)
-             updated (domain/record-outcome delivery outcome now)]
+             updated (domain/record-outcome delivery
+                                            outcome
+                                            now
+                                            (or (:retry-schedule-ms config)
+                                                domain/retry-schedule-ms))]
          (let-nom>
            [_ (store/save-outcome config
                                   updated
@@ -168,7 +172,8 @@
              (record-success config endpoint now)
              (when (domain/should-pause? (:last-success-at endpoint)
                                          now
-                                         (:attempts updated))
+                                         (:attempts updated)
+                                         (:pause-rule config))
                (pause-endpoint config endpoint)))
            updated))))))
 

@@ -3,9 +3,15 @@
 received: !system/component
   system/component-kind: test-api-scenarios/received
 
+# The status the endpoint answers, set per address by
+# `:webhook/receiver-answers`.
+answers: !system/component
+  system/component-kind: test-api-scenarios/answers
+
 handler: !system/component
   system/component-kind: test-api-scenarios/receiver-handler
   received: !system/local-ref received
+  answers: !system/local-ref answers
 
 jetty-adapter: !system/component
   system/component-kind: server/jetty-adapter

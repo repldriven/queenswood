@@ -430,7 +430,10 @@ any FDB transaction, and records the outcome in its own transaction. A
 increments the attempt count and sets the next attempt from a geometric
 schedule. The defaults are a first retry within a minute, growing to a
 few hours apart, and giving up after roughly a day. Past the last
-attempt the delivery is marked failed and kept.
+attempt the delivery is marked failed and kept. The runner's
+`retry-schedule-ms` replaces the schedule with a list of delays, and its
+`pause-rule` the pause rule's `minimum-attempts` and `window-ms`, which
+the scenario rig shortens so an outage plays out in seconds.
 
 The address belongs to a tenant, so the call is guarded five ways.
 Neither existing runner sets any of them: mono's `http-client` passes

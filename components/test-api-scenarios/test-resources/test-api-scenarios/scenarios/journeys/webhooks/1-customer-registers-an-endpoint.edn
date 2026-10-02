@@ -1,0 +1,43 @@
+{:name "The customer registers an endpoint and proves it with a test notification"
+ :given [{:fixture :bank :as :bank-0 :with {:name "Endpoint Journey"}}
+         {:command :webhook/open-receiver :as :receiver}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/webhook-endpoints"
+             :auth [:ref :bank-0 :token]
+             :body {:address [:ref :receiver :address]
+                    :description "Payments desk"
+                    :kinds ["payment.outbound-completed"
+                            "payment.outbound-failed"]}}
+   :as :registered
+   :assert {:status 201
+            :body {:endpoint {:endpoint-id [:m/regex "^whe\\."]
+                              :status "enabled"}
+                   :secret [:m/regex "^whsec_"]}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/webhook-endpoints/{endpoint-id}/test-notification"
+             :path-params {:endpoint-id [:ref :registered :endpoint
+                                         :endpoint-id]}
+             :auth [:ref :bank-0 :token]}
+   :as :test-delivery
+   :assert {:status 201 :body {:kind "webhook.test"}}}]
+ :then
+ ;; Signed under the secret handed over at registration, so the
+ ;; customer's own signature check is what the delivery proves.
+ [{:command :webhook/await-delivery
+   :address [:ref :receiver :address]
+   :where {:kind "webhook.test"}
+   :secret [:ref :registered :secret]
+   :as :received}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/webhook-endpoints/{endpoint-id}/deliveries"
+             :path-params {:endpoint-id [:ref :registered :endpoint
+                                         :endpoint-id]}
+             :auth [:ref :bank-0 :token]}
+   :until {:status 200
+           :body {:items [{:delivery-id [:ref :test-delivery :delivery-id]
+                           :status "delivered"
+                           :last-response-status 200}]}}}]}

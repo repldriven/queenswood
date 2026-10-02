@@ -85,12 +85,20 @@
    :system/config {}
    :system/instance-schema some?})
 
+;; The status the receiver answers at each path a scenario has set one
+;; for, and 200 at every other.
+(def answers
+  {:system/start (fn [{:system/keys [instance]}] (or instance (atom {})))
+   :system/config {}
+   :system/instance-schema some?})
+
 ;; The receiver's ring handler: keeps each request whole, its body as it
-;; arrived so its signature can be checked, and answers 200.
+;; arrived so its signature can be checked, and answers the status set
+;; for its path.
 (def receiver-handler
   {:system/start (fn [{:system/keys [config instance]}]
                    (or instance
-                       (let [{:keys [received]} config]
+                       (let [{:keys [received answers]} config]
                          (fn [_ctx]
                            (fn [{:keys [uri headers body]}]
                              (swap! received conj
@@ -98,12 +106,14 @@
                                 :headers headers
                                 :body (some-> body
                                               slurp)})
-                             {:status 200 :body "{}"})))))
-   :system/config {:received system/required-component}
+                             {:status (get @answers uri 200) :body "{}"})))))
+   :system/config {:received system/required-component
+                   :answers system/required-component}
    :system/instance-schema fn?})
 
 (system/defcomponents :test-api-scenarios
                       {:span-dump span-dump
                        :settings settings
                        :received received
+                       :answers answers
                        :receiver-handler receiver-handler})

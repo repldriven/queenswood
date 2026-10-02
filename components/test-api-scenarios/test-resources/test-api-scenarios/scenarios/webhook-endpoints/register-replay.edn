@@ -8,7 +8,8 @@
              :path "/v1/webhook-endpoints"
              :auth [:ref :org-0 :token]
              :headers {:idempotency-key "ik-webhook-register-replay-001"}
-             :body {:address "https://93.184.216.34/hooks"}}
+             :body {:address "https://93.184.216.34/hooks"
+                    :kinds ["payment.outbound-completed"]}}
    :as :first
    :assert {:status 201}}
   {:command :api/request
@@ -16,14 +17,16 @@
              :path "/v1/webhook-endpoints"
              :auth [:ref :org-0 :token]
              :headers {:idempotency-key "ik-webhook-register-replay-001"}
-             :body {:address "https://93.184.216.34/hooks"}}
+             :body {:address "https://93.184.216.34/hooks"
+                    :kinds ["payment.outbound-completed"]}}
    :assert {:status 201
             :body {:endpoint {:endpoint-id [:ref :first :endpoint :endpoint-id]}}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/webhook-endpoints"
              :auth [:ref :org-0 :token]
-             :body {:address "https://93.184.216.34/hooks"}}
+             :body {:address "https://93.184.216.34/hooks"
+                    :kinds ["payment.outbound-completed"]}}
    :assert {:status 201}}]
  :then
  ;; Two endpoints: the replayed key's one, and the fresh key's.

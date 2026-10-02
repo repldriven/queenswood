@@ -17,7 +17,9 @@
                    :address-check nil
                    :runner-id nil
                    :batch-size nil
-                   :poll-ms nil}
+                   :poll-ms nil
+                   :retry-schedule-ms nil
+                   :pause-rule nil}
    :system/instance-schema map?})
 
 (def ^:private event-processor
