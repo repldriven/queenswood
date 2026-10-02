@@ -31,6 +31,13 @@
                                           "BLOCKED")
                        {:status 204}))))
 
+(def unblock
+  (signed/verified
+   (fn [request]
+     (let [{:keys [state parameters]} request]
+       (ledger/set-status state (get-in parameters [:path :accountId]) "ACTIVE")
+       {:status 204}))))
+
 (def close
   (signed/verified (fn [request]
                      (let [{:keys [state parameters]} request

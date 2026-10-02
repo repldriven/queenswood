@@ -47,4 +47,11 @@ with the reason given as an ISO 20022 code, AC04 where none is."
      {:post {:summary "Fail the next account close"
              :openapi {:operationId "SimulateCloseRefused"}
              :responses {204 {:description "The next close fails."}}
-             :handler handlers/close-refused}}]]])
+             :handler handlers/close-refused}}]
+    ["/reissue-refused"
+     {:post {:summary "Fail the next address reissue"
+             :description
+             "The reissue's registration of the new account number fails."
+             :openapi {:operationId "SimulateReissueRefused"}
+             :responses {204 {:description "The next reissue fails."}}
+             :handler handlers/reissue-refused}}]]])

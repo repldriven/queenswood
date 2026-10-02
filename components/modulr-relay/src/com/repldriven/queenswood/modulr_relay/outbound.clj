@@ -421,7 +421,11 @@
 
       "close"
       [{:method :post :path (str "/accounts/" old "/close")}
-       (fn [_] (assoc ctx :step "done"))])))
+       (fn [_] (assoc ctx :step "done"))]
+
+      "unblock"
+      [{:method :post :path (str "/accounts/" old "/unblock")}
+       (fn [_] (assoc ctx :step "failed"))])))
 
 (defn- reissued
   [intent ctx]
@@ -433,6 +437,16 @@
                     :provider-account-id (:id new-account)
                     :rotation-key rotation-key
                     :addresses (:addresses new-account)})))
+
+(defn- reissue-failed
+  [intent ctx]
+  (let [{:keys [bank-id account-id rotation-key failure]} ctx]
+    (account-event intent
+                   "payment-address-reissue-failed"
+                   {:bank-id bank-id
+                    :account-id account-id
+                    :rotation-key rotation-key
+                    :reason failure})))
 
 (defn- advance
   [config intent ctx]
@@ -459,28 +473,72 @@
                 (utility/assoc-some (assoc ctx :step (if held "block" "open"))
                                     :provider-account-id
                                     held)))]
-    (if (= "done" (:step ctx))
+    (case (:step ctx)
+      "done"
       (finish-holding config
                       now
                       intent
                       (:account-id ctx)
                       (get-in ctx [:new-account :id])
                       (reissued intent ctx))
-      (let [[request next-ctx] (reissue-step config intent ctx)
+
+      "failed"
+      (finish config now intent "failed" (reissue-failed intent ctx))
+
+      (let [{:keys [step provider-account-id]} ctx
+            [request next-ctx] (reissue-step config intent ctx)
             attempts (inc (or (:attempts intent) 0))
+            intent (assoc intent :attempts attempts)
             [outcome result] (if request
                                (call config intent request)
-                               [:ok nil])]
+                               [:ok nil])
+            stop? (or (= :refused outcome) (give-up? config attempts))
+            reason
+            (if (= :refused outcome) result (str "Undelivered: " result))]
         (cond
          (= :ok outcome)
          (advance config intent (next-ctx result))
 
-         (give-up? config attempts)
-         (do (log/error "Modulr address reissue giving up"
+         (and stop? (= "close" step))
+         (do (log/error "Modulr did not close the old account; it stays blocked"
                         {:intent-id intent-id
-                         :step (:step ctx)
+                         :provider-account-id provider-account-id
                          :reason result})
-             (finish config now intent "failed" nil))
+             (finish-holding config
+                             now
+                             intent
+                             (:account-id ctx)
+                             (get-in ctx [:new-account :id])
+                             (reissued intent ctx)))
+
+         (and stop? (= "unblock" step))
+         (do (log/error "Modulr did not unblock the old account"
+                        {:intent-id intent-id
+                         :provider-account-id provider-account-id
+                         :reason result})
+             (finish config now intent "failed" (reissue-failed intent ctx)))
+
+         (and stop?
+              provider-account-id
+              (not (and (= "block" step) (= :refused outcome))))
+         (do (log/error "Modulr address reissue failed; unblocking"
+                        {:intent-id intent-id
+                         :step step
+                         :new-provider-account-id (get-in ctx
+                                                          [:new-account :id])
+                         :reason result})
+             (advance config
+                      intent
+                      (assoc ctx :step "unblock" :failure reason)))
+
+         stop?
+         (do (log/error "Modulr address reissue failed"
+                        {:intent-id intent-id :step step :reason result})
+             (finish config
+                     now
+                     intent
+                     "failed"
+                     (reissue-failed intent (assoc ctx :failure reason))))
 
          :else
          (retry config now intent attempts result))))))

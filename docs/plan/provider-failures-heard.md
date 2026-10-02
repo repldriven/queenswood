@@ -15,8 +15,9 @@ domain acts on. Four do not, and the domain waits forever:
 - **Address reissue** (Modulr, Form3, ClearBank): the rotation stays
   pending, and at Modulr the old provider account may already be
   blocked.
-- **Inbound return** (Form3, Modulr): the inbound stays suspended with
-  nothing saying the return failed.
+- **Inbound return** (Form3, the one provider declaring
+  `returns: [inbound]`): the inbound stays suspended with nothing saying
+  the return failed.
 - **Verification check** (Zyphe, Onfido): the session stays `opening`
   and the party `pending`.
 

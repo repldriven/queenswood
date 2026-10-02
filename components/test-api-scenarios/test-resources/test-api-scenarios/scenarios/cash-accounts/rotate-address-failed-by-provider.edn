@@ -1,0 +1,80 @@
+{:name "A reissue the provider refuses leaves the account its addresses"
+ :runs-on {:payment :every}
+ :tags #{:serial}
+ ;; The simulator refuses the next reissue it is asked for. The rotation
+ ;; ends, the account keeps the addresses it had, carrying the provider's
+ ;; reason, and still sends payments; the customer is told.
+ :given
+ [{:fixture :bank :as :bank-0 :with {:name "Reissue Refused"}}
+  {:fixture :product :as :current :with {:token [:ref :bank-0 :token]}}
+  {:fixture :person :as :arthur :with {:token [:ref :bank-0 :token]}}
+  {:fixture :funded-account
+   :as :funded
+   :with {:bank-id [:ref :bank-0 :bank :bank-id]
+          :token [:ref :bank-0 :token]
+          :party-id [:ref :arthur :party :party-id]
+          :product-id [:ref :current :product :product-id]}}
+  {:fixture :webhook-receiver :as :hook :with {:token [:ref :bank-0 :token]}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :base :payment-simulator
+             :path "/simulate/reissue-refused"}
+   :assert {:status 204}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts/{account-id}/rotate-address"
+             :path-params {:account-id [:ref :funded :opened :account
+                                        :account-id]}
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :funded :opened :account
+                                        :account-id]}
+             :auth [:ref :bank-0 :token]}
+   :until {:status 200
+           :body {:account-status "opened"
+                  :refusal-reason [:m/regex ".+"]
+                  :payment-addresses [:ref :funded :opened :account
+                                      :payment-addresses]}}
+   :timeout-ms 45000}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/payments/outbound"
+             :auth [:ref :bank-0 :token]
+             :body {:debtor-account-id [:ref :funded :opened :account
+                                        :account-id]
+                    :creditor-bban "20000012345678"
+                    :creditor-name "Marvin"
+                    :currency "GBP"
+                    :amount 4200
+                    :scheme "fps"
+                    :reference "After the reissue"}}
+   :as :payment
+   :assert {:status 201}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/payments/outbound/{payment-id}"
+             :path-params {:payment-id [:ref :payment :payment-id]}
+             :auth [:ref :bank-0 :token]}
+   :until {:status 200 :body {:payment-status "completed"}}}]
+ :then
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :funded :opened :account
+                                        :account-id]}
+             :auth [:ref :bank-0 :token]}
+   :as :read
+   :assert {:status 200}}
+  {:command :webhook/await-delivery
+   :address [:ref :hook :receiver :address]
+   :where {:kind "cash-account.address-rotation-failed"
+           :resource-id [:ref :funded :opened :account :account-id]}
+   :secret [:ref :hook :registered :secret]
+   :as :notified}
+  {:command :assert/equals
+   :actual [:ref :notified 0 :body :data]
+   :expected [:ref :read]}]}
