@@ -268,4 +268,5 @@ system:
   parties: !include system/party.yml
   cash-accounts: !include system/cash-account.yml
   idv: !include system/idv.yml
+  idv-activity: !include system/idv-activity.yml
   telemetry: !include system/telemetry.yml

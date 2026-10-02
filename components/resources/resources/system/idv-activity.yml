@@ -1,0 +1,15 @@
+# Sends the bank's identity verification provider each session's check,
+# in the order the bank's activity committed (ADR-0033).
+activity-event-processor-impl: !system/component
+  system/component-kind: idv/activity-event-processor
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  schemas: !system/ref avro.serde
+  bus: !system/ref message-bus.bus
+  idv-providers: !system/ref idv-provider.providers
+
+activity-event-processor: !system/component
+  system/component-kind: event-processor/event-processor
+  bus: !system/ref message-bus.bus
+  processor: !system/local-ref activity-event-processor-impl
+  event-channel: !keyword bank-activity-event

@@ -6,6 +6,7 @@ system:
   cash-accounts-relay: !include system/cash-account-relay.yml
   fdb: !include system/fdb-test.yml
   idv: !include system/idv.yml
+  idv-activity: !include system/idv-activity-test.yml
   idvs-relay: !include system/idv-relay.yml
   kafka: !include system/kafka-all-test.yml
   message-bus: !include system/message-bus-test.yml

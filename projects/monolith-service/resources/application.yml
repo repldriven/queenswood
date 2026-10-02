@@ -54,6 +54,7 @@ system:
   payments: !include system/payment.yml
   transactions: !include system/transaction.yml
   idv: !include system/idv.yml
+  idv-activity: !include system/idv-activity.yml
   payee-checks: !include system/payee-check.yml
   webhook: !include system/webhook.yml
   email: !include system/email.yml

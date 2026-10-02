@@ -21,6 +21,7 @@ system:
   form3-adapter-server: !include system/form3-adapter-server.yml
   form3-simulator-server: !include system/form3-simulator-server.yml
   idv: !include system/idv.yml
+  idv-activity: !include system/idv-activity-test.yml
   idvs-relay: !include system/idv-relay.yml
   idvs-dispatcher: !include system/idv-dispatcher.yml
   invitations-relay: !include system/invitation-relay.yml
