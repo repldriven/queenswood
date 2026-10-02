@@ -3,6 +3,8 @@
     [com.repldriven.queenswood.api.cursor :as cursor]
     [com.repldriven.queenswood.api.errors :as errors]
 
+    [com.repldriven.queenswood.cash-account-product-api.interface :as
+     cash-account-product-api]
     [com.repldriven.queenswood.cash-account-product-query.interface :as
      cash-account-products]
 
@@ -18,7 +20,9 @@
                 bank-id)]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
-      (let [windowed (cursor/window (or (:items result) [])
+      (let [windowed (cursor/window (mapv
+                                     cash-account-product-api/->product-body
+                                     (or (:items result) []))
                                     :product-id
                                     :desc
                                     page)]
@@ -40,7 +44,7 @@
                 product-id)]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
-      {:status 200 :body result})))
+      {:status 200 :body (cash-account-product-api/->product-body result)})))
 
 (defn get-version
   [request]
@@ -55,7 +59,8 @@
                 version-id)]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
-      {:status 200 :body result})))
+      {:status 200
+       :body (cash-account-product-api/->version-body result)})))
 
 (defn list-templates
   [request]

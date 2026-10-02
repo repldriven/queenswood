@@ -1,0 +1,30 @@
+{:name "The operator authors a policy and binds it to a bank"
+ :unbuilt "No route creates a policy or binds one; a tier's policies come from configuration."
+ :given [{:fixture :bank :as :bank-0 :with {:name "Policy Authoring Journey"}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/policies"
+             :auth :admin
+             :body {:name "No business accounts"
+                    :category "restricted"
+                    :capabilities [{:kind {:cash-account {}}
+                                    :effect "deny"
+                                    :reason "No business accounts"}]
+                    :limits []}}
+   :as :policy
+   :assert {:status 201 :body {:policy-id [:m/regex "^pol\\."]}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/bank/policy-bindings"
+             :auth :admin
+             :headers {:bank-id [:ref :bank-0 :bank :bank-id]}
+             :body {:policy-id [:ref :policy :policy-id]}}
+   :assert {:status 201}}]
+ :then
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/bank/policies"
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200
+            :body {:items [:m/embeds [{:name "No business accounts"}]]}}}]}

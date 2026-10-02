@@ -14,6 +14,8 @@
     [com.repldriven.queenswood.api.errors :as errors]
 
     [com.repldriven.queenswood.bank-query.interface :as banks]
+    [com.repldriven.queenswood.cash-account-product-api.interface :as
+     cash-account-product-api]
     [com.repldriven.queenswood.cash-account-product.interface :as products]
     [com.repldriven.queenswood.payment-provider.interface :as
      payment-provider]
@@ -49,9 +51,11 @@
   [version]
   {:status 201
    :headers {"Location" (version-uri version)}
-   :body version})
+   :body (cash-account-product-api/->version-body version)})
 
-(defn- ok [version] {:status 200 :body version})
+(defn- ok
+  [version]
+  {:status 200 :body (cash-account-product-api/->version-body version)})
 
 (defn- no-content [_] {:status 204})
 

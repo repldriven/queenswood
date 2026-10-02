@@ -1,0 +1,29 @@
+{:name "The operator pauses a policy and re-enables it"
+ :unbuilt "No route updates a policy; whether one is enabled comes from configuration."
+ :given [{:fixture :bank :as :bank-0 :with {:name "Policy Pause Journey"}}]
+ :when
+ [{:command :api/request
+   :request {:method :patch
+             :path "/v1/policies/pol.00000000000000000000000002"
+             :auth :admin
+             :body {:enabled false}}
+   :assert {:status 200 :body {:enabled false}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/bank/effective-policy"
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200
+            :body {:limits [:m/seq-of {:origin {:tier [:m/mismatch "micro"]}}]}}}
+  {:command :api/request
+   :request {:method :patch
+             :path "/v1/policies/pol.00000000000000000000000002"
+             :auth :admin
+             :body {:enabled true}}
+   :assert {:status 200 :body {:enabled true}}}]
+ :then
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/bank/effective-policy"
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200
+            :body {:limits [:m/embeds [{:origin {:tier "micro"}}]]}}}]}

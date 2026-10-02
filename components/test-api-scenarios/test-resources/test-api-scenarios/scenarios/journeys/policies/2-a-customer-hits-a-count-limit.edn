@@ -1,0 +1,37 @@
+{:name "The customer's system hits a count limit, and the refusal names it"
+ :given [{:fixture :bank :as :bank-0 :with {:name "Count Limit Journey"}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth [:ref :bank-0 :token]
+             :body {:name "Current Account"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :effective-from "2026-01-01"}}
+   :assert {:status 201}}
+  ;; The tier allows one product of each type, so the next is refused.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth [:ref :bank-0 :token]
+             :body {:name "Second Current"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :effective-from "2026-01-01"}}
+   :assert {:status 429
+            :problem {:type ":policy/limit-exceeded"
+                      :detail
+                      "Micro tier - at most one cash account product per product type"}}}]
+ :then
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/cash-account-products"
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200
+            :body {:items [:m/all-of
+                           [:m/embeds [{:versions [{:name "Current Account"}]}]]
+                           [:m/seq-of
+                            {:versions
+                             [:m/seq-of
+                              {:name [:m/mismatch "Second Current"]}]}]]}}}]}

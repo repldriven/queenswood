@@ -1,0 +1,34 @@
+{:name "An end customer's deposit is let in while it improves a breach"
+ :unbuilt "No route takes an available balance below zero, so there is no breach to improve over the API; the domain scenario payments/curative-inbound-when-in-breach proves the permit."
+ :runs-on {:payment :every}
+ :given [{:fixture :bank :as :bank-0 :with {:name "Curative Permit Journey"}}
+         {:fixture :person :as :arthur :with {:token [:ref :bank-0 :token]}}
+         {:fixture :product :as :current :with {:token [:ref :bank-0 :token]}}
+         {:fixture :account
+          :as :arthur-current
+          :with {:token [:ref :bank-0 :token]
+                 :party-id [:ref :arthur :party :party-id]
+                 :product-id [:ref :current :product :product-id]
+                 :name "Arthur Current"}}
+         {:command :api/request
+          :request {:method :post
+                    :path "/v1/simulate/fee"
+                    :auth [:ref :bank-0 :token]
+                    :body {:account-id [:ref :arthur-current :account :account-id]
+                           :amount {:value 10000 :currency "GBP"}}}
+          :assert {:status 202}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/simulate/inbound-payment"
+             :auth [:ref :bank-0 :token]
+             :body {:creditor-account-id [:ref :arthur-current :account :account-id]
+                    :amount {:value 5000 :currency "GBP"}}}
+   :assert {:status 202}}]
+ :then
+ [{:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :arthur-current :account :account-id]}
+             :auth [:ref :bank-0 :token]}
+   :until {:status 200 :body {:available-balance {:value -5000}}}}]}
