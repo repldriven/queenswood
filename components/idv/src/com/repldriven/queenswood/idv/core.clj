@@ -271,6 +271,27 @@
      :idv/record-hand-off
      "Failed to record an IDV hand-off")))
 
+(defn fail-session
+  "Fail a session whose check the provider could not run, with its
+  reason. Skips, returning nil, a session that is missing, completed or
+  already failed."
+  [config data]
+  (let [{:keys [bank-id session-id reason]} data]
+    (store/transact
+     (fdb-config config)
+     (fn [txn]
+       (let-nom>
+         [session (idv-query/get-session txn bank-id session-id)]
+         (if-let [failed (some-> session
+                                 (domain/failed-session
+                                  (or reason
+                                      "The provider could not run the check")))]
+           (store/save-session txn failed (:status session))
+           (log/info "No open session to fail — skipping"
+                     {:session-id session-id}))))
+     :idv/fail-session
+     "Failed to record an IDV session's failure")))
+
 (defn get
   [txn data]
   (get-idv txn (:bank-id data) (:verification-id data)))

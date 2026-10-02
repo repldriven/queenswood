@@ -1,0 +1,12 @@
+{
+  "type": "record",
+  "name": "IdvSessionFailed",
+  "namespace": "com.repldriven.mono.idv",
+  "doc": "The provider could not run a session's check, for good.",
+  "fields": [
+    {"name": "bank_id",         "type": "string"},
+    {"name": "verification_id", "type": "string"},
+    {"name": "session_id",      "type": "string"},
+    {"name": "reason",          "type": ["null", "string"], "default": null}
+  ]
+}

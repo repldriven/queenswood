@@ -174,6 +174,16 @@
   [provider-payment-id return-id]
   (str (payment-path provider-payment-id) "/returns/" return-id))
 
+(defn- return-failed
+  [intent reason]
+  (let [{:keys [provider-payment-id]} intent
+        {:keys [end-to-end-id]} (context intent)]
+    {:event-name "inbound-return-failed"
+     :dedup-key (str provider-payment-id ":return-failed")
+     :data {:scheme-transaction-id provider-payment-id
+            :end-to-end-id end-to-end-id
+            :reason reason}}))
+
 (defn- relay-return
   [config now intent]
   (let [{:keys [intent-id request provider-payment-id]} intent
@@ -206,7 +216,14 @@
      (or (= :refused outcome) (give-up? config attempts))
      (do (log/error "Form3 did not take the return; it stays in suspense"
                     {:intent-id intent-id :reason result})
-         (finish config now intent "failed" nil))
+         (finish config
+                 now
+                 intent
+                 "failed"
+                 (return-failed intent
+                                (if (= :refused outcome)
+                                  result
+                                  (str "Undelivered: " result)))))
 
      :else
      (retry config now intent attempts result))))
@@ -563,7 +580,15 @@
      (= :failed (outcomes/outcome status))
      (do (log/error "Form3 did not deliver a return; it stays in suspense"
                     {:intent-id intent-id :status status})
-         (finish config now intent "sent" "failed" nil))
+         (finish config
+                 now
+                 intent
+                 "sent"
+                 "failed"
+                 (return-failed intent
+                                (or (get-in result
+                                            [:data :attributes :status_reason])
+                                    (str "Return " status)))))
 
      :else
      (wait config now intent))))

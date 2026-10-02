@@ -47,6 +47,7 @@
    :transaction-id "txn.01kprbmgcj35ptc8npmybhh4sb"
    :debtor-name "Ford Prefect"
    :reference "Lunch"
+   :return-failure-reason "The payment could not be returned"
    :business-day "2023-11-14"
    :created-at 1700000000000
    :updated-at 1700000000001

@@ -1,0 +1,99 @@
+{:name "A session whose check the provider refuses fails, and another may open"
+ :runs-on {:idv :every}
+ ;; Every identity simulator refuses a check for refused@verification.example.
+ ;; The session fails with the provider's reason, the party stays pending,
+ ;; and the customer is told.
+ :given
+ [{:fixture :bank
+   :as :org-0
+   :with {:name "Verification Session Failed" :status "live"}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth [:ref :org-0 :token]
+             :body {:type "person"
+                    :display-name "Ford Prefect"
+                    :given-name "Ford"
+                    :family-name "Prefect"
+                    :date-of-birth "1960-01-01"
+                    :nationality "GB"
+                    :address {:building-number "155"
+                              :street "Country Lane"
+                              :town "Cottington"
+                              :postcode "CT12 4XY"
+                              :country "GBR"}
+                    :national-identifier {:type "national-insurance"
+                                          :value "TN300009S"
+                                          :issuing-country "GB"}}}
+   :as :party-0
+   :assert {:status 201}}
+  {:fixture :webhook-receiver :as :hook :with {:token [:ref :org-0 :token]}}]
+ :when
+ [{:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}/verification"
+             :path-params {:party-id [:ref :party-0 :party-id]}
+             :auth [:ref :org-0 :token]}
+   :until {:status 200 :body {:status "pending"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties/{party-id}/verification-sessions"
+             :path-params {:party-id [:ref :party-0 :party-id]}
+             :auth [:ref :org-0 :token]
+             :body {:channel "web"
+                    :return-url "https://app.example.com/verified"
+                    :email "refused@verification.example"}}
+   :as :refused
+   :assert {:status 202 :body {:status "opening"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}/verification-sessions/{session-id}"
+             :path-params {:party-id [:ref :party-0 :party-id]
+                           :session-id [:ref :refused :session-id]}
+             :auth [:ref :org-0 :token]}
+   :until {:status 200
+           :body {:status "failed"
+                  :failure-reason [:m/regex ".+"]
+                  :hand-off [:m/absent]}}
+   :timeout-ms 20000}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties/{party-id}/verification-sessions"
+             :path-params {:party-id [:ref :party-0 :party-id]}
+             :auth [:ref :org-0 :token]
+             :body {:channel "web"
+                    :return-url "https://app.example.com/verified"
+                    :email "ford.session-failed@example.test"}}
+   :as :retried
+   :assert {:status 202 :body {:status "opening"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}/verification-sessions/{session-id}"
+             :path-params {:party-id [:ref :party-0 :party-id]
+                           :session-id [:ref :retried :session-id]}
+             :auth [:ref :org-0 :token]}
+   :until {:status 200 :body {:status "ready"}}}]
+ :then
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/parties/{party-id}"
+             :path-params {:party-id [:ref :party-0 :party-id]}
+             :auth [:ref :org-0 :token]}
+   :assert {:status 200 :body {:status "pending"}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/parties/{party-id}/verification-sessions/{session-id}"
+             :path-params {:party-id [:ref :party-0 :party-id]
+                           :session-id [:ref :refused :session-id]}
+             :auth [:ref :org-0 :token]}
+   :as :read
+   :assert {:status 200}}
+  {:command :webhook/await-delivery
+   :address [:ref :hook :receiver :address]
+   :where {:kind "party.verification-session-failed"
+           :resource-id [:ref :refused :session-id]}
+   :secret [:ref :hook :registered :secret]
+   :as :notified}
+  {:command :assert/equals
+   :actual [:ref :notified 0 :body :data]
+   :expected [:ref :read]}]}

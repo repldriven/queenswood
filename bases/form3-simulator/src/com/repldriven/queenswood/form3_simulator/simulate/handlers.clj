@@ -104,3 +104,8 @@
   [request]
   (swap! (:state request) assoc :refuse-next true)
   {:status 204})
+
+(defn return-refused
+  [request]
+  (swap! (:state request) assoc :refuse-next-return true)
+  {:status 204})

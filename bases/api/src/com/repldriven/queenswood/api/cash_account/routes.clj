@@ -126,6 +126,10 @@
                        "unless the bank's policies allow it. Returns the "
                        "account in the `closing` status; it becomes `closed` "
                        "shortly after, and a `cash-account.closed` webhook "
+                       "notification follows. Where the payment provider "
+                       "refuses the close, the account returns to the status "
+                       "it closed from with the provider's `refusal-reason`, "
+                       "and a `cash-account.close-refused` webhook "
                        "notification follows.")
                   :parameters ^:replace
                               [shared.parameters/ref-account-id
@@ -193,12 +197,17 @@
        :post {:summary "Rotate a cash account's payment address"
               :openapi {:operationId "RotateCashAccountAddress"
                         :description
-                        (str "Only an opened account can be rotated. It is "
-                             "given a new account number under the same sort "
-                             "code, and the old one is retired rather than "
-                             "redirected, so money sent to it is parked in "
-                             "suspense. A `cash-account.address-rotated` "
-                             "webhook notification follows.")
+                        (str
+                         "Only an opened account can be rotated. It is "
+                         "given a new account number under the same sort "
+                         "code, and the old one is retired rather than "
+                         "redirected, so money sent to it is parked in "
+                         "suspense. A `cash-account.address-rotated` "
+                         "webhook notification follows. Where the payment "
+                         "provider refuses the reissue, the account keeps "
+                         "its address with the provider's `refusal-reason`, "
+                         "and a `cash-account.address-rotation-failed` "
+                         "webhook notification follows.")
                         :parameters ^:replace
                                     [shared.parameters/ref-account-id
                                      shared.parameters/ref-bank-id-header

@@ -54,4 +54,9 @@ with the reason given as an ISO 20022 code, AC04 where none is."
              "The reissue's registration of the new account number fails."
              :openapi {:operationId "SimulateReissueRefused"}
              :responses {204 {:description "The next reissue fails."}}
-             :handler handlers/reissue-refused}}]]])
+             :handler handlers/reissue-refused}}]
+    ["/return-refused"
+     {:post {:summary "Fail the next return of an inbound"
+             :openapi {:operationId "SimulateReturnRefused"}
+             :responses {204 {:description "The next return fails."}}
+             :handler handlers/return-refused}}]]])

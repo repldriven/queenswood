@@ -24,7 +24,8 @@
    :name-verifications {}
    :decisions {}
    :refuse-next false
-   :refuse-next-close false})
+   :refuse-next-close false
+   :refuse-next-return false})
 
 (defn timestamp
   []
@@ -107,6 +108,14 @@
   (locking state
     (let [refuse (:refuse-next-close @state)]
       (when refuse (swap! state assoc :refuse-next-close false))
+      refuse)))
+
+(defn take-return-refusal
+  "True, once, after a control route asked for the next return to fail."
+  [state]
+  (locking state
+    (let [refuse (:refuse-next-return @state)]
+      (when refuse (swap! state assoc :refuse-next-return false))
       refuse)))
 
 (defn find-payments

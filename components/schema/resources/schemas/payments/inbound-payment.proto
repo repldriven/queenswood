@@ -34,4 +34,6 @@ message InboundPayment {
   required InboundPaymentStatus payment_status = 15;
   optional string suspense_reason_code = 16;
   optional string suspense_reason = 17;
+  // Why the provider did not send a suspended inbound back.
+  optional string return_failure_reason = 18;
 }

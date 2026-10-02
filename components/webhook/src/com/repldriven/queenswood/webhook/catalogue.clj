@@ -210,6 +210,15 @@
     :status-name verification-session-status-name
     :load load-verification-session
     :project party-api/->session-wire-body}
+   {:kind "party.verification-session-failed"
+    :event "idv-session-status-changed"
+    :published-change-kind "fail"
+    :terminal-status :idv-session-status-failed
+    :resource-type "VerificationSession"
+    :resource-id-key :session-id
+    :status-name verification-session-status-name
+    :load load-verification-session
+    :project party-api/->session-wire-body}
    (outbound-entry "payment.outbound-held" :outbound-payment-change-kind-hold
                    "hold" :outbound-payment-status-held)
    (outbound-entry "payment.outbound-completed"

@@ -314,6 +314,16 @@
                       :expires-at expires-at}
            :updated-at (utility/now))))
 
+(defn failed-session
+  [session reason]
+  (when (#{:idv-session-status-opening :idv-session-status-ready}
+         (:status session))
+    (-> session
+        (dissoc :hand-off)
+        (utility/assoc-some :failure-reason reason)
+        (assoc :status :idv-session-status-failed
+               :updated-at (utility/now)))))
+
 (defn completed-session
   [session]
   (when-not (= :idv-session-status-completed (:status session))

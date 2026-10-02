@@ -262,8 +262,9 @@ apply rather than keeping it:
   then asks the provider what became of it, reporting
   `transaction-returned` (credit), deduplicated on the provider's id
   for the inbound and `:returned`, once it is delivered. A return the
-  provider refuses or does not deliver is logged, and the payment stays
-  suspended.
+  provider refuses or does not deliver it reports as
+  `inbound-return-failed` with the reason, and the payment stays
+  suspended, carrying it as `return-failure-reason`.
 - **The transition.** `suspended → returned`, matched on the provider's
   id, posting DEBIT 2500 / CREDIT 1100 as an `inbound-return`
   transaction, which empties suspense of the payment. A second
@@ -324,15 +325,22 @@ provider account behind it:
   [lifecycle-transitions](../recipes/code/lifecycle-transitions.md).
 - **Closing.** The `closing` handler sends `close-payment-account` for
   an account with a provider account, and `payment-account-closed`
-  flips `closing → closed`. A provider refusing to close leaves the
-  account `closing` and is logged at ERROR.
+  flips `closing → closed`. A close the provider refuses, or the
+  adapter gives up on, reports `payment-account-close-refused` with a
+  reason, and the account returns to the status it closed from,
+  `opened` or `suspended`, with the reason as its `refusal-reason`.
 - **Rotating.** `rotate-cash-account-address` sends
   `reissue-payment-address`, and the account keeps its address until
   the adapter reports `payment-address-reissued` with the new one and,
   where it changed, the new provider account id. A provider that
   issues an address only with an account blocks the old provider
   account, opens a new one, moves the balance across and closes the
-  old one.
+  old one. A reissue the provider refuses, or the adapter gives up on,
+  reports `payment-address-reissue-failed`: the account keeps its
+  addresses, with the reason as its `refusal-reason`. An adapter that
+  blocked the old provider account unblocks it first; one whose
+  balance has moved and whose only failure is the old account's close
+  reports the reissue, leaving the old account blocked and logged.
 - **Closed and frozen accounts.** A closed account's provider account
   is closed, so the provider returns money sent to it rather than the
   platform parking it. A frozen account's provider account stays open,
@@ -512,7 +520,10 @@ runs changes nothing outside it:
   - `/simulate/outbound-return` returns a completed payment with the
     ISO 20022 reason code given, `AC04` without one, and a payment to
     an account the simulator has closed is returned coded `AC04`;
-  - `/simulate/open-refused` makes the next account opening refused;
+  - `/simulate/open-refused`, `/simulate/close-refused` and
+    `/simulate/reissue-refused` make the next account opening, close
+    or address reissue refused, and on a simulator that returns
+    inbounds `/simulate/return-refused` the next return;
   - a payment to an account another simulator holds reaches it through
     `scheme-simulator`, which each simulator joins under its sort code,
     as an inbound to that simulator's `/simulate/inbound-payment`, and
@@ -577,6 +588,7 @@ stateDiagram-v2
     held --> suspended: transaction-settled (credit)<br/>release refused, park in 2500
     held --> returned: transaction-rejected (credit)<br/>return to remitter
     suspended --> returned: transaction-returned (credit)<br/>2500 to 1100
+    suspended --> suspended: inbound-return-failed<br/>return-failure-reason
     settled --> [*]
     returned --> [*]
     suspended --> [*]

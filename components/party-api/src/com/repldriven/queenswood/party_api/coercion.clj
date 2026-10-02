@@ -43,7 +43,8 @@
   (coercion/enum-coercion {"opening" :idv-session-status-opening
                            "ready" :idv-session-status-ready
                            "expired" :idv-session-status-expired
-                           "completed" :idv-session-status-completed}
+                           "completed" :idv-session-status-completed
+                           "failed" :idv-session-status-failed}
                           :idv-session-status-unknown))
 
 (def ^:private hand-off-type-enum

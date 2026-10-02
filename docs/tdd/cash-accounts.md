@@ -143,6 +143,9 @@ reads inside its own FDB transactions, passing the live
                     ;; -opened, -suspended, -closing, -closed,
                     ;; -refused
 
+ :closing-from      ;; tag 28 — the status a closing account left
+ :refusal-reason    ;; the provider's reason for its last refusal
+
  :payment-addresses
  [{:scheme :payment-address-scheme-scan
    :scan {:sort-code      "040004"
@@ -409,9 +412,13 @@ only to flip a closing account the provider never held to
 consumes: `payment-account-opened` opens the account with
 the issued addresses, provider account id and BBAN;
 `payment-account-refused` makes it `:refused`, with the
-provider's reason; `payment-account-closed` closes it; and
+provider's reason; `payment-account-closed` closes it;
+`payment-account-close-refused` returns it to its
+`:closing-from`, `:opened` or `:suspended`, with the reason;
 `payment-address-reissued` replaces its addresses, retiring
-the old. Each is one FDB transaction — read the account,
+the old; and `payment-address-reissue-failed` clears the
+pending rotation, keeping the addresses, with the reason.
+Each is one FDB transaction — read the account,
 apply the domain transition, save — gated on the account
 still being in the expected source status, or on the
 pending rotation's key, so redelivery is a silent no-op.
@@ -684,13 +691,11 @@ What follows is what the model does not reach.
   for N years → flagged → closed → escheated). None of
   that is modelled. Suspension is an operator's decision,
   not an automatic consequence of inactivity.
-- **A close the provider refuses stays closing.** A close
-  waived past a non-zero balance records `closing`, and a
-  provider that refuses to close an account holding money
-  answers nothing that moves it on, so it stays `closing`.
-  A close reaches the provider only after the sweep that
-  emptied the account has settled there (ADR-0033), so a
-  refusal is the provider's own and is not tried again.
+- **A refused close is not tried again.** A close reaches
+  the provider only after the sweep that emptied the account
+  has settled there (ADR-0033), so a refusal is the
+  provider's own: the account returns to where it closed
+  from, and closing it again is the caller's decision.
 
 ## References
 

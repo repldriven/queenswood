@@ -118,7 +118,12 @@
                          "URL to open in a browser or a mobile WebView, which "
                          "returns the person to `return-url`, and a "
                          "`party.verification-session-ready` webhook "
-                         "notification follows. A verification that is no "
+                         "notification follows. Where the provider refuses "
+                         "the person's run, the session becomes `failed` with "
+                         "a `failure-reason`, a "
+                         "`party.verification-session-failed` webhook "
+                         "notification follows, and another session may be "
+                         "opened. A verification that is no "
                          "longer pending is refused with 409, and a channel "
                          "the provider does not offer, or a missing `email` "
                          "the provider needs, with 422.")

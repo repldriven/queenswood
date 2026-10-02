@@ -41,6 +41,7 @@ submit-idv-check: schemas/idv/submit-idv-check.avsc.json
 idv-status-changed: schemas/idv/idv-status-changed.avsc.json
 idv-evidence: schemas/idv/idv-evidence.avsc.json
 idv-session-opened: schemas/idv/idv-session-opened.avsc.json
+idv-session-failed: schemas/idv/idv-session-failed.avsc.json
 open-idv-session: schemas/idv/open-idv-session.avsc.json
 idv-session: schemas/idv/idv-session.avsc.json
 idv-session-status-changed: schemas/idv/idv-session-status-changed.avsc.json
@@ -80,6 +81,7 @@ transaction-rejected: schemas/schemes/payments/transaction-rejected.avsc.json
 transaction-held: schemas/schemes/payments/transaction-held.avsc.json
 transaction-returned: schemas/schemes/payments/transaction-returned.avsc.json
 return-payment: schemas/schemes/payments/return-payment.avsc.json
+inbound-return-failed: schemas/schemes/payments/inbound-return-failed.avsc.json
 transfer-between-accounts: schemas/schemes/payments/transfer-between-accounts.avsc.json
 transfer-completed: schemas/schemes/payments/transfer-completed.avsc.json
 transfer-failed: schemas/schemes/payments/transfer-failed.avsc.json

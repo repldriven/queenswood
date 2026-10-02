@@ -107,6 +107,7 @@
    [:transaction-id {:optional true} [:maybe [:ref "TransactionId"]]]
    [:debtor-name {:optional true} [:maybe string?]]
    [:reference {:optional true} [:maybe string?]]
+   [:return-failure-reason {:optional true} [:maybe string?]]
    [:business-day [:ref "BusinessDay"]]
    [:created-at [:ref "Timestamp"]]
    [:updated-at [:ref "Timestamp"]]])
