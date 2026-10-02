@@ -293,22 +293,6 @@
                                                   (:intent-id intent))
                               f))
 
-(defn- checked
-  "Run `f` on `intent`, failing the intent where its stored request lacks
-  a key the call needs, so it no longer holds the intents behind it."
-  [config intent f]
-  (let [res (error/try-nom-ex :zyphe-relay/intent
-                              IllegalArgumentException
-                              "Zyphe intent lacks what its call needs"
-                              (f intent))]
-    (if (error/anomaly? res)
-      (let [{:keys [intent-id attempts]} intent]
-        (log/error "Zyphe intent cannot be relayed; failing it"
-                   {:intent-id intent-id :anomaly res})
-        (store/mark-failed config intent-id (or attempts 0))
-        (assoc intent :status "failed"))
-      res)))
-
 (defn drain-once
   "Relay each pending intent once, oldest first, holding one for a
   verification while an earlier one for it is still pending. The Zyphe
@@ -323,12 +307,8 @@
                                   (in-intent-trace "zyphe-outbound"
                                                    i
                                                    (fn []
-                                                     (checked
-                                                      config
-                                                      i
-                                                      (fn [i]
-                                                        (relay-one config
-                                                                   i))))))}))))
+                                                     (relay-one config
+                                                                i))))}))))
 
 (defn- start-loop
   [config]

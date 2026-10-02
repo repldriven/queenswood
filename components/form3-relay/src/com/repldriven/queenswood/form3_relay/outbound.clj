@@ -620,22 +620,6 @@
                                                   (:kind intent))
                               f))
 
-(defn- checked
-  "Run `f` on `intent`, failing the intent where its stored data lacks a
-  key the call needs, so it no longer holds the intents behind it."
-  [config intent f]
-  (let [res (error/try-nom-ex :form3-relay/intent
-                              IllegalArgumentException
-                              "Form3 intent lacks what its call needs"
-                              (f intent))]
-    (if (error/anomaly? res)
-      (let [{:keys [intent-id kind status attempts]} intent]
-        (log/error "Form3 intent cannot be relayed; failing it"
-                   {:intent-id intent-id :kind kind :anomaly res})
-        (store/finish config intent-id status "failed" attempts nil)
-        (assoc intent :status "failed"))
-      res)))
-
 (defn drain-once
   "Make each due pending call once, oldest first, holding a call for an
   account while an earlier one for it is unsent, then reconcile every due
@@ -656,7 +640,7 @@
                 intent
                 (fn []
                   (if-let [relay (get relays (:kind intent))]
-                    (checked config intent (fn [i] (relay config now i)))
+                    (relay config now intent)
                     (log/error "Unknown Form3 intent kind"
                                {:intent intent})))))}))
     (when-not (error/anomaly? sent)
@@ -668,7 +652,7 @@
          intent
          (fn []
            (if reconcile
-             (checked config intent (fn [i] (reconcile config now i)))
+             (reconcile config now intent)
              (log/error "Unknown sent Form3 intent kind"
                         {:intent intent}))))))))
 

@@ -301,22 +301,6 @@
                                                   (:intent-id intent))
                               f))
 
-(defn- checked
-  "Run `f` on `intent`, failing the intent where its stored request lacks
-  a key the call needs, so it no longer holds the intents behind it."
-  [config intent f]
-  (let [res (error/try-nom-ex :onfido-relay/intent
-                              IllegalArgumentException
-                              "Onfido intent lacks what its call needs"
-                              (f intent))]
-    (if (error/anomaly? res)
-      (let [{:keys [intent-id attempts]} intent]
-        (log/error "Onfido intent cannot be relayed; failing it"
-                   {:intent-id intent-id :anomaly res})
-        (store/mark-failed config intent-id (or attempts 0))
-        (assoc intent :status "failed"))
-      res)))
-
 (defn drain-once
   [config]
   (let [pending (store/pending-intents config)]
@@ -328,12 +312,8 @@
                                   (in-intent-trace "onfido-outbound"
                                                    i
                                                    (fn []
-                                                     (checked
-                                                      config
-                                                      i
-                                                      (fn [i]
-                                                        (relay-one config
-                                                                   i))))))}))))
+                                                     (relay-one config
+                                                                i))))}))))
 
 (defn- start-loop
   [config]

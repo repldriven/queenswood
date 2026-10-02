@@ -127,9 +127,8 @@ rules:
       adapter stored when it took a command is read back, perhaps by a
       later release, to build a provider call, so a key it lacks would
       reach the provider as nil. Read it with `:keys!`, with a key the
-      adapter writes only sometimes under `:keys` in the same map, and let
-      the relay's `checked` guard fail the intent (checked-keys.md). A
-      read that is optional throughout puts
+      adapter writes only sometimes under `:keys` in the same map
+      (checked-keys.md). A read that is optional throughout puts
       `;; nosemgrep: unchecked-intent-data — <reason>` on the line
       immediately above it.
     pattern-regex: '\{:keys \[[^\]]*\]\}\s*(\(context intent\)|ctx\b|context\b|data\b)'
