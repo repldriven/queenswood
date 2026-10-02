@@ -694,7 +694,12 @@ stateDiagram-v2
 - **A rename does not reach the provider.** The holder name is given
   at opening, so a provider answering inbound checks answers from the
   name the party had then.
-- **A provider refusing to close leaves the account `closing`.**
+- **Money arriving as an account closes refuses the close.** An inbound
+  the provider takes after the close is accepted, and before it is
+  carried out, leaves a provider holding a balance per account refusing
+  the close for its balance: the account returns to where it closed
+  from, the inbound is parked, and a second close succeeds once the
+  parked money has moved to own funds.
 - **A rotation is not instant.** The old address takes payments until
   the provider reports the new one, and where the provider moves the
   account, a payment arriving while the old one is blocked is returned

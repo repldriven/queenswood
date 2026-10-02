@@ -110,6 +110,21 @@
   [ctx bank-real-id real-acct-id]
   (await-status ctx bank-real-id real-acct-id :cash-account-status-opened))
 
+(defn- await-close-answered
+  "The account once the payment provider has answered its close: closed,
+  or back where it closed from where the provider refused."
+  [{:keys [bank] :as ctx} bank-real-id real-acct-id]
+  (await/value ctx
+               (str "account " real-acct-id " to leave closing")
+               (fn []
+                 (cash-accounts-query/find-account bank
+                                                   bank-real-id
+                                                   real-acct-id))
+               (fn [account]
+                 (and (not (error/anomaly? account))
+                      (not= :cash-account-status-closing
+                            (:account-status account))))))
+
 (defn- await-party-active
   [{:keys [bank] :as ctx} bank-real-id party-id]
   (await/value ctx
@@ -647,19 +662,18 @@
         (track (first-timed-out outcome opened)))))
 
 (defmethod dispatch :close-account
-  ;; Waits for no provider: the close records `closing` before it
-  ;; returns, which the projection reads as closed, and a provider that
-  ;; refuses the close leaves it there.
   [{:keys [bank id-mapping accounts banks] :as ctx} {[model-acct] :args}]
   (let [model-bank (get-in accounts [model-acct :bank])
         bank-real-id (get-in banks [model-bank :real-id])
         real-acct-id (get-in id-mapping [:model->real model-acct])
         result (cash-accounts/close-account bank
                                             {:bank-id bank-real-id
-                                             :account-id real-acct-id})]
+                                             :account-id real-acct-id})
+        answered (when-not (error/anomaly? result)
+                   (await-close-answered ctx bank-real-id real-acct-id))]
     (-> ctx
         (update :counter inc)
-        (track result))))
+        (track (first-timed-out result answered)))))
 
 (defn- transfer-tx
   "Build a balanced 2-leg simulation transaction. `gl-leg` is the
