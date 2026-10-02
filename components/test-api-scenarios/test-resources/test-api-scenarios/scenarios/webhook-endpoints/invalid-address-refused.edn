@@ -1,0 +1,53 @@
+{:name "An address the platform will not deliver to is refused, registered or moved to"
+ ;; A host in each range the platform will not call: link-local,
+ ;; private, and the cloud metadata service. An IP literal resolves to
+ ;; itself, so the rule decides on the address as written and no DNS is
+ ;; involved. The rig admits plain HTTP and loopback, where its receiver
+ ;; listens.
+ :given
+ [{:fixture :bank :as :org-0 :with {:name "Webhook Address Org"}}
+  {:fixture :webhook-endpoint :as :hook :with {:token [:ref :org-0 :token]}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/webhook-endpoints"
+             :auth [:ref :org-0 :token]
+             :body {:address "https://169.254.10.1/hooks"}}
+   :assert {:status 422 :problem {:type ":webhook-endpoint/invalid-address"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/webhook-endpoints"
+             :auth [:ref :org-0 :token]
+             :body {:address "https://10.1.2.3/hooks"}}
+   :assert {:status 422 :problem {:type ":webhook-endpoint/invalid-address"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/webhook-endpoints"
+             :auth [:ref :org-0 :token]
+             :body {:address "https://169.254.169.254/latest"}}
+   :assert {:status 422 :problem {:type ":webhook-endpoint/invalid-address"}}}
+  {:command :api/request
+   :request {:method :put
+             :path "/v1/webhook-endpoints/{endpoint-id}"
+             :path-params {:endpoint-id [:ref :hook :registered :endpoint
+                                         :endpoint-id]}
+             :auth [:ref :org-0 :token]
+             :body {:address "https://10.1.2.3/hooks"}}
+   :assert {:status 422 :problem {:type ":webhook-endpoint/invalid-address"}}}
+  {:command :api/request
+   :request {:method :put
+             :path "/v1/webhook-endpoints/{endpoint-id}"
+             :path-params {:endpoint-id [:ref :hook :registered :endpoint
+                                         :endpoint-id]}
+             :auth [:ref :org-0 :token]
+             :body {:address "https://169.254.169.254/latest"}}
+   :assert {:status 422 :problem {:type ":webhook-endpoint/invalid-address"}}}]
+ :then
+ ;; Nothing was registered for any of them, and the endpoint keeps the
+ ;; address it was registered with.
+ [{:command :api/request
+   :request {:method :get :path "/v1/webhook-endpoints" :auth [:ref :org-0 :token]}
+   :assert {:status 200
+            :body {:items [{:endpoint-id [:ref :hook :registered :endpoint
+                                          :endpoint-id]
+                            :address "https://93.184.216.34/hooks"}]}}}]}

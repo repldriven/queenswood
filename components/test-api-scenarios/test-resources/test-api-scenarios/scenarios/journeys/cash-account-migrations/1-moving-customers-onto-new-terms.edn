@@ -61,12 +61,19 @@
              :auth [:ref :bank-0 :token]
              :body {:name "Savers onto the new rate"
                     :source-product-id [:ref :v1 :product :product-id]
+                    :source-version-ids [[:ref :v1 :product :version-id]]
                     :target-product-id [:ref :v2 :product-id]
                     :target-version-id [:ref :v2 :version-id]
                     :notified-on "2026-07-01"
                     :due-on "2026-08-01"}}
    :as :migration
-   :assert {:status 201 :body {:status "draft"}}}
+   :assert {:status 201
+            :body {:status "draft"
+                   :name "Savers onto the new rate"
+                   :source-product-id [:ref :v1 :product :product-id]
+                   :target-version-id [:ref :v2 :version-id]
+                   :notified-on "2026-07-01"
+                   :due-on "2026-08-01"}}}
   ;; The preview decides about every account and moves none: it counts
   ;; the one that would move, and the suspended one would stay, saying
   ;; why.
@@ -141,6 +148,13 @@
              :path-params {:migration-id [:ref :migration :migration-id]}
              :auth [:ref :bank-0 :token]}
    :assert {:status 200 :body {:status "completed"}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/cash-account-migrations"
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200
+            :body {:items [{:migration-id [:ref :migration :migration-id]
+                            :status "completed"}]}}}
   {:command :api/request
    :request {:method :get
              :path "/v1/cash-account-migrations/{migration-id}/previews/{run-id}"

@@ -1,6 +1,11 @@
-{:name "A user token is refused an admin route, and a service token /v1/me"
- ;; The two gates in the other direction. Neither principal is short
- ;; of a valid token; each is short of the role the route asks for.
+{:name "Each principal is refused the routes outside its gate"
+ ;; No principal here is short of a valid token; each is short of the
+ ;; role the route asks for. An `org`-gated route acts on the
+ ;; principal's bank, and the admin service account carries `org` but
+ ;; no bank of its own, so it is refused rather than served against a
+ ;; nil one. A route an admin may call on any bank takes the bank from
+ ;; the header and declares `admin` alongside `org`.
+ :given [{:fixture :bank :as :bank-0 :with {:name "Gated Bank" :status "live"}}]
  :when
  [{:command :auth/mint-user-token
    :realm :queenswood
@@ -13,4 +18,16 @@
    :assert {:status 403 :problem {:type "auth/forbidden"}}}
   {:command :api/request
    :request {:method :get :path "/v1/me" :auth :admin}
+   :assert {:status 403 :problem {:type "auth/forbidden"}}}
+  {:command :api/request
+   :request {:method :get :path "/v1/cash-accounts" :auth :admin}
+   :assert {:status 403 :problem {:type "auth/forbidden"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth [:ref :bank-0 :token]
+             :body {:name "Second Bank"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
    :assert {:status 403 :problem {:type "auth/forbidden"}}}]}

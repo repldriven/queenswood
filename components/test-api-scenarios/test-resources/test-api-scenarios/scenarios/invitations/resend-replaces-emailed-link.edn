@@ -1,7 +1,8 @@
 {:name "A resent invitation's email replaces the first email's link"
- ;; The first email is read before the resend, so both emails are sent.
- ;; The resend returns the token hash to the invitation's id and the
- ;; second email records its own, so only the newer link accepts.
+ ;; A resend answers the same invitation with a fresh expiry and records
+ ;; the resend. The first email is read before it, so both emails are
+ ;; sent; the second records its own token hash, so only the newer link
+ ;; accepts.
  :given
  [{:command :auth/mint-user-token
    :realm :queenswood
@@ -32,6 +33,7 @@
              :path-params {:invitation-id [:ref :bank :owner-invitation
                                            :invitation-id]}
              :auth :owner-token}
+   :as :owner-membership
    :assert {:status 201}}
   {:command :api/request
    :request {:method :post
@@ -52,7 +54,12 @@
              :path-params {:invitation-id [:ref :invitation :invitation-id]}
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}}
-   :assert {:status 200 :body {:status "pending"}}}
+   :assert {:status 200
+            :body {:invitation-id [:ref :invitation :invitation-id]
+                   :email "link-invitee.resent@example.test"
+                   :status "pending"
+                   :expires-at [:m/mismatch [:ref :invitation :expires-at]]
+                   :token [:m/absent]}}}
   {:command :mail/await-invitation
    :to "link-invitee.resent@example.test"
    :invitation-id [:ref :invitation :invitation-id]
@@ -72,4 +79,18 @@
              :auth :invitee-token
              :headers {:invitation-token [:ref :second-email :token]}}
    :assert {:status 201
-            :body {:bank-id [:ref :bank :bank-id] :role "viewer"}}}]}
+            :body {:bank-id [:ref :bank :bank-id] :role "viewer"}}}]
+ :then
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/bank/audit-events"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 200
+            :body {:items [:m/embeds
+                           [{:kind "invitation-resent"
+                             :actor {:kind "member"
+                                     :principal-id
+                                     [:ref :owner-membership :user-id]}
+                             :invitation-id [:ref :invitation
+                                             :invitation-id]}]]}}}]}

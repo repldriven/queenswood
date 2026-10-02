@@ -1,4 +1,6 @@
-{:doc "A webhook endpoint, registered and enabled."
+{:doc
+ "A webhook endpoint, registered and enabled, at an address the rig never
+  calls, for a kind the bank never emits, so nothing is sent to it."
  :required #{:token}
  :params {:address "https://93.184.216.34/hooks"}
  :steps
@@ -6,6 +8,7 @@
    :request {:method :post
              :path "/v1/webhook-endpoints"
              :auth [:param :token]
-             :body {:address [:param :address]}}
+             :body {:address [:param :address]
+                    :kinds ["payment.outbound-completed"]}}
    :as :registered
    :assert {:status 201}}]}

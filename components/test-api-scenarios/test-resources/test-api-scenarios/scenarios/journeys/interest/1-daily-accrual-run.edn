@@ -43,7 +43,17 @@
                             :records-failed 0}
                            {:label "capitalize"
                             :status "succeeded"
-                            :records-failed 0}]}}}]
+                            :records-failed 0}]}}}
+  ;; The run is daily, so a second one today is refused rather than
+  ;; paid twice.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/jobs/{job-id}/runs"
+             :path-params {:job-id "daily-interest"}
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 409
+            :problem {:type ":scheduler/period-already-run"
+                      :detail "The job has already run this period"}}}]
  :then
  [{:command :api/poll
    :request {:method :get

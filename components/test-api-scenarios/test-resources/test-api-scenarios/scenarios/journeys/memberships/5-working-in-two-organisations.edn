@@ -105,7 +105,14 @@
                                           :issuing-country "GB"}}}
    :assert {:status 403
             :problem {:type "auth/forbidden"
-                      :detail "Insufficient privileges"}}}]
+                      :detail "Insufficient privileges"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/invitations"
+             :auth :consultant-token
+             :headers {:bank-id [:ref :client-bank :bank-id]}
+             :body {:email "consultant-guest@example.test" :role "viewer"}}
+   :assert {:status 403 :problem {:type "auth/forbidden"}}}]
  :then
  [{:command :api/request
    :request {:method :get :path "/v1/me/memberships" :auth :consultant-token}
@@ -129,6 +136,17 @@
              :auth :consultant-token
              :headers {:bank-id [:ref :client-bank :bank-id]}}
    :assert {:status 200 :body {:name "Client Bank"}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/memberships"
+             :auth :consultant-token
+             :headers {:bank-id [:ref :client-bank :bank-id]}}
+   :assert {:status 200
+            :body {:items [:m/in-any-order
+                           [{:email "consultant-client@queenswood.local"
+                             :role "owner"}
+                            {:email "consultant@queenswood.local"
+                             :role "viewer"}]]}}}
   {:command :api/request
    :request {:method :get
              :path "/v1/parties"
