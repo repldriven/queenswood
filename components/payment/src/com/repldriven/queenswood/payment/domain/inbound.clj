@@ -289,6 +289,14 @@
          :payment-status :inbound-payment-status-returned
          :updated-at (utility/now)))
 
+(defn return-failed-inbound-payment
+  "A suspended inbound the provider did not send back: it stays suspended,
+  carrying why."
+  [payment reason]
+  (-> payment
+      (utility/assoc-some :return-failure-reason reason)
+      (assoc :updated-at (utility/now))))
+
 (defn returns-inbound?
   "True where the provider declares that an inbound may be returned."
   [payment-provider]

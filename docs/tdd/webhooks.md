@@ -297,6 +297,9 @@ same status.
 - `cash-account.closed` — the same event with `change_kind` close.
   Told on `closing` to `closed`; the leg landing on `closing` is
   skipped.
+- `cash-account.close-refused` — `change_kind` close-refused, told on
+  `closing` back to `opened` or `suspended` when the payment provider
+  refuses the close.
 - `cash-account.suspended` and `cash-account.resumed` — `change_kind`
   suspend and resume, told on `opened` to `suspended` and `suspended`
   to `opened`.
@@ -306,6 +309,9 @@ same status.
   told whatever that status is. A rotation is told when the provider's
   new address lands; the write that asks for it, change kind
   rotate-requested, is not told.
+- `cash-account.address-rotation-failed` — `change_kind`
+  rotate-failed, told when the payment provider refuses a reissue and
+  the account keeps its addresses.
 - `party.opened`, `party.rejected`, `party.suspended`,
   `party.resumed`, `party.closed` and `party.merged` —
   `party-status-changed`, `Party`, by bank and party id. The event
@@ -331,6 +337,11 @@ same status.
   internal payment carries no status and is settled as it is saved, so
   the entry is the one transition there is, and the account it credits,
   which is not the caller, is told.
+- `party.verification-session-ready` and
+  `party.verification-session-failed` — `idv-session-status-changed`,
+  `VerificationSession`, by bank and session id, told by the status
+  it lands on: `ready` once the session holds a hand-off, `failed`
+  when the identity provider refuses its check.
 - `reward.paid` — `reward-status-changed` with `change_kind` pay,
   `Reward`, by bank and reward id. A defer, the other kind the entry
   carries, is the bank's operational problem and is not published.

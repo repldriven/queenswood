@@ -29,6 +29,13 @@
             :parameters {:path account-path}
             :responses {204 {:description "Blocked."}}
             :handler handlers/block}}]
+   ["/accounts/{accountId}/unblock"
+    {:openapi {:tags ["Accounts"]}
+     :post {:summary "Unblock an account"
+            :openapi {:operationId "UnblockAccount"}
+            :parameters {:path account-path}
+            :responses {204 {:description "Unblocked."}}
+            :handler handlers/unblock}}]
    ["/accounts/{accountId}/close"
     {:openapi {:tags ["Accounts"]}
      :post {:summary "Close an account whose balance is zero"

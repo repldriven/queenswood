@@ -1,0 +1,23 @@
+{
+  "type": "record",
+  "name": "PaymentAccountCloseRefused",
+  "namespace": "com.repldriven.mono.schemes.accounts",
+  "fields": [
+    {
+      "name": "bank_id",
+      "type": "string"
+    },
+    {
+      "name": "account_id",
+      "type": "string"
+    },
+    {
+      "name": "reason",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    }
+  ]
+}

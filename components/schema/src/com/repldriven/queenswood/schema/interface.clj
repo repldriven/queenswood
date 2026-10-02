@@ -428,9 +428,18 @@
   [m]
   (IdvProto$Idv/parseFrom (Idv->pb m)))
 
-(def ^{:doc "Parse IdvSession protobuf bytes into a Clojure map."}
-     pb->IdvSession
-  idv/pb->IdvSession)
+(defn pb->IdvSession
+  "Parse IdvSession protobuf bytes into a Clojure map, dropping a
+  `failure-reason` that deserialises as the proto2 empty-string default:
+  only a failed session carries one.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (let [session (idv/pb->IdvSession input)]
+    (cond-> session
+            (= "" (:failure-reason session))
+            (dissoc :failure-reason))))
 
 (defn IdvSession->pb
   "Serialise an IdvSession map to protobuf bytes.
@@ -638,7 +647,8 @@
   customer instruments from GL rows. Always drops
   `gl-control-account-id`: the field is deprecated, kept in the
   descriptor only so stored meta-data can still evolve, and no read
-  site consults it."
+  site consults it. Drops the `:cash-account-status-unknown` an unset
+  `closing-from` reads as, so it is present only while closing."
   [input]
   (let [account (cash-accounts/pb->CashAccount input)]
     (cond-> (dissoc account :gl-control-account-id)
@@ -646,7 +656,10 @@
             (dissoc :bban)
 
             (= "" (:last-rotation-idempotency-key account))
-            (dissoc :last-rotation-idempotency-key))))
+            (dissoc :last-rotation-idempotency-key)
+
+            (= :cash-account-status-unknown (:closing-from account))
+            (dissoc :closing-from))))
 
 (defn CashAccount->pb
   "Serialise a CashAccount map to protobuf bytes.
@@ -701,30 +714,36 @@
   value: a suspended inbound credits no account, a held or returned one
   posts no transaction, the scheme supplies `debtor-name` and
   `reference` only when the debtor's bank sent them, and only a suspended
-  or returned one carries a `suspense-reason-code` and `suspense-reason`.
+  or returned one carries a `suspense-reason-code` and `suspense-reason`,
+  and only a suspended one the provider did not send back a
+  `return-failure-reason`.
 
   Args:
   - input: protobuf bytes."
   [input]
   (let [payment (payments/pb->InboundPayment input)]
-    (cond-> payment
-            (= "" (:creditor-account-id payment))
-            (dissoc :creditor-account-id)
+    (cond->
+     payment
+     (= "" (:creditor-account-id payment))
+     (dissoc :creditor-account-id)
 
-            (= "" (:transaction-id payment))
-            (dissoc :transaction-id)
+     (= "" (:transaction-id payment))
+     (dissoc :transaction-id)
 
-            (= "" (:debtor-name payment))
-            (dissoc :debtor-name)
+     (= "" (:debtor-name payment))
+     (dissoc :debtor-name)
 
-            (= "" (:reference payment))
-            (dissoc :reference)
+     (= "" (:reference payment))
+     (dissoc :reference)
 
-            (= "" (:suspense-reason-code payment))
-            (dissoc :suspense-reason-code)
+     (= "" (:suspense-reason-code payment))
+     (dissoc :suspense-reason-code)
 
-            (= "" (:suspense-reason payment))
-            (dissoc :suspense-reason))))
+     (= "" (:suspense-reason payment))
+     (dissoc :suspense-reason)
+
+     (= "" (:return-failure-reason payment))
+     (dissoc :return-failure-reason))))
 
 (defn InboundPayment->pb
   "Serialise an InboundPayment map to protobuf bytes.

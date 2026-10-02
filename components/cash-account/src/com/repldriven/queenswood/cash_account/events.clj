@@ -50,7 +50,9 @@
   {"payment-account-opened" core/provider-opened
    "payment-account-refused" core/provider-refused
    "payment-account-closed" core/provider-closed
-   "payment-address-reissued" core/provider-reissued})
+   "payment-address-reissued" core/provider-reissued
+   "payment-account-close-refused" core/provider-close-refused
+   "payment-address-reissue-failed" core/provider-reissue-failed})
 
 (defn- dispatch-provider-event
   [config message]

@@ -271,8 +271,9 @@ starts. The party route gains:
   `:idv/unsupported-channel` (422) for a channel the provider does not
   declare, and `:idv/missing-email` (422) where the provider needs one.
 - **`GET /v1/parties/{party-id}/verification-sessions/{session-id}`** —
-  the session, its `status` one of `opening`, `ready`, `expired` and
-  `completed`, with `hand-off` `{type url expires-at}` while ready.
+  the session, its `status` one of `opening`, `ready`, `expired`,
+  `completed` and `failed`, with `hand-off` `{type url expires-at}`
+  while ready and `failure-reason` once failed.
   Rejects `:idv/session-not-found` (404).
 - **`GET /v1/parties/{party-id}/verification`** — the IDV's status,
   and each verification and screening as outstanding, established, in
@@ -287,12 +288,17 @@ channel, the return URL, the email, and the verifications and
 screenings the bank's denies require. The adapter reports the hand-off
 as an `idv-session-opened` event
 `{bank-id verification-id session-id url expires-at}`, which makes the
-session `ready`. A session reads `expired` once `expires-at` passes,
-and is `completed` when the IDV leaves pending. The hand-off is never
-logged. The `idv-sessions` changelog relays
+session `ready`. A check the provider refuses, or the adapter gives up
+on, it reports as `idv-session-failed`
+`{bank-id verification-id session-id reason}`, which makes an opening
+or ready session `failed` with the reason; the IDV and the party stay
+pending, and another session may open. A session reads `expired` once
+`expires-at` passes, and is `completed` when the IDV leaves pending.
+The hand-off is never logged. The `idv-sessions` changelog relays
 `idv-session-status-changed` on `idvs-event`, and the webhook catalogue
-sends `party.verification-session-ready` with the session as the read
-route returns it. Party creation no longer publishes
+sends `party.verification-session-ready` and
+`party.verification-session-failed` with the session as the read route
+returns it. Party creation no longer publishes
 `submit-idv-check`: the IDV waits, pending, for the first session.
 Opening a session for a pending person whose IDV the party event has
 not created yet creates it in the session's transaction, so a session
@@ -319,6 +325,9 @@ runs changes nothing outside it:
 - **Hands off.** It builds the hand-off for the session's channel,
   carrying the return URL so the person comes back to the tenant, and
   reports it as `idv-session-opened`.
+- **Reports a failure.** A run the provider refuses, or one still
+  failing after the relay's attempts, it reports as
+  `idv-session-failed` with the reason.
 - **Reports evidence.** It authenticates each delivery from the
   provider, as the provider signs it, before anything else, maps each
   provider result to `idv-evidence`, and writes one outbox entry per
@@ -337,7 +346,8 @@ runs changes nothing outside it:
   Submitting emits the provider's results for that outcome and returns
   the person to the return URL. A decision route takes the same body,
   so a test drives what a person would, and nothing settles a run
-  without one. Deployed, the console proxies the page at
+  without one. A check for `refused@verification.example` is refused.
+  Deployed, the console proxies the page at
   `/identity-provider/`, and the adapter's verify URL points there.
 
 ### First slices
@@ -380,7 +390,7 @@ The demo bank's onboarding screens follow under
 - **`idv`** — `unmet-criteria` over the platform and micro policies,
   `domain/decide` over every row of the treatment table, evidence
   merged in any order, redelivery deciding the same way, the
-  session's refusals, and a session made ready and completed.
+  session's refusals, and a session made ready, completed and failed.
 - **`idv-query`** — the criteria a bank's policies require, and a
   session reading expired.
 - **`bank`** — create and tier change refused with what is missing.
@@ -393,7 +403,8 @@ The demo bank's onboarding screens follow under
   results, authenticated as the provider's are.
 - **`test-api-scenarios`** — a scenario per row of the treatment
   table, a session handing off, the refusals, a session refused once
-  the IDV decides, and the verification read.
+  the IDV decides, a session the provider refuses, and the
+  verification read.
 - **`test-scenarios`** — every person verified through the simulator
   with a matching document.
 

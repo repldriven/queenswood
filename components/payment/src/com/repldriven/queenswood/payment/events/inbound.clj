@@ -564,3 +564,44 @@
               returned)))))
      :payment/return-inbound
      "Failed to return inbound payment")))
+
+(defn return-failed
+  "A suspended inbound the provider did not send back: it stays in
+  suspense, recording the provider's reason. A second report, or one for
+  an inbound no longer suspended, is a no-op; one for no payment fails."
+  [config data]
+  (let [{:keys [scheme-transaction-id reason]} data]
+    (store/transact
+     config
+     (fn [txn]
+       (let-nom>
+         [payment (q/get-inbound-payment txn scheme-transaction-id)]
+         (cond
+          (nil? payment)
+          (error/fail :payment/return-inbound
+                      {:message
+                       "No inbound payment carries the failed return's id"
+                       :scheme-transaction-id scheme-transaction-id})
+
+          (or (not= :inbound-payment-status-suspended (:payment-status payment))
+              (:return-failure-reason payment))
+          (do (log/infof "Inbound return failure already processed: %s"
+                         {:payment-id (:payment-id payment)
+                          :payment-status (:payment-status payment)})
+              payment)
+
+          :else
+          (let [failed (inbound/return-failed-inbound-payment
+                        payment
+                        (or reason "The provider did not return the payment"))]
+            (let-nom>
+              [_ (store/save-inbound-payment
+                  txn
+                  failed
+                  {:change-kind :inbound-payment-change-kind-return-failed
+                   :status-before (:payment-status payment)})]
+              (log/warnf "Suspended inbound payment not returned: %s"
+                         {:payment-id (:payment-id payment) :reason reason})
+              failed)))))
+     :payment/return-inbound
+     "Failed to record an inbound payment's failed return")))

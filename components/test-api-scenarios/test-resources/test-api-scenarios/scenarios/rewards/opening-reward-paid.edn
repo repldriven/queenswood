@@ -3,6 +3,7 @@
  [{:fixture :bank
    :as :org-0
    :with {:name "Reward Paid Test Org" :tier "test-scenario"}}
+  {:fixture :webhook-receiver :as :hook :with {:token [:ref :org-0 :token]}}
   ;; Money from outside into the bank's own-funds house account, which
   ;; is what a reward is paid from.
   {:command :api/request
@@ -98,6 +99,7 @@
              :path "/v1/rewards/{reward-id}"
              :path-params {:reward-id [:ref :rewards :items 0 :reward-id]}
              :auth [:ref :org-0 :token]}
+   :as :reward
    :assert {:status 200
             :body {:reward-id [:ref :rewards :items 0 :reward-id]
                    :status "paid"
@@ -108,6 +110,17 @@
              :path-params {:reward-id "rwd.00000000000000000000000000"}
              :auth [:ref :org-0 :token]}
    :assert {:status 404 :body {:type ":reward/not-found"}}}
+  ;; The customer is told the reward was paid, with the reward as its
+  ;; read route returns it.
+  {:command :webhook/await-delivery
+   :address [:ref :hook :receiver :address]
+   :where {:kind "reward.paid"
+           :resource-id [:ref :rewards :items 0 :reward-id]}
+   :secret [:ref :hook :registered :secret]
+   :as :notified}
+  {:command :assert/equals
+   :actual [:ref :notified 0 :body :data]
+   :expected [:ref :reward]}
   ;; The job runs once an hour, so a second run this hour is refused.
   {:command :api/request
    :request {:method :post

@@ -27,7 +27,9 @@
                                     "CASH_ACCOUNT_CHANGE_KIND_RESUME",
                                     "CASH_ACCOUNT_CHANGE_KIND_ROTATE_ADDRESS",
                                     "CASH_ACCOUNT_CHANGE_KIND_MIGRATE",
-                                    "CASH_ACCOUNT_CHANGE_KIND_ROTATE_REQUESTED"]}],
+                                    "CASH_ACCOUNT_CHANGE_KIND_ROTATE_REQUESTED",
+                                    "CASH_ACCOUNT_CHANGE_KIND_CLOSE_REFUSED",
+                                    "CASH_ACCOUNT_CHANGE_KIND_ROTATE_FAILED"]}],
      "default": null}
   ]
 }

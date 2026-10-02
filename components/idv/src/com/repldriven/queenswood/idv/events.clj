@@ -19,6 +19,7 @@
         (case event
           "idv-evidence" (core/apply-evidence config data)
           "idv-session-opened" (core/record-hand-off config data)
+          "idv-session-failed" (core/fail-session config data)
           (do (log/warnf "Unknown IDV event: %s" event) nil))))))
 
 (defrecord IdvEventProcessor [config]

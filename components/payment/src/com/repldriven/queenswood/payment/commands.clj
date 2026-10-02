@@ -111,6 +111,9 @@
                         {:message "Unknown debit-credit-code"
                          :debit-credit-code debit-credit-code}))
 
+          "inbound-return-failed"
+          (inbound/return-failed config data)
+
           "transfer-completed"
           (provider-transfer/complete-transfer config data)
 

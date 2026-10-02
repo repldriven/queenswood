@@ -162,6 +162,9 @@
         (not= (get-in payment [:attributes :amount]) (:amount attributes))
         (signed/api-error 400 "A return is for the original amount")
 
+        (records/take-return-refusal state)
+        (signed/api-error 422 "The payment could not be returned")
+
         :else
         (responses/ok 201
                       (records/put state

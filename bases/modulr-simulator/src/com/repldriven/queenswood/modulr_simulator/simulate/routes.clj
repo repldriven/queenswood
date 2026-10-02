@@ -34,6 +34,20 @@ with the reason given as an ISO 20022 code, AC04 where none is."
              :openapi {:operationId "SimulateOpenRefused"}
              :responses {204 {:description "The next opening is refused."}}
              :handler handlers/open-refused}}]
+    ["/close-refused"
+     {:post {:summary "Refuse the next account close"
+             :openapi {:operationId "SimulateCloseRefused"}
+             :responses {204 {:description "The next close is refused."}}
+             :handler handlers/close-refused}}]
+    ["/reissue-refused"
+     {:post
+      {:summary "Refuse the next address reissue"
+       :description
+       "The reissue's opening of the new account is refused, after the
+old account has been blocked."
+       :openapi {:operationId "SimulateReissueRefused"}
+       :responses {204 {:description "The next reissue is refused."}}
+       :handler handlers/reissue-refused}}]
     ["/fund"
      {:post
       {:summary "Credit an account without notifying anyone"

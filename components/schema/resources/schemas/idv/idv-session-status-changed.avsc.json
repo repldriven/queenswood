@@ -13,7 +13,8 @@
                        "symbols": ["IDV_SESSION_STATUS_UNKNOWN",
                                     "IDV_SESSION_STATUS_OPENING",
                                     "IDV_SESSION_STATUS_READY",
-                                    "IDV_SESSION_STATUS_COMPLETED"]}],
+                                    "IDV_SESSION_STATUS_COMPLETED",
+                                    "IDV_SESSION_STATUS_FAILED"]}],
      "default": null},
     {"name": "status_after", "type": "com.repldriven.mono.idv.IdvSessionStatus"}
   ]

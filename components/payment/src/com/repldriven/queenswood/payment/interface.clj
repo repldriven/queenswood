@@ -6,7 +6,8 @@
   payment held while the scheme screens it; rejection events reverse the
   in-flight legs (1200 → debtor) and flip the payment to failed. Return
   events bring a completed outbound's money back (1100 → debtor) and flip
-  it to returned. Returns the payment map or an anomaly. The
+  it to returned; an inbound's failed return leaves it suspended with the
+  provider's reason. Returns the payment map or an anomaly. The
   `payment/outbound-sweep` component logs an outbound payment left
   pending or held past a day, changing no record.
 

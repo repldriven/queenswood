@@ -98,8 +98,15 @@ message CashAccount {
   // new ones for this key.
   optional string pending_rotation_key = 26;
 
-  // Why the provider declined to open the account, on a refused one.
+  // Why the provider last refused the account: its opening, on a
+  // refused account; its closing, or a reissue of its addresses, on one
+  // that carries on.
   optional string refusal_reason = 27;
+
+  // The status a closing account closed from, opened or suspended, to
+  // which a close the provider refuses returns it. Set only while the
+  // account is closing.
+  optional CashAccountStatus closing_from = 28;
 
   enum CashAccountStatus {
     CASH_ACCOUNT_STATUS_UNKNOWN = 0;

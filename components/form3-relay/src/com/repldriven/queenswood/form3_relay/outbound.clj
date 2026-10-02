@@ -174,6 +174,16 @@
   [provider-payment-id return-id]
   (str (payment-path provider-payment-id) "/returns/" return-id))
 
+(defn- return-failed
+  [intent reason]
+  (let [{:keys [provider-payment-id]} intent
+        {:keys [end-to-end-id]} (context intent)]
+    {:event-name "inbound-return-failed"
+     :dedup-key (str provider-payment-id ":return-failed")
+     :data {:scheme-transaction-id provider-payment-id
+            :end-to-end-id end-to-end-id
+            :reason reason}}))
+
 (defn- relay-return
   [config now intent]
   (let [{:keys [intent-id request provider-payment-id]} intent
@@ -206,7 +216,14 @@
      (or (= :refused outcome) (give-up? config attempts))
      (do (log/error "Form3 did not take the return; it stays in suspense"
                     {:intent-id intent-id :reason result})
-         (finish config now intent "failed" nil))
+         (finish config
+                 now
+                 intent
+                 "failed"
+                 (return-failed intent
+                                (if (= :refused outcome)
+                                  result
+                                  (str "Undelivered: " result)))))
 
      :else
      (retry config now intent attempts result))))
@@ -371,7 +388,17 @@
      (do (log/error
           "Form3 did not close the account"
           {:intent-id intent-id :account-id account-id :reason result})
-         (finish config now intent "failed" nil))
+         (finish config
+                 now
+                 intent
+                 "failed"
+                 (account-event intent
+                                "payment-account-close-refused"
+                                {:bank-id bank-id
+                                 :account-id account-id
+                                 :reason (if (= :refused outcome)
+                                           result
+                                           (str "Undelivered: " result))})))
 
      :else
      (retry config now intent attempts result))))
@@ -396,9 +423,12 @@
                   :currency base_currency)))])
 
     "register"
-    (let [[outcome result] (register config ctx)]
-      [outcome
-       result
+    (let [[outcome result] (register config ctx)
+          {:keys [status status_reason]} (:attributes result)]
+      [(if (and (= :ok outcome) (not= "confirmed" status)) :refused outcome)
+       (if (and (= :ok outcome) (not= "confirmed" status))
+         (or status_reason (str "Registration " status))
+         result)
        (fn [account]
          (assoc ctx
                 :step "close"
@@ -421,6 +451,16 @@
                     :rotation-key rotation-key
                     :addresses (:addresses new-account)})))
 
+(defn- reissue-failed
+  [intent ctx reason]
+  (let [{:keys [bank-id account-id rotation-key]} ctx]
+    (account-event intent
+                   "payment-address-reissue-failed"
+                   {:bank-id bank-id
+                    :account-id account-id
+                    :rotation-key rotation-key
+                    :reason reason})))
+
 (defn- relay-reissue
   [config now intent]
   (let [ctx (context intent)
@@ -433,17 +473,35 @@
                        (with-number config intent ctx)
                        ctx)]
         (let [[outcome result next-ctx] (reissue-step config ctx)
-              attempts (inc (or (:attempts intent) 0))]
+              attempts (inc (or (:attempts intent) 0))
+              intent (assoc intent :attempts attempts)
+              stop? (or (= :refused outcome) (give-up? config attempts))]
           (cond
            (= :ok outcome)
            (advance config intent (next-ctx result))
 
-           (give-up? config attempts)
-           (do (log/error "Form3 address reissue giving up"
+           (and stop? (= "close" (:step ctx)))
+           (do (log/error
+                "Form3 did not close the old registration; it stays open"
+                {:intent-id (:intent-id intent)
+                 :provider-account-id (:provider-account-id ctx)
+                 :reason result})
+               (finish config now intent "settled" (reissued intent ctx)))
+
+           stop?
+           (do (log/error "Form3 address reissue failed"
                           {:intent-id (:intent-id intent)
                            :step (:step ctx)
                            :reason result})
-               (finish config now intent "failed" nil))
+               (finish config
+                       now
+                       intent
+                       "failed"
+                       (reissue-failed intent
+                                       ctx
+                                       (if (= :refused outcome)
+                                         result
+                                         (str "Undelivered: " result)))))
 
            :else
            (retry config now intent attempts result)))))))
@@ -522,7 +580,15 @@
      (= :failed (outcomes/outcome status))
      (do (log/error "Form3 did not deliver a return; it stays in suspense"
                     {:intent-id intent-id :status status})
-         (finish config now intent "sent" "failed" nil))
+         (finish config
+                 now
+                 intent
+                 "sent"
+                 "failed"
+                 (return-failed intent
+                                (or (get-in result
+                                            [:data :attributes :status_reason])
+                                    (str "Return " status)))))
 
      :else
      (wait config now intent))))

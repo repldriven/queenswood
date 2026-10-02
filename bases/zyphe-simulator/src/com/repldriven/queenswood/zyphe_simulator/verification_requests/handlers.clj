@@ -9,6 +9,11 @@
 
 (def ^:private undocumented-code 0)
 
+(def ^{:private true
+       :doc "The email whose verification request the simulator refuses."}
+     refused-email
+  "refused@verification.example")
+
 (defn- baxe-error
   [status code error-tag message]
   {:status status :body {:code code :errorTag error-tag :message message}})
@@ -116,6 +121,12 @@
                    undocumented-code
                    "bad_request"
                    "Provide an email or a credential")
+
+       (= refused-email (:email body))
+       (baxe-error 422
+                   undocumented-code
+                   "unprocessable_entity"
+                   "The verification request was refused")
 
        :else
        (let [existing (open-run state flow-id zid)

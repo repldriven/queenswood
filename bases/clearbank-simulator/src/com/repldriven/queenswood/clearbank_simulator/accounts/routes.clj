@@ -30,4 +30,16 @@
      :post {:summary "Decline the next account opening"
             :openapi {:operationId "SimulateOpenRefused"}
             :responses {204 {:description "The next opening is declined."}}
-            :handler (handlers/refuse-next nil)}}]])
+            :handler (handlers/refuse-next nil)}}]
+   ["/simulate/close-refused"
+    {:openapi {:tags ["Simulate"]}
+     :post {:summary "Refuse the next account close"
+            :openapi {:operationId "SimulateCloseRefused"}
+            :responses {204 {:description "The next close is refused."}}
+            :handler (handlers/refuse-next nil :refuse-next-close)}}]
+   ["/simulate/reissue-refused"
+    {:openapi {:tags ["Simulate"]}
+     :post {:summary "Refuse the next account number reissue"
+            :openapi {:operationId "SimulateReissueRefused"}
+            :responses {204 {:description "The next reissue is refused."}}
+            :handler (handlers/refuse-next nil :refuse-next-reissue)}}]])

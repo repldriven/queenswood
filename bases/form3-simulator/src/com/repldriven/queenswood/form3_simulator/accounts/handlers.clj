@@ -62,6 +62,9 @@
         (not= "closed" status)
         (signed/api-error 400 "Only an account's closing is amendable here")
 
+        (records/take-close-refusal state)
+        (signed/api-error 422 "The account could not be closed")
+
         :else
         (responses/ok (records/change state
                                       :accounts

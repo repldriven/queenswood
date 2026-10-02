@@ -186,6 +186,7 @@
    [:return-url :string]
    [:status [:ref "VerificationSessionStatus"]]
    [:hand-off {:optional true} [:ref "HandOff"]]
+   [:failure-reason {:optional true} [:maybe string?]]
    [:created-at [:ref "Timestamp"]]
    [:updated-at [:ref "Timestamp"]]])
 
@@ -239,8 +240,8 @@
   (encode-party (->body party)))
 
 (def ^:private session-keys
-  [:session-id :party-id :channel :return-url :status :hand-off :created-at
-   :updated-at])
+  [:session-id :party-id :channel :return-url :status :hand-off
+   :failure-reason :created-at :updated-at])
 
 (defn ->session-body
   [session]

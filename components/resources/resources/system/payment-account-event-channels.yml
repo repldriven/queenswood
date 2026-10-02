@@ -4,3 +4,5 @@ payment-account-opened: !keyword schemes-account-event
 payment-account-refused: !keyword schemes-account-event
 payment-account-closed: !keyword schemes-account-event
 payment-address-reissued: !keyword schemes-account-event
+payment-account-close-refused: !keyword schemes-account-event
+payment-address-reissue-failed: !keyword schemes-account-event

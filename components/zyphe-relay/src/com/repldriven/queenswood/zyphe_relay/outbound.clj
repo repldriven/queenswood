@@ -204,6 +204,44 @@
                       :zyphe-outbound/opened
                       "Failed to record the opened session"))))
 
+(defn- session-failed
+  [config data reason]
+  (let [{:keys [schemas]} config
+        {:keys [bank-id verification-id session-id]} data]
+    (let-nom> [payload (avro/serialize (get schemas "idv-session-failed")
+                                       {:bank-id bank-id
+                                        :verification-id verification-id
+                                        :session-id session-id
+                                        :reason reason})]
+      {:outbox-id (str (utility/uuidv7))
+       :dedup-key (str session-id ":failed")
+       :event-name "idv-session-failed"
+       :payload payload
+       :correlation-id (str (utility/uuidv7))
+       :causation-id session-id
+       :created-at (utility/now)})))
+
+(defn- record-failed
+  [config intent-id attempts data reason]
+  (if (nil? (:session-id data))
+    (store/mark-failed config intent-id attempts)
+    (let-nom> [event (session-failed config data reason)]
+      (store/transact config
+                      (fn [txn]
+                        (let [saved (store/save-event txn event)]
+                          (if (and (error/anomaly? saved)
+                                   (not (store/uniqueness-violation? saved)))
+                            saved
+                            (store/mark-failed txn intent-id attempts))))
+                      :zyphe-outbound/failed
+                      "Failed to record the failed session"))))
+
+(defn- refused?
+  "True for a failure retrying cannot mend: the provider refused the
+  request, or no configured flow covers it."
+  [res]
+  (contains? #{:idv/http :idv/unsupported-criteria} (error/kind res)))
+
 (defn- relay-one
   [config {:keys [intent-id request attempts]}]
   (let [{:keys [max-attempts flows]} config
@@ -222,10 +260,17 @@
      (not (error/anomaly? res))
      (record-opened config intent-id data res)
 
-     (>= next-attempts max-attempts)
-     (do (log/error "Zyphe intent giving up after max attempts"
+     (or (refused? res) (>= next-attempts max-attempts))
+     (do (log/error "Zyphe intent failed"
                     {:intent-id intent-id :attempts next-attempts :last res})
-         (store/mark-failed config intent-id next-attempts))
+         (record-failed config
+                        intent-id
+                        next-attempts
+                        data
+                        (if (refused? res)
+                          (:message (error/payload res))
+                          (str "Undelivered: "
+                               (:message (error/payload res))))))
 
      :else
      (do (log/warn "Zyphe intent submit failed; will retry"

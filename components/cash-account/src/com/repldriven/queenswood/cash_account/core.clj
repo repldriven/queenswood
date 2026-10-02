@@ -330,6 +330,27 @@
                        domain/closed-account
                        :cash-account-change-kind-close))
 
+(defn provider-close-refused
+  [txn {:keys [bank-id account-id reason]}]
+  (provider-transition txn
+                       bank-id
+                       account-id
+                       (status? :cash-account-status-closing)
+                       (fn [account]
+                         (domain/close-refused-account account reason))
+                       :cash-account-change-kind-close-refused))
+
+(defn provider-reissue-failed
+  [txn {:keys [bank-id account-id rotation-key reason]}]
+  (provider-transition txn
+                       bank-id
+                       account-id
+                       (fn [account]
+                         (= rotation-key (:pending-rotation-key account)))
+                       (fn [account]
+                         (domain/reissue-failed-account account reason))
+                       :cash-account-change-kind-rotate-failed))
+
 (defn provider-reissued
   [txn {:keys [bank-id account-id rotation-key] :as event}]
   (provider-transition txn
