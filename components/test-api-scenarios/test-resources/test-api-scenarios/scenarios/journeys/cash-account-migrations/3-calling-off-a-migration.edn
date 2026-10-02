@@ -1,0 +1,86 @@
+{:name "A cancelled migration moves nobody, even once due"
+ :given
+ [{:fixture :bank :as :bank-0 :with {:name "Cancelled Migration Journey" :status "live"}}
+  {:fixture :person :as :arthur :with {:token [:ref :bank-0 :token]}}
+  {:fixture :product
+   :as :v1
+   :with {:token [:ref :bank-0 :token]
+          :name "Saver"
+          :template-id "tpl.00000000000000000000000002"
+          :interest-rate-bps 100}}
+  {:fixture :account
+   :as :saver
+   :with {:token [:ref :bank-0 :token]
+          :party-id [:ref :arthur :party :party-id]
+          :product-id [:ref :v1 :product :product-id]
+          :name "Saver"}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products/{product-id}/versions"
+             :path-params {:product-id [:ref :v1 :product :product-id]}
+             :auth [:ref :bank-0 :token]
+             :body {:name "Saver"
+                    :template-id "tpl.00000000000000000000000002"
+                    :currency "GBP"
+                    :interest-rate-bps 365
+                    :effective-from "2026-06-01"}}
+   :as :v2
+   :assert {:status 201}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :v2 :product-id]
+                  :version-id [:ref :v2 :version-id]}
+    :auth [:ref :bank-0 :token]}
+   :assert {:status 200}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-migrations"
+             :auth [:ref :bank-0 :token]
+             :body {:name "Savers onto the new rate"
+                    :source-product-id [:ref :v1 :product :product-id]
+                    :target-product-id [:ref :v2 :product-id]
+                    :target-version-id [:ref :v2 :version-id]
+                    :notified-on "2026-07-01"
+                    :due-on "2026-08-01"}}
+   :as :migration
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-migrations/{migration-id}/approve"
+             :path-params {:migration-id [:ref :migration :migration-id]}
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-migrations/{migration-id}/cancel"
+             :path-params {:migration-id [:ref :migration :migration-id]}
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200 :body {:status "cancelled"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/jobs/{job-id}/runs"
+             :path-params {:job-id "account-migration"}
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 201
+            :body {:status "succeeded"
+                   :tasks [{:label "migrate"
+                            :status "succeeded"
+                            :records-processed 0}]}}}
+  ;; A cancelled migration cannot be approved again.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-migrations/{migration-id}/approve"
+             :path-params {:migration-id [:ref :migration :migration-id]}
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 409
+            :problem {:type ":cash-account-migration/invalid-status"}}}]
+ :then
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :saver :account :account-id]}
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200 :body {:version-id [:ref :v1 :product :version-id]}}}]}

@@ -1,0 +1,166 @@
+{:name "A customer previews, approves and runs a move onto new terms"
+ :given
+ [{:fixture :bank :as :bank-0 :with {:name "Migration Journey" :status "live"}}
+  {:fixture :person :as :arthur :with {:token [:ref :bank-0 :token]}}
+  {:fixture :person
+   :as :ford
+   :with {:token [:ref :bank-0 :token]
+          :display-name "Ford Prefect"
+          :given-name "Ford"
+          :family-name "Prefect"
+          :national-insurance "TN000002A"}}
+  {:fixture :product
+   :as :v1
+   :with {:token [:ref :bank-0 :token]
+          :name "Saver"
+          :template-id "tpl.00000000000000000000000002"
+          :interest-rate-bps 100}}
+  {:fixture :account
+   :as :moving
+   :with {:token [:ref :bank-0 :token]
+          :party-id [:ref :arthur :party :party-id]
+          :product-id [:ref :v1 :product :product-id]
+          :name "Saver"}}
+  {:fixture :account
+   :as :staying
+   :with {:token [:ref :bank-0 :token]
+          :party-id [:ref :ford :party :party-id]
+          :product-id [:ref :v1 :product :product-id]
+          :name "Saver"}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts/{account-id}/suspend"
+             :path-params {:account-id [:ref :staying :account :account-id]}
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200}}
+  ;; The new terms, already in force.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products/{product-id}/versions"
+             :path-params {:product-id [:ref :v1 :product :product-id]}
+             :auth [:ref :bank-0 :token]
+             :body {:name "Saver"
+                    :template-id "tpl.00000000000000000000000002"
+                    :currency "GBP"
+                    :interest-rate-bps 365
+                    :effective-from "2026-06-01"}}
+   :as :v2
+   :assert {:status 201}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :v2 :product-id]
+                  :version-id [:ref :v2 :version-id]}
+    :auth [:ref :bank-0 :token]}
+   :assert {:status 200}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-migrations"
+             :auth [:ref :bank-0 :token]
+             :body {:name "Savers onto the new rate"
+                    :source-product-id [:ref :v1 :product :product-id]
+                    :target-product-id [:ref :v2 :product-id]
+                    :target-version-id [:ref :v2 :version-id]
+                    :notified-on "2026-07-01"
+                    :due-on "2026-08-01"}}
+   :as :migration
+   :assert {:status 201 :body {:status "draft"}}}
+  ;; The preview decides about every account and moves none: it counts
+  ;; the one that would move, and the suspended one would stay, saying
+  ;; why.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-migrations/{migration-id}/previews"
+             :path-params {:migration-id [:ref :migration :migration-id]}
+             :auth [:ref :bank-0 :token]}
+   :as :preview
+   :assert {:status 201
+            :body {:dry-run true
+                   :status "completed"
+                   :accounts-seen 2
+                   :accounts-moved 1
+                   :accounts-ineligible 1}}}
+  {:command :api/request
+   :request
+   {:method :get
+    :path
+    "/v1/cash-account-migrations/{migration-id}/previews/{run-id}/accounts"
+    :path-params {:migration-id [:ref :migration :migration-id]
+                  :run-id [:ref :preview :run-id]}
+    :auth [:ref :bank-0 :token]}
+   :assert {:status 200
+            :body {:items [:m/in-any-order
+                           [{:account-id [:ref :moving :account :account-id]
+                             :outcome "eligible"}
+                            {:account-id [:ref :staying :account :account-id]
+                             :outcome "ineligible"
+                             :ineligibility "account-not-open"}]]}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-migrations/{migration-id}/approve"
+             :path-params {:migration-id [:ref :migration :migration-id]}
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200 :body {:status "approved"}}}
+  ;; Approving moves nothing: only the migration job does.
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :moving :account :account-id]}
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200 :body {:version-id [:ref :v1 :product :version-id]}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/jobs/{job-id}/runs"
+             :path-params {:job-id "account-migration"}
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 201
+            :body {:status "succeeded"
+                   :tasks [{:label "migrate"
+                            :status "succeeded"
+                            :records-failed 0}]}}}]
+ :then
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :moving :account :account-id]}
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200
+            :body {:version-id [:ref :v2 :version-id]
+                   :account-status "opened"}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :staying :account :account-id]}
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200 :body {:version-id [:ref :v1 :product :version-id]}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/cash-account-migrations/{migration-id}"
+             :path-params {:migration-id [:ref :migration :migration-id]}
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200 :body {:status "completed"}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/cash-account-migrations/{migration-id}/previews/{run-id}"
+             :path-params {:migration-id [:ref :migration :migration-id]
+                           :run-id [:ref :preview :run-id]}
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200
+            :body {:run-id [:ref :preview :run-id] :dry-run true}}}
+  ;; The run that moved them is kept beside the preview, so what was
+  ;; expected and what happened can be compared.
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/cash-account-migrations/{migration-id}/previews"
+             :path-params {:migration-id [:ref :migration :migration-id]}
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200
+            :body {:items [:m/in-any-order
+                           [{:run-id [:ref :preview :run-id] :dry-run true}
+                            {:dry-run false
+                             :status "completed"
+                             :accounts-seen 2
+                             :accounts-moved 1
+                             :accounts-ineligible 1}]]}}}]}
