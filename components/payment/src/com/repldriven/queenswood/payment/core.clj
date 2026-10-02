@@ -7,6 +7,7 @@
     [com.repldriven.queenswood.payment.store :as store]
 
     [com.repldriven.queenswood.balance.interface :as balances]
+    [com.repldriven.queenswood.bank-activity.interface :as bank-activity]
     [com.repldriven.queenswood.cash-account-query.interface :as
      cash-accounts]
     [com.repldriven.queenswood.ledger-account.interface :as
@@ -93,6 +94,32 @@
            _ (store/save-internal-payment txn payment)]
           payment))))
    q/find-internal-payment-by-idempotency-key))
+
+(defn- record-submitted
+  [txn payment debtor-account]
+  (let [{:keys [payment-id bank-id debtor-account-id creditor-bban
+                creditor-name currency amount reference scheme]}
+        payment
+        {:keys [bban provider-account-id]} debtor-account]
+    (bank-activity/record txn
+                          {:bank-id bank-id
+                           :event-name "outbound-payment-submitted"
+                           :data (utility/assoc-some
+                                  {:payment-id payment-id
+                                   :debtor-account-id debtor-account-id
+                                   :debtor-bban bban
+                                   :creditor-bban creditor-bban
+                                   :creditor-name creditor-name
+                                   :amount amount
+                                   :currency currency}
+                                  :debtor-provider-account-id
+                                  provider-account-id
+                                  :reference
+                                  reference
+                                  :scheme
+                                  scheme)
+                           :causation-id payment-id
+                           :dedup-key payment-id})))
 
 (defn- publish-scheme-command
   [config payment debtor-account]
@@ -207,7 +234,8 @@
                     _ (store/save-outbound-payment
                        txn
                        payment
-                       {:change-kind :outbound-payment-change-kind-submit})]
+                       {:change-kind :outbound-payment-change-kind-submit})
+                    _ (record-submitted txn payment debtor-account)]
                    {:payment payment :debtor-account debtor-account}))))]
     (if (store/uniqueness-violation? raw)
       (let-nom> [existing (or-already-submitted

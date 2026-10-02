@@ -4,6 +4,7 @@
     [com.repldriven.queenswood.cash-account.store :as store]
 
     [com.repldriven.queenswood.balance-query.interface :as balances-q]
+    [com.repldriven.queenswood.bank-activity.interface :as bank-activity]
     [com.repldriven.queenswood.balance.interface :as balances]
     [com.repldriven.queenswood.cash-account-product-query.interface :as
      products]
@@ -41,6 +42,49 @@
 (defn- product-type-of
   [product-version]
   (:product-type product-version))
+
+(defn- record-opening
+  [txn account party product-version]
+  (let [{:keys [bank-id account-id currency]} account]
+    (let-nom> [schemes (domain/address-schemes product-version)]
+      (bank-activity/record txn
+                            {:bank-id bank-id
+                             :event-name "account-opening"
+                             :data {:account-id account-id
+                                    :holder-name (:display-name party)
+                                    :currency currency
+                                    :address-schemes schemes}
+                             :causation-id account-id
+                             :dedup-key account-id}))))
+
+(defn- record-closing
+  [txn account]
+  (let [{:keys [bank-id account-id provider-account-id]} account]
+    (when provider-account-id
+      (bank-activity/record txn
+                            {:bank-id bank-id
+                             :event-name "account-closing"
+                             :data {:account-id account-id
+                                    :provider-account-id provider-account-id}
+                             :causation-id account-id
+                             :dedup-key account-id}))))
+
+(defn- record-rotation
+  [txn account]
+  (let [{:keys [bank-id account-id provider-account-id pending-rotation-key]}
+        account]
+    (bank-activity/record txn
+                          {:bank-id bank-id
+                           :event-name "account-address-rotation-requested"
+                           :data (utility/assoc-some
+                                  {:account-id account-id
+                                   :rotation-key pending-rotation-key}
+                                  :provider-account-id
+                                  provider-account-id)
+                           :causation-id account-id
+                           :dedup-key (str account-id
+                                           ":"
+                                           pending-rotation-key)})))
 
 (defn- or-already-opened
   "On a uniqueness violation — a redelivered or retried
@@ -97,7 +141,8 @@
                                   {:account-id (:account-id account)
                                    :status-after (:account-status account)
                                    :change-kind
-                                   :cash-account-change-kind-open})]
+                                   :cash-account-change-kind-open})
+            _ (record-opening txn account party product-version)]
            account)))))))
 
 (defn close-account
@@ -119,7 +164,8 @@
                                   :status-before (:account-status account)
                                   :status-after (:account-status updated)
                                   :change-kind
-                                  :cash-account-change-kind-close})]
+                                  :cash-account-change-kind-close})
+           _ (record-closing txn updated)]
           updated))))))
 
 (def ^:private second-leg
@@ -230,7 +276,8 @@
                    :status-before (:account-status account)
                    :status-after (:account-status updated)
                    :change-kind
-                   :cash-account-change-kind-rotate-requested})]
+                   :cash-account-change-kind-rotate-requested})
+               _ (record-rotation txn updated)]
               updated))))))))
 
 (defn- provider-transition

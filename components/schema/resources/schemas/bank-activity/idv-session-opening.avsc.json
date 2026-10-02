@@ -42,76 +42,80 @@
     },
     {
       "name": "address",
-      "type": {
-        "type": "record",
-        "name": "Address",
-        "fields": [
-          {
-            "name": "flat_number",
-            "type": [
-              "null",
-              "string"
-            ],
-            "default": null
-          },
-          {
-            "name": "building_number",
-            "type": [
-              "null",
-              "string"
-            ],
-            "default": null
-          },
-          {
-            "name": "building_name",
-            "type": [
-              "null",
-              "string"
-            ],
-            "default": null
-          },
-          {
-            "name": "street",
-            "type": "string"
-          },
-          {
-            "name": "sub_street",
-            "type": [
-              "null",
-              "string"
-            ],
-            "default": null
-          },
-          {
-            "name": "town",
-            "type": "string"
-          },
-          {
-            "name": "state",
-            "type": [
-              "null",
-              "string"
-            ],
-            "default": null
-          },
-          {
-            "name": "postcode",
-            "type": "string"
-          },
-          {
-            "name": "country",
-            "type": "string"
-          },
-          {
-            "name": "start_date",
-            "type": [
-              "null",
-              "string"
-            ],
-            "default": null
-          }
-        ]
-      }
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "Address",
+          "fields": [
+            {
+              "name": "flat_number",
+              "type": [
+                "null",
+                "string"
+              ],
+              "default": null
+            },
+            {
+              "name": "building_number",
+              "type": [
+                "null",
+                "string"
+              ],
+              "default": null
+            },
+            {
+              "name": "building_name",
+              "type": [
+                "null",
+                "string"
+              ],
+              "default": null
+            },
+            {
+              "name": "street",
+              "type": "string"
+            },
+            {
+              "name": "sub_street",
+              "type": [
+                "null",
+                "string"
+              ],
+              "default": null
+            },
+            {
+              "name": "town",
+              "type": "string"
+            },
+            {
+              "name": "state",
+              "type": [
+                "null",
+                "string"
+              ],
+              "default": null
+            },
+            {
+              "name": "postcode",
+              "type": "string"
+            },
+            {
+              "name": "country",
+              "type": "string"
+            },
+            {
+              "name": "start_date",
+              "type": [
+                "null",
+                "string"
+              ],
+              "default": null
+            }
+          ]
+        }
+      ],
+      "default": null
     },
     {
       "name": "session_id",

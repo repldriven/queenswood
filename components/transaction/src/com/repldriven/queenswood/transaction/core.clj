@@ -1,9 +1,11 @@
 (ns com.repldriven.queenswood.transaction.core
   (:require
+    [com.repldriven.queenswood.transaction.changelog :as changelog]
     [com.repldriven.queenswood.transaction.domain :as domain]
     [com.repldriven.queenswood.transaction.store :as store]
 
     [com.repldriven.queenswood.balance.interface :as balances]
+    [com.repldriven.queenswood.bank-activity.interface :as bank-activity]
 
     [com.repldriven.mono.error.interface :refer [let-nom>]]))
 
@@ -26,7 +28,16 @@
             _ (store/write-posted txn
                                   transaction
                                   legs
-                                  (:scheme-account-id data))]
+                                  (:scheme-account-id data))
+            _ (bank-activity/record txn
+                                    {:bank-id (:bank-id transaction)
+                                     :event-name "transaction-posted"
+                                     :data (changelog/posted-data
+                                            transaction
+                                            legs
+                                            (:scheme-account-id data))
+                                     :causation-id transaction-id
+                                     :dedup-key transaction-id})]
            (assoc transaction :legs legs')))))))
 
 (defn- or-already-recorded

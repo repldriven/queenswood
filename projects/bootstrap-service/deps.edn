@@ -23,6 +23,8 @@
  ;; `balance-domain`, `balance-query`, `cash-account-query` and
  ;; `transaction` with it.
  :deps {ext/mono {:local/root "../../deps/mono"}
+        component/bank-activity {:local/root "../../components/bank-activity"}
+        component/changelog-relay {:local/root "../../components/changelog-relay"}
         component/balance {:local/root "../../components/balance"}
         component/balance-domain {:local/root "../../components/balance-domain"}
         component/balance-query {:local/root "../../components/balance-query"}

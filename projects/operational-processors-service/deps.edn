@@ -15,6 +15,7 @@
     component/test-startup {:local/root "../../components/test-startup"}}}}
  :deps
  {ext/mono {:local/root "../../deps/mono"}
+  component/bank-activity {:local/root "../../components/bank-activity"}
   component/fdb {:local/root "../../components/fdb"}
   component/balance {:local/root "../../components/balance"}
   component/balance-domain {:local/root "../../components/balance-domain"}

@@ -6,6 +6,7 @@
     [com.repldriven.queenswood.payment.store :as store]
 
     [com.repldriven.queenswood.balance.interface :as balances]
+    [com.repldriven.queenswood.bank-activity.interface :as bank-activity]
     [com.repldriven.queenswood.cash-account-query.interface :as cash-accounts]
     [com.repldriven.queenswood.ledger-account.interface :as ledger-accounts]
     [com.repldriven.queenswood.payment-query.interface :as q]
@@ -52,6 +53,19 @@
        _ (balances/apply-legs txn bank-id legs transaction-type)]
       recorded)))
 
+(defn- record-suspended
+  [txn payment creditor-account-id]
+  (let [{:keys [bank-id payment-id]} payment]
+    (bank-activity/record txn
+                          {:bank-id bank-id
+                           :event-name "inbound-payment-suspended"
+                           :data (utility/assoc-some
+                                  (inbound/return-payment payment)
+                                  :creditor-account-id
+                                  creditor-account-id)
+                           :causation-id payment-id
+                           :dedup-key payment-id})))
+
 (defn- park-in-suspense
   "Park an inbound the receiving account could not take in its bank's
   2500 suspense and persist a `suspended` InboundPayment, with the reason
@@ -71,7 +85,8 @@
      _ (store/save-inbound-payment
         txn
         payment
-        {:change-kind :inbound-payment-change-kind-suspend})]
+        {:change-kind :inbound-payment-change-kind-suspend})
+     _ (record-suspended txn payment (:account-id account))]
     payment))
 
 (defn- record-inbound-settlement
@@ -146,7 +161,8 @@
           txn
           suspended
           {:change-kind :inbound-payment-change-kind-suspend
-           :status-before (:payment-status held)})]
+           :status-before (:payment-status held)})
+       _ (record-suspended txn suspended creditor-account-id)]
       suspended)))
 
 (defn- record-inbound-release

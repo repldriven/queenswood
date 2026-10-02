@@ -4,6 +4,7 @@
     [com.repldriven.queenswood.idv.domain :as domain]
     [com.repldriven.queenswood.idv.store :as store]
 
+    [com.repldriven.queenswood.bank-activity.interface :as bank-activity]
     [com.repldriven.queenswood.bank-query.interface :as bank-query]
     [com.repldriven.queenswood.idv-provider.interface :as idv-provider]
     [com.repldriven.queenswood.idv-query.interface :as idv-query]
@@ -29,40 +30,56 @@
     (let-nom> [bank (bank-query/find-bank txn bank-id)]
       (idv-provider/for-bank providers bank))))
 
+(defn- check-data
+  [session identification criteria]
+  (let [{:keys [verification-id party-id session-id channel return-url email]}
+        session
+        {:keys [given-name middle-names family-name date-of-birth address]}
+        identification]
+    (utility/assoc-some {:verification-id verification-id
+                         :party-id party-id
+                         :first-name (or given-name "")
+                         :last-name (or family-name "")
+                         :session-id session-id
+                         :verifications (keep (fn [c]
+                                                (when (:verification c)
+                                                  (idv-query/criterion-name
+                                                   c)))
+                                              criteria)
+                         :screenings (keep (fn [c]
+                                             (when (:screening c)
+                                               (idv-query/criterion-name c)))
+                                           criteria)}
+                        :middle-names middle-names
+                        :date-of-birth (when date-of-birth (str date-of-birth))
+                        :address address
+                        :channel channel
+                        :return-url return-url
+                        :email email)))
+
+(defn- record-opening
+  [txn session identification criteria]
+  (let [{:keys [bank-id session-id]} session]
+    (bank-activity/record txn
+                          {:bank-id bank-id
+                           :event-name "idv-session-opening"
+                           :data (check-data session identification criteria)
+                           :causation-id session-id
+                           :dedup-key session-id})))
+
 (defn- publish-submit-idv-check
   [config provider session identification criteria]
   (let [{:keys [bus schemas]} config
         {:keys [command-channel]} provider
-        {:keys [bank-id verification-id party-id session-id channel
-                return-url email]}
-        session
-        {:keys [given-name middle-names family-name date-of-birth address]}
-        identification
+        {:keys [bank-id session-id]} session
         schema (clojure.core/get schemas "submit-idv-check")]
     (when (and bus schema command-channel)
-      (let [payload (avro/serialize
-                     schema
-                     {:bank-id bank-id
-                      :verification-id verification-id
-                      :party-id party-id
-                      :first-name (or given-name "")
-                      :middle-names middle-names
-                      :last-name (or family-name "")
-                      :date-of-birth (when date-of-birth
-                                       (str date-of-birth))
-                      :address address
-                      :session-id session-id
-                      :channel channel
-                      :return-url return-url
-                      :email email
-                      :verifications (keep (fn [c]
-                                             (when (:verification c)
-                                               (idv-query/criterion-name c)))
-                                           criteria)
-                      :screenings (keep (fn [c]
-                                          (when (:screening c)
-                                            (idv-query/criterion-name c)))
-                                        criteria)})]
+      (let [payload (avro/serialize schema
+                                    (assoc (check-data session
+                                                       identification
+                                                       criteria)
+                                           :bank-id
+                                           bank-id))]
         (if (error/anomaly? payload)
           (log/error "Failed to serialize submit-idv-check" payload)
           (let [envelope {:command "submit-idv-check"
@@ -194,11 +211,18 @@
                       party-id)
                      session (store/save-session txn
                                                  (domain/new-session idv data)
-                                                 nil)]
+                                                 nil)
+                     criteria (domain/required-criteria policies)
+                     _ (record-opening txn
+                                       (assoc session
+                                              :channel (:channel data)
+                                              :email (:email data))
+                                       identification
+                                       criteria)]
                     {:session session
                      :provider provider
                      :identification identification
-                     :criteria (domain/required-criteria policies)}))
+                     :criteria criteria}))
                 :idv/open-session
                 "Failed to open a verification session")]
     (if (error/anomaly? opened)

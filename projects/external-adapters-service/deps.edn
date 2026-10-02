@@ -12,7 +12,6 @@
   {:extra-deps
    {ext/mono {:local/root "../../deps/mono-test"}
     ext/mono-test-runner {:local/root "../../deps/mono-test-runner"}
-    component/changelog-relay {:local/root "../../components/changelog-relay"}
     component/test-resources {:local/root "../../components/test-resources"}
     component/testcontainers {:local/root "../../components/testcontainers"}
     component/test-schema {:local/root "../../components/test-schema"}
@@ -20,6 +19,8 @@
  :deps
  {ext/mono {:local/root "../../deps/mono"}
   component/fdb {:local/root "../../components/fdb"}
+  component/bank-activity {:local/root "../../components/bank-activity"}
+  component/changelog-relay {:local/root "../../components/changelog-relay"}
   component/idv-query {:local/root "../../components/idv-query"}
   component/api-schema {:local/root "../../components/api-schema"}
   component/balance {:local/root "../../components/balance"}

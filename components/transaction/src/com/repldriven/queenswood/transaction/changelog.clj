@@ -29,21 +29,27 @@
                       :control
                       control))
 
+(defn posted-data
+  [transaction legs scheme-account-id]
+  (let [{:keys [transaction-id bank-id transaction-type currency]} transaction]
+    (utility/assoc-some {:bank-id bank-id
+                         :transaction-id transaction-id
+                         :transaction-type transaction-type
+                         :currency currency
+                         :legs (mapv ->leg legs)}
+                        :scheme-account-id
+                        scheme-account-id)))
+
 (defn posted
   "The shared-envelope changelog bytes for a recorded transaction, keyed
   and ordered by its bank so a consumer sees one bank's postings in the
   order they committed."
   [transaction legs scheme-account-id]
-  (let [{:keys [transaction-id bank-id transaction-type currency]} transaction]
+  (let [{:keys [transaction-id bank-id]} transaction]
     (let-nom> [payload (avro/serialize @posted-schema
-                                       (utility/assoc-some
-                                        {:bank-id bank-id
-                                         :transaction-id transaction-id
-                                         :transaction-type transaction-type
-                                         :currency currency
-                                         :legs (mapv ->leg legs)}
-                                        :scheme-account-id
-                                        scheme-account-id))]
+                                       (posted-data transaction
+                                                    legs
+                                                    scheme-account-id))]
       (schema/ChangelogEvent->pb
        (utility/assoc-some {:event-id (str (utility/uuidv7))
                             :dedup-key (str transaction-id ":posted")
