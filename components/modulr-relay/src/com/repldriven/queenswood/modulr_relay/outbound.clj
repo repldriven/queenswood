@@ -331,6 +331,13 @@
      :else
      (retry config now intent attempts result))))
 
+(defn- close-refused
+  [intent reason]
+  (let [{:keys [bank-id account-id]} (context intent)]
+    (account-event intent
+                   "payment-account-close-refused"
+                   {:bank-id bank-id :account-id account-id :reason reason})))
+
 (defn- relay-close
   [config now intent]
   (let [{:keys [intent-id]} intent
@@ -357,14 +364,18 @@
                     {:intent-id intent-id
                      :account-id account-id
                      :reason result})
-         (finish config now intent "failed" nil))
+         (finish config now intent "failed" (close-refused intent result)))
 
      (give-up? config attempts)
      (do (log/error "Modulr did not close the account"
                     {:intent-id intent-id
                      :account-id account-id
                      :reason result})
-         (finish config now intent "failed" nil))
+         (finish config
+                 now
+                 intent
+                 "failed"
+                 (close-refused intent (str "Undelivered: " result))))
 
      :else
      (retry config now intent attempts result))))

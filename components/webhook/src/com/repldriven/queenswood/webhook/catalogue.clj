@@ -176,6 +176,15 @@
    (cash-account-entry "cash-account.migrated"
                        :cash-account-change-kind-migrate
                        "migrate")
+   ;; A close the provider refused returns the account to where it
+   ;; closed from, and a reissue it failed leaves the addresses as they
+   ;; were, so neither names a terminal status.
+   (cash-account-entry "cash-account.close-refused"
+                       :cash-account-change-kind-close-refused
+                       "close-refused")
+   (cash-account-entry "cash-account.address-rotation-failed"
+                       :cash-account-change-kind-rotate-failed
+                       "rotate-failed")
    ;; A party opens when it first becomes active: a person on passing
    ;; identity verification, and a party created without one at once.
    (party-entry "party.opened"

@@ -49,7 +49,8 @@
    :payments {}
    :nonces {}
    :notifications {}
-   :refuse-next false})
+   :refuse-next false
+   :refuse-next-close false})
 
 ;; ---- accounts
 
@@ -122,13 +123,21 @@
   (swap! state assoc-in [:accounts account-id :status] status))
 
 (defn close-account
-  "Close the account, or `{:refused message}` while it holds money."
+  "Close the account, or `{:refused message}` while it holds money or
+  when a control route asked for the next close to be refused."
   [state account-id]
   (locking state
     (let [{:keys [balance unbounded]} (account state account-id)]
-      (if (and (not unbounded) (pos? (.signum ^BigDecimal balance)))
-        {:refused "The account's balance is not zero"}
-        (do (set-status state account-id "CLOSED") {:closed account-id})))))
+      (cond
+       (:refuse-next-close @state)
+       (do (swap! state assoc :refuse-next-close false)
+           {:refused "The account could not be closed"})
+
+       (and (not unbounded) (pos? (.signum ^BigDecimal balance)))
+       {:refused "The account's balance is not zero"}
+
+       :else
+       (do (set-status state account-id "CLOSED") {:closed account-id})))))
 
 (defn credit
   [state account-id amt]

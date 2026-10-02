@@ -178,13 +178,20 @@
    "close-account"
    {:path (fn [{:keys [provider-account-id]}]
             (str "/v1/virtual-accounts/" provider-account-id "/close"))
-    :opened "payment-account-closed"}
+    :opened "payment-account-closed"
+    :refused "payment-account-close-refused"}
    "reissue-address"
    {:path (fn [{:keys [provider-account-id]}]
             (if provider-account-id
               (str "/v1/virtual-accounts/" provider-account-id "/reissue")
               "/v1/virtual-accounts"))
-    :opened "payment-address-reissued"}})
+    :opened "payment-address-reissued"
+    :refused "payment-address-reissue-failed"}})
+
+(def ^:private refusals
+  "The events that end an account call failed rather than complete."
+  #{"payment-account-refused" "payment-account-close-refused"
+    "payment-address-reissue-failed"})
 
 (defn- classify-account-call
   [res]
@@ -234,7 +241,16 @@
       {:bank-id bank-id :account-id account-id}
 
       "payment-account-refused"
-      {:bank-id bank-id :account-id account-id :reason body})))
+      {:bank-id bank-id :account-id account-id :reason body}
+
+      "payment-account-close-refused"
+      {:bank-id bank-id :account-id account-id :reason body}
+
+      "payment-address-reissue-failed"
+      {:bank-id bank-id
+       :account-id account-id
+       :rotation-key rotation-key
+       :reason body})))
 
 (defn- account-event
   [config now intent event-name data]
@@ -262,7 +278,7 @@
                                       intent
                                       event-name
                                       (event-data event-name context body))]
-        (if (= "payment-account-refused" event-name)
+        (if (contains? refusals event-name)
           (store/fail-intent config intent-id attempts event)
           (store/complete-intent config intent-id event))))))
 

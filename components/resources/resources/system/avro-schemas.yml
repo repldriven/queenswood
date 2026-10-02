@@ -72,6 +72,8 @@ payment-account-opened: schemas/schemes/accounts/payment-account-opened.avsc.jso
 payment-account-refused: schemas/schemes/accounts/payment-account-refused.avsc.json
 payment-account-closed: schemas/schemes/accounts/payment-account-closed.avsc.json
 payment-address-reissued: schemas/schemes/accounts/payment-address-reissued.avsc.json
+payment-account-close-refused: schemas/schemes/accounts/payment-account-close-refused.avsc.json
+payment-address-reissue-failed: schemas/schemes/accounts/payment-address-reissue-failed.avsc.json
 submit-payment: schemas/schemes/payments/submit-payment.avsc.json
 transaction-settled: schemas/schemes/payments/transaction-settled.avsc.json
 transaction-rejected: schemas/schemes/payments/transaction-rejected.avsc.json

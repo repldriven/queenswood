@@ -371,7 +371,17 @@
      (do (log/error
           "Form3 did not close the account"
           {:intent-id intent-id :account-id account-id :reason result})
-         (finish config now intent "failed" nil))
+         (finish config
+                 now
+                 intent
+                 "failed"
+                 (account-event intent
+                                "payment-account-close-refused"
+                                {:bank-id bank-id
+                                 :account-id account-id
+                                 :reason (if (= :refused outcome)
+                                           result
+                                           (str "Undelivered: " result))})))
 
      :else
      (retry config now intent attempts result))))

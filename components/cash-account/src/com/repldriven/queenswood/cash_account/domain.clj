@@ -229,13 +229,24 @@
                         :balances (reported-buckets offending)}))]
     (assoc account
            :account-status :cash-account-status-closing
+           :closing-from (:account-status account)
            :updated-at (utility/now))))
 
 (defn closed-account
   [account]
-  (assoc account
-         :account-status :cash-account-status-closed
-         :updated-at (utility/now)))
+  (-> account
+      (dissoc :closing-from)
+      (assoc :account-status :cash-account-status-closed
+             :updated-at (utility/now))))
+
+(defn close-refused-account
+  [account reason]
+  (-> account
+      (dissoc :closing-from)
+      (assoc :account-status (or (:closing-from account)
+                                 :cash-account-status-opened)
+             :updated-at (utility/now))
+      (assoc-some :refusal-reason reason)))
 
 (defn suspend-account
   [account policies]
@@ -287,6 +298,13 @@
              :pending-rotation-key rotation-key
              :last-rotation-idempotency-key rotation-key
              :updated-at (utility/now)))))
+
+(defn reissue-failed-account
+  [account reason]
+  (-> account
+      (dissoc :pending-rotation-key)
+      (assoc :updated-at (utility/now))
+      (assoc-some :refusal-reason reason)))
 
 (defn reissued-account
   [account {:keys [provider-account-id addresses]}]

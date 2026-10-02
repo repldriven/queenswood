@@ -638,7 +638,8 @@
   customer instruments from GL rows. Always drops
   `gl-control-account-id`: the field is deprecated, kept in the
   descriptor only so stored meta-data can still evolve, and no read
-  site consults it."
+  site consults it. Drops the `:cash-account-status-unknown` an unset
+  `closing-from` reads as, so it is present only while closing."
   [input]
   (let [account (cash-accounts/pb->CashAccount input)]
     (cond-> (dissoc account :gl-control-account-id)
@@ -646,7 +647,10 @@
             (dissoc :bban)
 
             (= "" (:last-rotation-idempotency-key account))
-            (dissoc :last-rotation-idempotency-key))))
+            (dissoc :last-rotation-idempotency-key)
+
+            (= :cash-account-status-unknown (:closing-from account))
+            (dissoc :closing-from))))
 
 (defn CashAccount->pb
   "Serialise a CashAccount map to protobuf bytes.

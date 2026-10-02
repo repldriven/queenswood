@@ -94,3 +94,8 @@
   [request]
   (swap! (:state request) assoc :refuse-next true)
   {:status 204})
+
+(defn close-refused
+  [request]
+  (swap! (:state request) assoc :refuse-next-close true)
+  {:status 204})

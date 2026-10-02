@@ -42,4 +42,9 @@ with the reason given as an ISO 20022 code, AC04 where none is."
      {:post {:summary "Fail the next account registration"
              :openapi {:operationId "SimulateOpenRefused"}
              :responses {204 {:description "The next registration fails."}}
-             :handler handlers/open-refused}}]]])
+             :handler handlers/open-refused}}]
+    ["/close-refused"
+     {:post {:summary "Fail the next account close"
+             :openapi {:operationId "SimulateCloseRefused"}
+             :responses {204 {:description "The next close fails."}}
+             :handler handlers/close-refused}}]]])
