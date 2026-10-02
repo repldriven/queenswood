@@ -31,7 +31,16 @@
                      :verification-id dedup-key
                      :party-id "pty.1"
                      :first-name "Ada"
-                     :last-name "Lovelace"})
+                     :middle-names nil
+                     :last-name "Lovelace"
+                     :date-of-birth nil
+                     :address nil
+                     :session-id nil
+                     :channel nil
+                     :return-url nil
+                     :email nil
+                     :verifications []
+                     :screenings []})
    :status "pending"
    :attempts 0
    :created-at (utility/now)})

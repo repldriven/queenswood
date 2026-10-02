@@ -112,7 +112,7 @@
   secret. Creating again for the same identity resumes the run, so a
   retried intent or a second session does not start a second one."
   [{:keys [adapter-url webhook-secret]}
-   {:keys [bank-id verification-id party-id session-id email]}]
+   {:keys! [bank-id verification-id party-id session-id email]}]
   (utility/assoc-some
    {:credentials [{:type "EXTERNAL_ID" :externalId party-id}]
     :customData (utility/assoc-some {:bankId bank-id
@@ -133,7 +133,7 @@
   "The hosted-flow URL the person is handed to, per Zyphe's session URL:
   the run, its token and access signature, the person's email, the
   tenant's return URL, and a full-screen layout for a mobile WebView."
-  [{:keys [verify-url sandbox]} {:keys [channel return-url email]} reply]
+  [{:keys [verify-url sandbox]} {:keys! [channel return-url email]} reply]
   (let [{:keys [verificationRequest zypheToken zypheAccessSig flowSlug]} reply
         params (cond-> [["zypheVr" (:id verificationRequest)]
                         ["zypheToken" zypheToken]
@@ -156,7 +156,8 @@
 
 (defn- submit-idv-check
   [config flow data]
-  (let [url (create-url config (:id flow))]
+  (let [url (create-url config (:id flow))
+        body (json/write-str (verification-request config data))]
     (error/try-nom
      :idv/unavailable
      "Identity verification provider call failed"
@@ -166,14 +167,13 @@
                                 :url url
                                 :headers {"Content-Type" "application/json"
                                           "x-api-key" (:api-key config)}
-                                :body (json/write-str
-                                       (verification-request config data))}))]
+                                :body body}))]
        (http/res->edn res)))))
 
 (defn- session-opened
   [config data reply]
   (let [{:keys [schemas hand-off-ttl-ms]} config
-        {:keys [bank-id verification-id session-id]} data]
+        {:keys! [bank-id verification-id session-id]} data]
     (let-nom> [payload (avro/serialize
                         (get schemas "idv-session-opened")
                         {:bank-id bank-id
@@ -209,7 +209,7 @@
 (defn- session-failed
   [config data reason]
   (let [{:keys [schemas]} config
-        {:keys [bank-id verification-id session-id]} data]
+        {:keys! [bank-id verification-id session-id]} data]
     (let-nom> [payload (avro/serialize (get schemas "idv-session-failed")
                                        {:bank-id bank-id
                                         :verification-id verification-id
@@ -293,6 +293,22 @@
                                                   (:intent-id intent))
                               f))
 
+(defn- checked
+  "Run `f` on `intent`, failing the intent where its stored request lacks
+  a key the call needs, so it no longer holds the intents behind it."
+  [config intent f]
+  (let [res (error/try-nom-ex :zyphe-relay/intent
+                              IllegalArgumentException
+                              "Zyphe intent lacks what its call needs"
+                              (f intent))]
+    (if (error/anomaly? res)
+      (let [{:keys [intent-id attempts]} intent]
+        (log/error "Zyphe intent cannot be relayed; failing it"
+                   {:intent-id intent-id :anomaly res})
+        (store/mark-failed config intent-id (or attempts 0))
+        (assoc intent :status "failed"))
+      res)))
+
 (defn drain-once
   "Relay each pending intent once, oldest first, holding one for a
   verification while an earlier one for it is still pending. The Zyphe
@@ -307,8 +323,12 @@
                                   (in-intent-trace "zyphe-outbound"
                                                    i
                                                    (fn []
-                                                     (relay-one config
-                                                                i))))}))))
+                                                     (checked
+                                                      config
+                                                      i
+                                                      (fn [i]
+                                                        (relay-one config
+                                                                   i))))))}))))
 
 (defn- start-loop
   [config]

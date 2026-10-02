@@ -119,9 +119,13 @@
                       :last-name "Dent"
                       :date-of-birth "1952-03-11"
                       :email "arthur@example.test"
-                      :address {:building-number "155"
+                      :address {:flat-number nil
+                                :building-number "155"
+                                :building-name nil
                                 :street "Country Lane"
+                                :sub-street nil
                                 :town "Cottington"
+                                :state nil
                                 :postcode "CT12 4XY"
                                 :country "GBR"}}))))
 

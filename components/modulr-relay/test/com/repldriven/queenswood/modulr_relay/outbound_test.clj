@@ -218,9 +218,12 @@
    (let [calls (atom [])
          config
          (runner-config sys (recording calls (fn [_] {:status 200 :body ""})))]
-     (nom-test> [_ (relay/save-intent
-                    config
-                    (intent "int.c1" "credit" "ptr.1" "{}" {:bank-id "bnk.1"}))])
+     (nom-test> [_ (relay/save-intent config
+                                      (intent "int.c1"
+                                              "credit" "ptr.1"
+                                              "{}" {:bank-id "bnk.1"
+                                                    :amount 150
+                                                    :currency "GBP"}))])
      (SUT/drain-once config 0)
      (is (= "/credit" (:path (first @calls))))
      (is (= "settled" (:status (load-intent config "int.c1"))))

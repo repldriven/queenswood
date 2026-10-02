@@ -122,7 +122,7 @@
 (defn- relay-payment
   [config now intent]
   (let [{:keys [intent-id request provider-payment-id]} intent
-        {:keys [submission-id]} (context intent)
+        {:keys! [submission-id]} (context intent)
         [outcome result] (steps config
                                 [{:method :post
                                   :path "/v1/transaction/payments"
@@ -177,7 +177,7 @@
 (defn- return-failed
   [intent reason]
   (let [{:keys [provider-payment-id]} intent
-        {:keys [end-to-end-id]} (context intent)]
+        {:keys! [end-to-end-id]} (context intent)]
     {:event-name "inbound-return-failed"
      :dedup-key (str provider-payment-id ":return-failed")
      :data {:scheme-transaction-id provider-payment-id
@@ -187,7 +187,7 @@
 (defn- relay-return
   [config now intent]
   (let [{:keys [intent-id request provider-payment-id]} intent
-        {:keys [return-id submission-id]} (context intent)
+        {:keys! [return-id submission-id]} (context intent)
         [outcome result] (steps config
                                 [{:method :post
                                   :path (str (payment-path provider-payment-id)
@@ -270,7 +270,7 @@
       ctx)))
 
 (defn- registration
-  [config {:keys [registration-id account-number holder-name currency]}]
+  [config {:keys! [registration-id account-number holder-name currency]}]
   {:method :post
    :path "/v1/organisation/accounts"
    :body {:data {:id registration-id
@@ -308,7 +308,7 @@
   [config now intent]
   (let-nom> [ctx (with-number config intent (context intent))]
     (let [{:keys [intent-id]} intent
-          {:keys [bank-id account-id]} ctx
+          {:keys! [bank-id account-id]} ctx
           attempts (inc (or (:attempts intent) 0))
           [outcome result] (register config ctx)
           intent (assoc intent :attempts attempts :context (pr-str ctx))
@@ -370,7 +370,7 @@
 (defn- relay-close
   [config now intent]
   (let [{:keys [intent-id]} intent
-        {:keys [bank-id account-id provider-account-id]} (context intent)
+        {:keys! [bank-id account-id provider-account-id]} (context intent)
         attempts (inc (or (:attempts intent) 0))
         [outcome result] (close-registration config provider-account-id)
         intent (assoc intent :attempts attempts)]
@@ -407,42 +407,42 @@
   "Read the old registration for its holder, register a new number, close
   the old registration."
   [config ctx]
-  (case (:step ctx)
-    "read"
-    (let [[outcome result] (call config
-                                 {:method :get
-                                  :path (account-path
-                                         (:provider-account-id ctx))})]
-      [outcome
-       result
-       (fn [r]
-         (let [{:keys [name base_currency]} (get-in r [:data :attributes])]
+  (let [{:keys! [step provider-account-id]} ctx]
+    (case step
+      "read"
+      (let [[outcome result] (call config
+                                   {:method :get
+                                    :path (account-path provider-account-id)})]
+        [outcome
+         result
+         (fn [r]
+           (let [{:keys [name base_currency]} (get-in r [:data :attributes])]
+             (assoc ctx
+                    :step "register"
+                    :holder-name (first name)
+                    :currency base_currency)))])
+
+      "register"
+      (let [[outcome result] (register config ctx)
+            {:keys [status status_reason]} (:attributes result)]
+        [(if (and (= :ok outcome) (not= "confirmed" status)) :refused outcome)
+         (if (and (= :ok outcome) (not= "confirmed" status))
+           (or status_reason (str "Registration " status))
+           result)
+         (fn [account]
            (assoc ctx
-                  :step "register"
-                  :holder-name (first name)
-                  :currency base_currency)))])
+                  :step "close"
+                  :new-account {:id (:id account)
+                                :addresses (addresses (:attributes
+                                                       account))}))])
 
-    "register"
-    (let [[outcome result] (register config ctx)
-          {:keys [status status_reason]} (:attributes result)]
-      [(if (and (= :ok outcome) (not= "confirmed" status)) :refused outcome)
-       (if (and (= :ok outcome) (not= "confirmed" status))
-         (or status_reason (str "Registration " status))
-         result)
-       (fn [account]
-         (assoc ctx
-                :step "close"
-                :new-account {:id (:id account)
-                              :addresses (addresses (:attributes account))}))])
-
-    "close"
-    (let [[outcome result] (close-registration config
-                                               (:provider-account-id ctx))]
-      [outcome result (fn [_] (assoc ctx :step "done"))])))
+      "close"
+      (let [[outcome result] (close-registration config provider-account-id)]
+        [outcome result (fn [_] (assoc ctx :step "done"))]))))
 
 (defn- reissued
   [intent ctx]
-  (let [{:keys [bank-id account-id rotation-key new-account]} ctx]
+  (let [{:keys! [bank-id account-id rotation-key new-account]} ctx]
     (account-event intent
                    "payment-address-reissued"
                    {:bank-id bank-id
@@ -453,7 +453,7 @@
 
 (defn- reissue-failed
   [intent ctx reason]
-  (let [{:keys [bank-id account-id rotation-key]} ctx]
+  (let [{:keys! [bank-id account-id rotation-key]} ctx]
     (account-event intent
                    "payment-address-reissue-failed"
                    {:bank-id bank-id
@@ -532,7 +532,7 @@
   notification would carry, so a late one finds it already there."
   [config now intent]
   (let [{:keys [intent-id dedup-key provider-payment-id]} intent
-        {:keys [amount currency submission-id]} (context intent)
+        {:keys! [amount currency submission-id]} (context intent)
         {:keys [status status_reason]}
         (lookup config provider-payment-id submission-id)
         descriptor (outcomes/payment {:provider-payment-id provider-payment-id
@@ -553,8 +553,8 @@
   one as the inbound it sent back returned."
   [config now intent]
   (let [{:keys [intent-id provider-payment-id]} intent
-        {:keys [return-id submission-id end-to-end-id amount currency
-                reason-code reason]}
+        {:keys! [return-id submission-id end-to-end-id amount currency
+                 reason-code reason]}
         (context intent)
         [outcome result] (call config
                                {:method :get
@@ -620,6 +620,22 @@
                                                   (:kind intent))
                               f))
 
+(defn- checked
+  "Run `f` on `intent`, failing the intent where its stored data lacks a
+  key the call needs, so it no longer holds the intents behind it."
+  [config intent f]
+  (let [res (error/try-nom-ex :form3-relay/intent
+                              IllegalArgumentException
+                              "Form3 intent lacks what its call needs"
+                              (f intent))]
+    (if (error/anomaly? res)
+      (let [{:keys [intent-id kind status attempts]} intent]
+        (log/error "Form3 intent cannot be relayed; failing it"
+                   {:intent-id intent-id :kind kind :anomaly res})
+        (store/finish config intent-id status "failed" attempts nil)
+        (assoc intent :status "failed"))
+      res)))
+
 (defn drain-once
   "Make each due pending call once, oldest first, holding a call for an
   account while an earlier one for it is unsent, then reconcile every due
@@ -640,7 +656,7 @@
                 intent
                 (fn []
                   (if-let [relay (get relays (:kind intent))]
-                    (relay config now intent)
+                    (checked config intent (fn [i] (relay config now i)))
                     (log/error "Unknown Form3 intent kind"
                                {:intent intent})))))}))
     (when-not (error/anomaly? sent)
@@ -652,7 +668,7 @@
          intent
          (fn []
            (if reconcile
-             (reconcile config now intent)
+             (checked config intent (fn [i] (reconcile config now i)))
              (log/error "Unknown sent Form3 intent kind"
                         {:intent intent}))))))))
 

@@ -131,7 +131,7 @@
 
 (defn- transfer-failed
   [intent reason now]
-  (let [{:keys [bank-id]} (context intent)]
+  (let [{:keys! [bank-id]} (context intent)]
     {:event-name "transfer-failed"
      :dedup-key (str (:dedup-key intent) ":failed")
      :data {:transfer-id (:dedup-key intent)
@@ -141,7 +141,7 @@
 
 (defn- transfer-completed
   [intent now]
-  (let [{:keys [bank-id]} (context intent)]
+  (let [{:keys! [bank-id]} (context intent)]
     {:event-name "transfer-completed"
      :dedup-key (str (:dedup-key intent) ":completed")
      :data {:transfer-id (:dedup-key intent)
@@ -161,6 +161,7 @@
 
 (defn- payment-body
   [config intent]
+  ;; nosemgrep: unchecked-intent-data — optional in a payment's context
   (let [{:keys [debtor-account-id]} (context intent)
         {:keys [request]} intent
         named (get (json/read-str request) "sourceAccountId")
@@ -171,9 +172,9 @@
 
 (defn- transfer-body
   [config intent]
-  (let [{:keys [debtor-account-id creditor-account-id
-                debtor-provider-account-id creditor-provider-account-id
-                amount currency]}
+  (let [{:keys! [amount currency]
+         :keys [debtor-account-id creditor-account-id
+                debtor-provider-account-id creditor-provider-account-id]}
         (context intent)
         debtor (held-at config debtor-account-id debtor-provider-account-id)
         creditor (held-at config
@@ -271,7 +272,7 @@
 
 (defn- open-body
   [intent currency]
-  (let [{:keys [account-id]} (context intent)]
+  (let [{:keys! [account-id]} (context intent)]
     (utility/assoc-some {:externalReference (modulr/->reference account-id)}
                         :currency
                         currency
@@ -285,7 +286,7 @@
 
 (defn- account-refused
   [intent reason]
-  (let [{:keys [bank-id account-id]} (context intent)]
+  (let [{:keys! [bank-id account-id]} (context intent)]
     (account-event intent
                    "payment-account-refused"
                    {:bank-id bank-id :account-id account-id :reason reason})))
@@ -293,7 +294,7 @@
 (defn- relay-open
   [config now intent]
   (let [{:keys [intent-id request]} intent
-        {:keys [bank-id account-id]} (context intent)
+        {:keys! [bank-id account-id]} (context intent)
         attempts (inc (or (:attempts intent) 0))
         [outcome result] (call config
                                intent
@@ -333,7 +334,7 @@
 
 (defn- close-refused
   [intent reason]
-  (let [{:keys [bank-id account-id]} (context intent)]
+  (let [{:keys! [bank-id account-id]} (context intent)]
     (account-event intent
                    "payment-account-close-refused"
                    {:bank-id bank-id :account-id account-id :reason reason})))
@@ -341,7 +342,7 @@
 (defn- relay-close
   [config now intent]
   (let [{:keys [intent-id]} intent
-        {:keys [bank-id account-id provider-account-id]} (context intent)
+        {:keys! [bank-id account-id provider-account-id]} (context intent)
         held (held-at config account-id provider-account-id)
         attempts (inc (or (:attempts intent) 0))
         [outcome result] (call config
@@ -385,7 +386,9 @@
   the context: block the old account, read what it holds, open the new
   one, move the balance across, close the old one."
   [config intent ctx]
-  (let [{:keys [provider-account-id step balance currency new-account]} ctx
+  (let [{:keys! [step]
+         :keys [provider-account-id balance currency new-account]}
+        ctx
         old provider-account-id]
     (case step
       "block"
@@ -429,7 +432,7 @@
 
 (defn- reissued
   [intent ctx]
-  (let [{:keys [bank-id account-id rotation-key new-account]} ctx]
+  (let [{:keys! [bank-id account-id rotation-key new-account]} ctx]
     (account-event intent
                    "payment-address-reissued"
                    {:bank-id bank-id
@@ -440,7 +443,7 @@
 
 (defn- reissue-failed
   [intent ctx]
-  (let [{:keys [bank-id account-id rotation-key failure]} ctx]
+  (let [{:keys! [bank-id account-id rotation-key failure]} ctx]
     (account-event intent
                    "payment-address-reissue-failed"
                    {:bank-id bank-id
@@ -465,10 +468,11 @@
   [config now intent]
   (let [{:keys [intent-id]} intent
         ctx (context intent)
+        {:keys! [account-id]} ctx
         ctx (if (:step ctx)
               ctx
               (let [held (held-at config
-                                  (:account-id ctx)
+                                  account-id
                                   (:provider-account-id ctx))]
                 (utility/assoc-some (assoc ctx :step (if held "block" "open"))
                                     :provider-account-id
@@ -478,14 +482,14 @@
       (finish-holding config
                       now
                       intent
-                      (:account-id ctx)
+                      account-id
                       (get-in ctx [:new-account :id])
                       (reissued intent ctx))
 
       "failed"
       (finish config now intent "failed" (reissue-failed intent ctx))
 
-      (let [{:keys [step provider-account-id]} ctx
+      (let [{:keys! [step] :keys [provider-account-id]} ctx
             [request next-ctx] (reissue-step config intent ctx)
             attempts (inc (or (:attempts intent) 0))
             intent (assoc intent :attempts attempts)
@@ -507,7 +511,7 @@
              (finish-holding config
                              now
                              intent
-                             (:account-id ctx)
+                             account-id
                              (get-in ctx [:new-account :id])
                              (reissued intent ctx)))
 
@@ -562,7 +566,7 @@
   would carry, so a late webhook finds it already there."
   [config now intent]
   (let [{:keys [intent-id kind dedup-key provider-payment-id]} intent
-        {:keys [amount currency bank-id]} (context intent)
+        {:keys! [amount currency] :keys [bank-id]} (context intent)
         {:keys [status]} (lookup config provider-payment-id)
         descriptor (if (= "payment" kind)
                      (outcomes/payment {:provider-payment-id provider-payment-id
@@ -617,6 +621,22 @@
                                                   (:kind intent))
                               f))
 
+(defn- checked
+  "Run `f` on `intent`, failing the intent where its stored data lacks a
+  key the call needs, so it no longer holds the intents behind it."
+  [config intent f]
+  (let [res (error/try-nom-ex :modulr-relay/intent
+                              IllegalArgumentException
+                              "Modulr intent lacks what its call needs"
+                              (f intent))]
+    (if (error/anomaly? res)
+      (let [{:keys [intent-id kind status attempts]} intent]
+        (log/error "Modulr intent cannot be relayed; failing it"
+                   {:intent-id intent-id :kind kind :anomaly res})
+        (store/finish config intent-id status "failed" attempts nil)
+        (assoc intent :status "failed"))
+      res)))
+
 (defn drain-once
   "Make each due pending call once, oldest first, holding a call for an
   account while an earlier one for it is unsent, and a close or reissue
@@ -637,7 +657,7 @@
                 intent
                 (fn []
                   (if-let [relay (get relays (:kind intent))]
-                    (relay config now intent)
+                    (checked config intent (fn [i] (relay config now i)))
                     (log/error "Unknown Modulr intent kind"
                                {:intent intent})))))}))
     (when-not (error/anomaly? sent)
@@ -645,7 +665,10 @@
               :when (due? now intent)]
         (in-intent-trace "modulr-reconcile"
                          intent
-                         (fn [] (reconcile config now intent)))))))
+                         (fn []
+                           (checked config
+                                    intent
+                                    (fn [i] (reconcile config now i)))))))))
 
 (defn start-runner
   [config]

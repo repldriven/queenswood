@@ -176,7 +176,7 @@
                    :opened "payment-account-opened"
                    :refused "payment-account-refused"}
    "close-account"
-   {:path (fn [{:keys [provider-account-id]}]
+   {:path (fn [{:keys! [provider-account-id]}]
             (str "/v1/virtual-accounts/" provider-account-id "/close"))
     :opened "payment-account-closed"
     :refused "payment-account-close-refused"}
@@ -217,7 +217,7 @@
 
 (defn- event-data
   [event-name context body]
-  (let [{:keys [bank-id account-id rotation-key]} context
+  (let [{:keys! [bank-id account-id] :keys [rotation-key]} context
         {:keys [id sortCode accountNumber]} body]
     (case event-name
       "payment-account-opened"
@@ -339,6 +339,22 @@
                                                   (:kind intent))
                               f))
 
+(defn- checked
+  "Run `f` on `intent`, failing the intent where its stored data lacks a
+  key the call needs, so it no longer holds the intents behind it."
+  [config intent f]
+  (let [res (error/try-nom-ex :clearbank-relay/intent
+                              IllegalArgumentException
+                              "ClearBank intent lacks what its call needs"
+                              (f intent))]
+    (if (error/anomaly? res)
+      (let [{:keys [intent-id kind attempts]} intent]
+        (log/error "ClearBank intent cannot be relayed; failing it"
+                   {:intent-id intent-id :kind kind :anomaly res})
+        (store/fail-intent config intent-id attempts nil)
+        (assoc intent :status "failed"))
+      res)))
+
 (defn drain-once
   "Relay each pending intent whose `next-attempt-at` is not after `now`
   once, oldest first, holding a call for an account while an earlier one
@@ -355,9 +371,13 @@
                                   (in-intent-trace "clearbank-outbound"
                                                    i
                                                    (fn []
-                                                     (relay-one config
-                                                                now
-                                                                i))))}))))
+                                                     (checked
+                                                      config
+                                                      i
+                                                      (fn [i]
+                                                        (relay-one config
+                                                                   now
+                                                                   i))))))}))))
 
 (defn start-runner
   "Start the daemon poll loop that drains pending outbound intents.

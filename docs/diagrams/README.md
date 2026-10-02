@@ -25,8 +25,8 @@ crosses it, because nothing reaches FDB except through a tx-aware brick.
 A dashed outline marks a box whose contents are substituted per
 environment: the external APIs are the real payment providers, identity
 verification providers and company register in production, and the
-simulator services in dev and test. The adapter cannot tell the two apart, so it stays one box rather
-than two.
+simulator services in dev and test. The adapter cannot tell the two
+apart, so it stays one box rather than two.
 
 ## Infrastructure diagram
 

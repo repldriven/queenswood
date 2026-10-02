@@ -109,8 +109,8 @@
     (str/trim (str first-name " " middle-names))))
 
 (defn- address->onfido
-  [{:keys [flat-number building-number building-name street sub-street
-           town state postcode country]}]
+  [{:keys! [flat-number building-number building-name street sub-street
+            town state postcode country]}]
   (utility/assoc-some {:street street
                        :town town
                        :postcode postcode
@@ -122,7 +122,7 @@
                       :state state))
 
 (defn applicant
-  [{:keys [first-name middle-names last-name date-of-birth address email]}]
+  [{:keys! [first-name middle-names last-name date-of-birth address email]}]
   (utility/assoc-some {:first_name (full-first-name first-name middle-names)
                        :last_name last-name}
                       :dob date-of-birth
@@ -135,7 +135,7 @@
 
 (defn workflow-run
   [config workflow applicant-id
-   {:keys [bank-id verification-id party-id return-url]}]
+   {:keys! [bank-id verification-id party-id return-url]}]
   {:workflow_id (:id workflow)
    :applicant_id applicant-id
    :customer_user_id party-id
@@ -178,7 +178,7 @@
 (defn- session-opened
   [config data run]
   (let [{:keys [schemas]} config
-        {:keys [bank-id verification-id session-id]} data
+        {:keys! [bank-id verification-id session-id]} data
         {:keys [url expires_at]} (:link run)]
     (let-nom> [payload (avro/serialize
                         (get schemas "idv-session-opened")
@@ -216,7 +216,7 @@
 (defn- session-failed
   [config data reason]
   (let [{:keys [schemas]} config
-        {:keys [bank-id verification-id session-id]} data]
+        {:keys! [bank-id verification-id session-id]} data]
     (let-nom> [payload (avro/serialize (get schemas "idv-session-failed")
                                        {:bank-id bank-id
                                         :verification-id verification-id
@@ -301,6 +301,22 @@
                                                   (:intent-id intent))
                               f))
 
+(defn- checked
+  "Run `f` on `intent`, failing the intent where its stored request lacks
+  a key the call needs, so it no longer holds the intents behind it."
+  [config intent f]
+  (let [res (error/try-nom-ex :onfido-relay/intent
+                              IllegalArgumentException
+                              "Onfido intent lacks what its call needs"
+                              (f intent))]
+    (if (error/anomaly? res)
+      (let [{:keys [intent-id attempts]} intent]
+        (log/error "Onfido intent cannot be relayed; failing it"
+                   {:intent-id intent-id :anomaly res})
+        (store/mark-failed config intent-id (or attempts 0))
+        (assoc intent :status "failed"))
+      res)))
+
 (defn drain-once
   [config]
   (let [pending (store/pending-intents config)]
@@ -312,8 +328,12 @@
                                   (in-intent-trace "onfido-outbound"
                                                    i
                                                    (fn []
-                                                     (relay-one config
-                                                                i))))}))))
+                                                     (checked
+                                                      config
+                                                      i
+                                                      (fn [i]
+                                                        (relay-one config
+                                                                   i))))))}))))
 
 (defn- start-loop
   [config]
