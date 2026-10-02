@@ -318,8 +318,10 @@ runs changes nothing outside it:
   establishes, and it refuses to start when they do not cover what the
   file declares.
 - **Starts or resumes a run.** It consumes `submit-idv-check` into an
-  intent, and its runner starts the provider's run on the smallest
-  configuration covering the verifications and screenings requested.
+  intent whose subject is the verification, and its runner takes a
+  verification's intents in the order they were accepted (ADR-0033),
+  starting the provider's run on the smallest configuration covering the
+  verifications and screenings requested.
   Starting again for the same verification resumes the run rather
   than opening a second one, and mints a fresh hand-off.
 - **Hands off.** It builds the hand-off for the session's channel,

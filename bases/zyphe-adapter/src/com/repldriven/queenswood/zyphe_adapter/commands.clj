@@ -20,6 +20,7 @@
         res (relay/save-intent fdb-config
                                {:intent-id (str (utility/uuidv7))
                                 :dedup-key (or session-id verification-id)
+                                :subjects [verification-id]
                                 :request (pr-str data)
                                 :status "pending"
                                 :attempts 0
