@@ -101,7 +101,8 @@ non-trivial work on their topic.
   IDV providers it named when created, every provider an installation
   offers running side by side on a command channel of its own; proposed,
   operations reaching a provider in the order they were accepted, through
-  one stream of the changelogs a reactor per kind of provider reads.
+  a per-bank activity log published keyed by bank and acted on from the
+  event alone.
   See [ADR-0030](docs/adr/0030-a-bank-chooses-its-providers-when-it-is-created.md),
   [ADR-0033](docs/adr/0033-operations-reach-a-provider-in-the-order-they-were-accepted.md)
   and [tdd/bank-providers.md](docs/tdd/bank-providers.md).

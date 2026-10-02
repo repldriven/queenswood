@@ -16,11 +16,11 @@ platform committed the changes that call for it, so it never acts on an
 account or a party in a state the ledger has already left.
 
 Inside the platform that order already holds. Every operation is an FDB
-transaction, so the records reflect one commit order, and a brick that
-reacts to another's event re-reads the current record and guards its
-status, as ADR-0021 has it, so a late or repeated event is skipped
-rather than applied wrongly. The order is lost where a request leaves
-for a provider, which keeps its own copy of what the platform holds.
+transaction, and a brick that reacts to another's event guards its own
+record's status, as ADR-0021 has it, so a late or repeated event is
+skipped rather than applied wrongly. The order is lost where a request
+leaves for a provider, which keeps its own copy of what the platform
+holds.
 
 Today the commands reach a payment provider by four routes:
 
@@ -47,15 +47,11 @@ verification provider has one route today, a session's submit sent
 after its commit, so nothing overtakes it yet; a second command, a
 party's closure or a re-verification, would make two.
 
-Every one of these changes already writes a changelog entry in the
-commit that makes it, and the entries are totally ordered: a changelog
-entry's versionstamp is its commit version, comparable across every
-store in the database. What is missing is a reader that keeps that
-order across stores. Each route also has a domain brick deciding what
-the provider must do, so the payment brick knows which providers hold
-each account's money and the cash-account brick that a closure needs a
-call, where ADR-0021 has bricks react to changelogs rather than
-orchestrate, and ADR-0030 keeps providers out of domain components.
+The unit the order must hold across is the bank, not the account: a
+posting moves money between two of a bank's accounts, so a transfer
+from one must reach the provider before a later close of the other.
+Banks are independent of each other, so the order needs no wider unit,
+and the bank is what the work can be partitioned by.
 
 A customer told through webhooks keeps a copy too, and an account's
 notifications and its payments' travel on different topics. That is
@@ -82,54 +78,75 @@ The shortlist:
 - **Write each provider command in the transaction that causes it, into
   one outbox, relayed in commit order.** Rejected: it keeps the order,
   but every domain transaction then orchestrates its providers, deciding
-  what each must be asked, and the outbox is a new store beside the
-  changelogs that already record the same commits.
+  what each must be asked.
 - **Merge the changelogs a kind of provider acts on into one stream in
-  commit order, and let a reactor for that kind decide what to ask.** The
-  domain records what happened, as it already does; the order is the
-  commits'; and what a provider needs is known only on the provider's
-  side.
+  versionstamp order, with one relay and a consumer that reads FDB to
+  decide.** Rejected: the order lives in FDB and the topic only
+  announces it, so the two disagree whenever a consumer reads a record
+  later than the entry it handles; one relay reads every store a kind
+  of provider acts on, and nothing partitions it; and the design rests
+  on versionstamps comparable across stores, which no other database
+  offers.
+- **Key the stream by account.** Rejected: a transfer between two
+  accounts sits in one account's partition, and a close of the other
+  overtakes it in its own.
+- **Record a bank's activity in a log of its own, written in the commit
+  that makes each change, published keyed by bank, and acted on from the
+  event alone.** The topic is the order a consumer sees, each event
+  carries what a consumer acts on, and banks spread across shards.
 
 ## Decision
 
-The changelog entries a kind of provider acts on are relayed as one
-stream in versionstamp order, and a reactor for that kind consumes the
-stream in order, decides what the bank's provider must be asked, and
-sends it on that provider's command channel, which the adapter takes in
-order for each subject.
+Every change a provider must act on writes an activity entry for its bank
+in the same commit, carrying what a consumer needs as it was at that
+commit; each shard of banks' entries is relayed in commit order to one
+topic keyed by bank; and an event processor per kind of provider acts on
+each entry from the entry alone and sends what the bank's provider needs
+on that provider's one command channel, which the adapter takes in order
+for each subject.
 
 The decision has these parts:
 
-- Record every change a provider must act on as an entry in its store's
-  changelog, in the commit that makes it: an account's status change, a
-  posting, an outbound payment's submission, an inbound's return and a
-  verification session's opening.
-- Carry on each entry what a reactor decides from, as it was at that
-  commit, the provider account an account is held in among it, so a
-  reactor reads nothing whose later value could disagree with the
-  stream.
-- Relay each kind of provider's changelogs as one stream: read them at
-  one snapshot read version, merge their entries in versionstamp order,
-  publish them verbatim, and advance one cursor, the last versionstamp
-  published, across them all.
-- Key the stream by bank, so a bank's entries keep their order however
-  the topic is partitioned.
-- Give each kind of provider one reactor, which handles its stream one
-  entry at a time in order, branches on the bank's provider's
-  declaration, never its name, and sends what that provider needs:
+- Assign each bank to one of a fixed number of shards by its id, and give
+  each shard an activity changelog of its own.
+- Write an activity entry, in the commit that makes the change, for an
+  account's status change, a posting, an outbound payment's submission,
+  an inbound's return and a verification session's opening, into the
+  activity changelog of the bank's shard.
+- Carry on each entry everything an event processor decides from, as it
+  was at that commit: the bank's provider, the subjects the change
+  touches, and for each the provider account and address it is held at.
+- Relay each shard's activity changelog with one `changelog-relay`
+  runner, publishing its entries verbatim and in commit order to one
+  activity topic, keyed by bank.
+- Act on a kind of provider's entries in an event processor of the
+  brick that owns that kind, the payment brick for payment providers
+  and the idv brick for identity verification: a `<brick>/event-processor`
+  kind wrapped in mono's `event-processor/event-processor`, its handler
+  in the brick's `events.clj`.
+- Decide what to send from the entry and the provider's declaration
+  alone, never by reading another brick's records; an event processor
+  MAY record its own progress, such as the provider transfers it sent.
+- Branch on the bank's provider's declaration, never its name, and send
   opens, closes and reissues, the transfers that mirror a posting where
   the provider holds each account's money, submits and returns for
   payments, and submits for verifications.
-- Make a reactor's sends idempotent, with each command's dedup key taken
-  from the entry it answers, so a redelivered entry asks nothing twice.
+- Take each command's dedup key from the entry it answers, so a
+  redelivered entry asks nothing twice.
+- An event processor MAY act on a bank's entries for different subjects
+  concurrently, holding an entry until every earlier entry sharing one
+  of its subjects is done, and an entry touching two subjects until
+  both are.
 - Give each provider one command channel, keyed by the subject a command
   acts on, so a payment provider's separate payment and account
   channels become one.
 - Send a provider's intents in order for each subject: a pending or
-  retrying intent holds back later intents for its subject, and for no
-  other. End a command the provider refuses for good, or that exhausts
-  its attempts, as a failure the domain hears.
-- Never send a provider command from a domain brick.
+  retrying intent holds back later intents for its subject, a transfer
+  for both its accounts, and for no other. End a command the provider
+  refuses for good, or that exhausts its attempts, as a failure the
+  domain hears.
+- Send a provider command only from the event processor that acts on
+  the activity topic.
 - Keep the rest of ADR-0030: configuration names each provider's
   channel, the event channels stay shared, and a domain component never
   names a provider.
@@ -141,42 +158,58 @@ Easier:
 - A payment provider closes an account only after the transfers that
   emptied it, pays from an account only after the transfer that funded
   it, and never moves money for an address a reissue has replaced.
-- The domain bricks stop knowing what providers need: the mirror
-  transfers and the provider calls leave the payment and cash-account
-  bricks for the reactor of their kind.
-- No new store: the changelogs already written are the record, and the
-  stream is a read across them.
+- The topic is the one order every consumer sees: an event processor
+  reads no record whose later value could disagree with it, so it
+  scales by partition like any keyed consumer, and replaying the topic
+  replays the decisions.
+- Banks spread across shards, relays and partitions, and a bank's
+  accounts across subjects within its partition and at the adapter, so
+  the ceiling is each provider's own rate, which serves every bank on
+  it.
+- The pieces already exist: a changelog per shard written in the
+  commit, the `changelog-relay` runner, mono's event processor, and the
+  adapters' intents. Nothing depends on versionstamps comparing across
+  stores, so another database carries the design with a transactional
+  outbox or change data capture.
 - A second command to an identity verification provider, or a new kind
-  of provider, is ordered from its first command, as a reactor and a
-  stream of the changelogs it acts on.
+  of provider, is ordered from its first command as entries on the
+  activity topic and an event processor in the brick that owns the
+  kind.
 - A retry handles a provider's transient failure, not the platform's
   ordering, so the close relay's retry of a refusal can go.
 
 Harder:
 
-- A reactor handles one bank's entries one at a time, so a bank's later
-  operations wait behind its earlier ones, across all its accounts, not
-  only the account an operation concerns.
+- A bank's entries for one subject wait behind each other, and an entry
+  touching two subjects waits for both, so a bank whose accounts move
+  money between each other often runs closer to one at a time.
+- mono's Kafka consumer handles one message at a time per partition and
+  commits each, so acting on subjects concurrently within a partition
+  needs it to commit only below the lowest entry still in hand; until
+  then a partition's entries run in order, one at a time.
+- The number of shards is fixed: moving a bank to another shard would
+  need its old shard drained first, so changing the number is a
+  migration, not configuration.
+- Entries carry values an event processor would otherwise look up, the
+  provider account among them, so their schemas grow with what is
+  decided from them, and an entry written before a field was added
+  lacks it.
 - An intent at the head of a subject's queue holds that subject's later
   commands until it settles or gives up, so a provider that is slow for
   one account is slow for everything asked of that account.
-- Entries carry values a reactor would otherwise look up, the provider
-  account among them, so their schemas grow with what reactors decide
-  from, and an entry written before a field was added lacks it.
-- A merged relay reads several changelogs each pass and moves one
-  cursor across them, so its passes are larger than one store's, and a
-  changelog it should read but does not leaves that store's changes out
-  of the order unnoticed.
-- The provider calls move out of the domain bricks into reactors, and a
-  payment provider moves from two command channels to one, a migration
-  of every adapter's consumers.
-- A domain brick that sends a provider command itself brings the race
-  back unnoticed. A check in `enforce-idioms.sh` refusing a provider
-  command sent outside a reactor is what makes the drift visible.
+- The provider sends move out of the cash-account brick and out of the
+  payment brick's processors into its event processor, and a payment
+  provider moves from two command channels to one, a migration of every
+  adapter's consumers.
+- A change a provider must act on that writes no activity entry is never
+  sent, and a provider command sent from anywhere else brings the race
+  back, both unnoticed. A check in `enforce-idioms.sh` refusing a
+  provider command sent outside an activity event processor, and the
+  PRD journeys run on every provider, are what make the drift visible.
 
 Amends [ADR-0030](0030-a-bank-chooses-its-providers-when-it-is-created.md),
 whose payment providers' two command channels each become one, and whose
-domain components no longer send provider commands at all. Related:
-[ADR-0021](0021-changelog-relay.md), whose relay this extends to read
-several changelogs as one, and [ADR-0019](0019-processor-packaging.md),
-on which service runs it.
+provider commands are sent only from the activity topic. Related:
+[ADR-0021](0021-changelog-relay.md), whose relay publishes each shard's
+activity changelog, and [ADR-0019](0019-processor-packaging.md), on
+which service runs each shard's runner.
