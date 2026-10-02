@@ -358,16 +358,16 @@ non-trivial work on their topic.
 ### Domain reference
 
 - **Per-capability designs** — `docs/tdd/` has one TDD per
-  capability or subsystem (access, authentication, bank-providers, banks,
+  capability or subsystem (authentication, bank-providers, banks,
   cash-account-migration, cash-account-products, cash-accounts,
-  demo-digital-bank, idempotency, infrastructure, interest, onboarding,
-  outbound-email, parties, payments, policy-evaluation, rewards,
+  demo-digital-bank, idempotency, infrastructure, interest, memberships,
+  onboarding, outbound-email, parties, payments, policy-evaluation, rewards,
   scenario-testing, scheduler, service-apis, traceability,
   transaction-processing, transactions-and-balances, webhooks).
 - **Per-capability requirements** — `docs/prd/` has the
-  product-shaped requirements (access, cash-account-products,
-  cash-accounts, demo-digital-bank, interest, onboarding, parties,
-  payments, platform, policies, webhooks).
+  product-shaped requirements (cash-account-products,
+  cash-accounts, demo-digital-bank, interest, memberships, onboarding,
+  parties, payments, platform, policies, webhooks).
 - **In-flight implementation plans** — `docs/plan/`.
 
 ## Guardrails

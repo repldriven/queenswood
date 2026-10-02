@@ -1,4 +1,4 @@
-# Access
+# Memberships
 
 > **Status: proposal.** The three slices are implemented: the records,
 > the `membership` processor and its `membership-query` sibling, the
@@ -249,9 +249,9 @@ needs. A row per event, keyed by bank, is what a list route pages.
 
 ### A processor and a query brick
 
-Access writes are commands, because an invitation now has a reader:
-the email adapter reacts to its creation, which is the reaction
-property [ADR-0018](../adr/0018-command-writes-are-earned.md) says
+Membership and invitation writes are commands, because an invitation
+now has a reader: the email adapter reacts to its creation, which is the
+reaction property [ADR-0018](../adr/0018-command-writes-are-earned.md) says
 earns a command, and invitation flows are the trigger that ADR names
 for membership. On the system diagram the API writes only
 `State (Config)`, and a write something reacts to is a processor's
@@ -804,7 +804,7 @@ The email that follows is [outbound-email.md](outbound-email.md)'s.
 
 ## References
 
-- [access](../prd/access.md) — Access, the product requirements this
+- [memberships](../prd/memberships.md) — Memberships, the product requirements this
   design serves.
 - [onboarding](../prd/onboarding.md) — Onboarding, the owner email on
   the operator's create call.

@@ -1010,6 +1010,96 @@
           "temporary": false
         }
       ]
+    },
+    {
+      "username": "founder-colleague",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "founder-colleague@queenswood.local",
+      "firstName": "Founder",
+      "lastName": "Colleague",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "founder-colleague",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "last-developer",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "last-developer@queenswood.local",
+      "firstName": "Last",
+      "lastName": "Developer",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "last-developer",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "gone-owner",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "gone-owner@queenswood.local",
+      "firstName": "Gone",
+      "lastName": "Owner",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "gone-owner",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "gone-successor",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "gone-successor@queenswood.local",
+      "firstName": "Gone",
+      "lastName": "Successor",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "gone-successor",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "consultant",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "consultant@queenswood.local",
+      "firstName": "Consultant",
+      "lastName": "Person",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "consultant",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "consultant-client",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "consultant-client@queenswood.local",
+      "firstName": "Consultant",
+      "lastName": "Client",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "consultant-client",
+          "temporary": false
+        }
+      ]
     }
   ]
 }
