@@ -331,6 +331,15 @@ settlement and on the release of a hold alike. See
   yet, and `get-bindings-for-bank` does a full scan filtered
   in memory (`store.clj`) — a `BankTarget` index is the
   natural follow-up as binding cardinality grows.
+- **A rule bites only where code checks it.** Each operation
+  calls the check itself, with a request it shapes and the
+  aggregates (counts, sums) it reads for the limits it
+  expects. A limit on a kind or an aggregate no call site
+  gathers is never evaluated, so a policy cannot be added as
+  data alone: a new rule needs its call site and its
+  aggregate read. That is why no route authors, binds or
+  pauses a policy, and why the policies PRD's journeys 1 and
+  4 are unbuilt.
 - **Capabilities don't have a curative-equivalent.**
   `:limit-allow-improving` is limit-only. Capabilities are
   inherently allow/deny without a quantitative dimension, so
