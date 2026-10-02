@@ -216,6 +216,39 @@ kinds stay provider-neutral, and a company register stays one per
 installation.
 See [ADR-0030](../../../docs/adr/0030-a-bank-chooses-its-providers-when-it-is-created.md).
 
+## Operations reach a provider in the order they were accepted
+
+Record every change a provider must act on — an account's status
+change, a posting, an outbound payment's submission, an inbound parked
+for return, a verification session's opening — as an activity entry for
+its bank, written with `bank-activity/record` in the commit that makes
+the change, carrying everything a consumer decides from as it was at
+that commit: the subjects it touches and what the command needs of
+each, its provider account where it has one. Each bank belongs to one
+of a fixed number of shards, each shard's log is relayed by one
+`changelog-relay` runner verbatim and in commit order onto one activity
+topic keyed by bank, and each kind of provider is acted on by the
+`<brick>/activity-event-processor` of the brick that owns it — `payment`
+for payment providers, `idv` for identity verification — its handler in
+the brick's `activity` namespace. Decide what to send from the entry,
+the provider's declaration and records whose values never change once
+written, such as a bank's providers and house account, never from a
+value a later entry may change; an event processor MAY record its own
+progress, and MAY act on different subjects concurrently, holding an
+entry behind every earlier one sharing a subject. Branch on the bank's
+provider's declaration, never its name; take each command's dedup key
+from the entry it answers. Give each provider one command channel keyed
+by bank, resolve an identifier the provider issued, such as the provider
+account behind an account, at the adapter when the call is made from
+what its own earlier calls recorded, and make a subject's calls in the
+order they were accepted: a pending intent holds the later ones for its
+subjects, and a call the provider refuses while money is still moving,
+as a close, waits for the earlier ones to settle. End a command the
+provider refuses for good, or that exhausts its attempts, as a failure
+the domain hears. Send a provider command only from an activity event
+processor. The rest of ADR-0030 stands.
+See [ADR-0033](../../../docs/adr/0033-operations-reach-a-provider-in-the-order-they-were-accepted.md).
+
 ## One API, fully OpenAPI-compliant
 
 Expose one HTTP API for the whole bank — one base (`api`), one

@@ -99,7 +99,7 @@ non-trivial work on their topic.
   [ADR-0014](docs/adr/0014-openapi-3x-compliance.md).
 - **A bank's providers** — each bank runs on the payment and
   IDV providers it named when created, every provider an installation
-  offers running side by side on a command channel of its own; proposed,
+  offers running side by side on a command channel of its own, and
   operations reaching a provider in the order they were accepted, through
   a per-bank activity log published keyed by bank and acted on from the
   event alone.

@@ -1,8 +1,10 @@
 # 33. Operations reach a provider in the order they were accepted
 
+<!-- tessl-plugin: design -->
+
 ## Status
 
-**Proposed**
+**Accepted**
 
 ## Context
 
@@ -101,9 +103,9 @@ Every change a provider must act on writes an activity entry for its bank
 in the same commit, carrying what a consumer needs as it was at that
 commit; each shard of banks' entries is relayed in commit order to one
 topic keyed by bank; and an event processor per kind of provider acts on
-each entry from the entry alone and sends what the bank's provider needs
-on that provider's one command channel, which the adapter takes in order
-for each subject.
+each entry from the entry and what never changes, and sends what the
+bank's provider needs on that provider's one command channel, which the
+adapter takes in order for each subject.
 
 The decision has these parts:
 
@@ -122,9 +124,10 @@ The decision has these parts:
   activity topic, keyed by bank.
 - Act on a kind of provider's entries in an event processor of the
   brick that owns that kind, the payment brick for payment providers
-  and the idv brick for identity verification: a `<brick>/event-processor`
-  kind wrapped in mono's `event-processor/event-processor`, its handler
-  in the brick's `events.clj`.
+  and the idv brick for identity verification: a
+  `<brick>/activity-event-processor` kind wrapped in mono's
+  `event-processor/event-processor`, its handler in the brick's
+  `activity` namespace.
 - Decide what to send from the entry, the provider's declaration and
   records whose values never change once written, such as a bank's
   providers and its house account, never from a value a later entry may
