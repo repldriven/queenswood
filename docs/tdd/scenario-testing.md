@@ -459,8 +459,6 @@ flight.
   amount limits are not read, and `:create-product` and
   `:create-person-party` meet no count limit, since no scenario comes
   near one.
-- **PRDs with no journey scenarios.** The platform PRD has no directory
-  under `journeys/`, so its journeys go unchecked.
 - **Unbuilt journeys.** `cash-accounts/2` is skipped, since no template
   a customer's account opens under allows a second currency;
   `parties/2`, since the create route takes person parties only;
@@ -472,7 +470,7 @@ flight.
   holds and the API does not; a deferred reward paid by a later run,
   since a job runs once an hour at most and the next run is the next
   hour's; and routes no scenario calls, among them the tier reads, a
-  balance by type, a migration's cancel, a run by id, a single
+  balance by type, a run by id, a single
   delivery's resend, and the discovery documents.
 - **The demo bank's tests.** `demo-digital-bank`'s interface test and the
   `demo-digital-bank-api` base test drive its own app end to end, and
@@ -486,8 +484,8 @@ flight.
 
 ## References
 
-- [platform](../prd/platform.md) — the platform PRD whose journeys the
-  API scenarios prove, and each capability PRD beside it.
+- [platform](../prd/platform.md) — the platform PRD, whose capability
+  PRDs hold the journeys the API scenarios prove.
 - [ADR-0009](../adr/0009-model-equality-property-testing.md) — Model
   equality property testing, the decision the domain runner implements.
 - [testing](../recipes/test/testing.md) — the placement rule, the checks

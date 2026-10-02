@@ -326,4 +326,6 @@ Only an approved migration moves it.
   — accounts open against a published version and pin to
   it; [interest](interest.md) — daily accrual reads the
   rate from the version; [policies](policies.md) — the
-  capability and count-limit bounds on products.
+  capability and count-limit bounds on products;
+  [cash-account-migrations](cash-account-migrations.md) — moving
+  existing accounts onto a newer version.

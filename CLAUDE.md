@@ -365,9 +365,10 @@ non-trivial work on their topic.
   scenario-testing, scheduler, service-apis, traceability,
   transaction-processing, transactions-and-balances, webhooks).
 - **Per-capability requirements** — `docs/prd/` has the
-  product-shaped requirements (cash-account-products,
-  cash-accounts, demo-digital-bank, interest, memberships, onboarding,
-  parties, payments, platform, policies, webhooks).
+  product-shaped requirements (cash-account-migrations,
+  cash-account-products, cash-accounts, demo-digital-bank, interest,
+  memberships, onboarding, parties, payments, platform, policies,
+  webhooks).
 - **In-flight implementation plans** — `docs/plan/`.
 
 ## Guardrails

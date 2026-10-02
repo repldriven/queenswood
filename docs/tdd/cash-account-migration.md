@@ -331,6 +331,8 @@ guess.
 
 ## References
 
+- [PRD: cash-account-migrations](../prd/cash-account-migrations.md) —
+  the requirements this design serves
 - [cash-account-products.md](cash-account-products.md) — Cash account
   products (the version lifecycle and effective dating this builds on)
 - [cash-accounts.md](cash-accounts.md) — Cash accounts (the pin a
