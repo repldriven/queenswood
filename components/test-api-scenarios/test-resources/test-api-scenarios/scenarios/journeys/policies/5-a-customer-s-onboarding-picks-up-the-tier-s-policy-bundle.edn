@@ -1,0 +1,32 @@
+{:name "A bank created on a tier is held to that tier's policies"
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :body {:name "Tier Bundle Journey"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :bank-0
+   :assert {:status 201}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :bank-0 :client-id]
+         :client-secret [:ref :bank-0 :client-secret]
+         :status :live}
+   :as :bank-0-token}]
+ :then
+ [{:command :api/request
+   :request {:method :get :path "/v1/bank/policies" :auth :bank-0-token}
+   :assert {:status 200
+            :body {:items [:m/embeds
+                           [{:name "Platform policy"}
+                            {:name "Micro tier policy"
+                             :labels {:tier "micro"}}]]}}}
+  {:command :api/request
+   :request {:method :get :path "/v1/bank/effective-policy" :auth :bank-0-token}
+   :assert {:status 200
+            :body {:limits [:m/embeds
+                            [{:reason "Micro tier - max 50 cash accounts"
+                              :origin {:tier "micro"
+                                       :name "Micro tier policy"}}]]}}}]}

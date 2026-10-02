@@ -107,3 +107,26 @@
   rejection: Version not found."}
   VersionNotFound
   examples/VersionNotFound)
+
+;; ---
+;; bodies
+;; ---
+
+(defn ->version-body
+  "Project a stored product version onto the keys
+  `CashAccountProductVersion` declares, the shape every route returning
+  a version answers with.
+
+  Args:
+  - version: a product version as the store hands it back."
+  [version]
+  (components/->version-body version))
+
+(defn ->product-body
+  "Project a stored product onto `CashAccountProduct`: its id and each
+  version as `->version-body` projects it.
+
+  Args:
+  - product: a product with its `:versions`, as the store hands it back."
+  [product]
+  (components/->product-body product))

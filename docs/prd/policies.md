@@ -255,7 +255,7 @@ reason to their end customer, or take action themselves
 
 ## User journeys
 
-### 1. Operator authors a policy and binds it to a tenant
+### 1. Operator authors a policy and binds it to a customer
 
 ```mermaid
 sequenceDiagram
@@ -273,27 +273,27 @@ sequenceDiagram
 ```
 
 The operator authors a policy with the rules they want to
-enforce, then binds it to the tenant. From that moment,
-the tenant's actions are evaluated against the new rule
+enforce, then binds it to the customer. From that moment,
+the customer's actions are evaluated against the new rule
 in addition to whatever was already bound.
 
-### 2. Tenant hits a count limit
+### 2. A customer hits a count limit
 
 ```mermaid
 sequenceDiagram
     participant T as Customer system
     participant Q as Queenswood
 
-    Note over T,Q: the customer has 9,999 accounts —<br/>limit is 10,000
-    T->>Q: open one more account
+    Note over T,Q: the tier allows one product of each type
+    T->>Q: create a current account product
     Q->>Q: check capability + limit
-    Q-->>T: allowed (now at 10,000)
-    T->>Q: open another account
+    Q-->>T: allowed (now at one)
+    T->>Q: create another current account product
     Q->>Q: check capability + limit
-    Q-->>T: denied (would be 10,001 —<br/>over the per-organisation cap)
+    Q-->>T: denied (over the per-type cap)
 ```
 
-The tenant runs into the limit on the next request after
+The customer runs into the limit on the next request after
 saturating it. The denial reason names the limit that
 bit.
 
@@ -341,20 +341,20 @@ play — for an incident, a migration, or a planned change
 window. The policy stays in the catalogue and can be
 re-enabled at any time.
 
-### 5. Tenant onboarding picks up the tier's policy bundle
+### 5. A customer's onboarding picks up the tier's policy bundle
 
 ```mermaid
 sequenceDiagram
     participant O as Platform operator
     participant Q as Queenswood
 
-    O->>Q: create organisation (tier = "test")
-    Q->>Q: bind the organisation to every policy<br/>labelled tier=test
+    O->>Q: create organisation (tier = "micro")
+    Q->>Q: bind the organisation to every policy<br/>labelled tier=micro
     Q-->>O: organisation active
 ```
 
 At onboarding, the tier label drives which bundle of
-policies the tenant inherits. The choice is part of the
+policies the customer inherits. The choice is part of the
 single onboarding call — see [onboarding](onboarding.md).
 
 ## Open questions

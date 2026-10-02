@@ -72,6 +72,18 @@
    [:product-id [:ref "ProductId"]]
    [:versions [:vector [:ref "CashAccountProductVersion"]]]])
 
+(def ^:private version-keys
+  (into [] (comp (filter vector?) (map first)) CashAccountProductVersion))
+
+(defn ->version-body
+  [version]
+  (select-keys version version-keys))
+
+(defn ->product-body
+  [product]
+  {:product-id (:product-id product)
+   :versions (mapv ->version-body (:versions product))})
+
 (def CashAccountProductList
   (schema/list-schema "CashAccountProduct" examples/CashAccountProductList))
 

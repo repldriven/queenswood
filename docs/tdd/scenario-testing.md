@@ -454,17 +454,20 @@ flight.
   `:create-person-party` meet no count limit, since no scenario comes
   near one.
 - **PRDs with no journey scenarios.** Only `payments`, `cash-accounts`,
-  `parties` and `cash-account-products` have a directory under
-  `journeys/`. The access, interest, onboarding, platform, policies and
+  `parties`, `cash-account-products` and `policies` have a directory
+  under `journeys/`. The access, interest, onboarding, platform and
   webhooks PRDs have none, so their journeys go unchecked, and
   `journeys/full-happy-path.edn` covers parts of several of them.
 - **Unbuilt journeys.** `cash-accounts/2` is skipped, since no template
-  a customer's account opens under allows a second currency, and
-  `parties/2`, since the create route takes person parties only.
+  a customer's account opens under allows a second currency;
+  `parties/2`, since the create route takes person parties only;
+  `policies/1` and `policies/4`, since no route creates, binds or
+  updates a policy; and `policies/3`, since no route takes an available
+  balance below zero for a deposit to improve.
 - **Cases with no scenario.** Curative transfers and daily limits over
   HTTP; organisation parties; the payment
   refusals the domain corpus holds and the API does not; and routes no
-  scenario calls, among them the policy and tier reads, a balance by
+  scenario calls, among them the tier reads, a balance by
   type, a migration's cancel, a run by id, webhook test notifications and
   resends, and the discovery documents.
 - **The demo bank's tests.** `demo-digital-bank`'s interface test and the
