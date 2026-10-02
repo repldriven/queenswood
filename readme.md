@@ -187,13 +187,10 @@ separate poller makes the call afterwards, retrying each pending intent until
 it succeeds or exhausts its attempts. A provider's webhooks are written to a
 deduplicating outbox and relayed like the platform's own changes.
 
-**A provider is asked in the order the bank's changes committed.** Each change
-a provider must act on also records an entry on its bank's activity log, in
-the same transaction. The relay publishes each bank's log in order, keyed by
-the bank, and the processor that answers it sends the provider's commands
-keyed the same way. The adapter then makes an account's calls one after
-another, so a close never overtakes the transfer that emptied the account. See
-[ADR-0033](docs/adr/0033-operations-reach-a-provider-in-the-order-they-were-accepted.md).
+**Provider calls are made in commit order.** A change a provider must act on
+is also written to its bank's activity log, in the same transaction. The relay
+publishes each bank's log in order, keyed by the bank, and the commands that
+answer it reach the provider in that order.
 
 ### Building blocks
 
