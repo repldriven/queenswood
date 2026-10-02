@@ -10,13 +10,13 @@
              :auth [:ref :org-0 :token]
              :body {:address "https://93.184.216.34/hooks"
                     :description "Tenant hooks"
-                    :kinds ["cash-account.opened"]}}
+                    :kinds ["payment.outbound-completed"]}}
    :as :endpoint-0
    :assert {:status 201
             :body {:endpoint {:endpoint-id [:m/regex "^whe\\."]
                               :address "https://93.184.216.34/hooks"
                               :description "Tenant hooks"
-                              :kinds ["cash-account.opened"]
+                              :kinds ["payment.outbound-completed"]
                               :status "enabled"}}}}
   {:command :api/request
    :request {:method :get
@@ -43,7 +43,7 @@
              :auth [:ref :org-0 :token]
              :body {:address "https://93.184.216.34/hooks-v2"
                     :description "Tenant hooks, moved"
-                    :kinds ["cash-account.opened"]}}
+                    :kinds ["payment.outbound-completed"]}}
    :assert {:status 200
             :body {:address "https://93.184.216.34/hooks-v2"
                    :description "Tenant hooks, moved"

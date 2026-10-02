@@ -244,15 +244,20 @@
 (defn should-pause?
   "Whether a failing delivery should pause its endpoint: no success
   inside the pause window, across at least the minimum attempts.
+  `rule` may name its own `:minimum-attempts` and `:window-ms` in place
+  of `pause-minimum-attempts` and `pause-window-ms`.
 
   A `nil` `last-success-at` is an endpoint that has never succeeded,
   which is longer ago than any window; the attempt minimum is what
   keeps a newly registered endpoint from pausing on its first
   failures."
-  [last-success-at now attempts]
-  (and (>= (or attempts 0) pause-minimum-attempts)
-       (or (nil? last-success-at)
-           (> (- now last-success-at) pause-window-ms))))
+  ([last-success-at now attempts]
+   (should-pause? last-success-at now attempts nil))
+  ([last-success-at now attempts rule]
+   (let [{:keys [minimum-attempts window-ms]} rule]
+     (and (>= (or attempts 0) (or minimum-attempts pause-minimum-attempts))
+          (or (nil? last-success-at)
+              (> (- now last-success-at) (or window-ms pause-window-ms)))))))
 
 (defn record-success
   "The endpoint as a delivered outcome leaves it: the moment of the
@@ -463,9 +468,11 @@
 
 (defn retry-schedule
   "The delay before the attempt after `attempts`, or nil when the
-  schedule is spent and the delivery is failed and kept."
-  [attempts]
-  (get retry-schedule-ms (dec (max 1 (or attempts 0)))))
+  schedule is spent and the delivery is failed and kept. `schedule`
+  replaces `retry-schedule-ms` where given."
+  ([attempts] (retry-schedule retry-schedule-ms attempts))
+  ([schedule attempts]
+   (get schedule (dec (max 1 (or attempts 0))))))
 
 (def ^:private delivery-pending :webhook-delivery-status-pending)
 (def ^:private delivery-delivered :webhook-delivery-status-delivered)
@@ -486,28 +493,32 @@
   outcome.
 
   `outcome` carries `:status` when a response arrived and `:error` when
-  the call failed before one did."
-  [delivery {:keys [status error]} now]
-  (let [attempts (inc (or (:attempts delivery) 0))
-        delay (retry-schedule attempts)
-        base (-> delivery
-                 (assoc :attempts attempts :updated-at now)
-                 (dissoc :claim-lease-expires-at :claimed-by :next-attempt-at))]
-    (cond
-     (delivered? status)
-     (assoc base :status delivery-delivered :last-response-status status)
+  the call failed before one did. `schedule` replaces
+  `retry-schedule-ms` where given."
+  ([delivery outcome now]
+   (record-outcome delivery outcome now retry-schedule-ms))
+  ([delivery {:keys [status error]} now schedule]
+   (let [attempts (inc (or (:attempts delivery) 0))
+         delay (retry-schedule schedule attempts)
+         base (->
+                delivery
+                (assoc :attempts attempts :updated-at now)
+                (dissoc :claim-lease-expires-at :claimed-by :next-attempt-at))]
+     (cond
+      (delivered? status)
+      (assoc base :status delivery-delivered :last-response-status status)
 
-     (nil? delay)
-     (utility/assoc-some (assoc base :status delivery-failed)
-                         :last-response-status status
-                         :last-error error)
+      (nil? delay)
+      (utility/assoc-some (assoc base :status delivery-failed)
+                          :last-response-status status
+                          :last-error error)
 
-     :else
-     (utility/assoc-some (assoc base
-                                :status delivery-pending
-                                :next-attempt-at (+ now delay))
-                         :last-response-status status
-                         :last-error error))))
+      :else
+      (utility/assoc-some (assoc base
+                                 :status delivery-pending
+                                 :next-attempt-at (+ now delay))
+                          :last-response-status status
+                          :last-error error)))))
 
 ;; ---------------------------------------------------------------------------
 ;; Notifications and their deliveries

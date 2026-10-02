@@ -321,9 +321,10 @@
            zyphe-simulator-url (system/instance sys
                                                 [:zyphe-simulator-server
                                                  :http-url])
-           receiver {:url (system/instance sys [:webhook-receiver :http-url])
-                     :received (system/instance sys
-                                                [:webhook-receiver :received])}
+           receiver
+           {:url (system/instance sys [:webhook-receiver :http-url])
+            :received (system/instance sys [:webhook-receiver :received])
+            :answers (system/instance sys [:webhook-receiver :answers])}
            {:keys [workers await-timeout-ms] :as settings}
            (system/instance sys [:test-api-scenarios :settings])
            all (executions (runs sys settings) loaded)

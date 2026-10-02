@@ -9,7 +9,7 @@
              :path "/v1/webhook-endpoints"
              :auth [:ref :org-0 :token]
              :body {:address "https://93.184.216.34/hooks-1"
-                    :kinds ["cash-account.opened"]}}
+                    :kinds ["payment.outbound-completed"]}}
    :as :endpoint-0
    :assert {:status 201}}
   {:command :api/request
@@ -17,7 +17,7 @@
              :path "/v1/webhook-endpoints"
              :auth [:ref :org-0 :token]
              :body {:address "https://93.184.216.34/hooks-2"
-                    :kinds ["cash-account.opened"]}}
+                    :kinds ["payment.outbound-completed"]}}
    :as :endpoint-1
    :assert {:status 201}}]
  :when
@@ -26,7 +26,7 @@
              :path "/v1/webhook-endpoints"
              :auth [:ref :org-0 :token]
              :body {:address "https://93.184.216.34/hooks-3"
-                    :kinds ["cash-account.opened"]}}
+                    :kinds ["payment.outbound-completed"]}}
    :assert {:status 429 :problem {:type ":policy/limit-exceeded"}}}]
  :then
  ;; The refusal came before any write, so the bank holds what it held.

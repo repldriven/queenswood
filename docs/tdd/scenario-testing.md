@@ -347,10 +347,16 @@ The rig hosts the webhook consumers and runner, and a receiver: mono's
 Jetty adapter on 127.0.0.1, keeping every request it is sent. Its
 address rule admits plain HTTP and loopback at registration, and its
 runner sends over plain HTTP only, so an HTTPS address a scenario
-registers is refused at send time and never called.
+registers is refused at send time and never called. The runner retries
+every quarter-second and pauses an endpoint after four failed attempts
+and a second without a success, so an outage plays out in a scenario.
+An HTTPS endpoint chooses a kind its bank never emits, which keeps
+anything from being sent to it and so from pausing it.
 
 - `:webhook/open-receiver` captures an address on the receiver no other
   step uses.
+- `:webhook/receiver-answers` sets the status the receiver answers at
+  an address, 200 until a step sets another.
 - `:webhook/await-delivery` waits for `:count` requests to it, checks
   each signature under the endpoint's `:secret`, and captures each
   request's headers and parsed body.
@@ -454,9 +460,9 @@ flight.
   `:create-person-party` meet no count limit, since no scenario comes
   near one.
 - **PRDs with no journey scenarios.** Only `payments`, `cash-accounts`,
-  `parties`, `cash-account-products`, `policies`, `onboarding` and
-  `memberships` have a directory under `journeys/`. The interest, platform and
-  webhooks PRDs have none, so their journeys go unchecked, and
+  `parties`, `cash-account-products`, `policies`, `onboarding`,
+  `memberships` and `webhooks` have a directory under `journeys/`. The
+  interest and platform PRDs have none, so their journeys go unchecked, and
   `journeys/full-happy-path.edn` covers parts of several of them.
 - **Unbuilt journeys.** `cash-accounts/2` is skipped, since no template
   a customer's account opens under allows a second currency;

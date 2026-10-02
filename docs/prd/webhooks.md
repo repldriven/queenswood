@@ -260,7 +260,7 @@ the tenant was told and when.
 
 ## User journeys
 
-### 1. Tenant registers an endpoint
+### 1. Customer registers an endpoint
 
 ```mermaid
 sequenceDiagram
@@ -277,8 +277,8 @@ sequenceDiagram
     Q-->>T: delivered and acknowledged
 ```
 
-The tenant registers an address and stores the secret. A test
-notification proves the endpoint is reachable and that the tenant's
+The customer registers an address and stores the secret. A test
+notification proves the endpoint is reachable and that the customer's
 signature check works, before anything real depends on it.
 
 ### 2. Outbound payment settles
@@ -300,10 +300,10 @@ sequenceDiagram
     Note over E: the customer's app tells the end customer
 ```
 
-The reply to the tenant said "submitted". Without a webhook, the
-tenant reads the payment back until it says "settled". With one, the
-platform tells the tenant as soon as the scheme confirms, carrying the
-idempotency key the tenant used to submit, so the tenant's own systems
+The reply to the customer said "submitted". Without a webhook, the
+customer reads the payment back until it says "settled". With one, the
+platform tells the customer as soon as the scheme confirms, carrying the
+idempotency key the customer used to submit, so the customer's own systems
 match it to the original request. A rejection travels the same way,
 as "failed".
 
@@ -329,9 +329,9 @@ sequenceDiagram
 ```
 
 Nothing was lost while the endpoint was down. Every notification was
-recorded, and the tenant asks for the gap to be sent. A delivery that
+recorded, and the customer asks for the gap to be sent. A delivery that
 did get through before the pause arrives again with the same
-identifier, and the tenant recognises it as done.
+identifier, and the customer recognises it as done.
 
 ### 4. Identity verification completes
 
@@ -353,7 +353,7 @@ sequenceDiagram
     Note over E: the customer's app lets the customer open an account
 ```
 
-A check that takes days is the case a webhook exists for. The tenant
+A check that takes days is the case a webhook exists for. The customer
 stops reading the party back on a timer, and its app moves the
 customer on the moment the outcome lands.
 

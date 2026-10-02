@@ -782,6 +782,13 @@
   [{:keys [receiver run-id counter] :as ctx} {:keys [as]}]
   (capture ctx as {:address (str (:url receiver) "/r/" run-id "-" counter)}))
 
+(defmethod dispatch :webhook/receiver-answers
+  [{:keys [captures receiver] :as ctx} step]
+  (let [{:keys [address status]} (refs/resolve-all captures step)
+        path (.getPath (java.net.URI. ^String address))]
+    (swap! (:answers receiver) assoc path status)
+    ctx))
+
 (defn- received-at
   [received address]
   (let [path (.getPath (java.net.URI. ^String address))]

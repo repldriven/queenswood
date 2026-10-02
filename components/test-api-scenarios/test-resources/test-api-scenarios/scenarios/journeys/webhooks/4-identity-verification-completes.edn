@@ -1,0 +1,47 @@
+{:name "The customer is told a party is active once its verification completes"
+ :runs-on {:idv :every}
+ :given [{:fixture :bank :as :bank-0 :with {:name "Verification Webhook Journey"}}
+         {:command :webhook/open-receiver :as :receiver}
+         {:command :api/request
+          :request {:method :post
+                    :path "/v1/webhook-endpoints"
+                    :auth [:ref :bank-0 :token]
+                    :body {:address [:ref :receiver :address]
+                           :kinds ["party.opened" "party.rejected"]}}
+          :as :registered
+          :assert {:status 201}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth [:ref :bank-0 :token]
+             :body {:type "person"
+                    :display-name "Marvin"
+                    :given-name "Marvin"
+                    :family-name "Android"
+                    :date-of-birth "1978-03-08"
+                    :nationality "GB"
+                    :address {:building-number "42"
+                              :street "Country Lane"
+                              :town "Cottington"
+                              :postcode "CT12 4XY"
+                              :country "GBR"}
+                    :national-identifier {:type "national-insurance"
+                                          :value "TN000014A"
+                                          :issuing-country "GB"}}}
+   :as :party
+   :assert {:status 201 :body {:status "pending"}}}
+  {:command :idv/verify
+   :party [:ref :party :party-id]
+   :auth [:ref :bank-0 :token]}]
+ ;; The customer reads nothing back on a timer: the notification is
+ ;; what tells it the party is active.
+ :then
+ [{:command :webhook/await-delivery
+   :address [:ref :receiver :address]
+   :where {:kind "party.opened"
+           :resource-id [:ref :party :party-id]
+           :status-before "pending"
+           :status-after "active"
+           :data {:status "active"}}
+   :secret [:ref :registered :secret]}]}

@@ -62,8 +62,9 @@
   - `:await-timeout-ms` (optional) — how long a step waiting on the
     system waits before failing, unless the step names its own.
   - `:receiver` (optional) — the webhook receiver, as `{:url
-    :received}`: its root URL and an atom of every request it has been
-    sent, for the `:webhook/*` verbs.
+    :received :answers}`: its root URL, an atom of every request it has
+    been sent, and an atom of the status it answers at each path, for
+    the `:webhook/*` verbs.
 
   The fresh `:captures` map isolates scenarios from each other so
   one boot can serve many, and the fresh `:banks` map limits the

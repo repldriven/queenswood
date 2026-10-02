@@ -80,6 +80,8 @@
                            [:as {:optional true} alias-key]]
    :wait [[:duration-ms pos-int?]]
    :webhook/open-receiver [[:as alias-key]]
+   :webhook/receiver-answers [[:address any?]
+                              [:status pos-int?]]
    :webhook/await-delivery [[:address any?]
                             [:where {:optional true} map?]
                             [:count {:optional true} pos-int?]
@@ -111,7 +113,9 @@
   [{:keys [command request]}]
   (or (and (= :api/request command)
            (contains? #{:post :put :patch :delete} (:method request)))
-      (contains? #{:api/race :idv/verify :keycloak/add-signing-key} command)))
+      (contains? #{:api/race :idv/verify :keycloak/add-signing-key
+                   :webhook/receiver-answers}
+                 command)))
 
 (def ^:private given-step
   [:and
