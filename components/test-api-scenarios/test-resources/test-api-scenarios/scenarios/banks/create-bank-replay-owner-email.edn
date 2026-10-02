@@ -1,7 +1,8 @@
 {:name "Creating a bank with an owner twice under one key replays the invitation"
- ;; The replay carries the bank, its client secret and the owner
- ;; invitation. Neither answer carries a token, which only the owner's
- ;; invitation email does.
+ ;; Bank creation is the admin's, and the admin principal is shared, so
+ ;; the cache is scoped by the key rather than by the caller. The replay
+ ;; carries the bank, its credential and the owner invitation. Neither
+ ;; answer carries a token, which only the owner's invitation email does.
  :when
  [{:command :api/request
    :request {:method :post
@@ -17,7 +18,8 @@
    :as :bank-0
    :assert {:status 201
             :headers {:idempotent-replayed [:m/absent]}
-            :body {:client-secret [:m/non-empty]
+            :body {:client-id [:m/regex "^bnk\\."]
+                   :client-secret [:m/non-empty]
                    :owner-invitation {:invitation-id [:m/regex "^inv\\."]
                                       :token [:m/absent]}}}}
   {:command :api/request
@@ -34,6 +36,7 @@
    :assert {:status 201
             :headers {:idempotent-replayed "true"}
             :body {:bank-id [:ref :bank-0 :bank-id]
+                   :client-id [:ref :bank-0 :client-id]
                    :client-secret [:ref :bank-0 :client-secret]
                    :owner-invitation
                    {:invitation-id [:ref :bank-0 :owner-invitation :invitation-id]

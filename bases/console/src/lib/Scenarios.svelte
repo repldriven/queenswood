@@ -137,7 +137,7 @@
       id: "s1", num: "01", title: "Publish", view: "products",
       story:
         "Draft and publish the three products the bank sells: Everyday at 0 bps with a £50 welcome reward, Rainy Day at 4.10% and 1 Year Fixed at 4.65%. The reward is a term on the version, fixed once published.",
-      backing: ["create-product-happy", "publish-draft", "opening-reward"],
+      backing: ["journeys/cash-account-products/1-designing-and-publishing-a-new-product", "opening-reward"],
       steps: [
         { name: "Draft Everyday · 0 bps, £50 welcome reward", raw: [{ method: "POST", path: "/v1/cash-account-products", tag: "request" }] },
         { name: "Publish it", raw: [{ method: "POST", path: "/v1/cash-account-products/{id}/versions/{v}/publish", tag: "request" }] },
@@ -151,7 +151,7 @@
       id: "s2", num: "02", title: "Invite", view: "people",
       story:
         "Invite a developer and a viewer to the bank's team, resend the developer's invitation, and read the audit log the platform keeps of every one of those acts.",
-      backing: ["invite-and-accept-by-email", "owner-resends-invitation", "history-pages-in-order"],
+      backing: ["journeys/memberships/1-a-founding-owner-brings-in-a-colleague", "resend-replaces-emailed-link", "audit-log-pages-in-order"],
       steps: [
         { name: "Invite Trillian as a developer", raw: [{ method: "POST", path: "/v1/invitations", tag: "request" }] },
         { name: "Invite Marvin as a viewer", raw: [{ method: "POST", path: "/v1/invitations", tag: "request" }] },
@@ -163,7 +163,7 @@
       id: "s3", num: "03", title: "Verify", view: "parties",
       story:
         "Onboard Arthur Dent, Ford Prefect and Zaphod Beeblebrox. Each is handed to the identity provider's page through a verification session: Arthur and Ford show their own documents and go active; Zaphod turns out to be on a sanctions list, is rejected, and the platform denies him an account.",
-      backing: ["verification-accepts-a-matching-document", "verification-sanctions-hit-rejects", "verification-session-hands-off"],
+      backing: ["journeys/parties/1-registering-a-person-party", "verification-sanctions-hit-rejects", "verification-session-hands-off"],
       steps: [
         { name: "Onboard Arthur Dent", raw: [{ method: "POST", path: "/v1/parties", tag: "request" }] },
         { name: "Hand him to the identity check → active", raw: [{ method: "POST", path: "/v1/parties/{id}/verification-sessions", tag: "request" }, { method: "GET", path: "/v1/parties/{id}/verification-sessions/{s}", tag: "poll" }, { method: "GET", path: "/v1/parties/{id}", tag: "poll" }] },
@@ -177,7 +177,7 @@
       id: "s4", num: "04", title: "Fund", view: "ledger",
       story:
         "£50,000 arrives from outside into the bank's own funds. The books move — 1100 cash-at-correspondent debited, own funds credited — debits equal credits, to the penny. Customers are paid from here, never from nowhere.",
-      backing: ["simulate/inbound-transfer", "ledger-accounts/post-second-currency"],
+      backing: ["simulate/inbound-transfer-foreign-bank-refused", "ledger-accounts/post-second-currency"],
       steps: [
         { name: "Fund the bank · £50,000 into own funds", raw: [{ method: "POST", path: "/v1/simulate/inbound-transfer", tag: "request" }] },
         { name: "Trial balance ties", raw: [{ method: "GET", path: "/v1/ledger-accounts", tag: "request" }] },
@@ -187,7 +187,7 @@
       id: "s5", num: "05", title: "Open", view: "accounts",
       story:
         "Open an Everyday account each for Arthur and Ford. Each is created pending and transitions to opened; the version promises them a welcome reward the next hour.",
-      backing: ["open-account-happy"],
+      backing: ["journeys/cash-accounts/1-opening-a-customer-s-first-account"],
       steps: [
         { name: "Open Arthur's Everyday", raw: [{ method: "POST", path: "/v1/cash-accounts", tag: "request" }] },
         { name: "Open Ford's Everyday", raw: [{ method: "POST", path: "/v1/cash-accounts", tag: "request" }] },
@@ -210,7 +210,7 @@
       id: "s7", num: "07", title: "Move", view: "accounts",
       story:
         "Arthur opens a Rainy Day and moves £30 of his reward into it. An internal payment between a customer's own accounts posts at once.",
-      backing: ["internal-payment-happy"],
+      backing: ["journeys/payments/1-internal-transfer"],
       steps: [
         { name: "Open Arthur's Rainy Day", raw: [{ method: "POST", path: "/v1/cash-accounts", tag: "request" }] },
         { name: "Arthur moves £30 · Everyday → Rainy Day", raw: [{ method: "POST", path: "/v1/payments/internal", tag: "request" }] },
@@ -221,7 +221,7 @@
       id: "s8", num: "08", title: "Refuse", view: "policies",
       story:
         "Arthur tries to move £40 with £20 left. The platform's non-negative-balance policy refuses it synchronously and nothing posts — the policy is data, and the console shows the rule that held.",
-      backing: ["policy-daily-limit", "capability-denied-outbound"],
+      backing: ["daily-limit-breach-internal", "capability-denied-outbound"],
       steps: [
         { name: "Arthur sends £40 · Everyday → Rainy Day", raw: [{ method: "POST", path: "/v1/payments/internal", tag: "request" }] },
         { name: "Refused · available must stay ≥ £0", tone: "exception", raw: [{ method: "GET", path: "/v1/bank/effective-policy", tag: "request" }] },
@@ -232,7 +232,7 @@
       id: "s9", num: "09", title: "Pay", view: "accounts",
       story:
         "Ford checks Arthur's name against the account he is about to pay, then sends £20 by Faster Payments. The scheme settles it and, this being the same bank, it lands as an inbound: Ford −£20, Arthur +£20.",
-      backing: ["payee-check-match", "outbound-fps-happy", "inbound-settled"],
+      backing: ["payee-check-match", "journeys/payments/2-outbound-payment-happy-path", "journeys/payments/4-inbound-payment"],
       steps: [
         { name: "Check the payee · Arthur Dent matches", raw: [{ method: "POST", path: "/v1/payee-checks", tag: "request" }] },
         { name: "Ford pays Arthur £20.00 · outbound FPS", raw: [{ method: "POST", path: "/v1/payments/outbound", tag: "request" }] },
@@ -244,7 +244,7 @@
       id: "s10", num: "10", title: "Migrate", view: "migrations",
       story:
         "Reprice Rainy Day to 4.35% as a new version, plan a migration of its holders onto it, approve the plan, and run the account-migration job. Arthur's Rainy Day moves to the new rate.",
-      backing: ["open-new-draft-after-publish", "cash-account-migrations/commit"],
+      backing: ["journeys/cash-account-products/2-changing-terms-new-version", "journeys/cash-account-migrations/1-moving-customers-onto-new-terms"],
       steps: [
         { name: "Revise Rainy Day → v2 @ 4.35%", raw: [{ method: "POST", path: "/v1/cash-account-products/{id}/versions", tag: "request" }, { method: "POST", path: "/v1/cash-account-products/{id}/versions/{v}/publish", tag: "request" }] },
         { name: "Plan the migration onto v2", raw: [{ method: "POST", path: "/v1/cash-account-migrations", tag: "request" }] },
@@ -257,7 +257,7 @@
       id: "s11", num: "11", title: "Accrue", view: "jobs",
       story:
         "Force-start the daily-interest job that stands in for the night. The accrue → capitalise pipeline gives Rainy Day its statement line at 4.35% and posts the bank's own entry — pence, at a real rate, and ties to the penny.",
-      backing: ["scheduler-force-start", "interest-accrual"],
+      backing: ["journeys/interest/1-daily-accrual-run", "interest-accrual"],
       steps: [
         { name: "Force-start daily-interest job", tone: "exception", raw: [{ method: "POST", path: "/v1/jobs/{id}/runs", tag: "request" }] },
         { name: "Accrue interest", raw: [{ method: "GET", path: "/v1/jobs/{id}/runs/{run}", tag: "poll" }] },

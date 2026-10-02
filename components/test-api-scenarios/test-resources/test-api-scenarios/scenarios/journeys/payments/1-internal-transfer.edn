@@ -57,7 +57,11 @@
   {:command :webhook/await-delivery
    :address [:ref :hook :receiver :address]
    :where {:kind "payment.internal-settled"
-           :resource-id [:ref :transfer :payment-id]}
+           :change-kind "settle"
+           :resource-id [:ref :transfer :payment-id]
+           :status-before [:m/absent]
+           :status-after "settled"
+           :idempotency-key [:m/regex "^ik-"]}
    :secret [:ref :hook :registered :secret]
    :as :notified}
   {:command :api/request

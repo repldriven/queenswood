@@ -42,7 +42,9 @@
   ;; The customer is told, with the account as its read route renders it.
   {:command :webhook/await-delivery
    :address [:ref :hook :receiver :address]
-   :where {:kind "cash-account.opened" :resource-id [:ref :account :account-id]}
+   :where {:kind "cash-account.opened"
+           :resource-id [:ref :account :account-id]
+           :occurred-at [:m/regex "^\\d{4}-\\d{2}-\\d{2}T"]}
    :secret [:ref :hook :registered :secret]
    :as :notified}
   {:command :assert/equals

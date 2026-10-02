@@ -382,36 +382,6 @@
       ]
     },
     {
-      "username": "viewer-owner",
-      "enabled": true,
-      "emailVerified": true,
-      "email": "viewer-owner@queenswood.local",
-      "firstName": "Viewer",
-      "lastName": "Owner",
-      "credentials": [
-        {
-          "type": "password",
-          "value": "viewer-owner",
-          "temporary": false
-        }
-      ]
-    },
-    {
-      "username": "viewer-viewer",
-      "enabled": true,
-      "emailVerified": true,
-      "email": "viewer-viewer@queenswood.local",
-      "firstName": "Viewer",
-      "lastName": "Viewer",
-      "credentials": [
-        {
-          "type": "password",
-          "value": "viewer-viewer",
-          "temporary": false
-        }
-      ]
-    },
-    {
       "username": "developer-owner",
       "enabled": true,
       "emailVerified": true,
@@ -917,36 +887,6 @@
         {
           "type": "password",
           "value": "withdraw-owner",
-          "temporary": false
-        }
-      ]
-    },
-    {
-      "username": "resend-owner",
-      "enabled": true,
-      "emailVerified": true,
-      "email": "resend-owner@queenswood.local",
-      "firstName": "Resend",
-      "lastName": "Owner",
-      "credentials": [
-        {
-          "type": "password",
-          "value": "resend-owner",
-          "temporary": false
-        }
-      ]
-    },
-    {
-      "username": "resend-invitee",
-      "enabled": true,
-      "emailVerified": true,
-      "email": "resend-invitee@queenswood.local",
-      "firstName": "Resend",
-      "lastName": "Invitee",
-      "credentials": [
-        {
-          "type": "password",
-          "value": "resend-invitee",
           "temporary": false
         }
       ]

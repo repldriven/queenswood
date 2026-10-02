@@ -1,13 +1,14 @@
 (ns com.repldriven.queenswood.webhook.events-test
   "The consumer against a real record store: which leg of a two-phase
   change produces a notification (AC-07), what a redelivered envelope
-  produces (AC-08), what the stored body carries (AC-09) and what the
-  envelope around it does (AC-10).
+  produces (AC-08) and what the envelope carries (AC-10). That a
+  notification's data is the resource as its read route returns it
+  (AC-09) is the API journeys', which compare the two over HTTP.
 
   Envelopes are built here from the same Avro schema the cash-account
   writer serialises with and handed to the processor directly. The
   bus subscription and the delivery the runner makes of what this
-  writes are API scenarios', in `webhook-endpoints/`.
+  writes are the API journeys', under `journeys/webhooks/`.
 
   The endpoint lifecycle lives in `interface-test`, the record types in
   `store-test`, and the runner that sends what this writes in
@@ -17,9 +18,6 @@
 
     [com.repldriven.queenswood.webhook.store :as store]
 
-    [com.repldriven.queenswood.cash-account-api.interface :as cash-account-api]
-    [com.repldriven.queenswood.cash-account-query.interface :as
-     cash-account-query]
     [com.repldriven.queenswood.fdb.interface :as fdb]
     [com.repldriven.queenswood.party-api.interface :as party-api]
     [com.repldriven.queenswood.party-query.interface :as party-query]
@@ -257,60 +255,6 @@
                  _ (testing "and the unique index left one of each"
                      (is (= 1 (count written)))
                      (is (= 1 (count sent))))]))))
-
-(deftest the-stored-body-is-the-read-route-projection-test
-  (with-test-system
-   [sys config-file]
-   (let [config (processor-config sys)
-         bank-id "bnk.events.body"
-         account-id (utility/generate-id "acc")
-         suffix (str (utility/uuidv7))
-         seeded (account bank-id account-id "20000003" "ik-body")]
-     (nom-test>
-       [_ (seed-account config seeded (balance bank-id account-id))
-        opened (envelope sys
-                         {:event-id (str "evt." suffix)
-                          :bank-id bank-id
-                          :account-id account-id
-                          :status-before :cash-account-status-opening
-                          :status-after :cash-account-status-opened})
-        _ (consume sys opened)
-        written (notifications config bank-id)
-        notification (first written)
-        record (cash-account-query/find-account config bank-id account-id)
-        body (body->map notification)
-        _ (testing "data is the resource's own projection, field for field"
-            (let [projected (cash-account-api/->wire-body record)
-                  round-tripped
-                  (json/read-str (json/write-str projected) :key-fn keyword)]
-              (is (= round-tripped (:data body)))))
-        _ (testing "and carries no key the projection drops"
-            (is (some? (:idempotency-key record))
-                "the record holds one, so dropping it is a choice")
-            (is (nil? (:idempotency-key (cash-account-api/->wire-body record))))
-            (is (nil? (:idempotency-key (:data body)))))
-        _ (testing "while the keys it keeps are all there"
-            (is (= (:bban seeded) (:bban (:data body))))
-            (is (= account-id (:account-id (:data body)))))
-        _
-        (testing
-          "and is spelled as the read route spells it — the enums as
-                   the strings `CashAccount` admits and the timestamps
-                   as ISO-8601, which is what AC-09 asks for and what a
-                   client generated from the document accepts"
-          (is (= "opened" (:account-status (:data body))))
-          (is (= "business" (:account-type (:data body))))
-          (is (= "current" (:product-type (:data body))))
-          (is (string? (:created-at (:data body))))
-          (is (some? (re-matches #"\d{4}-\d{2}-\d{2}T.*"
-                                 (:created-at (:data body))))))
-        _ (testing "and the envelope's own timestamp with it"
-            (is (string? (:occurred-at body)))
-            (is (some? (re-matches #"\d{4}-\d{2}-\d{2}T.*"
-                                   (:occurred-at body)))))
-        _ (testing "while the embedded collections are not carried"
-            (is (nil? (:balances (:data body))))
-            (is (nil? (:transactions (:data body)))))]))))
 
 (deftest the-envelope-carries-every-published-field-test
   (with-test-system
@@ -691,99 +635,6 @@
                  _ (testing "and one delivery to the endpoint that chose it"
                      (nom-test> [chosen (deliveries config
                                                     (str "whe.p." suffix))
-                                 _ (is (= 1 (count chosen)))]))]))))
-
-(def ^:private internal-event-name "internal-payment-settled")
-
-(def ^:private internal-kind "payment.internal-settled")
-
-(def ^:private internal-store
-  "Must match `payment.store`'s store name."
-  "internal-payments")
-
-(defn- internal-payment
-  "An internal payment as `payment.store` leaves it: settled as saved."
-  [bank-id payment-id]
-  (let [now (utility/now)]
-    {:payment-id payment-id
-     :idempotency-key (str "ik-" payment-id)
-     :debtor-account-id "acc.events"
-     :creditor-account-id "acc.events.creditor"
-     :currency "GBP"
-     :amount 1000
-     :transaction-id "txn.events"
-     :reference "Rent"
-     :bank-id bank-id
-     :business-day 20260101
-     :created-at now
-     :updated-at now}))
-
-(defn- seed-internal
-  [config payment]
-  (fdb/transact config
-                (fn [txn]
-                  (fdb/save-record (fdb/open txn internal-store)
-                                   (schema/InternalPayment->java payment))
-                  nil)
-                :test/seed
-                "Failed to seed the payment"))
-
-(defn- internal-envelope
-  [sys {:keys [event-id bank-id payment-id]}]
-  (let [schemas (system/instance sys [:avro :serde])
-        payload (avro/serialize (get schemas internal-event-name)
-                                {:bank-id bank-id
-                                 :payment-id payment-id
-                                 :status-before nil
-                                 :status-after :internal-payment-status-settled
-                                 :change-kind
-                                 :internal-payment-change-kind-settle})]
-    (if (error/anomaly? payload)
-      payload
-      {:id event-id
-       :event internal-event-name
-       :payload payload
-       :causation-id payment-id
-       :correlation-id nil})))
-
-(deftest an-internal-payment-is-told-as-settled-when-saved-test
-  (with-test-system
-   [sys config-file]
-   (let [config (processor-config sys)
-         bank-id "bnk.events.internal"
-         payment-id (utility/generate-id "pmt")
-         suffix (str (utility/uuidv7))]
-     (nom-test> [_ (seed-internal config (internal-payment bank-id payment-id))
-                 _ (store/save-endpoint config
-                                        (endpoint
-                                         bank-id
-                                         (str "whe.i." suffix)
-                                         :webhook-endpoint-status-enabled
-                                         [internal-kind]))
-                 settled (internal-envelope sys
-                                            {:event-id (str "evt.internal."
-                                                            suffix)
-                                             :bank-id bank-id
-                                             :payment-id payment-id})
-                 _ (is (not (error/anomaly? (consume sys settled))))
-                 written (notifications config bank-id)
-                 _ (is (= 1 (count written)))
-                 body (body->map (first written))
-                 _ (testing "carrying the payment as its read route returns it"
-                     (is (= internal-kind (:kind body)))
-                     (is (= "settle" (:change-kind body)))
-                     (is (= "InternalPayment" (:resource-type body)))
-                     (is (= payment-id (:resource-id body)))
-                     (is (not (contains? body :status-before)))
-                     (is (= "settled" (:status-after body)))
-                     (is (= 1000 (get-in body [:data :amount])))
-                     (is (= "acc.events.creditor"
-                            (get-in body [:data :creditor-account-id])))
-                     (is (= (str "ik-" payment-id) (:idempotency-key body)))
-                     (is (not (contains? (:data body) :idempotency-key))))
-                 _ (testing "and one delivery to the endpoint that chose it"
-                     (nom-test> [chosen (deliveries config
-                                                    (str "whe.i." suffix))
                                  _ (is (= 1 (count chosen)))]))]))))
 
 (def ^:private reward-event-name "reward-status-changed")

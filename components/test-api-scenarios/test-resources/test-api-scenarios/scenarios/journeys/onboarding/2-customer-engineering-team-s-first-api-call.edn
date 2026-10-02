@@ -11,30 +11,40 @@
           :as :bank
           :assert {:status 201}}]
  :when
- [{:command :auth/mint-token
-   :for {:client-id [:ref :bank :client-id]
-         :client-secret [:ref :bank :client-secret]
-         :status :live}
-   :as :bank-token}
+ [;; `expires_in` is the lifetime remaining, counted from when the token
+  ;; was issued, so an exact 3600 loses a second either side of a tick.
+  {:command :api/request
+   :request {:method :post
+             :path "/oauth/token"
+             :headers {:content-type "application/x-www-form-urlencoded"}
+             :form {:grant_type "client_credentials"
+                    :client_id [:ref :bank :client-id]
+                    :client_secret [:ref :bank :client-secret]
+                    :scope "queenswood-api-live"}}
+   :as :exchanged
+   :assert {:status 200
+            :body {:access_token [:m/regex ".+"]
+                   :token_type "Bearer"
+                   :expires_in [:m/within-delta 5 3600]}}}
   ;; A low-stakes call: its own account is there, ready.
   {:command :api/poll
-   :request {:method :get :path "/v1/cash-accounts" :auth :bank-token}
+   :request {:method :get :path "/v1/cash-accounts" :auth [:ref :exchanged :access_token]}
    :until {:status 200
            :body {:items [{:product-type "own-funds"
                            :currency "GBP"
                            :account-status "opened"}]}}}
   ;; Then it starts on its own customers.
-  {:fixture :person :as :arthur :with {:token [:ref :bank-token]}}
-  {:fixture :product :as :current :with {:token [:ref :bank-token]}}
+  {:fixture :person :as :arthur :with {:token [:ref :exchanged :access_token]}}
+  {:fixture :product :as :current :with {:token [:ref :exchanged :access_token]}}
   {:fixture :account
    :as :arthur-current
-   :with {:token [:ref :bank-token]
+   :with {:token [:ref :exchanged :access_token]
           :party-id [:ref :arthur :party :party-id]
           :product-id [:ref :current :product :product-id]
           :name "Arthur Current"}}]
  :then
  [{:command :api/request
-   :request {:method :get :path "/v1/cash-accounts" :auth :bank-token}
+   :request {:method :get :path "/v1/cash-accounts" :auth [:ref :exchanged :access_token]}
    :assert {:status 200
             :body {:items [:m/embeds
                            [{:name "Arthur Current"

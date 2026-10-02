@@ -38,9 +38,16 @@
         :currency "EUR"
         :gl-account-class "detail"
         :gl-account-type "expense"}
-       {:gl-code "1100" :currency "GBP"}
+       {:gl-code "1100"
+        :currency "GBP"
+        :gl-account-class "detail"
+        :gl-account-type "asset"}
        {:gl-code "1200" :currency "GBP"}
-       {:gl-code "2100" :currency "GBP"}
+       {:gl-code "2100"
+        :currency "GBP"
+        :gl-account-class "control"
+        :gl-account-type "liability"
+        :posted-balance {:currency "GBP"}}
        {:gl-code "2200" :currency "GBP"}
        {:gl-code "2300" :currency "GBP"}
        {:gl-code "2400"
@@ -48,7 +55,10 @@
         :gl-account-class "control"
         :gl-account-type "liability"}
        {:gl-code "2500" :currency "GBP"}
-       {:gl-code "3100" :currency "GBP"}
+       {:gl-code "3100"
+        :currency "GBP"
+        :gl-account-class "control"
+        :gl-account-type "equity"}
        {:gl-code "5100"
         :currency "GBP"
         :gl-account-class "detail"

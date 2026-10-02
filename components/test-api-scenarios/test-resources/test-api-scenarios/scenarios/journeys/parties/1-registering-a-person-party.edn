@@ -48,7 +48,11 @@
                    :path "/v1/parties/{party-id}"
                    :path-params {:party-id [:ref :party :party-id]}
                    :auth [:ref :bank-0 :token]}
-         :until {:status 200 :body {:status "active"}}
+         :until {:status 200
+                 :body {:party-id [:ref :party :party-id]
+                        :type "person"
+                        :display-name "Arthur Phillip Dent"
+                        :status "active"}}
          :as :read}
         ;; The customer is told the session was ready, and that the party
         ;; is active, with the party as its read route renders it.
