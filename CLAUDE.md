@@ -99,8 +99,11 @@ non-trivial work on their topic.
   [ADR-0014](docs/adr/0014-openapi-3x-compliance.md).
 - **A bank's providers** — each bank runs on the payment and
   IDV providers it named when created, every provider an installation
-  offers running side by side on a command channel of its own.
-  See [ADR-0030](docs/adr/0030-a-bank-chooses-its-providers-when-it-is-created.md)
+  offers running side by side on a command channel of its own; proposed,
+  each provider's commands written with the commits that cause them and
+  sent in that order per account.
+  See [ADR-0030](docs/adr/0030-a-bank-chooses-its-providers-when-it-is-created.md),
+  [ADR-0033](docs/adr/0033-a-provider-s-commands-follow-the-commits-that-cause-them.md)
   and [tdd/bank-providers.md](docs/tdd/bank-providers.md).
 - **Telemetry** — traces over OTLP to SigNoz in the cluster that
   produces them, its root user provisioned at startup with a password
