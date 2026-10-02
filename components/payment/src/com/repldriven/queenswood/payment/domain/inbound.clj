@@ -289,12 +289,10 @@
          :payment-status :inbound-payment-status-returned
          :updated-at (utility/now)))
 
-(defn returnable?
-  "True where `payment` is parked in suspense and the provider declares
-  that an inbound may be returned."
-  [payment payment-provider]
-  (and (= :inbound-payment-status-suspended (:payment-status payment))
-       (some #{"inbound"} (:returns payment-provider))))
+(defn returns-inbound?
+  "True where the provider declares that an inbound may be returned."
+  [payment-provider]
+  (boolean (some #{"inbound"} (:returns payment-provider))))
 
 (defn return-payment
   "The `return-payment` command sending a suspended inbound back to its

@@ -49,16 +49,8 @@ command-processor: !system/component
   system/component-kind: command-processor/command-processor
   bus: !system/ref message-bus.bus
   processor: !system/local-ref command-processor-impl
-  command-channel: !keyword clearbank-payment-command
-  command-response-channel: !keyword schemes-payment-command-response
-
-
-account-command-processor: !system/component
-  system/component-kind: command-processor/command-processor
-  bus: !system/ref message-bus.bus
-  processor: !system/local-ref command-processor-impl
-  command-channel: !keyword clearbank-account-command
-  command-response-channel: !keyword schemes-account-command-response
+  command-channel: !keyword clearbank-command
+  command-response-channel: !keyword schemes-command-response
 
 
 outbound-runner: !system/component

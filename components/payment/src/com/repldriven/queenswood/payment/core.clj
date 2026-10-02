@@ -17,12 +17,7 @@
     [com.repldriven.queenswood.transaction.interface :as
      transactions]
 
-    [com.repldriven.mono.avro.interface :as avro]
-    [com.repldriven.mono.error.interface :as error
-     :refer [let-nom>]]
-    [com.repldriven.mono.log.interface :as log]
-    [com.repldriven.mono.message-bus.interface :as message-bus]
-    [com.repldriven.mono.telemetry.interface :as telemetry]
+    [com.repldriven.mono.error.interface :refer [let-nom>]]
     [com.repldriven.mono.utility.interface :as utility]))
 
 (defn- or-already-submitted
@@ -121,56 +116,6 @@
                            :causation-id payment-id
                            :dedup-key payment-id})))
 
-(defn- publish-scheme-command
-  [config payment debtor-account]
-  (let [{:keys [bus schemas]} config
-        {:keys [payment-id bank-id creditor-bban creditor-name
-                currency amount reference scheme]}
-        payment
-        channel (provider/payment-command-channel config config bank-id)
-        {:keys [bban provider-account-id]} debtor-account
-        schema (get schemas "submit-payment")]
-    (when (and bus schema channel)
-      (let [result (let-nom>
-                     [channel channel
-                      payload (avro/serialize schema
-                                              {:payment-id payment-id
-                                               :end-to-end-id payment-id
-                                               :debtor-bban bban
-                                               :debtor-provider-account-id
-                                               provider-account-id
-                                               :creditor-bban creditor-bban
-                                               :creditor-name creditor-name
-                                               :amount amount
-                                               :currency currency
-                                               :reference reference
-                                               :scheme scheme})]
-                     (message-bus/send bus
-                                       channel
-                                       {:command "submit-payment"
-                                        :id (str (utility/uuidv7))
-                                        :correlation-id (str (utility/uuidv7))
-                                        :causation-id payment-id
-                                        :traceparent
-                                        (telemetry/inject-traceparent)
-                                        :payload payload}))]
-        (when (error/anomaly? result)
-          (log/error "Failed to publish submit-payment"
-                     {:payment-id payment-id :anomaly result}))
-        result))))
-
-(defn republish-pending
-  [config payment]
-  (let [{:keys [payment-id bank-id debtor-account-id]} payment
-        debtor-account (cash-accounts/get-account config
-                                                  bank-id
-                                                  debtor-account-id)]
-    (if (error/anomaly? debtor-account)
-      (do (log/error "Failed to read the debtor account to republish"
-                     {:payment-id payment-id :anomaly debtor-account})
-          debtor-account)
-      (publish-scheme-command config payment debtor-account))))
-
 (defn submit-outbound
   [config data]
   (let [{:keys [bank-id debtor-account-id currency]} data
@@ -238,14 +183,9 @@
                     _ (record-submitted txn payment debtor-account)]
                    {:payment payment :debtor-account debtor-account}))))]
     (if (store/uniqueness-violation? raw)
-      (let-nom> [existing (or-already-submitted
-                           config
-                           data
-                           raw
-                           q/find-outbound-payment-by-idempotency-key)]
-        (when (outbound/republishable-outbound? existing)
-          (republish-pending config existing))
-        existing)
-      (let-nom> [{:keys [payment debtor-account]} raw]
-        (publish-scheme-command config payment debtor-account)
+      (or-already-submitted config
+                            data
+                            raw
+                            q/find-outbound-payment-by-idempotency-key)
+      (let-nom> [{:keys [payment]} raw]
         payment))))

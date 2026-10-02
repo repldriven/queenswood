@@ -8,12 +8,12 @@ system:
         event: schemas/event/event-envelope.avsc.json
     producers: !system/component
       system/component-kind: kafka/producers
-      schemes-payment-command-response:
+      schemes-command-response:
         schemas: !system/local-ref schemas
         schema: !keyword command-response
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          topic: topic-schemes-payment-command-response
+          topic: topic-schemes-command-response
           acks: all
       schemes-payments-event:
         schemas: !system/local-ref schemas
@@ -43,20 +43,20 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-companies-command-response
           acks: all
-      modulr-payment-command-dlq:
+      modulr-command-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          topic: topic-modulr-payment-command-dlq
+          topic: topic-modulr-command-dlq
           acks: all
-      form3-payment-command-dlq:
+      form3-command-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          topic: topic-form3-payment-command-dlq
+          topic: topic-form3-command-dlq
           acks: all
-      clearbank-payment-command-dlq:
+      clearbank-command-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          topic: topic-clearbank-payment-command-dlq
+          topic: topic-clearbank-command-dlq
           acks: all
       cash-accounts-event-dlq:
         conf:
@@ -102,28 +102,6 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-payments-command
           acks: all
-      schemes-account-command-response:
-        schemas: !system/local-ref schemas
-        schema: !keyword command-response
-        conf:
-          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          topic: topic-schemes-account-command-response
-          acks: all
-      modulr-account-command-dlq:
-        conf:
-          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          topic: topic-modulr-account-command-dlq
-          acks: all
-      form3-account-command-dlq:
-        conf:
-          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          topic: topic-form3-account-command-dlq
-          acks: all
-      clearbank-account-command-dlq:
-        conf:
-          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          topic: topic-clearbank-account-command-dlq
-          acks: all
     # The group.ids name the per-adapter services this one absorbed.
     # They are carried over verbatim: a consumer group identifies the
     # consumer role, not the pod hosting it, and renaming one
@@ -132,33 +110,33 @@ system:
     # this service.
     consumers: !system/component
       system/component-kind: kafka/consumers
-      modulr-payment-command:
+      modulr-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
-        topics: [topic-modulr-payment-command]
-        dead-letter-producer: !system/local-ref producers.modulr-payment-command-dlq
+        topics: [topic-modulr-command]
+        dead-letter-producer: !system/local-ref producers.modulr-command-dlq
         max-redeliveries: 5
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          group.id: external-adapters-service-modulr-payment-command
-      form3-payment-command:
+          group.id: external-adapters-service-modulr-command
+      form3-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
-        topics: [topic-form3-payment-command]
-        dead-letter-producer: !system/local-ref producers.form3-payment-command-dlq
+        topics: [topic-form3-command]
+        dead-letter-producer: !system/local-ref producers.form3-command-dlq
         max-redeliveries: 5
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          group.id: external-adapters-service-form3-payment-command
-      clearbank-payment-command:
+          group.id: external-adapters-service-form3-command
+      clearbank-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
-        topics: [topic-clearbank-payment-command]
-        dead-letter-producer: !system/local-ref producers.clearbank-payment-command-dlq
+        topics: [topic-clearbank-command]
+        dead-letter-producer: !system/local-ref producers.clearbank-command-dlq
         max-redeliveries: 5
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          group.id: external-adapters-service-clearbank-payment-command
+          group.id: external-adapters-service-clearbank-command
       zyphe-idv-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
@@ -248,37 +226,10 @@ system:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           group.id: external-adapters-service-payments-command-response
-      modulr-account-command:
-        schemas: !system/local-ref schemas
-        schema: !keyword command
-        topics: [topic-modulr-account-command]
-        dead-letter-producer: !system/local-ref producers.modulr-account-command-dlq
-        max-redeliveries: 5
-        conf:
-          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          group.id: external-adapters-service-modulr-account-command
-      form3-account-command:
-        schemas: !system/local-ref schemas
-        schema: !keyword command
-        topics: [topic-form3-account-command]
-        dead-letter-producer: !system/local-ref producers.form3-account-command-dlq
-        max-redeliveries: 5
-        conf:
-          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          group.id: external-adapters-service-form3-account-command
-      clearbank-account-command:
-        schemas: !system/local-ref schemas
-        schema: !keyword command
-        topics: [topic-clearbank-account-command]
-        dead-letter-producer: !system/local-ref producers.clearbank-account-command-dlq
-        max-redeliveries: 5
-        conf:
-          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          group.id: external-adapters-service-clearbank-account-command
     message-bus-producers: !system/component
       system/component-kind: kafka/message-bus-producers
-      schemes-payment-command-response:
-        producer: !system/local-ref producers.schemes-payment-command-response
+      schemes-command-response:
+        producer: !system/local-ref producers.schemes-command-response
       schemes-payments-event:
         producer: !system/local-ref producers.schemes-payments-event
       idv-command-response:
@@ -291,18 +242,16 @@ system:
         producer: !system/local-ref producers.memberships-command
       payments-command:
         producer: !system/local-ref producers.payments-command
-      schemes-account-command-response:
-        producer: !system/local-ref producers.schemes-account-command-response
     message-bus-consumers: !system/component
       system/component-kind: kafka/message-bus-consumers
-      modulr-payment-command:
-        consumer: !system/local-ref consumers.modulr-payment-command
+      modulr-command:
+        consumer: !system/local-ref consumers.modulr-command
         timeout: 500
-      form3-payment-command:
-        consumer: !system/local-ref consumers.form3-payment-command
+      form3-command:
+        consumer: !system/local-ref consumers.form3-command
         timeout: 500
-      clearbank-payment-command:
-        consumer: !system/local-ref consumers.clearbank-payment-command
+      clearbank-command:
+        consumer: !system/local-ref consumers.clearbank-command
         timeout: 500
       zyphe-idv-command:
         consumer: !system/local-ref consumers.zyphe-idv-command
@@ -336,15 +285,6 @@ system:
         timeout: 500
       payments-command-response:
         consumer: !system/local-ref consumers.payments-command-response
-        timeout: 500
-      modulr-account-command:
-        consumer: !system/local-ref consumers.modulr-account-command
-        timeout: 500
-      form3-account-command:
-        consumer: !system/local-ref consumers.form3-account-command
-        timeout: 500
-      clearbank-account-command:
-        consumer: !system/local-ref consumers.clearbank-account-command
         timeout: 500
   message-bus: !include system/message-bus.yml
   fdb: !include system/fdb.yml

@@ -65,6 +65,27 @@
        (let-nom> [e (event config now intent descriptor)]
          (store/finish config intent-id status outcome attempts e))))))
 
+(defn- finish-holding
+  [config now intent account-id provider-account-id descriptor]
+  (let [{:keys [intent-id attempts]} intent]
+    (let-nom> [e (event config now intent descriptor)]
+      (store/finish-holding config
+                            intent-id
+                            "pending"
+                            "settled"
+                            attempts
+                            e
+                            account-id
+                            provider-account-id))))
+
+(defn- held-at
+  "The provider account holding `account-id`'s money as this adapter
+  last opened or reissued it, or `fallback`, the one the command named,
+  where it opened none."
+  [config account-id fallback]
+  (let [held (when account-id (store/provider-account config account-id))]
+    (if (or (nil? held) (error/anomaly? held)) fallback held)))
+
 (defn- call
   "Make one call for `intent`, retrying as the same request: a retry
   sends the nonce the first attempt was signed with, and `x-mod-retry`."
@@ -132,15 +153,73 @@
     (rejected intent failure-kind reason now)
     (transfer-failed intent reason now)))
 
+(def ^:private sandbox-payer
+  "Who the sandbox credit says paid, since Modulr requires a payer."
+  {:name "Sandbox funding"
+   :identifier {:type "SCAN" :sortCode "000000" :accountNumber "00000000"}})
+
+(defn- payment-body
+  [config intent]
+  (let [{:keys [debtor-account-id]} (context intent)
+        {:keys [request]} intent
+        named (get (json/read-str request) "sourceAccountId")
+        held (held-at config debtor-account-id named)]
+    (if (= named held)
+      request
+      (json/write-str (assoc (json/read-str request) "sourceAccountId" held)))))
+
+(defn- transfer-body
+  [config intent]
+  (let [{:keys [debtor-account-id creditor-account-id
+                debtor-provider-account-id creditor-provider-account-id
+                amount currency]}
+        (context intent)
+        debtor (held-at config debtor-account-id debtor-provider-account-id)
+        creditor (held-at config
+                          creditor-account-id
+                          creditor-provider-account-id)
+        reference (modulr/->reference (:dedup-key intent))]
+    (cond
+     (not (or creditor-account-id creditor-provider-account-id))
+     (:request intent)
+
+     (nil? creditor)
+     nil
+
+     (= "credit" (:kind intent))
+     (json/write-str {:accountId creditor
+                      :amount (modulr/->major-units amount)
+                      :description reference
+                      :type "PI_FAST"
+                      :payerDetail sandbox-payer})
+
+     debtor
+     (json/write-str {:sourceAccountId debtor
+                      :destination {:type "ACCOUNT" :id creditor}
+                      :amount (modulr/->major-units amount)
+                      :currency currency
+                      :reference "Ledger transfer"
+                      :externalReference reference}))))
+
+(defn- request-body
+  [config intent]
+  (if (= "payment" (:kind intent))
+    (payment-body config intent)
+    (transfer-body config intent)))
+
 (defn- relay-payment
   [config now intent]
-  (let [{:keys [intent-id kind request]} intent
-        [outcome result] (call config
-                               intent
-                               {:method :post
-                                :path
-                                (if (= "credit" kind) "/credit" "/payments")
-                                :raw-body request})
+  (let [{:keys [intent-id kind]} intent
+        body (request-body config intent)
+        [outcome result] (if body
+                           (call config
+                                 intent
+                                 {:method :post
+                                  :path (if (= "credit" kind)
+                                          "/credit"
+                                          "/payments")
+                                  :raw-body body})
+                           [:retry "No provider account holds it yet"])
         attempts (inc (or (:attempts intent) 0))
         intent (assoc intent :attempts attempts)]
     (cond
@@ -224,16 +303,17 @@
     (cond
      (= :ok outcome)
      (let [{:keys [id addresses]} (scan result)]
-       (finish config
-               now
-               intent
-               "settled"
-               (account-event intent
-                              "payment-account-opened"
-                              {:bank-id bank-id
-                               :account-id account-id
-                               :provider-account-id id
-                               :addresses addresses})))
+       (finish-holding config
+                       now
+                       intent
+                       account-id
+                       id
+                       (account-event intent
+                                      "payment-account-opened"
+                                      {:bank-id bank-id
+                                       :account-id account-id
+                                       :provider-account-id id
+                                       :addresses addresses})))
 
      (= :refused outcome)
      (do (log/error "Modulr refused an account opening"
@@ -257,13 +337,12 @@
   [config now intent]
   (let [{:keys [intent-id]} intent
         {:keys [bank-id account-id provider-account-id]} (context intent)
+        held (held-at config account-id provider-account-id)
         attempts (inc (or (:attempts intent) 0))
         [outcome result] (call config
                                intent
                                {:method :post
-                                :path (str "/accounts/"
-                                           provider-account-id
-                                           "/close")})
+                                :path (str "/accounts/" held "/close")})
         intent (assoc intent :attempts attempts)]
     (cond
      (= :ok outcome)
@@ -356,12 +435,21 @@
   [config now intent]
   (let [{:keys [intent-id]} intent
         ctx (context intent)
-        ctx (cond-> ctx
-                    (nil? (:step ctx))
-                    (assoc :step
-                           (if (:provider-account-id ctx) "block" "open")))]
+        ctx (if (:step ctx)
+              ctx
+              (let [held (held-at config
+                                  (:account-id ctx)
+                                  (:provider-account-id ctx))]
+                (utility/assoc-some (assoc ctx :step (if held "block" "open"))
+                                    :provider-account-id
+                                    held)))]
     (if (= "done" (:step ctx))
-      (finish config now intent "settled" (reissued intent ctx))
+      (finish-holding config
+                      now
+                      intent
+                      (:account-id ctx)
+                      (get-in ctx [:new-account :id])
+                      (reissued intent ctx))
       (let [[request next-ctx] (reissue-step config intent ctx)
             attempts (inc (or (:attempts intent) 0))
             [outcome result] (if request

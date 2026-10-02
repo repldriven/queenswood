@@ -40,3 +40,12 @@
     - `:dedup-key`: what identifies the change, unique per event name."
   [txn entry]
   (core/record txn entry))
+
+(defn send-command
+  "Send `command`, a command envelope, on `channel` keyed by `bank-id`,
+  for a consumer of a bank's activity answering an entry. A failed send
+  is tried again here, a few times with a growing wait, rather than left
+  for the entry's redelivery, which would let the bank's later entries
+  pass it. Returns what the last send returned."
+  [bus channel bank-id command]
+  (core/send-command bus channel bank-id command))

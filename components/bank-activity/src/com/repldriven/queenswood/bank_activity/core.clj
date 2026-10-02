@@ -6,12 +6,23 @@
 
     [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
+    [com.repldriven.mono.log.interface :as log]
+    [com.repldriven.mono.message-bus.interface :as message-bus]
     [com.repldriven.mono.telemetry.interface :as telemetry]
     [com.repldriven.mono.utility.interface :as utility]
 
     [clojure.java.io :as io]))
 
 (def shard-count 4)
+
+(def ^:private
+     ^{:doc "How many times a send is tried before it fails."} send-attempts
+  5)
+
+(def ^:private
+     ^{:doc "The wait before a send's next try, times its count."}
+     send-backoff-ms
+  200)
 
 (def ^:private schema-paths
   {"account-opening" "schemas/bank-activity/account-opening.avsc.json"
@@ -62,3 +73,14 @@
     (error/fail :bank-activity/unknown-event
                 {:message "No activity schema has this name"
                  :event-name event-name})))
+
+(defn send-command
+  [bus channel bank-id command]
+  (loop [n 1]
+    (let [res (message-bus/send bus channel command {:key bank-id})]
+      (if (and (error/anomaly? res) (< n send-attempts))
+        (do (log/warn "Provider command send failed; trying again"
+                      {:command (:command command) :attempt n :anomaly res})
+            (Thread/sleep (long (* n send-backoff-ms)))
+            (recur (inc n)))
+        res))))

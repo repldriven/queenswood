@@ -55,7 +55,6 @@ system:
   telemetry: !include system/telemetry.yml
   transactions: !include system/transaction.yml
   transactions-dispatcher: !include system/transaction-dispatcher.yml
-  transactions-relay: !include system/transaction-relay.yml
   uk-companies-house-adapter: !include system/uk-companies-house-adapter.yml
   uk-companies-house-simulator-server: !include system/uk-companies-house-simulator-server.yml
   webhook: !include monolith/webhook-test.yml

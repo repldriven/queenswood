@@ -49,11 +49,10 @@
 
 (def ^:private offered
   (SUT/providers {:default "modulr"
-                  :providers
-                  {:modulr {:declaration {:balances "per-account"}
-                            :payment-command-channel :modulr-payment-command}
-                   :form3 {:declaration {:balances "pooled"}
-                           :payment-command-channel :form3-payment-command}}}))
+                  :providers {:modulr {:declaration {:balances "per-account"}
+                                       :command-channel :modulr-command}
+                              :form3 {:declaration {:balances "pooled"}
+                                      :command-channel :form3-command}}}))
 
 (deftest providers-test
   (testing "each entry carries its key"
@@ -65,8 +64,7 @@
       (is (= ["modulr"] (:offered (error/payload res)))))))
 
 (deftest default-test
-  (is (= :modulr-payment-command
-         (:payment-command-channel (SUT/default offered)))))
+  (is (= :modulr-command (:command-channel (SUT/default offered)))))
 
 (deftest for-bank-test
   (testing "a bank recording a provider takes its entry"

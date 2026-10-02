@@ -18,9 +18,7 @@
                    (or instance (events/->CashAccountEventProcessor config)))
    :system/config {:record-db system/required-component
                    :record-store system/required-component
-                   :schemas system/required-component
-                   :bus system/required-component
-                   :payment-providers system/required-component}
+                   :schemas system/required-component}
    :system/instance-schema some?})
 
 (def ^:private payment-account-event-processor

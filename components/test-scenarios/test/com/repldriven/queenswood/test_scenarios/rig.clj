@@ -54,7 +54,7 @@
   {:scheme-commands (scenarios/start-observer
                      (system/instance sys
                                       [:kafka :consumers
-                                       :modulr-payment-command-observer]))
+                                       :modulr-command-observer]))
    :dead-letters (scenarios/start-observer
                   (system/instance sys
                                    [:kafka :consumers

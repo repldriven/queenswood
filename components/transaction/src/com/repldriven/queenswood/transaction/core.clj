@@ -1,6 +1,5 @@
 (ns com.repldriven.queenswood.transaction.core
   (:require
-    [com.repldriven.queenswood.transaction.changelog :as changelog]
     [com.repldriven.queenswood.transaction.domain :as domain]
     [com.repldriven.queenswood.transaction.store :as store]
 
@@ -25,14 +24,10 @@
            [_ (domain/validate-legs legs)
             _ (store/save-transaction txn transaction)
             _ (store/save-legs txn legs')
-            _ (store/write-posted txn
-                                  transaction
-                                  legs
-                                  (:scheme-account-id data))
             _ (bank-activity/record txn
                                     {:bank-id (:bank-id transaction)
                                      :event-name "transaction-posted"
-                                     :data (changelog/posted-data
+                                     :data (domain/posted
                                             transaction
                                             legs
                                             (:scheme-account-id data))

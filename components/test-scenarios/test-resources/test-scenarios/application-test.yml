@@ -21,7 +21,6 @@ system:
   payments: !include test-scenarios/payment-test.yml
   payment-sweep: !include system/payment-outbound-sweep.yml
   policies: !include system/policy-test.yml
-  transactions-relay: !include system/transaction-relay.yml
   zyphe-adapter: !include system/zyphe-adapter.yml
   zyphe-adapter-relay: !include system/zyphe-adapter-relay.yml
   zyphe-adapter-server: !include system/zyphe-adapter-server.yml

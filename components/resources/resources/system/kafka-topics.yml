@@ -84,37 +84,23 @@
     partitions: 1
   - topic: topic-payments-command-response
     partitions: 1
-  - topic: topic-modulr-account-command
-    partitions: 1
-  - topic: topic-form3-account-command
-    partitions: 1
-  - topic: topic-clearbank-account-command
-    partitions: 1
-  - topic: topic-modulr-account-command-dlq
-    partitions: 1
-  - topic: topic-form3-account-command-dlq
-    partitions: 1
-  - topic: topic-clearbank-account-command-dlq
-    partitions: 1
-  - topic: topic-schemes-account-command-response
-    partitions: 1
   - topic: topic-schemes-account-event
     partitions: 1
   - topic: topic-schemes-account-event-dlq
     partitions: 1
-  - topic: topic-modulr-payment-command
+  - topic: topic-modulr-command
     partitions: 1
-  - topic: topic-form3-payment-command
+  - topic: topic-form3-command
     partitions: 1
-  - topic: topic-clearbank-payment-command
+  - topic: topic-clearbank-command
     partitions: 1
-  - topic: topic-modulr-payment-command-dlq
+  - topic: topic-modulr-command-dlq
     partitions: 1
-  - topic: topic-form3-payment-command-dlq
+  - topic: topic-form3-command-dlq
     partitions: 1
-  - topic: topic-clearbank-payment-command-dlq
+  - topic: topic-clearbank-command-dlq
     partitions: 1
-  - topic: topic-schemes-payment-command-response
+  - topic: topic-schemes-command-response
     partitions: 1
   - topic: topic-schemes-payments-event
     partitions: 1
@@ -125,8 +111,4 @@
   - topic: topic-transactions-command-dlq
     partitions: 1
   - topic: topic-transactions-command-response
-    partitions: 1
-  - topic: topic-transactions-event
-    partitions: 1
-  - topic: topic-transactions-event-dlq
     partitions: 1

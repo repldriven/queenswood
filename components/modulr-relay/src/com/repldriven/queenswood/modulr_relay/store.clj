@@ -5,7 +5,9 @@
 
     [com.repldriven.mono.error.interface :refer [let-nom>]]
     [com.repldriven.mono.telemetry.interface :as telemetry]
-    [com.repldriven.mono.utility.interface :as utility :refer [assoc-some]]))
+    [com.repldriven.mono.utility.interface :as utility :refer [assoc-some]]
+
+    [clojure.edn :as edn]))
 
 (def ^:private outbox-store-name "modulr-outbox")
 
@@ -166,3 +168,45 @@
                  (fn [i]
                    (assoc-some (assoc i :status outcome) :attempts attempts))
                  event))
+
+(defn- open-dedup-key
+  [account-id]
+  (str "open:" account-id))
+
+(defn- intent-context
+  [intent]
+  (or (some-> (not-empty (:context intent))
+              edn/read-string)
+      {}))
+
+(defn provider-account
+  "The provider account holding `account-id`'s money, as its opening, or
+  the reissue that last replaced it, recorded it; nil where the account
+  was not opened here or is not open yet."
+  [txn account-id]
+  (let-nom> [intent (find-intent txn (open-dedup-key account-id))]
+    (when (= "settled" (:status intent))
+      (:provider-account-id (intent-context intent)))))
+
+(defn finish-holding
+  "Move a `status` intent to `outcome` with `event`, recording in the
+  same transaction that `account-id`'s money is now held in
+  `provider-account-id`."
+  [txn intent-id status outcome attempts event account-id provider-account-id]
+  (fdb/transact
+   txn
+   (fn [txn]
+     (let-nom> [finished (finish txn intent-id status outcome attempts event)
+                opening (find-intent txn (open-dedup-key account-id))
+                _ (when opening
+                    (fdb/save-record
+                     (fdb/open txn intents-store-name)
+                     (schema/ModulrOutboundIntent->java
+                      (assoc opening
+                             :context
+                             (pr-str (assoc (intent-context opening)
+                                            :provider-account-id
+                                            provider-account-id))))))]
+       finished))
+   :modulr-outbound/finish-holding
+   "Failed to record the provider account an account is held in"))

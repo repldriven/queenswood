@@ -2,7 +2,6 @@
   (:require
     [com.repldriven.queenswood.payment.domain.checks :as checks]
     [com.repldriven.queenswood.payment.domain.inbound :as inbound]
-    [com.repldriven.queenswood.payment.provider :as provider]
     [com.repldriven.queenswood.payment.store :as store]
 
     [com.repldriven.queenswood.balance.interface :as balances]
@@ -13,11 +12,8 @@
     [com.repldriven.queenswood.policy.interface :as policy]
     [com.repldriven.queenswood.transaction.interface :as transactions]
 
-    [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.log.interface :as log]
-    [com.repldriven.mono.message-bus.interface :as message-bus]
-    [com.repldriven.mono.telemetry.interface :as telemetry]
     [com.repldriven.mono.utility.interface :as utility]))
 
 (defn- check-debit-credit-code
@@ -403,42 +399,15 @@
      :payment/settle-inbound
      "Failed to settle inbound payment")))
 
-(defn- send-return
-  "Publish `return-payment` for `payment` where it is returnable, and
-  return it, or the anomaly publishing gave."
-  [config payment]
-  (let [{:keys [bus schemas]} config
-        {:keys [payment-id bank-id suspense-reason-code]} payment]
-    (let-nom> [declaration (provider/declaration config config bank-id)]
-      (if-not (inbound/returnable? payment declaration)
-        payment
-        (let-nom>
-          [channel (provider/payment-command-channel config config bank-id)
-           payload (avro/serialize (get schemas "return-payment")
-                                   (inbound/return-payment payment))
-           _ (message-bus/send bus
-                               channel
-                               {:command "return-payment"
-                                :id (str (utility/uuidv7))
-                                :correlation-id (str (utility/uuidv7))
-                                :causation-id payment-id
-                                :traceparent (telemetry/inject-traceparent)
-                                :payload payload})]
-          (log/infof "Suspended inbound sent back to its sender: %s"
-                     {:payment-id payment-id
-                      :reason-code suspense-reason-code})
-          payment)))))
-
 (defn settle-inbound
   "Settle an inbound credit against the creditor resolved by BBAN. A
   creditor that is not opened — suspended, closing, closed, or still
   opening — is parked in 2500 suspense rather than credited, as one a
-  check refuses is; a held record for it, if any, stays `held`. Where
-  the provider declares `returns: [inbound]`, a parked inbound is then
-  sent back with `return-payment`, and again on a redelivery."
+  check refuses is; a held record for it, if any, stays `held`. A parked
+  inbound is recorded as the bank's activity, which sends it back where
+  the provider declares `returns: [inbound]`."
   [config data]
-  (let-nom> [payment (settle config data)]
-    (send-return config payment)))
+  (settle config data))
 
 (defn hold-inbound
   "An inbound ClearBank is holding for screening. Record it `held` (creditor

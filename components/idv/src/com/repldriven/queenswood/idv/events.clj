@@ -45,3 +45,15 @@
 (defrecord IdvPartyEventProcessor [config]
   processor/Processor
     (process [_ message] (dispatch-party config message)))
+
+(defn- dispatch-activity
+  [config message]
+  (let [{:keys [event payload]} message]
+    (when (= "idv-session-opening" event)
+      (let-nom> [data (avro/deserialize-same (get (:schemas config) event)
+                                             payload)]
+        (core/send-check config data)))))
+
+(defrecord IdvActivityEventProcessor [config]
+  processor/Processor
+    (process [_ message] (dispatch-activity config message)))

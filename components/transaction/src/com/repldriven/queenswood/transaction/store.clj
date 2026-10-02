@@ -1,7 +1,5 @@
 (ns com.repldriven.queenswood.transaction.store
   (:require
-    [com.repldriven.queenswood.transaction.changelog :as changelog]
-
     [com.repldriven.queenswood.fdb.interface :as fdb]
     [com.repldriven.queenswood.schema.interface :as schema]
 
@@ -39,23 +37,6 @@
                legs)))
    :transaction/save-legs
    "Failed to save transaction legs"))
-
-(defn write-posted
-  "Co-commit the transaction's `transaction-posted` changelog entry,
-  naming the cash account the scheme moved the money through, where the
-  posting is the scheme's own."
-  [txn transaction legs scheme-account-id]
-  (fdb/transact txn
-                (fn [txn]
-                  (error/let-nom> [entry (changelog/posted transaction
-                                                           legs
-                                                           scheme-account-id)]
-                    (fdb/write-changelog txn
-                                         store-name
-                                         (:transaction-id transaction)
-                                         entry)))
-                :transaction/write-posted
-                "Failed to write the transaction's changelog entry"))
 
 (defn find-transaction-by-idempotency-key
   [txn bank-id transaction-type idempotency-key]

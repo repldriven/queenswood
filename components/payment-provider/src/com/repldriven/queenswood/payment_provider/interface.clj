@@ -13,9 +13,8 @@
   defaults. An adapter refers to its own, `payment-provider.<key>`.
 
   The `payment-provider/providers` component kind names the default and,
-  per provider, its `declaration` and the channels that reach its
-  adapter, `payment-command-channel` and `account-command-channel`, and
-  refuses to start where the default names no provider. Every component
+  per provider, its `declaration` and the `command-channel` that reaches
+  its adapter, and refuses to start where the default names no provider. Every component
   that routes to a provider or reads its declaration refers to
   `payment-provider.providers`."
   (:require
@@ -60,8 +59,7 @@
 
   Args:
   - config: `{:default :providers}`, the default's key and a map of key
-    to entry — `:declaration`, `:payment-command-channel`,
-    `:account-command-channel`."
+    to entry — `:declaration`, `:command-channel`."
   [config]
   (core/providers config))
 

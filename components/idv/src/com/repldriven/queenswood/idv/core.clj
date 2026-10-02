@@ -16,7 +16,6 @@
     [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.log.interface :as log]
-    [com.repldriven.mono.message-bus.interface :as message-bus]
     [com.repldriven.mono.telemetry.interface :as telemetry]
     [com.repldriven.mono.utility.interface :as utility]))
 
@@ -67,28 +66,28 @@
                            :causation-id session-id
                            :dedup-key session-id})))
 
-(defn- publish-submit-idv-check
-  [config provider session identification criteria]
+(defn send-check
+  [config data]
   (let [{:keys [bus schemas]} config
-        {:keys [command-channel]} provider
-        {:keys [bank-id session-id]} session
-        schema (clojure.core/get schemas "submit-idv-check")]
-    (when (and bus schema command-channel)
-      (let [payload (avro/serialize schema
-                                    (assoc (check-data session
-                                                       identification
-                                                       criteria)
-                                           :bank-id
-                                           bank-id))]
-        (if (error/anomaly? payload)
-          (log/error "Failed to serialize submit-idv-check" payload)
-          (let [envelope {:command "submit-idv-check"
-                          :id (str (utility/uuidv7))
-                          :correlation-id (str (utility/uuidv7))
-                          :causation-id session-id
-                          :traceparent (telemetry/inject-traceparent)
-                          :payload payload}]
-            (message-bus/send bus command-channel envelope)))))))
+        {:keys [bank-id session-id]} data]
+    (let-nom> [provider (bank-provider config config bank-id)
+               payload (avro/serialize (clojure.core/get schemas
+                                                         "submit-idv-check")
+                                       data)]
+      (if-let [channel (:command-channel provider)]
+        (bank-activity/send-command bus
+                                    channel
+                                    bank-id
+                                    {:command "submit-idv-check"
+                                     :id (str (utility/uuidv7))
+                                     :correlation-id (str (utility/uuidv7))
+                                     :causation-id session-id
+                                     :traceparent (telemetry/inject-traceparent)
+                                     :payload payload})
+        (error/fail :idv/no-provider
+                    {:message
+                     "No identity verification provider reaches this bank"
+                     :bank-id bank-id})))))
 
 (defn save-idv
   "Save an IDV, converting a uniqueness-violation result into an
@@ -180,62 +179,48 @@
      (no-verification bank-id party-id))))
 
 (defn open-session
-  "Open a verification session for a party's pending IDV and, once it
-  commits, ask the adapter for a hand-off. A pending person whose IDV
+  "Open a verification session for a party's pending IDV, recording it
+  as the bank's activity so the provider is asked for a hand-off. A pending person whose IDV
   the party event has not created yet gets it here, so a session opened
   straight after the party is not refused. Returns the session, opening,
   or an anomaly."
   [config data]
-  (let [{:keys [bank-id party-id]} data
-        opened (store/transact
-                (fdb-config config)
-                (fn [txn]
-                  (let-nom>
-                    [idv (get-party-idv txn bank-id party-id)
-                     provider (bank-provider config txn bank-id)
-                     policies (policy/get-effective-policies txn
-                                                             {:bank-id
-                                                              bank-id})
-                     opened-today (idv-query/count-sessions-on
-                                   txn
-                                   bank-id
-                                   (utility/today))
-                     _ (domain/check-open-session idv
-                                                  (:declaration provider)
-                                                  data
-                                                  policies
-                                                  opened-today)
-                     identification
-                     (person-identification/get-person-identification
-                      txn
-                      party-id)
-                     session (store/save-session txn
-                                                 (domain/new-session idv data)
-                                                 nil)
-                     criteria (domain/required-criteria policies)
-                     _ (record-opening txn
-                                       (assoc session
-                                              :channel (:channel data)
-                                              :email (:email data))
-                                       identification
-                                       criteria)]
-                    {:session session
-                     :provider provider
-                     :identification identification
-                     :criteria criteria}))
-                :idv/open-session
-                "Failed to open a verification session")]
-    (if (error/anomaly? opened)
-      opened
-      (let [{:keys [session provider identification criteria]} opened]
-        (publish-submit-idv-check config
-                                  provider
-                                  (assoc session
-                                         :channel (:channel data)
-                                         :email (:email data))
-                                  identification
-                                  criteria)
-        session))))
+  (let [{:keys [bank-id party-id]} data]
+    (store/transact
+     (fdb-config config)
+     (fn [txn]
+       (let-nom>
+         [idv (get-party-idv txn bank-id party-id)
+          provider (bank-provider config txn bank-id)
+          policies (policy/get-effective-policies txn
+                                                  {:bank-id
+                                                   bank-id})
+          opened-today (idv-query/count-sessions-on
+                        txn
+                        bank-id
+                        (utility/today))
+          _ (domain/check-open-session idv
+                                       (:declaration provider)
+                                       data
+                                       policies
+                                       opened-today)
+          identification
+          (person-identification/get-person-identification
+           txn
+           party-id)
+          session (store/save-session txn
+                                      (domain/new-session idv data)
+                                      nil)
+          criteria (domain/required-criteria policies)
+          _ (record-opening txn
+                            (assoc session
+                                   :channel (:channel data)
+                                   :email (:email data))
+                            identification
+                            criteria)]
+         session))
+     :idv/open-session
+     "Failed to open a verification session")))
 
 (defn- complete-sessions
   [txn idv]

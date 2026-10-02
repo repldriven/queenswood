@@ -36,3 +36,23 @@ party-event-consumer: !system/component
   bus: !system/ref message-bus.bus
   processor: !system/local-ref party-event-processor-impl
   event-channel: !keyword parties-event
+
+# Sends the bank's identity verification provider each session's check,
+# in the order the bank's activity committed (ADR-0033). The test rigs
+# run it beside the payment brick's on one Kafka, where a channel is one
+# group member, so there it takes a channel of its own on the topic.
+activity-event-processor-impl: !system/component
+  system/component-kind: idv/activity-event-processor
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  schemas: !system/ref avro.serde
+  bus: !system/ref message-bus.bus
+  idv-providers: !system/ref idv-provider.providers
+
+activity-event-processor: !system/component
+  system/component-kind: event-processor/event-processor
+  bus: !system/ref message-bus.bus
+  processor: !system/local-ref activity-event-processor-impl
+  event-channel: !profile
+    test: !keyword idv-bank-activity-event
+    default: !keyword bank-activity-event

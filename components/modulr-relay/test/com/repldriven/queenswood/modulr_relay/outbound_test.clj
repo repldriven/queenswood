@@ -11,6 +11,7 @@
     [com.repldriven.queenswood.schema.interface :as schema]
 
     [com.repldriven.mono.avro.interface :as avro]
+    [com.repldriven.mono.json.interface :as json]
     [com.repldriven.mono.system.interface :as system]
     [com.repldriven.mono.test-system.interface :refer
      [with-test-system nom-test>]]
@@ -362,3 +363,71 @@
        (let [i (load-intent config "int.c2")]
          (is (= "failed" (:status i)))
          (is (= 3 (:attempts i))))))))
+
+(defn- opened-as
+  [provider-account-id]
+  (json-response 201
+                 (str "{\"id\":\"" provider-account-id
+                      "\","
+                      "\"identifiers\":[{\"type\":\"SCAN\","
+                      "\"sortCode\":\"040010\","
+                      "\"accountNumber\":\"00000001\"}]}")))
+
+(deftest transfer-names-the-provider-accounts-its-opens-recorded-test
+  (with-test-system
+   [sys "classpath:modulr-relay/application-test.yml"]
+   (let [calls (atom [])
+         config (runner-config
+                 sys
+                 (recording calls
+                            (fn [{:keys [path raw-body]}]
+                              (cond
+                               (= "/customers/C1/accounts" path)
+                               (if (re-find #"acc-1" raw-body)
+                                 (opened-as "A1")
+                                 (opened-as "A2"))
+
+                               :else
+                               (json-response
+                                201
+                                "{\"id\":\"P1\",\"status\":\"SUBMITTED\"}")))))
+         open (fn [intent-id account-id]
+                (intent intent-id
+                        "open-account"
+                        (str "open:" account-id)
+                        (json/write-str {:currency "GBP"
+                                         :externalReference (relay/->reference
+                                                             account-id)})
+                        {:bank-id "bnk.1" :account-id account-id}))]
+     (nom-test> [_ (relay/save-intent config (open "int.o1" "acc.1"))
+                 _ (relay/save-intent config (open "int.o2" "acc.2"))
+                 _ (relay/save-intent config
+                                      (intent "int.t1"
+                                              "transfer" "ptr.1"
+                                              "{}" {:bank-id "bnk.1"
+                                                    :amount 150
+                                                    :currency "GBP"
+                                                    :debtor-account-id "acc.1"
+                                                    :creditor-account-id
+                                                    "acc.2"}))])
+     (SUT/drain-once config 0)
+     (testing "the transfer moves money between the accounts its opens made"
+       (let [transfer (last @calls)
+             body (json/read-str (:raw-body transfer) :key-fn keyword)]
+         (is (= "/payments" (:path transfer)))
+         (is (= "A1" (:sourceAccountId body)))
+         (is (= {:type "ACCOUNT" :id "A2"} (:destination body)))))
+     (testing "a transfer naming an account no open has made yet waits"
+       (nom-test> [_ (relay/save-intent config
+                                        (intent "int.t2"
+                                                "transfer" "ptr.2"
+                                                "{}" {:bank-id "bnk.1"
+                                                      :amount 150
+                                                      :currency "GBP"
+                                                      :debtor-account-id "acc.1"
+                                                      :creditor-account-id
+                                                      "acc.9"}))])
+       (SUT/drain-once config 0)
+       (let [i (load-intent config "int.t2")]
+         (is (= "pending" (:status i)))
+         (is (= 1 (:attempts i))))))))

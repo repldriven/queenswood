@@ -5,8 +5,8 @@
 # payments-command channels on the bus) are omitted. The
 # event-processor that consumes schemes-payments-event posts the inbound
 # credit when the provider settles an outbound whose creditor BBAN
-# matches an internal account, and the transaction-event-processor
-# mirrors each posting at the provider.
+# matches an internal account, and the activity-event-processor sends
+# the bank's provider what its activity asks.
 
 event-processor-impl: !system/component
   system/component-kind: payment/event-processor
@@ -23,16 +23,16 @@ event-processor: !system/component
   processor: !system/local-ref event-processor-impl
   event-channel: !keyword schemes-payments-event
 
-transaction-event-processor-impl: !system/component
-  system/component-kind: payment/transaction-event-processor
+activity-event-processor-impl: !system/component
+  system/component-kind: payment/activity-event-processor
   record-db: !system/ref fdb.record-db
   record-store: !system/ref fdb.meta-store
   schemas: !system/ref avro.serde
   bus: !system/ref message-bus.bus
   payment-providers: !system/ref payment-provider.providers
 
-transaction-event-processor: !system/component
+activity-event-processor: !system/component
   system/component-kind: event-processor/event-processor
   bus: !system/ref message-bus.bus
-  processor: !system/local-ref transaction-event-processor-impl
-  event-channel: !keyword transactions-event
+  processor: !system/local-ref activity-event-processor-impl
+  event-channel: !keyword bank-activity-event

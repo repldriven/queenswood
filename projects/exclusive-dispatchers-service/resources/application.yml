@@ -65,27 +65,6 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-parties-event
           acks: all
-      modulr-payment-command:
-        schemas: !system/local-ref schemas
-        schema: !keyword command
-        conf:
-          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          topic: topic-modulr-payment-command
-          acks: all
-      form3-payment-command:
-        schemas: !system/local-ref schemas
-        schema: !keyword command
-        conf:
-          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          topic: topic-form3-payment-command
-          acks: all
-      clearbank-payment-command:
-        schemas: !system/local-ref schemas
-        schema: !keyword command
-        conf:
-          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          topic: topic-clearbank-payment-command
-          acks: all
       schemes-payments-event:
         schemas: !system/local-ref schemas
         schema: !keyword event
@@ -99,13 +78,6 @@ system:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-schemes-account-event
-          acks: all
-      transactions-event:
-        schemas: !system/local-ref schemas
-        schema: !keyword event
-        conf:
-          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          topic: topic-transactions-event
           acks: all
     message-bus-producers: !system/component
       system/component-kind: kafka/message-bus-producers
@@ -125,18 +97,10 @@ system:
         producer: !system/local-ref producers.invitations-event
       parties-event:
         producer: !system/local-ref producers.parties-event
-      modulr-payment-command:
-        producer: !system/local-ref producers.modulr-payment-command
-      form3-payment-command:
-        producer: !system/local-ref producers.form3-payment-command
-      clearbank-payment-command:
-        producer: !system/local-ref producers.clearbank-payment-command
       schemes-payments-event:
         producer: !system/local-ref producers.schemes-payments-event
       schemes-account-event:
         producer: !system/local-ref producers.schemes-account-event
-      transactions-event:
-        producer: !system/local-ref producers.transactions-event
     # This service only produces. `message-bus/bus` requires a consumers
     # map, so this is declared empty rather than omitted.
     message-bus-consumers: !system/component
@@ -192,11 +156,6 @@ system:
       bus: !system/ref message-bus.bus
       event-channel: !keyword schemes-payments-event
       event-channels: !include system/payment-account-event-channels.yml
-    transactions-handler: !system/component
-      system/component-kind: changelog-relay/envelope-handler
-      bus: !system/ref message-bus.bus
-      event-channel: !keyword transactions-event
-      store-name: transactions
     # Keyed by store, because a cursor belongs to a store. `store-name`
     # and `consumer-id` are physical: the ids are carried over verbatim
     # from the watchers these replaced, and a fresh one would restart
@@ -228,12 +187,6 @@ system:
         consumer-id: clearbank-relay
         store-name: clearbank-outbox
         handler: !system/local-ref schemes-payments-handler
-      transactions:
-        record-db: !system/ref fdb.record-db
-        keyspace-prefix: !system/ref fdb.keyspace-prefix
-        consumer-id: transactions-relay
-        store-name: transactions
-        handler: !system/local-ref transactions-handler
       idvs:
         record-db: !system/ref fdb.record-db
         keyspace-prefix: !system/ref fdb.keyspace-prefix

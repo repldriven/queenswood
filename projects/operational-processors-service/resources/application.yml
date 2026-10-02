@@ -97,26 +97,10 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-parties-event-dlq
           acks: all
-      modulr-account-command:
-        schemas: !system/local-ref schemas
-        schema: !keyword command
+      bank-activity-event-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          topic: topic-modulr-account-command
-          acks: all
-      form3-account-command:
-        schemas: !system/local-ref schemas
-        schema: !keyword command
-        conf:
-          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          topic: topic-form3-account-command
-          acks: all
-      clearbank-account-command:
-        schemas: !system/local-ref schemas
-        schema: !keyword command
-        conf:
-          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          topic: topic-clearbank-account-command
+          topic: topic-bank-activity-event-dlq
           acks: all
       schemes-account-event-dlq:
         conf:
@@ -204,6 +188,15 @@ system:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           group.id: party-service-idvs-event
+      bank-activity-event:
+        schemas: !system/local-ref schemas
+        schema: !keyword event
+        topics: [topic-bank-activity-event]
+        dead-letter-producer: !system/local-ref producers.bank-activity-event-dlq
+        max-redeliveries: 5
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          group.id: idv-service-bank-activity-event
       schemes-account-event:
         schemas: !system/local-ref schemas
         schema: !keyword event
@@ -229,12 +222,6 @@ system:
         producer: !system/local-ref producers.zyphe-idv-command
       onfido-idv-command:
         producer: !system/local-ref producers.onfido-idv-command
-      modulr-account-command:
-        producer: !system/local-ref producers.modulr-account-command
-      form3-account-command:
-        producer: !system/local-ref producers.form3-account-command
-      clearbank-account-command:
-        producer: !system/local-ref producers.clearbank-account-command
     message-bus-consumers: !system/component
       system/component-kind: kafka/message-bus-consumers
       banks-command:
@@ -266,6 +253,9 @@ system:
         timeout: 500
       schemes-account-event:
         consumer: !system/local-ref consumers.schemes-account-event
+        timeout: 500
+      bank-activity-event:
+        consumer: !system/local-ref consumers.bank-activity-event
         timeout: 500
   message-bus: !include system/message-bus.yml
   fdb: !include system/fdb.yml
