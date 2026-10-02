@@ -363,6 +363,20 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-transactions-event
       acks: all
+  bank-activity-event:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword event
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      topic: topic-bank-activity-event
+      acks: all
+  bank-activity-event-dlq:
+    _: !system/local-ref topics
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      topic: topic-bank-activity-event-dlq
+      acks: all
   transactions-event-dlq:
     _: !system/local-ref topics
     conf:
@@ -930,6 +944,8 @@ message-bus-producers: !system/component
     producer: !system/local-ref producers.schemes-account-event
   transactions-event:
     producer: !system/local-ref producers.transactions-event
+  bank-activity-event:
+    producer: !system/local-ref producers.bank-activity-event
   modulr-payment-command:
     producer: !system/local-ref producers.modulr-payment-command
   form3-payment-command:

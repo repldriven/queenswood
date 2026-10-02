@@ -23,7 +23,7 @@
 
 (defn- txn
   []
-  (SUT/->Txn (fn [_] nil) nil))
+  (SUT/->Txn (fn [_] nil) nil nil))
 
 (defn- failing
   "Runs `transact` over a body that throws `e`, under a caller-supplied

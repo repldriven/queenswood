@@ -42,6 +42,7 @@
     {:local/root "components/cash-account-product-query"}
     components/cash-account {:local/root "components/cash-account"}
     components/cash-account-query {:local/root "components/cash-account-query"}
+    components/bank-activity {:local/root "components/bank-activity"}
     components/changelog-relay {:local/root "components/changelog-relay"}
     components/demo-digital-bank {:local/root
                                        "components/demo-digital-bank"}
@@ -185,6 +186,8 @@
                        "components/testcontainers/test"
                        "components/fdb/test"
                        "components/fdb/test-resources"
+                       "components/bank-activity/test"
+                       "components/bank-activity/test-resources"
                        "components/changelog-relay/test"
                        "components/changelog-relay/test-resources"
                        "components/clearbank-relay/test"

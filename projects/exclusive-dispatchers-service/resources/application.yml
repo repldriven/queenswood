@@ -9,6 +9,13 @@ system:
         event: schemas/event/event-envelope.avsc.json
     producers: !system/component
       system/component-kind: kafka/producers
+      bank-activity-event:
+        schemas: !system/local-ref schemas
+        schema: !keyword event
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          topic: topic-bank-activity-event
+          acks: all
       cash-accounts-event:
         schemas: !system/local-ref schemas
         schema: !keyword event
@@ -102,6 +109,8 @@ system:
           acks: all
     message-bus-producers: !system/component
       system/component-kind: kafka/message-bus-producers
+      bank-activity-event:
+        producer: !system/local-ref producers.bank-activity-event
       cash-accounts-event:
         producer: !system/local-ref producers.cash-accounts-event
       payments-event:
@@ -285,6 +294,7 @@ system:
         consumer-id: rewards-relay
         store-name: rewards
         handler: !system/local-ref rewards-handler
+  bank-activity-relay: !include system/bank-activity-relay.yml
   scheduler: !include system/scheduler.yml
   payment-provider: !include system/payment-provider.yml
   payment-sweep: !include system/payment-outbound-sweep.yml

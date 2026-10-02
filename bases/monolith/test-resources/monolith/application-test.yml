@@ -7,6 +7,7 @@ system:
   cash-account-product-templates: !include system/cash-account-product-templates.yml
   cash-accounts: !include system/cash-account.yml
   cash-accounts-dispatcher: !include system/cash-account-dispatcher.yml
+  bank-activity-relay: !include system/bank-activity-relay.yml
   cash-accounts-relay: !include system/cash-account-relay.yml
   clearbank-adapter: !include system/clearbank-adapter.yml
   clearbank-adapter-relay: !include system/clearbank-adapter-relay.yml

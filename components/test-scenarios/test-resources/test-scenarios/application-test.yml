@@ -2,6 +2,7 @@ system:
   avro: !include system/avro.yml
   cash-account-product-templates: !include system/cash-account-product-templates.yml
   cash-accounts: !include system/cash-account.yml
+  bank-activity-relay: !include system/bank-activity-relay.yml
   cash-accounts-relay: !include system/cash-account-relay.yml
   fdb: !include system/fdb-test.yml
   idv: !include system/idv.yml

@@ -1,0 +1,12 @@
+# Every bank's activity log, relayed on `bank-activity-event` keyed by
+# bank (ADR-0033). The relay starts a runner per shard; each shard's
+# cursor is `bank-activity-<n>-relay`.
+handler: !system/component
+  system/component-kind: changelog-relay/envelope-handler
+  bus: !system/ref message-bus.bus
+  event-channel: !keyword bank-activity-event
+relay: !system/component
+  system/component-kind: bank-activity/relay
+  record-db: !system/ref fdb.record-db
+  keyspace-prefix: !system/ref fdb.keyspace-prefix
+  handler: !system/local-ref handler

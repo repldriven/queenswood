@@ -7,6 +7,7 @@ system:
     bus: !system/component
       system/component-kind: message-bus/local-bus
       channels:
+        - bank-activity-event
         - banks-command
         - banks-command-response
         - cash-accounts-command
@@ -67,6 +68,7 @@ system:
   cash-account-product-templates: !include system/cash-account-product-templates.yml
   banks-dispatcher: !include system/bank-dispatcher.yml
   cash-accounts-dispatcher: !include system/cash-account-dispatcher.yml
+  bank-activity-relay: !include system/bank-activity-relay.yml
   cash-accounts-relay: !include system/cash-account-relay.yml
   payments-relay: !include system/payment-relay.yml
   transactions-relay: !include system/transaction-relay.yml

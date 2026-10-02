@@ -86,3 +86,10 @@ company: schemas/company/company.avsc.json
 lookup-company: schemas/company/lookup-company.avsc.json
 
 webhook-endpoint-status-changed: schemas/webhooks/endpoint-status-changed.avsc.json
+
+account-opening: schemas/bank-activity/account-opening.avsc.json
+account-closing: schemas/bank-activity/account-closing.avsc.json
+account-address-rotation-requested: schemas/bank-activity/account-address-rotation-requested.avsc.json
+outbound-payment-submitted: schemas/bank-activity/outbound-payment-submitted.avsc.json
+inbound-payment-suspended: schemas/bank-activity/inbound-payment-suspended.avsc.json
+idv-session-opening: schemas/bank-activity/idv-session-opening.avsc.json

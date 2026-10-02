@@ -185,6 +185,29 @@
                (when (and (< (count (mine)) 3) (< n 50)) (recur (inc n)))))
          _ (is (= tags (mine)))]))))
 
+(defn- test-log-without-a-store
+  [sys pet-store]
+  (let [config {:record-db (system/instance sys [:fdb :record-db])
+                :record-store pet-store}
+        record-db (system/instance sys [:fdb :record-db])
+        log-name (str "log-" (utility/uuidv7))
+        received (atom [])
+        handler (fn [_ctx changelog-bytes]
+                  (swap! received conj (String. ^bytes changelog-bytes)))
+        opts {:keyspace-prefix (:keyspace-prefix (meta pet-store))
+              :deduplicate? false}]
+    (testing "a log no record store owns reads back in commit order"
+      (nom-test>
+        [_ (SUT/transact config
+                         (fn [txn]
+                           (SUT/write-log txn log-name "a" (.getBytes "1"))
+                           (SUT/write-log txn log-name "a" (.getBytes "2"))))
+         _ (SUT/transact config
+                         (fn [txn]
+                           (SUT/write-log txn log-name "b" (.getBytes "3"))))
+         _ (SUT/process-changelog record-db "reader" log-name handler opts)
+         _ (is (= ["1" "2" "3"] @received))]))))
+
 (defn- test-query-records
   [sys pet-store]
   (let [whiskers {:pet-id "pet-10"
@@ -273,7 +296,8 @@
                       (test-query-records-compound sys pet-store)
                       (test-record-layer-consumer sys pet-store)
                       (test-changelog-under-concurrent-writes sys pet-store)
-                      (test-changelog-pass-is-bounded sys pet-store))))
+                      (test-changelog-pass-is-bounded sys pet-store)
+                      (test-log-without-a-store sys pet-store))))
 
 (deftest meta-store-test
   (with-test-system [sys "classpath:fdb/application-test.yml"]
@@ -284,4 +308,5 @@
                       (test-query-records-compound sys pet-store)
                       (test-record-layer-consumer sys pet-store)
                       (test-changelog-under-concurrent-writes sys pet-store)
-                      (test-changelog-pass-is-bounded sys pet-store))))
+                      (test-changelog-pass-is-bounded sys pet-store)
+                      (test-log-without-a-store sys pet-store))))

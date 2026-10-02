@@ -246,6 +246,18 @@
                    record-id
                    changelog-bytes))
 
+(defn write-log
+  "Writes a versionstamped entry for record-id to log-name, a changelog
+  that belongs to no record store, and bumps its sentinel. The entry is
+  read back with `process-changelog` under log-name, in the order the
+  transactions writing it committed."
+  [txn log-name record-id changelog-bytes]
+  (changelog/write-entry (:context txn)
+                         (:prefix txn)
+                         log-name
+                         record-id
+                         changelog-bytes))
+
 (defn process-changelog
   "Reads store-name's changelog forward from consumer-id's checkpoint,
   calling `(handler ctx changelog-bytes)` per entry and advancing the
@@ -319,7 +331,8 @@
                           (let [s (open-store-fn ctx store-name)]
                             (swap! cache assoc store-name s)
                             s)))
-                    (:keyspace-prefix (meta open-store-fn)))))
+                    (:keyspace-prefix (meta open-store-fn))
+                    ctx)))
 
 ;; ---
 ;; meta-data

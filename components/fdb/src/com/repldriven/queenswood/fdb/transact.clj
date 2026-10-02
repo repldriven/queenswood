@@ -60,7 +60,7 @@
         :else
         (telemetry/set-attribute "fdb.outcome" "committed")))
 
-(defrecord Txn [open prefix])
+(defrecord Txn [open prefix context])
 
 (defn open
   [^Txn txn store-name]
@@ -95,7 +95,8 @@
                               result (try-nom category
                                               message
                                               (f (->Txn open-fn
-                                                        keyspace-prefix)))]
+                                                        keyspace-prefix
+                                                        ctx)))]
                           (if (error/anomaly? result)
                             ;; nosemgrep: no-raw-throw
                             (throw (ex-info "Transaction rolled back"

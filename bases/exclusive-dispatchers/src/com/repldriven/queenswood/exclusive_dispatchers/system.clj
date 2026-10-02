@@ -13,6 +13,7 @@
   The service's composition is the project's application.yml
   (ADR-0019)."
   (:require
+    [com.repldriven.queenswood.bank-activity.interface]
     [com.repldriven.queenswood.changelog-relay.interface]
     [com.repldriven.queenswood.fdb.interface]
     [com.repldriven.queenswood.payment.interface]
