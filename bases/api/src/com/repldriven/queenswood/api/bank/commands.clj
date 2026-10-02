@@ -33,17 +33,17 @@
   (commands/send (dispatcher request) request "create-bank" "bank" data))
 
 (defn bank-with-secret
-  "Mint a fresh client secret for the bank — the command reply carries
-  no credential, so it never sits on the bus — and load the bank
-  enriched with its party and accounts. Returns the rich bank map with
-  `:client-secret`, or an anomaly.
+  "Mint a fresh client secret for the bank, the previous one refused
+  from then on — the command reply carries no credential, so it never
+  sits on the bus — and load the bank enriched with its party and
+  accounts. Returns the rich bank map with `:client-secret`, or an
+  anomaly.
 
   A rotation that answers no secret is an error rather than a
   rejection: the request was well formed, and nothing the caller does
   will change the outcome, so a status that invites a retry would
-  mislead. The bank stays created — its command has already committed
-  — so the message names it, and an operator regenerates the
-  credential by hand."
+  mislead. The bank's command has already committed, so the message
+  names the bank, and an operator regenerates the credential by hand."
   [request bank-id]
   (let [{:keys [record-db record-store identity-provider]} request
         txn {:record-db record-db :record-store record-store}]
@@ -53,11 +53,11 @@
                                 bank-id)
        _ (when (str/blank? client-secret)
            (error/fail :bank/credential-not-issued
-                       {:message (str "Bank "
+                       {:message (str "No client credential was issued for"
+                                      " bank "
                                       bank-id
-                                      " was created, but no client credential"
-                                      " was issued for it; regenerate the"
-                                      " credential before the bank is used")
+                                      "; regenerate the credential before"
+                                      " the bank is used")
                         :bank-id bank-id}))
        bank (banks/get-bank-view txn bank-id)]
       (assoc (queries/with-providers request bank)
@@ -227,8 +227,7 @@
 
 (defn change-bank-status
   [request]
-  (let [{:keys [auth parameters record-db record-store audiences-by-status]}
-        request
+  (let [{:keys [auth parameters audiences-by-status]} request
         {:keys [body]} parameters
         {:keys [bank-id]} auth
         {:keys [status]} body
@@ -245,8 +244,7 @@
                                :audience (get audiences-by-status status)})]
     (if (not= 200 (:status result))
       result
-      (let [txn {:record-db record-db :record-store record-store}
-            bank (banks/get-bank-view txn bank-id)]
+      (let [bank (bank-with-secret request bank-id)]
         (if (error/anomaly? bank)
           (errors/anomaly->response bank)
-          {:status 200 :body (queries/with-providers request bank)})))))
+          {:status 200 :body bank})))))

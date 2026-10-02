@@ -1,0 +1,56 @@
+{:name "The operator creates a bank in one call, ready for its customer"
+ :runs-on {:payment :every}
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :body {:name "Onboarding Journey Bank"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["EUR" "GBP"]
+                    :owner-email "onboarding-owner@queenswood.local"}}
+   :as :bank
+   :assert {:status 201
+            :body {:bank-id [:m/regex "^bnk\\."]
+                   :name "Onboarding Journey Bank"
+                   :status "live"
+                   :tier "micro"
+                   :client-id [:m/regex "^bnk\\."]
+                   :client-secret [:m/non-empty]
+                   :party {:party-id [:m/regex "^pty\\."]
+                           :type "organization"
+                           :display-name "Onboarding Journey Bank"}
+                   :accounts [:m/in-any-order
+                              [{:currency "EUR" :product-type "own-funds"}
+                               {:currency "GBP" :product-type "own-funds"}]]
+                   :owner-invitation {:email "onboarding-owner@queenswood.local"
+                                      :role "owner"
+                                      :status "pending"}}}}
+  ;; The operator hands the credential over, and the customer's system
+  ;; exchanges it for a token.
+  {:command :auth/mint-token
+   :for {:client-id [:ref :bank :client-id]
+         :client-secret [:ref :bank :client-secret]
+         :status :live}
+   :as :bank-token}]
+ :then
+ [{:command :api/poll
+   :request {:method :get :path "/v1/cash-accounts" :auth :bank-token}
+   :until {:status 200
+           :body {:items [:m/in-any-order
+                          [{:currency "EUR" :account-status "opened"}
+                           {:currency "GBP" :account-status "opened"}]]}}}
+  {:command :api/request
+   :request {:method :get :path "/v1/bank/policies" :auth :bank-token}
+   :assert {:status 200
+            :body {:items [:m/embeds [{:name "Micro tier policy"}]]}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/invitations"
+             :auth :admin
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 200
+            :body {:items [{:email "onboarding-owner@queenswood.local"
+                            :role "owner"
+                            :status "pending"}]}}}]}

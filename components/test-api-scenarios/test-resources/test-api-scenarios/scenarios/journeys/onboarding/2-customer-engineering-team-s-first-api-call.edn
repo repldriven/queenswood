@@ -1,0 +1,42 @@
+{:name "The customer's system exchanges its credential and starts building"
+ :runs-on {:payment :every}
+ :given [{:command :api/request
+          :request {:method :post
+                    :path "/v1/banks"
+                    :auth :admin
+                    :body {:name "First Call Journey Bank"
+                           :status "live"
+                           :tier "micro"
+                           :currencies ["GBP"]}}
+          :as :bank
+          :assert {:status 201}}]
+ :when
+ [{:command :auth/mint-token
+   :for {:client-id [:ref :bank :client-id]
+         :client-secret [:ref :bank :client-secret]
+         :status :live}
+   :as :bank-token}
+  ;; A low-stakes call: its own account is there, ready.
+  {:command :api/poll
+   :request {:method :get :path "/v1/cash-accounts" :auth :bank-token}
+   :until {:status 200
+           :body {:items [{:product-type "own-funds"
+                           :currency "GBP"
+                           :account-status "opened"}]}}}
+  ;; Then it starts on its own customers.
+  {:fixture :person :as :arthur :with {:token [:ref :bank-token]}}
+  {:fixture :product :as :current :with {:token [:ref :bank-token]}}
+  {:fixture :account
+   :as :arthur-current
+   :with {:token [:ref :bank-token]
+          :party-id [:ref :arthur :party :party-id]
+          :product-id [:ref :current :product :product-id]
+          :name "Arthur Current"}}]
+ :then
+ [{:command :api/request
+   :request {:method :get :path "/v1/cash-accounts" :auth :bank-token}
+   :assert {:status 200
+            :body {:items [:m/embeds
+                           [{:name "Arthur Current"
+                             :party-id [:ref :arthur :party :party-id]
+                             :account-status "opened"}]]}}}]}

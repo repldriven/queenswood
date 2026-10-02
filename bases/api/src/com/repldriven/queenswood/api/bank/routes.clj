@@ -131,21 +131,28 @@
                        :security [{"bearerAuth" ["admin"]}]
                        :description
                        (str "Moves the bank the `Bank-Id` header names "
-                            "between test and live, and tokens issued to its"
-                            " client afterwards carry the new status's "
+                            "between test and live, and returns it with a new"
+                            " client secret, returned only here: the secret "
+                            "it had is refused from then on, and tokens "
+                            "issued for the new one carry the new status's "
                             "audience. A bank that is neither test nor live,"
                             " or already has the requested status, is "
                             "refused with 409. Naming no bank is refused "
-                            "with 403. Returns the bank.")
+                            "with 403.")
                        :requestBody {:required true}
                        :parameters ^:replace
-                                   [shared.parameters/ref-bank-id-header]}
+                                   [shared.parameters/ref-bank-id-header
+                                    shared.parameters/ref-idempotency-key]}
+             :interceptors [server/require-idempotency-key
+                            bank-idempotency/cache-response]
              :parameters {:body [:ref "ChangeBankStatusRequest"]}
-             :responses {200 {:description "The bank with its new status."
-                              :body [:ref "ChangeBankStatusResponse"]}
-                         403 (ErrorExamples [#'BankUnnamed])
-                         404 (ErrorResponse [#'BankNotFound])
-                         409 (ErrorResponse [#'BankInvalidStatus])}
+             :responses (shared.idempotency/with-responses
+                         {200 {:description
+                               "The bank with its new status and client secret."
+                               :body [:ref "ChangeBankStatusResponse"]}
+                          403 (ErrorExamples [#'BankUnnamed])
+                          404 (ErrorResponse [#'BankNotFound])
+                          409 (ErrorResponse [#'BankInvalidStatus])})
              :handler bank-commands/change-bank-status}}]]
    ["/providers"
     {:openapi {:tags ["Banks"]

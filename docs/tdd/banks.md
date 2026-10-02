@@ -346,7 +346,9 @@ entry.
 
 It rejects `:bank/invalid-status` (409) unless the bank is
 currently test or live, and again when the requested status is
-the one it already has. The route is `POST /v1/bank/change-status`.
+the one it already has. The route is `POST /v1/bank/change-status`,
+which then rotates the client secret and returns the bank with the
+new one, as the create does.
 
 ## Alternatives Considered
 

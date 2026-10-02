@@ -55,8 +55,8 @@
    [:providers [:ref "BankProviders"]]
    [:party [:ref "Party"]]
    [:accounts [:vector [:ref "CashAccount"]]]
-   ;; Optional because `Bank` is also the body of the tier and status
-   ;; changes, which carry no owners and which response coercion would
+   ;; Optional because `Bank` is also the body of the tier change,
+   ;; which carries no owners and which response coercion would
    ;; refuse if the field were required.
    [:owners {:optional true}
     [:vector
@@ -114,7 +114,24 @@
   [:map {:closed true :json-schema/example examples/ChangeBankStatusRequest}
    [:status [:ref "BankStatus"]]])
 
-(def ChangeBankStatusResponse [:ref "Bank"])
+(def ChangeBankStatusResponse
+  [:map
+   {:json-schema/example examples/ChangeBankStatusResponse
+    :description
+    "The bank with its new status, and the client secret issued in place
+    of the one it had."}
+   [:bank-id [:ref "BankId"]]
+   [:name [:ref "Name"]]
+   [:status [:ref "BankStatus"]]
+   [:tier {:optional true} [:ref "Name"]]
+   [:providers [:ref "BankProviders"]]
+   [:party [:ref "Party"]]
+   [:accounts [:vector [:ref "CashAccount"]]]
+   [:client-id [:ref "BankId"]]
+   [:client-secret string?]
+   [:company-binding {:optional true} [:ref "CompanyBinding"]]
+   [:created-at [:ref "Timestamp"]]
+   [:updated-at [:ref "Timestamp"]]])
 
 (def Provider
   [:map

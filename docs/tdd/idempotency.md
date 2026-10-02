@@ -391,6 +391,10 @@ given.
   `:cash-account/invalid-status`, a 409.
 - `POST /v1/parties/{party-id}/suspend`, `/resume`, `/close` and
   `/merge` — `:party/invalid-status`, a 409.
+- `POST /v1/bank/change-status` — `:bank/invalid-status`, a 409. The
+  pair is what keeps the client secret the response carries: a retry
+  after a lost reply replays it, where the guard alone would refuse the
+  retry and leave the secret unread.
 
 **The pair alone.** After a 5xx release the guarantee rests on
 nothing, and a retry following a lost reply acts twice.
@@ -412,7 +416,6 @@ attempt finds the entity has left the state the transition starts
 from.
 
 - Absolute sets: `POST /v1/bank/change-tier`,
-  `POST /v1/bank/change-status`,
   `PUT /v1/jobs/{job-id}/schedule`, and
   `PUT /v1/cash-account-products/{product-id}/versions/{version-id}`,
   whose body names the whole draft and which is refused
