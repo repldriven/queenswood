@@ -66,4 +66,17 @@
        (let [i3 (first (filter #(= "int.3" (:intent-id %))
                                (store/pending-intents config)))]
          (is (some? i3) "still pending after an unreachable submit")
-         (is (= 1 (:attempts i3)) "attempt count bumped"))))))
+         (is (= 1 (:attempts i3)) "attempt count bumped")))
+     (testing "a verification's later intent waits behind an earlier one"
+       (nom-test> [_ (SUT/save-intent
+                      config
+                      (assoc (intent-of "int.4" "ses-C1") :subjects ["ver-C"]))
+                   _ (SUT/save-intent
+                      config
+                      (assoc (intent-of "int.5" "ses-C2") :subjects ["ver-C"]))])
+       (outbound/drain-once (merge config unreachable))
+       (let [attempts (into {}
+                            (map (juxt :intent-id :attempts))
+                            (store/pending-intents config))]
+         (is (= 1 (get attempts "int.4")) "the earlier intent is tried")
+         (is (= 0 (get attempts "int.5")) "the later one is held"))))))

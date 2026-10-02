@@ -187,10 +187,11 @@ separate poller makes the call afterwards, retrying each pending intent until
 it succeeds or exhausts its attempts. A provider's webhooks are written to a
 deduplicating outbox and relayed like the platform's own changes.
 
-**Provider calls are made in commit order.** A change a provider must act on
-is also written to its bank's activity log, in the same transaction. The relay
-publishes each bank's log in order, keyed by the bank, and the commands that
-answer it reach the provider in that order.
+**External calls are made in commit order.** A change an external API must act
+on is also written to the bank's activity log in the same transaction. The
+relay publishes each bank's log in order, keyed by bank. Each adapter calls its
+external API in that order, first in, first out, for each account or identity
+verification.
 
 ### Building blocks
 

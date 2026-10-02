@@ -39,4 +39,7 @@ message OnfidoOutboundIntent {
   optional int64  created_at = 7;
   optional int64  sent_at = 8;
   optional string traceparent = 9;     // W3C, see ChangelogEvent
+  // What the intent acts on at the provider, the verification, so an
+  // intent waits behind an earlier one for it (ADR-0033).
+  repeated string subjects = 10;
 }

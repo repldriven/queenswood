@@ -10,6 +10,8 @@
   (:require
     [com.repldriven.queenswood.zyphe-relay.store :as store]
 
+    [com.repldriven.queenswood.intent-queue.interface :as intent-queue]
+
     [com.repldriven.queenswood.zyphe-webhook.interface :as zyphe-webhook]
 
     [com.repldriven.mono.avro.interface :as avro]
@@ -243,7 +245,9 @@
   (contains? #{:idv/http :idv/unsupported-criteria} (error/kind res)))
 
 (defn- relay-one
-  [config {:keys [intent-id request attempts]}]
+  "Make `intent`'s call, returning the intent with the status it was left
+  at, or an anomaly."
+  [config {:keys [intent-id request attempts] :as intent}]
   (let [{:keys [max-attempts flows]} config
         max-attempts (or max-attempts default-max-attempts)
         data (edn/read-string request)
@@ -258,24 +262,27 @@
         next-attempts (inc (or attempts 0))]
     (cond
      (not (error/anomaly? res))
-     (record-opened config intent-id data res)
+     (let-nom> [_ (record-opened config intent-id data res)]
+       (assoc intent :status "sent"))
 
      (or (refused? res) (>= next-attempts max-attempts))
      (do (log/error "Zyphe intent failed"
                     {:intent-id intent-id :attempts next-attempts :last res})
-         (record-failed config
-                        intent-id
-                        next-attempts
-                        data
-                        (if (refused? res)
-                          (:message (error/payload res))
-                          (str "Undelivered: "
-                               (:message (error/payload res))))))
+         (let-nom> [_ (record-failed config
+                                     intent-id
+                                     next-attempts
+                                     data
+                                     (if (refused? res)
+                                       (:message (error/payload res))
+                                       (str "Undelivered: "
+                                            (:message (error/payload res)))))]
+           (assoc intent :status "failed")))
 
      :else
      (do (log/warn "Zyphe intent submit failed; will retry"
                    {:intent-id intent-id :attempt next-attempts})
-         (store/mark-attempt config intent-id next-attempts)))))
+         (let-nom> [_ (store/mark-attempt config intent-id next-attempts)]
+           (assoc intent :attempts next-attempts))))))
 
 (defn- in-intent-trace
   [span-name intent f]
@@ -287,13 +294,21 @@
                               f))
 
 (defn drain-once
-  "Relay every pending intent once. The Zyphe call per intent runs
-  outside any FDB transaction."
+  "Relay each pending intent once, oldest first, holding one for a
+  verification while an earlier one for it is still pending. The Zyphe
+  call per intent runs outside any FDB transaction."
   [config]
   (let [pending (store/pending-intents config)]
     (when-not (error/anomaly? pending)
-      (doseq [i pending]
-        (in-intent-trace "zyphe-outbound" i (fn [] (relay-one config i)))))))
+      (intent-queue/drain pending
+                          (utility/now)
+                          {:settles-first? (constantly false)
+                           :run (fn [i]
+                                  (in-intent-trace "zyphe-outbound"
+                                                   i
+                                                   (fn []
+                                                     (relay-one config
+                                                                i))))}))))
 
 (defn- start-loop
   [config]
