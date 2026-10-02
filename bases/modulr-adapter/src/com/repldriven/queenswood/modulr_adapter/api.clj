@@ -45,7 +45,7 @@
             :openapi {:info {:title "Modulr Adapter"
                              :description
                              "Adapts between Queenswood and the Modulr API"
-                             :version "0.0.6"}
+                             :version "0.0.7"}
                       :components {:examples
                                    modulr-webhook/example-registry}}
             :handler (server/standard-openapi-handler)}}]

@@ -43,7 +43,7 @@
             :openapi {:info {:title "Onfido Adapter"
                              :description
                              "Receives Onfido's signed webhooks"
-                             :version "0.0.6"}
+                             :version "0.0.7"}
                       :components
                       {:examples onfido-webhook/example-registry}}
             :handler (server/standard-openapi-handler)}}]

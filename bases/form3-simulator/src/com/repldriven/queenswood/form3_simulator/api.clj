@@ -49,7 +49,7 @@
             :openapi {:info {:title "Form3 Simulator"
                              :description
                              "Simulates the Form3 payments API for testing"
-                             :version "0.0.6"}
+                             :version "0.0.7"}
                       :components {:examples
                                    form3-webhook/example-registry}}
             :handler (server/standard-openapi-handler)}}]
