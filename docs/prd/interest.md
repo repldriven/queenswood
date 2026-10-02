@@ -248,7 +248,7 @@ sequenceDiagram
 ```
 
 The operator's scheduler triggers the run once per day
-per tenant. The platform walks every customer account,
+per customer. The platform walks every customer account,
 computes the day's interest, posts where it's at least a
 penny, and advances the carry on every account.
 
@@ -294,12 +294,12 @@ sequenceDiagram
     Q->>E: spendable balance grows by the month's accrued
 ```
 
-From the customer's point of view: every day, interest
+From the end customer's point of view: every day, interest
 accrues silently in the background; on the cadence the
-tenant offers, the accrued amount becomes part of the
+customer offers, the accrued amount becomes part of the
 spendable balance and is now available to spend.
 
-### 4. Tenant publishes a new rate
+### 4. Customer publishes a new rate
 
 ```mermaid
 sequenceDiagram
@@ -312,8 +312,8 @@ sequenceDiagram
     Note over T,Q: new accounts opened from v2 onwards earn 4%
 ```
 
-The cohort property in action. Existing customers don't
-see a rate cut overnight when the tenant publishes a new
+The cohort property in action. Existing end customers don't
+see a rate cut overnight when the customer publishes a new
 version with a different rate.
 
 ## Open questions

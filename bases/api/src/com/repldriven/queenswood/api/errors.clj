@@ -61,6 +61,7 @@
    :party/invalid-status 409
    :party/open-accounts 409
    :policy/limit-exceeded 429
+   :scheduler/period-already-run 409
    :webhook-endpoint/invalid-status 409})
 
 (def ^:private error-status-overrides

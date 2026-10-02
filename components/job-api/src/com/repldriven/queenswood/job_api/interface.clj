@@ -49,6 +49,14 @@
 
 (def
   ^{:doc
+    "RFC 9457 body for a 409 `:scheduler/period-already-run` rejection:
+  the job has already run, or is running, in the period a run would
+  start in."}
+  PeriodAlreadyRun
+  examples/PeriodAlreadyRun)
+
+(def
+  ^{:doc
     "RFC 9457 body for a 404 `:scheduler/run-not-found` rejection:
   Scheduled run not found."}
   RunNotFound

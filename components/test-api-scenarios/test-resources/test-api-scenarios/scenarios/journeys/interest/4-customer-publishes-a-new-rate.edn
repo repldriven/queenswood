@@ -1,0 +1,80 @@
+{:name "Accounts opened before a rate cut keep earning the old rate"
+ :runs-on {:payment :every}
+ ;; £5,000 a day earns 68p at 5% and 54p at 4%.
+ :given
+ [{:fixture :bank :as :bank-0 :with {:name "New Rate Journey"}}
+  {:fixture :product
+   :as :v1
+   :with {:token [:ref :bank-0 :token]
+          :name "Easy Saver"
+          :template-id "tpl.00000000000000000000000002"
+          :effective-from "2020-01-01"
+          :interest-rate-bps 500}}
+  {:fixture :person :as :arthur :with {:token [:ref :bank-0 :token]}}
+  {:fixture :person
+   :as :ford
+   :with {:token [:ref :bank-0 :token]
+          :display-name "Ford Prefect"
+          :given-name "Ford"
+          :family-name "Prefect"
+          :national-insurance "TN000002A"}}
+  {:fixture :funded-account
+   :as :existing
+   :with {:bank-id [:ref :bank-0 :bank :bank-id]
+          :token [:ref :bank-0 :token]
+          :party-id [:ref :arthur :party :party-id]
+          :product-id [:ref :v1 :product :product-id]
+          :name "Easy Saver"
+          :amount 500000}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products/{product-id}/versions"
+             :path-params {:product-id [:ref :v1 :product :product-id]}
+             :auth [:ref :bank-0 :token]
+             :body {:name "Easy Saver"
+                    :template-id "tpl.00000000000000000000000002"
+                    :currency "GBP"
+                    :interest-rate-bps 400
+                    :effective-from "2024-01-01"}}
+   :as :v2
+   :assert {:status 201}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :v1 :product :product-id]
+                  :version-id [:ref :v2 :version-id]}
+    :auth [:ref :bank-0 :token]}
+   :assert {:status 200}}
+  {:fixture :funded-account
+   :as :newcomer
+   :with {:bank-id [:ref :bank-0 :bank :bank-id]
+          :token [:ref :bank-0 :token]
+          :party-id [:ref :ford :party :party-id]
+          :product-id [:ref :v1 :product :product-id]
+          :name "Easy Saver"
+          :amount 500000}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/jobs/{job-id}/runs"
+             :path-params {:job-id "daily-interest"}
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 201 :body {:status "succeeded"}}}]
+ :then
+ [{:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :existing :opened :account
+                                        :account-id]}
+             :auth [:ref :bank-0 :token]}
+   :until {:status 200
+           :body {:available-balance {:value 500068 :currency "GBP"}}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :newcomer :opened :account
+                                        :account-id]}
+             :auth [:ref :bank-0 :token]}
+   :until {:status 200
+           :body {:available-balance {:value 500054 :currency "GBP"}}}}]}

@@ -3,7 +3,10 @@
     [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.utility.interface :as utility]
 
-    [clojure.set :as set]))
+    [clojure.set :as set])
+  (:import
+    (java.time Instant ZoneOffset)
+    (java.time.temporal ChronoUnit)))
 
 (def all-periods
   #{:scheduler-periodicity-hourly :scheduler-periodicity-daily
@@ -121,6 +124,44 @@
   [run]
   (when (and (:started-at run) (:finished-at run))
     (- (:finished-at run) (:started-at run))))
+
+(defn period-start
+  "The epoch-ms instant the period holding `epoch-ms` begins, in UTC: its
+  hour, day, month or year, as `periodicity` says."
+  [periodicity epoch-ms]
+  (let [at (.atZone (Instant/ofEpochMilli epoch-ms) ZoneOffset/UTC)
+        day (.truncatedTo at ChronoUnit/DAYS)
+        start (case periodicity
+                :scheduler-periodicity-hourly (.truncatedTo at ChronoUnit/HOURS)
+                :scheduler-periodicity-daily day
+                :scheduler-periodicity-monthly (.withDayOfMonth day 1)
+                :scheduler-periodicity-yearly (.withDayOfYear day 1))]
+    (.toEpochMilli (.toInstant start))))
+
+(def ^:private period-holding-statuses
+  #{:scheduler-run-status-running :scheduler-run-status-succeeded})
+
+(defn period-refusal
+  "A rejection when one of `runs` of `job` started in the period `now`
+  falls in and is running or succeeded, else nil. A failed run leaves
+  its period open to another."
+  [job runs now]
+  (let [{:keys [job-id periodicity]} job
+        period (period-start periodicity now)
+        holding (first (filter (fn [{:keys [status started-at]}]
+                                 (and (contains? period-holding-statuses status)
+                                      (= period
+                                         (period-start periodicity
+                                                       started-at))))
+                               runs))]
+    (when holding
+      (error/reject :scheduler/period-already-run
+                    {:message (if (= :scheduler-run-status-running
+                                     (:status holding))
+                                "The job is already running this period"
+                                "The job has already run this period")
+                     :job-id job-id
+                     :run-id (:run-id holding)}))))
 
 (defn expected-end-at
   "`started-at` plus the previous successful run's duration, or nil

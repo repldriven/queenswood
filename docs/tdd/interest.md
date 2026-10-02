@@ -496,6 +496,11 @@ somewhere.
   it does not validate that the date is a period end or that
   all of the period's accruals have posted. The caller
   sequences.
+- **Accrual and capitalisation share one cadence.** They are
+  separate tasks, run one after the other by the seeded
+  `daily-interest` job, which allows a daily cadence only. A
+  capitalisation cadence of the operator's choosing waits on
+  each task taking a cadence of its own.
 - **No reversal helper.** A wrongly-accrued day or a
   wrongly-capitalised period requires a manual reversing
   transaction. The patterns are simple but not packaged.
