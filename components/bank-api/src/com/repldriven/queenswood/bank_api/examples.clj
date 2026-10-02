@@ -129,6 +129,9 @@
          :invited-by
          {:kind :operator :principal-id "queenswood-admin" :name "Queenswood"}))
 
+(def ChangeBankStatusResponse
+  (assoc Bank :status :live :client-secret ClientSecret))
+
 (def CreateBankResponse
   (assoc Bank
          :client-secret ClientSecret

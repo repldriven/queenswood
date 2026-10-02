@@ -9,7 +9,8 @@ in the bank's books, a default product, a cash account per requested currency,
 the appropriate policy bindings, and an invitation to the person who will own it
 — all or nothing. The same call settles which of the installation's providers
 the organisation runs on, one of each kind the installation offers, for as long
-as it exists. The credential is handed over once. The customer immediately has a
+as it exists. The credential is handed over once, and replaced when the
+organisation moves between test and live. The customer immediately has a
 working starting state: their systems can begin operating without further
 bootstrap.
 
@@ -23,7 +24,7 @@ Who signs in to it, and what each of them may do, is
 **Platform operator.** Drives the onboarding operation. Decides the
 organisation's type (customer or internal), status (live or test), tier (which
 bundle of policies binds), supported currencies, the providers it runs on, and
-who will own it. Receives the credential, delivered once, to forward to the
+who will own it. Receives each credential, delivered once, to forward to the
 customer.
 
 **Customer engineering team.** The downstream recipient of the
@@ -43,13 +44,12 @@ else, and the company its people act for.
   organisation. No follow-up calls to bootstrap a working state.
 - **All or nothing.** Either the organisation comes up complete or
   doesn't come up at all. No half-created organisations.
-- **One-time credential delivery.** The credential is handed over
-  exactly once, at creation. The customer must store it; the platform
-  doesn't.
+- **One-time credential delivery.** Each credential is handed over
+  exactly once. The customer must store it; the platform doesn't.
 - **Status decides what the credential reaches.** A test organisation's
   credential reaches the sandbox; a live one's reaches the live service.
-  Moving between the two moves what the credential reaches, without the
-  customer being issued a new one.
+  Moving between the two issues a new credential, and the one it
+  replaces stops working.
 - **Tier-based policy binding.** A `tier` label at creation time binds
   the organisation to the corresponding bundle of policies. Different
   tiers can ship with different rule sets, and a platform operator uses
@@ -139,8 +139,9 @@ same starting state the operator's route returns.
 
 **Moving an organisation afterwards.** A platform operator uses the
 banking API to move an organisation to another tier, which rebinds it to
-that tier's policies, and between test and live, which moves what the
-existing credential reaches. Its people carry across both moves.
+that tier's policies, and between test and live, which issues the
+organisation a new credential for its new status. Its people carry across
+both moves.
 
 ## User journeys
 
@@ -174,9 +175,9 @@ receives the bootstrap output, and forwards the credential to the
 fintech via a secure channel. The fintech now has a working starting
 state, and the person named as owner has an invitation waiting.
 
-### 2. Customer engineer's first API call
+### 2. Customer engineering team's first API call
 
-The customer engineer receives the credential and:
+The customer engineering team receives the credential and:
 
 1. Exchanges it for a short-lived token.
 2. Configures that token for their HTTP client.
@@ -189,19 +190,33 @@ The customer engineer receives the credential and:
 
 ### 3. An organisation changes status
 
-An operator moves an organisation between test and live. The credential
-is unchanged — the customer keeps the one it was given at creation, and
-is not asked to store a new one. Tokens the customer already holds keep
-their old reach until they expire, and the next token it obtains has the
-new one.
+```mermaid
+sequenceDiagram
+    participant A as Platform operator
+    participant Q as Queenswood
+    participant T as Customer engineering team
+
+    A->>Q: move the organisation from test to live
+    Q-->>A: organisation + new credential<br/>(handed over once)
+    Note over Q: The previous credential stops working
+    A->>T: hand over the new credential<br/>via secure channel
+    T->>Q: exchange the new credential for a token,<br/>then live calls
+```
+
+An operator moves an organisation between test and live, and receives a
+new credential for it in the same answer, to forward to the customer as
+at creation. From then on the previous credential is refused. Tokens the
+customer already holds keep their reach until they expire, and a token
+obtained with the new credential reaches what the new status does.
 
 ## Open questions
 
 - **Off-boarding / closure.** No flow exists to close an organisation.
   Operationally needed if a customer relationship ends.
-- **Credential rotation and revocation.** Neither is offered. A
-  compromised credential is replaced by an operator by hand today, which
-  is the sharpest gap in this list.
+- **Credential rotation and revocation.** Neither is offered on its
+  own: a credential is replaced only when the organisation moves between
+  test and live. A compromised credential is replaced by an operator by
+  hand today, which is the sharpest gap in this list.
 - **Service-account credential self-service.** An organisation gets one
   credential at creation; there's no self-service flow to provision or
   scope additional ones.

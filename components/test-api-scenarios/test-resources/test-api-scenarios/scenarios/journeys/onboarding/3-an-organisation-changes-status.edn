@@ -1,0 +1,52 @@
+{:name "A bank moves from test to live on a credential issued as it moves"
+ :given [{:command :api/request
+          :request {:method :post
+                    :path "/v1/banks"
+                    :auth :admin
+                    :body {:name "Status Journey Bank"
+                           :status "test"
+                           :tier "micro"
+                           :currencies ["GBP"]}}
+          :as :bank
+          :assert {:status 201}}
+         {:command :auth/mint-token
+          :for {:client-id [:ref :bank :client-id]
+                :client-secret [:ref :bank :client-secret]
+                :status :test}
+          :as :test-token}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/bank/change-status"
+             :auth :admin
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :body {:status "live"}}
+   :as :live-bank
+   :assert {:status 200
+            :body {:bank-id [:ref :bank :bank-id]
+                   :status "live"
+                   :client-id [:ref :bank :client-id]
+                   :client-secret [:m/regex ".+"]}}}
+  {:command :auth/mint-token
+   :for {:client-id [:ref :live-bank :client-id]
+         :client-secret [:ref :live-bank :client-secret]
+         :status :live}
+   :as :live-token}
+  ;; The secret issued at creation is refused once the bank has moved.
+  {:command :api/request
+   :request {:method :post
+             :path "/oauth/token"
+             :headers {:content-type "application/x-www-form-urlencoded"}
+             :form {:grant_type "client_credentials"
+                    :client_id [:ref :bank :client-id]
+                    :client_secret [:ref :bank :client-secret]
+                    :scope "queenswood-api-test"}}
+   :assert {:status 401 :body {:error "invalid_client"}}}]
+ :then
+ [{:command :api/request
+   :request {:method :get :path "/v1/bank" :auth :live-token}
+   :assert {:status 200 :body {:status "live"}}}
+  ;; A token minted before the change keeps working until it expires.
+  {:command :api/request
+   :request {:method :get :path "/v1/bank" :auth :test-token}
+   :assert {:status 200 :body {:status "live"}}}]}

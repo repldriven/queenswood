@@ -32,8 +32,6 @@
   entry would have given."
   {[:post "/v1/bank/change-tier"]
    "Absolute set. The body names the tier, so a retry converges."
-   [:post "/v1/bank/change-status"]
-   "Absolute set. The body names the status, so a retry converges."
    [:put "/v1/jobs/{job-id}/schedule"]
    "Absolute set. The body names the whole schedule, so a retry
     converges."

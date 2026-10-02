@@ -284,12 +284,16 @@ holding the reply, calls **`rotate-secret`** for that bank and
 returns what it mints — once — in the create-bank response. So the
 secret a tenant receives is a rotated one, never the created one.
 
-**A status change re-points the audience.** `change-status` calls
-`update-service-account-audience` before its FDB write, with the
-audience its new status maps to, on the same reasoning: a failure
-aborts rather than leaving the bank's status ahead of its client's
-audience. Tokens the bank already holds keep the old audience until
-they expire; the next token it mints carries the new one.
+**A status change re-points the audience and replaces the secret.**
+`change-status` calls `update-service-account-audience` before its FDB
+write, with the audience its new status maps to, on the same reasoning:
+a failure aborts rather than leaving the bank's status ahead of its
+client's audience. The API handler then calls `rotate-secret` and
+returns the new secret once in the change-status response, the route
+carrying the idempotency pair so a lost response replays rather than
+loses it. The secret issued before the change is refused from then on,
+so a key handed out for the sandbox never reaches the live service.
+Tokens the bank already holds keep the old audience until they expire.
 
 Both the API service and the operational processors service
 authenticate to Keycloak with the admin credential, because both make
