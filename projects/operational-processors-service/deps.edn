@@ -52,6 +52,6 @@
   component/transaction {:local/root "../../components/transaction"}
   component/user {:local/root "../../components/user"}
   base/operational-processors {:local/root "../../bases/operational-processors"}
-  org.clojure/clojure {:mvn/version "1.12.6"}
+  org.clojure/clojure {:mvn/version "1.13.0-alpha8"}
   pin/clojure-core-async {:local/root "../../deps/clojure-core-async"}}
  :paths ["resources"]}

@@ -83,6 +83,6 @@
   base/zyphe-adapter {:local/root "../../bases/zyphe-adapter"}
   base/zyphe-simulator {:local/root "../../bases/zyphe-simulator"}
   base/external-adapters {:local/root "../../bases/external-adapters"}
-  org.clojure/clojure {:mvn/version "1.12.6"}
+  org.clojure/clojure {:mvn/version "1.13.0-alpha8"}
   pin/clojure-core-async {:local/root "../../deps/clojure-core-async"}}
  :paths ["resources"]}
