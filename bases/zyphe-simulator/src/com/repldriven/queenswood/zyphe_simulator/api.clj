@@ -60,7 +60,7 @@
             {:info {:title "Zyphe Simulator"
                     :description
                     "Simulates the Zyphe verification API for testing"
-                    :version "0.0.6"}
+                    :version "0.0.7"}
              :components {:examples (merge verification-requests-examples
                                            zyphe-webhook/example-registry)}}
             :handler (server/standard-openapi-handler)}}]

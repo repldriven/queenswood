@@ -43,7 +43,7 @@
             :openapi {:info {:title "Zyphe Adapter"
                              :description
                              "Receives Zyphe's signed session webhooks"
-                             :version "0.0.6"}
+                             :version "0.0.7"}
                       :components
                       {:examples zyphe-webhook/example-registry}}
             :handler (server/standard-openapi-handler)}}]
