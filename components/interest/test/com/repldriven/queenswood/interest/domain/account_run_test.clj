@@ -18,7 +18,7 @@
 (deftest new-test
   (testing "no run yet means a fresh pending one off the account"
     (let [row (fresh-run)]
-      (is (SUT/pending? row))
+      (is (not (SUT/done? row)))
       (is (= "acc.1" (:account-id row)))
       (is (= "GBP" (:currency row)))
       (is (= :product-type-sub-ledger-current (:product-type row)))
@@ -35,12 +35,12 @@
                       existing))))))
 
 (deftest outcome-test
-  (testing "done and failed both leave pending, and failed keeps a reason"
+  (testing "only done counts as done, and failed keeps a reason"
     (let [done (SUT/done (fresh-run) {:amount 7})
           failed (SUT/failed (fresh-run) :interest/boom)]
-      (is (not (SUT/pending? done)))
+      (is (SUT/done? done))
       (is (= :interest-account-run-state-done (:state done)))
-      (is (not (SUT/pending? failed)))
+      (is (not (SUT/done? failed)))
       (is (= :interest-account-run-state-failed (:state failed)))
       (is (= ":interest/boom" (:failure-reason failed)))))
   (testing "a done run carries what was earned and what it came from"
@@ -53,7 +53,7 @@
     ;; Both passes hand back nil when there was nothing to accrue or
     ;; sweep, and the run must take that without inventing zeroes.
     (let [done (SUT/done (fresh-run) nil)]
-      (is (not (SUT/pending? done)))
+      (is (SUT/done? done))
       (is (not (contains? done :amount)))
       (is (not (contains? done :principal)))
       (is (not (contains? done :opening-carry)))))

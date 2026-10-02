@@ -2,6 +2,7 @@
   (:require
     [com.repldriven.queenswood.policy.interface :as policy]
 
+    [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.utility.interface :as utility]))
 
 (def ^:private kind->action
@@ -23,6 +24,20 @@
 (defn eligible-cash-account?
   [account]
   (contains? eligible-cash-account-statuses (:account-status account)))
+
+(defn check-complete
+  "The tally, or `:interest/run-incomplete` while any account in scope
+  failed, so the run closes only once every account is done."
+  [bank-id business-day tally]
+  (let [{:keys [done skipped failed]} tally]
+    (if (pos? failed)
+      (error/fail :interest/run-incomplete
+                  {:message "Interest run has accounts that failed to post"
+                   :bank-id bank-id
+                   :business-day business-day
+                   :accounts-processed (+ done skipped)
+                   :accounts-failed failed})
+      tally)))
 
 (defn- new-run
   [bank-id business-day kind]

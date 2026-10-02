@@ -1,6 +1,6 @@
 (ns com.repldriven.queenswood.interest.domain.run-test
   "Which accounts a pass is in scope for, the daily-count limit that
-  gates a run, and the record it leaves behind."
+  gates a run, whether it may close, and the record it leaves behind."
   (:require
     [com.repldriven.queenswood.interest.domain.run :as SUT]
 
@@ -78,3 +78,16 @@
       (is (= :interest-run-kind-accrue (:kind run)))
       (is (number? (:created-at run)))
       (is (number? (:closed-at run))))))
+
+(deftest check-complete-test
+  (testing "a pass with every account posted closes"
+    (let [tally {:done 3 :skipped 2 :failed 0 :seen #{}}]
+      (is (= tally (SUT/check-complete "bnk.1" 20260501 tally)))))
+  (testing "a pass with a failed account is incomplete, with its counts"
+    (let [res (SUT/check-complete "bnk.1"
+                                  20260501
+                                  {:done 3 :skipped 2 :failed 4 :seen #{}})]
+      (is (= :interest/run-incomplete (error/kind res)))
+      (is (= {:accounts-processed 5 :accounts-failed 4}
+             (select-keys (error/payload res)
+                          [:accounts-processed :accounts-failed]))))))

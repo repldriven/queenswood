@@ -39,9 +39,10 @@
   a crash part-way leaves no run record and the daily limit does not
   block the retry. What makes that retry safe is the DONE rows the
   chunks committed: a re-run streams every account again and skips the
-  ones already posted. A run that finished with failures still closes;
-  its residue is the count of FAILED rows, which `run-progress`
-  reports.
+  ones already posted, and posts the ones a failed chunk left FAILED. A
+  pass with any account failed returns `:interest/run-incomplete` and
+  posts neither the bank's side nor the run record, so the sum the
+  bank's side is posted from covers every account when it is.
 
   A chunk is a short FDB transaction — no long transaction is held
   across the run. Both kinds then post the bank's side at close, which
@@ -77,6 +78,7 @@
        aggregates {policy-kind {#{:bank-id :business-day} today-count}}
        _ (run/check-daily-count policies policy-kind aggregates)
        tally (scan/post-accounts config ctx)
+       _ (run/check-complete bank-id as-of-date tally)
        _ (post-run-entries spec config ctx gl (entries-fn (:seen tally)))
        record (run/closed bank-id as-of-date run-kind)
        _ (store/save-run config record)]

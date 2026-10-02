@@ -190,14 +190,18 @@
                       :records-failed (:accounts-failed result)))
 
 (defn failed-task
-  "Closes a task with the anomaly that stopped it. The message is the
-  same one the run carries, repeated here so a reader hovering one task
-  need not correlate it with the run's own error."
+  "Closes a task with the anomaly that stopped it, and the counts its
+  payload carries where it carries them. The message is the same one
+  the run carries, repeated here so a reader hovering one task need not
+  correlate it with the run's own error."
   [task finished-at anomaly]
-  (assoc task
-         :status :scheduler-task-status-failed
-         :finished-at finished-at
-         :error (error/format-anomaly anomaly)))
+  (let [{:keys [accounts-processed accounts-failed]} (error/payload anomaly)]
+    (utility/assoc-some (assoc task
+                               :status :scheduler-task-status-failed
+                               :finished-at finished-at
+                               :error (error/format-anomaly anomaly))
+                        :records-processed accounts-processed
+                        :records-failed accounts-failed)))
 
 (defn skipped-tasks
   "The tasks after a failure, which the run never reached. Recorded

@@ -17,8 +17,8 @@
 
 (defn- post-account
   "One account's posting and its row, inside the chunk's transaction.
-  Skips an account an earlier attempt already finished. Returns :done,
-  :skipped, or an anomaly."
+  Skips an account an earlier attempt already posted, and posts one it
+  left pending or failed. Returns :done, :skipped, or an anomaly."
   [config ctx txn account balances]
   (let [{:keys [bank-id business-day account-kind account-fn]} ctx
         row (store/load-account-run txn
@@ -26,7 +26,7 @@
                                     business-day
                                     account-kind
                                     (:account-id account))]
-    (if (and row (not (account-run/pending? row)))
+    (if (and row (account-run/done? row))
       :skipped
       (let-nom> [result (account-fn config ctx txn account balances)
                  _ (store/save-account-run txn
