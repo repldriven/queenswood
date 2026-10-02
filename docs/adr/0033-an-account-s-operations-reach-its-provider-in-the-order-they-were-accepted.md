@@ -1,4 +1,4 @@
-# 33. A provider's commands follow the commits that cause them
+# 33. An account's operations reach its provider in the order they were accepted
 
 ## Status
 
