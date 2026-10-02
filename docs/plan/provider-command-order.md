@@ -82,8 +82,8 @@ Each is a commit on `provider-command-order`, green on its own.
    an earlier one; Modulr's close no longer retries a refusal.
 5. **Docs and the guard.** The payments, cash-accounts, bank-providers
    and transaction-processing TDDs; ADR-0033's two narrowings;
-   `enforce-idioms.sh` refusing a provider command sent outside an
-   activity event processor.
+   the `provider-command-outside-activity` semgrep rule refusing a
+   provider command named outside an activity event processor.
 
 ## Tests
 

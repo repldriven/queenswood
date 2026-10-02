@@ -13,17 +13,15 @@
      person-identification]
     [com.repldriven.queenswood.policy.interface :as policy]
 
-    [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.log.interface :as log]
-    [com.repldriven.mono.telemetry.interface :as telemetry]
     [com.repldriven.mono.utility.interface :as utility]))
 
 (defn- fdb-config
   [config]
   (select-keys config [:record-db :record-store]))
 
-(defn- bank-provider
+(defn bank-provider
   [config txn bank-id]
   (when-let [providers (:idv-providers config)]
     (let-nom> [bank (bank-query/find-bank txn bank-id)]
@@ -65,29 +63,6 @@
                            :data (check-data session identification criteria)
                            :causation-id session-id
                            :dedup-key session-id})))
-
-(defn send-check
-  [config data]
-  (let [{:keys [bus schemas]} config
-        {:keys [bank-id session-id]} data]
-    (let-nom> [provider (bank-provider config config bank-id)
-               payload (avro/serialize (clojure.core/get schemas
-                                                         "submit-idv-check")
-                                       data)]
-      (if-let [channel (:command-channel provider)]
-        (bank-activity/send-command bus
-                                    channel
-                                    bank-id
-                                    {:command "submit-idv-check"
-                                     :id (str (utility/uuidv7))
-                                     :correlation-id (str (utility/uuidv7))
-                                     :causation-id session-id
-                                     :traceparent (telemetry/inject-traceparent)
-                                     :payload payload})
-        (error/fail :idv/no-provider
-                    {:message
-                     "No identity verification provider reaches this bank"
-                     :bank-id bank-id})))))
 
 (defn save-idv
   "Save an IDV, converting a uniqueness-violation result into an

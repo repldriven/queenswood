@@ -114,8 +114,9 @@ The decision has these parts:
   an inbound's return and a verification session's opening, into the
   activity changelog of the bank's shard.
 - Carry on each entry everything an event processor decides from, as it
-  was at that commit: the bank's provider, the subjects the change
-  touches, and for each the provider account and address it is held at.
+  was at that commit: the subjects the change touches, and what the
+  command needs of each, its address and its provider account where it
+  has one.
 - Relay each shard's activity changelog with one `changelog-relay`
   runner, publishing its entries verbatim and in commit order to one
   activity topic, keyed by bank.
@@ -124,9 +125,11 @@ The decision has these parts:
   and the idv brick for identity verification: a `<brick>/event-processor`
   kind wrapped in mono's `event-processor/event-processor`, its handler
   in the brick's `events.clj`.
-- Decide what to send from the entry and the provider's declaration
-  alone, never by reading another brick's records; an event processor
-  MAY record its own progress, such as the provider transfers it sent.
+- Decide what to send from the entry, the provider's declaration and
+  records whose values never change once written, such as a bank's
+  providers and its house account, never from a value a later entry may
+  change; an event processor MAY record its own progress, such as the
+  provider transfers it sent.
 - Branch on the bank's provider's declaration, never its name, and send
   opens, closes and reissues, the transfers that mirror a posting where
   the provider holds each account's money, submits and returns for
@@ -137,15 +140,20 @@ The decision has these parts:
   concurrently, holding an entry until every earlier entry sharing one
   of its subjects is done, and an entry touching two subjects until
   both are.
-- Give each provider one command channel, keyed by the subject a command
-  acts on, so a payment provider's separate payment and account
-  channels become one.
+- Give each provider one command channel, keyed by bank, so a payment
+  provider's separate payment and account channels become one and a
+  command touching two subjects shares a partition with each one's.
+- Resolve an identifier the provider issued, such as the provider
+  account an account is held in, at the adapter when the call is made,
+  from what its own earlier calls recorded, so a command for an account
+  still opening needs nothing the entry could not carry.
 - Send a provider's intents in order for each subject: a pending or
   retrying intent holds back later intents for its subject, a transfer
-  for both its accounts, and for no other. End a command the provider
-  refuses for good, or that exhausts its attempts, as a failure the
-  domain hears.
-- Send a provider command only from the event processor that acts on
+  for both its accounts, and for no other; where the provider refuses a
+  call while money is still moving, as a close, that call also waits for
+  the earlier ones to settle. End a command the provider refuses for
+  good, or that exhausts its attempts, as a failure the domain hears.
+- Send a provider command only from an event processor that acts on
   the activity topic.
 - Keep the rest of ADR-0030: configuration names each provider's
   channel, the event channels stay shared, and a domain component never
@@ -203,9 +211,13 @@ Harder:
   adapter's consumers.
 - A change a provider must act on that writes no activity entry is never
   sent, and a provider command sent from anywhere else brings the race
-  back, both unnoticed. A check in `enforce-idioms.sh` refusing a
-  provider command sent outside an activity event processor, and the
-  PRD journeys run on every provider, are what make the drift visible.
+  back, both unnoticed. The `provider-command-outside-activity` semgrep
+  rule, refusing a provider command named outside an activity event
+  processor, and the PRD journeys run on every provider, are what make
+  the drift visible.
+- An adapter resolves a provider account from what its own opening or
+  reissue recorded, so an account opened before it kept that, or by
+  another path, falls back to the provider account the command named.
 
 Amends [ADR-0030](0030-a-bank-chooses-its-providers-when-it-is-created.md),
 whose payment providers' two command channels each become one, and whose

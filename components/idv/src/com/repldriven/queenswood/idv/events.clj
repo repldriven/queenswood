@@ -1,5 +1,6 @@
 (ns com.repldriven.queenswood.idv.events
   (:require
+    [com.repldriven.queenswood.idv.activity :as activity]
     [com.repldriven.queenswood.idv.core :as core]
 
     [com.repldriven.mono.avro.interface :as avro]
@@ -46,14 +47,6 @@
   processor/Processor
     (process [_ message] (dispatch-party config message)))
 
-(defn- dispatch-activity
-  [config message]
-  (let [{:keys [event payload]} message]
-    (when (= "idv-session-opening" event)
-      (let-nom> [data (avro/deserialize-same (get (:schemas config) event)
-                                             payload)]
-        (core/send-check config data)))))
-
 (defrecord IdvActivityEventProcessor [config]
   processor/Processor
-    (process [_ message] (dispatch-activity config message)))
+    (process [_ message] (activity/handle config message)))

@@ -95,6 +95,30 @@ rules:
         - "/bases/external-adapters/**"
         - "/bases/monolith/**"
 
+  - id: provider-command-outside-activity
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      A payment or identity verification provider's command named outside
+      an activity event processor: a provider is asked to act only in
+      answer to the bank's activity, in the order it committed, so a
+      command sent from anywhere else can overtake one sent before it
+      (ADR-0033). Record the change as the bank's activity with
+      `bank-activity/record` in the transaction that makes it, and send
+      the command from the activity event processor of the brick that
+      owns the provider's kind. A name that is not a send puts
+      `;; nosemgrep: provider-command-outside-activity — <reason>` on the
+      line immediately above it.
+    pattern-regex: '"(open-payment-account|close-payment-account|reissue-payment-address|submit-payment|return-payment|transfer-between-accounts|submit-idv-check)"'
+    paths:
+      include:
+        - "/components/*/src/**"
+      exclude:
+        - "/components/test-*/**"
+        - "/components/payment/src/**/payment/events/activity.clj"
+        - "/components/payment/src/**/payment/events/provider_transfer.clj"
+        - "/components/idv/src/**/idv/activity.clj"
+
   - id: brick-test-drives-pipeline
     languages: [generic]
     severity: ERROR
