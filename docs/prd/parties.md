@@ -4,7 +4,7 @@
 
 Every account on the Queenswood platform belongs to a
 **party** — a person, a non-person organisation, or an
-internal bookkeeping identity. Tenants register parties
+internal bookkeeping identity. Customers register parties
 through the banking API; person parties pass identity
 verification (IDV) before they can transact, while
 organisation and internal parties become active immediately.
@@ -20,9 +20,9 @@ something they can react to or poll for.
 
 **End customer.** The natural human (or the business) on
 whose behalf a party is registered. Doesn't interact with
-Queenswood directly — they go through the tenant's
-customer-facing surface — but their personal data ends up
-in the party record.
+Queenswood directly — they go through the customer's
+end-customer-facing surface — but their personal data ends
+up in the party record.
 
 **Platform operator.** Indirectly involved. Operates the platform that runs IDV
 and stores PII, and chooses which IDV providers an installation offers; needs
@@ -45,7 +45,7 @@ the model to support the compliance posture the platform takes on.
   bookkeeping identities.
 - **Hands-off activation.** When a person party's identity
   verification completes, activation happens automatically.
-  The tenant doesn't have to make a follow-up call to flip
+  The customer doesn't have to make a follow-up call to flip
   the status.
 - **Identifier capture.** Parties can carry national
   identifiers (passport, NI number, etc.) and person
@@ -55,7 +55,7 @@ the model to support the compliance posture the platform takes on.
   match. Used in Confirmation of Payee and other places
   where names need to line up without being identical.
 - **Multi-tenant isolation.** Every party belongs to one
-  tenant organisation. Tenants don't see each other's
+  organisation. Organisations don't see each other's
   parties.
 
 ## Non-goals
@@ -96,12 +96,12 @@ the model to support the compliance posture the platform takes on.
 
 ## Functional scope
 
-A tenant uses the banking API to register parties that hold
+A customer uses the banking API to register parties that hold
 accounts and appear on transactions.
 
 ### Creating a party
 
-The tenant uses the banking API to register a party,
+The customer uses the banking API to register a party,
 supplying:
 
 - The party type (person, organisation, internal).
@@ -146,7 +146,7 @@ arrives.
 
 ### Party lifecycle
 
-Once a party is active, the tenant uses the banking API to
+Once a party is active, the customer uses the banking API to
 move it through the rest of its lifecycle.
 
 - **Suspension** pauses an active party — one under
@@ -157,7 +157,7 @@ move it through the rest of its lifecycle.
   final: a closed party cannot be reopened.
 
 Closing is refused while the party still holds a cash
-account that is not itself closed, so the tenant closes the
+account that is not itself closed, so the customer closes the
 accounts first and the party after.
 
 These changes sit on a separate track from identity
@@ -194,8 +194,8 @@ name needs to be compared with some tolerance.
 
 ### Multi-tenant isolation
 
-Every party record carries the tenant's organisation
-identifier. Cross-tenant reads are not possible through the
+Every party record carries the organisation's identifier.
+Cross-organisation reads are not possible through the
 banking API.
 
 ## User journeys
@@ -269,7 +269,7 @@ opened against it, payments can name it.
   platform models *accepted* and *rejected* only. Real IDV
   produces manual-review, expired, and partially-completed
   outcomes too. Each needs product semantics: what does
-  the tenant see, what's the retry path, who's notified.
+  the customer see, what's the retry path, who's notified.
 - **Periodic re-verification.** Compliance regimes
   increasingly require periodic re-KYC, sanctions
   re-screening, and re-verification on material change
@@ -278,7 +278,7 @@ opened against it, payments can name it.
   duplicate can be wound down and pointed at the record it
   duplicates, but nothing moves across: verification
   results, identifiers and personal details stay on the
-  duplicate. A tenant reading the duplicate is directed to
+  duplicate. A customer reading the duplicate is directed to
   the surviving record, and one reading the survivor sees
   only what was recorded there. There is no way to undo a
   merge.
@@ -314,7 +314,7 @@ opened against it, payments can name it.
   for the full data model, the verification flow, and how
   the code is organised.
 - **Platform context**: [platform](platform.md);
-  [onboarding](onboarding.md) — the tenant's own party is
+  [onboarding](onboarding.md) — the customer's own party is
   seeded here.
 - **Adjacent capabilities**: [cash-accounts](cash-accounts.md)
   — accounts are owned by parties;

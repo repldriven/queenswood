@@ -17,7 +17,7 @@ The platform reaches the scheme through a payment provider,
 which also issues each account's UK payment address. An
 installation offers one or more payment providers, and each
 organisation runs on the one chosen when it was created, as
-[onboarding](onboarding.md) describes; nothing a tenant
+[onboarding](onboarding.md) describes; nothing a customer
 does day to day changes with it. Opening, rotating and
 closing an account are in [cash-accounts](cash-accounts.md);
 this PRD covers what the provider's part in them means for
@@ -26,14 +26,14 @@ payments.
 ## Users and stakeholders
 
 **Customer engineering team.** Submits internal and outbound payments on behalf
-of end customers, observes inbound payments landing on customer accounts, and
-reconciles. Cares about: the outbound flow being predictable (intent accepted
-now, settlement confirmed shortly after), Confirmation of Payee being available
-for outbound, idempotency being safe to rely on for retries.
+of end customers, observes inbound payments landing on end-customer accounts,
+and reconciles. Cares about: the outbound flow being predictable (intent
+accepted now, settlement confirmed shortly after), Confirmation of Payee being
+available for outbound, idempotency being safe to rely on for retries.
 
 **End customer.** The party whose account is debited or
 credited. Doesn't interact with the platform directly but
-sees payments and balances through the tenant's surface.
+sees payments and balances through the customer's surface.
 Cares (implicitly) about: payments landing when expected,
 the available balance reflecting in-flight outbound
 payments, no double-debits or double-credits.
@@ -55,12 +55,12 @@ integrates with simulators standing in for real providers.
 ## Goals
 
 - **Three payment kinds in one surface.** Internal,
-  outbound (UK FPS), and inbound (UK FPS). The tenant
+  outbound (UK FPS), and inbound (UK FPS). The customer
   works with one consistent surface across all three.
 - **Internal transfers settle now.** A transfer between
   two accounts on the platform is recorded and applied
   to both balances in one go. No pending state.
-- **Outbound is two-stage.** When the tenant submits an
+- **Outbound is two-stage.** When the customer submits an
   outbound payment, the amount is immediately held in a
   *pending-outgoing* state on the debtor's account
   (visible in the available balance, unavailable for
@@ -75,7 +75,7 @@ integrates with simulators standing in for real providers.
   first; the platform records it as *held* — nothing
   reaches the account yet — and then either releases it
   (the credit lands) or returns it to the sender (the
-  account is never credited). The tenant doesn't have to
+  account is never credited). The customer doesn't have to
   do anything to receive it.
 - **Inbound payments that cannot land are parked, not
   lost.** When an inbound payment is for an account that
@@ -104,7 +104,7 @@ integrates with simulators standing in for real providers.
   holds each account's money separately, every movement
   the platform makes between accounts — transfers,
   interest, rewards, fees — is made at the provider too,
-  so the money held there matches what the tenant sees.
+  so the money held there matches what the customer sees.
 - **Confirmation of Payee.** Outbound payments can be
   checked against the beneficiary's bank for name
   agreement before going out. The platform compares the
@@ -121,7 +121,7 @@ integrates with simulators standing in for real providers.
   the ledger; the transaction is the source of truth for
   what moved between which accounts and when.
 - **Multi-tenant isolation.** Every payment belongs to one
-  tenant. Tenants don't see each other's payments.
+  organisation. Organisations don't see each other's payments.
 
 ## Non-goals
 
@@ -135,7 +135,7 @@ integrates with simulators standing in for real providers.
   payment are in the same currency. No FX conversion at
   the platform level.
 - **Payment cancellation after submission.** Once an
-  outbound payment is submitted, the tenant can't recall
+  outbound payment is submitted, the customer can't recall
   it through the platform.
 - **Schemes other than UK FPS.** No BACS, no CHAPS, no
   card rails. Faster Payments only.
@@ -154,17 +154,17 @@ integrates with simulators standing in for real providers.
 
 ## Functional scope
 
-A tenant uses the banking API to submit internal and
+A customer uses the banking API to submit internal and
 outbound payments, and to read inbound payments that have
 landed on its accounts.
 
 ### Internal transfer
 
-The tenant supplies:
+The customer supplies:
 
 - The debtor account (the account paying out).
 - The creditor account (the account receiving). Both
-  accounts must belong to the same tenant.
+  accounts must belong to the same organisation.
 - The amount, in the accounts' currency.
 - A reference (a free-text label visible on both sides).
 - An idempotency key.
@@ -175,13 +175,13 @@ The reply confirms the transfer is settled. The end
 customer sees the balance change immediately on both
 accounts. Where the provider holds each account's money
 separately, the platform then moves the same amount
-between the two accounts at the provider; the tenant sees
+between the two accounts at the provider; the customer sees
 nothing of this, and the transfer stays settled whatever
 the provider answers.
 
 ### Outbound payment
 
-The tenant supplies:
+The customer supplies:
 
 - The debtor account.
 - The beneficiary's UK payment address (sort code +
@@ -191,15 +191,16 @@ The tenant supplies:
 - A reference.
 - An idempotency key.
 
-Optionally, the tenant first asks the platform to perform
+Optionally, the customer first asks the platform to perform
 Confirmation of Payee — checking the submitted name
 against the name on file at the beneficiary's bank.
 
 The platform validates the inputs, records the payment as
 *submitted*, and holds the amount in the *pending-outgoing*
 state on the debtor's account. The available balance drops
-straight away — the customer can't double-spend the held
-amount. The reply confirms the intent has been accepted.
+straight away — the end customer can't double-spend the
+held amount. The reply confirms the intent has been
+accepted.
 
 The platform then submits the payment to the scheme
 through the payment provider. The scheme may hold the
@@ -253,14 +254,14 @@ closes the account with it, and parked otherwise. A
 payment naming an address the platform never issued is
 set aside for the platform operator.
 
-The tenant doesn't have to do anything to receive an
-inbound payment. They observe it by reading the account's
-recent payments or by reading the inbound payment record
-directly.
+The customer doesn't have to do anything to receive an
+inbound payment. It observes the payment by reading the
+account's recent payments or by reading the inbound
+payment record directly.
 
 ### Confirmation of Payee
 
-Before an outbound payment is submitted, the tenant can
+Before an outbound payment is submitted, the customer can
 ask the platform to check the beneficiary's name against
 the name on file at the beneficiary's bank, naming the
 account the payment will leave where it knows it. The
@@ -272,17 +273,17 @@ platform returns one of three outcomes:
   abbreviations.
 - **No match** — the names don't agree.
 
-The result is informational. The tenant decides what to
-do with it — proceed, warn the customer, or hold the
-payment.
+The result is informational. The customer decides what
+to do with it — proceed, warn the end customer, or hold
+the payment.
 
 ### Idempotency
 
 Every submission carries an idempotency key (an envelope
 identifier). Submitting the same payment twice with the
 same key returns the same result; the platform doesn't
-debit the customer twice. The tenant is expected to use
-the same key when retrying after a network failure or
+debit the end customer twice. The customer is expected to
+use the same key when retrying after a network failure or
 timeout.
 
 For inbound payments, the payment provider's identifier
@@ -324,9 +325,9 @@ sequenceDiagram
     Q->>Q: move pending-outgoing to settled
 ```
 
-The tenant gets a quick reply confirming the platform has
-accepted the intent. The customer sees the available
-balance drop right away. Once the scheme confirms, the
+The customer gets a quick reply confirming the platform
+has accepted the intent. The end customer sees the
+available balance drop right away. Once the scheme confirms, the
 payment is fully settled and the held amount is gone from
 the account.
 
@@ -346,7 +347,7 @@ sequenceDiagram
 ```
 
 The platform releases the held amount back to the available
-balance and marks the payment failed. The tenant reads the
+balance and marks the payment failed. The customer reads the
 payment to see the kind of failure and its reason code.
 
 ### 4. Inbound payment
@@ -365,9 +366,9 @@ sequenceDiagram
     Q-->>T: inbound payment visible
 ```
 
-The platform handles inbound payments without any tenant
-action. The tenant sees the payment when they next read
-the account or its payments. If the account cannot take
+The platform handles inbound payments without any
+customer action. The customer sees the payment when it
+next reads the account or its payments. If the account cannot take
 it, the receipt is parked in suspense for reconciliation
 rather than discarded.
 
@@ -413,7 +414,7 @@ sequenceDiagram
     T->>Q: submit outbound payment (or not)
 ```
 
-The tenant uses the result to inform the end customer or
+The customer uses the result to inform the end customer or
 to decide whether to send.
 
 ### 7. Idempotent retry
@@ -429,8 +430,8 @@ sequenceDiagram
     Q-->>T: same payment as before
 ```
 
-If the tenant doesn't get a response — network blip,
-gateway timeout — they can re-submit with the same
+If the customer doesn't get a response — network blip,
+gateway timeout — it can re-submit with the same
 idempotency key. The platform returns the original
 result; no duplicate payment is created.
 
@@ -469,23 +470,23 @@ beneficiary's bank gave.
 - **Retrying a failed payment.** A failure carries its
   kind and reason code, but the platform does not say
   whether sending again could succeed. It is assumed the
-  tenant decides from the reason code.
+  customer decides from the reason code.
 - **Two providers in one installation.** An installation
   uses one payment provider. It is assumed a bank wanting
   another provider is served by another installation.
 - **Payment cancellation / recall.** Once an outbound
-  payment is submitted, the tenant can't recall it. UK
+  payment is submitted, the customer can't recall it. UK
   FPS does have an indemnity-claim recall flow; the
   platform doesn't expose it.
 - **Payment statuses for the end customer.** The platform
   speaks in terms of *submitted*, *held*, *settled*, and
   *failed* for outbound payments, and *held*, *settled*,
-  *returned*, and *suspended* for inbound. The tenant's
-  customer-facing surface may want a simpler or
+  *returned*, and *suspended* for inbound. The customer's
+  end-customer-facing surface may want a simpler or
   differently-worded set ("being processed", "received by
   recipient", "bounced") that maps onto these.
 - **Bulk payments.** No way to submit a batch in one
-  call. A tenant moving a salary file or a supplier run
+  call. A customer moving a salary file or a supplier run
   has to issue many submissions.
 - **Scheduled / future-dated payments.** No way to ask
   the platform to send a payment at a future date.
@@ -533,7 +534,8 @@ beneficiary's bank gave.
   interest postings are recorded as their own kind of
   ledger movement, distinct from payments;
   [policies](policies.md) — capabilities and limits can
-  bound which payments a tenant can submit, and when.
+  bound which payments an organisation can submit, and
+  when.
 - **Engineering depth**:
   [tdd/transaction-processing](../tdd/transaction-processing.md)
   for the command-and-event substrate;

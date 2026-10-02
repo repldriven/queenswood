@@ -88,7 +88,7 @@ else, and the company its people act for.
   limited tooling today and no polished self-service flow.
 - **End-customer accounts at create time.** The accounts opened by this
   flow are the organisation's bookkeeping accounts (settlement or
-  internal). Customer-facing accounts are opened separately by the
+  internal). End-customer-facing accounts are opened separately by the
   customer for its end customers.
 - **People.** A customer's own systems act as the organisation when they
   call. Who signs in to it, with what role, and how they are invited and
@@ -184,8 +184,8 @@ The customer engineering team receives the credential and:
 3. Calls a low-stakes endpoint (e.g. list cash accounts) to verify the
    credential works.
 4. Sees their settlement (or internal) account ready to use.
-5. Begins building their integration: creating their customers
-   (parties), opening accounts for those customers, processing
+5. Begins building their integration: creating their end customers
+   (parties), opening accounts for those end customers, processing
    payments.
 
 ### 3. An organisation changes status

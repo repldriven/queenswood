@@ -187,7 +187,7 @@
       id: "s5", num: "05", title: "Open", view: "accounts",
       story:
         "Open an Everyday account each for Arthur and Ford. Each is created pending and transitions to opened; the version promises them a welcome reward the next hour.",
-      backing: ["journeys/cash-accounts/1-opening-a-customer-s-first-account"],
+      backing: ["journeys/cash-accounts/1-opening-an-end-customer-s-first-account"],
       steps: [
         { name: "Open Arthur's Everyday", raw: [{ method: "POST", path: "/v1/cash-accounts", tag: "request" }] },
         { name: "Open Ford's Everyday", raw: [{ method: "POST", path: "/v1/cash-accounts", tag: "request" }] },
