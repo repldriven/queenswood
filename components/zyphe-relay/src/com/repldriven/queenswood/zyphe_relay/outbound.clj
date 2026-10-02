@@ -31,6 +31,8 @@
 
 (def ^:private default-poll-ms 200)
 (def ^:private default-max-attempts 10)
+(def ^:private default-initial-backoff-ms 1000)
+(def ^:private default-max-backoff-ms 60000)
 
 (defn- classify
   "Turn a provider response into itself or the anomaly that names what
@@ -111,19 +113,21 @@
   as `customData`, and the session webhook is keyed by the adapter's
   secret. Creating again for the same identity resumes the run, so a
   retried intent or a second session does not start a second one."
-  [{:keys [adapter-url webhook-secret]}
-   {:keys [bank-id verification-id party-id session-id email]}]
-  (utility/assoc-some
-   {:credentials [{:type "EXTERNAL_ID" :externalId party-id}]
-    :customData (utility/assoc-some {:bankId bank-id
-                                     :verificationId verification-id}
-                                    :sessionId
-                                    session-id)
-    :webhook {:url (str adapter-url zyphe-webhook/path)
-              :secret webhook-secret
-              :payloadVersion "V2"}}
-   :email
-   (when-not (str/blank? email) email)))
+  [config data]
+  (let [{:keys [adapter-url webhook-secret]} config
+        {:keys! [bank-id verification-id party-id] :keys [session-id email]}
+        data]
+    (utility/assoc-some
+     {:credentials [{:type "EXTERNAL_ID" :externalId party-id}]
+      :customData (utility/assoc-some {:bankId bank-id
+                                       :verificationId verification-id}
+                                      :sessionId
+                                      session-id)
+      :webhook {:url (str adapter-url zyphe-webhook/path)
+                :secret webhook-secret
+                :payloadVersion "V2"}}
+     :email
+     (when-not (str/blank? email) email))))
 
 (defn- encode
   [v]
@@ -156,7 +160,8 @@
 
 (defn- submit-idv-check
   [config flow data]
-  (let [url (create-url config (:id flow))]
+  (let [url (create-url config (:id flow))
+        body (json/write-str (verification-request config data))]
     (error/try-nom
      :idv/unavailable
      "Identity verification provider call failed"
@@ -166,77 +171,79 @@
                                 :url url
                                 :headers {"Content-Type" "application/json"
                                           "x-api-key" (:api-key config)}
-                                :body (json/write-str
-                                       (verification-request config data))}))]
+                                :body body}))]
        (http/res->edn res)))))
 
-(defn- session-opened
-  [config data reply]
-  (let [{:keys [schemas hand-off-ttl-ms]} config
-        {:keys [bank-id verification-id session-id]} data]
-    (let-nom> [payload (avro/serialize
-                        (get schemas "idv-session-opened")
-                        {:bank-id bank-id
-                         :verification-id verification-id
-                         :session-id session-id
-                         :url (hand-off-url config data reply)
-                         :expires-at (+ (utility/now)
-                                        (or hand-off-ttl-ms
-                                            default-hand-off-ttl-ms))})]
-      {:outbox-id (str (utility/uuidv7))
-       :dedup-key (str session-id ":opened")
-       :event-name "idv-session-opened"
-       :payload payload
-       :correlation-id (str (utility/uuidv7))
-       :causation-id session-id
-       :created-at (utility/now)})))
+(defn- backoff-ms
+  [config attempts]
+  (let [{:keys [initial-backoff-ms max-backoff-ms]} config
+        initial (or initial-backoff-ms default-initial-backoff-ms)
+        cap (or max-backoff-ms default-max-backoff-ms)]
+    (reduce (fn [delay _] (min cap (* 2 delay)))
+            (min cap initial)
+            (range (dec attempts)))))
 
-(defn- record-opened
-  [config intent-id data reply]
-  (if (nil? (:session-id data))
-    (store/mark-sent config intent-id)
-    (let-nom> [event (session-opened config data reply)]
-      (store/transact config
-                      (fn [txn]
-                        (let [saved (store/save-event txn event)]
-                          (if (and (error/anomaly? saved)
-                                   (not (store/uniqueness-violation? saved)))
-                            saved
-                            (store/mark-sent txn intent-id))))
-                      :zyphe-outbound/opened
-                      "Failed to record the opened session"))))
+(defn- event
+  [config now intent descriptor]
+  (let [{:keys [schemas]} config
+        {:keys [intent-id traceparent]} intent
+        {:keys [event-name dedup-key data]} descriptor]
+    (let-nom> [payload (avro/serialize (get schemas event-name) data)]
+      (utility/assoc-some {:outbox-id (str (utility/uuidv7))
+                           :dedup-key dedup-key
+                           :event-name event-name
+                           :payload payload
+                           :correlation-id (str (utility/uuidv7))
+                           :causation-id intent-id
+                           :created-at now}
+                          :traceparent
+                          (not-empty traceparent)))))
+
+(defn- finish
+  [config now intent outcome descriptor]
+  (let [{:keys [intent-id attempts]} intent]
+    (if (nil? descriptor)
+      (store/finish config intent-id "pending" outcome attempts nil)
+      (let-nom> [e (event config now intent descriptor)]
+        (store/finish config intent-id "pending" outcome attempts e)))))
+
+(defn- give-up?
+  [config attempts]
+  (>= attempts (or (:max-attempts config) default-max-attempts)))
+
+(defn- retry
+  [config now intent attempts reason]
+  (let [{:keys [intent-id]} intent]
+    (log/warn "Zyphe call failed; will retry"
+              {:intent-id intent-id :attempt attempts :reason reason})
+    (store/mark-attempt config
+                        intent-id
+                        attempts
+                        (+ now (backoff-ms config attempts)))))
+
+(defn- session-opened
+  [config now data reply]
+  (let [{:keys [hand-off-ttl-ms]} config
+        {:keys! [bank-id verification-id session-id]} data]
+    {:event-name "idv-session-opened"
+     :dedup-key (str session-id ":opened")
+     :data {:bank-id bank-id
+            :verification-id verification-id
+            :session-id session-id
+            :url (hand-off-url config data reply)
+            :expires-at (+ now
+                           (or hand-off-ttl-ms
+                               default-hand-off-ttl-ms))}}))
 
 (defn- session-failed
-  [config data reason]
-  (let [{:keys [schemas]} config
-        {:keys [bank-id verification-id session-id]} data]
-    (let-nom> [payload (avro/serialize (get schemas "idv-session-failed")
-                                       {:bank-id bank-id
-                                        :verification-id verification-id
-                                        :session-id session-id
-                                        :reason reason})]
-      {:outbox-id (str (utility/uuidv7))
-       :dedup-key (str session-id ":failed")
-       :event-name "idv-session-failed"
-       :payload payload
-       :correlation-id (str (utility/uuidv7))
-       :causation-id session-id
-       :created-at (utility/now)})))
-
-(defn- record-failed
-  [config intent-id attempts data reason]
-  (if (nil? (:session-id data))
-    (store/mark-failed config intent-id attempts)
-    (let-nom> [event (session-failed config data reason)]
-      (store/transact config
-                      (fn [txn]
-                        (let [saved (store/save-event txn event)]
-                          (if (and (error/anomaly? saved)
-                                   (not (store/uniqueness-violation? saved)))
-                            saved
-                            (store/mark-failed txn intent-id attempts))))
-                      :zyphe-outbound/failed
-                      "Failed to record the failed session"))))
+  [data reason]
+  (let [{:keys! [bank-id verification-id session-id]} data]
+    {:event-name "idv-session-failed"
+     :dedup-key (str session-id ":failed")
+     :data {:bank-id bank-id
+            :verification-id verification-id
+            :session-id session-id
+            :reason reason}}))
 
 (defn- refused?
   "True for a failure retrying cannot mend: the provider refused the
@@ -244,14 +251,16 @@
   [res]
   (contains? #{:idv/http :idv/unsupported-criteria} (error/kind res)))
 
-(defn- relay-one
+(defn- relay-check
   "Make `intent`'s call, returning the intent with the status it was left
-  at, or an anomaly."
-  [config {:keys [intent-id request attempts] :as intent}]
-  (let [{:keys [max-attempts flows]} config
-        max-attempts (or max-attempts default-max-attempts)
+  at, or an anomaly. An intent with no session reports nothing."
+  [config now intent]
+  (let [{:keys [intent-id request]} intent
         data (edn/read-string request)
-        flow (select-flow flows
+        session? (some? (:session-id data))
+        attempts (inc (or (:attempts intent) 0))
+        intent (assoc intent :attempts attempts)
+        flow (select-flow (:flows config)
                           (concat (:verifications data) (:screenings data)))
         res (if flow
               (submit-idv-check config flow data)
@@ -259,30 +268,32 @@
                           {:message "No configured flow covers the request"
                            :verifications (:verifications data)
                            :screenings (:screenings data)}))
-        next-attempts (inc (or attempts 0))]
+        reason (when (error/anomaly? res) (:message (error/payload res)))
+        failed (fn [reason] (when session? (session-failed data reason)))]
     (cond
      (not (error/anomaly? res))
-     (let-nom> [_ (record-opened config intent-id data res)]
-       (assoc intent :status "sent"))
+     (finish config
+             now
+             intent
+             "settled"
+             (when session? (session-opened config now data res)))
 
-     (or (refused? res) (>= next-attempts max-attempts))
-     (do (log/error "Zyphe intent failed"
-                    {:intent-id intent-id :attempts next-attempts :last res})
-         (let-nom> [_ (record-failed config
-                                     intent-id
-                                     next-attempts
-                                     data
-                                     (if (refused? res)
-                                       (:message (error/payload res))
-                                       (str "Undelivered: "
-                                            (:message (error/payload res)))))]
-           (assoc intent :status "failed")))
+     (refused? res)
+     (do (log/error "Zyphe refused the verification check"
+                    {:intent-id intent-id :reason reason})
+         (finish config now intent "failed" (failed reason)))
+
+     (give-up? config attempts)
+     (do (log/error "Zyphe call giving up after max attempts"
+                    {:intent-id intent-id :reason reason})
+         (finish config
+                 now
+                 intent
+                 "failed"
+                 (failed (str "Undelivered: " reason))))
 
      :else
-     (do (log/warn "Zyphe intent submit failed; will retry"
-                   {:intent-id intent-id :attempt next-attempts})
-         (let-nom> [_ (store/mark-attempt config intent-id next-attempts)]
-           (assoc intent :attempts next-attempts))))))
+     (retry config now intent attempts reason))))
 
 (defn- in-intent-trace
   [span-name intent f]
@@ -293,22 +304,44 @@
                                                   (:intent-id intent))
                               f))
 
+(defn- checked
+  "Run `f` on `intent`, failing the intent where its call throws, so it no
+  longer holds the intents behind it."
+  [config intent f]
+  (let [res (error/try-nom-ex :zyphe-relay/intent
+                              Exception
+                              "Zyphe intent could not be relayed"
+                              (f intent))]
+    (if (error/anomaly? res)
+      (let [{:keys [intent-id status attempts]} intent]
+        (log/error "Zyphe intent could not be relayed; failing it"
+                   {:intent-id intent-id :anomaly res})
+        (store/finish config intent-id status "failed" attempts nil)
+        (assoc intent :status "failed"))
+      res)))
+
 (defn drain-once
   "Relay each pending intent once, oldest first, holding one for a
   verification while an earlier one for it is still pending. The Zyphe
   call per intent runs outside any FDB transaction."
-  [config]
-  (let [pending (store/pending-intents config)]
+  [config now]
+  (let [pending (store/intents-with-status config "pending")]
     (when-not (error/anomaly? pending)
       (intent-queue/drain pending
-                          (utility/now)
+                          now
                           {:settles-first? (constantly false)
                            :run (fn [i]
                                   (in-intent-trace "zyphe-outbound"
                                                    i
                                                    (fn []
-                                                     (relay-one config
-                                                                i))))}))))
+                                                     (checked
+                                                      config
+                                                      i
+                                                      (fn [i]
+                                                        (relay-check
+                                                         config
+                                                         now
+                                                         i))))))}))))
 
 (defn- start-loop
   [config]
@@ -317,7 +350,7 @@
         t (doto (Thread.
                  (fn []
                    (while @running
-                     (try (drain-once config)
+                     (try (drain-once config (utility/now))
                           (catch Exception e
                             (log/error e
                                        "Zyphe relay drain threw; continuing")))

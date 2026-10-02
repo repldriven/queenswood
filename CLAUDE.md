@@ -41,6 +41,9 @@ non-trivial work on their topic.
   library edges. See
   [ADR-0005](docs/adr/0005-error-handling-with-anomalies.md) and
   [error-handling.md](docs/recipes/code/error-handling.md).
+- **Checked keys** — `:keys!` where an intent's stored data leaves
+  for a provider, and nowhere else.
+  See [checked-keys.md](docs/recipes/code/checked-keys.md).
 - **Data shapes** — kebab-case keyword keys throughout, with
   string-typed currency (ISO 4217) as a deliberate exception.
   See [ADR-0006](docs/adr/0006-kebab-case-keyword-keys.md).

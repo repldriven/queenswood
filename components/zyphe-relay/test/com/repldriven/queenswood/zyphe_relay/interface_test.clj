@@ -62,9 +62,9 @@
             (SUT/save-intent config (intent-of "int.2" "iv-A")))))
      (testing "a failed submit keeps the intent pending and bumps its attempt"
        (nom-test> [_ (SUT/save-intent config (intent-of "int.3" "iv-B"))])
-       (outbound/drain-once (merge config unreachable))
+       (outbound/drain-once (merge config unreachable) (utility/now))
        (let [i3 (first (filter #(= "int.3" (:intent-id %))
-                               (store/pending-intents config)))]
+                               (store/intents-with-status config "pending")))]
          (is (some? i3) "still pending after an unreachable submit")
          (is (= 1 (:attempts i3)) "attempt count bumped")))
      (testing "a verification's later intent waits behind an earlier one"
@@ -74,9 +74,9 @@
                    _ (SUT/save-intent
                       config
                       (assoc (intent-of "int.5" "ses-C2") :subjects ["ver-C"]))])
-       (outbound/drain-once (merge config unreachable))
+       (outbound/drain-once (merge config unreachable) (utility/now))
        (let [attempts (into {}
                             (map (juxt :intent-id :attempts))
-                            (store/pending-intents config))]
+                            (store/intents-with-status config "pending"))]
          (is (= 1 (get attempts "int.4")) "the earlier intent is tried")
          (is (= 0 (get attempts "int.5")) "the later one is held"))))))

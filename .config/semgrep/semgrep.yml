@@ -119,6 +119,23 @@ rules:
         - "/components/payment/src/**/payment/events/provider_transfer.clj"
         - "/components/idv/src/**/idv/activity.clj"
 
+  - id: unchecked-intent-data
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      An intent's stored data read with plain `:keys` in a relay: what an
+      adapter stored when it took a command is read back, perhaps by a
+      later release, to build a provider call, so a key it lacks would
+      reach the provider as nil. Read it with `:keys!`, with a key the
+      adapter writes only sometimes under `:keys` in the same map
+      (checked-keys.md). A read that is optional throughout puts
+      `;; nosemgrep: unchecked-intent-data — <reason>` on the line
+      immediately above it.
+    pattern-regex: '\{:keys \[[^\]]*\]\}\s*(\(context intent\)|ctx\b|context\b|data\b)'
+    paths:
+      include:
+        - "/components/*-relay/src/**/outbound.clj"
+
   - id: brick-test-drives-pipeline
     languages: [generic]
     severity: ERROR

@@ -5,7 +5,7 @@
 
     [com.repldriven.mono.error.interface :refer [let-nom>]]
     [com.repldriven.mono.telemetry.interface :as telemetry]
-    [com.repldriven.mono.utility.interface :as utility :refer [assoc-some]]))
+    [com.repldriven.mono.utility.interface :refer [assoc-some]]))
 
 (def ^:private outbox-store-name "zyphe-outbox")
 
@@ -54,9 +54,8 @@
    :zyphe-outbound/save
    "Failed to save zyphe outbound intent"))
 
-(defn pending-intents
-  "Read every intent still `pending`, via the status index."
-  [txn]
+(defn intents-with-status
+  [txn status]
   (fdb/transact
    txn
    (fn [txn]
@@ -64,36 +63,49 @@
            (fdb/query-records (fdb/open txn intents-store-name)
                               "ZypheOutboundIntent"
                               "status"
-                              "pending"
+                              status
                               {:index "ZypheOutboundIntent_by_status"})))
-   :zyphe-outbound/pending
-   "Failed to read pending outbound intents"))
+   :zyphe-outbound/by-status
+   "Failed to read outbound intents"))
 
-(defn- update-intent
-  [txn intent-id f]
+(defn update-intent
+  "Apply `f` to the intent while it is still `status`, and write `event`,
+  when one is given, in the same transaction. An intent that is missing
+  or has moved on is returned unchanged with nothing written."
+  [txn intent-id status f event]
   (fdb/transact
    txn
    (fn [txn]
-     (let [store (fdb/open txn intents-store-name)]
-       (when-let [existing (some-> (fdb/load-record store intent-id)
-                                   schema/pb->ZypheOutboundIntent)]
-         (fdb/save-record store
-                          (schema/ZypheOutboundIntent->java (f existing))))))
+     (let [store (fdb/open txn intents-store-name)
+           existing (some-> (fdb/load-record store intent-id)
+                            schema/pb->ZypheOutboundIntent)]
+       (if (not= status (:status existing))
+         existing
+         (let [updated (f existing)]
+           (let-nom>
+             [_ (fdb/save-record store
+                                 (schema/ZypheOutboundIntent->java updated))
+              _ (when event (save-event txn event))]
+             updated)))))
    :zyphe-outbound/update
    "Failed to update outbound intent"))
 
-(defn mark-sent
-  [txn intent-id]
-  (update-intent txn
-                 intent-id
-                 (fn [i] (assoc i :status "sent" :sent-at (utility/now)))))
-
 (defn mark-attempt
-  [txn intent-id attempts]
-  (update-intent txn intent-id (fn [i] (assoc i :attempts attempts))))
+  [txn intent-id attempts next-attempt-at]
+  (update-intent
+   txn
+   intent-id
+   "pending"
+   (fn [i]
+     (assoc i :attempts attempts :next-attempt-at next-attempt-at))
+   nil))
 
-(defn mark-failed
-  [txn intent-id attempts]
+(defn finish
+  "Move a `status` intent to `outcome` with `event`."
+  [txn intent-id status outcome attempts event]
   (update-intent txn
                  intent-id
-                 (fn [i] (assoc i :status "failed" :attempts attempts))))
+                 status
+                 (fn [i]
+                   (assoc-some (assoc i :status outcome) :attempts attempts))
+                 event))

@@ -54,8 +54,9 @@
                                    :onfido-url "http://localhost:1"
                                    :workflows
                                    [{:id "wf" :verifies [] :screens []}]
-                                   :max-attempts 10))
+                                   :max-attempts 10)
+                            (utility/now))
        (let [i3 (first (filter #(= "int.3" (:intent-id %))
-                               (store/pending-intents config)))]
+                               (store/intents-with-status config "pending")))]
          (is (some? i3) "still pending after an unreachable submit")
          (is (= 1 (:attempts i3)) "attempt count bumped"))))))

@@ -119,6 +119,12 @@
 
         libPath = pkgs.lib.makeLibraryPath [ fdbBinary ];
 
+        # semgrep pins pyjwt~=2.13.0, which nixpkgs has moved past; its
+        # runtime-deps check refuses the build without this.
+        semgrep = pkgs.semgrep.overridePythonAttrs (old: {
+          pythonRelaxDeps = (old.pythonRelaxDeps or [ ]) ++ [ "pyjwt" ];
+        });
+
         # Wrap clojure/clj to always set DYLD_LIBRARY_PATH for the FDB native
         # library. DYLD_* vars are stripped by macOS SIP when launching
         # restricted processes (e.g. Claude Code), so env inheritance is
@@ -185,7 +191,7 @@
             protocBinary
             protocGenClojure
             pkgs.prowler
-            pkgs.semgrep
+            semgrep
             spectral
             tessl
             pkgs.trivy
