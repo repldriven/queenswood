@@ -49,42 +49,48 @@ The shortlist:
   every pair of commands needs its own check, a close waiting on
   transfers, a payment on its funding, and the check races the handler
   that has not yet recorded what it waits on.
+- **One outbox per provider.** Rejected: it would put the provider into
+  the storage, so adding one would mean a store and a relay runner of its
+  own, the per-provider plumbing ADR-0030 keeps out of the domain.
 - **Write every provider command in the transaction that causes it, into
-  one outbox per provider, relayed in commit order and sent in order per
-  account.** The commit order is already total. Writing the command with
-  its cause keeps it, and the relay and the adapter only have to not
-  lose it.
+  one provider-neutral outbox, relayed in commit order and sent in order
+  per account.** The commit order is already total. Writing the command
+  with its cause keeps it, the bank's provider key on each entry routes
+  it as configuration already does, and the relay and the adapter only
+  have to not lose the order.
 
 ## Decision
 
-Every command to a payment provider is written to that provider's outbox
-in the same transaction as the commit that causes it, relayed in
-versionstamp order onto one command channel per provider keyed by the
-provider account it acts on, and sent by the adapter in that order for
-each provider account.
+Every command to a payment provider is written to one provider-neutral
+outbox in the same transaction as the commit that causes it, relayed in
+versionstamp order onto the bank's provider's one command channel keyed
+by the provider account it acts on, and sent by the adapter in that order
+for each provider account.
 
 The decision has these parts:
 
-- Write each provider command to the bank's provider's outbox in the
-  transaction that commits its cause: an account's open, close or
+- Write each provider command to the outbox in the transaction that
+  commits its cause: an account's open, close or
   reissue with its status change, the transfers that mirror a posting
   with the posting, an outbound payment's submit with the payment, and
   an inbound's return with its handling. Never send one from a handler
   reacting to the commit afterwards.
-- Key each outbox entry by the provider account it acts on, or by the
-  bank's own funds where it acts on no account of its own.
-- Relay each provider's outbox in versionstamp order onto one command
-  channel for that provider, published with the entry's key, in place
-  of its separate payment and account command channels.
+- Give each entry the neutral command, the bank's provider key, and the
+  provider account it acts on, or the bank's own funds where it acts on
+  no account of its own; never a provider's name or a vendor's request.
+- Relay the outbox in versionstamp order, publishing each entry onto the
+  command channel configuration names for its provider key, keyed by its
+  provider account; each provider has one command channel, in place of
+  its separate payment and account command channels.
 - Send a provider's intents in order for each provider account: a
   pending or retrying intent holds back later intents for its account,
   and for no other.
 - End a command the provider refuses for good, or that exhausts its
   attempts, as a failure the domain hears, so that one account's queue
   cannot hold indefinitely.
-- Keep the rest of ADR-0030: the bank's provider selects the outbox and
-  configuration names its channel, the event channels stay shared, and
-  a domain component never names a provider.
+- Keep the rest of ADR-0030: configuration names each provider's
+  channel, the event channels stay shared, and a domain component never
+  names a provider.
 
 ## Consequences
 
@@ -95,8 +101,10 @@ Easier:
   never moves money for an address a reissue has replaced.
 - A retry handles a provider's transient failure, not the platform's
   ordering, so the close relay's retry of a refusal can go.
-- The outbox is one ordered record of everything asked of a provider,
-  for each bank and each account.
+- The outbox is one ordered record of everything asked of every
+  provider, for each bank and each account.
+- Adding a provider stays configuration: its adapter, its declaration
+  and its one channel, with no store, relay or domain brick changed.
 
 Harder:
 
@@ -106,7 +114,11 @@ Harder:
 - An intent at the head of an account's queue holds that account's
   later commands until it settles or gives up, so a provider that is
   slow for one account is slow for everything asked of that account.
-- Each provider gains an outbox store and a relay runner in
+- One relay serves every provider, so a provider's channel that is slow
+  to take a publish holds up the commands behind it for the others. A
+  cursor per provider over the same outbox removes that, should it come
+  to matter.
+- The outbox and its relay runner are new, in
   `exclusive-dispatchers-service`, and moving from two command channels
   per provider to one is a migration of every adapter's consumers.
 - A handler that sends a provider command after a commit, rather than
