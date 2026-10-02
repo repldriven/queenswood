@@ -10,11 +10,6 @@
     [com.repldriven.mono.processor.interface :as processor]
     [com.repldriven.mono.utility.interface :as utility]))
 
-(def ^:private sandbox-payer
-  "Who the sandbox credit says paid, since Modulr requires a payer."
-  {:name "Sandbox funding"
-   :identifier {:type "SCAN" :sortCode "000000" :accountNumber "00000000"}})
-
 (defn- save-intent
   [config intent]
   (let [res (relay/save-intent (select-keys config [:record-store :record-db])
@@ -37,11 +32,12 @@
 
 (defn- payment-intent
   [data]
-  (let [{:keys [end-to-end-id debtor-provider-account-id creditor-bban
-                creditor-name amount currency reference]}
+  (let [{:keys [end-to-end-id debtor-account-id debtor-provider-account-id
+                creditor-bban creditor-name amount currency reference]}
         data]
     {:dedup-key end-to-end-id
      :kind "payment"
+     :subjects (vec (keep identity [debtor-account-id]))
      :request (json/write-str
                (utility/assoc-some
                 {:sourceAccountId debtor-provider-account-id
@@ -51,37 +47,40 @@
                  :externalReference (relay/->reference end-to-end-id)}
                 :reference
                 (not-empty reference)))
-     :context (pr-str {:amount amount :currency currency})}))
+     :context (pr-str (utility/assoc-some {:amount amount :currency currency}
+                                          :debtor-account-id
+                                          debtor-account-id))}))
 
 (defn- transfer-intent
   [data]
-  (let [{:keys [transfer-id bank-id debtor-provider-account-id
-                creditor-provider-account-id amount currency]}
-        data
-        reference (relay/->reference transfer-id)]
+  (let [{:keys [transfer-id bank-id debtor-account-id creditor-account-id
+                debtor-provider-account-id creditor-provider-account-id amount
+                currency]}
+        data]
     {:dedup-key transfer-id
-     :kind (if debtor-provider-account-id "transfer" "credit")
-     :request (json/write-str
-               (if debtor-provider-account-id
-                 {:sourceAccountId debtor-provider-account-id
-                  :destination {:type "ACCOUNT"
-                                :id creditor-provider-account-id}
-                  :amount (relay/->major-units amount)
-                  :currency currency
-                  :reference "Ledger transfer"
-                  :externalReference reference}
-                 {:accountId creditor-provider-account-id
-                  :amount (relay/->major-units amount)
-                  :description reference
-                  :type "PI_FAST"
-                  :payerDetail sandbox-payer}))
-     :context (pr-str {:bank-id bank-id :amount amount :currency currency})}))
+     :subjects (vec (keep identity [debtor-account-id creditor-account-id]))
+     :kind (if (or debtor-account-id debtor-provider-account-id)
+             "transfer"
+             "credit")
+     :request "{}"
+     :context (pr-str (utility/assoc-some {:bank-id bank-id
+                                           :amount amount
+                                           :currency currency}
+                                          :debtor-account-id
+                                          debtor-account-id
+                                          :creditor-account-id
+                                          creditor-account-id
+                                          :debtor-provider-account-id
+                                          debtor-provider-account-id
+                                          :creditor-provider-account-id
+                                          creditor-provider-account-id))}))
 
 (defn- open-intent
   [config data]
   (let [{:keys [bank-id account-id currency]} data]
     {:dedup-key (str "open:" account-id)
      :kind "open-account"
+     :subjects [account-id]
      :request (json/write-str
                (utility/assoc-some {:currency currency
                                     :externalReference (relay/->reference
@@ -95,6 +94,7 @@
   (let [{:keys [bank-id account-id provider-account-id]} data]
     {:dedup-key (str "close:" account-id)
      :kind "close-account"
+     :subjects [account-id]
      :request "{}"
      :context (pr-str {:bank-id bank-id
                        :account-id account-id
@@ -105,6 +105,7 @@
   (let [{:keys [bank-id account-id provider-account-id rotation-key]} data]
     {:dedup-key (str "reissue:" account-id ":" rotation-key)
      :kind "reissue-address"
+     :subjects [account-id]
      :request (json/write-str (utility/assoc-some {}
                                                   :productCode
                                                   (:product-code config)))

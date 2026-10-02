@@ -56,4 +56,8 @@ message Form3OutboundIntent {
   // Form3's id for the payment the call created, chosen by the adapter,
   // which a reconciliation reads back.
   optional string provider_payment_id = 14;
+  // What the call acts on at the provider, the cash accounts for a
+  // payment provider. The runner makes a subject's calls in the order
+  // they were accepted (ADR-0033).
+  repeated string subjects = 15;
 }

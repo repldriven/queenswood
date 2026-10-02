@@ -7,6 +7,7 @@ system:
     bus: !system/component
       system/component-kind: message-bus/local-bus
       channels:
+        - bank-activity-event
         - banks-command
         - banks-command-response
         - cash-accounts-command
@@ -27,16 +28,11 @@ system:
         - cash-accounts-event
         - payments-event
         - rewards-event
-        - modulr-payment-command
-        - form3-payment-command
-        - clearbank-payment-command
-        - schemes-payment-command-response
-        - modulr-account-command
-        - form3-account-command
-        - clearbank-account-command
-        - schemes-account-command-response
+        - modulr-command
+        - form3-command
+        - clearbank-command
+        - schemes-command-response
         - schemes-account-event
-        - transactions-event
         - zyphe-idv-command
         - onfido-idv-command
         - idv-command-response
@@ -58,6 +54,7 @@ system:
   payments: !include system/payment.yml
   transactions: !include system/transaction.yml
   idv: !include system/idv.yml
+  idv-activity: !include system/idv-activity.yml
   payee-checks: !include system/payee-check.yml
   webhook: !include system/webhook.yml
   email: !include system/email.yml
@@ -67,9 +64,9 @@ system:
   cash-account-product-templates: !include system/cash-account-product-templates.yml
   banks-dispatcher: !include system/bank-dispatcher.yml
   cash-accounts-dispatcher: !include system/cash-account-dispatcher.yml
+  bank-activity-relay: !include system/bank-activity-relay.yml
   cash-accounts-relay: !include system/cash-account-relay.yml
   payments-relay: !include system/payment-relay.yml
-  transactions-relay: !include system/transaction-relay.yml
   rewards-relay: !include system/reward-relay.yml
   companies-dispatcher: !include system/company-dispatcher.yml
   idvs-relay: !include system/idv-relay.yml

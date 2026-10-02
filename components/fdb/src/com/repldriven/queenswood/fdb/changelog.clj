@@ -3,6 +3,7 @@
     (com.apple.foundationdb KeySelector MutationType)
     (com.apple.foundationdb.record.provider.foundationdb
      FDBDatabase
+     FDBRecordContext
      FDBStoreTimer$Waits)
     (com.apple.foundationdb.subspace Subspace)
     (com.apple.foundationdb.tuple Tuple Versionstamp)
@@ -71,10 +72,10 @@
   [tr checkpoint-key ^Versionstamp vs]
   (.set tr checkpoint-key (.getBytes vs)))
 
-(defn write
-  [store prefix store-name ^String record-id ^bytes changelog-bytes]
-  (let [ctx (.getContext store)
-        tr (.ensureActive ctx)
+(defn write-entry
+  [^FDBRecordContext ctx prefix store-name ^String record-id
+   ^bytes changelog-bytes]
+  (let [tr (.ensureActive ctx)
         user-ver (.claimLocalVersion ctx)]
     (.mutate tr
              MutationType/SET_VERSIONSTAMPED_KEY
@@ -86,6 +87,10 @@
              MutationType/ADD
              (sentinel-key prefix store-name)
              (byte-array [1 0 0 0 0 0 0 0]))))
+
+(defn write
+  [store prefix store-name record-id changelog-bytes]
+  (write-entry (.getContext store) prefix store-name record-id changelog-bytes))
 
 (def
   ^:private

@@ -94,3 +94,24 @@
      :amount amount
      :currency currency
      :created-at (utility/now)}))
+
+(defn- ->posted-leg
+  [{:keys [account-id balance-type balance-status side amount control]}]
+  (utility/assoc-some {:account-id account-id
+                       :balance-type balance-type
+                       :balance-status balance-status
+                       :side side
+                       :amount amount}
+                      :control
+                      control))
+
+(defn posted
+  [transaction legs scheme-account-id]
+  (let [{:keys [transaction-id bank-id transaction-type currency]} transaction]
+    (utility/assoc-some {:bank-id bank-id
+                         :transaction-id transaction-id
+                         :transaction-type transaction-type
+                         :currency currency
+                         :legs (mapv ->posted-leg legs)}
+                        :scheme-account-id
+                        scheme-account-id)))

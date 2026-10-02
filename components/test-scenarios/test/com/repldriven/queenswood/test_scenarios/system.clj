@@ -8,6 +8,7 @@
   (:require
     [com.repldriven.queenswood.bank.interface]
     [com.repldriven.queenswood.cash-account.interface]
+    [com.repldriven.queenswood.bank-activity.interface]
     [com.repldriven.queenswood.changelog-relay.interface]
     [com.repldriven.queenswood.fdb.interface]
     [com.repldriven.queenswood.idv.interface]

@@ -291,56 +291,6 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-payments-command-response
       acks: all
-  modulr-account-command:
-    _: !system/local-ref topics
-    schemas: !system/local-ref schemas
-    schema: !keyword command
-    conf:
-      bootstrap.servers: !system/local-ref bootstrap-servers
-      topic: topic-modulr-account-command
-      acks: all
-  form3-account-command:
-    _: !system/local-ref topics
-    schemas: !system/local-ref schemas
-    schema: !keyword command
-    conf:
-      bootstrap.servers: !system/local-ref bootstrap-servers
-      topic: topic-form3-account-command
-      acks: all
-  clearbank-account-command:
-    _: !system/local-ref topics
-    schemas: !system/local-ref schemas
-    schema: !keyword command
-    conf:
-      bootstrap.servers: !system/local-ref bootstrap-servers
-      topic: topic-clearbank-account-command
-      acks: all
-  modulr-account-command-dlq:
-    _: !system/local-ref topics
-    conf:
-      bootstrap.servers: !system/local-ref bootstrap-servers
-      topic: topic-modulr-account-command-dlq
-      acks: all
-  form3-account-command-dlq:
-    _: !system/local-ref topics
-    conf:
-      bootstrap.servers: !system/local-ref bootstrap-servers
-      topic: topic-form3-account-command-dlq
-      acks: all
-  clearbank-account-command-dlq:
-    _: !system/local-ref topics
-    conf:
-      bootstrap.servers: !system/local-ref bootstrap-servers
-      topic: topic-clearbank-account-command-dlq
-      acks: all
-  schemes-account-command-response:
-    _: !system/local-ref topics
-    schemas: !system/local-ref schemas
-    schema: !keyword command-response
-    conf:
-      bootstrap.servers: !system/local-ref bootstrap-servers
-      topic: topic-schemes-account-command-response
-      acks: all
   schemes-account-event:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -355,69 +305,69 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-schemes-account-event-dlq
       acks: all
-  transactions-event:
+  bank-activity-event:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
     schema: !keyword event
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
-      topic: topic-transactions-event
+      topic: topic-bank-activity-event
       acks: all
-  transactions-event-dlq:
+  bank-activity-event-dlq:
     _: !system/local-ref topics
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
-      topic: topic-transactions-event-dlq
+      topic: topic-bank-activity-event-dlq
       acks: all
-  modulr-payment-command:
-    _: !system/local-ref topics
-    schemas: !system/local-ref schemas
-    schema: !keyword command
-    conf:
-      bootstrap.servers: !system/local-ref bootstrap-servers
-      topic: topic-modulr-payment-command
-      acks: all
-  form3-payment-command:
+  modulr-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
     schema: !keyword command
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
-      topic: topic-form3-payment-command
+      topic: topic-modulr-command
       acks: all
-  clearbank-payment-command:
+  form3-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
     schema: !keyword command
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
-      topic: topic-clearbank-payment-command
+      topic: topic-form3-command
       acks: all
-  modulr-payment-command-dlq:
+  clearbank-command:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword command
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      topic: topic-clearbank-command
+      acks: all
+  modulr-command-dlq:
     _: !system/local-ref topics
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
-      topic: topic-modulr-payment-command-dlq
+      topic: topic-modulr-command-dlq
       acks: all
-  form3-payment-command-dlq:
+  form3-command-dlq:
     _: !system/local-ref topics
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
-      topic: topic-form3-payment-command-dlq
+      topic: topic-form3-command-dlq
       acks: all
-  clearbank-payment-command-dlq:
+  clearbank-command-dlq:
     _: !system/local-ref topics
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
-      topic: topic-clearbank-payment-command-dlq
+      topic: topic-clearbank-command-dlq
       acks: all
-  schemes-payment-command-response:
+  schemes-command-response:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
     schema: !keyword command-response
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
-      topic: topic-schemes-payment-command-response
+      topic: topic-schemes-command-response
       acks: all
   schemes-payments-event:
     _: !system/local-ref topics
@@ -727,44 +677,6 @@ consumers: !system/component
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       group.id: test-payments-command-response
-  modulr-account-command:
-    _: !system/local-ref topics
-    schemas: !system/local-ref schemas
-    schema: !keyword command
-    topics: [topic-modulr-account-command]
-    dead-letter-producer: !system/local-ref producers.modulr-account-command-dlq
-    max-redeliveries: 5
-    conf:
-      bootstrap.servers: !system/local-ref bootstrap-servers
-      group.id: test-modulr-account-command
-  form3-account-command:
-    _: !system/local-ref topics
-    schemas: !system/local-ref schemas
-    schema: !keyword command
-    topics: [topic-form3-account-command]
-    dead-letter-producer: !system/local-ref producers.form3-account-command-dlq
-    max-redeliveries: 5
-    conf:
-      bootstrap.servers: !system/local-ref bootstrap-servers
-      group.id: test-form3-account-command
-  clearbank-account-command:
-    _: !system/local-ref topics
-    schemas: !system/local-ref schemas
-    schema: !keyword command
-    topics: [topic-clearbank-account-command]
-    dead-letter-producer: !system/local-ref producers.clearbank-account-command-dlq
-    max-redeliveries: 5
-    conf:
-      bootstrap.servers: !system/local-ref bootstrap-servers
-      group.id: test-clearbank-account-command
-  schemes-account-command-response:
-    _: !system/local-ref topics
-    schemas: !system/local-ref schemas
-    schema: !keyword command-response
-    topics: [topic-schemes-account-command-response]
-    conf:
-      bootstrap.servers: !system/local-ref bootstrap-servers
-      group.id: test-schemes-account-command-response
   schemes-account-event:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -775,60 +687,70 @@ consumers: !system/component
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       group.id: test-schemes-account-event
-  transactions-event:
+  bank-activity-event:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
     schema: !keyword event
-    topics: [topic-transactions-event]
-    dead-letter-producer: !system/local-ref producers.transactions-event-dlq
+    topics: [topic-bank-activity-event]
+    dead-letter-producer: !system/local-ref producers.bank-activity-event-dlq
     max-redeliveries: 5
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
-      group.id: test-transactions-event
-  modulr-payment-command:
+      group.id: test-bank-activity-event
+  idv-bank-activity-event:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword event
+    topics: [topic-bank-activity-event]
+    dead-letter-producer: !system/local-ref producers.bank-activity-event-dlq
+    max-redeliveries: 5
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      group.id: test-idv-bank-activity-event
+  modulr-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
     schema: !keyword command
-    topics: [topic-modulr-payment-command]
-    dead-letter-producer: !system/local-ref producers.modulr-payment-command-dlq
+    topics: [topic-modulr-command]
+    dead-letter-producer: !system/local-ref producers.modulr-command-dlq
     max-redeliveries: 5
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
-      group.id: test-modulr-payment-command
-  form3-payment-command:
+      group.id: test-modulr-command
+  form3-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
     schema: !keyword command
-    topics: [topic-form3-payment-command]
-    dead-letter-producer: !system/local-ref producers.form3-payment-command-dlq
+    topics: [topic-form3-command]
+    dead-letter-producer: !system/local-ref producers.form3-command-dlq
     max-redeliveries: 5
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
-      group.id: test-form3-payment-command
-  clearbank-payment-command:
+      group.id: test-form3-command
+  clearbank-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
     schema: !keyword command
-    topics: [topic-clearbank-payment-command]
-    dead-letter-producer: !system/local-ref producers.clearbank-payment-command-dlq
+    topics: [topic-clearbank-command]
+    dead-letter-producer: !system/local-ref producers.clearbank-command-dlq
     max-redeliveries: 5
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
-      group.id: test-clearbank-payment-command
-  modulr-payment-command-observer:
+      group.id: test-clearbank-command
+  modulr-command-observer:
     _: !system/local-ref topics
-    topics: [topic-modulr-payment-command]
+    topics: [topic-modulr-command]
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
-      group.id: test-modulr-payment-command-observer
-  schemes-payment-command-response:
+      group.id: test-modulr-command-observer
+  schemes-command-response:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
     schema: !keyword command-response
-    topics: [topic-schemes-payment-command-response]
+    topics: [topic-schemes-command-response]
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
-      group.id: test-schemes-payment-command-response
+      group.id: test-schemes-command-response
   schemes-payments-event:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -918,26 +840,18 @@ message-bus-producers: !system/component
     producer: !system/local-ref producers.payments-command
   payments-command-response:
     producer: !system/local-ref producers.payments-command-response
-  modulr-account-command:
-    producer: !system/local-ref producers.modulr-account-command
-  form3-account-command:
-    producer: !system/local-ref producers.form3-account-command
-  clearbank-account-command:
-    producer: !system/local-ref producers.clearbank-account-command
-  schemes-account-command-response:
-    producer: !system/local-ref producers.schemes-account-command-response
   schemes-account-event:
     producer: !system/local-ref producers.schemes-account-event
-  transactions-event:
-    producer: !system/local-ref producers.transactions-event
-  modulr-payment-command:
-    producer: !system/local-ref producers.modulr-payment-command
-  form3-payment-command:
-    producer: !system/local-ref producers.form3-payment-command
-  clearbank-payment-command:
-    producer: !system/local-ref producers.clearbank-payment-command
-  schemes-payment-command-response:
-    producer: !system/local-ref producers.schemes-payment-command-response
+  bank-activity-event:
+    producer: !system/local-ref producers.bank-activity-event
+  modulr-command:
+    producer: !system/local-ref producers.modulr-command
+  form3-command:
+    producer: !system/local-ref producers.form3-command
+  clearbank-command:
+    producer: !system/local-ref producers.clearbank-command
+  schemes-command-response:
+    producer: !system/local-ref producers.schemes-command-response
   schemes-payments-event:
     producer: !system/local-ref producers.schemes-payments-event
   transactions-command:
@@ -1040,35 +954,26 @@ message-bus-consumers: !system/component
   payments-command-response:
     consumer: !system/local-ref consumers.payments-command-response
     timeout: 500
-  modulr-account-command:
-    consumer: !system/local-ref consumers.modulr-account-command
-    timeout: 500
-  form3-account-command:
-    consumer: !system/local-ref consumers.form3-account-command
-    timeout: 500
-  clearbank-account-command:
-    consumer: !system/local-ref consumers.clearbank-account-command
-    timeout: 500
-  schemes-account-command-response:
-    consumer: !system/local-ref consumers.schemes-account-command-response
-    timeout: 500
   schemes-account-event:
     consumer: !system/local-ref consumers.schemes-account-event
     timeout: 500
-  transactions-event:
-    consumer: !system/local-ref consumers.transactions-event
+  bank-activity-event:
+    consumer: !system/local-ref consumers.bank-activity-event
     timeout: 500
-  modulr-payment-command:
-    consumer: !system/local-ref consumers.modulr-payment-command
+  idv-bank-activity-event:
+    consumer: !system/local-ref consumers.idv-bank-activity-event
     timeout: 500
-  form3-payment-command:
-    consumer: !system/local-ref consumers.form3-payment-command
+  modulr-command:
+    consumer: !system/local-ref consumers.modulr-command
     timeout: 500
-  clearbank-payment-command:
-    consumer: !system/local-ref consumers.clearbank-payment-command
+  form3-command:
+    consumer: !system/local-ref consumers.form3-command
     timeout: 500
-  schemes-payment-command-response:
-    consumer: !system/local-ref consumers.schemes-payment-command-response
+  clearbank-command:
+    consumer: !system/local-ref consumers.clearbank-command
+    timeout: 500
+  schemes-command-response:
+    consumer: !system/local-ref consumers.schemes-command-response
     timeout: 500
   schemes-payments-event:
     consumer: !system/local-ref consumers.schemes-payments-event

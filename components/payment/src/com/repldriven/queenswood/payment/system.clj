@@ -8,7 +8,6 @@
 (def ^:private default-cutoff {:zone "UTC" :hour-of-day 0})
 
 (def ^:private five-minutes-ms 300000)
-(def ^:private fifteen-minutes-ms 900000)
 (def ^:private twenty-four-hours-ms 86400000)
 
 (def ^:private processor
@@ -33,9 +32,9 @@
                    :business-day-cutoff default-cutoff}
    :system/instance-schema some?})
 
-(def ^:private transaction-event-processor
+(def ^:private activity-event-processor
   {:system/start (fn [{:system/keys [config instance]}]
-                   (or instance (commands/->TransactionEventProcessor config)))
+                   (or instance (commands/->ActivityEventProcessor config)))
    :system/config {:record-db system/required-component
                    :record-store system/required-component
                    :schemas system/required-component
@@ -50,33 +49,12 @@
                   (when-let [{:keys [stop]} instance] (stop)))
    :system/config {:record-db system/required-component
                    :record-store system/required-component
-                   :schemas system/required-component
-                   :bus system/required-component
-                   :payment-providers system/required-component
                    :interval-ms five-minutes-ms
-                   :republish-after-ms fifteen-minutes-ms
                    :report-after-ms twenty-four-hours-ms}
-   :system/instance-schema map?})
-
-(def ^:private thirty-seconds-ms 30000)
-
-(def ^:private transfer-sweep
-  {:system/start (fn [{:system/keys [config instance]}]
-                   (or instance (sweep/start-transfer-runner config)))
-   :system/stop (fn [{:system/keys [instance]}]
-                  (when-let [{:keys [stop]} instance] (stop)))
-   :system/config {:record-db system/required-component
-                   :record-store system/required-component
-                   :schemas system/required-component
-                   :bus system/required-component
-                   :payment-providers system/required-component
-                   :interval-ms thirty-seconds-ms
-                   :resend-after-ms thirty-seconds-ms}
    :system/instance-schema map?})
 
 (system/defcomponents :payment
                       {:processor processor
                        :event-processor event-processor
-                       :transaction-event-processor transaction-event-processor
-                       :outbound-sweep outbound-sweep
-                       :transfer-sweep transfer-sweep})
+                       :activity-event-processor activity-event-processor
+                       :outbound-sweep outbound-sweep})

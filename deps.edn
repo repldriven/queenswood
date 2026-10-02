@@ -42,6 +42,7 @@
     {:local/root "components/cash-account-product-query"}
     components/cash-account {:local/root "components/cash-account"}
     components/cash-account-query {:local/root "components/cash-account-query"}
+    components/bank-activity {:local/root "components/bank-activity"}
     components/changelog-relay {:local/root "components/changelog-relay"}
     components/demo-digital-bank {:local/root
                                        "components/demo-digital-bank"}
@@ -64,6 +65,7 @@
     components/zyphe-relay {:local/root "components/zyphe-relay"}
     components/modulr-webhook {:local/root "components/modulr-webhook"}
     components/form3-webhook {:local/root "components/form3-webhook"}
+    components/intent-queue {:local/root "components/intent-queue"}
     components/modulr-relay {:local/root "components/modulr-relay"}
     components/form3-relay {:local/root "components/form3-relay"}
     components/interest {:local/root "components/interest"}
@@ -185,6 +187,8 @@
                        "components/testcontainers/test"
                        "components/fdb/test"
                        "components/fdb/test-resources"
+                       "components/bank-activity/test"
+                       "components/bank-activity/test-resources"
                        "components/changelog-relay/test"
                        "components/changelog-relay/test-resources"
                        "components/clearbank-relay/test"
@@ -200,6 +204,7 @@
                        "components/onfido-webhook/test"
                        "components/scheme-simulator/test-resources"
                        "components/form3-webhook/test"
+                       "components/intent-queue/test"
                        "components/modulr-relay/test"
                        "components/modulr-relay/test-resources"
                        "components/form3-relay/test"

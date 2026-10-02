@@ -1,0 +1,20 @@
+{
+  "type": "record",
+  "name": "AccountClosing",
+  "namespace": "com.repldriven.queenswood.bank_activity",
+  "doc": "A cash account held at the bank's payment provider, closing.",
+  "fields": [
+    {
+      "name": "bank_id",
+      "type": "string"
+    },
+    {
+      "name": "account_id",
+      "type": "string"
+    },
+    {
+      "name": "provider_account_id",
+      "type": "string"
+    }
+  ]
+}

@@ -35,6 +35,16 @@
                    :schemas system/required-component}
    :system/instance-schema some?})
 
+(def ^:private activity-event-processor
+  {:system/start (fn [{:system/keys [config instance]}]
+                   (or instance (events/->IdvActivityEventProcessor config)))
+   :system/config {:record-db system/required-component
+                   :record-store system/required-component
+                   :schemas system/required-component
+                   :bus system/required-component
+                   :idv-providers system/required-component}
+   :system/instance-schema some?})
+
 (def ^:private criteria-check
   {:system/start
    (fn [{:system/keys [config instance]}]
@@ -52,4 +62,5 @@
                       {:processor processor
                        :event-processor event-processor
                        :party-event-processor party-event-processor
+                       :activity-event-processor activity-event-processor
                        :criteria-check criteria-check})

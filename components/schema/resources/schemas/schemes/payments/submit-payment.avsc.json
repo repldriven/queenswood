@@ -12,6 +12,7 @@
     {"name": "currency",        "type": "string"},
     {"name": "reference",       "type": ["null", "string"], "default": null},
     {"name": "scheme",          "type": ["null", "string"], "default": null},
-    {"name": "debtor_provider_account_id", "type": ["null", "string"], "default": null}
+    {"name": "debtor_provider_account_id", "type": ["null", "string"], "default": null},
+    {"name": "debtor_account_id", "type": ["null", "string"], "default": null}
   ]
 }

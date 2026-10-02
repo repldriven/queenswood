@@ -1,6 +1,6 @@
 # The payment providers a system offers, each provider's declaration
 # under its key, and the providers component naming the default and the
-# channels that reach each provider's adapter. A system includes it as
+# channel that reaches each provider's adapter. A system includes it as
 # its `payment-provider` group; an adapter refers to its own declaration,
 # `payment-provider.<key>`, and every other component that reads one
 # refers to `payment-provider.providers`. See docs/tdd/bank-providers.md.
@@ -14,13 +14,10 @@ providers: !system/component
   providers:
     modulr:
       declaration: !system/local-ref modulr
-      payment-command-channel: !keyword modulr-payment-command
-      account-command-channel: !keyword modulr-account-command
+      command-channel: !keyword modulr-command
     form3:
       declaration: !system/local-ref form3
-      payment-command-channel: !keyword form3-payment-command
-      account-command-channel: !keyword form3-account-command
+      command-channel: !keyword form3-command
     clearbank:
       declaration: !system/local-ref clearbank
-      payment-command-channel: !keyword clearbank-payment-command
-      account-command-channel: !keyword clearbank-account-command
+      command-channel: !keyword clearbank-command

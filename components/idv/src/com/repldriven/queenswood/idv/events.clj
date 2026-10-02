@@ -1,5 +1,6 @@
 (ns com.repldriven.queenswood.idv.events
   (:require
+    [com.repldriven.queenswood.idv.activity :as activity]
     [com.repldriven.queenswood.idv.core :as core]
 
     [com.repldriven.mono.avro.interface :as avro]
@@ -45,3 +46,7 @@
 (defrecord IdvPartyEventProcessor [config]
   processor/Processor
     (process [_ message] (dispatch-party config message)))
+
+(defrecord IdvActivityEventProcessor [config]
+  processor/Processor
+    (process [_ message] (activity/handle config message)))

@@ -390,21 +390,21 @@ store's changelog and republishes each entry as a
 `cash-account-status-changed` event, so a consumer sees one
 message per write.
 
-`events.clj` handles that event, reading the account as it now
-stands, and sends a command on the payment provider's account command
-channel, `modulr-account-command` for Modulr:
+The write that needs the payment provider records an entry on the
+bank's activity in the same transaction, from which `payment`'s
+activity event processor sends the provider's command (ADR-0033):
 
-- `:cash-account-status-opening` → `open-payment-account`,
-  with the holder party's display name, the currency and the
-  address schemes the version allows.
-- `:cash-account-status-closing` → `close-payment-account`,
-  or a flip to `:closed` when the account has no provider
-  account.
-- change kind rotate-requested → `reissue-payment-address`,
-  with the pending rotation's key.
+- an opening → `account-opening`, with the holder party's
+  display name, the currency and the address schemes the
+  version allows, sent as `open-payment-account`;
+- a closing of an account the provider holds →
+  `account-closing`, sent as `close-payment-account`;
+- a rotation → `account-address-rotation-requested`, with the
+  pending rotation's key, sent as `reissue-payment-address`.
 
-Every other entry is relayed and then dropped by this
-handler. The payment adapter answers on
+`events.clj` handles the `cash-account-status-changed` event
+only to flip a closing account the provider never held to
+`:closed`, and drops every other. The payment adapter answers on
 `schemes-account-event`, which the brick's second handler
 consumes: `payment-account-opened` opens the account with
 the issued addresses, provider account id and BBAN;
@@ -688,10 +688,9 @@ What follows is what the model does not reach.
   waived past a non-zero balance records `closing`, and a
   provider that refuses to close an account holding money
   answers nothing that moves it on, so it stays `closing`.
-  At Modulr a refused close is retried, with backoff, until
-  its attempts run out, since a sweep sent just before it
-  may not have reached the provider; a close straight after
-  a sweep can therefore take tens of seconds to complete.
+  A close reaches the provider only after the sweep that
+  emptied the account has settled there (ADR-0033), so a
+  refusal is the provider's own and is not tried again.
 
 ## References
 

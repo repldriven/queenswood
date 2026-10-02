@@ -7,11 +7,13 @@ system:
   cash-account-product-templates: !include system/cash-account-product-templates.yml
   cash-accounts: !include system/cash-account.yml
   cash-accounts-dispatcher: !include system/cash-account-dispatcher.yml
+  bank-activity-relay: !include system/bank-activity-relay.yml
   cash-accounts-relay: !include system/cash-account-relay.yml
   companies-dispatcher: !include system/company-dispatcher.yml
   email: !include system/email.yml
   fdb: !include system/fdb-test.yml
   idv: !include system/idv.yml
+  idv-activity: !include system/idv-activity-test.yml
   idvs-relay: !include system/idv-relay.yml
   idvs-dispatcher: !include system/idv-dispatcher.yml
   invitations-relay: !include system/invitation-relay.yml
@@ -62,7 +64,6 @@ system:
         clearbank: [outbound-returned]
   transactions: !include system/transaction.yml
   transactions-dispatcher: !include system/transaction-dispatcher.yml
-  transactions-relay: !include system/transaction-relay.yml
   uk-companies-house-adapter: !include system/uk-companies-house-adapter.yml
   uk-companies-house-simulator-server: !include system/uk-companies-house-simulator-server.yml
   webhook: !include test-api-scenarios/webhook-test.yml

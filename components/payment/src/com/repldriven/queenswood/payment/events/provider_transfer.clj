@@ -8,11 +8,8 @@
     [com.repldriven.queenswood.cash-account-query.interface :as cash-accounts]
     [com.repldriven.queenswood.ledger-account.interface :as ledger-accounts]
 
-    [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.log.interface :as log]
-    [com.repldriven.mono.message-bus.interface :as message-bus]
-    [com.repldriven.mono.telemetry.interface :as telemetry]
     [com.repldriven.mono.utility.interface :as utility]))
 
 (defn- mirror-context
@@ -82,52 +79,27 @@
    :payment/mirror
    "Failed to record provider transfers"))
 
-(defn- provider-account
-  [config bank-id account-id]
-  (when account-id
-    (let [account (cash-accounts/find-account config bank-id account-id)]
-      (when-not (error/anomaly? account) (:provider-account-id account)))))
-
-(defn send-transfer
-  "Send a pending transfer as `transfer-between-accounts`, naming the
-  provider accounts its cash accounts now have. One whose provider
-  account is not yet opened is left for the sweep to send."
+(defn- send-transfer
   [config transfer]
-  (let [{:keys [bus schemas]} config
-        {:keys [bank-id transaction-id debtor-account-id creditor-account-id]}
-        transfer
-        debtor (provider-account config bank-id debtor-account-id)
-        creditor (provider-account config bank-id creditor-account-id)]
-    (if (or (nil? creditor) (and debtor-account-id (nil? debtor)))
-      (log/info "Provider transfer waits for a provider account"
-                {:transfer-id (:transfer-id transfer)})
-      (let-nom> [channel
-                 (provider/payment-command-channel config config bank-id)
-                 payload (avro/serialize
-                          (get schemas "transfer-between-accounts")
-                          (utility/assoc-some
-                           (assoc (select-keys transfer
-                                               [:transfer-id :bank-id
-                                                :transaction-id :amount
-                                                :currency])
-                                  :creditor-provider-account-id
-                                  creditor)
-                           :debtor-provider-account-id
-                           debtor))]
-        (message-bus/send bus
-                          channel
-                          {:command "transfer-between-accounts"
-                           :id (str (utility/uuidv7))
-                           :correlation-id (str (utility/uuidv7))
-                           :causation-id transaction-id
-                           :traceparent (telemetry/inject-traceparent)
-                           :payload payload})))))
+  (let [{:keys [bank-id transaction-id debtor-account-id]} transfer]
+    (provider/send-command config
+                           bank-id
+                           "transfer-between-accounts"
+                           transaction-id
+                           (utility/assoc-some
+                            (select-keys transfer
+                                         [:transfer-id :bank-id
+                                          :transaction-id :creditor-account-id
+                                          :amount :currency])
+                            :debtor-account-id
+                            debtor-account-id))))
 
 (defn mirror-posted
   "Where the provider holds a balance for each account, record and send
   the transfers that make the provider accounts hold what a posted
-  transaction left in the ledger. A redelivery sends again those still
-  pending, which the adapter takes as the transfers it already has."
+  transaction left in the ledger, naming each cash account for the
+  adapter to resolve. A redelivery sends again those still pending,
+  which the adapter takes as the transfers it already has."
   [config posted]
   (let-nom> [declaration (provider/declaration config config (:bank-id posted))]
     (when (= "per-account" (:balances declaration))

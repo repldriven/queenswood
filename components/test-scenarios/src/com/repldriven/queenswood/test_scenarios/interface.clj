@@ -38,7 +38,7 @@
     instance a verification is opened through.
   - observers (optional map):
     - `:scheme-commands` — an observer, from `start-observer`, of
-      `topic-modulr-payment-command`.
+      `topic-modulr-command`.
     - `:dead-letters` — an observer of
       `topic-schemes-payments-event-dlq`.
     - `:envelope-schemas` — the serde the Kafka envelopes are written

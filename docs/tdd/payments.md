@@ -66,24 +66,26 @@ settlement reports, which are the bank's operations.
   or `failed`; an inbound one `settled`, `held`, `returned` or
   `suspended`. A rejection naming a completed outbound payment fails
   the handler and is dead-lettered.
-- **Channels.** `payment` publishes `submit-payment` and
-  `transfer-between-accounts` on the provider's payment command
-  channel, `modulr-payment-command` for Modulr. The adapter's outbox is
+- **Channels.** Every provider command leaves from `payment`'s
+  `activity-event-processor`, answering the bank's activity in the
+  order it committed (ADR-0033): a submitted outbound payment, a parked
+  inbound and each posted transaction record an entry on the bank's
+  activity log, relayed onto `bank-activity-event` keyed by bank, and
+  the processor sends `submit-payment`, `return-payment` and
+  `transfer-between-accounts` on the provider's one command channel,
+  `modulr-command` for Modulr, keyed by bank. The adapter's outbox is
   relayed onto `schemes-payments-event`, whose consumer dead-letters an
   event after five redeliveries. Each payment save co-commits a
   status-changed entry relayed onto `payments-event`, which the webhook
-  catalogue turns into `payment.*` notifications, and each posted
-  transaction a `transaction-posted` entry relayed onto
-  `transactions-event`.
-- **The sweeps.** `payment/outbound-sweep`, in
-  `exclusive-dispatchers-service`, republishes a `pending` payment's
-  command after 15 minutes and reports one open for 24 hours;
-  `payment/transfer-sweep` beside it sends again a provider transfer
-  still pending after 30 seconds.
+  catalogue turns into `payment.*` notifications.
+- **The sweep.** `payment/outbound-sweep`, in
+  `exclusive-dispatchers-service`, reports a payment pending or held
+  for 24 hours.
 - **Payment addresses.** The provider issues every account's sort code
-  and account number. `cash-account` writes an account `opening`, its
-  opening event sends `open-payment-account` on the provider's account
-  command channel, and the adapter's answer on
+  and account number. `cash-account` writes an account `opening` and
+  records its opening as the bank's activity, from which `payment`
+  sends `open-payment-account` on the provider's command channel, and
+  the adapter's answer on
   `schemes-account-event` opens it with the addresses and the provider
   account id, or refuses it; closing and rotation go the same way. A
   bank holds no sort code. An inbound resolves its creditor by BBAN,
@@ -251,11 +253,10 @@ apply rather than keeping it:
 - **The trigger.** An inbound parked in 2500 suspense, because its
   account is not opened or a policy refused it, is returned: `payment`
   parks it, recording the ISO 20022 reason it was parked for as
-  `suspense-reason-code` and `suspense-reason`, then publishes
-  `return-payment` on the provider's payment command channel with its
-  payment id, end-to-end id, the provider's id for it, amount and that
-  reason. A redelivered settlement finding the payment still suspended
-  publishes it again.
+  `suspense-reason-code` and `suspense-reason`, and records the parking
+  as the bank's activity, from which the activity event processor sends
+  `return-payment` on the provider's command channel with its payment
+  id, end-to-end id, the provider's id for it, amount and that reason.
 - **The adapter.** It consumes `return-payment` into an intent keyed
   on the payment id, and its runner sends the return to the provider,
   then asks the provider what became of it, reporting
@@ -303,11 +304,11 @@ The provider issues every payment address, so an account's sort code
 and account number are the provider's, and each account records the
 provider account behind it:
 
-- **Opening.** `open-account` writes the account `opening`. The
-  `cash-account-status-changed` handler, for an account whose product
-  allows an address scheme, sends `open-payment-account` on the
-  provider's account command channel — bank id, account id, holder name,
-  currency and the address schemes wanted — rather than opening it.
+- **Opening.** `open-account` writes the account `opening` and records
+  its opening as the bank's activity, from which `payment`'s activity
+  event processor sends `open-payment-account` on the provider's
+  command channel — bank id, account id, holder name, currency and the
+  address schemes wanted — rather than opening it.
   A bank's own-funds account sends it whatever its product allows
   under `per-account`, since it backs the bank's ledger money. An
   account with no address scheme opens at once.
@@ -370,12 +371,12 @@ expense has paid out.
   reaches a cash account from 1100 without the scheme — the sandbox's
   simulated inbound — is credited to its provider account from
   outside, which only a sandbox provider can do.
-- **The trigger.** `transaction` co-commits a `transaction-posted`
-  changelog entry — bank id, transaction id, type, currency, legs and,
-  where the scheme itself settled the posting, `scheme-account-id`,
-  the cash account it moved the money through — with each recorded
-  transaction, relayed onto `transactions-event`. `payment`'s
-  `transaction-event-processor` nets each transaction's posted default
+- **The trigger.** `transaction` records a `transaction-posted` entry
+  on the bank's activity — bank id, transaction id, type, currency,
+  legs and, where the scheme itself settled the posting,
+  `scheme-account-id`, the cash account it moved the money through —
+  with each recorded transaction. `payment`'s
+  `activity-event-processor` nets each transaction's posted default
   legs, control legs aside, per party: a cash account; 1100, as the
   scheme's account where the entry names one and as outside where it
   does not; and the bank's own funds for any other GL account and
@@ -386,9 +387,10 @@ expense has paid out.
   account ids, the debtor absent for money from outside, amount, status
   `pending`, `completed` or `failed` — unique on transaction id and
   pair. It is sent as `transfer-between-accounts` on the provider's
-  payment command channel, naming the provider accounts the cash
-  accounts have when it is sent, and one the provider has not yet
-  opened waits for `payment/transfer-sweep`. The adapter reports
+  command channel naming the cash accounts, and the adapter resolves
+  each to the provider account its own opening, or the reissue that
+  last replaced it, recorded, holding the transfer behind an account's
+  opening. The adapter reports
   `transfer-completed` or `transfer-failed` on
   `schemes-payments-event`.
 - **A failed transfer.** The ledger is not reversed: the customer's
@@ -529,10 +531,10 @@ runs changes nothing outside it:
 
 Every build composes every adapter, side by side, each deployed one
 against its simulator until it is pointed at the provider. Each
-adapter consumes its own command channels, `<key>-payment-command`
-and `<key>-account-command`.
+adapter consumes its own command channel, `<key>-command`, and makes
+an account's calls in the order they were accepted.
 `exclusive-dispatchers-service` runs the relay runners for the
-adapter's outbox and the transactions store's changelog.
+adapter's outbox and the banks' activity logs.
 
 ### The payment flows
 
@@ -600,14 +602,22 @@ stateDiagram-v2
 - **`payee-check`** — the payer account passed through.
 - **`payment-provider`** — a left-out key read as its default, and the
   start-up check naming each value asked and not carried.
-- **`transaction`** — `transaction-posted` co-committed with each
-  posting.
+- **`transaction`** — `transaction-posted` recorded on the bank's
+  activity with each posting.
+- **`payment`** — each activity entry sent to the bank's provider as
+  its command, keyed by the bank, and one a payment provider does not
+  act on sending nothing.
+- **`intent-queue`** — an account's calls made in the order they were
+  accepted, a transfer holding both its accounts and a close waiting
+  for what came before it to settle.
 - **`<provider>-adapter`** — each provider event mapped to its scheme
   event with the platform's reason code, every amount converted, an
   unauthenticated delivery refused, and the refusal to start on a
   declaration its configuration does not cover.
 - **`<provider>-relay`** — backoff, refusal, a retry recognised as the
-  same request, and reconciliation writing what a late webhook would.
+  same request, reconciliation writing what a late webhook would, and,
+  for Modulr, a transfer naming the provider accounts its opens
+  recorded.
 - **`<provider>-webhook`** — the signature against the provider's own
   worked example, and each way a delivery is refused.
 - **`<provider>-simulator`** — each control route, signatures checked
@@ -666,11 +676,6 @@ stateDiagram-v2
 - **A failed mirror leaves the balances apart.** Nothing retries a
   failed `ProviderTransfer` or compares the provider's balances with
   the ledger.
-- **A payment can overtake its funding.** An outbound submitted just
-  after an internal payment into the same account can reach the
-  provider before the mirror. The default provider holds it pending
-  for funds until the mirror lands; one no money reaches before the
-  provider gives up expires, and reconciliation declines it.
 - **Own funds at the provider is not the own-funds account.** Its
   provider balance also carries suspense and paid interest, which the
   bank reconciles by hand.

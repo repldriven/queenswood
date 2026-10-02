@@ -32,6 +32,7 @@
   [config data]
   (save-intent config
                {:dedup-key (:end-to-end-id data)
+                :subjects (vec (keep identity [(:debtor-account-id data)]))
                 :request (clearbank/->fps-body data)}))
 
 (defn- fdb
@@ -45,6 +46,7 @@
       (save-intent config
                    {:dedup-key (str "open:" account-id)
                     :kind "open-account"
+                    :subjects [account-id]
                     :request (clearbank/->virtual-account-body
                               (:sort-code config)
                               account-number
@@ -60,6 +62,7 @@
     (save-intent config
                  {:dedup-key (str "close:" account-id)
                   :kind "close-account"
+                  :subjects [account-id]
                   :request "{}"
                   :context (pr-str {:bank-id bank-id
                                     :account-id account-id
@@ -73,6 +76,7 @@
       (save-intent config
                    {:dedup-key (str "reissue:" account-id ":" rotation-key)
                     :kind "reissue-address"
+                    :subjects [account-id]
                     :request (clearbank/->virtual-account-body
                               (:sort-code config)
                               account-number

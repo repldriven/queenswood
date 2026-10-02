@@ -27,6 +27,7 @@
 
 (def ^:private opening-deposit-kind "opening-deposit")
 
+;; nosemgrep: provider-command-outside-activity — the app's own step kind
 (def ^:private submit-payment-kind "submit-payment")
 
 (def ^:private transfer-kind "transfer")

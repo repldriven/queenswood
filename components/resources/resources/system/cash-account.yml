@@ -16,8 +16,6 @@ event-processor-impl: !system/component
   record-db: !system/ref fdb.record-db
   record-store: !system/ref fdb.meta-store
   schemas: !system/ref avro.serde
-  bus: !system/ref message-bus.bus
-  payment-providers: !system/ref payment-provider.providers
 
 event-consumer: !system/component
   system/component-kind: event-processor/event-processor

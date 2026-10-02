@@ -6,16 +6,19 @@
   payment held while the scheme screens it; rejection events reverse the
   in-flight legs (1200 → debtor) and flip the payment to failed. Return
   events bring a completed outbound's money back (1100 → debtor) and flip
-  it to returned. Returns the payment map or an anomaly. The `payment/outbound-sweep` component
-  republishes the scheme command for an outbound payment left pending and
-  logs one left pending or held past a day, changing no record.
+  it to returned. Returns the payment map or an anomaly. The
+  `payment/outbound-sweep` component logs an outbound payment left
+  pending or held past a day, changing no record.
 
-  Where the payment provider holds a balance for each account, the
-  `payment/transaction-event-processor` component mirrors each posted
-  transaction at the provider: it records the transaction's provider
-  transfers and sends each as `transfer-between-accounts`, and the
-  adapter's `transfer-completed` and `transfer-failed` events settle
-  them.
+  The `payment/activity-event-processor` component is the one sender of
+  payment provider commands (ADR-0033). It takes each bank's activity in
+  the order it committed and sends the bank's provider, keyed by bank,
+  what each entry asks: an account's opening, closing or address
+  reissue, a submitted outbound payment, a parked inbound's return where
+  the provider returns inbounds, and, where the provider holds a balance
+  for each account, the transfers mirroring a posting, which it records
+  and the adapter's `transfer-completed` and `transfer-failed` events
+  settle.
 
   Reads live in `payment-query`; this brick reuses them inside its own
   transactions. `api` requires the query brick, not this one — submissions
@@ -48,19 +51,16 @@
 (defn submit-outbound
   "Submit an outbound payment: verify the debtor, debit the customer
   account, credit the bank's 1200 pending-outbound GL account,
-  persist the OutboundPayment as pending, and publish a
-  `submit-payment` command for the scheme adapter, carrying the debtor
-  BBAN read in the submitting transaction. The bank's 1200 account is
-  resolved per-bank from the chart of accounts at runtime.
-
-  A failed publish is logged at ERROR and still returns the committed
-  payment. A redelivered submit, whose idempotency key is already
-  recorded, returns the existing payment and republishes its scheme
-  command when that payment is still pending.
+  persist the OutboundPayment as pending, and record it as the bank's
+  activity, carrying the debtor BBAN read in the submitting
+  transaction, for the activity event processor to send. The bank's
+  1200 account is resolved per-bank from the chart of accounts at
+  runtime. A redelivered submit, whose idempotency key is already
+  recorded, returns the existing payment.
 
   Args:
-  - config: FDB handle plus :bus, :schemas, and :payment-providers,
-    whose default provider the payment is checked against and sent to.
+  - config: FDB handle plus :payment-providers, whose provider for the
+    bank the payment's scheme is checked against.
   - data: submission map (bank-id, debtor-account-id,
     creditor-bban, currency, amount, reference, ...).
 

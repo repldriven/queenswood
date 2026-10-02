@@ -1,6 +1,7 @@
 (ns com.repldriven.queenswood.payment.commands
   (:require
     [com.repldriven.queenswood.payment.core :as core]
+    [com.repldriven.queenswood.payment.events.activity :as activity]
     [com.repldriven.queenswood.payment.events.inbound :as inbound]
     [com.repldriven.queenswood.payment.events.outbound :as outbound]
     [com.repldriven.queenswood.payment.events.provider-transfer :as
@@ -124,16 +125,6 @@
   processor/Processor
     (process [_ message] (dispatch-event config message)))
 
-(defn- dispatch-transaction-event
-  [config message]
-  (let [{:keys [event payload]} message
-        schema (get (:schemas config) event)]
-    (if (or (not= "transaction-posted" event) (nil? schema))
-      (error/fail :payment/unknown-event
-                  {:message "Unknown transaction event" :event event})
-      (let-nom> [data (avro/deserialize-same schema payload)]
-        (provider-transfer/mirror-posted config data)))))
-
-(defrecord TransactionEventProcessor [config]
+(defrecord ActivityEventProcessor [config]
   processor/Processor
-    (process [_ message] (dispatch-transaction-event config message)))
+    (process [_ message] (activity/handle config message)))

@@ -338,7 +338,7 @@
                                            :creditor-name "Ford Prefect"
                                            :amount 1250
                                            :currency "GBP"})))))
-     (testing "a transfer between accounts"
+     (testing "a transfer between accounts names their cash accounts"
        ;; the adapter's own command processor making its intent
        ;; nosemgrep: brick-test-drives-pipeline
        (processor/process p
@@ -346,12 +346,15 @@
                                    {:transfer-id "ptr.5"
                                     :bank-id "bnk.1"
                                     :transaction-id "txn.1"
-                                    :debtor-provider-account-id "A1"
-                                    :creditor-provider-account-id "A2"
+                                    :debtor-account-id "acc.1"
+                                    :creditor-account-id "acc.2"
                                     :amount 100
                                     :currency "GBP"}))
-       (is (= {:type "ACCOUNT" :id "A2"}
-              (:destination (:request (intent-for "ptr.5"))))))
+       (let [{:keys [kind context]} (intent-for "ptr.5")]
+         (is (= "transfer" kind))
+         (is (= {:debtor-account-id "acc.1" :creditor-account-id "acc.2"}
+                (select-keys context
+                             [:debtor-account-id :creditor-account-id])))))
      (testing "money from outside is a sandbox credit"
        ;; the adapter's own command processor making its intent
        ;; nosemgrep: brick-test-drives-pipeline
@@ -360,13 +363,12 @@
                                    {:transfer-id "ptr.6"
                                     :bank-id "bnk.1"
                                     :transaction-id "txn.2"
-                                    :creditor-provider-account-id "A2"
+                                    :creditor-account-id "acc.2"
                                     :amount 100
                                     :currency "GBP"}))
-       (let [{:keys [kind request]} (intent-for "ptr.6")]
+       (let [{:keys [kind context]} (intent-for "ptr.6")]
          (is (= "credit" kind))
-         (is (= {:accountId "A2" :description "ptr-6"}
-                (select-keys request [:accountId :description])))))
+         (is (= "acc.2" (:creditor-account-id context)))))
      (testing "an account opening"
        ;; the adapter's own command processor making its intent
        ;; nosemgrep: brick-test-drives-pipeline

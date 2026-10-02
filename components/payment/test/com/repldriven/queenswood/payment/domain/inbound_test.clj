@@ -234,16 +234,12 @@
    :suspense-reason-code "AC04"
    :suspense-reason "The account is closed"})
 
-(deftest returnable?-test
-  (testing "a suspended inbound is returned where the provider returns"
-    (is (SUT/returnable? suspended {:returns ["inbound"]})))
+(deftest returns-inbound?-test
+  (testing "an inbound is returned where the provider returns"
+    (is (SUT/returns-inbound? {:returns ["inbound"]})))
   (testing "and parked where it does not"
-    (is (not (SUT/returnable? suspended {:returns []})))
-    (is (not (SUT/returnable? suspended nil))))
-  (testing "only a suspended one is returned"
-    (is (not (SUT/returnable?
-              (assoc suspended :payment-status :inbound-payment-status-settled)
-              {:returns ["inbound"]})))))
+    (is (not (SUT/returns-inbound? {:returns []})))
+    (is (not (SUT/returns-inbound? nil)))))
 
 (deftest return-payment-test
   (is (= {:payment-id "pmt-s"

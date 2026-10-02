@@ -187,6 +187,11 @@ separate poller makes the call afterwards, retrying each pending intent until
 it succeeds or exhausts its attempts. A provider's webhooks are written to a
 deduplicating outbox and relayed like the platform's own changes.
 
+**Provider calls are made in commit order.** A change a provider must act on
+is also written to its bank's activity log, in the same transaction. The relay
+publishes each bank's log in order, keyed by the bank, and the commands that
+answer it reach the provider in that order.
+
 ### Building blocks
 
 What Queenswood is built from, each with its document:

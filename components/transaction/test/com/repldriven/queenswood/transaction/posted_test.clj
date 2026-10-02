@@ -4,6 +4,7 @@
 
     [com.repldriven.queenswood.transaction.interface :as SUT]
 
+    [com.repldriven.queenswood.bank-activity.interface :as bank-activity]
     [com.repldriven.queenswood.fdb.interface :as fdb]
     [com.repldriven.queenswood.schema.interface :as schema]
 
@@ -23,7 +24,7 @@
           :amount amount}
          extra))
 
-(deftest posting-co-commits-its-changelog-entry-test
+(deftest posting-records-its-bank-activity-test
   (with-test-system
    [sys "classpath:transaction/application-test.yml"]
    (let [config {:record-db (system/instance sys [:fdb :record-db])
@@ -45,11 +46,12 @@
                  _ (fdb/process-changelog
                     (:record-db config)
                     "posted-test"
-                    "transactions"
+                    (bank-activity/log-name "bnk.1")
                     (fn [_ bytes]
                       (swap! entries conj (schema/pb->ChangelogEvent bytes))
                       nil)
-                    {:keyspace-prefix (system/instance sys
+                    {:deduplicate? false
+                     :keyspace-prefix (system/instance sys
                                                        [:fdb
                                                         :keyspace-prefix])})])
      (let [[entry] @entries

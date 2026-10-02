@@ -33,18 +33,19 @@ event-processor: !system/component
   processor: !system/local-ref event-processor-impl
   event-channel: !keyword schemes-payments-event
 
-# Where the provider holds a balance for each account, mirrors each posted
-# transaction there as transfers between provider accounts.
-transaction-event-processor-impl: !system/component
-  system/component-kind: payment/transaction-event-processor
+# The one sender of payment provider commands: takes each bank's activity
+# in commit order and sends the bank's provider what each entry asks
+# (ADR-0033).
+activity-event-processor-impl: !system/component
+  system/component-kind: payment/activity-event-processor
   record-db: !system/ref fdb.record-db
   record-store: !system/ref fdb.meta-store
   schemas: !system/ref avro.serde
   bus: !system/ref message-bus.bus
   payment-providers: !system/ref payment-provider.providers
 
-transaction-event-processor: !system/component
+activity-event-processor: !system/component
   system/component-kind: event-processor/event-processor
   bus: !system/ref message-bus.bus
-  processor: !system/local-ref transaction-event-processor-impl
-  event-channel: !keyword transactions-event
+  processor: !system/local-ref activity-event-processor-impl
+  event-channel: !keyword bank-activity-event

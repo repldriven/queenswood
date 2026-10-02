@@ -5,11 +5,6 @@
     [com.repldriven.queenswood.payment.store :as store]
     [com.repldriven.queenswood.payment.sweep :as SUT]
 
-    [com.repldriven.queenswood.fdb.interface :as fdb]
-    [com.repldriven.queenswood.schema.interface :as schema]
-
-    [com.repldriven.mono.avro.interface :as avro]
-    [com.repldriven.mono.message-bus.interface :as message-bus]
     [com.repldriven.mono.system.interface :as system]
     [com.repldriven.mono.test-system.interface :refer
      [with-test-system nom-test>]]
@@ -17,44 +12,14 @@
 
     [clojure.test :refer [deftest is testing]]))
 
-(def
-  ^{:private true
-    :doc
-    "Must match cash-account.store/store-name, the store get-account
-  reads."}
-  cash-accounts-store
-  "cash-accounts")
-
 (def ^:private bank-id "bnk.sweep")
-(def ^:private debtor-account-id "acc.sweep-debtor")
-(def ^:private sort-code "040404")
-(def ^:private account-number "12345678")
-
-(defn- debtor-account
-  [created-at]
-  {:bank-id bank-id
-   :account-id debtor-account-id
-   :account-type :account-type-business
-   :party-id "pty.sweep"
-   :product-id "prd.sweep"
-   :version-id "prv.1"
-   :product-type :product-type-sub-ledger-current
-   :name debtor-account-id
-   :currency "GBP"
-   :account-status :cash-account-status-opened
-   :payment-addresses [{:scheme :payment-address-scheme-scan
-                        :scan {:sort-code sort-code
-                               :account-number account-number}}]
-   :bban (str sort-code account-number)
-   :created-at created-at
-   :updated-at created-at})
 
 (defn- outbound-payment
   [payment-id payment-status created-at]
   {:payment-id payment-id
    :idempotency-key (str "idem-" payment-id)
    :scheme "fps"
-   :debtor-account-id debtor-account-id
+   :debtor-account-id "acc.sweep-debtor"
    :creditor-bban "20000087654321"
    :creditor-name "Acme Ltd"
    :currency "GBP"
@@ -66,75 +31,25 @@
    :bank-id bank-id
    :business-day 20260101})
 
-(defn- save-account
-  [config account]
-  (fdb/transact config
-                (fn [txn]
-                  (fdb/save-record (fdb/open txn cash-accounts-store)
-                                   (schema/CashAccount->java account))
-                  nil)
-                :test/save-account
-                "Failed to save the debtor account"))
-
-(defn- capturing-bus
-  "A bus whose one producer records what it is sent, so the sweep's
-  republish is read as it is made rather than through a broker."
-  [sent]
-  (let [record (fn [message] (swap! sent conj message) message)]
-    {:producers {:modulr-payment-command
-                 (reify
-                  message-bus/Producer
-                    (send [_ message] (record message))
-                    (send [_ message _opts] (record message)))}}))
-
-(deftest sweep-republishes-a-stuck-pending-payment-test
+(deftest sweep-reports-a-stuck-pending-payment-test
   (with-test-system
    [sys "classpath:payment/application-test.yml"]
-   (let [published (atom [])
-         schemas (system/instance sys [:avro :serde])
-         config {:record-db (system/instance sys [:fdb :record-db])
+   (let [config {:record-db (system/instance sys [:fdb :record-db])
                  :record-store (system/instance sys [:fdb :store])
-                 :schemas schemas
-                 :bus (capturing-bus published)
-                 :payment-providers (system/instance sys
-                                                     [:payment-provider
-                                                      :providers])
-                 :republish-after-ms 900000
                  :report-after-ms 86400000}
          created-at (utility/now)
-         now (+ created-at 86400001)]
-     (nom-test> [_ (save-account config (debtor-account created-at))
-                 _ (store/save-outbound-payment
-                    config
-                    (outbound-payment "pmt.pending"
-                                      :outbound-payment-status-pending
-                                      created-at)
-                    {:change-kind :outbound-payment-change-kind-submit})
-                 _ (store/save-outbound-payment
-                    config
-                    (outbound-payment "pmt.completed"
-                                      :outbound-payment-status-completed
-                                      created-at)
-                    {:change-kind :outbound-payment-change-kind-submit})
-                 _ (store/save-outbound-payment
-                    config
-                    (outbound-payment "pmt.failed"
-                                      :outbound-payment-status-failed
-                                      created-at)
-                    {:change-kind :outbound-payment-change-kind-submit})
-                 actions (SUT/sweep-once config now)
-                 _ (testing "the sweep reports the pending payment"
+         now (+ created-at 86400001)
+         save (fn [payment-id status]
+                (store/save-outbound-payment
+                 config
+                 (outbound-payment payment-id status created-at)
+                 {:change-kind :outbound-payment-change-kind-submit}))]
+     (nom-test> [_ (save "pmt.pending" :outbound-payment-status-pending)
+                 _ (save "pmt.completed" :outbound-payment-status-completed)
+                 _ (save "pmt.failed" :outbound-payment-status-failed)
+                 stuck (SUT/sweep-once config now)
+                 _ (testing "the sweep reports the pending payment alone"
                      (is (= ["pmt.pending"]
-                            (mapv :payment-id (:report actions)))))
-                 _ (testing "exactly one submit-payment is published"
-                     (is (= ["submit-payment"] (mapv :command @published))))
-                 command (first @published)
-                 submit (avro/deserialize-same (get schemas "submit-payment")
-                                               (:payload command))
-                 _ (testing "its end-to-end id is the pending payment's"
-                     (is (= "pmt.pending" (:end-to-end-id submit)))
-                     (is (= "pmt.pending" (:payment-id submit))))
-                 _ (testing
-                     "it carries the debtor's BBAN, read from the account"
-                     (is (= (str sort-code account-number)
-                            (:debtor-bban submit))))]))))
+                            (filterv #{"pmt.pending" "pmt.completed"
+                                       "pmt.failed"}
+                                     (mapv :payment-id stuck)))))]))))

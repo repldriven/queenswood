@@ -77,12 +77,10 @@ payment-provider:
     providers:
       modulr:
         declaration: !system/local-ref modulr
-        payment-command-channel: !keyword modulr-payment-command
-        account-command-channel: !keyword modulr-account-command
+        command-channel: !keyword modulr-command
       form3:
         declaration: !system/local-ref form3
-        payment-command-channel: !keyword form3-payment-command
-        account-command-channel: !keyword form3-account-command
+        command-channel: !keyword form3-command
 ```
 
 - **Payments.** `components/payment-provider` holds the providers
@@ -92,7 +90,7 @@ payment-provider:
   `system/idv-providers/<key>.yml`.
 - **Adapters.** Each refers to its own declaration,
   `payment-provider.form3` or `idv-provider.zyphe`, and consumes its
-  own command channels, so several run in one JVM.
+  own command channel, so several run in one JVM.
 - **Start-up.** `idv/criteria-check` checks the platform policy against
   every IDV provider offered, since any bank may choose any of them.
 
@@ -122,17 +120,17 @@ payment-provider:
 
 ### Routing a command
 
-A domain brick reads the bank inside its transaction through
-`bank-query/find-bank`, takes its provider of the command's kind from
-`for-bank`, and publishes to the entry's channel:
+A command reaches a provider only from the activity event processor of
+the brick that owns its kind, answering an entry on the bank's activity
+topic (ADR-0033). It reads the bank through `bank-query/find-bank`,
+takes its provider of the kind from `for-bank`, and sends on the
+entry's `command-channel`, keyed by bank:
 
-- **`payment`.** `submit-payment` and `return-payment` go to the
-  bank's `payment-command-channel`, as the sweep's republish does, and
-  `transfer-between-accounts` from the transaction-event processor.
-- **`cash-account`.** `open-payment-account`, `close-payment-account`
-  and `reissue-payment-address` go to the bank's
-  `account-command-channel`.
-- **`idv`.** `submit-idv-check` goes to the bank's `command-channel`.
+- **`payment`.** `open-payment-account`, `close-payment-account`,
+  `reissue-payment-address`, `submit-payment`, `return-payment` and,
+  where the provider holds each account's money,
+  `transfer-between-accounts`.
+- **`idv`.** `submit-idv-check`.
 - **`payee-check`.** It calls the adapter URL its `adapter-urls` names
   for the bank's provider. A provider
   with no URL there answers `unavailable`, as an unreachable one does.
@@ -164,13 +162,17 @@ Every check that reads a declaration reads the bank's provider's:
 - **A later kind.** Its readers take the bank's provider of that kind
   the same way.
 
-### The provider-name guardrail
+### The provider guardrails
 
 The semgrep rule `provider-name-in-domain` refuses a provider's key as
 a string or keyword in the source of any brick not named after that
 provider, the aggregators, `schema` and the test bricks aside, with
 `;; nosemgrep: provider-name-in-domain — <reason>` on the line above
 for an exception, so a branch on a key is caught where it is written.
+The rule `provider-command-outside-activity` refuses a provider
+command's name in any brick's source but the activity event processors
+that send it, the test bricks aside, so a send that could overtake the
+bank's activity is caught the same way (ADR-0033).
 
 ### Deployment and rigs
 

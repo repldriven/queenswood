@@ -1,0 +1,10 @@
+system:
+  fdb: !include system/fdb-test.yml
+  activity:
+    handler: !system/required-component
+    relay: !system/component
+      system/component-kind: bank-activity/relay
+      record-db: !system/ref fdb.record-db
+      keyspace-prefix: !system/ref fdb.keyspace-prefix
+      handler: !system/local-ref handler
+      poll-ms: 25

@@ -11,6 +11,7 @@
     [com.repldriven.queenswood.bank.interface]
     [com.repldriven.queenswood.cash-account.interface]
     [com.repldriven.queenswood.cash-account.system]
+    [com.repldriven.queenswood.bank-activity.interface]
     [com.repldriven.queenswood.changelog-relay.interface]
     [com.repldriven.queenswood.email.interface]
     [com.repldriven.queenswood.fdb.interface]

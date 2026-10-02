@@ -15,26 +15,26 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-payments-command-response
           acks: all
-      modulr-payment-command:
+      modulr-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          topic: topic-modulr-payment-command
+          topic: topic-modulr-command
           acks: all
-      form3-payment-command:
+      form3-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          topic: topic-form3-payment-command
+          topic: topic-form3-command
           acks: all
-      clearbank-payment-command:
+      clearbank-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          topic: topic-clearbank-payment-command
+          topic: topic-clearbank-command
           acks: all
       transactions-command-response:
         schemas: !system/local-ref schemas
@@ -55,10 +55,10 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-payments-command-dlq
           acks: all
-      transactions-event-dlq:
+      bank-activity-event-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          topic: topic-transactions-event-dlq
+          topic: topic-bank-activity-event-dlq
           acks: all
       schemes-payments-event-dlq:
         conf:
@@ -95,15 +95,15 @@ system:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           group.id: payment-service-schemes-payments-event
-      transactions-event:
+      bank-activity-event:
         schemas: !system/local-ref schemas
         schema: !keyword event
-        topics: [topic-transactions-event]
-        dead-letter-producer: !system/local-ref producers.transactions-event-dlq
+        topics: [topic-bank-activity-event]
+        dead-letter-producer: !system/local-ref producers.bank-activity-event-dlq
         max-redeliveries: 5
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          group.id: payment-service-transactions-event
+          group.id: payment-service-bank-activity-event
       transactions-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
@@ -126,12 +126,12 @@ system:
       system/component-kind: kafka/message-bus-producers
       payments-command-response:
         producer: !system/local-ref producers.payments-command-response
-      modulr-payment-command:
-        producer: !system/local-ref producers.modulr-payment-command
-      form3-payment-command:
-        producer: !system/local-ref producers.form3-payment-command
-      clearbank-payment-command:
-        producer: !system/local-ref producers.clearbank-payment-command
+      modulr-command:
+        producer: !system/local-ref producers.modulr-command
+      form3-command:
+        producer: !system/local-ref producers.form3-command
+      clearbank-command:
+        producer: !system/local-ref producers.clearbank-command
       transactions-command-response:
         producer: !system/local-ref producers.transactions-command-response
       payee-checks-command-response:
@@ -144,8 +144,8 @@ system:
       schemes-payments-event:
         consumer: !system/local-ref consumers.schemes-payments-event
         timeout: 500
-      transactions-event:
-        consumer: !system/local-ref consumers.transactions-event
+      bank-activity-event:
+        consumer: !system/local-ref consumers.bank-activity-event
         timeout: 500
       transactions-command:
         consumer: !system/local-ref consumers.transactions-command
