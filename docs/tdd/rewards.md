@@ -217,7 +217,7 @@ What moves with it:
 
 - The twelve API scenarios that fund a customer directly become two
   steps, the house account funded and `POST /v1/payments/internal` from
-  it, the pattern `full-happy-path.edn` already uses; each step takes a
+  it, the pattern the `funded-account` fixture uses; each step takes a
   fresh idempotency key. The scenarios that deliberately drive money at
   a closed or unmatched account are read individually.
 - The console's funding scene funds the bank once and transfers twice,
