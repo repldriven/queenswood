@@ -74,7 +74,6 @@
    [:kinds {:optional true}
     [:unique-vector-lax [:ref "WebhookNotificationKind"]]]
    [:status [:ref "WebhookEndpointStatus"]]
-   [:last-success-at {:optional true} [:ref "Timestamp"]]
    [:created-at [:ref "Timestamp"]]
    [:updated-at {:optional true} [:ref "Timestamp"]]])
 

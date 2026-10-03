@@ -261,6 +261,13 @@ bank's activity is caught the same way (ADR-0033).
   adapter being configured with it.
 - **Every provider offered runs everywhere.** An installation cannot
   offer a provider to some banks and not others, beyond the default.
+- **One provider connection serves every bank an instance runs.** An
+  adapter holds one set of the provider's credentials, so every bank on
+  the instance, and every customer those banks belong to, shares that
+  connection and its circuit breaker. One customer with a live and a
+  test instance is served; a second customer on the same instance relies
+  on the provider accepting both customers' payments down one
+  connection, which the simulators do not show.
 
 ## References
 

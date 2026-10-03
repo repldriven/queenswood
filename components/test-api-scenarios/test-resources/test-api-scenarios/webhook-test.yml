@@ -43,12 +43,24 @@ outbound-runner: !system/component
   record-db: !system/ref fdb.record-db
   record-store: !system/ref fdb.meta-store
   poll-ms: 50
-  # Short enough that an endpoint's outage, its pause and its recovery
-  # play out inside a scenario.
-  retry-schedule-ms: [250, 250, 250, 250, 250, 250, 250, 250]
-  pause-rule:
-    minimum-attempts: 4
-    window-ms: 1000
+  batch-size: 32
+  claim-lease-ms: 60000
+  request-timeout-ms: 10000
+  max-in-flight-per-endpoint: 2
+  # Short enough that an endpoint's outage, its breaker opening and its
+  # recovery play out inside a scenario.
+  delivery-policy:
+    default:
+      initial-backoff-ms: 250
+      backoff-growth: 1
+      max-backoff-ms: 250
+      max-attempts: 40
+      max-age-ms: 600000
+    breaker:
+      failure-threshold: 3
+      cool-down-ms: 250
+      max-cool-down-ms: 1000
+      probe-lease-ms: 10000
   # Plain HTTP only, which is the receiver's scheme: every HTTPS address
   # a scenario registers is refused at send time, so no delivery leaves
   # the machine.

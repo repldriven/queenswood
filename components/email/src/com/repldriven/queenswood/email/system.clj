@@ -3,6 +3,8 @@
     [com.repldriven.queenswood.email.events :as events]
     [com.repldriven.queenswood.email.outbound :as outbound]
 
+    [com.repldriven.queenswood.circuit-breaker.interface :as circuit-breaker]
+
     [com.repldriven.mono.system.interface :as system]))
 
 (def ^:private outbound-runner
@@ -16,9 +18,17 @@
                    :dispatcher system/required-component
                    :smtp system/required-component
                    :console-url system/required-component
-                   :runner-id nil
-                   :batch-size nil
-                   :poll-ms nil}
+                   :delivery-policy system/required-component
+                   :poll-ms system/required-component
+                   :batch-size system/required-component
+                   :claim-lease-ms system/required-component
+                   :runner-id nil}
+   :system/config-schema [:map
+                          [:delivery-policy
+                           circuit-breaker/delivery-policy-schema]
+                          [:poll-ms pos-int?]
+                          [:batch-size pos-int?]
+                          [:claim-lease-ms pos-int?]]
    :system/instance-schema map?})
 
 (def ^:private event-processor

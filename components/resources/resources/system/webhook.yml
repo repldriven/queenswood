@@ -47,3 +47,9 @@ outbound-runner: !system/component
   # string; unset leaves the rule with nothing to refuse and the
   # address ranges still apply.
   platform-hosts: !env WEBHOOK_PLATFORM_HOSTS
+  poll-ms: 200
+  batch-size: 32
+  claim-lease-ms: 60000
+  request-timeout-ms: 10000
+  max-in-flight-per-endpoint: 2
+  delivery-policy: !include system/webhook-delivery-policy.yml

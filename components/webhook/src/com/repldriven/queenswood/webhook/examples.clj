@@ -22,7 +22,6 @@
    :description "Ledger sync"
    :kinds ["cash-account.opened"]
    :status :enabled
-   :last-success-at "2026-05-18T09:15:04Z"
    :created-at "2026-05-01T00:00:00Z"
    :updated-at "2026-05-18T09:15:04Z"})
 

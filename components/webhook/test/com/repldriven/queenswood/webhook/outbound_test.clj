@@ -2,20 +2,21 @@
   "The delivery runner against a receiver this test starts and a real
   record store: the outcomes and their attempt rows (AC-11), the claim
   that makes a second pass send nothing (AC-12), the four bounds on the
-  call that can be observed from outside it (AC-13), and the pause with
-  its changelog entry (AC-14).
+  call that can be observed from outside it (AC-13), and the endpoint's
+  breaker holding its deliveries through an outage.
 
   The signing the deliveries carry is asserted in `signing-test`; the
-  schedule and the outcome rule in `domain-test`."
+  backoff and the outcome rule in `domain-test`."
   (:require
-    [com.repldriven.queenswood.fdb.interface :as fdb]
+    [com.repldriven.queenswood.fdb.interface]
     [com.repldriven.queenswood.testcontainers.interface]
 
     [com.repldriven.queenswood.webhook.outbound :as SUT]
 
-    [com.repldriven.queenswood.schema.interface :as schema]
     [com.repldriven.queenswood.webhook.domain :as domain]
     [com.repldriven.queenswood.webhook.store :as store]
+
+    [com.repldriven.queenswood.circuit-breaker.interface :as circuit-breaker]
 
     [com.repldriven.mono.server.interface :as server]
     [com.repldriven.mono.system.interface :as system]
@@ -30,6 +31,21 @@
     (java.nio.charset StandardCharsets)))
 
 (def ^:private config-file "classpath:webhook/outbound-test.yml")
+
+(def ^:private request-timeout-ms 1000)
+
+(def ^:private max-attempts 11)
+
+(def ^:private delivery-policy
+  {:default {:initial-backoff-ms 30000
+             :backoff-growth 4
+             :max-backoff-ms 14400000
+             :max-attempts max-attempts
+             :max-age-ms 86400000}
+   :breaker {:failure-threshold 3
+             :cool-down-ms 30000
+             :max-cool-down-ms 3600000
+             :probe-lease-ms 60000}})
 
 (def ^:private oversized-body
   "A response body an order of magnitude past the bound, so a runner
@@ -46,53 +62,57 @@
 (defn- receiver
   "A tenant's endpoint, one path per outcome the runner must handle.
   `seen` collects each request's path and headers, so the signing a
-  delivery carried is readable from the receiving side."
-  [seen]
-  (fn [_ctx]
-    (fn [{:keys [uri headers]}]
-      (swap! seen conj {:uri uri :headers headers})
-      (case uri
-        "/ok" {:status 200 :body "{}"}
-        "/fail" {:status 500 :body "nope"}
-        "/slow" (do (Thread/sleep (* 2 domain/request-timeout-ms))
-                    {:status 200 :body "{}"})
-        "/redirect" {:status 302
-                     :headers {"Location" "http://127.0.0.1:1/private"}
-                     :body ""}
-        "/big" {:status 200 :body oversized-body}
-        {:status 404 :body ""}))))
+  delivery carried is readable from the receiving side; `/flaky` answers
+  503 while `down` holds true."
+  ([seen] (receiver seen (atom false)))
+  ([seen down]
+   (fn [_ctx]
+     (fn [{:keys [uri headers]}]
+       (swap! seen conj {:uri uri :headers headers})
+       (case uri
+         "/ok" {:status 200 :body "{}"}
+         "/fail" {:status 500 :body "nope"}
+         "/flaky" (if @down {:status 503 :body ""} {:status 200 :body "{}"})
+         "/slow" (do (Thread/sleep (* 2 request-timeout-ms))
+                     {:status 200 :body "{}"})
+         "/redirect" {:status 302
+                      :headers {"Location" "http://127.0.0.1:1/private"}
+                      :body ""}
+         "/big" {:status 200 :body oversized-body}
+         {:status 404 :body ""})))))
 
 (defn- runner-config
   [sys]
   {:record-db (system/instance sys [:fdb :record-db])
    :record-store (system/instance sys [:fdb :store])
    :runner-id "runner-test"
-   :address-check reachable})
+   :address-check reachable
+   :delivery-policy delivery-policy
+   :batch-size 32
+   :claim-lease-ms 60000
+   :request-timeout-ms request-timeout-ms
+   :max-in-flight-per-endpoint 2})
 
 (defn- seed
   "One enabled endpoint pointing at `path` on the receiver, one
   notification, and one delivery due now. Returns the three ids."
   [config base-url path
-   {:keys [bank-id attempts last-success-at status claim-lease-expires-at]}]
+   {:keys [bank-id attempts status claim-lease-expires-at]}]
   (let [suffix (str (utility/uuidv7))
         endpoint-id (str "whe." suffix)
         notification-id (str "whn." suffix)
         delivery-id (str "whd." suffix)
         now (utility/now)]
     (nom-test>
-      [_ (store/save-endpoint
-          config
-          (utility/assoc-some
-           {:bank-id bank-id
-            :endpoint-id endpoint-id
-            :address (str base-url path)
-            :status :webhook-endpoint-status-enabled
-            :secret "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"
-            :idempotency-key (str "ik." suffix)
-            :created-at now
-            :updated-at now}
-           :last-success-at
-           last-success-at))
+      [_ (store/save-endpoint config
+                              {:bank-id bank-id
+                               :endpoint-id endpoint-id
+                               :address (str base-url path)
+                               :status :webhook-endpoint-status-enabled
+                               :secret "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"
+                               :idempotency-key (str "ik." suffix)
+                               :created-at now
+                               :updated-at now})
        _ (store/save-notification config
                                   {:bank-id bank-id
                                    :notification-id notification-id
@@ -141,7 +161,7 @@
                      (system/instance sys [:receiver :jetty-adapter]))]
        (testing "a 2xx marks the delivery delivered, with one attempt row"
          (let [bank-id "bnk.deliver.ok"
-               {:keys [delivery-id endpoint-id]}
+               {:keys [delivery-id]}
                (seed config base-url "/ok" {:bank-id bank-id})]
            (SUT/drain-once config)
            (nom-test> [delivery (delivery-of config bank-id delivery-id)
@@ -153,10 +173,7 @@
                        _ (is (= 200 (:response-status (first rows))))
                        _ (is (some? (:duration-ms (first rows))))
                        _ (is (str/blank? (:claimed-by delivery))
-                             "the claim is released with the outcome")
-                       endpoint (store/find-endpoint config bank-id endpoint-id)
-                       _ (is (pos? (:last-success-at endpoint))
-                             "the success the pause window measures from")])))
+                             "the claim is released with the outcome")])))
        (testing "a 500 keeps it pending, with the next attempt inside a minute"
          (let [bank-id "bnk.deliver.fail"
                {:keys [delivery-id]}
@@ -173,17 +190,17 @@
                        _ (is (= [500] (mapv :response-status rows)))])))
        (testing "the attempt past the schedule fails and keeps every row"
          (let [bank-id "bnk.deliver.spent"
-               {:keys [delivery-id]}
-               (seed config
-                     base-url
-                     "/fail"
-                     {:bank-id bank-id :attempts (dec domain/max-attempts)})]
+               {:keys [delivery-id]} (seed config
+                                           base-url
+                                           "/fail"
+                                           {:bank-id bank-id
+                                            :attempts (dec max-attempts)})]
            (SUT/drain-once config)
            (nom-test> [delivery (delivery-of config bank-id delivery-id)
                        rows (attempts-of config delivery-id)
                        _ (is (= :webhook-delivery-status-failed
                                 (:status delivery)))
-                       _ (is (= domain/max-attempts (:attempts delivery)))
+                       _ (is (= max-attempts (:attempts delivery)))
                        _ (is
                           (zero? (:next-attempt-at delivery))
                           "a failed delivery has no next attempt to be due at")
@@ -248,7 +265,7 @@
                      "/ok"
                      {:bank-id bank-id
                       :status :webhook-delivery-status-in-flight
-                      :claim-lease-expires-at (+ now domain/claim-lease-ms)})]
+                      :claim-lease-expires-at (+ now 60000)})]
            (SUT/drain-once config)
            (nom-test> [delivery (delivery-of config bank-id delivery-id)
                        rows (attempts-of config delivery-id)
@@ -272,7 +289,7 @@
                started (utility/now)
                _ (SUT/drain-once config)
                elapsed (- (utility/now) started)]
-           (is (< elapsed (* 2 domain/request-timeout-ms))
+           (is (< elapsed (* 2 request-timeout-ms))
                "the drain slot is given up at the timeout, not held")
            (nom-test> [delivery (delivery-of config bank-id delivery-id)
                        rows (attempts-of config delivery-id)
@@ -343,60 +360,55 @@
                                     :blocked-ranges []}))
         "a local receiver, under the rule a local monolith relaxes")))
 
-(deftest pause-on-repeated-failure-test
+(defn- breaker-of
+  [config bank-id endpoint-id]
+  (circuit-breaker/breaker config
+                           (str "webhook-endpoint:" bank-id ":" endpoint-id)))
+
+(deftest breaker-holds-an-endpoint-test
   (let [seen (atom [])
-        entries (atom [])]
+        down (atom true)]
     (with-test-system
      [sys
       [config-file
-       #(assoc-in % [:system/defs :receiver :handler] (receiver seen))]]
-     (let [config (runner-config sys)
+       #(assoc-in % [:system/defs :receiver :handler] (receiver seen down))]]
+     (let [config (-> (runner-config sys)
+                      (assoc-in [:delivery-policy :default :initial-backoff-ms]
+                                1)
+                      (assoc-in [:delivery-policy :breaker]
+                                {:failure-threshold 1
+                                 :cool-down-ms 300
+                                 :max-cool-down-ms 600
+                                 :probe-lease-ms 60000}))
            base-url (server/http-local-url
                      (system/instance sys [:receiver :jetty-adapter]))
-           bank-id "bnk.pause"
+           bank-id "bnk.breaker"
            {:keys [endpoint-id delivery-id]}
-           (seed config
-                 base-url
-                 "/fail"
-                 {:bank-id bank-id
-                  :attempts (dec domain/pause-minimum-attempts)
-                  :last-success-at (- (utility/now)
-                                      (* 2 domain/pause-window-ms))})]
-       (testing "an endpoint failing past the window is paused (AC-14)"
+           (seed config base-url "/flaky" {:bank-id bank-id})]
+       (testing "a failing endpoint opens its breaker"
+         (SUT/drain-once config)
+         (nom-test> [breaker (breaker-of config bank-id endpoint-id)
+                     _ (is (= "open" (:state breaker)))]))
+       (testing "an open breaker claims nothing, the delivery left due"
+         (Thread/sleep 10)
          (SUT/drain-once config)
          (nom-test> [delivery (delivery-of config bank-id delivery-id)
+                     rows (attempts-of config delivery-id)
                      endpoint (store/find-endpoint config bank-id endpoint-id)
-                     _ (is (= domain/pause-minimum-attempts
-                              (:attempts delivery)))
-                     _ (is (= :webhook-endpoint-status-paused
-                              (:status endpoint)))]))
-       (testing "an endpoint that succeeded inside the window is not paused"
-         (let [fresh-bank "bnk.pause.recent"
-               {fresh-endpoint :endpoint-id}
-               (seed config
-                     base-url
-                     "/fail"
-                     {:bank-id fresh-bank
-                      :attempts (dec domain/pause-minimum-attempts)
-                      :last-success-at (- (utility/now)
-                                          (quot domain/pause-window-ms 2))})]
-           (SUT/drain-once config)
-           (nom-test> [endpoint
-                       (store/find-endpoint config fresh-bank fresh-endpoint)
-                       _ (is (= :webhook-endpoint-status-enabled
-                                (:status endpoint)))])))
-       (testing "the pause co-committed its changelog entry"
-         (nom-test> [_ (fdb/process-changelog
-                        (:record-db config)
-                        "webhook-pause-read-back"
-                        "webhook-endpoints"
-                        (fn [_ctx bytes]
-                          (swap! entries conj
-                            (schema/pb->ChangelogEvent bytes)))
-                        {:deduplicate? false
-                         :keyspace-prefix
-                         (system/instance sys [:fdb :keyspace-prefix])})
-                     _ (is (= ["webhook-endpoint-status-changed"]
-                              (mapv :event-name @entries)))
-                     _ (is (str/starts-with? (:dedup-key (first @entries))
-                                             endpoint-id))]))))))
+                     _ (is (= :webhook-delivery-status-pending
+                              (:status delivery)))
+                     _ (is (= 1 (:attempts delivery)))
+                     _ (is (= 1 (count rows)))
+                     _ (is (= :webhook-endpoint-status-enabled
+                              (:status endpoint))
+                           "the endpoint is never paused")]))
+       (testing "once the cool-down ends, the probe delivers and closes it"
+         (reset! down false)
+         (Thread/sleep 400)
+         (SUT/drain-once config)
+         (nom-test> [delivery (delivery-of config bank-id delivery-id)
+                     breaker (breaker-of config bank-id endpoint-id)
+                     _ (is (= :webhook-delivery-status-delivered
+                              (:status delivery)))
+                     _ (is (= 2 (:attempts delivery)))
+                     _ (is (= "closed" (:state breaker)))]))))))

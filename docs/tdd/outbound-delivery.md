@@ -1,9 +1,6 @@
 # Outbound delivery
 
-> **Status: proposal.** The intent poller, the webhook runner and the
-> email runner exist, each retrying its own items on constants in code.
-> The Proposed Solution is the build list, and
-> [First slice](#first-slice) says what comes first.
+> **Status: implemented.**
 
 ## Objective
 
@@ -33,32 +30,21 @@ breakers, each a design of its own.
 - **The intent poller.**
   [intent-poller](/components/intent-poller/src/com/repldriven/queenswood/intent_poller/core.clj)
   makes each due pending intent's call for an external adapter that has
-  registered its operations with `defoperations`. A retryable failure
-  waits from one second, doubling to a minute, and an intent gives up
-  after twenty attempts, ten for the IDV adapters; sent payments are
-  reconciled five minutes on. The adapters' `outbound-runner` entries in
-  `components/resources/resources/system/` set some of these, and the
-  rest are constants in the poller and the relays.
+  registered its operations with `defoperations`, one runner per
+  adapter.
 - **The webhook runner.**
   [outbound.clj](/components/webhook/src/com/repldriven/queenswood/webhook/outbound.clj)
-  claims due deliveries under a 60-second lease, at most two in flight
-  per endpoint, and calls each with a 10-second timeout. A failure waits
-  from 30 seconds, growing fourfold to four hours, for about a day, then
-  the delivery is failed and kept. The pause rule pauses an endpoint
-  with no success for a day across five attempts, and only the customer
-  resumes it. The constants are in the webhook `domain.clj`; the runner
-  takes `retry-schedule-ms` and `pause-rule` from configuration, which
-  only the scenario rig sets.
+  claims due deliveries under a lease, a bounded number in flight per
+  endpoint, and POSTs each to the customer's endpoint.
 - **The email runner.**
   [outbound.clj](/components/email/src/com/repldriven/queenswood/email/outbound.clj)
-  claims due deliveries under a 60-second lease and sends each through
-  the mail server, on the webhook runner's schedule, its constants
-  repeated in the email `domain.clj`.
-- **No loop knows its destination is down.** Each counts every failed
-  call against the item it was for, so an outage longer than an item's
-  schedule fails it.
+  claims due deliveries under a lease and sends each through the mail
+  server.
+- **The synchronous calls.** A Companies House lookup and a Confirmation
+  of Payee check, each made through an external adapter while a request
+  waits.
 
-## Proposed Solution
+## Solution
 
 ### The breaker
 
@@ -116,6 +102,10 @@ default:
   max-attempts: 20
   max-age-ms: 3600000
 operations:
+  open-account:
+    max-age-ms: 86400000
+  close-account:
+    max-age-ms: 86400000
   reissue-address:
     max-age-ms: 86400000
 breaker:
@@ -133,7 +123,9 @@ webhook and email runners have no operations.
 item gives up when its own attempts reach `max-attempts` or it is older
 than `max-age-ms`. The `test` profile shortens the backoff, the attempt
 cap and the threshold, so a scenario's outage plays out in seconds.
-Request timeouts stay where each loop's call sets them.
+Each runner's other numbers — `poll-ms`, and the claiming runners'
+`batch-size` and `claim-lease-ms` — sit beside its `delivery-policy`,
+required by the same schema.
 
 ### The intent poller
 
@@ -177,32 +169,33 @@ adapter's config carries a `breaker` of its own.
 
 In
 [outbound.clj](/components/email/src/com/repldriven/queenswood/email/outbound.clj),
-a pass asks `allow` for `smtp` before it claims. A send's error records
-`:failed`, a sent message `:delivered`; reading the invitation and
-recording its token are not the mail server's, and record nothing. The
-schedule in `domain.clj` goes, and `email.yml` carries the
-`delivery-policy`.
+a pass asks `allow` for `smtp` before it claims: open, it claims
+nothing; half-open, one delivery as the probe; closed, its batch. A
+send's error records `:failed`, a sent message `:answered`; reading the
+invitation and recording its token are not the mail server's, and
+record nothing. The schedule in `domain.clj` goes: `email.yml` carries
+the runner's `poll-ms`, `batch-size` and `claim-lease-ms`, and includes
+`email-delivery-policy.yml`, whose `default` is the schedule the runner
+had.
 
 ### The webhook runner
 
 In
 [outbound.clj](/components/webhook/src/com/repldriven/queenswood/webhook/outbound.clj),
-the claim skips endpoints whose breaker is open, and claims one delivery
-for an endpoint whose breaker is half-open. A 2xx records `:delivered`,
-anything else `:failed`. The pause rule goes: `should-pause?`,
-`pause-window-ms`, `pause-minimum-attempts`, `last-success-at` and the
-runner's `pause-rule`. The `paused` status stays, for a person's pause,
-and an endpoint the platform paused before this lands is enabled again
-by the slice's migration. `webhook.yml` carries the `delivery-policy`,
-its `default` the day-long schedule the runner has today, and the
-webhooks TDD, PRD and API descriptions drop the platform's pause.
-
-### First slice
-
-The `circuit-breaker` component and its store, with the policy schema,
-and the intent poller taking both, since an adapter's outage failing
-payments is the loss this stops. The email runner follows, then the
-webhook runner with the pause rule's removal.
+the claim asks each endpoint's breaker, in the claim's transaction, how
+many of its deliveries it may take: none while open, one as the
+half-open probe, and `max-in-flight-per-endpoint` while closed. A call
+answered with a 2xx records `:answered`, anything else `:failed`; an
+address refused at send time or a signature not produced made no call
+and records nothing. The pause rule is gone, and with it the pause
+transition, the endpoint's changelog write and its Avro schema; the
+`paused` status stays in the enum for an operator's pause, which has no
+route yet. `last_success_at`, which only the pause rule read, is
+deprecated and leaves the API. `webhook.yml` carries the runner's
+`poll-ms`, `batch-size`, `claim-lease-ms`, `request-timeout-ms` and
+`max-in-flight-per-endpoint`, and includes
+`webhook-delivery-policy.yml`, whose `default` is the day-long schedule
+the runner had.
 
 ### Tests
 
@@ -217,14 +210,22 @@ webhook runner with the pause rule's removal.
   and the intents behind the opening keep their attempts; an open
   breaker calls nothing; a probe's answer lets the rest through; an
   intent past `max-age-ms` fails while the breaker is open.
+- **email** — a pass claims nothing while the mail server's breaker is
+  open, the delivery left due with no attempt counted, and claims it
+  once the breaker closes; a failed attempt backs off by the policy and
+  fails the delivery past its maximum attempts or age.
+- **webhook** — a failing endpoint opens its breaker; an open breaker
+  claims none of its deliveries, and the endpoint stays enabled; past
+  the cool-down the probe delivers and closes it. The backoff and
+  give-up by attempts and by age.
 - **test-scenarios** — `providers/provider-outage-holds-payments`
   starts an outage on the Modulr simulator, which answers 503 to every
   call while it lasts, waits for `adapter:modulr` to open, ends the
   outage, and finds the payment completed and the breaker closed.
-- **test-api-scenarios** — a customer's endpoint down and back up gets
-  every notification, its endpoint never paused, which
-  `journeys/webhooks/3-endpoint-outage-and-recovery` asserts in place of
-  the pause, with the webhooks PRD's journey it follows.
+- **test-api-scenarios** — `journeys/webhooks/3-endpoint-outage-and-recovery`:
+  a customer's endpoint down and back up gets every notification raised
+  during the outage, with nothing asked of the customer and the endpoint
+  enabled throughout, as the webhooks PRD's journey has it.
 
 ## Alternatives Considered
 
@@ -255,15 +256,20 @@ webhook runner with the pause rule's removal.
 - **No probe of its own.** A half-open breaker probes with the next
   item, so a destination with nothing to send stays open until
   something is.
+- **An endpoint paused before the breaker stays paused.** The platform
+  no longer pauses one, but an endpoint it paused earlier is enabled by
+  its customer, as it was.
+- **A probe claimed and not made holds its lease.** A runner that dies
+  holding a probe leaves the breaker half-open until `probe-lease-ms`
+  passes.
 
 ## References
 
 - [prd/webhooks.md](../prd/webhooks.md) — what a customer is told of an
-  endpoint's delivery, which drops the platform's pause.
+  endpoint's delivery, and the outage journey the breaker serves.
 - [prd/payments.md](../prd/payments.md) — the payments a provider
   outage would otherwise fail.
-- [tdd/webhooks.md](webhooks.md) — the webhook runner, its schedule and
-  the pause rule this removes.
+- [tdd/webhooks.md](webhooks.md) — the webhook runner and its claim.
 - [tdd/outbound-email.md](outbound-email.md) — the email runner and its
   schedule.
 - [tdd/transaction-processing.md](transaction-processing.md) — the

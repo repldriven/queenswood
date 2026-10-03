@@ -153,12 +153,13 @@ For each claimed delivery the runner:
    attempt.
 5. Marks the delivery sent with the Message-ID `send` answered.
 
-A failed attempt increments `attempts` and sets `next_attempt_at` from
-the webhook runner's geometric schedule, and past the last attempt
-marks the delivery failed. The next attempt mints a fresh token, so an
-email that went out but was never recorded as sent is followed by one
-whose link works and whose predecessor's does not. The plaintext token
-exists in the runner's memory and the message, and nowhere else.
+A failed attempt increments `attempts` and sets `next_attempt_at` from the
+runner's `delivery-policy`, and past its maximum attempts or age marks the
+delivery failed. A pass claims nothing while the mail server's breaker is open,
+as [outbound-delivery](outbound-delivery.md) describes. The next attempt mints a
+fresh token, so an email that went out but was never recorded as sent is
+followed by one whose link works and whose predecessor's does not. The plaintext
+token exists in the runner's memory and the message, and nowhere else.
 
 ### The command
 
@@ -269,7 +270,8 @@ Google Cloud refuses outbound port 25 and allows submission on 587 and
 
 ### Tests
 
-- **The `email` brick** covers the retry schedule and give-up; the
+- **The `email` brick** covers the backoff and give-up, and a pass
+  claiming nothing while the mail server's breaker is open; the
   superseded rules against a withdrawn, accepted and resent invitation;
   the link and message against `smtp/render`; the event processor
   writing one delivery for a repeated event id; and the claim under a
@@ -334,6 +336,8 @@ Google Cloud refuses outbound port 25 and allows submission on 587 and
   `membership` processor adds.
 - [transaction-processing.md](transaction-processing.md) — intent
   before the external call.
+- [outbound-delivery.md](outbound-delivery.md) — the mail server's
+  breaker and the delivery policy the runner retries by.
 - [ADR-0019](../adr/0019-processor-packaging.md) — Processor packaging,
   why the adapter runs in external-adapters.
 - [ADR-0020](../adr/0020-providers-are-deployment-facts.md) — Providers

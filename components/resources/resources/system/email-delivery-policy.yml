@@ -1,0 +1,24 @@
+# How the email runner retries a send, when it gives a delivery up, and
+# when the mail server's breaker opens (ADR-0034). A delivery is tried
+# for about a day: 30s, growing fourfold to four hours between attempts.
+default:
+  initial-backoff-ms: !profile
+    test: 100
+    default: 30000
+  backoff-growth: 4
+  max-backoff-ms: !profile
+    test: 500
+    default: 14400000
+  max-attempts: 11
+  max-age-ms: 86400000
+breaker:
+  failure-threshold: !profile
+    test: 3
+    default: 5
+  cool-down-ms: !profile
+    test: 500
+    default: 30000
+  max-cool-down-ms: !profile
+    test: 2000
+    default: 600000
+  probe-lease-ms: 60000

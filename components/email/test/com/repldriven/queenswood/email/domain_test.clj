@@ -15,7 +15,7 @@
   (assoc (SUT/new-invitation-delivery event "evt.test" now)
          :status :email-delivery-status-in-flight
          :claimed-by "runner"
-         :claim-lease-expires-at (+ now SUT/claim-lease-ms)))
+         :claim-lease-expires-at (+ now 60000)))
 
 (def ^:private invitation
   {:bank-id "bnk.test"
@@ -40,28 +40,43 @@
              (dissoc written :delivery-id)))
       (is (re-matches #"eml\..+" (:delivery-id written))))))
 
-(deftest retry-schedule-test
-  (testing "the delays grow geometrically and stop growing at the cap"
-    (is (= SUT/retry-base-ms (first SUT/retry-schedule-ms)))
-    (is (= (* SUT/retry-growth SUT/retry-base-ms)
-           (second SUT/retry-schedule-ms)))
-    (is (every? (fn [delay] (<= delay SUT/retry-max-interval-ms))
-                SUT/retry-schedule-ms))
-    (is (<= (reduce + SUT/retry-schedule-ms) SUT/retry-span-ms)))
-  (testing "a failed attempt is retried after the scheduled delay"
-    (let [failed (SUT/record-failure delivery "connection refused" now)]
+(def ^:private retry-policy
+  {:initial-backoff-ms 30000
+   :backoff-growth 4
+   :max-backoff-ms 14400000
+   :max-attempts 11
+   :max-age-ms 86400000})
+
+(deftest record-failure-test
+  (testing "a failed attempt is retried after the policy's backoff"
+    (let [failed
+          (SUT/record-failure delivery retry-policy "connection refused" now)]
       (is (= :email-delivery-status-pending (:status failed)))
       (is (= 1 (:attempts failed)))
-      (is (= (+ now SUT/retry-base-ms) (:next-attempt-at failed)))
+      (is (= (+ now 30000) (:next-attempt-at failed)))
       (is (= "connection refused" (:last-error failed)))
       (is (not-any? (partial contains? failed)
                     [:claimed-by :claim-lease-expires-at]))))
+  (testing "the backoff grows by the policy's growth"
+    (let [failed (SUT/record-failure (assoc delivery :attempts 1)
+                                     retry-policy
+                                     "connection refused"
+                                     now)]
+      (is (= (+ now 120000) (:next-attempt-at failed)))))
   (testing "the last attempt fails the delivery and keeps it"
-    (let [last-try (assoc delivery :attempts (dec SUT/max-attempts))
-          failed (SUT/record-failure last-try "connection refused" now)]
+    (let [last-try (assoc delivery :attempts 10)
+          failed
+          (SUT/record-failure last-try retry-policy "connection refused" now)]
       (is (= :email-delivery-status-failed (:status failed)))
-      (is (= SUT/max-attempts (:attempts failed)))
-      (is (not (contains? failed :next-attempt-at))))))
+      (is (= 11 (:attempts failed)))
+      (is (not (contains? failed :next-attempt-at)))))
+  (testing "a delivery older than the maximum age fails on its next failure"
+    (let [failed (SUT/record-failure delivery
+                                     retry-policy
+                                     "connection refused"
+                                     (+ now 86400001))]
+      (is (= :email-delivery-status-failed (:status failed)))
+      (is (= 1 (:attempts failed))))))
 
 (deftest supersession-test
   (testing "a pending invitation for the same expiry wants the email"

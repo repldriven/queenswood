@@ -1408,9 +1408,14 @@
   (AccessEventProto$AccessEventKind/forNumber
    (access-event-kind->int access-event-kind)))
 
-(def ^{:doc "Parse WebhookEndpoint protobuf bytes into a Clojure map."}
-     pb->WebhookEndpoint
-  webhooks/pb->WebhookEndpoint)
+(defn pb->WebhookEndpoint
+  "Parse WebhookEndpoint protobuf bytes into a Clojure map. Drops
+  `last-success-at`, which is deprecated.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (dissoc (webhooks/pb->WebhookEndpoint input) :last-success-at))
 
 (defn WebhookEndpoint->pb
   "Serialise a WebhookEndpoint map to protobuf bytes.
