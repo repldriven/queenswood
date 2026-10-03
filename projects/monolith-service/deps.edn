@@ -59,6 +59,7 @@
   component/form3-relay {:local/root "../../components/form3-relay"}
   component/form3-webhook {:local/root "../../components/form3-webhook"}
   component/intent-queue {:local/root "../../components/intent-queue"}
+  component/intent-poller {:local/root "../../components/intent-poller"}
   component/modulr-relay {:local/root "../../components/modulr-relay"}
   component/company {:local/root "../../components/company"}
   component/email {:local/root "../../components/email"}

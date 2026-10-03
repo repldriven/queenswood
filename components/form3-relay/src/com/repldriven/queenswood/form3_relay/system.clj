@@ -1,6 +1,6 @@
 (ns com.repldriven.queenswood.form3-relay.system
   (:require
-    [com.repldriven.queenswood.form3-relay.outbound :as outbound]
+    [com.repldriven.queenswood.form3-relay.outbound.core :as outbound]
 
     [com.repldriven.mono.system.interface :as system]))
 

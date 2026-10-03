@@ -4,7 +4,7 @@
 
     [com.repldriven.queenswood.clearbank-relay.store :as store]
     [com.repldriven.queenswood.clearbank-relay.interface :as SUT]
-    [com.repldriven.queenswood.clearbank-relay.outbound :as outbound]
+    [com.repldriven.queenswood.clearbank-relay.outbound.core :as outbound]
     [com.repldriven.queenswood.clearbank-webhook.interface :as
      clearbank-webhook]
 

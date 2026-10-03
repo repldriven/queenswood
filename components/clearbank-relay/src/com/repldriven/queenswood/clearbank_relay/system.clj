@@ -1,6 +1,6 @@
 (ns com.repldriven.queenswood.clearbank-relay.system
   (:require
-    [com.repldriven.queenswood.clearbank-relay.outbound :as outbound]
+    [com.repldriven.queenswood.clearbank-relay.outbound.core :as outbound]
 
     [com.repldriven.mono.system.interface :as system]))
 

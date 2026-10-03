@@ -1,6 +1,6 @@
 (ns com.repldriven.queenswood.modulr-relay.system
   (:require
-    [com.repldriven.queenswood.modulr-relay.outbound :as outbound]
+    [com.repldriven.queenswood.modulr-relay.outbound.core :as outbound]
 
     [com.repldriven.mono.system.interface :as system]))
 

@@ -61,17 +61,12 @@ rebel:
 shell:
     clj -M:poly shell
 
-# Run Eastwood static analysis
-lint-eastwood:
-    clojure -M{{ DOMAIN_ALIASES }}:dev:test:lint/eastwood
-
 # Run clj-kondo linter across all bricks and config files
 lint-clj-kondo:
     clojure -M:lint/clj-kondo --lint bases components projects deps.edn workspace.edn
 
-# Run all linters (Eastwood + clj-kondo)
+# Run all linters (clj-kondo)
 lint:
-  just lint-eastwood
   just lint-clj-kondo
 
 # Prepare a fresh worktree: forced codegen, then mono's share of the tree.
@@ -89,9 +84,7 @@ metrics:
       done
     } | jq -s 'sort_by(-.["cyclomatic-complexity"]) | {count: length, files: .}'
 
-# Top N most complex files. Cyclo: 1-10 simple, 11-20 moderate, 21-50 complex,
-# >50 very complex. MI: >=85 excellent, 70-84 good, 50-69 moderate, 25-49 poor,
-# <25 critical. Colors only render when stdout is a TTY.
+# The n most complex files, with what each column means. n: how many (20).
 metrics-top n="20":
     #!/usr/bin/env zsh
     set -euo pipefail
@@ -115,11 +108,17 @@ metrics-top n="20":
       else                      echo $BR
       fi
     }
-    printf '%-5s  %-3s  %-5s  %s\n' cyclo mi lloc file
-    just metrics \
-      | jq -r '.files[:{{ n }}][] | [.["cyclomatic-complexity"], (.maintainability.index|floor), .length.lloc, .file] | @tsv' \
+    rows=$(just metrics \
+      | jq -r '.files[:{{ n }}][] | [.["cyclomatic-complexity"], (.maintainability.index|floor), .length.lloc, .file] | @tsv')
+    print -r -- "The {{ n }} most complex files, most complex first."
+    print -r -- "Cyclomatic: independent paths through the code, ${G}1-10 simple${Z}, ${Y}11-20 moderate${Z}, ${R}21-50 complex${Z}, ${BR}>50 very complex${Z}."
+    print -r -- "Maintainability: an index from 0 to 100, ${G}85+ excellent${Z}, ${C}70-84 good${Z}, ${Y}50-69 moderate${Z}, ${R}25-49 poor${Z}, ${BR}<25 critical${Z}."
+    print -r -- "Lines: logical lines of code."
+    print
+    printf '%-10s  %-15s  %-5s  %s\n' Cyclomatic Maintainability Lines File
+    print -r -- "$rows" \
       | while IFS=$'\t' read -r cyclo mi lloc file; do
-          printf '%s%-5s%s  %s%-3s%s  %-5s  %s\n' \
+          printf '%s%-10s%s  %s%-15s%s  %-5s  %s\n' \
             "$(cyclo_c $cyclo)" "$cyclo" "$Z" \
             "$(mi_c $mi)"       "$mi"    "$Z" \
             "$lloc" "$file"

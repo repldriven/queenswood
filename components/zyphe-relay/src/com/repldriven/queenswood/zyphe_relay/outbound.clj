@@ -10,16 +10,12 @@
   (:require
     [com.repldriven.queenswood.zyphe-relay.store :as store]
 
-    [com.repldriven.queenswood.intent-queue.interface :as intent-queue]
-
+    [com.repldriven.queenswood.intent-poller.interface :as intent-poller]
     [com.repldriven.queenswood.zyphe-webhook.interface :as zyphe-webhook]
 
-    [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.http-client.interface :as http]
     [com.repldriven.mono.json.interface :as json]
-    [com.repldriven.mono.log.interface :as log]
-    [com.repldriven.mono.telemetry.interface :as telemetry]
     [com.repldriven.mono.utility.interface :as utility]
 
     [clojure.edn :as edn]
@@ -29,10 +25,7 @@
     (java.net URLEncoder)
     (java.nio.charset StandardCharsets)))
 
-(def ^:private default-poll-ms 200)
 (def ^:private default-max-attempts 10)
-(def ^:private default-initial-backoff-ms 1000)
-(def ^:private default-max-backoff-ms 60000)
 
 (defn- classify
   "Turn a provider response into itself or the anomaly that names what
@@ -174,53 +167,6 @@
                                 :body body}))]
        (http/res->edn res)))))
 
-(defn- backoff-ms
-  [config attempts]
-  (let [{:keys [initial-backoff-ms max-backoff-ms]} config
-        initial (or initial-backoff-ms default-initial-backoff-ms)
-        cap (or max-backoff-ms default-max-backoff-ms)]
-    (reduce (fn [delay _] (min cap (* 2 delay)))
-            (min cap initial)
-            (range (dec attempts)))))
-
-(defn- event
-  [config now intent descriptor]
-  (let [{:keys [schemas]} config
-        {:keys [intent-id traceparent]} intent
-        {:keys [event-name dedup-key data]} descriptor]
-    (let-nom> [payload (avro/serialize (get schemas event-name) data)]
-      (utility/assoc-some {:outbox-id (str (utility/uuidv7))
-                           :dedup-key dedup-key
-                           :event-name event-name
-                           :payload payload
-                           :correlation-id (str (utility/uuidv7))
-                           :causation-id intent-id
-                           :created-at now}
-                          :traceparent
-                          (not-empty traceparent)))))
-
-(defn- finish
-  [config now intent outcome descriptor]
-  (let [{:keys [intent-id attempts]} intent]
-    (if (nil? descriptor)
-      (store/finish config intent-id "pending" outcome attempts nil)
-      (let-nom> [e (event config now intent descriptor)]
-        (store/finish config intent-id "pending" outcome attempts e)))))
-
-(defn- give-up?
-  [config attempts]
-  (>= attempts (or (:max-attempts config) default-max-attempts)))
-
-(defn- retry
-  [config now intent attempts reason]
-  (let [{:keys [intent-id]} intent]
-    (log/warn "Zyphe call failed; will retry"
-              {:intent-id intent-id :attempt attempts :reason reason})
-    (store/mark-attempt config
-                        intent-id
-                        attempts
-                        (+ now (backoff-ms config attempts)))))
-
 (defn- session-opened
   [config now data reply]
   (let [{:keys [hand-off-ttl-ms]} config
@@ -251,116 +197,67 @@
   [res]
   (contains? #{:idv/http :idv/unsupported-criteria} (error/kind res)))
 
-(defn- relay-check
-  "Make `intent`'s call, returning the intent with the status it was left
-  at, or an anomaly. An intent with no session reports nothing."
-  [config now intent]
-  (let [{:keys [intent-id request]} intent
-        data (edn/read-string request)
-        session? (some? (:session-id data))
-        attempts (inc (or (:attempts intent) 0))
-        intent (assoc intent :attempts attempts)
-        flow (select-flow (:flows config)
-                          (concat (:verifications data) (:screenings data)))
+(defn- request
+  [intent]
+  (edn/read-string (:request intent)))
+
+(defn- check
+  [config _now intent]
+  (let [data (request intent)
+        criteria (concat (:verifications data) (:screenings data))
+        flow (select-flow (:flows config) criteria)
         res (if flow
               (submit-idv-check config flow data)
               (error/fail :idv/unsupported-criteria
                           {:message "No configured flow covers the request"
                            :verifications (:verifications data)
-                           :screenings (:screenings data)}))
-        reason (when (error/anomaly? res) (:message (error/payload res)))
-        failed (fn [reason] (when session? (session-failed data reason)))]
+                           :screenings (:screenings data)}))]
     (cond
      (not (error/anomaly? res))
-     (finish config
-             now
-             intent
-             "settled"
-             (when session? (session-opened config now data res)))
+     [:answered res]
 
      (refused? res)
-     (do (log/error "Zyphe refused the verification check"
-                    {:intent-id intent-id :reason reason})
-         (finish config now intent "failed" (failed reason)))
-
-     (give-up? config attempts)
-     (do (log/error "Zyphe call giving up after max attempts"
-                    {:intent-id intent-id :reason reason})
-         (finish config
-                 now
-                 intent
-                 "failed"
-                 (failed (str "Undelivered: " reason))))
+     [:refused (:message (error/payload res))]
 
      :else
-     (retry config now intent attempts reason))))
-
-(defn- in-intent-trace
-  [span-name intent f]
-  (telemetry/with-span-parent span-name
-                              (telemetry/extract-parent-context intent)
-                              (utility/assoc-some {}
-                                                  "intent.id"
-                                                  (:intent-id intent))
-                              f))
+     [:retry (:message (error/payload res))])))
 
 (defn- checked
-  "Run `f` on `intent`, failing the intent where its call throws, so it no
-  longer holds the intents behind it."
-  [config intent f]
-  (let [res (error/try-nom-ex :zyphe-relay/intent
-                              Exception
-                              "Zyphe intent could not be relayed"
-                              (f intent))]
-    (if (error/anomaly? res)
-      (let [{:keys [intent-id status attempts]} intent]
-        (log/error "Zyphe intent could not be relayed; failing it"
-                   {:intent-id intent-id :anomaly res})
-        (store/finish config intent-id status "failed" attempts nil)
-        (assoc intent :status "failed"))
-      res)))
+  "The check settles, reporting the hand-off where the intent has a
+  session."
+  [config now intent reply]
+  (let [data (request intent)]
+    {:status "settled"
+     :event (when (:session-id data) (session-opened config now data reply))}))
+
+(defn- check-failed
+  [_config _now intent failure reason]
+  (let [data (request intent)]
+    {:status "failed"
+     :event (when (:session-id data)
+              (session-failed data
+                              (if (= :undelivered failure)
+                                (str "Undelivered: " reason)
+                                reason)))}))
+
+(intent-poller/defoperations
+ :zyphe
+ {"check" {:call check :answered checked :failed check-failed}})
+
+(defn- runner-config
+  [config]
+  (assoc config
+         :adapter :zyphe
+         :store store/spec
+         :default-operation "check"
+         :max-attempts (or (:max-attempts config) default-max-attempts)))
 
 (defn drain-once
   "Relay each pending intent once, oldest first, holding one for a
   verification while an earlier one for it is still pending. The Zyphe
   call per intent runs outside any FDB transaction."
   [config now]
-  (let [pending (store/intents-with-status config "pending")]
-    (when-not (error/anomaly? pending)
-      (intent-queue/drain pending
-                          now
-                          {:settles-first? (constantly false)
-                           :run (fn [i]
-                                  (in-intent-trace "zyphe-outbound"
-                                                   i
-                                                   (fn []
-                                                     (checked
-                                                      config
-                                                      i
-                                                      (fn [i]
-                                                        (relay-check
-                                                         config
-                                                         now
-                                                         i))))))}))))
-
-(defn- start-loop
-  [config]
-  (let [running (atom true)
-        poll-ms (or (:poll-ms config) default-poll-ms)
-        t (doto (Thread.
-                 (fn []
-                   (while @running
-                     (try (drain-once config (utility/now))
-                          (catch Exception e
-                            (log/error e
-                                       "Zyphe relay drain threw; continuing")))
-                     (try (when @running (Thread/sleep poll-ms))
-                          (catch InterruptedException _
-                            (reset! running false))))))
-            (.setDaemon true)
-            (.setName "zyphe-outbound-relay")
-            (.start))]
-    {:stop (fn [] (reset! running false) (.interrupt t))}))
+  (intent-poller/drain-once (runner-config config) now))
 
 (defn start-runner
   "Start the daemon poll loop that drains pending outbound intents.
@@ -374,4 +271,4 @@
                   {:message (str "No configured flow establishes "
                                  (str/join ", " (sort missing)))
                    :missing missing})
-      (start-loop config))))
+      (intent-poller/start (runner-config config)))))

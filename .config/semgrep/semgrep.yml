@@ -131,10 +131,11 @@ rules:
       (checked-keys.md). A read that is optional throughout puts
       `;; nosemgrep: unchecked-intent-data — <reason>` on the line
       immediately above it.
-    pattern-regex: '\{:keys \[[^\]]*\]\}\s*(\(context intent\)|ctx\b|context\b|data\b)'
+    pattern-regex: '\{:keys \[[^\]]*\]\}\s*(\((shared/)?context intent\)|ctx\b|context\b|data\b)'
     paths:
       include:
         - "/components/*-relay/src/**/outbound.clj"
+        - "/components/*-relay/src/**/outbound/*.clj"
 
   - id: brick-test-drives-pipeline
     languages: [generic]

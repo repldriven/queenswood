@@ -1,10 +1,10 @@
-(ns com.repldriven.queenswood.form3-relay.outbound-test
+(ns com.repldriven.queenswood.form3-relay.outbound.core-test
   "Drives the runner with a `post-fn` standing in for Form3, which the
   runner takes as configuration, so nothing is redefined for the JVM."
   (:require
     [com.repldriven.queenswood.form3-relay.test-system]
 
-    [com.repldriven.queenswood.form3-relay.outbound :as SUT]
+    [com.repldriven.queenswood.form3-relay.outbound.core :as SUT]
 
     [com.repldriven.queenswood.fdb.interface :as fdb]
     [com.repldriven.queenswood.form3-relay.interface :as relay]
