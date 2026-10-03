@@ -182,11 +182,18 @@ operation's call does, `[:answered …]`, `[:refused reason]` or
 `circuit-breaker/start-probe` on `adapter:<adapter>`: each call makes
 the subscriptions the provider lacks and marks the adapter ready once
 all are held, and only a provider that did not answer counts against
-the breaker. The loop waits `retry-ms` until everything is held and
-`check-ms` after, and never gives up, so a provider down at start-up is
-subscribed to when it returns. Since it runs whether or not anything
-else is sent, it is the adapter's probe: once the breaker's cool-down
-ends, the check is the call that closes or reopens it. The ClearBank,
+the breaker. It asks every `retry-ms`, five seconds, until everything
+is held or while the breaker is not closed, and otherwise every
+`check-ms`: fifteen minutes, or thirty seconds under `dev` and `test`,
+whose simulators forget their subscriptions on restart. A provider
+keeps a subscription through its own outage, so the check is for one
+dropped or deleted; that matters because inbound payments and
+verification results arrive only as notifications, while outbound
+payments are also reconciled after `reconcile-after-ms`. It never gives
+up, so a provider down at start-up is subscribed to when it returns.
+Since it asks whether or not anything else is sent, it is the adapter's
+probe: while the breaker is open it asks every `retry-ms`, and once the
+cool-down ends that check is the call that closes or reopens it. The ClearBank,
 Form3, Modulr and Onfido adapters register subscriptions; Zyphe is given
 its callback with each call and Companies House sends nothing, so
 neither has a registrar. `registrar/config-schema` checks each
@@ -237,7 +244,8 @@ the runner had.
 - **registrar** — each subscription a provider lacks is made, the
   adapter marked ready once all are held, and one the provider forgot is
   made again; a provider down at start-up opens the adapter's breaker,
-  and once it answers is subscribed to and closes it.
+  and once it answers is subscribed to and closes it; once everything is
+  held it is not asked again before `check-ms`, unless the breaker opens.
 - **intent-poller** — an adapter whose calls fail opens its breaker,
   and the intents behind the opening keep their attempts; an open
   breaker calls nothing; a probe's answer lets the rest through; an

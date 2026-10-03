@@ -4,11 +4,12 @@
   subscriptions with `defsubscriptions`; the registrar asks the provider
   which it holds, makes each one missing, and marks the adapter ready
   once all are held. It does so through the circuit breaker on
-  `adapter:<adapter>` (ADR-0034), waiting `:retry-ms` until the provider
-  holds them all and `:check-ms` after, and never gives up, so a
-  provider down at start-up is subscribed to when it returns, and one
-  that forgets a subscription is told again. Since it runs whether or
-  not anything else is sent, it is the adapter's breaker's probe.
+  `adapter:<adapter>` (ADR-0034), asking every `:retry-ms` until the
+  provider holds them all or while the breaker is not closed, and every
+  `:check-ms` otherwise. It never gives up, so a provider down at
+  start-up is subscribed to when it returns, and one that drops a
+  subscription is told again. Since it asks whether or not anything
+  else is sent, it is the adapter's breaker's probe.
 
   A registrar config carries the FDB `:record-db` and `:record-store`
   the breaker is held in, the adapter's `:delivery-policy`,

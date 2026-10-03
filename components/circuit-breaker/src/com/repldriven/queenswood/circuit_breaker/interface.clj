@@ -139,7 +139,9 @@
   - opts:
     - `:probe` — makes the call.
     - `:outcome-of` — the probe's result to `:answered` or `:failed`.
-    - `:interval-ms` — the probe's result, or an anomaly, to the
-      milliseconds before the next."
+    - `:interval-ms` — the probe's result, an anomaly, or nil where no
+      call was due, to the milliseconds before the next.
+    - `:due?` — optional, `(fn [])`, false where this turn makes no
+      call."
   [config policy destination opts]
   (core/start-probe config policy destination opts))
