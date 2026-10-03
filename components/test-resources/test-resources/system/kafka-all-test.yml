@@ -37,12 +37,14 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-banks-command
       acks: all
+      linger.ms: 0
   banks-command-dlq:
     _: !system/local-ref topics
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-banks-command-dlq
       acks: all
+      linger.ms: 0
   banks-command-response:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -51,6 +53,7 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-banks-command-response
       acks: all
+      linger.ms: 0
   cash-accounts-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -59,12 +62,14 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-cash-accounts-command
       acks: all
+      linger.ms: 0
   cash-accounts-command-dlq:
     _: !system/local-ref topics
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-cash-accounts-command-dlq
       acks: all
+      linger.ms: 0
   cash-accounts-command-response:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -73,6 +78,7 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-cash-accounts-command-response
       acks: all
+      linger.ms: 0
   cash-accounts-event:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -81,6 +87,7 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-cash-accounts-event
       acks: all
+      linger.ms: 0
   payments-event:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -89,6 +96,7 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-payments-event
       acks: all
+      linger.ms: 0
   rewards-event:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -97,6 +105,7 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-rewards-event
       acks: all
+      linger.ms: 0
   companies-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -105,6 +114,7 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-companies-command
       acks: all
+      linger.ms: 0
   companies-command-response:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -113,6 +123,7 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-companies-command-response
       acks: all
+      linger.ms: 0
   zyphe-idv-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -121,6 +132,7 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-zyphe-idv-command
       acks: all
+      linger.ms: 0
   onfido-idv-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -129,18 +141,21 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-onfido-idv-command
       acks: all
+      linger.ms: 0
   zyphe-idv-command-dlq:
     _: !system/local-ref topics
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-zyphe-idv-command-dlq
       acks: all
+      linger.ms: 0
   onfido-idv-command-dlq:
     _: !system/local-ref topics
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-onfido-idv-command-dlq
       acks: all
+      linger.ms: 0
   idv-command-response:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -149,6 +164,7 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-idv-command-response
       acks: all
+      linger.ms: 0
   idv-event:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -157,6 +173,7 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-idv-event
       acks: all
+      linger.ms: 0
   idvs-event:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -165,6 +182,7 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-idvs-event
       acks: all
+      linger.ms: 0
   invitations-event:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -173,6 +191,7 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-invitations-event
       acks: all
+      linger.ms: 0
   memberships-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -181,6 +200,7 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-memberships-command
       acks: all
+      linger.ms: 0
   parties-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -189,6 +209,7 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-parties-command
       acks: all
+      linger.ms: 0
   idvs-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -197,24 +218,28 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-idvs-command
       acks: all
+      linger.ms: 0
   memberships-command-dlq:
     _: !system/local-ref topics
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-memberships-command-dlq
       acks: all
+      linger.ms: 0
   parties-command-dlq:
     _: !system/local-ref topics
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-parties-command-dlq
       acks: all
+      linger.ms: 0
   idvs-command-dlq:
     _: !system/local-ref topics
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-idvs-command-dlq
       acks: all
+      linger.ms: 0
   memberships-command-response:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -223,6 +248,7 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-memberships-command-response
       acks: all
+      linger.ms: 0
   parties-command-response:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -231,6 +257,7 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-parties-command-response
       acks: all
+      linger.ms: 0
   idvs-command-response:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -239,6 +266,7 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-idvs-command-response
       acks: all
+      linger.ms: 0
   parties-event:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -247,6 +275,7 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-parties-event
       acks: all
+      linger.ms: 0
   payee-checks-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -255,12 +284,14 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-payee-checks-command
       acks: all
+      linger.ms: 0
   payee-checks-command-dlq:
     _: !system/local-ref topics
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-payee-checks-command-dlq
       acks: all
+      linger.ms: 0
   payee-checks-command-response:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -269,6 +300,7 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-payee-checks-command-response
       acks: all
+      linger.ms: 0
   payments-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -277,12 +309,14 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-payments-command
       acks: all
+      linger.ms: 0
   payments-command-dlq:
     _: !system/local-ref topics
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-payments-command-dlq
       acks: all
+      linger.ms: 0
   payments-command-response:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -291,6 +325,7 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-payments-command-response
       acks: all
+      linger.ms: 0
   schemes-account-event:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -299,12 +334,14 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-schemes-account-event
       acks: all
+      linger.ms: 0
   schemes-account-event-dlq:
     _: !system/local-ref topics
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-schemes-account-event-dlq
       acks: all
+      linger.ms: 0
   bank-activity-event:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -313,12 +350,14 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-bank-activity-event
       acks: all
+      linger.ms: 0
   bank-activity-event-dlq:
     _: !system/local-ref topics
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-bank-activity-event-dlq
       acks: all
+      linger.ms: 0
   modulr-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -327,6 +366,7 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-modulr-command
       acks: all
+      linger.ms: 0
   form3-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -335,6 +375,7 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-form3-command
       acks: all
+      linger.ms: 0
   clearbank-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -343,24 +384,28 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-clearbank-command
       acks: all
+      linger.ms: 0
   modulr-command-dlq:
     _: !system/local-ref topics
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-modulr-command-dlq
       acks: all
+      linger.ms: 0
   form3-command-dlq:
     _: !system/local-ref topics
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-form3-command-dlq
       acks: all
+      linger.ms: 0
   clearbank-command-dlq:
     _: !system/local-ref topics
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-clearbank-command-dlq
       acks: all
+      linger.ms: 0
   schemes-command-response:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -369,6 +414,7 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-schemes-command-response
       acks: all
+      linger.ms: 0
   schemes-payments-event:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -377,12 +423,14 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-schemes-payments-event
       acks: all
+      linger.ms: 0
   schemes-payments-event-dlq:
     _: !system/local-ref topics
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-schemes-payments-event-dlq
       acks: all
+      linger.ms: 0
   transactions-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -391,12 +439,14 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-transactions-command
       acks: all
+      linger.ms: 0
   transactions-command-dlq:
     _: !system/local-ref topics
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-transactions-command-dlq
       acks: all
+      linger.ms: 0
   transactions-command-response:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -405,6 +455,7 @@ producers: !system/component
       bootstrap.servers: !system/local-ref bootstrap-servers
       topic: topic-transactions-command-response
       acks: all
+      linger.ms: 0
 
 consumers: !system/component
   system/component-kind: kafka/consumers

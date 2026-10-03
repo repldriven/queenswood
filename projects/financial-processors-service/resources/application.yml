@@ -15,6 +15,7 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-payments-command-response
           acks: all
+          linger.ms: 0
       modulr-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
@@ -22,6 +23,7 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-modulr-command
           acks: all
+          linger.ms: 0
       form3-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
@@ -29,6 +31,7 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-form3-command
           acks: all
+          linger.ms: 0
       clearbank-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
@@ -36,6 +39,7 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-clearbank-command
           acks: all
+          linger.ms: 0
       transactions-command-response:
         schemas: !system/local-ref schemas
         schema: !keyword command-response
@@ -43,6 +47,7 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-transactions-command-response
           acks: all
+          linger.ms: 0
       payee-checks-command-response:
         schemas: !system/local-ref schemas
         schema: !keyword command-response
@@ -50,31 +55,37 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-payee-checks-command-response
           acks: all
+          linger.ms: 0
       payments-command-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-payments-command-dlq
           acks: all
+          linger.ms: 0
       bank-activity-event-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-bank-activity-event-dlq
           acks: all
+          linger.ms: 0
       schemes-payments-event-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-schemes-payments-event-dlq
           acks: all
+          linger.ms: 0
       transactions-command-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-transactions-command-dlq
           acks: all
+          linger.ms: 0
       payee-checks-command-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-payee-checks-command-dlq
           acks: all
+          linger.ms: 0
     consumers: !system/component
       system/component-kind: kafka/consumers
       payments-command:

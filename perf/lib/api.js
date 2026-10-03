@@ -114,7 +114,9 @@ export function batch(reqs, bearer, tags) {
       params: {
         headers: headers(
           bearer,
-          r.method === "POST" ? { "Idempotency-Key": crypto.randomUUID() } : {},
+          r.method === "POST"
+            ? { "Idempotency-Key": r.key || crypto.randomUUID() }
+            : {},
         ),
         tags,
       },

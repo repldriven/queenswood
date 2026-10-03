@@ -311,17 +311,19 @@ payment costs, ranked by its effect on the serial command path, which is
 `process-command` for `submit-internal-payment` in
 `financial-processors-service` at 19.9 ms p50:
 
-1. **The producer's `linger.ms`.** Every `bus-send`, in every service,
-   takes 5.5 ms p50 and 5.9 ms p95. mono pins `kafka-clients` 4.3.1,
-   whose `linger.ms` defaults to 5 since Kafka 4.0, and its
-   `kafka/send` waits on the send, so each one sits out the batching
-   window. It is 5.5 ms of the 19.9 on the serial path, and at 0 the
-   ceiling would rise to about 70 a second.
-2. **The payment's transaction.** 14.2 ms p50, the rest of the serial
-   path, under the generic category `:fdb/transact`, so a category of
-   its own comes first. Inside it the policies are read twice, in
-   `payment` and again in `balance`'s `apply-legs`, and the 2100
-   control balance is read and rewritten.
+1. **The producer's `linger.ms`.** Done. Every `bus-send`, in every
+   service, took 5.5 ms p50 and 5.9 ms p95: mono pins `kafka-clients`
+   4.3.1, whose `linger.ms` defaults to 5 since Kafka 4.0, and its
+   `kafka/send` waits on the send, so each one sat out the batching
+   window. Every producer now sets `linger.ms: 0` beside `acks: all`, a
+   send takes 0.4 ms, the serial path 15.2 ms, and the `knee` ceiling
+   rose from about 51 a second to about 64, with 40 a second at a p99 of
+   47 ms rather than 122.
+2. **The payment's transaction.** 14.2 ms p50, and with the sends gone
+   nearly all of the serial path, under the generic category
+   `:fdb/transact`, so a category of its own comes first. Inside it the
+   policies are read twice, in `payment` and again in `balance`'s
+   `apply-legs`, and the 2100 control balance is read and rewritten.
 3. **The relays' sends.** `exclusive-dispatchers-service` sends three
    messages per payment, one at a time, 16.6 ms of a runner's time, so
    one runner tops out at about 180 messages a second. A pass's sends

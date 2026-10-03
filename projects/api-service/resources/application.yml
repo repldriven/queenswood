@@ -15,6 +15,7 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-banks-command
           acks: all
+          linger.ms: 0
       companies-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
@@ -22,6 +23,7 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-companies-command
           acks: all
+          linger.ms: 0
       cash-accounts-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
@@ -29,6 +31,7 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-cash-accounts-command
           acks: all
+          linger.ms: 0
       memberships-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
@@ -36,6 +39,7 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-memberships-command
           acks: all
+          linger.ms: 0
       parties-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
@@ -43,6 +47,7 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-parties-command
           acks: all
+          linger.ms: 0
       idvs-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
@@ -50,6 +55,7 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-idvs-command
           acks: all
+          linger.ms: 0
       payments-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
@@ -57,6 +63,7 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-payments-command
           acks: all
+          linger.ms: 0
       transactions-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
@@ -64,6 +71,7 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-transactions-command
           acks: all
+          linger.ms: 0
       payee-checks-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
@@ -71,6 +79,7 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-payee-checks-command
           acks: all
+          linger.ms: 0
     consumers: !system/component
       system/component-kind: kafka/consumers
       banks-command-response:
