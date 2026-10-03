@@ -91,7 +91,7 @@
                       (error/reject :ledger-account/not-found
                                     {:message "Ledger account not found"
                                      :account-id account-id}))
-                  found (balances/get-balances config bank-id account-id)]
+                  found (ledger-accounts/get-balances config bank-id account)]
                  (set/rename-keys found {:balances :items}))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)

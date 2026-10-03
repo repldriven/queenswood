@@ -15,8 +15,8 @@
 (defn- record-settlement-leg
   "Settle an outbound: clear the debtor's pending-outgoing reservation and
   post the real outflow, draining 1200 → 1100. The debtor's posted debit is
-  a sub-ledger leg, so route through `add-control-legs` to fan it up to the
-  deposit control."
+  a sub-ledger leg, so `ensure-controls` checks the deposit control it
+  rolls into."
   [txn payment]
   (let [{:keys [bank-id debtor-account-id currency]} payment]
     (let-nom>
@@ -39,14 +39,14 @@
            debtor-account
            (:ledger-account-id pending)
            (:ledger-account-id cash))
-       expanded-legs (ledger-accounts/add-control-legs
-                      txn
-                      bank-id
-                      currency
-                      (:legs tx))
+       checked-legs (ledger-accounts/ensure-controls
+                     txn
+                     bank-id
+                     currency
+                     (:legs tx))
        recorded (transactions/record-transaction
                  txn
-                 (assoc tx :legs expanded-legs))
+                 (assoc tx :legs checked-legs))
        {:keys [transaction-type legs]} recorded
        _ (balances/apply-legs txn bank-id legs transaction-type)]
       recorded)))
@@ -134,7 +134,7 @@
 (defn- record-reversal-leg
   "DEBIT 1200 pending-outbound / CREDIT debtor — reverse the submission of
   an outbound payment the scheme declined or returned. The debtor leg is a
-  sub-ledger account, so route through `add-control-legs`."
+  sub-ledger account, so `ensure-controls` checks its control."
   [txn payment]
   (let [{:keys [bank-id debtor-account-id currency]} payment]
     (let-nom>
@@ -151,14 +151,14 @@
            payment
            debtor-account
            (:ledger-account-id pending))
-       expanded-legs (ledger-accounts/add-control-legs
-                      txn
-                      bank-id
-                      currency
-                      (:legs tx))
+       checked-legs (ledger-accounts/ensure-controls
+                     txn
+                     bank-id
+                     currency
+                     (:legs tx))
        recorded (transactions/record-transaction
                  txn
-                 (assoc tx :legs expanded-legs))
+                 (assoc tx :legs checked-legs))
        {:keys [transaction-type legs]} recorded
        _ (balances/apply-legs txn bank-id legs transaction-type)]
       recorded)))
@@ -214,7 +214,8 @@
 
 (defn- record-return-leg
   "DEBIT 1100 / CREDIT debtor — bring a returned outbound's money back. The
-  debtor leg is a sub-ledger account, so route through `add-control-legs`."
+  debtor leg is a sub-ledger account, so `ensure-controls` checks its
+  control."
   [txn payment amount]
   (let [{:keys [bank-id debtor-account-id currency]} payment]
     (let-nom>
@@ -232,14 +233,14 @@
            debtor-account
            (:ledger-account-id cash)
            amount)
-       expanded-legs (ledger-accounts/add-control-legs
-                      txn
-                      bank-id
-                      currency
-                      (:legs tx))
+       checked-legs (ledger-accounts/ensure-controls
+                     txn
+                     bank-id
+                     currency
+                     (:legs tx))
        recorded (transactions/record-transaction
                  txn
-                 (assoc tx :legs expanded-legs))
+                 (assoc tx :legs checked-legs))
        {:keys [transaction-type legs]} recorded
        _ (balances/apply-legs txn bank-id legs transaction-type)]
       recorded)))

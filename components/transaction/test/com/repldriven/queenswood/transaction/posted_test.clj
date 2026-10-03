@@ -38,10 +38,8 @@
                     :transaction-type :transaction-type-inbound-transfer
                     :currency "GBP"
                     :scheme-account-id "acc.1"
-                    :legs
-                    [(leg "gl.1100" :leg-side-debit 500)
-                     (leg "acc.1" :leg-side-credit 500)
-                     (leg "gl.2100" :leg-side-credit 500 :control true)]})]
+                    :legs [(leg "gl.1100" :leg-side-debit 500)
+                           (leg "acc.1" :leg-side-credit 500)]})]
      (nom-test> [_ recorded
                  _ (fdb/process-changelog
                     (:record-db config)
@@ -61,11 +59,10 @@
          (is (= 1 (count @entries)))
          (is (= "transaction-posted" (:event-name entry)))
          (is (= "bnk.1" (:ordering-key entry))))
-       (testing "it carries the legs, control legs marked"
+       (testing "it carries the legs"
          (is (= (:transaction-id recorded) (:transaction-id data)))
          (is (= :transaction-type-inbound-transfer (:transaction-type data)))
-         (is (= [[false 500] [false 500] [true 500]]
-                (mapv (fn [l] [(boolean (:control l)) (:amount l)])
-                      (:legs data)))))
+         (is (= [["gl.1100" 500] ["acc.1" 500]]
+                (mapv (fn [l] [(:account-id l) (:amount l)]) (:legs data)))))
        (testing "and the account the scheme moved the money through"
          (is (= "acc.1" (:scheme-account-id data))))))))

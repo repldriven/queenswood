@@ -69,6 +69,12 @@ non-trivial work on their topic.
   See [tdd/transaction-processing.md](docs/tdd/transaction-processing.md),
   [tdd/payments.md](docs/tdd/payments.md), and
   [ADR-0021](docs/adr/0021-changelog-relay.md).
+- **Control balances** — a deposit or own-funds control's balance is
+  the sum of its sub-ledger's, read from SUM indexes the Record Layer
+  keeps by atomic mutation, so a posting writes only the accounts its
+  legs name. See
+  [ADR-0037](docs/adr/0037-a-control-accounts-balance-is-the-sum-of-the-balances-that-roll-into-it.md)
+  and [tdd/chart-of-accounts.md](docs/tdd/chart-of-accounts.md).
 - **Schema evolution** — the declared meta-data `version`, `added`
   and `modified` per index, former indexes, deprecating a proto field
   rather than removing it, and the guard against the last `stable-*`

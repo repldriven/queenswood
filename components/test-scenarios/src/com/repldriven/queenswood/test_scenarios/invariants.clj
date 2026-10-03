@@ -5,16 +5,17 @@
   The trial balance ties — Sigma-debit == Sigma-credit per currency
   across the whole chart of accounts. A failure means a step committed
   an unbalanced or mis-routed set of posted legs (e.g. a posting whose
-  offset never reached the GL, or fanned out to the wrong control).
+  offset never reached the GL, or landed on the wrong account).
   This is the check that would have caught interest accrual landing off
   the books, and it guards the next class of bug too — a reversal that
   only reverses one leg, a new transaction type that forgets a control.
 
   Every control account is the live roll-up of its sub-ledger — the sum
   of the `default / posted` buckets of the cash accounts whose product
-  type maps to that control equals the control's own `default / posted`
-  bucket, per currency. The tie alone cannot catch a posting that
-  balanced against the wrong control; this can.
+  type maps to that control equals the control's `default / posted`
+  balance, per currency. A control's balance is summed from its
+  sub-ledger's balance rows by their own product type, so this catches
+  a row filed under a product type other than its account's.
 
   Both read `default / posted` only, so in-flight buckets (held,
   pending, interest-accrued sub-ledger) don't perturb them. A balance
@@ -108,8 +109,8 @@
   its balance read failed with. Never a zero standing in for a failed
   read — `books-failures` turns the anomaly into a failure naming the
   account."
-  [txn bank-id account-id]
-  (let [bs (balances/get-balances txn bank-id account-id)]
+  [txn bank-id account]
+  (let [bs (ledger-accounts/get-balances txn bank-id account)]
     (if (error/anomaly? bs)
       bs
       (:value (:posted-balance bs)))))
@@ -126,7 +127,7 @@
                      (:gl-account-type account))
                   :debit
                   :credit)
-   :value (posted-net txn bank-id (:ledger-account-id account))})
+   :value (posted-net txn bank-id account)})
 
 (defn- books-snapshot
   "Both sides of both invariants for one bank, read in a single FDB

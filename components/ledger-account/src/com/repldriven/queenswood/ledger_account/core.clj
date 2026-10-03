@@ -22,14 +22,52 @@
      [policies (get-policies txn bank-id opts)
       account (domain/new-ledger-account bank-id currency row policies)
       _ (store/save-account txn account)
-      _ (balances/new-balances txn
-                               bank-id
-                               [(domain/opening-balance account)])]
+      _ (when-not (domain/control-code->product-type
+                   (:gl-account-code account))
+          (balances/new-balances txn
+                                 bank-id
+                                 [(domain/opening-balance account)]))]
      account)))
 
 (defn get-account
   [txn bank-id ledger-account-id]
   (store/find-by-id txn bank-id ledger-account-id))
+
+(defn- control-balance
+  [txn account product-type opts]
+  (let-nom>
+    [sums (balance-query/sub-ledger-balance txn
+                                            (:bank-id account)
+                                            product-type
+                                            (:currency account)
+                                            opts)]
+    (domain/derived-balance account sums)))
+
+(defn- account-balances
+  [txn bank-id account]
+  (if-let [product-type (domain/control-code->product-type
+                         (:gl-account-code account))]
+    (let-nom> [balance (control-balance txn account product-type {})]
+      [balance])
+    (balance-query/list-balances txn bank-id (:ledger-account-id account))))
+
+(defn get-balances
+  [txn bank-id account]
+  (let-nom>
+    [balances (account-balances txn bank-id account)]
+    (balance-query/totals balances)))
+
+(defn- posted-balance
+  [txn bank-id account]
+  (if-let [product-type (domain/control-code->product-type
+                         (:gl-account-code account))]
+    (control-balance txn account product-type {:isolation :serializable})
+    (balance-query/get-balance txn
+                               bank-id
+                               (:ledger-account-id account)
+                               :balance-type-default
+                               (:currency account)
+                               :balance-status-posted)))
 
 (defn close-account
   ([txn bank-id ledger-account-id]
@@ -38,12 +76,7 @@
    (let-nom>
      [policies (get-policies txn bank-id opts)
       account (get-account txn bank-id ledger-account-id)
-      balance (balance-query/get-balance txn
-                                         bank-id
-                                         ledger-account-id
-                                         :balance-type-default
-                                         (:currency account)
-                                         :balance-status-posted)
+      balance (posted-balance txn bank-id account)
       closed (domain/close account balance policies)
       _ (store/save-account txn closed)]
      closed)))
@@ -62,47 +95,30 @@
 
 (defn list-accounts-with-balances
   [config bank-id]
-  (store/list-by-bank-with-balances config bank-id))
+  (let-nom>
+    [pairs (store/list-by-bank-with-balances config bank-id)]
+    (reduce (fn [acc {:keys [account] :as pair}]
+              (if-let [product-type (domain/control-code->product-type
+                                     (:gl-account-code account))]
+                (let [balance (control-balance config account product-type {})]
+                  (if (error/anomaly? balance)
+                    (reduced balance)
+                    (conj acc (assoc pair :balances [balance]))))
+                (conj acc pair)))
+            []
+            pairs)))
 
-(defn- control-code
-  "The control gl-code `leg` rolls up into, by its product type. Nil for
-  a leg with no control counterpart."
-  [leg]
-  (get domain/product-type->control-code (:product-type leg)))
-
-(defn- control-leg
-  "If `leg` fans out, resolve its control ledger account in `currency`
-  and return a same-side mirror leg targeting the control's
-  default-posted bucket, tagged `:control` so the double-entry balance
-  check skips the roll-up. The mirror is one leg per posted default
-  customer leg. Nil for legs that don't fan out and legs with no
-  resolvable control code; the `:gl/missing-currency-account` rejection
-  for a leg whose control is not seeded in `currency`, and
-  `:ledger-account/closed` for a leg whose control is closed."
-  [txn bank-id currency leg]
-  (when (domain/fans-out? leg)
-    (when-let [code (control-code leg)]
-      (let-nom>
-        [control (find-by-code txn bank-id code currency)]
-        {:account-id (:ledger-account-id control)
-         :balance-type :balance-type-default
-         :balance-status :balance-status-posted
-         :side (:side leg)
-         :amount (:amount leg)
-         :control true}))))
-
-(defn add-control-legs
+(defn ensure-controls
   [txn bank-id currency legs]
-  (reduce (fn [acc leg]
-            (let [extra (control-leg txn bank-id currency leg)]
-              (cond
-               (error/anomaly? extra)
-               (reduced extra)
-
-               extra
-               (conj acc leg extra)
-
-               :else
-               (conj acc leg))))
-          []
-          legs))
+  (let-nom>
+    [_ (reduce (fn [_ code]
+                 (let [control (find-by-code txn bank-id code currency)]
+                   (when (error/anomaly? control) (reduced control))))
+               nil
+               (into #{}
+                     (comp (filter domain/fans-out?)
+                           (keep (fn [leg]
+                                   (domain/product-type->control-code
+                                    (:product-type leg)))))
+                     legs))]
+    legs))

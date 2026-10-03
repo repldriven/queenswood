@@ -79,7 +79,7 @@
   - topic: topic-payee-checks-command-response
     partitions: 1
   - topic: topic-payments-command
-    partitions: 1
+    partitions: 2
   - topic: topic-payments-command-dlq
     partitions: 1
   - topic: topic-payments-command-response

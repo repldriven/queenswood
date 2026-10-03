@@ -40,7 +40,7 @@
                                                                     "LEG_SIDE_CREDIT"]}},
                   {"name": "amount",         "type": "long", "doc": "minor units, always > 0"},
                   {"name": "control",        "type": ["null", "boolean"], "default": null,
-                   "doc": "true for a control-account roll-up mirror; excluded from the double-entry balance check"}
+                   "doc": "no longer set: a control account holds no balance of its own, see ADR-0037"}
                 ]}}}
   ]
 }

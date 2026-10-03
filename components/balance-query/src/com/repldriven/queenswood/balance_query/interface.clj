@@ -89,6 +89,31 @@
                       currency
                       balance-status))
 
+(defn sub-ledger-balance
+  "The summed `{:credit :debit}` of the default posted balances of every
+  account of `product-type` in `currency` across the bank — the balance
+  of the control account that product type rolls into. Read from the
+  balances store's SUM indexes, at snapshot unless `opts` asks for
+  `{:isolation :serializable}`, which a guard deciding on the figure in
+  its own transaction needs. An empty group sums to zero.
+
+  Args:
+  - txn: FDB transaction or db handle.
+  - bank-id: owning bank id.
+  - product-type: the sub-ledger product type keyword.
+  - currency: ISO 4217 currency string.
+  - opts: optional `{:isolation :snapshot | :serializable}`."
+  ([txn bank-id product-type currency]
+   (sub-ledger-balance txn bank-id product-type currency {}))
+  ([txn bank-id product-type currency opts]
+   (store/sum-bucket txn
+                     bank-id
+                     product-type
+                     currency
+                     :balance-type-default
+                     :balance-status-posted
+                     (:isolation opts :snapshot))))
+
 (def
   ^{:doc
     "Name of the FDB store balances live in. Exposed for callers that

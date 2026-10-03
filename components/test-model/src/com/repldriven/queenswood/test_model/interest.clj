@@ -89,8 +89,7 @@
           (update-in [:accounts customer-acct :available] + accrued)
           (assoc-in [:accounts customer-acct :interest-accrued] 0)
           (update-in [:accounts customer-acct :transaction-legs]
-                     (fnil + 0)
-                     2)))))
+                     (fnil inc 0))))))
 
 (defn- capitalize-org
   [state bank-id]

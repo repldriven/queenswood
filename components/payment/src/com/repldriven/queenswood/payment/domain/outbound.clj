@@ -60,7 +60,7 @@
       ;; the bank's 1200 claim is likewise pending — the whole transfer
       ;; is in-flight until the scheme settles. Nothing hits a posted
       ;; bucket, so the trial balance is undisturbed at submit, and a
-      ;; non-posted leg doesn't fan out a control leg.
+      ;; non-posted leg doesn't move a control.
       (utility/assoc-some
        {:bank-id bank-id
         :idempotency-key idempotency-key

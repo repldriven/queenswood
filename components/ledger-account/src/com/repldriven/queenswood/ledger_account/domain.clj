@@ -8,15 +8,41 @@
 
 (def product-type->control-code
   "Maps a cash-account product type to the `:gl-account-code` of the control
-  ledger account its *default* balance rolls up into. Postings on those
-  accounts fan out to the matching control so the control balance is
-  always the live roll-up of its sub-ledger. Customer deposits roll into
+  ledger account its *default* balance rolls up into. The control holds
+  no balance of its own: its balance is the sum of its sub-ledger's,
+  read from the balances store's indexes. Customer deposits roll into
   the 2100/2200/2300 deposit controls; the bank's own funding account
   rolls into own funds (3100)."
   {:product-type-sub-ledger-current :gl-account-code-customer-deposits-current
    :product-type-sub-ledger-savings :gl-account-code-customer-deposits-savings
    :product-type-sub-ledger-term-deposit :gl-account-code-customer-deposits-term
    :product-type-sub-ledger-own-funds :gl-account-code-own-funds})
+
+(def control-code->product-type
+  "The product type whose sub-ledger a control account's balance is the
+  sum of, by the control's `:gl-account-code`. A ledger account absent
+  from it keeps a stored balance of its own. See ADR-0037."
+  (into {}
+        (map (fn [[product-type code]] [code product-type]))
+        product-type->control-code))
+
+(defn derived-balance
+  "The default-posted balance of control `account`, built from the
+  summed `{:credit :debit}` of its sub-ledger in place of a stored row."
+  [account {:keys [credit debit]}]
+  (let [{:keys [bank-id ledger-account-id currency created-at updated-at]}
+        account]
+    {:bank-id bank-id
+     :account-id ledger-account-id
+     :product-type :product-type-general-ledger
+     :balance-type :balance-type-default
+     :balance-status :balance-status-posted
+     :currency currency
+     :credit credit
+     :debit debit
+     :credit-carry 0
+     :created-at created-at
+     :updated-at updated-at}))
 
 (defn gl-account-code->gl-code
   "The chart number, as a string, for a `gl-account-code` role — the
@@ -50,8 +76,8 @@
              :updated-at now))))
 
 (defn opening-balance
-  "The single default-posted balance bucket a ledger account opens
-  with, tagged `:product-type-general-ledger` so read sites can tell the
+  "The single default-posted balance bucket a ledger account other than
+  a control opens with, tagged `:product-type-general-ledger` so read sites can tell the
   bank's own books from a customer instrument without inferring it from
   an absent product-type."
   [ledger-account]
@@ -65,9 +91,9 @@
 (defn fans-out?
   "Posted default customer legs roll up into their product-type control
   (2100/2200/2300/3100). Every other bucket and every non-posted status
-  is sub-ledger-only: an `interest-accrued` bucket does not fan out,
-  because the bank's side of an accrual is posted in aggregate at close
-  by the interest brick's `sweep` rather than per leg."
+  is sub-ledger-only: an `interest-accrued` bucket does not roll up,
+  because the bank's side of an accrual is posted to 2400 rather than
+  summed from the sub-ledger."
   [leg]
   (and (= :balance-status-posted (:balance-status leg))
        (= :balance-type-default (:balance-type leg))))
@@ -91,8 +117,8 @@
 (defn ensure-open
   "Return `account` unchanged if open, or `:ledger-account/closed`
   when it has been closed. Used to gate a closed account out of
-  posting sites (by-role lookup, control fan-out) so a posting fails
-  outright rather than silently skipping a control leg."
+  posting sites (by-role lookup, the control a leg rolls into) so a
+  posting fails outright rather than moving a closed control."
   [account]
   (if (open? account)
     account

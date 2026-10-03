@@ -62,7 +62,7 @@ bank consuming `reward.paid`, which is the demo's own slice in
 - **The simulate route credits any account.**
   `POST /v1/simulate/inbound-transfer` takes an `account-id`,
   debits 1100 and credits whatever account is named, reading the
-  account's product type only to pick the control leg. Twelve API
+  account's product type only to check its control. Twelve API
   scenarios, the console's funding scene and the demo's fund recipe
   credit a customer account directly with it. The model-equality
   scenarios' `:inbound-transfer` verb is a different thing: it calls
@@ -175,8 +175,9 @@ A reward posts as `TRANSACTION_TYPE_REWARD`, a new value in
 [transaction.proto](/components/schema/resources/schemas/transactions/transaction.proto),
 with two posting legs — a debit on the house account for the version's
 currency and a credit on the customer's, both `default` and `posted` —
-and the control legs `ledger-accounts/add-control-legs` appends, which
-mirror them onto 3100 and the customer's deposit control. It is
+which move 3100 and the customer's deposit control, each the sum of
+its sub-ledger, once `ledger-accounts/ensure-controls` has checked
+both are open. It is
 recorded and applied with `transactions/record-and-post` inside the
 account's transaction from step 3, under the idempotency key
 `reward-<account-id>`, with the reference `Welcome reward`, which is

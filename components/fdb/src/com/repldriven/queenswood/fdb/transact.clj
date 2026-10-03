@@ -1,13 +1,19 @@
 (ns com.repldriven.queenswood.fdb.transact
   (:require
     [com.repldriven.mono.error.interface :as error :refer [try-nom]]
-    [com.repldriven.mono.telemetry.interface :as telemetry])
+    [com.repldriven.mono.telemetry.interface :as telemetry]
+
+    [clojure.string :as str])
   (:import
+    (com.apple.foundationdb Range)
     (com.apple.foundationdb.record LoggableTimeoutException
                                    RecordCoreRetriableTransactionException)
     (com.apple.foundationdb.record.provider.foundationdb
      FDBDatabase
-     FDBExceptions$FDBStoreTransactionTimeoutException)
+     FDBDatabaseRunner
+     FDBExceptions$FDBStoreTransactionTimeoutException
+     FDBRecordContext)
+    (com.apple.foundationdb.tuple ByteArrayUtil)
     (java.util.function Function)))
 
 ;; Most specific first. `RecordCoreRetriableTransactionException` is the
@@ -60,6 +66,50 @@
         :else
         (telemetry/set-attribute "fdb.outcome" "committed")))
 
+(defn- conflicting-keys
+  [^FDBRecordContext ctx]
+  (map (fn [^Range r] (ByteArrayUtil/printable (.begin r)))
+       (.getNotCommittedConflictingKeys ctx)))
+
+(defn- count-attempts
+  [category attempts]
+  (let [attrs {:fdb.category (str category)}]
+    (telemetry/inc-counter! (telemetry/counter {:name "fdb.transactions"
+                                                :unit "{transaction}"})
+                            attrs)
+    (telemetry/add-counter! (telemetry/counter {:name "fdb.transaction.retries"
+                                                :unit "{attempt}"})
+                            (max 0 (dec attempts))
+                            attrs)))
+
+(defn- run-reporting-conflicts
+  [^FDBDatabase record-db category f]
+  (let [attempts (atom 0)
+        conflicts (atom [])
+        last-ctx (atom nil)
+        record-conflicts (fn []
+                           (when-let [ctx @last-ctx]
+                             (swap! conflicts into (conflicting-keys ctx))))]
+    (try
+      (with-open [runner (.newRunner record-db)]
+        (.setContextConfigBuilder
+         runner
+         (.setReportConflictingKeys (.getContextConfigBuilder runner) true))
+        (.run ^FDBDatabaseRunner runner
+              ^Function
+              (fn [ctx]
+                (swap! attempts inc)
+                (record-conflicts)
+                (reset! last-ctx ctx)
+                (f ctx))))
+      (finally
+       (record-conflicts)
+       (telemetry/set-attribute "fdb.attempts" @attempts)
+       (count-attempts category @attempts)
+       (when (seq @conflicts)
+         (telemetry/set-attribute "fdb.conflicting-keys"
+                                  (str/join " " (distinct @conflicts))))))))
+
 (defrecord Txn [open prefix context])
 
 (defn open
@@ -81,27 +131,28 @@
          :attributes {:fdb.category (str category)}}
         (let [result
               (try
-                (.run ^FDBDatabase record-db
-                      ^Function
-                      (fn [ctx]
-                        (let [cache (atom {})
-                              open-fn (fn [store-name]
-                                        (or (get @cache store-name)
-                                            (let [s (open-store record-store
-                                                                ctx
-                                                                store-name)]
-                                              (swap! cache assoc store-name s)
-                                              s)))
-                              result (try-nom category
-                                              message
-                                              (f (->Txn open-fn
-                                                        keyspace-prefix
-                                                        ctx)))]
-                          (if (error/anomaly? result)
-                            ;; nosemgrep: no-raw-throw
-                            (throw (ex-info "Transaction rolled back"
-                                            {::anomaly result}))
-                            result))))
+                (run-reporting-conflicts
+                 record-db
+                 category
+                 (fn [ctx]
+                   (let [cache (atom {})
+                         open-fn (fn [store-name]
+                                   (or (get @cache store-name)
+                                       (let [s (open-store record-store
+                                                           ctx
+                                                           store-name)]
+                                         (swap! cache assoc store-name s)
+                                         s)))
+                         result (try-nom category
+                                         message
+                                         (f (->Txn open-fn
+                                                   keyspace-prefix
+                                                   ctx)))]
+                     (if (error/anomaly? result)
+                       ;; nosemgrep: no-raw-throw
+                       (throw (ex-info "Transaction rolled back"
+                                       {::anomaly result}))
+                       result))))
                 (catch Exception e
                   (reclassify
                    (or (::anomaly (ex-data e))
