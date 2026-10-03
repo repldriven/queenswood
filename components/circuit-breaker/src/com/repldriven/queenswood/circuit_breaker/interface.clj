@@ -124,3 +124,22 @@
   - f: makes the call."
   [config policy destination outcome-of f]
   (core/guard config policy destination outcome-of f))
+
+(defn start-probe
+  "Start a daemon loop that calls `destination` through `guard` on its
+  breaker, sleeping `(interval-ms result)` between calls, so the
+  destination is probed whether or not anything else is sent to it. A
+  probe that throws is an anomaly, as is a call held by an open breaker.
+  Returns `{:stop fn}`.
+
+  Args:
+  - config: `{:record-db :record-store}`.
+  - policy: the delivery policy's `:breaker`.
+  - destination: the destination's name.
+  - opts:
+    - `:probe` — makes the call.
+    - `:outcome-of` — the probe's result to `:answered` or `:failed`.
+    - `:interval-ms` — the probe's result, or an anomaly, to the
+      milliseconds before the next."
+  [config policy destination opts]
+  (core/start-probe config policy destination opts))

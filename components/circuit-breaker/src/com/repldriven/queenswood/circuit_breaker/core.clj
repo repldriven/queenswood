@@ -59,3 +59,26 @@
           (log/error "Circuit breaker not recorded"
                      {:destination destination :anomaly recorded}))
         res))))
+
+(defn start-probe
+  [config policy destination {:keys [probe outcome-of interval-ms]}]
+  (let [running (atom true)
+        checked (fn []
+                  (error/try-nom :circuit-breaker/probe
+                                 "A destination's probe threw"
+                                 (probe)))
+        t (doto (Thread.
+                 (fn []
+                   (while @running
+                     (let [res
+                           (guard config policy destination outcome-of checked)]
+                       (when (error/anomaly? res)
+                         (log/info "Destination probe not answered"
+                                   {:destination destination :anomaly res}))
+                       (try (Thread/sleep (long (interval-ms res)))
+                            (catch InterruptedException _
+                              (reset! running false)))))))
+            (.setDaemon true)
+            (.setName (str "probe-" destination))
+            (.start))]
+    {:stop (fn [] (reset! running false) (.interrupt t))}))

@@ -4,17 +4,14 @@
     [com.repldriven.queenswood.modulr-adapter.provider :as provider]
     [com.repldriven.queenswood.modulr-adapter.webhook.routes :as webhook]
 
+    [com.repldriven.queenswood.circuit-breaker.interface :as circuit-breaker]
     [com.repldriven.queenswood.modulr-relay.interface :as relay]
 
     [com.repldriven.mono.error.interface :refer [let-nom>]]
     [com.repldriven.mono.log.interface :as log]
     [com.repldriven.mono.system.interface :as system]))
 
-(def ^:private re-register-poll-ms 30000)
-
-(def ^:private register-attempts 24)
-
-(def ^:private register-retry-ms 5000)
+(def ^:private destination "adapter:modulr")
 
 (defn- call
   [config request]
@@ -37,67 +34,43 @@
                   :secret (:secret webhook-credentials)
                   :hmacAlgorithm (:algorithm webhook-credentials)}})))
 
-(defn- subscribe-with-retry
-  "Subscribe one notification type, retrying while Modulr is not
-  reachable: the adapter and a simulator start together, so the first
-  attempt may find nothing listening."
-  [config subscription]
-  (loop [attempt 1]
-    (let [[outcome result] (subscribe config subscription)]
-      (cond
-       (= :ok outcome)
-       (do (log/info "Subscribed to a Modulr notification"
-                     {:type (first subscription)})
-           true)
-
-       (< attempt register-attempts)
-       (do (log/warn
-            "Modulr notification subscription not ready; retrying"
-            {:type (first subscription) :attempt attempt :reason result})
-           (Thread/sleep (long register-retry-ms))
-           (recur (inc attempt)))
-
-       :else
-       (do (log/error "Modulr notification subscription gave up"
-                      {:type (first subscription) :reason result})
-           false)))))
-
-(defn- missing
-  "The subscriptions Modulr does not hold for this adapter's URL, so a
-  simulator that restarted and forgot them is told again."
+(defn- ensure-subscribed
+  "Subscribe each notification Modulr does not hold for this adapter's
+  URL, so one a simulator forgot on restart is subscribed again, and
+  mark the adapter ready once Modulr holds them all. Returns `:held`,
+  `:missing` where Modulr refused one, or `:failed` where it did not
+  answer."
   [config]
   (let [[outcome result] (call config
-                               {:method :get :path (subscriptions-path config)})
-        held (when (= :ok outcome)
-               (set (map (juxt :type :url) (:content result))))]
-    (if (nil? held)
-      []
-      (remove (fn [[type path]]
-                (contains? held [type (str (:webhook-url config) path)]))
-              webhook/paths))))
+                               {:method :get
+                                :path (subscriptions-path config)})]
+    (case outcome
+      :ok
+      (let [held (set (map (juxt :type :url) (:content result)))
+            absent (remove (fn [[type path]]
+                             (contains? held
+                                        [type
+                                         (str (:webhook-url config) path)]))
+                           webhook/paths)
+            outcomes (mapv (fn [subscription]
+                             (log/info "Subscribing to a Modulr notification"
+                                       {:type (first subscription)})
+                             (first (subscribe config subscription)))
+                           absent)]
+        (cond
+         (every? #{:ok} outcomes)
+         (do (reset! (:readiness config) true) :held)
 
-(defn- start-re-subscribe-loop
-  [config stopped?]
-  (doto (Thread.
-         (fn []
-           (loop []
-             (when
-               (try
-                 (Thread/sleep (long re-register-poll-ms))
-                 (when-not @stopped?
-                   (doseq [subscription (missing config)]
-                     (log/warn "Modulr notification missing; subscribing again"
-                               {:type (first subscription)})
-                     (subscribe config subscription)))
-                 true
-                 (catch InterruptedException _ false)
-                 (catch Throwable t
-                   (log/error t "Modulr subscription check threw; continuing")
-                   true))
-               (recur)))))
-    (.setDaemon true)
-    (.setName "modulr-notification-subscriptions")
-    (.start)))
+         (some #{:retry} outcomes)
+         :failed
+
+         :else
+         :missing))
+
+      :retry
+      :failed
+
+      :missing)))
 
 (def ^:private readiness
   {:system/start (fn [{:system/keys [instance]}] (or instance (atom false)))
@@ -107,27 +80,33 @@
   {:system/start
    (fn [{:system/keys [config instance]}]
      (or instance
-         (let [stopped? (atom false)
-               loop-thread (atom nil)
-               fut (future
-                    (when (and (every? (fn [s] (subscribe-with-retry config s))
-                                       webhook/paths)
-                               (not @stopped?))
-                      (reset! (:readiness config) true)
-                      (reset! loop-thread (start-re-subscribe-loop config
-                                                                   stopped?))))]
-           {:fut fut :loop-thread loop-thread :stopped? stopped?})))
+         (circuit-breaker/start-probe
+          config
+          (get-in config [:delivery-policy :breaker])
+          destination
+          {:probe (fn [] (ensure-subscribed config))
+           :outcome-of (fn [res] (if (= :failed res) :failed :answered))
+           :interval-ms
+           (fn [res]
+             (if (= :held res) (:check-ms config) (:retry-ms config)))})))
    :system/stop (fn [{:system/keys [instance]}]
-                  (when-let [{:keys [fut loop-thread stopped?]} instance]
-                    (reset! stopped? true)
-                    (future-cancel fut)
-                    (when-let [^Thread t @loop-thread] (.interrupt t))))
+                  (when-let [{:keys [stop]} instance] (stop)))
    :system/config {:modulr-url system/required-component
                    :credentials system/required-component
                    :customer-id system/required-component
                    :webhook-url system/required-component
                    :webhook-credentials system/required-component
-                   :readiness system/required-component}
+                   :readiness system/required-component
+                   :record-db system/required-component
+                   :record-store system/required-component
+                   :delivery-policy system/required-component
+                   :retry-ms system/required-component
+                   :check-ms system/required-component}
+   :system/config-schema [:map
+                          [:delivery-policy
+                           circuit-breaker/delivery-policy-schema]
+                          [:retry-ms pos-int?]
+                          [:check-ms pos-int?]]
    :system/instance-schema map?})
 
 (def ^:private command-processor

@@ -43,6 +43,10 @@ breakers, each a design of its own.
 - **The synchronous calls.** A Companies House lookup and a Confirmation
   of Payee check, each made through an external adapter while a request
   waits.
+- **The registrars.** The ClearBank, Form3, Modulr and Onfido adapters
+  each subscribe to their provider's notifications at start-up, and
+  check the subscriptions are still held, so a simulator that restarted
+  and forgot them is told again.
 
 ## Solution
 
@@ -165,6 +169,23 @@ payment adapter's server includes the same delivery policy its runner
 does, so the two agree on their shared breaker, and the Companies House
 adapter's config carries a `breaker` of its own.
 
+### The registrars
+
+Each registrar's `system.clj` in the four adapters runs
+`circuit-breaker/start-probe` on the adapter's own destination: a
+daemon loop that makes a call through `guard` and sleeps an interval
+the call's result chooses. The call asks the provider for the
+subscriptions it holds, makes each one missing, and marks the adapter
+ready once all are held, returning `:held`, `:missing` where the
+provider refused one, or `:failed` where it did not answer, which is the
+only result the breaker counts. The loop waits `retry-ms` until the
+provider holds them all and `check-ms` after; it never gives up, so a
+provider down at start-up is subscribed to when it returns. Since it
+runs whether or not anything else is sent, it is the adapter's probe:
+once its breaker's cool-down ends, the check is the call that closes or
+reopens it. Each registrar takes `retry-ms`, `check-ms` and the
+adapter's `delivery-policy` from its entry in the adapter's YAML.
+
 ### The email runner
 
 In
@@ -205,7 +226,8 @@ the runner had.
   on its failure. Two claims of one probe, one winning. `retry-policy`
   taking an operation's entry over the default. `guard` calling through
   a closed breaker and answering at once, without calling, through an
-  open one.
+  open one. `start-probe` opening a destination that does not answer and
+  closing it once it does.
 - **intent-poller** — an adapter whose calls fail opens its breaker,
   and the intents behind the opening keep their attempts; an open
   breaker calls nothing; a probe's answer lets the rest through; an
@@ -253,9 +275,10 @@ the runner had.
   succeeds or the items reach their maximum age.
 - **A failing destination costs a write per call.** Each failed call
   increments the record until the breaker opens.
-- **No probe of its own.** A half-open breaker probes with the next
-  item, so a destination with nothing to send stays open until
-  something is.
+- **Not every destination has a probe of its own.** The four adapters
+  with a registrar are probed by it. Zyphe, Companies House, the mail
+  server and a customer's endpoint are probed by the next item, so one
+  with nothing to send stays open until something is.
 - **An endpoint paused before the breaker stays paused.** The platform
   no longer pauses one, but an endpoint it paused earlier is enabled by
   its customer, as it was.

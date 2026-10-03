@@ -64,3 +64,41 @@
        (let [res (SUT/guard config policy destination outcome-of (call :up))]
          (is (= :circuit-breaker/open (error/kind res)))
          (is (= 3 @calls)))))))
+
+(defn- await-state
+  [config destination state]
+  (loop [n 0]
+    (let [b (SUT/breaker config destination)]
+      (cond
+       (= state (:state b))
+       true
+
+       (< n 200)
+       (do (Thread/sleep 20) (recur (inc n)))
+
+       :else
+       false))))
+
+(deftest probe-test
+  (with-test-system
+   [sys "classpath:circuit-breaker/application-test.yml"]
+   (let [config {:record-db (system/instance sys [:fdb :record-db])
+                 :record-store (system/instance sys [:fdb :store])}
+         destination "adapter:probed"
+         answer (atom :down)
+         policy (assoc policy :cool-down-ms 200 :max-cool-down-ms 400)
+         {:keys [stop]} (SUT/start-probe
+                         config
+                         policy
+                         destination
+                         {:probe (fn [] @answer)
+                          :outcome-of (fn [res]
+                                        (if (= :down res) :failed :answered))
+                          :interval-ms (constantly 20)})]
+     (try (testing "a destination that does not answer its probe opens"
+            (is (await-state config destination "open")))
+          (testing
+            "once it answers, the next probe past the cool-down closes it"
+            (reset! answer :up)
+            (is (await-state config destination "closed")))
+          (finally (stop))))))

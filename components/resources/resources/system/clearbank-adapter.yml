@@ -19,6 +19,13 @@ registrar: !system/component
     test: !system/ref clearbank-adapter-server.http-url
     default: !env CLEARBANK_ADAPTER_PUBLIC_URL
   readiness: !system/ref clearbank-adapter.readiness
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  delivery-policy: !include system/payment-delivery-policy.yml
+  # How often the provider is asked for the adapter's subscriptions: until
+  # it holds them all, and once it does.
+  retry-ms: 5000
+  check-ms: 30000
   webhooks:
     - type: TransactionSettled
       path: /webhooks/transaction-settled

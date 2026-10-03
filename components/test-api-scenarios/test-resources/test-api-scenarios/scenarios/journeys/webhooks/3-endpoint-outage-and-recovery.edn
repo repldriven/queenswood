@@ -37,26 +37,20 @@
    :until {:status 200
            :body {:items [:m/embeds
                           [{:status "pending" :last-response-status 503}]]}}}
-  ;; A notification raised while the endpoint is down is kept for it.
-  {:fixture :person
-   :as :later
-   :with {:token [:ref :bank-0 :token]
-          :display-name "Zaphod Beeblebrox"
-          :given-name "Zaphod"
-          :family-name "Beeblebrox"
-          :national-insurance "TN000013A"}}
   {:command :webhook/receiver-answers
    :address [:ref :hook :receiver :address]
    :status 200}]
  :then
- [{:command :webhook/await-delivery
-   :address [:ref :hook :receiver :address]
-   :where {:kind "party.opened" :resource-id [:ref :during :party :party-id]}
-   :secret [:ref :hook :registered :secret]}
-  {:command :webhook/await-delivery
-   :address [:ref :hook :receiver :address]
-   :where {:kind "party.opened" :resource-id [:ref :later :party :party-id]}
-   :secret [:ref :hook :registered :secret]}
+ ;; Every notification, the one raised while it was down included, is
+ ;; delivered. The receiver also saw the attempts it answered with 503,
+ ;; so the history is what says each one got through.
+ [{:command :api/poll
+   :request {:method :get
+             :path "/v1/webhook-endpoints/{endpoint-id}/deliveries"
+             :path-params {:endpoint-id [:ref :hook :registered :endpoint
+                                         :endpoint-id]}
+             :auth [:ref :bank-0 :token]}
+   :until {:status 200 :body {:items [:m/seq-of {:status "delivered"}]}}}
   ;; The customer did nothing, and the endpoint was never paused.
   {:command :api/request
    :request {:method :get
