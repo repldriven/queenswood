@@ -18,6 +18,7 @@
      transactions]
 
     [com.repldriven.mono.error.interface :refer [let-nom>]]
+    [com.repldriven.mono.telemetry.interface :as telemetry]
     [com.repldriven.mono.utility.interface :as utility]))
 
 (defn- or-already-submitted
@@ -49,44 +50,60 @@
             business-day (checks/current-business-day
                           (utility/now)
                           (:business-day-cutoff config))
-            policies (policy/get-effective-policies
-                      txn
-                      {:bank-id bank-id})]
+            policies (telemetry/with-span
+                      ["payment-policies"]
+                      (policy/get-effective-policies txn {:bank-id bank-id}))]
         (let-nom>
-          [debtor-account (cash-accounts/get-account
-                           txn
-                           bank-id
-                           debtor-account-id)
-           creditor-account (cash-accounts/get-account
-                             txn
-                             bank-id
-                             creditor-account-id)
-           today-count (q/count-internal-by-org-business-day
-                        txn
-                        bank-id
-                        business-day)
+          [debtor-account (telemetry/with-span ["payment-debtor-account"]
+                                               (cash-accounts/get-account
+                                                txn
+                                                bank-id
+                                                debtor-account-id))
+           creditor-account (telemetry/with-span ["payment-creditor-account"]
+                                                 (cash-accounts/get-account
+                                                  txn
+                                                  bank-id
+                                                  creditor-account-id))
+           today-count (telemetry/with-span
+                        ["payment-daily-count"]
+                        (q/count-internal-by-org-business-day txn
+                                                              bank-id
+                                                              business-day))
            aggregates {:internal-payment
                        {#{:bank-id :business-day} today-count}}
-           payment-transaction (internal/internal-payment->transaction
-                                data
-                                debtor-account
-                                creditor-account
-                                policies
-                                aggregates)
-           checked-legs (ledger-accounts/ensure-controls
+           payment-transaction (telemetry/with-span
+                                ["payment-checks"]
+                                (internal/internal-payment->transaction
+                                 data
+                                 debtor-account
+                                 creditor-account
+                                 policies
+                                 aggregates))
+           checked-legs (telemetry/with-span ["payment-controls"]
+                                             (ledger-accounts/ensure-controls
+                                              txn
+                                              bank-id
+                                              currency
+                                              (:legs payment-transaction)))
+           transaction (telemetry/with-span
+                        ["payment-record-transaction"]
+                        (transactions/record-transaction
                          txn
-                         bank-id
-                         currency
-                         (:legs payment-transaction))
-           transaction (transactions/record-transaction
-                        txn
-                        (assoc payment-transaction :legs checked-legs))
+                         (assoc payment-transaction :legs checked-legs)))
            {:keys [transaction-id transaction-type legs]} transaction
-           _ (balances/apply-legs txn bank-id legs transaction-type)
+           _ (telemetry/with-span
+              ["payment-apply-legs"]
+              (balances/apply-legs txn
+                                   bank-id
+                                   legs
+                                   transaction-type
+                                   {:policies (policy/platform-policies
+                                               policies)}))
            payment (internal/new-internal-payment data
                                                   business-day
                                                   transaction-id)
-           _ (store/save-internal-payment txn payment)]
+           _ (telemetry/with-span ["payment-save"]
+                                  (store/save-internal-payment txn payment))]
           payment)))
     :payment/submit-internal
     "Failed to submit internal payment")
@@ -174,7 +191,12 @@
                                              checked-legs))
                     {:keys [transaction-id transaction-type legs]}
                     transaction+legs
-                    _ (balances/apply-legs txn bank-id legs transaction-type)
+                    _ (balances/apply-legs txn
+                                           bank-id
+                                           legs
+                                           transaction-type
+                                           {:policies (policy/platform-policies
+                                                       policies)})
                     payment (outbound/new-outbound-payment data
                                                            business-day
                                                            transaction-id)

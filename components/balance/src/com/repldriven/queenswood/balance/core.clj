@@ -6,7 +6,8 @@
     [com.repldriven.queenswood.balance-query.interface :as q]
     [com.repldriven.queenswood.policy.interface :as policy]
 
-    [com.repldriven.mono.error.interface :as error :refer [let-nom>]]))
+    [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
+    [com.repldriven.mono.telemetry.interface :as telemetry]))
 
 (defn- get-policies
   [txn account-id opts]
@@ -83,16 +84,22 @@
     txn
     (fn [txn]
       (let-nom>
-        [policies (get-policies txn (:account-id (first legs)) opts)
-         account-balances (load-account-balances txn bank-id legs)
+        [policies (telemetry/with-span
+                   ["balance-policies"]
+                   (get-policies txn (:account-id (first legs)) opts))
+         account-balances (telemetry/with-span
+                           ["balance-load"]
+                           (load-account-balances txn bank-id legs))
          changed (domain/apply-legs bank-id
                                     account-balances
                                     legs
                                     transaction-type
                                     policies)]
-        (reduce (fn [_ balance]
-                  (let [result (store/save-balance txn balance)]
-                    (when (error/anomaly? result)
-                      (reduced result))))
-                nil
-                changed))))))
+        (telemetry/with-span ["balance-save"]
+                             (reduce (fn [_ balance]
+                                       (let [result
+                                             (store/save-balance txn balance)]
+                                         (when (error/anomaly? result)
+                                           (reduced result))))
+                                     nil
+                                     changed)))))))

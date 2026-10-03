@@ -336,14 +336,18 @@ payment costs, ranked by its effect on the serial command path, which is
    transaction slows from about 33 ms to 55 ms at its slowest, a queue
    forms that takes 30 seconds to drain: the worst minute averaged
    270 ms.
-2. **The payment's transaction.** 14.2 ms p50, and with the sends gone
-   nearly all of the serial path. Its span is `:payment/submit-internal`,
-   and the outbound one's `:payment/submit-outbound`, rather than the
-   generic `:fdb/transact`, but the steps inside it carry no spans of
-   their own, so splitting the time needs one around each. Inside it the
-   policies are read twice, in `payment` and again in `balance`'s
-   `apply-legs`. The 2100 control balance is no longer read or written:
-   see ceiling 4.
+2. **The payment's transaction.** A span around each step inside
+   `:payment/submit-internal` splits its 18.7 ms: the bank's effective
+   policies 4.9 ms, every platform policy among them read through the
+   `Policy_by_label` index and decoded; `apply-legs` 3.3 ms, of which a
+   second read of the platform tier was 0.8 ms; recording the
+   transaction, its legs and its activity entry 3.1 ms; the control
+   check 1.6 ms; the debtor account 1.3 ms; the daily count 1.2 ms; the
+   rest under 0.6 ms each and the commit about 2 ms. The payment now
+   passes the platform policies it holds to `apply-legs`, through
+   `policy/platform-policies`, so the transaction takes 16.7 ms and a
+   command 17.4 ms rather than 19.6. The platform tier changes only when
+   bootstrap writes it, which makes it the next cut.
 3. **The relays' sends.** `exclusive-dispatchers-service` sends three
    messages per payment, one at a time, 16.6 ms of a runner's time, so
    one runner tops out at about 180 messages a second. A pass's sends
