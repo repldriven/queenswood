@@ -4,7 +4,7 @@
 
     [com.repldriven.mono.error.interface :refer [let-nom>]]
     [com.repldriven.mono.telemetry.interface :as telemetry]
-    [com.repldriven.mono.utility.interface :refer [assoc-some]]))
+    [com.repldriven.mono.utility.interface :as utility :refer [assoc-some]]))
 
 (def transact fdb/transact)
 
@@ -104,5 +104,9 @@
                  intent-id
                  status
                  (fn [i]
-                   (assoc-some (assoc i :status outcome) :attempts attempts))
+                   (cond-> (assoc-some (assoc i :status outcome)
+                                       :attempts
+                                       attempts)
+                           (= "sent" outcome)
+                           (assoc :sent-at (utility/now))))
                  event))

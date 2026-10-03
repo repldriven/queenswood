@@ -95,6 +95,21 @@
   [config status]
   (core/intents-with-status config status))
 
+(defn finish
+  "Move an intent still at `status` to `outcome`, with `attempts` where
+  given, writing `event` in the same transaction where given. An intent
+  that has moved on is returned unchanged with nothing written. A `sent`
+  outcome records when it was sent.
+
+  Args:
+  - txn: an open FDB transaction or `{:record-db :record-store}` config.
+  - spec: the store spec.
+  - intent-id, status, outcome: the intent and the move.
+  - attempts: the attempt count, or nil to leave it.
+  - event: an outbox event, or nil."
+  [txn spec intent-id status outcome attempts event]
+  (store/finish txn spec intent-id status outcome attempts event))
+
 ;; ---------------------------------------------------------------------------
 ;; Poller
 
