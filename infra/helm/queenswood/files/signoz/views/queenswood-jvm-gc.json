@@ -1,0 +1,38 @@
+{
+  "name": "queenswood-jvm-gc",
+  "schemaVersion": "v2",
+  "source": "metrics",
+  "spec": {
+    "displayName": "JVM time in garbage collection",
+    "panelType": "graph",
+    "requestType": "time_series",
+    "queries": [
+      {
+        "type": "builder_query",
+        "spec": {
+          "name": "A",
+          "signal": "metrics",
+          "stepInterval": 60,
+          "aggregations": [
+            {
+              "metricName": "jvm.gc.duration.sum",
+              "timeAggregation": "rate",
+              "spaceAggregation": "sum"
+            }
+          ],
+          "filter": {
+            "expression": ""
+          },
+          "groupBy": [
+            {
+              "name": "service.name",
+              "fieldContext": "attribute",
+              "fieldDataType": "string"
+            }
+          ],
+          "legend": "{{service.name}}"
+        }
+      }
+    ]
+  }
+}

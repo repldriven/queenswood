@@ -1,0 +1,668 @@
+{
+  "name": "queenswood-jvm",
+  "schemaVersion": "v6",
+  "tags": [
+    {
+      "key": "team",
+      "value": "queenswood"
+    }
+  ],
+  "spec": {
+    "display": {
+      "name": "Queenswood JVMs",
+      "description": "Each service's JVM, from the runtime metrics mono's telemetry SDK exports: garbage collection, heap, CPU and threads, to set against a slow stage in a trace."
+    },
+    "variables": [
+      {
+        "kind": "ListVariable",
+        "spec": {
+          "name": "service",
+          "display": {
+            "name": "service",
+            "description": "The services this dashboard reads"
+          },
+          "allowAllValue": true,
+          "allowMultiple": true,
+          "sort": "alphabetical-asc",
+          "plugin": {
+            "kind": "signoz/DynamicVariable",
+            "spec": {
+              "name": "service.name",
+              "signal": "traces"
+            }
+          }
+        }
+      }
+    ],
+    "layouts": [
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "GC",
+            "collapse": {
+              "open": true
+            }
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 6,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/411911a7-b843-5d49-9fc4-ee7bbe6142a5"
+              }
+            },
+            {
+              "x": 6,
+              "y": 0,
+              "width": 6,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/9f76fa14-8b97-55e2-b8ca-c4b860ecd8c3"
+              }
+            },
+            {
+              "x": 0,
+              "y": 8,
+              "width": 6,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/a608dffb-3bb2-5d26-b609-019b82e38fd2"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "Memory",
+            "collapse": {
+              "open": true
+            }
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 6,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/525360db-71eb-5623-aa83-598b6d7ba90c"
+              }
+            },
+            {
+              "x": 6,
+              "y": 0,
+              "width": 6,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/9e67afe2-1763-5401-adab-ee9301764248"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "CPU and threads",
+            "collapse": {
+              "open": true
+            }
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 6,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/a3c7667a-3442-5e6f-ac7b-494262c3d63b"
+              }
+            },
+            {
+              "x": 6,
+              "y": 0,
+              "width": 6,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/fae502eb-c0be-5fc1-b264-3570900e4421"
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "panels": {
+      "411911a7-b843-5d49-9fc4-ee7bbe6142a5": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Time in garbage collection",
+            "description": "Seconds a second each service spends collecting, 1 being all of it. A collector that stops every thread -- Serial, on a one-CPU service -- stalls every request for this long"
+          },
+          "links": [],
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "global_time",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "percentunit",
+                "decimalPrecision": "2"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none"
+              },
+              "axes": {
+                "softMin": 0,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list"
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "name": "A",
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "metrics",
+                    "stepInterval": 60,
+                    "aggregations": [
+                      {
+                        "metricName": "jvm.gc.duration.sum",
+                        "timeAggregation": "rate",
+                        "spaceAggregation": "sum"
+                      }
+                    ],
+                    "filter": {
+                      "expression": "service.name IN $service"
+                    },
+                    "having": {
+                      "expression": ""
+                    },
+                    "legend": "{{service.name}}",
+                    "groupBy": [
+                      {
+                        "name": "service.name",
+                        "fieldContext": "attribute",
+                        "fieldDataType": "string"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "9f76fa14-8b97-55e2-b8ca-c4b860ecd8c3": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Collections a second, by collector",
+            "description": "Young collections are routine; a rising rate of full or concurrent ones is the heap running short"
+          },
+          "links": [],
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "global_time",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "reqps",
+                "decimalPrecision": "2"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none"
+              },
+              "axes": {
+                "softMin": 0,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list"
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "name": "A",
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "metrics",
+                    "stepInterval": 60,
+                    "aggregations": [
+                      {
+                        "metricName": "jvm.gc.duration.count",
+                        "timeAggregation": "rate",
+                        "spaceAggregation": "sum"
+                      }
+                    ],
+                    "filter": {
+                      "expression": "service.name IN $service"
+                    },
+                    "having": {
+                      "expression": ""
+                    },
+                    "legend": "{{service.name}} {{jvm.gc.name}}",
+                    "groupBy": [
+                      {
+                        "name": "service.name",
+                        "fieldContext": "attribute",
+                        "fieldDataType": "string"
+                      },
+                      {
+                        "name": "jvm.gc.name",
+                        "fieldContext": "attribute",
+                        "fieldDataType": "string"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "a608dffb-3bb2-5d26-b609-019b82e38fd2": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Longest collection",
+            "description": "The longest single collection each service reported in the minute"
+          },
+          "links": [],
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "global_time",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "s",
+                "decimalPrecision": "2"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none"
+              },
+              "axes": {
+                "softMin": 0,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list"
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "name": "A",
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "metrics",
+                    "stepInterval": 60,
+                    "aggregations": [
+                      {
+                        "metricName": "jvm.gc.duration.max",
+                        "timeAggregation": "max",
+                        "spaceAggregation": "max"
+                      }
+                    ],
+                    "filter": {
+                      "expression": "service.name IN $service"
+                    },
+                    "having": {
+                      "expression": ""
+                    },
+                    "legend": "{{service.name}}",
+                    "groupBy": [
+                      {
+                        "name": "service.name",
+                        "fieldContext": "attribute",
+                        "fieldDataType": "string"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "525360db-71eb-5623-aa83-598b6d7ba90c": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Heap in use",
+            "description": "Heap each service holds, live and garbage alike"
+          },
+          "links": [],
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "global_time",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "bytes",
+                "decimalPrecision": "2"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none"
+              },
+              "axes": {
+                "softMin": 0,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list"
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "name": "A",
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "metrics",
+                    "stepInterval": 60,
+                    "aggregations": [
+                      {
+                        "metricName": "jvm.memory.used",
+                        "timeAggregation": "avg",
+                        "spaceAggregation": "sum"
+                      }
+                    ],
+                    "filter": {
+                      "expression": "service.name IN $service AND jvm.memory.type = 'heap'"
+                    },
+                    "having": {
+                      "expression": ""
+                    },
+                    "legend": "{{service.name}}",
+                    "groupBy": [
+                      {
+                        "name": "service.name",
+                        "fieldContext": "attribute",
+                        "fieldDataType": "string"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "9e67afe2-1763-5401-adab-ee9301764248": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Heap after the last collection",
+            "description": "What survived each service's last collection. A line that only climbs is state the service keeps: a cache, a simulator's ledger, a leak"
+          },
+          "links": [],
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "global_time",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "bytes",
+                "decimalPrecision": "2"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none"
+              },
+              "axes": {
+                "softMin": 0,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list"
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "name": "A",
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "metrics",
+                    "stepInterval": 60,
+                    "aggregations": [
+                      {
+                        "metricName": "jvm.memory.used_after_last_gc",
+                        "timeAggregation": "avg",
+                        "spaceAggregation": "sum"
+                      }
+                    ],
+                    "filter": {
+                      "expression": "service.name IN $service AND jvm.memory.type = 'heap'"
+                    },
+                    "having": {
+                      "expression": ""
+                    },
+                    "legend": "{{service.name}}",
+                    "groupBy": [
+                      {
+                        "name": "service.name",
+                        "fieldContext": "attribute",
+                        "fieldDataType": "string"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "a3c7667a-3442-5e6f-ac7b-494262c3d63b": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "CPU",
+            "description": "Each service's recent CPU use, 1 being every CPU it is allowed"
+          },
+          "links": [],
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "global_time",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "percentunit",
+                "decimalPrecision": "2"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none"
+              },
+              "axes": {
+                "softMin": 0,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list"
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "name": "A",
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "metrics",
+                    "stepInterval": 60,
+                    "aggregations": [
+                      {
+                        "metricName": "jvm.cpu.recent_utilization",
+                        "timeAggregation": "avg",
+                        "spaceAggregation": "avg"
+                      }
+                    ],
+                    "filter": {
+                      "expression": "service.name IN $service"
+                    },
+                    "having": {
+                      "expression": ""
+                    },
+                    "legend": "{{service.name}}",
+                    "groupBy": [
+                      {
+                        "name": "service.name",
+                        "fieldContext": "attribute",
+                        "fieldDataType": "string"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "fae502eb-c0be-5fc1-b264-3570900e4421": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Threads",
+            "description": "Live threads in each service"
+          },
+          "links": [],
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "global_time",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "short",
+                "decimalPrecision": "2"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none"
+              },
+              "axes": {
+                "softMin": 0,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list"
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "name": "A",
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "metrics",
+                    "stepInterval": 60,
+                    "aggregations": [
+                      {
+                        "metricName": "jvm.thread.count",
+                        "timeAggregation": "avg",
+                        "spaceAggregation": "sum"
+                      }
+                    ],
+                    "filter": {
+                      "expression": "service.name IN $service"
+                    },
+                    "having": {
+                      "expression": ""
+                    },
+                    "legend": "{{service.name}}",
+                    "groupBy": [
+                      {
+                        "name": "service.name",
+                        "fieldContext": "attribute",
+                        "fieldDataType": "string"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "links": []
+  }
+}

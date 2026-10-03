@@ -352,12 +352,15 @@ postgres:
 
 otel:
   endpoint: ""
+  # Where every service's JVM metrics go over OTLP/HTTP: the in-chart
+  # SigNoz collector's /v1/metrics when empty and SigNoz is enabled.
+  metricsEndpoint: ""
 
 # ---------------------------------------------------------------------
-# SigNoz, where every service's traces go: its collector takes OTLP/HTTP
-# on 4318, ClickHouse keeps the spans on a volume, and its UI serves on
-# 8080, forwarded to 3301 since the API holds 8080. Setting otel.endpoint
-# sends the traces elsewhere instead.
+# SigNoz, where every service's traces and JVM metrics go: its collector
+# takes OTLP/HTTP on 4318, ClickHouse keeps them on a volume, and its UI
+# serves on 8080, forwarded to 3301 since the API holds 8080. Setting
+# otel.endpoint or otel.metricsEndpoint sends them elsewhere instead.
 signoz:
   enabled: true
   # SigNoz's root user. Its collector takes no OTLP until an organisation

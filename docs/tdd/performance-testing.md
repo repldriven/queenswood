@@ -102,10 +102,11 @@ against a provider's own sandbox.
   The API's command replies arrive on a one-partition topic under a fixed
   consumer group, so a second `api-service` replica would not see the
   replies to its own requests.
-- **Traces go to SigNoz in the cluster.** Every service exports traces
-  over OTLP to the SigNoz the chart installs, as
-  [ADR-0031](../adr/0031-traces-go-to-signoz-in-the-cluster-that-produces-them.md)
-  decides.
+- **Traces and JVM metrics go to SigNoz in the cluster.** Every service
+  exports its traces and its JVM's runtime metrics over OTLP to the
+  SigNoz the chart installs, as
+  [ADR-0035](../adr/0035-traces-and-jvm-metrics-go-to-signoz-in-the-cluster-that-produces-them.md)
+  decides, and `queenswood-jvm` sets them side by side per service.
 - **The kind loop installs the deployed chart.** `just kind-up` installs
   [values-dev.yaml](/infra/helm/queenswood/values-dev.yaml) and
   [values-local.yaml](/infra/helm/queenswood/values-local.yaml) on kind
@@ -441,8 +442,8 @@ holds it, and the run repeated.
 - [ADR-0019](../adr/0019-processor-packaging.md) — the service groups and
   the one-replica dispatchers.
 - [ADR-0021](../adr/0021-changelog-relay.md) — the changelog relay.
-- [ADR-0031](../adr/0031-traces-go-to-signoz-in-the-cluster-that-produces-them.md)
-  — SigNoz in the cluster, where a run's traces go.
+- [ADR-0035](../adr/0035-traces-and-jvm-metrics-go-to-signoz-in-the-cluster-that-produces-them.md)
+  — SigNoz in the cluster, where a run's traces and JVM metrics go.
 - [ADR-0033](../adr/0033-operations-reach-a-provider-in-the-order-they-were-accepted.md)
   — the activity log an outbound payment travels.
 - [account-serialisation](../plan/account-serialisation.md) — the
