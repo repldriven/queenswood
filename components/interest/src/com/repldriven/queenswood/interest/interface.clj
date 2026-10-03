@@ -15,8 +15,10 @@
   - config: FDB handle plus product/balance/transaction interfaces.
   - data: map with :bank-id and :as-of-date (YYYYMMDD int).
 
-  Returns `{:bank-id :as-of-date :accounts-processed}` or
-  an anomaly."
+  Returns `{:bank-id :as-of-date :accounts-processed}`,
+  `:interest/run-incomplete` while any account failed to post, or
+  another anomaly. A second call for the date posts the failed accounts
+  and closes the run."
   [config data]
   (core/accrue-day config data))
 
@@ -30,15 +32,17 @@
   - config: FDB handle plus product/balance/transaction interfaces.
   - data: map with :bank-id and :as-of-date (YYYYMMDD int).
 
-  Returns `{:bank-id :as-of-date :accounts-processed}` or
-  an anomaly."
+  Returns `{:bank-id :as-of-date :accounts-processed}`,
+  `:interest/run-incomplete` while any account failed to post, or
+  another anomaly. A second call for the date posts the failed accounts
+  and closes the run."
   [config data]
   (core/capitalize-accrued config data))
 
 (defn run-progress
   "How far one run got: how many accounts were enumerated into scope,
-  and how many are done, failed, or still pending. Pending rows are the
-  outstanding work — re-running the pass picks them up.
+  and how many are done, failed, or still pending. Failed and pending
+  rows are the outstanding work — re-running the pass picks them up.
 
   Counts read at SNAPSHOT, so polling progress never conflicts with the
   postings it is observing.

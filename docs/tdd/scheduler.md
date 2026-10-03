@@ -1,8 +1,9 @@
 # Scheduled runs
 
 > **Status: proposal.** The scheduler, its jobs API, the four task kinds
-> and the resumable interest pass exist. The Proposed Solution is the
-> build list, and [First slice](#first-slice) says what comes first.
+> and the resumable interest pass, which closes only when complete,
+> exist. The Proposed Solution is the build list, and
+> [First slice](#first-slice) says what comes first.
 
 ## Objective
 
@@ -58,12 +59,12 @@ progress route for an interest run in flight.
   date skips what is done. The `InterestRun` record is written only at
   close, so a crashed pass does not count against the daily limit. See
   [interest](interest.md).
-- **A failed chunk is never retried.** A chunk that fails marks its
-  accounts FAILED, and a re-run skips any row that is not PENDING. The
-  pass then closes: it posts the bank's side from a sum over DONE rows
-  under a key per day and currency, writes the `InterestRun` record, and
-  reports success with `accounts-failed` set. The job records
-  `succeeded`.
+- **Interest closes only when complete.** A chunk that fails marks its
+  accounts FAILED, and the pass returns `:interest/run-incomplete`
+  without posting the bank's side or writing the `InterestRun` record.
+  A second pass for the date posts the FAILED accounts and closes. The
+  run records the task failed with `records_failed`, and its period
+  stays open for an operator to force it again.
 - **Rewards and migrations are work lists.** `reward/pay-due` pays every
   account owed a reward, and `run-due-migrations` commits every approved
   migration that is due. Neither owes anything per date, so the next run
@@ -85,8 +86,7 @@ declares `:catch-up`:
 A job owes every slot it missed where any of its tasks is
 `:every-slot`, and only the newest otherwise.
 
-A task's contract, which all four meet once the interest change below
-lands:
+A task's contract, which all four meet:
 
 - Running a task twice for one bank and as-of date posts once.
 - A task returns an anomaly while any of its work is outstanding, so the
@@ -156,26 +156,6 @@ then `failed`, leaving an operator to force it again.
 different banks at once. A bank runs one at a time, oldest `due_at`
 first, so a caught-up accrual day posts before the next.
 
-### Interest closes only when complete
-
-In
-[scan.clj](/components/interest/src/com/repldriven/queenswood/interest/scan.clj),
-`post-account` skips only a DONE row, so a FAILED account is retried
-on the next pass for the same date.
-
-In
-[core.clj](/components/interest/src/com/repldriven/queenswood/interest/core.clj),
-`run-interest` posts the bank's side and writes the `InterestRun`
-record only when the tally has no failures. Otherwise it returns
-`:interest/run-incomplete`, an `error/fail` carrying the done and
-failed counts, and the scheduler records the task failed with
-`records_failed` and queues the run again.
-
-The bank's side is posted under a key per day and currency, and a
-second post with that key returns the first outcome. Closing only when
-every account is DONE keeps accounts completed on a retry out of a sum
-that has already been posted.
-
 ### Force-start over the API
 
 In
@@ -196,18 +176,11 @@ which it already polls for the job's badge.
 
 ### First slice
 
-Interest closes only when complete, and retries FAILED accounts. It
-touches only the interest brick and needs no schema change, and it
-stops the one loss that happens silently today. The run schema, the
-sweep and the executor follow as one change, and the API's 202 last,
-since it needs the executor to run what it queues.
+The run schema, the sweep and the executor, as one change, then the
+API's 202, since it needs the executor to run what it queues.
 
 ### Tests
 
-- **interest** — a pass whose chunk fails returns
-  `:interest/run-incomplete` and writes no `InterestRun`. A second
-  pass for the date posts the failed accounts, closes, and posts the
-  bank's side once, covering every account.
 - **scheduler** — the sweep enqueues one run per missed slot for an
   `:every-slot` job and one for a `:latest` job, and the same sweep
   twice enqueues nothing new. A claim conflicts with a concurrent
@@ -216,7 +189,8 @@ since it needs the executor to run what it queues.
   failing `max-attempts` times is `failed`.
 - **test-scenarios** — `:force-start-job` enqueues and drains the
   queue, and the model-equality property test runs a crash between
-  chunks followed by a resumed run.
+  chunks followed by a resumed run, and a failed chunk followed by a
+  pass that posts it, closes, and posts the bank's side once.
 - **test-api-scenarios** — the rig includes `system/scheduler.yml`, the
   scenarios that force a job poll for the run to finish, and `jobs/`
   covers the 202, a past `as-of-date`, and the 409 and 422 refusals.

@@ -159,7 +159,17 @@
                                                 {:message "no such account"}))]
         (is (= :scheduler-task-status-failed (:status task)))
         (is (= 1600 (:finished-at task)))
-        (is (string? (:error task)))))))
+        (is (string? (:error task)))
+        (is (not (contains? task :records-failed)))))
+    (testing "an incomplete pass records the counts it carries"
+      (let [task (SUT/failed-task started
+                                  1600
+                                  (error/fail :interest/run-incomplete
+                                              {:message "accounts failed"
+                                               :accounts-processed 5
+                                               :accounts-failed 4}))]
+        (is (= 5 (:records-processed task)))
+        (is (= 4 (:records-failed task)))))))
 
 (deftest skipped-tasks-test
   (testing "tasks after a failure are recorded as skipped, in order"

@@ -111,7 +111,8 @@ graph LR
 A run for one bank commits a transaction per chunk rather than
 per account. A failure loses the chunk in flight, whose
 accounts are marked FAILED so the pass can continue; work
-already committed stays committed.
+already committed stays committed, and the run does not close
+until a later pass posts the failed accounts.
 
 ### Balance-type vocabulary
 
@@ -353,7 +354,9 @@ with a volume attached, not a tuning knob.
    type and fall out here.
 4. Accumulate a chunk and post it in one transaction, marking
    a failing chunk's accounts FAILED and continuing.
-5. Post the bank's side per group, then write the run record
+5. Return `:interest/run-incomplete`, with the processed and
+   failed counts, where any account failed.
+6. Post the bank's side per group, then write the run record
    closed.
 
 Re-running a date is safe, by different means on each side.
@@ -379,14 +382,19 @@ record that it was processed.
 Across chunks the run is **resumable but not atomic**. A crash
 mid-run leaves earlier chunks committed and later ones
 untouched. Re-running the date streams every account again and
-skips the ones whose row is already done, which is what makes
-a re-run safe. No row is written ahead of the work: an account
-is either done, and a re-run skips it, or it is not, and a
-re-run redoes it — a row recording that the pass intended to
-reach it would distinguish neither.
+skips the ones whose row is already done, posting the ones left
+pending or FAILED, which is what makes a re-run safe. No row is
+written ahead of the work: an account is either done, and a
+re-run skips it, or it is not, and a re-run redoes it — a row
+recording that the pass intended to reach it would distinguish
+neither.
 
 A failing chunk marks all of its accounts FAILED and the pass
-continues. It does not try to isolate the one account that
+continues, then ends incomplete: the bank's side is posted from
+a sum over DONE rows, so it waits until every account is done,
+and no run record is written, so the daily-count limit does not
+block the pass that finishes it. It does not try to isolate the
+one account that
 raised, because accrual reads nothing and writes a row only it
 writes — so a failure is a database that is unwell, or a
 product whose accounts all fail alike, rather than one unlucky

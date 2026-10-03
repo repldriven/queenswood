@@ -49,6 +49,6 @@
          :failure-reason (str reason)
          :updated-at (utility/now)))
 
-(defn pending?
+(defn done?
   [account-run]
-  (= :interest-account-run-state-pending (:state account-run)))
+  (= :interest-account-run-state-done (:state account-run)))
