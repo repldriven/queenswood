@@ -25,7 +25,6 @@
     (java.net URLEncoder)
     (java.nio.charset StandardCharsets)))
 
-(def ^:private default-max-attempts 10)
 
 (defn- classify
   "Turn a provider response into itself or the anomaly that names what
@@ -249,8 +248,7 @@
   (assoc config
          :adapter :zyphe
          :store store/spec
-         :default-operation "check"
-         :max-attempts (or (:max-attempts config) default-max-attempts)))
+         :default-operation "check"))
 
 (defn drain-once
   "Relay each pending intent once, oldest first, holding one for a

@@ -15,6 +15,7 @@
  :deps {ext/mono {:local/root "../../deps/mono"}
         component/bank-activity {:local/root "../../components/bank-activity"}
         component/changelog-relay {:local/root "../../components/changelog-relay"}
+        component/circuit-breaker {:local/root "../../components/circuit-breaker"}
         component/fdb {:local/root "../../components/fdb"}
         component/api-schema {:local/root "../../components/api-schema"}
         component/balance {:local/root "../../components/balance"}

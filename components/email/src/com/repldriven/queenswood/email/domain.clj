@@ -1,5 +1,7 @@
 (ns com.repldriven.queenswood.email.domain
   (:require
+    [com.repldriven.queenswood.circuit-breaker.interface :as circuit-breaker]
+
     [com.repldriven.mono.utility.interface :as utility]))
 
 (def ^:private pending :email-delivery-status-pending)
@@ -8,66 +10,6 @@
 (def ^:private failed :email-delivery-status-failed)
 
 (def ^:private invitation-pending :invitation-status-pending)
-
-(def
-  ^{:doc
-    "The delay before the first retry, so a mail server that was
-  restarting is tried again within the minute."}
-  retry-base-ms
-  30000)
-
-(def ^{:doc "How much each retry delay grows on the one before it."}
-     retry-growth
-  4)
-
-(def ^{:doc "The longest a retry delay grows to."} retry-max-interval-ms
-  14400000)
-
-(def
-  ^{:doc
-    "How long the schedule may span before a delivery is given up on,
-  roughly a day."}
-  retry-span-ms
-  86400000)
-
-(def
-  ^{:doc
-    "The delay before each retry, in order. Geometric from
-  `retry-base-ms` by `retry-growth` until it would pass
-  `retry-max-interval-ms`, then that interval, for as many retries as
-  fit inside `retry-span-ms`. A delivery makes one more attempt than
-  this has entries."}
-  retry-schedule-ms
-  (loop [delays []
-         delay retry-base-ms
-         span 0]
-    (let [delay (min delay retry-max-interval-ms)
-          span' (+ span delay)]
-      (if (> span' retry-span-ms)
-        delays
-        (recur (conj delays delay) (* delay retry-growth) span')))))
-
-(def
-  ^{:doc
-    "How many attempts a delivery makes before it is failed and kept:
-  the first, and one per entry in the schedule."}
-  max-attempts
-  (inc (count retry-schedule-ms)))
-
-(def
-  ^{:doc
-    "How long a runner's claim on a delivery holds. It outlasts the
-  command's reply timeout and the mail server's connection and read
-  timeouts together, and a claim whose lease has passed is taken again
-  by the next pass."}
-  claim-lease-ms
-  60000)
-
-(defn retry-schedule
-  "The delay before the attempt after `attempts`, or nil when the
-  schedule is spent."
-  [attempts]
-  (get retry-schedule-ms (dec (max 1 (or attempts 0)))))
 
 (defn new-invitation-delivery
   "A pending delivery of the email for an invitation event, due now.
@@ -121,14 +63,19 @@
 
 (defn record-failure
   "The delivery as a failed attempt leaves it: the attempt counted and
-  the next taken from the schedule, or failed once the schedule is
-  spent. The claim is released either way."
-  [delivery error now]
+  the next due after `retry-policy`'s backoff, or failed once it has
+  made its `:max-attempts` or is older than its `:max-age-ms`. The claim
+  is released either way."
+  [delivery retry-policy error now]
   (let [attempts (inc (or (:attempts delivery) 0))
-        delay (retry-schedule attempts)
+        age-ms (some->> (:created-at delivery)
+                        (- now))
         base (-> (settled delivery now)
                  (assoc :attempts attempts)
                  (utility/assoc-some :last-error error))]
-    (if (nil? delay)
+    (if (circuit-breaker/give-up? retry-policy attempts age-ms)
       (assoc base :status failed)
-      (assoc base :status pending :next-attempt-at (+ now delay)))))
+      (assoc base
+             :status pending
+             :next-attempt-at
+             (+ now (circuit-breaker/backoff-ms retry-policy attempts))))))

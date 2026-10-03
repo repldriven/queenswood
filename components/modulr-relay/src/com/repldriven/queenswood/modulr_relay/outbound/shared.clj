@@ -10,11 +10,9 @@
 
     [clojure.edn :as edn]))
 
-(def ^:private default-reconcile-after-ms 300000)
-
 (defn reconcile-at
   [config now]
-  (+ now (or (:reconcile-after-ms config) default-reconcile-after-ms)))
+  (+ now (:reconcile-after-ms config)))
 
 (defn context
   [intent]

@@ -1,5 +1,6 @@
 (ns com.repldriven.queenswood.form3-adapter.cop.handlers
   (:require
+    [com.repldriven.queenswood.circuit-breaker.interface :as circuit-breaker]
     [com.repldriven.queenswood.form3-relay.interface :as relay]
 
     [com.repldriven.mono.log.interface :as log]
@@ -39,6 +40,11 @@
           :reason
           (str "Confirmation of Payee unavailable: " reason_code))))
 
+(defn- outcome
+  "Whether Form3 answered, a refusal included."
+  [res]
+  (if (= :retry (first (relay/classify res))) :failed :answered))
+
 (defn outbound-cop
   [request]
   (let [{:keys [parameters]} request
@@ -46,22 +52,28 @@
         {:keys [sort-code account-number]} account
         [outcome body]
         (relay/classify
-         (relay/request
-          (select-keys request [:form3-url :credentials])
-          {:method :post
-           :path "/v1/organisation/nameverifications"
-           :body {:data {:id (str (utility/uuidv7))
-                         :type "name_verifications"
-                         :attributes {:account_number account-number
-                                      :account_number_code "BBAN"
-                                      :bank_id sort-code
-                                      :bank_id_code "GBDSC"
-                                      :name [creditor-name]
-                                      :account_classification
-                                      (if (= :account-type-business
-                                             account-type)
-                                        "business"
-                                        "personal")}}}}))]
+         (circuit-breaker/guard
+          (select-keys request [:record-db :record-store])
+          (get-in request [:delivery-policy :breaker])
+          "adapter:form3"
+          outcome
+          (fn []
+            (relay/request
+             (select-keys request [:form3-url :credentials])
+             {:method :post
+              :path "/v1/organisation/nameverifications"
+              :body {:data {:id (str (utility/uuidv7))
+                            :type "name_verifications"
+                            :attributes {:account_number account-number
+                                         :account_number_code "BBAN"
+                                         :bank_id sort-code
+                                         :bank_id_code "GBDSC"
+                                         :name [creditor-name]
+                                         :account_classification
+                                         (if (= :account-type-business
+                                                account-type)
+                                           "business"
+                                           "personal")}}}}))))]
     (log/info "Outbound CoP check" {:creditor-name creditor-name})
     {:status 200
      :body (if (= :ok outcome)

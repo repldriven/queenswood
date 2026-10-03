@@ -4,6 +4,8 @@
   Anomalies stay in the vendor-neutral `:company/*` namespace — they
   surface as the API's RFC 9457 `type`, which must not name a provider."
   (:require
+    [com.repldriven.queenswood.circuit-breaker.interface :as circuit-breaker]
+
     [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.http-client.interface :as http]
     [com.repldriven.mono.utility.interface :refer [assoc-some]]))
@@ -65,17 +67,36 @@
                     :cause body})
        body))))
 
+(def ^:private destination "adapter:uk-companies-house")
+
+(defn- outcome
+  "Whether Companies House answered: an unreachable registry, a 5xx and
+  a 429 did not."
+  [res]
+  (let [{:keys [status]} res]
+    (if (or (error/anomaly? res) (>= status 500) (= 429 status))
+      :failed
+      :answered)))
+
 (defn fetch-company
-  "GET `{companies-house-url}/company/{company-number}`. Returns the
-  parsed JSON body as a Clojure map (snake_case keys, per the
-  Companies House contract) or an anomaly."
-  [{:keys [companies-house-url]} company-number]
-  (classify company-number
-            (http/request {:method :get
-                           :url (str companies-house-url
-                                     "/company/"
-                                     company-number)
-                           :headers {"Accept" "application/json"}})))
+  "GET `{companies-house-url}/company/{company-number}`, through the
+  breaker on Companies House. Returns the parsed JSON body as a Clojure
+  map (snake_case keys, per the Companies House contract) or an
+  anomaly, `:company/unavailable` at once while the breaker is open."
+  [config company-number]
+  (let [{:keys [companies-house-url breaker]} config]
+    (classify company-number
+              (circuit-breaker/guard
+               (select-keys config [:record-db :record-store])
+               breaker
+               destination
+               outcome
+               (fn []
+                 (http/request {:method :get
+                                :url (str companies-house-url
+                                          "/company/"
+                                          company-number)
+                                :headers {"Accept" "application/json"}}))))))
 
 (defn- address->record
   [{:keys [address_line_1 locality postal_code country]}]

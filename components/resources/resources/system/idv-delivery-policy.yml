@@ -1,0 +1,17 @@
+# How an identity verification provider's adapter retries a check, when
+# it gives one up, and when its breaker opens (ADR-0034).
+default:
+  initial-backoff-ms: 1000
+  backoff-growth: 2
+  max-backoff-ms: 60000
+  max-attempts: 10
+  max-age-ms: 3600000
+breaker:
+  failure-threshold: 5
+  cool-down-ms: !profile
+    test: 500
+    default: 30000
+  max-cool-down-ms: !profile
+    test: 2000
+    default: 600000
+  probe-lease-ms: 30000

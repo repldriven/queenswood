@@ -39,9 +39,15 @@
    :schemas (system/instance sys [:avro :serde])
    :form3-url "http://form3.invalid"
    :sort-code "040075"
-   :max-attempts 3
-   :initial-backoff-ms 1000
-   :max-backoff-ms 60000
+   :delivery-policy {:default {:initial-backoff-ms 1000
+                               :backoff-growth 2
+                               :max-backoff-ms 60000
+                               :max-attempts 3
+                               :max-age-ms 86400000}
+                     :breaker {:failure-threshold 1000
+                               :cool-down-ms 1000
+                               :max-cool-down-ms 1000
+                               :probe-lease-ms 1000}}
    :reconcile-after-ms 60000
    :post-fn post-fn})
 

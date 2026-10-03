@@ -22,6 +22,8 @@
 
 (def ^:private config-file "classpath:email/application-test.yml")
 
+(def ^:private lease-ms 60000)
+
 (defn- fdb-config
   [sys]
   {:record-db (system/instance sys [:fdb :record-db])
@@ -70,8 +72,7 @@
                  claimed (SUT/claim-due-deliveries config
                                                    {:now (utility/now)
                                                     :claimed-by "runner-a"
-                                                    :lease-ms
-                                                    domain/claim-lease-ms
+                                                    :lease-ms lease-ms
                                                     :limit 16})
                  _ (testing "and a redelivered event writes no second"
                      (is (= [(:delivery-id written)]
@@ -95,8 +96,7 @@
                                                    :expires-at 1790000000000}
                                                   (str (utility/uuidv7))
                                                   now)
-         opts
-         {:claimed-by "runner-a" :lease-ms domain/claim-lease-ms :limit 16}]
+         opts {:claimed-by "runner-a" :lease-ms lease-ms :limit 16}]
      (nom-test> [_ (SUT/save-delivery
                     config
                     (assoc delivery :next-attempt-at (+ now 60000)))
@@ -111,8 +111,7 @@
                      (is (= 1 (count first-claim)))
                      (is (= {:status :email-delivery-status-in-flight
                              :claimed-by "runner-a"
-                             :claim-lease-expires-at (+ now
-                                                        domain/claim-lease-ms)}
+                             :claim-lease-expires-at (+ now lease-ms)}
                             (select-keys (first first-claim)
                                          [:status :claimed-by
                                           :claim-lease-expires-at]))))
@@ -122,10 +121,9 @@
                  _ (testing
                      "a second runner takes nothing while the lease holds"
                      (is (empty? live)))
-                 passed (SUT/claim-due-deliveries
-                         config
-                         (assoc opts
-                                :now (+ now domain/claim-lease-ms)
-                                :claimed-by "runner-b"))
+                 passed
+                 (SUT/claim-due-deliveries
+                  config
+                  (assoc opts :now (+ now lease-ms) :claimed-by "runner-b"))
                  _ (testing "and takes the delivery once the lease has passed"
                      (is (= ["runner-b"] (mapv :claimed-by passed))))]))))

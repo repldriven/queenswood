@@ -129,7 +129,7 @@ would otherwise only discover by reading the record again.
   accounts completed.
 - **Organisation** — the organisation moved to another tier, or between test and
   live.
-- **Webhooks** — an endpoint paused by the platform, delivered to the
+- **Webhooks** — an endpoint paused by an operator, delivered to the
   customer's other enabled endpoints.
 
 Changes the customer makes itself — freezing an account, closing a party
@@ -167,12 +167,13 @@ An unacknowledged delivery is retried with growing gaps — seconds, then
 minutes, then hours — over a bounded window. A delivery that exhausts
 its window is marked failed and kept.
 
-When an endpoint has failed every delivery for a sustained period, the
-platform pauses it: attempts stop, notifications for it go on being
-recorded, and the pause is itself told to the customer's other endpoints
-and shown in the console. The customer re-enables the endpoint once it
-is fixed, and chooses whether the notifications recorded during the
-pause are sent.
+When an endpoint fails several deliveries in a row, the platform stops
+calling it for a while, then tries one delivery. If that one is
+acknowledged, the rest follow; if not, the platform waits longer before
+trying again. While it waits, notifications for the endpoint go on
+being recorded and no delivery spends an attempt, so an endpoint that
+comes back within the window receives everything it missed, with
+nothing asked of the customer. The endpoint stays enabled throughout.
 
 ### Repeats and order
 
@@ -222,8 +223,8 @@ same identifier, and is recorded alongside the original attempts.
 - **Disabled** — by the customer, for as long as it likes. Nothing is
   attempted, notifications go on being recorded, and re-enabling is
   the customer's call, with the choice of sending the gap.
-- **Paused** — by the platform after sustained failure, or by an
-  operator. Behaves as disabled. The customer re-enables it.
+- **Paused** — by an operator. Behaves as disabled. The customer
+  re-enables it.
 - **Removed** — by the customer, final. Its history stays readable for
   the retention period.
 
@@ -320,18 +321,19 @@ sequenceDiagram
     Note over Q,E: retried with growing gaps
     Q->>E: delivery
     E-->>Q: timeout
-    Note over Q: sustained failure — endpoint paused
-    Q->>T: endpoint paused (other endpoints, console)
+    Note over Q: repeated failure — calls stop for a while
     T->>T: fix the endpoint
-    T->>Q: re-enable, re-send since the first failure
-    Q->>E: deliveries, each with its original identifier
+    Q->>E: one delivery, to see if it is back
+    E-->>Q: acknowledged
+    Q->>E: the deliveries it missed
     E-->>Q: acknowledged
 ```
 
-Nothing was lost while the endpoint was down. Every notification was
-recorded, and the customer asks for the gap to be sent. A delivery that
-did get through before the pause arrives again with the same
-identifier, and the customer recognises it as done.
+Nothing was lost while the endpoint was down, and the customer did not
+have to act for it to catch up. Every notification was recorded, the
+platform stopped calling an endpoint that was not answering, and once
+one delivery got through the rest followed. The endpoint was enabled
+throughout.
 
 ### 4. Identity verification completes
 
@@ -365,21 +367,24 @@ end customer on the moment the outcome lands.
   pointing the platform at an address that is not theirs. Whether the
   test notification is that challenge, or a separate step, is
   undecided.
-- **The retry schedule, the window, and what "sustained" means.**
-  Seconds, then minutes, then hours, for up to a day, and a pause
-  after a day of unbroken failure are the working assumptions. The
-  figures, and whether a customer may tune them, are open.
+- **The retry schedule, the window, and how long calls stop.**
+  Seconds, then minutes, then hours, for up to a day, and calls
+  stopping for up to an hour at a time after repeated failure, are the
+  working assumptions. The figures, and whether a customer may tune
+  them, are open.
 - **Retention.** How long delivery history is kept, and how far back a
   re-send may reach.
 - **Bursts.** Capitalisation pays interest into every account in one
   run. A customer with many accounts receives one notification per
   account, all at once. Whether some kinds are told per run rather
   than per record, or delivered as a batch in one call, is open.
-- **Being told the endpoint is paused.** Delivering the pause to the
-  customer's other endpoints assumes it has one. A customer with a single
-  endpoint learns of the pause from the console, which it is not
-  watching. An out-of-band alert — email to the organisation's owner — is
-  the obvious answer and is not designed.
+- **Telling a customer its endpoint is down.** The platform stops
+  calling an endpoint that is not answering and catches it up when it
+  answers again, but nobody is told meanwhile, and a delivery that
+  outlasts its window is failed. A periodic check of each customer's
+  endpoints that makes an outage obvious to the operator, and an alert
+  to the organisation's owner, are the likely answers and are not
+  designed.
 - **Restricting who may call the endpoint.** Some customers will want to
   accept calls only from the platform's published source addresses,
   or only with a client certificate. Neither is designed. Publishing

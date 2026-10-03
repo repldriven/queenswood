@@ -5,6 +5,7 @@
     [com.repldriven.queenswood.email.store :as store]
 
     [com.repldriven.queenswood.bank-query.interface :as bank-query]
+    [com.repldriven.queenswood.circuit-breaker.interface :as circuit-breaker]
     [com.repldriven.queenswood.membership-query.interface :as memberships]
     [com.repldriven.queenswood.user.interface :as user]
 
@@ -16,9 +17,7 @@
     [com.repldriven.mono.telemetry.interface :as telemetry]
     [com.repldriven.mono.utility.interface :as utility]))
 
-(def ^:private default-poll-ms 500)
-
-(def ^:private default-batch-size 16)
+(def ^:private destination "smtp")
 
 (def ^:private record-token-command "record-invitation-token")
 
@@ -103,7 +102,8 @@
 (defn- send-invitation
   "Mint a token, record its hash and send the message carrying it.
   Returns `{:message-id id}`, `{:superseded reason}` or `{:error
-  message}`."
+  message}`, with the mail server's `:answered` or `:failed` as
+  `:smtp-outcome` where the send was made."
   [config delivery context]
   (let [{:keys [token token-hash]} (memberships/new-invitation-token)
         recorded (record-token config delivery token-hash)]
@@ -117,8 +117,8 @@
                             (message/invitation-message
                              (assoc context :link link)))]
         (if (error/anomaly? sent)
-          {:error (message-of sent "email not sent")}
-          {:message-id (:message-id sent)})))))
+          {:error (message-of sent "email not sent") :smtp-outcome :failed}
+          {:message-id (:message-id sent) :smtp-outcome :answered})))))
 
 (defn- outcome-of
   [config delivery]
@@ -135,39 +135,97 @@
        {:superseded reason}
        (send-invitation config delivery context)))))
 
+(defn- breaker-policy [config] (get-in config [:delivery-policy :breaker]))
+
+(defn- record-send
+  "Record the mail server's `outcome` on its breaker."
+  [config outcome now]
+  (let [breaker (circuit-breaker/record config
+                                        (breaker-policy config)
+                                        destination
+                                        outcome
+                                        now)]
+    (cond
+     (error/anomaly? breaker)
+     (log/error "Circuit breaker not recorded"
+                {:destination destination :anomaly breaker})
+
+     (= "open" (:state breaker))
+     (log/warn "Circuit breaker open; email deliveries held"
+               {:destination destination :retry-at (:retry-at breaker)}))))
+
 (defn deliver-claimed
-  "Send one claimed delivery and record what came back. The command and
-  the send sit between the claim's transaction and the outcome's, and
-  inside neither. Returns the delivery as the outcome left it, or an
+  "Send one claimed delivery and record what came back, and the mail
+  server's outcome on its breaker where the send was made. The command
+  and the send sit between the claim's transaction and the outcome's,
+  and inside neither. Returns the delivery as the outcome left it, or an
   anomaly."
   [config delivery]
-  (let [{:keys [message-id superseded error]} (outcome-of config delivery)
+  (let [{:keys [message-id superseded error smtp-outcome]}
+        (outcome-of config delivery)
         now (utility/now)
         updated (cond
                  superseded
                  (domain/mark-superseded delivery superseded now)
 
                  error
-                 (domain/record-failure delivery error now)
+                 (domain/record-failure delivery
+                                        (circuit-breaker/retry-policy
+                                         (:delivery-policy config)
+                                         nil)
+                                        error
+                                        now)
 
                  :else
                  (domain/mark-sent delivery message-id now))]
+    (when smtp-outcome
+      (record-send config smtp-outcome now))
     (when error
       (log/warn "Email delivery attempt failed"
                 {:delivery-id (:delivery-id delivery) :error error}))
     (let-nom> [_ (store/save-delivery config updated)]
       updated)))
 
+(defn- claim-limit
+  "How many deliveries this pass may claim: none while the mail server's
+  breaker is open, one as its half-open probe, and the batch while it is
+  closed. A breaker that cannot be read lets the batch through."
+  [config now]
+  (let [decision (circuit-breaker/allow config
+                                        (breaker-policy config)
+                                        destination
+                                        now
+                                        (:runner-id config))]
+    (cond
+     (error/anomaly? decision)
+     (do (log/error "Circuit breaker not read; sending as though closed"
+                    {:destination destination :anomaly decision})
+         (:batch-size config))
+
+     (= :open decision)
+     0
+
+     (= :probe decision)
+     1
+
+     :else
+     (:batch-size config))))
+
 (defn drain-once
-  "Claim the deliveries that are due and send them alongside each other.
-  The pass ends when each has recorded an outcome."
+  "Claim the deliveries that are due, as many as the mail server's
+  breaker allows, and send them alongside each other. The pass ends when
+  each has recorded an outcome."
   [config]
-  (let [claimed (store/claim-due-deliveries
-                 config
-                 {:now (utility/now)
-                  :claimed-by (:runner-id config)
-                  :lease-ms domain/claim-lease-ms
-                  :limit (or (:batch-size config) default-batch-size)})]
+  (let [now (utility/now)
+        limit (claim-limit config now)
+        claimed (if (pos? limit)
+                  (store/claim-due-deliveries config
+                                              {:now now
+                                               :claimed-by (:runner-id config)
+                                               :lease-ms (:claim-lease-ms
+                                                          config)
+                                               :limit limit})
+                  [])]
     (if (error/anomaly? claimed)
       (log/error "Failed to claim due email deliveries" {:anomaly claimed})
       (run! deref
@@ -187,7 +245,7 @@
   `{:stop fn}`."
   [config]
   (let [running (atom true)
-        poll-ms (or (:poll-ms config) default-poll-ms)
+        poll-ms (:poll-ms config)
         config (update config
                        :runner-id
                        (fn [runner-id] (or runner-id (str (utility/uuidv7)))))

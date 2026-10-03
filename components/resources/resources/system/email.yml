@@ -23,3 +23,7 @@ outbound-runner: !system/component
     dev: http://localhost:5173
     test: http://localhost:5173
     default: !env CONSOLE_URL
+  poll-ms: 500
+  batch-size: 16
+  claim-lease-ms: 60000
+  delivery-policy: !include system/email-delivery-policy.yml

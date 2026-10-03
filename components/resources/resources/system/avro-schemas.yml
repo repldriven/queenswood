@@ -89,7 +89,6 @@ transfer-failed: schemas/schemes/payments/transfer-failed.avsc.json
 company: schemas/company/company.avsc.json
 lookup-company: schemas/company/lookup-company.avsc.json
 
-webhook-endpoint-status-changed: schemas/webhooks/endpoint-status-changed.avsc.json
 
 account-opening: schemas/bank-activity/account-opening.avsc.json
 account-closing: schemas/bank-activity/account-closing.avsc.json

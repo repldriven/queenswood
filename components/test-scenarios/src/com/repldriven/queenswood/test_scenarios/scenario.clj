@@ -119,6 +119,8 @@
    :settle-inbound-event {:kind :reality :args [:cat acct int? string?]}
    :outbound-payment-redelivered {:kind :reality :args [:cat acct int?]}
    :publish-scheme-event {:kind :reality :args [:cat string? map?]}
+   :provider-outage {:kind :reality :args [:cat boolean?]}
+   :outbound-payment-submitted {:kind :reality :args [:cat acct int?]}
    :force-start-job {:kind :reality :args [:cat bank string?]}
    :assert-outcome {:kind :assert
                     :args [:cat [:enum :succeeded :denied :timed-out]]}
@@ -137,6 +139,7 @@
                                    (prefixed "outbound-payment-status-")]}
    :assert-scheme-commands {:kind :assert :args [:cat pmt nat-int?]}
    :assert-intents {:kind :assert :args [:cat pmt nat-int?]}
+   :assert-breaker {:kind :assert :args [:cat string? string?]}
    :assert-dead-lettered {:kind :assert :args [:cat e2e]}
    :assert-provider-balances {:kind :assert :args [:cat bank]}
    :assert-interest-reconciliation {:kind :assert :args [:cat bank currency]}

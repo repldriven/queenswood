@@ -25,6 +25,7 @@
     [com.repldriven.queenswood.schemas.form3 :as form3]
     [com.repldriven.queenswood.schemas.modulr :as modulr]
     [com.repldriven.queenswood.schemas.onfido :as onfido]
+    [com.repldriven.queenswood.schemas.outbound :as outbound]
     [com.repldriven.queenswood.schemas.party :as party]
     [com.repldriven.queenswood.schemas.payee_check :as payee-check]
     [com.repldriven.queenswood.schemas.payments :as payments]
@@ -111,6 +112,8 @@
      WebhookDeliveryAttemptProto$WebhookDeliveryAttempt
      WebhookEndpointProto$WebhookEndpoint
      WebhookNotificationProto$WebhookNotification)
+    (com.repldriven.queenswood.schemas.outbound
+     CircuitBreakerProto$CircuitBreaker)
     (com.repldriven.queenswood.schemas.zyphe
      ZypheOutboxProto$ZypheOutboxEvent
      ZypheOutboxProto$ZypheOutboundIntent)
@@ -1405,9 +1408,14 @@
   (AccessEventProto$AccessEventKind/forNumber
    (access-event-kind->int access-event-kind)))
 
-(def ^{:doc "Parse WebhookEndpoint protobuf bytes into a Clojure map."}
-     pb->WebhookEndpoint
-  webhooks/pb->WebhookEndpoint)
+(defn pb->WebhookEndpoint
+  "Parse WebhookEndpoint protobuf bytes into a Clojure map. Drops
+  `last-success-at`, which is deprecated.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (dissoc (webhooks/pb->WebhookEndpoint input) :last-success-at))
 
 (defn WebhookEndpoint->pb
   "Serialise a WebhookEndpoint map to protobuf bytes.
@@ -1534,6 +1542,40 @@
 (def ^{:doc "Map of EmailDeliveryStatus label to protobuf int value."}
      email-delivery-status->int
   emails/EmailDeliveryStatus-label2val)
+
+(def ^:private circuit-breaker-unset
+  {:consecutive-failures 0
+   :opened-at 0
+   :retry-at 0
+   :cool-down-ms 0
+   :probe-claimed-by ""
+   :probe-lease-expires-at 0
+   :updated-at 0})
+
+(defn pb->CircuitBreaker
+  "Parse CircuitBreaker protobuf bytes into a Clojure map. Each optional
+  field is present only when set.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (without-unset (outbound/pb->CircuitBreaker input) circuit-breaker-unset))
+
+(defn CircuitBreaker->pb
+  "Serialise a CircuitBreaker map to protobuf bytes.
+
+  Args:
+  - m: CircuitBreaker map matching the generated schema."
+  [m]
+  (proto/->pb (outbound/new-CircuitBreaker m)))
+
+(defn CircuitBreaker->java
+  "Parse a CircuitBreaker map into the generated Java protobuf class.
+
+  Args:
+  - m: CircuitBreaker map matching the generated schema."
+  [m]
+  (CircuitBreakerProto$CircuitBreaker/parseFrom (CircuitBreaker->pb m)))
 
 (def ^:private reward-unset
   {:transaction-id "" :run-id "" :error "" :paid-at 0})

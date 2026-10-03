@@ -37,6 +37,13 @@ registrar: !system/component
     default: !env MODULR_ADAPTER_PUBLIC_URL
   webhook-credentials: !system/local-ref webhook-credentials
   readiness: !system/local-ref readiness
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  delivery-policy: !include system/payment-delivery-policy.yml
+  # How often the provider is asked for the adapter's subscriptions: until
+  # it holds them all, and once it does.
+  retry-ms: 5000
+  check-ms: 30000
 
 
 command-processor-impl: !system/component
@@ -66,9 +73,8 @@ outbound-runner: !system/component
   credentials: !system/local-ref credentials
   customer-id: !or [!env MODULR_CUSTOMER_ID, C0000001]
   schemas: !system/ref avro.serde
-  max-attempts: 20
-  initial-backoff-ms: 1000
-  max-backoff-ms: 60000
   reconcile-after-ms: !profile
     test: 5000
     default: 300000
+  delivery-policy: !include system/payment-delivery-policy.yml
+  poll-ms: 200

@@ -1,7 +1,7 @@
-{:name "An endpoint fails until it is paused, and recovers everything it missed"
- ;; The rig retries every quarter-second and pauses after four failed
- ;; attempts and a second without a success, so the outage plays out
- ;; here in seconds.
+{:name "An endpoint that is down receives everything it missed once it recovers"
+ ;; The rig retries every quarter-second and opens an endpoint's breaker
+ ;; after three failures for a quarter-second at first, so the outage
+ ;; plays out here in seconds.
  :given [{:fixture :bank :as :bank-0 :with {:name "Outage Journey"}}
          {:fixture :webhook-receiver
           :as :hook
@@ -17,8 +17,7 @@
   {:command :webhook/await-delivery
    :address [:ref :hook :receiver :address]
    :where {:kind "party.opened" :resource-id [:ref :before :party :party-id]}
-   :secret [:ref :hook :registered :secret]
-   :as :delivered}
+   :secret [:ref :hook :registered :secret]}
   {:command :webhook/receiver-answers
    :address [:ref :hook :receiver :address]
    :status 503}
@@ -31,51 +30,32 @@
           :national-insurance "TN000012A"}}
   {:command :api/poll
    :request {:method :get
+             :path "/v1/webhook-endpoints/{endpoint-id}/deliveries"
+             :path-params {:endpoint-id [:ref :hook :registered :endpoint
+                                         :endpoint-id]}
+             :auth [:ref :bank-0 :token]}
+   :until {:status 200
+           :body {:items [:m/embeds
+                          [{:status "pending" :last-response-status 503}]]}}}
+  {:command :webhook/receiver-answers
+   :address [:ref :hook :receiver :address]
+   :status 200}]
+ :then
+ ;; Every notification, the one raised while it was down included, is
+ ;; delivered. The receiver also saw the attempts it answered with 503,
+ ;; so the history is what says each one got through.
+ [{:command :api/poll
+   :request {:method :get
+             :path "/v1/webhook-endpoints/{endpoint-id}/deliveries"
+             :path-params {:endpoint-id [:ref :hook :registered :endpoint
+                                         :endpoint-id]}
+             :auth [:ref :bank-0 :token]}
+   :until {:status 200 :body {:items [:m/seq-of {:status "delivered"}]}}}
+  ;; The customer did nothing, and the endpoint was never paused.
+  {:command :api/request
+   :request {:method :get
              :path "/v1/webhook-endpoints/{endpoint-id}"
              :path-params {:endpoint-id [:ref :hook :registered :endpoint
                                          :endpoint-id]}
              :auth [:ref :bank-0 :token]}
-   :until {:status 200 :body {:status "paused"}}}
-  ;; Nothing is sent to a paused endpoint, but the notification is kept.
-  {:fixture :person
-   :as :paused
-   :with {:token [:ref :bank-0 :token]
-          :display-name "Zaphod Beeblebrox"
-          :given-name "Zaphod"
-          :family-name "Beeblebrox"
-          :national-insurance "TN000013A"}}
-  {:command :webhook/receiver-answers
-   :address [:ref :hook :receiver :address]
-   :status 200}
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/webhook-endpoints/{endpoint-id}/enable"
-             :path-params {:endpoint-id [:ref :hook :registered :endpoint
-                                         :endpoint-id]}
-             :auth [:ref :bank-0 :token]
-             :body {}}
-   :assert {:status 200 :body {:status "enabled"}}}
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/webhook-endpoints/{endpoint-id}/resend"
-             :path-params {:endpoint-id [:ref :hook :registered :endpoint
-                                         :endpoint-id]}
-             :auth [:ref :bank-0 :token]
-             :body {:from [:ref :delivered 0 :body :occurred-at]}}
-   :assert {:status 200}}]
- :then
- [{:command :webhook/await-delivery
-   :address [:ref :hook :receiver :address]
-   :where {:kind "party.opened" :resource-id [:ref :paused :party :party-id]}
-   :secret [:ref :hook :registered :secret]}
-  ;; What got through before the outage arrives again as the same
-  ;; notification, which the customer recognises as done.
-  {:command :webhook/await-delivery
-   :address [:ref :hook :receiver :address]
-   :where {:kind "party.opened" :resource-id [:ref :before :party :party-id]}
-   :count 2
-   :secret [:ref :hook :registered :secret]
-   :as :twice}
-  {:command :assert/equals
-   :actual [:ref :twice 1 :body :notification-id]
-   :expected [:ref :delivered 0 :body :notification-id]}]}
+   :assert {:status 200 :body {:status "enabled"}}}]}

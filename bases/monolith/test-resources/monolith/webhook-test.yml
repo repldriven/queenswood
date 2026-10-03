@@ -52,3 +52,9 @@ outbound-runner: !system/component
       allowed-schemes: [http, https]
       blocked-ranges: []
     default: {}
+  poll-ms: 200
+  batch-size: 32
+  claim-lease-ms: 60000
+  request-timeout-ms: 10000
+  max-in-flight-per-endpoint: 2
+  delivery-policy: !include system/webhook-delivery-policy.yml

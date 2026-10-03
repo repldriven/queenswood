@@ -70,7 +70,16 @@
        (outbound/drain-once (assoc config
                                    :clearbank-url "http://localhost:1"
                                    :signing-key (clearbank-webhook/key-pair)
-                                   :max-attempts 10)
+                                   :delivery-policy
+                                   {:default {:initial-backoff-ms 1000
+                                              :backoff-growth 2
+                                              :max-backoff-ms 60000
+                                              :max-attempts 10
+                                              :max-age-ms 86400000}
+                                    :breaker {:failure-threshold 1000
+                                              :cool-down-ms 1000
+                                              :max-cool-down-ms 1000
+                                              :probe-lease-ms 1000}})
                             (utility/now))
        (let [i4 (first (filter #(= "int.4" (:intent-id %))
                                (store/intents-with-status config "pending")))]
@@ -83,9 +92,15 @@
    :record-store (system/instance sys [:fdb :store])
    :schemas (system/instance sys [:avro :serde])
    :clearbank-url "http://scheme.invalid"
-   :max-attempts 3
-   :initial-backoff-ms 1000
-   :max-backoff-ms 60000
+   :delivery-policy {:default {:initial-backoff-ms 1000
+                               :backoff-growth 2
+                               :max-backoff-ms 60000
+                               :max-attempts 3
+                               :max-age-ms 86400000}
+                     :breaker {:failure-threshold 1000
+                               :cool-down-ms 1000
+                               :max-cool-down-ms 1000
+                               :probe-lease-ms 1000}}
    :post-fn post-fn})
 
 (defn- answering

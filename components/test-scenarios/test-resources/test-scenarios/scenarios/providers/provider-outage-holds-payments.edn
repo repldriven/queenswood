@@ -1,0 +1,17 @@
+{:name "A provider outage holds payments until it ends, and costs them no attempts"
+ :model :reality
+ ;; The simulator answers 503 to every call while it is out. The payment's
+ ;; failed calls open the adapter's breaker, which then calls nothing until
+ ;; its cool-down ends and probes, so the payment waits rather than giving
+ ;; up. Once the outage ends a probe goes through, closing the breaker,
+ ;; and the payment completes.
+ :given [{:command :create-bank :args []}
+         {:command :inbound-transfer :args [:acct-0 1000]}]
+ :when [{:command :provider-outage :args [true]}
+        {:command :outbound-payment-submitted :args [:acct-0 250]}
+        {:command :assert-breaker :args ["adapter:modulr" "open"]}
+        {:command :provider-outage :args [false]}]
+ :then [{:command :assert-outbound-status
+         :args [:pmt-0 :outbound-payment-status-completed]}
+        {:command :assert-balance :args [:acct-0 750]}
+        {:command :assert-breaker :args ["adapter:modulr" "closed"]}]}

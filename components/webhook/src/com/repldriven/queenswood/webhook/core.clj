@@ -212,30 +212,6 @@
                  (let-nom> [policies (get-policies txn bank-id opts)]
                    (domain/disable existing policies))))))
 
-(defn pause
-  "The one transition whose write co-commits a changelog envelope: the
-  platform took it, so the tenant's other endpoints are told."
-  [txn bank-id endpoint-id]
-  (store/transact
-   txn
-   (fn [txn]
-     (let-nom>
-       [existing (load-endpoint txn bank-id endpoint-id)
-        updated (domain/pause existing)
-        _ (store/save-endpoint-status txn updated (:status existing))]
-       updated))))
-
-(defn record-success
-  "Stamp the moment a delivery to this endpoint succeeded. The endpoint
-  is re-read inside the transaction and only that field changed, so a
-  tenant edit that landed while the call was in flight is not written
-  back over."
-  [txn bank-id endpoint-id now]
-  (transition txn
-              bank-id
-              endpoint-id
-              (fn [_txn existing] (domain/record-success existing now))))
-
 (defn remove-endpoint
   ([txn bank-id endpoint-id]
    (remove-endpoint txn bank-id endpoint-id {}))

@@ -1,0 +1,16 @@
+# How the webhook runner retries a delivery, when it gives one up, and
+# when an endpoint's breaker opens (ADR-0034). A delivery is tried for
+# about a day: 30s, growing fourfold to four hours between attempts. An
+# endpoint's breaker reopens for at most an hour, so a recovered endpoint
+# hears again within the hour.
+default:
+  initial-backoff-ms: 30000
+  backoff-growth: 4
+  max-backoff-ms: 14400000
+  max-attempts: 11
+  max-age-ms: 86400000
+breaker:
+  failure-threshold: 5
+  cool-down-ms: 30000
+  max-cool-down-ms: 3600000
+  probe-lease-ms: 60000

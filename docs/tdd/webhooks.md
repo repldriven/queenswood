@@ -28,14 +28,15 @@ see [payments.md](payments.md) and [parties.md](parties.md); the relay
 itself, see [ADR-0021](../adr/0021-changelog-relay.md); the OpenAPI
 discipline the notification schema follows, see
 [ADR-0014](../adr/0014-openapi-3x-compliance.md); retention and purge
-of delivery history; per-tenant tuning of retry and pause behaviour.
+of delivery history; per-tenant tuning of retry behaviour; the
+endpoint's breaker, see [outbound-delivery](outbound-delivery.md).
 
 The rest of what the PRD asks for is out of scope here and named, so
 nothing it lists is simply absent:
 
 - **The operator's view** — delivery health across tenants, pausing an
   endpoint, reading any tenant's history — and **the management
-  console**, which the PRD's self-service goal and its pause behaviour
+  console**, which the PRD's self-service goal and an operator's pause
   both reach through. Both need admin routes, a second security scheme
   and indexes that answer a cross-tenant question, added to a design
   that runs to four slices and has not been proved on one domain. The
@@ -168,7 +169,7 @@ and the rejection examples every route shares live in `api-schema`.
 
 - **The `webhook` component** owns the endpoint, notification,
   delivery and delivery-attempt records; the domain rules for
-  registration, endpoint lifecycle and pausing; the signing; the
+  registration and endpoint lifecycle; the signing; the
   consumer that turns a bus event into a notification; the
   notification's own OpenAPI component; and the outbound runner. It
   requires each catalogued domain's `<domain>-query` brick to load a
@@ -353,10 +354,10 @@ Three more wait on work outside the catalogue:
   statuses `party.opened` and `party.rejected` do not cover. No read
   route publishes an identity verification, so the entries carry the
   party.
-- `webhook-endpoint.paused` — `webhook-endpoint-status-changed`,
-  `WebhookEndpoint`, so an endpoint paused by the platform is told to
-  the bank's other endpoints through the same path as everything else.
-  The endpoint store writes the event, and nothing relays it yet.
+- `webhook-endpoint.paused` — `WebhookEndpoint`, so an endpoint an
+  operator pauses is told to the bank's other endpoints through the
+  same path as everything else. Nothing pauses an endpoint yet, and the
+  endpoint store writes no changelog.
 - `interest.capitalised` — the interest brick's per-account
   capitalisation, resolving to the `Transaction` the run posted,
   behind the single-transaction read its slice creates first.
@@ -438,13 +439,15 @@ The outbound runner is the ClearBank relay's runner generalised: it
 claims the deliveries that are due, signs and POSTs each one outside
 any FDB transaction, and records the outcome in its own transaction. A
 2xx marks the delivery delivered. Anything else, a timeout included,
-increments the attempt count and sets the next attempt from a geometric
-schedule. The defaults are a first retry within a minute, growing to a
-few hours apart, and giving up after roughly a day. Past the last
-attempt the delivery is marked failed and kept. The runner's
-`retry-schedule-ms` replaces the schedule with a list of delays, and its
-`pause-rule` the pause rule's `minimum-attempts` and `window-ms`, which
-the scenario rig shortens so an outage plays out in seconds.
+increments the attempt count and sets the next attempt from the
+runner's `delivery-policy`, in `webhook-delivery-policy.yml`: a first
+retry within a minute, growing to a few hours apart, and giving up
+after roughly a day. Past the last attempt or the maximum age the
+delivery is marked failed and kept. Each endpoint has a circuit
+breaker, which [outbound-delivery](outbound-delivery.md) describes: the
+claim takes none of an endpoint's deliveries while its breaker is open,
+and one while it is half-open. The scenario rig shortens the policy so
+an outage plays out in seconds.
 
 The address belongs to a tenant, so the call is guarded five ways.
 Neither existing runner sets any of them: mono's `http-client` passes
@@ -467,15 +470,6 @@ reads, and neither bounds its own concurrency.
   tenant's deliveries down with it.
 - **Concurrency bounded per endpoint.** One tenant's slow endpoint
   would otherwise occupy every drain slot the runner has.
-
-On every failure the runner also asks whether the endpoint should be
-paused: no successful delivery for longer than the pause window, a day
-by default, across at least a handful of attempts. Pausing is a status
-transition on the endpoint record, guarded in `domain.clj` like any
-other, and the endpoint store co-commits a changelog envelope for it.
-The relay republishes that, the consumer turns it into a notification,
-and the bank's other enabled endpoints are told. The runner never
-writes a notification itself.
 
 ### Signing
 
@@ -611,8 +605,8 @@ type in the `schema` brick's `interface.clj`.
 
 - `WebhookEndpoint` — bank id, endpoint id, address, description, the
   chosen kinds, status (enabled, disabled, paused, removed), the
-  current secret, the previous secret and when it expires, when the
-  endpoint last succeeded, the idempotency key of the registration
+  current secret, the previous secret and when it expires, the
+  idempotency key of the registration
   that created it, the idempotency key of its last secret rotation,
   and timestamps. Indexed by bank, with an FDB
   `count` index over `[bank_id, endpoint_id]` for the limit check and
@@ -751,9 +745,10 @@ neither.
 ### Tests
 
 - **The `webhook` brick** covers its domain rules (address validation,
-  lifecycle guards, the pause rule, the retry schedule), its store (the
+  lifecycle guards, the backoff and give-up), its store (the
   indexes, the dedup key), its signing against the vectors above, its
-  runner against a receiver started in the test, and that its `oneOf`
+  runner against a receiver started in the test, its breaker holding
+  an endpoint through an outage, and that its `oneOf`
   names every resource the catalogue maps to.
 - **The `api` base** gains the OpenAPI test in slice 1, run again after
   each extraction, and holds with it that each kind is listed in the
@@ -799,9 +794,9 @@ neither.
   with no batching.
 - **Secrets at rest are unencrypted**, as the parties TDD notes for
   personal data.
-- **A pause is told to the bank's other endpoints only.** A
-  single-endpoint tenant has no out-of-band alert, and the console that
-  would carry one is out of scope.
+- **Nobody is told an endpoint is down.** Its breaker holds its
+  deliveries and catches it up, but no alert reaches the tenant or the
+  operator, and the console that would carry one is out of scope.
 - **No ownership challenge at registration.** The test notification is
   a manual check.
 - **A rejection's fields reach the caller as prose.** The 409 body is

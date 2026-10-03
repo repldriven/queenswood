@@ -2,6 +2,7 @@
   (:require
     [com.repldriven.queenswood.webhook.components :as components]
 
+    [com.repldriven.queenswood.circuit-breaker.interface :as circuit-breaker]
     [com.repldriven.queenswood.policy.interface :as policy]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
@@ -224,50 +225,6 @@
                    :endpoint-id endpoint-id})))
 
 ;; ---------------------------------------------------------------------------
-;; The pause rule
-
-(def
-  ^{:doc
-    "How long an endpoint may go without a successful delivery
-  before a failure pauses it — a day."}
-  pause-window-ms
-  86400000)
-
-(def
-  ^{:doc
-    "How many attempts a delivery must have made before its
-  failure can pause the endpoint, so a transient failure on a new
-  endpoint does not."}
-  pause-minimum-attempts
-  5)
-
-(defn should-pause?
-  "Whether a failing delivery should pause its endpoint: no success
-  inside the pause window, across at least the minimum attempts.
-  `rule` may name its own `:minimum-attempts` and `:window-ms` in place
-  of `pause-minimum-attempts` and `pause-window-ms`.
-
-  A `nil` `last-success-at` is an endpoint that has never succeeded,
-  which is longer ago than any window; the attempt minimum is what
-  keeps a newly registered endpoint from pausing on its first
-  failures."
-  ([last-success-at now attempts]
-   (should-pause? last-success-at now attempts nil))
-  ([last-success-at now attempts rule]
-   (let [{:keys [minimum-attempts window-ms]} rule]
-     (and (>= (or attempts 0) (or minimum-attempts pause-minimum-attempts))
-          (or (nil? last-success-at)
-              (> (- now last-success-at) (or window-ms pause-window-ms)))))))
-
-(defn record-success
-  "The endpoint as a delivered outcome leaves it: the moment of the
-  success, which is what `should-pause?` measures its window from. The
-  tenant's own `updated-at` is left alone — a delivery succeeding is
-  not an edit to the endpoint."
-  [endpoint now]
-  (assoc endpoint :last-success-at now))
-
-;; ---------------------------------------------------------------------------
 ;; Capability + limit checks
 
 (defn- check-capability
@@ -348,15 +305,6 @@
      _ (check-capability :webhook-endpoint-action-manage policies)]
     (assoc endpoint :status disabled :updated-at (utility/now))))
 
-(defn pause
-  "The runner's transition, taken on a failure `should-pause?` admits.
-  It takes no capability check: the platform pauses the endpoint, not
-  the tenant."
-  [endpoint]
-  (let-nom>
-    [_ (ensure-status endpoint #{enabled})]
-    (assoc endpoint :status paused :updated-at (utility/now))))
-
 (defn remove-endpoint
   [endpoint policies]
   (let-nom>
@@ -383,65 +331,7 @@
      idempotency-key)))
 
 ;; ---------------------------------------------------------------------------
-;; The retry schedule, and the bounds on the call
-
-(def
-  ^{:doc
-    "The delay before the first retry — under a minute, so a receiver
-  that was restarting hears again quickly."}
-  retry-base-ms
-  30000)
-
-(def ^{:doc "How much each retry delay grows on the one before it."}
-     retry-growth
-  4)
-
-(def
-  ^{:doc
-    "The longest a retry delay grows to. Geometric growth doubles the
-  whole schedule's span with every step past this, so the growth stops
-  here and the remaining attempts run at this interval."}
-  retry-max-interval-ms
-  14400000)
-
-(def
-  ^{:doc
-    "How long the schedule may span before a delivery is given up on —
-  roughly a day."}
-  retry-span-ms
-  86400000)
-
-(def
-  ^{:doc
-    "The delay before each retry, in order. Geometric from
-  `retry-base-ms` by `retry-growth` until it would pass
-  `retry-max-interval-ms`, then that interval, for as many retries as
-  fit inside `retry-span-ms`. A delivery makes one more attempt than
-  this has entries."}
-  retry-schedule-ms
-  (loop [delays []
-         delay retry-base-ms
-         span 0]
-    (let [delay (min delay retry-max-interval-ms)
-          span' (+ span delay)]
-      (if (> span' retry-span-ms)
-        delays
-        (recur (conj delays delay) (* delay retry-growth) span')))))
-
-(def
-  ^{:doc
-    "How many attempts a delivery makes before it is failed and kept:
-  the first, and one per entry in the schedule."}
-  max-attempts
-  (inc (count retry-schedule-ms)))
-
-(def
-  ^{:doc
-    "How long a call to a tenant address may take. An endpoint that
-  accepts the connection and then never answers holds a drain slot for
-  this long and no longer."}
-  request-timeout-ms
-  10000)
+;; The bound on the call, and the outcome
 
 (def
   ^{:doc
@@ -450,29 +340,6 @@
   body cannot exhaust the runner."}
   max-response-bytes
   65536)
-
-(def
-  ^{:doc
-    "How many of one endpoint's deliveries may be in flight at once, so
-  one tenant's slow endpoint cannot occupy every drain slot."}
-  max-in-flight-per-endpoint
-  2)
-
-(def
-  ^{:doc
-    "How long a runner's claim on a delivery holds. A claim whose lease
-  has passed is taken again by the next pass, so a runner that died
-  between the claim commit and the outcome commit strands nothing."}
-  claim-lease-ms
-  60000)
-
-(defn retry-schedule
-  "The delay before the attempt after `attempts`, or nil when the
-  schedule is spent and the delivery is failed and kept. `schedule`
-  replaces `retry-schedule-ms` where given."
-  ([attempts] (retry-schedule retry-schedule-ms attempts))
-  ([schedule attempts]
-   (get schedule (dec (max 1 (or attempts 0))))))
 
 (def ^:private delivery-pending :webhook-delivery-status-pending)
 (def ^:private delivery-delivered :webhook-delivery-status-delivered)
@@ -487,38 +354,37 @@
 
 (defn record-outcome
   "The delivery as one attempt's outcome leaves it: delivered on a 2xx,
-  otherwise the attempt counted and the next attempt taken from the
-  schedule, and failed once the schedule is spent. The claim is
-  released either way, so a delivery never sits in flight past its
-  outcome.
+  otherwise the attempt counted and the next due after `retry-policy`'s
+  backoff, and failed once it has made its `:max-attempts` or is older
+  than its `:max-age-ms`. The claim is released either way, so a
+  delivery never sits in flight past its outcome.
 
   `outcome` carries `:status` when a response arrived and `:error` when
-  the call failed before one did. `schedule` replaces
-  `retry-schedule-ms` where given."
-  ([delivery outcome now]
-   (record-outcome delivery outcome now retry-schedule-ms))
-  ([delivery {:keys [status error]} now schedule]
-   (let [attempts (inc (or (:attempts delivery) 0))
-         delay (retry-schedule schedule attempts)
-         base (->
-                delivery
-                (assoc :attempts attempts :updated-at now)
-                (dissoc :claim-lease-expires-at :claimed-by :next-attempt-at))]
-     (cond
-      (delivered? status)
-      (assoc base :status delivery-delivered :last-response-status status)
+  the call failed before one did."
+  [delivery {:keys [status error]} now retry-policy]
+  (let [attempts (inc (or (:attempts delivery) 0))
+        age-ms (some->> (:created-at delivery)
+                        (- now))
+        base (-> delivery
+                 (assoc :attempts attempts :updated-at now)
+                 (dissoc :claim-lease-expires-at :claimed-by :next-attempt-at))]
+    (cond
+     (delivered? status)
+     (assoc base :status delivery-delivered :last-response-status status)
 
-      (nil? delay)
-      (utility/assoc-some (assoc base :status delivery-failed)
-                          :last-response-status status
-                          :last-error error)
+     (circuit-breaker/give-up? retry-policy attempts age-ms)
+     (utility/assoc-some (assoc base :status delivery-failed)
+                         :last-response-status status
+                         :last-error error)
 
-      :else
-      (utility/assoc-some (assoc base
-                                 :status delivery-pending
-                                 :next-attempt-at (+ now delay))
-                          :last-response-status status
-                          :last-error error)))))
+     :else
+     (utility/assoc-some
+      (assoc base
+             :status delivery-pending
+             :next-attempt-at
+             (+ now (circuit-breaker/backoff-ms retry-policy attempts)))
+      :last-response-status status
+      :last-error error))))
 
 ;; ---------------------------------------------------------------------------
 ;; Notifications and their deliveries

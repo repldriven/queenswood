@@ -66,6 +66,7 @@
     components/modulr-webhook {:local/root "components/modulr-webhook"}
     components/form3-webhook {:local/root "components/form3-webhook"}
     components/intent-queue {:local/root "components/intent-queue"}
+    components/circuit-breaker {:local/root "components/circuit-breaker"}
     components/intent-poller {:local/root "components/intent-poller"}
     components/modulr-relay {:local/root "components/modulr-relay"}
     components/form3-relay {:local/root "components/form3-relay"}
@@ -198,6 +199,10 @@
                        "components/onfido-relay/test-resources"
                        "components/zyphe-relay/test"
                        "components/zyphe-relay/test-resources"
+                       "components/circuit-breaker/test"
+                       "components/circuit-breaker/test-resources"
+                       "components/intent-poller/test"
+                       "components/intent-poller/test-resources"
                        "components/zyphe-webhook/test"
                        "components/modulr-webhook/test"
                        "components/payment-provider/test"

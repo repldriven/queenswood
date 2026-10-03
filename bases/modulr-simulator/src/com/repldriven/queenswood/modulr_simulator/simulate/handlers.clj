@@ -136,6 +136,12 @@
      :else
      {:status 202 :body {:payment-id (:id p)}})))
 
+(defn outage
+  [request]
+  (let [{:keys [state parameters]} request]
+    (swap! state assoc :outage (get-in parameters [:body :down]))
+    {:status 204}))
+
 (defn open-refused
   [request]
   (swap! (:state request) assoc :refuse-next true)

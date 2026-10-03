@@ -25,6 +25,7 @@ import "schemas/modulr/outbox.proto";
 import "schemas/form3/outbox.proto";
 import "schemas/banks/bank.proto";
 import "schemas/onfido/outbox.proto";
+import "schemas/outbound/circuit-breaker.proto";
 import "schemas/zyphe/outbox.proto";
 import "schemas/clearbank/outbox.proto";
 import "schemas/party/party-national-identifier.proto";
@@ -107,4 +108,5 @@ message RecordTypeUnion {
   optional com.repldriven.queenswood.schemas.payments.ProviderTransfer _ProviderTransfer = 52;
   optional com.repldriven.queenswood.schemas.form3.Form3OutboxEvent _Form3OutboxEvent = 53;
   optional com.repldriven.queenswood.schemas.form3.Form3OutboundIntent _Form3OutboundIntent = 54;
+  optional com.repldriven.queenswood.schemas.outbound.CircuitBreaker _CircuitBreaker = 55;
 }

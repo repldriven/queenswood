@@ -13,6 +13,7 @@
     [com.repldriven.queenswood.cash-account-query.interface :as
      cash-accounts-query]
     [com.repldriven.queenswood.cash-account.interface :as cash-accounts]
+    [com.repldriven.queenswood.circuit-breaker.interface :as circuit-breaker]
     ;; nosemgrep: fdb-outside-store — seeds state below the interfaces
     [com.repldriven.queenswood.fdb.interface :as fdb]
     [com.repldriven.queenswood.interest.interface :as interest]
@@ -976,6 +977,31 @@
         (update :counter inc)
         (track (first-timed-out result failed)))))
 
+(defmethod dispatch :provider-outage
+  [{:keys [bank] :as ctx} {[down?] :args}]
+  (let [res (http/request {:method :post
+                           :url (str (:payment-simulator-url bank)
+                                     "/simulate/outage")
+                           :headers {"Content-Type" "application/json"}
+                           :body (json/write-str {:down down?})})
+        result (if (and (not (error/anomaly? res)) (= 204 (:status res)))
+                 res
+                 (error/fail :scenario/provider-outage
+                             {:message "The simulator refused the outage"
+                              :status (:status res)}))]
+    (-> ctx
+        (update :counter inc)
+        (track result))))
+
+(defmethod dispatch :outbound-payment-submitted
+  [ctx {[model-acct amount] :args}]
+  (let [result
+        (submit-external-outbound ctx model-acct amount external-creditor-bban)]
+    (-> ctx
+        (record-payment result)
+        (update :counter inc)
+        (track result))))
+
 (defmethod dispatch :reject-outbound-payment
   [{:keys [bank payments] :as ctx} {[model-pmt] :args}]
   (let [real-pmt-id (get-in payments [model-pmt :real-id])
@@ -1436,11 +1462,23 @@
     ctx))
 
 (defmethod dispatch :assert-outbound-status
-  [{:keys [bank payments] :as ctx} {[model-pmt expected] :args}]
+  [{:keys [payments] :as ctx} {[model-pmt expected] :args}]
   (let [payment-id (get-in payments [model-pmt :real-id])
-        payment (payment-query/get-outbound-payment bank payment-id)]
-    (is (= expected (:payment-status payment))
-        (str "outbound payment status for " model-pmt))
+        payment (await-outbound ctx payment-id expected)]
+    (is (not (await/timed-out? payment))
+        (str "outbound payment status for " model-pmt " — expected " expected))
+    ctx))
+
+(defmethod dispatch :assert-breaker
+  [{:keys [bank] :as ctx} {[destination expected] :args}]
+  (let [breaker (await/value ctx
+                             (str "breaker " destination " to be " expected)
+                             (fn [] (circuit-breaker/breaker bank destination))
+                             (fn [b]
+                               (and (not (error/anomaly? b))
+                                    (= expected (:state b "closed")))))]
+    (is (not (await/timed-out? breaker))
+        (str "breaker " destination " — expected " expected))
     ctx))
 
 (defn- interest-payable-net

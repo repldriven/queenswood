@@ -13,6 +13,13 @@ registrar: !system/component
     test: !system/ref onfido-adapter-server.http-url
     default: !env IDV_ONFIDO_ADAPTER_PUBLIC_URL
   readiness: !system/ref onfido-adapter.readiness
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  delivery-policy: !include system/idv-delivery-policy.yml
+  # How often the provider is asked for the adapter's subscriptions: until
+  # it holds them all, and once it does.
+  retry-ms: 5000
+  check-ms: 30000
 
 
 command-processor-impl: !system/component
@@ -53,3 +60,5 @@ outbound-runner: !system/component
         default: !env ONFIDO_WORKFLOW_ID
       verifies: [identity, liveness, claimed-identity, address]
       screens: [sanctions, pep]
+  delivery-policy: !include system/idv-delivery-policy.yml
+  poll-ms: 200

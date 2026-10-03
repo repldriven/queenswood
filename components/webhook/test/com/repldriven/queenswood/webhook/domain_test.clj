@@ -175,8 +175,6 @@
     (is (= :webhook-endpoint-status-disabled
            (:status (SUT/disable (endpoint :webhook-endpoint-status-enabled)
                                  permissive-policies))))
-    (is (= :webhook-endpoint-status-paused
-           (:status (SUT/pause (endpoint :webhook-endpoint-status-enabled)))))
     (is (= :webhook-endpoint-status-removed
            (:status (SUT/remove-endpoint (endpoint
                                           :webhook-endpoint-status-enabled)
@@ -193,8 +191,6 @@
                            permissive-policies)
               #{:webhook-endpoint-status-enabled
                 :webhook-endpoint-status-paused}]
-             [(SUT/pause (endpoint :webhook-endpoint-status-paused))
-              #{:webhook-endpoint-status-enabled}]
              [(SUT/remove-endpoint (endpoint :webhook-endpoint-status-removed)
                                    permissive-policies)
               #{:webhook-endpoint-status-enabled
@@ -256,83 +252,64 @@
                                          "whe.1")))))
 
 ;; ---------------------------------------------------------------------------
-;; The pause rule
+;; Outcomes
 
-(deftest the-pause-rule-holds-its-two-bounds-test
-  (let [now 1700000000000
-        inside (- now (quot SUT/pause-window-ms 2))
-        outside (- now (* 2 SUT/pause-window-ms))]
-    (testing "outside the window and past the attempt minimum, it pauses"
-      (is (true? (SUT/should-pause? outside now SUT/pause-minimum-attempts))))
-    (testing "a success inside the window holds it open"
-      (is (false? (SUT/should-pause? inside now SUT/pause-minimum-attempts))))
-    (testing "too few attempts holds it open, however old the success"
-      (is (false?
-           (SUT/should-pause? outside now (dec SUT/pause-minimum-attempts))))
-      (is (false? (SUT/should-pause? nil now 0)))
-      (is (false? (SUT/should-pause? nil now nil))))
-    (testing "an endpoint that has never succeeded pauses on the attempts"
-      (is (true? (SUT/should-pause? nil now SUT/pause-minimum-attempts))))
-    (testing "exactly at the window is not yet outside it"
-      (is (false? (SUT/should-pause? (- now SUT/pause-window-ms)
-                                     now
-                                     SUT/pause-minimum-attempts))))))
-
-(deftest record-success-stamps-the-window-test
-  (let [endpoint {:endpoint-id "whe.1"
-                  :status :webhook-endpoint-status-enabled
-                  :updated-at 1}
-        now 1700000000000
-        updated (SUT/record-success endpoint now)]
-    (is (= now (:last-success-at updated)))
-    (is (= 1 (:updated-at updated))
-        "a delivery succeeding is not an edit to the endpoint")
-    (is (false? (SUT/should-pause? (:last-success-at updated)
-                                   now
-                                   SUT/pause-minimum-attempts))
-        "and is what holds the pause window open")))
-
-(deftest retry-schedule-test
-  (testing "the first retry is inside a minute"
-    (is (< (SUT/retry-schedule 1) 60000)))
-  (testing "the schedule grows and never passes its cap"
-    (is (apply <= SUT/retry-schedule-ms))
-    (is (every? #(<= % SUT/retry-max-interval-ms) SUT/retry-schedule-ms))
-    (is (= SUT/retry-max-interval-ms (last SUT/retry-schedule-ms))
-        "growth saturates at the cap rather than running past it"))
-  (testing "the whole schedule spans no longer than it may"
-    (is (<= (reduce + SUT/retry-schedule-ms) SUT/retry-span-ms)))
-  (testing "a spent schedule has no next attempt"
-    (is (nil? (SUT/retry-schedule SUT/max-attempts)))
-    (is (some? (SUT/retry-schedule (dec SUT/max-attempts))))))
+(def ^:private retry-policy
+  {:initial-backoff-ms 30000
+   :backoff-growth 4
+   :max-backoff-ms 14400000
+   :max-attempts 11
+   :max-age-ms 86400000})
 
 (deftest record-outcome-test
   (let [now 1700000000000
         delivery {:delivery-id "whd.1"
+                  :created-at now
                   :status :webhook-delivery-status-in-flight
                   :claim-lease-expires-at (+ now 60000)
                   :claimed-by "runner-1"}]
     (testing "a 2xx delivers, and releases the claim"
-      (let [updated (SUT/record-outcome delivery {:status 204} now)]
+      (let [updated
+            (SUT/record-outcome delivery {:status 204} now retry-policy)]
         (is (= :webhook-delivery-status-delivered (:status updated)))
         (is (= 1 (:attempts updated)))
         (is (= 204 (:last-response-status updated)))
         (is (nil? (:claim-lease-expires-at updated)))
         (is (nil? (:claimed-by updated)))))
     (testing "a non-2xx counts the attempt and schedules the next"
-      (let [updated (SUT/record-outcome delivery {:status 500} now)]
+      (let [updated
+            (SUT/record-outcome delivery {:status 500} now retry-policy)]
         (is (= :webhook-delivery-status-pending (:status updated)))
         (is (= 1 (:attempts updated)))
         (is (= 500 (:last-response-status updated)))
-        (is (= (+ now (SUT/retry-schedule 1)) (:next-attempt-at updated)))))
+        (is (= (+ now 30000) (:next-attempt-at updated)))))
     (testing "a call that never answered records the error, not a status"
-      (let [updated (SUT/record-outcome delivery {:error "timeout"} now)]
+      (let [updated
+            (SUT/record-outcome delivery {:error "timeout"} now retry-policy)]
         (is (= :webhook-delivery-status-pending (:status updated)))
         (is (= "timeout" (:last-error updated)))
         (is (nil? (:last-response-status updated)))))
-    (testing "the attempt past the schedule fails and keeps the delivery"
-      (let [spent (assoc delivery :attempts (dec SUT/max-attempts))
-            updated (SUT/record-outcome spent {:status 500} now)]
+    (testing "the backoff grows by the policy's growth, up to its cap"
+      (is (= (+ now 120000)
+             (:next-attempt-at (SUT/record-outcome (assoc delivery :attempts 1)
+                                                   {:status 500}
+                                                   now
+                                                   retry-policy))))
+      (is (= (+ now 14400000)
+             (:next-attempt-at (SUT/record-outcome (assoc delivery :attempts 8)
+                                                   {:status 500}
+                                                   now
+                                                   retry-policy)))))
+    (testing "the last attempt fails and keeps the delivery"
+      (let [spent (assoc delivery :attempts 10)
+            updated (SUT/record-outcome spent {:status 500} now retry-policy)]
         (is (= :webhook-delivery-status-failed (:status updated)))
-        (is (= SUT/max-attempts (:attempts updated)))
-        (is (nil? (:next-attempt-at updated)))))))
+        (is (= 11 (:attempts updated)))
+        (is (nil? (:next-attempt-at updated)))))
+    (testing "a delivery past the maximum age fails on its next failure"
+      (let [updated (SUT/record-outcome delivery
+                                        {:status 500}
+                                        (+ now 86400001)
+                                        retry-policy)]
+        (is (= :webhook-delivery-status-failed (:status updated)))
+        (is (= 1 (:attempts updated)))))))

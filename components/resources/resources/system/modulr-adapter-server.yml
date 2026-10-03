@@ -5,6 +5,7 @@ interceptors: !system/component
   avro: !system/ref avro.serde
   record-db: !system/ref fdb.record-db
   record-store: !system/ref fdb.meta-store
+  delivery-policy: !include system/payment-delivery-policy.yml
   modulr-url: !profile
     dev: !system/ref modulr-simulator-server.http-url
     test: !system/ref modulr-simulator-server.http-url

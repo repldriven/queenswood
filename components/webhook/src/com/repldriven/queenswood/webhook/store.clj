@@ -1,7 +1,5 @@
 (ns com.repldriven.queenswood.webhook.store
   (:require
-    [com.repldriven.queenswood.webhook.changelog :as changelog]
-
     [com.repldriven.queenswood.fdb.interface :as fdb]
     [com.repldriven.queenswood.schema.interface :as schema]
 
@@ -253,33 +251,6 @@
    :webhook-delivery-attempt/find-by-delivery
    "Failed to find webhook delivery attempts by delivery"))
 
-(defn save-endpoint-status
-  "Save an endpoint whose status changed, co-committing the changelog
-  envelope for the transition in the same transaction as the record.
-
-  `status-before` is the status the loaded record carried, which the
-  envelope needs and the saved record no longer has."
-  [txn endpoint status-before]
-  (fdb/transact
-   txn
-   (fn [txn]
-     (let [store (fdb/open txn endpoints-store-name)]
-       (let-nom>
-         [_ (fdb/save-record store (schema/WebhookEndpoint->java endpoint))
-          entry (changelog/endpoint-status-changed
-                 {:bank-id (:bank-id endpoint)
-                  :endpoint-id (:endpoint-id endpoint)
-                  :status-before status-before
-                  :status-after (:status endpoint)
-                  :updated-at (:updated-at endpoint)})
-          _ (fdb/write-changelog txn
-                                 endpoints-store-name
-                                 (:endpoint-id endpoint)
-                                 entry)]
-         nil)))
-   :webhook-endpoint/save-status
-   "Failed to save webhook endpoint status change"))
-
 (def ^:private delivery-pending :webhook-delivery-status-pending)
 (def ^:private delivery-in-flight :webhook-delivery-status-in-flight)
 
@@ -329,16 +300,35 @@
     - `:lease-ms` — how long the claim holds.
     - `:limit` — how many to claim in this pass.
     - `:per-endpoint-limit` — how many of one endpoint's deliveries the
-      batch may carry, so one tenant cannot fill it."
-  [txn {:keys [now claimed-by lease-ms limit per-endpoint-limit]}]
+      batch may carry, so one tenant cannot fill it.
+    - `:endpoint-allowance` — optional, `(fn [txn bank-id endpoint-id])`,
+      asked in
+      this transaction the first time an endpoint's delivery is reached,
+      answering how many of its deliveries the batch may carry at most."
+  [txn
+   {:keys [now claimed-by lease-ms limit per-endpoint-limit
+           endpoint-allowance]}]
   (fdb/transact
    txn
    (fn [txn]
      (let [store (fdb/open txn deliveries-store-name)
            taken (volatile! {})
+           allowances (volatile! {})
+           allowance (fn [{:keys [bank-id endpoint-id]}]
+                       (when-not (contains? @allowances endpoint-id)
+                         (vswap! allowances
+                                 assoc
+                                 endpoint-id
+                                 (cond-> per-endpoint-limit
+                                         endpoint-allowance
+                                         (min (endpoint-allowance
+                                               txn
+                                               bank-id
+                                               endpoint-id)))))
+                       (get @allowances endpoint-id))
            within-endpoint-limit?
-           (fn [{:keys [endpoint-id]}]
-             (when (< (get @taken endpoint-id 0) per-endpoint-limit)
+           (fn [{:keys [endpoint-id] :as delivery}]
+             (when (< (get @taken endpoint-id 0) (allowance delivery))
                (vswap! taken update endpoint-id (fnil inc 0))
                true))
            due (into []

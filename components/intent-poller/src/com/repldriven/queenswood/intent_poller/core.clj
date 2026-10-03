@@ -3,6 +3,7 @@
     [com.repldriven.queenswood.intent-poller.operations :as operations]
     [com.repldriven.queenswood.intent-poller.store :as store]
 
+    [com.repldriven.queenswood.circuit-breaker.interface :as circuit-breaker]
     [com.repldriven.queenswood.intent-queue.interface :as intent-queue]
 
     [com.repldriven.mono.avro.interface :as avro]
@@ -11,19 +12,10 @@
     [com.repldriven.mono.telemetry.interface :as telemetry]
     [com.repldriven.mono.utility.interface :as utility]))
 
-(def ^:private default-poll-ms 200)
-(def ^:private default-max-attempts 20)
-(def ^:private default-initial-backoff-ms 1000)
-(def ^:private default-max-backoff-ms 60000)
-
-(defn- backoff-ms
-  [config attempts]
-  (let [{:keys [initial-backoff-ms max-backoff-ms]} config
-        initial (or initial-backoff-ms default-initial-backoff-ms)
-        cap (or max-backoff-ms default-max-backoff-ms)]
-    (reduce (fn [delay _] (min cap (* 2 delay)))
-            (min cap initial)
-            (range (dec attempts)))))
+(def config-schema
+  [:map
+   [:delivery-policy circuit-breaker/delivery-policy-schema]
+   [:poll-ms pos-int?]])
 
 (defn- outbox-event
   [config now intent descriptor]
@@ -64,13 +56,51 @@
                              e
                              also)))))
 
-(defn- give-up?
-  [config attempts]
-  (>= attempts (or (:max-attempts config) default-max-attempts)))
-
 (defn- operation-of
   [config intent]
   (or (not-empty (:kind intent)) (:default-operation config)))
+
+(defn- retry-policy
+  [config intent]
+  (circuit-breaker/retry-policy (:delivery-policy config)
+                                (operation-of config intent)))
+
+(defn- age-ms
+  [now intent]
+  (let [{:keys [created-at]} intent]
+    (when (and created-at (pos? created-at)) (- now created-at))))
+
+(defn- destination
+  [config]
+  (str "adapter:" (name (:adapter config))))
+
+(defn- claimant
+  [config]
+  (or (:runner-id config) "intent-poller"))
+
+(defn- breaker-policy
+  [config]
+  (get-in config [:delivery-policy :breaker]))
+
+(defn- record-call
+  "Record a call's `outcome` on the adapter's breaker, ending the pass's
+  calls where it opens the breaker."
+  [config now pass outcome]
+  (let [breaker (circuit-breaker/record config
+                                        (breaker-policy config)
+                                        (destination config)
+                                        outcome
+                                        now)]
+    (cond
+     (error/anomaly? breaker)
+     (log/error "Circuit breaker not recorded"
+                {:destination (destination config) :anomaly breaker})
+
+     (= "open" (:state breaker))
+     (do (log/warn "Circuit breaker open; calls held"
+                   {:destination (destination config)
+                    :retry-at (:retry-at breaker)})
+         (swap! pass assoc :budget 0)))))
 
 (defn- retry
   [config now intent attempts reason]
@@ -86,10 +116,13 @@
                         store
                         intent-id
                         attempts
-                        (+ now (backoff-ms config attempts)))))
+                        (+ now
+                           (circuit-breaker/backoff-ms (retry-policy config
+                                                                     intent)
+                                                       (max 1 attempts))))))
 
 (defn- attempt
-  [config now intent]
+  [config now pass intent]
   (let [{:keys [adapter]} config
         {:keys [intent-id]} intent
         o (operation-of config intent)]
@@ -99,6 +132,11 @@
             [outcome result] res
             attempts (inc (or (:attempts intent) 0))
             intent (assoc intent :attempts attempts)]
+        (when-not (= :wait outcome)
+          (record-call config
+                       now
+                       pass
+                       (if (= :retry outcome) :failed :answered)))
         (case outcome
           :answered
           (record config
@@ -119,8 +157,10 @@
                       "pending"
                       (failed config now intent :refused result)))
 
-          :retry
-          (if (give-up? config attempts)
+          (:retry :wait)
+          (if (circuit-breaker/give-up? (retry-policy config intent)
+                                        (if (= :wait outcome) 0 attempts)
+                                        (age-ms now intent))
             (do (log/error "External API call giving up after max attempts"
                            {:adapter adapter
                             :intent-id intent-id
@@ -131,7 +171,11 @@
                         intent
                         "pending"
                         (failed config now intent :undelivered result)))
-            (retry config now intent attempts result)))))))
+            (retry config
+                   now
+                   intent
+                   (if (= :wait outcome) (dec attempts) attempts)
+                   result)))))))
 
 (defn- reconciler
   "The operation's `:reconcile`, where it has one."
@@ -177,45 +221,103 @@
   [now intent]
   (<= (or (:next-attempt-at intent) 0) now))
 
+(def ^:private expired
+  "Why an intent the breaker held past its maximum age failed."
+  "The external API did not answer before the intent expired")
+
+(defn- expire
+  [config now intent]
+  (let-nom> [operation (operations/operation (:adapter config)
+                                             (operation-of config intent))]
+    (log/error "Intent expired while its external API was unreachable"
+               {:adapter (:adapter config) :intent-id (:intent-id intent)})
+    (record config
+            now
+            intent
+            "pending"
+            ((:failed operation) config now intent :undelivered expired))))
+
+(defn- expire-aged
+  "Fail each pending intent past its maximum age, which a breaker open
+  for longer has kept from being attempted."
+  [config now pending]
+  (doseq [intent pending
+          :let [{:keys [max-age-ms]} (retry-policy config intent)
+                age (age-ms now intent)]
+          :when (and age (> age max-age-ms))]
+    (in-intent-trace config
+                     "outbound"
+                     intent
+                     (fn []
+                       (checked config
+                                intent
+                                (fn [i] (expire config now i)))))))
+
+(defn- allowed
+  "What the adapter's breaker lets this pass do: `:closed`, `:probe` or
+  `:open`. A breaker that cannot be read lets the pass through."
+  [config now]
+  (let [decision (circuit-breaker/allow config
+                                        (breaker-policy config)
+                                        (destination config)
+                                        now
+                                        (claimant config))]
+    (if (error/anomaly? decision)
+      (do (log/error "Circuit breaker not read; calling as though closed"
+                     {:destination (destination config) :anomaly decision})
+          :closed)
+      decision)))
+
 (defn drain-once
   [config now]
   (let [pending (intents-with-status config "pending")
         sent (intents-with-status config "sent")]
     (when-not (or (error/anomaly? pending) (error/anomaly? sent))
-      (intent-queue/drain
-       (into pending sent)
-       now
-       {:settles-first? (or (:settles-first? config) (constantly false))
-        :run (fn [intent]
-               (in-intent-trace config
-                                "outbound"
-                                intent
-                                (fn []
-                                  (checked config
-                                           intent
-                                           (fn [i]
-                                             (attempt config now i))))))})
-      (doseq [intent sent
-              :let [f (reconciler config intent)]
-              :when (and f (due? now intent))]
-        (in-intent-trace config
-                         "reconcile"
-                         intent
-                         (fn []
-                           (checked config
-                                    intent
-                                    (fn [i]
-                                      (record config
-                                              now
-                                              i
-                                              "sent"
-                                              (f config now i))))))))))
+      (let [decision (allowed config now)
+            pass (atom {:budget (if (= :probe decision) 1 ##Inf)})]
+        (if (= :open decision)
+          (expire-aged config now pending)
+          (do
+            (intent-queue/drain
+             (into pending sent)
+             now
+             {:settles-first? (or (:settles-first? config) (constantly false))
+              :run (fn [intent]
+                     (if (pos? (:budget @pass))
+                       (do (swap! pass update :budget dec)
+                           (in-intent-trace
+                            config
+                            "outbound"
+                            intent
+                            (fn []
+                              (checked config
+                                       intent
+                                       (fn [i] (attempt config now pass i))))))
+                       intent))})
+            (when (and (= :closed decision) (pos? (:budget @pass)))
+              (doseq [intent sent
+                      :let [f (reconciler config intent)]
+                      :when (and f (due? now intent))]
+                (in-intent-trace config
+                                 "reconcile"
+                                 intent
+                                 (fn []
+                                   (checked config
+                                            intent
+                                            (fn [i]
+                                              (record config
+                                                      now
+                                                      i
+                                                      "sent"
+                                                      (f config
+                                                         now
+                                                         i))))))))))))))
 
 (defn start
   [config]
   (let [{:keys [adapter poll-ms]} config
+        config (assoc config :runner-id (str (utility/uuidv7)))
         running (atom true)
-        poll-ms (or poll-ms default-poll-ms)
         t (doto (Thread.
                  (fn []
                    (while @running

@@ -17,7 +17,9 @@
     [malli.transform :as mt]
     [reitit.coercion.malli :as malli-coercion]
     [reitit.http :as http]
-    [reitit.ring :as ring]))
+    [reitit.ring :as ring]
+
+    [clojure.walk :as walk]))
 
 (defn- ->provider
   [base-transformer]
@@ -40,6 +42,29 @@
                                components/registry
                                modulr-webhook/component-registry)}}))
 
+(def ^:private unavailable
+  {:status 503
+   :body {:title "SERVICE UNAVAILABLE"
+          :type "simulate/outage"
+          :status 503
+          :detail "The simulator is in an outage"}})
+
+(defn- unavailable-while-out
+  "`routes` with each handler answering 503 while the simulator is in an
+  outage."
+  [routes]
+  (walk/postwalk (fn [x]
+                   (if (and (map? x) (fn? (:handler x)))
+                     (update x
+                             :handler
+                             (fn [handler]
+                               (fn [request]
+                                 (if (:outage @(:state request))
+                                   unavailable
+                                   (handler request)))))
+                     x))
+                 routes))
+
 (defn- routes
   [ctx]
   (into
@@ -54,10 +79,10 @@
                                    modulr-webhook/example-registry}}
             :handler (server/standard-openapi-handler)}}]
     (into ["" {:interceptors (:interceptors ctx)}]
-          (concat accounts/routes
-                  payments/routes
-                  notifications/routes
-                  name-check/routes
+          (concat (unavailable-while-out (concat accounts/routes
+                                                 payments/routes
+                                                 notifications/routes
+                                                 name-check/routes))
                   simulate/routes))]))
 
 (defn app

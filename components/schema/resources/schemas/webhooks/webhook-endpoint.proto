@@ -31,7 +31,7 @@ message WebhookEndpoint {
   // up the new one keeps verifying.
   optional string previous_secret = 8;
   optional int64 previous_secret_expires_at = 9;
-  optional int64 last_success_at = 10;
+  optional int64 last_success_at = 10 [deprecated = true];
   // The registering request's key. Unique-indexed per bank, which is
   // what makes a retried registration read back the endpoint it already
   // created rather than mint a second one.
