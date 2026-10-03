@@ -40,10 +40,15 @@ registrar: !system/component
   record-db: !system/ref fdb.record-db
   record-store: !system/ref fdb.meta-store
   delivery-policy: !include system/payment-delivery-policy.yml
-  # How often the provider is asked for the adapter's subscriptions: until
-  # it holds them all, and once it does.
+  # How often the provider is asked for the adapter's subscriptions:
+  # until it holds them all, or while the adapter's breaker is not closed,
+  # and otherwise. A simulator forgets them on restart; a provider keeps
+  # them, so the check is for one dropped or deleted.
   retry-ms: 5000
-  check-ms: 30000
+  check-ms: !profile
+    dev: 30000
+    test: 30000
+    default: 900000
 
 
 command-processor-impl: !system/component

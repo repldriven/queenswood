@@ -61,20 +61,22 @@
         res))))
 
 (defn start-probe
-  [config policy destination {:keys [probe outcome-of interval-ms]}]
+  [config policy destination {:keys [probe outcome-of interval-ms due?]}]
   (let [running (atom true)
         checked (fn []
                   (error/try-nom :circuit-breaker/probe
                                  "A destination's probe threw"
                                  (probe)))
+        tick (fn []
+               (let [res (guard config policy destination outcome-of checked)]
+                 (when (error/anomaly? res)
+                   (log/info "Destination probe not answered"
+                             {:destination destination :anomaly res}))
+                 res))
         t (doto (Thread.
                  (fn []
                    (while @running
-                     (let [res
-                           (guard config policy destination outcome-of checked)]
-                       (when (error/anomaly? res)
-                         (log/info "Destination probe not answered"
-                                   {:destination destination :anomaly res}))
+                     (let [res (when (or (nil? due?) (due?)) (tick))]
                        (try (Thread/sleep (long (interval-ms res)))
                             (catch InterruptedException _
                               (reset! running false)))))))

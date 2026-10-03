@@ -46,6 +46,7 @@
   component/intent-queue {:local/root "../../components/intent-queue"}
   component/circuit-breaker {:local/root "../../components/circuit-breaker"}
   component/intent-poller {:local/root "../../components/intent-poller"}
+  component/registrar {:local/root "../../components/registrar"}
   component/modulr-relay {:local/root "../../components/modulr-relay"}
   component/onfido-relay {:local/root "../../components/onfido-relay"}
   component/onfido-webhook {:local/root "../../components/onfido-webhook"}

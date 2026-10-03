@@ -109,10 +109,10 @@ non-trivial work on their topic.
   See [ADR-0030](docs/adr/0030-a-bank-chooses-its-providers-when-it-is-created.md),
   [ADR-0033](docs/adr/0033-operations-reach-a-provider-in-the-order-they-were-accepted.md)
   and [tdd/bank-providers.md](docs/tdd/bank-providers.md).
-- **Outbound delivery** — proposed: a circuit breaker on each
-  destination an outbound call goes to, its state in FDB, and every
-  retry, cap and cool-down in configuration, across the intent poller,
-  the webhook runner and the email runner.
+- **Outbound delivery** — a circuit breaker on each destination an
+  outbound call goes to, its state in FDB, and every retry, cap and
+  cool-down in configuration, across the intent poller, the synchronous
+  calls, the registrars, the webhook runner and the email runner.
   See [ADR-0034](docs/adr/0034-outbound-calls-go-through-a-breaker-on-their-destination.md)
   and [tdd/outbound-delivery.md](docs/tdd/outbound-delivery.md).
 - **Telemetry** — traces over OTLP to SigNoz in the cluster that

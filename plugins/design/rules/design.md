@@ -249,6 +249,34 @@ the domain hears. Send a provider command only from an activity event
 processor. The rest of ADR-0030 stands.
 See [ADR-0033](../../../docs/adr/0033-operations-reach-a-provider-in-the-order-they-were-accepted.md).
 
+## Outbound calls go through a breaker on their destination
+
+Make every outbound call through a circuit breaker on its destination,
+its state one FDB record per destination that every replica shares:
+closed, it lets calls through and counts consecutive failures; open, it
+lets none through for a cool-down; half-open, it lets one probe through,
+closing on its success and reopening on its failure with a longer
+cool-down. Name a destination for what fails as a unit — an external
+adapter's API, a customer's webhook endpoint, the mail server — and
+count only the destination's failures: unreachable, a timeout, a 5xx or
+a 429; a refusal that is the item's own stays with the item, and every
+non-2xx from a customer's endpoint is the endpoint's. Write the record
+when a call fails and when its state changes, and claim a half-open
+probe in one transaction, so two replicas never probe at once. Leave an
+item due while its breaker is open, counting no attempt against it;
+answer a call a request waits for as unavailable at once while its
+breaker is open; and make a call a destination is given on a schedule,
+such as checking an adapter's subscriptions, through its breaker too, so
+it probes whether or not anything else is sent. Give an item up at its
+maximum attempts or its maximum age, whichever comes first, reporting it
+undelivered where its loop reports one. Take every number from the
+loop's system configuration — a `:default` policy, a policy per
+operation overriding it, and the breaker's threshold and cool-downs —
+with nothing in code but the schema it is checked against at start-up.
+Never pause a webhook endpoint on failure: its breaker opens and closes
+on its own, and a pause is a person's.
+See [ADR-0034](../../../docs/adr/0034-outbound-calls-go-through-a-breaker-on-their-destination.md).
+
 ## One API, fully OpenAPI-compliant
 
 Expose one HTTP API for the whole bank — one base (`api`), one
