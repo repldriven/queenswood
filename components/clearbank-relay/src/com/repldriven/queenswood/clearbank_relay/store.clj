@@ -15,6 +15,7 @@
    :outbox "clearbank-outbox"
    :intents "clearbank-outbound-intents"
    :intent-type "ClearbankOutboundIntent"
+   :event-type "ClearbankOutboxEvent"
    :event->java schema/ClearbankOutboxEvent->java
    :event->pb schema/ClearbankOutboxEvent->pb
    :intent->java schema/ClearbankOutboundIntent->java

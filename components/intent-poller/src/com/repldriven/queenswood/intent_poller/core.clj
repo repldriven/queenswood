@@ -25,7 +25,7 @@
             (min cap initial)
             (range (dec attempts)))))
 
-(defn- event
+(defn- outbox-event
   [config now intent descriptor]
   (let [{:keys [schemas]} config
         {:keys [intent-id traceparent]} intent
@@ -41,14 +41,28 @@
                           :traceparent
                           (not-empty traceparent)))))
 
-(defn- finish
-  [config now intent outcome descriptor]
+(defn- record
+  "Leave `intent`, read at `from`, as `outcome` says: kept pending with
+  its next step's context, or moved to its status with its event."
+  [config now intent from outcome]
   (let [{:keys [store]} config
-        {:keys [intent-id attempts]} intent]
-    (if (nil? descriptor)
-      (store/finish config store intent-id "pending" outcome attempts nil)
-      (let-nom> [e (event config now intent descriptor)]
-        (store/finish config store intent-id "pending" outcome attempts e)))))
+        {:keys [intent-id attempts]} intent
+        {:keys [advance status event changes also]} outcome]
+    (if advance
+      (store/update-intent config
+                           store
+                           intent-id
+                           from
+                           (fn [i] (store/advanced i advance changes))
+                           nil)
+      (let-nom> [e (when event (outbox-event config now intent event))]
+        (store/update-intent config
+                             store
+                             intent-id
+                             from
+                             (fn [i] (store/moved i status attempts changes))
+                             e
+                             also)))))
 
 (defn- give-up?
   [config attempts]
@@ -78,17 +92,20 @@
   [config now intent]
   (let [{:keys [adapter]} config
         {:keys [intent-id]} intent
-        o (operation-of config intent)
-        attempts (inc (or (:attempts intent) 0))
-        intent (assoc intent :attempts attempts)]
+        o (operation-of config intent)]
     (let-nom> [operation (operations/operation adapter o)
                res ((:call operation) config now intent)]
       (let [{:keys [answered failed]} operation
-            [outcome result] res]
+            [outcome result] res
+            attempts (inc (or (:attempts intent) 0))
+            intent (assoc intent :attempts attempts)]
         (case outcome
           :answered
-          (let [{:keys [status event]} (answered config now intent result)]
-            (finish config now intent status event))
+          (record config
+                  now
+                  intent
+                  "pending"
+                  (answered config now intent result))
 
           :refused
           (do (log/error "The external API refused the call"
@@ -96,10 +113,10 @@
                           :intent-id intent-id
                           :operation o
                           :reason result})
-              (finish config
+              (record config
                       now
                       intent
-                      "failed"
+                      "pending"
                       (failed config now intent :refused result)))
 
           :retry
@@ -109,20 +126,29 @@
                             :intent-id intent-id
                             :operation o
                             :reason result})
-                (finish config
+                (record config
                         now
                         intent
-                        "failed"
+                        "pending"
                         (failed config now intent :undelivered result)))
             (retry config now intent attempts result)))))))
 
+(defn- reconciler
+  "The operation's `:reconcile`, where it has one."
+  [config intent]
+  (let [operation (operations/operation (:adapter config)
+                                        (operation-of config intent))]
+    (when (map? operation) (:reconcile operation))))
+
 (defn- in-intent-trace
-  [config intent f]
-  (telemetry/with-span-parent (str (name (:adapter config)) "-outbound")
+  [config span intent f]
+  (telemetry/with-span-parent (str (name (:adapter config)) "-" span)
                               (telemetry/extract-parent-context intent)
                               (utility/assoc-some {}
                                                   "intent.id"
-                                                  (:intent-id intent))
+                                                  (:intent-id intent)
+                                                  "intent.kind"
+                                                  (not-empty (:kind intent)))
                               f))
 
 (defn- checked
@@ -147,22 +173,43 @@
   [config status]
   (store/intents-with-status config (:store config) status))
 
+(defn- due?
+  [now intent]
+  (<= (or (:next-attempt-at intent) 0) now))
+
 (defn drain-once
   [config now]
-  (let [pending (intents-with-status config "pending")]
-    (when-not (error/anomaly? pending)
+  (let [pending (intents-with-status config "pending")
+        sent (intents-with-status config "sent")]
+    (when-not (or (error/anomaly? pending) (error/anomaly? sent))
       (intent-queue/drain
-       pending
+       (into pending sent)
        now
        {:settles-first? (or (:settles-first? config) (constantly false))
         :run (fn [intent]
                (in-intent-trace config
+                                "outbound"
                                 intent
                                 (fn []
                                   (checked config
                                            intent
                                            (fn [i]
-                                             (attempt config now i))))))}))))
+                                             (attempt config now i))))))})
+      (doseq [intent sent
+              :let [f (reconciler config intent)]
+              :when (and f (due? now intent))]
+        (in-intent-trace config
+                         "reconcile"
+                         intent
+                         (fn []
+                           (checked config
+                                    intent
+                                    (fn [i]
+                                      (record config
+                                              now
+                                              i
+                                              "sent"
+                                              (f config now i))))))))))
 
 (defn start
   [config]

@@ -4,32 +4,22 @@
     [com.repldriven.queenswood.modulr-relay.outcomes :as outcomes]
     [com.repldriven.queenswood.modulr-relay.store :as store]
 
-    [com.repldriven.queenswood.intent-queue.interface :as intent-queue]
+    [com.repldriven.queenswood.intent-poller.interface :as intent-poller]
     [com.repldriven.queenswood.modulr-webhook.interface :as modulr-webhook]
 
-    [com.repldriven.mono.avro.interface :as avro]
-    [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
+    [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.json.interface :as json]
     [com.repldriven.mono.log.interface :as log]
-    [com.repldriven.mono.telemetry.interface :as telemetry]
     [com.repldriven.mono.utility.interface :as utility]
 
     [clojure.edn :as edn]))
 
-(def ^:private default-poll-ms 200)
-(def ^:private default-max-attempts 20)
-(def ^:private default-initial-backoff-ms 1000)
-(def ^:private default-max-backoff-ms 60000)
 (def ^:private default-reconcile-after-ms 300000)
 
-(defn- backoff-ms
-  [config attempts]
-  (let [{:keys [initial-backoff-ms max-backoff-ms]} config
-        initial (or initial-backoff-ms default-initial-backoff-ms)
-        cap (or max-backoff-ms default-max-backoff-ms)]
-    (reduce (fn [delay _] (min cap (* 2 delay)))
-            (min cap initial)
-            (range (dec attempts)))))
+(def ^:private
+     ^{:doc "Operations that wait for an account's calls to settle."}
+     settles-first
+  #{"close-account" "reissue-address"})
 
 (defn- reconcile-at
   [config now]
@@ -40,44 +30,6 @@
   (or (some-> (not-empty (:context intent))
               edn/read-string)
       {}))
-
-(defn- event
-  [config now intent {:keys [event-name dedup-key data]}]
-  (let [{:keys [schemas]} config
-        {:keys [intent-id traceparent]} intent]
-    (let-nom> [payload (avro/serialize (get schemas event-name) data)]
-      (utility/assoc-some {:outbox-id (str (utility/uuidv7))
-                           :dedup-key dedup-key
-                           :event-name event-name
-                           :payload payload
-                           :correlation-id (str (utility/uuidv7))
-                           :causation-id intent-id
-                           :created-at now}
-                          :traceparent
-                          (not-empty traceparent)))))
-
-(defn- finish
-  ([config now intent outcome descriptor]
-   (finish config now intent "pending" outcome descriptor))
-  ([config now intent status outcome descriptor]
-   (let [{:keys [intent-id attempts]} intent]
-     (if (nil? descriptor)
-       (store/finish config intent-id status outcome attempts nil)
-       (let-nom> [e (event config now intent descriptor)]
-         (store/finish config intent-id status outcome attempts e))))))
-
-(defn- finish-holding
-  [config now intent account-id provider-account-id descriptor]
-  (let [{:keys [intent-id attempts]} intent]
-    (let-nom> [e (event config now intent descriptor)]
-      (store/finish-holding config
-                            intent-id
-                            "pending"
-                            "settled"
-                            attempts
-                            e
-                            account-id
-                            provider-account-id))))
 
 (defn- held-at
   "The provider account holding `account-id`'s money as this adapter
@@ -98,20 +50,19 @@
                        :retry? (pos? (or attempts 0)))]
     (modulr/classify ((or post-fn modulr/request) config request))))
 
-(defn- give-up?
-  [config attempts]
-  (>= attempts (or (:max-attempts config) default-max-attempts)))
+(defn- answer
+  "A Modulr outcome as the poller reads one."
+  [[outcome result]]
+  [(if (= :ok outcome) :answered outcome) result])
 
-(defn- retry
-  [config now intent attempts reason]
-  (let [{:keys [intent-id kind]} intent]
-    (log/warn
-     "Modulr call failed; will retry"
-     {:intent-id intent-id :kind kind :attempt attempts :reason reason})
-    (store/mark-attempt config
-                        intent-id
-                        attempts
-                        (+ now (backoff-ms config attempts)))))
+(defn- undelivered
+  [failure reason]
+  (if (= :undelivered failure) (str "Undelivered: " reason) reason))
+
+(defn- next-step
+  "Keep `ctx` for the intent's next step, signed with a fresh nonce."
+  [ctx]
+  {:advance ctx :changes {:nonce (modulr-webhook/nonce)}})
 
 ;; ---- payments and transfers
 
@@ -148,7 +99,7 @@
             :bank-id bank-id
             :timestamp-completed now}}))
 
-(defn- failure
+(defn- failure-event
   [intent failure-kind reason now]
   (if (= "payment" (:kind intent))
     (rejected intent failure-kind reason now)
@@ -209,48 +160,74 @@
     (payment-body config intent)
     (transfer-body config intent)))
 
-(defn- relay-payment
+(defn- pay
+  [config _now intent]
+  (if-let [body (request-body config intent)]
+    (answer (call config
+                  intent
+                  {:method :post
+                   :path (if (= "credit" (:kind intent)) "/credit" "/payments")
+                   :raw-body body}))
+    [:retry "No provider account holds it yet"]))
+
+(defn- paid
+  "A credit is complete once Modulr takes it; a payment or transfer is
+  sent, to be reconciled if no webhook settles it first."
+  [config now intent result]
+  (if (= "credit" (:kind intent))
+    {:status "settled" :event (transfer-completed intent now)}
+    {:status "sent"
+     :changes (utility/assoc-some {:next-attempt-at (reconcile-at config now)}
+                                  :provider-payment-id
+                                  (:id result))}))
+
+(defn- payment-failed
+  [_config now intent failure reason]
+  {:status "failed"
+   :event (failure-event intent
+                         (if (= :refused failure)
+                           :failure-kind-refused
+                           :failure-kind-undelivered)
+                         reason
+                         now)})
+
+(defn- lookup
+  [config provider-payment-id]
+  (let [{:keys [post-fn]} config
+        [outcome result] (modulr/classify ((or post-fn modulr/request)
+                                           config
+                                           {:method :get
+                                            :path "/payments"
+                                            :query {"id"
+                                                    provider-payment-id}}))]
+    (when (= :ok outcome) (first (:content result)))))
+
+(defn- reconcile
+  "Ask Modulr what became of a sent payment or transfer no webhook has
+  settled, and record what it reports under the dedup key its webhook
+  would carry, so a late webhook finds it already there."
   [config now intent]
-  (let [{:keys [intent-id kind]} intent
-        body (request-body config intent)
-        [outcome result] (if body
-                           (call config
-                                 intent
-                                 {:method :post
-                                  :path (if (= "credit" kind)
-                                          "/credit"
-                                          "/payments")
-                                  :raw-body body})
-                           [:retry "No provider account holds it yet"])
-        attempts (inc (or (:attempts intent) 0))
-        intent (assoc intent :attempts attempts)]
-    (cond
-     (and (= :ok outcome) (= "credit" kind))
-     (finish config now intent "settled" (transfer-completed intent now))
-
-     (= :ok outcome)
-     (store/mark-sent config intent-id (:id result) (reconcile-at config now))
-
-     (= :refused outcome)
-     (do (log/error "Modulr refused the call"
-                    {:intent-id intent-id :kind kind :reason result})
-         (finish config
-                 now
-                 intent
-                 "failed"
-                 (failure intent :failure-kind-refused result now)))
-
-     (give-up? config attempts)
-     (do (log/error "Modulr call giving up after max attempts"
-                    {:intent-id intent-id :kind kind :reason result})
-         (finish config
-                 now
-                 intent
-                 "failed"
-                 (failure intent :failure-kind-undelivered result now)))
-
-     :else
-     (retry config now intent attempts result))))
+  (let [{:keys [intent-id kind dedup-key provider-payment-id]} intent
+        {:keys! [amount currency] :keys [bank-id]} (context intent)
+        {:keys [status]} (lookup config provider-payment-id)
+        descriptor (if (= "payment" kind)
+                     (outcomes/payment {:provider-payment-id provider-payment-id
+                                        :end-to-end-id dedup-key
+                                        :amount amount
+                                        :currency currency
+                                        :status status
+                                        :at now})
+                     (outcomes/transfer {:provider-payment-id
+                                         provider-payment-id
+                                         :transfer-id dedup-key
+                                         :bank-id bank-id
+                                         :status status
+                                         :at now}))]
+    (if descriptor
+      (do (log/info "Reconciled a Modulr payment"
+                    {:intent-id intent-id :status status})
+          {:status "settled" :event descriptor})
+      {:status "sent" :changes {:next-attempt-at (reconcile-at config now)}})))
 
 ;; ---- accounts
 
@@ -291,46 +268,39 @@
                    "payment-account-refused"
                    {:bank-id bank-id :account-id account-id :reason reason})))
 
-(defn- relay-open
-  [config now intent]
-  (let [{:keys [intent-id request]} intent
-        {:keys! [bank-id account-id]} (context intent)
-        attempts (inc (or (:attempts intent) 0))
-        [outcome result] (call config
-                               intent
-                               {:method :post
-                                :path (open-path config)
-                                :raw-body request})
-        intent (assoc intent :attempts attempts)]
-    (cond
-     (= :ok outcome)
-     (let [{:keys [id addresses]} (scan result)]
-       (finish-holding config
-                       now
-                       intent
-                       account-id
-                       id
-                       (account-event intent
-                                      "payment-account-opened"
-                                      {:bank-id bank-id
-                                       :account-id account-id
-                                       :provider-account-id id
-                                       :addresses addresses})))
+(defn- held
+  "Settled with `event`, recording in the same transaction that
+  `account-id`'s money is now held in `provider-account-id`."
+  [account-id provider-account-id event]
+  {:status "settled"
+   :event event
+   :also (fn [txn] (store/hold txn account-id provider-account-id))})
 
-     (= :refused outcome)
-     (do (log/error "Modulr refused an account opening"
-                    {:intent-id intent-id :reason result})
-         (finish config now intent "failed" (account-refused intent result)))
+(defn- open
+  [config _now intent]
+  (answer (call config
+                intent
+                {:method :post
+                 :path (open-path config)
+                 :raw-body (:request intent)})))
 
-     (give-up? config attempts)
-     (finish config
-             now
-             intent
-             "failed"
-             (account-refused intent (str "Undelivered: " result)))
+(defn- opened
+  [_config _now intent result]
+  (let [{:keys! [bank-id account-id]} (context intent)
+        {:keys [id addresses]} (scan result)]
+    (held account-id
+          id
+          (account-event intent
+                         "payment-account-opened"
+                         {:bank-id bank-id
+                          :account-id account-id
+                          :provider-account-id id
+                          :addresses addresses}))))
 
-     :else
-     (retry config now intent attempts result))))
+(defn- open-failed
+  [_config _now intent failure reason]
+  {:status "failed"
+   :event (account-refused intent (undelivered failure reason))})
 
 (defn- close-refused
   [intent reason]
@@ -339,47 +309,27 @@
                    "payment-account-close-refused"
                    {:bank-id bank-id :account-id account-id :reason reason})))
 
-(defn- relay-close
-  [config now intent]
-  (let [{:keys [intent-id]} intent
-        {:keys! [bank-id account-id provider-account-id]} (context intent)
-        held (held-at config account-id provider-account-id)
-        attempts (inc (or (:attempts intent) 0))
-        [outcome result] (call config
-                               intent
-                               {:method :post
-                                :path (str "/accounts/" held "/close")})
-        intent (assoc intent :attempts attempts)]
-    (cond
-     (= :ok outcome)
-     (finish config
-             now
-             intent
-             "settled"
-             (account-event intent
-                            "payment-account-closed"
-                            {:bank-id bank-id :account-id account-id}))
+(defn- close
+  [config _now intent]
+  (let [{:keys! [account-id provider-account-id]} (context intent)]
+    (answer (call config
+                  intent
+                  {:method :post
+                   :path (str "/accounts/"
+                              (held-at config account-id provider-account-id)
+                              "/close")}))))
 
-     (= :refused outcome)
-     (do (log/error "Modulr refused to close the account"
-                    {:intent-id intent-id
-                     :account-id account-id
-                     :reason result})
-         (finish config now intent "failed" (close-refused intent result)))
+(defn- closed
+  [_config _now intent _result]
+  (let [{:keys! [bank-id account-id]} (context intent)]
+    {:status "settled"
+     :event (account-event intent
+                           "payment-account-closed"
+                           {:bank-id bank-id :account-id account-id})}))
 
-     (give-up? config attempts)
-     (do (log/error "Modulr did not close the account"
-                    {:intent-id intent-id
-                     :account-id account-id
-                     :reason result})
-         (finish config
-                 now
-                 intent
-                 "failed"
-                 (close-refused intent (str "Undelivered: " result))))
-
-     :else
-     (retry config now intent attempts result))))
+(defn- close-failed
+  [_config _now intent failure reason]
+  {:status "failed" :event (close-refused intent (undelivered failure reason))})
 
 (defn- reissue-step
   "The call for the reissue's current step, and how its result advances
@@ -451,191 +401,105 @@
                     :rotation-key rotation-key
                     :reason failure})))
 
-(defn- advance
-  [config intent ctx]
-  (store/update-intent config
-                       (:intent-id intent)
-                       "pending"
-                       (fn [i]
-                         (-> i
-                             (assoc :context (pr-str ctx)
-                                    :nonce (modulr-webhook/nonce)
-                                    :attempts 0)
-                             (dissoc :next-attempt-at)))
-                       nil))
+(defn- reissue-context
+  "The reissue's context, starting at blocking the account's provider
+  account where one holds it, or at opening a new one where none does."
+  [config intent]
+  (let [ctx (context intent)
+        {:keys! [account-id]} ctx]
+    (if (:step ctx)
+      ctx
+      (let [held (held-at config account-id (:provider-account-id ctx))]
+        (utility/assoc-some (assoc ctx :step (if held "block" "open"))
+                            :provider-account-id
+                            held)))))
 
-(defn- relay-reissue
-  [config now intent]
-  (let [{:keys [intent-id]} intent
-        ctx (context intent)
-        {:keys! [account-id]} ctx
-        ctx (if (:step ctx)
-              ctx
-              (let [held (held-at config
-                                  account-id
-                                  (:provider-account-id ctx))]
-                (utility/assoc-some (assoc ctx :step (if held "block" "open"))
-                                    :provider-account-id
-                                    held)))]
-    (case (:step ctx)
-      "done"
-      (finish-holding config
-                      now
-                      intent
-                      account-id
-                      (get-in ctx [:new-account :id])
-                      (reissued intent ctx))
+(defn- held-reissued
+  [intent ctx]
+  (held (:account-id ctx)
+        (get-in ctx [:new-account :id])
+        (reissued intent ctx)))
 
-      "failed"
-      (finish config now intent "failed" (reissue-failed intent ctx))
+(defn- reissue
+  "The reissue's current step. A finished or failed reissue makes no
+  call."
+  [config _now intent]
+  (let [ctx (reissue-context config intent)]
+    (if (contains? #{"done" "failed"} (:step ctx))
+      [:answered {:ctx ctx}]
+      (let [[request next-ctx] (reissue-step config intent ctx)
+            [outcome result]
+            (if request (call config intent request) [:ok nil])]
+        (case outcome
+          :ok [:answered {:ctx ctx :next (next-ctx result)}]
+          :refused [:refused {:ctx ctx :reason result}]
+          [:retry {:ctx ctx :reason result}])))))
 
-      (let [{:keys! [step] :keys [provider-account-id]} ctx
-            [request next-ctx] (reissue-step config intent ctx)
-            attempts (inc (or (:attempts intent) 0))
-            intent (assoc intent :attempts attempts)
-            [outcome result] (if request
-                               (call config intent request)
-                               [:ok nil])
-            stop? (or (= :refused outcome) (give-up? config attempts))
-            reason
-            (if (= :refused outcome) result (str "Undelivered: " result))]
-        (cond
-         (= :ok outcome)
-         (advance config intent (next-ctx result))
+(defn- reissue-advanced
+  [_config _now intent {:keys [ctx next]}]
+  (cond
+   next
+   (next-step next)
 
-         (and stop? (= "close" step))
-         (do (log/error "Modulr did not close the old account; it stays blocked"
-                        {:intent-id intent-id
-                         :provider-account-id provider-account-id
-                         :reason result})
-             (finish-holding config
-                             now
-                             intent
-                             account-id
-                             (get-in ctx [:new-account :id])
-                             (reissued intent ctx)))
+   (= "done" (:step ctx))
+   (held-reissued intent ctx)
 
-         (and stop? (= "unblock" step))
-         (do (log/error "Modulr did not unblock the old account"
-                        {:intent-id intent-id
-                         :provider-account-id provider-account-id
-                         :reason result})
-             (finish config now intent "failed" (reissue-failed intent ctx)))
+   :else
+   {:status "failed" :event (reissue-failed intent ctx)}))
 
-         (and stop?
-              provider-account-id
-              (not (and (= "block" step) (= :refused outcome))))
-         (do (log/error "Modulr address reissue failed; unblocking"
-                        {:intent-id intent-id
-                         :step step
-                         :new-provider-account-id (get-in ctx
-                                                          [:new-account :id])
-                         :reason result})
-             (advance config
-                      intent
-                      (assoc ctx :step "unblock" :failure reason)))
+(defn- reissue-stopped
+  "A reissue stopped at closing the old account is reissued, the old one
+  left blocked. One stopped after blocking it unblocks it first, then
+  fails; one stopped unblocking it, before blocking it, or refused the
+  block, fails."
+  [_config _now intent failure {:keys [ctx reason]}]
+  (let [{:keys! [step] :keys [provider-account-id]} ctx
+        reason (undelivered failure reason)
+        log-context {:intent-id (:intent-id intent)
+                     :step step
+                     :provider-account-id provider-account-id
+                     :reason reason}]
+    (cond
+     (= "close" step)
+     (do (log/error "Modulr did not close the old account; it stays blocked"
+                    log-context)
+         (held-reissued intent ctx))
 
-         stop?
-         (do (log/error "Modulr address reissue failed"
-                        {:intent-id intent-id :step step :reason result})
-             (finish config
-                     now
-                     intent
-                     "failed"
-                     (reissue-failed intent (assoc ctx :failure reason))))
+     (= "unblock" step)
+     (do (log/error "Modulr did not unblock the old account" log-context)
+         {:status "failed" :event (reissue-failed intent ctx)})
 
-         :else
-         (retry config now intent attempts result))))))
+     (and provider-account-id
+          (not (and (= "block" step) (= :refused failure))))
+     (do (log/error "Modulr address reissue failed; unblocking"
+                    (assoc log-context
+                           :new-provider-account-id
+                           (get-in ctx [:new-account :id])))
+         (next-step (assoc ctx :step "unblock" :failure reason)))
 
-;; ---- reconciliation
+     :else
+     {:status "failed"
+      :event (reissue-failed intent (assoc ctx :failure reason))})))
 
-(defn- lookup
-  [config provider-payment-id]
-  (let [{:keys [post-fn]} config
-        [outcome result] (modulr/classify ((or post-fn modulr/request)
-                                           config
-                                           {:method :get
-                                            :path "/payments"
-                                            :query {"id"
-                                                    provider-payment-id}}))]
-    (when (= :ok outcome) (first (:content result)))))
+(intent-poller/defoperations
+ :modulr
+ {"payment"
+  {:call pay :answered paid :failed payment-failed :reconcile reconcile}
+  "transfer"
+  {:call pay :answered paid :failed payment-failed :reconcile reconcile}
+  "credit" {:call pay :answered paid :failed payment-failed}
+  "open-account" {:call open :answered opened :failed open-failed}
+  "close-account" {:call close :answered closed :failed close-failed}
+  "reissue-address"
+  {:call reissue :answered reissue-advanced :failed reissue-stopped}})
 
-(defn- reconcile
-  "Ask Modulr what became of a sent payment or transfer no webhook has
-  settled, and record what it reports under the dedup key its webhook
-  would carry, so a late webhook finds it already there."
-  [config now intent]
-  (let [{:keys [intent-id kind dedup-key provider-payment-id]} intent
-        {:keys! [amount currency] :keys [bank-id]} (context intent)
-        {:keys [status]} (lookup config provider-payment-id)
-        descriptor (if (= "payment" kind)
-                     (outcomes/payment {:provider-payment-id provider-payment-id
-                                        :end-to-end-id dedup-key
-                                        :amount amount
-                                        :currency currency
-                                        :status status
-                                        :at now})
-                     (outcomes/transfer {:provider-payment-id
-                                         provider-payment-id
-                                         :transfer-id dedup-key
-                                         :bank-id bank-id
-                                         :status status
-                                         :at now}))]
-    (if descriptor
-      (do (log/info "Reconciled a Modulr payment"
-                    {:intent-id intent-id :status status})
-          (finish config now intent "sent" "settled" descriptor))
-      (store/update-intent
-       config
-       intent-id
-       "sent"
-       (fn [i] (assoc i :next-attempt-at (reconcile-at config now)))
-       nil))))
-
-;; ---- the loop
-
-(def ^:private relays
-  {"payment" relay-payment
-   "transfer" relay-payment
-   "credit" relay-payment
-   "open-account" relay-open
-   "close-account" relay-close
-   "reissue-address" relay-reissue})
-
-(defn- due?
-  [now intent]
-  (<= (or (:next-attempt-at intent) 0) now))
-
-(def ^:private
-     ^{:doc "Kinds that wait for an account's calls to settle."} settles-first
-  #{"close-account" "reissue-address"})
-
-(defn- in-intent-trace
-  [span-name intent f]
-  (telemetry/with-span-parent span-name
-                              (telemetry/extract-parent-context intent)
-                              (utility/assoc-some {}
-                                                  "intent.id"
-                                                  (:intent-id intent)
-                                                  "intent.kind"
-                                                  (:kind intent))
-                              f))
-
-(defn- checked
-  "Run `f` on `intent`, failing the intent where its call throws, so it no
-  longer holds the intents behind it."
-  [config intent f]
-  (let [res (error/try-nom-ex :modulr-relay/intent
-                              Exception
-                              "Modulr intent could not be relayed"
-                              (f intent))]
-    (if (error/anomaly? res)
-      (let [{:keys [intent-id kind status attempts]} intent]
-        (log/error "Modulr intent could not be relayed; failing it"
-                   {:intent-id intent-id :kind kind :anomaly res})
-        (store/finish config intent-id status "failed" attempts nil)
-        (assoc intent :status "failed"))
-      res)))
+(defn- poller-config
+  [config]
+  (assoc config
+         :adapter :modulr
+         :store store/spec
+         :settles-first? (fn [intent]
+                           (contains? settles-first (:kind intent)))))
 
 (defn drain-once
   "Make each due pending call once, oldest first, holding a call for an
@@ -644,46 +508,8 @@
   transfer. Reads are transactional; each call and the write recording
   it are separate, so no network I/O happens inside an FDB transaction."
   [config now]
-  (let [pending (store/intents-with-status config "pending")
-        sent (store/intents-with-status config "sent")]
-    (when-not (or (error/anomaly? pending) (error/anomaly? sent))
-      (intent-queue/drain
-       (into pending sent)
-       now
-       {:settles-first? (fn [intent] (contains? settles-first (:kind intent)))
-        :run (fn [intent]
-               (in-intent-trace
-                "modulr-outbound"
-                intent
-                (fn []
-                  (if-let [relay (get relays (:kind intent))]
-                    (checked config intent (fn [i] (relay config now i)))
-                    (log/error "Unknown Modulr intent kind"
-                               {:intent intent})))))}))
-    (when-not (error/anomaly? sent)
-      (doseq [intent sent
-              :when (due? now intent)]
-        (in-intent-trace "modulr-reconcile"
-                         intent
-                         (fn []
-                           (checked config
-                                    intent
-                                    (fn [i] (reconcile config now i)))))))))
+  (intent-poller/drain-once (poller-config config) now))
 
 (defn start-runner
   [config]
-  (let [running (atom true)
-        poll-ms (or (:poll-ms config) default-poll-ms)
-        t (doto
-            (Thread.
-             (fn []
-               (while @running
-                 (try (drain-once config (utility/now))
-                      (catch Exception e
-                        (log/error e "Modulr relay drain threw; continuing")))
-                 (try (when @running (Thread/sleep poll-ms))
-                      (catch InterruptedException _ (reset! running false))))))
-            (.setDaemon true)
-            (.setName "modulr-outbound-relay")
-            (.start))]
-    {:stop (fn [] (reset! running false) (.interrupt t))}))
+  (intent-poller/start (poller-config config)))

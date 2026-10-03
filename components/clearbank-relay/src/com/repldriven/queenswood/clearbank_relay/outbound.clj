@@ -123,12 +123,13 @@
 
 (defn- payment-failed
   [_config now intent failure reason]
-  (rejected intent
-            (if (= :refused failure)
-              :failure-kind-refused
-              :failure-kind-undelivered)
-            reason
-            now))
+  {:status "failed"
+   :event (rejected intent
+                    (if (= :refused failure)
+                      :failure-kind-refused
+                      :failure-kind-undelivered)
+                    reason
+                    now)})
 
 ;; ---- accounts
 
@@ -184,11 +185,12 @@
 (defn- open-failed
   [_config _now intent failure reason]
   (let [{:keys! [bank-id account-id]} (context intent)]
-    (account-event intent
-                   "payment-account-refused"
-                   {:bank-id bank-id
-                    :account-id account-id
-                    :reason (undelivered failure reason)})))
+    {:status "failed"
+     :event (account-event intent
+                           "payment-account-refused"
+                           {:bank-id bank-id
+                            :account-id account-id
+                            :reason (undelivered failure reason)})}))
 
 (defn- close
   [config _now intent]
@@ -209,11 +211,12 @@
 (defn- close-failed
   [_config _now intent failure reason]
   (let [{:keys! [bank-id account-id]} (context intent)]
-    (account-event intent
-                   "payment-account-close-refused"
-                   {:bank-id bank-id
-                    :account-id account-id
-                    :reason (undelivered failure reason)})))
+    {:status "failed"
+     :event (account-event intent
+                           "payment-account-close-refused"
+                           {:bank-id bank-id
+                            :account-id account-id
+                            :reason (undelivered failure reason)})}))
 
 (defn- reissue
   [config _now intent]
@@ -239,12 +242,13 @@
 (defn- reissue-failed
   [_config _now intent failure reason]
   (let [{:keys! [bank-id account-id rotation-key]} (context intent)]
-    (account-event intent
-                   "payment-address-reissue-failed"
-                   {:bank-id bank-id
-                    :account-id account-id
-                    :rotation-key rotation-key
-                    :reason (undelivered failure reason)})))
+    {:status "failed"
+     :event (account-event intent
+                           "payment-address-reissue-failed"
+                           {:bank-id bank-id
+                            :account-id account-id
+                            :rotation-key rotation-key
+                            :reason (undelivered failure reason)})}))
 
 (intent-poller/defoperations
  :clearbank

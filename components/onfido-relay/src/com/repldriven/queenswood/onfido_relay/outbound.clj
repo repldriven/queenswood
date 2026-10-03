@@ -244,11 +244,12 @@
 (defn- check-failed
   [_config _now intent failure reason]
   (let [data (request intent)]
-    (when (:session-id data)
-      (session-failed data
-                      (if (= :undelivered failure)
-                        (str "Undelivered: " reason)
-                        reason)))))
+    {:status "failed"
+     :event (when (:session-id data)
+              (session-failed data
+                              (if (= :undelivered failure)
+                                (str "Undelivered: " reason)
+                                reason)))}))
 
 (intent-poller/defoperations
  :onfido

@@ -14,6 +14,8 @@
   - `:outbox`, `:intents` — the record store names.
   - `:intent-type` — the intent's record type, its status index named
     `<intent-type>_by_status`.
+  - `:event-type` — the outbox event's record type, its dedup key index
+    named `<event-type>_by_dedup_key`.
   - `:event->java`, `:event->pb`, `:intent->java`, `:pb->intent`.
 
   A poller config carries the FDB `:record-db` and `:record-store`, the
@@ -95,9 +97,23 @@
   [config status]
   (core/intents-with-status config status))
 
+(defn advance
+  "Keep a pending intent pending with `ctx` as its context for its next
+  step, from a fresh attempt count and due at once, `changes` merged in.
+
+  Args:
+  - txn: an open FDB transaction or `{:record-db :record-store}` config.
+  - spec: the store spec.
+  - intent-id: the intent.
+  - ctx: its next context.
+  - changes: fields to set on it, or nil."
+  [txn spec intent-id ctx changes]
+  (store/advance txn spec intent-id ctx changes))
+
 (defn finish
   "Move an intent still at `status` to `outcome`, with `attempts` where
-  given, writing `event` in the same transaction where given. An intent
+  given, writing `event` in the same transaction where given and not
+  already recorded under its dedup key, as a webhook may have. An intent
   that has moved on is returned unchanged with nothing written. A `sent`
   outcome records when it was sent.
 

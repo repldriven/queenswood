@@ -8,6 +8,7 @@
    :outbox "zyphe-outbox"
    :intents "zyphe-outbound-intents"
    :intent-type "ZypheOutboundIntent"
+   :event-type "ZypheOutboxEvent"
    :event->java schema/ZypheOutboxEvent->java
    :event->pb schema/ZypheOutboxEvent->pb
    :intent->java schema/ZypheOutboundIntent->java

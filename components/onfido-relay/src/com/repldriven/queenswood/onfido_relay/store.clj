@@ -8,6 +8,7 @@
    :outbox "onfido-outbox"
    :intents "onfido-outbound-intents"
    :intent-type "OnfidoOutboundIntent"
+   :event-type "OnfidoOutboxEvent"
    :event->java schema/OnfidoOutboxEvent->java
    :event->pb schema/OnfidoOutboxEvent->pb
    :intent->java schema/OnfidoOutboundIntent->java
