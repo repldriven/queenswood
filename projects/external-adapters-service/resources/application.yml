@@ -121,7 +121,7 @@ system:
     # The group.ids name the per-adapter services this one absorbed.
     # They are carried over verbatim: a consumer group identifies the
     # consumer role, not the pod hosting it, and renaming one
-    # re-consumes or skips (ADR-0019 cursor continuity). A provider's
+    # re-consumes or skips (ADR-0036 cursor continuity). A provider's
     # command channel is a topic of its own, whose group is named for
     # this service.
     consumers: !system/component
@@ -306,25 +306,18 @@ system:
   fdb: !include system/fdb.yml
   avro: !include system/avro.yml
   telemetry: !include system/telemetry.yml
-  modulr-simulator-server: !include system/modulr-simulator-server.yml
-  scheme-simulator: !include system/scheme-simulator.yml
   modulr-adapter-server: !include system/modulr-adapter-server.yml
   payment-provider: !include system/payment-provider.yml
   idv-provider: !include system/idv-provider.yml
   modulr-adapter: !include system/modulr-adapter.yml
-  zyphe-simulator-server: !include system/zyphe-simulator-server.yml
   zyphe-adapter-server: !include system/zyphe-adapter-server.yml
   zyphe-adapter: !include system/zyphe-adapter.yml
-  form3-simulator-server: !include system/form3-simulator-server.yml
   form3-adapter-server: !include system/form3-adapter-server.yml
   form3-adapter: !include system/form3-adapter.yml
-  clearbank-simulator-server: !include system/clearbank-simulator-server.yml
   clearbank-adapter-server: !include system/clearbank-adapter-server.yml
   clearbank-adapter: !include system/clearbank-adapter.yml
-  onfido-simulator-server: !include system/onfido-simulator-server.yml
   onfido-adapter-server: !include system/onfido-adapter-server.yml
   onfido-adapter: !include system/onfido-adapter.yml
-  uk-companies-house-simulator-server: !include system/uk-companies-house-simulator-server.yml
   uk-companies-house-adapter: !include system/uk-companies-house-adapter.yml
   webhook: !include system/webhook.yml
   email: !include system/email.yml

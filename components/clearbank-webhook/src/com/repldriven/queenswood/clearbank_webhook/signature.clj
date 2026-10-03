@@ -1,5 +1,6 @@
 (ns com.repldriven.queenswood.clearbank-webhook.signature
   (:require
+    [com.repldriven.mono.encryption.interface :as encryption]
     [com.repldriven.mono.error.interface :as error]
 
     [clojure.string :as str])
@@ -17,6 +18,18 @@
   (let [pair (.generateKeyPair (doto (KeyPairGenerator/getInstance "RSA")
                                  (.initialize 2048)))]
     {:private-key (.getPrivate pair) :public-key (.getPublic pair)}))
+
+(defn- pem-bytes
+  ^bytes [pem]
+  (.decode (Base64/getMimeDecoder) (str/replace pem #"-----[A-Z ]+-----" "")))
+
+(defn private-key
+  [pem]
+  (encryption/private-key-pkcs8-encoded->rsa (pem-bytes pem)))
+
+(defn public-key
+  [pem]
+  (encryption/public-key-x509-encoded->rsa (pem-bytes pem)))
 
 (defn- ->bytes
   ^bytes [body]

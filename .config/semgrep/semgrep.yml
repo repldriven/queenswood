@@ -93,6 +93,7 @@ rules:
         - "/bases/zyphe-*/**"
         - "/bases/onfido-*/**"
         - "/bases/external-adapters/**"
+        - "/bases/external-simulators/**"
         - "/bases/monolith/**"
 
   - id: provider-command-outside-activity

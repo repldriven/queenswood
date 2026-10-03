@@ -177,18 +177,18 @@ bank's activity is caught the same way (ADR-0033).
 ### Deployment and rigs
 
 - **Builds.** Every service offers the providers
-  `system/payment-provider.yml` and `system/idv-provider.yml` offer,
-  which is every one with an adapter, Modulr and Zyphe the defaults, so
-  every service routes to the same set. `external-adapters-service`
-  and `monolith-service` compose every adapter and its simulator,
-  `exclusive-dispatchers-service` relays each one's outbox, and the
-  processor services publish on each one's channels. The image carries
-  every capability and the configuration decides which run: the
-  external-adapters and monolith entry points fill the handler of each
-  adapter and simulator server the configuration declares. The Helm
-  values point each deployed adapter at its simulator, and the console
-  proxies each IDV simulator's hosted page, Onfido's at
-  `/identity-provider/onfido/`.
+  `system/payment-provider.yml` and `system/idv-provider.yml` offer, which
+  is every one with an adapter, Modulr and Zyphe the defaults, so every
+  service routes to the same set. `external-adapters-service` composes
+  every adapter, `external-simulators-service` every simulator and
+  `monolith-service` both, `exclusive-dispatchers-service` relays each
+  one's outbox, and the processor services publish on each one's channels.
+  The image carries every capability and the configuration decides which
+  run: the external-adapters, external-simulators and monolith entry
+  points fill the handler of each adapter and simulator server the
+  configuration declares. The Helm values point each deployed adapter at
+  its simulator, and the console proxies each IDV simulator's hosted page,
+  Onfido's at `/identity-provider/onfido/`.
 - **Rigs.** The API scenario rig runs every payment and IDV adapter
   with its simulator in one boot: every scenario on the default
   providers, then each scenario declaring `:runs-on {:payment :every}`
@@ -289,7 +289,7 @@ bank's activity is caught the same way (ADR-0033).
   — a bank's providers, chosen at creation.
 - [ADR-0020](../adr/0020-providers-are-deployment-facts.md) — the
   decision ADR-0030 supersedes, and the parts it keeps.
-- [ADR-0019](../adr/0019-processor-packaging.md) — which service hosts
+- [ADR-0036](../adr/0036-simulators-run-in-a-service-of-their-own.md) — which service hosts
   the adapters and relays.
 - [system-configurations](../recipes/code/system-configurations.md) —
   groups, components and the tags the providers component uses.

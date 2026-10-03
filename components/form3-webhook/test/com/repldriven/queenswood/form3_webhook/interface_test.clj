@@ -3,9 +3,17 @@
     [com.repldriven.queenswood.form3-webhook.interface :as SUT]
 
     [com.repldriven.mono.error.interface :as error]
+    [com.repldriven.mono.system.interface :as system]
+    [com.repldriven.mono.test-system.interface :refer [with-test-system]]
 
+    [clojure.java.io :as io]
     [clojure.string :as str]
-    [clojure.test :refer [deftest is testing]]))
+    [clojure.test :refer [deftest is testing]])
+  (:import
+    (java.nio.file Files)
+    (java.nio.file.attribute FileAttribute)
+    (java.security Key)
+    (java.util Base64)))
 
 (def ^:private now-ms 1790613486000)
 
@@ -20,17 +28,18 @@
 (def ^:private body "{\"data\":{\"id\":\"p1\"}}")
 
 (defn- signed
-  [request]
-  (let [headers (SUT/headers credentials request now-ms)
-        {:keys [host body]} request]
-    (assoc request
-           :headers
-           (cond-> (merge {"host" host}
-                          (update-keys headers str/lower-case))
-                   body
-                   (assoc "content-length"
-                          (str (count (.getBytes ^String body
-                                                 "UTF-8"))))))))
+  ([request] (signed credentials request))
+  ([credentials request]
+   (let [headers (SUT/headers credentials request now-ms)
+         {:keys [host body]} request]
+     (assoc request
+            :headers
+            (cond-> (merge {"host" host}
+                           (update-keys headers str/lower-case))
+                    body
+                    (assoc "content-length"
+                           (str (count (.getBytes ^String body
+                                                  "UTF-8")))))))))
 
 (def ^:private write
   {:method :post
@@ -91,3 +100,47 @@
 (deftest digest-test
   (is (= "SHA-256=47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="
          (SUT/digest ""))))
+
+(defn- write-pem
+  [dir file-name label ^Key k]
+  (let [f (io/file dir file-name)]
+    (spit f
+          (str "-----BEGIN "
+               label
+               "-----\n"
+               (.encodeToString (Base64/getMimeEncoder) (.getEncoded k))
+               "\n-----END "
+               label
+               "-----\n"))
+    (str f)))
+
+(deftest credentials-read-each-half-from-a-file-test
+  (testing
+    "the adapter signs with its private half, the simulator verifies
+  with the public half"
+    (let [dir (str (Files/createTempDirectory "form3-key"
+                                              (make-array FileAttribute 0)))
+          pair (SUT/key-pair)
+          private-file
+          (write-pem dir "private.pem" "PRIVATE KEY" (:private-key pair))
+          public-file
+          (write-pem dir "public.pem" "PUBLIC KEY" (:public-key pair))]
+      (with-test-system
+       [sys
+        ["classpath:form3-webhook/key-files-test.yml"
+         (fn [defs]
+           (-> defs
+               (assoc-in [:system/defs :form3-webhook :adapter
+                          :system/config :private-key-file]
+                         private-file)
+               (assoc-in [:system/defs :form3-webhook :simulator
+                          :system/config :public-key-file]
+                         public-file)))]]
+       (let [adapter (system/instance sys [:form3-webhook :adapter])
+             simulator (system/instance sys [:form3-webhook :simulator])]
+         (is (nil? (:public-key adapter)))
+         (is (nil? (:private-key simulator)))
+         (is (= {:verified true :key-id (:key-id adapter)}
+                (SUT/verify {(:key-id simulator) (:public-key simulator)}
+                            (signed adapter write)
+                            now-ms))))))))

@@ -40,11 +40,12 @@ processors are grouped along the financial boundary into
 `financial-processors-service` and
 `operational-processors-service`. Work that admits exactly
 one dispatcher — the changelog relay runners and the Quartz
-scheduler — is `exclusive-dispatchers-service`. Every
-vendor adapter and its simulator share
-`external-adapters-service` — see
-[ADR-0019](../../adr/0019-processor-packaging.md). The two
-one-shots are `migrator-service` and
+scheduler — is `exclusive-dispatchers-service`. Every vendor
+adapter runs in `external-adapters-service`, and the
+simulators that stand in for the vendors in
+`external-simulators-service` — see
+[ADR-0036](../../adr/0036-simulators-run-in-a-service-of-their-own.md).
+The two one-shots are `migrator-service` and
 `bootstrap-service`.
 
 ### The chart
@@ -402,7 +403,7 @@ hangs the same way.
 Processors were originally one project each; at current
 volume that meant a JVM per domain, each under-utilised, so
 they are packaged into boundary groups instead, per
-[ADR-0019](../../adr/0019-processor-packaging.md). Each
+[ADR-0036](../../adr/0036-simulators-run-in-a-service-of-their-own.md). Each
 processor still owns its Kafka consumer group and changelog
 cursors — the group a processor runs in is deployment-time
 YAML composition, so a domain that develops its own scaling

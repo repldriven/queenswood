@@ -177,22 +177,28 @@ per service group (a boilerplate main plus a require bundle registering
 that group's component-kinds) and one project per group, whose
 `application.yml` alone decides which processors and event consumers
 that JVM hosts. Bases are group-scoped, not one shared superset, so each
-project's deps carry only the bricks its group runs. Group by
-boundary, not throughput — financial processors (payment,
-transaction, interest, payee-check) never share a JVM with
-operational processors (bank, party, cash-account, idv); external
-adapters and simulators are never grouped with domain processors, and
-share one JVM of their own. Work that admits exactly one dispatcher —
-every store's changelog runner and the Quartz scheduler — goes in
-`exclusive-dispatchers-service`, pinned to `replicas: 1`, which is what
-leaves every other group free of the constraint. A poll loop is not
-exclusive work on its own: a runner that claims each row by a
+project's deps carry only the bricks its group runs. Group by boundary,
+not throughput — financial processors (payment, transaction, interest,
+payee-check) never share a JVM with operational processors (bank, party,
+cash-account, idv); external adapters are never grouped with domain
+processors, and share one JVM of their own, and the simulators that
+stand in for the vendors run in `external-simulators-service`, apart
+from the adapters, which an installation against the vendors disables.
+Give each provider credential a Secret of its own — `modulr-api`,
+`form3-api`, `clearbank-client-key`, `clearbank-provider-key` — which
+the adapter and its provider each read half of: a Job fills any that is
+empty where the simulators run, and an ExternalSecret fills it from
+Secret Manager against the vendors. Work that admits exactly one
+dispatcher — every store's changelog runner and the Quartz scheduler —
+goes in `exclusive-dispatchers-service`, pinned to `replicas: 1`, which
+is what leaves every other group free of the constraint. A poll loop is
+not exclusive work on its own: a runner that claims each row by a
 conditional transition inside one FDB transaction leaves a second
 replica nothing to take, so its group stays free — that claim is what a
 runner added to `external-adapters-service` carries instead of a pin.
 When a processor moves between groups its consumer groups and changelog
 `consumer-id`s move with it verbatim, or the cursor is abandoned.
-See [ADR-0019](../../../docs/adr/0019-processor-packaging.md).
+See [ADR-0036](../../../docs/adr/0036-simulators-run-in-a-service-of-their-own.md).
 
 ## A bank chooses its providers when it is created
 

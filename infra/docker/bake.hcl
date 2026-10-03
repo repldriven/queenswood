@@ -39,6 +39,7 @@ services = [
   "operational-processors-service",
   "exclusive-dispatchers-service",
   "external-adapters-service",
+  "external-simulators-service",
 ]
 
 group "default" {

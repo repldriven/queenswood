@@ -25,7 +25,7 @@ reports, and the ceilings the baseline is expected to find.
 Out of scope: raising any ceiling a run finds, which the design of the
 brick holding it decides — [payments](payments.md),
 [transaction-processing](transaction-processing.md) and
-[ADR-0019](../adr/0019-processor-packaging.md); read load, inbound
+[ADR-0036](../adr/0036-simulators-run-in-a-service-of-their-own.md); read load, inbound
 payments and webhook delivery to a customer; the Form3 and ClearBank
 providers, which [bank-providers](bank-providers.md) describes; and load
 against a provider's own sandbox.
@@ -74,7 +74,7 @@ against a provider's own sandbox.
   writes the outcome to `modulr-outbox`, whose relay publishes it for
   `payment` to settle the payment.
 - **The Modulr simulator keeps a balance per account.** It runs in
-  `external-adapters-service`, in the adapter's JVM. A payment its source
+  `external-simulators-service`, apart from the adapter. A payment its source
   cannot cover waits as `PENDING_FOR_FUNDS` and expires after
   `pending-for-funds-ms`, 30 seconds, with no notification. Money the
   platform credits through `POST /v1/simulate/inbound-transfer` reaches
@@ -255,7 +255,7 @@ load test signs in as a client of its own instead:
 - **Rate.** Payments a second asked for and achieved, and k6's
   `dropped_iterations`, the payments it could not start because every VU
   was waiting.
-- **Latency.** p50, p95, p99 and the maximum of the submit.
+- **Latency.** The average, p50, p95, p99 and the maximum of the submit.
 - **By step.** Each step's rate asked and achieved, its latency and its
   failure rate, read from thresholds on the step's tag that nothing
   fails, since k6 summarises a tagged metric only where a threshold
@@ -319,7 +319,13 @@ payment costs, ranked by its effect on the serial command path, which is
    window. Every producer now sets `linger.ms: 0` beside `acks: all`, a
    send takes 0.4 ms, the serial path 15.2 ms, and the `knee` ceiling
    rose from about 51 a second to about 64, with 40 a second at a p99 of
-   47 ms rather than 122.
+   47 ms rather than 122. With the simulators in a service of their own,
+   50 a second holds for ten minutes: 30,000 payments, none refused, at
+   an average of 80 ms, a p50 of 37 ms and a p99 of 665 ms. The command
+   consumer is 88 to 93% busy at that rate, so when the payment's
+   transaction slows from about 33 ms to 55 ms at its slowest, a queue
+   forms that takes 30 seconds to drain: the worst minute averaged
+   270 ms.
 2. **The payment's transaction.** 14.2 ms p50, and with the sends gone
    nearly all of the serial path. Its span is `:payment/submit-internal`,
    and the outbound one's `:payment/submit-outbound`, rather than the
@@ -412,8 +418,6 @@ holds it, and the run repeated.
   FDB a 2Gi limit with `cache_memory` and `memory` below it, since its
   defaults outgrow the chart's 1Gi under a sustained run and the kernel
   kills the storage server.
-- **The simulator shares the adapter's JVM.** Its work counts against the
-  adapter in `external-adapters-service`.
 - **The platform cap ends a long run.** 100,000 payments of a kind in a
   business day is refused with 429, which 50 a second reaches in 33
   minutes; the cap is raised when a run nears it.
@@ -439,7 +443,7 @@ holds it, and the run repeated.
   policies combine, and the caps a run must stay under.
 - [scenario-testing](scenario-testing.md) — the correctness tiers, which
   a load run does not replace.
-- [ADR-0019](../adr/0019-processor-packaging.md) — the service groups and
+- [ADR-0036](../adr/0036-simulators-run-in-a-service-of-their-own.md) — the service groups and
   the one-replica dispatchers.
 - [ADR-0021](../adr/0021-changelog-relay.md) — the changelog relay.
 - [ADR-0035](../adr/0035-traces-and-jvm-metrics-go-to-signoz-in-the-cluster-that-produces-them.md)

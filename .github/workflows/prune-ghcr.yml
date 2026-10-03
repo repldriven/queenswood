@@ -51,6 +51,7 @@ jobs:
           - queenswood/operational-processors-service
           - queenswood/exclusive-dispatchers-service
           - queenswood/external-adapters-service
+          - queenswood/external-simulators-service
           - queenswood/console
           - queenswood
     steps:

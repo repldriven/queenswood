@@ -26,6 +26,9 @@
   "external-adapters-service" {:alias "ext"
                                :necessary ["resources" "test-resources"
                                            "test-startup"]}
+  "external-simulators-service" {:alias "sim"
+                                 :necessary ["resources" "test-resources"
+                                             "test-startup"]}
   "demo-digital-bank-api-service" {:alias "ddb"
                                :necessary ["resources" "test-resources"
                                            "test-startup"]}

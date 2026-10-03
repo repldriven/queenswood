@@ -4,20 +4,10 @@
 
     [com.repldriven.queenswood.clearbank-adapter.interface :as
      clearbank-adapter]
-    [com.repldriven.queenswood.clearbank-simulator.interface :as
-     clearbank-simulator]
     [com.repldriven.queenswood.form3-adapter.interface :as form3-adapter]
-    [com.repldriven.queenswood.form3-simulator.interface :as form3-simulator]
     [com.repldriven.queenswood.modulr-adapter.interface :as modulr-adapter]
-    [com.repldriven.queenswood.modulr-simulator.interface :as
-     modulr-simulator]
     [com.repldriven.queenswood.onfido-adapter.interface :as onfido-adapter]
-    [com.repldriven.queenswood.onfido-simulator.interface :as
-     onfido-simulator]
-    [com.repldriven.queenswood.uk-companies-house-simulator.interface :as
-     ukch-simulator]
     [com.repldriven.queenswood.zyphe-adapter.interface :as zyphe-adapter]
-    [com.repldriven.queenswood.zyphe-simulator.interface :as zyphe-simulator]
 
     [com.repldriven.mono.cli.interface :as cli]
     [com.repldriven.mono.env.interface :as env]
@@ -27,16 +17,10 @@
   (:gen-class))
 
 (def ^:private handlers
-  {:clearbank-simulator-server clearbank-simulator/app
-   :clearbank-adapter-server clearbank-adapter/app
-   :form3-simulator-server form3-simulator/app
+  {:clearbank-adapter-server clearbank-adapter/app
    :form3-adapter-server form3-adapter/app
-   :modulr-simulator-server modulr-simulator/app
    :modulr-adapter-server modulr-adapter/app
-   :onfido-simulator-server onfido-simulator/app
    :onfido-adapter-server onfido-adapter/app
-   :uk-companies-house-simulator-server ukch-simulator/app
-   :zyphe-simulator-server zyphe-simulator/app
    :zyphe-adapter-server zyphe-adapter/app})
 
 (defn- with-handlers

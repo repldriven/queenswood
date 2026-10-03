@@ -3,13 +3,30 @@ handler: !system/required-component
 state: !system/component
   system/component-kind: modulr-simulator/state
 
+# The adapter's API key and secret, from the provider's Secret, which
+# verify every call. In dev and test the adapter's own component stands
+# in.
+credentials: !system/component
+  system/component-kind: modulr-webhook/credentials
+  key-id: !profile
+    dev: null
+    test: null
+    default: !env MODULR_API_KEY
+  secret: !profile
+    dev: null
+    test: null
+    default: !env MODULR_API_SECRET
+
 # A payment the balance cannot cover waits this long for funds before it
 # expires, and the simulator waits webhook-delay-ms before each delivery.
 interceptors: !system/component
   system/component-kind: server/interceptors
   state: !system/local-ref state
   # The adapter's credentials, which verify every call.
-  credentials: !system/ref modulr-adapter.credentials
+  credentials: !profile
+    dev: !system/ref modulr-adapter.credentials
+    test: !system/ref modulr-adapter.credentials
+    default: !system/local-ref credentials
   sort-code: "040010"
   payment-scheme: !system/ref scheme-simulator.scheme
   webhook-delay-ms: 10

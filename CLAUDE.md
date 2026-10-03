@@ -80,7 +80,7 @@ non-trivial work on their topic.
   `domain.clj`.
   See [tdd/processor-bricks.md](docs/tdd/processor-bricks.md).
 - **Bases and projects** — entry points, per-service projects,
-  the development project that includes everything; the two
+  the development project that includes everything; the three
   aggregators and the composed bases inside them; the `pin/`
   shims under `deps/`.
   See [bases.md](docs/recipes/code/bases.md),

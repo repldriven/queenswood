@@ -193,7 +193,7 @@ included by `external-adapters-service` and `monolith-service`:
   topic.
 - `outbound-runner`, with its id minted per replica, so the group
   needs no single-replica pin under
-  [ADR-0019](../adr/0019-processor-packaging.md). It takes the
+  [ADR-0036](../adr/0036-simulators-run-in-a-service-of-their-own.md). It takes the
   dispatcher of the shared `system/membership-dispatcher.yml` group,
   the client of the `smtp` group, and `console-url`, which is
   `http://localhost:5173` under the dev and test profiles and
@@ -338,7 +338,7 @@ Google Cloud refuses outbound port 25 and allows submission on 587 and
   before the external call.
 - [outbound-delivery.md](outbound-delivery.md) — the mail server's
   breaker and the delivery policy the runner retries by.
-- [ADR-0019](../adr/0019-processor-packaging.md) — Processor packaging,
+- [ADR-0036](../adr/0036-simulators-run-in-a-service-of-their-own.md) — Processor packaging,
   why the adapter runs in external-adapters.
 - [ADR-0020](../adr/0020-providers-are-deployment-facts.md) — Providers
   are deployment facts, why the brick names no provider.

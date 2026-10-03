@@ -170,7 +170,7 @@ system:
     # and `consumer-id` are physical: the ids are carried over verbatim
     # from the watchers these replaced, and a fresh one would restart
     # from no checkpoint and rescan the whole changelog in a single
-    # transaction (ADR-0019 cursor continuity).
+    # transaction (ADR-0036 cursor continuity).
     runners: !system/component
       system/component-kind: changelog-relay/runners
       cash-accounts:

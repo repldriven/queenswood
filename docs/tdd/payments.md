@@ -773,7 +773,7 @@ stateDiagram-v2
   runs.
 - [idempotency](idempotency.md) — the submission cache.
 - [webhooks](webhooks.md) — the `payment.*` catalogue.
-- [ADR-0019](../adr/0019-processor-packaging.md) — where the adapter
+- [ADR-0036](../adr/0036-simulators-run-in-a-service-of-their-own.md) — where the adapter
   and its runners run.
 - [ADR-0020](../adr/0020-providers-are-deployment-facts.md) — the
   provider as a deployment fact.

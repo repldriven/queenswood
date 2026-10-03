@@ -502,9 +502,9 @@ console:
   keycloakUpstream: ""
   # The simulated identity provider's hosted page, proxied at
   # `/identity-provider/` so a verification hand-off opens in a browser.
-  identityProviderUpstream: "http://{{ .Release.Name }}-external-adapters-service:8086"
+  identityProviderUpstream: "http://{{ .Release.Name }}-external-simulators-service:8086"
   # Onfido's simulated hosted page, proxied at `/identity-provider/onfido/`.
-  onfidoIdentityProviderUpstream: "http://{{ .Release.Name }}-external-adapters-service:8083"
+  onfidoIdentityProviderUpstream: "http://{{ .Release.Name }}-external-simulators-service:8083"
   # Public URL of the realm endpoint the browser calls. Empty derives it
   # from the issuer, so publishing Keycloak moves this with everything
   # else; without a published hostname it falls back to the SPA's own
@@ -575,78 +575,119 @@ services:
       limits: { cpu: "1000m", memory: "1536Mi" }
       requests: { cpu: "200m", memory: "768Mi" }
 
-  # Every external-vendor adapter and the simulators that stand in for
-  # those vendors, in one JVM: Modulr (8081 simulator / 8082
-  # adapter), Form3 (8089 / 8088), ClearBank (8091 / 8092), Companies
-  # House (8085 simulator, bus-only adapter), Zyphe (8086 / 8087) and
-  # Onfido (8083 / 8084). Adapters reach their simulator over localhost, so
-  # there is no cross-pod wait and no webhook registration race. The
-  # `_URL` env vars stay so a deployment can point an adapter at the
-  # real vendor instead. Port 8082 is the probe target because it is
-  # the one financial-processors calls (Confirmation of Payee).
+  # Every external-vendor adapter in one JVM: Modulr (8082), Form3
+  # (8088), ClearBank (8092), Zyphe (8087), Onfido (8084) and the
+  # bus-only Companies House adapter, with the webhook and email runners.
+  # Each reaches its provider at the `_URL` below -- the simulators'
+  # Service here, the vendor in a deployment that uses it -- and gives the
+  # provider its `_ADAPTER_PUBLIC_URL` to send webhooks to. Port 8082 is
+  # the probe target because it is the one financial-processors calls
+  # (Confirmation of Payee).
   external-adapters-service:
     enabled: true
     http: true
     port: 8082
     extraPorts:
-      - name: modulr-sim
-        port: 8081
-      - name: companies-sim
-        port: 8085
-      - name: zyphe-sim
-        port: 8086
       - name: zyphe
         port: 8087
-      - name: form3-sim
-        port: 8089
       - name: form3
         port: 8088
-      - name: clearbank-sim
-        port: 8091
       - name: clearbank
         port: 8092
-      - name: onfido-sim
-        port: 8083
       - name: onfido
         port: 8084
     replicas: 1
     resources:
       limits: { cpu: "1500m", memory: "2Gi" }
       requests: { cpu: "300m", memory: "1Gi" }
+    # Each provider's credential, from its own Secret, which the
+    # provider-credentials Job fills where the simulators run and an
+    # ExternalSecret fills against the vendor. The adapter reads the
+    # halves it signs and verifies with, and no other.
+    secretEnv:
+      MODULR_API_KEY: { secret: modulr-api, key: key-id }
+      MODULR_API_SECRET: { secret: modulr-api, key: secret }
+      FORM3_KEY_ID: { secret: form3-api, key: key-id }
+    secretFiles:
+      - { secret: form3-api, key: private-key }
+      - { secret: clearbank-client-key, key: private-key }
+      - { secret: clearbank-provider-key, key: public-key }
     extraEnv:
-      # The simulator generates the Modulr API key and secret the
-      # adapter signs with, since both share one JVM. Pointing MODULR_URL
-      # at Modulr needs MODULR_API_KEY, MODULR_API_SECRET and
-      # MODULR_CUSTOMER_ID from a secret store as well.
-      MODULR_URL: "http://localhost:8081"
-      MODULR_ADAPTER_PUBLIC_URL: "http://localhost:8082"
-      COMPANIES_HOUSE_URL: "http://localhost:8085"
+      FORM3_PRIVATE_KEY_FILE: /etc/queenswood/providers/form3-api/private-key
+      CLEARBANK_CLIENT_PRIVATE_KEY_FILE: /etc/queenswood/providers/clearbank-client-key/private-key
+      CLEARBANK_PROVIDER_PUBLIC_KEY_FILE: /etc/queenswood/providers/clearbank-provider-key/public-key
+      # Pointing MODULR_URL at Modulr needs MODULR_CUSTOMER_ID as well.
+      MODULR_URL: "http://{{ .Release.Name }}-external-simulators-service:8081"
+      MODULR_ADAPTER_PUBLIC_URL: "http://{{ .Release.Name }}-external-adapters-service:8082"
+      COMPANIES_HOUSE_URL: "http://{{ .Release.Name }}-external-simulators-service:8085"
       # The simulator is the only party to the Zyphe values, so none is
       # a secret. Pointing ZYPHE_URL at Zyphe needs a secret key, a flow
       # id and a webhook secret from a secret store instead.
-      ZYPHE_URL: "http://localhost:8086"
+      ZYPHE_URL: "http://{{ .Release.Name }}-external-simulators-service:8086"
       ZYPHE_API_KEY: "zyphe_sk_simulator"
       ZYPHE_FLOW_ID: "2d8285d7-f4ba-42df-ab3f-681d9870d37a"
       ZYPHE_SANDBOX: "true"
       ZYPHE_WEBHOOK_SECRET: "9f2b7c1d4e6a8035b1c9d2e4f6a80351d7e9b2c4f6a803517d9e2b4c6f8a0351"
-      IDV_ZYPHE_ADAPTER_PUBLIC_URL: "http://localhost:8087"
+      IDV_ZYPHE_ADAPTER_PUBLIC_URL: "http://{{ .Release.Name }}-external-adapters-service:8087"
       # Where a hand-off sends the person: the simulator's hosted page,
       # through the console's `/identity-provider/` proxy.
       ZYPHE_VERIFY_URL: "{{ include \"queenswood.mailConsoleUrl\" . }}/identity-provider"
-      # The Form3, ClearBank and Onfido simulators likewise generate or
-      # share every credential their adapters use.
-      FORM3_URL: "http://localhost:8089"
-      FORM3_ADAPTER_PUBLIC_URL: "http://localhost:8088"
+      FORM3_URL: "http://{{ .Release.Name }}-external-simulators-service:8089"
+      FORM3_ADAPTER_PUBLIC_URL: "http://{{ .Release.Name }}-external-adapters-service:8088"
       FORM3_SORT_CODE: "040075"
-      CLEARBANK_SIMULATOR_URL: "http://localhost:8091"
-      CLEARBANK_ADAPTER_PUBLIC_URL: "http://localhost:8092"
-      ONFIDO_URL: "http://localhost:8083"
+      CLEARBANK_SIMULATOR_URL: "http://{{ .Release.Name }}-external-simulators-service:8091"
+      CLEARBANK_ADAPTER_PUBLIC_URL: "http://{{ .Release.Name }}-external-adapters-service:8092"
+      # The Onfido simulator likewise shares every value its adapter uses.
+      ONFIDO_URL: "http://{{ .Release.Name }}-external-simulators-service:8083"
       ONFIDO_API_TOKEN: "api_sandbox.simulator"
       ONFIDO_WORKFLOW_ID: "7c1f0b2e-4d8a-4e6b-9a35-2f7d1c9e8b40"
       ONFIDO_WEBHOOK_TOKEN: "4b1d9e2c7a6f3058e1c2d4b6a8f0e3c5"
-      IDV_ONFIDO_ADAPTER_PUBLIC_URL: "http://localhost:8084"
+      IDV_ONFIDO_ADAPTER_PUBLIC_URL: "http://{{ .Release.Name }}-external-adapters-service:8084"
       # Where a run's link sends the person: the Onfido simulator's hosted
       # page, through the console's `/identity-provider/onfido/` proxy.
+      ONFIDO_LINK_URL: "{{ include \"queenswood.mailConsoleUrl\" . }}/identity-provider/onfido"
+
+  # The simulators that stand in for the vendors, in a JVM of their own so
+  # their state and CPU count against nothing an installation runs against
+  # the vendors: Modulr (8081), Onfido (8083), Companies House (8085),
+  # Zyphe (8086), Form3 (8089) and ClearBank (8091). None serves an
+  # actuator, so the probes are on the Modulr simulator's port. Disable it
+  # in an installation that runs against the vendors, and the
+  # provider-credentials Job goes with it.
+  external-simulators-service:
+    enabled: true
+    http: true
+    port: 8081
+    probe: tcp
+    extraPorts:
+      - name: onfido-sim
+        port: 8083
+      - name: companies-sim
+        port: 8085
+      - name: zyphe-sim
+        port: 8086
+      - name: form3-sim
+        port: 8089
+      - name: clearbank-sim
+        port: 8091
+    replicas: 1
+    resources:
+      limits: { cpu: "1000m", memory: "1536Mi" }
+      requests: { cpu: "200m", memory: "768Mi" }
+    # The halves of each credential a vendor would hold.
+    secretEnv:
+      MODULR_API_KEY: { secret: modulr-api, key: key-id }
+      MODULR_API_SECRET: { secret: modulr-api, key: secret }
+      FORM3_KEY_ID: { secret: form3-api, key: key-id }
+    secretFiles:
+      - { secret: form3-api, key: public-key }
+      - { secret: clearbank-client-key, key: public-key }
+      - { secret: clearbank-provider-key, key: private-key }
+    extraEnv:
+      FORM3_PUBLIC_KEY_FILE: /etc/queenswood/providers/form3-api/public-key
+      CLEARBANK_CLIENT_PUBLIC_KEY_FILE: /etc/queenswood/providers/clearbank-client-key/public-key
+      CLEARBANK_PROVIDER_PRIVATE_KEY_FILE: /etc/queenswood/providers/clearbank-provider-key/private-key
+      ZYPHE_API_KEY: "zyphe_sk_simulator"
       ONFIDO_LINK_URL: "{{ include \"queenswood.mailConsoleUrl\" . }}/identity-provider/onfido"
 
 # ---------------------------------------------------------------------

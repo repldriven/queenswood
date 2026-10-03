@@ -26,7 +26,7 @@ function round(x) {
 }
 
 function latency(v) {
-  return { p50: round(v.med), p95: round(v["p(95)"]), p99: round(v["p(99)"]), max: round(v.max) };
+  return { avg: round(v.avg), p50: round(v.med), p95: round(v["p(95)"]), p99: round(v["p(99)"]), max: round(v.max) };
 }
 
 function step(data, s, i) {

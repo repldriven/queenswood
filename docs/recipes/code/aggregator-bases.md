@@ -5,18 +5,22 @@
 ## Problem
 
 You want to run several bases in one process — the whole bank for local
-development and end-to-end tests, or every vendor adapter with its
-simulator — or you are adding a base that only ever runs inside one.
+development and end-to-end tests, every vendor adapter, or every
+simulator that stands in for a vendor — or you are adding a base that
+only ever runs inside one.
 
 ## Solution
 
 Bases never depend on other bases, with one bounded exception: a
-designated multi-base aggregator. Two exist: `monolith`, the whole bank
-in one in-process system for local dev and the Testcontainers-backed
-end-to-end tests, and `external-adapters`, every vendor adapter and its
-simulator. An aggregator requires each composed base's `interface.clj`,
-which extends that base's multimethods on load and hands back the
-handler to wire into the aggregator's own system definition.
+designated multi-base aggregator. Three exist: `monolith`, the whole
+bank in one in-process system for local dev and the
+Testcontainers-backed end-to-end tests; `external-adapters`, every
+vendor adapter; and `external-simulators`, the simulators that stand in
+for the vendors, apart from the adapters so a deployment against the
+vendors runs the adapters as tested. An aggregator requires each
+composed base's `interface.clj`, which extends that base's multimethods
+on load and hands back the handler to wire into the aggregator's own
+system definition.
 
 ### A composed base
 
@@ -68,7 +72,8 @@ registers FDB component-kinds by bare-requiring `fdb.interface` from its
 **MUST NOT:**
 
 - A base depend on another base, except a designated aggregator
-  (`monolith`, `external-adapters`) on the bases it composes.
+  (`monolith`, `external-adapters`, `external-simulators`) on the bases
+  it composes.
 - An aggregator reach a composed base by `.api` or `.system`. `.api` is
   reserved for a base that has no interface.
 - A base own a store. Persistence belongs in a component; a base may
@@ -101,6 +106,6 @@ would see a store that had moved into `bases/`.
 - [bases](bases.md) — what every base owns, mono's recipe
 - [deployment](../infra/deployment.md) — the per-service split the
   production deployables follow
-- [ADR-0019](../../adr/0019-processor-packaging.md) — one thin base per
+- [ADR-0036](../../adr/0036-simulators-run-in-a-service-of-their-own.md) — one thin base per
   service group
 - [git-hooks](../practices/git-hooks.md) — the guardrails hook

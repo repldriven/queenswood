@@ -107,6 +107,7 @@
     bases/demo-digital-bank-api {:local/root "bases/demo-digital-bank-api"}
     bases/exclusive-dispatchers {:local/root "bases/exclusive-dispatchers"}
     bases/external-adapters {:local/root "bases/external-adapters"}
+    bases/external-simulators {:local/root "bases/external-simulators"}
     bases/financial-processors {:local/root "bases/financial-processors"}
     bases/migrator {:local/root "bases/migrator"}
     bases/monolith {:local/root "bases/monolith"}

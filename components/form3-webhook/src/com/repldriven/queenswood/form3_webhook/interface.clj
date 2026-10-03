@@ -6,7 +6,10 @@
   `(request-target)`, `host` and `date`, and on a write also
   `content-type`, a SHA-256 `digest` of the body and `content-length`.
   Registers `form3-webhook/credentials`, a key id and RSA key pair taken
-  from its configuration as PEM or generated at start."
+  from its configuration as PEM, or from the PEM files
+  `private-key-file` and `public-key-file` name, either half alone
+  where that is all one side holds, or generated at start where
+  neither half is given."
   (:require
     [com.repldriven.queenswood.form3-webhook.system]
 

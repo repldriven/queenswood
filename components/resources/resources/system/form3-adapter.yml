@@ -2,19 +2,19 @@ readiness: !system/component
   system/component-kind: form3-adapter/readiness
 
 
-# The key id and RSA key pair the adapter signs each call to Form3 with.
-# Generated at start where none is given, as the simulator verifies with
-# this same component.
+# The key id and RSA private key the adapter signs each call to Form3
+# with, from the provider's Secret mounted as files. Generated at start in
+# dev and test, where the simulator verifies with this same component.
 credentials: !system/component
   system/component-kind: form3-webhook/credentials
   key-id: !profile
     dev: null
     test: null
     default: !env FORM3_KEY_ID
-  private-key: !profile
+  private-key-file: !profile
     dev: null
     test: null
-    default: !env FORM3_PRIVATE_KEY
+    default: !env FORM3_PRIVATE_KEY_FILE
 
 
 registrar: !system/component

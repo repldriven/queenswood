@@ -4,7 +4,8 @@
 
 ## Status
 
-Accepted.
+**Superseded by**
+[ADR-0036](0036-simulators-run-in-a-service-of-their-own.md)
 
 ## Context
 
