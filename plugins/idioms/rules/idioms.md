@@ -60,8 +60,9 @@ See [testing](../../../docs/recipes/test/testing.md).
 
 Read an intent's stored data in a relay — its `context`, or the command
 its `request` holds — with `:keys!` for every key its call requires, and
-`:keys` for a key it takes only where present, in the same map, and run
-each intent's call through the relay's `checked` guard. Use `:keys!`
-nowhere else: data inside the system is read with `:keys`, its
+`:keys` for a key it takes only where present, in the same map, and
+carry out its call as an operation registered with the intent poller's
+`defoperations`, so its guard fails an intent whose call throws. Use
+`:keys!` nowhere else: data inside the system is read with `:keys`, its
 entry and exit already checked.
 See [checked-keys](../../../docs/recipes/code/checked-keys.md).

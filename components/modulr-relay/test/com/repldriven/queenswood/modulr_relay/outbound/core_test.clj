@@ -1,4 +1,5 @@
-(ns ^:eftest/synchronized com.repldriven.queenswood.modulr-relay.outbound-test
+(ns ^:eftest/synchronized
+    com.repldriven.queenswood.modulr-relay.outbound.core-test
   "Drives the runner with a `post-fn` standing in for Modulr, which the
   runner takes as configuration, so nothing is redefined for the JVM. A
   pass drains every intent in the store the tests share, so they run one
@@ -6,7 +7,7 @@
   (:require
     [com.repldriven.queenswood.modulr-relay.test-system]
 
-    [com.repldriven.queenswood.modulr-relay.outbound :as SUT]
+    [com.repldriven.queenswood.modulr-relay.outbound.core :as SUT]
 
     [com.repldriven.queenswood.fdb.interface :as fdb]
     [com.repldriven.queenswood.modulr-relay.interface :as relay]

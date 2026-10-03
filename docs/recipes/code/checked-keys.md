@@ -22,10 +22,11 @@ a key is absent. Put a key the adapter writes only sometimes under
 {:keys! [amount currency] :keys [debtor-account-id]} (context intent)
 ```
 
-Each relay's drain runs an intent's call through `checked`, which turns
-an exception the call throws, a missing key's among them, into a failed
-intent, logged, so it makes no call and holds none of the intents behind
-it.
+Each relay registers its operations with the intent poller's
+`defoperations`, and the poller runs each intent's call through a guard
+that turns an exception the call throws, a missing key's among them,
+into a failed intent, logged, so it makes no call and holds none of the
+intents behind it.
 
 A read that is optional throughout carries
 `;; nosemgrep: unchecked-intent-data — <reason>` on the line above it.
@@ -43,8 +44,9 @@ key.
 - **MUST:** read an intent's stored data in a relay with `:keys!` for
   every key its call requires, and `:keys` for a key it takes only
   where present.
-- **MUST:** run each intent's call through the relay's `checked`
-  guard.
+- **MUST:** carry out an intent's call as an operation registered with
+  the intent poller's `defoperations`, so its guard fails an intent
+  whose call throws.
 - **MUST NOT:** use `:keys!` anywhere else — data inside the system is
   read with `:keys`, its entry and exit already checked.
 
@@ -66,8 +68,8 @@ relay retries, so what reaches the guard is a fault in the call itself;
 failing that one intent keeps it in the store to inspect, where an
 uncaught exception would stop the relay's whole pass on every poll. The
 `unchecked-intent-data` semgrep rule refuses a plain `{:keys [...]}`
-read of an intent's `context`, `ctx` or `data` in a relay's
-`outbound.clj`.
+read of an intent's `context`, `ctx` or `data` in a relay's outbound
+code.
 
 ## References
 
