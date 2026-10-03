@@ -17,7 +17,6 @@
     (java.nio.charset StandardCharsets)
     (java.time Instant)))
 
-(def ^:private default-max-attempts 10)
 (def ^:private default-hand-off-ttl-ms (* 15 60 1000))
 
 (def ^:private bank-tag "bank:")
@@ -260,8 +259,7 @@
   (assoc config
          :adapter :onfido
          :store store/spec
-         :default-operation "check"
-         :max-attempts (or (:max-attempts config) default-max-attempts)))
+         :default-operation "check"))
 
 (defn drain-once
   [config now]

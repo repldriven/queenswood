@@ -53,3 +53,5 @@ outbound-runner: !system/component
         default: !env ONFIDO_WORKFLOW_ID
       verifies: [identity, liveness, claimed-identity, address]
       screens: [sanctions, pep]
+  delivery-policy: !include system/idv-delivery-policy.yml
+  poll-ms: 200

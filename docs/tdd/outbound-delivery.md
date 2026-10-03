@@ -71,9 +71,9 @@ record and its FDB store:
   `half-open`; its success closes the breaker and resets the count, its
   failure reopens it with the cool-down doubled, up to
   `max-cool-down-ms`.
-- **What counts.** Each loop's call already tells its own refusal from a
-  failure to deliver: the poller's `:refused` from `:retry`, the email
-  runner's error from a superseded invitation. Only the second counts.
+- **What counts.** A call's outcome is `:answered`, a refusal included,
+  since the destination answered it, or `:failed`, where it did not
+  answer or answered with a 5xx, a 408 or a 429. Only `:failed` counts.
   A customer's endpoint answering anything but a 2xx counts.
 - **The record.** `CircuitBreaker` in a new
   `schemas/outbound/circuit-breaker.proto`, keyed by `destination`, with
@@ -91,60 +91,84 @@ record and its FDB store:
   `webhook-endpoint:<bank-id>:<endpoint-id>` for a customer's endpoint,
   and `smtp` for the mail server.
 - **Operations.** `circuit-breaker/allow` returns `:closed`, `:probe` or
-  `:open` for a destination at a moment, claiming the probe where it
-  returns `:probe`; `circuit-breaker/record` takes the call's outcome,
-  `:delivered`, `:refused` or `:failed`. Neither throws; a store failure
-  is an anomaly the loop logs, and the loop calls as though closed.
+  `:open` for a destination at a moment, claiming the probe for
+  `probe-lease-ms` where it returns `:probe`; `circuit-breaker/record`
+  takes the call's outcome, `:answered` or `:failed`; and
+  `circuit-breaker/breaker` reads the record. Neither throws; a store
+  failure is an anomaly the loop logs, and the loop calls as though
+  closed.
 
 ### The delivery policy
 
 A loop's `delivery-policy` names its numbers. Its schema is
-`circuit-breaker/delivery-policy`, and a runner's `:system/config`
-refuses a policy missing a key at start-up:
+`circuit-breaker/delivery-policy-schema`, which a runner's
+`:system/config-schema` checks at start-up, refusing a policy missing a
+key. The payment adapters' runners include
+[payment-delivery-policy.yml](/components/resources/resources/system/payment-delivery-policy.yml)
+and the IDV adapters'
+[idv-delivery-policy.yml](/components/resources/resources/system/idv-delivery-policy.yml):
 
 ```yaml
-delivery-policy:
-  default:
-    initial-backoff-ms: 1000
-    backoff-growth: 2
-    max-backoff-ms: 60000
-    max-attempts: 20
-    max-age-ms: 3600000
-    timeout-ms: 10000
-  operations:
-    reissue-address: {max-age-ms: 86400000}
-  breaker:
-    failure-threshold: 5
-    cool-down-ms: 30000
-    max-cool-down-ms: 600000
+default:
+  initial-backoff-ms: 1000
+  backoff-growth: 2
+  max-backoff-ms: 60000
+  max-attempts: 20
+  max-age-ms: 3600000
+operations:
+  reissue-address:
+    max-age-ms: 86400000
+breaker:
+  failure-threshold: 5
+  cool-down-ms: 30000
+  max-cool-down-ms: 600000
+  probe-lease-ms: 30000
 ```
 
 `operations` is the intent poller's: each entry overrides `default` for
 that operation, and an operation with no entry takes `default`. The
-webhook and email runners have no operations. `circuit-breaker/policy`
-returns the policy for an operation, and `circuit-breaker/next-attempt`
-and `circuit-breaker/give-up?` read it. An item gives up when its own
-attempts reach `max-attempts` or it is older than `max-age-ms`. The
-`!profile` shortening the scenario rig does today moves into each
-loop's test YAML.
+webhook and email runners have no operations.
+`circuit-breaker/retry-policy` returns the policy for an operation, and
+`circuit-breaker/backoff-ms` and `circuit-breaker/give-up?` read it. An
+item gives up when its own attempts reach `max-attempts` or it is older
+than `max-age-ms`. The `test` profile shortens the backoff, the attempt
+cap and the threshold, so a scenario's outage plays out in seconds.
+Request timeouts stay where each loop's call sets them.
 
 ### The intent poller
 
 In
 [core.clj](/components/intent-poller/src/com/repldriven/queenswood/intent_poller/core.clj),
 a pass asks `allow` for `adapter:<adapter>` before it drains. `:open`
-skips the pending intents and the reconciliations, and counts no
-attempt; `:probe` makes one attempt, the first intent the drain order
-would make, and records its outcome. Each call's `:retry` records
-`:failed` and its `:answered` records `:delivered`. A reconciliation's
-call goes through the same breaker. The poller's and the relays'
-constants go, and each adapter's `outbound-runner` carries a
-`delivery-policy`; the IDV adapters' smaller attempt cap becomes their
-`default`.
+makes no call and counts no attempt; `:probe` makes one call, the first
+the drain order would make; and `:closed` calls until a failure opens
+the breaker, when the rest of the pass waits. An operation's `:call`
+returns `[:answered result]` or `[:refused reason]`, recorded as
+`:answered`, `[:retry reason]`, recorded as `:failed`, or
+`[:wait reason]`, where it made no call because the intent is not ready
+yet: a wait is not recorded on the breaker, counts no attempt, and gives
+up only by age. Reconciliations run only while the breaker is closed.
+The poller's and the relays' constants go: each adapter's
+`outbound-runner` carries a `delivery-policy`, a `poll-ms` and, for
+Form3 and Modulr, a `reconcile-after-ms`, all required.
 
 An intent past `max-age-ms` is given up on as the poller gives one up on
 its last attempt today: its operation's `:failed` reports it
 `:undelivered`, whether or not the breaker is open.
+
+### Synchronous calls
+
+A Companies House lookup and a Confirmation of Payee check are made
+while a request waits for them, so neither is an intent and neither is
+retried later. Each takes the breaker alone. In
+[companies_house.clj](/bases/uk-companies-house-adapter/src/com/repldriven/queenswood/uk_companies_house_adapter/companies_house.clj),
+the lookup asks `allow` for `adapter:uk-companies-house`; in each
+payment adapter's CoP handler, the check asks it for the adapter's own
+destination, which its payments share, since one provider answers both.
+`:open` answers the request as unavailable at once, rather than holding
+it for the call's timeout; `:probe` and `:closed` make the call and
+record its outcome. Each adapter's server config carries the
+`breaker` policy alone.
 
 ### The email runner
 
@@ -185,12 +209,13 @@ webhook runner with the pause rule's removal.
   on its failure. Two claims of one probe, one winning. `policy` taking
   an operation's entry over the default.
 - **intent-poller** — an adapter whose calls fail opens its breaker,
-  and the intents behind the opening keep their attempts; a probe's
-  success lets the rest through in order; an intent past `max-age-ms`
-  reports `:undelivered`.
-- **test-scenarios** — a provider outage longer than an intent's
-  attempts, played against the simulator, leaves the payments queued
-  behind it completed once it ends, compared with the model.
+  and the intents behind the opening keep their attempts; an open
+  breaker calls nothing; a probe's answer lets the rest through; an
+  intent past `max-age-ms` fails while the breaker is open.
+- **test-scenarios** — `providers/provider-outage-holds-payments`
+  starts an outage on the Modulr simulator, which answers 503 to every
+  call while it lasts, waits for `adapter:modulr` to open, ends the
+  outage, and finds the payment completed and the breaker closed.
 - **test-api-scenarios** — a customer's endpoint down and back up gets
   every notification, its endpoint never paused, which
   `journeys/webhooks/3-endpoint-outage-and-recovery` asserts in place of

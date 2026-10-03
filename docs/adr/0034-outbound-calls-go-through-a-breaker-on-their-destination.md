@@ -16,6 +16,10 @@ outcome, and retries later or gives up:
   endpoint.
 - The email runner sends each invitation through the mail server.
 
+Two more calls are made while a request waits for them, a company lookup
+at the company register and a Confirmation of Payee check at a payment
+provider, each through an external adapter.
+
 The property wanted is that an outage at a destination stops the calls
 to it, and fails nothing its recovery would have delivered, without a
 person stepping in. Today each loop retries each item on its own
@@ -66,6 +70,8 @@ The decision has these parts:
   probe in one transaction, so two replicas never probe at once.
 - Leave an item due while its destination's breaker is open without
   counting an attempt against it.
+- Answer a call a request waits for as unavailable while its
+  destination's breaker is open, rather than after the call's timeout.
 - Give an item up when its own attempts reach the maximum, or when it
   is older than the maximum age, whichever comes first, and report it
   as undelivered where its loop reports one.

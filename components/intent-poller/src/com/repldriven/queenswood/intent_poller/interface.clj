@@ -21,13 +21,22 @@
   A poller config carries the FDB `:record-db` and `:record-store`, the
   `:schemas` events are serialised with, `:adapter`, the store spec as
   `:store`, the `:default-operation` of an intent whose `:kind` names
-  none, and optionally `:max-attempts` (20), `:initial-backoff-ms`
-  (1000), `:max-backoff-ms` (60000), `:poll-ms` (200) and
-  `:settles-first?`."
+  none, the `:delivery-policy` its retries, giving up and breaker take
+  (ADR-0034), `:poll-ms`, and optionally `:settles-first?`. Each pass
+  asks the breaker on `adapter:<adapter>` first: open, it calls nothing
+  and fails the intents past their maximum age; half-open, it makes one
+  call as the probe; closed, it calls until a failure opens it."
   (:require
     [com.repldriven.queenswood.intent-poller.core :as core]
     [com.repldriven.queenswood.intent-poller.operations :as operations]
     [com.repldriven.queenswood.intent-poller.store :as store]))
+
+(def
+  ^{:doc
+    "The schema a poller config's `:delivery-policy` and `:poll-ms` are
+  checked against, for a runner's `:system/config-schema`."}
+  config-schema
+  core/config-schema)
 
 ;; ---------------------------------------------------------------------------
 ;; Operations
@@ -37,7 +46,10 @@
   intents name. Each value is a map of three functions:
   - `:call` — `(fn [config now intent])`, calls the external API and
     returns `[:answered result]`, `[:refused reason]` or
-    `[:retry reason]`.
+    `[:retry reason]`, or `[:wait reason]` where it made no call and the
+    intent is not ready yet. Each call's answer, a refusal included, and
+    its failure to answer are recorded on the adapter's breaker; a wait
+    is not.
   - `:answered` — `(fn [config now intent result])`, returns
     `{:status status :event descriptor}`, the status the intent ends at
     and the event it reports, or nil for none.

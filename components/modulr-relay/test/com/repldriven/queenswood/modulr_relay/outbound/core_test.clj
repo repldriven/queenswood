@@ -42,9 +42,15 @@
    :schemas (system/instance sys [:avro :serde])
    :modulr-url "http://modulr.invalid"
    :customer-id "C1"
-   :max-attempts 3
-   :initial-backoff-ms 1000
-   :max-backoff-ms 60000
+   :delivery-policy {:default {:initial-backoff-ms 1000
+                               :backoff-growth 2
+                               :max-backoff-ms 60000
+                               :max-attempts 3
+                               :max-age-ms 86400000}
+                     :breaker {:failure-threshold 1000
+                               :cool-down-ms 1000
+                               :max-cool-down-ms 1000
+                               :probe-lease-ms 1000}}
    :reconcile-after-ms 60000
    :post-fn post-fn})
 
@@ -456,7 +462,8 @@
          (is (= "/payments" (:path transfer)))
          (is (= "A1" (:sourceAccountId body)))
          (is (= {:type "ACCOUNT" :id "A2"} (:destination body)))))
-     (testing "a transfer naming an account no open has made yet waits"
+     (testing
+       "a transfer naming an account no open has made yet waits, counting no attempt"
        (nom-test> [_ (relay/save-intent
                       config
                       (intent "int.names.t2"
@@ -469,4 +476,5 @@
        (SUT/drain-once config 0)
        (let [i (load-intent config "int.names.t2")]
          (is (= "pending" (:status i)))
-         (is (= 1 (:attempts i))))))))
+         (is (= 0 (:attempts i)))
+         (is (pos? (:next-attempt-at i))))))))

@@ -58,9 +58,8 @@ outbound-runner: !system/component
   credentials: !system/local-ref credentials
   sort-code: !or [!env FORM3_SORT_CODE, "040075"]
   schemas: !system/ref avro.serde
-  max-attempts: 20
-  initial-backoff-ms: 1000
-  max-backoff-ms: 60000
   reconcile-after-ms: !profile
     test: 5000
     default: 300000
+  delivery-policy: !include system/payment-delivery-policy.yml
+  poll-ms: 200

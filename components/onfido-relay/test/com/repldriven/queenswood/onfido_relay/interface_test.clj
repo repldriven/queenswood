@@ -50,12 +50,20 @@
             (SUT/save-intent config (intent-of "int.2" "iv-A")))))
      (testing "a failed submit keeps the intent pending and bumps its attempt"
        (nom-test> [_ (SUT/save-intent config (intent-of "int.3" "iv-B"))])
-       (outbound/drain-once (assoc config
-                                   :onfido-url "http://localhost:1"
-                                   :workflows
-                                   [{:id "wf" :verifies [] :screens []}]
-                                   :max-attempts 10)
-                            (utility/now))
+       (outbound/drain-once
+        (assoc config
+               :onfido-url "http://localhost:1"
+               :workflows [{:id "wf" :verifies [] :screens []}]
+               :delivery-policy {:default {:initial-backoff-ms 1000
+                                           :backoff-growth 2
+                                           :max-backoff-ms 60000
+                                           :max-attempts 10
+                                           :max-age-ms 86400000}
+                                 :breaker {:failure-threshold 1000
+                                           :cool-down-ms 1000
+                                           :max-cool-down-ms 1000
+                                           :probe-lease-ms 1000}})
+        (utility/now))
        (let [i3 (first (filter #(= "int.3" (:intent-id %))
                                (store/intents-with-status config "pending")))]
          (is (some? i3) "still pending after an unreachable submit")

@@ -63,6 +63,5 @@ outbound-runner: !system/component
     default: !env CLEARBANK_SIMULATOR_URL
   schemas: !system/ref avro.serde
   signing-key: !system/ref clearbank-adapter.signing-key
-  max-attempts: 20
-  initial-backoff-ms: 1000
-  max-backoff-ms: 60000
+  delivery-policy: !include system/payment-delivery-policy.yml
+  poll-ms: 200

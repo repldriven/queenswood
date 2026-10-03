@@ -1,0 +1,34 @@
+# How a payment provider's adapter retries a call, when it gives an
+# intent up, and when its breaker opens (ADR-0034). An account's
+# operations may wait a day for a provider to come back; a payment an
+# hour.
+default:
+  initial-backoff-ms: !profile
+    test: 100
+    default: 1000
+  backoff-growth: 2
+  max-backoff-ms: !profile
+    test: 500
+    default: 60000
+  max-attempts: !profile
+    test: 8
+    default: 20
+  max-age-ms: 3600000
+operations:
+  open-account:
+    max-age-ms: 86400000
+  close-account:
+    max-age-ms: 86400000
+  reissue-address:
+    max-age-ms: 86400000
+breaker:
+  failure-threshold: !profile
+    test: 3
+    default: 5
+  cool-down-ms: !profile
+    test: 500
+    default: 30000
+  max-cool-down-ms: !profile
+    test: 2000
+    default: 600000
+  probe-lease-ms: 30000

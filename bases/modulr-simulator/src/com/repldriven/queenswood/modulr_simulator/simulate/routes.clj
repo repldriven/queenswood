@@ -29,6 +29,16 @@ with the reason given as an ISO 20022 code, AC04 where none is."
                    404 {:body map?}
                    409 {:body map?}}
        :handler handlers/outbound-return}}]
+    ["/outage"
+     {:post
+      {:summary "Start or end an outage"
+       :description
+       "While down, every call to the API answers 503; the simulate
+routes keep answering."
+       :openapi {:operationId "SimulateOutage"}
+       :parameters {:body [:map [:down boolean?]]}
+       :responses {204 {:description "The outage is started or ended."}}
+       :handler handlers/outage}}]
     ["/open-refused"
      {:post {:summary "Refuse the next account opening"
              :openapi {:operationId "SimulateOpenRefused"}

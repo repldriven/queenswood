@@ -80,7 +80,7 @@
                                          "/credit"
                                          "/payments")
                                  :raw-body body}))
-    [:retry "No provider account holds it yet"]))
+    [:wait "No provider account holds it yet"]))
 
 (defn- transferred
   "A credit is complete once Modulr takes it; a transfer is sent, to be

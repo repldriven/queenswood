@@ -45,7 +45,15 @@
    :sandbox true
    :adapter-url "http://localhost:2"
    :webhook-secret "00"
-   :max-attempts 10})
+   :delivery-policy {:default {:initial-backoff-ms 1000
+                               :backoff-growth 2
+                               :max-backoff-ms 60000
+                               :max-attempts 10
+                               :max-age-ms 86400000}
+                     :breaker {:failure-threshold 1000
+                               :cool-down-ms 1000
+                               :max-cool-down-ms 1000
+                               :probe-lease-ms 1000}}})
 
 (deftest outbox-and-intent-test
   (with-test-system
