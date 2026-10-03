@@ -320,8 +320,10 @@ payment costs, ranked by its effect on the serial command path, which is
    rose from about 51 a second to about 64, with 40 a second at a p99 of
    47 ms rather than 122.
 2. **The payment's transaction.** 14.2 ms p50, and with the sends gone
-   nearly all of the serial path, under the generic category
-   `:fdb/transact`, so a category of its own comes first. Inside it the
+   nearly all of the serial path. Its span is `:payment/submit-internal`,
+   and the outbound one's `:payment/submit-outbound`, rather than the
+   generic `:fdb/transact`, but the steps inside it carry no spans of
+   their own, so splitting the time needs one around each. Inside it the
    policies are read twice, in `payment` and again in `balance`'s
    `apply-legs`, and the 2100 control balance is read and rewritten.
 3. **The relays' sends.** `exclusive-dispatchers-service` sends three
