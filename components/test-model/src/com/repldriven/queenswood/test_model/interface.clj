@@ -196,7 +196,9 @@
 (def
   ^{:doc
     "A return event for `pmt` delivered straight to the platform, as
-  `return-outbound-payment` returns it but for `amount`. Args:
+  `return-outbound-payment` returns it but for `amount`. Generated only
+  for a payment the provider has already returned, since a first return
+  delivered this way credits money the provider never received. Args:
   - pmt: model payment id.
   - amount: minor units."}
   return-outbound-event

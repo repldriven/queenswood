@@ -238,6 +238,12 @@
              :when (and (= :completed status) (nil? creditor))]
          pmt-id)))
 
+(defn- already-returned
+  [state]
+  (vec (for [[pmt-id {:keys [status]}] (:payments state)
+             :when (= :returned status)]
+         pmt-id)))
+
 (defn- returned
   [state pmt-id amount]
   (let [{:keys [debtor status creditor]} (get-in state [:payments pmt-id])]
@@ -262,9 +268,9 @@
    :valid? (fn [state {[pmt-id] :args}] (external? state pmt-id))})
 
 (def return-outbound-event
-  {:run? (fn [state] (seq (returnable state)))
+  {:run? (fn [state] (seq (already-returned state)))
    :args (fn [state]
-           (gen/let [pmt-id (gen/elements (returnable state))]
+           (gen/let [pmt-id (gen/elements (already-returned state))]
              [pmt-id (get-in state [:payments pmt-id :amount])]))
    :next-state (fn [state {[pmt-id amount] :args}]
                  (returned state pmt-id amount))
