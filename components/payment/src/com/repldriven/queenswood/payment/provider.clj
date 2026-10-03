@@ -6,15 +6,35 @@
      payment-provider]
 
     [com.repldriven.mono.avro.interface :as avro]
+    [com.repldriven.mono.cache.interface :as cache]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.telemetry.interface :as telemetry]
     [com.repldriven.mono.utility.interface :as utility]))
 
+(defn cached
+  "`load`'s value under `k` in `config`'s `:cache`, loading it on a miss,
+  for a value that never changes once written. An anomaly is returned
+  and not cached, and without a cache `load` is called every time."
+  [config k load]
+  (if-let [c (:cache config)]
+    (let [failure (volatile! nil)
+          v (cache/lookup
+             c
+             k
+             (fn []
+               (let [v (load)]
+                 (if (error/anomaly? v) (do (vreset! failure v) nil) v))))]
+      (or @failure v))
+    (load)))
+
 (defn- entry
   [config txn bank-id]
   (when-let [providers (:payment-providers config)]
-    (let-nom> [bank (bank-query/find-bank txn bank-id)]
-      (payment-provider/for-bank providers bank))))
+    (cached config
+            [:provider bank-id]
+            (fn []
+              (let-nom> [bank (bank-query/find-bank txn bank-id)]
+                (payment-provider/for-bank providers bank))))))
 
 (defn declaration
   [config txn bank-id]

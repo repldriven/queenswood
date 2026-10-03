@@ -3,12 +3,14 @@
     [com.repldriven.queenswood.payment.commands :as commands]
     [com.repldriven.queenswood.payment.sweep :as sweep]
 
+    [com.repldriven.mono.cache.interface :as cache]
     [com.repldriven.mono.system.interface :as system]))
 
 (def ^:private default-cutoff {:zone "UTC" :hour-of-day 0})
 
 (def ^:private five-minutes-ms 300000)
 (def ^:private twenty-four-hours-ms 86400000)
+(def ^:private one-hour-ms 3600000)
 
 (def ^:private processor
   {:system/start (fn [{:system/keys [config instance]}]
@@ -33,13 +35,17 @@
    :system/instance-schema some?})
 
 (def ^:private activity-event-processor
-  {:system/start (fn [{:system/keys [config instance]}]
-                   (or instance (commands/->ActivityEventProcessor config)))
+  {:system/start
+   (fn [{:system/keys [config instance]}]
+     (or instance
+         (commands/->ActivityEventProcessor
+          (assoc config :cache (cache/create (:cache-ttl-ms config))))))
    :system/config {:record-db system/required-component
                    :record-store system/required-component
                    :schemas system/required-component
                    :bus system/required-component
-                   :payment-providers system/required-component}
+                   :payment-providers system/required-component
+                   :cache-ttl-ms one-hour-ms}
    :system/instance-schema some?})
 
 (def ^:private outbound-sweep
