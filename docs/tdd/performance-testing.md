@@ -348,9 +348,14 @@ payment costs, ranked by its effect on the serial command path, which is
    messages per payment, one at a time, 16.6 ms of a runner's time, so
    one runner tops out at about 180 messages a second. A pass's sends
    could be made together and waited on once.
-4. **The `transaction-posted` handler.** 17 ms in the payment
-   processor's JVM, on its own consumer: `:bank/get` twice, whose
-   providers never change, then `:payment/mirror` at 7.9 ms and a send.
+4. **The `transaction-posted` handler.** Done. The bank activity
+   processor is one consumer per bank's shard, so its time per entry is
+   a bank's ceiling however many replicas run: 15.4 ms, 77% busy at 50 a
+   second, `:bank/get` twice and `:payment/mirror` at 10 ms. It now
+   keeps a bank's provider, its 1100 and its own-funds account in mono's
+   `cache`, since none changes once the bank exists, and takes 7.3 ms,
+   36% busy, with `:payment/mirror` at 6.6 ms; the challenger's minutes
+   after the first average 30 to 34 ms with a p99 of 60 to 86 ms.
 5. **The Modulr transfer.** Four transactions under the
    `modulr-outbound` span: `:modulr-outbound/find` twice, the debtor's
    and the creditor's provider account read one after the other by

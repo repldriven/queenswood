@@ -12,20 +12,35 @@
     [com.repldriven.mono.log.interface :as log]
     [com.repldriven.mono.utility.interface :as utility]))
 
+(defn- bank-accounts
+  "The bank's 1100 and its own-funds cash account in `currency`, as
+  `{:cash-at-correspondent-id :own-funds}`. Neither changes once the bank
+  exists, so they are cached."
+  [config txn bank-id currency]
+  (provider/cached
+   config
+   [:bank-accounts bank-id currency]
+   (fn []
+     (let-nom>
+       [cash (ledger-accounts/find-by-code
+              txn
+              bank-id
+              :gl-account-code-cash-at-correspondent
+              currency)
+        house (cash-accounts/house-account txn bank-id currency)]
+       {:cash-at-correspondent-id (:ledger-account-id cash)
+        :own-funds (:account-id house)}))))
+
 (defn- mirror-context
   "What `provider-transfer/provider-transfers` needs to know about the
   accounts a posting touched: which are cash accounts and whose provider
   account holds each one's money, which is 1100, the account the scheme
   moved the money through, and the bank's own funds."
-  [txn posted]
+  [config txn posted]
   (let [{:keys [bank-id currency legs scheme-account-id]} posted]
     (let-nom>
-      [cash (ledger-accounts/find-by-code txn
-                                          bank-id
-                                          :gl-account-code-cash-at-correspondent
-                                          currency)
-       house (cash-accounts/house-account txn bank-id currency)
-       own-funds (:account-id house)
+      [accounts (bank-accounts config txn bank-id currency)
+       {:keys [cash-at-correspondent-id own-funds]} accounts
        parties (reduce (fn [acc account-id]
                          (let [account (cash-accounts/find-account txn
                                                                    bank-id
@@ -47,7 +62,7 @@
                                        (conj (mapv :account-id legs)
                                              scheme-account-id))))]
       {:cash-accounts parties
-       :cash-at-correspondent-id (:ledger-account-id cash)
+       :cash-at-correspondent-id cash-at-correspondent-id
        :scheme-account-id (get parties scheme-account-id)
        :own-funds own-funds})))
 
@@ -64,7 +79,7 @@
                           (:transaction-id posted))]
        (if (seq existing)
          existing
-         (let-nom> [ctx (mirror-context txn posted)]
+         (let-nom> [ctx (mirror-context config txn posted)]
            (let [transfers
                  (mapv (fn [t]
                          (provider-transfer/new-provider-transfer posted t))
