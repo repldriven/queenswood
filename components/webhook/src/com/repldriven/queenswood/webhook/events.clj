@@ -109,7 +109,9 @@
           row (assoc row :body body)
           _ (store/save-notification txn row)
           _ (save-deliveries txn row endpoints now)]
-         row)))))
+         row))
+     :webhook/write-notification
+     "Failed to write webhook notification")))
 
 (defn- write-once
   "Write, treating the unique index's refusal as the no-op it is: a
