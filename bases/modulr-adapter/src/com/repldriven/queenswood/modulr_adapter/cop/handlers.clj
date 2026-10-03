@@ -1,6 +1,7 @@
 (ns com.repldriven.queenswood.modulr-adapter.cop.handlers
   (:require
     [com.repldriven.queenswood.cash-account-query.interface :as cash-accounts]
+    [com.repldriven.queenswood.circuit-breaker.interface :as circuit-breaker]
     [com.repldriven.queenswood.modulr-relay.interface :as relay]
 
     [com.repldriven.mono.error.interface :as error]
@@ -49,6 +50,11 @@
                   (cash-accounts/house-account txn bank-id "GBP"))]
     (when-not (error/anomaly? account) (:provider-account-id account))))
 
+(defn- outcome
+  "Whether Modulr answered, a refusal included."
+  [res]
+  (if (= :retry (first (relay/classify res))) :failed :answered))
+
 (defn outbound-cop
   [request]
   (let [{:keys [parameters]} request
@@ -59,18 +65,24 @@
     (log/info "Outbound CoP check" {:creditor-name creditor-name})
     (if (nil? payment-account-id)
       {:status 200 :body unavailable}
-      (let [res (relay/request
-                 (select-keys request [:modulr-url :credentials])
-                 {:method :post
-                  :path "/account-name-check"
-                  :body {:paymentAccountId payment-account-id
-                         :sortCode sort-code
-                         :accountNumber account-number
-                         :accountType (if (= :account-type-business
-                                             account-type)
-                                        "BUSINESS"
-                                        "PERSONAL")
-                         :name creditor-name}})
+      (let [res (circuit-breaker/guard
+                 (select-keys request [:record-db :record-store])
+                 (get-in request [:delivery-policy :breaker])
+                 "adapter:modulr"
+                 outcome
+                 (fn []
+                   (relay/request
+                    (select-keys request [:modulr-url :credentials])
+                    {:method :post
+                     :path "/account-name-check"
+                     :body {:paymentAccountId payment-account-id
+                            :sortCode sort-code
+                            :accountNumber account-number
+                            :accountType (if (= :account-type-business
+                                                account-type)
+                                           "BUSINESS"
+                                           "PERSONAL")
+                            :name creditor-name}})))
             [outcome body] (relay/classify res)]
         {:status 200
          :body (if (= :ok outcome) (result (:result body)) unavailable)}))))

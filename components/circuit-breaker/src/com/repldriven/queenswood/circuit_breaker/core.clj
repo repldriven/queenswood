@@ -3,7 +3,9 @@
     [com.repldriven.queenswood.circuit-breaker.domain :as domain]
     [com.repldriven.queenswood.circuit-breaker.store :as store]
 
-    [com.repldriven.mono.error.interface :refer [let-nom>]]))
+    [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
+    [com.repldriven.mono.log.interface :as log]
+    [com.repldriven.mono.utility.interface :as utility]))
 
 (defn allow
   [config policy destination now claimant]
@@ -35,3 +37,25 @@
 (defn breaker
   [config destination]
   (store/load-breaker config destination))
+
+(defn guard
+  [config policy destination outcome-of f]
+  (let [decision (allow config
+                        policy
+                        destination
+                        (utility/now)
+                        (str (utility/uuidv7)))]
+    (if (= :open decision)
+      (error/fail :circuit-breaker/open
+                  {:message "The destination's circuit breaker is open"
+                   :destination destination})
+      (let [res (f)
+            recorded (record config
+                             policy
+                             destination
+                             (outcome-of res)
+                             (utility/now))]
+        (when (error/anomaly? recorded)
+          (log/error "Circuit breaker not recorded"
+                     {:destination destination :anomaly recorded}))
+        res))))

@@ -7,6 +7,19 @@ command-processor-impl: !system/component
     dev: !system/ref uk-companies-house-simulator-server.http-url
     test: !system/ref uk-companies-house-simulator-server.http-url
     default: !env COMPANIES_HOUSE_URL
+  # When the breaker on Companies House opens, and how it recovers
+  # (ADR-0034).
+  breaker:
+    failure-threshold: !profile
+      test: 3
+      default: 5
+    cool-down-ms: !profile
+      test: 500
+      default: 30000
+    max-cool-down-ms: !profile
+      test: 2000
+      default: 600000
+    probe-lease-ms: 30000
 
 
 command-processor: !system/component

@@ -4,6 +4,7 @@
 
     [com.repldriven.queenswood.circuit-breaker.interface :as SUT]
 
+    [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.system.interface :as system]
     [com.repldriven.mono.test-system.interface :refer
      [with-test-system nom-test>]]
@@ -41,3 +42,25 @@
        (nom-test> [b (SUT/record config policy destination :answered 1100)
                    _ (is (= "closed" (:state b)))
                    _ (is (= 0 (:consecutive-failures b)))])))))
+
+(deftest guard-test
+  (with-test-system
+   [sys "classpath:circuit-breaker/application-test.yml"]
+   (let [config {:record-db (system/instance sys [:fdb :record-db])
+                 :record-store (system/instance sys [:fdb :store])}
+         destination "adapter:guarded"
+         calls (atom 0)
+         call (fn [result] (fn [] (swap! calls inc) result))
+         outcome-of (fn [result] (if (= :down result) :failed :answered))
+         policy (assoc policy :cool-down-ms 600000)]
+     (testing "a closed breaker makes the call and returns its result"
+       (is (= :up (SUT/guard config policy destination outcome-of (call :up))))
+       (is (= 1 @calls)))
+     (testing "failed calls to the threshold open it"
+       (SUT/guard config policy destination outcome-of (call :down))
+       (SUT/guard config policy destination outcome-of (call :down))
+       (is (= "open" (:state (SUT/breaker config destination)))))
+     (testing "an open breaker answers at once, without calling"
+       (let [res (SUT/guard config policy destination outcome-of (call :up))]
+         (is (= :circuit-breaker/open (error/kind res)))
+         (is (= 3 @calls)))))))

@@ -7,6 +7,7 @@ interceptors: !system/component
   event-channel: !keyword schemes-payments-event
   record-db: !system/ref fdb.record-db
   record-store: !system/ref fdb.meta-store
+  delivery-policy: !include system/payment-delivery-policy.yml
   clearbank-url: !profile
     dev: !system/ref clearbank-simulator-server.http-url
     test: !system/ref clearbank-simulator-server.http-url

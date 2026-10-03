@@ -8,6 +8,13 @@
    [:max-attempts pos-int?]
    [:max-age-ms pos-int?]])
 
+(def breaker-schema
+  [:map
+   [:failure-threshold pos-int?]
+   [:cool-down-ms pos-int?]
+   [:max-cool-down-ms pos-int?]
+   [:probe-lease-ms pos-int?]])
+
 (def delivery-policy-schema
   [:map
    [:default retry-schema]
@@ -19,12 +26,7 @@
       [:max-backoff-ms {:optional true} pos-int?]
       [:max-attempts {:optional true} pos-int?]
       [:max-age-ms {:optional true} pos-int?]]]]
-   [:breaker
-    [:map
-     [:failure-threshold pos-int?]
-     [:cool-down-ms pos-int?]
-     [:max-cool-down-ms pos-int?]
-     [:probe-lease-ms pos-int?]]]])
+   [:breaker breaker-schema]])
 
 (defn retry-policy
   [delivery-policy operation]

@@ -26,6 +26,13 @@
   delivery-policy-schema
   policy/delivery-policy-schema)
 
+(def
+  ^{:doc
+    "The schema a breaker policy is checked against: `:failure-threshold`,
+  `:cool-down-ms`, `:max-cool-down-ms` and `:probe-lease-ms`."}
+  breaker-schema
+  policy/breaker-schema)
+
 (defn retry-policy
   "The retry policy `delivery-policy` gives `operation`: its `:default`
   with the operation's entry, where it has one, merged over it.
@@ -101,3 +108,19 @@
   - destination: the destination's name."
   [config destination]
   (core/breaker config destination))
+
+(defn guard
+  "Make a call a request waits for through `destination`'s breaker: while
+  it is open, a `:circuit-breaker/open` anomaly at once, without calling;
+  otherwise `(f)`'s result, its outcome recorded as `(outcome-of
+  result)` answers, `:answered` or `:failed`. A breaker that cannot be
+  read lets the call through.
+
+  Args:
+  - config: `{:record-db :record-store}`.
+  - policy: the delivery policy's `:breaker`.
+  - destination: the destination's name.
+  - outcome-of: the call's result to `:answered` or `:failed`.
+  - f: makes the call."
+  [config policy destination outcome-of f]
+  (core/guard config policy destination outcome-of f))

@@ -1,5 +1,6 @@
 (ns com.repldriven.queenswood.clearbank-adapter.cop.handlers
   (:require
+    [com.repldriven.queenswood.circuit-breaker.interface :as circuit-breaker]
     [com.repldriven.queenswood.clearbank-webhook.interface :as
      clearbank-webhook]
 
@@ -50,6 +51,18 @@
    :reason-code "ACNS"
    :reason "CoP service unavailable"})
 
+(defn- outcome
+  "Whether ClearBank answered: an unreachable provider, a 5xx, a 408 and
+  a 429 did not."
+  [res]
+  (let [{:keys [status]} res]
+    (if (or (error/anomaly? res)
+            (not (int? status))
+            (<= 500 status)
+            (contains? #{408 429} status))
+      :failed
+      :answered)))
+
 (defn outbound-cop
   [_config]
   (fn [request]
@@ -57,13 +70,19 @@
           {:keys [body]} parameters
           {:keys [creditor-name]} body
           _ (log/info "Outbound CoP check" {:creditor-name creditor-name})
-          res (error/try-nom
-               :payee-check/unavailable
-               "Confirmation of Payee request failed"
-               (let-nom> [req (->clearbank-request clearbank-url
-                                                   signing-key
-                                                   body)]
-                 (http/request req)))]
+          res (circuit-breaker/guard
+               (select-keys request [:record-db :record-store])
+               (get-in request [:delivery-policy :breaker])
+               "adapter:clearbank"
+               outcome
+               (fn []
+                 (error/try-nom
+                  :payee-check/unavailable
+                  "Confirmation of Payee request failed"
+                  (let-nom> [req (->clearbank-request clearbank-url
+                                                      signing-key
+                                                      body)]
+                    (http/request req)))))]
       (if (and (map? res) (= 200 (:status res)))
         {:status 200 :body (->result (http/res->edn res))}
         {:status 200 :body unavailable-result}))))

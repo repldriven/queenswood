@@ -165,10 +165,13 @@ retried later. Each takes the breaker alone. In
 the lookup asks `allow` for `adapter:uk-companies-house`; in each
 payment adapter's CoP handler, the check asks it for the adapter's own
 destination, which its payments share, since one provider answers both.
-`:open` answers the request as unavailable at once, rather than holding
-it for the call's timeout; `:probe` and `:closed` make the call and
-record its outcome. Each adapter's server config carries the
-`breaker` policy alone.
+`circuit-breaker/guard` makes the call: while the breaker is open it
+answers with a `:circuit-breaker/open` anomaly at once, which each
+caller already answers as unavailable, rather than holding the request
+for the call's timeout; otherwise it calls and records the outcome. A
+payment adapter's server includes the same delivery policy its runner
+does, so the two agree on their shared breaker, and the Companies House
+adapter's config carries a `breaker` of its own.
 
 ### The email runner
 
@@ -206,8 +209,10 @@ webhook runner with the pause rule's removal.
 - **circuit-breaker** — the state machine over a sequence of outcomes:
   opening at the threshold, no call while open, one probe past
   `retry-at`, closing on its success, reopening with a doubled cool-down
-  on its failure. Two claims of one probe, one winning. `policy` taking
-  an operation's entry over the default.
+  on its failure. Two claims of one probe, one winning. `retry-policy`
+  taking an operation's entry over the default. `guard` calling through
+  a closed breaker and answering at once, without calling, through an
+  open one.
 - **intent-poller** — an adapter whose calls fail opens its breaker,
   and the intents behind the opening keep their attempts; an open
   breaker calls nothing; a probe's answer lets the rest through; an
