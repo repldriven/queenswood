@@ -168,7 +168,8 @@
   payment (DEBIT 1200 / CREDIT debtor) and flips the OutboundPayment to
   failed with the failure the event reports. Pending and held
   payments are reversible; an already-failed payment is an idempotent
-  no-op; a completed (settled) payment cannot be reversed here."
+  no-op; a completed or returned payment is no longer in flight and
+  cannot be reversed here."
   [config data]
   (let [{payment-id :end-to-end-id} data
         {:keys [reason-code]} data]
@@ -188,11 +189,12 @@
                          {:payment-id payment-id})
               payment)
 
-          (= :outbound-payment-status-completed (:payment-status payment))
+          (not (outbound/settleable-outbound? payment))
           (error/fail
            :payment/reject-outbound
-           {:message "Cannot reverse an already-settled outbound payment"
-            :payment-id payment-id})
+           {:message "Cannot reverse an outbound payment no longer in flight"
+            :payment-id payment-id
+            :payment-status (:payment-status payment)})
 
           :else
           (let-nom>

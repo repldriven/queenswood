@@ -456,8 +456,9 @@ beneficiary's bank cannot apply it:
 - **Notification.** The change kind `return` is notified as
   `payment.outbound-returned`.
 
-A `transaction-rejected` naming a completed payment fails the handler:
-a rejection is not a return.
+A `transaction-rejected` naming a completed or returned payment fails
+the handler: a rejection is not a return, and reverses only a payment
+still in flight.
 
 ### Confirmation of Payee
 
@@ -571,9 +572,9 @@ stateDiagram-v2
 - A held, settled or rejected event for a payment already past it is
   an idempotent no-op; a settlement for a `failed` payment is skipped
   and logged at ERROR.
-- A rejection for a `completed` payment, a return for one that is not
-  `completed`, and any event for a payment that does not exist fail the
-  handler and are dead-lettered.
+- A rejection for a `completed` or `returned` payment, a return for one
+  that is not `completed`, and any event for a payment that does not
+  exist fail the handler and are dead-lettered.
 
 #### Inbound payment
 

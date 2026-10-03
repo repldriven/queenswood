@@ -67,7 +67,7 @@
                                  by-command)})))
 
 (def ^:private num-tests 50)
-(def ^:private max-size 30)
+(def ^:private max-size 60)
 
 (deftest model-eq-reality
   ;; One FDB container serves all trials; each trial runs on a fresh
