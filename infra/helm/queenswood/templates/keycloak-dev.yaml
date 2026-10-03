@@ -26,18 +26,35 @@ data:
   # this template: the operator-mode Job imports the files as they are
   # and reconciles the deployed origins over the Admin API instead.
   realm.json: |-
-{{ include "queenswood.devRealmWithUser"
-     (dict "realm" (include "queenswood.devRealmWithRedirects"
-                     (dict "realm" (.Files.Get "files/keycloak-realm.json")
-                           "clientId" .Values.keycloak.consoleClientId
-                           "uris" .Values.keycloak.dev.consoleRedirectUris))
-           "user" .Values.keycloak.dev.user) | indent 4 }}
+{{ include "queenswood.devRealmWithOperator"
+     (dict "realm" (include "queenswood.devRealmWithUser"
+                     (dict "realm" (include "queenswood.devRealmWithRedirects"
+                                     (dict "realm" (.Files.Get "files/keycloak-realm.json")
+                                           "clientId" .Values.keycloak.consoleClientId
+                                           "uris" .Values.keycloak.dev.consoleRedirectUris))
+                           "user" .Values.keycloak.dev.user))
+           "operator" .Values.keycloak.dev.operator) | indent 4 }}
   realm-ops.json: |-
 {{ include "queenswood.devRealmWithRedirects"
      (dict "realm" (.Files.Get "files/keycloak-realm-ops.json")
            "clientId" .Values.keycloak.opsClientId
            "uris" .Values.keycloak.dev.opsRedirectUris) | indent 4 }}
 ---
+{{- with .Values.keycloak.dev.operator }}
+{{- if .clientId }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $.Release.Name }}-keycloak-dev-operator
+  labels:
+    {{- include "queenswood.labels" $ | nindent 4 }}
+type: Opaque
+stringData:
+  client-id: {{ .clientId | quote }}
+  client-secret: {{ .secret | quote }}
+---
+{{- end }}
+{{- end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:

@@ -1,6 +1,7 @@
 # A local cluster's sign-in: the `dev` / `dev` user the console signs in
-# as, added to the dev bundle's realm at render time and so present from
-# the realm's first import. Passed by the readme's install and the kind
+# as, and the operator client load tests sign in as, added to the dev
+# bundle's realm at render time and so present from the realm's first
+# import. Passed by the readme's install and the kind
 # recipes, and by no deployment -- the render fails if it meets any
 # Keycloak mode but `dev`.
 
@@ -10,6 +11,10 @@ keycloak:
       username: dev
       password: dev
       email: dev@queenswood.local
+    # The operator client `just perf-run` creates its test bank with.
+    operator:
+      clientId: queenswood-perf
+      secret: queenswood-perf-local-secret
 
 # SigNoz's root user as a pair to type rather than one generated in the
 # cluster, and the same pair `just telemetry-start` gives the monolith
@@ -23,3 +28,14 @@ signoz:
       signoz_user_root_password:
         value: Queenswood-dev-1
         valueFrom: null
+
+# FoundationDB told its own limits. Its defaults -- a 2GiB page cache
+# and 8GiB in all -- exceed the chart's 1Gi container, so a sustained
+# load test grows the storage server until the kernel kills it.
+fdb:
+  customParameters:
+    - cache_memory=512MiB
+    - memory=1536MiB
+  resources:
+    limits:
+      memory: 2Gi

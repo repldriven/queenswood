@@ -174,6 +174,16 @@ keycloak:
       password: ""
       email: ""
 
+    # An operator client authenticating with a client secret, which the
+    # template adds to the organisation realm with the `admin` role for
+    # load tests run inside a local cluster, and keeps in the Secret
+    # `<release>-keycloak-dev-operator`. The platform's own services stay
+    # on `queenswood-admin`. Empty adds none, and a client id outside dev
+    # mode fails the render, as the user's does.
+    operator:
+      clientId: ""
+      secret: ""
+
     # The H2 database the realms live in, on a volume so a restart keeps
     # what the platform's records refer to.
     storage: 1Gi
