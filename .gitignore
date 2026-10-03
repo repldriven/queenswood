@@ -70,7 +70,6 @@ projects/**/.lsp
 .nrepl-port
 **/.nrepl-port
 .rebel_readline_history
-.eastwood
 .direnv/
 
 # Generated OpenAPI spec

@@ -61,17 +61,12 @@ rebel:
 shell:
     clj -M:poly shell
 
-# Run Eastwood static analysis
-lint-eastwood:
-    clojure -M{{ DOMAIN_ALIASES }}:dev:test:lint/eastwood
-
 # Run clj-kondo linter across all bricks and config files
 lint-clj-kondo:
     clojure -M:lint/clj-kondo --lint bases components projects deps.edn workspace.edn
 
-# Run all linters (Eastwood + clj-kondo)
+# Run all linters (clj-kondo)
 lint:
-  just lint-eastwood
   just lint-clj-kondo
 
 # Prepare a fresh worktree: forced codegen, then mono's share of the tree.
