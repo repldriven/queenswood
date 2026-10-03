@@ -66,6 +66,7 @@
     components/modulr-webhook {:local/root "components/modulr-webhook"}
     components/form3-webhook {:local/root "components/form3-webhook"}
     components/intent-queue {:local/root "components/intent-queue"}
+    components/intent-poller {:local/root "components/intent-poller"}
     components/modulr-relay {:local/root "components/modulr-relay"}
     components/form3-relay {:local/root "components/form3-relay"}
     components/interest {:local/root "components/interest"}
