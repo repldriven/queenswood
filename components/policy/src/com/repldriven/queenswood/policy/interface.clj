@@ -156,6 +156,17 @@
   [txn selectors]
   (core/get-effective-policies txn selectors))
 
+(defn platform-policies
+  "The `tier=platform` policies among `policies` — what
+  `get-effective-policies` returns for a selector naming no bank, such
+  as an account's — so a caller already holding a bank's effective
+  policies need not read the platform's again.
+
+  Args:
+  - policies: policy maps, as `get-effective-policies` returns them."
+  [policies]
+  (core/platform-policies policies))
+
 (defn get-effective-policy
   "Return the resolved effective decision for the selector's target:
   the effective policies collapsed the way evaluation would resolve

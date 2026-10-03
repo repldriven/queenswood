@@ -263,7 +263,7 @@ function openAccounts(n, partyIds, productId, bearer) {
 // after crediting those funds with an inbound transfer.
 function fund(accounts, each, bearer) {
   const own = expect(
-    post(
+    postRetried(
       "/v1/simulate/inbound-transfer",
       { amount: each * accounts.length, currency: "GBP" },
       bearer,
@@ -274,7 +274,7 @@ function fund(accounts, each, bearer) {
   );
   for (const account of accounts) {
     expect(
-      post(
+      postRetried(
         "/v1/payments/internal",
         {
           "debtor-account-id": own["account-id"],

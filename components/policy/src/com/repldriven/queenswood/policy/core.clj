@@ -96,6 +96,10 @@
               bindings))
     []))
 
+(defn platform-policies
+  [policies]
+  (filterv (fn [p] (= "platform" (get-in p [:labels "tier"]))) policies))
+
 (defn get-effective-policies
   [txn selectors]
   (let-nom> [platform (store/get-policies-by-label txn "tier" "platform")

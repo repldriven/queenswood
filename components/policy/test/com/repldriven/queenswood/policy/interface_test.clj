@@ -672,3 +672,11 @@
                    archived (SUT/archive-policy config policy-id)
                    _ (is (= :policy-status-archived (:status archived))
                          "archives once unbound")])))))
+
+(deftest platform-policies-test
+  (let [platform {:policy-id "pol.1" :labels {"tier" "platform"}}
+        micro {:policy-id "pol.2" :labels {"tier" "micro"}}
+        unlabelled {:policy-id "pol.3"}]
+    (is (= [platform] (SUT/platform-policies [platform micro unlabelled]))
+        "only the platform tier, as a selector naming no bank resolves")
+    (is (= [] (SUT/platform-policies [])))))
