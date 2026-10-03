@@ -1,0 +1,53 @@
+# One k6 run inside the cluster, rendered and applied by `just perf-run`.
+# See docs/tdd/performance-testing.md.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: queenswood-perf
+  namespace: queenswood
+  labels:
+    app.kubernetes.io/name: queenswood-perf
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: queenswood-perf
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: k6
+          image: ${K6_IMAGE}
+          args:
+            - run
+            - --no-color
+            - -e
+            - ADMIN_CLIENT_ID=$(ADMIN_CLIENT_ID)
+            - -e
+            - ADMIN_CLIENT_SECRET=$(ADMIN_CLIENT_SECRET)
+            - /perf/run.tar
+          env:
+            - name: ADMIN_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: queenswood-keycloak-dev-operator
+                  key: client-id
+            - name: ADMIN_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: queenswood-keycloak-dev-operator
+                  key: client-secret
+          resources:
+            requests:
+              cpu: 500m
+              memory: 256Mi
+            limits:
+              memory: 2Gi
+          volumeMounts:
+            - name: scripts
+              mountPath: /perf
+      volumes:
+        - name: scripts
+          configMap:
+            name: queenswood-perf-scripts

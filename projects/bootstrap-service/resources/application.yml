@@ -1,16 +1,6 @@
 system:
   fdb: !include system/fdb.yml
-  policies:
-    platform: !system/component
-      system/component-kind: policies/policy
-      record-db: !system/ref fdb.record-db
-      record-store: !system/ref fdb.meta-store
-      policy: !include policies/platform/restricted/policy.yml
-    micro: !system/component
-      system/component-kind: policies/policy
-      record-db: !system/ref fdb.record-db
-      record-store: !system/ref fdb.meta-store
-      policy: !include policies/micro/restricted/policy.yml
+  policies: !include system/policy.yml
   idv-provider: !include system/idv-provider.yml
   idv-criteria: !include system/idv-criteria.yml
   cash-account-product-templates: !include system/cash-account-product-templates.yml

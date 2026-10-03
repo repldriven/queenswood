@@ -260,6 +260,9 @@ through to whichever branch happens to be last.
 {{- if and (ne $m "dev") .Values.keycloak.dev.user.username -}}
 {{- fail (printf "keycloak.dev.user is for keycloak.mode dev, a local cluster, and this release is %q" $m) -}}
 {{- end -}}
+{{- if and (ne $m "dev") .Values.keycloak.dev.operator.clientId -}}
+{{- fail (printf "keycloak.dev.operator is for keycloak.mode dev, a local cluster, and this release is %q" $m) -}}
+{{- end -}}
 {{ $m }}
 {{- end -}}
 
@@ -441,6 +444,46 @@ Takes `realm` (the file's contents) and `user` (`username`, `password`,
                   "credentials" (list (dict "type" "password"
                                             "value" .user.password
                                             "temporary" false)) -}}
+{{ set $parsed "users" (append (default (list) $parsed.users) $user) | toJson }}
+{{- else -}}
+{{ .realm }}
+{{- end -}}
+{{- end -}}
+
+{{- /*
+A realm JSON with an operator client added, for the dev bundle alone.
+
+The committed realms' operator client, `queenswood-admin`, signs its
+assertions with a key bootstrap generates into a Secret the services
+mount. A load test run inside a local cluster signs in as this client
+instead, with a client secret, so nothing outside the platform's own
+services holds that key.
+
+Takes `realm` (the file's contents) and `operator` (`clientId`,
+`secret`). Returns the input untouched when `operator.clientId` is
+empty.
+*/ -}}
+{{- define "queenswood.devRealmWithOperator" -}}
+{{- if .operator.clientId -}}
+{{- $parsed := .realm | fromJson -}}
+{{- $client := dict "clientId" .operator.clientId
+                    "enabled" true
+                    "publicClient" false
+                    "clientAuthenticatorType" "client-secret"
+                    "secret" .operator.secret
+                    "serviceAccountsEnabled" true
+                    "standardFlowEnabled" false
+                    "directAccessGrantsEnabled" false
+                    "implicitFlowEnabled" false
+                    "protocol" "openid-connect"
+                    "optionalClientScopes" (list "queenswood-api-test"
+                                                 "queenswood-api-live"
+                                                 "realm-roles") -}}
+{{- $user := dict "username" (printf "service-account-%s" .operator.clientId)
+                  "enabled" true
+                  "serviceAccountClientId" .operator.clientId
+                  "realmRoles" (list "admin") -}}
+{{- $parsed = set $parsed "clients" (append $parsed.clients $client) -}}
 {{ set $parsed "users" (append (default (list) $parsed.users) $user) | toJson }}
 {{- else -}}
 {{ .realm }}
