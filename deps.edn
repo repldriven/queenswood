@@ -68,6 +68,7 @@
     components/intent-queue {:local/root "components/intent-queue"}
     components/circuit-breaker {:local/root "components/circuit-breaker"}
     components/intent-poller {:local/root "components/intent-poller"}
+    components/registrar {:local/root "components/registrar"}
     components/modulr-relay {:local/root "components/modulr-relay"}
     components/form3-relay {:local/root "components/form3-relay"}
     components/interest {:local/root "components/interest"}
@@ -203,6 +204,8 @@
                        "components/circuit-breaker/test-resources"
                        "components/intent-poller/test"
                        "components/intent-poller/test-resources"
+                       "components/registrar/test"
+                       "components/registrar/test-resources"
                        "components/zyphe-webhook/test"
                        "components/modulr-webhook/test"
                        "components/payment-provider/test"

@@ -171,20 +171,26 @@ adapter's config carries a `breaker` of its own.
 
 ### The registrars
 
-Each registrar's `system.clj` in the four adapters runs
-`circuit-breaker/start-probe` on the adapter's own destination: a
-daemon loop that makes a call through `guard` and sleeps an interval
-the call's result chooses. The call asks the provider for the
-subscriptions it holds, makes each one missing, and marks the adapter
-ready once all are held, returning `:held`, `:missing` where the
-provider refused one, or `:failed` where it did not answer, which is the
-only result the breaker counts. The loop waits `retry-ms` until the
-provider holds them all and `check-ms` after; it never gives up, so a
-provider down at start-up is subscribed to when it returns. Since it
-runs whether or not anything else is sent, it is the adapter's probe:
-once its breaker's cool-down ends, the check is the call that closes or
-reopens it. Each registrar takes `retry-ms`, `check-ms` and the
-adapter's `delivery-policy` from its entry in the adapter's YAML.
+The `registrar` component keeps an external adapter's subscriptions to
+its provider's notifications. An adapter registers three functions with
+`registrar/defsubscriptions`, in its base's `subscriptions.clj`:
+`:wanted`, the subscriptions it needs; `:held`, asking the provider
+which it holds; and `:subscribe`, making one. The last two answer as an
+operation's call does, `[:answered …]`, `[:refused reason]` or
+`[:retry reason]`. The adapter's `registrar` kind starts
+`registrar/start` with its keyword, which runs
+`circuit-breaker/start-probe` on `adapter:<adapter>`: each call makes
+the subscriptions the provider lacks and marks the adapter ready once
+all are held, and only a provider that did not answer counts against
+the breaker. The loop waits `retry-ms` until everything is held and
+`check-ms` after, and never gives up, so a provider down at start-up is
+subscribed to when it returns. Since it runs whether or not anything
+else is sent, it is the adapter's probe: once the breaker's cool-down
+ends, the check is the call that closes or reopens it. The ClearBank,
+Form3, Modulr and Onfido adapters register subscriptions; Zyphe is given
+its callback with each call and Companies House sends nothing, so
+neither has a registrar. `registrar/config-schema` checks each
+registrar's `delivery-policy`, `retry-ms` and `check-ms`.
 
 ### The email runner
 
@@ -228,6 +234,10 @@ the runner had.
   a closed breaker and answering at once, without calling, through an
   open one. `start-probe` opening a destination that does not answer and
   closing it once it does.
+- **registrar** — each subscription a provider lacks is made, the
+  adapter marked ready once all are held, and one the provider forgot is
+  made again; a provider down at start-up opens the adapter's breaker,
+  and once it answers is subscribed to and closes it.
 - **intent-poller** — an adapter whose calls fail opens its breaker,
   and the intents behind the opening keep their attempts; an open
   breaker calls nothing; a probe's answer lets the rest through; an

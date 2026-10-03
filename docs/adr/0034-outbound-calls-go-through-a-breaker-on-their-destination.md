@@ -1,8 +1,10 @@
 # 34. Outbound calls go through a breaker on their destination
 
+<!-- tessl-plugin: design -->
+
 ## Status
 
-**Proposed**
+**Accepted**
 
 ## Context
 
@@ -72,6 +74,9 @@ The decision has these parts:
   counting an attempt against it.
 - Answer a call a request waits for as unavailable while its
   destination's breaker is open, rather than after the call's timeout.
+- Make a call a destination is given on a schedule, such as checking an
+  adapter's subscriptions at its provider, through its breaker too, so
+  it probes the breaker whether or not anything else is sent.
 - Give an item up when its own attempts reach the maximum, or when it
   is older than the maximum age, whichever comes first, and report it
   as undelivered where its loop reports one.
