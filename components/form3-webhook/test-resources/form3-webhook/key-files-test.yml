@@ -1,0 +1,8 @@
+system:
+  form3-webhook:
+    adapter: !system/component
+      system/component-kind: form3-webhook/credentials
+      key-id: 7826c3cb-d6fd-41d0-b187-dc23ba928772
+    simulator: !system/component
+      system/component-kind: form3-webhook/credentials
+      key-id: 7826c3cb-d6fd-41d0-b187-dc23ba928772

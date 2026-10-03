@@ -3,8 +3,24 @@ handler: !system/required-component
 state: !system/component
   system/component-kind: clearbank-simulator/state
 
+# ClearBank's own key, which signs every webhook, its private half from
+# the provider key's Secret mounted as a file. Generated at start in dev
+# and test.
 signing-key: !system/component
   system/component-kind: clearbank-webhook/key-pair
+  private-key-file: !profile
+    dev: null
+    test: null
+    default: !env CLEARBANK_PROVIDER_PRIVATE_KEY_FILE
+
+# The adapter's key, its public half from the client key's Secret mounted
+# as a file. In dev and test the adapter's own key stands in.
+client-key: !system/component
+  system/component-kind: clearbank-webhook/key-pair
+  public-key-file: !profile
+    dev: null
+    test: null
+    default: !env CLEARBANK_CLIENT_PUBLIC_KEY_FILE
 
 accounts: !system/component
   system/component-kind: clearbank-simulator/state
@@ -15,7 +31,10 @@ interceptors: !system/component
   signing-key: !system/local-ref signing-key
   accounts: !system/local-ref accounts
   # The adapter's key, whose public half verifies every request.
-  client-key: !system/ref clearbank-adapter.signing-key
+  client-key: !profile
+    dev: !system/ref clearbank-adapter.signing-key
+    test: !system/ref clearbank-adapter.signing-key
+    default: !system/local-ref client-key
   sort-code: "040004"
   payment-scheme: !system/ref scheme-simulator.scheme
   webhook-delay-ms: 10

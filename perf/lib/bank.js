@@ -15,7 +15,7 @@ import {
 
 const ZYPHE_SIMULATOR_URL = env(
   "ZYPHE_SIMULATOR_URL",
-  "http://queenswood-external-adapters-service:8086",
+  "http://queenswood-external-simulators-service:8086",
 );
 
 const BATCH = parseInt(env("SETUP_BATCH", "20"));

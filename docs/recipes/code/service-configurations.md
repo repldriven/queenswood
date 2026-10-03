@@ -93,7 +93,7 @@ component-kind nothing registers fails there in seconds.
 - [system-configurations](system-configurations.md) — the file's
   mechanics, mono's recipe
 - [projects](projects.md) — what a project carries, mono's recipe
-- [ADR-0019](../../adr/0019-processor-packaging.md) — which processors
+- [ADR-0036](../../adr/0036-simulators-run-in-a-service-of-their-own.md) — which processors
   a project hosts
 - [deployment](../infra/deployment.md) — how the container names the
   config

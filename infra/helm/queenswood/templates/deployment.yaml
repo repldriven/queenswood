@@ -125,6 +125,25 @@ spec:
           # only restarts a hung process; readiness drives Service
           # routing — adapters stay DOWN until registration
           # succeeds, simulators/bank-api flip UP immediately.
+          {{- if eq ($svc.probe | default "http") "tcp" }}
+          # A service with no actuator, the simulators, is up once its
+          # port listens.
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            failureThreshold: 60
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            failureThreshold: 3
+          {{- else }}
           startupProbe:
             httpGet:
               path: /actuator/health/liveness
@@ -143,6 +162,7 @@ spec:
               port: http
             periodSeconds: 5
             failureThreshold: 3
+          {{- end }}
           {{- end }}
           env:
             - name: SERVICE_NAME
@@ -217,6 +237,19 @@ spec:
             - name: {{ $k }}
               value: {{ tpl $v $ | quote }}
             {{- end }}
+            {{- /* A provider credential's key as a variable, from its
+                   Secret, named <release>-<secret>. Required unless the
+                   reference says otherwise, so the pod waits in
+                   CreateContainerConfigError until the key exists rather
+                   than starting with a credential of its own making. */}}
+            {{- range $k, $ref := $svc.secretEnv }}
+            - name: {{ $k }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ printf "%s-%s" $.Release.Name $ref.secret }}
+                  key: {{ $ref.key }}
+                  optional: {{ $ref.optional | default false }}
+            {{- end }}
           volumeMounts:
             - name: fdb-cluster-file
               mountPath: /etc/fdb
@@ -224,6 +257,11 @@ spec:
             {{- if has $svcName $.Values.keycloak.consumers }}
             - name: keycloak-admin-key
               mountPath: /etc/queenswood/keycloak
+              readOnly: true
+            {{- end }}
+            {{- if $svc.secretFiles }}
+            - name: provider-credentials
+              mountPath: /etc/queenswood/providers
               readOnly: true
             {{- end }}
           {{- with $svc.resources }}
@@ -238,6 +276,23 @@ spec:
           secret:
             secretName: {{ include "queenswood.keycloakAdminKeySecret" $ }}
             defaultMode: 0400
+        {{- end }}
+        {{- /* Each provider credential's key the service reads, at
+               /etc/queenswood/providers/<secret>/<key>, and no other key
+               of the same Secret. */}}
+        {{- with $svc.secretFiles }}
+        - name: provider-credentials
+          projected:
+            defaultMode: 0400
+            sources:
+              {{- range $f := . }}
+              - secret:
+                  name: {{ printf "%s-%s" $.Release.Name $f.secret }}
+                  optional: {{ $f.optional | default false }}
+                  items:
+                    - key: {{ $f.key }}
+                      path: {{ printf "%s/%s" $f.secret $f.key }}
+              {{- end }}
         {{- end }}
 {{- end }}
 {{- end }}

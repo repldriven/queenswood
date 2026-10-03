@@ -4,8 +4,10 @@
   ClearBank signs with in both directions — RSA with SHA-256 over the
   raw body, base64-encoded. The adapter signs what it sends ClearBank
   and verifies what ClearBank sends it; the simulator does the reverse.
-  Registers `clearbank-webhook/key-pair`, an RSA key pair generated at
-  start, which stands in for each side's key."
+  Registers `clearbank-webhook/key-pair`, an RSA key pair read from the
+  PEM files `private-key-file` and `public-key-file` name, either half
+  alone where that is all one side holds, or generated at start where
+  neither is named."
   (:require
     [com.repldriven.queenswood.clearbank-webhook.system]
 

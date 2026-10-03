@@ -2,10 +2,25 @@ readiness: !system/component
   system/component-kind: clearbank-adapter/readiness
 
 
-# The key the adapter signs what it sends ClearBank with. ClearBank
-# holds the public half to verify each request.
+# The key the adapter signs what it sends ClearBank with, its private
+# half from the client key's Secret mounted as a file. ClearBank holds the
+# public half to verify each request. Generated at start in dev and test.
 signing-key: !system/component
   system/component-kind: clearbank-webhook/key-pair
+  private-key-file: !profile
+    dev: null
+    test: null
+    default: !env CLEARBANK_CLIENT_PRIVATE_KEY_FILE
+
+# ClearBank's own key, whose public half, from the provider key's Secret
+# mounted as a file, verifies every webhook. In dev and test the
+# simulator's key stands in.
+provider-key: !system/component
+  system/component-kind: clearbank-webhook/key-pair
+  public-key-file: !profile
+    dev: null
+    test: null
+    default: !env CLEARBANK_PROVIDER_PUBLIC_KEY_FILE
 
 
 registrar: !system/component

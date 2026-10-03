@@ -7,15 +7,15 @@ library versions pinned under `deps/`.
 ## Aggregator bases are the one base-on-base exception
 
 Bases never depend on other bases, except a designated aggregator —
-`monolith` or `external-adapters` — on the bases it composes. A composed
-base has no project and no `-main`, and carries an `interface.clj` that
-bare-requires its own `system` namespace and exposes whatever the
-aggregator wires in (typically `app`). An aggregator reaches a composed
-base by that interface and nothing else, never by `.api` or `.system`;
-`.api` is reserved for a base that has no interface. A base never owns
-a store — persistence belongs in a component: it may bare-require
-`fdb.interface` from its `system.clj` to register FDB component-kinds
-and nothing more, and `store-in-a-base` in
+`monolith`, `external-adapters` or `external-simulators` — on the bases
+it composes. A composed base has no project and no `-main`, and carries
+an `interface.clj` that bare-requires its own `system` namespace and
+exposes whatever the aggregator wires in (typically `app`). An
+aggregator reaches a composed base by that interface and nothing else,
+never by `.api` or `.system`; `.api` is reserved for a base that has no
+interface. A base never owns a store — persistence belongs in a
+component: it may bare-require `fdb.interface` from its `system.clj` to
+register FDB component-kinds and nothing more, and `store-in-a-base` in
 `scripts/hooks/enforce-idioms.sh` enforces it.
 See [aggregator-bases](../../../docs/recipes/code/aggregator-bases.md).
 

@@ -76,3 +76,4 @@ services:
   operational-processors-service: { enabled: false }
   exclusive-dispatchers-service: { enabled: false }
   external-adapters-service: { enabled: false }
+  external-simulators-service: { enabled: false }

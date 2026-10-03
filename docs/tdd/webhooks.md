@@ -181,7 +181,7 @@ and the rejection examples every route shares live in `api-schema`.
   into the OpenAPI document, and lists each kind under the document's
   `webhooks` object.
 - **Hosting.** `external-adapters-service` hosts both the consumer and
-  the runner, which is what ADR-0019 puts there: an intent store and
+  the runner, which is what ADR-0036 puts there: an intent store and
   calls to the outside. `exclusive-dispatchers-service` gains a relay
   runner per newly relayed store, which is generic configuration.
   `api-service` gains routes and nothing else. Putting the runner in
@@ -190,7 +190,7 @@ and the rejection examples every route shares live in `api-schema`.
   the JVM that runs every store's changelog runner and the scheduler,
   where one tenant's outage could stall the dispatchers.
 - **The runner tolerates a second replica**, so that group keeps the
-  freedom ADR-0019 grants it: a runner claiming each row by a
+  freedom ADR-0036 grants it: a runner claiming each row by a
   conditional transition inside one FDB transaction is not
   exclusive-dispatcher work. A delivery is claimed by moving it from
   pending to in-flight and stamping a lease, in the transaction that
@@ -211,7 +211,7 @@ and the rejection examples every route shares live in `api-schema`.
   `webhook-endpoints-event` for the component's own endpoint changes.
   Their consumer groups follow the `<brick>-service-<channel>` shape
   the existing groups use — `webhook-service-parties-event` and so on —
-  and ADR-0019 requires them to move verbatim if the component is ever
+  and ADR-0036 requires them to move verbatim if the component is ever
   regrouped.
 
 A processor commits a transition and its envelope, as ADR-0021 already
@@ -856,7 +856,7 @@ stated as unobserved, with what would observe it.
   compliance, the `oneOf` and discriminator rule the body follows.
 - [ADR-0018](../adr/0018-command-writes-are-earned.md) — Command writes
   are earned, why registration is synchronous.
-- [ADR-0019](../adr/0019-processor-packaging.md) — Processor
+- [ADR-0036](../adr/0036-simulators-run-in-a-service-of-their-own.md) — Processor
   packaging, where the consumer and the runner are hosted.
 - [ADR-0021](../adr/0021-changelog-relay.md) — Changelog relay, the
   path a change takes to the consumer.

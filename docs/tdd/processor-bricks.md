@@ -10,7 +10,7 @@ as a *domain component* (`components/X/`) hosted by its
 group's *processors base* (`bases/financial-processors/` or
 `bases/operational-processors/`) inside a combined processor
 service — see
-[ADR-0019](../adr/0019-processor-packaging.md). This TDD
+[ADR-0036](../adr/0036-simulators-run-in-a-service-of-their-own.md). This TDD
 describes the file layout inside the component, how FDB
 transactions thread through it, and where rejections originate.
 
@@ -90,7 +90,7 @@ registered, and `main.clj` starts the system per
 given service actually runs is decided by its project's
 `application.yml`: a new processor adds its brick to the group
 its boundary dictates — financial or operational, per
-[ADR-0019](../adr/0019-processor-packaging.md) — wiring its
+[ADR-0036](../adr/0036-simulators-run-in-a-service-of-their-own.md) — wiring its
 `bank/X.yml` system config, message-bus entries, bundle require, and
 deps into that group's project and base instead of scaffolding a
 base and service of its own.

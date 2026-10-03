@@ -244,7 +244,7 @@ API's 202, since it needs the executor to run what it queues.
   task.
 - [idempotency](idempotency.md) — the keys the close and capitalisation
   post under.
-- [ADR-0019](../adr/0019-processor-packaging.md) — the dispatcher
+- [ADR-0036](../adr/0036-simulators-run-in-a-service-of-their-own.md) — the dispatcher
   service the runner lives in.
 - [schema-evolution](../recipes/code/schema-evolution.md) — the
   metadata version bump for the new fields and indexes.

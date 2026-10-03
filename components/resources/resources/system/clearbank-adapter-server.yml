@@ -14,7 +14,10 @@ interceptors: !system/component
     default: !env CLEARBANK_SIMULATOR_URL
   signing-key: !system/ref clearbank-adapter.signing-key
   # ClearBank's key, whose public half verifies every webhook.
-  provider-key: !system/ref clearbank-simulator-server.signing-key
+  provider-key: !profile
+    dev: !system/ref clearbank-simulator-server.signing-key
+    test: !system/ref clearbank-simulator-server.signing-key
+    default: !system/ref clearbank-adapter.provider-key
 
 jetty-adapter: !system/component
   system/component-kind: server/jetty-adapter

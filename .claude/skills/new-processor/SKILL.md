@@ -1,6 +1,6 @@
 ---
 name: new-processor
-description: Scaffold or extend a Queenswood processor brick — a `components/X/` domain component with the canonical commands/core/domain/store/events/system file set, hosted by its group's processors base (financial or operational) inside a group service (ADR-0019). Threads the `txn-or-config` transaction parameter through every layer, confines `fdb/*` requires to `store.clj`, and originates `:rejection/anomaly` only in `domain.clj`. Use when scaffolding a new processor ("new processor for X", "add a domain brick that handles commands and writes to FDB") or when adding a new command to an existing processor ("add open-Y command to X", "extend payment to handle a new instruction").
+description: Scaffold or extend a Queenswood processor brick — a `components/X/` domain component with the canonical commands/core/domain/store/events/system file set, hosted by its group's processors base (financial or operational) inside a group service (ADR-0036). Threads the `txn-or-config` transaction parameter through every layer, confines `fdb/*` requires to `store.clj`, and originates `:rejection/anomaly` only in `domain.clj`. Use when scaffolding a new processor ("new processor for X", "add a domain brick that handles commands and writes to FDB") or when adding a new command to an existing processor ("add open-Y command to X", "extend payment to handle a new instruction").
 ---
 
 # new-processor
@@ -97,7 +97,7 @@ processors base:
 3. **Pick the group and register the brick in its base.** Pick
    by boundary (financial: posts/settles/accrues/gates a
    payment; operational: provisions or verifies) per
-   [ADR-0019](../../../docs/adr/0019-processor-packaging.md),
+   [ADR-0036](../../../docs/adr/0036-simulators-run-in-a-service-of-their-own.md),
    then add `com.repldriven.queenswood.Y.interface` to that
    group base's require bundle — the `system.clj` in
    `bases/financial-processors/` or
@@ -128,7 +128,7 @@ processors base:
 7. **Deployment plumbing** — none, in the common case: the
    group services' Helm/Tilt/CI entries already exist. Only a
    processor needing its own dedicated deployment (a boundary
-   or scaling case per ADR-0019) adds chart entries, per
+   or scaling case per ADR-0036) adds chart entries, per
    [recipes/infra/deployment.md](../../../docs/recipes/infra/deployment.md).
 
 ## Invariants (verify on every change)

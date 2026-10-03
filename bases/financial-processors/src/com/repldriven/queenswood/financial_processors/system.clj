@@ -4,7 +4,7 @@
   component-kinds its application.yml instantiates. Loaded by
   main.clj before `system/start`; nothing else lives here. The
   service's composition is the project's application.yml
-  (ADR-0019)."
+  (ADR-0036)."
   (:require
     [com.repldriven.queenswood.changelog-relay.interface]
     [com.repldriven.queenswood.fdb.interface]

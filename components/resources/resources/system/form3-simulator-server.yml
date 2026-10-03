@@ -3,6 +3,20 @@ handler: !system/required-component
 state: !system/component
   system/component-kind: form3-simulator/state
 
+# The adapter's key id and public key, from the provider's Secret mounted
+# as files, which verify every call. In dev and test the adapter's own
+# component stands in.
+credentials: !system/component
+  system/component-kind: form3-webhook/credentials
+  key-id: !profile
+    dev: null
+    test: null
+    default: !env FORM3_KEY_ID
+  public-key-file: !profile
+    dev: null
+    test: null
+    default: !env FORM3_PUBLIC_KEY_FILE
+
 # The bank completes an admission task within admission-deadline-ms or
 # the admission fails, and the simulator waits webhook-delay-ms before
 # each delivery.
@@ -10,7 +24,10 @@ interceptors: !system/component
   system/component-kind: server/interceptors
   state: !system/local-ref state
   # The adapter's credentials, whose public key verifies every call.
-  credentials: !system/ref form3-adapter.credentials
+  credentials: !profile
+    dev: !system/ref form3-adapter.credentials
+    test: !system/ref form3-adapter.credentials
+    default: !system/local-ref credentials
   organisation-id: ee2fb143-6dfe-4787-b183-ca8ddd4164d2
   sort-code: "040075"
   payment-scheme: !system/ref scheme-simulator.scheme

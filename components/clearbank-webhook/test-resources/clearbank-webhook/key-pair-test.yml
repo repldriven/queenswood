@@ -1,0 +1,6 @@
+system:
+  clearbank-webhook:
+    signer: !system/component
+      system/component-kind: clearbank-webhook/key-pair
+    verifier: !system/component
+      system/component-kind: clearbank-webhook/key-pair
