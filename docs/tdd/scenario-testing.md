@@ -206,12 +206,13 @@ The directories take the API corpus's names — `payments/`,
 `cash-accounts/`, `cash-account-products/`, `parties/`,
 `ledger-accounts/` and `providers/` — with `interest/` for the interest
 runs. The reality-only files hold what the API cannot reach: a
-dead-lettered settlement, a provider event delivered twice, provider
-balance mirroring, a redelivered submit, the intent and scheme-command
-assertions, admissions, and a closed control met by a posting. The
-policy scenarios — daily limits, a denied capability, the account cap, a
-waived close and an interest run limit — and the held inbound scenarios
-are compared.
+dead-lettered settlement, an inbound settlement delivered twice,
+provider balance mirroring, a redelivered submit with its intent and
+scheme-command assertions, admissions, and a closed control met by a
+posting. The policy scenarios — daily limits, a
+denied capability, the account cap, a waived close and an interest run
+limit — the held inbound scenarios, and an outbound payment's provider
+outcomes are compared.
 
 ### API scenario fixtures
 
@@ -421,11 +422,13 @@ flight.
 - **API scenarios only.** Rejected: model equality, and the provider
   events, dead letters and intents no route reaches, need the domain
   runner. Taken in part: domain files an API scenario repeats go.
-- **Every domain scenario compared.** Rejected: provider events, dead
-  letters and intents have no model rule, and writing one would make the
-  model look like production, which
+- **Every domain scenario compared.** Rejected: dead letters, intents
+  and inbound provider events have no model rule, and writing one would
+  make the model look like production, which
   [ADR-0009](../adr/0009-model-equality-property-testing.md) warns
-  against.
+  against. Taken in part: an outbound payment's provider outcomes are
+  model commands, each changing what a customer's balance and payment
+  show.
 - **Fixtures as Clojure functions.** Rejected: setup would leave the
   scenario file and stop being data a reviewer reads; fixtures stay EDN,
   expanded at load.
@@ -452,9 +455,11 @@ flight.
 
 ## Known Limitations
 
-- **The model has no rule for provider events.** A scenario that
-  delivers a provider event, redelivers a submit or asks for an
-  admission runs reality-only.
+- **The model has no rule for inbound provider events.** An outbound
+  payment's outcomes are model commands: the provider refusing or
+  returning it, and a settlement, rejection or return arriving after
+  its outcome. A scenario that delivers an inbound settlement event,
+  redelivers a submit or asks for an admission runs reality-only.
 - **The model reads part of a policy.** Filtered capabilities and
   amount limits are not read, and `:create-product` and
   `:create-person-party` meet no count limit, since no scenario comes

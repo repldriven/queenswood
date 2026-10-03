@@ -1,5 +1,4 @@
 {:name "Rejecting a completed outbound fails and moves no money"
- :model :reality
  ;; A rejection that arrives after the scheme settled has nothing to
  ;; reverse: the handler fails, so the event is redelivered and
  ;; dead-lettered rather than committed past, and every balance stays

@@ -173,6 +173,54 @@
 
 (def
   ^{:doc
+    "A payment of `amount` from `debtor` the provider refuses, so it ends
+  `failed` with its reservation released and the balance where it was.
+  Nothing happens where `outbound-payment` would refuse it before the
+  provider. The debtor carries two legs: the reservation and its
+  release. Args:
+  - debtor: model account id.
+  - amount: minor units."}
+  outbound-payment-refused
+  payments/outbound-payment-refused)
+
+(def
+  ^{:doc
+    "The provider returning `pmt`, a completed payment to a creditor
+  outside the model: it becomes `returned` and its amount comes back to
+  the debtor in one leg, whatever the debtor's status. Any other payment
+  is left as it is. Args:
+  - pmt: model payment id."}
+  return-outbound-payment
+  payments/return-outbound-payment)
+
+(def
+  ^{:doc
+    "A return event for `pmt` delivered straight to the platform, as
+  `return-outbound-payment` returns it but for `amount`. Args:
+  - pmt: model payment id.
+  - amount: minor units."}
+  return-outbound-event
+  payments/return-outbound-event)
+
+(def
+  ^{:doc
+    "A settlement event for `pmt` arriving after its outcome, completed,
+  failed or returned, which changes nothing. Args:
+  - pmt: model payment id."}
+  settle-outbound-event
+  payments/settle-outbound-event)
+
+(def
+  ^{:doc
+    "A rejection event for `pmt` arriving after its outcome, which changes
+  nothing: only a payment still in flight is rejected, and none is once
+  a step settles. Args:
+  - pmt: model payment id."}
+  reject-outbound-payment
+  payments/reject-outbound-payment)
+
+(def
+  ^{:doc
     "Moves `amount` from `from` to `to`, both open and the same bank's, in
   GBP, where the bank's policies permit submitting it within their daily
   count and the available balance rule allows both sides. Args:
@@ -264,6 +312,11 @@
                 :hold-inbound hold-inbound
                 :release-inbound release-inbound
                 :outbound-payment outbound-payment
+                :outbound-payment-refused outbound-payment-refused
+                :return-outbound-payment return-outbound-payment
+                :return-outbound-event return-outbound-event
+                :settle-outbound-event settle-outbound-event
+                :reject-outbound-payment reject-outbound-payment
                 :internal-transfer internal-transfer
                 :bind-policy bind-policy
                 :fixture/apply-fee apply-fee

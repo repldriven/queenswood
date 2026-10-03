@@ -134,17 +134,22 @@
                  (and (not (error/anomaly? party))
                       (= :party-status-active (:status party))))))
 
-(defn- await-outbound-completed
-  "The outbound payment once the provider's settlement has completed it,
-  or `:scenario/timed-out`."
-  [{:keys [bank] :as ctx} payment-id]
+(defn- await-outbound
+  "The outbound payment once it reaches `status`, or
+  `:scenario/timed-out`."
+  [{:keys [bank] :as ctx} payment-id status]
   (await/value ctx
-               (str "outbound payment " payment-id " to complete")
+               (str "outbound payment " payment-id " to reach " status)
                (fn [] (payment-query/get-outbound-payment bank payment-id))
                (fn [payment]
                  (and (not (error/anomaly? payment))
-                      (= :outbound-payment-status-completed
-                         (:payment-status payment))))))
+                      (= status (:payment-status payment))))))
+
+(defn- await-outbound-completed
+  "The outbound payment once the provider's settlement has completed it,
+  or `:scenario/timed-out`."
+  [ctx payment-id]
+  (await-outbound ctx payment-id :outbound-payment-status-completed))
 
 (defn- posted-net
   [bank bank-real-id account-id]
@@ -959,14 +964,17 @@
         (update :counter inc)
         (track (first-timed-out result completed)))))
 
-(defmethod dispatch :outbound-payment-pending
+(defmethod dispatch :outbound-payment-refused
   [ctx {[model-acct amount] :args}]
   (let [result
-        (submit-external-outbound ctx model-acct amount refused-creditor-bban)]
+        (submit-external-outbound ctx model-acct amount refused-creditor-bban)
+        failed
+        (when-let [payment-id (:payment-id result)]
+          (await-outbound ctx payment-id :outbound-payment-status-failed))]
     (-> ctx
         (record-payment result)
         (update :counter inc)
-        (track result))))
+        (track (first-timed-out result failed)))))
 
 (defmethod dispatch :reject-outbound-payment
   [{:keys [bank payments] :as ctx} {[model-pmt] :args}]

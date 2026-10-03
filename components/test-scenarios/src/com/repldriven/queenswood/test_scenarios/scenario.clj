@@ -101,6 +101,11 @@
    :inbound-transfer {:kind :model :args [:cat acct int? [:? e2e]]}
    :outbound-payment {:kind :model
                       :args [:alt [:cat acct int?] [:cat acct acct int?]]}
+   :outbound-payment-refused {:kind :model :args [:cat acct int?]}
+   :return-outbound-payment {:kind :model :args [:cat pmt]}
+   :return-outbound-event {:kind :model :args [:cat pmt int?]}
+   :settle-outbound-event {:kind :model :args [:cat pmt]}
+   :reject-outbound-payment {:kind :model :args [:cat pmt]}
    :internal-transfer {:kind :model :args [:cat acct acct int? [:? currency]]}
    :accrue-interest {:kind :model :args [:cat bank int?]}
    :capitalize-interest {:kind :model :args [:cat bank int?]}
@@ -112,12 +117,7 @@
    :close-ledger-account {:kind :reality :args [:cat bank gl-account-code]}
    :admit-inbound {:kind :reality :args [:cat [:or acct string?] int? e2e]}
    :settle-inbound-event {:kind :reality :args [:cat acct int? string?]}
-   :outbound-payment-pending {:kind :reality :args [:cat acct int?]}
    :outbound-payment-redelivered {:kind :reality :args [:cat acct int?]}
-   :reject-outbound-payment {:kind :reality :args [:cat pmt]}
-   :settle-outbound-event {:kind :reality :args [:cat pmt]}
-   :return-outbound-payment {:kind :reality :args [:cat pmt]}
-   :return-outbound-event {:kind :reality :args [:cat pmt int?]}
    :publish-scheme-event {:kind :reality :args [:cat string? map?]}
    :force-start-job {:kind :reality :args [:cat bank string?]}
    :assert-outcome {:kind :assert

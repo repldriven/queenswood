@@ -156,6 +156,30 @@
                    (settle-inbound state acct amount e2e nil)
                    state))})
 
+(defn- submits?
+  "True where `debtor`'s bank accepts a submission of `amount`: a positive
+  amount the bank's policies permit sending within their daily count,
+  from an open account."
+  [state debtor amount]
+  (let [bank-id (bank-of state debtor)]
+    (and (pos? amount)
+         (policies/permitted? state
+                              bank-id
+                              :outbound-payment
+                              :outbound-payment-action-send)
+         (within-daily? state bank-id :outbound-payment)
+         (operable? state debtor))))
+
+(defn- record-payment
+  [state payment legs]
+  (let [{:keys [debtor]} payment
+        pmt-id (state/next-payment-id state)]
+    (-> state
+        (counted (bank-of state debtor) :outbound-payment)
+        (update-in [:accounts debtor :transaction-legs] (fnil + 0) legs)
+        (assoc-in [:payments pmt-id] payment)
+        (update :next-payment-id inc))))
+
 (def outbound-payment
   {:run? (fn [state] (seq (state/known-accounts state)))
    :args (fn [state]
@@ -166,43 +190,97 @@
      (let [[debtor creditor amount] (case (count args)
                                       2 [(first args) nil (second args)]
                                       3 args)]
-       (if-not (and (pos? amount)
-                    (policies/permitted? state
-                                         (bank-of state debtor)
-                                         :outbound-payment
-                                         :outbound-payment-action-send)
-                    (within-daily? state
-                                   (bank-of state debtor)
-                                   :outbound-payment))
+       (if-not (submits? state debtor amount)
          state
-         (let [advanced (cond
-                         (not (operable? state debtor))
-                         state
-
-                         (and creditor (operable? state creditor))
-                         (transfer-between state debtor creditor amount)
-
-                         :else
-                         (apply-delta state debtor (- amount)))]
+         (let [advanced (if (and creditor (operable? state creditor))
+                          (transfer-between state debtor creditor amount)
+                          (apply-delta state debtor (- amount)))]
            (if (= advanced state)
              state
-             (let [pmt-id (state/next-payment-id advanced)]
-               (-> advanced
-                   (counted (bank-of state debtor) :outbound-payment)
-                   (update-in [:accounts debtor :transaction-legs] (fnil + 0) 2)
-                   (assoc-in [:payments pmt-id]
+             (record-payment advanced
                              (cond-> {:debtor debtor
                                       :amount amount
                                       :status :completed}
                                      creditor
-                                     (assoc :creditor creditor)))
-                   (update :next-payment-id inc))))))))
+                                     (assoc :creditor creditor))
+                             2))))))
    :valid? (fn [state {args :args}]
              (let [[debtor maybe-creditor] args]
                (and (contains? (:accounts state) debtor)
                     (if (= 3 (count args))
                       (contains? (:accounts state) maybe-creditor)
                       true))))})
+
+(def outbound-payment-refused
+  {:run? (fn [state] (seq (state/known-accounts state)))
+   :args (fn [state]
+           (gen/tuple (gen/elements (state/known-accounts state))
+                      (gen/choose 1 10000)))
+   :next-state
+   (fn [state {[debtor amount] :args}]
+     (let [pre (state/balance state debtor)]
+       (if (and
+            (submits? state debtor amount)
+            (policies/permits? (:policies state) :available pre (- pre amount)))
+         (record-payment state
+                         {:debtor debtor :amount amount :status :failed}
+                         2)
+         state)))
+   :valid? (fn [state {[debtor] :args}] (contains? (:accounts state) debtor))})
+
+(defn- payment-ids
+  [state]
+  (vec (keys (:payments state))))
+
+(defn- returnable
+  [state]
+  (vec (for [[pmt-id {:keys [status creditor]}] (:payments state)
+             :when (and (= :completed status) (nil? creditor))]
+         pmt-id)))
+
+(defn- returned
+  [state pmt-id amount]
+  (let [{:keys [debtor status creditor]} (get-in state [:payments pmt-id])]
+    (if (and (= :completed status) (nil? creditor))
+      (-> state
+          (assoc-in [:payments pmt-id :status] :returned)
+          (update-in [:accounts debtor :available] (fnil + 0) amount)
+          (bump-legs debtor))
+      state)))
+
+(defn- external?
+  [state pmt-id]
+  (let [payment (get-in state [:payments pmt-id])]
+    (and payment (nil? (:creditor payment)))))
+
+(def return-outbound-payment
+  {:run? (fn [state] (seq (returnable state)))
+   :args (fn [state] (gen/tuple (gen/elements (returnable state))))
+   :next-state
+   (fn [state {[pmt-id] :args}]
+     (returned state pmt-id (get-in state [:payments pmt-id :amount])))
+   :valid? (fn [state {[pmt-id] :args}] (external? state pmt-id))})
+
+(def return-outbound-event
+  {:run? (fn [state] (seq (returnable state)))
+   :args (fn [state]
+           (gen/let [pmt-id (gen/elements (returnable state))]
+             [pmt-id (get-in state [:payments pmt-id :amount])]))
+   :next-state (fn [state {[pmt-id amount] :args}]
+                 (returned state pmt-id amount))
+   :valid? (fn [state {[pmt-id] :args}] (external? state pmt-id))})
+
+(def settle-outbound-event
+  {:run? (fn [state] (seq (payment-ids state)))
+   :args (fn [state] (gen/tuple (gen/elements (payment-ids state))))
+   :next-state (fn [state _] state)
+   :valid? (fn [state {[pmt-id] :args}] (contains? (:payments state) pmt-id))})
+
+(def reject-outbound-payment
+  {:run? (fn [state] (seq (payment-ids state)))
+   :args (fn [state] (gen/tuple (gen/elements (payment-ids state))))
+   :next-state (fn [state _] state)
+   :valid? (fn [state {[pmt-id] :args}] (contains? (:payments state) pmt-id))})
 
 (defn- accounts-by-org
   [state]

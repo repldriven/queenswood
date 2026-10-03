@@ -1,11 +1,10 @@
 {:name "Returning a failed outbound fails and moves no money"
- :model :reality
  ;; A return names a payment that never left: the handler fails, so the
  ;; event is redelivered and dead-lettered rather than committed past,
  ;; and the failed payment's released reservation stays released.
  :given [{:command :create-bank :args []}
          {:command :inbound-transfer :args [:acct-0 1000]}
-         {:command :outbound-payment-pending :args [:acct-0 250]}
+         {:command :outbound-payment-refused :args [:acct-0 250]}
          {:command :reject-outbound-payment :args [:pmt-0]}]
  :when [{:command :assert-outbound-status
          :args [:pmt-0 :outbound-payment-status-failed]}
