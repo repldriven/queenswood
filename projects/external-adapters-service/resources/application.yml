@@ -15,6 +15,7 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-schemes-command-response
           acks: all
+          linger.ms: 0
       schemes-payments-event:
         schemas: !system/local-ref schemas
         schema: !keyword event
@@ -22,6 +23,7 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-schemes-payments-event
           acks: all
+          linger.ms: 0
       idv-command-response:
         schemas: !system/local-ref schemas
         schema: !keyword command-response
@@ -29,6 +31,7 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-idv-command-response
           acks: all
+          linger.ms: 0
       idv-event:
         schemas: !system/local-ref schemas
         schema: !keyword event
@@ -36,6 +39,7 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-idv-event
           acks: all
+          linger.ms: 0
       companies-command-response:
         schemas: !system/local-ref schemas
         schema: !keyword command-response
@@ -43,51 +47,61 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-companies-command-response
           acks: all
+          linger.ms: 0
       modulr-command-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-modulr-command-dlq
           acks: all
+          linger.ms: 0
       form3-command-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-form3-command-dlq
           acks: all
+          linger.ms: 0
       clearbank-command-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-clearbank-command-dlq
           acks: all
+          linger.ms: 0
       cash-accounts-event-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-cash-accounts-event-dlq
           acks: all
+          linger.ms: 0
       payments-event-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-payments-event-dlq
           acks: all
+          linger.ms: 0
       rewards-event-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-rewards-event-dlq
           acks: all
+          linger.ms: 0
       idvs-event-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-idvs-event-dlq
           acks: all
+          linger.ms: 0
       parties-event-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-parties-event-dlq
           acks: all
+          linger.ms: 0
       invitations-event-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-invitations-event-dlq
           acks: all
+          linger.ms: 0
       memberships-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
@@ -95,6 +109,7 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-memberships-command
           acks: all
+          linger.ms: 0
       payments-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
@@ -102,6 +117,7 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-payments-command
           acks: all
+          linger.ms: 0
     # The group.ids name the per-adapter services this one absorbed.
     # They are carried over verbatim: a consumer group identifies the
     # consumer role, not the pod hosting it, and renaming one

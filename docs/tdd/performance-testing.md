@@ -102,10 +102,11 @@ against a provider's own sandbox.
   The API's command replies arrive on a one-partition topic under a fixed
   consumer group, so a second `api-service` replica would not see the
   replies to its own requests.
-- **Traces go to SigNoz in the cluster.** Every service exports traces
-  over OTLP to the SigNoz the chart installs, as
-  [ADR-0031](../adr/0031-traces-go-to-signoz-in-the-cluster-that-produces-them.md)
-  decides.
+- **Traces and JVM metrics go to SigNoz in the cluster.** Every service
+  exports its traces and its JVM's runtime metrics over OTLP to the
+  SigNoz the chart installs, as
+  [ADR-0035](../adr/0035-traces-and-jvm-metrics-go-to-signoz-in-the-cluster-that-produces-them.md)
+  decides, and `queenswood-jvm` sets them side by side per service.
 - **The kind loop installs the deployed chart.** `just kind-up` installs
   [values-dev.yaml](/infra/helm/queenswood/values-dev.yaml) and
   [values-local.yaml](/infra/helm/queenswood/values-local.yaml) on kind
@@ -311,17 +312,21 @@ payment costs, ranked by its effect on the serial command path, which is
 `process-command` for `submit-internal-payment` in
 `financial-processors-service` at 19.9 ms p50:
 
-1. **The producer's `linger.ms`.** Every `bus-send`, in every service,
-   takes 5.5 ms p50 and 5.9 ms p95. mono pins `kafka-clients` 4.3.1,
-   whose `linger.ms` defaults to 5 since Kafka 4.0, and its
-   `kafka/send` waits on the send, so each one sits out the batching
-   window. It is 5.5 ms of the 19.9 on the serial path, and at 0 the
-   ceiling would rise to about 70 a second.
-2. **The payment's transaction.** 14.2 ms p50, the rest of the serial
-   path, under the generic category `:fdb/transact`, so a category of
-   its own comes first. Inside it the policies are read twice, in
-   `payment` and again in `balance`'s `apply-legs`, and the 2100
-   control balance is read and rewritten.
+1. **The producer's `linger.ms`.** Done. Every `bus-send`, in every
+   service, took 5.5 ms p50 and 5.9 ms p95: mono pins `kafka-clients`
+   4.3.1, whose `linger.ms` defaults to 5 since Kafka 4.0, and its
+   `kafka/send` waits on the send, so each one sat out the batching
+   window. Every producer now sets `linger.ms: 0` beside `acks: all`, a
+   send takes 0.4 ms, the serial path 15.2 ms, and the `knee` ceiling
+   rose from about 51 a second to about 64, with 40 a second at a p99 of
+   47 ms rather than 122.
+2. **The payment's transaction.** 14.2 ms p50, and with the sends gone
+   nearly all of the serial path. Its span is `:payment/submit-internal`,
+   and the outbound one's `:payment/submit-outbound`, rather than the
+   generic `:fdb/transact`, but the steps inside it carry no spans of
+   their own, so splitting the time needs one around each. Inside it the
+   policies are read twice, in `payment` and again in `balance`'s
+   `apply-legs`, and the 2100 control balance is read and rewritten.
 3. **The relays' sends.** `exclusive-dispatchers-service` sends three
    messages per payment, one at a time, 16.6 ms of a runner's time, so
    one runner tops out at about 180 messages a second. A pass's sends
@@ -437,8 +442,8 @@ holds it, and the run repeated.
 - [ADR-0019](../adr/0019-processor-packaging.md) — the service groups and
   the one-replica dispatchers.
 - [ADR-0021](../adr/0021-changelog-relay.md) — the changelog relay.
-- [ADR-0031](../adr/0031-traces-go-to-signoz-in-the-cluster-that-produces-them.md)
-  — SigNoz in the cluster, where a run's traces go.
+- [ADR-0035](../adr/0035-traces-and-jvm-metrics-go-to-signoz-in-the-cluster-that-produces-them.md)
+  — SigNoz in the cluster, where a run's traces and JVM metrics go.
 - [ADR-0033](../adr/0033-operations-reach-a-provider-in-the-order-they-were-accepted.md)
   — the activity log an outbound payment travels.
 - [account-serialisation](../plan/account-serialisation.md) — the

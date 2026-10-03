@@ -65,14 +65,36 @@ function settleAll(items, pathOf, done, bearer, what, timeoutS) {
   return bodies;
 }
 
+// POSTs each item a batch at a time, sending again under the same
+// Idempotency-Key any the platform answers with 500 or 503, as it does
+// while its consumers rebalance.
 function postAll(items, pathOf, bodyOf, bearer, status, what) {
   const out = [];
   for (const group of chunks(items, BATCH)) {
-    const res = batch(
-      group.map((x) => ({ method: "POST", path: pathOf(x), body: bodyOf(x) })),
-      bearer,
-      SETUP,
-    );
+    const reqs = group.map((x) => ({
+      method: "POST",
+      path: pathOf(x),
+      body: bodyOf(x),
+      key: crypto.randomUUID(),
+    }));
+    const res = new Array(reqs.length);
+    let pending = reqs.map((_, i) => i);
+    for (let attempt = 0; pending.length > 0; attempt++) {
+      const sent = batch(
+        pending.map((i) => reqs[i]),
+        bearer,
+        SETUP,
+      );
+      const again = [];
+      sent.forEach((r, k) => {
+        res[pending[k]] = r;
+        if ((r.status === 500 || r.status === 503) && attempt < 5) {
+          again.push(pending[k]);
+        }
+      });
+      pending = again;
+      if (pending.length > 0) sleep(10);
+    }
     res.forEach((r) => out.push(expect(r, status, what)));
   }
   return out;

@@ -15,6 +15,7 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-banks-command-response
           acks: all
+          linger.ms: 0
       memberships-command-response:
         schemas: !system/local-ref schemas
         schema: !keyword command-response
@@ -22,6 +23,7 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-memberships-command-response
           acks: all
+          linger.ms: 0
       parties-command-response:
         schemas: !system/local-ref schemas
         schema: !keyword command-response
@@ -29,6 +31,7 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-parties-command-response
           acks: all
+          linger.ms: 0
       idvs-command-response:
         schemas: !system/local-ref schemas
         schema: !keyword command-response
@@ -36,6 +39,7 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-idvs-command-response
           acks: all
+          linger.ms: 0
       cash-accounts-command-response:
         schemas: !system/local-ref schemas
         schema: !keyword command-response
@@ -43,6 +47,7 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-cash-accounts-command-response
           acks: all
+          linger.ms: 0
       zyphe-idv-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
@@ -50,6 +55,7 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-zyphe-idv-command
           acks: all
+          linger.ms: 0
       onfido-idv-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
@@ -57,56 +63,67 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-onfido-idv-command
           acks: all
+          linger.ms: 0
       banks-command-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-banks-command-dlq
           acks: all
+          linger.ms: 0
       memberships-command-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-memberships-command-dlq
           acks: all
+          linger.ms: 0
       parties-command-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-parties-command-dlq
           acks: all
+          linger.ms: 0
       idvs-command-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-idvs-command-dlq
           acks: all
+          linger.ms: 0
       cash-accounts-command-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-cash-accounts-command-dlq
           acks: all
+          linger.ms: 0
       cash-accounts-event-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-cash-accounts-event-dlq
           acks: all
+          linger.ms: 0
       idvs-event-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-idvs-event-dlq
           acks: all
+          linger.ms: 0
       parties-event-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-parties-event-dlq
           acks: all
+          linger.ms: 0
       bank-activity-event-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-bank-activity-event-dlq
           acks: all
+          linger.ms: 0
       schemes-account-event-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           topic: topic-schemes-account-event-dlq
           acks: all
+          linger.ms: 0
     consumers: !system/component
       system/component-kind: kafka/consumers
       banks-command:

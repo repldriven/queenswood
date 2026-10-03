@@ -87,7 +87,9 @@
                                                   business-day
                                                   transaction-id)
            _ (store/save-internal-payment txn payment)]
-          payment))))
+          payment)))
+    :payment/submit-internal
+    "Failed to submit internal payment")
    q/find-internal-payment-by-idempotency-key))
 
 (defn- record-submitted
@@ -181,7 +183,9 @@
                        payment
                        {:change-kind :outbound-payment-change-kind-submit})
                     _ (record-submitted txn payment debtor-account)]
-                   {:payment payment :debtor-account debtor-account}))))]
+                   {:payment payment :debtor-account debtor-account})))
+             :payment/submit-outbound
+             "Failed to submit outbound payment")]
     (if (store/uniqueness-violation? raw)
       (or-already-submitted config
                             data

@@ -115,11 +115,12 @@ non-trivial work on their topic.
   calls, the registrars, the webhook runner and the email runner.
   See [ADR-0034](docs/adr/0034-outbound-calls-go-through-a-breaker-on-their-destination.md)
   and [tdd/outbound-delivery.md](docs/tdd/outbound-delivery.md).
-- **Telemetry** — traces over OTLP to SigNoz in the cluster that
-  produces them, its root user provisioned at startup with a password
+- **Telemetry** — traces and JVM metrics over OTLP to SigNoz in the
+  cluster that produces them, through mono's SDK with no agent or second
+  collector, its root user provisioned at startup with a password
   generated in the cluster, and the monolith loop's SigNoz through
   Foundry. See
-  [ADR-0031](docs/adr/0031-traces-go-to-signoz-in-the-cluster-that-produces-them.md).
+  [ADR-0035](docs/adr/0035-traces-and-jvm-metrics-go-to-signoz-in-the-cluster-that-produces-them.md).
 - **SigNoz's dashboards and saved views** — declared in the chart and
   kept by the SigNoz Operator, its API key issued in the cluster, and
   how to change one.

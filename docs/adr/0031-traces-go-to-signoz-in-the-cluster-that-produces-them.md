@@ -4,7 +4,8 @@
 
 ## Status
 
-**Accepted**
+**Superseded by**
+[ADR-0035](0035-traces-and-jvm-metrics-go-to-signoz-in-the-cluster-that-produces-them.md)
 
 ## Context
 

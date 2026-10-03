@@ -29,24 +29,28 @@ entity type lives in its own record store, and an operation spanning
 multiple stores runs inside a single FDB transaction.
 See [ADR-0002](../../../docs/adr/0002-foundationdb-record-layer.md).
 
-## Traces go to SigNoz, in the cluster that produces them
+## Traces and JVM metrics go to SigNoz, in the cluster that produces them
 
 Every deployment of the chart runs SigNoz in its own cluster, and every
-service sends its traces there over OTLP/HTTP. SigNoz is a dependency
+service sends its traces and its JVM's runtime metrics there over
+OTLP/HTTP, through mono's `telemetry/otel-sdk`. SigNoz is a dependency
 of the queenswood chart from `charts.signoz.io`, pinned and on by
-default, and each service's `OTEL_ENDPOINT` points at its collector
-unless `otel.endpoint` names another. Provision SigNoz's root user at
-startup, because its collector refuses OTLP until an organisation
-exists and that user creates one; generate its password in the
-cluster, by a Job, into `queenswood-signoz-root`, keep it nowhere else,
-and type a pair only in `values-local.yaml` and
+default; each service's `OTEL_ENDPOINT` points at its collector's
+`/v1/traces` and `OTEL_METRICS_ENDPOINT` at its `/v1/metrics`, unless
+`otel.endpoint` or `otel.metricsEndpoint` names another, and the
+metrics endpoint is set on the services' Deployments, never on the
+bootstrap or migrator Jobs. Run no OpenTelemetry Java agent and no
+collector beside SigNoz's: a metric a service should report, and logs
+over OTLP, are a change to mono's telemetry component, made there.
+Provision SigNoz's root user at startup, because its collector refuses
+OTLP until an organisation exists and that user creates one; generate
+its password in the cluster, by a Job, into `queenswood-signoz-root`,
+keep it nowhere else, and type a pair only in `values-local.yaml` and
 `infra/signoz/casting.yaml`. Turn SigNoz's stats reporter off wherever
 it runs. Run the monolith loop's SigNoz from `infra/signoz/casting.yaml`
 through the `foundryctl` that `justfiles/telemetry.just` pins, with the
 chart's images and its UI on 3301, since the monolith holds 8080.
-Export traces only: logs and metrics over OTLP are a change to mono's
-telemetry component, made there.
-See [ADR-0031](../../../docs/adr/0031-traces-go-to-signoz-in-the-cluster-that-produces-them.md).
+See [ADR-0035](../../../docs/adr/0035-traces-and-jvm-metrics-go-to-signoz-in-the-cluster-that-produces-them.md).
 
 ## SigNoz is configured through its operator
 

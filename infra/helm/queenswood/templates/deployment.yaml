@@ -155,6 +155,8 @@ spec:
               value: "/etc/fdb/fdb.cluster"
             - name: OTEL_ENDPOINT
               value: {{ include "queenswood.otelEndpoint" $ | quote }}
+            - name: OTEL_METRICS_ENDPOINT
+              value: {{ include "queenswood.otelMetricsEndpoint" $ | quote }}
             - name: KEYCLOAK_BASE_URL
               value: {{ include "queenswood.keycloakBaseUrl" $ | quote }}
             - name: KEYCLOAK_REALM

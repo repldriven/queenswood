@@ -82,6 +82,19 @@ http://{{ .Release.Name }}-signoz-otel-collector:4318/v1/traces
 {{- end -}}
 
 {{/*
+OTLP metrics endpoint, for each service's JVM metrics. An explicit
+otel.metricsEndpoint wins; otherwise the in-chart SigNoz collector's
+Service. Empty leaves the metrics off and the traces as they are.
+*/}}
+{{- define "queenswood.otelMetricsEndpoint" -}}
+{{- if .Values.otel.metricsEndpoint -}}
+{{ .Values.otel.metricsEndpoint }}
+{{- else if .Values.signoz.enabled -}}
+http://{{ .Release.Name }}-signoz-otel-collector:4318/v1/metrics
+{{- end -}}
+{{- end -}}
+
+{{/*
 The SMTP server the mail consumers send through: the in-release Mailpit
 when the catcher is enabled, otherwise `mail.smtp`.
 */}}
