@@ -172,6 +172,13 @@
   [store index-name key]
   (record/sum-records store index-name key))
 
+(defn sum-records-snapshot
+  "`sum-records`, read at SNAPSHOT, so the group's key does not join the
+  transaction's read-conflict set and writers adding to it never
+  conflict the read."
+  [store index-name key]
+  (record/sum-records store index-name key {:isolation :snapshot}))
+
 (defn count-groups
   "Counts distinct grouping-key entries in a COUNT index whose
   group key starts with `prefix` — one per group, not the sum

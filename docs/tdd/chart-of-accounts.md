@@ -28,8 +28,8 @@ model; A/L/E/I/E grouping; per-product-type control accounts
 that aggregate the cash-accounts of each product type (customer
 deposits and the bank's own funds); the rule that GL leg-sets
 must balance per currency; the canonical seeded chart and its
-codes; the product-type → control mapping that drives
-paired-leg construction; the per-currency trial balance the
+codes; the product-type → control mapping a control's balance
+is summed by; the per-currency trial balance the
 chart's list route returns; the two scenario-testing invariants
 that prove correctness on every run.
 
@@ -72,12 +72,11 @@ Queenswood realises this split:
   effect: the customer-deposit controls, the bank's cash at
   correspondent, interest payable, the bank's own funds, and
   suspense.
-- Every customer-side `default` leg generates the paired GL
-  control leg that keeps the bank's books balanced — the
-  paired-movement discipline `interest`'s capitalisation
-  already showed, now applied everywhere through server-side
-  paired-leg construction. Fees and interest add their own GL
-  counter-legs so the bank's P&L is modelled symmetrically.
+- A control account's balance is the sum of the posted default
+  balances of the cash accounts that roll into it, so a customer
+  posting moves the bank's books without a leg of its own on the
+  control. Fees and interest add their own GL counter-legs so the
+  bank's P&L is modelled symmetrically.
 
 ## Proposed Solution
 
@@ -110,9 +109,11 @@ Each cash-account rolls up to a GL **control account** via its
   `:gl-account-code` role mapping;
 - `find-by-code` — resolve a GL account by its role and
   currency;
-- `add-control-legs` — paired-leg construction at posting time,
-  following each posted default sub-ledger leg with a
-  control-account leg, keyed off the leg's `:product-type`.
+- `get-balances` — a ledger account's balances, a control's summed
+  from its sub-ledger;
+- `ensure-controls` — refuse a posting whose posted default
+  sub-ledger leg rolls into a control that is missing or closed,
+  keyed off the leg's `:product-type`.
 
 The canonical chart **template lives in a `bank`
 resource**, and `bank` provisions it: `new-bank` seeds one
@@ -124,15 +125,16 @@ graph LR
     L["LedgerAccount<br/>(GL: controls + detail)<br/>ledger-account"]
     A["CashAccount<br/>(customer + own-funds)<br/>cash-account"]
     BANK["new-bank: seed chart<br/>+ own-funds account<br/>bank"]
-    EL["add-control-legs<br/>(product-type → control)<br/>ledger-account"]
+    EL["ensure-controls<br/>(product-type → control)<br/>ledger-account"]
     TX["Legs + Balances<br/>transaction<br/>balance"]
     FDB[("FDB<br/>one transaction")]
 
     BANK -->|seeds| L
     BANK -->|opens| A
     A -->|legs| TX
-    EL -->|paired control legs| TX
+    EL -->|checks the control is open| TX
     TX -->|postings| FDB
+    L -->|control balance summed from| FDB
 ```
 
 `transaction` and `balance` treat cash-accounts and
@@ -140,9 +142,11 @@ GL accounts uniformly: the account-id space is **shared** — a
 `led.` ledger-account-id is just another `account-id`, exactly
 like a customer's `acc.` id. The balance-bucket model
 `(account-id, balance-type, balance-status, currency)` carries
-GL bucket totals exactly as it carries customer bucket totals.
-The bricks don't distinguish; this is what keeps a customer leg
-and its control-account leg atomic in one posting.
+GL bucket totals exactly as it carries customer bucket totals,
+and the bricks don't distinguish. A control is the exception: it
+has no bucket of its own, and its balance is read from the
+balances store's SUM indexes over its sub-ledger — see "Control
+balances" below.
 
 The CoA is **per-bank**. Each tenant defines its own structure
 within the fixed A/L/E/I/E top-level grouping. Banks on the
@@ -206,8 +210,8 @@ resolves a GL account by its role.
 
 A cash-account (customer or own-funds) is an ordinary
 `CashAccount` record; the only field that matters for the GL is
-its denormalised `product_type`, which drives the control
-fan-out:
+its denormalised `product_type`, which names the control its
+balances are summed into:
 
 ```protobuf
 message CashAccount {
@@ -237,13 +241,11 @@ Notes:
   behind it. A `CashAccount` carries no GL fields — its
   control is derived from `product_type`.
 - **The control link is *not* stored on the cash account.**
-  There is no `gl_control_account_id`. A leg carrying a
-  sub-ledger `:product-type` is mapped to its control
-  `:gl-account-code` by `add-control-legs`, which resolves the
-  control `LedgerAccount` by that role and the transaction's
-  currency. Keying the fan-out off the leg's product-type — not
-  a stored pointer — means re-coding the chart needs no
-  per-account migration.
+  There is no `gl_control_account_id`. A control's balance is
+  summed from the balance buckets tagged with a product type
+  that `product-type->control-code` maps to it. Keying the
+  roll-up off the product type — not a stored pointer — means
+  re-coding the chart needs no per-account migration.
 - **`product_type`** stays denormalised on cash accounts for
   the existing
   `CashAccount_count_by_bank_product_account_type_currency`
@@ -265,8 +267,8 @@ Notes:
 - **`sub_ledger_kind`** is an optional discriminator on
   control accounts naming the cohort they aggregate. The
   seeded chart leaves it unset — the sub-ledger → control
-  fan-out is driven by `product-type->control-code`, which
-  maps a leg's `:product-type` to the control `:gl-account-code`
+  roll-up is driven by `product-type->control-code`, which
+  maps a `:product-type` to the control `:gl-account-code`
   directly. The field is reserved for finer cohort
   classification (loans, cards) when those instruments land.
 - **Normal side** is *derived*, not stored — assets and
@@ -304,11 +306,11 @@ current / savings / term-deposit deposits, **2400 aggregates
 the customer interest-accrued balances** (interest the bank
 owes but has not yet capitalised), and **3100 holds the
 bank's own funds** (the own-funds cash account the bank funds
-and pays customers from). Cash-accounts of the corresponding
-product type roll up to their deposit or own-funds control by
-paired leg; 2400 is maintained by the aggregate accrual and
-capitalisation postings instead — see "Balance buckets per
-account class" below.
+and pays customers from). A deposit or own-funds control's
+balance is the sum of the cash accounts of its product type; 2400
+is posted to, by the accrual entry at the close of a run and by
+each account's capitalisation — see "Balance buckets per account
+class" below.
 
 Accounts the chart will grow when those flows land — fee
 income (4xxx), retained earnings, accrued fees receivable —
@@ -349,10 +351,10 @@ a control `:gl-account-code` by `product-type->control-code`:
 
 The mapping is a property of the bank's CoA (held by
 `ledger-account`'s `product-type->control-code`), not
-a constant. The fan-out reads the leg's `:product-type` at
-posting time and resolves the control account by code — there
-is no per-account stored pointer, so re-coding the chart needs
-no per-account migration.
+a constant. A control's balance is summed from the buckets of its
+product types, and a posting resolves the control by code to check
+it is open — there is no per-account stored pointer, so re-coding
+the chart needs no per-account migration.
 
 ### Balance buckets per account class
 
@@ -362,9 +364,7 @@ applies to every account; what differs by account class is
 leg that names its `(balance-type, balance-status)` pair — the
 `balance` brick's `new-zero-balance` creates it and then applies
 the leg — so what an account carries is what its postings have
-reached, not a fixed allocation. A leg with no `:product-type`
-is a GL leg, and the bucket it opens is tagged
-`:product-type-general-ledger`.
+reached, not a fixed allocation.
 
 **Customer cash-accounts** carry a four-bucket layout:
 
@@ -381,24 +381,38 @@ The bank's **own-funds cash account** carries a single
 pending lifecycle; its available balance is just its posted
 default.
 
-**Every GL account but one** carries a single bucket:
+**Every GL account but the deposit and own-funds controls and
+1200** carries a single bucket:
 
 | Balance type | Statuses |
 |--------------|----------|
 | `default`    | `posted` |
 
 The deposit and own-funds controls (2100 / 2200 / 2300 / 3100)
-need no more because the mirror is posted-only: a customer leg
-in `pending-incoming` or `pending-outgoing` stays in the
-sub-ledger, and the control moves when the payment posts.
-Customer `interest-accrued` legs do not auto-pair either — the
+carry none. Each one's `default / posted` balance is the sum of
+the `default / posted` buckets of the cash accounts whose product
+type rolls into it, read from two SUM indexes on the balances
+store — over `credit` and over `debit`, grouped by bank, product
+type, currency and bucket — which the Record Layer keeps by
+atomic mutation as each of those buckets is saved. A posting
+writes only the accounts its legs name, so two payments in one
+bank share no row on the control's account, a read-modify-write
+no account key could otherwise spread; see
+[ADR-0037](../adr/0037-a-control-accounts-balance-is-the-sum-of-the-balances-that-roll-into-it.md).
+A customer bucket in `pending-incoming` or `pending-outgoing` is
+not summed, so the control moves when the payment posts, and a
+customer `interest-accrued` bucket is not summed either — the
 bank's side sits on 2400, so interest is never counted as both
 `2100.interest-accrued` and `2400.default`. 2400 is a control
-too, but its postings arrive in aggregate at the close of a run
-rather than leg by leg, which spares every posting in the bank a
-read-modify-write of the same control rows — contention no
-account key can spread. See [interest.md](interest.md). 1100,
-2500 and 5100 are detail accounts, posted to directly.
+too, but posted to: by the accrual entry at the close of a run and
+by each account's capitalisation. See [interest.md](interest.md).
+1100, 2500 and 5100 are detail accounts, posted to directly.
+
+A bucket a leg opens takes the leg's `:product-type`, else that of
+the account's existing buckets, and is tagged
+`:product-type-general-ledger` only on an account with neither,
+so a cash account's buckets are always summed into its own
+control.
 
 **1200 Pending outbound payments** is the exception, and carries
 two on any bank that has sent a payment:
@@ -452,8 +466,12 @@ control's default / posted balance
   maps to this control
 ```
 
-The second is restricted to posted because the mirror is: an
-in-flight bucket has no control side to reconcile against.
+The second is restricted to posted because the sum is: an
+in-flight bucket rolls into no control. A control's side is read
+from the SUM indexes, grouped by each balance bucket's own
+product type, and the sub-ledger's by scanning cash accounts,
+grouped by each account's, so the reconciliation catches a bucket
+filed under a product type other than its account's.
 
 Neither invariant subsumes the other. A posting that debits one currency's
 1100 and credits the same currency's 3100 ties even when it was
@@ -500,10 +518,9 @@ restating one number twice.
 
 The first invariant is enforced *in the commit path* —
 `validate-legs` rejects an unbalanced posting before commit. The
-second is enforced *by construction* — `add-control-legs`
-appends the paired control leg whenever a posted default
-cash-account leg is recorded — and verified after every step of
-every scenario. Any change that breaks reconciliation fails
+second is enforced *by construction* — a control's balance is
+its sub-ledger's sum — and verified after every step of every
+scenario. Any change that breaks reconciliation fails
 every scenario, not just the one that introduced it. See
 [scenario-testing.md](scenario-testing.md) for the two runners.
 
@@ -511,110 +528,87 @@ every scenario, not just the one that introduced it. See
 
 Every `record-transaction` is checked, whether or not a GL
 account is among its legs. `transaction`'s `validate-legs` runs
-three rules over the leg-set:
+two rules over the leg-set:
 
 - Every leg's amount must be positive. A zero or negative amount
   rejects `:transaction/invalid-amount`.
-- The non-`:control` legs — the posting legs — must balance,
-  Σ debit against Σ credit. An imbalance rejects
-  `:transaction/legs-unbalanced`.
-- Each `:control` leg must duplicate a posting leg by side and
-  amount. One that matches none rejects
-  `:transaction/control-leg-mismatch`.
-
-The `:control` flag marks a roll-up mirror appended by
-`add-control-legs`, not a leg of the journal. A control leg is
-left out of the balance sum precisely because it duplicates a
-posting leg already in it, and the mismatch rule is what stops
-the flag carrying an unbacked amount past the check.
+- The legs must balance, Σ debit against Σ credit. An imbalance
+  rejects `:transaction/legs-unbalanced`.
 
 There is no separate rule for a posting that touches the GL, and
 no GL-specific rejection kind. `transaction` and `balance` do
-not tell a `led.` account-id from an `acc.` one, which is what
-lets a cash-account leg and its control leg commit atomically in
-one posting.
+not tell a `led.` account-id from an `acc.` one. A customer leg
+stands for its control in the balance, since the control is its
+sub-ledger's sum.
 [transactions-and-balances.md](transactions-and-balances.md)
-describes the same three rules from the leg substrate's side.
+describes the same rules from the leg substrate's side.
 
 Worked example — £100 inbound deposit to a current account:
 
 ```
-;; posting legs — these are what must balance
 DEBIT  1100 Cash at correspondent   default / posted  100 GBP
 CREDIT customer-acc                 default / posted  100 GBP
 
-;; roll-up mirror, appended by add-control-legs, :control true
-CREDIT 2100 Customer deposits — current
-                                    default / posted  100 GBP
-
-;; posting legs: debit 100 = credit 100 ✓
-;; the control leg duplicates the customer credit ✓
+;; debit 100 = credit 100 ✓
+;; 2100 Customer deposits — current rises by 100, summed from
+;; the customer's bucket
 ```
 
-### Paired-leg construction
+### Control balances
 
-`add-control-legs` walks a posting's legs and appends the
-**paired control-account leg** for each one that fans out, before
-the balance check. A leg fans out when it is `default / posted`
-and carries a sub-ledger `:product-type`; everything else passes
-through unchanged. The mirror is per leg — same side, same
-amount, on the control's `default / posted` bucket:
+A control's balance is the live roll-up of its sub-ledger's posted
+default buckets, and nothing else: the sum of the `default / posted`
+buckets of every cash account whose `:product-type` maps to it, in
+its currency. `ledger-account`'s `get-balances` returns it as the
+control's one `default / posted` balance, read from the balances
+store's SUM indexes at snapshot, so the read neither conflicts with
+nor holds up the postings that move it. The list route, the balances
+route and the scenario invariants read it the same way; the
+`:gl/non-zero-on-close` guard reads it serializably, inside the
+transaction that closes the account.
 
-| Customer leg side | Control account leg |
-|-------------------|---------------------|
-| debit             | debit               |
-| credit            | credit              |
-
-A cash-account is the sub-ledger *of* the control account's
-liability — they represent the same obligation at different
-granularities and move in lockstep. The opposite leg of the GL
-transaction lives on a *different* account (typically `1100 Cash
-at correspondent` for an external movement, or another control
-or cash-account for an internal one); the control and the
-cash-account never oppose each other.
-
-A control's balance is the live roll-up of its sub-ledger's
-posted default buckets, and nothing else.
+A cash account and its control represent the same obligation at
+different granularities, so they move in lockstep without a leg
+between them. The opposite leg of a posting lives on a *different*
+account — typically `1100 Cash at correspondent` for an external
+movement, or another cash account for an internal one. An internal
+transfer between two current-account customers moves 2100 by
+nothing at all, since one customer's debit and the other's credit
+sum into it together.
 
 Two movements deliberately do not reach a control:
 
 - **The outbound reservation.** Submitting an outbound payment
   writes `default / pending-outgoing` on the customer leg and on
-  1200, so neither fans out. The deposit control moves at
+  1200, so neither is summed. The deposit control moves at
   settlement, when the customer's posted debit is recorded — see
   [payments.md](payments.md).
-- **`interest-accrued` legs.** The bank's side of an accrual is
+- **`interest-accrued` buckets.** The bank's side of an accrual is
   posted in aggregate at the close of the run, one DR 5100 / CR
-  2400 entry per currency. A per-leg mirror would book 2400
-  twice.
+  2400 entry per currency. Summing the buckets as well would book
+  2400 twice.
 
-Two rejections originate here, and both fail the whole posting
-rather than recording the cash-account side unpaired:
+A posting site calls `ensure-controls` on its legs before recording
+them. For each posted default leg carrying a sub-ledger
+`:product-type`, it resolves the control that product type maps to,
+reading the `LedgerAccount` record, and returns the legs unchanged.
+Two rejections originate there, and both fail the whole posting:
 
-- `:gl/missing-currency-account` — the leg fans out, but the
-  bank's chart has no row for that control role in that
-  currency.
+- `:gl/missing-currency-account` — the bank's chart has no row for
+  that control role in that currency.
 - `:ledger-account/closed` — the control resolves and has been
   closed.
 
 The `interest` brick raises its own
 `:interest/missing-gl-account` when a run cannot resolve 5100 or
 2400 for its currency. The two differ by who was posting: one is
-a fan-out that found no control, the other an interest run that
-found no chart to post against.
+a posting whose control was missing, the other an interest run
+that found no chart to post against.
 
-Pairing is server-side. A caller submits its cash-account legs,
-each tagged with its account's `:product-type`, and the pipeline
-appends the matching control legs and validates the combined
-set. A caller that posts only cash-account legs — an internal
-transfer between two current-account customers — gets the full
-GL posting written transparently, the two paired control legs
-netting against each other on 2100. A caller that also writes GL
-legs writes them in the same call, and the two combine.
-
-Interest is not such a caller at all. Accrual writes a balance
-and no transaction; capitalisation posts two cash-account legs,
-neither tagged with a product type, so neither fans out.
+Interest calls no `ensure-controls`. Accrual writes a balance and
+no transaction; capitalisation posts DR 2400 / CR the customer's
+`default / posted` per account, which its customer leg carries no
+product type for, and the run resolves every control up front.
 
 ### The bank's own funds
 
@@ -635,9 +629,8 @@ inside:
   ```
   DEBIT  1100 Cash at correspondent      default / posted  amount
   CREDIT own-funds cash account          default / posted  amount
-  ;; posting legs balance ✓
-  ;; auto-pair: the own-funds leg mirrors to its 3100 control
-  CREDIT 3100 Bank own funds             default / posted  amount
+  ;; legs balance ✓
+  ;; 3100 Bank own funds rises, summed from the own-funds account
   ```
 
 - **Paying a customer from inside.** A reward, a goodwill
@@ -648,10 +641,8 @@ inside:
   ```
   DEBIT  own-funds cash account          default / posted  amount
   CREDIT customer cash account           default / posted  amount
-  ;; posting legs balance ✓
-  ;; auto-pairs: own-funds → 3100, customer → 21x0
-  DEBIT  3100 Bank own funds             default / posted  amount
-  CREDIT 21x0 Customer deposits — …      default / posted  amount
+  ;; legs balance ✓
+  ;; 3100 falls and 21x0 rises, each summed from its sub-ledger
   ```
 
 Keeping the bank's money in its own GL line (3100 equity)
@@ -662,7 +653,7 @@ and the trial balance reads true.
 
 A customer funding their own account from another bank works
 the same way: the external inbound lands in 1100 and credits
-the customer's account (fanning to its 2100 / 2200 / 2300
+the customer's account (and so its 2100 / 2200 / 2300
 control). Suspense (2500) is reserved for inbounds that can't
 be matched to an account.
 
@@ -714,9 +705,9 @@ guards:
 - the `:ledger-account` close capability, which a tier may deny.
 
 A closed account is not quietly skipped by a posting.
-`find-by-code` and the control fan-out both reject
-`:ledger-account/closed`, so a posting that needed the account
-fails rather than recording one side of itself.
+`find-by-code` and `ensure-controls` both reject
+`:ledger-account/closed`, so a posting that needed the account,
+or moved a closed control's sub-ledger, fails.
 
 Close is in-process only: no route, no command, and no
 production caller. `close-account` is on the brick's interface
@@ -752,11 +743,13 @@ at any layer holds more than one currency.
 ### Bricks involved
 
 - **`ledger-account`** owns the `LedgerAccount` record type and
-  the GL surface: `new-account` (create one GL account plus its
-  opening balance), `close-account`, `find-by-code`,
-  `get-account`, `list-accounts`, `product-type->control-code`,
-  `gl-account-code->gl-code`, `debit-normal?`, and
-  `add-control-legs` (paired-leg fan-out, keyed on a leg's
+  the GL surface: `new-account` (create one GL account plus, but
+  for a control, its opening balance), `close-account`,
+  `find-by-code`, `get-account`, `list-accounts`, `get-balances`
+  (a control's summed from its sub-ledger),
+  `product-type->control-code`, `gl-account-code->gl-code`,
+  `debit-normal?`, and `ensure-controls` (refuse a posting whose
+  control is missing or closed, keyed on a leg's
   `:product-type`).
 - **`bank`** holds the canonical chart template in a
   resource; `new-bank` seeds one `LedgerAccount` per row per
@@ -768,10 +761,12 @@ at any layer holds more than one currency.
   control 3100; customer products map to 2100 / 2200 / 2300.
 - **`payment`** resolves GL accounts via
   `ledger-account/find-by-code`, tags its customer legs with
-  `:product-type`, and fans out via `add-control-legs`.
+  `:product-type`, and checks their controls via
+  `ensure-controls`.
 - **`interest`** resolves 5100 and 2400 through its own
-  `domain/chart.clj` and does not fan out: it posts the bank's
-  side as an aggregate entry at the close of each run.
+  `domain/chart.clj`: accrual posts the bank's side as an
+  aggregate entry at the close of each run, and capitalisation
+  debits 2400 in each account's transaction.
 - **`transaction` / `balance`** record legs and
   maintain bucket balances uniformly across cash (`acc.`) and
   ledger (`led.`) account-ids; `validate-legs` checks every
@@ -824,17 +819,16 @@ A caller that posts cash-account legs:
 
 1. Builds the legs, each tagged with its account's
    `:product-type`.
-2. Calls `ledger-account/add-control-legs` on them, inside the
+2. Calls `ledger-account/ensure-controls` on them, inside the
    transaction it is about to record in.
-3. Calls `transaction/record-transaction` with the expanded
-   set, which `validate-legs` checks and commits.
+3. Calls `transaction/record-transaction` with the legs, which
+   `validate-legs` checks and commits.
 
 A caller that posts GL-only legs (interest's aggregate entries,
 an opening journal) skips step 2: nothing carries a
-`:product-type`, so nothing fans out, and the posting legs are
-the whole leg-set. A caller that posts both writes them in one
-call, and the fan-out expands only the cash-account legs that
-qualify.
+`:product-type`, so no control is checked. A caller that posts
+both writes them in one call, and `ensure-controls` checks only
+the cash-account legs that roll into a control.
 
 ## Alternatives Considered
 
@@ -871,11 +865,10 @@ qualify.
   customer-only posting unchecked, on the grounds that
   modelling P&L counter-legs for every fee and every reversal
   was a refactor the sub-ledger did not otherwise need.
-  Superseded by paired-leg construction: once every cash-account
-  movement carries its control leg, a customer-only posting is a
-  GL posting too, and a rule that applied to some postings and
-  not others bought nothing. `validate-legs` now checks every
-  `record`.
+  Superseded: a cash-account movement moves its control, so a
+  customer-only posting is a GL posting too, and a rule that
+  applied to some postings and not others bought nothing.
+  `validate-legs` now checks every `record`.
 - **GL as a derived view, not a stored ledger.** Compute the
   bank's books at query time from customer-account aggregates
   plus product `:balance-sheet-side`. Rejected — works for
@@ -895,9 +888,14 @@ qualify.
   the customer leg and its control-account counter-leg
   explicitly. Rejected — pure ceremony, and a fertile source
   of subtle drift bugs where one half lands and the other
-  doesn't. Server-side construction is the only way to
-  guarantee the sub-ledger / control invariant by
-  construction.
+  doesn't.
+- **Server-side paired legs.** Append a same-side control leg to
+  every posted default customer leg, flagged `:control` and left
+  out of the balance check. Superseded by
+  [ADR-0037](../adr/0037-a-control-accounts-balance-is-the-sum-of-the-balances-that-roll-into-it.md):
+  every posting in a bank read and rewrote its control's row, so
+  two internal payments in one bank conflicted whichever accounts
+  they moved.
 - **GL accounts as a `oneof kind` on `CashAccountProduct`,
   spawning a `CashAccount` per GL row.** An intermediate design
   (PR #137): a GL account was a product of
@@ -972,13 +970,14 @@ qualify.
   per-scheme 1100 children), re-coding, versioning ("what a code
   meant" at posting time) and a tenant-facing close are all
   future work.
-- **`interest-accrued` has no per-leg control mirror.** This is
+- **`interest-accrued` is not summed into 2400.** This is
   the design rather than a gap: the bank's interest payable
-  lives on 2400, posted in aggregate at the close of a run, and
-  the sub-ledger ↔ control invariant is restricted to posted
-  default buckets. The interest reconciliation is a
-  scenario-level assertion rather than a commit-path check,
-  because the two sides move in separate transactions.
+  lives on 2400, posted to by accrual at the close of a run and
+  by each account's capitalisation, and the sub-ledger ↔ control
+  invariant is restricted to posted default buckets. The
+  interest reconciliation is a scenario-level assertion rather
+  than a commit-path check, because accrual's two sides move in
+  separate transactions.
 - **Indirect-access modelling is single-sided.** A bank using
   sponsor access sees its 1100 position as its own view of what
   the sponsor holds for it; the sponsor's books carry the
@@ -1027,8 +1026,9 @@ qualify.
   — Transactions and balances (the leg substrate, and
   `validate-legs` described from its side)
 - [cash-accounts.md](cash-accounts.md) — Cash accounts (the
-  sub-ledger; the `:product-type` that drives each account's
-  control fan-out, and the own-funds cash account)
+  sub-ledger; the `:product-type` that names the control each
+  account's balances are summed into, and the own-funds cash
+  account)
 - [cash-account-products.md](cash-account-products.md) —
   Cash account products (the sub-ledger products — customer
   current / savings / term-deposit and the bank's own-funds
@@ -1048,8 +1048,8 @@ qualify.
   brick conventions (relevant if a future processor variant
   emerges)
 - `ledger-account` brick interface (the `LedgerAccount`
-  record type, `find-by-code`, `close-account`,
-  `add-control-legs`, `product-type->control-code`)
+  record type, `find-by-code`, `close-account`, `get-balances`,
+  `ensure-controls`, `product-type->control-code`)
 - `transaction` / `balance` brick interfaces (the
   leg + bucket substrate, shared across cash and ledger ids)
 - `bank` brick interface (chart seeding and own-funds

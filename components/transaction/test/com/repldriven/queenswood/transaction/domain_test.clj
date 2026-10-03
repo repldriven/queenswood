@@ -1,7 +1,7 @@
 (ns com.repldriven.queenswood.transaction.domain-test
   "Pure-function tests for the leg validation that record /
   record-transaction run before persisting. Pins the double-entry
-  invariant (debits = credits over non-roll-up legs) and the
+  invariant (debits = credits over every leg) and the
   positive-amount guard."
   (:require
     [com.repldriven.queenswood.transaction.domain :as SUT]
@@ -32,16 +32,10 @@
     (let [result (SUT/validate-legs [(debit 1000) (credit 0)])]
       (is (error/rejection? result))
       (is (= :transaction/invalid-amount (error/kind result)))))
-  (testing "a control mirror of a posting leg is excluded from the balance"
-    ;; The control mirror is same-side / same-amount as its source, so
-    ;; counting it would unbalance an otherwise-balanced posting.
-    (is (nil? (SUT/validate-legs [(debit 1000) (credit 1000)
-                                  (assoc (credit 1000) :control true)]))))
-  (testing "a control leg that mirrors no posting is rejected"
-    (let [result (SUT/validate-legs [(debit 1000) (credit 1000)
-                                     (assoc (debit 500) :control true)])]
+  (testing "every leg counts toward the balance"
+    (let [result (SUT/validate-legs [(debit 1000) (credit 1000) (credit 1000)])]
       (is (error/rejection? result))
-      (is (= :transaction/control-leg-mismatch (error/kind result))))))
+      (is (= :transaction/legs-unbalanced (error/kind result))))))
 
 (defn- of-type
   [transaction-type]

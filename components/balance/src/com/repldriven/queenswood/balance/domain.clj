@@ -71,16 +71,21 @@
 (defn- new-zero-balance
   "A fresh zero balance for a leg whose bucket doesn't exist yet — posting
   to a (balance-type, balance-status) opens it (e.g. the first time funds
-  are reserved into pending-outgoing). A leg without a product-type is a
-  ledger-account (GL) leg, matching how GL balances are seeded.
+  are reserved into pending-outgoing). The bucket takes the leg's
+  product-type, else that of the account's existing `balances`, since a
+  control account's balance sums its sub-ledger's buckets by product
+  type; an account with neither is a ledger-account (GL) one, matching
+  how GL balances are seeded.
 
   `bank-id` comes from the caller rather than the leg: it heads the
   balance's primary key, and a leg carries no bank of its own."
-  [bank-id leg]
+  [bank-id balances leg]
   (let [now (utility/now)]
     {:bank-id bank-id
      :account-id (:account-id leg)
-     :product-type (or (:product-type leg) :product-type-general-ledger)
+     :product-type (or (:product-type leg)
+                       (some :product-type balances)
+                       :product-type-general-ledger)
      :balance-type (:balance-type leg)
      :balance-status (:balance-status leg)
      :currency (:currency leg)
@@ -100,7 +105,7 @@
                       (fn [balance] (apply-leg balance leg policies)))
       ;; Open the bucket on demand: a posting to a not-yet-existing
       ;; (balance-type, balance-status) creates it, then applies the leg.
-      (let-nom> [opened (apply-leg (new-zero-balance bank-id leg)
+      (let-nom> [opened (apply-leg (new-zero-balance bank-id balances leg)
                                    leg
                                    policies)]
         (conj balances opened)))))

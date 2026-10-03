@@ -70,6 +70,27 @@ cluster. A `Dashboard` is rendered per file under
 the operator writes a default into is set on either.
 See [ADR-0032](../../../docs/adr/0032-signoz-is-configured-through-its-operator.md).
 
+## A control account's balance is the sum of its sub-ledger
+
+A deposit or own-funds control — 2100, 2200, 2300, 3100 — holds no
+balance of its own: its balance is the sum of the `default / posted`
+balances of the cash accounts whose product type maps to it, read from
+the two SUM indexes on `balances`, over `credit` and over `debit`,
+grouped by `[bank_id, product_type, currency, balance_type,
+balance_status]`, which the Record Layer keeps by atomic mutation. A
+posting writes only the accounts its legs name and adds no leg for a
+control: call `ledger-account/ensure-controls` on a posting's legs
+before recording them, which refuses `:gl/missing-currency-account` or
+`:ledger-account/closed` and returns the legs unchanged. Read a
+ledger account's balance through `ledger-account/get-balances`, never
+`balance-query` directly, at snapshot except a guard deciding inside
+its own transaction. A bucket a leg opens takes the leg's product type,
+else its account's, so every cash account's rows are summed into its
+own control. 2400, 1100, 1200, 2500 and 5100 keep stored balances;
+capitalisation debits 2400 in each account's transaction and accrual
+credits it once per currency at the close of a run.
+See [ADR-0037](../../../docs/adr/0037-a-control-accounts-balance-is-the-sum-of-the-balances-that-roll-into-it.md).
+
 ## Record meta-data evolves by declared versions
 
 Every change to a record type, primary key or index bumps the

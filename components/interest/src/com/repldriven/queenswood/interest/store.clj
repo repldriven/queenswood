@@ -105,29 +105,6 @@
     :bank-id bank-id
     :business-day business-day}))
 
-(defn sum-account-run-amounts-by-product
-  "The same total split by product type, for capitalisation's ledger
-  entries. Its two customer legs fan out to different controls, and
-  which control the default leg reaches depends on the product type, so
-  a per-currency figure cannot say how much each one is owed. SNAPSHOT
-  for the same reason as the other aggregates."
-  [txn bank-id business-day kind currency product-type]
-  (fdb/transact
-   txn
-   (fn [txn]
-     (fdb/sum-records
-      (fdb/open txn interest-account-runs-store-name)
-      "InterestAccountRun_sum_amount_by_bank_day_kind_currency_product"
-      [bank-id
-       business-day
-       (schema/interest-account-run-kind->int kind)
-       currency
-       (schema/product-type->int product-type)]))
-   :interest/sum-account-run-amounts-by-product
-   {:message "Failed to sum interest account run amounts by product"
-    :bank-id bank-id
-    :business-day business-day}))
-
 (defn count-account-runs-by-state
   "Rows in one state for a run — progress when `state` is DONE, residue
   when FAILED, outstanding work when PENDING. SNAPSHOT for the same

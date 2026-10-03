@@ -5,7 +5,7 @@
 # its record type arrived on as since, and a store lists the indexes
 # removed from it under former-indexes with the versions they were added
 # and removed at. See docs/recipes/code/schema-evolution.md.
-version: 73
+version: 74
 stores:
   assertions:
     record-type: Assertion
@@ -21,7 +21,20 @@ stores:
     # matching cash-accounts and letting the interest pass scan one bank
     # rather than every bank's rows.
     primary-key: [bank_id, account_id, balance_type, currency, balance_status]
-    indexes: []
+    # A control account's balance is the sum of the sub-ledger balances
+    # rolling into it, read from these rather than stored on a row every
+    # posting would rewrite. ADR-0037.
+    indexes:
+      - name: Balance_sum_credit_by_bank_product_currency_bucket
+        added: 74
+        modified: 74
+        fields: [bank_id, product_type, currency, balance_type, balance_status, credit]
+        type: sum
+      - name: Balance_sum_debit_by_bank_product_currency_bucket
+        added: 74
+        modified: 74
+        fields: [bank_id, product_type, currency, balance_type, balance_status, debit]
+        type: sum
   cash-account-products:
     record-type: CashAccountProduct
     primary-key: [bank_id, product_id, version_id]
@@ -202,25 +215,18 @@ stores:
         modified: 21
         fields: [bank_id, business_day, kind, state]
         type: count
-      # The run's total per currency, for the ledger entries posted at
-      # close. Grouped by currency because one entry per currency is the
-      # only way the pair of legs can balance.
+      # The run's total per currency, for accrual's ledger entry posted
+      # at close. Grouped by currency because one entry per currency is
+      # the only way the pair of legs can balance.
       - name: InterestAccountRun_sum_amount_by_bank_day_kind_currency
         added: 22
         modified: 22
         fields: [bank_id, business_day, kind, currency, amount]
         type: sum
-      # The same total split by product type, which capitalisation needs
-      # and accrual does not. Accrual's aggregate legs are two fixed GL
-      # accounts, so a currency total is enough. Capitalisation credits
-      # whichever deposit control the product type maps to, so it posts
-      # one entry per (currency, product type) and needs the total for
-      # each.
+    former-indexes:
       - name: InterestAccountRun_sum_amount_by_bank_day_kind_currency_product
         added: 23
-        modified: 23
-        fields: [bank_id, business_day, kind, currency, product_type, amount]
-        type: sum
+        removed: 74
   memberships:
     record-type: Membership
     indexes:

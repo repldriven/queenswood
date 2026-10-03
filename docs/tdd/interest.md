@@ -47,16 +47,17 @@ loses pennies systematically is a bank with an audit
 problem. The arithmetic must be deterministic and lossless
 across run boundaries.
 
-**Two sides moving at different granularities.** When accrued
-interest becomes spendable, the customer's accrued bucket
-drains and their default bucket grows — a per-account event,
-and the one the customer sees on a statement. The bank's side
-of the same entry is a general-ledger movement that is
-identical for every account in the group, so posting it per
-account made every capitalisation in the bank contend on the
-same two rows. The two sides therefore move at different
-granularities: per account for the customer, once per group
-at close for the bank.
+**Two sides moving at different granularities.** When interest
+accrues, the customer's accrued bucket grows — a per-account
+event. The bank's side of the same entry is a general-ledger
+movement that is identical for every account in the run, so
+posting it per account made every accrual in the bank contend on
+the same two rows. Accrual's two sides therefore move at
+different granularities: per account for the customer, once per
+currency at close for the bank. Capitalisation's move together,
+per account: the deposit control is the sum of the customer
+balances, which leaves 2400 alone to post, and the run's chunks
+write it one after another.
 
 The design answers all three with a single mechanism:
 **integer micro-unit arithmetic with carry between days**,
@@ -97,7 +98,7 @@ graph LR
     CALC["daily-interest math<br/>(or capitalise) from frozen inputs"]
     CHUNK["chunk of accounts:<br/>balance writes + run rows"]
     FDB[("FDB<br/>one transaction per chunk")]
-    ENTRY["ledger entry per group at close"]
+    ENTRY["accrual's ledger entry per currency at close"]
 
     CMD --> SCAN
     SCAN --> CALC
@@ -248,58 +249,53 @@ run record is written.
 
 When the customer's `:balance-type-interest-accrued` is
 non-zero at capitalisation time, a **two-leg transaction**
-moves the accrued amount into the spendable default balance:
+moves the accrued amount from interest payable into the
+customer's spendable default balance, and the same posting
+empties their accrued balance:
 
 ```
-DEBIT  customer-account    interest-accrued / posted    accrued
-CREDIT customer-account    default          / posted    accrued
+DEBIT  2400 interest payable    default          / posted    accrued
+CREDIT customer-account         default          / posted    accrued
+
+;; applied with the legs, not recorded among them
+DEBIT  customer-account         interest-accrued / posted    accrued
 ```
 
 Capitalisation keeps its per-account transaction where accrual
 has none, because this transaction *is* the customer's
-statement line — the one part of interest they ever see. What
-it does not keep is a control leg per account. Fanning out per
-account made every capitalisation in the bank read and write
-the 2400 payable and the deposit control, which is the
-contention accrual was taken off.
+statement line — the one part of interest they ever see. The
+customer's default balance is part of the deposit control its
+product type rolls into, which is the sum of its sub-ledger — see
+[ADR-0037](../adr/0037-a-control-accounts-balance-is-the-sum-of-the-balances-that-roll-into-it.md)
+— so debiting 2400 in the same transaction moves both sides of the
+bank's books, and there is no entry at close. The accrued balance
+is debited without a leg of the record, as accrual credits it
+without one.
+
+Every account's capitalisation reads and rewrites 2400. The run's
+chunks commit one after another, each a hundred accounts in one
+transaction, so they never contend with each other, and payments
+never write 2400.
 
 Unlike accrual this cannot be an unread write. It credits the
 default bucket, which payments move, so it goes through
 `apply-legs`, and the read-modify-write inside the posting
 transaction is what stops a concurrent payment being lost.
 
-The bank's side is posted at close, one entry per currency and
-product type:
-
-```
-DEBIT  2400 interest payable        group total
-CREDIT 2100 / 2200 / 2300           group total
-       (the deposit control the product type rolls into)
-```
-
-Grouped by product type as well as currency, because the
-credit side is a different control for each — a single
-per-currency entry could not name them all and still balance.
-Accrual needs no such split: both of its aggregate legs are
-fixed accounts, so a total per currency says everything.
-
 ```mermaid
 sequenceDiagram
     participant A as Customer<br/>(interest-accrued)
     participant D as Customer<br/>(default)
     participant P as GL 2400<br/>(interest payable)
-    participant C as GL 2100/2200/2300<br/>(deposit control)
 
-    Note over A,D: Per account, one transaction — the statement line
-    A->>D: accrued (debit accrued, credit default)
-    Note over P,C: Once per currency and product type, at close
-    P->>C: group total (debit payable, credit deposit control)
+    Note over A,P: Per account, one transaction — the statement line
+    P->>D: accrued (debit payable, credit default)
+    Note over A: emptied by the same posting
 ```
 
 Net: the customer's spendable balance grows by `accrued`, the
-bank's payable clears by what the group accrued, and the
-deposit control rises to match the customer balances that grew
-underneath it.
+bank's payable clears by the same amount, and the deposit control,
+summed from the customer balances, rises with them.
 
 ### Capitalisation cadence
 
@@ -343,7 +339,7 @@ with a volume attached, not a tuning knob.
 `accrue-day` and `capitalize-accrued` accept `:bank-id` and
 `:as-of-date`. They:
 
-1. Resolve the general-ledger accounts the close will post to,
+1. Resolve the general-ledger accounts the run will post to,
    before touching any account.
 2. Check the platform daily-count limit for this run kind, so
    a second pass for the same bank and day is a rejection
@@ -356,8 +352,8 @@ with a volume attached, not a tuning knob.
    a failing chunk's accounts FAILED and continuing.
 5. Return `:interest/run-incomplete`, with the processed and
    failed counts, where any account failed.
-6. Post the bank's side per group, then write the run record
-   closed.
+6. Post accrual's bank side per currency, then write the run
+   record closed.
 
 Re-running a date is safe, by different means on each side.
 

@@ -73,10 +73,10 @@
                          (domain/new-reward account amount (:run-id ctx)))
               transaction (domain/reward-transaction house account reward)]
           (let-nom>
-            [legs (ledger-accounts/add-control-legs txn
-                                                    (:bank-id ctx)
-                                                    (:currency reward)
-                                                    (:legs transaction))
+            [legs (ledger-accounts/ensure-controls txn
+                                                   (:bank-id ctx)
+                                                   (:currency reward)
+                                                   (:legs transaction))
              posted (transactions/record-and-post
                      txn
                      (:bank-id ctx)

@@ -542,7 +542,7 @@ services:
   # Confirmation of Payee, hence an adapter URL per provider.
   financial-processors-service:
     enabled: true
-    replicas: 1
+    replicas: 2
     resources:
       limits: { cpu: "1500m", memory: "2Gi" }
       requests: { cpu: "300m", memory: "1Gi" }

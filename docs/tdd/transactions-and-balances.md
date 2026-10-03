@@ -346,13 +346,10 @@ A caller of `record-transaction` + `apply-legs` must:
    legs.
 4. Ensure debits and credits balance across legs.
    `validate-legs` enforces this — the debit amounts must sum
-   to the credit amounts, excluding roll-up control-account
-   legs (`:control`, same-side duplicates of a sub-ledger
-   posting) — rejecting `:transaction/legs-unbalanced`
-   otherwise. The `:control` legs aren't blindly dropped: each
-   must duplicate a real posting leg by side and amount
-   (`:transaction/control-leg-mismatch`), so the flag can't
-   smuggle an unbacked amount past the balance.
+   to the credit amounts — rejecting
+   `:transaction/legs-unbalanced` otherwise. A control account
+   takes no leg: its balance is the sum of its sub-ledger's, see
+   [chart-of-accounts.md](chart-of-accounts.md).
 
 ## Alternatives Considered
 
@@ -386,8 +383,7 @@ A caller of `record-transaction` + `apply-legs` must:
   **Adopted** — `validate-legs` enforces it. The earlier
   worry that one-sided fees would trip it proved unfounded:
   every posting path books a counter-leg (the fee path routes
-  to 1100). Roll-up control-account legs are excluded from the
-  sum, since they're same-side duplicates, not double-entry.
+  to 1100).
 
 ## Known Limitations
 

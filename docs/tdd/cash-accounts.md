@@ -183,8 +183,8 @@ being re-issued to a second account.
 Tag 22 is reserved. Tag 20 held a direct pointer to a GL
 control account; the pointer was never written and the tag
 is reserved rather than reused. Nothing about a GL control
-account is resolved at open time — the control legs are the
-posting side's, see
+account is resolved at open time — a control's balance is summed
+from its sub-ledger's, see
 [chart-of-accounts.md](chart-of-accounts.md).
 
 ### Lifecycle
@@ -724,7 +724,7 @@ What follows is what the model does not reach.
 - [interest.md](interest.md) — Interest (accrual on opened
   and suspended accounts)
 - [chart-of-accounts.md](chart-of-accounts.md) — Chart of
-  accounts (the control legs a posting fans up to)
+  accounts (the control each account's balances are summed into)
 - [policy-evaluation.md](policy-evaluation.md) — Policy
   evaluation (the seven capabilities and the count limits)
 - `cash-account` and `cash-account-query` brick interfaces

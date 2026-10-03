@@ -38,7 +38,7 @@
 
 (defn- tag-leg-product-type
   "Stamp a customer leg with its cash-account's `:product-type` so
-  `ledger-accounts/add-control-legs` can fan it out to the matching control.
+  `ledger-accounts/ensure-controls` can check the control it rolls into.
   GL legs (account-id resolves to no cash account) pass through
   untouched."
   [txn bank-id leg]
@@ -51,22 +51,22 @@
 
 (defn- record-and-apply
   "Record a transaction directly (bypassing the payment processor)
-  and apply its legs to balances. Fans out customer sub-ledger legs
-  to the matching control GL accounts in the same FDB transaction."
+  and apply its legs to balances, after checking the control each
+  customer sub-ledger leg rolls into, in the same FDB transaction."
   [bank bank-id tx-data]
   (fdb/transact
    bank
    (fn [txn]
      (let [tagged (mapv #(tag-leg-product-type txn bank-id %) (:legs tx-data))
-           expanded (ledger-accounts/add-control-legs txn
-                                                      bank-id
-                                                      (:currency tx-data)
-                                                      tagged)]
-       (if (error/anomaly? expanded)
-         expanded
+           checked (ledger-accounts/ensure-controls txn
+                                                    bank-id
+                                                    (:currency tx-data)
+                                                    tagged)]
+       (if (error/anomaly? checked)
+         checked
          (let [r (transactions/record-transaction
                   txn
-                  (assoc tx-data :bank-id bank-id :legs expanded))]
+                  (assoc tx-data :bank-id bank-id :legs checked))]
            (balances/apply-legs txn
                                 bank-id
                                 (:legs r)
@@ -1327,13 +1327,8 @@
    {[model-bank gl-account-code currency expected] :args}]
   (let [{bank-real-id :real-id} (get banks model-bank)
         gl (gl-account-for bank bank-real-id gl-account-code currency)
-        balance (balances-query/get-balance bank
-                                            bank-real-id
-                                            (:ledger-account-id gl)
-                                            :balance-type-default
-                                            currency
-                                            :balance-status-posted)
-        actual (- (:credit balance 0) (:debit balance 0))]
+        balances (ledger-accounts/get-balances bank bank-real-id gl)
+        actual (:value (:posted-balance balances))]
     (is (= expected actual)
         (str "GL " (name gl-account-code) " balance for " model-bank))
     ctx))

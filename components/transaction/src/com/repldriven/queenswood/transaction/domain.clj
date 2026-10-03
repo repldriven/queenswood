@@ -44,41 +44,16 @@
        (map :amount)
        (reduce + 0)))
 
-(defn- side+amount
-  [leg]
-  [(:side leg) (:amount leg)])
-
-(defn- control-legs-mirror-postings?
-  "Every `:control` roll-up leg must duplicate a distinct posting leg
-  by side and amount. The flag means 'denormalised mirror of a
-  posting' — so a control leg matching no posting would be slipping an
-  unbacked amount past the balance check."
-  [control postings]
-  (let [available (frequencies (map side+amount postings))]
-    (every? (fn [[k n]] (<= n (get available k 0)))
-            (frequencies (map side+amount control)))))
-
 (defn validate-legs
   [legs]
-  ;; A transaction's real double-entry lives in its non-`:control`
-  ;; legs (single-currency, no FX). Roll-up `:control` mirrors are
-  ;; excluded from the balance, but each must duplicate a posting leg
-  ;; so the flag can't smuggle an unbalanced amount through.
-  (let [control (filter :control legs)
-        postings (remove :control legs)]
-    (cond
-     (some #(<= (:amount %) 0) legs)
-     (error/reject :transaction/invalid-amount
-                   "Transaction amount must be positive")
+  (cond
+   (some #(<= (:amount %) 0) legs)
+   (error/reject :transaction/invalid-amount
+                 "Transaction amount must be positive")
 
-     (not= (leg-total :leg-side-debit postings)
-           (leg-total :leg-side-credit postings))
-     (error/reject :transaction/legs-unbalanced
-                   "Transaction legs must balance (debits = credits)")
-
-     (not (control-legs-mirror-postings? control postings))
-     (error/reject :transaction/control-leg-mismatch
-                   "Each roll-up leg must mirror a posting leg"))))
+   (not= (leg-total :leg-side-debit legs) (leg-total :leg-side-credit legs))
+   (error/reject :transaction/legs-unbalanced
+                 "Transaction legs must balance (debits = credits)")))
 
 (defn new-leg
   [leg transaction-id currency]
@@ -96,14 +71,12 @@
      :created-at (utility/now)}))
 
 (defn- ->posted-leg
-  [{:keys [account-id balance-type balance-status side amount control]}]
-  (utility/assoc-some {:account-id account-id
-                       :balance-type balance-type
-                       :balance-status balance-status
-                       :side side
-                       :amount amount}
-                      :control
-                      control))
+  [{:keys [account-id balance-type balance-status side amount]}]
+  {:account-id account-id
+   :balance-type balance-type
+   :balance-status balance-status
+   :side side
+   :amount amount})
 
 (defn posted
   [transaction legs scheme-account-id]

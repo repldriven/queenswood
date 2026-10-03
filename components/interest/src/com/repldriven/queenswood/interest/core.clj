@@ -45,10 +45,10 @@
   bank's side is posted from covers every account when it is.
 
   A chunk is a short FDB transaction — no long transaction is held
-  across the run. Both kinds then post the bank's side at close, which
-  is the other half of a double entry the per-account postings
-  deliberately leave open: accrual once per currency, capitalisation
-  once per currency and product type.
+  across the run. Accrual then posts the bank's side at close, once per
+  currency, the other half of a double entry its per-account writes
+  deliberately leave open. Capitalisation posts nothing at close: each
+  account's transaction debits interest payable itself.
 
   The chart of accounts is resolved before any account is touched, once
   per currency the chart carries, so a run posting in two currencies
@@ -57,7 +57,8 @@
   books go out rather than after. The one failure that cannot be caught
   up front is an account in a currency the chart carries no row of at
   all: the resolution reads the chart, which says nothing about it, so
-  it surfaces when that currency's entry is posted at close."
+  it surfaces when that currency's entry is posted at close, or, for
+  capitalisation, when the account is."
   [config data spec]
   (let [{:keys [policy-kind run-kind gl-fn entries-fn]} spec
         {:keys [bank-id as-of-date]} data
@@ -77,9 +78,10 @@
                                                              as-of-date)
        aggregates {policy-kind {#{:bank-id :business-day} today-count}}
        _ (run/check-daily-count policies policy-kind aggregates)
-       tally (scan/post-accounts config ctx)
+       tally (scan/post-accounts config (assoc ctx :gl gl))
        _ (run/check-complete bank-id as-of-date tally)
-       _ (post-run-entries spec config ctx gl (entries-fn (:seen tally)))
+       _ (when entries-fn
+           (post-run-entries spec config ctx gl (entries-fn (:seen tally))))
        record (run/closed bank-id as-of-date run-kind)
        _ (store/save-run config record)]
       {:bank-id bank-id

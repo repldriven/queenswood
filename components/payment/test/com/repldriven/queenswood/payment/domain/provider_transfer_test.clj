@@ -31,11 +31,8 @@
 (deftest provider-transfers-test
   (testing "an internal payment moves between the two accounts"
     (is (= [{:debtor "acc.a" :creditor "acc.b" :amount 500}]
-           (transfers
-            [(posted-leg "acc.a" :leg-side-debit 500)
-             (posted-leg "acc.b" :leg-side-credit 500)
-             (posted-leg "gl.2100" :leg-side-debit 500 :control true)
-             (posted-leg "gl.2100" :leg-side-credit 500 :control true)]))))
+           (transfers [(posted-leg "acc.a" :leg-side-debit 500)
+                       (posted-leg "acc.b" :leg-side-credit 500)]))))
   (testing "interest capitalised is paid from the bank's own funds"
     (is (= [{:debtor "acc.house" :creditor "acc.a" :amount 7}]
            (transfers [(posted-leg "acc.a"
@@ -58,10 +55,8 @@
                       "acc.a"))))
   (testing "money from outside the scheme is credited from outside"
     (is (= [{:debtor nil :creditor "acc.house" :amount 5000}]
-           (transfers
-            [(posted-leg "gl.1100" :leg-side-debit 5000)
-             (posted-leg "acc.house" :leg-side-credit 5000)
-             (posted-leg "gl.3100" :leg-side-credit 5000 :control true)]))))
+           (transfers [(posted-leg "gl.1100" :leg-side-debit 5000)
+                       (posted-leg "acc.house" :leg-side-credit 5000)]))))
   (testing "money leaving to 1100 without the scheme stays with own funds"
     (is (= [{:debtor "acc.a" :creditor "acc.house" :amount 50}]
            (transfers [(posted-leg "acc.a" :leg-side-debit 50)

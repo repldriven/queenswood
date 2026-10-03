@@ -121,14 +121,14 @@
                                 (inbound/acceptance-refusal transaction)))
           (let-nom>
             [_ transaction
-             expanded-legs (ledger-accounts/add-control-legs
-                            txn
-                            bank-id
-                            currency
-                            (:legs transaction))
+             checked-legs (ledger-accounts/ensure-controls
+                           txn
+                           bank-id
+                           currency
+                           (:legs transaction))
              transaction+legs (transactions/record-transaction
                                txn
-                               (assoc transaction :legs expanded-legs))
+                               (assoc transaction :legs checked-legs))
              {:keys [transaction-id transaction-type legs]} transaction+legs
              _ (balances/apply-legs txn bank-id legs transaction-type)
              payment (inbound/new-inbound-payment data
@@ -202,14 +202,14 @@
                             (inbound/acceptance-refusal transaction)))
           (let-nom>
             [_ transaction
-             expanded-legs (ledger-accounts/add-control-legs
-                            txn
-                            bank-id
-                            currency
-                            (:legs transaction))
+             checked-legs (ledger-accounts/ensure-controls
+                           txn
+                           bank-id
+                           currency
+                           (:legs transaction))
              recorded (transactions/record-transaction
                        txn
-                       (assoc transaction :legs expanded-legs))
+                       (assoc transaction :legs checked-legs))
              {:keys [transaction-id transaction-type legs]} recorded
              _ (balances/apply-legs txn bank-id legs transaction-type)
              released (inbound/settled-from-held held
@@ -239,14 +239,14 @@
                     admitted
                     account
                     (:ledger-account-id cash))
-       expanded-legs (ledger-accounts/add-control-legs
-                      txn
-                      bank-id
-                      currency
-                      (:legs transaction))
+       checked-legs (ledger-accounts/ensure-controls
+                     txn
+                     bank-id
+                     currency
+                     (:legs transaction))
        recorded (transactions/record-transaction
                  txn
-                 (assoc transaction :legs expanded-legs))
+                 (assoc transaction :legs checked-legs))
        {:keys [transaction-id transaction-type legs]} recorded
        _ (balances/apply-legs txn bank-id legs transaction-type)
        settled (inbound/settled-from-held admitted

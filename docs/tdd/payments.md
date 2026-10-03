@@ -385,7 +385,7 @@ expense has paid out.
   `scheme-account-id`, the cash account it moved the money through —
   with each recorded transaction. `payment`'s
   `activity-event-processor` nets each transaction's posted default
-  legs, control legs aside, per party: a cash account; 1100, as the
+  legs per party: a cash account; 1100, as the
   scheme's account where the entry names one and as outside where it
   does not; and the bank's own funds for any other GL account and
   whatever the legs leave unbalanced. It pairs the nets into

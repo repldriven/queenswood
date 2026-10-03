@@ -7,14 +7,15 @@
   time by `new-account`, with no product, no versioning, and no
   command/watcher lifecycle. Ledger accounts share the `account-id`
   space with cash accounts, so a `:ledger-account-id` is just another
-  `account-id` to `balance` and `transaction` — which is what keeps a
-  customer leg and its control-account leg atomic in one posting.
+  `account-id` to `balance` and `transaction`. A control account holds
+  no balance of its own: its balance is the sum of the balances of the
+  cash accounts whose product type rolls into it.
 
   This brick owns: the product-type to control-code mapping, the
   `new-account` creation call (callers loop it over their own chart
-  of accounts), code/id lookups, and the `add-control-legs` paired-leg
-  construction posting sites use to fan a customer leg out to its
-  control account."
+  of accounts), code/id lookups, ledger accounts' balances, and
+  `ensure-controls`, which posting sites use to refuse a customer leg
+  whose control is missing or closed."
   (:require
     [com.repldriven.queenswood.ledger-account.core :as core]
     [com.repldriven.queenswood.ledger-account.domain :as domain]))
@@ -23,8 +24,8 @@
   ^{:doc
     "Map from cash-account product-type keyword to the control
   ledger account's `:gl-account-code` role its balance rolls up into.
-  Postings on customer accounts of these product types fan out to a
-  matching leg on the control."}
+  The control's balance is the sum of the default posted balances of
+  the cash accounts of these product types."}
   product-type->control-code
   domain/product-type->control-code)
 
@@ -42,7 +43,8 @@
 (defn new-account
   "Create one bank-owned `LedgerAccount` from a chart-of-accounts
   `row` in `currency`, along with its single default-posted opening
-  balance. Stamps a fresh `led.` id and timestamps. Returns the
+  balance, unless it is a control, whose balance is summed from its
+  sub-ledger. Stamps a fresh `led.` id and timestamps. Returns the
   created account, or an anomaly. Callers loop this over their own
   chart and wrap the loop in a transaction for all-or-nothing seeding.
 
@@ -74,6 +76,21 @@
   - ledger-account-id: ledger account id (`led.<ulid>`)."
   [txn bank-id ledger-account-id]
   (core/get-account txn bank-id ledger-account-id))
+
+(defn get-balances
+  "A ledger account's balances with their posted and available totals,
+  `{:balances [...] :posted-balance {...} :available-balance {...}}`, as
+  the balance brick derives them for any account. A control account's
+  single default-posted balance is the sum of its sub-ledger's, read
+  from the balances store's indexes rather than a stored row. Returns
+  the map or an anomaly.
+
+  Args:
+  - txn: FDB transaction or db handle.
+  - bank-id: owning bank id.
+  - account: the `LedgerAccount` map."
+  [txn bank-id account]
+  (core/get-balances txn bank-id account))
 
 (defn close-account
   "Close a bank-owned `LedgerAccount`: an Open -> Closed transition
@@ -134,7 +151,9 @@
   vector of `{:account LedgerAccount :balances [Balance ...]}` in
   account-id order, or an anomaly. One merged scan of the two stores,
   so a chart of any size costs a page per store rather than a
-  transaction per account.
+  transaction per account; a control account's balances are its one
+  default-posted balance summed from its sub-ledger, as `get-balances`
+  returns.
 
   Args:
   - config: map with `:record-db` and `:record-store`. The scan pages
@@ -154,28 +173,24 @@
   [gl-account-type]
   (domain/debit-normal? gl-account-type))
 
-(defn add-control-legs
-  "Walk `legs` and append a matching control-side leg for every
-  posted default customer leg carrying a sub-ledger `:product-type`,
-  resolving the control ledger account from that product type in
-  `currency` — the transaction's currency, which every leg of one
-  transaction shares. Posting sites call this BEFORE recording the
-  transaction so the synthetic control leg lands atomically in the same
-  transaction. Only posted default legs fan out: a leg in any other
-  balance-type (`interest-accrued` among them) or any other
-  balance-status, and a leg without a customer product type, passes
-  through unchanged.
+(defn ensure-controls
+  "Check the control every posted default customer leg in `legs` rolls
+  into, by its sub-ledger `:product-type`, in `currency` — the
+  transaction's currency, which every leg of one transaction shares.
+  Posting sites call this before recording the transaction. Returns
+  `legs` unchanged: a control holds no balance of its own, its balance
+  being the sum of its sub-ledger's, so a posting adds no leg for it.
 
-  A leg that fans out and whose control is absent in `currency` or
-  closed fails the whole posting, with `:gl/missing-currency-account` or
-  `:ledger-account/closed` — the customer leg is never recorded without
-  its mirror. Returns the expanded leg vector otherwise.
+  A leg whose control is absent in `currency` or closed fails the whole
+  posting, with `:gl/missing-currency-account` or
+  `:ledger-account/closed`. A leg in any other balance-type or
+  balance-status, and a leg without a customer product type, is not
+  checked.
 
   Args:
   - txn: FDB transaction or db handle.
   - bank-id: owning bank id.
   - currency: ISO 4217 currency string of the transaction.
-  - legs: original transaction legs (customer legs carry
-    `:product-type`)."
+  - legs: transaction legs (customer legs carry `:product-type`)."
   [txn bank-id currency legs]
-  (core/add-control-legs txn bank-id currency legs))
+  (core/ensure-controls txn bank-id currency legs))

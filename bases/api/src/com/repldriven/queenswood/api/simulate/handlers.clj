@@ -47,14 +47,14 @@
                    :side :leg-side-credit
                    :amount amount
                    :product-type (:product-type house)}]
-            expanded-legs (if (error/anomaly? house)
-                            house
-                            (ledger-accounts/add-control-legs txn
-                                                              bank-id
-                                                              currency
-                                                              legs))]
-        (if (error/anomaly? expanded-legs)
-          (errors/anomaly->response expanded-legs)
+            checked-legs (if (error/anomaly? house)
+                           house
+                           (ledger-accounts/ensure-controls txn
+                                                            bank-id
+                                                            currency
+                                                            legs))]
+        (if (error/anomaly? checked-legs)
+          (errors/anomaly->response checked-legs)
           (let [response (commands/send
                           (dispatcher request)
                           request
@@ -65,7 +65,7 @@
                            :transaction-type-inbound-transfer
                            :currency currency
                            :reference "Simulated inbound transfer"
-                           :legs expanded-legs})]
+                           :legs checked-legs})]
             ;; The caller no longer chooses the account, so the answer
             ;; names the one credited.
             (cond-> response

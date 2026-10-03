@@ -59,3 +59,28 @@
                                     :limit 100}))))
                 :balance/list
                 "Failed to list balances"))
+
+(def ^:private credit-sum-index
+  "Balance_sum_credit_by_bank_product_currency_bucket")
+
+(def ^:private debit-sum-index
+  "Balance_sum_debit_by_bank_product_currency_bucket")
+
+(defn sum-bucket
+  [txn bank-id product-type currency balance-type balance-status isolation]
+  (fdb/transact
+   txn
+   (fn [txn]
+     (let [store (fdb/open txn store-name)
+           sum (if (= :serializable isolation)
+                 fdb/sum-records
+                 fdb/sum-records-snapshot)
+           group [bank-id
+                  (schema/product-type->int product-type)
+                  currency
+                  (schema/balance-type->int balance-type)
+                  (schema/balance-status->int balance-status)]]
+       {:credit (sum store credit-sum-index group)
+        :debit (sum store debit-sum-index group)}))
+   :balance/sum
+   "Failed to sum balances"))

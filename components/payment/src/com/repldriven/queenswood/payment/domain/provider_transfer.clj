@@ -3,12 +3,11 @@
     [com.repldriven.mono.utility.interface :as utility]))
 
 (defn- mirrored?
-  "True for a leg that moves money a provider account holds: a posting,
-  not a roll-up, to the spendable balance."
-  [{:keys [balance-type balance-status control]}]
+  "True for a leg that moves money a provider account holds: a posting
+  to the spendable balance."
+  [{:keys [balance-type balance-status]}]
   (and (= :balance-type-default balance-type)
-       (= :balance-status-posted balance-status)
-       (not control)))
+       (= :balance-status-posted balance-status)))
 
 (defn- net
   [{:keys [side amount]}]

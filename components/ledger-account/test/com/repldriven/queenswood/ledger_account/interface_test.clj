@@ -6,6 +6,7 @@
     [com.repldriven.queenswood.ledger-account.interface :as SUT]
 
     [com.repldriven.queenswood.balance-query.interface :as balances]
+    [com.repldriven.queenswood.balance.interface :as balance]
     [com.repldriven.queenswood.policy.interface :as policy]
 
     [com.repldriven.mono.error.interface :as error]
@@ -100,7 +101,7 @@
 
 (defn- customer-leg
   "A customer posting leg on `acc.customer1` in the current-account
-  sub-ledger, defaulted to the posted default bucket that fans out."
+  sub-ledger, defaulted to the posted default bucket a control sums."
   [overrides]
   (merge {:account-id "acc.customer1"
           :product-type :product-type-sub-ledger-current
@@ -139,8 +140,7 @@
     (doseq [[role number] chart-numbers]
       (is (= number (SUT/gl-account-code->gl-code role)) (str role)))))
 
-;; --- FDB-backed seed / lookup / add-control-legs
-;; -----------------------------
+;; --- FDB-backed seed / lookup / controls -------------------------------
 
 (deftest seed!-test
   (with-test-system
@@ -153,14 +153,23 @@
                    _ (is (every? #(re-find #"^led\." (:ledger-account-id %))
                                  accounts))
                    _ (is (every? #(= "GBP" (:currency %)) accounts))]))
-     (testing "each seeded account opens a default-posted balance"
-       (nom-test> [control (current-deposits-control config bank-id)
+     (testing "each seeded account but a control opens a default-posted balance"
+       (nom-test> [suspense (SUT/find-by-code config
+                                              bank-id
+                                              :gl-account-code-suspense
+                                              "GBP")
                    bals (balances/get-balances config
                                                bank-id
-                                               (:ledger-account-id control))
+                                               (:ledger-account-id suspense))
                    _ (is (= 1 (count (:balances bals))))
                    _ (is (= :balance-type-default
-                            (:balance-type (first (:balances bals)))))])))))
+                            (:balance-type (first (:balances bals)))))
+                   control (current-deposits-control config bank-id)
+                   stored (balances/get-balances config
+                                                 bank-id
+                                                 (:ledger-account-id control))
+                   _ (is (empty? (:balances stored))
+                         "a control stores no balance of its own")])))))
 
 (deftest find-by-code-and-get-account-test
   (with-test-system
@@ -206,10 +215,8 @@
                      (is (= [(:ledger-account-id account)]
                             (distinct (map :account-id balances)))
                          "each account is paired with its own balances")
-                     (is (= (:balances (balances/get-balances
-                                        config
-                                        bank-id
-                                        (:ledger-account-id account)))
+                     (is (= (:balances
+                             (SUT/get-balances config bank-id account))
                             balances)
                          "the same buckets the per-account read gives"))])
      (is (= [] (SUT/list-accounts-with-balances config "bnk.test-nobody"))
@@ -240,74 +247,148 @@
                     (= list-cap (count listed))
                     "a bank with more rows than the cap lists exactly the cap")]))))
 
-(deftest add-control-legs-fans-out-posted-default-test
-  (with-test-system
-   [sys "classpath:ledger-account/application-test.yml"]
-   (let [config (fdb-config sys)
-         bank-id "bnk.test-expand"]
-     (nom-test> [_ (seed! config bank-id)
-                 control (current-deposits-control config bank-id)
-                 leg (customer-leg {})
-                 expanded (SUT/add-control-legs config bank-id "GBP" [leg])
-                 _ (is (= 2 (count expanded)))
-                 _ (is (= leg (first expanded)))
-                 mirror (second expanded)
-                 _ (is (= (:ledger-account-id control) (:account-id mirror)))
-                 _ (is (= (:side leg) (:side mirror))
-                       "the mirror posts on the customer leg's side")
-                 _ (is (= :leg-side-credit (:side mirror)))
-                 _ (is (= (:amount leg) (:amount mirror)))
-                 _ (is (true? (:control mirror)))
-                 _ (is (= :balance-type-default (:balance-type mirror)))
-                 _ (is (= :balance-status-posted (:balance-status mirror)))])
-     (testing "a debit customer leg mirrors on the debit side"
-       (nom-test> [leg (customer-leg {:side :leg-side-debit})
-                   expanded (SUT/add-control-legs config bank-id "GBP" [leg])
-                   _ (is (= 2 (count expanded)))
-                   _ (is (= :leg-side-debit (:side (second expanded))))])))))
+(defn- open-customer-account
+  [config bank-id account-id product-type]
+  (balance/new-balances config
+                        bank-id
+                        [{:account-id account-id
+                          :product-type product-type
+                          :balance-type :balance-type-default
+                          :balance-status :balance-status-posted
+                          :currency "GBP"}]))
 
-(deftest add-control-legs-skips-non-fanning-legs-test
+(defn- deposit
+  [config bank-id cash-id account-id amount]
+  (balance/apply-legs config
+                      bank-id
+                      [{:account-id cash-id
+                        :balance-type :balance-type-default
+                        :balance-status :balance-status-posted
+                        :side :leg-side-debit
+                        :amount amount
+                        :currency "GBP"}
+                       {:account-id account-id
+                        :balance-type :balance-type-default
+                        :balance-status :balance-status-posted
+                        :side :leg-side-credit
+                        :amount amount
+                        :currency "GBP"}]
+                      :transaction-type-inbound-transfer))
+
+(deftest control-balance-is-its-sub-ledger-sum-test
   (with-test-system
    [sys "classpath:ledger-account/application-test.yml"]
    (let [config (fdb-config sys)
-         bank-id "bnk.test-no-fan"]
+         bank-id "bnk.test-sum"]
      (nom-test> [_ (seed! config bank-id)
+                 cash (SUT/find-by-code config
+                                        bank-id
+                                        :gl-account-code-cash-at-correspondent
+                                        "GBP")
+                 cash-id (:ledger-account-id cash)
+                 _ (open-customer-account config
+                                          bank-id
+                                          "acc.current1"
+                                          :product-type-sub-ledger-current)
+                 _ (open-customer-account config
+                                          bank-id
+                                          "acc.current2"
+                                          :product-type-sub-ledger-current)
+                 _ (open-customer-account config
+                                          bank-id
+                                          "acc.savings1"
+                                          :product-type-sub-ledger-savings)
+                 _ (deposit config bank-id cash-id "acc.current1" 1000)
+                 _ (deposit config bank-id cash-id "acc.current2" 500)
+                 _ (deposit config bank-id cash-id "acc.savings1" 70)
                  control (current-deposits-control config bank-id)
-                 control-id (:ledger-account-id control)
-                 pending (customer-leg {:balance-status
-                                        :balance-status-pending-outgoing
-                                        :side :leg-side-debit})
-                 accrued (customer-leg {:balance-type
-                                        :balance-type-interest-accrued})
-                 gl-leg {:account-id "led.something"
-                         :balance-type :balance-type-default
-                         :balance-status :balance-status-posted
-                         :side :leg-side-debit
-                         :amount 1000}
-                 from-pending
-                 (SUT/add-control-legs config bank-id "GBP" [pending])
-                 from-accrued
-                 (SUT/add-control-legs config bank-id "GBP" [accrued])
-                 from-gl (SUT/add-control-legs config bank-id "GBP" [gl-leg])
-                 _ (is (= [pending] from-pending)
-                       "a pending-outgoing default leg does not fan out")
-                 _ (is (= [accrued] from-accrued)
-                       "an interest-accrued leg does not fan out")
-                 _ (is (= [gl-leg] from-gl)
-                       "a leg with no customer product type passes through")
-                 bals (balances/get-balances config bank-id control-id)
+                 bals (SUT/get-balances config bank-id control)
+                 _ (is (= {:value 1500 :currency "GBP"} (:posted-balance bals))
+                       "the current-account control sums its two accounts only")
+                 _ (is (= [{:account-id (:ledger-account-id control)
+                            :credit 1500
+                            :debit 0}]
+                          (mapv (fn [b]
+                                  (select-keys b [:account-id :credit :debit]))
+                                (:balances bals))))
+                 listed (SUT/list-accounts-with-balances config bank-id)
+                 _ (is
+                    (= (:balances bals)
+                       (some (fn [{:keys [account balances]}]
+                               (when (= control account) balances))
+                             listed))
+                    "the chart pairs the control with the same summed balance")]))))
+
+(deftest a-bucket-takes-its-accounts-product-type-test
+  (with-test-system
+   [sys "classpath:ledger-account/application-test.yml"]
+   (let [config (fdb-config sys)
+         bank-id "bnk.test-inherit"]
+     (nom-test> [_ (seed! config bank-id)
+                 _ (open-customer-account config
+                                          bank-id
+                                          "acc.current1"
+                                          :product-type-sub-ledger-current)
+                 _ (balance/apply-legs
+                    config
+                    bank-id
+                    [{:account-id "acc.current1"
+                      :balance-type :balance-type-default
+                      :balance-status :balance-status-pending-incoming
+                      :side :leg-side-credit
+                      :amount 40
+                      :currency "GBP"}
+                     {:account-id "acc.current1"
+                      :balance-type :balance-type-default
+                      :balance-status :balance-status-pending-incoming
+                      :side :leg-side-debit
+                      :amount 40
+                      :currency "GBP"}]
+                    :transaction-type-inbound-transfer)
+                 opened
+                 (balances/get-balance config
+                                       bank-id
+                                       "acc.current1" :balance-type-default
+                                       "GBP" :balance-status-pending-incoming)
                  _
                  (is
-                  (= 1 (count (:balances bals)))
-                  "no control gains a bucket from a leg that does not fan out")]))))
+                  (= :product-type-sub-ledger-current (:product-type opened))
+                  "an untagged leg opens the bucket under its account's type")]))))
 
-(deftest add-control-legs-unseeded-control-rejects-test
+(deftest ensure-controls-returns-legs-test
+  (with-test-system
+   [sys "classpath:ledger-account/application-test.yml"]
+   (let [config (fdb-config sys)
+         bank-id "bnk.test-ensure"]
+     (nom-test> [_ (seed! config bank-id)
+                 legs [(customer-leg {})
+                       (customer-leg {:side :leg-side-debit
+                                      :account-id "acc.customer2"})]
+                 checked (SUT/ensure-controls config bank-id "GBP" legs)
+                 _ (is (= legs checked) "no leg is added for the control")])
+     (testing "only a posted default customer leg is checked"
+       (let [pending (customer-leg {:balance-status
+                                    :balance-status-pending-outgoing})
+             accrued (customer-leg {:balance-type
+                                    :balance-type-interest-accrued})
+             gl-leg {:account-id "led.something"
+                     :balance-type :balance-type-default
+                     :balance-status :balance-status-posted
+                     :side :leg-side-debit
+                     :amount 1000}]
+         (is
+          (=
+           [pending accrued gl-leg]
+           (SUT/ensure-controls config bank-id "USD" [pending accrued gl-leg]))
+          "in a currency with no controls, unchecked legs pass"))))))
+
+(deftest ensure-controls-unseeded-control-rejects-test
   (with-test-system
    [sys "classpath:ledger-account/application-test.yml"]
    (let [config (fdb-config sys)
          bank-id "bnk.test-unseeded-control"
          seeded (seed! config bank-id)
-         result (SUT/add-control-legs config bank-id "USD" [(customer-leg {})])
+         result (SUT/ensure-controls config bank-id "USD" [(customer-leg {})])
          payload (error/payload result)]
      (is (not (error/anomaly? seeded)))
      (is (error/anomaly? result)
@@ -353,7 +434,7 @@
      (is (error/anomaly? result))
      (is (= :ledger-account/invalid-status (error/kind result))))))
 
-(deftest closed-control-rejects-fan-out-test
+(deftest closed-control-rejects-a-posting-test
   (with-test-system
    [sys "classpath:ledger-account/application-test.yml"]
    (let [config (fdb-config sys)
@@ -361,7 +442,7 @@
          seeded (seed! config bank-id)
          control (current-deposits-control config bank-id)
          closed (SUT/close-account config bank-id (:ledger-account-id control))
-         result (SUT/add-control-legs config bank-id "GBP" [(customer-leg {})])]
+         result (SUT/ensure-controls config bank-id "GBP" [(customer-leg {})])]
      (is (not (error/anomaly? seeded)))
      (is (not (error/anomaly? closed)))
      (is (error/anomaly? result))

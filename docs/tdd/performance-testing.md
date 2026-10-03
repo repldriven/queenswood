@@ -41,20 +41,22 @@ against a provider's own sandbox.
   gives up after 10 seconds as `:command/timeout`.
   An internal payment's 201 means it settled. An outbound payment's 201
   means it was accepted and its amount reserved.
-- **Payment commands run one at a time.** Every topic in
+- **Payment commands run two at a time.** `topic-payments-command` has
+  two partitions in
   [kafka-topics.yml](/components/resources/resources/system/kafka-topics.yml)
-  has one partition, and each consumer handles one message before the
-  next. The `:ordering-key` the API sends, the debtor account, decides a
-  partition only once a topic has more than one;
-  [account-serialisation](../plan/account-serialisation.md) keeps command
-  topics at one.
-- **Every internal payment writes the bank's control balance.** A posted
-  customer leg is mirrored onto its product type's control account in
-  `ledger-account`, 2100 for current accounts, and `balance` reads that
-  balance serializably and rewrites it. Two concurrent internal payments
-  in one bank and currency conflict on it. An outbound submit also writes
-  the 1200 pending-outbound balance and reads the bank's daily SUM index
-  serializably in `payment-query`.
+  and `financial-processors-service` two replicas, one partition each;
+  every other topic has one, and each consumer handles one message before
+  the next. The `:ordering-key` the API sends, the debtor account,
+  decides the partition, so one account's payments stay in order, as
+  [account-serialisation](../plan/account-serialisation.md) designs.
+- **An internal payment writes only its two customer balances.** A
+  control account's balance is the sum of its sub-ledger's, read from
+  SUM indexes the Record Layer keeps by atomic mutation, so payments in
+  one bank share no row on the control — see
+  [ADR-0037](../adr/0037-a-control-accounts-balance-is-the-sum-of-the-balances-that-roll-into-it.md).
+  An outbound submit still writes the 1200 pending-outbound balance and
+  reads the bank's daily SUM index serializably in `payment-query`, and
+  every settlement writes 1100.
 - **An internal payment on a Modulr bank is a provider transfer too.**
   Modulr declares `balances: per-account` in
   [modulr.yml](/components/resources/resources/system/payment-providers/modulr.yml),
@@ -290,9 +292,17 @@ run at the next:
 3. **One `api-service` replica.** Its own request handling, until the
    reply topic is partitioned or replies are routed to the replica that
    asked.
-4. **The control balance.** Once commands run concurrently, payments in
-   one bank conflict on 2100, and outbound submits on 1200 and the SUM
-   index: 503s appear and spans show FDB retries.
+4. **The control balance.** Done for internal payments. With the
+   payment command topic at two partitions and a replica on each, 176 of
+   the 193 keys FDB reported conflicts on were 2100's balance row, a
+   command took 45 ms rather than 19, and the API was restarted within
+   two minutes. A control's balance is now summed from its sub-ledger by
+   [ADR-0037](../adr/0037-a-control-accounts-balance-is-the-sum-of-the-balances-that-roll-into-it.md),
+   and the same run holds 50 a second for ten minutes: 30,185 payments,
+   none refused, 0.3% retried and only on creditor accounts, a command
+   at 18 to 20 ms on each replica, and a p99 of 64 to 69 ms in the last
+   three minutes. Outbound submits still share 1200 and the SUM index,
+   and settlements 1100.
 5. **The intent poller.** One thread reads every pending and sent intent
    on each pass, and a sent intent waits up to `reconcile-after-ms`, 5
    minutes, for its webhook, so each pass reads more as the rate rises.
@@ -332,7 +342,8 @@ payment costs, ranked by its effect on the serial command path, which is
    generic `:fdb/transact`, but the steps inside it carry no spans of
    their own, so splitting the time needs one around each. Inside it the
    policies are read twice, in `payment` and again in `balance`'s
-   `apply-legs`, and the 2100 control balance is read and rewritten.
+   `apply-legs`. The 2100 control balance is no longer read or written:
+   see ceiling 4.
 3. **The relays' sends.** `exclusive-dispatchers-service` sends three
    messages per payment, one at a time, 16.6 ms of a runner's time, so
    one runner tops out at about 180 messages a second. A pass's sends
@@ -405,8 +416,7 @@ holds it, and the run repeated.
   second, beyond the 2,000 reference.
 - **Several banks sharing the load.** Taken in part, for scaling runs
   past one bank's ceiling. Rejected for the headline: a challenger is one
-  bank, and splitting the load splits the control-balance contention it
-  has.
+  bank, and splitting the load splits the contention it has.
 - **Raising the micro tier's caps.** Rejected: they exist for production
   banks, and a `perf` tier leaves them alone.
 
@@ -427,6 +437,21 @@ holds it, and the run repeated.
 - **A deployed instance has no load-test operator.** Its realm carries
   no `queenswood-perf` client, so a run on GKE needs an operator
   credential of its own, which the first published run decides.
+- **A partition count is fixed when its topic is created.** mono's
+  `kafka/topics` creates a missing topic and leaves an existing one
+  alone, so a count raised in `kafka-topics.yml` reaches a cluster only
+  once its topics are recreated, losing their messages and consumer
+  offsets.
+- **Kind stalls for a second or two.** In the two-partition challenger a
+  few commands in six 20-second windows took 1.2 to 2.3 s while the
+  average stayed near 20 ms, and the API's own FDB transactions slowed
+  in the same windows, so the cluster rather than a conflict paused.
+  Kind runs one FDB storage process, which also holds the commit proxy,
+  the master and the ratekeeper, on Colima's disk beside k6 and every
+  JVM.
+- **The financial processors' replicas are not evenly loaded.** Every
+  other topic their consumers read has one partition, so one replica
+  takes all of them beside its half of the payment commands.
 - **Reads and webhooks are absent.** No scenario reads balances or lists
   payments, and the test bank registers no webhook endpoint.
 

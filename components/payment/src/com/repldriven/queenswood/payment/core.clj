@@ -73,14 +73,14 @@
                                 creditor-account
                                 policies
                                 aggregates)
-           expanded-legs (ledger-accounts/add-control-legs
-                          txn
-                          bank-id
-                          currency
-                          (:legs payment-transaction))
+           checked-legs (ledger-accounts/ensure-controls
+                         txn
+                         bank-id
+                         currency
+                         (:legs payment-transaction))
            transaction (transactions/record-transaction
                         txn
-                        (assoc payment-transaction :legs expanded-legs))
+                        (assoc payment-transaction :legs checked-legs))
            {:keys [transaction-id transaction-type legs]} transaction
            _ (balances/apply-legs txn bank-id legs transaction-type)
            payment (internal/new-internal-payment data
@@ -162,16 +162,16 @@
                                  (:ledger-account-id pending-outbound)
                                  policies
                                  aggregates)
-                    expanded-legs (ledger-accounts/add-control-legs
-                                   txn
-                                   bank-id
-                                   currency
-                                   (:legs transaction))
+                    checked-legs (ledger-accounts/ensure-controls
+                                  txn
+                                  bank-id
+                                  currency
+                                  (:legs transaction))
                     transaction+legs (transactions/record-transaction
                                       txn
                                       (assoc transaction
                                              :legs
-                                             expanded-legs))
+                                             checked-legs))
                     {:keys [transaction-id transaction-type legs]}
                     transaction+legs
                     _ (balances/apply-legs txn bank-id legs transaction-type)
