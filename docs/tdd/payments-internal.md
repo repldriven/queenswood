@@ -221,8 +221,9 @@ posted transaction is mirrored at the provider in four hops, each drawn
 below between the service that hands it on, the topic or call that
 carries it, and the service that takes it up. On one that declares
 `balances: pooled`, as Form3 and ClearBank do, the activity processor
-sends nothing: the addresses route into one balance the ledger already
-divides.
+sends nothing: the provider holds one balance for all the bank's
+accounts, and only the ledger says how much of it is each account's, so
+a payment between two of them moves nothing at the provider.
 
 #### The activity log reaches the activity processor
 
