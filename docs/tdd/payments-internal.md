@@ -48,23 +48,25 @@ see [policy-evaluation.md](policy-evaluation.md).
 
 ### Reading the diagrams
 
-A participant is the service that runs it and the component kind or base inside
-it, as the system configuration names them, and a topic shows the key it is
-partitioned by. Lanes are coloured as in the [system diagram](../diagrams/System%20Diagram.excalidraw): blue for the
-API, the message bus and the relays, purple for the processors, orange for the
-external adapters, yellow for FDB and grey for the world outside. Each arrow
-into FDB is one call — a read, a save, or a changelog or log entry written — and
-each `critical [transact]` box is one FDB transaction, holding every call made
-in it, a read made on its own included. A box commits where it ends: anything
-drawn inside it, such as a publish, happens before the commit, and anything
-after it once the transaction has committed. A dashed `ack` back to a topic is
-the consumer committing its offset, and a `200` back to the provider the webhook
-answering, each only once the consumer has finished: a send drawn before it is
-covered, since a failure anywhere earlier leaves the message to be delivered
-again, and whatever receives the send takes a second copy as the one it already
-has. A reply to a request waiting on it has no `ack`: delivered again it finds
-no request waiting, and lost it leaves the request a 5xx, which the client
-retries with its key.
+A participant is the service that runs it and the component kind or base
+inside it, as the system configuration names them, and a topic shows the key
+it is partitioned by. Lanes are coloured as in the [system diagram](../diagrams/System%20Diagram.excalidraw): blue for
+the API, the message bus and the relays, purple for the processors, orange for
+the external adapters, yellow for FDB and grey for the world outside. A ledger
+account's code is marked with its type, in the console's colours: 🟧 asset,
+🟦 liability, 🟩 equity and 🟥 expense. Each arrow into FDB is one call — a read,
+a save, or a changelog or log entry written — and each `critical [transact]`
+box is one FDB transaction, holding every call made in it, a read made on its
+own included. A box commits where it ends: anything drawn inside it, such as a
+publish, happens before the commit, and anything after it once the transaction
+has committed. A dashed `ack` back to a topic is the consumer committing its
+offset, and a `200` back to the provider the webhook answering, each only once
+the consumer has finished: a send drawn before it is covered, since a failure
+anywhere earlier leaves the message to be delivered again, and whatever
+receives the send takes a second copy as the one it already has. A reply to a
+request waiting on it has no `ack`: delivered again it finds no request
+waiting, and lost it leaves the request a 5xx, which the client retries with
+its key.
 
 ### Submitting and settling
 
@@ -285,8 +287,8 @@ sequenceDiagram
     critical transact
     AP->>DB: read the ProviderTransfers already recorded for the transaction
     alt none recorded
-    opt 1100 and the own-funds account not cached
-    AP->>DB: read 1100 and the own-funds CashAccount
+    opt 🟧 1100 and the own-funds account not cached
+    AP->>DB: read 🟧 1100 and the own-funds CashAccount
     end
     AP->>DB: read the CashAccount behind each leg
     AP->>DB: save a ProviderTransfer, pending, for each pair

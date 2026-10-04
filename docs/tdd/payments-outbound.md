@@ -51,33 +51,35 @@ breaker, retries and reconciliation timing, see
 
 ### Reading the diagrams
 
-A participant is the service that runs it and the component kind or base inside
-it, as the system configuration names them, and a topic shows the key it is
-partitioned by. Lanes are coloured as in the [system diagram](../diagrams/System%20Diagram.excalidraw): blue for the
-API, the message bus and the relays, purple for the processors, orange for the
-external adapters, yellow for FDB and grey for the world outside. Each arrow
-into FDB is one call — a read, a save, or a changelog or log entry written — and
-each `critical [transact]` box is one FDB transaction, holding every call made
-in it, a read made on its own included. A box commits where it ends: anything
-drawn inside it, such as a publish, happens before the commit, and anything
-after it once the transaction has committed. A dashed `ack` back to a topic is
-the consumer committing its offset, and a `200` back to the provider the webhook
-answering, each only once the consumer has finished: a send drawn before it is
-covered, since a failure anywhere earlier leaves the message to be delivered
-again, and whatever receives the send takes a second copy as the one it already
-has. A reply to a request waiting on it has no `ack`: delivered again it finds
-no request waiting, and lost it leaves the request a 5xx, which the client
-retries with its key. The sequence diagrams follow a bank on Modulr.
+A participant is the service that runs it and the component kind or base
+inside it, as the system configuration names them, and a topic shows the key
+it is partitioned by. Lanes are coloured as in the [system diagram](../diagrams/System%20Diagram.excalidraw): blue for
+the API, the message bus and the relays, purple for the processors, orange for
+the external adapters, yellow for FDB and grey for the world outside. A ledger
+account's code is marked with its type, in the console's colours: 🟧 asset,
+🟦 liability, 🟩 equity and 🟥 expense. Each arrow into FDB is one call — a read,
+a save, or a changelog or log entry written — and each `critical [transact]`
+box is one FDB transaction, holding every call made in it, a read made on its
+own included. A box commits where it ends: anything drawn inside it, such as a
+publish, happens before the commit, and anything after it once the transaction
+has committed. A dashed `ack` back to a topic is the consumer committing its
+offset, and a `200` back to the provider the webhook answering, each only once
+the consumer has finished: a send drawn before it is covered, since a failure
+anywhere earlier leaves the message to be delivered again, and whatever
+receives the send takes a second copy as the one it already has. A reply to a
+request waiting on it has no `ack`: delivered again it finds no request
+waiting, and lost it leaves the request a 5xx, which the client retries with
+its key. The sequence diagrams follow a bank on Modulr.
 
 ```mermaid
 stateDiagram-v2
     [*] --> pending: submit-outbound-payment<br/>reserve in pending-outgoing
     pending --> held: transaction-held (debit)<br/>no money moves
-    pending --> completed: transaction-settled (debit)<br/>post the outflow to 1100
+    pending --> completed: transaction-settled (debit)<br/>post the outflow to 🟧 1100
     pending --> failed: transaction-rejected (debit)<br/>release the reservation
     held --> completed: transaction-settled (debit)
     held --> failed: transaction-rejected (debit)
-    completed --> returned: transaction-returned (debit)<br/>1100 back to the debtor
+    completed --> returned: transaction-returned (debit)<br/>🟧 1100 back to the debtor
     completed --> [*]
     failed --> [*]
     returned --> [*]
@@ -166,15 +168,15 @@ sequenceDiagram
     PP->>DB: read the policy stamp, at snapshot
     PP->>DB: read the Bank, for its payment provider
     PP->>DB: read the debtor's CashAccount
-    PP->>DB: read 1200's LedgerAccount
+    PP->>DB: read 🟧 1200's LedgerAccount
     PP->>DB: read today's OutboundPayment count, at snapshot
     PP->>DB: read today's OutboundPayment sum, at snapshot
     PP->>DB: read the control LedgerAccount the debtor's leg rolls into
     PP->>DB: save Transaction
     PP->>DB: save the two TransactionLegs
     PP->>DB: write transaction-posted to the bank's activity log
-    PP->>DB: read 1200's LedgerAccount, whose legs write no balance
-    PP->>DB: read 1100's LedgerAccount, whose legs write no balance
+    PP->>DB: read 🟧 1200's LedgerAccount, whose legs write no balance
+    PP->>DB: read 🟧 1100's LedgerAccount, whose legs write no balance
     PP->>DB: read the debtor's Balances
     PP->>DB: save the debtor's default/pending-outgoing Balance
     PP->>DB: save OutboundPayment, pending
@@ -500,15 +502,15 @@ sequenceDiagram
     alt pending or held
     PE->>DB: save the OutboundPayment, completed
     PE->>DB: write settle to the outbound-payments changelog
-    PE->>DB: read 1200's LedgerAccount
-    PE->>DB: read 1100's LedgerAccount
+    PE->>DB: read 🟧 1200's LedgerAccount
+    PE->>DB: read 🟧 1100's LedgerAccount
     PE->>DB: read the debtor's CashAccount
     PE->>DB: read the control LedgerAccount the debtor's leg rolls into
     PE->>DB: save Transaction
     PE->>DB: save the four TransactionLegs
     PE->>DB: write transaction-posted to the bank's activity log
-    PE->>DB: read 1200's LedgerAccount, whose legs write no balance
-    PE->>DB: read 1100's LedgerAccount, whose legs write no balance
+    PE->>DB: read 🟧 1200's LedgerAccount, whose legs write no balance
+    PE->>DB: read 🟧 1100's LedgerAccount, whose legs write no balance
     PE->>DB: read the platform policies
     PE->>DB: read the debtor's Balances
     PE->>DB: save the debtor's default/pending-outgoing Balance
@@ -622,14 +624,14 @@ sequenceDiagram
     alt pending or held
     PE->>DB: save the OutboundPayment, failed, with its failure kind and reason code
     PE->>DB: write fail to the outbound-payments changelog
-    PE->>DB: read 1200's LedgerAccount
+    PE->>DB: read 🟧 1200's LedgerAccount
     PE->>DB: read the debtor's CashAccount
     PE->>DB: read the control LedgerAccount the debtor's leg rolls into
     PE->>DB: save Transaction, reversing the reservation
     PE->>DB: save the two TransactionLegs
     PE->>DB: write transaction-posted to the bank's activity log
-    PE->>DB: read 1200's LedgerAccount, whose legs write no balance
-    PE->>DB: read 1100's LedgerAccount, whose legs write no balance
+    PE->>DB: read 🟧 1200's LedgerAccount, whose legs write no balance
+    PE->>DB: read 🟧 1100's LedgerAccount, whose legs write no balance
     PE->>DB: read the platform policies
     PE->>DB: read the debtor's Balances
     PE->>DB: save the debtor's default/pending-outgoing Balance
@@ -818,14 +820,14 @@ sequenceDiagram
     alt completed
     PE->>DB: save the OutboundPayment, returned, with its reason code and reason
     PE->>DB: write return to the outbound-payments changelog
-    PE->>DB: read 1100's LedgerAccount
+    PE->>DB: read 🟧 1100's LedgerAccount
     PE->>DB: read the debtor's CashAccount
     PE->>DB: read the control LedgerAccount the debtor's leg rolls into
     PE->>DB: save Transaction outbound-return
     PE->>DB: save the two TransactionLegs
     PE->>DB: write transaction-posted to the bank's activity log
-    PE->>DB: read 1200's LedgerAccount, whose legs write no balance
-    PE->>DB: read 1100's LedgerAccount, whose legs write no balance
+    PE->>DB: read 🟧 1200's LedgerAccount, whose legs write no balance
+    PE->>DB: read 🟧 1100's LedgerAccount, whose legs write no balance
     PE->>DB: read the platform policies
     PE->>DB: read the debtor's Balances
     PE->>DB: save the debtor's default/posted Balance

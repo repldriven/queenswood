@@ -52,34 +52,35 @@ kept, see [chart-of-accounts.md](chart-of-accounts.md).
 
 A participant is the service that runs it and the component kind or base
 inside it, as the system configuration names them, and a topic shows the key
-it is partitioned by. Lanes are coloured as in the
-[system diagram](../diagrams/System%20Diagram.excalidraw): blue for the
-message bus and the relays, purple for the processors, orange for the external
-adapters, yellow for FDB and grey for the world outside. Each arrow into FDB
-is one call — a read, a save, or a changelog or log entry written — and each
-`critical [transact]` box is one FDB transaction, holding every call made in
-it, a read made on its own included. A box commits where it ends: anything
-drawn inside it, such as a publish, happens before the commit, and anything
-after it once the transaction has committed. A dashed `ack` back to a topic is
-the consumer committing its offset, and a `200` back to the provider the
-webhook answering, each only once the consumer has finished: a send drawn
-before it is covered, since a failure anywhere earlier leaves the message to
-be delivered again, and whatever receives the send takes a second copy as the
-one it already has. A reply to a request waiting on it has no `ack`: delivered
-again it finds no request waiting, and lost it leaves the request unanswered,
-which the provider asks again.
+it is partitioned by. Lanes are coloured as in the [system diagram](../diagrams/System%20Diagram.excalidraw): blue for
+the message bus and the relays, purple for the processors, orange for the
+external adapters, yellow for FDB and grey for the world outside. A ledger
+account's code is marked with its type, in the console's colours: 🟧 asset,
+🟦 liability, 🟩 equity and 🟥 expense. Each arrow into FDB is one call — a read,
+a save, or a changelog or log entry written — and each `critical [transact]`
+box is one FDB transaction, holding every call made in it, a read made on its
+own included. A box commits where it ends: anything drawn inside it, such as a
+publish, happens before the commit, and anything after it once the transaction
+has committed. A dashed `ack` back to a topic is the consumer committing its
+offset, and a `200` back to the provider the webhook answering, each only once
+the consumer has finished: a send drawn before it is covered, since a failure
+anywhere earlier leaves the message to be delivered again, and whatever
+receives the send takes a second copy as the one it already has. A reply to a
+request waiting on it has no `ack`: delivered again it finds no request
+waiting, and lost it leaves the request unanswered, which the provider asks
+again.
 
 ```mermaid
 stateDiagram-v2
     [*] --> admitted: admit-inbound-payment<br/>opened account, checks pass
     admitted --> settled: transaction-settled (credit)<br/>no checks
     [*] --> settled: transaction-settled (credit)<br/>opened account, checks pass
-    [*] --> suspended: transaction-settled (credit)<br/>account not opened, or refused<br/>park in 2500
+    [*] --> suspended: transaction-settled (credit)<br/>account not opened, or refused<br/>park in 🟦 2500
     [*] --> held: transaction-held (credit)<br/>opened account, no money moves
     held --> settled: transaction-settled (credit)<br/>release, checks pass
-    held --> suspended: transaction-settled (credit)<br/>release refused, park in 2500
+    held --> suspended: transaction-settled (credit)<br/>release refused, park in 🟦 2500
     held --> returned: transaction-rejected (credit)<br/>back to the remitter
-    suspended --> returned: transaction-returned (credit)<br/>2500 to 1100
+    suspended --> returned: transaction-returned (credit)<br/>🟦 2500 to 🟧 1100
     suspended --> suspended: inbound-return-failed<br/>return-failure-reason
     settled --> [*]
     returned --> [*]
@@ -184,7 +185,7 @@ sequenceDiagram
     else an open admission or hold
     Note over PE,DB: settled as the sections below draw
     else an opened account
-    PE->>DB: read 1100
+    PE->>DB: read 🟧 1100
     PE->>DB: read the bank's effective policies
     PE->>DB: read today's InboundPayment count, at snapshot
     alt the checks pass
@@ -192,7 +193,7 @@ sequenceDiagram
     PE->>DB: save Transaction inbound-transfer
     PE->>DB: save the two TransactionLegs
     PE->>DB: write transaction-posted to the bank's activity log
-    PE->>DB: read 1100 and 1200, whose legs write no balance
+    PE->>DB: read 🟧 1100 and 🟧 1200, whose legs write no balance
     PE->>DB: read the creditor's effective policies
     PE->>DB: read the creditor's Balances
     PE->>DB: save the creditor's default/posted Balance
@@ -272,21 +273,21 @@ sequenceDiagram
     PE->>DB: read an open admission for the end-to-end id, account and amount
     PE->>DB: read an open hold for the end-to-end id, account and amount
     alt the account is opened, and a check refuses
-    PE->>DB: read 1100
+    PE->>DB: read 🟧 1100
     PE->>DB: read the bank's effective policies
     PE->>DB: read today's InboundPayment count, at snapshot
     else the account is not opened
     Note over PE: no checks run
     end
-    PE->>DB: read 1100
-    PE->>DB: read 2500
-    PE->>DB: save Transaction inbound-transfer, DEBIT 1100 and CREDIT 2500
+    PE->>DB: read 🟧 1100
+    PE->>DB: read 🟦 2500
+    PE->>DB: save Transaction inbound-transfer, DEBIT 🟧 1100 and CREDIT 🟦 2500
     PE->>DB: save the two TransactionLegs
     PE->>DB: write transaction-posted to the bank's activity log
-    PE->>DB: read 1100 and 1200, whose legs write no balance
-    PE->>DB: read 2500's effective policies
-    PE->>DB: read 2500's Balances
-    PE->>DB: save 2500's default/posted Balance
+    PE->>DB: read 🟧 1100 and 🟧 1200, whose legs write no balance
+    PE->>DB: read 🟦 2500's effective policies
+    PE->>DB: read 🟦 2500's Balances
+    PE->>DB: save 🟦 2500's default/posted Balance
     PE->>DB: save InboundPayment, suspended with the reason
     PE->>DB: write suspend to the inbound-payments changelog
     PE->>DB: write inbound-payment-suspended to the bank's activity log
@@ -407,7 +408,7 @@ sequenceDiagram
     PE->>DB: read the InboundPayment by its scheme transaction id
     PE->>DB: read an open admission for the end-to-end id, account and amount
     PE->>DB: read the open hold for the end-to-end id, account and amount
-    PE->>DB: read 1100
+    PE->>DB: read 🟧 1100
     PE->>DB: read the bank's effective policies
     PE->>DB: read today's InboundPayment count, at snapshot
     alt the checks pass, the count without the hold
@@ -415,7 +416,7 @@ sequenceDiagram
     PE->>DB: save Transaction inbound-transfer
     PE->>DB: save the two TransactionLegs
     PE->>DB: write transaction-posted to the bank's activity log
-    PE->>DB: read 1100 and 1200, whose legs write no balance
+    PE->>DB: read 🟧 1100 and 🟧 1200, whose legs write no balance
     PE->>DB: read the creditor's effective policies
     PE->>DB: read the creditor's Balances
     PE->>DB: save the creditor's default/posted Balance
@@ -587,12 +588,12 @@ sequenceDiagram
     PE->>DB: read the open admission for the end-to-end id, account and amount
     PE->>DB: read an open hold for the end-to-end id, account and amount
     alt the account is still opened
-    PE->>DB: read 1100
+    PE->>DB: read 🟧 1100
     PE->>DB: read the control LedgerAccount the creditor's leg rolls into
     PE->>DB: save Transaction inbound-transfer
     PE->>DB: save the two TransactionLegs
     PE->>DB: write transaction-posted to the bank's activity log
-    PE->>DB: read 1100 and 1200, whose legs write no balance
+    PE->>DB: read 🟧 1100 and 🟧 1200, whose legs write no balance
     PE->>DB: read the creditor's effective policies
     PE->>DB: read the creditor's Balances
     PE->>DB: save the creditor's default/posted Balance
@@ -780,15 +781,15 @@ sequenceDiagram
     critical transact
     PE->>DB: read the InboundPayment by its scheme transaction id
     alt suspended
-    PE->>DB: read 1100
-    PE->>DB: read 2500
-    PE->>DB: save Transaction inbound-return, DEBIT 2500 and CREDIT 1100
+    PE->>DB: read 🟧 1100
+    PE->>DB: read 🟦 2500
+    PE->>DB: save Transaction inbound-return, DEBIT 🟦 2500 and CREDIT 🟧 1100
     PE->>DB: save the two TransactionLegs
     PE->>DB: write transaction-posted to the bank's activity log
-    PE->>DB: read 1100 and 1200, whose legs write no balance
-    PE->>DB: read 2500's effective policies
-    PE->>DB: read 2500's Balances
-    PE->>DB: save 2500's default/posted Balance
+    PE->>DB: read 🟧 1100 and 🟧 1200, whose legs write no balance
+    PE->>DB: read 🟦 2500's effective policies
+    PE->>DB: read 🟦 2500's Balances
+    PE->>DB: save 🟦 2500's default/posted Balance
     PE->>DB: save InboundPayment, returned
     PE->>DB: write return to the inbound-payments changelog
     else returned already, a redelivery
