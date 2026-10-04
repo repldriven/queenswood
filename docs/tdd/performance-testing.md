@@ -41,13 +41,14 @@ against a provider's own sandbox.
   gives up after 10 seconds as `:command/timeout`.
   An internal payment's 201 means it settled. An outbound payment's 201
   means it was accepted and its amount reserved.
-- **Payment commands run two at a time.** `topic-payments-command` has
-  two partitions in
+- **Payment commands run four at a time.** `topic-payments-command` and
+  `topic-schemes-payments-event` have four partitions in
   [kafka-topics.yml](/components/resources/resources/system/kafka-topics.yml)
-  and `financial-processors-service` two replicas, one partition each;
-  every other topic has one, and each consumer handles one message before
-  the next. The `:ordering-key` the API sends, the debtor account,
-  decides the partition, so one account's payments stay in order, as
+  and `financial-processors-service` four replicas, one partition of
+  each per replica; every other topic has one, and each consumer handles
+  one message before the next. The `:ordering-key` the API sends, the
+  debtor account, decides the partition, so one account's payments stay
+  in order, as
   [account-serialisation](../plan/account-serialisation.md) designs.
 - **An internal payment writes only its two customer balances.** A
   control account's balance is the sum of its sub-ledger's, read from
@@ -320,7 +321,10 @@ run at the next:
    about 51 a second at first, 64 once the producers stopped lingering,
    and, on two partitions with a 13.8 ms command, 78 a second clean at
    80 asked, with a p99 of 92 ms, and 103 to 109 a second at 160 and 320
-   asked, where requests wait seconds and ceiling 2 takes over.
+   asked, where requests wait seconds and ceiling 2 takes over. On four
+   partitions and four replicas the API accepts about 142 a second at
+   160 and 320 asked, where the processors are no longer what holds it:
+   at about 17 ms a command four could take 235.
 2. **Overload restarts the API.** Done. A request waited on its command
    until the dispatcher's 10-second timeout, holding one of Jetty's 50
    threads, so past the knee the pool filled, the liveness probe queued
@@ -403,13 +407,17 @@ run at the next:
     and inbound at £18,791.21 after 37,229.
 11. **Where each flow queues.** Read from each consumer group's lag past
     the knee: internal at `topic-payments-command`, the payment processor
-    at about 105 a second; outbound at `topic-bank-activity-event`, about
-    4,000 behind at 320 asked, one partition for the run's one bank; and
-    inbound at `topic-schemes-payments-event`, about 12,000 behind at 312
-    a second. Webhook delivery on `topic-payments-event` is the first to
-    fall behind, from 80 a second. An adapter's outbox waiting on its
-    relay, about 180 messages a second to a runner, is behind no consumer
-    group, so the lag does not show it.
+    at about 105 a second on two partitions; outbound at
+    `topic-bank-activity-event`, about 4,000 behind at 320 asked, and
+    18,500 on four partitions, which let more payments in to wait there,
+    one partition for the run's one bank; and inbound at
+    `topic-schemes-payments-event`, about 12,000 behind at 312 a second on
+    two partitions and 10,000 on four, a followed payment credited at
+    1.1 s at p50 rather than 2.5. Webhook delivery on
+    `topic-payments-event` is the first to fall behind, from 80 a second.
+    An adapter's outbox waiting on its relay, about 180 messages a second
+    to a runner, is behind no consumer group, so the lag does not show
+    it.
 
 ### Span candidates
 
@@ -555,7 +563,12 @@ holds it, and the run repeated.
   `kafka/topics` creates a missing topic and leaves an existing one
   alone, so a count raised in `kafka-topics.yml` reaches a cluster only
   once its topics are recreated, losing their messages and consumer
-  offsets.
+  offsets, or grown with `kafka-topics.sh --alter`, which keeps them but
+  sends a key's later messages to another partition than its earlier
+  ones, so the topic is drained first and its consumers restarted to
+  take the new partitions. The topics come from the images' own
+  `kafka-topics.yml`, so on kind a changed count needs
+  `docker-build-all` before `kind-up`.
 - **Kind stalls for a second or two.** In the two-partition challenger a
   few commands in six 20-second windows took 1.2 to 2.3 s while the
   average stayed near 20 ms, and the API's own FDB transactions slowed
