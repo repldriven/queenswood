@@ -51,9 +51,11 @@ see [policy-evaluation.md](policy-evaluation.md).
 A participant is the service that runs it and the component kind or
 base inside it, as the system configuration names them, and a topic
 shows its partitions and the key it is published under. Each arrow into
-FDB is one call — a read, a save, a changelog or log entry written, or
-the commit — and each `critical [transact]` box is one FDB transaction,
-holding every call made in it, a read made on its own included.
+FDB is one call — a read, a save, or a changelog or log entry written —
+and each `critical [transact]` box is one FDB transaction, holding every
+call made in it, a read made on its own included. A box commits where it
+ends: anything drawn inside it, such as a publish, happens before the
+commit, and anything after it once the transaction has committed.
 
 ### Submitting and settling
 
@@ -84,7 +86,6 @@ sequenceDiagram
     PP->>DB: save the creditor's Balance
     PP->>DB: save InternalPayment
     PP->>DB: write settle to the internal-payments changelog
-    PP->>DB: commit
     end
     PP-->>API: reply on topic-payments-command-response
     API-->>C: 201, the payment settled
@@ -93,7 +94,6 @@ sequenceDiagram
     RR->>DB: read the internal-payments changelog after it
     RR->>PE: internal-payment-settled
     RR->>DB: write the cursor
-    RR->>DB: commit
     end
 ```
 
@@ -131,7 +131,6 @@ sequenceDiagram
     AR->>DB: read the bank's activity log after it
     AR->>AE: transaction-posted, verbatim, in commit order
     AR->>DB: write the cursor
-    AR->>DB: commit
     end
     AE->>AP: transaction-posted
     critical transact
@@ -142,13 +141,11 @@ sequenceDiagram
     AP->>DB: read 1100 and the own-funds CashAccount, only when not cached
     AP->>DB: read the CashAccount behind each leg
     AP->>DB: save a ProviderTransfer, pending, for each pair
-    AP->>DB: commit
     end
     AP->>MC: transfer-between-accounts, debtor and creditor accounts
     MC->>AD: one command at a time
     critical transact
     AD->>DB: save ModulrOutboundIntent kind transfer, pending<br/>subjects the debtor and creditor accounts
-    AD->>DB: commit
     end
     critical transact
     IP->>DB: read the pending intents
@@ -166,7 +163,6 @@ sequenceDiagram
     critical transact
     IP->>DB: read the intent
     IP->>DB: save the intent, sent
-    IP->>DB: commit
     end
     PR-->>WH: PAYOUT webhook, status PROCESSED
     critical transact
@@ -177,20 +173,17 @@ sequenceDiagram
     WH->>DB: write it to the modulr-outbox changelog
     WH->>DB: read the sent intent
     WH->>DB: save the intent, settled
-    WH->>DB: commit
     end
     critical transact
     OR->>DB: read the cursor modulr-relay
     OR->>DB: read the modulr-outbox changelog after it
     OR->>SE: transfer-completed
     OR->>DB: write the cursor
-    OR->>DB: commit
     end
     SE->>PE: transfer-completed
     critical transact
     PE->>DB: read the ProviderTransfer
     PE->>DB: save the ProviderTransfer, completed
-    PE->>DB: commit
     end
 ```
 
