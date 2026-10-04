@@ -32,9 +32,10 @@ see [policy-evaluation.md](policy-evaluation.md).
   `financial-processors-service`, handles the command in `core.clj`
   `submit-internal`.
 - **The bank's activity.** `transaction/record-transaction` records a
-  `transaction-posted` entry on the bank's activity log,
-  `bank-activity-<shard>`, in the transaction that posts.
-  `bank-activity/relay`, a runner per shard in
+  `transaction-posted` entry on the bank's activity log, in the
+  transaction that posts. There are four activity logs,
+  `bank-activity-0` to `bank-activity-3`, and a bank's id picks the one
+  all its entries go to. `bank-activity/relay`, a runner per log in
   `exclusive-dispatchers-service`, publishes it on
   `topic-bank-activity-event`, one partition keyed by bank, where
   `payment/activity-event-processor` reads it.
@@ -49,10 +50,10 @@ see [policy-evaluation.md](policy-evaluation.md).
 
 A participant is the service that runs it and the component kind or
 base inside it, as the system configuration names them, and a topic
-shows its partitions and the key it is published under. An arrow into
-FDB labelled `read` reads, one labelled `commit` lists what a
-transaction writes, and a shaded box holds the reads and the commit of
-one FDB transaction; a read outside a box is a transaction of its own.
+shows its partitions and the key it is published under. Each arrow into
+FDB is one call — a read, a save, a changelog or log entry written, or
+the commit — and each shaded box is one FDB transaction, holding every
+call made in it, a read made on its own included.
 
 ### Submitting and settling
 
@@ -69,27 +70,41 @@ sequenceDiagram
     API->>PC: submit-internal-payment
     PC->>PP: one command at a time per partition
     rect rgb(235, 242, 255)
-    Note right of PP: one FDB transaction
-    PP->>DB: read policies, the debtor and creditor<br/>today's count at snapshot
-    PP->>DB: commit Transaction and two TransactionLegs<br/>the debtor's and creditor's default/posted balance rows<br/>InternalPayment and its internal-payments changelog entry<br/>transaction-posted on bank-activity-shard
+    PP->>DB: read the policy stamp, at snapshot
+    PP->>DB: read the debtor's CashAccount
+    PP->>DB: read the creditor's CashAccount
+    PP->>DB: read today's InternalPayment count, at snapshot
+    PP->>DB: read the control LedgerAccount each leg rolls into
+    PP->>DB: save Transaction
+    PP->>DB: save the two TransactionLegs
+    PP->>DB: write transaction-posted to the bank's activity log
+    PP->>DB: read the debtor's default/posted Balance
+    PP->>DB: read the creditor's default/posted Balance
+    PP->>DB: save the debtor's Balance
+    PP->>DB: save the creditor's Balance
+    PP->>DB: save InternalPayment
+    PP->>DB: write settle to the internal-payments changelog
+    PP->>DB: commit
     end
     PP-->>API: reply on topic-payments-command-response
     API-->>C: 201, the payment settled
     rect rgb(235, 242, 255)
-    Note right of RR: one FDB transaction
-    RR->>DB: read internal-payments from its cursor
+    RR->>DB: read the cursor internal-payments-relay
+    RR->>DB: read the internal-payments changelog after it
     RR->>PE: internal-payment-settled
-    RR->>DB: commit the cursor internal-payments-relay
+    RR->>DB: write the cursor
+    RR->>DB: commit
     end
 ```
 
 The command's one FDB transaction checks both accounts are operable and
 in the payment's currency, the capability and the daily count,
 `ensure-controls` resolving the control each leg's product type rolls
-into, and then records and posts. Its two legs debit the debtor's and
-credit the creditor's `default / posted` buckets, which are the only
-balance rows it writes: the deposit controls 2100, 2200, 2300 and 3100
-are summed from those rows, per
+into, and then records and posts. The bank's policies are read again
+only when the policy stamp has moved since they were cached. Its two
+legs debit the debtor's and credit the creditor's `default / posted`
+buckets, which are the only balance rows it writes: the deposit
+controls 2100, 2200, 2300 and 3100 are summed from those rows, per
 [ADR-0037](../adr/0037-a-control-accounts-balance-is-the-sum-of-the-balances-that-roll-into-it.md),
 and carry no leg. The reply is sent once the transaction commits, so
 201 means the payment settled. The changelog entry reaches the webhook
@@ -112,47 +127,70 @@ sequenceDiagram
     participant SE as topic-schemes-payments-event<br/>2 partitions, key transfer
     participant PE as financial-processors-service<br/>payment/event-processor
     rect rgb(235, 242, 255)
-    Note right of AR: one FDB transaction
-    AR->>DB: read the bank's activity log shard from its cursor
+    AR->>DB: read the log's cursor
+    AR->>DB: read the bank's activity log after it
     AR->>AE: transaction-posted, verbatim, in commit order
-    AR->>DB: commit the shard's cursor
+    AR->>DB: write the cursor
+    AR->>DB: commit
     end
     AE->>AP: transaction-posted
-    AP->>DB: read the bank's declaration, balances per-account, cached
     rect rgb(235, 242, 255)
-    Note right of AP: one FDB transaction
-    AP->>DB: read the transfers already recorded for the transaction<br/>each cash account it names
-    AP->>DB: commit a ProviderTransfer pending for each pair
+    AP->>DB: read the bank's providers, only when not cached
+    end
+    rect rgb(235, 242, 255)
+    AP->>DB: read the ProviderTransfers already recorded for the transaction
+    AP->>DB: read 1100 and the own-funds CashAccount, only when not cached
+    AP->>DB: read the CashAccount behind each leg
+    AP->>DB: save a ProviderTransfer, pending, for each pair
+    AP->>DB: commit
     end
     AP->>MC: transfer-between-accounts, debtor and creditor accounts
     MC->>AD: one command at a time
     rect rgb(235, 242, 255)
-    Note right of AD: one FDB transaction
-    AD->>DB: commit ModulrOutboundIntent kind transfer, pending<br/>subjects the debtor and creditor accounts
+    AD->>DB: save ModulrOutboundIntent kind transfer, pending<br/>subjects the debtor and creditor accounts
+    AD->>DB: commit
     end
-    IP->>DB: read pending and sent intents
-    IP->>DB: read both provider accounts
+    rect rgb(235, 242, 255)
+    IP->>DB: read the pending intents
+    end
+    rect rgb(235, 242, 255)
+    IP->>DB: read the sent intents
+    end
+    rect rgb(235, 242, 255)
+    IP->>DB: read the intent that opened the debtor's provider account
+    end
+    rect rgb(235, 242, 255)
+    IP->>DB: read the intent that opened the creditor's provider account
+    end
     IP->>PR: POST a payment between the two provider accounts
     rect rgb(235, 242, 255)
-    Note right of IP: one FDB transaction
-    IP->>DB: commit the intent sent
+    IP->>DB: read the intent
+    IP->>DB: save the intent, sent
+    IP->>DB: commit
     end
     PR-->>WH: PAYOUT webhook, status PROCESSED
     rect rgb(235, 242, 255)
-    Note right of WH: one FDB transaction
-    WH->>DB: commit ModulrOutboxEvent transfer-completed and its changelog entry<br/>the sent intent settled
+    WH->>DB: read the intent the payment answers
     end
     rect rgb(235, 242, 255)
-    Note right of OR: one FDB transaction
-    OR->>DB: read modulr-outbox from its cursor
+    WH->>DB: save ModulrOutboxEvent transfer-completed
+    WH->>DB: write it to the modulr-outbox changelog
+    WH->>DB: read the sent intent
+    WH->>DB: save the intent, settled
+    WH->>DB: commit
+    end
+    rect rgb(235, 242, 255)
+    OR->>DB: read the cursor modulr-relay
+    OR->>DB: read the modulr-outbox changelog after it
     OR->>SE: transfer-completed
-    OR->>DB: commit the cursor modulr-relay
+    OR->>DB: write the cursor
+    OR->>DB: commit
     end
     SE->>PE: transfer-completed
     rect rgb(235, 242, 255)
-    Note right of PE: one FDB transaction
     PE->>DB: read the ProviderTransfer
-    PE->>DB: commit ProviderTransfer completed
+    PE->>DB: save the ProviderTransfer, completed
+    PE->>DB: commit
     end
 ```
 
@@ -199,8 +237,8 @@ route into one balance the ledger already divides.
 - **A failed mirror leaves the balances apart.** Nothing retries a
   failed `ProviderTransfer` or compares the provider's balances with the
   ledger.
-- **A bank's activity is serial.** One shard's log is read by one relay
-  runner and one bank's entries by one consumer, so one bank's mirrors
+- **A bank's activity is serial.** A bank's activity log is read by one
+  relay runner and its entries by one consumer, so one bank's mirrors
   are sent in order and at the rate that consumer reaches.
 
 ## References
