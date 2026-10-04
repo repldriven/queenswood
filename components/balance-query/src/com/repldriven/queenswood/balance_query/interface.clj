@@ -90,19 +90,21 @@
                       balance-status))
 
 (defn sub-ledger-balance
-  "The summed `{:credit :debit}` of the default posted balances of every
-  account of `product-type` in `currency` across the bank — the balance
-  of the control account that product type rolls into. Read from the
-  balances store's SUM indexes, at snapshot unless `opts` asks for
-  `{:isolation :serializable}`, which a guard deciding on the figure in
-  its own transaction needs. An empty group sums to zero.
+  "The summed `{:credit :debit}` of the default balances in one status,
+  posted unless `opts` names another, of every account of `product-type`
+  in `currency` across the bank — the balance of the ledger account
+  derived from them. Read from the balances store's SUM indexes, at
+  snapshot unless `opts` asks for `{:isolation :serializable}`, which a
+  guard deciding on the figure in its own transaction needs. An empty
+  group sums to zero.
 
   Args:
   - txn: FDB transaction or db handle.
   - bank-id: owning bank id.
   - product-type: the sub-ledger product type keyword.
   - currency: ISO 4217 currency string.
-  - opts: optional `{:isolation :snapshot | :serializable}`."
+  - opts: optional `{:isolation :snapshot | :serializable,
+    :balance-status <status keyword>}`."
   ([txn bank-id product-type currency]
    (sub-ledger-balance txn bank-id product-type currency {}))
   ([txn bank-id product-type currency opts]
@@ -111,7 +113,7 @@
                      product-type
                      currency
                      :balance-type-default
-                     :balance-status-posted
+                     (:balance-status opts :balance-status-posted)
                      (:isolation opts :snapshot))))
 
 (def

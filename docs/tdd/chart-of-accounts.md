@@ -414,19 +414,17 @@ the account's existing buckets, and is tagged
 so a cash account's buckets are always summed into its own
 control.
 
-**1200 Pending outbound payments** is the exception, and carries
-two on any bank that has sent a payment:
-
-| Balance type | Statuses                     |
-|--------------|------------------------------|
-| `default`    | `posted`, `pending-outgoing` |
-
-The outbound reservation credits 1200's `pending-outgoing`
-bucket when it reserves the customer's funds, and the settlement
-debits it when the money leaves for the scheme — a reversal
-debits it instead, releasing the reservation. Nothing writes
-1200's posted bucket, which the seed opens at zero. See
-[payments.md](payments.md).
+**1200 Pending outbound payments** carries none either. Its
+`default / pending-outgoing` balance mirrors the `default /
+pending-outgoing` buckets of every cash account whose product type
+rolls into a control, read from the same SUM indexes with credit
+and debit swapped. The outbound reservation still carries a leg
+crediting 1200 beside the customer's debit, and the settlement or
+a reversal one debiting it, so every transaction balances, but
+`stored-legs` drops those legs before the balances are written, so
+outbound payments in one bank share no row on 1200; see
+[ADR-0038](../adr/0038-an-outbound-submit-writes-no-row-every-payment-shares.md)
+and [payments.md](payments.md).
 
 The account's *identity* carries what `balance-type` encodes
 on customer and control accounts. Pending semantics are
@@ -579,10 +577,10 @@ sum into it together.
 Two movements deliberately do not reach a control:
 
 - **The outbound reservation.** Submitting an outbound payment
-  writes `default / pending-outgoing` on the customer leg and on
-  1200, so neither is summed. The deposit control moves at
-  settlement, when the customer's posted debit is recorded — see
-  [payments.md](payments.md).
+  writes the customer's `default / pending-outgoing` bucket, which
+  1200 mirrors and no deposit control sums. The deposit control
+  moves at settlement, when the customer's posted debit is recorded
+  — see [payments.md](payments.md).
 - **`interest-accrued` buckets.** The bank's side of an accrual is
   posted in aggregate at the close of the run, one DR 5100 / CR
   2400 entry per currency. Summing the buckets as well would book

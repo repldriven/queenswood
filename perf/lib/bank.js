@@ -1,5 +1,6 @@
-// A fresh test bank on the perf tier, with `accounts` opened and funded
-// accounts, built over the API as the scenario fixtures build one.
+// A fresh test bank on the perf tier, with `accounts` opened accounts,
+// each funded with `each` minor units where it is above zero, built over
+// the API as the scenario fixtures build one.
 
 import http from "k6/http";
 import { sleep } from "k6";
@@ -249,14 +250,13 @@ function openAccounts(n, partyIds, productId, bearer) {
     201,
     "opening an account",
   ).map((a) => a["account-id"]);
-  settleAll(
+  return settleAll(
     accounts,
     (a) => `/v1/cash-accounts/${a}`,
     (b) => b["account-status"] === "opened",
     bearer,
     "accounts to open",
-  );
-  return accounts;
+  ).map((b) => ({ id: b["account-id"], bban: b.bban }));
 }
 
 // Pays `each` minor units into every account from the bank's own funds,
@@ -300,13 +300,15 @@ export function build(n, each) {
   const bearer = token(clientId, clientSecret).value;
   const productId = createProduct(bearer);
   const parties = createParties(Math.min(n, PARTIES), bearer);
-  const accounts = openAccounts(n, parties, productId, bearer);
-  const ownFunds = fund(accounts, each, bearer);
+  const opened = openAccounts(n, parties, productId, bearer);
+  const accounts = opened.map((a) => a.id);
+  const ownFunds = each > 0 ? fund(accounts, each, bearer) : null;
   return {
     bankId: bank["bank-id"],
     clientId,
     clientSecret,
     ownFunds,
     accounts,
+    bbans: opened.map((a) => a.bban),
   };
 }

@@ -266,9 +266,9 @@
   (fdb/transact
    txn
    (fn [txn]
-     (fdb/sum-records (fdb/open txn outbound-payments-store-name)
-                      "OutboundPayment_sum_amount_by_bank_business_day"
-                      [bank-id business-day]))
+     (fdb/sum-records-snapshot (fdb/open txn outbound-payments-store-name)
+                               "OutboundPayment_sum_amount_by_bank_business_day"
+                               [bank-id business-day]))
    :payment/sum-outbound-by-org-business-day
    {:message "Failed to sum outbound payments by org/day"
     :bank-id bank-id

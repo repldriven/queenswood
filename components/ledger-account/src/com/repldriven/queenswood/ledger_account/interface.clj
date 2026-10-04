@@ -194,3 +194,22 @@
   - legs: transaction legs (customer legs carry `:product-type`)."
   [txn bank-id currency legs]
   (core/ensure-controls txn bank-id currency legs))
+
+(defn stored-legs
+  "The legs of a recorded transaction whose balances are stored, for
+  `balance/apply-legs`: `legs` without those on a ledger account whose
+  balance mirrors its sub-ledger's, as 1200 pending-outbound does. Such
+  a leg stays in the transaction, which balances with it, and its
+  account's balance is read from the sub-ledger it mirrors, so no
+  posting writes one row every payment shares. See ADR-0037.
+
+  Fails with `:gl/missing-currency-account` or `:ledger-account/closed`
+  where the mirroring account is absent in `currency` or closed.
+
+  Args:
+  - txn: FDB transaction or db handle.
+  - bank-id: owning bank id.
+  - currency: ISO 4217 currency string of the transaction.
+  - legs: the transaction's legs."
+  [txn bank-id currency legs]
+  (core/stored-legs txn bank-id currency legs))

@@ -3,9 +3,9 @@
 > **Status: proposal.** k6 in the dev shell, the Modulr simulator, SigNoz in
 > every cluster and a chart that installs on kind and on GKE exist, and
 > Background names them. The Proposed Solution is the build list, of which
-> the first two slices in [First slice](#first-slice) are built: the
-> internal-payment scenarios, the bank they run against and the Job that
-> runs them on kind.
+> the first three slices in [First slice](#first-slice) are built: the
+> internal, outbound and inbound scenarios, the bank they run against and
+> the Job that runs them on kind.
 
 ## Objective
 
@@ -17,16 +17,16 @@ decides the load scenarios, the bank they run against, where the load
 generator runs, what a run reports, and the reference rates a result is
 read against.
 
-In scope: k6 scenarios for internal and outbound payments on a bank whose
-payment provider is Modulr, a policy tier the test bank is placed on, k6
-running as a Job inside the cluster on kind and on GKE, the figures a run
-reports, and the ceilings the baseline is expected to find.
+In scope: k6 scenarios for internal, outbound and inbound payments on a
+bank whose payment provider is Modulr, a policy tier the test bank is
+placed on, k6 running as a Job inside the cluster on kind and on GKE, the
+figures a run reports, and the ceilings the baseline is expected to find.
 
 Out of scope: raising any ceiling a run finds, which the design of the
 brick holding it decides — [payments](payments.md),
 [transaction-processing](transaction-processing.md) and
-[ADR-0036](../adr/0036-simulators-run-in-a-service-of-their-own.md); read load, inbound
-payments and webhook delivery to a customer; the Form3 and ClearBank
+[ADR-0036](../adr/0036-simulators-run-in-a-service-of-their-own.md); read load and
+webhook delivery to a customer; the Form3 and ClearBank
 providers, which [bank-providers](bank-providers.md) describes; and load
 against a provider's own sandbox.
 
@@ -116,6 +116,12 @@ against a provider's own sandbox.
   with images from the local registry, one FDB storage process and one
   Kafka broker, inside Colima's 9 CPUs. The API is reached from the host
   by `kubectl port-forward`.
+- **Another bank's payment arrives through the simulator.**
+  `POST /simulate/inbound-payment` on the Modulr simulator takes a BBAN,
+  an amount in pounds and a debtor name, answers 202, and credits the
+  account it holds under that BBAN, telling the adapter with a PAYIN, as
+  a Faster Payment from another bank would. Inbound payments are listed
+  only by status, so one cannot be found by the id the simulator answers.
 
 ## Proposed Solution
 
@@ -146,10 +152,16 @@ Scripts live under `perf/`, outside every brick:
 - `perf/lib/api.js` — tokens and their refresh before expiry, a fresh
   `Idempotency-Key` per request, and responses tagged by status.
 - `perf/lib/bank.js` — the test bank, described below.
+- `perf/lib/load.js` — a profile's steps, the options for them and the
+  step a VU is in, which every scenario shares.
 - `perf/internal.js` — scenario A, every account paying a random other
   account, and scenario B, one account paying the rest at fixed steps.
-- `perf/outbound.js` — scenario C, outbound payments to a sort code that
-  is not the simulator's, so no payment arrives back as a PAYIN.
+- `perf/outbound.js` — scenario C, outbound payments from a random account
+  to a sort code no member of the scheme holds, so the payment leaves the
+  simulator and nothing comes back.
+- `perf/inbound.js` — scenario D, payments from another bank sent through
+  the simulator to a random account, the bank opening its accounts
+  unfunded.
 
 Every scenario runs as steps of a fixed arrival rate on k6's
 `ramping-arrival-rate` executor, each reached over five seconds and then
@@ -162,7 +174,7 @@ the steps:
 - **`knee`.** 5, 10, 20, 40, 80, 160 and 320 a second, a minute each, on
   200 accounts, aborting once more than 5 per cent of requests fail.
 - **`hot`.** Scenario B: 1, 2, 5, 10, 20 and 40 a second, a minute each,
-  from one account to the other 49.
+  from one account to the other 49, for internal payments only.
 
 `RATE` and `DURATION` replace a profile's steps with one-minute steps at
 that rate, so a sustained run shows whether the rate holds, and
@@ -264,12 +276,17 @@ load test signs in as a client of its own instead:
   fails, since k6 summarises a tagged metric only where a threshold
   names it.
 - **Rejections.** Counts by the statuses above.
-- **Settlement.** One outbound payment in 20 is followed: its VU polls
-  `GET /v1/payments/outbound/{payment-id}` with backoff until it is
-  completed, and records the time from its `created-at` as the
-  `settle_time` trend. The scenario's `gracefulStop` lets the last of
-  them settle, and the time from the load stopping to the last settled
-  is the drain time.
+- **Settlement.** One outbound or inbound payment in 20 is followed, its
+  VU polling from 50 ms, half as long again each time up to a second, and
+  recording the time from the submit as the `settle_time` trend. An
+  outbound payment is followed by `GET /v1/payments/outbound/{payment-id}`
+  until it is completed, failed or returned. A followed inbound payment
+  goes to one of the first tenth of the accounts, which nothing else
+  pays, and is followed by the account's posted balance until it has
+  risen by the amount. The summary's `settlement` counts the followed,
+  those never settled by why, and the trend; `gracefulStop`, 120
+  seconds, lets the last of them settle, and its polls carry
+  `phase: follow`, so no load figure counts them.
 - **Where the time went.** The run's window in SigNoz, where a payment's
   trace crosses the API, the bus, the processor and the adapter.
 
@@ -306,8 +323,18 @@ run at the next:
    and the same run holds 50 a second for ten minutes: 30,185 payments,
    none refused, 0.3% retried and only on creditor accounts, a command
    at 18 to 20 ms on each replica, and a p99 of 64 to 69 ms in the last
-   three minutes. Outbound submits still share 1200 and the SUM index,
-   and settlements 1100.
+   three minutes. Done for outbound submits too: every submit credited
+   1200's row and read the bank's daily outbound total serializably, and
+   the ten-minute outbound challenger fell from 48 a second to 18, its
+   submits retrying 3,546 times, 7,927 payments dropped and a followed
+   payment settling in 85 seconds. With 1200 mirrored from the
+   customers' pending-outgoing balances and the total read at snapshot,
+   by
+   [ADR-0038](../adr/0038-an-outbound-submit-writes-no-row-every-payment-shares.md),
+   the same run holds 50 a second: 29,999 payments, none refused, ten
+   retries in all, a p99 of 44 to 60 ms after the first minute, and
+   every followed payment settled, at 0.7 seconds at p50 and 7.6 at
+   p95. Settlements still share 1100.
 5. **The intent poller.** Done for 50 a second. One thread made every
    call in turn, about 31 ms each, so through the ten-minute challenger
    the adapter was sent 50 transfers a second and completed 35 falling
@@ -322,6 +349,15 @@ run at the next:
    Each pass still reads every pending and sent intent.
 6. **The relays.** One bank's activity is one shard's log, read by one
    runner at up to 500 entries every 100 ms.
+7. **The outbound settlement consumer.** `payment` settles outbound
+   payments from `topic-schemes-payments-event`, one partition, one
+   message at a time, at 17.6 ms each, so at 50 a second it is 89% busy
+   and a burst queues, which is the settlement tail. A second partition
+   needs 1100 off the settlement's shared rows first, as 1200 is off
+   the submit's.
+8. **Inbound payments.** The ten-minute inbound challenger holds 50 a
+   second with none refused, the followed payments credited at 138 ms
+   at p50 and 259 ms at p99.
 
 ### Span candidates
 
@@ -396,7 +432,7 @@ payment costs, ranked by its effect on the serial command path, which is
    a smoke run on kind.
 2. The `challenger` and `knee` profiles and scenario B, run on kind to
    find the first ceiling.
-3. Scenario C with settlement sampling and the drain time.
+3. Scenarios C and D with settlement sampling.
 4. A node pool for the Job on GKE, the first published run, and
    `docs/recipes/test/performance-testing.md` with its results.
 

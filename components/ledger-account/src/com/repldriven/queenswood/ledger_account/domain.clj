@@ -18,28 +18,41 @@
    :product-type-sub-ledger-term-deposit :gl-account-code-customer-deposits-term
    :product-type-sub-ledger-own-funds :gl-account-code-own-funds})
 
-(def control-code->product-type
-  "The product type whose sub-ledger a control account's balance is the
-  sum of, by the control's `:gl-account-code`. A ledger account absent
-  from it keeps a stored balance of its own. See ADR-0037."
-  (into {}
-        (map (fn [[product-type code]] [code product-type]))
-        product-type->control-code))
+(def derived
+  "How each ledger account holding no balance of its own sums one from the
+  balances store's indexes, by `:gl-account-code`: the product types
+  whose default balances it sums, in which status, and whether it mirrors
+  them, crediting what they debit. A deposit or own-funds control sums
+  its sub-ledger's posted balances; 1200 pending-outbound mirrors every
+  customer's pending-outgoing balance, the claim each outbound payment
+  in flight makes on the bank. A ledger account absent from it keeps a
+  stored balance. See ADR-0037."
+  (assoc (into {}
+               (map (fn [[product-type code]] [code
+                                               {:product-types [product-type]
+                                                :balance-status
+                                                :balance-status-posted}]))
+               product-type->control-code)
+         :gl-account-code-pending-outbound
+         {:product-types (vec (keys product-type->control-code))
+          :balance-status :balance-status-pending-outgoing
+          :mirror? true}))
 
 (defn derived-balance
-  "The default-posted balance of control `account`, built from the
-  summed `{:credit :debit}` of its sub-ledger in place of a stored row."
-  [account {:keys [credit debit]}]
+  "The balance of derived `account`, built by `spec` from the summed
+  `{:credit :debit}` of the balances it is derived from, in place of a
+  stored row."
+  [account {:keys [balance-status mirror?]} {:keys [credit debit]}]
   (let [{:keys [bank-id ledger-account-id currency created-at updated-at]}
         account]
     {:bank-id bank-id
      :account-id ledger-account-id
      :product-type :product-type-general-ledger
      :balance-type :balance-type-default
-     :balance-status :balance-status-posted
+     :balance-status balance-status
      :currency currency
-     :credit credit
-     :debit debit
+     :credit (if mirror? debit credit)
+     :debit (if mirror? credit debit)
      :credit-carry 0
      :created-at created-at
      :updated-at updated-at}))
