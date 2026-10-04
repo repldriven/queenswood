@@ -164,6 +164,14 @@ after one that made a call, and after `poll-ms` otherwise. Each pass is
 a `<adapter>-pass` span carrying `intents.pending`, `intents.sent` and
 `intents.ran`.
 
+An outbox entry about a payment or a transfer, whether the poller or a
+payment adapter's webhook wrote it, carries `ordering_key`, which
+`intent-poller/ordering-key` reads from the event's data: the payment's
+`end-to-end-id`, else the transfer's `transfer-id`. The relay publishes
+under it, so a payment's events reach `payment` in the order they were
+written however many partitions `topic-schemes-payments-event` has. An
+account or verification event carries none and is published unkeyed.
+
 An intent past `max-age-ms` is given up on as the poller gives one up on
 its last attempt today: its operation's `:failed` reports it
 `:undelivered`, whether or not the breaker is open.

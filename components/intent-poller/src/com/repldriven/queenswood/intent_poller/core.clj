@@ -24,6 +24,10 @@
    [:poll-ms pos-int?]
    [:concurrency {:optional true} pos-int?]])
 
+(defn ordering-key
+  [data]
+  (or (:end-to-end-id data) (:transfer-id data)))
+
 (defn- outbox-event
   [config now intent descriptor]
   (let [{:keys [schemas]} config
@@ -38,7 +42,9 @@
                            :causation-id intent-id
                            :created-at now}
                           :traceparent
-                          (not-empty traceparent)))))
+                          (not-empty traceparent)
+                          :ordering-key
+                          (ordering-key data)))))
 
 (defn- record
   "Leave `intent`, read at `from`, as `outcome` says: kept pending with
