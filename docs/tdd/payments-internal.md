@@ -197,20 +197,22 @@ sequenceDiagram
     RR->>DB: read the cursor internal-payments-relay
     end
     critical transact
-    RR->>DB: read up to 500 internal-payments changelog entries after it, at snapshot
+    RR->>DB: read a batch of internal-payments changelog entries after it, at snapshot
     loop each entry, in commit order
-    RR->>PE: internal-payment-settled, once Kafka has taken it
+    RR->>PE: internal-payment-settled, once the bus has taken it
     end
     RR->>DB: write the cursor, the last entry read
     end
 ```
 
-A pass publishes a batch of up to 500 entries and moves the cursor once,
-after the last: a publish that fails aborts the pass, and the next pass
-publishes the batch again, the entries already published included. The
-cursor is read in a transaction of its own and written without a
-conflict check, so one runner owns it. The changelog entry reaches the
-webhook catalogue as `payment.internal-settled`.
+A pass publishes a batch, at most the 500 entries `fdb/process-changelog`
+reads by default, which the relay does not configure, and moves the
+cursor once, after the last: a publish waits for the bus to take it, one
+that fails aborts the pass, and the next pass publishes the batch again,
+the entries already published included. The cursor is read in a
+transaction of its own and written without a conflict check, so one
+runner owns it. The changelog entry reaches the webhook catalogue as
+`payment.internal-settled`.
 
 ### Mirroring at a provider holding a balance per account
 
@@ -237,9 +239,9 @@ sequenceDiagram
     AR->>DB: read the log's cursor
     end
     critical transact
-    AR->>DB: read up to 500 of the bank's activity log entries after it, at snapshot
+    AR->>DB: read a batch of the bank's activity log entries after it, at snapshot
     loop each entry, in commit order
-    AR->>AE: transaction-posted, verbatim, once Kafka has taken it
+    AR->>AE: transaction-posted, verbatim, once the bus has taken it
     end
     AR->>DB: write the cursor, the last entry read
     end
@@ -391,9 +393,9 @@ sequenceDiagram
     OR->>DB: read the cursor modulr-relay
     end
     critical transact
-    OR->>DB: read up to 500 modulr-outbox changelog entries after it, at snapshot
+    OR->>DB: read a batch of modulr-outbox changelog entries after it, at snapshot
     loop each entry, in commit order
-    OR->>SE: transfer-completed, once Kafka has taken it
+    OR->>SE: transfer-completed, once the bus has taken it
     end
     OR->>DB: write the cursor, the last entry read
     end
