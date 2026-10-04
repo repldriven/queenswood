@@ -46,7 +46,8 @@
                     receiving-account-id)
        recorded (transactions/record-transaction txn transaction)
        {:keys [transaction-type legs]} recorded
-       _ (balances/apply-legs txn bank-id legs transaction-type)]
+       stored (ledger-accounts/stored-legs txn bank-id currency legs)
+       _ (balances/apply-legs txn bank-id stored transaction-type)]
       recorded)))
 
 (defn- record-suspended
@@ -130,7 +131,8 @@
                                txn
                                (assoc transaction :legs checked-legs))
              {:keys [transaction-id transaction-type legs]} transaction+legs
-             _ (balances/apply-legs txn bank-id legs transaction-type)
+             stored (ledger-accounts/stored-legs txn bank-id currency legs)
+             _ (balances/apply-legs txn bank-id stored transaction-type)
              payment (inbound/new-inbound-payment data
                                                   account-id
                                                   bank-id
@@ -211,7 +213,8 @@
                        txn
                        (assoc transaction :legs checked-legs))
              {:keys [transaction-id transaction-type legs]} recorded
-             _ (balances/apply-legs txn bank-id legs transaction-type)
+             stored (ledger-accounts/stored-legs txn bank-id currency legs)
+             _ (balances/apply-legs txn bank-id stored transaction-type)
              released (inbound/settled-from-held held
                                                  scheme-transaction-id
                                                  transaction-id)
@@ -248,7 +251,8 @@
                  txn
                  (assoc transaction :legs checked-legs))
        {:keys [transaction-id transaction-type legs]} recorded
-       _ (balances/apply-legs txn bank-id legs transaction-type)
+       stored (ledger-accounts/stored-legs txn bank-id currency legs)
+       _ (balances/apply-legs txn bank-id stored transaction-type)
        settled (inbound/settled-from-held admitted
                                           scheme-transaction-id
                                           transaction-id)
@@ -552,7 +556,8 @@
                           (:ledger-account-id cash)
                           (:ledger-account-id suspense)))
                {:keys [transaction-type legs]} recorded
-               _ (balances/apply-legs txn bank-id legs transaction-type)
+               stored (ledger-accounts/stored-legs txn bank-id currency legs)
+               _ (balances/apply-legs txn bank-id stored transaction-type)
                returned (inbound/returned-inbound-payment payment)
                _ (store/save-inbound-payment
                   txn

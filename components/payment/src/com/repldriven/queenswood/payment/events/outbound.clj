@@ -244,7 +244,8 @@
                  txn
                  (assoc tx :legs checked-legs))
        {:keys [transaction-type legs]} recorded
-       _ (balances/apply-legs txn bank-id legs transaction-type)]
+       stored (ledger-accounts/stored-legs txn bank-id currency legs)
+       _ (balances/apply-legs txn bank-id stored transaction-type)]
       recorded)))
 
 (defn return-outbound

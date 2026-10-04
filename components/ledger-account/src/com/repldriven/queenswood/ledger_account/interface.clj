@@ -197,14 +197,16 @@
 
 (defn stored-legs
   "The legs of a recorded transaction whose balances are stored, for
-  `balance/apply-legs`: `legs` without those on a ledger account whose
-  balance mirrors its sub-ledger's, as 1200 pending-outbound does. Such
-  a leg stays in the transaction, which balances with it, and its
-  account's balance is read from the sub-ledger it mirrors, so no
-  posting writes one row every payment shares. See ADR-0037.
+  `balance/apply-legs`: `legs` less those on a ledger account that keeps
+  no balance row — 1200 pending-outbound, which mirrors the customers'
+  pending-outgoing balances, and 1100 cash-at-correspondent, which sums
+  its own legs. Such a leg stays in the transaction, which balances with
+  it, and in the journal; it is only left out of the balance writes, so
+  no posting rewrites a row every payment shares. See ADR-0038 and
+  ADR-0039.
 
   Fails with `:gl/missing-currency-account` or `:ledger-account/closed`
-  where the mirroring account is absent in `currency` or closed.
+  where one of those accounts is absent in `currency` or closed.
 
   Args:
   - txn: FDB transaction or db handle.

@@ -196,6 +196,9 @@
 
 (def transaction-type->int transactions/TransactionType-label2val)
 
+(def ^{:doc "Map of LegSide label to protobuf int value."} leg-side->int
+  transactions/LegSide-label2val)
+
 (defn transaction-type->pb-enum
   "Convert a transaction-type keyword to the protobuf enum value, for
   use as the comparand in an FDB enum-field index query."

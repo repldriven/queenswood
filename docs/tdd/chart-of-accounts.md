@@ -381,8 +381,9 @@ The bank's **own-funds cash account** carries a single
 pending lifecycle; its available balance is just its posted
 default.
 
-**Every GL account but the deposit and own-funds controls and
-1200** carries a single bucket:
+**Every GL account but the deposit and own-funds controls, 1100
+and 1200** carries a single stored bucket, and 1100 a single summed
+one:
 
 | Balance type | Statuses |
 |--------------|----------|
@@ -406,7 +407,13 @@ bank's side sits on 2400, so interest is never counted as both
 `2100.interest-accrued` and `2400.default`. 2400 is a control
 too, but posted to: by the accrual entry at the close of a run and
 by each account's capitalisation. See [interest.md](interest.md).
-1100, 2500 and 5100 are detail accounts, posted to directly.
+2500 and 5100 are detail accounts, posted to directly. 1100 is a
+detail account whose balance is the sum of its legs, read from a SUM
+index on `transaction-legs` over `amount` grouped by account, bucket
+and side: every posting naming it still records its leg, but the leg
+is left out of the balance writes, so settlements in one bank share no
+row on 1100; see
+[ADR-0039](../adr/0039-cash-at-correspondents-balance-is-the-sum-of-its-legs.md).
 
 A bucket a leg opens takes the leg's `:product-type`, else that of
 the account's existing buckets, and is tagged
