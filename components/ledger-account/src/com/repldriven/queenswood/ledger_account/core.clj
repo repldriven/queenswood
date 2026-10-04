@@ -22,8 +22,7 @@
      [policies (get-policies txn bank-id opts)
       account (domain/new-ledger-account bank-id currency row policies)
       _ (store/save-account txn account)
-      _ (when-not (domain/control-code->product-type
-                   (:gl-account-code account))
+      _ (when-not (domain/derived (:gl-account-code account))
           (balances/new-balances txn
                                  bank-id
                                  [(domain/opening-balance account)]))]
@@ -33,21 +32,30 @@
   [txn bank-id ledger-account-id]
   (store/find-by-id txn bank-id ledger-account-id))
 
-(defn- control-balance
-  [txn account product-type opts]
-  (let-nom>
-    [sums (balance-query/sub-ledger-balance txn
-                                            (:bank-id account)
-                                            product-type
-                                            (:currency account)
-                                            opts)]
-    (domain/derived-balance account sums)))
+(defn- derived-balance
+  [txn account spec opts]
+  (let [{:keys [bank-id currency]} account
+        {:keys [product-types balance-status]} spec
+        opts (assoc opts :balance-status balance-status)]
+    (let-nom>
+      [sums (reduce (fn [acc product-type]
+                      (let [sum (balance-query/sub-ledger-balance
+                                 txn
+                                 bank-id
+                                 product-type
+                                 currency
+                                 opts)]
+                        (if (error/anomaly? sum)
+                          (reduced sum)
+                          (merge-with + acc sum))))
+                    {:credit 0 :debit 0}
+                    product-types)]
+      (domain/derived-balance account spec sums))))
 
 (defn- account-balances
   [txn bank-id account]
-  (if-let [product-type (domain/control-code->product-type
-                         (:gl-account-code account))]
-    (let-nom> [balance (control-balance txn account product-type {})]
+  (if-let [spec (domain/derived (:gl-account-code account))]
+    (let-nom> [balance (derived-balance txn account spec {})]
       [balance])
     (balance-query/list-balances txn bank-id (:ledger-account-id account))))
 
@@ -59,9 +67,8 @@
 
 (defn- posted-balance
   [txn bank-id account]
-  (if-let [product-type (domain/control-code->product-type
-                         (:gl-account-code account))]
-    (control-balance txn account product-type {:isolation :serializable})
+  (if-let [spec (domain/derived (:gl-account-code account))]
+    (derived-balance txn account spec {:isolation :serializable})
     (balance-query/get-balance txn
                                bank-id
                                (:ledger-account-id account)
@@ -98,9 +105,8 @@
   (let-nom>
     [pairs (store/list-by-bank-with-balances config bank-id)]
     (reduce (fn [acc {:keys [account] :as pair}]
-              (if-let [product-type (domain/control-code->product-type
-                                     (:gl-account-code account))]
-                (let [balance (control-balance config account product-type {})]
+              (if-let [spec (domain/derived (:gl-account-code account))]
+                (let [balance (derived-balance config account spec {})]
                   (if (error/anomaly? balance)
                     (reduced balance)
                     (conj acc (assoc pair :balances [balance]))))
@@ -122,3 +128,16 @@
                                     (:product-type leg)))))
                      legs))]
     legs))
+
+(defn stored-legs
+  [txn bank-id currency legs]
+  (let-nom>
+    [ids (reduce (fn [ids code]
+                   (let [account (find-by-code txn bank-id code currency)]
+                     (if (error/anomaly? account)
+                       (reduced account)
+                       (conj ids (:ledger-account-id account)))))
+                 #{}
+                 (keep (fn [[code spec]] (when (:mirror? spec) code))
+                       domain/derived))]
+    (into [] (remove (fn [leg] (contains? ids (:account-id leg)))) legs)))

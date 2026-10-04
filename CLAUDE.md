@@ -72,8 +72,10 @@ non-trivial work on their topic.
 - **Control balances** — a deposit or own-funds control's balance is
   the sum of its sub-ledger's, read from SUM indexes the Record Layer
   keeps by atomic mutation, so a posting writes only the accounts its
-  legs name. See
-  [ADR-0037](docs/adr/0037-a-control-accounts-balance-is-the-sum-of-the-balances-that-roll-into-it.md)
+  legs name; 1200 pending-outbound mirrors the customers' pending-outgoing
+  balances the same way. See
+  [ADR-0037](docs/adr/0037-a-control-accounts-balance-is-the-sum-of-the-balances-that-roll-into-it.md),
+  [ADR-0038](docs/adr/0038-an-outbound-submit-writes-no-row-every-payment-shares.md)
   and [tdd/chart-of-accounts.md](docs/tdd/chart-of-accounts.md).
 - **Schema evolution** — the declared meta-data `version`, `added`
   and `modified` per index, former indexes, deprecating a proto field

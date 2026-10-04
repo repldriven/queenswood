@@ -319,6 +319,80 @@
                              listed))
                     "the chart pairs the control with the same summed balance")]))))
 
+(defn- reserve
+  [config bank-id account-id product-type amount]
+  (balance/apply-legs config
+                      bank-id
+                      [{:account-id account-id
+                        :product-type product-type
+                        :balance-type :balance-type-default
+                        :balance-status :balance-status-pending-outgoing
+                        :side :leg-side-debit
+                        :amount amount
+                        :currency "GBP"}]
+                      :transaction-type-outbound-transfer))
+
+(deftest pending-outbound-mirrors-pending-outgoing-test
+  (with-test-system
+   [sys "classpath:ledger-account/application-test.yml"]
+   (let [config (fdb-config sys)
+         bank-id "bnk.test-pending"]
+     (nom-test>
+       [_ (seed! config bank-id)
+        cash (SUT/find-by-code config
+                               bank-id
+                               :gl-account-code-cash-at-correspondent
+                               "GBP")
+        cash-id (:ledger-account-id cash)
+        _ (open-customer-account config
+                                 bank-id
+                                 "acc.current1"
+                                 :product-type-sub-ledger-current)
+        _ (open-customer-account config
+                                 bank-id
+                                 "acc.savings1"
+                                 :product-type-sub-ledger-savings)
+        _ (deposit config bank-id cash-id "acc.current1" 1000)
+        _ (deposit config bank-id cash-id "acc.savings1" 1000)
+        _ (reserve config
+                   bank-id
+                   "acc.current1"
+                   :product-type-sub-ledger-current
+                   300)
+        _ (reserve config
+                   bank-id
+                   "acc.savings1"
+                   :product-type-sub-ledger-savings
+                   200)
+        pending (SUT/find-by-code config
+                                  bank-id
+                                  :gl-account-code-pending-outbound
+                                  "GBP")
+        bals (SUT/get-balances config bank-id pending)
+        _
+        (is
+         (= [{:account-id (:ledger-account-id pending)
+              :balance-status :balance-status-pending-outgoing
+              :credit 500
+              :debit 0}]
+            (mapv (fn [b]
+                    (select-keys b
+                                 [:account-id :balance-status
+                                  :credit :debit]))
+                  (:balances bals)))
+         "1200 credits what every customer reserved, across
+                       product types")
+        customer (customer-leg {:account-id "acc.current1"
+                                :balance-status :balance-status-pending-outgoing
+                                :side :leg-side-debit})
+        claim {:account-id (:ledger-account-id pending)
+               :balance-type :balance-type-default
+               :balance-status :balance-status-pending-outgoing
+               :side :leg-side-credit
+               :amount 1000}
+        stored (SUT/stored-legs config bank-id "GBP" [customer claim])
+        _ (is (= [customer] stored) "the 1200 leg is not written to a balance")]))))
+
 (deftest a-bucket-takes-its-accounts-product-type-test
   (with-test-system
    [sys "classpath:ledger-account/application-test.yml"]

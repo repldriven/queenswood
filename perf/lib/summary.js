@@ -9,10 +9,24 @@ export const END = "==== perf summary end ====";
 // failure, FDB contention, and no response at all.
 export const REJECTIONS = ["429", "500", "503", "0"];
 
+// Why a followed payment did not settle: a final status other than
+// settled, or the follow timing out.
+export const UNSETTLED = ["failed", "returned", "timeout"];
+
 export function rejectionThresholds() {
   const t = {};
   REJECTIONS.forEach((s) => {
     t[`payments_rejected{status:${s}}`] = ["count>=0"];
+  });
+  return t;
+}
+
+// For a scenario that follows payments, whose `unsettled` counter k6
+// would refuse a threshold on anywhere else.
+export function settlementThresholds() {
+  const t = {};
+  UNSETTLED.forEach((r) => {
+    t[`unsettled{reason:${r}}`] = ["count>=0"];
   });
   return t;
 }
@@ -43,6 +57,23 @@ function step(data, s, i) {
   );
 }
 
+// The payments a scenario followed to settlement: how many, how many
+// never settled by why, and the time from submit to settled.
+function settlement(data) {
+  const followed = values(data, "followed").count || 0;
+  if (followed === 0) return undefined;
+  const unsettled = {};
+  Object.keys(data.metrics)
+    .filter((k) => k.startsWith("unsettled{reason:"))
+    .forEach((k) => {
+      unsettled[k.slice("unsettled{reason:".length, -1)] = values(data, k).count;
+    });
+  return Object.assign(
+    { followed, unsettled },
+    latency(values(data, "settle_time")),
+  );
+}
+
 function headline(data, run) {
   const rejected = {};
   REJECTIONS.forEach((s) => {
@@ -54,6 +85,7 @@ function headline(data, run) {
     rejected,
     dropped: values(data, "dropped_iterations").count || 0,
     vus: values(data, "vus_max").max,
+    settlement: settlement(data),
     steps: run.steps.map((s, i) => step(data, s, i)),
   };
 }

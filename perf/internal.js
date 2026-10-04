@@ -2,11 +2,11 @@
 // arrival rate in steps. See docs/tdd/performance-testing.md.
 
 import { check } from "k6";
-import exec from "k6/execution";
 import { Counter } from "k6/metrics";
 import { bankTokenSource, env, post } from "./lib/api.js";
 import { build } from "./lib/bank.js";
-import { rejectionThresholds, summary } from "./lib/summary.js";
+import { chosen, options as loadOptions, stepNow, steps } from "./lib/load.js";
+import { summary } from "./lib/summary.js";
 
 // `spread`: every account pays a random other one. `hot`: the first
 // account pays every other one.
@@ -33,37 +33,9 @@ const PROFILES = {
   },
 };
 
-const PROFILE = env("PROFILE", "smoke");
-const profile = PROFILES[PROFILE];
-if (!profile) throw new Error(`unknown PROFILE ${PROFILE}`);
-
-function seconds(d) {
-  const m = /^(\d+)(s|m|h)$/.exec(d);
-  if (!m) throw new Error(`duration ${d} is not <n>s, <n>m or <n>h`);
-  return parseInt(m[1]) * { s: 1, m: 60, h: 3600 }[m[2]];
-}
-
-// An overridden rate or duration runs as one-minute steps at that rate,
-// so the summary shows whether a sustained rate holds.
-function overridden() {
-  const rate = parseInt(env("RATE", profile.steps[0][0]));
-  const total = seconds(env("DURATION", profile.steps[0][1]));
-  const steps = [];
-  for (let left = total; left > 0; left -= 60) {
-    steps.push({ rate, seconds: Math.min(60, left) });
-  }
-  return steps;
-}
-
-const STEPS =
-  env("RATE") || env("DURATION")
-    ? overridden()
-    : profile.steps.map(([rate, d]) => ({ rate, seconds: seconds(d) }));
-
+const [PROFILE, profile] = chosen(PROFILES);
+const STEPS = steps(profile);
 const ACCOUNTS = parseInt(env("ACCOUNTS", profile.accounts));
-
-// A step reaches its rate over this many seconds, then holds it.
-const RAMP = 5;
 
 // Payments are 1p to £1. Every account is funded for twice the run's
 // worst case, the hot account's every payment included.
@@ -74,68 +46,13 @@ const FUNDING =
   MAX_AMOUNT *
   (profile.mode === "hot" ? PAYMENTS : Math.ceil(PAYMENTS / ACCOUNTS) + 1);
 
-const TOP = Math.max(...STEPS.map((s) => s.rate));
-
 const payments = new Counter("payments");
 const rejected = new Counter("payments_rejected");
 
-// A threshold per step, which nothing fails, so the summary carries
-// each step's figures.
-function stepThresholds() {
-  const t = {};
-  STEPS.forEach((_, i) => {
-    const tag = `{phase:load,step:${i}}`;
-    t[`http_req_duration${tag}`] = ["max>=0"];
-    t[`http_req_failed${tag}`] = ["rate<=1"];
-    t[`payments${tag}`] = ["count>=0"];
-  });
-  return t;
-}
-
-export const options = {
-  setupTimeout: env("SETUP_TIMEOUT", "30m"),
-  scenarios: {
-    internal: {
-      executor: "ramping-arrival-rate",
-      startRate: STEPS[0].rate,
-      timeUnit: "1s",
-      preAllocatedVUs: Math.max(10, TOP * 2),
-      maxVUs: Math.min(2000, Math.max(50, TOP * 10)),
-      stages: STEPS.flatMap((s) => [
-        { target: s.rate, duration: `${RAMP}s` },
-        { target: s.rate, duration: `${s.seconds - RAMP}s` },
-      ]),
-      tags: { phase: "load" },
-    },
-  },
-  thresholds: Object.assign(
-    {
-      "http_req_failed{phase:load}": [
-        {
-          threshold: `rate<${profile.abortAbove || 0.001}`,
-          abortOnFail: Boolean(profile.abortAbove),
-          delayAbortEval: "30s",
-        },
-      ],
-      "http_req_duration{phase:load}": [{ threshold: "p(99)<1000", abortOnFail: false }],
-    },
-    stepThresholds(),
-    rejectionThresholds(),
-  ),
-  summaryTrendStats: ["avg", "min", "med", "p(90)", "p(95)", "p(99)", "max"],
-};
+export const options = loadOptions("internal", STEPS, profile);
 
 export async function setup() {
   return build(ACCOUNTS, FUNDING);
-}
-
-function stepNow() {
-  let elapsed = (Date.now() - exec.scenario.startTime) / 1000;
-  for (let i = 0; i < STEPS.length; i++) {
-    if (elapsed < STEPS[i].seconds) return i;
-    elapsed -= STEPS[i].seconds;
-  }
-  return STEPS.length - 1;
 }
 
 function pair(n) {
@@ -148,7 +65,7 @@ let bearer = null;
 
 export default function (bank) {
   if (!bearer) bearer = bankTokenSource(bank.clientId, bank.clientSecret);
-  const step = String(stepNow());
+  const step = String(stepNow(STEPS));
   const [d, c] = pair(bank.accounts.length);
   const res = post(
     "/v1/payments/internal",

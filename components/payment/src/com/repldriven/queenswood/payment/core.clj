@@ -195,9 +195,13 @@
                                              checked-legs))
                     {:keys [transaction-id transaction-type legs]}
                     transaction+legs
+                    stored (ledger-accounts/stored-legs txn
+                                                        bank-id
+                                                        currency
+                                                        legs)
                     _ (balances/apply-legs txn
                                            bank-id
-                                           legs
+                                           stored
                                            transaction-type
                                            {:policies (policy/platform-policies
                                                        policies)})

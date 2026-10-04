@@ -1,5 +1,5 @@
 (ns com.repldriven.queenswood.test-scenarios.invariants
-  "The two standing accounting invariants, checked after every
+  "The standing accounting invariants, checked after every
   scenario step and returned as failure messages.
 
   The trial balance ties — Sigma-debit == Sigma-credit per currency
@@ -17,8 +17,11 @@
   sub-ledger's balance rows by their own product type, so this catches
   a row filed under a product type other than its account's.
 
-  Both read `default / posted` only, so in-flight buckets (held,
-  pending, interest-accrued sub-ledger) don't perturb them. A balance
+  1200 pending-outbound mirrors every customer's `default /
+  pending-outgoing` bucket, the sides swapped, per currency.
+
+  The first two read `default / posted` only, so in-flight buckets
+  (held, pending, interest-accrued sub-ledger) don't perturb them. A balance
   read that fails is never treated as zero: it is a failure naming the
   account, because an invariant that holds vacuously is worse than
   none.
@@ -52,6 +55,11 @@
   [balance]
   (and (= :balance-type-default (:balance-type balance))
        (= :balance-status-posted (:balance-status balance))))
+
+(defn- default-pending-outgoing?
+  [balance]
+  (and (= :balance-type-default (:balance-type balance))
+       (= :balance-status-pending-outgoing (:balance-status balance))))
 
 (defn reduce-cash-accounts
   "Reduce `f` over every cash account in `bank-id`, each already
@@ -88,49 +96,63 @@
 (defn- add-control-totals
   "Add one cash account's `default / posted` buckets to the running
   totals, keyed by the control role its product type rolls into and the
-  bucket's currency. An account whose product type rolls into no
-  control contributes nothing."
+  bucket's currency, and its `default / pending-outgoing` buckets,
+  sides swapped, under 1200 pending-outbound, which mirrors them. An
+  account whose product type rolls into no control contributes nothing."
   [totals account]
   (if-some [code (ledger-accounts/product-type->control-code
                   (:product-type account))]
     (reduce (fn [acc balance]
-              (if (default-posted? balance)
-                (update acc
-                        [code (:currency balance)]
-                        (fnil + 0)
-                        (net balance))
-                acc))
+              (cond
+               (default-posted? balance)
+               (update acc [code (:currency balance)] (fnil + 0) (net balance))
+
+               (default-pending-outgoing? balance)
+               (update acc
+                       [:gl-account-code-pending-outbound (:currency balance)]
+                       (fnil + 0)
+                       (- (net balance)))
+
+               :else
+               acc))
             totals
             (:balances account))
     totals))
 
-(defn- posted-net
-  "The credit-positive posted net of one ledger account, or the anomaly
-  its balance read failed with. Never a zero standing in for a failed
-  read — `books-failures` turns the anomaly into a failure naming the
-  account."
+(defn- nets
+  "The credit-positive posted and pending-outgoing nets of one ledger
+  account, or the anomaly its balance read failed with in place of each.
+  Never a zero standing in for a failed read — `books-failures` turns
+  the anomaly into a failure naming the account."
   [txn bank-id account]
   (let [bs (ledger-accounts/get-balances txn bank-id account)]
     (if (error/anomaly? bs)
-      bs
-      (:value (:posted-balance bs)))))
+      {:posted bs :pending-outgoing bs}
+      {:posted (:value (:posted-balance bs))
+       :pending-outgoing (transduce (comp (filter default-pending-outgoing?)
+                                          (map net))
+                                    +
+                                    0
+                                    (:balances bs))})))
 
 (defn- chart-entry
   "One chart row, as both a trial-balance entry and a reconciliation
   target: `:normal-side` and `:value` for the tie, `:gl-account-code`
   and `:currency` for resolving a control."
   [txn bank-id account]
-  {:ledger-account-id (:ledger-account-id account)
-   :gl-account-code (:gl-account-code account)
-   :currency (:currency account)
-   :normal-side (if (ledger-accounts/debit-normal?
-                     (:gl-account-type account))
-                  :debit
-                  :credit)
-   :value (posted-net txn bank-id account)})
+  (let [{:keys [posted pending-outgoing]} (nets txn bank-id account)]
+    {:ledger-account-id (:ledger-account-id account)
+     :gl-account-code (:gl-account-code account)
+     :currency (:currency account)
+     :normal-side (if (ledger-accounts/debit-normal?
+                       (:gl-account-type account))
+                    :debit
+                    :credit)
+     :value posted
+     :pending-outgoing pending-outgoing}))
 
 (defn- books-snapshot
-  "Both sides of both invariants for one bank, read in a single FDB
+  "Both sides of every invariant for one bank, read in a single FDB
   transaction: the whole chart with each row's posted net, and the
   sub-ledger totals the controls are reconciled against. One snapshot,
   so an async settlement commit landing mid-read (e.g. `settle-outbound`
@@ -223,8 +245,29 @@
            actual
            ")"))))
 
+(defn- pending-outbound-failures
+  "Why 1200 pending-outbound does not mirror the customers'
+  `default / pending-outgoing` buckets, for each currency the bank's
+  chart carries 1200 in."
+  [bank-id {:keys [chart sub-ledger]}]
+  (for [{:keys [gl-account-code currency pending-outgoing]} chart
+        :when (= :gl-account-code-pending-outbound gl-account-code)
+        :let [expected (get sub-ledger
+                            [:gl-account-code-pending-outbound currency]
+                            0)]
+        :when (not= expected pending-outgoing)]
+    (str "1200 must mirror the customers' pending-outgoing — bank "
+         bank-id
+         " "
+         currency
+         " (sub-ledger "
+         expected
+         " / 1200 "
+         pending-outgoing
+         ")")))
+
 (defn- books-failures
-  "Both standing invariants for one bank, off a single snapshot of its
+  "The standing invariants for one bank, off a single snapshot of its
   books, as failure messages. A snapshot that can't be read, or a chart
   row whose balance can't be read, is a failure naming what failed
   instead of leaving the invariants to hold over what was readable."
@@ -252,12 +295,13 @@
            failures)
 
      :else
-     (into (vec (trial-balance-failures bank-id (:chart snapshot)))
-           (control-failures bank-id snapshot)))))
+     (-> (vec (trial-balance-failures bank-id (:chart snapshot)))
+         (into (control-failures bank-id snapshot))
+         (into (pending-outbound-failures bank-id snapshot))))))
 
 (defn check
-  "Both standing invariants against every bank created so far in the run,
-  as a vector of failure messages, empty when both hold. `ctx` is the
+  "The standing invariants against every bank created so far in the run,
+  as a vector of failure messages, empty when every one holds. `ctx` is the
   runner context: `:bank` is the FDB config and `:banks` holds the
   per-model `{:real-id ...}` entries."
   [{:keys [bank banks]}]
