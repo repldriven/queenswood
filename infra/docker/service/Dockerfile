@@ -141,7 +141,12 @@ RUN ARCH="$(case "${TARGETARCH:-amd64}" in \
  && ln -sf /usr/lib/libfdb_c.so "/usr/lib/libfdb_c_${FDB_VERSION}.so"
 
 ENV FDB_CLUSTER_FILE=/etc/fdb/fdb.cluster
-ENV JAVA_TOOL_OPTIONS="-XX:+ExitOnOutOfMemoryError"
+# The heap takes 60% of the container's memory limit rather than the
+# JVM's default 25%, which left a 1.5 GiB service with a 375 MB heap. The
+# rest is left to what lives outside the heap -- the FDB client's native
+# library, Kafka's buffers, thread stacks, metaspace -- since at 75% the
+# kernel killed a busy service for passing its limit.
+ENV JAVA_TOOL_OPTIONS="-XX:+ExitOnOutOfMemoryError -XX:MaxRAMPercentage=60"
 
 WORKDIR /app
 COPY --from=build /workspace/projects/${PROJECT_NAME}/target/app.jar /app/app.jar

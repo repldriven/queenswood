@@ -1,6 +1,6 @@
-// Outbound payments from a fresh bank's accounts to an account at another
-// bank, sent at a fixed arrival rate in steps, one in FOLLOW followed
-// until it completes. See docs/tdd/performance-testing.md.
+// Internal and outbound payments from a fresh bank's accounts, mixed in
+// one arrival rate, one outbound in FOLLOW followed until it completes.
+// See docs/tdd/performance-testing.md.
 
 import { check, sleep } from "k6";
 import exec from "k6/execution";
@@ -10,6 +10,7 @@ import {
   env,
   get,
   KNOWN_WITHIN_S,
+  post,
   postUntilKnown,
 } from "./lib/api.js";
 import { build } from "./lib/bank.js";
@@ -36,6 +37,9 @@ const [PROFILE, profile] = chosen(PROFILES);
 const STEPS = steps(profile);
 const ACCOUNTS = parseInt(env("ACCOUNTS", profile.accounts));
 
+// The share of payments sent outbound, the rest internal.
+const OUTBOUND_SHARE = parseFloat(env("OUTBOUND_SHARE", "0.5"));
+
 // An address under a sort code no member of the scheme holds, so the
 // payment leaves the provider and nothing comes back.
 const CREDITOR_BBAN = "20000012345678";
@@ -56,7 +60,7 @@ const followed = new Counter("followed");
 const unsettled = new Counter("unsettled");
 const settleTime = new Trend("settle_time", true);
 
-export const options = loadOptions("outbound", STEPS, profile, {
+export const options = loadOptions("mixed", STEPS, profile, {
   // An iteration may ask until its payment is known, then follow it.
   gracefulStop: `${KNOWN_WITHIN_S + SETTLE_TIMEOUT_S}s`,
   thresholds: settlementThresholds(),
@@ -66,8 +70,9 @@ export async function setup() {
   return build(ACCOUNTS, FUNDING);
 }
 
-// Every accepted payment leaves the bank, so the books end at what
-// setup injected less what was paid out.
+// Internal payments move money between the bank's accounts and every
+// accepted outbound leaves it, so the books end at what setup injected
+// less what was paid out.
 export function teardown(bank) {
   checkBooks(bank);
 }
@@ -98,17 +103,39 @@ function follow(paymentId, sent) {
   unsettled.add(1, { reason: "timeout" });
 }
 
-export default function (bank) {
-  if (!bearer) bearer = bankTokenSource(bank);
-  const step = String(stepNow(STEPS));
-  const debtor =
-    bank.accounts[Math.floor(Math.random() * bank.accounts.length)];
+function pick(n) {
+  return Math.floor(Math.random() * n);
+}
+
+function internal(bank, step) {
+  const n = bank.accounts.length;
+  const d = pick(n);
+  const c = (d + 1 + pick(n - 1)) % n;
+  const res = post(
+    "/v1/payments/internal",
+    {
+      "debtor-account-id": bank.accounts[d],
+      "creditor-account-id": bank.accounts[c],
+      currency: "GBP",
+      amount: 1 + pick(MAX_AMOUNT),
+      reference: "Perf",
+    },
+    bearer(),
+    { tags: { name: "payments/internal", step } },
+  );
+  payments.add(1, { step, kind: "internal" });
+  if (!check(res, { "internal payment settled": (r) => r.status === 201 })) {
+    rejected.add(1, { status: String(res.status), step, kind: "internal" });
+  }
+}
+
+function outbound(bank, step) {
   const sent = Date.now();
-  const amount = 1 + Math.floor(Math.random() * MAX_AMOUNT);
+  const amount = 1 + pick(MAX_AMOUNT);
   const res = postUntilKnown(
     "/v1/payments/outbound",
     {
-      "debtor-account-id": debtor,
+      "debtor-account-id": bank.accounts[pick(bank.accounts.length)],
       "creditor-bban": CREDITOR_BBAN,
       "creditor-name": "Perf Payee",
       currency: "GBP",
@@ -119,9 +146,9 @@ export default function (bank) {
     bearer,
     { tags: { name: "payments/outbound", step } },
   );
-  payments.add(1, { step });
-  if (!check(res, { "payment accepted": (r) => r.status === 201 })) {
-    rejected.add(1, { status: String(res.status), step });
+  payments.add(1, { step, kind: "outbound" });
+  if (!check(res, { "outbound payment accepted": (r) => r.status === 201 })) {
+    rejected.add(1, { status: String(res.status), step, kind: "outbound" });
     return;
   }
   amountOut.add(amount);
@@ -130,12 +157,23 @@ export default function (bank) {
   }
 }
 
+export default function (bank) {
+  if (!bearer) bearer = bankTokenSource(bank);
+  const step = String(stepNow(STEPS));
+  if (Math.random() < OUTBOUND_SHARE) {
+    outbound(bank, step);
+  } else {
+    internal(bank, step);
+  }
+}
+
 export function handleSummary(data) {
   return summary(data, {
-    scenario: "outbound",
+    scenario: "mixed",
     profile: PROFILE,
     accounts: ACCOUNTS,
     steps: STEPS,
     follow: FOLLOW,
+    outboundShare: OUTBOUND_SHARE,
   });
 }

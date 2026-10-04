@@ -89,9 +89,16 @@
            :status 503
            :detail "Failed to save cash account"}})
 
+(def Overloaded
+  {:value {:title "ERROR"
+           :type "server/overloaded"
+           :status 503
+           :detail (str "The server is handling as many requests as it takes."
+                        " Retry after 1 second.")}})
+
 (def registry
   (examples-registry
    [#'BadRequest #'Unauthorized #'Forbidden #'BadResponse #'InternalServerError
-    #'Contention #'Timeout #'MissingIdempotencyKey #'InvalidIdempotencyKey
-    #'IdempotentRequestInFlight #'IdempotencyKeyReused
+    #'Contention #'Timeout #'Overloaded #'MissingIdempotencyKey
+    #'InvalidIdempotencyKey #'IdempotentRequestInFlight #'IdempotencyKeyReused
     #'IdempotencyCacheUnavailable #'PolicyDenied #'PolicyLimitExceeded]))

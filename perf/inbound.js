@@ -24,7 +24,6 @@ const PROFILES = {
   },
   knee: {
     accounts: 200,
-    abortAbove: 0.05,
     steps: [5, 10, 20, 40, 80, 160, 320].map((r) => [r, "1m"]),
   },
 };
@@ -119,7 +118,7 @@ function send(bban, amount, step) {
 }
 
 export default function (bank) {
-  if (!bearer) bearer = bankTokenSource(bank.clientId, bank.clientSecret);
+  if (!bearer) bearer = bankTokenSource(bank);
   const step = String(stepNow(STEPS));
   const amount = 1 + Math.floor(Math.random() * MAX_AMOUNT);
   const n = exec.scenario.iterationInTest;
@@ -136,7 +135,8 @@ export default function (bank) {
     return;
   }
   amountIn.add(amount);
-  if (followIt && before !== null) follow(bank.accounts[i], before, amount, sent);
+  if (followIt && before !== null)
+    follow(bank.accounts[i], before, amount, sent);
 }
 
 export function handleSummary(data) {

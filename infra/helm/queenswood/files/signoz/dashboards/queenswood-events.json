@@ -460,6 +460,159 @@
             }
           ]
         }
+      },
+      "5e4aa87a-9fa0-5f98-9ab7-fceb10a0d179": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Queue depth",
+            "description": "Messages each consumer group has yet to commit on each topic, read from the broker every 15 seconds. A depth that grows is a consumer falling behind what is sent to it. Reply groups are left out: each process reads replies from the newest on, in a group of its own"
+          },
+          "links": [],
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "global_time",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "none",
+                "decimalPrecision": "0"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none"
+              },
+              "axes": {
+                "softMin": 0,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list"
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "name": "A",
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "metrics",
+                    "stepInterval": 60,
+                    "aggregations": [
+                      {
+                        "metricName": "kafka.consumer_group.lag_sum",
+                        "timeAggregation": "max",
+                        "spaceAggregation": "sum"
+                      }
+                    ],
+                    "filter": {
+                      "expression": "group NOT LIKE '%command-response%'"
+                    },
+                    "having": {
+                      "expression": ""
+                    },
+                    "legend": "{{group}} on {{topic}}",
+                    "groupBy": [
+                      {
+                        "name": "group",
+                        "fieldContext": "attribute",
+                        "fieldDataType": "string"
+                      },
+                      {
+                        "name": "topic",
+                        "fieldContext": "attribute",
+                        "fieldDataType": "string"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "ca432647-f9e1-5734-b25c-cbb68b12dfe8": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Messages arriving",
+            "description": "Messages a second published to each topic, from the rate its partitions' newest offsets move"
+          },
+          "links": [],
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "global_time",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "none",
+                "decimalPrecision": "0"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none"
+              },
+              "axes": {
+                "softMin": 0,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list"
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "name": "A",
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "metrics",
+                    "stepInterval": 60,
+                    "aggregations": [
+                      {
+                        "metricName": "kafka.partition.current_offset",
+                        "timeAggregation": "rate",
+                        "spaceAggregation": "sum"
+                      }
+                    ],
+                    "filter": {
+                      "expression": ""
+                    },
+                    "having": {
+                      "expression": ""
+                    },
+                    "legend": "{{topic}}",
+                    "groupBy": [
+                      {
+                        "name": "topic",
+                        "fieldContext": "attribute",
+                        "fieldDataType": "string"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
       }
     },
     "layouts": [
@@ -538,6 +691,37 @@
               "height": 8,
               "content": {
                 "$ref": "#/spec/panels/ca041fde-205f-51ae-add5-4605a6bca937"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "Queues",
+            "collapse": {
+              "open": true
+            }
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 6,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/5e4aa87a-9fa0-5f98-9ab7-fceb10a0d179"
+              }
+            },
+            {
+              "x": 6,
+              "y": 0,
+              "width": 6,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/ca432647-f9e1-5734-b25c-cbb68b12dfe8"
               }
             }
           ]

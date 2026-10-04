@@ -6,7 +6,7 @@
 import http from "k6/http";
 import { sleep } from "k6";
 import { Counter, Gauge } from "k6/metrics";
-import { env, expect, get, token } from "./api.js";
+import { env, get, token, until } from "./api.js";
 
 const MODULR_SIMULATOR_URL = env(
   "MODULR_SIMULATOR_URL",
@@ -39,12 +39,21 @@ const tiedG = new Gauge("books_trial_balance_tied");
 const providerG = new Gauge("books_provider");
 const settledG = new Gauge("books_settle_s");
 
+// What `read` returns, or null where the API did not answer: the load
+// can leave it restarting, its liveness probe failing under overload.
+function answering(read) {
+  try {
+    return read();
+  } catch (e) {
+    return null;
+  }
+}
+
+// The ledger as the API reports it, or null where it did not answer.
 function ledger(bearer) {
-  const body = expect(
-    get("/v1/ledger-accounts", bearer, { tags: TEARDOWN }),
-    200,
-    "reading the ledger",
-  );
+  const res = get("/v1/ledger-accounts", bearer, { tags: TEARDOWN });
+  if (res.status !== 200) return null;
+  const body = res.json();
   const byCode = {};
   for (const a of body.items) {
     byCode[a["gl-code"]] = (a["posted-balance"] || {}).value || 0;
@@ -74,25 +83,41 @@ function provider(bbans) {
 }
 
 function same(a, b) {
-  return a.cash === b.cash && a.controls === b.controls && a.tied === b.tied;
+  return (
+    a !== null &&
+    b !== null &&
+    a.cash === b.cash &&
+    a.controls === b.controls &&
+    a.tied === b.tied
+  );
 }
 
 // Reads the books once they stop moving — two readings STEADY_S apart
 // that agree, the provider matching the ledger — or the timeout passes,
-// and records them as gauges. Whether they held is the summary's to
-// say, since only it sees what the run sent across the boundary.
+// and records them as gauges, waiting for an API that does not answer.
+// Whether they held is the summary's to say, since only it sees what the
+// run sent across the boundary.
 export function checkBooks(bank) {
-  const bearer = token(bank.clientId, bank.clientSecret).value;
+  const started = Date.now();
+  const bearer = until(
+    () => answering(() => token(bank.clientId, bank.clientSecret).value),
+    (t) => t !== null,
+    "a token for the books",
+    SETTLE_TIMEOUT_S,
+    STEADY_S,
+  );
   const bbans = new Set(bank.bbans);
   if (bank.ownFunds) {
-    const house = expect(
-      get(`/v1/cash-accounts/${bank.ownFunds}`, bearer, { tags: TEARDOWN }),
-      200,
-      "reading the own-funds account",
+    const house = until(
+      () =>
+        get(`/v1/cash-accounts/${bank.ownFunds}`, bearer, { tags: TEARDOWN }),
+      (res) => res.status === 200,
+      "the own-funds account",
+      SETTLE_TIMEOUT_S,
+      STEADY_S,
     );
-    bbans.add(house.bban);
+    bbans.add(house.json().bban);
   }
-  const started = Date.now();
   let books = ledger(bearer);
   let held = provider(bbans);
   for (;;) {
@@ -104,6 +129,9 @@ export function checkBooks(bank) {
     books = next;
     held = nextHeld;
     if (steady) break;
+  }
+  if (books === null) {
+    throw new Error(`the ledger did not answer within ${SETTLE_TIMEOUT_S}s`);
   }
   injectedG.add(bank.injected);
   cashG.add(books.cash);

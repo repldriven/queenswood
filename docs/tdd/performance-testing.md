@@ -164,6 +164,8 @@ Scripts live under `perf/`, outside every brick:
 - `perf/inbound.js` — scenario D, payments from another bank sent through
   the simulator to a random account, the bank opening its accounts
   unfunded.
+- `perf/mixed.js` — internal and outbound payments from one bank in one
+  arrival rate, `OUTBOUND_SHARE` of them outbound, the challenger's mix.
 
 Every scenario runs as steps of a fixed arrival rate on k6's
 `ramping-arrival-rate` executor, each reached over five seconds and then
@@ -174,7 +176,8 @@ the steps:
 - **`challenger`.** 50 a second for an hour, then 150 for five minutes, on
   200 accounts.
 - **`knee`.** 5, 10, 20, 40, 80, 160 and 320 a second, a minute each, on
-  200 accounts, aborting once more than 5 per cent of requests fail.
+  200 accounts, run to the end however many requests fail, since an
+  aborted run skips the teardown that checks the books.
 - **`hot`.** Scenario B: 1, 2, 5, 10, 20 and 40 a second, a minute each,
   from one account to the other 49, for internal payments only.
 
@@ -318,14 +321,24 @@ run at the next:
    and, on two partitions with a 13.8 ms command, 78 a second clean at
    80 asked, with a p99 of 92 ms, and 103 to 109 a second at 160 and 320
    asked, where requests wait seconds and ceiling 2 takes over.
-2. **Overload restarts the API.** Nothing sheds load: a request waits
-   in the queue until the dispatcher's 10-second timeout, and the API's
-   liveness probe, with a 1-second timeout, fails behind the same queue,
-   so Kubernetes restarts the pod and every request in flight fails to
-   connect, where a 429 or 503 would have told the caller to back off.
-3. **One `api-service` replica.** Its own request handling, until the
-   reply topic is partitioned or replies are routed to the replica that
-   asked.
+2. **Overload restarts the API.** Done. A request waited on its command
+   until the dispatcher's 10-second timeout, holding one of Jetty's 50
+   threads, so past the knee the pool filled, the liveness probe queued
+   behind it and the pod was restarted. On virtual threads alone nothing
+   capped the requests in hand and the 375 MB default heap ran out
+   instead. The API now runs on virtual threads with mono's
+   `max-in-flight` at 200, answering any request beyond it with a 503
+   and `Retry-After: 1` before it reaches a route, and every JVM's heap
+   is 60% of its container rather than the default 25%: at 75% the
+   kernel killed a busy service for passing its limit. At 160 and 320 a
+   second the API stays up, answers every request, accepts about 105 a
+   second and turns the rest away in under a millisecond, with a p99 of
+   about 4 seconds.
+3. **One `api-service` replica.** Its own request handling. Replies no
+   longer tie it to one: each process reads replies in a consumer group
+   of its own from the newest one on, so every replica hears its own,
+   and a restarted one does not wade through replies to requests that
+   died with the last.
 4. **The control balance.** Done for internal payments. With the
    payment command topic at two partitions and a replica on each, 176 of
    the 193 keys FDB reported conflicts on were 2100's balance row, a
@@ -383,6 +396,20 @@ run at the next:
 9. **Inbound payments.** The ten-minute inbound challenger holds 50 a
    second with none refused, the followed payments credited at 138 ms
    at p50 and 259 ms at p99.
+10. **The books hold at the knee.** With the API shedding load and an
+    outbound payment sent again under its Idempotency-Key until its
+    outcome is known, the books hold to the penny at every `knee` step:
+    internal at £76,800, outbound at £66,350.61 after 20,626 payments,
+    and inbound at £18,791.21 after 37,229.
+11. **Where each flow queues.** Read from each consumer group's lag past
+    the knee: internal at `topic-payments-command`, the payment processor
+    at about 105 a second; outbound at `topic-bank-activity-event`, about
+    4,000 behind at 320 asked, one partition for the run's one bank; and
+    inbound at `topic-schemes-payments-event`, about 12,000 behind at 312
+    a second. Webhook delivery on `topic-payments-event` is the first to
+    fall behind, from 80 a second. An adapter's outbox waiting on its
+    relay, about 180 messages a second to a runner, is behind no consumer
+    group, so the lag does not show it.
 
 ### Span candidates
 

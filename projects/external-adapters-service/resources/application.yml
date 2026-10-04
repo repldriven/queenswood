@@ -234,14 +234,20 @@ system:
         topics: [topic-memberships-command-response]
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          group.id: email-service-memberships-command-response
+          # A reply matters only to the request waiting on it, so each process
+          # reads replies in a group of its own from the newest one on: a restart
+          # does not wade through replies to requests that died with the last
+          # process, and every replica hears its own replies.
+          group.id: !join ["email-service-memberships-command-response-", !random-uuid ""]
+          auto.offset.reset: latest
       payments-command-response:
         schemas: !system/local-ref schemas
         schema: !keyword command-response
         topics: [topic-payments-command-response]
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          group.id: external-adapters-service-payments-command-response
+          group.id: !join ["external-adapters-service-payments-command-response-", !random-uuid ""]
+          auto.offset.reset: latest
     message-bus-producers: !system/component
       system/component-kind: kafka/message-bus-producers
       schemes-command-response:
