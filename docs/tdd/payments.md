@@ -331,17 +331,18 @@ expense has paid out.
   `pending`, `completed` or `failed` — unique on transaction id and
   pair. It is sent as `transfer-between-accounts` on the provider's
   command channel naming the cash accounts, and the adapter resolves
-  each to the provider account its own opening, or the reissue that
-  last replaced it, recorded, holding the transfer behind an account's
-  opening. The adapter reports
+  each to its provider account, the one the adapter recorded when it
+  opened the account or a reissue last moved it to, holding the
+  transfer behind an account's opening. The adapter reports
   `transfer-completed` or `transfer-failed` on
   `schemes-payments-event`.
 - **A failed transfer.** The ledger is not reversed: the customer's
   payment stands, and the failure is logged at ERROR with the
   transaction id for the bank to reconcile.
 
-Under `pooled` the addresses route into one balance the ledger already
-divides, and nothing is mirrored.
+Under `pooled` nothing is mirrored: the provider holds one balance for
+all the bank's accounts, and only the ledger says how much of it is
+each account's.
 
 ### Submitting to the provider
 
@@ -457,16 +458,59 @@ adapter's outbox and the banks' activity logs.
 
 ### The payment flows
 
+Nodes are coloured as in the flow TDDs' lanes: blue for the API, the
+topics and the relays, purple for the processors, orange for the
+external adapters, yellow for FDB and grey for the provider. A topic
+shows the key it is partitioned by, and `{provider}` is the bank's
+provider's key. The payment event processor writes to the bank's
+activity log as the payment processor does: `transaction-posted` for
+each transaction it posts, and `inbound-payment-suspended` for an
+inbound it parks.
+
 ```mermaid
-flowchart LR
-    API["api-service"] -->|submit-internal-payment| P["payment"]
-    API -->|submit-outbound-payment| P
-    P -->|bank's activity| AP["activity event processor"]
-    AP -->|submit-payment, transfer-between-accounts,<br/>return-payment| AD["provider adapter"]
-    AD -->|intent poller calls| PR["provider"]
-    PR -->|webhooks| AD
-    AD -->|outbox, scheme events| P
-    P -->|payment changelogs| WH["webhook notifications"]
+flowchart TB
+    classDef bus fill:#d6edff,stroke:#4a90c2
+    classDef proc fill:#ede6ff,stroke:#7c5cc4
+    classDef adapter fill:#ffecd4,stroke:#d08a2e
+    classDef fdb fill:#fff6cc,stroke:#c9a400
+    classDef world fill:#f4f6f7,stroke:#8a9399
+    subgraph submit [Submitting and posting]
+    direction LR
+    API["api-service<br/>POST /v1/payments/internal<br/>POST /v1/payments/outbound"]:::bus -->|submit-internal-payment<br/>submit-outbound-payment| PC(["topic-payments-command<br/>partition-key = debtor account"]):::bus
+    PC --> P["financial-processors-service<br/>payment/processor"]:::proc
+    P -->|transaction-posted<br/>outbound-payment-submitted| AL[("the bank's activity log")]:::fdb
+    AL --> AR["exclusive-dispatchers-service<br/>bank-activity/relay"]:::bus
+    AR --> AE(["topic-bank-activity-event<br/>partition-key = bank"]):::bus
+    end
+    subgraph reach [Reaching the provider]
+    direction LR
+    AP["financial-processors-service<br/>payment/activity-event-processor"]:::proc -->|submit-payment<br/>transfer-between-accounts<br/>return-payment| PRC(["topic-{provider}-command<br/>partition-key = bank"]):::bus
+    PRC --> AD["external-adapters-service<br/>{provider}-adapter/command-processor"]:::adapter
+    AD --> IN[("{provider} intents")]:::fdb
+    IN --> IP["external-adapters-service<br/>{provider}-relay/outbound-runner"]:::adapter
+    IP -->|calls| PR["provider"]:::world
+    end
+    subgraph hear [Hearing back]
+    direction LR
+    WHH["external-adapters-service<br/>{provider}-adapter webhook handlers"]:::adapter --> OB[("{provider} outbox")]:::fdb
+    OB --> OR["exclusive-dispatchers-service<br/>changelog-relay/runners"]:::bus
+    OR --> SE(["topic-schemes-payments-event<br/>partition-key = end-to-end id, else transfer"]):::bus
+    SE --> PE["financial-processors-service<br/>payment/event-processor"]:::proc
+    end
+    subgraph publish [Publishing to the bank]
+    direction LR
+    PL[("payment changelogs")]:::fdb --> RR["exclusive-dispatchers-service<br/>changelog-relay/runners"]:::bus
+    RR --> PEV(["topic-payments-event<br/>partition-key = payment"]):::bus
+    PEV --> WH["external-adapters-service<br/>webhook/event-processor"]:::proc
+    end
+    submit -->|transaction-posted<br/>outbound-payment-submitted| reach
+    reach -->|webhooks| hear
+    submit -->|each payment's status| publish
+    hear -->|each payment's status| publish
+    style submit fill:#ffffff,stroke:#c8c8c8
+    style reach fill:#ffffff,stroke:#c8c8c8
+    style hear fill:#ffffff,stroke:#c8c8c8
+    style publish fill:#ffffff,stroke:#c8c8c8
 ```
 
 - **Internal.** Records and posts in the command's one transaction, and
@@ -554,7 +598,7 @@ Each flow TDD lists the tests of its own paths.
   account, and is unavailable until the provider has opened it.
 - **No provider's sandbox has been run.** Every flow is proved against
   the simulators alone.
-- **Kafka redeliveries have no delay.**
+- **Redeliveries from the bus have no delay.**
 - **No FX.**
 
 ## References
