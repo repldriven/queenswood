@@ -133,6 +133,13 @@ catalogue as `payment.internal-settled`.
 
 ### Mirroring at a provider holding a balance per account
 
+On a provider that declares `balances: per-account`, as Modulr does, a
+posted transaction is mirrored at the provider in four hops, each drawn
+below between the service that hands it on, the topic or call that
+carries it, and the service that takes it up.
+
+#### The activity log reaches the activity processor
+
 ```mermaid
 sequenceDiagram
     box rgba(255, 236, 153, 0.5)
@@ -145,31 +152,37 @@ sequenceDiagram
     box rgba(208, 191, 255, 0.45)
     participant AP as financial-processors-service<br/>payment/activity-event-processor
     end
-    box rgba(165, 216, 255, 0.45)
-    participant MC as topic-modulr-command<br/>1 partition, key bank
-    end
-    box rgba(255, 216, 168, 0.5)
-    participant AD as external-adapters-service<br/>modulr-adapter/command-processor
-    participant IP as external-adapters-service<br/>modulr-relay/outbound-runner
-    end
-    box rgba(233, 236, 239, 0.5)
-    participant PR as Modulr
-    end
-    box rgba(255, 216, 168, 0.5)
-    participant WH as external-adapters-service<br/>modulr-adapter webhook handlers
-    end
-    box rgba(165, 216, 255, 0.45)
-    participant OR as exclusive-dispatchers-service<br/>changelog-relay/runners
-    participant SE as topic-schemes-payments-event<br/>2 partitions, key transfer
-    end
-    box rgba(208, 191, 255, 0.45)
-    participant PE as financial-processors-service<br/>payment/event-processor
-    end
     critical transact
     AR->>DB: read the log's cursor
     AR->>DB: read the bank's activity log after it
     AR->>AE: transaction-posted, verbatim, in commit order
     AR->>DB: write the cursor
+    end
+    AE->>AP: transaction-posted
+```
+
+The relay publishes before its cursor commits, so a pass that fails
+after publishing publishes the same entries again, and the processor
+takes each entry as many times as it arrives.
+
+#### The activity processor sends the transfer
+
+```mermaid
+sequenceDiagram
+    box rgba(255, 236, 153, 0.5)
+    participant DB as FDB
+    end
+    box rgba(165, 216, 255, 0.45)
+    participant AE as topic-bank-activity-event<br/>1 partition, key bank
+    end
+    box rgba(208, 191, 255, 0.45)
+    participant AP as financial-processors-service<br/>payment/activity-event-processor
+    end
+    box rgba(165, 216, 255, 0.45)
+    participant MC as topic-modulr-command<br/>1 partition, key bank
+    end
+    box rgba(255, 216, 168, 0.5)
+    participant AD as external-adapters-service<br/>modulr-adapter/command-processor
     end
     AE->>AP: transaction-posted
     opt the bank's providers not cached
@@ -198,6 +211,35 @@ sequenceDiagram
     AD->>DB: save ModulrOutboundIntent kind transfer, pending<br/>subjects the debtor and creditor accounts
     end
     AD-->>MC: ack
+```
+
+The activity event processor nets the transaction's posted default legs
+per party: the debtor's cash account owes, the creditor's is owed, and
+the pair becomes one `ProviderTransfer`, unique on transaction and pair.
+
+A `transaction-posted` delivered again, because a send failed or the
+process stopped before the ack, finds its transfers recorded, saves
+nothing, and sends again those still pending. Where the first send got
+through, the adapter receives the command twice and takes the second as
+the intent it already holds, unique on the command's dedup key, so
+Modulr is called once.
+
+#### The adapter calls Modulr and hears back
+
+```mermaid
+sequenceDiagram
+    box rgba(255, 236, 153, 0.5)
+    participant DB as FDB
+    end
+    box rgba(255, 216, 168, 0.5)
+    participant IP as external-adapters-service<br/>modulr-relay/outbound-runner
+    end
+    box rgba(233, 236, 239, 0.5)
+    participant PR as Modulr
+    end
+    box rgba(255, 216, 168, 0.5)
+    participant WH as external-adapters-service<br/>modulr-adapter webhook handlers
+    end
     critical transact
     IP->>DB: read the pending intents
     end
@@ -226,6 +268,30 @@ sequenceDiagram
     WH->>DB: save the intent, settled
     end
     WH-->>PR: 200
+```
+
+The poller resolves each cash account to the provider account its own
+opening recorded and calls Modulr with the provider's account ids. An
+intent holds both accounts as its subjects, so a later call touching
+either waits until this one is sent, as
+[ADR-0033](../adr/0033-operations-reach-a-provider-in-the-order-they-were-accepted.md)
+decides. The webhook answers 200 only once its outbox entry commits, so
+Modulr sends it again until it has.
+
+#### The outcome reaches the payment
+
+```mermaid
+sequenceDiagram
+    box rgba(255, 236, 153, 0.5)
+    participant DB as FDB
+    end
+    box rgba(165, 216, 255, 0.45)
+    participant OR as exclusive-dispatchers-service<br/>changelog-relay/runners
+    participant SE as topic-schemes-payments-event<br/>2 partitions, key transfer
+    end
+    box rgba(208, 191, 255, 0.45)
+    participant PE as financial-processors-service<br/>payment/event-processor
+    end
     critical transact
     OR->>DB: read the cursor modulr-relay
     OR->>DB: read the modulr-outbox changelog after it
@@ -240,23 +306,8 @@ sequenceDiagram
     PE-->>SE: ack
 ```
 
-A `transaction-posted` delivered again, because a send failed or the
-process stopped before the ack, finds its transfers recorded, saves
-nothing, and sends again those still pending. Where the first send got
-through, the adapter receives the command twice and takes the second as
-the intent it already holds, unique on the command's dedup key, so
-Modulr is called once.
-
-The activity event processor nets the transaction's posted default legs
-per party: the debtor's cash account owes, the creditor's is owed, and
-the pair becomes one `ProviderTransfer`, unique on transaction and pair.
-The adapter resolves each cash account to the provider account its own
-opening recorded and calls Modulr with the provider's account ids. An
-intent holds both accounts as its subjects, so a later call touching
-either waits until this one is sent, as
-[ADR-0033](../adr/0033-operations-reach-a-provider-in-the-order-they-were-accepted.md)
-decides. A `transfer-failed` leaves the ledger as it is and logs the
-transaction id at ERROR for the bank to reconcile.
+A `transfer-failed` leaves the ledger as it is and logs the transaction
+id at ERROR for the bank to reconcile.
 
 Under `balances: pooled`, as Form3 and ClearBank declare, the activity
 event processor reads the same entry and sends nothing: the addresses
