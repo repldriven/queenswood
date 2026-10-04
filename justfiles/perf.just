@@ -31,8 +31,13 @@ perf-run scenario="internal" profile="smoke" rate="" duration="" accounts="":
       --pod-running-timeout=5m > target/perf/$NAME.log || true
     POD=$(kubectl -n {{ PERF_NAMESPACE }} get pods -l job-name=queenswood-perf \
       -o jsonpath='{.items[0].metadata.name}')
-    EXIT=$(kubectl -n {{ PERF_NAMESPACE }} get pod $POD \
-      -o jsonpath='{.status.containerStatuses[0].state.terminated.exitCode}')
+    EXIT=""
+    for i in $(seq 1 30); do
+      EXIT=$(kubectl -n {{ PERF_NAMESPACE }} get pod $POD \
+        -o jsonpath='{.status.containerStatuses[0].state.terminated.exitCode}')
+      if [[ -n "$EXIT" ]]; then break; fi
+      sleep 1
+    done
     awk '/==== perf summary end ====/{f=0} f; /==== perf summary begin ====/{f=1}' \
       target/perf/$NAME.log > target/perf/$NAME.json
     if [[ ! -s target/perf/$NAME.json ]]; then

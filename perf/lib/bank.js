@@ -308,6 +308,7 @@ export function build(n, each) {
     clientId,
     clientSecret,
     ownFunds,
+    injected: each > 0 ? each * accounts.length : 0,
     accounts,
     bbans: opened.map((a) => a.bban),
   };
