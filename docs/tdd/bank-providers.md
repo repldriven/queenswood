@@ -205,6 +205,15 @@ bank's activity is caught the same way (ADR-0033).
   which each joins under the sort code it issues addresses from, so a
   payment one sends to an account another holds arrives there as an
   inbound, and is returned or failed where that simulator refuses it.
+- **A simulator moves money when it accepts a payment.** A provider
+  that keeps a balance per account, as Modulr declares, processes an
+  account's payments in the order it accepted them, so its simulator
+  debits the source and credits a destination it holds before it
+  answers, under one lock, and a payment its source cannot cover waits
+  behind any earlier one waiting for funds on that account. Telling the
+  customers, the delay before each notification, and sending a payment
+  on to another member follow in the background. A transfer one way and
+  then back is covered in that order whatever the timing.
 
 ### Tests
 
@@ -221,6 +230,9 @@ bank's activity is caught the same way (ADR-0033).
   over every provider run.
 - **`scheme-simulator`** — a payment sent to a sort code no member
   holds, to a member that cannot be reached, and after a member leaves.
+- **`modulr-simulator`** — a transfer back from an account paid first
+  covered, and a later payment waiting behind one waiting for funds
+  until both are covered.
 - **`test-api-scenarios`** — every payment and IDV scenario on each
   provider, banks on different providers paying each other, what an
   installation offers, and the create's refusals.
@@ -268,6 +280,12 @@ bank's activity is caught the same way (ADR-0033).
   test instance is served; a second customer on the same instance relies
   on the provider accepting both customers' payments down one
   connection, which the simulators do not show.
+- **Modulr's processing order is assumed.** The simulator processes an
+  account's payments in the order Modulr accepts them, which Modulr is
+  assumed to do and has not been checked against its sandbox.
+- **A simulator answers from memory.** It holds what it accepts in
+  memory, so it answers sooner than a provider recording each payment
+  durably first, and forgets everything when it restarts.
 
 ## References
 

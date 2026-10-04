@@ -1,6 +1,8 @@
 (ns com.repldriven.queenswood.modulr-simulator.ledger
   "The simulator's accounts, balances and payments, held in one atom and
-  changed under its lock so a debit checks and takes a balance at once.
+  changed under its lock so a debit checks and takes a balance at once,
+  with each account's payments waiting for funds in the order they
+  arrived.
   An account the simulator does not know — one it issued before a
   restart — is served as an active account with no balance to check."
   (:require
@@ -47,6 +49,7 @@
   {:accounts {}
    :scan {}
    :payments {}
+   :waiting {}
    :nonces {}
    :notifications {}
    :refuse-next false
@@ -189,13 +192,24 @@
                [:id :status :type :externalReference :schemeId :createdDate
                 :details :message]))
 
-(defn pending-for-funds
+(defn waiting
   [state account-id]
-  (->> (vals (:payments @state))
-       (filter (fn [p]
-                 (and (= "PENDING_FOR_FUNDS" (:status p))
-                      (= account-id (get-in p [:details :sourceAccountId])))))
-       (sort-by :createdDate)))
+  (get-in @state [:waiting account-id] []))
+
+(defn wait-for-funds
+  [state account-id payment-id]
+  (swap! state
+    (fn [s]
+      (-> s
+          (update-in [:waiting account-id] (fnil conj []) payment-id)
+          (assoc-in [:payments payment-id :status] "PENDING_FOR_FUNDS")))))
+
+(defn stop-waiting
+  [state account-id payment-id]
+  (swap! state
+    update-in
+    [:waiting account-id]
+    (fn [ids] (filterv (fn [id] (not= id payment-id)) ids))))
 
 ;; ---- nonces
 
