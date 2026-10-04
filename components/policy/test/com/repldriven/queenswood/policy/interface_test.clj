@@ -5,6 +5,7 @@
 
     [com.repldriven.queenswood.policy.interface :as SUT]
 
+    [com.repldriven.mono.cache.interface :as cache]
     [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.system.interface :as system]
     [com.repldriven.mono.test-system.interface :refer
@@ -680,3 +681,49 @@
     (is (= [platform] (SUT/platform-policies [platform micro unlabelled]))
         "only the platform tier, as a selector naming no bank resolves")
     (is (= [] (SUT/platform-policies [])))))
+
+(defn- bound-ids
+  [policies]
+  (set (keep (fn [p]
+               (when-not (= "platform" (get-in p [:labels "tier"]))
+                 (:policy-id p)))
+             policies)))
+
+(deftest effective-policies-cached-test
+  (with-test-system
+   [sys "classpath:policy/application-test.yml"]
+   (let [config (fdb-config sys)
+         bank-id "bnk.test-cached"
+         selectors {:bank-id bank-id}
+         c (cache/create 60000)
+         cached (fn [] (SUT/get-effective-policies-cached config selectors c))]
+     (nom-test> [before (cached)
+                 uncached (SUT/get-effective-policies config selectors)
+                 _ (is (= uncached before) "the cached read is the read")
+                 again (cached)
+                 _ (is (= before again))
+                 {:keys [policy-id]} (SUT/new-policy
+                                      config
+                                      {:name "Cached tier"
+                                       :enabled true
+                                       :category :policy-category-standard
+                                       :capabilities []
+                                       :limits []
+                                       :labels {"tier" "cached-tier"}})
+                 {:keys [binding-id]}
+                 (SUT/new-binding config
+                                  {:policy-id policy-id
+                                   :target {:kind {:bank {:bank-id bank-id}}}
+                                   :reason "cache test"})
+                 bound (cached)
+                 _ (is (= #{policy-id} (bound-ids bound))
+                       "a binding takes effect in the next read")
+                 _ (SUT/remove-binding config binding-id)
+                 unbound (cached)
+                 _ (is (empty? (bound-ids unbound)) "so does removing it")]))
+   (testing "without a cache it reads every time"
+     (is (vector? (SUT/get-effective-policies-cached (fdb-config sys)
+                                                     {:bank-id
+                                                      "bnk.test-uncached"}
+                                                     nil))))))
+

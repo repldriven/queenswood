@@ -52,7 +52,10 @@
                           (:business-day-cutoff config))
             policies (telemetry/with-span
                       ["payment-policies"]
-                      (policy/get-effective-policies txn {:bank-id bank-id}))]
+                      (policy/get-effective-policies-cached txn
+                                                            {:bank-id bank-id}
+                                                            (:policy-cache
+                                                             config)))]
         (let-nom>
           [debtor-account (telemetry/with-span ["payment-debtor-account"]
                                                (cash-accounts/get-account
@@ -144,9 +147,10 @@
                (let [business-day (checks/current-business-day
                                    (utility/now)
                                    (:business-day-cutoff config))
-                     policies (policy/get-effective-policies
+                     policies (policy/get-effective-policies-cached
                                txn
-                               {:bank-id bank-id})]
+                               {:bank-id bank-id}
+                               (:policy-cache config))]
                  (let-nom>
                    [declaration (provider/declaration config txn bank-id)
                     _ (outbound/check-scheme (:scheme data) declaration)

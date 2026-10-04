@@ -9,6 +9,11 @@
 (def ^:private store-name "policies")
 (def ^:private bindings-store-name "policy-bindings")
 
+(def ^:private stamp-name
+  "One stamp over both stores, bumped by every policy and binding write,
+  so a bank's effective policies can be kept until it moves."
+  "policies")
+
 (def transact fdb/transact)
 
 ;; Strip records here once at the read boundary: downstream
@@ -27,8 +32,10 @@
   (fdb/transact
    txn
    (fn [txn]
-     (fdb/save-record (fdb/open txn store-name)
-                      (schema/Policy->java policy)))
+     (let [saved (fdb/save-record (fdb/open txn store-name)
+                                  (schema/Policy->java policy))]
+       (fdb/bump-stamp txn stamp-name)
+       saved))
    :policy/save
    "Failed to save policy"))
 
@@ -90,8 +97,10 @@
   (fdb/transact
    txn
    (fn [txn]
-     (fdb/save-record (fdb/open txn bindings-store-name)
-                      (schema/PolicyBinding->java binding)))
+     (let [saved (fdb/save-record (fdb/open txn bindings-store-name)
+                                  (schema/PolicyBinding->java binding))]
+       (fdb/bump-stamp txn stamp-name)
+       saved))
    :policy-binding/save
    "Failed to save policy binding"))
 
@@ -114,7 +123,10 @@
   (fdb/transact
    txn
    (fn [txn]
-     (fdb/delete-record (fdb/open txn bindings-store-name) binding-id))
+     (let [deleted (fdb/delete-record (fdb/open txn bindings-store-name)
+                                      binding-id)]
+       (fdb/bump-stamp txn stamp-name)
+       deleted))
    :policy-binding/delete
    "Failed to delete policy binding"))
 
@@ -181,3 +193,10 @@
    :policy-binding/list-by-policy
    {:message "Failed to list bindings for policy"
     :policy-id policy-id}))
+
+(defn read-stamp
+  [txn]
+  (fdb/transact txn
+                (fn [txn] (fdb/read-stamp txn stamp-name))
+                :policy/stamp
+                "Failed to read the policy stamp"))

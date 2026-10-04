@@ -283,7 +283,11 @@ run at the next:
 1. **The payment command consumer.** One partition and one message at a
    time: the achieved rate levels off at about one over the processor's
    time per command, latency rises with the queue behind it, and traces
-   show the wait before the processor starts.
+   show the wait before the processor starts. Measured with the `knee`:
+   about 51 a second at first, 64 once the producers stopped lingering,
+   and, on two partitions with a 13.8 ms command, 78 a second clean at
+   80 asked, with a p99 of 92 ms, and 103 to 109 a second at 160 and 320
+   asked, where requests wait seconds and ceiling 2 takes over.
 2. **Overload restarts the API.** Nothing sheds load: a request waits
    in the queue until the dispatcher's 10-second timeout, and the API's
    liveness probe, with a 1-second timeout, fails behind the same queue,
@@ -307,7 +311,11 @@ run at the next:
    on each pass, and a sent intent waits up to `reconcile-after-ms`, 5
    minutes, for its webhook, so each pass reads more as the rate rises.
    Settlement time grows through a run while submit latency stays flat.
-   Internal payments on a Modulr bank feed it too.
+   Internal payments on a Modulr bank feed it too. Measured: through the
+   ten-minute challenger the adapter is sent 50 transfers a second and
+   completes 35 falling to 31, so about 8,000 are still pending at the
+   end and take five minutes to complete, and a bank opening its
+   accounts in that time waits behind them.
 6. **The relays.** One bank's activity is one shard's log, read by one
    runner at up to 500 entries every 100 ms.
 
@@ -346,8 +354,14 @@ payment costs, ranked by its effect on the serial command path, which is
    rest under 0.6 ms each and the commit about 2 ms. The payment now
    passes the platform policies it holds to `apply-legs`, through
    `policy/platform-policies`, so the transaction takes 16.7 ms and a
-   command 17.4 ms rather than 19.6. The platform tier changes only when
-   bootstrap writes it, which makes it the next cut.
+   command 17.4 ms rather than 19.6. The payment processor then keeps a
+   bank's effective policies in mono's `cache` for as long as the
+   policy brick's stamp is unchanged: one versionstamped key, under the
+   `fdb` brick's `stamp`, that every policy and binding write bumps, read
+   at snapshot in place of the policies themselves. The read takes
+   0.8 ms rather than 4.6, the transaction 13.0 ms and a command
+   13.8 ms, and the challenger's minutes after the first average 23 to
+   25 ms with a p99 of 39 to 47 ms.
 3. **The relays' sends.** `exclusive-dispatchers-service` sends three
    messages per payment, one at a time, 16.6 ms of a runner's time, so
    one runner tops out at about 180 messages a second. A pass's sends

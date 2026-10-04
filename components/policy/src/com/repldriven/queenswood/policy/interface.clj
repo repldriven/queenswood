@@ -156,6 +156,24 @@
   [txn selectors]
   (core/get-effective-policies txn selectors))
 
+(defn get-effective-policies-cached
+  "`get-effective-policies`, kept in `cache` — a mono `cache` the caller
+  owns — for as long as no policy or binding has been written. Every
+  policy and binding write bumps one stamp, read here at snapshot, and
+  a cached set is used only while the stamp it was read under is
+  unchanged, so a write takes effect in the next transaction to start
+  after it commits. The cache's own expiry is a backstop for a write
+  made around this brick. With a nil `cache` this is
+  `get-effective-policies`. Not for a transaction that writes policies
+  or bindings itself, which cannot read the stamp it bumps.
+
+  Args:
+  - txn: FDB config or open transaction.
+  - selectors: map keyed by target id field (e.g. `{:bank-id <id>}`).
+  - cache: a mono cache atom, or nil."
+  [txn selectors cache]
+  (core/get-effective-policies-cached txn selectors cache))
+
 (defn platform-policies
   "The `tier=platform` policies among `policies` — what
   `get-effective-policies` returns for a selector naming no bank, such

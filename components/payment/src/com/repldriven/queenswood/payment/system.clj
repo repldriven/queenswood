@@ -11,16 +11,22 @@
 (def ^:private five-minutes-ms 300000)
 (def ^:private twenty-four-hours-ms 86400000)
 (def ^:private one-hour-ms 3600000)
+(def ^:private ten-minutes-ms 600000)
 
 (def ^:private processor
   {:system/start (fn [{:system/keys [config instance]}]
-                   (or instance (commands/->PaymentProcessor config)))
+                   (or instance
+                       (commands/->PaymentProcessor
+                        (assoc config
+                               :policy-cache
+                               (cache/create (:policy-cache-ttl-ms config))))))
    :system/config {:record-db system/required-component
                    :record-store system/required-component
                    :schemas system/required-component
                    :bus nil
                    :payment-providers system/required-component
-                   :business-day-cutoff default-cutoff}
+                   :business-day-cutoff default-cutoff
+                   :policy-cache-ttl-ms ten-minutes-ms}
    :system/instance-schema some?})
 
 (def ^:private event-processor

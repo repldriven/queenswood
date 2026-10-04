@@ -4,6 +4,7 @@
     [com.repldriven.queenswood.policy.effective :as effective]
     [com.repldriven.queenswood.policy.store :as store]
 
+    [com.repldriven.mono.cache.interface :as cache]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]))
 
 (defn new-policy
@@ -105,6 +106,24 @@
   (let-nom> [platform (store/get-policies-by-label txn "tier" "platform")
              bound (bound-policies txn selectors)]
     (vec (concat platform bound))))
+
+(defn- stamped-effective-policies
+  [cache txn selectors]
+  (let-nom> [stamp (store/read-stamp txn)]
+    (let [k [:effective-policies (:bank-id selectors)]
+          entry (cache/lookup cache k (constantly nil))]
+      (if (and entry (= stamp (:stamp entry)))
+        (:policies entry)
+        (let-nom> [policies (get-effective-policies txn selectors)]
+          (cache/evict cache k)
+          (cache/lookup cache k (constantly {:stamp stamp :policies policies}))
+          policies)))))
+
+(defn get-effective-policies-cached
+  [txn selectors cache]
+  (if cache
+    (stamped-effective-policies cache txn selectors)
+    (get-effective-policies txn selectors)))
 
 (defn get-effective-policy
   [txn selectors]
