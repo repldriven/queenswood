@@ -75,3 +75,4 @@ outbound-runner: !system/component
     default: 300000
   delivery-policy: !include system/payment-delivery-policy.yml
   poll-ms: 200
+  concurrency: 8

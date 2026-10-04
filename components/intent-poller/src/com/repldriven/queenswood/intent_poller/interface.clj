@@ -22,10 +22,17 @@
   `:schemas` events are serialised with, `:adapter`, the store spec as
   `:store`, the `:default-operation` of an intent whose `:kind` names
   none, the `:delivery-policy` its retries, giving up and breaker take
-  (ADR-0034), `:poll-ms`, and optionally `:settles-first?`. Each pass
-  asks the breaker on `adapter:<adapter>` first: open, it calls nothing
-  and fails the intents past their maximum age; half-open, it makes one
-  call as the probe; closed, it calls until a failure opens it."
+  (ADR-0034), `:poll-ms`, and optionally `:settles-first?` and
+  `:concurrency`. Each pass asks the breaker on `adapter:<adapter>`
+  first: open, it calls nothing and fails the intents past their maximum
+  age; half-open, it makes one call as the probe; closed, it calls until
+  a failure opens it. With `:concurrency` above one, `start` runs that
+  many workers, and a closed breaker's pass makes the calls
+  `intent-queue/runnable` gives it at once, no two for one subject, so
+  up to that many are in flight when a failure opens it. A pass that ran
+  an intent is followed at once by the next; an idle one waits
+  `:poll-ms`. An answered call through a breaker the pass found closed
+  with no failure counted is not recorded, since it changes nothing."
   (:require
     [com.repldriven.queenswood.intent-poller.core :as core]
     [com.repldriven.queenswood.intent-poller.operations :as operations]
@@ -145,6 +152,9 @@
   "Attempt each due pending intent once, oldest first, holding one behind
   an earlier intent for its subjects. Each call runs outside any FDB
   transaction, and the write recording its outcome in one of its own.
+  Where `config` carries an `:executor`, as `start` gives it for a
+  `:concurrency` above one, the calls a closed breaker allows are made
+  on it at once. Returns how many intents it ran.
 
   Args:
   - config: a poller config.
@@ -153,8 +163,9 @@
   (core/drain-once config now))
 
 (defn start
-  "Start a daemon thread that drains `config`'s pending intents every
-  `:poll-ms`. Returns `{:stop fn}`.
+  "Start a daemon thread that drains `config`'s pending intents, again at
+  once after a pass that ran one and after `:poll-ms` otherwise, with
+  `:concurrency` workers where it is above one. Returns `{:stop fn}`.
 
   Args:
   - config: a poller config."

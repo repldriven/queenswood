@@ -207,9 +207,11 @@ stand in for the vendors run in `external-simulators-service`, apart
 from the adapters, which an installation against the vendors disables.
 Give each provider credential a Secret of its own — `modulr-api`,
 `form3-api`, `clearbank-client-key`, `clearbank-provider-key` — which
-the adapter and its provider each read half of: a Job fills any that is
-empty where the simulators run, and an ExternalSecret fills it from
-Secret Manager against the vendors. Work that admits exactly one
+the adapter and its provider each read half of, and `modulr-webhook`,
+the secret the adapter sets on each Modulr subscription, so every
+replica and restart verifies with the one Modulr holds: a Job fills any
+that is empty where the simulators run, and an ExternalSecret fills it
+from Secret Manager against the vendors. Work that admits exactly one
 dispatcher — every store's changelog runner and the Quartz scheduler —
 goes in `exclusive-dispatchers-service`, pinned to `replicas: 1`, which
 is what leaves every other group free of the constraint. A poll loop is

@@ -92,3 +92,4 @@ outbound-runner: !system/component
   signing-key: !system/ref clearbank-adapter.signing-key
   delivery-policy: !include system/payment-delivery-policy.yml
   poll-ms: 200
+  concurrency: 8

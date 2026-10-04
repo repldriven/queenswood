@@ -10,12 +10,19 @@
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.log.interface :as log]
     [com.repldriven.mono.telemetry.interface :as telemetry]
-    [com.repldriven.mono.utility.interface :as utility]))
+    [com.repldriven.mono.utility.interface :as utility])
+  (:import
+    (java.util.concurrent Callable
+                          ExecutorService
+                          Executors
+                          Future
+                          ThreadFactory)))
 
 (def config-schema
   [:map
    [:delivery-policy circuit-breaker/delivery-policy-schema]
-   [:poll-ms pos-int?]])
+   [:poll-ms pos-int?]
+   [:concurrency {:optional true} pos-int?]])
 
 (defn- outbox-event
   [config now intent descriptor]
@@ -84,23 +91,27 @@
 
 (defn- record-call
   "Record a call's `outcome` on the adapter's breaker, ending the pass's
-  calls where it opens the breaker."
+  calls where it opens the breaker. An answer through a breaker the pass
+  found closed with no failure counted, and none since, changes nothing,
+  so it is not recorded."
   [config now pass outcome]
-  (let [breaker (circuit-breaker/record config
-                                        (breaker-policy config)
-                                        (destination config)
-                                        outcome
-                                        now)]
-    (cond
-     (error/anomaly? breaker)
-     (log/error "Circuit breaker not recorded"
-                {:destination (destination config) :anomaly breaker})
+  (when (= :failed outcome) (swap! pass assoc :clean? false))
+  (when-not (and (= :answered outcome) (:clean? @pass))
+    (let [breaker (circuit-breaker/record config
+                                          (breaker-policy config)
+                                          (destination config)
+                                          outcome
+                                          now)]
+      (cond
+       (error/anomaly? breaker)
+       (log/error "Circuit breaker not recorded"
+                  {:destination (destination config) :anomaly breaker})
 
-     (= "open" (:state breaker))
-     (do (log/warn "Circuit breaker open; calls held"
-                   {:destination (destination config)
-                    :retry-at (:retry-at breaker)})
-         (swap! pass assoc :budget 0)))))
+       (= "open" (:state breaker))
+       (do (log/warn "Circuit breaker open; calls held"
+                     {:destination (destination config)
+                      :retry-at (:retry-at breaker)})
+           (swap! pass assoc :budget 0))))))
 
 (defn- retry
   [config now intent attempts reason]
@@ -268,67 +279,147 @@
           :closed)
       decision)))
 
+(defn- clean?
+  "Whether the adapter's breaker is closed with no failure counted, so
+  an answered call would change nothing on it."
+  [config]
+  (let [breaker (circuit-breaker/breaker config (destination config))]
+    (and (not (error/anomaly? breaker))
+         (or (nil? breaker)
+             (and (= "closed" (:state breaker))
+                  (zero? (or (:consecutive-failures breaker) 0)))))))
+
+(defn- run-intent
+  [config now pass intent]
+  (if (pos? (:budget @pass))
+    (do (swap! pass update :budget dec)
+        (swap! pass update :ran inc)
+        (in-intent-trace config
+                         "outbound"
+                         intent
+                         (fn []
+                           (checked config
+                                    intent
+                                    (fn [i] (attempt config now pass i))))))
+    intent))
+
+(defn- drain-concurrently
+  "Run the intents that may run at once, each on the adapter's workers."
+  [config now pass intents]
+  (let [{:keys [^ExecutorService executor settles-first?]} config
+        runnable (intent-queue/runnable intents
+                                        now
+                                        {:settles-first? (or settles-first?
+                                                             (constantly
+                                                              false))})]
+    (doseq [^Future f (.invokeAll
+                       executor
+                       ^java.util.Collection
+                       (mapv (fn [intent]
+                               ^Callable
+                               (fn [] (run-intent config now pass intent)))
+                             runnable))]
+      (.get f))))
+
+(defn- drain-in-order
+  [config now pass intents]
+  (intent-queue/drain intents
+                      now
+                      {:settles-first? (or (:settles-first? config)
+                                           (constantly false))
+                       :run (fn [intent] (run-intent config now pass intent))}))
+
+(defn- reconcile
+  [config now sent]
+  (doseq [intent sent
+          :let [f (reconciler config intent)]
+          :when (and f (due? now intent))]
+    (in-intent-trace config
+                     "reconcile"
+                     intent
+                     (fn []
+                       (checked
+                        config
+                        intent
+                        (fn [i]
+                          (record config now i "sent" (f config now i))))))))
+
+(defn- pass
+  [config now pending sent]
+  (telemetry/with-span
+   [(str (name (:adapter config)) "-pass")]
+   (let [decision (allowed config now)
+         state (atom {:budget (if (= :probe decision) 1 ##Inf)
+                      :ran 0
+                      :clean? (and (= :closed decision) (clean? config))})]
+     (telemetry/set-attribute "intents.pending" (count pending))
+     (telemetry/set-attribute "intents.sent" (count sent))
+     (if (= :open decision)
+       (expire-aged config now pending)
+       (do (if (and (:executor config) (= :closed decision))
+             (drain-concurrently config now state (into pending sent))
+             (drain-in-order config now state (into pending sent)))
+           (when (and (= :closed decision) (pos? (:budget @state)))
+             (reconcile config now sent))))
+     (telemetry/set-attribute "intents.ran" (:ran @state))
+     (:ran @state))))
+
 (defn drain-once
   [config now]
   (let [pending (intents-with-status config "pending")
         sent (intents-with-status config "sent")]
-    (when-not (or (error/anomaly? pending) (error/anomaly? sent))
-      (let [decision (allowed config now)
-            pass (atom {:budget (if (= :probe decision) 1 ##Inf)})]
-        (if (= :open decision)
-          (expire-aged config now pending)
-          (do
-            (intent-queue/drain
-             (into pending sent)
-             now
-             {:settles-first? (or (:settles-first? config) (constantly false))
-              :run (fn [intent]
-                     (if (pos? (:budget @pass))
-                       (do (swap! pass update :budget dec)
-                           (in-intent-trace
-                            config
-                            "outbound"
-                            intent
-                            (fn []
-                              (checked config
-                                       intent
-                                       (fn [i] (attempt config now pass i))))))
-                       intent))})
-            (when (and (= :closed decision) (pos? (:budget @pass)))
-              (doseq [intent sent
-                      :let [f (reconciler config intent)]
-                      :when (and f (due? now intent))]
-                (in-intent-trace config
-                                 "reconcile"
-                                 intent
-                                 (fn []
-                                   (checked config
-                                            intent
-                                            (fn [i]
-                                              (record config
-                                                      now
-                                                      i
-                                                      "sent"
-                                                      (f config
-                                                         now
-                                                         i))))))))))))))
+    (if (or (error/anomaly? pending)
+            (error/anomaly? sent)
+            (and (empty? pending) (empty? sent)))
+      0
+      (pass config now pending sent))))
+
+(defn- worker-pool
+  "`n` threads the adapter's intents run on, or nil for one, where a pass
+  runs them in order on the poller's own thread."
+  [adapter n]
+  (when (and n (> n 1))
+    (let [counter (atom 0)]
+      (Executors/newFixedThreadPool
+       (int n)
+       (reify
+        ThreadFactory
+          (newThread [_ r]
+            (doto (Thread. ^Runnable r)
+              (.setDaemon true)
+              (.setName (str (name adapter)
+                             "-intent-worker-"
+                             (swap! counter inc))))))))))
 
 (defn start
   [config]
-  (let [{:keys [adapter poll-ms]} config
-        config (assoc config :runner-id (str (utility/uuidv7)))
+  (let [{:keys [adapter poll-ms concurrency]} config
+        executor (worker-pool adapter concurrency)
+        config (utility/assoc-some (assoc config
+                                          :runner-id
+                                          (str (utility/uuidv7)))
+                                   :executor
+                                   executor)
         running (atom true)
         t (doto (Thread.
                  (fn []
                    (while @running
-                     (try
-                       (drain-once config (utility/now))
-                       (catch Exception e
-                         (log/error e "Intent poller drain threw; continuing")))
-                     (try (when @running (Thread/sleep poll-ms))
-                          (catch InterruptedException _
-                            (reset! running false))))))
+                     (let [ran (try
+                                 (drain-once config (utility/now))
+                                 (catch Exception e
+                                   (log/error
+                                    e
+                                    "Intent poller drain threw; continuing")
+                                   0))]
+                       (try (when (and @running (not (pos? ran)))
+                              (Thread/sleep poll-ms))
+                            (catch InterruptedException _
+                              (reset! running false)))))))
             (.setDaemon true)
             (.setName (str (name adapter) "-intent-poller"))
             (.start))]
-    {:stop (fn [] (reset! running false) (.interrupt t))}))
+    {:stop (fn []
+             (reset! running false)
+             (.interrupt t)
+             (some-> ^ExecutorService executor
+                     .shutdown))}))

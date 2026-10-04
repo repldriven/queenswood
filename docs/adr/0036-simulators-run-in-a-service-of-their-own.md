@@ -89,7 +89,10 @@ Grouping is by boundary, not throughput, and a regrouping keeps two invariants:
 - **Each provider credential is a Secret of its own**, named for the
   credential and holding the keys an adapter and its provider each read
   half of: `modulr-api`, `form3-api`, `clearbank-client-key` and
-  `clearbank-provider-key`. Where the simulators run, a Job generates
+  `clearbank-provider-key`, and `modulr-webhook`, the secret the adapter
+  sets on each Modulr subscription and verifies every delivery with, the
+  same in every replica and across restarts. Where the simulators run, a
+  Job generates
   any that is empty and the simulator reads the same Secret; against
   the vendors, an ExternalSecret fills each from its Secret Manager
   entry. The adapter reads the same names and keys either way.

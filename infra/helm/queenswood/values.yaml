@@ -607,6 +607,7 @@ services:
     secretEnv:
       MODULR_API_KEY: { secret: modulr-api, key: key-id }
       MODULR_API_SECRET: { secret: modulr-api, key: secret }
+      MODULR_WEBHOOK_SECRET: { secret: modulr-webhook, key: secret }
       FORM3_KEY_ID: { secret: form3-api, key: key-id }
     secretFiles:
       - { secret: form3-api, key: private-key }

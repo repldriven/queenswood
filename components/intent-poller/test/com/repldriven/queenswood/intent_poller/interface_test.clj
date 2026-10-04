@@ -12,7 +12,9 @@
     [com.repldriven.mono.test-system.interface :refer
      [with-test-system nom-test>]]
 
-    [clojure.test :refer [deftest is testing]]))
+    [clojure.test :refer [deftest is testing]])
+  (:import
+    (java.util.concurrent Executors)))
 
 (defn- respond
   "The external API's answer, as the test's `answers` atom holds it."
@@ -31,6 +33,9 @@
                    {"call" {:call respond :answered answered :failed failed}})
 
 (SUT/defoperations :poller-expiry
+                   {"call" {:call respond :answered answered :failed failed}})
+
+(SUT/defoperations :poller-concurrent
                    {"call" {:call respond :answered answered :failed failed}})
 
 (defn- spec
@@ -138,3 +143,42 @@
        (is (= "failed" (:status (by-id config "exp.1"))))
        (is (= "failed" (:status (by-id config "exp.2"))))
        (is (= 1 (:attempts (by-id config "exp.2"))))))))
+
+(deftest concurrent-test
+  (with-test-system
+   [sys "classpath:intent-poller/application-test.yml"]
+   (let [answers (atom [:answered nil])
+         executor (Executors/newFixedThreadPool 4)
+         config (assoc (poller-config sys :poller-concurrent answers)
+                       :executor
+                       executor)
+         spec (spec :poller-concurrent)
+         t0 1000000
+         status (fn [id] (:status (by-id config id)))]
+     (try (nom-test> [_ (SUT/save-intent
+                         config
+                         spec
+                         (assoc (intent "con.1" t0) :subjects ["a"]))
+                      _ (SUT/save-intent
+                         config
+                         spec
+                         (assoc (intent "con.2" t0) :subjects ["b"]))
+                      _ (SUT/save-intent
+                         config
+                         spec
+                         (assoc (intent "con.3" t0) :subjects ["a"]))
+                      _ (SUT/save-intent
+                         config
+                         spec
+                         (assoc (intent "con.4" t0) :subjects ["c"]))])
+          (testing "intents for different subjects run in one pass"
+            (is (= 3 (SUT/drain-once config t0)))
+            (is (= ["settled" "settled" "pending" "settled"]
+                   (mapv status ["con.1" "con.2" "con.3" "con.4"]))))
+          (testing "a later intent for a subject runs on the next pass"
+            (is (= 1 (SUT/drain-once config (+ t0 1))))
+            (is (= "settled" (status "con.3"))))
+          (testing "a pass with nothing to do runs nothing"
+            (is (= 0 (SUT/drain-once config (+ t0 2)))))
+          (finally (.shutdown executor))))))
+
