@@ -299,3 +299,11 @@
   cash account."}
   Timeout
   examples/Timeout)
+
+(def
+  ^{:doc
+    "RFC 9457 body for a 503 `server/overloaded`: the API is handling as
+  many requests as it takes, and the request reached no route, so it is
+  safe to send again after the `Retry-After`."}
+  Overloaded
+  examples/Overloaded)

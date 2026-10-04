@@ -1,6 +1,8 @@
 (ns com.repldriven.queenswood.api.oauth.routes
   (:require
-    [com.repldriven.queenswood.api.oauth.handlers :as handlers]))
+    [com.repldriven.queenswood.api.oauth.handlers :as handlers]
+
+    [com.repldriven.queenswood.api-schema.interface :as api-schema]))
 
 ;; All three routes are unauthenticated by design: the token endpoint
 ;; carries credentials in its own body (the OAuth2 contract), and
@@ -20,6 +22,8 @@
                                       {"$ref" (str "#/components/examples/"
                                                    example)}]))
                               examples)}}})
+
+(def ^:private overloaded (api-schema/ErrorResponse [#'api-schema/Overloaded]))
 
 (def routes
   [["/oauth"
@@ -44,7 +48,8 @@
                                            "InvalidTokenRequest"])
                          401 (oauth-error (str "An OAuth 2.0 error: the "
                                                "credentials were rejected.")
-                                          ["InvalidClient"])}
+                                          ["InvalidClient"])
+                         503 overloaded}
              :handler handlers/token}}]
     ["/jwks"
      {:get
@@ -58,7 +63,8 @@
                    502 (oauth-error (str "An OAuth 2.0 error: the "
                                          "signing keys could not be "
                                          "fetched.")
-                                    ["SigningKeysUnavailable"])}
+                                    ["SigningKeysUnavailable"])
+                   503 overloaded}
        :handler handlers/jwks}}]]
    ["/.well-known/openid-configuration"
     {:openapi {:tags ["OAuth"] :security []}
@@ -70,5 +76,6 @@
                           "grant, `client_credentials` with "
                           "`client_secret_post`.")}
            :responses {200 {:description "The discovery document."
-                            :body [:ref "DiscoveryDoc"]}}
+                            :body [:ref "DiscoveryDoc"]}
+                       503 overloaded}
            :handler handlers/discovery}}]])

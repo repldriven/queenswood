@@ -141,7 +141,9 @@ RUN ARCH="$(case "${TARGETARCH:-amd64}" in \
  && ln -sf /usr/lib/libfdb_c.so "/usr/lib/libfdb_c_${FDB_VERSION}.so"
 
 ENV FDB_CLUSTER_FILE=/etc/fdb/fdb.cluster
-ENV JAVA_TOOL_OPTIONS="-XX:+ExitOnOutOfMemoryError"
+# The heap takes 75% of the container's memory limit rather than the
+# JVM's default 25%, which left a 1.5 GiB service with a 375 MB heap.
+ENV JAVA_TOOL_OPTIONS="-XX:+ExitOnOutOfMemoryError -XX:MaxRAMPercentage=75"
 
 WORKDIR /app
 COPY --from=build /workspace/projects/${PROJECT_NAME}/target/app.jar /app/app.jar

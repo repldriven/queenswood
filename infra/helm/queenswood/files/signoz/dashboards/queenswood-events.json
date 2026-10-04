@@ -466,7 +466,7 @@
         "spec": {
           "display": {
             "name": "Queue depth",
-            "description": "Messages each consumer group has yet to commit on each topic, read from the broker every 15 seconds. A depth that grows is a consumer falling behind what is sent to it"
+            "description": "Messages each consumer group has yet to commit on each topic, read from the broker every 15 seconds. A depth that grows is a consumer falling behind what is sent to it. Reply groups are left out: each process reads replies from the newest on, in a group of its own"
           },
           "links": [],
           "plugin": {
@@ -515,7 +515,7 @@
                       }
                     ],
                     "filter": {
-                      "expression": ""
+                      "expression": "group NOT LIKE '%command-response%'"
                     },
                     "having": {
                       "expression": ""

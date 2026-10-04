@@ -88,63 +88,76 @@ system:
         topics: [topic-banks-command-response]
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          group.id: api-service-banks-command-response
+          # A reply matters only to the request waiting on it, so each process
+          # reads replies in a group of its own from the newest one on: a restart
+          # does not wade through replies to requests that died with the last
+          # process, and every replica hears its own replies.
+          group.id: !join ["api-service-banks-command-response-", !random-uuid ""]
+          auto.offset.reset: latest
       companies-command-response:
         schemas: !system/local-ref schemas
         schema: !keyword command-response
         topics: [topic-companies-command-response]
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          group.id: api-service-companies-command-response
+          group.id: !join ["api-service-companies-command-response-", !random-uuid ""]
+          auto.offset.reset: latest
       cash-accounts-command-response:
         schemas: !system/local-ref schemas
         schema: !keyword command-response
         topics: [topic-cash-accounts-command-response]
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          group.id: api-service-cash-accounts-command-response
+          group.id: !join ["api-service-cash-accounts-command-response-", !random-uuid ""]
+          auto.offset.reset: latest
       memberships-command-response:
         schemas: !system/local-ref schemas
         schema: !keyword command-response
         topics: [topic-memberships-command-response]
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          group.id: api-service-memberships-command-response
+          group.id: !join ["api-service-memberships-command-response-", !random-uuid ""]
+          auto.offset.reset: latest
       parties-command-response:
         schemas: !system/local-ref schemas
         schema: !keyword command-response
         topics: [topic-parties-command-response]
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          group.id: api-service-parties-command-response
+          group.id: !join ["api-service-parties-command-response-", !random-uuid ""]
+          auto.offset.reset: latest
       idvs-command-response:
         schemas: !system/local-ref schemas
         schema: !keyword command-response
         topics: [topic-idvs-command-response]
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          group.id: api-service-idvs-command-response
+          group.id: !join ["api-service-idvs-command-response-", !random-uuid ""]
+          auto.offset.reset: latest
       payments-command-response:
         schemas: !system/local-ref schemas
         schema: !keyword command-response
         topics: [topic-payments-command-response]
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          group.id: api-service-payments-command-response
+          group.id: !join ["api-service-payments-command-response-", !random-uuid ""]
+          auto.offset.reset: latest
       transactions-command-response:
         schemas: !system/local-ref schemas
         schema: !keyword command-response
         topics: [topic-transactions-command-response]
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          group.id: api-service-transactions-command-response
+          group.id: !join ["api-service-transactions-command-response-", !random-uuid ""]
+          auto.offset.reset: latest
       payee-checks-command-response:
         schemas: !system/local-ref schemas
         schema: !keyword command-response
         topics: [topic-payee-checks-command-response]
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          group.id: api-service-payee-checks-command-response
+          group.id: !join ["api-service-payee-checks-command-response-", !random-uuid ""]
+          auto.offset.reset: latest
     message-bus-producers: !system/component
       system/component-kind: kafka/message-bus-producers
       banks-command:
@@ -311,6 +324,11 @@ system:
       system/component-kind: server/jetty-adapter
       handler: !system/ref server.handler
       interceptors: !system/ref server.interceptors
+      # The most requests the API handles at once, any beyond answered
+      # 503 at once rather than held until the heap runs out. A write
+      # waits up to 10 s on its command, and the payment processor serves
+      # about 110 a second, so 200 holds about 2 s of work.
+      max-in-flight: 200
       options:
         port: 8080
         # A request waits on its command's reply, so a pool of platform

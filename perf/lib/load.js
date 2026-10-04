@@ -54,6 +54,8 @@ export function options(scenario, steps, profile, extra) {
   const o = extra || {};
   return {
     setupTimeout: env("SETUP_TIMEOUT", "30m"),
+    // Teardown waits out an API restart and the books settling.
+    teardownTimeout: "5m",
     scenarios: {
       [scenario]: {
         executor: "ramping-arrival-rate",

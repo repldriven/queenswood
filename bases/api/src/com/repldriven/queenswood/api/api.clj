@@ -297,7 +297,8 @@
                               #'api-schema/BadResponse])
                         503 (api-schema/ErrorResponse
                              [#'api-schema/Contention
-                              #'api-schema/Timeout])}}]
+                              #'api-schema/Timeout
+                              #'api-schema/Overloaded])}}]
           (concat
            access/routes
            balance/routes
