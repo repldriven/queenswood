@@ -25,15 +25,16 @@ kept, see [chart-of-accounts.md](chart-of-accounts.md).
 ## Background
 
 - **The report.** The bank's provider tells its adapter of an inbound
-  by webhook, and the adapter writes the scheme event to its outbox,
-  which a `changelog-relay` runner in `exclusive-dispatchers-service`
-  publishes on `topic-schemes-payments-event`, two partitions, keyed
-  by the payment.
-- **The processor.** `payment`'s `PaymentEventProcessor`, in
+  by webhook, and the adapter base's webhook handlers write the scheme
+  event to its outbox, which `changelog-relay/runners` in
+  `exclusive-dispatchers-service` publishes on
+  `topic-schemes-payments-event`, two partitions, keyed by the payment.
+- **The processors.** `payment/event-processor`, in
   `financial-processors-service`, handles `transaction-settled`,
   `transaction-held`, `transaction-rejected` and `transaction-returned`
   carrying `debit-credit-code` credit in `events/inbound.clj`, and
-  `admit-inbound-payment` on `topic-payments-command`.
+  `payment/processor` handles `admit-inbound-payment` on
+  `topic-payments-command`.
 - **What the provider declares.** `inbound: notified` where the
   provider settles and then tells the platform, `admitted` where it asks
   first; `returns: [inbound]` where the platform may send a payment
@@ -45,6 +46,15 @@ kept, see [chart-of-accounts.md](chart-of-accounts.md).
   `suspended` or `returned`.
 
 ## Solution
+
+### Reading the diagrams
+
+A participant is the service that runs it and the component kind or
+base inside it, as the system configuration names them, and a topic
+shows its partitions and the key it is published under. An arrow into
+FDB labelled `read` reads, one labelled `commit` lists what a
+transaction writes, and a shaded box holds the reads and the commit of
+one FDB transaction; a read outside a box is a transaction of its own.
 
 ```mermaid
 stateDiagram-v2
@@ -75,17 +85,28 @@ stateDiagram-v2
 ```mermaid
 sequenceDiagram
     participant PR as Modulr
-    participant AD as modulr-adapter
+    participant WH as external-adapters-service<br/>modulr-adapter webhook handlers
     participant DB as FDB
-    participant OR as modulr-outbox relay
+    participant OR as exclusive-dispatchers-service<br/>changelog-relay/runners
     participant SE as topic-schemes-payments-event<br/>2 partitions, key payment
-    participant PE as payment<br/>PaymentEventProcessor
-    PR-->>AD: PAYIN webhook
-    Note over AD,DB: one transaction writes<br/>ModulrOutboxEvent transaction-settled credit and its changelog entry<br/>deduplicated on the provider's payment id
+    participant PE as financial-processors-service<br/>payment/event-processor
+    PR-->>WH: PAYIN webhook
+    rect rgb(235, 242, 255)
+    Note right of WH: one FDB transaction
+    WH->>DB: commit ModulrOutboxEvent transaction-settled (credit) and its changelog entry<br/>deduplicated on the provider's payment id
+    end
+    rect rgb(235, 242, 255)
+    Note right of OR: one FDB transaction
+    OR->>DB: read modulr-outbox from its cursor
     OR->>SE: transaction-settled (credit)
+    OR->>DB: commit the cursor modulr-relay
+    end
     SE->>PE: transaction-settled (credit)
-    PE->>DB: read the account by BBAN, 1100, policies, today's count
-    Note over PE,DB: one transaction writes<br/>Transaction inbound-transfer and two TransactionLegs<br/>the creditor's default/posted balance row<br/>InboundPayment settled and its inbound-payments changelog entry<br/>transaction-posted on bank-activity-shard<br/>stored-legs leaves the 1100 leg out of the balance writes
+    rect rgb(235, 242, 255)
+    Note right of PE: one FDB transaction
+    PE->>DB: read the account by BBAN, 1100, policies<br/>today's count at snapshot
+    PE->>DB: commit Transaction inbound-transfer and two TransactionLegs<br/>the creditor's default/posted balance row<br/>InboundPayment settled and its inbound-payments changelog entry<br/>transaction-posted on bank-activity-shard<br/>the 1100 leg left out of the balance writes
+    end
 ```
 
 The settlement resolves the creditor by BBAN, checks the account is
@@ -105,14 +126,25 @@ relay turns the changelog entry into `payment.inbound-settled`.
 ```mermaid
 sequenceDiagram
     participant SE as topic-schemes-payments-event<br/>2 partitions, key payment
-    participant PE as payment<br/>PaymentEventProcessor
+    participant PE as financial-processors-service<br/>payment/event-processor
     participant DB as FDB
-    participant AP as payment<br/>activity-event-processor
+    participant AR as exclusive-dispatchers-service<br/>bank-activity/relay
+    participant AE as topic-bank-activity-event<br/>1 partition, key bank
+    participant AP as financial-processors-service<br/>payment/activity-event-processor
     SE->>PE: transaction-settled (credit)
-    PE->>DB: the account is not opened, or a check refuses
-    Note over PE,DB: one transaction writes<br/>Transaction inbound-transfer, DEBIT 1100 and CREDIT 2500<br/>the 2500 suspense default/posted balance row<br/>InboundPayment suspended with the reason, and its changelog entry<br/>transaction-posted and inbound-payment-suspended on bank-activity-shard<br/>stored-legs leaves the 1100 leg out of the balance writes
-    DB-->>AP: the bank-activity relay publishes both entries
-    AP->>AP: transaction-posted mirrored, inbound-payment-suspended returned or not
+    rect rgb(235, 242, 255)
+    Note right of PE: one FDB transaction
+    PE->>DB: read the account by BBAN, policies<br/>the account is not opened, or a check refuses
+    PE->>DB: commit Transaction inbound-transfer, DEBIT 1100 and CREDIT 2500<br/>the 2500 suspense default/posted balance row<br/>InboundPayment suspended with the reason, and its changelog entry<br/>transaction-posted and inbound-payment-suspended on bank-activity-shard<br/>the 1100 leg left out of the balance writes
+    end
+    rect rgb(235, 242, 255)
+    Note right of AR: one FDB transaction
+    AR->>DB: read the bank's activity log shard from its cursor
+    AR->>AE: transaction-posted and inbound-payment-suspended
+    AR->>DB: commit the shard's cursor
+    end
+    AE->>AP: transaction-posted, mirrored at a per-account provider
+    AE->>AP: inbound-payment-suspended, returned where the provider allows
 ```
 
 An inbound the receiving account cannot take, because it is not opened
@@ -130,23 +162,64 @@ back, as below; otherwise it stays suspended for the bank to resolve.
 ```mermaid
 sequenceDiagram
     participant PR as ClearBank
-    participant AD as clearbank-adapter
+    participant WH as external-adapters-service<br/>clearbank-adapter webhook handlers
     participant DB as FDB
+    participant OR as exclusive-dispatchers-service<br/>changelog-relay/runners
     participant SE as topic-schemes-payments-event<br/>2 partitions, key payment
-    participant PE as payment<br/>PaymentEventProcessor
-    PR-->>AD: the inbound held for screening
-    Note over AD,DB: one transaction writes ClearbankOutboxEvent transaction-held credit
-    DB-->>SE: clearbank-outbox relay publishes it
+    participant PE as financial-processors-service<br/>payment/event-processor
+    PR-->>WH: the inbound held for screening
+    rect rgb(235, 242, 255)
+    Note right of WH: one FDB transaction
+    WH->>DB: commit ClearbankOutboxEvent transaction-held (credit)
+    end
+    rect rgb(235, 242, 255)
+    Note right of OR: one FDB transaction
+    OR->>DB: read clearbank-outbox from its cursor
+    OR->>SE: transaction-held (credit)
+    OR->>DB: commit the cursor clearbank-relay
+    end
     SE->>PE: transaction-held (credit)
-    Note over PE,DB: one transaction writes<br/>InboundPayment held and its changelog entry<br/>no transaction, no balance row
+    rect rgb(235, 242, 255)
+    Note right of PE: one FDB transaction
+    PE->>DB: read the account by BBAN
+    PE->>DB: commit InboundPayment held and its changelog entry<br/>no transaction, no balance row
+    end
     alt released
-        PR-->>AD: the inbound settled
+        PR-->>WH: the inbound settled
+        rect rgb(235, 242, 255)
+        Note right of WH: one FDB transaction
+        WH->>DB: commit ClearbankOutboxEvent transaction-settled (credit)
+        end
+        rect rgb(235, 242, 255)
+        Note right of OR: one FDB transaction
+        OR->>DB: read clearbank-outbox from its cursor
+        OR->>SE: transaction-settled (credit)
+        OR->>DB: commit the cursor clearbank-relay
+        end
         SE->>PE: transaction-settled (credit)
-        Note over PE,DB: checks pass, as a settlement, with the held record outside today's count<br/>Transaction, two TransactionLegs, the creditor's posted balance row<br/>InboundPayment settled and its changelog entry, transaction-posted<br/>or a refusal parks it in suspense as above
+        rect rgb(235, 242, 255)
+        Note right of PE: one FDB transaction
+        PE->>DB: read the held InboundPayment, the account, policies<br/>today's count without the held record
+        PE->>DB: commit Transaction and two TransactionLegs<br/>the creditor's default/posted balance row<br/>InboundPayment settled and its changelog entry<br/>transaction-posted on bank-activity-shard<br/>the 1100 leg left out of the balance writes<br/>or, where a check refuses, suspense as above
+        end
     else returned to the remitter
-        PR-->>AD: the inbound declined
+        PR-->>WH: the inbound declined
+        rect rgb(235, 242, 255)
+        Note right of WH: one FDB transaction
+        WH->>DB: commit ClearbankOutboxEvent transaction-rejected (credit)
+        end
+        rect rgb(235, 242, 255)
+        Note right of OR: one FDB transaction
+        OR->>DB: read clearbank-outbox from its cursor
+        OR->>SE: transaction-rejected (credit)
+        OR->>DB: commit the cursor clearbank-relay
+        end
         SE->>PE: transaction-rejected (credit)
-        Note over PE,DB: one transaction writes<br/>InboundPayment returned and its changelog entry<br/>no transaction, the money never reached the bank
+        rect rgb(235, 242, 255)
+        Note right of PE: one FDB transaction
+        PE->>DB: read the held InboundPayment
+        PE->>DB: commit InboundPayment returned and its changelog entry<br/>no transaction, the money never reached the bank
+        end
     end
 ```
 
@@ -162,26 +235,44 @@ suspense.
 ```mermaid
 sequenceDiagram
     participant PR as Form3
-    participant AD as form3-adapter
+    participant WH as external-adapters-service<br/>form3-adapter webhook handlers
     participant PC as topic-payments-command<br/>2 partitions, unkeyed
-    participant PP as payment<br/>PaymentProcessor
+    participant PP as financial-processors-service<br/>payment/processor
     participant DB as FDB
+    participant OR as exclusive-dispatchers-service<br/>changelog-relay/runners
     participant SE as topic-schemes-payments-event<br/>2 partitions, key payment
-    participant PE as payment<br/>PaymentEventProcessor
-    PR-->>AD: an inbound asking for admission
-    AD->>PC: admit-inbound-payment, waiting for the reply
+    participant PE as financial-processors-service<br/>payment/event-processor
+    PR-->>WH: an inbound asking for admission
+    WH->>PC: admit-inbound-payment, waiting for the reply
     PC->>PP: admit-inbound-payment
-    PP->>DB: read the account by BBAN, policies, today's count
+    rect rgb(235, 242, 255)
+    Note right of PP: one FDB transaction
+    PP->>DB: read the account by BBAN, policies<br/>today's count at snapshot
     alt admitted
-        Note over PP,DB: one transaction writes<br/>InboundPayment admitted and its changelog entry<br/>no transaction, no balance row
+        PP->>DB: commit InboundPayment admitted and its changelog entry<br/>no transaction, no balance row
     else rejected
-        Note over PP,DB: nothing written, the reply names the ISO 20022 reason
+        Note right of PP: nothing committed, the reply names the ISO 20022 reason
     end
-    PP-->>AD: reply on topic-payments-command-response
-    AD-->>PR: admitted, or rejected with the reason
-    PR-->>AD: the inbound settled
+    end
+    PP-->>WH: reply on topic-payments-command-response
+    WH-->>PR: admitted, or rejected with the reason
+    PR-->>WH: the inbound settled
+    rect rgb(235, 242, 255)
+    Note right of WH: one FDB transaction
+    WH->>DB: commit Form3OutboxEvent transaction-settled (credit)
+    end
+    rect rgb(235, 242, 255)
+    Note right of OR: one FDB transaction
+    OR->>DB: read form3-outbox from its cursor
+    OR->>SE: transaction-settled (credit)
+    OR->>DB: commit the cursor form3-relay
+    end
     SE->>PE: transaction-settled (credit)
-    Note over PE,DB: one transaction writes<br/>Transaction, two TransactionLegs, the creditor's posted balance row<br/>InboundPayment settled and its changelog entry, transaction-posted<br/>no checks run again
+    rect rgb(235, 242, 255)
+    Note right of PE: one FDB transaction
+    PE->>DB: read the admitted InboundPayment, the account, 1100
+    PE->>DB: commit Transaction and two TransactionLegs<br/>the creditor's default/posted balance row<br/>InboundPayment settled and its changelog entry<br/>transaction-posted on bank-activity-shard<br/>the 1100 leg left out of the balance writes<br/>no checks run again
+    end
 ```
 
 Under `inbound: admitted` the provider asks before an inbound settles,
@@ -200,23 +291,44 @@ stopped being opened parks it in suspense.
 
 ```mermaid
 sequenceDiagram
-    participant AP as payment<br/>activity-event-processor
+    participant AP as financial-processors-service<br/>payment/activity-event-processor
     participant FC as topic-form3-command<br/>1 partition, key bank
-    participant AD as form3-adapter
-    participant IP as intent poller
+    participant AD as external-adapters-service<br/>form3-adapter/command-processor
+    participant IP as external-adapters-service<br/>form3-relay/outbound-runner
     participant PR as Form3
     participant DB as FDB
+    participant OR as exclusive-dispatchers-service<br/>changelog-relay/runners
     participant SE as topic-schemes-payments-event<br/>2 partitions, key payment
-    participant PE as payment<br/>PaymentEventProcessor
+    participant PE as financial-processors-service<br/>payment/event-processor
     AP->>FC: return-payment, from inbound-payment-suspended
-    FC->>AD: consumed
-    Note over AD,DB: one transaction writes Form3OutboundIntent, the return, pending
+    FC->>AD: one command at a time
+    rect rgb(235, 242, 255)
+    Note right of AD: one FDB transaction
+    AD->>DB: commit Form3OutboundIntent, the return, pending
+    end
+    IP->>DB: read pending and sent intents
     IP->>PR: the return
+    rect rgb(235, 242, 255)
+    Note right of IP: one FDB transaction
+    IP->>DB: commit the intent sent
+    end
     IP->>PR: reconciled, what became of it
-    Note over IP,DB: one transaction writes Form3OutboxEvent<br/>transaction-returned credit, or inbound-return-failed
-    DB-->>SE: form3-outbox relay publishes it
+    rect rgb(235, 242, 255)
+    Note right of IP: one FDB transaction
+    IP->>DB: commit the intent's outcome<br/>Form3OutboxEvent transaction-returned (credit), or inbound-return-failed
+    end
+    rect rgb(235, 242, 255)
+    Note right of OR: one FDB transaction
+    OR->>DB: read form3-outbox from its cursor
+    OR->>SE: transaction-returned (credit)
+    OR->>DB: commit the cursor form3-relay
+    end
     SE->>PE: transaction-returned (credit)
-    Note over PE,DB: one transaction writes<br/>Transaction inbound-return, DEBIT 2500 and CREDIT 1100, two TransactionLegs<br/>the 2500 suspense balance row<br/>InboundPayment returned and its changelog entry, transaction-posted<br/>stored-legs leaves the 1100 leg out of the balance writes
+    rect rgb(235, 242, 255)
+    Note right of PE: one FDB transaction
+    PE->>DB: read the suspended InboundPayment, 2500, 1100
+    PE->>DB: commit Transaction inbound-return, DEBIT 2500 and CREDIT 1100<br/>two TransactionLegs, the 2500 suspense balance row<br/>InboundPayment returned and its changelog entry<br/>transaction-posted on bank-activity-shard<br/>the 1100 leg left out of the balance writes
+    end
 ```
 
 Under `returns: [inbound]` the activity event processor sends a
