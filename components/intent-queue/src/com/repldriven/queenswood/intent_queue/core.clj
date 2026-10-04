@@ -38,3 +38,28 @@
                          (update :unsettled block intent))))))
           {:unsent #{} :unsettled #{} :ran []}
           (sort-by :intent-id intents)))
+
+(defn runnable
+  [intents now {:keys [settles-first?]}]
+  (:run
+   (reduce (fn [{:keys [unsent unsettled] :as state} intent]
+             (let [waits? (or (holds? unsent intent)
+                              (and (settles-first? intent)
+                                   (holds? unsettled intent)))]
+               (cond
+                (= "sent" (:status intent))
+                (update state :unsettled block intent)
+
+                (or waits? (not (due? now intent)))
+                (-> state
+                    (update :unsent block intent)
+                    (update :unsettled block intent))
+
+                :else
+                (-> state
+                    (update :run conj intent)
+                    (update :unsent block intent)
+                    (update :unsettled block intent)))))
+           {:unsent #{} :unsettled #{} :run []}
+           (sort-by :intent-id intents))))
+

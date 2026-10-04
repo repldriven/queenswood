@@ -30,3 +30,20 @@
       an account money is still moving through."
   [intents now opts]
   (core/drain intents now opts))
+
+(defn runnable
+  "The due pending intents a pass may run at once, oldest first by
+  `:intent-id`: each one `drain` would run, held by no earlier intent for
+  one of its subjects, and sharing no subject with another in the
+  result, since each holds its subjects until its run is done. A later
+  intent for the same subject waits for the next pass. Its holding rules
+  are `drain`'s; for running intents concurrently, where `drain` runs
+  them one after another.
+
+  Args:
+  - intents: every pending and sent intent, as `drain` takes them.
+  - now: epoch millis an intent's `:next-attempt-at` is compared with.
+  - opts: `:settles-first?`, as `drain` takes it."
+  [intents now opts]
+  (core/runnable intents now opts))
+

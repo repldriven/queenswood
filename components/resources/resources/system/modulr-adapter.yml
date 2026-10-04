@@ -18,9 +18,15 @@ credentials: !system/component
 
 
 # The secret the adapter sets on each notification subscription, which
-# Modulr signs every delivery with.
+# Modulr signs every delivery with, from the webhook Secret so every
+# replica and restart verifies with the one Modulr holds. Generated at
+# start in dev and test, where one process both subscribes and verifies.
 webhook-credentials: !system/component
   system/component-kind: modulr-webhook/credentials
+  secret: !profile
+    dev: null
+    test: null
+    default: !env MODULR_WEBHOOK_SECRET
 
 
 registrar: !system/component
@@ -83,3 +89,4 @@ outbound-runner: !system/component
     default: 300000
   delivery-policy: !include system/payment-delivery-policy.yml
   poll-ms: 200
+  concurrency: 8

@@ -146,7 +146,23 @@ yet: a wait is not recorded on the breaker, counts no attempt, and gives
 up only by age. Reconciliations run only while the breaker is closed.
 The poller's and the relays' constants go: each adapter's
 `outbound-runner` carries a `delivery-policy`, a `poll-ms` and, for
-Form3 and Modulr, a `reconcile-after-ms`, all required.
+Form3 and Modulr, a `reconcile-after-ms`, all required, and optionally a
+`concurrency`.
+
+A `concurrency` above one gives the poller that many worker threads.
+While the breaker is closed, a pass takes the intents
+`intent-queue/runnable` finds may run at once — the oldest due intent
+for each subject, with no earlier one for a subject it shares unsent,
+nor, for a call that settles first, unsettled — and runs them on the
+workers; the rest wait for a later pass. A probe, and a poller with no
+`concurrency`, drain in order on the poller's own thread. A failure that
+opens the breaker stops the calls not yet started, while up to
+`concurrency` less one already in flight finish. An answer through a
+breaker the pass found closed with no failure counted is not recorded,
+since it would change nothing. The poller starts its next pass at once
+after one that made a call, and after `poll-ms` otherwise. Each pass is
+a `<adapter>-pass` span carrying `intents.pending`, `intents.sent` and
+`intents.ran`.
 
 An intent past `max-age-ms` is given up on as the poller gives one up on
 its last attempt today: its operation's `:failed` reports it
@@ -249,7 +265,12 @@ the runner had.
 - **intent-poller** — an adapter whose calls fail opens its breaker,
   and the intents behind the opening keep their attempts; an open
   breaker calls nothing; a probe's answer lets the rest through; an
-  intent past `max-age-ms` fails while the breaker is open.
+  intent past `max-age-ms` fails while the breaker is open; with a
+  `concurrency`, a pass runs the first intent for each subject and leaves
+  a second for a subject to the next pass.
+- **intent-queue** — `runnable` holding an intent behind an unsent one
+  for a subject it shares, a call that settles first behind a sent one,
+  and one not yet due.
 - **email** — a pass claims nothing while the mail server's breaker is
   open, the delivery left due with no attempt counted, and claims it
   once the breaker closes; a failed attempt backs off by the policy and
@@ -300,6 +321,13 @@ the runner had.
 - **An endpoint paused before the breaker stays paused.** The platform
   no longer pauses one, but an endpoint it paused earlier is enabled by
   its customer, as it was.
+- **An opening breaker lets the calls in flight finish.** With a
+  `concurrency`, up to that many less one calls already started when a
+  failure opens the breaker still go to the destination.
+- **A rotated Modulr webhook secret is not resubscribed.** The registrar
+  compares a subscription's type and URL, all Modulr returns, so a new
+  `modulr-webhook` secret reaches Modulr only once its subscriptions are
+  deleted, and until then every delivery fails its signature.
 - **A probe claimed and not made holds its lease.** A runner that dies
   holding a probe leaves the breaker half-open until `probe-lease-ms`
   passes.

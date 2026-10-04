@@ -54,3 +54,4 @@ outbound-runner: !system/component
     default: !env ZYPHE_WEBHOOK_SECRET
   delivery-policy: !include system/idv-delivery-policy.yml
   poll-ms: 200
+  concurrency: 4

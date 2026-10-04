@@ -69,10 +69,11 @@ against a provider's own sandbox.
   bank-activity shard in `exclusive-dispatchers-service`, polling every
   100 ms for up to 500 entries, publishes it; `payment`'s activity event
   processor sends the command; the Modulr adapter saves an intent; and
-  one `intent-poller` thread in
-  [core.clj](/components/intent-poller/src/com/repldriven/queenswood/intent_poller/core.clj),
-  every 200 ms, reads every pending and sent intent and makes their calls
-  one after another. The simulator's webhook marks the intent settled and
+  the `intent-poller` in
+  [core.clj](/components/intent-poller/src/com/repldriven/queenswood/intent_poller/core.clj)
+  reads every pending and sent intent and makes the calls that may run at
+  once on its `concurrency` workers, eight for each payment adapter. The
+  simulator's webhook marks the intent settled and
   writes the outcome to `modulr-outbox`, whose relay publishes it for
   `payment` to settle the payment.
 - **The Modulr simulator keeps a balance per account.** It runs in
@@ -307,15 +308,18 @@ run at the next:
    at 18 to 20 ms on each replica, and a p99 of 64 to 69 ms in the last
    three minutes. Outbound submits still share 1200 and the SUM index,
    and settlements 1100.
-5. **The intent poller.** One thread reads every pending and sent intent
-   on each pass, and a sent intent waits up to `reconcile-after-ms`, 5
-   minutes, for its webhook, so each pass reads more as the rate rises.
-   Settlement time grows through a run while submit latency stays flat.
-   Internal payments on a Modulr bank feed it too. Measured: through the
-   ten-minute challenger the adapter is sent 50 transfers a second and
-   completes 35 falling to 31, so about 8,000 are still pending at the
-   end and take five minutes to complete, and a bank opening its
-   accounts in that time waits behind them.
+5. **The intent poller.** Done for 50 a second. One thread made every
+   call in turn, about 31 ms each, so through the ten-minute challenger
+   the adapter was sent 50 transfers a second and completed 35 falling
+   to 31, leaving about 8,000 pending at the end for five minutes, and a
+   bank opening its accounts in that time waited behind them. Each
+   adapter's poller now runs the calls that may run at once on eight
+   workers, starts its next pass at once after one that made a call, and
+   records an answer on the breaker only where it changes something. The
+   same run completes 3,000 transfers a minute from the second minute to
+   the last, each call 20 to 22 ms with a p99 under 40 ms, the workers
+   busy for about one second in each, and nothing pending at the end.
+   Each pass still reads every pending and sent intent.
 6. **The relays.** One bank's activity is one shard's log, read by one
    runner at up to 500 entries every 100 ms.
 
@@ -377,11 +381,10 @@ payment costs, ranked by its effect on the serial command path, which is
 5. **The Modulr transfer.** Four transactions under the
    `modulr-outbound` span: `:modulr-outbound/find` twice, the debtor's
    and the creditor's provider account read one after the other by
-   `held-at`, then `:circuit-breaker/record` and
-   `:modulr-outbound/update`. The breaker record runs on every call,
-   where [ADR-0034](../adr/0034-outbound-calls-go-through-a-breaker-on-their-destination.md)
-   writes it only on a failure or a change of state. Two more `find`s
-   per payment run outside the transfer.
+   `held-at`, then `:modulr-outbound/update`. The breaker is recorded
+   only after a failure or where a pass found failures counted, as
+   [ADR-0034](../adr/0034-outbound-calls-go-through-a-breaker-on-their-destination.md)
+   has it. Two more `find`s per payment run outside the transfer.
 6. **The API's idempotency.** `:idempotency/claim-or-replay` and
    `:idempotency/save`, two transactions and about 6 ms of each
    request's latency, off the serial path.
