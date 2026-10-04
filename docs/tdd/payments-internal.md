@@ -154,11 +154,13 @@ sequenceDiagram
     PP->>DB: save the creditor's Balance
     PP->>DB: save InternalPayment
     PP->>DB: write settle to the internal-payments changelog
-    end
     alt the idempotency key is new
-    Note over PP: the transaction commits
+    Note over PP,DB: the transaction commits
     else the key is recorded, a redelivery
-    Note over PP: the unique index on the key refuses the save,<br/>and the transaction aborts
+    Note over PP,DB: the unique index on the key refuses the save,<br/>and the transaction aborts
+    end
+    end
+    opt the transaction aborted on the key
     critical transact
     PP->>DB: read the InternalPayment by its idempotency key
     end
@@ -280,11 +282,11 @@ sequenceDiagram
     MC->>AD: one command at a time
     critical transact
     AD->>DB: save ModulrOutboundIntent kind transfer, pending<br/>subjects the debtor and creditor accounts
-    end
     alt the command's dedup key is new
-    Note over AD: the transaction commits
+    Note over AD,DB: the transaction commits
     else the key is recorded, a redelivery
-    Note over AD: the unique index on the key refuses the save,<br/>and the command is taken as accepted
+    Note over AD,DB: the unique index on the key refuses the save,<br/>the transaction aborts, and the command is taken as accepted
+    end
     end
     AD-->>MC: ack
 ```
@@ -342,11 +344,11 @@ sequenceDiagram
     WH->>DB: write it to the modulr-outbox changelog
     WH->>DB: read the sent intent
     WH->>DB: save the intent, settled
-    end
     alt the event's dedup key is new
-    Note over WH: the transaction commits
+    Note over WH,DB: the transaction commits
     else the key is recorded, a webhook delivered again
-    Note over WH: the unique index on the key refuses the save,<br/>and the event is taken as recorded
+    Note over WH,DB: the unique index on the key refuses the save,<br/>the transaction aborts, and the event is taken as recorded
+    end
     end
     WH-->>PR: 200
 ```
