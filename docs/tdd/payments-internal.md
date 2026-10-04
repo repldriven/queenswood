@@ -235,9 +235,13 @@ sequenceDiagram
     end
     critical transact
     AR->>DB: read the log's cursor
-    AR->>DB: read the bank's activity log after it
-    AR->>AE: transaction-posted, verbatim, in commit order
-    AR->>DB: write the cursor
+    end
+    critical transact
+    AR->>DB: read up to 500 of the bank's activity log entries after it, at snapshot
+    loop each entry, in commit order
+    AR->>AE: transaction-posted, verbatim, once Kafka has taken it
+    end
+    AR->>DB: write the cursor, the last entry read
     end
     AE->>AP: transaction-posted
 ```
@@ -385,9 +389,13 @@ sequenceDiagram
     end
     critical transact
     OR->>DB: read the cursor modulr-relay
-    OR->>DB: read the modulr-outbox changelog after it
-    OR->>SE: transfer-completed
-    OR->>DB: write the cursor
+    end
+    critical transact
+    OR->>DB: read up to 500 modulr-outbox changelog entries after it, at snapshot
+    loop each entry, in commit order
+    OR->>SE: transfer-completed, once Kafka has taken it
+    end
+    OR->>DB: write the cursor, the last entry read
     end
     SE->>PE: transfer-completed
     critical transact
