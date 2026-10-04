@@ -349,17 +349,18 @@ run at the next:
    Each pass still reads every pending and sent intent.
 6. **The relays.** One bank's activity is one shard's log, read by one
    runner at up to 500 entries every 100 ms.
-7. **The outbound settlement consumer.** `payment` settles outbound
-   payments from `topic-schemes-payments-event`, one partition, one
-   message at a time, at 17.6 ms each, so at 50 a second it is 89% busy
-   and a burst queues, which is the settlement tail. 1100 is off the
-   settlement's shared rows by
-   [ADR-0039](../adr/0039-cash-at-correspondents-balance-is-the-sum-of-its-legs.md):
-   on a fresh cluster the same run holds 50 a second, a settlement takes
-   15.8 ms and the consumer is 80% busy, but a stall in the first minute
-   left it 99% busy for three more while it caught up, and the payments
-   followed then set a p95 of 15.4 seconds. A second partition waits
-   only on the payment adapters keying the events they publish.
+7. **The outbound settlement consumer.** Done for 50 a second. `payment`
+   settled outbound payments from `topic-schemes-payments-event`, one
+   partition, one message at a time, at 17.6 ms each, so at 50 a second
+   it was 89% busy and a burst queued: settlement took 0.7 seconds at
+   p50 and 7.6 at p95, and 15.4 after a fresh cluster's first-minute
+   stall. With 1100 summed from its legs by
+   [ADR-0039](../adr/0039-cash-at-correspondents-balance-is-the-sum-of-its-legs.md),
+   each payment adapter's events keyed by the payment, and the topic at
+   two partitions, one per `financial-processors-service` replica, the
+   same run holds 50 a second with none refused, each consumer 46 to 49%
+   busy, and settlement at 0.45 seconds at p50, 0.79 at p95 and 2.7 at
+   p99.
 8. **Inbound payments.** The ten-minute inbound challenger holds 50 a
    second with none refused, the followed payments credited at 138 ms
    at p50 and 259 ms at p99.

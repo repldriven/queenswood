@@ -182,3 +182,11 @@
             (is (= 0 (SUT/drain-once config (+ t0 2)))))
           (finally (.shutdown executor))))))
 
+
+(deftest ordering-key-test
+  (testing "a payment's events are keyed by the payment"
+    (is (= "pmt.1" (SUT/ordering-key {:end-to-end-id "pmt.1" :amount 100}))))
+  (testing "a transfer's events by the transfer"
+    (is (= "trf.1" (SUT/ordering-key {:transfer-id "trf.1"}))))
+  (testing "anything else is published unkeyed"
+    (is (nil? (SUT/ordering-key {:account-id "acc.1"})))))
