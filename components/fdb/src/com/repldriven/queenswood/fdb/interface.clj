@@ -16,6 +16,7 @@
     [com.repldriven.queenswood.fdb.meta-data :as meta-data]
     [com.repldriven.queenswood.fdb.record :as record]
     [com.repldriven.queenswood.fdb.scan :as scan]
+    [com.repldriven.queenswood.fdb.stamp :as stamp]
     [com.repldriven.queenswood.fdb.transact :as transact]))
 
 ;; ---
@@ -264,6 +265,32 @@
                          log-name
                          record-id
                          changelog-bytes))
+
+(defn bump-stamp
+  "Sets the stamp named `stamp-name` to this transaction's commit
+  versionstamp, unique and rising with every commit. A writer bumps the
+  stamp of the data it changes in the same transaction, so a reader can
+  tell from the stamp alone whether that data has changed since it last
+  looked. Bumping is a blind write: two writers never conflict on it.
+  The transaction that bumps a stamp cannot read it back.
+
+  A stamp is for data that is costly to assemble and rarely written —
+  a composite of many records, such as a bank's effective policies. A
+  single record is one point read already, and data written on most
+  transactions moves the stamp on most reads, so neither gains from one;
+  every bump of one stamp also lands on the one storage server holding
+  it."
+  [txn stamp-name]
+  (stamp/bump (:context txn) (:prefix txn) stamp-name))
+
+(defn read-stamp
+  "The stamp named `stamp-name` as a `Versionstamp`, or nil before
+  anything has bumped it. Read at snapshot, so a concurrent bump never
+  conflicts the reader. Equal stamps mean nothing bumped it in between,
+  which is what lets a caller keep data it derived from what the stamp
+  covers until the stamp moves."
+  [txn stamp-name]
+  (stamp/read (:context txn) (:prefix txn) stamp-name))
 
 (defn process-changelog
   "Reads store-name's changelog forward from consumer-id's checkpoint,

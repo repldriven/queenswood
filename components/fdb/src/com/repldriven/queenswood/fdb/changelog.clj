@@ -18,7 +18,7 @@
   root
   "mono")
 
-(defn- rooted
+(defn rooted
   "Builds a Subspace from parts under the shared root, qualified by
   prefix when one is set. A blank prefix must produce byte-identical
   keys to the unqualified form — a changed encoding silently strands

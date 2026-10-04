@@ -310,3 +310,27 @@
                       (test-changelog-under-concurrent-writes sys pet-store)
                       (test-changelog-pass-is-bounded sys pet-store)
                       (test-log-without-a-store sys pet-store))))
+
+(deftest stamp-test
+  (with-test-system
+   [sys "classpath:fdb/application-test.yml"]
+   (let [config {:record-db (system/instance sys [:fdb :record-db])
+                 :record-store (system/instance sys [:fdb :pet-store])}
+         read (fn []
+                (SUT/transact config (fn [txn] (SUT/read-stamp txn "pets"))))
+         bump (fn []
+                (SUT/transact config (fn [txn] (SUT/bump-stamp txn "pets"))))]
+     (nom-test> [before (read)
+                 _ (is (nil? before) "nothing has bumped it yet")
+                 _ (bump)
+                 first-stamp (read)
+                 _ (is (some? first-stamp))
+                 again (read)
+                 _ (is (= first-stamp again) "unchanged until bumped")
+                 _ (bump)
+                 second-stamp (read)
+                 _ (is (pos? (compare second-stamp first-stamp))
+                       "a later commit's stamp is greater")
+                 other (SUT/transact config
+                                     (fn [txn] (SUT/read-stamp txn "toys")))
+                 _ (is (nil? other) "each name is a stamp of its own")]))))
