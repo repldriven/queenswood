@@ -50,8 +50,8 @@ see [policy-evaluation.md](policy-evaluation.md).
 
 A participant is the service that runs it and the component kind or base inside
 it, as the system configuration names them, and a topic shows the key it is
-partitioned by. Lanes are coloured as in the [system diagram](../diagrams/System%20Diagram.excalidraw): blue for the API,
-the message bus and the relays, purple for the processors, orange for the
+partitioned by. Lanes are coloured as in the [system diagram](../diagrams/System%20Diagram.excalidraw): blue for the
+API, the message bus and the relays, purple for the processors, orange for the
 external adapters, yellow for FDB and grey for the world outside. Each arrow
 into FDB is one call — a read, a save, or a changelog or log entry written — and
 each `critical [transact]` box is one FDB transaction, holding every call made
