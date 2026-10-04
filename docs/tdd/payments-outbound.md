@@ -28,23 +28,34 @@ breaker, retries and reconciliation timing, see
   `payment` routes sends `submit-outbound-payment` on
   `topic-payments-command`, two partitions keyed by the debtor account,
   and answers 201 from the reply with the payment `pending`.
-- **The processors.** `payment`'s `PaymentProcessor` submits, in
-  `core.clj` `submit-outbound`; its `activity-event-processor` sends the
-  provider command, in `events/activity.clj`; and its
-  `PaymentEventProcessor` handles the scheme events, in
+- **The processors.** `payment/processor` submits, in `core.clj`
+  `submit-outbound`; `payment/activity-event-processor` sends the
+  provider command, in `events/activity.clj`; and
+  `payment/event-processor` handles the scheme events, in
   `events/outbound.clj`. All three run in
   `financial-processors-service`.
-- **The adapter.** `<provider>-adapter` consumes the command into an
-  intent in its `<provider>-relay` store, and the intent poller makes
-  the call, as [outbound-delivery.md](outbound-delivery.md) describes.
-  Its webhook handlers write what the provider reports to its outbox,
-  which a `changelog-relay` runner in `exclusive-dispatchers-service`
-  publishes on `topic-schemes-payments-event`, two partitions, keyed
-  by the payment.
+- **The adapter.** `<provider>-adapter/command-processor`, in
+  `external-adapters-service`, consumes the command into an intent in
+  its `<provider>-relay` store, and the intent poller,
+  `<provider>-relay/outbound-runner`, makes the call, as
+  [outbound-delivery.md](outbound-delivery.md) describes. The adapter
+  base's webhook handlers write what the provider reports to its
+  outbox, which `changelog-relay/runners` in
+  `exclusive-dispatchers-service` publishes on
+  `topic-schemes-payments-event`, two partitions, keyed by the payment.
 - **Statuses.** An outbound payment is `pending`, `held`, `completed`,
   `failed` or `returned`.
 
 ## Solution
+
+### Reading the diagrams
+
+A participant is the service that runs it and the component kind or
+base inside it, as the system configuration names them, and a topic
+shows its partitions and the key it is published under. An arrow into
+FDB labelled `read` reads, one labelled `commit` lists what a
+transaction writes, and a shaded box holds the reads and the commit of
+one FDB transaction; a read outside a box is a transaction of its own.
 
 ```mermaid
 stateDiagram-v2
@@ -72,15 +83,18 @@ stateDiagram-v2
 ```mermaid
 sequenceDiagram
     participant C as Client
-    participant API as api-service
+    participant API as api-service<br/>POST /v1/payments/outbound
     participant PC as topic-payments-command<br/>2 partitions, key debtor account
-    participant PP as payment<br/>PaymentProcessor
+    participant PP as financial-processors-service<br/>payment/processor
     participant DB as FDB
-    C->>API: POST /v1/payments/outbound
+    C->>API: submit
     API->>PC: submit-outbound-payment
     PC->>PP: one command at a time per partition
-    PP->>DB: read the declaration, policies, debtor, 1200<br/>today's count and sum at snapshot
-    Note over PP,DB: one transaction writes<br/>Transaction outbound-transfer and two TransactionLegs<br/>the debtor's default/pending-outgoing balance row<br/>OutboundPayment pending and its outbound-payments changelog entry<br/>transaction-posted and outbound-payment-submitted on bank-activity-shard<br/>stored-legs leaves the 1200 leg out of the balance writes
+    rect rgb(235, 242, 255)
+    Note right of PP: one FDB transaction
+    PP->>DB: read the bank's declaration, policies, the debtor, 1200<br/>today's count and sum at snapshot
+    PP->>DB: commit Transaction outbound-transfer and two TransactionLegs<br/>the debtor's default/pending-outgoing balance row<br/>OutboundPayment pending and its outbound-payments changelog entry<br/>transaction-posted and outbound-payment-submitted on bank-activity-shard<br/>the 1200 leg left out of the balance writes
+    end
     PP-->>API: reply on topic-payments-command-response
     API-->>C: 201, the payment pending
 ```
@@ -104,22 +118,33 @@ mirrored for it.
 ```mermaid
 sequenceDiagram
     participant DB as FDB
-    participant AR as bank-activity relay
+    participant AR as exclusive-dispatchers-service<br/>bank-activity/relay
     participant AE as topic-bank-activity-event<br/>1 partition, key bank
-    participant AP as payment<br/>activity-event-processor
+    participant AP as financial-processors-service<br/>payment/activity-event-processor
     participant MC as topic-modulr-command<br/>1 partition, key bank
-    participant AD as modulr-adapter
-    participant IP as intent poller
+    participant AD as external-adapters-service<br/>modulr-adapter/command-processor
+    participant IP as external-adapters-service<br/>modulr-relay/outbound-runner
     participant PR as Modulr
-    DB->>AR: outbound-payment-submitted on bank-activity-shard
-    AR->>AE: published verbatim, in commit order
+    rect rgb(235, 242, 255)
+    Note right of AR: one FDB transaction
+    AR->>DB: read the bank's activity log shard from its cursor
+    AR->>AE: outbound-payment-submitted, verbatim, in commit order
+    AR->>DB: commit the shard's cursor
+    end
     AE->>AP: outbound-payment-submitted
     AP->>MC: submit-payment, end-to-end id, debtor and creditor
-    MC->>AD: consumed
-    Note over AD,DB: one transaction writes<br/>ModulrOutboundIntent kind payment, pending<br/>subject the debtor account, unique on the end-to-end id
-    IP->>DB: a pass reads pending and sent intents
+    MC->>AD: one command at a time
+    rect rgb(235, 242, 255)
+    Note right of AD: one FDB transaction
+    AD->>DB: commit ModulrOutboundIntent kind payment, pending<br/>subject the debtor account, unique on the end-to-end id
+    end
+    IP->>DB: read pending and sent intents
+    IP->>DB: read the debtor's provider account
     IP->>PR: POST /payments from the debtor's provider account
-    Note over IP,DB: one transaction moves the intent to sent<br/>with the provider's payment id
+    rect rgb(235, 242, 255)
+    Note right of IP: one FDB transaction
+    IP->>DB: commit the intent sent, with the provider's payment id
+    end
 ```
 
 The activity event processor decides from the entry alone and sends on
@@ -138,16 +163,28 @@ rejection path below handles.
 ```mermaid
 sequenceDiagram
     participant PR as Modulr
-    participant AD as modulr-adapter
+    participant WH as external-adapters-service<br/>modulr-adapter webhook handlers
     participant DB as FDB
-    participant OR as modulr-outbox relay
+    participant OR as exclusive-dispatchers-service<br/>changelog-relay/runners
     participant SE as topic-schemes-payments-event<br/>2 partitions, key payment
-    participant PE as payment<br/>PaymentEventProcessor
-    PR-->>AD: PAYOUT webhook, status PROCESSED
-    Note over AD,DB: one transaction writes<br/>ModulrOutboxEvent transaction-settled debit and its changelog entry<br/>deduplicated on the provider's payment id<br/>and settles the sent intent
+    participant PE as financial-processors-service<br/>payment/event-processor
+    PR-->>WH: PAYOUT webhook, status PROCESSED
+    rect rgb(235, 242, 255)
+    Note right of WH: one FDB transaction
+    WH->>DB: commit ModulrOutboxEvent transaction-settled (debit) and its changelog entry<br/>deduplicated on the provider's payment id<br/>the sent intent settled
+    end
+    rect rgb(235, 242, 255)
+    Note right of OR: one FDB transaction
+    OR->>DB: read modulr-outbox from its cursor
     OR->>SE: transaction-settled (debit)
+    OR->>DB: commit the cursor modulr-relay
+    end
     SE->>PE: transaction-settled (debit)
-    Note over PE,DB: one transaction writes<br/>OutboundPayment completed and its changelog entry<br/>Transaction outbound-transfer and four TransactionLegs<br/>the debtor's pending-outgoing and posted balance rows<br/>transaction-posted on bank-activity-shard<br/>stored-legs leaves the 1200 and 1100 legs out of the balance writes
+    rect rgb(235, 242, 255)
+    Note right of PE: one FDB transaction
+    PE->>DB: read the OutboundPayment, the debtor, 1200 and 1100
+    PE->>DB: commit OutboundPayment completed and its outbound-payments changelog entry<br/>Transaction outbound-transfer and four TransactionLegs<br/>the debtor's pending-outgoing and posted balance rows<br/>transaction-posted on bank-activity-shard<br/>the 1200 and 1100 legs left out of the balance writes
+    end
 ```
 
 Settlement converts the reservation into the outflow: it credits the
@@ -171,19 +208,36 @@ the payment settles on the lookup and a late webhook finds it there.
 ```mermaid
 sequenceDiagram
     participant PR as Modulr
-    participant AD as modulr-adapter
+    participant WH as external-adapters-service<br/>modulr-adapter webhook handlers
+    participant IP as external-adapters-service<br/>modulr-relay/outbound-runner
     participant DB as FDB
+    participant OR as exclusive-dispatchers-service<br/>changelog-relay/runners
     participant SE as topic-schemes-payments-event<br/>2 partitions, key payment
-    participant PE as payment<br/>PaymentEventProcessor
+    participant PE as financial-processors-service<br/>payment/event-processor
     alt the provider declines
-        PR-->>AD: PAYMENT_COMPLIANCE_STATUS DECLINED, or a PAYOUT failing
-        Note over AD,DB: one transaction writes ModulrOutboxEvent<br/>transaction-rejected debit, failure_kind declined
+        PR-->>WH: PAYMENT_COMPLIANCE_STATUS DECLINED, or a PAYOUT failing
+        rect rgb(235, 242, 255)
+        Note right of WH: one FDB transaction
+        WH->>DB: commit ModulrOutboxEvent transaction-rejected (debit)<br/>failure_kind declined
+        end
     else the call is refused or given up
-        Note over AD,DB: the intent poller's transaction moves the intent to failed<br/>and writes transaction-rejected, refused or undelivered
+        rect rgb(235, 242, 255)
+        Note right of IP: one FDB transaction
+        IP->>DB: commit the intent failed<br/>ModulrOutboxEvent transaction-rejected (debit)<br/>failure_kind refused or undelivered
+        end
     end
-    DB-->>SE: modulr-outbox relay publishes transaction-rejected
+    rect rgb(235, 242, 255)
+    Note right of OR: one FDB transaction
+    OR->>DB: read modulr-outbox from its cursor
+    OR->>SE: transaction-rejected (debit)
+    OR->>DB: commit the cursor modulr-relay
+    end
     SE->>PE: transaction-rejected (debit)
-    Note over PE,DB: one transaction writes<br/>OutboundPayment failed, its failure kind and reason code, and its changelog entry<br/>Transaction outbound-transfer reversing the reservation, two TransactionLegs<br/>the debtor's default/pending-outgoing balance row<br/>transaction-posted on bank-activity-shard<br/>stored-legs leaves the 1200 leg out of the balance writes
+    rect rgb(235, 242, 255)
+    Note right of PE: one FDB transaction
+    PE->>DB: read the OutboundPayment, the debtor, 1200
+    PE->>DB: commit OutboundPayment failed, its failure kind and reason code<br/>and its changelog entry<br/>Transaction outbound-transfer reversing the reservation, two TransactionLegs<br/>the debtor's default/pending-outgoing balance row<br/>transaction-posted on bank-activity-shard<br/>the 1200 leg left out of the balance writes
+    end
 ```
 
 A rejection reverses only a payment still in flight, `pending` or
@@ -196,15 +250,28 @@ ISO 20022 reason code, which the API answers as `failure`.
 ```mermaid
 sequenceDiagram
     participant PR as Modulr
-    participant AD as modulr-adapter
+    participant WH as external-adapters-service<br/>modulr-adapter webhook handlers
     participant DB as FDB
+    participant OR as exclusive-dispatchers-service<br/>changelog-relay/runners
     participant SE as topic-schemes-payments-event<br/>2 partitions, key payment
-    participant PE as payment<br/>PaymentEventProcessor
-    PR-->>AD: PAYMENT_COMPLIANCE_STATUS HELD
-    Note over AD,DB: one transaction writes ModulrOutboxEvent<br/>transaction-held debit
-    DB-->>SE: modulr-outbox relay publishes transaction-held
+    participant PE as financial-processors-service<br/>payment/event-processor
+    PR-->>WH: PAYMENT_COMPLIANCE_STATUS HELD
+    rect rgb(235, 242, 255)
+    Note right of WH: one FDB transaction
+    WH->>DB: commit ModulrOutboxEvent transaction-held (debit)
+    end
+    rect rgb(235, 242, 255)
+    Note right of OR: one FDB transaction
+    OR->>DB: read modulr-outbox from its cursor
+    OR->>SE: transaction-held (debit)
+    OR->>DB: commit the cursor modulr-relay
+    end
     SE->>PE: transaction-held (debit)
-    Note over PE,DB: one transaction writes<br/>OutboundPayment held and its changelog entry<br/>no transaction, no balance row
+    rect rgb(235, 242, 255)
+    Note right of PE: one FDB transaction
+    PE->>DB: read the OutboundPayment
+    PE->>DB: commit OutboundPayment held and its changelog entry<br/>no transaction, no balance row
+    end
 ```
 
 A provider screening the payment holds it with the money still reserved,
@@ -217,15 +284,28 @@ pending or held for 24 hours is reported by `payment/outbound-sweep` in
 ```mermaid
 sequenceDiagram
     participant PR as Modulr
-    participant AD as modulr-adapter
+    participant WH as external-adapters-service<br/>modulr-adapter webhook handlers
     participant DB as FDB
+    participant OR as exclusive-dispatchers-service<br/>changelog-relay/runners
     participant SE as topic-schemes-payments-event<br/>2 partitions, key payment
-    participant PE as payment<br/>PaymentEventProcessor
-    PR-->>AD: PAYIN webhook, type PO_REV
-    Note over AD,DB: one transaction writes ModulrOutboxEvent<br/>transaction-returned debit, deduplicated on end-to-end id and returned
-    DB-->>SE: modulr-outbox relay publishes transaction-returned
+    participant PE as financial-processors-service<br/>payment/event-processor
+    PR-->>WH: PAYIN webhook, type PO_REV
+    rect rgb(235, 242, 255)
+    Note right of WH: one FDB transaction
+    WH->>DB: commit ModulrOutboxEvent transaction-returned (debit)<br/>deduplicated on the end-to-end id and returned
+    end
+    rect rgb(235, 242, 255)
+    Note right of OR: one FDB transaction
+    OR->>DB: read modulr-outbox from its cursor
+    OR->>SE: transaction-returned (debit)
+    OR->>DB: commit the cursor modulr-relay
+    end
     SE->>PE: transaction-returned (debit)
-    Note over PE,DB: one transaction writes<br/>OutboundPayment returned, its reason code and reason, and its changelog entry<br/>Transaction outbound-return and two TransactionLegs<br/>the debtor's default/posted balance row<br/>transaction-posted on bank-activity-shard<br/>stored-legs leaves the 1100 leg out of the balance writes
+    rect rgb(235, 242, 255)
+    Note right of PE: one FDB transaction
+    PE->>DB: read the OutboundPayment, the debtor, 1100
+    PE->>DB: commit OutboundPayment returned, its reason code and reason<br/>and its changelog entry<br/>Transaction outbound-return and two TransactionLegs<br/>the debtor's default/posted balance row<br/>transaction-posted on bank-activity-shard<br/>the 1100 leg left out of the balance writes
+    end
 ```
 
 The scheme can return a payment after it completed, when the
