@@ -313,3 +313,8 @@ system:
       interceptors: !system/ref server.interceptors
       options:
         port: 8080
+        # A request waits on its command's reply, so a pool of platform
+        # threads fills under load and the liveness probe queues behind
+        # it until the pod is restarted. On virtual threads a waiting
+        # request holds no thread and the probe is answered at once.
+        virtual-threads?: true

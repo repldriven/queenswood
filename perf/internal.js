@@ -24,7 +24,6 @@ const PROFILES = {
   knee: {
     mode: "spread",
     accounts: 200,
-    abortAbove: 0.05,
     steps: [5, 10, 20, 40, 80, 160, 320].map((r) => [r, "1m"]),
   },
   hot: {
@@ -63,7 +62,8 @@ export function teardown(bank) {
 }
 
 function pair(n) {
-  if (profile.mode === "hot") return [0, 1 + Math.floor(Math.random() * (n - 1))];
+  if (profile.mode === "hot")
+    return [0, 1 + Math.floor(Math.random() * (n - 1))];
   const d = Math.floor(Math.random() * n);
   return [d, (d + 1 + Math.floor(Math.random() * (n - 1))) % n];
 }
@@ -71,7 +71,7 @@ function pair(n) {
 let bearer = null;
 
 export default function (bank) {
-  if (!bearer) bearer = bankTokenSource(bank.clientId, bank.clientSecret);
+  if (!bearer) bearer = bankTokenSource(bank);
   const step = String(stepNow(STEPS));
   const [d, c] = pair(bank.accounts.length);
   const res = post(

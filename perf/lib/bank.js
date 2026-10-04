@@ -195,13 +195,19 @@ function createParties(n, bearer) {
     "opening a verification session",
   );
   const ready = settleAll(
-    parties.map((p, i) => ({ party: p.id, session: sessions[i]["session-id"] })),
+    parties.map((p, i) => ({
+      party: p.id,
+      session: sessions[i]["session-id"],
+    })),
     (s) => `/v1/parties/${s.party}/verification-sessions/${s.session}`,
     (b) => b.status === "ready",
     bearer,
     "verification sessions to be ready",
   );
-  for (const group of chunks(parties.map((_, i) => i), BATCH)) {
+  for (const group of chunks(
+    parties.map((_, i) => i),
+    BATCH,
+  )) {
     const res = http.batch(
       group.map((i) => {
         const url = ready[i]["hand-off"].url;
@@ -216,7 +222,10 @@ function createParties(n, bearer) {
             familyName: parties[i].person["family-name"],
             dateOfBirth: "1970-01-01",
           }),
-          params: { headers: { "Content-Type": "application/json" }, tags: SETUP },
+          params: {
+            headers: { "Content-Type": "application/json" },
+            tags: SETUP,
+          },
         };
       }),
     );
@@ -311,5 +320,6 @@ export function build(n, each) {
     injected: each > 0 ? each * accounts.length : 0,
     accounts,
     bbans: opened.map((a) => a.bban),
+    token: token(clientId, clientSecret),
   };
 }

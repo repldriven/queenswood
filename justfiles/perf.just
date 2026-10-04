@@ -46,7 +46,16 @@ perf-run scenario="internal" profile="smoke" rate="" duration="" accounts="":
       exit 1
     fi
     jq '{run: .run, headline: .headline}' target/perf/$NAME.json
+    PAYMENTS=$(jq '.headline.payments' target/perf/$NAME.json)
+    if [[ "$PAYMENTS" == "0" ]]; then
+      echo "no payments sent, log in target/perf/$NAME.log" >&2
+      exit 1
+    fi
     HELD=$(jq '.headline.books.held' target/perf/$NAME.json)
+    if [[ "$HELD" == "null" ]]; then
+      echo "the books were not checked, log in target/perf/$NAME.log" >&2
+      exit 1
+    fi
     if [[ "$HELD" == "false" ]]; then
       echo "books did not hold" >&2
       exit 1

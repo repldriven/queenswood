@@ -370,6 +370,22 @@ signoz:
   # a subchart's values cannot template.
   root:
     secretName: queenswood-signoz-root
+  # Its collector also reads each Kafka consumer group's lag from the
+  # broker, the depth of every queue the services consume. A subchart's
+  # values cannot template, so `brokers` names the in-chart Kafka's
+  # Service by the release's name, and an installation on another broker
+  # names that one.
+  otelCollector:
+    config:
+      receivers:
+        kafkametrics:
+          brokers: [queenswood-kafka:9092]
+          scrapers: [consumers, topics]
+          collection_interval: 15s
+      service:
+        pipelines:
+          metrics:
+            receivers: [otlp, kafkametrics]
   signoz:
     env:
       # Alert notifications link back to the UI at the forwarded port.

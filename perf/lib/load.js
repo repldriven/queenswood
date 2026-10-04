@@ -71,13 +71,7 @@ export function options(scenario, steps, profile, extra) {
     },
     thresholds: Object.assign(
       {
-        "http_req_failed{phase:load}": [
-          {
-            threshold: `rate<${profile.abortAbove || 0.001}`,
-            abortOnFail: Boolean(profile.abortAbove),
-            delayAbortEval: "30s",
-          },
-        ],
+        "http_req_failed{phase:load}": [{ threshold: "rate<0.001", abortOnFail: false }],
         "http_req_duration{phase:load}": [{ threshold: "p(99)<1000", abortOnFail: false }],
       },
       stepThresholds(steps),

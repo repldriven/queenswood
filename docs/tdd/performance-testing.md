@@ -164,6 +164,8 @@ Scripts live under `perf/`, outside every brick:
 - `perf/inbound.js` — scenario D, payments from another bank sent through
   the simulator to a random account, the bank opening its accounts
   unfunded.
+- `perf/mixed.js` — internal and outbound payments from one bank in one
+  arrival rate, `OUTBOUND_SHARE` of them outbound, the challenger's mix.
 
 Every scenario runs as steps of a fixed arrival rate on k6's
 `ramping-arrival-rate` executor, each reached over five seconds and then
@@ -174,7 +176,8 @@ the steps:
 - **`challenger`.** 50 a second for an hour, then 150 for five minutes, on
   200 accounts.
 - **`knee`.** 5, 10, 20, 40, 80, 160 and 320 a second, a minute each, on
-  200 accounts, aborting once more than 5 per cent of requests fail.
+  200 accounts, run to the end however many requests fail, since an
+  aborted run skips the teardown that checks the books.
 - **`hot`.** Scenario B: 1, 2, 5, 10, 20 and 40 a second, a minute each,
   from one account to the other 49, for internal payments only.
 
