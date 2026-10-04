@@ -60,7 +60,12 @@ FDB is one call — a read, a save, or a changelog or log entry written —
 and each `critical [transact]` box is one FDB transaction, holding every
 call made in it, a read made on its own included. A box commits where it
 ends: anything drawn inside it, such as a publish, happens before the
-commit, and anything after it once the transaction has committed.
+commit, and anything after it once the transaction has committed. A
+dashed `ack` back to a topic is the consumer committing its offset, and a
+`200` back to the provider the webhook answering, each only once the
+consumer has finished: a send drawn before it is covered, since a failure
+anywhere earlier leaves the message to be delivered again, and whatever
+receives the send takes a second copy as the one it already has.
 
 ### Submitting and settling
 
@@ -103,6 +108,7 @@ sequenceDiagram
     PP->>DB: write settle to the internal-payments changelog
     end
     PP-->>API: reply on topic-payments-command-response
+    PP-->>PC: ack
     API-->>C: 201, the payment settled
     critical transact
     RR->>DB: read the cursor internal-payments-relay
@@ -176,10 +182,12 @@ sequenceDiagram
     AP->>DB: save a ProviderTransfer, pending, for each pair
     end
     AP->>MC: transfer-between-accounts, debtor and creditor accounts
+    AP-->>AE: ack
     MC->>AD: one command at a time
     critical transact
     AD->>DB: save ModulrOutboundIntent kind transfer, pending<br/>subjects the debtor and creditor accounts
     end
+    AD-->>MC: ack
     critical transact
     IP->>DB: read the pending intents
     end
@@ -207,6 +215,7 @@ sequenceDiagram
     WH->>DB: read the sent intent
     WH->>DB: save the intent, settled
     end
+    WH-->>PR: 200
     critical transact
     OR->>DB: read the cursor modulr-relay
     OR->>DB: read the modulr-outbox changelog after it
@@ -218,6 +227,7 @@ sequenceDiagram
     PE->>DB: read the ProviderTransfer
     PE->>DB: save the ProviderTransfer, completed
     end
+    PE-->>SE: ack
 ```
 
 The activity event processor nets the transaction's posted default legs
@@ -262,7 +272,9 @@ route into one balance the ledger already divides.
 
 - **A failed mirror leaves the balances apart.** Nothing retries a
   failed `ProviderTransfer` or compares the provider's balances with the
-  ledger.
+  ledger. A `transaction-posted` whose handler keeps failing, as when the
+  command cannot be sent, is dead-lettered once its retries run out and
+  its offset committed past it, leaving its `ProviderTransfer` pending.
 - **A bank's activity is serial.** A bank's activity log is read by one
   relay runner and its entries by one consumer, so one bank's mirrors
   are sent in order and at the rate that consumer reaches.
