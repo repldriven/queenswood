@@ -195,14 +195,22 @@ sequenceDiagram
     end
     critical transact
     RR->>DB: read the cursor internal-payments-relay
-    RR->>DB: read the internal-payments changelog after it
-    RR->>PE: internal-payment-settled
-    RR->>DB: write the cursor
+    end
+    critical transact
+    RR->>DB: read up to 500 internal-payments changelog entries after it, at snapshot
+    loop each entry, in commit order
+    RR->>PE: internal-payment-settled, once Kafka has taken it
+    end
+    RR->>DB: write the cursor, the last entry read
     end
 ```
 
-The changelog entry reaches the webhook catalogue as
-`payment.internal-settled`.
+A pass publishes a batch of up to 500 entries and moves the cursor once,
+after the last: a publish that fails aborts the pass, and the next pass
+publishes the batch again, the entries already published included. The
+cursor is read in a transaction of its own and written without a
+conflict check, so one runner owns it. The changelog entry reaches the
+webhook catalogue as `payment.internal-settled`.
 
 ### Mirroring at a provider holding a balance per account
 
