@@ -347,10 +347,10 @@ sequenceDiagram
     IP->>DB: read the sent intents
     end
     critical transact
-    IP->>DB: read the intent that opened the debtor's provider account
+    IP->>DB: read the debtor's ModulrOutboundIntent kind open-account,<br/>for the provider account it records
     end
     critical transact
-    IP->>DB: read the intent that opened the creditor's provider account
+    IP->>DB: read the creditor's ModulrOutboundIntent kind open-account,<br/>for the provider account it records
     end
     IP->>PR: POST a payment between the two provider accounts
     critical transact
@@ -375,8 +375,9 @@ sequenceDiagram
     WH-->>PR: 200
 ```
 
-The poller resolves each cash account to the provider account its own
-opening recorded and calls Modulr with the provider's account ids. An
+The poller resolves each cash account to the provider account its
+`open-account` intent records, which a reissue of the account's address
+replaces, and calls Modulr with the provider's account ids. An
 intent holds both accounts as its subjects, so a later call touching
 either waits until this one is sent, as
 [ADR-0033](../adr/0033-operations-reach-a-provider-in-the-order-they-were-accepted.md)
