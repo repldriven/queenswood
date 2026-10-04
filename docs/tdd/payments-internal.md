@@ -68,6 +68,26 @@ request waiting on it has no `ack`: delivered again it finds no request
 waiting, and lost it leaves the request a 5xx, which the client retries with
 its key.
 
+```mermaid
+stateDiagram-v2
+    state "ProviderTransfer, one per netted pair" as PT {
+        [*] --> pending: transaction-posted<br/>netted and recorded
+        pending --> completed: transfer-completed
+        pending --> failed: transfer-failed<br/>logged at ERROR, the ledger stands
+        completed --> [*]
+        failed --> [*]
+    }
+    [*] --> posted: submit-internal-payment<br/>debit the debtor, credit the creditor
+    posted --> PT: balances per-account<br/>mirrored at the provider
+    posted --> [*]: balances pooled<br/>nothing moves at the provider
+    PT --> [*]
+```
+
+- An internal payment has no status of its own: it is posted in the
+  transaction that submits it, and its mirror is what moves.
+- An outcome for a transfer no longer `pending` is a no-op, and one for
+  a transfer that does not exist fails the handler and is dead-lettered.
+
 ### Submitting and settling
 
 An internal payment is submitted and settled in three hops: the API
