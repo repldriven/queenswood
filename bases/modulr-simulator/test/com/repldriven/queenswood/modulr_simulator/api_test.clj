@@ -228,6 +228,37 @@
                 (is (nil? (.poll queue 200 TimeUnit/MILLISECONDS)))))))
          (finally (.stop server 0)))))
 
+(defn- status
+  [p]
+  (-> (call :get (str "/payments?id=" (:id p)))
+      edn
+      :content
+      first
+      :status))
+
+(deftest payments-move-money-in-order-test
+  (with-simulator
+   (let [a (open)
+         b (open)]
+     (call :post "/simulate/fund" {:bban (bban a) :amount 10})
+     (testing "a payment back from an account paid first is covered"
+       (let [ab (edn (pay a (scan b "Ford") 10))
+             ba (edn (pay b (scan a "Arthur") 10))]
+         (is (= "PROCESSED" (status ab)))
+         (is (= "PROCESSED" (status ba)))
+         (is (= "10.00" (balance (:id a))))
+         (is (= "0.00" (balance (:id b))))))
+     (testing "a later payment waits behind one waiting for funds"
+       (let [big (edn (pay b (scan a "Arthur") 5))
+             small (edn (pay b (scan a "Arthur") 1))]
+         (call :post "/simulate/fund" {:bban (bban b) :amount 1})
+         (is (= "PENDING_FOR_FUNDS" (status big)))
+         (is (= "PENDING_FOR_FUNDS" (status small)))
+         (call :post "/simulate/fund" {:bban (bban b) :amount 5})
+         (is (= "PROCESSED" (status big)))
+         (is (= "PROCESSED" (status small)))
+         (is (= "0.00" (balance (:id b)))))))))
+
 (deftest test-values-test
   (let [queue (LinkedBlockingQueue.)
         server (receiver queue)]
