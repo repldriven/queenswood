@@ -46,6 +46,11 @@ perf-run scenario="internal" profile="smoke" rate="" duration="" accounts="":
       exit 1
     fi
     jq '{run: .run, headline: .headline}' target/perf/$NAME.json
+    HELD=$(jq '.headline.books.held' target/perf/$NAME.json)
+    if [[ "$HELD" == "false" ]]; then
+      echo "books did not hold" >&2
+      exit 1
+    fi
     echo "summary in target/perf/$NAME.json, log in target/perf/$NAME.log"
     if [[ "$EXIT" == "99" ]]; then
       echo "thresholds not met"

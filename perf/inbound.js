@@ -9,6 +9,7 @@ import exec from "k6/execution";
 import { Counter, Trend } from "k6/metrics";
 import { bankTokenSource, env, get } from "./lib/api.js";
 import { build } from "./lib/bank.js";
+import { amountIn, checkBooks } from "./lib/books.js";
 import { chosen, options as loadOptions, stepNow, steps } from "./lib/load.js";
 import { settlementThresholds, summary } from "./lib/summary.js";
 
@@ -65,6 +66,12 @@ export async function setup() {
     throw new Error(`ACCOUNTS must be above the ${FOLLOWED} followed`);
   }
   return build(ACCOUNTS, 0);
+}
+
+// Every payment the simulator takes arrives in the bank, so the books
+// end at what was sent in.
+export function teardown(bank) {
+  checkBooks(bank);
 }
 
 let bearer = null;
@@ -128,6 +135,7 @@ export default function (bank) {
     rejected.add(1, { status: String(res.status), step });
     return;
   }
+  amountIn.add(amount);
   if (followIt && before !== null) follow(bank.accounts[i], before, amount, sent);
 }
 
