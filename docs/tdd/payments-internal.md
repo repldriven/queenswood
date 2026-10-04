@@ -26,7 +26,7 @@ see [policy-evaluation.md](policy-evaluation.md).
 
 - **The request.** `POST /v1/payments/internal` in `bases/api`'s
   `payment` routes sends `submit-internal-payment` on
-  `topic-payments-command`, two partitions keyed by the debtor account,
+  `topic-payments-command`, partitioned by the debtor account,
   and answers 201 from the reply on `topic-payments-command-response`.
 - **The processor.** `payment/processor`, in
   `financial-processors-service`, handles the command in `core.clj`
@@ -37,7 +37,7 @@ see [policy-evaluation.md](policy-evaluation.md).
   `bank-activity-0` to `bank-activity-3`, and a bank's id picks the one
   all its entries go to. `bank-activity/relay`, a runner per log in
   `exclusive-dispatchers-service`, publishes it on
-  `topic-bank-activity-event`, one partition keyed by bank, where
+  `topic-bank-activity-event`, partitioned by bank, where
   `payment/activity-event-processor` reads it.
 - **Mirroring.** `payment`'s `events/provider_transfer.clj` turns a
   posted transaction into `ProviderTransfer` records and
@@ -48,27 +48,23 @@ see [policy-evaluation.md](policy-evaluation.md).
 
 ### Reading the diagrams
 
-A participant is the service that runs it and the component kind or
-base inside it, as the system configuration names them, and a topic
-shows its partitions and the key it is published under. Lanes are
-coloured as in the
-[system diagram](../diagrams/System%20Diagram.excalidraw): blue for the
-API, the message bus and the relays, purple for the processors, orange
-for the external adapters, yellow for FDB and grey for the world
-outside. Each arrow into
-FDB is one call — a read, a save, or a changelog or log entry written —
-and each `critical [transact]` box is one FDB transaction, holding every
-call made in it, a read made on its own included. A box commits where it
-ends: anything drawn inside it, such as a publish, happens before the
-commit, and anything after it once the transaction has committed. A
-dashed `ack` back to a topic is the consumer committing its offset, and a
-`200` back to the provider the webhook answering, each only once the
-consumer has finished: a send drawn before it is covered, since a failure
-anywhere earlier leaves the message to be delivered again, and whatever
-receives the send takes a second copy as the one it already has. A
-reply to a request waiting on it has no `ack`: delivered again it finds
-no request waiting, and lost it leaves the request a 5xx, which the
-client retries with its key.
+A participant is the service that runs it and the component kind or base inside
+it, as the system configuration names them, and a topic shows the key it is
+partitioned by. Lanes are coloured as in the [system diagram](../diagrams/System%20Diagram.excalidraw): blue for the API,
+the message bus and the relays, purple for the processors, orange for the
+external adapters, yellow for FDB and grey for the world outside. Each arrow
+into FDB is one call — a read, a save, or a changelog or log entry written — and
+each `critical [transact]` box is one FDB transaction, holding every call made
+in it, a read made on its own included. A box commits where it ends: anything
+drawn inside it, such as a publish, happens before the commit, and anything
+after it once the transaction has committed. A dashed `ack` back to a topic is
+the consumer committing its offset, and a `200` back to the provider the webhook
+answering, each only once the consumer has finished: a send drawn before it is
+covered, since a failure anywhere earlier leaves the message to be delivered
+again, and whatever receives the send takes a second copy as the one it already
+has. A reply to a request waiting on it has no `ack`: delivered again it finds
+no request waiting, and lost it leaves the request a 5xx, which the client
+retries with its key.
 
 ### Submitting and settling
 
@@ -90,7 +86,7 @@ sequenceDiagram
     participant DB as FDB
     end
     box rgba(165, 216, 255, 0.45)
-    participant PC as topic-payments-command<br/>2 partitions, key debtor account
+    participant PC as topic-payments-command<br/>partition-key = debtor account
     participant PR as topic-payments-command-response
     end
     C->>API: submit, Idempotency-Key
@@ -131,7 +127,7 @@ answer releases its claim, and the client may send it again.
 ```mermaid
 sequenceDiagram
     box rgba(165, 216, 255, 0.45)
-    participant PC as topic-payments-command<br/>2 partitions, key debtor account
+    participant PC as topic-payments-command<br/>partition-key = debtor account
     end
     box rgba(208, 191, 255, 0.45)
     participant PP as financial-processors-service<br/>payment/processor
@@ -193,7 +189,7 @@ sequenceDiagram
     end
     box rgba(165, 216, 255, 0.45)
     participant RR as exclusive-dispatchers-service<br/>changelog-relay/runners
-    participant PE as topic-payments-event<br/>1 partition, key payment
+    participant PE as topic-payments-event<br/>partition-key = payment
     end
     critical transact
     RR->>DB: read the cursor internal-payments-relay
@@ -222,7 +218,7 @@ sequenceDiagram
     end
     box rgba(165, 216, 255, 0.45)
     participant AR as exclusive-dispatchers-service<br/>bank-activity/relay
-    participant AE as topic-bank-activity-event<br/>1 partition, key bank
+    participant AE as topic-bank-activity-event<br/>partition-key = bank
     end
     box rgba(208, 191, 255, 0.45)
     participant AP as financial-processors-service<br/>payment/activity-event-processor
@@ -248,13 +244,13 @@ sequenceDiagram
     participant DB as FDB
     end
     box rgba(165, 216, 255, 0.45)
-    participant AE as topic-bank-activity-event<br/>1 partition, key bank
+    participant AE as topic-bank-activity-event<br/>partition-key = bank
     end
     box rgba(208, 191, 255, 0.45)
     participant AP as financial-processors-service<br/>payment/activity-event-processor
     end
     box rgba(165, 216, 255, 0.45)
-    participant MC as topic-modulr-command<br/>1 partition, key bank
+    participant MC as topic-modulr-command<br/>partition-key = bank
     end
     box rgba(255, 216, 168, 0.5)
     participant AD as external-adapters-service<br/>modulr-adapter/command-processor
@@ -372,7 +368,7 @@ sequenceDiagram
     end
     box rgba(165, 216, 255, 0.45)
     participant OR as exclusive-dispatchers-service<br/>changelog-relay/runners
-    participant SE as topic-schemes-payments-event<br/>2 partitions, key transfer
+    participant SE as topic-schemes-payments-event<br/>partition-key = transfer
     end
     box rgba(208, 191, 255, 0.45)
     participant PE as financial-processors-service<br/>payment/event-processor
