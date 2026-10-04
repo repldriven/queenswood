@@ -194,7 +194,7 @@ sequenceDiagram
     participant PE as topic-payments-event<br/>partition-key = payment
     end
     critical transact
-    RR->>DB: read the cursor internal-payments-relay
+    RR->>DB: read the cursor, internal-payments-relay
     end
     critical transact
     RR->>DB: read a batch of internal-payments changelog entries after it, at snapshot
@@ -236,10 +236,10 @@ sequenceDiagram
     participant AP as financial-processors-service<br/>payment/activity-event-processor
     end
     critical transact
-    AR->>DB: read the log's cursor
+    AR->>DB: read the cursor, bank-activity-n-relay for log n
     end
     critical transact
-    AR->>DB: read a batch of the bank's activity log entries after it, at snapshot
+    AR->>DB: read a batch of bank-activity-n log entries after it, at snapshot
     loop each entry, in commit order
     AR->>AE: transaction-posted, verbatim, once the bus has taken it
     end
@@ -390,7 +390,7 @@ sequenceDiagram
     participant PE as financial-processors-service<br/>payment/event-processor
     end
     critical transact
-    OR->>DB: read the cursor modulr-relay
+    OR->>DB: read the cursor, modulr-relay
     end
     critical transact
     OR->>DB: read a batch of modulr-outbox changelog entries after it, at snapshot
