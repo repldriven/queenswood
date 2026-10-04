@@ -65,7 +65,10 @@ dashed `ack` back to a topic is the consumer committing its offset, and a
 `200` back to the provider the webhook answering, each only once the
 consumer has finished: a send drawn before it is covered, since a failure
 anywhere earlier leaves the message to be delivered again, and whatever
-receives the send takes a second copy as the one it already has.
+receives the send takes a second copy as the one it already has. A
+reply to a request waiting on it has no `ack`: delivered again it finds
+no request waiting, and lost it leaves the request a 5xx, which the
+client retries with its key.
 
 ### Submitting and settling
 
