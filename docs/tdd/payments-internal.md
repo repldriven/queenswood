@@ -451,6 +451,12 @@ route into one balance the ledger already divides.
 - **A bank's activity is serial.** A bank's activity log is read by one
   relay runner and its entries by one consumer, so one bank's mirrors
   are sent in order and at the rate that consumer reaches.
+- **Every bank's activity shares one partition.** The four activity logs
+  are relayed in parallel, but `topic-bank-activity-event` has one
+  partition, so every bank's entries reach
+  `payment/activity-event-processor` one at a time. More partitions,
+  keyed by bank as the topic already is, would carry the logs'
+  parallelism through to the processor.
 
 ## References
 
