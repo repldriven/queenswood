@@ -74,6 +74,35 @@ function settlement(data) {
   );
 }
 
+// What the books held once they stopped moving, against what setup
+// injected plus what the run sent in and less what it paid out: 1100,
+// the controls and the provider's balances should each equal it, and
+// the trial balance tie.
+function books(data) {
+  const v = (name) => values(data, name).value;
+  if (v("books_injected") === undefined) return undefined;
+  const amountIn = values(data, "books_amount_in").count || 0;
+  const amountOut = values(data, "books_amount_out").count || 0;
+  const expected = v("books_injected") + amountIn - amountOut;
+  const tied = v("books_trial_balance_tied") === 1;
+  return {
+    injected: v("books_injected"),
+    in: amountIn,
+    out: amountOut,
+    expected,
+    cash: v("books_cash"),
+    controls: v("books_controls"),
+    provider: v("books_provider"),
+    trialBalanceTied: tied,
+    settleS: round(v("books_settle_s")),
+    held:
+      tied &&
+      v("books_cash") === expected &&
+      v("books_controls") === expected &&
+      v("books_provider") === expected,
+  };
+}
+
 function headline(data, run) {
   const rejected = {};
   REJECTIONS.forEach((s) => {
@@ -86,6 +115,7 @@ function headline(data, run) {
     dropped: values(data, "dropped_iterations").count || 0,
     vus: values(data, "vus_max").max,
     settlement: settlement(data),
+    books: books(data),
     steps: run.steps.map((s, i) => step(data, s, i)),
   };
 }

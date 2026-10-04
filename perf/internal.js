@@ -5,6 +5,7 @@ import { check } from "k6";
 import { Counter } from "k6/metrics";
 import { bankTokenSource, env, post } from "./lib/api.js";
 import { build } from "./lib/bank.js";
+import { checkBooks } from "./lib/books.js";
 import { chosen, options as loadOptions, stepNow, steps } from "./lib/load.js";
 import { summary } from "./lib/summary.js";
 
@@ -53,6 +54,12 @@ export const options = loadOptions("internal", STEPS, profile);
 
 export async function setup() {
   return build(ACCOUNTS, FUNDING);
+}
+
+// Money only moves between the bank's accounts once setup has injected
+// it, so the books end where setup left them.
+export function teardown(bank) {
+  checkBooks(bank);
 }
 
 function pair(n) {
