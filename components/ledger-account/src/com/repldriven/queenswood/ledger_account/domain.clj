@@ -19,14 +19,15 @@
    :product-type-sub-ledger-own-funds :gl-account-code-own-funds})
 
 (def derived
-  "How each ledger account holding no balance of its own sums one from the
-  balances store's indexes, by `:gl-account-code`: the product types
-  whose default balances it sums, in which status, and whether it mirrors
-  them, crediting what they debit. A deposit or own-funds control sums
-  its sub-ledger's posted balances; 1200 pending-outbound mirrors every
-  customer's pending-outgoing balance, the claim each outbound payment
-  in flight makes on the bank. A ledger account absent from it keeps a
-  stored balance. See ADR-0037."
+  "How each ledger account holding no balance row of its own reads one,
+  by `:gl-account-code`. A deposit or own-funds control sums its
+  sub-ledger's posted balances from the balances store's indexes, by
+  `:product-types` and `:balance-status`; 1200 pending-outbound does the
+  same with every customer's pending-outgoing balance and `:mirror?`s
+  it, crediting what they debit; 1100 cash-at-correspondent, whose
+  movements mirror no set of customer balances, sums its own legs from
+  the journal (`:journal?`). A ledger account absent from it keeps a
+  stored balance. See ADR-0037, ADR-0038 and ADR-0039."
   (assoc (into {}
                (map (fn [[product-type code]] [code
                                                {:product-types [product-type]
@@ -36,7 +37,16 @@
          :gl-account-code-pending-outbound
          {:product-types (vec (keys product-type->control-code))
           :balance-status :balance-status-pending-outgoing
-          :mirror? true}))
+          :mirror? true}
+         :gl-account-code-cash-at-correspondent
+         {:balance-status :balance-status-posted :journal? true}))
+
+(defn posted-to?
+  "Whether postings name a derived account in their legs, which stay in
+  the journal but write no balance row: 1200 and 1100, where a control
+  is never named."
+  [spec]
+  (boolean (or (:mirror? spec) (:journal? spec))))
 
 (defn derived-balance
   "The balance of derived `account`, built by `spec` from the summed

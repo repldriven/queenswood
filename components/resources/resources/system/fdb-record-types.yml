@@ -5,7 +5,7 @@
 # its record type arrived on as since, and a store lists the indexes
 # removed from it under former-indexes with the versions they were added
 # and removed at. See docs/recipes/code/schema-evolution.md.
-version: 74
+version: 75
 stores:
   assertions:
     record-type: Assertion
@@ -346,7 +346,15 @@ stores:
   transaction-legs:
     record-type: TransactionLeg
     primary-key: [account_id, transaction_id, leg_id]
-    indexes: []
+    # A ledger account with no balance row of its own, as 1100 is, sums
+    # its legs from this rather than having every posting rewrite one
+    # row. ADR-0039.
+    indexes:
+      - name: TransactionLeg_sum_amount_by_account_bucket_side
+        added: 75
+        modified: 75
+        fields: [account_id, balance_type, balance_status, side, amount]
+        type: sum
   transactions:
     record-type: Transaction
     indexes:

@@ -8,6 +8,7 @@
     [com.repldriven.queenswood.balance-query.interface :as balances]
     [com.repldriven.queenswood.balance.interface :as balance]
     [com.repldriven.queenswood.policy.interface :as policy]
+    [com.repldriven.queenswood.transaction.interface :as transactions]
 
     [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.system.interface :as system]
@@ -392,6 +393,53 @@
                :amount 1000}
         stored (SUT/stored-legs config bank-id "GBP" [customer claim])
         _ (is (= [customer] stored) "the 1200 leg is not written to a balance")]))))
+
+(defn- inbound
+  [config bank-id cash-id account-id amount]
+  (transactions/record-transaction
+   config
+   {:bank-id bank-id
+    :idempotency-key (str "in-" account-id "-" amount)
+    :transaction-type :transaction-type-inbound-transfer
+    :currency "GBP"
+    :legs [{:account-id cash-id
+            :balance-type :balance-type-default
+            :balance-status :balance-status-posted
+            :side :leg-side-debit
+            :amount amount}
+           {:account-id account-id
+            :balance-type :balance-type-default
+            :balance-status :balance-status-posted
+            :side :leg-side-credit
+            :amount amount}]}))
+
+(deftest cash-at-correspondent-sums-its-legs-test
+  (with-test-system
+   [sys "classpath:ledger-account/application-test.yml"]
+   (let [config (fdb-config sys)
+         bank-id "bnk.test-cash"]
+     (nom-test> [_ (seed! config bank-id)
+                 cash (SUT/find-by-code config
+                                        bank-id
+                                        :gl-account-code-cash-at-correspondent
+                                        "GBP")
+                 cash-id (:ledger-account-id cash)
+                 first-in (inbound config bank-id cash-id "acc.one" 1000)
+                 _ (inbound config bank-id cash-id "acc.two" 250)
+                 bals (SUT/get-balances config bank-id cash)
+                 _ (is (= [{:account-id cash-id
+                            :balance-status :balance-status-posted
+                            :credit 0
+                            :debit 1250}]
+                          (mapv (fn [b]
+                                  (select-keys b
+                                               [:account-id :balance-status
+                                                :credit :debit]))
+                                (:balances bals)))
+                       "1100 is the sum of the legs recorded against it")
+                 stored (SUT/stored-legs config bank-id "GBP" (:legs first-in))
+                 _ (is (= ["acc.one"] (mapv :account-id stored))
+                       "the 1100 leg is left out of the balance writes")]))))
 
 (deftest a-bucket-takes-its-accounts-product-type-test
   (with-test-system

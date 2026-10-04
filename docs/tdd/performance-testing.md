@@ -352,9 +352,14 @@ run at the next:
 7. **The outbound settlement consumer.** `payment` settles outbound
    payments from `topic-schemes-payments-event`, one partition, one
    message at a time, at 17.6 ms each, so at 50 a second it is 89% busy
-   and a burst queues, which is the settlement tail. A second partition
-   needs 1100 off the settlement's shared rows first, as 1200 is off
-   the submit's.
+   and a burst queues, which is the settlement tail. 1100 is off the
+   settlement's shared rows by
+   [ADR-0039](../adr/0039-cash-at-correspondents-balance-is-the-sum-of-its-legs.md):
+   on a fresh cluster the same run holds 50 a second, a settlement takes
+   15.8 ms and the consumer is 80% busy, but a stall in the first minute
+   left it 99% busy for three more while it caught up, and the payments
+   followed then set a p95 of 15.4 seconds. A second partition waits
+   only on the payment adapters keying the events they publish.
 8. **Inbound payments.** The ten-minute inbound challenger holds 50 a
    second with none refused, the followed payments credited at 138 ms
    at p50 and 259 ms at p99.

@@ -64,13 +64,15 @@
                                                     tagged)]
        (if (error/anomaly? checked)
          checked
-         (let [r (transactions/record-transaction
-                  txn
-                  (assoc tx-data :bank-id bank-id :legs checked))]
-           (balances/apply-legs txn
-                                bank-id
-                                (:legs r)
-                                (:transaction-type r))))))))
+         (error/let-nom>
+           [r (transactions/record-transaction
+               txn
+               (assoc tx-data :bank-id bank-id :legs checked))
+            stored (ledger-accounts/stored-legs txn
+                                                bank-id
+                                                (:currency tx-data)
+                                                (:legs r))]
+           (balances/apply-legs txn bank-id stored (:transaction-type r))))))))
 
 (defn- fund-at-provider
   "Credit the provider account behind `bban` as the scheme the rig plays
@@ -1305,7 +1307,9 @@
                     0
                     (map (fn [id] (get held (provider-of id) 0))
                          (conj real-ids (:account-id house))))
-            (- (posted bank bank-real-id (:ledger-account-id cash)))]}))
+            (- (:value
+                (:posted-balance
+                 (ledger-accounts/get-balances bank bank-real-id cash))))]}))
 
 (defn- agrees?
   [{:keys [accounts bank]}]

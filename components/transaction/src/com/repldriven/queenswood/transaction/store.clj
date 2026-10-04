@@ -8,6 +8,8 @@
 (def ^:private store-name "transactions")
 (def ^:private legs-store-name "transaction-legs")
 
+(def ^:private leg-sum-index "TransactionLeg_sum_amount_by_account_bucket_side")
+
 (def transact fdb/transact)
 (def uniqueness-violation? fdb/uniqueness-violation?)
 
@@ -91,3 +93,22 @@
    (error/let-nom> [{:keys [transactions]}
                     (page-transactions txn account-id opts)]
      transactions)))
+
+(defn sum-legs
+  [txn account-id balance-type balance-status isolation]
+  (fdb/transact
+   txn
+   (fn [txn]
+     (let [store (fdb/open txn legs-store-name)
+           sum (if (= :serializable isolation)
+                 fdb/sum-records
+                 fdb/sum-records-snapshot)
+           group (fn [side]
+                   [account-id
+                    (schema/balance-type->int balance-type)
+                    (schema/balance-status->int balance-status)
+                    (schema/leg-side->int side)])]
+       {:credit (sum store leg-sum-index (group :leg-side-credit))
+        :debit (sum store leg-sum-index (group :leg-side-debit))}))
+   :transaction/sum-legs
+   "Failed to sum transaction legs"))

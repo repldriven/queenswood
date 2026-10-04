@@ -76,3 +76,27 @@
    (store/get-transactions txn account-id))
   ([txn account-id opts]
    (store/get-transactions txn account-id opts)))
+
+(defn sum-legs
+  "The summed `{:credit :debit}` of every leg recorded against
+  `account-id` in one bucket, read from the legs store's SUM index,
+  which the Record Layer keeps by atomic mutation as each leg is saved —
+  the balance of a ledger account whose postings are summed rather than
+  applied to a row. At snapshot unless `opts` asks for
+  `{:isolation :serializable}`, which a guard deciding on the figure in
+  its own transaction needs. An account with no legs sums to zero.
+
+  Args:
+  - txn: FDB handle or open transaction.
+  - account-id: the account whose legs to sum.
+  - balance-type: the bucket's balance type keyword.
+  - balance-status: the bucket's balance status keyword.
+  - opts: optional `{:isolation :snapshot | :serializable}`."
+  ([txn account-id balance-type balance-status]
+   (sum-legs txn account-id balance-type balance-status {}))
+  ([txn account-id balance-type balance-status opts]
+   (store/sum-legs txn
+                   account-id
+                   balance-type
+                   balance-status
+                   (:isolation opts :snapshot))))

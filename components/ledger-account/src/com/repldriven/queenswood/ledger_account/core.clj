@@ -6,6 +6,7 @@
     [com.repldriven.queenswood.balance-query.interface :as balance-query]
     [com.repldriven.queenswood.balance.interface :as balances]
     [com.repldriven.queenswood.policy.interface :as policy]
+    [com.repldriven.queenswood.transaction.interface :as transactions]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]))
 
@@ -32,25 +33,35 @@
   [txn bank-id ledger-account-id]
   (store/find-by-id txn bank-id ledger-account-id))
 
-(defn- derived-balance
+(defn- sub-ledger-sums
   [txn account spec opts]
   (let [{:keys [bank-id currency]} account
         {:keys [product-types balance-status]} spec
         opts (assoc opts :balance-status balance-status)]
-    (let-nom>
-      [sums (reduce (fn [acc product-type]
-                      (let [sum (balance-query/sub-ledger-balance
-                                 txn
-                                 bank-id
-                                 product-type
-                                 currency
-                                 opts)]
-                        (if (error/anomaly? sum)
-                          (reduced sum)
-                          (merge-with + acc sum))))
-                    {:credit 0 :debit 0}
-                    product-types)]
-      (domain/derived-balance account spec sums))))
+    (reduce (fn [acc product-type]
+              (let [sum (balance-query/sub-ledger-balance
+                         txn
+                         bank-id
+                         product-type
+                         currency
+                         opts)]
+                (if (error/anomaly? sum)
+                  (reduced sum)
+                  (merge-with + acc sum))))
+            {:credit 0 :debit 0}
+            product-types)))
+
+(defn- derived-balance
+  [txn account spec opts]
+  (let-nom>
+    [sums (if (:journal? spec)
+            (transactions/sum-legs txn
+                                   (:ledger-account-id account)
+                                   :balance-type-default
+                                   (:balance-status spec)
+                                   opts)
+            (sub-ledger-sums txn account spec opts))]
+    (domain/derived-balance account spec sums)))
 
 (defn- account-balances
   [txn bank-id account]
@@ -138,6 +149,7 @@
                        (reduced account)
                        (conj ids (:ledger-account-id account)))))
                  #{}
-                 (keep (fn [[code spec]] (when (:mirror? spec) code))
+                 (keep (fn [[code spec]]
+                         (when (domain/posted-to? spec) code))
                        domain/derived))]
     (into [] (remove (fn [leg] (contains? ids (:account-id leg)))) legs)))
