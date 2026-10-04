@@ -558,7 +558,10 @@ services:
   # Confirmation of Payee, hence an adapter URL per provider.
   financial-processors-service:
     enabled: true
-    replicas: 2
+    # One replica per partition of topic-payments-command and
+    # topic-schemes-payments-event: a consumer takes one message at a
+    # time, so a replica holding two partitions works them in turn.
+    replicas: 4
     resources:
       limits: { cpu: "1500m", memory: "2Gi" }
       requests: { cpu: "300m", memory: "1Gi" }
