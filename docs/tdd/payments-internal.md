@@ -52,8 +52,8 @@ A participant is the service that runs it and the component kind or
 base inside it, as the system configuration names them, and a topic
 shows its partitions and the key it is published under. Each arrow into
 FDB is one call — a read, a save, a changelog or log entry written, or
-the commit — and each shaded box is one FDB transaction, holding every
-call made in it, a read made on its own included.
+the commit — and each `critical [transact]` box is one FDB transaction,
+holding every call made in it, a read made on its own included.
 
 ### Submitting and settling
 
@@ -69,7 +69,7 @@ sequenceDiagram
     C->>API: submit
     API->>PC: submit-internal-payment
     PC->>PP: one command at a time per partition
-    rect rgb(235, 242, 255)
+    critical transact
     PP->>DB: read the policy stamp, at snapshot
     PP->>DB: read the debtor's CashAccount
     PP->>DB: read the creditor's CashAccount
@@ -88,7 +88,7 @@ sequenceDiagram
     end
     PP-->>API: reply on topic-payments-command-response
     API-->>C: 201, the payment settled
-    rect rgb(235, 242, 255)
+    critical transact
     RR->>DB: read the cursor internal-payments-relay
     RR->>DB: read the internal-payments changelog after it
     RR->>PE: internal-payment-settled
@@ -126,7 +126,7 @@ sequenceDiagram
     participant OR as exclusive-dispatchers-service<br/>changelog-relay/runners
     participant SE as topic-schemes-payments-event<br/>2 partitions, key transfer
     participant PE as financial-processors-service<br/>payment/event-processor
-    rect rgb(235, 242, 255)
+    critical transact
     AR->>DB: read the log's cursor
     AR->>DB: read the bank's activity log after it
     AR->>AE: transaction-posted, verbatim, in commit order
@@ -134,10 +134,10 @@ sequenceDiagram
     AR->>DB: commit
     end
     AE->>AP: transaction-posted
-    rect rgb(235, 242, 255)
+    critical transact
     AP->>DB: read the bank's providers, only when not cached
     end
-    rect rgb(235, 242, 255)
+    critical transact
     AP->>DB: read the ProviderTransfers already recorded for the transaction
     AP->>DB: read 1100 and the own-funds CashAccount, only when not cached
     AP->>DB: read the CashAccount behind each leg
@@ -146,40 +146,40 @@ sequenceDiagram
     end
     AP->>MC: transfer-between-accounts, debtor and creditor accounts
     MC->>AD: one command at a time
-    rect rgb(235, 242, 255)
+    critical transact
     AD->>DB: save ModulrOutboundIntent kind transfer, pending<br/>subjects the debtor and creditor accounts
     AD->>DB: commit
     end
-    rect rgb(235, 242, 255)
+    critical transact
     IP->>DB: read the pending intents
     end
-    rect rgb(235, 242, 255)
+    critical transact
     IP->>DB: read the sent intents
     end
-    rect rgb(235, 242, 255)
+    critical transact
     IP->>DB: read the intent that opened the debtor's provider account
     end
-    rect rgb(235, 242, 255)
+    critical transact
     IP->>DB: read the intent that opened the creditor's provider account
     end
     IP->>PR: POST a payment between the two provider accounts
-    rect rgb(235, 242, 255)
+    critical transact
     IP->>DB: read the intent
     IP->>DB: save the intent, sent
     IP->>DB: commit
     end
     PR-->>WH: PAYOUT webhook, status PROCESSED
-    rect rgb(235, 242, 255)
+    critical transact
     WH->>DB: read the intent the payment answers
     end
-    rect rgb(235, 242, 255)
+    critical transact
     WH->>DB: save ModulrOutboxEvent transfer-completed
     WH->>DB: write it to the modulr-outbox changelog
     WH->>DB: read the sent intent
     WH->>DB: save the intent, settled
     WH->>DB: commit
     end
-    rect rgb(235, 242, 255)
+    critical transact
     OR->>DB: read the cursor modulr-relay
     OR->>DB: read the modulr-outbox changelog after it
     OR->>SE: transfer-completed
@@ -187,7 +187,7 @@ sequenceDiagram
     OR->>DB: commit
     end
     SE->>PE: transfer-completed
-    rect rgb(235, 242, 255)
+    critical transact
     PE->>DB: read the ProviderTransfer
     PE->>DB: save the ProviderTransfer, completed
     PE->>DB: commit
