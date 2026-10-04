@@ -5,7 +5,7 @@ import { check } from "k6";
 import { Counter } from "k6/metrics";
 import { bankTokenSource, env, post } from "./lib/api.js";
 import { build } from "./lib/bank.js";
-import { booksThresholds, checkBooks } from "./lib/books.js";
+import { checkBooks } from "./lib/books.js";
 import { chosen, options as loadOptions, stepNow, steps } from "./lib/load.js";
 import { summary } from "./lib/summary.js";
 
@@ -50,9 +50,7 @@ const FUNDING =
 const payments = new Counter("payments");
 const rejected = new Counter("payments_rejected");
 
-export const options = loadOptions("internal", STEPS, profile, {
-  thresholds: booksThresholds(),
-});
+export const options = loadOptions("internal", STEPS, profile);
 
 export async function setup() {
   return build(ACCOUNTS, FUNDING);

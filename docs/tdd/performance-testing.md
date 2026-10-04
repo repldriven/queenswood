@@ -289,16 +289,16 @@ load test signs in as a client of its own instead:
   those never settled by why, and the trend; `gracefulStop`, 120
   seconds, lets the last of them settle, and its polls carry
   `phase: follow`, so no load figure counts them.
-- **Books.** After an internal run, k6's `teardown` reads the bank's
-  ledger through `GET /v1/ledger-accounts` and the Modulr simulator's
-  balances for the bank's accounts, and the summary's `books` block sets
-  each against the money setup injected from outside: 1100, the deposit
-  and own-funds controls summed, and the provider's balances should each
-  equal it, and the trial balance should tie, since an internal payment
-  only moves money between the bank's accounts. The provider is read
-  until it matches or three minutes pass, its transfers being mirrored
-  after the payments settle. `books_held` is a threshold, so a run whose
-  books do not hold exits 99.
+- **Books.** After a run, k6's `teardown` reads the bank's ledger through
+  `GET /v1/ledger-accounts` and the Modulr simulator's balances for the
+  bank's accounts until they stop moving: two readings five seconds
+  apart that agree, with the provider matching the ledger. The summary's
+  `books` block sets them against what the books should hold: the money
+  setup injected from outside, plus what the run sent in and less what
+  it paid out, which k6 counts as it sends, since outbound payments have
+  no list to sum. 1100, the deposit and own-funds controls summed, and
+  the provider's balances should each equal it, and the trial balance
+  should tie. `perf-run` exits 1 when they do not.
 - **Where the time went.** The run's window in SigNoz, where a payment's
   trace crosses the API, the bus, the processor and the adapter.
 
@@ -373,10 +373,13 @@ run at the next:
    same run holds 50 a second with none refused, each consumer 46 to 49%
    busy, and settlement at 0.45 seconds at p50, 0.79 at p95 and 2.7 at
    p99.
-8. **The books hold.** The ten-minute internal challenger moves 29,999
-   payments among 200 accounts and ends with 1100, the controls and the
-   provider's balances each at the £60,400 setup injected, and the trial
-   balance tied, the provider matching as soon as the load stops.
+8. **The books hold.** In each ten-minute challenger 1100, the
+   controls and the provider's balances end at what the books should
+   hold, and the trial balance ties, within ten seconds of the load
+   stopping: internal, 29,999 payments among 200 accounts, at the
+   £60,400 setup injected; outbound, £15,067.35 paid out of £60,400,
+   at £45,332.65; inbound, £15,154.58 sent in to accounts opened
+   empty.
 9. **Inbound payments.** The ten-minute inbound challenger holds 50 a
    second with none refused, the followed payments credited at 138 ms
    at p50 and 259 ms at p99.

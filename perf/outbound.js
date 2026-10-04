@@ -7,6 +7,7 @@ import exec from "k6/execution";
 import { Counter, Trend } from "k6/metrics";
 import { bankTokenSource, env, get, post } from "./lib/api.js";
 import { build } from "./lib/bank.js";
+import { amountOut, checkBooks } from "./lib/books.js";
 import { chosen, options as loadOptions, stepNow, steps } from "./lib/load.js";
 import { settlementThresholds, summary } from "./lib/summary.js";
 
@@ -59,6 +60,12 @@ export async function setup() {
   return build(ACCOUNTS, FUNDING);
 }
 
+// Every accepted payment leaves the bank, so the books end at what
+// setup injected less what was paid out.
+export function teardown(bank) {
+  checkBooks(bank);
+}
+
 let bearer = null;
 
 // Polls the payment with backoff until it reaches a final status.
@@ -90,6 +97,7 @@ export default function (bank) {
   const step = String(stepNow(STEPS));
   const debtor = bank.accounts[Math.floor(Math.random() * bank.accounts.length)];
   const sent = Date.now();
+  const amount = 1 + Math.floor(Math.random() * MAX_AMOUNT);
   const res = post(
     "/v1/payments/outbound",
     {
@@ -97,7 +105,7 @@ export default function (bank) {
       "creditor-bban": CREDITOR_BBAN,
       "creditor-name": "Perf Payee",
       currency: "GBP",
-      amount: 1 + Math.floor(Math.random() * MAX_AMOUNT),
+      amount,
       scheme: "fps",
       reference: "Perf",
     },
@@ -109,6 +117,7 @@ export default function (bank) {
     rejected.add(1, { status: String(res.status), step });
     return;
   }
+  amountOut.add(amount);
   if (exec.scenario.iterationInTest % FOLLOW === 0) {
     follow(res.json()["payment-id"], sent);
   }
