@@ -69,6 +69,12 @@ receives the send takes a second copy as the one it already has.
 
 ### Submitting and settling
 
+An internal payment is submitted and settled in three hops: the API
+takes the request, the payment processor settles it in one transaction,
+and the settlement is published.
+
+#### The API takes the request
+
 ```mermaid
 sequenceDiagram
     box rgba(233, 236, 239, 0.5)
@@ -76,6 +82,52 @@ sequenceDiagram
     end
     box rgba(165, 216, 255, 0.45)
     participant API as api-service<br/>POST /v1/payments/internal
+    end
+    box rgba(255, 236, 153, 0.5)
+    participant DB as FDB
+    end
+    box rgba(165, 216, 255, 0.45)
+    participant PC as topic-payments-command<br/>2 partitions, key debtor account
+    participant PR as topic-payments-command-response
+    end
+    C->>API: submit, Idempotency-Key
+    critical transact
+    API->>DB: read the idempotency entry for the key
+    opt no live entry
+    API->>DB: save it, pending
+    end
+    end
+    alt completed before
+    API-->>C: the response recorded, Idempotent-Replayed
+    else pending, another request with the key in flight
+    API-->>C: 409
+    else the key used before with another body
+    API-->>C: 422
+    else claimed
+    API->>PC: submit-internal-payment
+    PR->>API: the payment processor's reply
+    alt 2xx or 4xx
+    critical transact
+    API->>DB: save the entry, completed, with the response
+    end
+    else 5xx or no reply
+    critical transact
+    API->>DB: delete the entry
+    end
+    end
+    API-->>C: the answer, 201 when the payment settled
+    end
+```
+
+The key is claimed before the command is sent, so two requests with one
+key send one command between them. A request the platform failed to
+answer releases its claim, and the client may send it again.
+
+#### The payment processor settles it
+
+```mermaid
+sequenceDiagram
+    box rgba(165, 216, 255, 0.45)
     participant PC as topic-payments-command<br/>2 partitions, key debtor account
     end
     box rgba(208, 191, 255, 0.45)
@@ -85,12 +137,9 @@ sequenceDiagram
     participant DB as FDB
     end
     box rgba(165, 216, 255, 0.45)
-    participant RR as exclusive-dispatchers-service<br/>changelog-relay/runners
-    participant PE as topic-payments-event<br/>1 partition, key payment
+    participant PR as topic-payments-command-response
     end
-    C->>API: submit
-    API->>PC: submit-internal-payment
-    PC->>PP: one command at a time per partition
+    PC->>PP: submit-internal-payment, one at a time per partition
     critical transact
     PP->>DB: read the policy stamp, at snapshot
     PP->>DB: read the debtor's CashAccount
@@ -107,15 +156,16 @@ sequenceDiagram
     PP->>DB: save InternalPayment
     PP->>DB: write settle to the internal-payments changelog
     end
-    PP-->>API: reply on topic-payments-command-response
-    PP-->>PC: ack
-    API-->>C: 201, the payment settled
+    alt the idempotency key is new
+    Note over PP: the transaction commits
+    else the key is recorded, a redelivery
+    Note over PP: the unique index on the key refuses the save,<br/>and the transaction aborts
     critical transact
-    RR->>DB: read the cursor internal-payments-relay
-    RR->>DB: read the internal-payments changelog after it
-    RR->>PE: internal-payment-settled
-    RR->>DB: write the cursor
+    PP->>DB: read the InternalPayment by its idempotency key
     end
+    end
+    PP->>PR: the payment
+    PP-->>PC: ack
 ```
 
 The command's one FDB transaction checks both accounts are operable and
@@ -127,9 +177,31 @@ legs debit the debtor's and credit the creditor's `default / posted`
 buckets, which are the only balance rows it writes: the deposit
 controls 2100, 2200, 2300 and 3100 are summed from those rows, per
 [ADR-0037](../adr/0037-a-control-accounts-balance-is-the-sum-of-the-balances-that-roll-into-it.md),
-and carry no leg. The reply is sent once the transaction commits, so
-201 means the payment settled. The changelog entry reaches the webhook
-catalogue as `payment.internal-settled`.
+and carry no leg. A command delivered again finds its idempotency key
+recorded: the transaction aborts, nothing is written twice, and the
+reply is the payment the first delivery recorded.
+
+#### The settlement is published
+
+```mermaid
+sequenceDiagram
+    box rgba(255, 236, 153, 0.5)
+    participant DB as FDB
+    end
+    box rgba(165, 216, 255, 0.45)
+    participant RR as exclusive-dispatchers-service<br/>changelog-relay/runners
+    participant PE as topic-payments-event<br/>1 partition, key payment
+    end
+    critical transact
+    RR->>DB: read the cursor internal-payments-relay
+    RR->>DB: read the internal-payments changelog after it
+    RR->>PE: internal-payment-settled
+    RR->>DB: write the cursor
+    end
+```
+
+The changelog entry reaches the webhook catalogue as
+`payment.internal-settled`.
 
 ### Mirroring at a provider holding a balance per account
 
@@ -210,6 +282,11 @@ sequenceDiagram
     critical transact
     AD->>DB: save ModulrOutboundIntent kind transfer, pending<br/>subjects the debtor and creditor accounts
     end
+    alt the command's dedup key is new
+    Note over AD: the transaction commits
+    else the key is recorded, a redelivery
+    Note over AD: the unique index on the key refuses the save,<br/>and the command is taken as accepted
+    end
     AD-->>MC: ack
 ```
 
@@ -267,6 +344,11 @@ sequenceDiagram
     WH->>DB: read the sent intent
     WH->>DB: save the intent, settled
     end
+    alt the event's dedup key is new
+    Note over WH: the transaction commits
+    else the key is recorded, a webhook delivered again
+    Note over WH: the unique index on the key refuses the save,<br/>and the event is taken as recorded
+    end
     WH-->>PR: 200
 ```
 
@@ -301,7 +383,11 @@ sequenceDiagram
     SE->>PE: transfer-completed
     critical transact
     PE->>DB: read the ProviderTransfer
+    alt still pending
     PE->>DB: save the ProviderTransfer, completed
+    else finished, a redelivery
+    Note over PE: nothing saved
+    end
     end
     PE-->>SE: ack
 ```
