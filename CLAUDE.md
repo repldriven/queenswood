@@ -381,8 +381,9 @@ non-trivial work on their topic.
   capability or subsystem (authentication, bank-providers, banks,
   cash-account-migration, cash-account-products, cash-accounts,
   demo-digital-bank, idempotency, infrastructure, interest, memberships,
-  onboarding, outbound-delivery, outbound-email, parties, payments,
-  policy-evaluation, rewards,
+  onboarding, outbound-delivery, outbound-email, parties, payments, with
+  payments-internal, payments-outbound and payments-inbound drawing each
+  flow and the records it writes, policy-evaluation, rewards,
   scenario-testing, scheduler, service-apis, traceability,
   transaction-processing, transactions-and-balances, webhooks).
 - **Per-capability requirements** — `docs/prd/` has the
