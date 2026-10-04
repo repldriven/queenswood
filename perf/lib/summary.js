@@ -74,6 +74,23 @@ function settlement(data) {
   );
 }
 
+// What the books held once the load stopped, against what setup
+// injected: 1100, the controls and the provider's balances should each
+// equal it, and the trial balance tie.
+function books(data) {
+  const v = (name) => values(data, name).value;
+  if (v("books_injected") === undefined) return undefined;
+  return {
+    injected: v("books_injected"),
+    cash: v("books_cash"),
+    controls: v("books_controls"),
+    trialBalanceTied: v("books_trial_balance_tied") === 1,
+    provider: v("books_provider"),
+    providerWaitS: round(v("books_provider_wait_s")),
+    held: v("books_held") === 1,
+  };
+}
+
 function headline(data, run) {
   const rejected = {};
   REJECTIONS.forEach((s) => {
@@ -86,6 +103,7 @@ function headline(data, run) {
     dropped: values(data, "dropped_iterations").count || 0,
     vus: values(data, "vus_max").max,
     settlement: settlement(data),
+    books: books(data),
     steps: run.steps.map((s, i) => step(data, s, i)),
   };
 }
