@@ -115,7 +115,7 @@ sequenceDiagram
     API->>DB: delete the entry
     end
     end
-    API-->>C: the answer, 201 once the payment is posted
+    API-->>C: 201 posted, 4xx refused, 5xx unknown, retry with the key
     end
 ```
 
