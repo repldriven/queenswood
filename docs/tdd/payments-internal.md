@@ -341,11 +341,20 @@ sequenceDiagram
     participant WH as external-adapters-service<br/>modulr-adapter webhook handlers
     end
     critical transact
-    IP->>DB: read the pending intents
+    IP->>DB: read every pending intent
     end
     critical transact
-    IP->>DB: read the sent intents
+    IP->>DB: read every sent intent
     end
+    critical transact
+    IP->>DB: read the adapter's breaker, claiming the probe when half-open
+    end
+    opt the breaker closed
+    critical transact
+    IP->>DB: read the breaker, for a failure counted
+    end
+    end
+    loop each due pending intent no earlier unsent one shares an account with, on the adapter's workers
     critical transact
     IP->>DB: read the debtor's provider account
     end
@@ -353,9 +362,16 @@ sequenceDiagram
     IP->>DB: read the creditor's provider account
     end
     IP->>PR: POST a payment between the two provider accounts
+    opt the call failed, or the breaker has counted a failure
+    critical transact
+    IP->>DB: read the breaker
+    IP->>DB: save the breaker, with the call's outcome
+    end
+    end
     critical transact
     IP->>DB: read the intent
     IP->>DB: save the intent, sent
+    end
     end
     PR-->>WH: PAYOUT webhook, status PROCESSED
     critical transact
@@ -375,12 +391,17 @@ sequenceDiagram
     WH-->>PR: 200
 ```
 
-The poller resolves each cash account to its provider account, the
-Modulr account the adapter recorded when it opened it, and calls Modulr
-with the provider's account ids. An intent holds both accounts as its
-subjects, so a later call touching either waits until this one is sent,
-as
+A pass of the poller reads every intent the adapter holds, across every
+bank, and runs at once each pending one that is due and that no earlier
+intent still unsent shares an account with. The transfer's intent holds
+both accounts as its subjects, so a later call touching either waits
+until this one is sent, as
 [ADR-0033](../adr/0033-operations-reach-a-provider-in-the-order-they-were-accepted.md)
+decides. The call resolves the transfer's cash accounts to their
+provider accounts, the Modulr accounts the adapter recorded when it
+opened them. While the adapter's breaker is open a pass calls nothing,
+as
+[ADR-0034](../adr/0034-outbound-calls-go-through-a-breaker-on-their-destination.md)
 decides. The webhook answers 200 only once its outbox entry commits, so
 Modulr sends it again until it has.
 
@@ -477,5 +498,7 @@ id at ERROR for the bank to reconcile.
   breaker.
 - [ADR-0033](../adr/0033-operations-reach-a-provider-in-the-order-they-were-accepted.md)
   — the bank's activity log and the order calls reach a provider in.
+- [ADR-0034](../adr/0034-outbound-calls-go-through-a-breaker-on-their-destination.md)
+  — the breaker every call to Modulr goes through.
 - [ADR-0037](../adr/0037-a-control-accounts-balance-is-the-sum-of-the-balances-that-roll-into-it.md)
   — controls summed from the customer rows.
