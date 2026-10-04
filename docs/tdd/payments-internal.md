@@ -89,7 +89,7 @@ sequenceDiagram
     participant IP as intent poller
     participant PR as Modulr
     participant OR as modulr-outbox relay
-    participant SE as topic-schemes-payments-event<br/>1 partition, unkeyed
+    participant SE as topic-schemes-payments-event<br/>2 partitions, key payment
     participant PE as payment<br/>PaymentEventProcessor
     DB->>AR: transaction-posted on bank-activity-shard
     AR->>AE: published verbatim

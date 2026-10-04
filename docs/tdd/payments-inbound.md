@@ -27,7 +27,8 @@ kept, see [chart-of-accounts.md](chart-of-accounts.md).
 - **The report.** The bank's provider tells its adapter of an inbound
   by webhook, and the adapter writes the scheme event to its outbox,
   which a `changelog-relay` runner in `exclusive-dispatchers-service`
-  publishes on `topic-schemes-payments-event`, one partition, unkeyed.
+  publishes on `topic-schemes-payments-event`, two partitions, keyed
+  by the payment.
 - **The processor.** `payment`'s `PaymentEventProcessor`, in
   `financial-processors-service`, handles `transaction-settled`,
   `transaction-held`, `transaction-rejected` and `transaction-returned`
@@ -77,7 +78,7 @@ sequenceDiagram
     participant AD as modulr-adapter
     participant DB as FDB
     participant OR as modulr-outbox relay
-    participant SE as topic-schemes-payments-event<br/>1 partition, unkeyed
+    participant SE as topic-schemes-payments-event<br/>2 partitions, key payment
     participant PE as payment<br/>PaymentEventProcessor
     PR-->>AD: PAYIN webhook
     Note over AD,DB: one transaction writes<br/>ModulrOutboxEvent transaction-settled credit and its changelog entry<br/>deduplicated on the provider's payment id
@@ -103,7 +104,7 @@ relay turns the changelog entry into `payment.inbound-settled`.
 
 ```mermaid
 sequenceDiagram
-    participant SE as topic-schemes-payments-event<br/>1 partition, unkeyed
+    participant SE as topic-schemes-payments-event<br/>2 partitions, key payment
     participant PE as payment<br/>PaymentEventProcessor
     participant DB as FDB
     participant AP as payment<br/>activity-event-processor
@@ -131,7 +132,7 @@ sequenceDiagram
     participant PR as ClearBank
     participant AD as clearbank-adapter
     participant DB as FDB
-    participant SE as topic-schemes-payments-event<br/>1 partition, unkeyed
+    participant SE as topic-schemes-payments-event<br/>2 partitions, key payment
     participant PE as payment<br/>PaymentEventProcessor
     PR-->>AD: the inbound held for screening
     Note over AD,DB: one transaction writes ClearbankOutboxEvent transaction-held credit
@@ -165,7 +166,7 @@ sequenceDiagram
     participant PC as topic-payments-command<br/>2 partitions, unkeyed
     participant PP as payment<br/>PaymentProcessor
     participant DB as FDB
-    participant SE as topic-schemes-payments-event<br/>1 partition, unkeyed
+    participant SE as topic-schemes-payments-event<br/>2 partitions, key payment
     participant PE as payment<br/>PaymentEventProcessor
     PR-->>AD: an inbound asking for admission
     AD->>PC: admit-inbound-payment, waiting for the reply
@@ -205,7 +206,7 @@ sequenceDiagram
     participant IP as intent poller
     participant PR as Form3
     participant DB as FDB
-    participant SE as topic-schemes-payments-event<br/>1 partition, unkeyed
+    participant SE as topic-schemes-payments-event<br/>2 partitions, key payment
     participant PE as payment<br/>PaymentEventProcessor
     AP->>FC: return-payment, from inbound-payment-suspended
     FC->>AD: consumed

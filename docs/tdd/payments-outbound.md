@@ -39,7 +39,8 @@ breaker, retries and reconciliation timing, see
   the call, as [outbound-delivery.md](outbound-delivery.md) describes.
   Its webhook handlers write what the provider reports to its outbox,
   which a `changelog-relay` runner in `exclusive-dispatchers-service`
-  publishes on `topic-schemes-payments-event`, one partition, unkeyed.
+  publishes on `topic-schemes-payments-event`, two partitions, keyed
+  by the payment.
 - **Statuses.** An outbound payment is `pending`, `held`, `completed`,
   `failed` or `returned`.
 
@@ -140,7 +141,7 @@ sequenceDiagram
     participant AD as modulr-adapter
     participant DB as FDB
     participant OR as modulr-outbox relay
-    participant SE as topic-schemes-payments-event<br/>1 partition, unkeyed
+    participant SE as topic-schemes-payments-event<br/>2 partitions, key payment
     participant PE as payment<br/>PaymentEventProcessor
     PR-->>AD: PAYOUT webhook, status PROCESSED
     Note over AD,DB: one transaction writes<br/>ModulrOutboxEvent transaction-settled debit and its changelog entry<br/>deduplicated on the provider's payment id<br/>and settles the sent intent
@@ -172,7 +173,7 @@ sequenceDiagram
     participant PR as Modulr
     participant AD as modulr-adapter
     participant DB as FDB
-    participant SE as topic-schemes-payments-event<br/>1 partition, unkeyed
+    participant SE as topic-schemes-payments-event<br/>2 partitions, key payment
     participant PE as payment<br/>PaymentEventProcessor
     alt the provider declines
         PR-->>AD: PAYMENT_COMPLIANCE_STATUS DECLINED, or a PAYOUT failing
@@ -197,7 +198,7 @@ sequenceDiagram
     participant PR as Modulr
     participant AD as modulr-adapter
     participant DB as FDB
-    participant SE as topic-schemes-payments-event<br/>1 partition, unkeyed
+    participant SE as topic-schemes-payments-event<br/>2 partitions, key payment
     participant PE as payment<br/>PaymentEventProcessor
     PR-->>AD: PAYMENT_COMPLIANCE_STATUS HELD
     Note over AD,DB: one transaction writes ModulrOutboxEvent<br/>transaction-held debit
@@ -218,7 +219,7 @@ sequenceDiagram
     participant PR as Modulr
     participant AD as modulr-adapter
     participant DB as FDB
-    participant SE as topic-schemes-payments-event<br/>1 partition, unkeyed
+    participant SE as topic-schemes-payments-event<br/>2 partitions, key payment
     participant PE as payment<br/>PaymentEventProcessor
     PR-->>AD: PAYIN webhook, type PO_REV
     Note over AD,DB: one transaction writes ModulrOutboxEvent<br/>transaction-returned debit, deduplicated on end-to-end id and returned
@@ -272,10 +273,11 @@ fails the handler: a rejection is not a return.
 - **A return reaches a closed account.** A payment returned after its
   debtor account closed credits that account, and the money waits there
   for the bank to move by hand.
-- **One settlement consumer.** `topic-schemes-payments-event` has one
-  partition, read one event at a time, so every bank's settlements queue
-  behind each other, as
-  [performance-testing.md](performance-testing.md) measures.
+- **Two settlement consumers.** `topic-schemes-payments-event` has two
+  partitions, one per `financial-processors-service` replica, each read
+  one event at a time, so settlements queue behind those on their own
+  partition, as [performance-testing.md](performance-testing.md)
+  measures.
 
 ## References
 
