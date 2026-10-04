@@ -461,10 +461,10 @@ adapter's outbox and the banks' activity logs.
 flowchart LR
     API["api-service"] -->|submit-internal-payment<br/>submit-outbound-payment| P["financial-processors-service<br/>payment/processor"]
     P -->|bank's activity, bank-activity/relay| AP["financial-processors-service<br/>payment/activity-event-processor"]
-    AP -->|submit-payment, transfer-between-accounts,<br/>return-payment| AD["external-adapters-service<br/>#lt;provider#gt;-adapter/command-processor"]
-    AD -->|intent| IP["external-adapters-service<br/>#lt;provider#gt;-relay/outbound-runner"]
+    AP -->|submit-payment, transfer-between-accounts,<br/>return-payment| AD["external-adapters-service<br/>{provider}-adapter/command-processor"]
+    AD -->|intent| IP["external-adapters-service<br/>{provider}-relay/outbound-runner"]
     IP -->|calls| PR["provider"]
-    PR -->|webhooks| WHH["external-adapters-service<br/>#lt;provider#gt;-adapter webhook handlers"]
+    PR -->|webhooks| WHH["external-adapters-service<br/>{provider}-adapter webhook handlers"]
     WHH -->|outbox, changelog-relay/runners| PE["financial-processors-service<br/>payment/event-processor"]
     P -->|payment changelogs, changelog-relay/runners| WH["external-adapters-service<br/>webhook/event-processor"]
     PE -->|payment changelogs| WH
