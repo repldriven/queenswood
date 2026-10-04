@@ -115,7 +115,7 @@ sequenceDiagram
     API->>DB: delete the entry
     end
     end
-    API-->>C: the answer, 201 when the payment settled
+    API-->>C: the answer, 201 once the payment is posted
     end
 ```
 
