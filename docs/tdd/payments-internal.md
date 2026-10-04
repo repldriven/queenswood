@@ -50,7 +50,12 @@ see [policy-evaluation.md](policy-evaluation.md).
 
 A participant is the service that runs it and the component kind or
 base inside it, as the system configuration names them, and a topic
-shows its partitions and the key it is published under. Each arrow into
+shows its partitions and the key it is published under. Lanes are
+coloured as in the
+[system diagram](../diagrams/System%20Diagram.excalidraw): blue for the
+API, the message bus and the relays, purple for the processors, orange
+for the external adapters, yellow for FDB and grey for the world
+outside. Each arrow into
 FDB is one call — a read, a save, or a changelog or log entry written —
 and each `critical [transact]` box is one FDB transaction, holding every
 call made in it, a read made on its own included. A box commits where it
@@ -61,13 +66,23 @@ commit, and anything after it once the transaction has committed.
 
 ```mermaid
 sequenceDiagram
+    box rgba(233, 236, 239, 0.5)
     participant C as Client
+    end
+    box rgba(165, 216, 255, 0.45)
     participant API as api-service<br/>POST /v1/payments/internal
     participant PC as topic-payments-command<br/>2 partitions, key debtor account
+    end
+    box rgba(208, 191, 255, 0.45)
     participant PP as financial-processors-service<br/>payment/processor
+    end
+    box rgba(255, 236, 153, 0.5)
     participant DB as FDB
+    end
+    box rgba(165, 216, 255, 0.45)
     participant RR as exclusive-dispatchers-service<br/>changelog-relay/runners
     participant PE as topic-payments-event<br/>1 partition, key payment
+    end
     C->>API: submit
     API->>PC: submit-internal-payment
     PC->>PP: one command at a time per partition
@@ -114,18 +129,36 @@ catalogue as `payment.internal-settled`.
 
 ```mermaid
 sequenceDiagram
+    box rgba(255, 236, 153, 0.5)
     participant DB as FDB
+    end
+    box rgba(165, 216, 255, 0.45)
     participant AR as exclusive-dispatchers-service<br/>bank-activity/relay
     participant AE as topic-bank-activity-event<br/>1 partition, key bank
+    end
+    box rgba(208, 191, 255, 0.45)
     participant AP as financial-processors-service<br/>payment/activity-event-processor
+    end
+    box rgba(165, 216, 255, 0.45)
     participant MC as topic-modulr-command<br/>1 partition, key bank
+    end
+    box rgba(255, 216, 168, 0.5)
     participant AD as external-adapters-service<br/>modulr-adapter/command-processor
     participant IP as external-adapters-service<br/>modulr-relay/outbound-runner
+    end
+    box rgba(233, 236, 239, 0.5)
     participant PR as Modulr
+    end
+    box rgba(255, 216, 168, 0.5)
     participant WH as external-adapters-service<br/>modulr-adapter webhook handlers
+    end
+    box rgba(165, 216, 255, 0.45)
     participant OR as exclusive-dispatchers-service<br/>changelog-relay/runners
     participant SE as topic-schemes-payments-event<br/>2 partitions, key transfer
+    end
+    box rgba(208, 191, 255, 0.45)
     participant PE as financial-processors-service<br/>payment/event-processor
+    end
     critical transact
     AR->>DB: read the log's cursor
     AR->>DB: read the bank's activity log after it
