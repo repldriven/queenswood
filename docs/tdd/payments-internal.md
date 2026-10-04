@@ -148,10 +148,10 @@ sequenceDiagram
     PP->>DB: save Transaction
     PP->>DB: save the two TransactionLegs
     PP->>DB: write transaction-posted to the bank's activity log
-    PP->>DB: read the debtor's default/posted Balance
-    PP->>DB: read the creditor's default/posted Balance
-    PP->>DB: save the debtor's Balance
-    PP->>DB: save the creditor's Balance
+    PP->>DB: read every Balance of the debtor's account
+    PP->>DB: read every Balance of the creditor's account
+    PP->>DB: save the debtor's default/posted Balance
+    PP->>DB: save the creditor's default/posted Balance
     PP->>DB: save InternalPayment
     PP->>DB: write settle to the internal-payments changelog
     alt the idempotency key is new
@@ -414,7 +414,7 @@ sequenceDiagram
     end
     box rgba(165, 216, 255, 0.45)
     participant OR as exclusive-dispatchers-service<br/>changelog-relay/runners
-    participant SE as topic-schemes-payments-event<br/>partition-key = transfer
+    participant SE as topic-schemes-payments-event<br/>partition-key = end-to-end id, else transfer
     end
     box rgba(208, 191, 255, 0.45)
     participant PE as financial-processors-service<br/>payment/event-processor
