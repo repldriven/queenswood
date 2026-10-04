@@ -23,6 +23,7 @@ message ClearbankOutboxEvent {
   optional string causation_id = 6;
   optional int64  created_at = 7;
   optional string traceparent = 8;   // W3C, see ChangelogEvent
+  optional string ordering_key = 9;    // the bus key, see ChangelogEvent
 }
 
 // A pending outbound ClearBank HTTP call (an FPS payment submit). Written

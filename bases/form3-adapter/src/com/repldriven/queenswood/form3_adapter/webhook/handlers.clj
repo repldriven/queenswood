@@ -6,6 +6,7 @@
     [com.repldriven.queenswood.form3-adapter.publisher :as publisher]
 
     [com.repldriven.queenswood.form3-relay.interface :as relay]
+    [com.repldriven.queenswood.intent-poller.interface :as intent-poller]
 
     [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.command.interface :as command]
@@ -57,13 +58,16 @@
   (let [schema (get (:avro request) event-name)]
     (let-nom> [payload (avro/serialize schema data)]
       (let [res (relay/save-event (fdb request)
-                                  {:outbox-id (str (utility/uuidv7))
-                                   :dedup-key dedup-key
-                                   :event-name event-name
-                                   :payload payload
-                                   :correlation-id (str (utility/uuidv7))
-                                   :causation-id (str (utility/uuidv7))
-                                   :created-at (utility/now)}
+                                  (utility/assoc-some
+                                   {:outbox-id (str (utility/uuidv7))
+                                    :dedup-key dedup-key
+                                    :event-name event-name
+                                    :payload payload
+                                    :correlation-id (str (utility/uuidv7))
+                                    :causation-id (str (utility/uuidv7))
+                                    :created-at (utility/now)}
+                                   :ordering-key
+                                   (intent-poller/ordering-key data))
                                   settles)]
         (if (relay/uniqueness-violation? res) :ok res)))))
 

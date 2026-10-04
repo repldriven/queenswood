@@ -171,3 +171,16 @@
   - config: a poller config."
   [config]
   (core/start config))
+
+(defn ordering-key
+  "The key an event about a payment or a transfer is published under,
+  read from its data: the payment's `:end-to-end-id`, else the
+  transfer's `:transfer-id`, else nil for an unkeyed publish. Every
+  outbox entry an adapter writes about one payment carries the same
+  key, whether the poller or a webhook wrote it, so its events reach a
+  consumer in the order they were written on any number of partitions.
+
+  Args:
+  - data: the event's data, before it is serialised."
+  [data]
+  (core/ordering-key data))
