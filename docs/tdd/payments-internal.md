@@ -28,15 +28,16 @@ see [policy-evaluation.md](policy-evaluation.md).
   `payment` routes sends `submit-internal-payment` on
   `topic-payments-command`, two partitions keyed by the debtor account,
   and answers 201 from the reply on `topic-payments-command-response`.
-- **The processor.** `payment`'s `PaymentProcessor`, hosted in
+- **The processor.** `payment/processor`, in
   `financial-processors-service`, handles the command in `core.clj`
   `submit-internal`.
 - **The bank's activity.** `transaction/record-transaction` records a
   `transaction-posted` entry on the bank's activity log,
-  `bank-activity-<shard>`, in the transaction that posts. A
-  `changelog-relay` runner per shard in `exclusive-dispatchers-service`
-  publishes it on `topic-bank-activity-event`, one partition keyed by
-  bank, where `payment`'s `activity-event-processor` reads it.
+  `bank-activity-<shard>`, in the transaction that posts.
+  `bank-activity/relay`, a runner per shard in
+  `exclusive-dispatchers-service`, publishes it on
+  `topic-bank-activity-event`, one partition keyed by bank, where
+  `payment/activity-event-processor` reads it.
 - **Mirroring.** `payment`'s `events/provider_transfer.clj` turns a
   posted transaction into `ProviderTransfer` records and
   `transfer-between-accounts` commands under `balances: per-account`,
@@ -44,24 +45,42 @@ see [policy-evaluation.md](policy-evaluation.md).
 
 ## Solution
 
+### Reading the diagrams
+
+A participant is the service that runs it and the component kind or
+base inside it, as the system configuration names them, and a topic
+shows its partitions and the key it is published under. An arrow into
+FDB labelled `read` reads, one labelled `commit` lists what a
+transaction writes, and a shaded box holds the reads and the commit of
+one FDB transaction; a read outside a box is a transaction of its own.
+
 ### Submitting and settling
 
 ```mermaid
 sequenceDiagram
     participant C as Client
-    participant API as api-service
+    participant API as api-service<br/>POST /v1/payments/internal
     participant PC as topic-payments-command<br/>2 partitions, key debtor account
-    participant PP as payment<br/>PaymentProcessor
+    participant PP as financial-processors-service<br/>payment/processor
     participant DB as FDB
+    participant RR as exclusive-dispatchers-service<br/>changelog-relay/runners
     participant PE as topic-payments-event<br/>1 partition, key payment
-    C->>API: POST /v1/payments/internal
+    C->>API: submit
     API->>PC: submit-internal-payment
     PC->>PP: one command at a time per partition
-    PP->>DB: read policies, debtor and creditor, today's count
-    Note over PP,DB: one transaction writes<br/>Transaction and two TransactionLegs<br/>debtor and creditor default/posted balance rows<br/>InternalPayment and its internal-payments changelog entry<br/>transaction-posted on bank-activity-shard
+    rect rgb(235, 242, 255)
+    Note right of PP: one FDB transaction
+    PP->>DB: read policies, the debtor and creditor<br/>today's count at snapshot
+    PP->>DB: commit Transaction and two TransactionLegs<br/>the debtor's and creditor's default/posted balance rows<br/>InternalPayment and its internal-payments changelog entry<br/>transaction-posted on bank-activity-shard
+    end
     PP-->>API: reply on topic-payments-command-response
     API-->>C: 201, the payment settled
-    DB-->>PE: internal-payments relay publishes internal-payment-settled
+    rect rgb(235, 242, 255)
+    Note right of RR: one FDB transaction
+    RR->>DB: read internal-payments from its cursor
+    RR->>PE: internal-payment-settled
+    RR->>DB: commit the cursor internal-payments-relay
+    end
 ```
 
 The command's one FDB transaction checks both accounts are operable and
@@ -81,31 +100,60 @@ catalogue as `payment.internal-settled`.
 ```mermaid
 sequenceDiagram
     participant DB as FDB
-    participant AR as bank-activity relay
+    participant AR as exclusive-dispatchers-service<br/>bank-activity/relay
     participant AE as topic-bank-activity-event<br/>1 partition, key bank
-    participant AP as payment<br/>activity-event-processor
+    participant AP as financial-processors-service<br/>payment/activity-event-processor
     participant MC as topic-modulr-command<br/>1 partition, key bank
-    participant AD as modulr-adapter
-    participant IP as intent poller
+    participant AD as external-adapters-service<br/>modulr-adapter/command-processor
+    participant IP as external-adapters-service<br/>modulr-relay/outbound-runner
     participant PR as Modulr
-    participant OR as modulr-outbox relay
-    participant SE as topic-schemes-payments-event<br/>2 partitions, key payment
-    participant PE as payment<br/>PaymentEventProcessor
-    DB->>AR: transaction-posted on bank-activity-shard
-    AR->>AE: published verbatim
+    participant WH as external-adapters-service<br/>modulr-adapter webhook handlers
+    participant OR as exclusive-dispatchers-service<br/>changelog-relay/runners
+    participant SE as topic-schemes-payments-event<br/>2 partitions, key transfer
+    participant PE as financial-processors-service<br/>payment/event-processor
+    rect rgb(235, 242, 255)
+    Note right of AR: one FDB transaction
+    AR->>DB: read the bank's activity log shard from its cursor
+    AR->>AE: transaction-posted, verbatim, in commit order
+    AR->>DB: commit the shard's cursor
+    end
     AE->>AP: transaction-posted
-    Note over AP,DB: reads the bank's declaration, balances per-account<br/>one transaction writes ProviderTransfer pending
+    AP->>DB: read the bank's declaration, balances per-account, cached
+    rect rgb(235, 242, 255)
+    Note right of AP: one FDB transaction
+    AP->>DB: read the transfers already recorded for the transaction<br/>each cash account it names
+    AP->>DB: commit a ProviderTransfer pending for each pair
+    end
     AP->>MC: transfer-between-accounts, debtor and creditor accounts
-    MC->>AD: consumed
-    Note over AD,DB: one transaction writes<br/>ModulrOutboundIntent kind transfer, pending<br/>subjects the debtor and creditor accounts
-    IP->>DB: next pass reads pending and sent intents
+    MC->>AD: one command at a time
+    rect rgb(235, 242, 255)
+    Note right of AD: one FDB transaction
+    AD->>DB: commit ModulrOutboundIntent kind transfer, pending<br/>subjects the debtor and creditor accounts
+    end
+    IP->>DB: read pending and sent intents
+    IP->>DB: read both provider accounts
     IP->>PR: POST a payment between the two provider accounts
-    Note over IP,DB: one transaction moves the intent to sent
-    PR-->>AD: PAYOUT webhook, status PROCESSED
-    Note over AD,DB: one transaction writes<br/>ModulrOutboxEvent transfer-completed and its changelog entry<br/>and settles the sent intent
+    rect rgb(235, 242, 255)
+    Note right of IP: one FDB transaction
+    IP->>DB: commit the intent sent
+    end
+    PR-->>WH: PAYOUT webhook, status PROCESSED
+    rect rgb(235, 242, 255)
+    Note right of WH: one FDB transaction
+    WH->>DB: commit ModulrOutboxEvent transfer-completed and its changelog entry<br/>the sent intent settled
+    end
+    rect rgb(235, 242, 255)
+    Note right of OR: one FDB transaction
+    OR->>DB: read modulr-outbox from its cursor
     OR->>SE: transfer-completed
+    OR->>DB: commit the cursor modulr-relay
+    end
     SE->>PE: transfer-completed
-    Note over PE,DB: one transaction moves ProviderTransfer to completed
+    rect rgb(235, 242, 255)
+    Note right of PE: one FDB transaction
+    PE->>DB: read the ProviderTransfer
+    PE->>DB: commit ProviderTransfer completed
+    end
 ```
 
 The activity event processor nets the transaction's posted default legs
