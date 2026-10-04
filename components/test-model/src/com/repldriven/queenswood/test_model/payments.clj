@@ -303,8 +303,7 @@
                              (filter (fn [accts] (>= (count accts) 2))))]
              (gen/let [accts (gen/elements groups)
                        from (gen/elements accts)
-                       to (gen/such-that (fn [a] (not= a from))
-                                         (gen/elements accts))
+                       to (gen/elements (remove (fn [a] (= a from)) accts))
                        amount (gen/choose 1 10000)]
                [from to amount])))
    :next-state
