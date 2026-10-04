@@ -172,16 +172,26 @@ sequenceDiagram
     AR->>DB: write the cursor
     end
     AE->>AP: transaction-posted
+    opt the bank's providers not cached
     critical transact
-    AP->>DB: read the bank's providers, only when not cached
+    AP->>DB: read the bank's providers
+    end
     end
     critical transact
     AP->>DB: read the ProviderTransfers already recorded for the transaction
-    AP->>DB: read 1100 and the own-funds CashAccount, only when not cached
+    alt none recorded
+    opt 1100 and the own-funds account not cached
+    AP->>DB: read 1100 and the own-funds CashAccount
+    end
     AP->>DB: read the CashAccount behind each leg
     AP->>DB: save a ProviderTransfer, pending, for each pair
+    else recorded, a redelivery
+    Note over AP: the recorded transfers, nothing saved
     end
+    end
+    loop each ProviderTransfer still pending
     AP->>MC: transfer-between-accounts, debtor and creditor accounts
+    end
     AP-->>AE: ack
     MC->>AD: one command at a time
     critical transact
@@ -229,6 +239,13 @@ sequenceDiagram
     end
     PE-->>SE: ack
 ```
+
+A `transaction-posted` delivered again, because a send failed or the
+process stopped before the ack, finds its transfers recorded, saves
+nothing, and sends again those still pending. Where the first send got
+through, the adapter receives the command twice and takes the second as
+the intent it already holds, unique on the command's dedup key, so
+Modulr is called once.
 
 The activity event processor nets the transaction's posted default legs
 per party: the debtor's cash account owes, the creditor's is owed, and
