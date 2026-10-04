@@ -214,12 +214,15 @@ transaction of its own and written without a conflict check, so one
 runner owns it. The changelog entry reaches the webhook catalogue as
 `payment.internal-settled`.
 
-### Mirroring at a provider holding a balance per account
+### Mirroring at the provider
 
 On a provider that declares `balances: per-account`, as Modulr does, a
 posted transaction is mirrored at the provider in four hops, each drawn
 below between the service that hands it on, the topic or call that
-carries it, and the service that takes it up.
+carries it, and the service that takes it up. On one that declares
+`balances: pooled`, as Form3 and ClearBank do, the activity processor
+sends nothing: the addresses route into one balance the ledger already
+divides.
 
 #### The activity log reaches the activity processor
 
@@ -277,6 +280,7 @@ sequenceDiagram
     AP->>DB: read the bank's providers
     end
     end
+    alt the bank's provider declares balances: per-account
     critical transact
     AP->>DB: read the ProviderTransfers already recorded for the transaction
     alt none recorded
@@ -291,6 +295,9 @@ sequenceDiagram
     end
     loop each ProviderTransfer still pending
     AP->>MC: transfer-between-accounts, debtor and creditor accounts
+    end
+    else balances: pooled
+    Note over AP: nothing recorded or sent
     end
     AP-->>AE: ack
     MC->>AD: one command at a time
@@ -413,10 +420,6 @@ sequenceDiagram
 
 A `transfer-failed` leaves the ledger as it is and logs the transaction
 id at ERROR for the bank to reconcile.
-
-Under `balances: pooled`, as Form3 and ClearBank declare, the activity
-event processor reads the same entry and sends nothing: the addresses
-route into one balance the ledger already divides.
 
 ### Tests
 
