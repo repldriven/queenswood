@@ -247,6 +247,30 @@
          (or (nil? effective-from) (<= effective-from business-day))
          (or (nil? effective-to) (< business-day effective-to)))))
 
+(def ^:private abandoned-after-ms
+  "How long a preview runs before another preview takes it for one whose
+  pass died and goes ahead."
+  (* 15 60 1000))
+
+(defn check-no-preview-running
+  "A rejection when one of `runs` is a preview still running at `now`,
+  else nil. A preview running for longer than `abandoned-after-ms` does
+  not count."
+  [runs now]
+  (when-let [running
+             (first (filter (fn [{:keys [dry-run status started-at]}]
+                              (and dry-run
+                                   (= :cash-account-migration-run-status-running
+                                      status)
+                                   (< now
+                                      (+ started-at
+                                         abandoned-after-ms))))
+                            runs))]
+    (error/reject :cash-account-migration/preview-running
+                  {:message "A preview of this migration is already running"
+                   :migration-id (:migration-id running)
+                   :run-id (:run-id running)})))
+
 (defn new-run
   "A run opens as running, and is closed by whatever finishes it. A
   preview and a commit are the same record: `dry-run?` decides only

@@ -57,6 +57,12 @@
            :status 409
            :detail "Migration cannot be approved"}})
 
+(def PreviewRunning
+  {:value {:title "REJECTED"
+           :type ":cash-account-migration/preview-running"
+           :status 409
+           :detail "A preview of this migration is already running"}})
+
 (def NoticeRequired
   {:value {:title "REJECTED"
            :type ":cash-account-migration/notice-required"
@@ -68,7 +74,7 @@
   (examples-registry [#'MigrationNotFound #'RunNotFound #'ProductTypeMismatch
                       #'TargetNotPublished #'TargetIsSource #'NoticeAfterDue
                       #'NameRequired #'SourceProductNotFound #'InvalidStatus
-                      #'NoticeRequired]))
+                      #'NoticeRequired #'PreviewRunning]))
 
 (def MigrationId "mig.01kz3wyzcjhkab9ch91x9ngedr")
 

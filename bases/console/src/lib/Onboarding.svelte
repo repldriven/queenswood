@@ -49,6 +49,7 @@
   let choice = $state({});
   let providersError = $state(null);
   let creating = $state(false);
+  let retrying = $state(false);
   let createError = $state(null);
   // The key a create is sent under, kept while what it would create is
   // unchanged, so pressing Create again after a failure cannot make a
@@ -154,7 +155,11 @@
       submission = { signature, key: crypto.randomUUID() };
     }
     try {
-      const res = await create_bank({ ...request, key: submission.key });
+      const res = await create_bank({
+        ...request,
+        key: submission.key,
+        onRetry: () => (retrying = true),
+      });
       if (res.status === 201) {
         result = res.body;
         focus(() => enterButton);
@@ -166,6 +171,7 @@
       createError = err.message;
     } finally {
       creating = false;
+      retrying = false;
     }
   }
 
@@ -408,7 +414,7 @@
             </p>
           {/if}
           <button class="btn solid wide" disabled={!canCreate} onclick={create}>
-            {#if creating}<span class="spin"></span>Provisioning…{:else}Create bank{/if}
+            {#if retrying}<span class="spin"></span>Still working…{:else if creating}<span class="spin"></span>Provisioning…{:else}Create bank{/if}
           </button>
         </div>
       {/if}

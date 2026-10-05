@@ -11,8 +11,8 @@
      [ErrorResponse]]
     [com.repldriven.queenswood.cash-account-migration-api.interface :refer
      [InvalidStatus MigrationNotFound NameRequired NoticeAfterDue NoticeRequired
-      ProductTypeMismatch RunNotFound SourceProductNotFound TargetIsSource
-      TargetNotPublished]]
+      PreviewRunning ProductTypeMismatch RunNotFound SourceProductNotFound
+      TargetIsSource TargetNotPublished]]
     [com.repldriven.queenswood.idempotency.interface :as bank-idempotency]
 
     [com.repldriven.mono.server.interface :as server]))
@@ -153,7 +153,9 @@
                               "for each, and moves none. A preview can be "
                               "run again at any time, including after "
                               "approval, and counts towards any daily "
-                              "preview limit the bank's policies set.")
+                              "preview limit the bank's policies set. "
+                              "While another preview of the migration is "
+                              "running, it is refused with 409.")
                          :security [{"bearerAuth" ["org:developer"]}]
                          :parameters ^:replace
                                      [shared.parameters/ref-migration-id
@@ -168,6 +170,7 @@
                       :openapi {:headers {"Location" (shared.headers/location
                                                       "preview")}}}
                  404 (ErrorResponse [#'MigrationNotFound])
+                 409 (ErrorResponse [#'PreviewRunning])
                  429 (ErrorResponse [#'api-schema/PolicyLimitExceeded])})
                :handler handlers/preview-migration}}]
       ["/{run-id}"

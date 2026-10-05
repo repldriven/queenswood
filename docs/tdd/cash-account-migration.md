@@ -152,7 +152,12 @@ on Monday and a commit run on Friday will not agree, and no amount of
 care makes them.
 
 The honest design accepts this rather than hiding it. A preview can be
-re-run as often as wanted, right up to the moment of commit. Approval
+re-run as often as wanted, right up to the moment of commit, one at a
+time: a preview is refused `:cash-account-migration/preview-running`,
+a 409, while another preview of the migration is running. The check
+reads the migration's runs on `CashAccountMigrationRun_by_migration`
+in the transaction that saves the new run, so of two previews opened
+at once one conflicts, retries and is refused. Approval
 attaches to the migration — to its source, target and selection — and
 not to any particular preview's numbers. The commit writes its own rows,
 so the difference between what was expected and what happened is
@@ -324,6 +329,10 @@ guess.
   relationship and no read uses it, so the products API cannot say
   which migrations point at a version, or how many accounts sit on
   one.
+- **An abandoned preview holds the next one for a while.** A preview
+  whose pass died leaves its run running. Another preview of the same
+  migration is refused until that run is fifteen minutes old, and a
+  preview that genuinely runs longer no longer holds one back.
 - **No convenience path from publishing.** A "bring existing accounts
   along" option when publishing a version could mint a migration with a
   default notice period. That is sugar over the resource rather than an

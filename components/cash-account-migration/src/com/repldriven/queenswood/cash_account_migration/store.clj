@@ -230,3 +230,21 @@
    :cash-account-migration/find-by-idempotency-key
    {:message "Failed to look up cash-account migration by idempotency key"
     :bank-id bank-id}))
+
+(defn list-runs-of-migration
+  [txn bank-id migration-id]
+  (fdb/transact
+   txn
+   (fn [txn]
+     (mapv (comp clean-run schema/pb->CashAccountMigrationRun)
+           (fdb/query-records-compound
+            (fdb/open txn runs-store-name)
+            "CashAccountMigrationRun"
+            [["bank_id" bank-id]
+             ["migration_id" migration-id]]
+            {:index
+             "CashAccountMigrationRun_by_migration"})))
+   :cash-account-migration/list-runs
+   {:message "Failed to list cash-account migration runs"
+    :bank-id bank-id
+    :migration-id migration-id}))

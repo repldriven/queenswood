@@ -161,7 +161,10 @@
     previewing = true;
     const run = await onpreview();
     previewing = false;
-    if (!run) return;
+    if (!run) {
+      await loadRuns();
+      return;
+    }
     outcome = "all";
     acctQuery = "";
     limit = PAGE;
