@@ -1,9 +1,10 @@
 (ns com.repldriven.queenswood.fdb.changelog
   (:import
-    (com.apple.foundationdb KeySelector MutationType)
+    (com.apple.foundationdb KeySelector KeyValue MutationType Transaction)
     (com.apple.foundationdb.record.provider.foundationdb
      FDBDatabase
      FDBRecordContext
+     FDBRecordStore
      FDBStoreTimer$Waits)
     (com.apple.foundationdb.subspace Subspace)
     (com.apple.foundationdb.tuple Tuple Versionstamp)
@@ -23,7 +24,7 @@
   prefix when one is set. A blank prefix must produce byte-identical
   keys to the unqualified form — a changed encoding silently strands
   every existing record, changelog entry and consumer checkpoint."
-  [prefix parts]
+  ^Subspace [prefix parts]
   (Subspace. (Tuple/from (into-array Object
                                      (if (seq prefix)
                                        (into [prefix root] parts)
@@ -34,7 +35,7 @@
   keyed by versionstamp — (commit-version, user-version) — giving a
   globally ordered, append-only log. Scanning from a checkpoint
   forward is an efficient range read with no secondary index needed."
-  [prefix store-name]
+  ^Subspace [prefix store-name]
   ;; changelog-key = [prefix] , root , "changelog" , store-name ,
   ;;                 versionstamp ;
   (rooted prefix ["changelog" store-name]))
@@ -57,10 +58,10 @@
 (defn- read-checkpoint
   "Returns the Versionstamp of the last processed changelog entry for
   the given checkpoint key, or nil if no checkpoint exists yet."
-  [^FDBDatabase record-db checkpoint-key]
+  [^FDBDatabase record-db ^bytes checkpoint-key]
   (.run record-db
         ^Function
-        (fn [ctx]
+        (fn [^FDBRecordContext ctx]
           (some-> (.asyncToSync ctx
                                 FDBStoreTimer$Waits/WAIT_LOAD_SYSTEM_KEY
                                 (.get (.ensureActive ctx) checkpoint-key))
@@ -69,7 +70,7 @@
 (defn- write-checkpoint
   "Stores the raw bytes of vs as the checkpoint at checkpoint-key
   within the given transaction."
-  [tr checkpoint-key ^Versionstamp vs]
+  [^Transaction tr ^bytes checkpoint-key ^Versionstamp vs]
   (.set tr checkpoint-key (.getBytes vs)))
 
 (defn write-entry
@@ -89,7 +90,7 @@
              (byte-array [1 0 0 0 0 0 0 0]))))
 
 (defn write
-  [store prefix store-name record-id changelog-bytes]
+  [^FDBRecordStore store prefix store-name record-id changelog-bytes]
   (write-entry (.getContext store) prefix store-name record-id changelog-bytes))
 
 (def
@@ -107,7 +108,7 @@
   when from-vs is nil. A snapshot read: an entry appended while the pass
   runs does not conflict it, since it commits after the pass's read
   version and so sorts after every entry the pass checkpoints."
-  [ctx prefix store-name from-vs limit]
+  [^FDBRecordContext ctx prefix store-name from-vs limit]
   (let [subspace (changelog-subspace prefix store-name)
         begin (if from-vs
                 (KeySelector/firstGreaterThan
@@ -131,7 +132,8 @@
   of the Tuple value."
   [entries]
   (->> entries
-       (group-by (fn [kv] (.getString (Tuple/fromBytes (.getValue kv)) 0)))
+       (group-by (fn [^KeyValue kv]
+                   (.getString (Tuple/fromBytes (.getValue kv)) 0)))
        vals
        (map last)))
 
@@ -145,20 +147,21 @@
          cp-key (checkpoint-key keyspace-prefix consumer-id store-name)]
      (.run record-db
            ^Function
-           (fn [ctx]
+           (fn [^FDBRecordContext ctx]
              (let [tr (.ensureActive ctx)
                    cp (read-checkpoint record-db cp-key)
                    entries (scan ctx keyspace-prefix store-name cp limit)]
                (when (seq entries)
-                 (doseq [kv (cond-> entries
-                                    deduplicate?
-                                    deduplicate)]
+                 (doseq [^KeyValue kv (cond-> entries
+                                              deduplicate?
+                                              deduplicate)]
                    (let [tuple (Tuple/fromBytes (.getValue kv))
                          changelog-bytes (.getBytes tuple 1)]
                      (handler ctx changelog-bytes)))
                  (let [subspace (changelog-subspace keyspace-prefix store-name)
                        last-vs (.getVersionstamp
-                                (.unpack subspace (.getKey (last entries)))
+                                (.unpack subspace
+                                         (.getKey ^KeyValue (last entries)))
                                 0)]
                    (write-checkpoint tr cp-key last-vs)))
                nil))))))

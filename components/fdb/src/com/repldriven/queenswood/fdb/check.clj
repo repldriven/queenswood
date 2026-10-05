@@ -23,4 +23,4 @@
        true
 
        :else
-       (recur (.getCause ex))))))
+       (recur (.getCause ^Throwable ex))))))

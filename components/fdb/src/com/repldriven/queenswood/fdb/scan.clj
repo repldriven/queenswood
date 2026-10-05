@@ -5,11 +5,14 @@
                                    ScanProperties
                                    TupleRange)
     (com.apple.foundationdb.record.provider.foundationdb
-     FDBStoreTimer$Waits)
-    (com.apple.foundationdb.tuple Tuple)))
+     FDBRecordStore
+     FDBStoreTimer$Waits
+     FDBStoredRecord)
+    (com.apple.foundationdb.tuple Tuple)
+    (java.util.concurrent CompletableFuture)))
 
 (defn- record->bytes
-  [r]
+  [^FDBStoredRecord r]
   (-> r
       .getRecord
       .toByteArray))
@@ -41,13 +44,13 @@
   A one-element tail is returned as the element itself, so stores
   whose key is unique at that position keep the scalar cursor their
   callers already surface as an API page token."
-  [r position]
+  [^FDBStoredRecord r position]
   (let [pk (.getPrimaryKey r)
         tail (mapv #(.get pk (int %)) (range position (.size pk)))]
     (if (= 1 (count tail)) (first tail) tail)))
 
 (defn scan-entries
-  [store {:keys [prefix after before limit order]}]
+  [^FDBRecordStore store {:keys [prefix after before limit order]}]
   (let [descending? (= :desc order)
         ;; In `:desc` the client's cursors invert: "next after X" means
         ;; keys below X, "prev before X" means keys above X.
@@ -140,7 +143,7 @@
     {:records (mapv :record entries) :before before :after after}))
 
 (defn scan-prefixes
-  [store prefixes limit]
+  [^FDBRecordStore store prefixes limit]
   (let [scan-props (ScanProperties. (-> (ExecuteProperties/newBuilder)
                                         (.setReturnedRowLimit limit)
                                         .build))
@@ -154,7 +157,7 @@
                                                nil
                                                ^ScanProperties scan-props)))
                       prefixes)]
-    (mapv (fn [f]
+    (mapv (fn [^CompletableFuture f]
             (mapv record->bytes
                   (.asyncToSync (.getContext store)
                                 FDBStoreTimer$Waits/WAIT_SCAN_RECORDS
