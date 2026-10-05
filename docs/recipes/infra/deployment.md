@@ -252,7 +252,8 @@ FoundationDB's ratekeeper stops admitting transactions. kind's node, its
 local registry, the image store and BuildKit's cache share that disk.
 `just docker-free-space` reclaims what none of them is using: stopped
 containers, the build cache, unused images on the VM and in each kind
-node, and the registry's superseded pushes.
+node, and the registry's superseded pushes. It then reseeds BuildKit's
+Maven cache from `~/.m2`, so the next build resolves offline.
 
 **`docker-free-space` says `kind-registry` runs `registry:2`.** Its
 garbage collection with `--delete-untagged` deletes the image and
