@@ -45,6 +45,7 @@
    :cash-account-product/draft-already-exists 409
    :cash-account-product/version-immutable 409
    :cash-account-migration/invalid-status 409
+   :cash-account-migration/preview-running 409
    :interest/no-settlement 404
    :invitation/already-member 409
    :invitation/invalid-status 409

@@ -1,7 +1,7 @@
 (ns com.repldriven.queenswood.cash-account-migration.domain-test
   "Pure-function tests for what authoring a migration checks: the one
   compatibility rule, the target's status, and the ordering of notice
-  against the move. No FDB."
+  against the move; and the preview a running one refuses. No FDB."
   (:require
     [com.repldriven.queenswood.cash-account-migration.domain :as SUT]
 
@@ -214,6 +214,35 @@
       (let [failed (SUT/fail-run run (error/reject :some/anomaly {}))]
         (is (= :cash-account-migration-run-status-failed (:status failed)))
         (is (string? (:error failed)))))))
+
+(deftest preview-running-test
+  (let [now 1000000000000
+        minute (* 60 1000)
+        run (fn [dry-run status started-at]
+              {:run-id "run.1"
+               :migration-id "mig.1"
+               :dry-run dry-run
+               :status status
+               :started-at started-at})
+        running :cash-account-migration-run-status-running]
+    (testing "nil when no preview is running"
+      (is (nil? (SUT/check-no-preview-running [] now)))
+      (is (nil? (SUT/check-no-preview-running
+                 [(run true :cash-account-migration-run-status-completed now)
+                  (run true :cash-account-migration-run-status-failed now)]
+                 now))))
+    (testing "a running commit does not hold a preview back"
+      (is (nil? (SUT/check-no-preview-running [(run false running now)] now))))
+    (testing "rejects while a preview is running, naming it"
+      (let [r (SUT/check-no-preview-running [(run true running (- now minute))]
+                                            now)]
+        (is (error/rejection? r))
+        (is (= :cash-account-migration/preview-running (error/kind r)))
+        (is (= "run.1" (:run-id (error/payload r))))))
+    (testing "a preview running past the abandon window no longer counts"
+      (is (nil? (SUT/check-no-preview-running
+                 [(run true running (- now (* 16 minute)))]
+                 now))))))
 
 (deftest account-verdict-test
   (let [run {:bank-id "org.1" :run-id "run.1" :migration-id "mig.1"}]

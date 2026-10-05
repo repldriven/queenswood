@@ -77,6 +77,13 @@
 
 (def
   ^{:doc
+    "RFC 9457 body for a 409 `:cash-account-migration/preview-running`
+  rejection: A preview of this migration is already running."}
+  PreviewRunning
+  examples/PreviewRunning)
+
+(def
+  ^{:doc
     "RFC 9457 body for a 422 `:cash-account-migration/product-type-
   mismatch` rejection: Source and target must be the same product
   type."}

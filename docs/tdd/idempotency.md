@@ -73,9 +73,9 @@ issues a Keycloak client, and returns the bank it finds with the
 owner membership and invitation that create wrote.
 
 Behind the pair with no index of their own is payee-check creation,
-among others; the adapter outbox and intent
-stores dedup a redelivered webhook or command on their own
-`dedup-key`, which is a different mechanism for a different edge.
+among others; the adapter outbox and intent stores dedup a redelivered
+webhook or command on their own `dedup-key`, which is a different
+mechanism for a different edge.
 The API-layer cache described below is layered on top of all of it.
 
 ## Solution
@@ -154,8 +154,7 @@ So a key reused after a day does different things by route:
   request is refused with a 409, which is the same answer the
   replayed cache entry would have given.
 - On a route with neither, a second resource is created.
-  Payee-check creation, the forced job run and the migration preview
-  are the cases; see "Which routes rely on which
+  Payee-check creation is the case; see "Which routes rely on which
   layer".
 
 ### Interceptor lifecycle
@@ -406,14 +405,20 @@ given.
   pair is what keeps the client secret the response carries: a retry
   after a lost reply replays it, where the guard alone would refuse the
   retry and leave the secret unread.
+- `POST /v1/jobs/{job-id}/runs` — the run the first attempt started is
+  running or has succeeded in the period, and the retry is refused
+  `:scheduler/period-already-run`, a 409.
+- `POST /v1/cash-account-migrations/{migration-id}/previews` — while
+  the first attempt's preview runs, the retry is refused
+  `:cash-account-migration/preview-running`, a 409. Once it has
+  finished, a retry runs a second preview, which a preview may always
+  do.
 
 **The pair alone.** After a 5xx release the guarantee rests on
 nothing, and a retry following a lost reply acts twice.
 
-- `POST /v1/payee-checks` — a second check record.
-- `POST /v1/jobs/{job-id}/runs` — a second run.
-- `POST /v1/cash-account-migrations/{migration-id}/previews` — a
-  second preview.
+- `POST /v1/payee-checks` — a second check record, which costs a
+  second call to the provider and nothing else.
 
 **The exempt writes.** No pair, and the guard named in
 `exempt-writes` carries the retry. Two shapes appear. An absolute

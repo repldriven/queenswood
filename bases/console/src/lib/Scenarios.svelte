@@ -536,6 +536,8 @@
     const job = jobs.find((j) => pattern.test(j["job-id"] || j.name || ""));
     if (!job) throw new Error(`${pattern} job not found`);
     const r = await api.force_start_job(job["job-id"]);
+    // The job running or run this period is what the scene wanted.
+    if (r.body?.type === ":scheduler/period-already-run") return null;
     if (!ok2xx(r)) throw new Error(`force-start ${job["job-id"]}: ${r.status}`);
     return r.body;
   }

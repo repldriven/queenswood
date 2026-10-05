@@ -7,7 +7,8 @@
     [com.repldriven.queenswood.cash-account-query.interface :as accounts]
     [com.repldriven.queenswood.cash-account.interface :as cash-accounts]
     [com.repldriven.queenswood.policy.interface :as policy]
-    [com.repldriven.mono.error.interface :as error :refer [let-nom>]]))
+    [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
+    [com.repldriven.mono.utility.interface :as utility]))
 
 (defn- source-version
   "Any version of the source product, read for its product type. Every
@@ -267,6 +268,32 @@
                          :action :cash-account-migration-action-preview
                          :value (inc today)})))
 
+(defn- check-no-preview-running
+  [txn bank-id migration-id]
+  (let-nom> [runs (store/list-runs-of-migration txn bank-id migration-id)]
+    (domain/check-no-preview-running runs (utility/now))))
+
+(defn- open-run
+  "Opens a run once its limit allows it and, for a preview, once no other
+  preview of the migration is running. The checks and the save share a
+  transaction, so of two previews opened at once one is refused, and a
+  refused pass leaves no run behind saying it started."
+  [txn migration business-day dry-run? policies]
+  (let [{:keys [bank-id migration-id]} migration]
+    (store/transact
+     txn
+     (fn [txn]
+       (let-nom>
+         [_ (when dry-run? (check-no-preview-running txn bank-id migration-id))
+          _ (if dry-run?
+              (check-preview-limit txn bank-id business-day policies)
+              (check-commit-limit txn bank-id migration policies))
+          run (domain/new-run migration business-day dry-run?)
+          _ (store/save-run txn run)]
+         run))
+     :cash-account-migration/open-run
+     "Failed to open cash-account migration run")))
+
 (defn- run-migration
   "One pass over a migration's cohort, previewing or committing. Opens a
   run, evaluates every account, and closes the run with what it decided.
@@ -286,13 +313,7 @@
      ;; account would let a policy change mid-cohort and move half a
      ;; bank under one set of rules and half under another.
      policies (policy/get-effective-policies txn {:bank-id bank-id})
-     ;; Both limits are checked before the run is opened, so a refused
-     ;; pass leaves no run behind saying it started.
-     _ (if dry-run?
-         (check-preview-limit txn bank-id business-day policies)
-         (check-commit-limit txn bank-id migration policies))
-     run (domain/new-run migration business-day dry-run?)
-     _ (store/save-run txn run)
+     run (open-run txn migration business-day dry-run? policies)
      tally (evaluate-accounts txn
                               {:migration migration
                                :target target

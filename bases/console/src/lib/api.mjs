@@ -45,7 +45,8 @@ async function all_pages(path) {
 
 // A mutation is sent under one `Idempotency-Key` — the caller's `key`
 // where it passes one — and sent again under it, after a growing pause,
-// when the answer is a 5xx or never arrives. The API keeps only a 2xx or
+// when the answer is a 5xx or never arrives, calling `onRetry` before
+// each attempt after the first. The API keeps only a 2xx or
 // 4xx against the key, so a retry either replays that answer or runs
 // again and finds what an earlier attempt wrote.
 const RETRY_DELAYS_MS = [500, 1000, 2000, 4000];
@@ -54,7 +55,10 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function mutate(path, { key = crypto.randomUUID(), ...opts } = {}) {
+async function mutate(
+  path,
+  { key = crypto.randomUUID(), onRetry, ...opts } = {},
+) {
   const send = () =>
     request(path, {
       ...opts,
@@ -68,6 +72,7 @@ async function mutate(path, { key = crypto.randomUUID(), ...opts } = {}) {
       // No answer arrived; send it again under the same key.
     }
     await sleep(delay);
+    onRetry?.();
   }
   return send();
 }
@@ -100,14 +105,16 @@ export function get_bank() {
 
 // A person creates a bank for the confirmed legal entity and becomes its
 // owner; the answer is the bank with the person's owner membership.
-// `{ companyNumber, bankName, providers, key }`, `providers` a map from
-// kind to provider key, each kind left out taking its default, and `key`
-// the submission's `Idempotency-Key`, so creating again after a failure
-// answers with the bank an earlier attempt made rather than a second.
-export function create_bank({ companyNumber, bankName, providers, key }) {
+// `{ companyNumber, bankName, providers, key, onRetry }`, `providers` a
+// map from kind to provider key, each kind left out taking its default,
+// `key` the submission's `Idempotency-Key`, so creating again after a
+// failure answers with the bank an earlier attempt made rather than a
+// second, and `onRetry` called as each retry is sent.
+export function create_bank({ companyNumber, bankName, providers, key, onRetry }) {
   return mutate("/v1/banks", {
     method: "POST",
     key,
+    onRetry,
     body: JSON.stringify({
       name: bankName,
       "company-number": companyNumber,

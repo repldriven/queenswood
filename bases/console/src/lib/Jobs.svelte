@@ -186,11 +186,14 @@
     try {
       const res = await force_start_job(job.id);
       // Reload first — it resets `error` — then surface the outcome so the
-      // message survives. A rejected run (e.g. the daily-limit 429 on a
+      // message survives. A run already going or done this period is said
+      // as such, which is also what a retry after a lost answer meets. A rejected run (e.g. the daily-limit 429 on a
       // same-day re-accrual) still records a failed run server-side, so the
       // badge and history update too; the banner explains why.
       await load();
-      if (res.status < 200 || res.status >= 300) {
+      if (res.body?.type === ":scheduler/period-already-run") {
+        error = `${job.name}: ${res.body.detail}`;
+      } else if (res.status < 200 || res.status >= 300) {
         error = `${job.name} run failed — ${res.body?.detail ?? `HTTP ${res.status}`}`;
       }
     } catch (err) {

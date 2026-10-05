@@ -256,6 +256,10 @@
 
   async function runPreview(migration) {
     const res = await preview_cash_account_migration(migration.id);
+    if (res.body?.type === ":cash-account-migration/preview-running") {
+      toast("A preview is already running", "it appears under Runs");
+      return null;
+    }
     if (res.status < 200 || res.status >= 300) {
       toast("Preview failed", res.body?.type ?? `HTTP ${res.status}`);
       return null;
