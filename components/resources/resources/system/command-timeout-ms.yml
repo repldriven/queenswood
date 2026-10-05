@@ -1,0 +1,4 @@
+# How long a dispatcher waits for a command's reply, in milliseconds,
+# before its caller answers 5xx. The command may still commit, and a
+# retry under the same Idempotency-Key finds what it did.
+5000

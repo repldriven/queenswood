@@ -336,8 +336,11 @@ envelope, and keeps a registry of in-flight requests keyed by that
 `:command-id`. The processor echoes the `:command-id` back on the
 reply; when a reply arrives on the shared reply channel, the
 dispatcher resolves it against the registry by `:command-id` and
-returns the response (or anomaly) to the caller. Default timeout
-is 10 seconds; expired requests return a timeout anomaly. Keying
+returns the response (or anomaly) to the caller. It waits for the
+send's own `:timeout-ms`, else the dispatcher's `command-timeouts-ms`
+entry for the command, else its `timeout-ms`, which every dispatcher
+here takes from `system/command-timeout-ms.yml`, 5 seconds; an
+expired request returns a `:command/timeout` anomaly. Keying
 on the per-send `:command-id` — rather than `:correlation-id`,
 which a retry reuses — is what keeps a straggling reply from one
 attempt from satisfying another attempt's waiter. The reply
@@ -480,12 +483,12 @@ throw-safe (a handler exception is logged, not fatal).
 
 ## Known Limitations
 
-- **Single reply timeout in practice.** `command/send`
-  accepts a per-command `:timeout-ms` (default 10 s), but no
-  call site overrides it today, so every command rides the
-  10 s default. Long-running operations would need callers to
-  pass `:timeout-ms` or adopt a different
-  async-acknowledgement pattern.
+- **One reply timeout in practice.** Every dispatcher waits
+  5 seconds, and none names a command in `command-timeouts-ms`;
+  the Form3 adapter's admission passes its own 4 seconds. A
+  command that outlasts its wait has its caller answer 5xx;
+  [idempotency.md](idempotency.md) says what a retry under the
+  same key meets on each route.
 - **In-flight commands during processor restart.** A command on
   the bus that has been delivered but not yet processed when
   the processor restarts depends on the bus backend's

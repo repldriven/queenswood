@@ -38,7 +38,8 @@ against a provider's own sandbox.
   [commands.clj](/bases/api/src/com/repldriven/queenswood/api/payment/commands.clj)
   in `api` sends `submit-internal-payment` or `submit-outbound-payment`
   over the bus and waits on the reply in mono's command dispatcher, which
-  gives up after 10 seconds as `:command/timeout`.
+  gives up after the dispatcher's `timeout-ms`, 5 seconds, as
+  `:command/timeout`.
   An internal payment's 201 means it settled. An outbound payment's 201
   means it was accepted and its amount reserved.
 - **Payment commands run four at a time.** `topic-payments-command` and
@@ -305,6 +306,11 @@ load test signs in as a client of its own instead:
   should tie. `perf-run` exits 1 when they do not.
 - **Where the time went.** The run's window in SigNoz, where a payment's
   trace crosses the API, the bus, the processor and the adapter.
+- **Where FDB conflicted.** The storage dashboard's FoundationDB
+  section: retries per second by category, from the
+  `fdb.transaction.retries` counter, and the transactions that took more
+  than one attempt by category and the keys FDB reported in conflict,
+  from the `fdb-transaction` spans' `fdb.conflicting_keys`.
 
 A published run's summary is committed under `perf/results/`, and its
 headline added to the recipe's results.

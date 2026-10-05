@@ -213,60 +213,15 @@ system:
   keycloak: !include system/keycloak.yml
   payment-provider: !include system/payment-provider.yml
   idv-provider: !include system/idv-provider.yml
-  banks:
-    dispatcher: !system/component
-      system/component-kind: command/dispatcher
-      bus: !system/ref message-bus.bus
-      command-channel: !keyword banks-command
-      command-response-channel: !keyword banks-command-response
-  companies:
-    dispatcher: !system/component
-      system/component-kind: command/dispatcher
-      bus: !system/ref message-bus.bus
-      command-channel: !keyword companies-command
-      command-response-channel: !keyword companies-command-response
-  cash-accounts:
-    dispatcher: !system/component
-      system/component-kind: command/dispatcher
-      bus: !system/ref message-bus.bus
-      command-channel: !keyword cash-accounts-command
-      command-response-channel: !keyword cash-accounts-command-response
-  memberships:
-    dispatcher: !system/component
-      system/component-kind: command/dispatcher
-      bus: !system/ref message-bus.bus
-      command-channel: !keyword memberships-command
-      command-response-channel: !keyword memberships-command-response
-  parties:
-    dispatcher: !system/component
-      system/component-kind: command/dispatcher
-      bus: !system/ref message-bus.bus
-      command-channel: !keyword parties-command
-      command-response-channel: !keyword parties-command-response
-  idvs:
-    dispatcher: !system/component
-      system/component-kind: command/dispatcher
-      bus: !system/ref message-bus.bus
-      command-channel: !keyword idvs-command
-      command-response-channel: !keyword idvs-command-response
-  payments:
-    dispatcher: !system/component
-      system/component-kind: command/dispatcher
-      bus: !system/ref message-bus.bus
-      command-channel: !keyword payments-command
-      command-response-channel: !keyword payments-command-response
-  transactions:
-    dispatcher: !system/component
-      system/component-kind: command/dispatcher
-      bus: !system/ref message-bus.bus
-      command-channel: !keyword transactions-command
-      command-response-channel: !keyword transactions-command-response
-  payee-checks:
-    dispatcher: !system/component
-      system/component-kind: command/dispatcher
-      bus: !system/ref message-bus.bus
-      command-channel: !keyword payee-checks-command
-      command-response-channel: !keyword payee-checks-command-response
+  banks: !include system/bank-dispatcher.yml
+  companies: !include system/company-dispatcher.yml
+  cash-accounts: !include system/cash-account-dispatcher.yml
+  memberships: !include system/membership-dispatcher.yml
+  parties: !include system/party-dispatcher.yml
+  idvs: !include system/idv-dispatcher.yml
+  payments: !include system/payment-dispatcher.yml
+  transactions: !include system/transaction-dispatcher.yml
+  payee-checks: !include system/payee-check-dispatcher.yml
   telemetry: !include system/telemetry.yml
   server:
     handler: !system/required-component
