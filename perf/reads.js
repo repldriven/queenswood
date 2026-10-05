@@ -14,7 +14,7 @@ const PROFILES = {
   challenger: { accounts: 200, steps: [[200, "10m"]] },
   knee: {
     accounts: 200,
-    steps: [40, 80, 160, 320, 640].map((r) => [r, "1m"]),
+    steps: [80, 160, 320, 640, 1280, 2560].map((r) => [r, "1m"]),
   },
 };
 
