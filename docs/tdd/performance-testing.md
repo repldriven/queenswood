@@ -473,7 +473,13 @@ run at the next:
     iterations it had no VU free for. The next queue is the webhook
     runner's consumer of `topic-idvs-event`, 1,565 behind: four events a
     customer at 6 ms each, on one partition in one
-    `external-adapters-service` replica.
+    `external-adapters-service` replica. With performers there, and the
+    store opens of entry 14, 40 asked holds at a p99 of 59 ms rather than
+    1.6 s, and 80 asked starts about 67 customers a second, every one
+    onboarded, a session ready at 7.9 s at p95. Opening a session read
+    the bank's effective policies and its IDV provider uncached; the IDV
+    processor now keeps both, the provider for `cache-ttl-ms`, an hour by
+    default.
 13. **A consumer handles one message at a time.** Done. Each consumer
     now hands a message to one of its configured performers, chosen by
     the message's key, by

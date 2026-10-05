@@ -7,6 +7,7 @@ activity-event-processor-impl: !system/component
   schemas: !system/ref avro.serde
   bus: !system/ref message-bus.bus
   idv-providers: !system/ref idv-provider.providers
+  cache-ttl-ms: 3600000
 
 activity-event-processor: !system/component
   system/component-kind: event-processor/event-processor
