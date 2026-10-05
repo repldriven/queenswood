@@ -184,6 +184,14 @@ Scripts live under `perf/`, outside every brick:
   `OPEN_ACCOUNT=true`, a current account then opened and awaited opened
   at Modulr. A stage that refuses, or outlasts `STAGE_TIMEOUT_S`, 120 by
   default, loses the customer there.
+- `perf/accounts.js` — one current account an iteration, opened for the
+  next of the `PARTIES` setup verified, 50 by default, in turn; one in 20
+  followed until it is opened at Modulr, and lost where it outlasts
+  `OPEN_TIMEOUT_S`, 120 by default.
+- `perf/reads.js` — one read an iteration of a random account that setup
+  funded and gave `HISTORY` payments sent and received, 20 by default:
+  the account with its balances embedded, 40%; the first page of its
+  transactions, 40%; and its balances, 20%, each timed by its `name`.
 
 Every scenario runs as steps of a fixed arrival rate on k6's
 `ramping-arrival-rate` executor, each reached over five seconds and then
@@ -201,7 +209,10 @@ the steps:
 
 `perf/parties.js` defines its own: `smoke` at 1 a second for a minute,
 `challenger` at 10 a second for ten minutes, and `knee` at 20, 40 and
-80 a second, a minute each.
+80 a second, a minute each. `perf/accounts.js` keeps the payments'
+`knee` with a `challenger` at 50 a second for ten minutes, and
+`perf/reads.js` runs its `knee` at 80, 160, 320, 640, 1,280 and 2,560 a
+second, with a `challenger` at 200 a second for ten minutes.
 
 `FROM` drops a profile's steps below that rate, for a machine where
 the low steps tell nothing. `RATE` and `DURATION` replace a profile's
@@ -535,6 +546,24 @@ run at the next:
     bank's activity in order, one entry at a time, which a posting
     naming several accounts needs.
 
+19. **Opening accounts.** One bank opened about 88 accounts a second,
+    clean to 80 asked: the cash-account command consumer took one command
+    at a time on one partition, about 8.5 ms each, while FDB's
+    transactions barely slowed. An open is now sent under its bank and
+    every other account command under its account, so the consumer's
+    four performers take different banks' opens and different accounts'
+    commands at once, while a bank's opens run in turn and its account
+    limits, read serializably in one round trip, hold exactly without
+    conflicting. The processor keeps a bank's effective policies in the
+    stamped cache. One bank then opens about 120 a second, 80 asked at a
+    p99 of 35 ms rather than 475, and its accounts open at the provider
+    at the rate they are requested.
+20. **Reads.** The `reads` `knee` holds 640 a second at a p99 of 19 ms
+    and 1,280 at 192 ms, about 1,250 a second at the most, past which
+    the API turns requests away with 503 at its 200 in hand. A page of
+    an account's transactions loaded each leg's transaction one at a
+    time; it loads them together, and 640 a second's p99 fell from 46 ms.
+
 ### Span candidates
 
 On kind, internal payments level off at about 51 a second on the `knee`
@@ -722,8 +751,12 @@ holds it, and the run repeated.
   was killed under load; `kafka.heapOpts` gives it 512 MiB. After a
   restart, a topic `kafka-topics.yml` declares with four partitions is
   grown back with `kafka-topics.sh --alter` and its consumers restarted.
-- **Reads and webhooks are absent.** No scenario reads balances or lists
-  payments, and the test bank registers no webhook endpoint.
+- **Webhooks are absent.** The test bank registers no webhook endpoint,
+  so no run measures a notification's delivery.
+- **Reads and writes share one in-flight limit.** The API turns a request
+  away with 503 once 200 are in hand, whatever they are, so commands
+  waiting on their replies can fill it and refuse a read that would take
+  2 ms.
 
 ## References
 
