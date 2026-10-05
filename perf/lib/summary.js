@@ -151,6 +151,25 @@ function onboarding(data) {
   };
 }
 
+// Each kind of read a scenario named, by its request's `name` tag, whose
+// tagged duration k6 summarises only where a threshold names it.
+export function readThresholds(names) {
+  const t = {};
+  names.forEach((n) => {
+    t[`http_req_duration{phase:load,name:${n}}`] = ["max>=0"];
+  });
+  return t;
+}
+
+function reads(data, names) {
+  if (!names) return undefined;
+  const out = {};
+  names.forEach((n) => {
+    out[n] = latency(values(data, `http_req_duration{phase:load,name:${n}}`));
+  });
+  return out;
+}
+
 // The accounts a scenario opened: how many it followed, how many it lost
 // at each stage, and the time from the request to opened.
 function opening(data) {
@@ -182,6 +201,7 @@ function headline(data, run) {
     books: books(data),
     onboarding: onboarding(data),
     opening: opening(data),
+    reads: reads(data, run.reads),
     steps: run.steps.map((s, i) => step(data, s, i, unit)),
   };
 }

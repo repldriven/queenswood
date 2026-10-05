@@ -324,6 +324,28 @@ export function freshBank() {
   };
 }
 
+// Gives each of `accounts` `perAccount` transactions: rounds in which every
+// account pays the next one minor unit, so every account sends and
+// receives one payment a round.
+export function history(accounts, perAccount, bearer) {
+  for (let round = 0; round < perAccount; round++) {
+    postAll(
+      accounts.map((a, i) => [a, accounts[(i + 1) % accounts.length]]),
+      () => "/v1/payments/internal",
+      ([debtor, creditor]) => ({
+        "debtor-account-id": debtor,
+        "creditor-account-id": creditor,
+        currency: "GBP",
+        amount: 1,
+        reference: "History",
+      }),
+      bearer,
+      201,
+      "making an account's history",
+    );
+  }
+}
+
 export function build(n, each) {
   const { bankId, clientId, clientSecret, productId } = freshBank();
   const bearer = token(clientId, clientSecret).value;
