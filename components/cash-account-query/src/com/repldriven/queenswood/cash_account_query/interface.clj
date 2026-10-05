@@ -106,6 +106,18 @@
   [txn bank-id account-id]
   (store/find-account txn bank-id account-id))
 
+(defn find-accounts
+  "Load several cash accounts by primary key in one round trip, without
+  enrichment or rejection; returns a map of account id to raw account
+  map, leaving out any id with no account.
+
+  Args:
+  - txn: FDB transaction or db handle.
+  - bank-id: owning bank id.
+  - account-ids: account ids."
+  [txn bank-id account-ids]
+  (store/find-accounts txn bank-id account-ids))
+
 (defn find-account-by-idempotency-key
   "Return the CashAccount previously written under `idempotency-key`,
   or nil. A read primitive for the write sibling's open-account

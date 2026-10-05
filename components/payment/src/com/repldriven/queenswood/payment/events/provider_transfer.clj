@@ -31,6 +31,43 @@
        {:cash-at-correspondent-id (:ledger-account-id cash)
         :own-funds (:account-id house)}))))
 
+(defn- settled-party
+  "`account`'s mirror party where it can no longer change — the account
+  has a provider account, or is the bank's own funds — else nil."
+  [account own-funds]
+  (let [{:keys [account-id provider-account-id]} account]
+    (when (or provider-account-id (= account-id own-funds))
+      (provider-transfer/mirror-party account own-funds))))
+
+(defn- mirror-parties
+  "The mirror party of each of `account-ids` that is a cash account. An
+  id that is not one, such as a ledger account's, never becomes one, and
+  a settled party never changes, so both are cached; the rest are read
+  in one round trip."
+  [config txn bank-id account-ids own-funds]
+  (let [k (fn [id] [:mirror-party bank-id id])
+        known (into {}
+                    (keep (fn [id]
+                            (when-some [p (provider/cached config
+                                                           (k id)
+                                                           (constantly nil))]
+                              [id p])))
+                    account-ids)
+        unknown (remove (fn [id] (contains? known id)) account-ids)]
+    (if (empty? unknown)
+      (into {} (remove (fn [[_ p]] (= ::not-cash p))) known)
+      (let-nom> [accounts (cash-accounts/find-accounts txn bank-id unknown)]
+        (doseq [id unknown]
+          (let [account (get accounts id)
+                settled
+                (if account (settled-party account own-funds) ::not-cash)]
+            (when settled
+              (provider/cached config (k id) (constantly settled)))))
+        (into (into {} (remove (fn [[_ p]] (= ::not-cash p))) known)
+              (map (fn [[id account]]
+                     [id (provider-transfer/mirror-party account own-funds)]))
+              accounts)))))
+
 (defn- mirror-context
   "What `provider-transfer/provider-transfers` needs to know about the
   accounts a posting touched: which are cash accounts and whose provider
@@ -41,26 +78,13 @@
     (let-nom>
       [accounts (bank-accounts config txn bank-id currency)
        {:keys [cash-at-correspondent-id own-funds]} accounts
-       parties (reduce (fn [acc account-id]
-                         (let [account (cash-accounts/find-account txn
-                                                                   bank-id
-                                                                   account-id)]
-                           (cond
-                            (error/anomaly? account)
-                            (reduced account)
-
-                            account
-                            (assoc acc
-                                   account-id
-                                   (provider-transfer/mirror-party account
-                                                                   own-funds))
-
-                            :else
-                            acc)))
-                       {}
-                       (distinct (keep identity
-                                       (conj (mapv :account-id legs)
-                                             scheme-account-id))))]
+       parties (mirror-parties config
+                               txn
+                               bank-id
+                               (distinct (keep identity
+                                               (conj (mapv :account-id legs)
+                                                     scheme-account-id)))
+                               own-funds)]
       {:cash-accounts parties
        :cash-at-correspondent-id cash-at-correspondent-id
        :scheme-account-id (get parties scheme-account-id)
