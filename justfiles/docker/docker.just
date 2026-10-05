@@ -32,6 +32,8 @@ docker-free-space scope="safe":
     docker container prune -f
     docker buildx prune -f
     if [ "{{ scope }}" = "all" ]; then docker image prune -a -f; else docker image prune -f; fi
+    for cluster in $(kind get clusters 2>/dev/null); do for node in $(kind get nodes --name "$cluster"); do docker exec "$node" crictl rmi --prune; done; done
+    if [ "$(docker inspect -f '{{{{.Config.Image}}' kind-registry 2>/dev/null)" = "registry:3" ]; then docker exec kind-registry registry garbage-collect --delete-untagged /etc/distribution/config.yml >/dev/null && docker restart kind-registry >/dev/null; elif docker inspect kind-registry >/dev/null 2>&1; then echo "kind-registry runs registry:2, whose collection breaks attested images: run 'bash infra/kind/with-registry.sh' to move it to registry:3, then this again"; fi
     @colima ssh -- df -h /var/lib/docker | awk 'NR==2 {print "after:  " $4 " free (" $5 " used)"}'
     @echo "BuildKit's Maven cache was pruned too — run 'just docker-warm-cache' before the next build."
 
