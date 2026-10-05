@@ -114,9 +114,8 @@ against a provider's own sandbox.
   [values.yaml](/infra/helm/queenswood/values.yaml) sets `replicas: 1`
   beside the two processor services' four, and
   `exclusive-dispatchers-service` stays at one by design.
-  The API's command replies arrive on a one-partition topic under a fixed
-  consumer group, so a second `api-service` replica would not see the
-  replies to its own requests.
+  Each `api-service` process reads command replies in a consumer group
+  of its own, from the newest on, so every replica hears its own.
 - **Traces and JVM metrics go to SigNoz in the cluster.** Every service
   exports its traces and its JVM's runtime metrics over OTLP to the
   SigNoz the chart installs, as
@@ -458,6 +457,21 @@ run at the next:
     An adapter's outbox waiting on its relay, about 180 messages a second
     to a runner, is behind no consumer group, so the lag does not show
     it.
+12. **Onboarding.** One bank holds 20 customers a second with none lost,
+    a request at 64 ms at p95. At 40 asked it reached 24 a second while
+    a verification's three evidence events ran one at a time on one
+    partition of `topic-idv-event`, and 34.5 once that topic had four:
+    a create then waited seconds behind `topic-parties-command`'s one
+    partition, at 33 ms a command. With the party and IDV command topics
+    on four partitions, and a create reading the bank's effective
+    policies through the stamped cache in two FDB transactions rather
+    than four, it reaches 36.6 a second, the request at 1.3 s at p95 and
+    a customer onboarded at 6.8 s, none lost. k6 ramps a step over five
+    seconds, so 40 asked sends at most 39.2 a second, and dropped 153
+    iterations it had no VU free for. The next queue is the webhook
+    runner's consumer of `topic-idvs-event`, 1,565 behind: four events a
+    customer at 6 ms each, on one partition in one
+    `external-adapters-service` replica.
 
 ### Span candidates
 
@@ -622,6 +636,10 @@ holds it, and the run repeated.
   Kind then ran one FDB storage process, which also held the commit
   proxy, the master and the ratekeeper, on Colima's disk beside k6 and
   every JVM.
+- **A gone API process leaves its reply groups behind.** Each
+  `api-service` process reads replies in groups named for it, so after a
+  restart the old groups' lag grows on SigNoz's lag panel though nothing
+  waits on them, until Kafka expires their offsets.
 - **The processors' replicas are not evenly loaded.** Every other topic
   the financial and operational processors read has one partition, so
   one replica of each takes all of them beside its share of the
