@@ -2,7 +2,6 @@
   (:require
     [com.repldriven.queenswood.api.errors :as errors]
 
-    [com.repldriven.queenswood.balance-query.interface :as balances]
     [com.repldriven.queenswood.cash-account-query.interface :as cash-accounts]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
@@ -17,10 +16,9 @@
         {:keys [account-id]} path
         config {:record-db record-db :record-store record-store}
         result (let-nom>
-                 [_ (cash-accounts/get-account config
-                                               bank-id
-                                               account-id)
-                  found (balances/get-balances config bank-id account-id)]
+                 [found (cash-accounts/get-account-balances config
+                                                            bank-id
+                                                            account-id)]
                  (set/rename-keys found {:balances :items}))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
@@ -33,17 +31,12 @@
         {:keys [path]} parameters
         {:keys [account-id balance-type currency balance-status]} path
         config {:record-db record-db :record-store record-store}
-        result (let-nom>
-                 [_ (cash-accounts/get-account config
-                                               bank-id
-                                               account-id)
-                  balance (balances/get-balance config
-                                                bank-id
-                                                account-id
-                                                balance-type
-                                                currency
-                                                balance-status)]
-                 balance)]
+        result (cash-accounts/get-account-balance config
+                                                  bank-id
+                                                  account-id
+                                                  balance-type
+                                                  currency
+                                                  balance-status)]
     (cond
      (error/anomaly? result)
      (errors/anomaly->response result)

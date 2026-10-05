@@ -5,7 +5,6 @@
 
     [com.repldriven.queenswood.cash-account-api.interface :as cash-account-api]
     [com.repldriven.queenswood.cash-account-query.interface :as cash-accounts]
-    [com.repldriven.queenswood.transaction.interface :as transactions]
 
     [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.utility.interface :as utility]))
@@ -71,11 +70,11 @@
         {:keys [page]} query
         config {:record-db record-db :record-store record-store}
         result (error/let-nom>
-                 [_ (cash-accounts/get-account config bank-id account-id)
-                  found (transactions/page-transactions config
-                                                        account-id
-                                                        (cursor/page-opts
-                                                         page))]
+                 [found (cash-accounts/page-account-transactions
+                         config
+                         bank-id
+                         account-id
+                         (cursor/page-opts page))]
                  (cursor/page-body (cursor/request-path request)
                                    page
                                    (:transactions found)
