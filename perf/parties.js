@@ -15,7 +15,7 @@ import { onboardingThresholds, summary } from "./lib/summary.js";
 const PROFILES = {
   smoke: { steps: [[1, "1m"]] },
   challenger: { steps: [[10, "10m"]] },
-  knee: { steps: [1, 2, 5, 10, 20, 40].map((r) => [r, "1m"]) },
+  knee: { steps: [20, 40, 80].map((r) => [r, "1m"]) },
 };
 
 const [PROFILE, profile] = chosen(PROFILES);

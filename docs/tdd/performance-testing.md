@@ -193,15 +193,15 @@ the steps:
 - **`smoke`.** 1 a second for a minute, on 10 accounts.
 - **`challenger`.** 50 a second for an hour, then 150 for five minutes, on
   200 accounts.
-- **`knee`.** 5, 10, 20, 40, 80, 160 and 320 a second, a minute each, on
+- **`knee`.** 20, 40, 80, 160 and 320 a second, a minute each, on
   200 accounts, run to the end however many requests fail, since an
   aborted run skips the teardown that checks the books.
 - **`hot`.** Scenario B: 1, 2, 5, 10, 20 and 40 a second, a minute each,
   from one account to the other 49, for internal payments only.
 
 `perf/parties.js` defines its own: `smoke` at 1 a second for a minute,
-`challenger` at 10 a second for ten minutes, and `knee` at 1, 2, 5, 10,
-20 and 40 a second, a minute each.
+`challenger` at 10 a second for ten minutes, and `knee` at 20, 40 and
+80 a second, a minute each.
 
 `RATE` and `DURATION` replace a profile's steps with one-minute steps at
 that rate, so a sustained run shows whether the rate holds, and
