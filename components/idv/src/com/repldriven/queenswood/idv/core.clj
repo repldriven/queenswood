@@ -108,14 +108,14 @@
   (let-nom>
     [existing (idv-query/get-idv-by-party (fdb-config config) party-id)]
     (if existing
-      (log/info "IDV already exists for party — skipping"
-                {:party-id party-id
-                 :verification-id (:verification-id existing)
-                 :status (:status existing)})
+      (log/debug "IDV already exists for party — skipping"
+                 {:party-id party-id
+                  :verification-id (:verification-id existing)
+                  :status (:status existing)})
       (let [result (initiate config {:bank-id bank-id :party-id party-id})]
         (if (= :idv/already-exists (error/kind result))
-          (log/info "IDV already exists for party — skipping"
-                    {:party-id party-id})
+          (log/debug "IDV already exists for party — skipping"
+                     {:party-id party-id})
           result)))))
 
 (defn- no-verification
