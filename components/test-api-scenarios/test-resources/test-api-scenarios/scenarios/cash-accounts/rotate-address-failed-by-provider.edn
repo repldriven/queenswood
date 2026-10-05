@@ -17,9 +17,8 @@
   {:fixture :webhook-receiver :as :hook :with {:token [:ref :bank-0 :token]}}]
  :when
  [{:command :api/request
-   :request {:method :post
-             :base :payment-simulator
-             :path "/simulate/reissue-refused"}
+   :request
+   {:method :post :base :payment-simulator :path "/simulate/reissue-refused"}
    :assert {:status 204}}
   {:command :api/request
    :request {:method :post

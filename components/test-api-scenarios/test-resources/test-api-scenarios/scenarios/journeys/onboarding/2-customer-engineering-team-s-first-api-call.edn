@@ -1,15 +1,16 @@
 {:name "The customer's system exchanges its credential and starts building"
  :runs-on {:payment :every}
- :given [{:command :api/request
-          :request {:method :post
-                    :path "/v1/banks"
-                    :auth :admin
-                    :body {:name "First Call Journey Bank"
-                           :status "live"
-                           :tier "micro"
-                           :currencies ["GBP"]}}
-          :as :bank
-          :assert {:status 201}}]
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :body {:name "First Call Journey Bank"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :bank
+   :assert {:status 201}}]
  :when
  [;; `expires_in` is the lifetime remaining, counted from when the token
   ;; was issued, so an exact 3600 loses a second either side of a tick.
@@ -28,14 +29,18 @@
                    :expires_in [:m/within-delta 5 3600]}}}
   ;; A low-stakes call: its own account is there, ready.
   {:command :api/poll
-   :request {:method :get :path "/v1/cash-accounts" :auth [:ref :exchanged :access_token]}
+   :request {:method :get
+             :path "/v1/cash-accounts"
+             :auth [:ref :exchanged :access_token]}
    :until {:status 200
            :body {:items [{:product-type "own-funds"
                            :currency "GBP"
                            :account-status "opened"}]}}}
   ;; Then it starts on its own customers.
   {:fixture :person :as :arthur :with {:token [:ref :exchanged :access_token]}}
-  {:fixture :product :as :current :with {:token [:ref :exchanged :access_token]}}
+  {:fixture :product
+   :as :current
+   :with {:token [:ref :exchanged :access_token]}}
   {:fixture :account
    :as :arthur-current
    :with {:token [:ref :exchanged :access_token]
@@ -44,9 +49,13 @@
           :name "Arthur Current"}}]
  :then
  [{:command :api/request
-   :request {:method :get :path "/v1/cash-accounts" :auth [:ref :exchanged :access_token]}
-   :assert {:status 200
-            :body {:items [:m/embeds
-                           [{:name "Arthur Current"
-                             :party-id [:ref :arthur :party :party-id]
-                             :account-status "opened"}]]}}}]}
+   :request {:method :get
+             :path "/v1/cash-accounts"
+             :auth [:ref :exchanged :access_token]}
+   :assert
+   {:status 200
+    :body
+    {:items [:m/embeds
+             [{:name "Arthur Current"
+               :party-id [:ref :arthur :party :party-id]
+               :account-status "opened"}]]}}}]}

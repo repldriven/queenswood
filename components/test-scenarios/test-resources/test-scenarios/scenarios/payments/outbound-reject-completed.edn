@@ -20,8 +20,7 @@
          :args [:bank-0 :gl-account-code-suspense "GBP" 0]}
         {:command :assert-gl-balance
          :args [:bank-0 :gl-account-code-customer-deposits-current "GBP"
-                750]}
-        {:command :reject-outbound-payment :args [:pmt-0]}]
+                750]} {:command :reject-outbound-payment :args [:pmt-0]}]
  :then [{:command :assert-outcome :args [:denied]}
         {:command :assert-rejection-kind :args [:payment/reject-outbound]}
         {:command :assert-balance :args [:acct-0 750]}

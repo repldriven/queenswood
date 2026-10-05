@@ -35,6 +35,7 @@
  :when [{:command :api/request
          :request {:method :post
                    :path "/v1/cash-accounts/{account-id}/rotate-address"
-                   :path-params {:account-id [:ref :account-0 :account :account-id]}
+                   :path-params
+                   {:account-id [:ref :account-0 :account :account-id]}
                    :auth [:ref :org-0 :token]}
          :assert {:status 409 :body {:type ":cash-account/invalid-status"}}}]}

@@ -8,21 +8,19 @@
  ;; `cash-account.domain-test`'s. The payment provider holds the money
  ;; and refuses the close, returning the account to opened, which the
  ;; model does not know of, so the scenario is not compared.
- :given
- [{:command :create-bank :args []}
-  {:command :inbound-transfer :args [:acct-0 1000]}]
+ :given [{:command :create-bank :args []}
+         {:command :inbound-transfer :args [:acct-0 1000]}]
  :when
  [{:command :close-account :args [:acct-0]}
   {:command :assert-rejection-kind :args [:cash-account/non-zero-on-close]}
   {:command :bind-policy
-   :args
-   [:bank-0
-    {:name "Test: waive the non-zero balance check on close"
-     :category :policy-category-standard
-     :capabilities
-     [{:effect :effect-allow
-       :kind {:cash-account {:action :cash-account-action-close-non-zero}}
-       :reason "Test-bound waiver"}]}]}
+   :args [:bank-0
+          {:name "Test: waive the non-zero balance check on close"
+           :category :policy-category-standard
+           :capabilities
+           [{:effect :effect-allow
+             :kind {:cash-account {:action :cash-account-action-close-non-zero}}
+             :reason "Test-bound waiver"}]}]}
   {:command :close-account :args [:acct-0]}]
  :then [{:command :assert-outcome :args [:succeeded]}
         {:command :assert-balance :args [:acct-0 1000]}]}

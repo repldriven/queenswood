@@ -1,4 +1,5 @@
-{:name "An address the platform will not deliver to is refused, registered or moved to"
+{:name
+ "An address the platform will not deliver to is refused, registered or moved to"
  ;; A host in each range the platform will not call: link-local,
  ;; private, and the cloud metadata service. An IP literal resolves to
  ;; itself, so the rule decides on the address as written and no DNS is
@@ -46,8 +47,10 @@
  ;; Nothing was registered for any of them, and the endpoint keeps the
  ;; address it was registered with.
  [{:command :api/request
-   :request {:method :get :path "/v1/webhook-endpoints" :auth [:ref :org-0 :token]}
-   :assert {:status 200
-            :body {:items [{:endpoint-id [:ref :hook :registered :endpoint
-                                          :endpoint-id]
-                            :address "https://93.184.216.34/hooks"}]}}}]}
+   :request
+   {:method :get :path "/v1/webhook-endpoints" :auth [:ref :org-0 :token]}
+   :assert
+   {:status 200
+    :body {:items [{:endpoint-id [:ref :hook :registered :endpoint
+                                  :endpoint-id]
+                    :address "https://93.184.216.34/hooks"}]}}}]}

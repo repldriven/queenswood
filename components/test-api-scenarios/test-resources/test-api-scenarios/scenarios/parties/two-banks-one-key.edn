@@ -3,23 +3,22 @@
  ;; platform. Two tenants that happen to pick the same key each get
  ;; their own party: neither is refused, and neither is handed the
  ;; other's. This is what pins the cache's scope to the principal.
- :given
- [{:fixture :bank
-   :as :bank-a
-   :with {:name "Parties Key Scope A" :status "live"}}
-  {:fixture :bank
-   :as :bank-b
-   :with {:name "Parties Key Scope B" :status "live"}}
-  {:command :auth/mint-token
-   :for {:client-id [:ref :bank-a :bank :client-id]
-         :client-secret [:ref :bank-a :bank :client-secret]
-         :status :live}
-   :as :bank-a-token}
-  {:command :auth/mint-token
-   :for {:client-id [:ref :bank-b :bank :client-id]
-         :client-secret [:ref :bank-b :bank :client-secret]
-         :status :live}
-   :as :bank-b-token}]
+ :given [{:fixture :bank
+          :as :bank-a
+          :with {:name "Parties Key Scope A" :status "live"}}
+         {:fixture :bank
+          :as :bank-b
+          :with {:name "Parties Key Scope B" :status "live"}}
+         {:command :auth/mint-token
+          :for {:client-id [:ref :bank-a :bank :client-id]
+                :client-secret [:ref :bank-a :bank :client-secret]
+                :status :live}
+          :as :bank-a-token}
+         {:command :auth/mint-token
+          :for {:client-id [:ref :bank-b :bank :client-id]
+                :client-secret [:ref :bank-b :bank :client-secret]
+                :status :live}
+          :as :bank-b-token}]
  :when
  ;; The same key literal, sent by two different principals.
  [{:command :api/request
@@ -84,13 +83,17 @@
   ;; Each bank's listing holds its own party and only its own.
   {:command :api/request
    :request {:method :get :path "/v1/parties" :auth :bank-a-token}
-   :assert {:status 200
-            :body {:items [:m/embeds
-                             [{:party-id [:ref :party-a :party-id]
-                               :display-name "Zaphod Beeblebrox"}]]}}}
+   :assert
+   {:status 200
+    :body
+    {:items [:m/embeds
+             [{:party-id [:ref :party-a :party-id]
+               :display-name "Zaphod Beeblebrox"}]]}}}
   {:command :api/request
    :request {:method :get :path "/v1/parties" :auth :bank-b-token}
-   :assert {:status 200
-            :body {:items [:m/embeds
-                             [{:party-id [:ref :party-b :party-id]
-                               :display-name "Slartibartfast"}]]}}}]}
+   :assert
+   {:status 200
+    :body
+    {:items [:m/embeds
+             [{:party-id [:ref :party-b :party-id]
+               :display-name "Slartibartfast"}]]}}}]}

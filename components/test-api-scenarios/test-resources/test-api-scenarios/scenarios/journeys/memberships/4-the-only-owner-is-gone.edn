@@ -73,13 +73,14 @@
              :path "/v1/memberships"
              :auth :successor-token
              :headers {:bank-id [:ref :bank :bank-id]}}
-   :assert {:status 200
-            :body {:items [{:membership-id [:ref :successor-membership
-                                            :membership-id]
-                            :role "owner"
-                            :invited-by {:kind "operator"
-                                         :principal-id "queenswood-admin"
-                                         :name "Queenswood"}}]}}}
+   :assert
+   {:status 200
+    :body {:items [{:membership-id [:ref :successor-membership
+                                    :membership-id]
+                    :role "owner"
+                    :invited-by {:kind "operator"
+                                 :principal-id "queenswood-admin"
+                                 :name "Queenswood"}}]}}}
   {:command :api/request
    :request {:method :get
              :path "/v1/bank/audit-events"
@@ -88,24 +89,25 @@
              :query-params {"page[size]" 3}}
    :assert
    {:status 200
-    :body {:items [{:kind "member-removed"
-                    :actor {:kind "member"
-                            :principal-id [:ref :successor-membership
-                                           :user-id]}
-                    :subject-user-id [:ref :departed-membership :user-id]
-                    :role-before "owner"
-                    :reason "Left the company"}
-                   {:kind "invitation-accepted"
-                    :actor {:kind "member"
-                            :principal-id [:ref :successor-membership
-                                           :user-id]}}
-                   {:kind "invitation-created"
-                    :actor {:kind "operator"
-                            :principal-id "queenswood-admin"
-                            :name "Queenswood"}
-                    :email "gone-successor@queenswood.local"
-                    :role-after "owner"
-                    :reason "The only owner has left; verified by phone"}]}}}
+    :body
+    {:items [{:kind "member-removed"
+              :actor {:kind "member"
+                      :principal-id [:ref :successor-membership
+                                     :user-id]}
+              :subject-user-id [:ref :departed-membership :user-id]
+              :role-before "owner"
+              :reason "Left the company"}
+             {:kind "invitation-accepted"
+              :actor {:kind "member"
+                      :principal-id [:ref :successor-membership
+                                     :user-id]}}
+             {:kind "invitation-created"
+              :actor {:kind "operator"
+                      :principal-id "queenswood-admin"
+                      :name "Queenswood"}
+              :email "gone-successor@queenswood.local"
+              :role-after "owner"
+              :reason "The only owner has left; verified by phone"}]}}}
   {:command :api/request
    :request {:method :get :path "/v1/me/memberships" :auth :departed-token}
    :assert {:status 200 :body {:items []}}}]}

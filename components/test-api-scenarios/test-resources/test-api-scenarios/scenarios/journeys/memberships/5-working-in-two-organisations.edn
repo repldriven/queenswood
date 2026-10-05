@@ -116,14 +116,16 @@
  :then
  [{:command :api/request
    :request {:method :get :path "/v1/me/memberships" :auth :consultant-token}
-   :assert {:status 200
-            :body {:items [:m/in-any-order
-                           [{:bank-id [:ref :own-bank :bank-id]
-                             :bank-name "Consultancy Bank"
-                             :role "owner"}
-                            {:bank-id [:ref :client-bank :bank-id]
-                             :bank-name "Client Bank"
-                             :role "viewer"}]]}}}
+   :assert
+   {:status 200
+    :body
+    {:items [:m/in-any-order
+             [{:bank-id [:ref :own-bank :bank-id]
+               :bank-name "Consultancy Bank"
+               :role "owner"}
+              {:bank-id [:ref :client-bank :bank-id]
+               :bank-name "Client Bank"
+               :role "viewer"}]]}}}
   {:command :api/request
    :request {:method :get
              :path "/v1/bank"
@@ -142,21 +144,20 @@
              :auth :consultant-token
              :headers {:bank-id [:ref :client-bank :bank-id]}}
    :assert {:status 200
-            :body {:items [:m/in-any-order
-                           [{:email "consultant-client@queenswood.local"
-                             :role "owner"}
-                            {:email "consultant@queenswood.local"
-                             :role "viewer"}]]}}}
+            :body {:items
+                   [:m/in-any-order
+                    [{:email "consultant-client@queenswood.local" :role "owner"}
+                     {:email "consultant@queenswood.local" :role "viewer"}]]}}}
   {:command :api/request
    :request {:method :get
              :path "/v1/parties"
              :auth :consultant-token
              :headers {:bank-id [:ref :own-bank :bank-id]}}
    :assert {:status 200
-            :body {:items [:m/in-any-order
-                           [{:type "organization"
-                             :display-name "Consultancy Bank"}
-                            {:type "person" :display-name "Sarah Connor"}]]}}}
+            :body {:items
+                   [:m/in-any-order
+                    [{:type "organization" :display-name "Consultancy Bank"}
+                     {:type "person" :display-name "Sarah Connor"}]]}}}
   {:command :api/request
    :request {:method :get
              :path "/v1/parties"

@@ -94,9 +94,7 @@
              :auth :first-token}
    :until {:status 200
            :body {:status "ready" :hand-off {:url [:m/regex "zypheVr="]}}}}
-  {:command :idv/verify
-   :party [:ref :first-party :party-id]
-   :auth :first-token}
+  {:command :idv/verify :party [:ref :first-party :party-id] :auth :first-token}
   {:command :api/request
    :request {:method :post
              :path "/v1/parties/{party-id}/verification-sessions"
@@ -118,28 +116,27 @@
   {:command :idv/verify
    :party [:ref :second-party :party-id]
    :auth :second-token}]
- :then
- [{:command :api/poll
-   :request {:method :get
-             :path "/v1/parties/{party-id}"
-             :path-params {:party-id [:ref :first-party :party-id]}
-             :auth :first-token}
-   :until {:status 200 :body {:status "active"}}}
-  {:command :api/request
-   :request {:method :get
-             :path "/v1/parties/{party-id}/verification"
-             :path-params {:party-id [:ref :first-party :party-id]}
-             :auth :first-token}
-   :assert {:status 200 :body {:status "accepted"}}}
-  {:command :api/poll
-   :request {:method :get
-             :path "/v1/parties/{party-id}"
-             :path-params {:party-id [:ref :second-party :party-id]}
-             :auth :second-token}
-   :until {:status 200 :body {:status "active"}}}
-  {:command :api/request
-   :request {:method :get
-             :path "/v1/parties/{party-id}/verification"
-             :path-params {:party-id [:ref :second-party :party-id]}
-             :auth :second-token}
-   :assert {:status 200 :body {:status "accepted"}}}]}
+ :then [{:command :api/poll
+         :request {:method :get
+                   :path "/v1/parties/{party-id}"
+                   :path-params {:party-id [:ref :first-party :party-id]}
+                   :auth :first-token}
+         :until {:status 200 :body {:status "active"}}}
+        {:command :api/request
+         :request {:method :get
+                   :path "/v1/parties/{party-id}/verification"
+                   :path-params {:party-id [:ref :first-party :party-id]}
+                   :auth :first-token}
+         :assert {:status 200 :body {:status "accepted"}}}
+        {:command :api/poll
+         :request {:method :get
+                   :path "/v1/parties/{party-id}"
+                   :path-params {:party-id [:ref :second-party :party-id]}
+                   :auth :second-token}
+         :until {:status 200 :body {:status "active"}}}
+        {:command :api/request
+         :request {:method :get
+                   :path "/v1/parties/{party-id}/verification"
+                   :path-params {:party-id [:ref :second-party :party-id]}
+                   :auth :second-token}
+         :assert {:status 200 :body {:status "accepted"}}}]}

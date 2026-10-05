@@ -66,7 +66,8 @@
                   [:m/equals [:ref :party-2 :party-id]]]}]
      :links {:next [:m/regex ".+"] :prev [:m/absent]}}}}
   {:command :api/request
-   :request {:method :get :url [:ref :page-1 :links :next] :auth [:ref :org-0 :token]}
+   :request
+   {:method :get :url [:ref :page-1 :links :next] :auth [:ref :org-0 :token]}
    :as :page-2
    :assert
    {:status 200
@@ -78,7 +79,8 @@
                   [:m/equals [:ref :party-2 :party-id]]]}]
      :links {:prev [:m/regex ".+"] :next [:m/regex ".+"]}}}}
   {:command :api/request
-   :request {:method :get :url [:ref :page-2 :links :next] :auth [:ref :org-0 :token]}
+   :request
+   {:method :get :url [:ref :page-2 :links :next] :auth [:ref :org-0 :token]}
    :as :page-3
    :assert
    {:status 200
@@ -90,15 +92,15 @@
                   [:m/equals [:ref :party-2 :party-id]]]}]
      :links {:prev [:m/regex ".+"] :next [:m/absent]}}}}
   {:command :api/request
-   :request {:method :get :url [:ref :page-3 :links :prev] :auth [:ref :org-0 :token]}
+   :request
+   {:method :get :url [:ref :page-3 :links :prev] :auth [:ref :org-0 :token]}
    :as :back-2
-   :assert
-   {:status 200
-    :body {:items [{:party-id [:ref :page-2 :items 0 :party-id]}]
-           :links {:prev [:m/regex ".+"] :next [:m/regex ".+"]}}}}
+   :assert {:status 200
+            :body {:items [{:party-id [:ref :page-2 :items 0 :party-id]}]
+                   :links {:prev [:m/regex ".+"] :next [:m/regex ".+"]}}}}
   {:command :api/request
-   :request {:method :get :url [:ref :back-2 :links :prev] :auth [:ref :org-0 :token]}
-   :assert
-   {:status 200
-    :body {:items [{:party-id [:ref :page-1 :items 0 :party-id]}]
-           :links {:next [:m/regex ".+"] :prev [:m/absent]}}}}]}
+   :request
+   {:method :get :url [:ref :back-2 :links :prev] :auth [:ref :org-0 :token]}
+   :assert {:status 200
+            :body {:items [{:party-id [:ref :page-1 :items 0 :party-id]}]
+                   :links {:next [:m/regex ".+"] :prev [:m/absent]}}}}]}

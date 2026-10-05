@@ -1,22 +1,18 @@
 {:name "A posting in a currency the bank has no chart row for is refused"
- :given
- [{:fixture :bank :as :org-0 :with {:name "Sterling Only Bank"}}]
+ :given [{:fixture :bank :as :org-0 :with {:name "Sterling Only Bank"}}]
  :when
  ;; The bank holds a GBP chart alone, so resolving 1100 in USD finds
  ;; no row. The handler does that before it looks for a house account
  ;; or builds a leg, so the refusal is the by-role one rather than a
  ;; missing house account.
  [{:command :api/request
-   :request
-   {:method :post
-    :path "/v1/simulate/inbound-transfer"
-    :auth [:ref :org-0 :token]
-    :headers {:bank-id [:ref :org-0 :bank :bank-id]}
-    :body {:amount 250000
-           :currency "USD"}}
+   :request {:method :post
+             :path "/v1/simulate/inbound-transfer"
+             :auth [:ref :org-0 :token]
+             :headers {:bank-id [:ref :org-0 :bank :bank-id]}
+             :body {:amount 250000 :currency "USD"}}
    :assert {:status 409
             :problem {:type ":gl/missing-currency-account"
                       :title "REJECTED"
-                      :detail
-                      [:m/regex
-                       "cash-at-correspondent.*USD"]}}}]}
+                      :detail [:m/regex
+                               "cash-at-correspondent.*USD"]}}}]}

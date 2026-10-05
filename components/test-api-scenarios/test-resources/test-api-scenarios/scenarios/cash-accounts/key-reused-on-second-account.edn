@@ -34,22 +34,22 @@
           :party-id [:ref :party :party :party-id]
           :product-id [:ref :product :product :product-id]
           :name "Second"}}]
- :when
- [{:command :api/request
-   :request {:method :post
-             :path "/v1/cash-accounts/{account-id}/close"
-             :path-params {:account-id [:ref :first :account :account-id]}
-             :auth [:ref :bank-0 :token]
-             :headers {:idempotency-key "ik-key-reused-close-001"}}
-   :assert {:status 200}}
-  ;; The same key, a different account.
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/cash-accounts/{account-id}/close"
-             :path-params {:account-id [:ref :second :account :account-id]}
-             :auth [:ref :bank-0 :token]
-             :headers {:idempotency-key "ik-key-reused-close-001"}}
-   :assert {:status 422 :problem {:type "mono/idempotency-key-reused"}}}]
+ :when [{:command :api/request
+         :request {:method :post
+                   :path "/v1/cash-accounts/{account-id}/close"
+                   :path-params {:account-id [:ref :first :account :account-id]}
+                   :auth [:ref :bank-0 :token]
+                   :headers {:idempotency-key "ik-key-reused-close-001"}}
+         :assert {:status 200}}
+        ;; The same key, a different account.
+        {:command :api/request
+         :request {:method :post
+                   :path "/v1/cash-accounts/{account-id}/close"
+                   :path-params
+                   {:account-id [:ref :second :account :account-id]}
+                   :auth [:ref :bank-0 :token]
+                   :headers {:idempotency-key "ik-key-reused-close-001"}}
+         :assert {:status 422 :problem {:type "mono/idempotency-key-reused"}}}]
  :then
  ;; The second account was never touched.
  [{:command :api/request

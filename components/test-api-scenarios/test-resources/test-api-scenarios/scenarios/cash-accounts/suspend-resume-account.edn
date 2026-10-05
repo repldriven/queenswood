@@ -1,25 +1,24 @@
 {:name "Tenant suspends and resumes a cash account"
- :given
- [{:fixture :bank
-   :as :org-0
-   :with {:name "Suspend Resume Account Test Org" :status "live"}}
-  ;; Active party
-  {:fixture :person
-   :as :party-0
-   :with {:token [:ref :org-0 :token]
-          :display-name "Suspending Customer"
-          :given-name "Suspending"
-          :family-name "Customer"
-          :national-insurance "TN888002A"}}
-  ;; Published product
-  {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}
-  ;; Open the cash-account and wait for opened
-  {:fixture :account
-   :as :account-0
-   :with {:token [:ref :org-0 :token]
-          :party-id [:ref :party-0 :party :party-id]
-          :product-id [:ref :draft :product :product-id]
-          :name "To Be Suspended"}}]
+ :given [{:fixture :bank
+          :as :org-0
+          :with {:name "Suspend Resume Account Test Org" :status "live"}}
+         ;; Active party
+         {:fixture :person
+          :as :party-0
+          :with {:token [:ref :org-0 :token]
+                 :display-name "Suspending Customer"
+                 :given-name "Suspending"
+                 :family-name "Customer"
+                 :national-insurance "TN888002A"}}
+         ;; Published product
+         {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}
+         ;; Open the cash-account and wait for opened
+         {:fixture :account
+          :as :account-0
+          :with {:token [:ref :org-0 :token]
+                 :party-id [:ref :party-0 :party :party-id]
+                 :product-id [:ref :draft :product :product-id]
+                 :name "To Be Suspended"}}]
  :when
  [{:command :api/request
    :request {:method :post

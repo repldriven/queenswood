@@ -3,43 +3,43 @@
  ;; tenant can fund its own sandbox, and it takes its bank from the
  ;; path. Without a check against the principal's bank, any tenant's
  ;; service token could post a credit into any other tenant's books.
- :given
- [{:fixture :bank :as :bank-a :with {:name "Tenant A Bank"}}
-  {:fixture :bank :as :bank-b :with {:name "Tenant B Bank"}}
-  {:command :auth/mint-token
-   :for {:client-id [:ref :bank-a :bank :client-id]
-         :client-secret [:ref :bank-a :bank :client-secret]
-         :status :test}
-   :as :bank-a-token}
-  {:command :auth/mint-token
-   :for {:client-id [:ref :bank-b :bank :client-id]
-         :client-secret [:ref :bank-b :bank :client-secret]
-         :status :test}
-   :as :bank-b-token}
-  ;; B's own-funds house account arrives with the bank and needs no
-  ;; party. Its balances are read with B's own token because the
-  ;; balances route is org-only and the admin carries no bank.
-  {:command :api/request
-   :request {:method :get
-             :path "/v1/cash-accounts/{account-id}/balances"
-             :path-params {:account-id [:ref :bank-b :bank :accounts 0 :account-id]}
-             :auth :bank-b-token}
-   :as :b-before
-   :assert {:status 200}}]
+ :given [{:fixture :bank :as :bank-a :with {:name "Tenant A Bank"}}
+         {:fixture :bank :as :bank-b :with {:name "Tenant B Bank"}}
+         {:command :auth/mint-token
+          :for {:client-id [:ref :bank-a :bank :client-id]
+                :client-secret [:ref :bank-a :bank :client-secret]
+                :status :test}
+          :as :bank-a-token}
+         {:command :auth/mint-token
+          :for {:client-id [:ref :bank-b :bank :client-id]
+                :client-secret [:ref :bank-b :bank :client-secret]
+                :status :test}
+          :as :bank-b-token}
+         ;; B's own-funds house account arrives with the bank and needs no
+         ;; party. Its balances are read with B's own token because the
+         ;; balances route is org-only and the admin carries no bank.
+         {:command :api/request
+          :request {:method :get
+                    :path "/v1/cash-accounts/{account-id}/balances"
+                    :path-params
+                    {:account-id [:ref :bank-b :bank :accounts 0 :account-id]}
+                    :auth :bank-b-token}
+          :as :b-before
+          :assert {:status 200}}]
  :when
  [{:command :api/request
    :request {:method :post
              :path "/v1/simulate/inbound-transfer"
              :auth :bank-a-token
              :headers {:bank-id [:ref :bank-b :bank :bank-id]}
-             :body {:amount 100000
-                    :currency "GBP"}}
+             :body {:amount 100000 :currency "GBP"}}
    :assert {:status 403 :problem {:type "auth/forbidden"}}}
   ;; Nothing reached B's books.
   {:command :api/request
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}/balances"
-             :path-params {:account-id [:ref :bank-b :bank :accounts 0 :account-id]}
+             :path-params {:account-id [:ref :bank-b :bank :accounts 0
+                                        :account-id]}
              :auth :bank-b-token}
    :assert {:status 200
             :body {:available-balance [:ref :b-before :available-balance]
@@ -51,8 +51,7 @@
              :path "/v1/simulate/inbound-transfer"
              :auth :bank-a-token
              :headers {:bank-id [:ref :bank-a :bank :bank-id]}
-             :body {:amount 100000
-                    :currency "GBP"}}
+             :body {:amount 100000 :currency "GBP"}}
    :assert {:status 200}}
   ;; The admin takes its bank from the path, so it may fund either —
   ;; both are posted, since a check that short-circuits on the role
@@ -62,14 +61,12 @@
              :path "/v1/simulate/inbound-transfer"
              :auth :admin
              :headers {:bank-id [:ref :bank-b :bank :bank-id]}
-             :body {:amount 100000
-                    :currency "GBP"}}
+             :body {:amount 100000 :currency "GBP"}}
    :assert {:status 200}}
   {:command :api/request
    :request {:method :post
              :path "/v1/simulate/inbound-transfer"
              :auth :admin
              :headers {:bank-id [:ref :bank-a :bank :bank-id]}
-             :body {:amount 100000
-                    :currency "GBP"}}
+             :body {:amount 100000 :currency "GBP"}}
    :assert {:status 200}}]}

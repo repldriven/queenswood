@@ -4,9 +4,10 @@
   {:fixture :webhook-endpoint :as :hook :with {:token [:ref :org-0 :token]}}]
  :when
  [{:command :api/request
-   :request {:method :post
-             :path "/v1/webhook-endpoints/{endpoint-id}/deliveries/{delivery-id}/resend"
-             :path-params {:endpoint-id [:ref :hook :registered :endpoint :endpoint-id]
-                           :delivery-id "whd.00000000000000000000000000"}
-             :auth [:ref :org-0 :token]}
+   :request
+   {:method :post
+    :path "/v1/webhook-endpoints/{endpoint-id}/deliveries/{delivery-id}/resend"
+    :path-params {:endpoint-id [:ref :hook :registered :endpoint :endpoint-id]
+                  :delivery-id "whd.00000000000000000000000000"}
+    :auth [:ref :org-0 :token]}
    :assert {:status 404 :problem {:type ":webhook-delivery/not-found"}}}]}

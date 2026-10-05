@@ -1,4 +1,5 @@
-{:name "An inbound admitted to an account that closes before it settles is returned"
+{:name
+ "An inbound admitted to an account that closes before it settles is returned"
  :requires #{:inbound-admitted}
  :runs-on {:payment :every}
  ;; Form3 settles an inbound once the bank has admitted it. One admitted
@@ -86,16 +87,15 @@
              :query-params {"status" "returned"}
              :auth [:ref :bank-0 :token]}
    :until {:status 200
-           :body {:items [{:amount 700
-                           :currency "GBP"
-                           :payment-status "returned"}]}}
+           :body {:items
+                  [{:amount 700 :currency "GBP" :payment-status "returned"}]}}
    :timeout-ms 20000}
   {:command :api/request
-   :request {:method :get :path "/v1/ledger-accounts" :auth [:ref :bank-0 :token]}
-   :assert {:status 200
-            :body {:items [:m/embeds
-                           [{:gl-code "1100"
-                             :posted-balance {:value 0 :currency "GBP"}}
-                            {:gl-code "2500"
-                             :posted-balance {:value 0
-                                              :currency "GBP"}}]]}}}]}
+   :request
+   {:method :get :path "/v1/ledger-accounts" :auth [:ref :bank-0 :token]}
+   :assert
+   {:status 200
+    :body {:items [:m/embeds
+                   [{:gl-code "1100" :posted-balance {:value 0 :currency "GBP"}}
+                    {:gl-code "2500"
+                     :posted-balance {:value 0 :currency "GBP"}}]]}}}]}

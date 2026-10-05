@@ -97,13 +97,15 @@
     :path-params {:migration-id [:ref :migration :migration-id]
                   :run-id [:ref :preview :run-id]}
     :auth [:ref :bank-0 :token]}
-   :assert {:status 200
-            :body {:items [:m/in-any-order
-                           [{:account-id [:ref :moving :account :account-id]
-                             :outcome "eligible"}
-                            {:account-id [:ref :staying :account :account-id]
-                             :outcome "ineligible"
-                             :ineligibility "account-not-open"}]]}}}
+   :assert
+   {:status 200
+    :body
+    {:items [:m/in-any-order
+             [{:account-id [:ref :moving :account :account-id]
+               :outcome "eligible"}
+              {:account-id [:ref :staying :account :account-id]
+               :outcome "ineligible"
+               :ineligibility "account-not-open"}]]}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/cash-account-migrations/{migration-id}/approve"
@@ -122,11 +124,10 @@
              :path "/v1/jobs/{job-id}/runs"
              :path-params {:job-id "account-migration"}
              :auth [:ref :bank-0 :token]}
-   :assert {:status 201
-            :body {:status "succeeded"
-                   :tasks [{:label "migrate"
-                            :status "succeeded"
-                            :records-failed 0}]}}}]
+   :assert
+   {:status 201
+    :body {:status "succeeded"
+           :tasks [{:label "migrate" :status "succeeded" :records-failed 0}]}}}]
  :then
  [{:command :api/request
    :request {:method :get
@@ -152,17 +153,18 @@
    :request {:method :get
              :path "/v1/cash-account-migrations"
              :auth [:ref :bank-0 :token]}
-   :assert {:status 200
-            :body {:items [{:migration-id [:ref :migration :migration-id]
-                            :status "completed"}]}}}
+   :assert
+   {:status 200
+    :body {:items [{:migration-id [:ref :migration :migration-id]
+                    :status "completed"}]}}}
   {:command :api/request
    :request {:method :get
-             :path "/v1/cash-account-migrations/{migration-id}/previews/{run-id}"
+             :path
+             "/v1/cash-account-migrations/{migration-id}/previews/{run-id}"
              :path-params {:migration-id [:ref :migration :migration-id]
                            :run-id [:ref :preview :run-id]}
              :auth [:ref :bank-0 :token]}
-   :assert {:status 200
-            :body {:run-id [:ref :preview :run-id] :dry-run true}}}
+   :assert {:status 200 :body {:run-id [:ref :preview :run-id] :dry-run true}}}
   ;; The run that moved them is kept beside the preview, so what was
   ;; expected and what happened can be compared.
   {:command :api/request
@@ -170,11 +172,12 @@
              :path "/v1/cash-account-migrations/{migration-id}/previews"
              :path-params {:migration-id [:ref :migration :migration-id]}
              :auth [:ref :bank-0 :token]}
-   :assert {:status 200
-            :body {:items [:m/in-any-order
-                           [{:run-id [:ref :preview :run-id] :dry-run true}
-                            {:dry-run false
-                             :status "completed"
-                             :accounts-seen 2
-                             :accounts-moved 1
-                             :accounts-ineligible 1}]]}}}]}
+   :assert
+   {:status 200
+    :body {:items [:m/in-any-order
+                   [{:run-id [:ref :preview :run-id] :dry-run true}
+                    {:dry-run false
+                     :status "completed"
+                     :accounts-seen 2
+                     :accounts-moved 1
+                     :accounts-ineligible 1}]]}}}]}

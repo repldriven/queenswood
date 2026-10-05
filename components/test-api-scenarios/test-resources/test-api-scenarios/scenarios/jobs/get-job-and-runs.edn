@@ -1,6 +1,7 @@
 {:name "Tenant retrieves a job and its (empty) run history"
- :given
- [{:fixture :bank :as :org-0 :with {:name "Jobs Runs Test Bank" :status "live"}}]
+ :given [{:fixture :bank
+          :as :org-0
+          :with {:name "Jobs Runs Test Bank" :status "live"}}]
  :when [{:command :api/request
          :request {:method :get
                    :path "/v1/jobs/{job-id}"

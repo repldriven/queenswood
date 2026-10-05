@@ -11,8 +11,7 @@
              :path "/v1/simulate/inbound-transfer"
              :auth :admin
              :headers {:bank-id [:ref :org-0 :bank :bank-id]}
-             :body {:amount 500000
-                    :currency "GBP"}}
+             :body {:amount 500000 :currency "GBP"}}
    :assert {:status 200}}
   ;; A version that promises £10 to every account opened under it.
   {:command :api/request
@@ -73,13 +72,14 @@
              :path "/v1/cash-accounts/{account-id}/transactions"
              :path-params {:account-id [:ref :account :account :account-id]}
              :auth [:ref :org-0 :token]}
-   :assert {:status 200
-            :body {:items [:m/embeds
-                                  [{:reference "Welcome reward"
-                                    :transaction-type "reward"
-                                    :side "credit"
-                                    :balance-status "posted"
-                                    :amount 1000}]]}}}
+   :assert
+   {:status 200
+    :body {:items [:m/embeds
+                   [{:reference "Welcome reward"
+                     :transaction-type "reward"
+                     :side "credit"
+                     :balance-status "posted"
+                     :amount 1000}]]}}}
   ;; The reward reads back, listed by the account and by its own id, as
   ;; paid and carrying the transaction that paid it.
   {:command :api/request
@@ -88,12 +88,13 @@
              :query-params {:account-id [:ref :account :account :account-id]}
              :auth [:ref :org-0 :token]}
    :as :rewards
-   :assert {:status 200
-            :body {:items [{:account-id [:ref :account :account :account-id]
-                            :kind "opening"
-                            :amount 1000
-                            :currency "GBP"
-                            :status "paid"}]}}}
+   :assert
+   {:status 200
+    :body {:items [{:account-id [:ref :account :account :account-id]
+                    :kind "opening"
+                    :amount 1000
+                    :currency "GBP"
+                    :status "paid"}]}}}
   {:command :api/request
    :request {:method :get
              :path "/v1/rewards/{reward-id}"
@@ -114,8 +115,7 @@
   ;; read route returns it.
   {:command :webhook/await-delivery
    :address [:ref :hook :receiver :address]
-   :where {:kind "reward.paid"
-           :resource-id [:ref :rewards :items 0 :reward-id]}
+   :where {:kind "reward.paid" :resource-id [:ref :rewards :items 0 :reward-id]}
    :secret [:ref :hook :registered :secret]
    :as :notified}
   {:command :assert/equals

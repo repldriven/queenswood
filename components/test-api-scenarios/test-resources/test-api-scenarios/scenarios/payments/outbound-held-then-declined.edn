@@ -3,10 +3,10 @@
  :runs-on {:payment :every}
  ;; A test value every payment simulator shares: an outbound Faster
  ;; Payment whose creditor name is 6a41a29eafcf455493 is held for
- ;; screening, then declined, which the adapter reports as a decline
- ;; coded NARR. The
- ;; bank-payment event-processor reverses the in-flight legs (DEBIT 1200
- ;; pending-outbound / CREDIT debtor) and flips the payment to "failed".
+ ;; screening, then declined, which the adapter reports as a decline coded
+ ;; NARR. The bank-payment event-processor reverses the in-flight legs
+ ;; (DEBIT 1200 pending-outbound / CREDIT debtor) and flips the payment to
+ ;; "failed".
  ;;
  ;; The submission debits the debtor's posted balance into 1200 at once,
  ;; so the £25 leaves available immediately and returns on the reversal.
@@ -55,8 +55,7 @@
              :path "/v1/simulate/inbound-transfer"
              :auth :admin
              :headers {:bank-id [:ref :bank-0 :bank :bank-id]}
-             :body {:amount 100000
-                    :currency "GBP"}}
+             :body {:amount 100000 :currency "GBP"}}
    :as :funded-1
    :assert {:status 200}}
   ;; The money reaches the customer from the bank's own funds.

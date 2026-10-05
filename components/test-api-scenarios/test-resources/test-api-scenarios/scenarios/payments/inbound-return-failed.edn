@@ -16,9 +16,8 @@
           :product-id [:ref :current :product :product-id]}}]
  :when
  [{:command :api/request
-   :request {:method :post
-             :base :payment-simulator
-             :path "/simulate/return-refused"}
+   :request
+   {:method :post :base :payment-simulator :path "/simulate/return-refused"}
    :assert {:status 204}}
   {:command :api/request
    :request {:method :post
@@ -57,16 +56,18 @@
              :path "/v1/payments/inbound"
              :query-params {"status" "suspended"}
              :auth [:ref :bank-0 :token]}
-   :until {:status 200
-           :body {:items [{:amount 700
-                           :currency "GBP"
-                           :payment-status "suspended"
-                           :return-failure-reason [:m/regex ".+"]}]}}
+   :until
+   {:status 200
+    :body {:items [{:amount 700
+                    :currency "GBP"
+                    :payment-status "suspended"
+                    :return-failure-reason [:m/regex ".+"]}]}}
    :timeout-ms 20000}
   {:command :api/request
-   :request {:method :get :path "/v1/ledger-accounts" :auth [:ref :bank-0 :token]}
-   :assert {:status 200
-            :body {:items [:m/embeds
-                           [{:gl-code "2500"
-                             :posted-balance {:value 700
-                                              :currency "GBP"}}]]}}}]}
+   :request
+   {:method :get :path "/v1/ledger-accounts" :auth [:ref :bank-0 :token]}
+   :assert
+   {:status 200
+    :body {:items [:m/embeds
+                   [{:gl-code "2500"
+                     :posted-balance {:value 700 :currency "GBP"}}]]}}}]}

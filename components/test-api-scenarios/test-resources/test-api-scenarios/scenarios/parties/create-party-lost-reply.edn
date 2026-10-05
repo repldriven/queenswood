@@ -1,4 +1,5 @@
-{:name "A lost create-party reply is retried under the same key and
+{:name
+ "A lost create-party reply is retried under the same key and
         creates one party"
  ;; The command commits and its reply never arrives, so the API answers
  ;; 500 and the cache releases its claim rather than caching a failure.
@@ -11,10 +12,9 @@
  ;;
  ;; The lost reply is produced by a test-only seam keyed on the
  ;; `ik-lost-reply-` prefix; see `test_api_scenarios/fault.clj`.
- :given
- [{:fixture :bank
-   :as :bank-0
-   :with {:name "Party Lost Reply Test" :status "live"}}]
+ :given [{:fixture :bank
+          :as :bank-0
+          :with {:name "Party Lost Reply Test" :status "live"}}]
  :when
  [{:command :api/request
    :request {:method :post

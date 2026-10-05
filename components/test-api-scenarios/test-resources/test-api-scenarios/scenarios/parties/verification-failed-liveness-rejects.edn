@@ -1,9 +1,8 @@
 {:name "Failing the liveness check rejects the person"
  :runs-on {:idv :every}
- :given
- [{:fixture :bank
-   :as :org-0
-   :with {:name "Verification Test Org" :status "live"}}]
+ :given [{:fixture :bank
+          :as :org-0
+          :with {:name "Verification Test Org" :status "live"}}]
  :when
  [{:command :api/request
    :request {:method :post
@@ -34,7 +33,9 @@
              :path "/v1/parties/{party-id}/verification"
              :path-params {:party-id [:ref :party-0 :party-id]}
              :auth [:ref :org-0 :token]}
-   :until {:status 200 :body {:status "rejected" :criteria [:m/embeds [{:name "liveness" :state "failed"}]]}}}
+   :until {:status 200
+           :body {:status "rejected"
+                  :criteria [:m/embeds [{:name "liveness" :state "failed"}]]}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/parties/{party-id}"

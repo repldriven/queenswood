@@ -1,4 +1,5 @@
-{:name "The customer is told a payment settled, or failed, under the key it sent"
+{:name
+ "The customer is told a payment settled, or failed, under the key it sent"
  :runs-on {:payment :every}
  ;; A creditor sort code of 000000 is one every payment simulator
  ;; declines before settlement.
@@ -44,16 +45,15 @@
                     :reference "Invoice 124"}}
    :as :declined
    :assert {:status 201}}]
- :then
- [{:command :webhook/await-delivery
-   :address [:ref :hook :receiver :address]
-   :where {:kind "payment.outbound-completed"
-           :resource-id [:ref :settling :payment-id]
-           :idempotency-key [:m/regex "^ik-webhook-journey-settles-001"]}
-   :secret [:ref :hook :registered :secret]}
-  {:command :webhook/await-delivery
-   :address [:ref :hook :receiver :address]
-   :where {:kind "payment.outbound-failed"
-           :resource-id [:ref :declined :payment-id]
-           :idempotency-key [:m/regex "^ik-webhook-journey-declined-001"]}
-   :secret [:ref :hook :registered :secret]}]}
+ :then [{:command :webhook/await-delivery
+         :address [:ref :hook :receiver :address]
+         :where {:kind "payment.outbound-completed"
+                 :resource-id [:ref :settling :payment-id]
+                 :idempotency-key [:m/regex "^ik-webhook-journey-settles-001"]}
+         :secret [:ref :hook :registered :secret]}
+        {:command :webhook/await-delivery
+         :address [:ref :hook :receiver :address]
+         :where {:kind "payment.outbound-failed"
+                 :resource-id [:ref :declined :payment-id]
+                 :idempotency-key [:m/regex "^ik-webhook-journey-declined-001"]}
+         :secret [:ref :hook :registered :secret]}]}

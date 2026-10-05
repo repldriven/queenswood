@@ -4,8 +4,7 @@
  ;; pick the same key each get their own payment, and neither is
  ;; refused nor handed the other's.
  :given
- [
-  ;; Bank A
+ [;; Bank A
   {:fixture :bank :as :bank-a :with {:name "Payments Key Scope A"}}
   {:fixture :product
    :as :product-a
@@ -37,8 +36,7 @@
              :path "/v1/simulate/inbound-transfer"
              :auth :admin
              :headers {:bank-id [:ref :bank-a :bank :bank-id]}
-             :body {:amount 100000
-                    :currency "GBP"}}
+             :body {:amount 100000 :currency "GBP"}}
    :as :funded-1
    :assert {:status 200}}
   ;; The money reaches the customer from the bank's own funds.
@@ -94,8 +92,7 @@
              :path "/v1/simulate/inbound-transfer"
              :auth :admin
              :headers {:bank-id [:ref :bank-b :bank :bank-id]}
-             :body {:amount 100000
-                    :currency "GBP"}}
+             :body {:amount 100000 :currency "GBP"}}
    :as :funded-2
    :assert {:status 200}}
   ;; The money reaches the customer from the bank's own funds.
@@ -115,8 +112,7 @@
              :path-params {:account-id [:ref :debtor-b :account :account-id]}
              :auth [:ref :bank-b :token]}
    :until {:status 200
-           :body {:available-balance {:value 100000 :currency "GBP"}}}}
-  ]
+           :body {:available-balance {:value 100000 :currency "GBP"}}}}]
  :when
  ;; The same key literal, sent by two different principals.
  [{:command :api/request
@@ -130,9 +126,10 @@
                     :amount 2500
                     :reference "Bank A payment"}}
    :as :payment-a
-   :assert {:status 201 :body {:bank-id [:ref :bank-a :bank :bank-id]
-                               :amount 2500
-                               :reference "Bank A payment"}}}
+   :assert {:status 201
+            :body {:bank-id [:ref :bank-a :bank :bank-id]
+                   :amount 2500
+                   :reference "Bank A payment"}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/payments/internal"
@@ -144,9 +141,10 @@
                     :amount 7100
                     :reference "Bank B payment"}}
    :as :payment-b
-   :assert {:status 201 :body {:bank-id [:ref :bank-b :bank :bank-id]
-                               :amount 7100
-                               :reference "Bank B payment"}}}]
+   :assert {:status 201
+            :body {:bank-id [:ref :bank-b :bank :bank-id]
+                   :amount 7100
+                   :reference "Bank B payment"}}}]
  :then
  ;; Two payments, not one replayed. B's answer is B's own — a different
  ;; amount and reference than A's, which a replay could not produce.

@@ -1,41 +1,40 @@
 {:name "Tenant lists their cash accounts across pages"
- :given
- [{:fixture :bank
-   :as :org-0
-   :with {:name "List Cash Accounts Test Org" :status "live"}}
-  ;; Active party (the holder of both accounts)
-  {:fixture :person
-   :as :party-0
-   :with {:token [:ref :org-0 :token]
-          :display-name "Account Holder"
-          :given-name "Account"
-          :family-name "Holder"
-          :national-insurance "TN999001A"}}
-  ;; Product 1: Current — create + publish
-  {:fixture :product
-   :as :current-draft
-   :with {:token [:ref :org-0 :token] :name "Current"}}
-  ;; Product 2: Savings — create + publish
-  {:fixture :product
-   :as :savings-draft
-   :with {:token [:ref :org-0 :token]
-          :name "Savings"
-          :template-id "tpl.00000000000000000000000002"
-          :interest-rate-bps 250}}
-  ;; Open current-account, wait for opened
-  {:fixture :account
-   :as :account-1
-   :with {:token [:ref :org-0 :token]
-          :party-id [:ref :party-0 :party :party-id]
-          :product-id [:ref :current-draft :product :product-id]
-          :name "Current GBP"}}
-  ;; Open savings-account, wait for opened
-  {:fixture :account
-   :as :account-2
-   :with {:token [:ref :org-0 :token]
-          :party-id [:ref :party-0 :party :party-id]
-          :product-id [:ref :savings-draft :product :product-id]
-          :name "Savings GBP"}}]
+ :given [{:fixture :bank
+          :as :org-0
+          :with {:name "List Cash Accounts Test Org" :status "live"}}
+         ;; Active party (the holder of both accounts)
+         {:fixture :person
+          :as :party-0
+          :with {:token [:ref :org-0 :token]
+                 :display-name "Account Holder"
+                 :given-name "Account"
+                 :family-name "Holder"
+                 :national-insurance "TN999001A"}}
+         ;; Product 1: Current — create + publish
+         {:fixture :product
+          :as :current-draft
+          :with {:token [:ref :org-0 :token] :name "Current"}}
+         ;; Product 2: Savings — create + publish
+         {:fixture :product
+          :as :savings-draft
+          :with {:token [:ref :org-0 :token]
+                 :name "Savings"
+                 :template-id "tpl.00000000000000000000000002"
+                 :interest-rate-bps 250}}
+         ;; Open current-account, wait for opened
+         {:fixture :account
+          :as :account-1
+          :with {:token [:ref :org-0 :token]
+                 :party-id [:ref :party-0 :party :party-id]
+                 :product-id [:ref :current-draft :product :product-id]
+                 :name "Current GBP"}}
+         ;; Open savings-account, wait for opened
+         {:fixture :account
+          :as :account-2
+          :with {:token [:ref :org-0 :token]
+                 :party-id [:ref :party-0 :party :party-id]
+                 :product-id [:ref :savings-draft :product :product-id]
+                 :name "Savings GBP"}}]
  :when
  ;; 3 cash-accounts exist: the bank's own-funds house account (created
  ;; at provisioning) plus the 2 we opened. Walk the size=1 pagination
@@ -56,7 +55,8 @@
                     [:m/equals [:ref :account-2 :account :account-id]]]}]
      :links {:next [:m/regex ".+"] :prev [:m/absent]}}}}
   {:command :api/request
-   :request {:method :get :url [:ref :page-1 :links :next] :auth [:ref :org-0 :token]}
+   :request
+   {:method :get :url [:ref :page-1 :links :next] :auth [:ref :org-0 :token]}
    :as :page-2
    :assert
    {:status 200
@@ -68,7 +68,8 @@
                     [:m/equals [:ref :account-2 :account :account-id]]]}]
      :links {:next [:m/regex ".+"] :prev [:m/regex ".+"]}}}}
   {:command :api/request
-   :request {:method :get :url [:ref :page-2 :links :next] :auth [:ref :org-0 :token]}
+   :request
+   {:method :get :url [:ref :page-2 :links :next] :auth [:ref :org-0 :token]}
    :assert
    {:status 200
     :body

@@ -39,8 +39,7 @@
   component/cash-account-query {:local/root
                                 "../../components/cash-account-query"}
   component/clearbank-relay {:local/root "../../components/clearbank-relay"}
-  component/clearbank-webhook {:local/root
-                               "../../components/clearbank-webhook"}
+  component/clearbank-webhook {:local/root "../../components/clearbank-webhook"}
   component/form3-relay {:local/root "../../components/form3-relay"}
   component/form3-webhook {:local/root "../../components/form3-webhook"}
   component/intent-queue {:local/root "../../components/intent-queue"}
@@ -71,8 +70,8 @@
   base/form3-adapter {:local/root "../../bases/form3-adapter"}
   base/modulr-adapter {:local/root "../../bases/modulr-adapter"}
   base/onfido-adapter {:local/root "../../bases/onfido-adapter"}
-  base/uk-companies-house-adapter
-  {:local/root "../../bases/uk-companies-house-adapter"}
+  base/uk-companies-house-adapter {:local/root
+                                   "../../bases/uk-companies-house-adapter"}
   base/zyphe-adapter {:local/root "../../bases/zyphe-adapter"}
   base/external-adapters {:local/root "../../bases/external-adapters"}
   org.clojure/clojure {:mvn/version "1.13.0-alpha8"}

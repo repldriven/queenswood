@@ -1,31 +1,29 @@
 {:name "An end customer's £5,000 at 5% earns 68p, paid into their balance"
  :runs-on {:payment :every}
- :given
- [{:fixture :bank :as :bank-0 :with {:name "Earning Journey"}}
-  {:fixture :product
-   :as :saver
-   :with {:token [:ref :bank-0 :token]
-          :name "Easy Saver"
-          :template-id "tpl.00000000000000000000000002"
-          :effective-from "2020-01-01"
-          :interest-rate-bps 500}}
-  {:fixture :person :as :arthur :with {:token [:ref :bank-0 :token]}}
-  {:fixture :funded-account
-   :as :saving
-   :with {:bank-id [:ref :bank-0 :bank :bank-id]
-          :token [:ref :bank-0 :token]
-          :party-id [:ref :arthur :party :party-id]
-          :product-id [:ref :saver :product :product-id]
-          :name "Easy Saver"
-          :amount 500000}}]
+ :given [{:fixture :bank :as :bank-0 :with {:name "Earning Journey"}}
+         {:fixture :product
+          :as :saver
+          :with {:token [:ref :bank-0 :token]
+                 :name "Easy Saver"
+                 :template-id "tpl.00000000000000000000000002"
+                 :effective-from "2020-01-01"
+                 :interest-rate-bps 500}}
+         {:fixture :person :as :arthur :with {:token [:ref :bank-0 :token]}}
+         {:fixture :funded-account
+          :as :saving
+          :with {:bank-id [:ref :bank-0 :bank :bank-id]
+                 :token [:ref :bank-0 :token]
+                 :party-id [:ref :arthur :party :party-id]
+                 :product-id [:ref :saver :product :product-id]
+                 :name "Easy Saver"
+                 :amount 500000}}]
  ;; 5000 × 0.05 ÷ 365 is 68.49p: 68p is paid and the rest carried.
- :when
- [{:command :api/request
-   :request {:method :post
-             :path "/v1/jobs/{job-id}/runs"
-             :path-params {:job-id "daily-interest"}
-             :auth [:ref :bank-0 :token]}
-   :assert {:status 201 :body {:status "succeeded"}}}]
+ :when [{:command :api/request
+         :request {:method :post
+                   :path "/v1/jobs/{job-id}/runs"
+                   :path-params {:job-id "daily-interest"}
+                   :auth [:ref :bank-0 :token]}
+         :assert {:status 201 :body {:status "succeeded"}}}]
  :then
  [{:command :api/poll
    :request {:method :get

@@ -1,9 +1,9 @@
-{:name "A document whose name only nearly matches puts the verification in review"
+{:name
+ "A document whose name only nearly matches puts the verification in review"
  :runs-on {:idv :every}
- :given
- [{:fixture :bank
-   :as :org-0
-   :with {:name "Verification Test Org" :status "live"}}]
+ :given [{:fixture :bank
+          :as :org-0
+          :with {:name "Verification Test Org" :status "live"}}]
  :when
  [{:command :api/request
    :request {:method :post
@@ -29,13 +29,17 @@
   {:command :idv/verify
    :party [:ref :party-0 :party-id]
    :auth [:ref :org-0 :token]
-   :document {:givenNames "Arthur" :familyName "Dent" :dateOfBirth "1952-03-11"}}
+   :document
+   {:givenNames "Arthur" :familyName "Dent" :dateOfBirth "1952-03-11"}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/parties/{party-id}/verification"
              :path-params {:party-id [:ref :party-0 :party-id]}
              :auth [:ref :org-0 :token]}
-   :until {:status 200 :body {:status "in-review" :criteria [:m/embeds [{:name "claimed-identity" :state "in-review"}]]}}}
+   :until {:status 200
+           :body {:status "in-review"
+                  :criteria [:m/embeds
+                             [{:name "claimed-identity" :state "in-review"}]]}}}
   {:command :api/request
    :request {:method :get
              :path "/v1/parties/{party-id}"

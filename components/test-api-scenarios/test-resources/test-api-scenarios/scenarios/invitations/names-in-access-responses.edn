@@ -36,7 +36,8 @@
   {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/accept"
-             :path-params {:invitation-id [:ref :bank :owner-invitation :invitation-id]}
+             :path-params {:invitation-id [:ref :bank :owner-invitation
+                                           :invitation-id]}
              :auth :owner-token}
    :as :owner-membership
    :assert {:status 201}}
@@ -78,7 +79,8 @@
   {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/accept"
-             :path-params {:invitation-id [:ref :member-invitation :invitation-id]}
+             :path-params {:invitation-id [:ref :member-invitation
+                                           :invitation-id]}
              :auth :member-token}
    :as :member-membership
    :assert {:status 201 :body {:role "developer"}}}
@@ -99,14 +101,16 @@
              :headers {:bank-id [:ref :bank :bank-id]}}
    :assert
    {:status 200
-    :body {:items [:m/embeds
-                   [{:kind "member-removed"
-                     :actor {:kind "member"
-                             :principal-id [:ref :owner-membership :user-id]
-                             :name [:ref :owner-me :name]}
-                     :subject-user-id [:ref :member-membership :user-id]
-                     :subject-name [:ref :member-me :name]}
-                    {:kind "bank-created"
-                     :actor {:kind "operator"
-                             :principal-id "queenswood-admin"
-                             :name "Queenswood"}}]]}}}]}
+    :body
+    {:items
+     [:m/embeds
+      [{:kind "member-removed"
+        :actor {:kind "member"
+                :principal-id [:ref :owner-membership :user-id]
+                :name [:ref :owner-me :name]}
+        :subject-user-id [:ref :member-membership :user-id]
+        :subject-name [:ref :member-me :name]}
+       {:kind "bank-created"
+        :actor {:kind "operator"
+                :principal-id "queenswood-admin"
+                :name "Queenswood"}}]]}}}]}

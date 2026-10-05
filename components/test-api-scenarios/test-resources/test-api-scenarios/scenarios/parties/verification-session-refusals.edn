@@ -1,4 +1,5 @@
-{:name "Opening a verification session is refused where the request is not one it takes"
+{:name
+ "Opening a verification session is refused where the request is not one it takes"
  :given
  [{:fixture :bank
    :as :org-0

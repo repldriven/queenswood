@@ -37,10 +37,9 @@
              :auth [:ref :org-0 :token]}
    :until {:status 200
            :body {:party-id [:ref :party-0 :party-id] :status "rejected"}}}]
- :when
- [{:command :api/request
-   :request {:method :post
-             :path "/v1/parties/{party-id}/suspend"
-             :path-params {:party-id [:ref :party-0 :party-id]}
-             :auth [:ref :org-0 :token]}
-   :assert {:status 409 :body {:type ":party/invalid-status"}}}]}
+ :when [{:command :api/request
+         :request {:method :post
+                   :path "/v1/parties/{party-id}/suspend"
+                   :path-params {:party-id [:ref :party-0 :party-id]}
+                   :auth [:ref :org-0 :token]}
+         :assert {:status 409 :body {:type ":party/invalid-status"}}}]}

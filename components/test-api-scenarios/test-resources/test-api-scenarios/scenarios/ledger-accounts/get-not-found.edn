@@ -1,8 +1,7 @@
 {:name "Unknown ledger account id returns 404"
- :given
- [{:fixture :bank
-   :as :org-0
-   :with {:name "Ledger Account 404 Bank" :status "live"}}]
+ :given [{:fixture :bank
+          :as :org-0
+          :with {:name "Ledger Account 404 Bank" :status "live"}}]
  :when
  ;; Well-formed against `LedgerAccountId`'s pattern, so the path
  ;; coercion admits it and the existence guard is what refuses.
@@ -11,5 +10,4 @@
              :path "/v1/ledger-accounts/{account-id}"
              :path-params {:account-id "led.00000000000000000000000000"}
              :auth [:ref :org-0 :token]}
-   :assert {:status 404
-            :problem {:type ":ledger-account/not-found"}}}]}
+   :assert {:status 404 :problem {:type ":ledger-account/not-found"}}}]}

@@ -1,6 +1,7 @@
 {:name "One end customer holds a GBP account and a EUR account"
  :runs-on {:payment :every}
- :unbuilt "No product template an end customer's account opens under allows EUR."
+ :unbuilt
+ "No product template an end customer's account opens under allows EUR."
  :given [{:fixture :bank
           :as :bank-0
           :with {:name "Multi-Currency Journey" :currencies ["GBP" "EUR"]}}

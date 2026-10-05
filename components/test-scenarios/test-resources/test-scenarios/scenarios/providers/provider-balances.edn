@@ -16,14 +16,13 @@
  ;; receiving account's provider account to own funds. An outbound the
  ;; scheme returns lands back in the account it left at the provider as
  ;; in the ledger, so nothing is mirrored for it.
- :given
- [{:command :create-bank :args []}
-  {:command :create-product :args [:bank-0 :savings 3650]}
-  {:command :publish-product :args [:prod-1]}
-  {:command :create-person-party :args [:bank-0]}
-  {:command :open-account :args [:bank-0 :party-1 :prod-1]}
-  {:command :fixture/fund-house :args [:bank-0 500000]}
-  {:command :inbound-transfer :args [:acct-0 100000]}]
+ :given [{:command :create-bank :args []}
+         {:command :create-product :args [:bank-0 :savings 3650]}
+         {:command :publish-product :args [:prod-1]}
+         {:command :create-person-party :args [:bank-0]}
+         {:command :open-account :args [:bank-0 :party-1 :prod-1]}
+         {:command :fixture/fund-house :args [:bank-0 500000]}
+         {:command :inbound-transfer :args [:acct-0 100000]}]
  :when
  [{:command :assert-provider-balances :args [:bank-0]}
   {:command :internal-transfer :args [:acct-0 :acct-1 60000]}
@@ -45,10 +44,9 @@
   {:command :inbound-transfer :args [:acct-0 2500 :e2e-refused]}
   {:command :outbound-payment :args [:acct-1 4000]}
   {:command :return-outbound-payment :args [:pmt-0]}]
- :then
- [{:command :assert-no-anomaly :args []}
-  {:command :assert-inbound-status
-   :args [:e2e-refused :inbound-payment-status-suspended]}
-  {:command :assert-gl-balance
-   :args [:bank-0 :gl-account-code-suspense "GBP" 2500]}
-  {:command :assert-provider-balances :args [:bank-0]}]}
+ :then [{:command :assert-no-anomaly :args []}
+        {:command :assert-inbound-status
+         :args [:e2e-refused :inbound-payment-status-suspended]}
+        {:command :assert-gl-balance
+         :args [:bank-0 :gl-account-code-suspense "GBP" 2500]}
+        {:command :assert-provider-balances :args [:bank-0]}]}

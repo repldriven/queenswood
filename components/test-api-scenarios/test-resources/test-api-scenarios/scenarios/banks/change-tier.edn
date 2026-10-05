@@ -4,9 +4,7 @@
  :given [{:fixture :bank :as :bank-0 :with {:name "Tier Change Test Org"}}]
  :when
  [{:command :api/request
-   :request {:method :get
-             :path "/v1/bank/policies"
-             :auth [:ref :bank-0 :token]}
+   :request {:method :get :path "/v1/bank/policies" :auth [:ref :bank-0 :token]}
    :assert {:status 200
             :body {:items [:m/embeds [{:name "Micro tier policy"}]]}}}
   {:command :api/request
@@ -20,10 +18,9 @@
                    :tier "test-scenario"}}}]
  :then
  [{:command :api/request
-   :request {:method :get
-             :path "/v1/bank/policies"
-             :auth [:ref :bank-0 :token]}
-   :assert {:status 200
-            :body {:items [:m/all-of
-                           [:m/embeds [{:name "Test-scenario policy"}]]
-                           [:m/seq-of {:name [:m/mismatch "Micro tier policy"]}]]}}}]}
+   :request {:method :get :path "/v1/bank/policies" :auth [:ref :bank-0 :token]}
+   :assert
+   {:status 200
+    :body {:items [:m/all-of
+                   [:m/embeds [{:name "Test-scenario policy"}]]
+                   [:m/seq-of {:name [:m/mismatch "Micro tier policy"]}]]}}}]}

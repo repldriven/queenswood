@@ -55,9 +55,10 @@
                     :interest-rate-bps 250
                     :effective-from "2026-01-01"}}
    :as :product-1
-   :assert {:status 201
-            :body {:product-id [:m/mismatch
-                                [:m/equals [:ref :v1 :product-id]]]
-                   :version-number 1
-                   :status "draft"
-                   :product-type "savings"}}}]}
+   :assert
+   {:status 201
+    :body {:product-id [:m/mismatch
+                        [:m/equals [:ref :v1 :product-id]]]
+           :version-number 1
+           :status "draft"
+           :product-type "savings"}}}]}

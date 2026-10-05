@@ -5,6 +5,7 @@
 ;; on a classpath, so it is free to sit on a different tag from ../mono
 ;; when a release changes only the practices, or only the code. Bump all
 ;; five shims together anyway unless there is a reason not to.
-{:deps {com.repldriven.mono/dev {:git/url "https://github.com/repldriven/mono.git"
-                                 :git/tag "v0.0.51"
-                                 :git/sha "6bdc1ac52bcfb1d589b85e2e99b4531f9ff12099"}}}
+{:deps {com.repldriven.mono/dev
+        {:git/url "https://github.com/repldriven/mono.git"
+         :git/tag "v0.0.51"
+         :git/sha "6bdc1ac52bcfb1d589b85e2e99b4531f9ff12099"}}}

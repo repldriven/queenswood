@@ -4,38 +4,38 @@
  ;; debtor is debited once. The replay says so in its headers: the
  ;; first answer carries no `Idempotent-Replayed`, the second carries
  ;; it set to "true", and this file asserts both.
- :given
- [{:fixture :bank :as :bank-0 :with {:name "Internal Replay Test"}}
-  {:fixture :product :as :current :with {:token [:ref :bank-0 :token]}}
-  {:fixture :person
-   :as :ford
-   :with {:token [:ref :bank-0 :token]
-          :display-name "Ford Prefect"
-          :given-name "Ford"
-          :family-name "Prefect"
-          :date-of-birth "1952-03-11"
-          :national-insurance "TN555201A"}}
-  ;; £1,000 from outside, paid in from the bank's own funds.
-  {:fixture :funded-account
-   :as :debtor
-   :with {:bank-id [:ref :bank-0 :bank :bank-id]
-          :token [:ref :bank-0 :token]
-          :party-id [:ref :ford :party :party-id]
-          :product-id [:ref :current :product :product-id]
-          :name "Ford Current"}}
-  {:fixture :account
-   :as :creditor
-   :with {:token [:ref :bank-0 :token]
-          :party-id [:ref :ford :party :party-id]
-          :product-id [:ref :current :product :product-id]
-          :name "Ford Savings"}}]
+ :given [{:fixture :bank :as :bank-0 :with {:name "Internal Replay Test"}}
+         {:fixture :product :as :current :with {:token [:ref :bank-0 :token]}}
+         {:fixture :person
+          :as :ford
+          :with {:token [:ref :bank-0 :token]
+                 :display-name "Ford Prefect"
+                 :given-name "Ford"
+                 :family-name "Prefect"
+                 :date-of-birth "1952-03-11"
+                 :national-insurance "TN555201A"}}
+         ;; £1,000 from outside, paid in from the bank's own funds.
+         {:fixture :funded-account
+          :as :debtor
+          :with {:bank-id [:ref :bank-0 :bank :bank-id]
+                 :token [:ref :bank-0 :token]
+                 :party-id [:ref :ford :party :party-id]
+                 :product-id [:ref :current :product :product-id]
+                 :name "Ford Current"}}
+         {:fixture :account
+          :as :creditor
+          :with {:token [:ref :bank-0 :token]
+                 :party-id [:ref :ford :party :party-id]
+                 :product-id [:ref :current :product :product-id]
+                 :name "Ford Savings"}}]
  :when
  [{:command :api/request
    :request {:method :post
              :path "/v1/payments/internal"
              :auth [:ref :bank-0 :token]
              :headers {:idempotency-key "ik-internal-replay-payment-001"}
-             :body {:debtor-account-id [:ref :debtor :opened :account :account-id]
+             :body {:debtor-account-id [:ref :debtor :opened :account
+                                        :account-id]
                     :creditor-account-id [:ref :creditor :account :account-id]
                     :currency "GBP"
                     :amount 2500
@@ -50,20 +50,20 @@
              :path "/v1/payments/internal"
              :auth [:ref :bank-0 :token]
              :headers {:idempotency-key "ik-internal-replay-payment-001"}
-             :body {:debtor-account-id [:ref :debtor :opened :account :account-id]
+             :body {:debtor-account-id [:ref :debtor :opened :account
+                                        :account-id]
                     :creditor-account-id [:ref :creditor :account :account-id]
                     :currency "GBP"
                     :amount 2500
                     :reference "First submission"}}
    :assert {:status 201
             :headers {:idempotent-replayed "true"}
-            :body {:payment-id [:ref :payment :payment-id]
-                   :amount 2500}}}]
- :then
- [{:command :api/poll
-   :request {:method :get
-             :path "/v1/cash-accounts/{account-id}/balances"
-             :path-params {:account-id [:ref :debtor :opened :account :account-id]}
-             :auth [:ref :bank-0 :token]}
-   :until {:status 200
-           :body {:available-balance {:value 97500 :currency "GBP"}}}}]}
+            :body {:payment-id [:ref :payment :payment-id] :amount 2500}}}]
+ :then [{:command :api/poll
+         :request {:method :get
+                   :path "/v1/cash-accounts/{account-id}/balances"
+                   :path-params
+                   {:account-id [:ref :debtor :opened :account :account-id]}
+                   :auth [:ref :bank-0 :token]}
+         :until {:status 200
+                 :body {:available-balance {:value 97500 :currency "GBP"}}}}]}

@@ -1,4 +1,5 @@
-{:name "A removed person is refused on their next call, and re-invited joins anew"
+{:name
+ "A removed person is refused on their next call, and re-invited joins anew"
  ;; The member's token is minted once and outlives the removal: the
  ;; memberships are read on every request, so the same bearer is
  ;; refused the moment the membership ends.
@@ -29,7 +30,8 @@
   {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/accept"
-             :path-params {:invitation-id [:ref :bank :owner-invitation :invitation-id]}
+             :path-params {:invitation-id [:ref :bank :owner-invitation
+                                           :invitation-id]}
              :auth :owner-token}
    :as :owner-membership
    :assert {:status 201}}
@@ -88,26 +90,28 @@
              :path "/v1/memberships"
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}}
-   :assert {:status 200
-            :body {:items [{:membership-id [:ref :owner-membership
-                                            :membership-id]
-                            :role "owner"}]}}}
+   :assert
+   {:status 200
+    :body {:items [{:membership-id [:ref :owner-membership
+                                    :membership-id]
+                    :role "owner"}]}}}
   {:command :api/request
    :request {:method :get
              :path "/v1/bank/audit-events"
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}
              :query-params {"page[size]" 1}}
-   :assert {:status 200
-            :body {:items [{:kind "member-removed"
-                            :actor {:kind "member"
-                                    :principal-id
-                                    [:ref :owner-membership :user-id]}
-                            :subject-user-id [:ref :first-membership :user-id]
-                            :membership-id [:ref :first-membership
-                                            :membership-id]
-                            :role-before "developer"
-                            :reason "Left the company"}]}}}
+   :assert
+   {:status 200
+    :body {:items
+           [{:kind "member-removed"
+             :actor
+             {:kind "member" :principal-id [:ref :owner-membership :user-id]}
+             :subject-user-id [:ref :first-membership :user-id]
+             :membership-id [:ref :first-membership
+                             :membership-id]
+             :role-before "developer"
+             :reason "Left the company"}]}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/invitations"
@@ -119,7 +123,8 @@
   {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/accept"
-             :path-params {:invitation-id [:ref :second-invitation :invitation-id]}
+             :path-params {:invitation-id [:ref :second-invitation
+                                           :invitation-id]}
              :auth :member-token}
    :as :second-membership
    :assert {:status 201
@@ -127,10 +132,9 @@
                                    [:ref :first-membership :membership-id]]
                    :user-id [:ref :first-membership :user-id]
                    :role "viewer"}}}]
- :then
- [{:command :api/request
-   :request {:method :get
-             :path "/v1/cash-accounts"
-             :auth :member-token
-             :headers {:bank-id [:ref :bank :bank-id]}}
-   :assert {:status 200}}]}
+ :then [{:command :api/request
+         :request {:method :get
+                   :path "/v1/cash-accounts"
+                   :auth :member-token
+                   :headers {:bank-id [:ref :bank :bank-id]}}
+         :assert {:status 200}}]}

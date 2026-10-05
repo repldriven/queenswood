@@ -1,8 +1,7 @@
 {:name "A periodicity the job's tasks disallow is rejected"
- :given
- [{:fixture :bank
-   :as :org-0
-   :with {:name "Schedule Reject Test Org" :status "live"}}]
+ :given [{:fixture :bank
+          :as :org-0
+          :with {:name "Schedule Reject Test Org" :status "live"}}]
  :when
  ;; daily-interest carries accrue (daily-only), so its allowed set is
  ;; daily — switching it to monthly is rejected.

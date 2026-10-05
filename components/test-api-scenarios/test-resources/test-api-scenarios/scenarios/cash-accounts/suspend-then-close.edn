@@ -1,28 +1,28 @@
 {:name "A suspended cash account closes without being resumed first"
- :given
- [{:fixture :bank
-   :as :org-0
-   :with {:name "Suspend Then Close Test Org" :status "live"}}
-  {:fixture :person
-   :as :party-0
-   :with {:token [:ref :org-0 :token]
-          :display-name "Suspended Closer"
-          :given-name "Suspended"
-          :family-name "Closer"
-          :national-insurance "TN889005A"}}
-  {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}
-  {:fixture :account
-   :as :account-0
-   :with {:token [:ref :org-0 :token]
-          :party-id [:ref :party-0 :party :party-id]
-          :product-id [:ref :draft :product :product-id]
-          :name "To Be Suspended Then Closed"}}
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/cash-accounts/{account-id}/suspend"
-             :path-params {:account-id [:ref :account-0 :account :account-id]}
-             :auth [:ref :org-0 :token]}
-   :assert {:status 200}}]
+ :given [{:fixture :bank
+          :as :org-0
+          :with {:name "Suspend Then Close Test Org" :status "live"}}
+         {:fixture :person
+          :as :party-0
+          :with {:token [:ref :org-0 :token]
+                 :display-name "Suspended Closer"
+                 :given-name "Suspended"
+                 :family-name "Closer"
+                 :national-insurance "TN889005A"}}
+         {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}
+         {:fixture :account
+          :as :account-0
+          :with {:token [:ref :org-0 :token]
+                 :party-id [:ref :party-0 :party :party-id]
+                 :product-id [:ref :draft :product :product-id]
+                 :name "To Be Suspended Then Closed"}}
+         {:command :api/request
+          :request {:method :post
+                    :path "/v1/cash-accounts/{account-id}/suspend"
+                    :path-params
+                    {:account-id [:ref :account-0 :account :account-id]}
+                    :auth [:ref :org-0 :token]}
+          :assert {:status 200}}]
  :when
  [{:command :api/request
    :request {:method :post

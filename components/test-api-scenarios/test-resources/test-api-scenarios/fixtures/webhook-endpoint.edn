@@ -3,12 +3,12 @@
   calls, for a kind the bank never emits, so nothing is sent to it."
  :required #{:token}
  :params {:address "https://93.184.216.34/hooks"}
- :steps
- [{:command :api/request
-   :request {:method :post
-             :path "/v1/webhook-endpoints"
-             :auth [:param :token]
-             :body {:address [:param :address]
-                    :kinds ["payment.outbound-completed"]}}
-   :as :registered
-   :assert {:status 201}}]}
+ :steps [{:command :api/request
+          :request
+          {:method :post
+           :path "/v1/webhook-endpoints"
+           :auth [:param :token]
+           :body
+           {:address [:param :address] :kinds ["payment.outbound-completed"]}}
+          :as :registered
+          :assert {:status 201}}]}

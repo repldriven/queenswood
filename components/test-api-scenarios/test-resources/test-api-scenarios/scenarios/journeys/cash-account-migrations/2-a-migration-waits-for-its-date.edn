@@ -1,6 +1,8 @@
 {:name "An approved migration moves nobody before its date"
  :given
- [{:fixture :bank :as :bank-0 :with {:name "Waiting Migration Journey" :status "live"}}
+ [{:fixture :bank
+   :as :bank-0
+   :with {:name "Waiting Migration Journey" :status "live"}}
   {:fixture :person :as :arthur :with {:token [:ref :bank-0 :token]}}
   {:fixture :product
    :as :v1
@@ -64,16 +66,16 @@
                    :tasks [{:label "migrate"
                             :status "succeeded"
                             :records-processed 0}]}}}]
- :then
- [{:command :api/request
-   :request {:method :get
-             :path "/v1/cash-account-migrations/{migration-id}"
-             :path-params {:migration-id [:ref :migration :migration-id]}
-             :auth [:ref :bank-0 :token]}
-   :assert {:status 200 :body {:status "approved" :due-on "2099-01-01"}}}
-  {:command :api/request
-   :request {:method :get
-             :path "/v1/cash-accounts/{account-id}"
-             :path-params {:account-id [:ref :saver :account :account-id]}
-             :auth [:ref :bank-0 :token]}
-   :assert {:status 200 :body {:version-id [:ref :v1 :product :version-id]}}}]}
+ :then [{:command :api/request
+         :request {:method :get
+                   :path "/v1/cash-account-migrations/{migration-id}"
+                   :path-params {:migration-id [:ref :migration :migration-id]}
+                   :auth [:ref :bank-0 :token]}
+         :assert {:status 200 :body {:status "approved" :due-on "2099-01-01"}}}
+        {:command :api/request
+         :request {:method :get
+                   :path "/v1/cash-accounts/{account-id}"
+                   :path-params {:account-id [:ref :saver :account :account-id]}
+                   :auth [:ref :bank-0 :token]}
+         :assert {:status 200
+                  :body {:version-id [:ref :v1 :product :version-id]}}}]}

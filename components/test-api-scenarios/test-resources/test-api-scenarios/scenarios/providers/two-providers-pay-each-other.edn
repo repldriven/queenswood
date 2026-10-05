@@ -45,7 +45,8 @@
              :body {:party-id [:ref :per-account-party :party :party-id]
                     :name "Current"
                     :currency "GBP"
-                    :product-id [:ref :per-account-product :product :product-id]}}
+                    :product-id [:ref :per-account-product :product
+                                 :product-id]}}
    :as :per-account-account
    :assert {:status 201}}
   {:command :api/poll
@@ -211,17 +212,17 @@
   ;; payments on it, and none of the second bank's.
   {:command :api/request
    :request {:method :get :path "/simulate/balances" :base :payment-simulator}
-   :assert {:status 200
-            :body {:accounts
-                   [:m/all-of
-                    [:m/embeds
-                     [{:balance "968.00"
-                       :identifiers
-                       [{:accountNumber [:ref :per-account-account
-                                         :payment-addresses 0 :scan
-                                         :account-number]}]}]]
-                    [:m/mismatch
-                     [:m/embeds
-                      [{:identifiers
-                        [{:sortCode [:ref :rails-account :payment-addresses 0
-                                     :scan :sort-code]}]}]]]]}}}]}
+   :assert
+   {:status 200
+    :body
+    {:accounts
+     [:m/all-of
+      [:m/embeds
+       [{:balance "968.00"
+         :identifiers [{:accountNumber [:ref :per-account-account
+                                        :payment-addresses 0 :scan
+                                        :account-number]}]}]]
+      [:m/mismatch
+       [:m/embeds
+        [{:identifiers [{:sortCode [:ref :rails-account :payment-addresses 0
+                                    :scan :sort-code]}]}]]]]}}}]}

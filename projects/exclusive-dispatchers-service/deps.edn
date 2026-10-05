@@ -1,9 +1,9 @@
 {:aliases
  {:build {:deps {ext/mono-build {:local/root "../../deps/mono-build"}}
-          :exec-args
-          {:lib 'com.repldriven.queenswood/exclusive-dispatchers-service
-           :main com.repldriven.queenswood.exclusive-dispatchers.main
-           :major-minor-version "0.0"}
+          :exec-args {:lib
+                      'com.repldriven.queenswood/exclusive-dispatchers-service
+                      :main com.repldriven.queenswood.exclusive-dispatchers.main
+                      :major-minor-version "0.0"}
           :ns-default com.repldriven.mono.build.build}
   ;; The external test runner (cloverage + eftest) plus the components
   ;; the included bricks' tests require. CI runs every project through
@@ -25,8 +25,8 @@
   component/balance-query {:local/root "../../components/balance-query"}
   component/bank-query {:local/root "../../components/bank-query"}
   component/cash-account {:local/root "../../components/cash-account"}
-  component/cash-account-migration
-  {:local/root "../../components/cash-account-migration"}
+  component/cash-account-migration {:local/root
+                                    "../../components/cash-account-migration"}
   component/cash-account-query {:local/root
                                 "../../components/cash-account-query"}
   component/cash-account-product-query

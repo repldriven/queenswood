@@ -38,8 +38,7 @@
              :path "/v1/simulate/inbound-transfer"
              :auth :admin
              :headers {:bank-id [:ref :bank-a :bank :bank-id]}
-             :body {:amount 100000
-                    :currency "GBP"}}
+             :body {:amount 100000 :currency "GBP"}}
    :as :funded-1
    :assert {:status 200}}
   ;; The money reaches the customer from the bank's own funds.
@@ -104,12 +103,13 @@
              :path "/v1/payments/inbound"
              :query-params {"status" "suspended"}
              :auth [:ref :bank-a :token]}
-   :until {:status 200
-           :body {:items [{:bank-id [:ref :bank-a :bank :bank-id]
-                           :amount 2500
-                           :currency "GBP"
-                           :payment-status "suspended"
-                           :scheme-transaction-id [:m/non-empty]}]}}
+   :until
+   {:status 200
+    :body {:items [{:bank-id [:ref :bank-a :bank :bank-id]
+                    :amount 2500
+                    :currency "GBP"
+                    :payment-status "suspended"
+                    :scheme-transaction-id [:m/non-empty]}]}}
    :timeout-ms 10000
    :as :suspended}
   {:command :api/request
@@ -120,8 +120,8 @@
    :assert {:status 200
             :body {:payment-id [:ref :suspended :items 0 :payment-id]
                    :bank-id [:ref :bank-a :bank :bank-id]
-                   :scheme-transaction-id
-                   [:ref :suspended :items 0 :scheme-transaction-id]
+                   :scheme-transaction-id [:ref :suspended :items 0
+                                           :scheme-transaction-id]
                    :amount 2500
                    :payment-status "suspended"}}}
   ;; Bank B cannot read it, and lists no suspended inbound of its own.
@@ -131,10 +131,11 @@
              :path-params {:payment-id [:ref :suspended :items 0 :payment-id]}
              :auth [:ref :bank-b :token]}
    :assert {:status 404
-            :body [:m/equals {:title "REJECTED"
-                              :type ":payment/not-found"
-                              :status 404
-                              :detail "Payment not found"}]}}
+            :body [:m/equals
+                   {:title "REJECTED"
+                    :type ":payment/not-found"
+                    :status 404
+                    :detail "Payment not found"}]}}
   {:command :api/request
    :request {:method :get
              :path "/v1/payments/inbound"

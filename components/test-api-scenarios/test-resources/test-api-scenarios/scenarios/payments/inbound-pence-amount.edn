@@ -59,13 +59,12 @@
                     :reference "Pence amount"
                     :debtor-name "Pence Sender"}}
    :assert {:status 202}}]
- :then
- [{:command :api/poll
-   :request {:method :get
-             :path "/v1/cash-accounts/{account-id}/balances"
-             :path-params {:account-id [:ref :creditor :account-id]}
-             :auth [:ref :bank-0 :token]}
-   :until {:status 200
-           :body {:posted-balance {:value 29 :currency "GBP"}
-                  :available-balance {:value 29 :currency "GBP"}}}
-   :timeout-ms 10000}]}
+ :then [{:command :api/poll
+         :request {:method :get
+                   :path "/v1/cash-accounts/{account-id}/balances"
+                   :path-params {:account-id [:ref :creditor :account-id]}
+                   :auth [:ref :bank-0 :token]}
+         :until {:status 200
+                 :body {:posted-balance {:value 29 :currency "GBP"}
+                        :available-balance {:value 29 :currency "GBP"}}}
+         :timeout-ms 10000}]}

@@ -11,38 +11,38 @@
                     :currencies ["EUR" "GBP" "USD"]
                     :owner-email "onboarding-owner@queenswood.local"}}
    :as :bank
-   :assert {:status 201
-            :body {:bank-id [:m/regex "^bnk\\."]
-                   :name "Onboarding Journey Bank"
-                   :status "live"
-                   :tier "micro"
-                   :client-id [:m/regex "^bnk\\."]
-                   :client-secret [:m/non-empty]
-                   :party {:party-id [:m/regex "^pty\\."]
-                           :type "organization"
-                           :display-name "Onboarding Journey Bank"}
-                   ;; One own-funds account per currency, held by the
-                   ;; bank's own party.
-                   :accounts
-                   [:m/in-any-order
-                    [{:currency "EUR"
-                      :name "Bank own funds"
-                      :product-type "own-funds"
-                      :party-id [:ref :bank :party :party-id]
-                      :balances [:m/non-empty]}
-                     {:currency "GBP"
-                      :name "Bank own funds"
-                      :product-type "own-funds"
-                      :party-id [:ref :bank :party :party-id]
-                      :balances [:m/non-empty]}
-                     {:currency "USD"
-                      :name "Bank own funds"
-                      :product-type "own-funds"
-                      :party-id [:ref :bank :party :party-id]
-                      :balances [:m/non-empty]}]]
-                   :owner-invitation {:email "onboarding-owner@queenswood.local"
-                                      :role "owner"
-                                      :status "pending"}}}}
+   :assert
+   {:status 201
+    :body
+    {:bank-id [:m/regex "^bnk\\."]
+     :name "Onboarding Journey Bank"
+     :status "live"
+     :tier "micro"
+     :client-id [:m/regex "^bnk\\."]
+     :client-secret [:m/non-empty]
+     :party {:party-id [:m/regex "^pty\\."]
+             :type "organization"
+             :display-name "Onboarding Journey Bank"}
+     ;; One own-funds account per currency, held by the bank's own party.
+     :accounts [:m/in-any-order
+                [{:currency "EUR"
+                  :name "Bank own funds"
+                  :product-type "own-funds"
+                  :party-id [:ref :bank :party :party-id]
+                  :balances [:m/non-empty]}
+                 {:currency "GBP"
+                  :name "Bank own funds"
+                  :product-type "own-funds"
+                  :party-id [:ref :bank :party :party-id]
+                  :balances [:m/non-empty]}
+                 {:currency "USD"
+                  :name "Bank own funds"
+                  :product-type "own-funds"
+                  :party-id [:ref :bank :party :party-id]
+                  :balances [:m/non-empty]}]]
+     :owner-invitation {:email "onboarding-owner@queenswood.local"
+                        :role "owner"
+                        :status "pending"}}}}
   ;; The operator hands the credential over, and the customer's system
   ;; exchanges it for a token.
   {:command :auth/mint-token

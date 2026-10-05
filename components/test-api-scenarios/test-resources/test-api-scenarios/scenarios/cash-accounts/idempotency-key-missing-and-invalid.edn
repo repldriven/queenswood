@@ -4,10 +4,9 @@
  ;; collide two requests by accident. Both refusals are 400s, and they
  ;; are distinct types so a client can tell "you forgot it" from "that
  ;; will not do".
- :given
- [{:fixture :bank
-   :as :bank-0
-   :with {:name "Key Refusals Test Org" :status "live"}}]
+ :given [{:fixture :bank
+          :as :bank-0
+          :with {:name "Key Refusals Test Org" :status "live"}}]
  :when
  ;; No header at all, and none generated for it.
  [{:command :api/request

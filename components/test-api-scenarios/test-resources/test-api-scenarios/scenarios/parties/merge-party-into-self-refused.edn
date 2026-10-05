@@ -1,15 +1,14 @@
 {:name "Merging a party into itself is rejected"
- :given
- [{:fixture :bank
-   :as :org-0
-   :with {:name "Merge Into Self Test Org" :status "live"}}
-  {:fixture :person
-   :as :party-0
-   :with {:token [:ref :org-0 :token]
-          :display-name "Self Merging Customer"
-          :given-name "Self"
-          :family-name "Merging"
-          :national-insurance "TN888010A"}}]
+ :given [{:fixture :bank
+          :as :org-0
+          :with {:name "Merge Into Self Test Org" :status "live"}}
+         {:fixture :person
+          :as :party-0
+          :with {:token [:ref :org-0 :token]
+                 :display-name "Self Merging Customer"
+                 :given-name "Self"
+                 :family-name "Merging"
+                 :national-insurance "TN888010A"}}]
  :when [{:command :api/request
          :request {:method :post
                    :path "/v1/parties/{party-id}/merge"

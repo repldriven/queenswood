@@ -1,8 +1,7 @@
 {:name "A system job's cadence is locked; only its time is editable"
- :given
- [{:fixture :bank
-   :as :org-0
-   :with {:name "System Job Test Bank" :status "live"}}]
+ :given [{:fixture :bank
+          :as :org-0
+          :with {:name "System Job Test Bank" :status "live"}}]
  :when
  ;; Editing the time of day on the seeded system account-migration job
  ;; is allowed and keeps its daily cadence.

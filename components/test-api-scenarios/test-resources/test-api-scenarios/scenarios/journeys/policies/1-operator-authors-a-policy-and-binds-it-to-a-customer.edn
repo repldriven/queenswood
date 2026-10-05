@@ -1,5 +1,6 @@
 {:name "The operator authors a policy and binds it to a bank"
- :unbuilt "No route creates a policy or binds one; a tier's policies come from configuration."
+ :unbuilt
+ "No route creates a policy or binds one; a tier's policies come from configuration."
  :given [{:fixture :bank :as :bank-0 :with {:name "Policy Authoring Journey"}}]
  :when
  [{:command :api/request
@@ -23,8 +24,6 @@
    :assert {:status 201}}]
  :then
  [{:command :api/request
-   :request {:method :get
-             :path "/v1/bank/policies"
-             :auth [:ref :bank-0 :token]}
+   :request {:method :get :path "/v1/bank/policies" :auth [:ref :bank-0 :token]}
    :assert {:status 200
             :body {:items [:m/embeds [{:name "No business accounts"}]]}}}]}

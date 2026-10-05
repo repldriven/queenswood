@@ -1,4 +1,5 @@
-{:name "Creating a bank with an owner twice under one key replays the invitation"
+{:name
+ "Creating a bank with an owner twice under one key replays the invitation"
  ;; Bank creation is the admin's, and the admin principal is shared, so
  ;; the cache is scoped by the key rather than by the caller. The replay
  ;; carries the bank, its credential and the owner invitation. Neither
@@ -38,8 +39,9 @@
             :body {:bank-id [:ref :bank-0 :bank-id]
                    :client-id [:ref :bank-0 :client-id]
                    :client-secret [:ref :bank-0 :client-secret]
-                   :owner-invitation
-                   {:invitation-id [:ref :bank-0 :owner-invitation :invitation-id]
-                    :email "replayed-owner@example.test"
-                    :role "owner"
-                    :token [:m/absent]}}}}]}
+                   :owner-invitation {:invitation-id [:ref :bank-0
+                                                      :owner-invitation
+                                                      :invitation-id]
+                                      :email "replayed-owner@example.test"
+                                      :role "owner"
+                                      :token [:m/absent]}}}}]}

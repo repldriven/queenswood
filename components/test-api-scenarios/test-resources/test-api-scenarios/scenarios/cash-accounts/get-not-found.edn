@@ -1,13 +1,12 @@
 {:name "Reading a cash account the bank does not hold returns 404"
  :given [{:fixture :bank :as :org-0 :with {:name "Missing Account Org"}}]
- :when
- [{:command :api/request
-   :request {:method :get
-             :path "/v1/cash-accounts/{account-id}"
-             :path-params {:account-id "acc.00000000000000000000000000"}
-             :auth [:ref :org-0 :token]}
-   :assert {:status 404
-            :problem {:type ":cash-account/not-found"
-                      :title "REJECTED"
-                      :status 404
-                      :detail "Account not found"}}}]}
+ :when [{:command :api/request
+         :request {:method :get
+                   :path "/v1/cash-accounts/{account-id}"
+                   :path-params {:account-id "acc.00000000000000000000000000"}
+                   :auth [:ref :org-0 :token]}
+         :assert {:status 404
+                  :problem {:type ":cash-account/not-found"
+                            :title "REJECTED"
+                            :status 404
+                            :detail "Account not found"}}}]}
