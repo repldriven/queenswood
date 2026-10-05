@@ -159,7 +159,9 @@ function createProduct(bearer) {
   return product["product-id"];
 }
 
-function createParties(n, bearer) {
+// `n` person parties, each verified at the simulator until it is active,
+// returning their ids.
+export function createParties(n, bearer) {
   const people = Array.from({ length: n }, (_, i) => ({
     type: "person",
     "display-name": `Perf Person ${i}`,

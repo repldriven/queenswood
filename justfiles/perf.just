@@ -3,7 +3,7 @@
 
 PERF_NAMESPACE := "queenswood"
 
-# Run one scenario in the cluster and write its summary to target/perf. scenario: a script under perf/ (internal, outbound, inbound, mixed or parties); profile: smoke, challenger or knee, as the scenario defines them (smoke); rate, duration, accounts: overrides, the profile's when empty; from: the lowest step rate kept, every step when empty.
+# Run one scenario in the cluster and write its summary to target/perf. scenario: a script under perf/ (internal, outbound, inbound, mixed, parties or accounts); profile: smoke, challenger or knee, as the scenario defines them (smoke); rate, duration, accounts: overrides, the profile's when empty; from: the lowest step rate kept, every step when empty.
 perf-run scenario="internal" profile="smoke" rate="" duration="" accounts="" from="":
     #!/usr/bin/env zsh
     set -euo pipefail
