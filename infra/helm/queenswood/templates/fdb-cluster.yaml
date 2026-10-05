@@ -10,6 +10,9 @@ spec:
   databaseConfiguration:
     storage_engine: {{ .Values.fdb.storageEngine | quote }}
     redundancy_mode: single
+    {{- with .Values.fdb.databaseConfiguration }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
   processCounts:
     {{- toYaml .Values.fdb.processCounts | nindent 4 }}
   processes:

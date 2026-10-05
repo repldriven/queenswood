@@ -323,8 +323,11 @@ run at the next:
    80 asked, with a p99 of 92 ms, and 103 to 109 a second at 160 and 320
    asked, where requests wait seconds and ceiling 2 takes over. On four
    partitions and four replicas the API accepts about 142 a second at
-   160 and 320 asked, where the processors are no longer what holds it:
-   at about 17 ms a command four could take 235.
+   160 and 320 asked: a command took 25 ms rather than 16 as every FDB
+   step slowed by half together, on kind's one storage process. With FDB
+   a process per role, a command takes 21.8 ms at 161 a second, all 160
+   asked is accepted, and about 166 at 320, where the four replicas are
+   88% busy and this ceiling is theirs again.
 2. **Overload restarts the API.** Done. A request waited on its command
    until the dispatcher's 10-second timeout, holding one of Jetty's 50
    threads, so past the knee the pool filled, the liveness probe queued
@@ -544,12 +547,17 @@ holds it, and the run repeated.
 
 ## Known Limitations
 
-- **Kind figures are not published.** k6 shares Colima's CPUs with what
-  it measures, against one FDB storage process and one Kafka broker.
-  [values-local.yaml](/infra/helm/queenswood/values-local.yaml) gives
-  FDB a 2Gi limit with `cache_memory` and `memory` below it, since its
-  defaults outgrow the chart's 1Gi under a sustained run and the kernel
-  kills the storage server.
+- **Kind figures are not published.** k6 shares Colima's 12 CPUs with
+  what it measures, against one Kafka broker.
+  [values-local.yaml](/infra/helm/queenswood/values-local.yaml) runs
+  FDB as a process per role — three storage, two logs, and six
+  stateless for two commit proxies, a GRV proxy, a resolver, the master
+  and the ratekeeper — each with a 2Gi limit and `cache_memory` and
+  `memory` below it, since its defaults outgrow the chart's 1Gi under a
+  sustained run and the kernel kills the storage server. A deployed
+  instance runs the chart's default of one storage process and one log
+  with no stateless processes of their own, the layout kind ran until
+  its knee showed every FDB step slowing together.
 - **The platform cap ends a long run.** 100,000 payments of a kind in a
   business day is refused with 429, which 50 a second reaches in 33
   minutes; the cap is raised when a run nears it.
@@ -573,9 +581,9 @@ holds it, and the run repeated.
   few commands in six 20-second windows took 1.2 to 2.3 s while the
   average stayed near 20 ms, and the API's own FDB transactions slowed
   in the same windows, so the cluster rather than a conflict paused.
-  Kind runs one FDB storage process, which also holds the commit proxy,
-  the master and the ratekeeper, on Colima's disk beside k6 and every
-  JVM.
+  Kind then ran one FDB storage process, which also held the commit
+  proxy, the master and the ratekeeper, on Colima's disk beside k6 and
+  every JVM.
 - **The financial processors' replicas are not evenly loaded.** Every
   other topic their consumers read has one partition, so one replica
   takes all of them beside its half of the payment commands.
