@@ -136,7 +136,7 @@
                txn
                bank-id
                (domain/opening-balances account currency product-version)
-               {:policies policies})
+               {:policies (policy/platform-policies policies)})
             _ (store/save-account txn
                                   account
                                   {:account-id (:account-id account)
