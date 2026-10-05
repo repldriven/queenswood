@@ -68,13 +68,7 @@
 
 (defn- load-account-balances
   [txn bank-id legs]
-  (reduce (fn [acc account-id]
-            (let [result (q/list-balances txn bank-id account-id)]
-              (if (error/anomaly? result)
-                (reduced result)
-                (assoc acc account-id result))))
-          {}
-          (distinct (map :account-id legs))))
+  (q/list-balances-of txn bank-id (vec (distinct (map :account-id legs)))))
 
 (defn apply-legs
   ([txn bank-id legs transaction-type]
@@ -96,10 +90,4 @@
                                     transaction-type
                                     policies)]
         (telemetry/with-span ["balance-save"]
-                             (reduce (fn [_ balance]
-                                       (let [result
-                                             (store/save-balance txn balance)]
-                                         (when (error/anomaly? result)
-                                           (reduced result))))
-                                     nil
-                                     changed)))))))
+                             (store/save-balances txn changed)))))))

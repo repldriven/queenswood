@@ -125,31 +125,47 @@
             []
             pairs)))
 
+(defn- find-by-codes
+  [txn bank-id codes currency]
+  (let-nom>
+    [found (if (seq codes)
+             (store/find-by-codes txn bank-id codes currency)
+             {})]
+    (reduce (fn [acc code]
+              (let [account (if-some [account (get found code)]
+                              (domain/ensure-open account)
+                              (domain/missing-currency-account bank-id
+                                                               code
+                                                               currency))]
+                (if (error/anomaly? account)
+                  (reduced account)
+                  (conj acc account))))
+            []
+            codes)))
+
 (defn ensure-controls
   [txn bank-id currency legs]
   (let-nom>
-    [_ (reduce (fn [_ code]
-                 (let [control (find-by-code txn bank-id code currency)]
-                   (when (error/anomaly? control) (reduced control))))
-               nil
-               (into #{}
-                     (comp (filter domain/fans-out?)
-                           (keep (fn [leg]
-                                   (domain/product-type->control-code
-                                    (:product-type leg)))))
-                     legs))]
+    [_ (find-by-codes txn
+                      bank-id
+                      (vec (into #{}
+                                 (comp (filter domain/fans-out?)
+                                       (keep
+                                        (fn [leg]
+                                          (domain/product-type->control-code
+                                           (:product-type leg)))))
+                                 legs))
+                      currency)]
     legs))
 
 (defn stored-legs
   [txn bank-id currency legs]
   (let-nom>
-    [ids (reduce (fn [ids code]
-                   (let [account (find-by-code txn bank-id code currency)]
-                     (if (error/anomaly? account)
-                       (reduced account)
-                       (conj ids (:ledger-account-id account)))))
-                 #{}
-                 (keep (fn [[code spec]]
-                         (when (domain/posted-to? spec) code))
-                       domain/derived))]
+    [accounts (find-by-codes txn
+                             bank-id
+                             (vec (keep (fn [[code spec]]
+                                          (when (domain/posted-to? spec) code))
+                                        domain/derived))
+                             currency)
+     ids (set (map :ledger-account-id accounts))]
     (into [] (remove (fn [leg] (contains? ids (:account-id leg)))) legs)))

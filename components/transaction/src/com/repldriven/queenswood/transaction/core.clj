@@ -22,8 +22,7 @@
                          legs)]
          (let-nom>
            [_ (domain/validate-legs legs)
-            _ (store/save-transaction txn transaction)
-            _ (store/save-legs txn legs')
+            _ (store/save-transaction-and-legs txn transaction legs')
             _ (bank-activity/record txn
                                     {:bank-id (:bank-id transaction)
                                      :event-name "transaction-posted"

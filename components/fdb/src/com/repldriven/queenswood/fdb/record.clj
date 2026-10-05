@@ -14,7 +14,7 @@
     (com.apple.foundationdb.record.query.expressions Query)
     (com.apple.foundationdb.record.util ProtoUtils$DynamicEnum)
     (com.apple.foundationdb.tuple Tuple)
-    (com.google.protobuf MessageLite)))
+    (com.google.protobuf Message MessageLite)))
 
 (defn- record->bytes
   [r]
@@ -46,6 +46,26 @@
   [store ^MessageLite record]
   (.saveRecord store record)
   nil)
+
+(defn- primary-key
+  [store ^Message record]
+  (-> (.getRecordMetaData store)
+      (.getRecordTypeForDescriptor (.getDescriptorForType record))
+      .getPrimaryKey
+      (.evaluateMessageSingleton nil record)
+      .toTuple))
+
+;; A save reads the record it replaces. Preloading every record first
+;; issues those reads together, and each save then finds its record in
+;; the store's preload cache.
+(defn save-many
+  [store-records]
+  (let [futures (mapv (fn [[store record]]
+                        (.preloadRecordAsync store (primary-key store record)))
+                      store-records)]
+    (run! (fn [^java.util.concurrent.CompletableFuture f] (.join f)) futures)
+    (run! (fn [[store record]] (save store record)) store-records)
+    nil))
 
 (defn delete
   [store & primary-key-parts]
@@ -167,6 +187,27 @@
            first
            record->bytes)))
 
+(defn query-one-compound-many
+  [store record-type filters-list opts]
+  (let [props (-> (ExecuteProperties/newBuilder)
+                  (.setReturnedRowLimit 1)
+                  .build)
+        futures (mapv (fn [filters]
+                        (.asList (.executeQuery store
+                                                (and-query record-type
+                                                           filters
+                                                           opts)
+                                                nil
+                                                props)))
+                      filters-list)]
+    (mapv (fn [f]
+            (some-> (.asyncToSync (.getContext store)
+                                  FDBStoreTimer$Waits/WAIT_EXECUTE_QUERY
+                                  f)
+                    first
+                    record->bytes))
+          futures)))
+
 (defn query-by-map-entry
   ([store record-type map-field map-key map-value]
    (query-by-map-entry store record-type map-field map-key map-value nil))
@@ -179,25 +220,47 @@
                                          map-value
                                          opts)))))
 
-(defn- aggregate-records
-  [store index-type index-name key
-   {:keys [isolation] :or {isolation :serializable}}]
+(def ^:private aggregate-types {:count IndexTypes/COUNT :sum IndexTypes/SUM})
+
+(defn- aggregate-future
+  [store index-type index-name key isolation]
   (let [index (.getIndex (.getRecordMetaData store) index-name)
         agg-fn (IndexAggregateFunction. index-type
                                         (.getRootExpression index)
-                                        index-name)
-        result (.asyncToSync
-                (.getContext store)
-                FDBStoreTimer$Waits/WAIT_SCAN_INDEX_RECORDS
-                (.evaluateAggregateFunction
-                 store
-                 (java.util.Collections/emptyList)
-                 agg-fn
-                 (TupleRange/allOf (->tuple key))
-                 (if (= :snapshot isolation)
-                   com.apple.foundationdb.record.IsolationLevel/SNAPSHOT
-                   com.apple.foundationdb.record.IsolationLevel/SERIALIZABLE)))]
+                                        index-name)]
+    (.evaluateAggregateFunction
+     store
+     (java.util.Collections/emptyList)
+     agg-fn
+     (TupleRange/allOf (->tuple key))
+     (if (= :snapshot isolation)
+       com.apple.foundationdb.record.IsolationLevel/SNAPSHOT
+       com.apple.foundationdb.record.IsolationLevel/SERIALIZABLE))))
+
+(defn- aggregate-value
+  [store future]
+  (let [result (.asyncToSync (.getContext store)
+                             FDBStoreTimer$Waits/WAIT_SCAN_INDEX_RECORDS
+                             future)]
     (if (nil? result) 0 (.getLong result 0))))
+
+(defn- aggregate-records
+  [store index-type index-name key
+   {:keys [isolation] :or {isolation :serializable}}]
+  (aggregate-value
+   store
+   (aggregate-future store index-type index-name key isolation)))
+
+(defn aggregate-many
+  [store aggregates {:keys [isolation] :or {isolation :serializable}}]
+  (let [futures (mapv (fn [[aggregate index-name key]]
+                        (aggregate-future store
+                                          (aggregate-types aggregate)
+                                          index-name
+                                          key
+                                          isolation))
+                      aggregates)]
+    (mapv (fn [f] (aggregate-value store f)) futures)))
 
 (defn count-groups
   [store index-name prefix]

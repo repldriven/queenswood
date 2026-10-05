@@ -138,3 +138,25 @@
   [store opts]
   (let [{:keys [entries before after]} (scan-entries store opts)]
     {:records (mapv :record entries) :before before :after after}))
+
+(defn scan-prefixes
+  [store prefixes limit]
+  (let [scan-props (ScanProperties. (-> (ExecuteProperties/newBuilder)
+                                        (.setReturnedRowLimit limit)
+                                        .build))
+        futures (mapv (fn [prefix]
+                        (.asList (.scanRecords store
+                                               ^TupleRange
+                                               (prefix-range
+                                                (Tuple/from (into-array
+                                                             Object
+                                                             prefix)))
+                                               nil
+                                               ^ScanProperties scan-props)))
+                      prefixes)]
+    (mapv (fn [f]
+            (mapv record->bytes
+                  (.asyncToSync (.getContext store)
+                                FDBStoreTimer$Waits/WAIT_SCAN_RECORDS
+                                f)))
+          futures)))

@@ -31,6 +31,19 @@
   ([txn bank-id account-id opts]
    (core/get-account txn bank-id account-id opts)))
 
+(defn get-accounts-by-id
+  "Load several cash accounts by id in one round trip, unenriched.
+  Returns a vector of account maps in the order of `account-ids`, or a
+  `:cash-account/not-found` rejection anomaly for the first id with no
+  account.
+
+  Args:
+  - txn: FDB transaction or db handle.
+  - bank-id: owning bank id.
+  - account-ids: account ids."
+  [txn bank-id account-ids]
+  (core/get-accounts-by-id txn bank-id account-ids))
+
 (defn get-accounts
   "List cash accounts for a bank. Returns
   `{:accounts [...] :before id|nil :after id|nil}` or an anomaly.

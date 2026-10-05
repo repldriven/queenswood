@@ -57,16 +57,12 @@
                                                             (:policy-cache
                                                              config)))]
         (let-nom>
-          [debtor-account (telemetry/with-span ["payment-debtor-account"]
-                                               (cash-accounts/get-account
-                                                txn
-                                                bank-id
-                                                debtor-account-id))
-           creditor-account (telemetry/with-span ["payment-creditor-account"]
-                                                 (cash-accounts/get-account
-                                                  txn
-                                                  bank-id
-                                                  creditor-account-id))
+          [[debtor-account creditor-account]
+           (telemetry/with-span ["payment-accounts"]
+                                (cash-accounts/get-accounts-by-id
+                                 txn
+                                 bank-id
+                                 [debtor-account-id creditor-account-id]))
            today-count (telemetry/with-span
                         ["payment-daily-count"]
                         (q/count-internal-by-org-business-day txn
@@ -171,23 +167,17 @@
                                           bank-id
                                           :gl-account-code-pending-outbound
                                           currency))
-                    today-count (telemetry/with-span
-                                 ["payment-daily-count"]
-                                 (q/count-outbound-by-org-business-day
-                                  txn
-                                  bank-id
-                                  business-day))
-                    today-sum (telemetry/with-span
-                               ["payment-daily-sum"]
-                               (q/sum-outbound-by-org-business-day
-                                txn
-                                bank-id
-                                business-day))
+                    today (telemetry/with-span
+                           ["payment-daily-totals"]
+                           (q/outbound-totals-by-org-business-day
+                            txn
+                            bank-id
+                            business-day))
                     aggregates {:outbound-payment
                                 {#{:bank-id :business-day}
-                                 today-count
+                                 (:count today)
                                  #{:bank-id :business-day :amount}
-                                 today-sum}}
+                                 (:sum today)}}
                     transaction (telemetry/with-span
                                  ["payment-checks"]
                                  (outbound/outbound-payment->transaction

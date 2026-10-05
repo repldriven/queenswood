@@ -17,3 +17,15 @@
                       (schema/Balance->java balance)))
    :balance/save
    "Failed to save balance"))
+
+(defn save-balances
+  [txn balances]
+  (fdb/transact
+   txn
+   (fn [txn]
+     (let [store (fdb/open txn store-name)]
+       (fdb/save-records (mapv (fn [balance]
+                                 [store (schema/Balance->java balance)])
+                               balances))))
+   :balance/save
+   "Failed to save balances"))
