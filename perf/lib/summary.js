@@ -5,18 +5,33 @@
 export const BEGIN = "==== perf summary begin ====";
 export const END = "==== perf summary end ====";
 
-// The statuses a rejected payment is counted under: a policy cap, a
-// failure, FDB contention, and no response at all.
+// The statuses a rejected payment, or customer, is counted under: a
+// policy cap, a failure, FDB contention, and no response at all.
 export const REJECTIONS = ["429", "500", "503", "0"];
+
+// The stages of onboarding a customer, which one lost is counted under.
+export const STAGES = ["party", "session", "verified", "account", "opened"];
 
 // Why a followed payment did not settle: a final status other than
 // settled, or the follow timing out.
 export const UNSETTLED = ["failed", "returned", "timeout"];
 
-export function rejectionThresholds() {
+// `unit` is what a scenario sends one of per iteration, `payments`
+// unless it says otherwise.
+export function rejectionThresholds(unit) {
   const t = {};
   REJECTIONS.forEach((s) => {
-    t[`payments_rejected{status:${s}}`] = ["count>=0"];
+    t[`${unit || "payments"}_rejected{status:${s}}`] = ["count>=0"];
+  });
+  return t;
+}
+
+// For the onboarding scenario, whose `customers_lost` counter k6 would
+// refuse a threshold on anywhere else.
+export function onboardingThresholds() {
+  const t = {};
+  STAGES.forEach((s) => {
+    t[`customers_lost{stage:${s}}`] = ["count>=0"];
   });
   return t;
 }
@@ -43,14 +58,14 @@ function latency(v) {
   return { avg: round(v.avg), p50: round(v.med), p95: round(v["p(95)"]), p99: round(v["p(99)"]), max: round(v.max) };
 }
 
-function step(data, s, i) {
+function step(data, s, i, unit) {
   const tag = `{phase:load,step:${i}}`;
-  const count = values(data, `payments${tag}`).count || 0;
+  const count = values(data, `${unit}${tag}`).count || 0;
   return Object.assign(
     {
       asked: s.rate,
       achieved: round(count / s.seconds),
-      payments: count,
+      [unit]: count,
       failed: round(values(data, `http_req_failed${tag}`).rate || 0),
     },
     latency(values(data, `http_req_duration${tag}`)),
@@ -103,20 +118,41 @@ function books(data) {
   };
 }
 
+// The customers a scenario onboarded: how many, how many it lost at
+// each stage, and each stage's time, the person's think time excluded.
+function onboarding(data) {
+  if (values(data, "customers").count === undefined) return undefined;
+  const lost = {};
+  STAGES.forEach((s) => {
+    const n = values(data, `customers_lost{stage:${s}}`).count;
+    if (n) lost[s] = n;
+  });
+  return {
+    onboarded: values(data, "onboarded").count || 0,
+    lost,
+    sessionReady: latency(values(data, "session_ready")),
+    partyActive: latency(values(data, "party_active")),
+    accountOpened: latency(values(data, "account_opened")),
+    onboardTime: latency(values(data, "onboard_time")),
+  };
+}
+
 function headline(data, run) {
+  const unit = run.unit || "payments";
   const rejected = {};
   REJECTIONS.forEach((s) => {
-    const n = values(data, `payments_rejected{status:${s}}`).count;
+    const n = values(data, `${unit}_rejected{status:${s}}`).count;
     if (n) rejected[s] = n;
   });
   return {
-    payments: values(data, "payments").count || 0,
+    [unit]: values(data, unit).count || 0,
     rejected,
     dropped: values(data, "dropped_iterations").count || 0,
     vus: values(data, "vus_max").max,
     settlement: settlement(data),
     books: books(data),
-    steps: run.steps.map((s, i) => step(data, s, i)),
+    onboarding: onboarding(data),
+    steps: run.steps.map((s, i) => step(data, s, i, unit)),
   };
 }
 

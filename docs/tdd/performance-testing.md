@@ -96,7 +96,7 @@ against a provider's own sandbox.
 - **Policies cap a bank's day.** The micro tier allows 50 cash accounts,
   500 internal and 500 outbound payments and 50 verification sessions a
   business day, and the platform policy, always applied, 100,000 of each
-  kind of payment and 100 verification sessions, all under
+  kind of payment and 100,000 verification sessions, all under
   [policies](/components/resources/resources/policies). The business
   day ends at 17:00 London time, and a breach is a 429. Bootstrap seeds
   the `platform` and `micro` tiers, and only an admin names a bank's
@@ -204,8 +204,7 @@ its daily counts start at zero:
 3. Takes the bank's own token, creates and publishes a current-account
    product.
 4. Creates up to `PARTIES` parties, 50 by default, each decided as a
-   match at the IDV simulator, and waits for each to be active: the
-   platform allows a bank 100 verification sessions a day.
+   match at the IDV simulator, and waits for each to be active.
 5. Opens `ACCOUNTS` accounts, 200 by default, across those parties in
    turn, and waits for each to be opened.
 6. Credits the own-funds account by `POST /v1/simulate/inbound-transfer`
