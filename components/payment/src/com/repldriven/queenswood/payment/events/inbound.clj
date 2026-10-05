@@ -108,10 +108,11 @@
 
 (defn- record-inbound-settlement
   [txn data account business-day policies]
-  (let [{:keys [account-id bank-id]} account
+  (let [{:keys [account-id bank-id product-type]} account
         {:keys [currency]} data]
     (let-nom>
-      [cash (telemetry/with-span ["payment-cash-at-correspondent"]
+      [_ (ledger-accounts/prefetch txn bank-id currency [product-type])
+       cash (telemetry/with-span ["payment-cash-at-correspondent"]
                                  (ledger-accounts/find-by-code
                                   txn
                                   bank-id

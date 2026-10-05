@@ -31,6 +31,15 @@
   (let [{:keys [bank-id debtor-account-id currency]} payment]
     (let-nom>
       [policies (bank-policies config txn bank-id)
+       debtor-account (telemetry/with-span ["payment-debtor-account"]
+                                           (cash-accounts/get-account
+                                            txn
+                                            bank-id
+                                            debtor-account-id))
+       _ (ledger-accounts/prefetch txn
+                                   bank-id
+                                   currency
+                                   [(:product-type debtor-account)])
        pending (telemetry/with-span ["payment-pending-outbound"]
                                     (ledger-accounts/find-by-code
                                      txn
@@ -43,11 +52,6 @@
                                   bank-id
                                   :gl-account-code-cash-at-correspondent
                                   currency))
-       debtor-account (telemetry/with-span ["payment-debtor-account"]
-                                           (cash-accounts/get-account
-                                            txn
-                                            bank-id
-                                            debtor-account-id))
        tx (outbound/outbound-settlement->transaction
            payment
            debtor-account

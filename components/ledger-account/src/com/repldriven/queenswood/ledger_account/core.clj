@@ -172,6 +172,17 @@
   (let-nom> [[account] (find-by-codes txn bank-id [gl-account-code] currency)]
     account))
 
+(defn prefetch
+  [txn bank-id currency product-types]
+  (when-let [cache (store/cache txn)]
+    (let [codes (into (set (keep (fn [[code spec]]
+                                   (when (domain/posted-to? spec) code))
+                                 domain/derived))
+                      (keep domain/product-type->control-code)
+                      product-types)
+          ids (vals (cached-ids cache bank-id codes currency))]
+      (when (seq ids) (store/preload-by-ids txn bank-id ids)))))
+
 (defn ensure-controls
   [txn bank-id currency legs]
   (let-nom>

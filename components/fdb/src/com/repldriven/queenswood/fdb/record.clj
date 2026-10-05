@@ -42,6 +42,10 @@
                     record->bytes))
           futures)))
 
+(defn preload-many
+  [store primary-keys]
+  (run! (fn [k] (.preloadRecordAsync store (->tuple k))) primary-keys))
+
 (defn save
   [store ^MessageLite record]
   (.saveRecord store record)

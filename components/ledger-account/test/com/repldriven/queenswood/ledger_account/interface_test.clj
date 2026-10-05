@@ -1,6 +1,6 @@
 (ns com.repldriven.queenswood.ledger-account.interface-test
   (:require
-    [com.repldriven.queenswood.fdb.interface]
+    [com.repldriven.queenswood.fdb.interface :as fdb]
     [com.repldriven.queenswood.testcontainers.interface]
 
     [com.repldriven.queenswood.ledger-account.interface :as SUT]
@@ -579,6 +579,39 @@
      (testing "the account behind a cached id is read, so a close is refused"
        (is (= :ledger-account/closed
               (error/kind (suspense-account config bank-id))))))))
+
+(deftest a-prefetched-account-is-read-as-it-stands-test
+  (with-test-system
+   [sys "classpath:ledger-account/application-test.yml"]
+   (let [config
+         (assoc (fdb-config sys) :caches {:ledger-account (cache/create 60000)})
+         bank-id "bnk.test-prefetch"]
+     (nom-test> [_ (seed! config bank-id)
+                 _ (SUT/find-by-code config
+                                     bank-id
+                                     :gl-account-code-cash-at-correspondent
+                                     "GBP")])
+     (testing "a prefetched account closed in the same transaction reads closed"
+       (let [result
+             (fdb/transact
+              config
+              (fn [txn]
+                (let [_ (SUT/prefetch txn
+                                      bank-id
+                                      "GBP"
+                                      [:product-type-sub-ledger-current])
+                      cash (SUT/find-by-code
+                            txn
+                            bank-id
+                            :gl-account-code-cash-at-correspondent
+                            "GBP")]
+                  (SUT/close-account txn bank-id (:ledger-account-id cash))
+                  (error/kind (SUT/find-by-code
+                               txn
+                               bank-id
+                               :gl-account-code-cash-at-correspondent
+                               "GBP")))))]
+         (is (= :ledger-account/closed result)))))))
 
 (deftest closed-control-rejects-a-posting-test
   (with-test-system

@@ -63,6 +63,15 @@
   [store primary-keys]
   (record/load-many store primary-keys))
 
+(defn preload-records
+  "Starts loading several records by primary key from an open
+  FDBRecordStore without waiting for them. A later load of one of the
+  keys from the same open store, in the same transaction, takes the
+  read already in flight rather than issuing its own. Keys are given as
+  for `load-records`."
+  [store primary-keys]
+  (record/preload-many store primary-keys))
+
 (defn save-record
   "Persists a protobuf message into an open FDBRecordStore."
   [store record]

@@ -136,6 +136,23 @@
   [txn bank-id gl-account-code currency]
   (core/find-by-code txn bank-id gl-account-code currency))
 
+(defn prefetch
+  "Start loading, without waiting, the ledger accounts a posting in
+  `currency` on accounts of `product-types` goes on to read: 1100, 1200,
+  and each product type's control, as `find-by-code`, `ensure-controls`
+  and `stored-legs` would. Only an account whose id the transaction's
+  `:ledger-account` cache holds is started; the rest are read as usual
+  when asked for. Returns nil, or an anomaly when the loads could not be
+  started.
+
+  Args:
+  - txn: FDB transaction or db handle.
+  - bank-id: owning bank id.
+  - currency: ISO 4217 currency string of the posting.
+  - product-types: the product types of the cash accounts it posts to."
+  [txn bank-id currency product-types]
+  (core/prefetch txn bank-id currency product-types))
+
 (defn list-accounts
   "Return every `LedgerAccount` for `bank-id` (the bank's full chart),
   as a vector.

@@ -67,6 +67,16 @@
    :ledger-account/find-by-id
    "Failed to load ledger accounts"))
 
+(defn preload-by-ids
+  [txn bank-id ledger-account-ids]
+  (fdb/transact txn
+                (fn [txn]
+                  (fdb/preload-records (fdb/open txn store-name)
+                                       (mapv (fn [id] [bank-id id])
+                                             ledger-account-ids)))
+                :ledger-account/find-by-id
+                "Failed to preload ledger accounts"))
+
 (defn find-by-codes
   [txn bank-id gl-account-codes currency]
   (fdb/transact
