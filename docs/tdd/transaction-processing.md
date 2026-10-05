@@ -339,7 +339,7 @@ dispatcher resolves it against the registry by `:command-id` and
 returns the response (or anomaly) to the caller. It waits for the
 send's own `:timeout-ms`, else the dispatcher's `command-timeouts-ms`
 entry for the command, else its `timeout-ms`, which every dispatcher
-here takes from `system/command-timeout-ms.yml`, 5 seconds; an
+here takes from `system/command-timeout-ms.yml`, 10 seconds; an
 expired request returns a `:command/timeout` anomaly. Keying
 on the per-send `:command-id` — rather than `:correlation-id`,
 which a retry reuses — is what keeps a straggling reply from one
@@ -484,7 +484,7 @@ throw-safe (a handler exception is logged, not fatal).
 ## Known Limitations
 
 - **One reply timeout in practice.** Every dispatcher waits
-  5 seconds, and none names a command in `command-timeouts-ms`;
+  10 seconds, and none names a command in `command-timeouts-ms`;
   the Form3 adapter's admission passes its own 4 seconds. A
   command that outlasts its wait has its caller answer 5xx;
   [idempotency.md](idempotency.md) says what a retry under the

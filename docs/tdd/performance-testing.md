@@ -38,7 +38,7 @@ against a provider's own sandbox.
   [commands.clj](/bases/api/src/com/repldriven/queenswood/api/payment/commands.clj)
   in `api` sends `submit-internal-payment` or `submit-outbound-payment`
   over the bus and waits on the reply in mono's command dispatcher, which
-  gives up after the dispatcher's `timeout-ms`, 5 seconds, as
+  gives up after the dispatcher's `timeout-ms`, 10 seconds, as
   `:command/timeout`.
   An internal payment's 201 means it settled. An outbound payment's 201
   means it was accepted and its amount reserved.
