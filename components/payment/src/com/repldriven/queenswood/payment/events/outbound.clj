@@ -7,49 +7,76 @@
     [com.repldriven.queenswood.cash-account-query.interface :as cash-accounts]
     [com.repldriven.queenswood.ledger-account.interface :as ledger-accounts]
     [com.repldriven.queenswood.payment-query.interface :as q]
+    [com.repldriven.queenswood.policy.interface :as policy]
     [com.repldriven.queenswood.transaction.interface :as transactions]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
-    [com.repldriven.mono.log.interface :as log]))
+    [com.repldriven.mono.log.interface :as log]
+    [com.repldriven.mono.telemetry.interface :as telemetry]))
+
+(defn- bank-policies
+  [config txn bank-id]
+  (telemetry/with-span ["payment-policies"]
+                       (policy/get-effective-policies-cached
+                        txn
+                        {:bank-id bank-id}
+                        (:policy-cache config))))
 
 (defn- record-settlement-leg
   "Settle an outbound: clear the debtor's pending-outgoing reservation and
   post the real outflow, draining 1200 → 1100. The debtor's posted debit is
   a sub-ledger leg, so `ensure-controls` checks the deposit control it
   rolls into."
-  [txn payment]
+  [config txn payment]
   (let [{:keys [bank-id debtor-account-id currency]} payment]
     (let-nom>
-      [pending (ledger-accounts/find-by-code
-                txn
-                bank-id
-                :gl-account-code-pending-outbound
-                currency)
-       cash (ledger-accounts/find-by-code
-             txn
-             bank-id
-             :gl-account-code-cash-at-correspondent
-             currency)
-       debtor-account (cash-accounts/get-account
-                       txn
-                       bank-id
-                       debtor-account-id)
+      [policies (bank-policies config txn bank-id)
+       pending (telemetry/with-span ["payment-pending-outbound"]
+                                    (ledger-accounts/find-by-code
+                                     txn
+                                     bank-id
+                                     :gl-account-code-pending-outbound
+                                     currency))
+       cash (telemetry/with-span ["payment-cash-at-correspondent"]
+                                 (ledger-accounts/find-by-code
+                                  txn
+                                  bank-id
+                                  :gl-account-code-cash-at-correspondent
+                                  currency))
+       debtor-account (telemetry/with-span ["payment-debtor-account"]
+                                           (cash-accounts/get-account
+                                            txn
+                                            bank-id
+                                            debtor-account-id))
        tx (outbound/outbound-settlement->transaction
            payment
            debtor-account
            (:ledger-account-id pending)
            (:ledger-account-id cash))
-       checked-legs (ledger-accounts/ensure-controls
-                     txn
-                     bank-id
-                     currency
-                     (:legs tx))
-       recorded (transactions/record-transaction
-                 txn
-                 (assoc tx :legs checked-legs))
+       checked-legs (telemetry/with-span ["payment-controls"]
+                                         (ledger-accounts/ensure-controls
+                                          txn
+                                          bank-id
+                                          currency
+                                          (:legs tx)))
+       recorded (telemetry/with-span ["payment-record-transaction"]
+                                     (transactions/record-transaction
+                                      txn
+                                      (assoc tx :legs checked-legs)))
        {:keys [transaction-type legs]} recorded
-       stored (ledger-accounts/stored-legs txn bank-id currency legs)
-       _ (balances/apply-legs txn bank-id stored transaction-type)]
+       stored (telemetry/with-span ["payment-stored-legs"]
+                                   (ledger-accounts/stored-legs txn
+                                                                bank-id
+                                                                currency
+                                                                legs))
+       _ (telemetry/with-span ["payment-apply-legs"]
+                              (balances/apply-legs
+                               txn
+                               bank-id
+                               stored
+                               transaction-type
+                               {:policies (policy/platform-policies
+                                           policies)}))]
       recorded)))
 
 (defn settle-outbound
@@ -58,7 +85,10 @@
     (store/transact
      config
      (fn [txn]
-       (let-nom> [payment (q/get-outbound-payment txn payment-id)]
+       (let-nom> [payment (telemetry/with-span ["payment-load"]
+                                               (q/get-outbound-payment
+                                                txn
+                                                payment-id))]
          (cond
           (nil? payment)
           (error/fail
@@ -84,12 +114,14 @@
           :else
           (let-nom>
             [completed (outbound/completed-outbound-payment payment)
-             _ (store/save-outbound-payment
-                txn
-                completed
-                {:change-kind :outbound-payment-change-kind-settle
-                 :status-before (:payment-status payment)})
-             _ (record-settlement-leg txn payment)]
+             _ (telemetry/with-span
+                ["payment-save"]
+                (store/save-outbound-payment
+                 txn
+                 completed
+                 {:change-kind :outbound-payment-change-kind-settle
+                  :status-before (:payment-status payment)}))
+             _ (record-settlement-leg config txn payment)]
             (log/infof "Outbound payment settlement now completed: %s"
                        {:payment-id payment-id})
             completed))))
@@ -136,10 +168,11 @@
   "DEBIT 1200 pending-outbound / CREDIT debtor — reverse the submission of
   an outbound payment the scheme declined or returned. The debtor leg is a
   sub-ledger account, so `ensure-controls` checks its control."
-  [txn payment]
+  [config txn payment]
   (let [{:keys [bank-id debtor-account-id currency]} payment]
     (let-nom>
-      [pending (ledger-accounts/find-by-code
+      [policies (bank-policies config txn bank-id)
+       pending (ledger-accounts/find-by-code
                 txn
                 bank-id
                 :gl-account-code-pending-outbound
@@ -152,17 +185,30 @@
            payment
            debtor-account
            (:ledger-account-id pending))
-       checked-legs (ledger-accounts/ensure-controls
-                     txn
-                     bank-id
-                     currency
-                     (:legs tx))
-       recorded (transactions/record-transaction
-                 txn
-                 (assoc tx :legs checked-legs))
+       checked-legs (telemetry/with-span ["payment-controls"]
+                                         (ledger-accounts/ensure-controls
+                                          txn
+                                          bank-id
+                                          currency
+                                          (:legs tx)))
+       recorded (telemetry/with-span ["payment-record-transaction"]
+                                     (transactions/record-transaction
+                                      txn
+                                      (assoc tx :legs checked-legs)))
        {:keys [transaction-type legs]} recorded
-       stored (ledger-accounts/stored-legs txn bank-id currency legs)
-       _ (balances/apply-legs txn bank-id stored transaction-type)]
+       stored (telemetry/with-span ["payment-stored-legs"]
+                                   (ledger-accounts/stored-legs txn
+                                                                bank-id
+                                                                currency
+                                                                legs))
+       _ (telemetry/with-span ["payment-apply-legs"]
+                              (balances/apply-legs
+                               txn
+                               bank-id
+                               stored
+                               transaction-type
+                               {:policies (policy/platform-policies
+                                           policies)}))]
       recorded)))
 
 (defn reject-outbound
@@ -206,7 +252,7 @@
                 failed
                 {:change-kind :outbound-payment-change-kind-fail
                  :status-before (:payment-status payment)})
-             _ (record-reversal-leg txn payment)]
+             _ (record-reversal-leg config txn payment)]
             (log/infof "Outbound payment rejected and reversed: %s"
                        {:payment-id payment-id
                         :reason-code reason-code})
@@ -218,10 +264,11 @@
   "DEBIT 1100 / CREDIT debtor — bring a returned outbound's money back. The
   debtor leg is a sub-ledger account, so `ensure-controls` checks its
   control."
-  [txn payment amount]
+  [config txn payment amount]
   (let [{:keys [bank-id debtor-account-id currency]} payment]
     (let-nom>
-      [cash (ledger-accounts/find-by-code
+      [policies (bank-policies config txn bank-id)
+       cash (ledger-accounts/find-by-code
              txn
              bank-id
              :gl-account-code-cash-at-correspondent
@@ -235,17 +282,30 @@
            debtor-account
            (:ledger-account-id cash)
            amount)
-       checked-legs (ledger-accounts/ensure-controls
-                     txn
-                     bank-id
-                     currency
-                     (:legs tx))
-       recorded (transactions/record-transaction
-                 txn
-                 (assoc tx :legs checked-legs))
+       checked-legs (telemetry/with-span ["payment-controls"]
+                                         (ledger-accounts/ensure-controls
+                                          txn
+                                          bank-id
+                                          currency
+                                          (:legs tx)))
+       recorded (telemetry/with-span ["payment-record-transaction"]
+                                     (transactions/record-transaction
+                                      txn
+                                      (assoc tx :legs checked-legs)))
        {:keys [transaction-type legs]} recorded
-       stored (ledger-accounts/stored-legs txn bank-id currency legs)
-       _ (balances/apply-legs txn bank-id stored transaction-type)]
+       stored (telemetry/with-span ["payment-stored-legs"]
+                                   (ledger-accounts/stored-legs txn
+                                                                bank-id
+                                                                currency
+                                                                legs))
+       _ (telemetry/with-span ["payment-apply-legs"]
+                              (balances/apply-legs
+                               txn
+                               bank-id
+                               stored
+                               transaction-type
+                               {:policies (policy/platform-policies
+                                           policies)}))]
       recorded)))
 
 (defn return-outbound
@@ -283,7 +343,7 @@
                 returned
                 {:change-kind :outbound-payment-change-kind-return
                  :status-before (:payment-status payment)})
-             _ (record-return-leg txn payment amount)]
+             _ (record-return-leg config txn payment amount)]
             (log/infof "Outbound payment returned: %s"
                        {:payment-id payment-id
                         :reason-code reason-code})

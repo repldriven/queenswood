@@ -147,72 +147,97 @@
                (let [business-day (checks/current-business-day
                                    (utility/now)
                                    (:business-day-cutoff config))
-                     policies (policy/get-effective-policies-cached
-                               txn
-                               {:bank-id bank-id}
-                               (:policy-cache config))]
+                     policies (telemetry/with-span
+                               ["payment-policies"]
+                               (policy/get-effective-policies-cached
+                                txn
+                                {:bank-id bank-id}
+                                (:policy-cache config)))]
                  (let-nom>
-                   [declaration (provider/declaration config txn bank-id)
+                   [declaration (telemetry/with-span
+                                 ["payment-declaration"]
+                                 (provider/declaration config txn bank-id))
                     _ (outbound/check-scheme (:scheme data) declaration)
-                    debtor-account (cash-accounts/get-account
-                                    txn
-                                    bank-id
-                                    debtor-account-id)
+                    debtor-account (telemetry/with-span
+                                    ["payment-debtor-account"]
+                                    (cash-accounts/get-account
+                                     txn
+                                     bank-id
+                                     debtor-account-id))
                     pending-outbound
-                    (ledger-accounts/find-by-code
-                     txn
-                     bank-id
-                     :gl-account-code-pending-outbound
-                     currency)
-                    today-count (q/count-outbound-by-org-business-day
-                                 txn
-                                 bank-id
-                                 business-day)
-                    today-sum (q/sum-outbound-by-org-business-day
-                               txn
-                               bank-id
-                               business-day)
+                    (telemetry/with-span ["payment-pending-outbound"]
+                                         (ledger-accounts/find-by-code
+                                          txn
+                                          bank-id
+                                          :gl-account-code-pending-outbound
+                                          currency))
+                    today-count (telemetry/with-span
+                                 ["payment-daily-count"]
+                                 (q/count-outbound-by-org-business-day
+                                  txn
+                                  bank-id
+                                  business-day))
+                    today-sum (telemetry/with-span
+                               ["payment-daily-sum"]
+                               (q/sum-outbound-by-org-business-day
+                                txn
+                                bank-id
+                                business-day))
                     aggregates {:outbound-payment
                                 {#{:bank-id :business-day}
                                  today-count
                                  #{:bank-id :business-day :amount}
                                  today-sum}}
-                    transaction (outbound/outbound-payment->transaction
-                                 data
-                                 debtor-account
-                                 (:ledger-account-id pending-outbound)
-                                 policies
-                                 aggregates)
-                    checked-legs (ledger-accounts/ensure-controls
-                                  txn
-                                  bank-id
-                                  currency
-                                  (:legs transaction))
-                    transaction+legs (transactions/record-transaction
-                                      txn
-                                      (assoc transaction
-                                             :legs
-                                             checked-legs))
+                    transaction (telemetry/with-span
+                                 ["payment-checks"]
+                                 (outbound/outbound-payment->transaction
+                                  data
+                                  debtor-account
+                                  (:ledger-account-id pending-outbound)
+                                  policies
+                                  aggregates))
+                    checked-legs (telemetry/with-span
+                                  ["payment-controls"]
+                                  (ledger-accounts/ensure-controls
+                                   txn
+                                   bank-id
+                                   currency
+                                   (:legs transaction)))
+                    transaction+legs (telemetry/with-span
+                                      ["payment-record-transaction"]
+                                      (transactions/record-transaction
+                                       txn
+                                       (assoc transaction
+                                              :legs
+                                              checked-legs)))
                     {:keys [transaction-id transaction-type legs]}
                     transaction+legs
-                    stored (ledger-accounts/stored-legs txn
-                                                        bank-id
-                                                        currency
-                                                        legs)
-                    _ (balances/apply-legs txn
-                                           bank-id
-                                           stored
-                                           transaction-type
-                                           {:policies (policy/platform-policies
-                                                       policies)})
+                    stored (telemetry/with-span ["payment-stored-legs"]
+                                                (ledger-accounts/stored-legs
+                                                 txn
+                                                 bank-id
+                                                 currency
+                                                 legs))
+                    _ (telemetry/with-span
+                       ["payment-apply-legs"]
+                       (balances/apply-legs txn
+                                            bank-id
+                                            stored
+                                            transaction-type
+                                            {:policies (policy/platform-policies
+                                                        policies)}))
                     payment (outbound/new-outbound-payment data
                                                            business-day
                                                            transaction-id)
-                    _ (store/save-outbound-payment
-                       txn
-                       payment
-                       {:change-kind :outbound-payment-change-kind-submit})
-                    _ (record-submitted txn payment debtor-account)]
+                    _ (telemetry/with-span
+                       ["payment-save"]
+                       (store/save-outbound-payment
+                        txn
+                        payment
+                        {:change-kind :outbound-payment-change-kind-submit}))
+                    _ (telemetry/with-span
+                       ["payment-record-activity"]
+                       (record-submitted txn payment debtor-account))]
                    {:payment payment :debtor-account debtor-account})))
              :payment/submit-outbound
              "Failed to submit outbound payment")]

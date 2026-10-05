@@ -31,13 +31,18 @@
 
 (def ^:private event-processor
   {:system/start (fn [{:system/keys [config instance]}]
-                   (or instance (commands/->PaymentEventProcessor config)))
+                   (or instance
+                       (commands/->PaymentEventProcessor
+                        (assoc config
+                               :policy-cache
+                               (cache/create (:policy-cache-ttl-ms config))))))
    :system/config {:record-db system/required-component
                    :record-store system/required-component
                    :schemas system/required-component
                    :bus nil
                    :payment-providers nil
-                   :business-day-cutoff default-cutoff}
+                   :business-day-cutoff default-cutoff
+                   :policy-cache-ttl-ms ten-minutes-ms}
    :system/instance-schema some?})
 
 (def ^:private activity-event-processor
