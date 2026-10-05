@@ -11,15 +11,18 @@
     [clojure.string :as str])
   (:import
     (com.apple.foundationdb FDB)
+    (com.apple.foundationdb.record IsolationLevel)
     (com.apple.foundationdb.record.provider.foundationdb
      APIVersion
      FDBDatabaseFactory
      FDBMetaDataStore
+     FDBRecordContext
      FDBRecordStore
      FDBRecordStore$StateCacheabilityOnOpen)
     (com.apple.foundationdb.record.provider.foundationdb.storestate
      MetaDataVersionStampStoreStateCacheFactory)
     (java.io File)
+    (java.util Arrays)
     (java.util.concurrent Executors TimeUnit)))
 
 ;; ---
@@ -204,14 +207,26 @@
 ;; ---
 
 (defn- open-meta-store
-  [ctx ks-path file-desc store-name]
-  (let [ms (doto (FDBMetaDataStore. ctx ks-path)
-             (.setLocalFileDescriptor file-desc))]
-    (-> (FDBRecordStore/newBuilder)
-        (.setMetaDataStore ms)
-        (.setContext ctx)
-        (.setKeySpacePath (keyspace/path store-name))
-        .createOrOpen)))
+  [cache ^FDBRecordContext ctx ks-path file-desc store-name]
+  (let [stamp (.getMetaDataVersionStamp ctx IsolationLevel/SNAPSHOT)
+        {cached-stamp :stamp cached :meta-data} @cache
+        builder (-> (FDBRecordStore/newBuilder)
+                    (.setContext ctx)
+                    (.setKeySpacePath (keyspace/path store-name))
+                    (.setStateCacheabilityOnOpen
+                     FDBRecordStore$StateCacheabilityOnOpen/CACHEABLE))]
+    (if (and stamp (Arrays/equals ^bytes stamp ^bytes cached-stamp))
+      (-> builder
+          (.setMetaDataProvider cached)
+          .createOrOpen)
+      (let [ms (doto (FDBMetaDataStore. ctx ks-path)
+                 (.setLocalFileDescriptor file-desc))
+            store (-> builder
+                      (.setMetaDataStore ms)
+                      .createOrOpen)]
+        (when stamp
+          (reset! cache {:stamp stamp :meta-data (.getRecordMetaData store)}))
+        store))))
 
 (defn- truthy-flag?
   "Accepts a literal boolean (set inline in test YAML) or the string
@@ -235,7 +250,10 @@
   declaration: saved when its version exceeds the stored one and the
   evolution validator accepts it, a no-op when the stored meta-data is
   at the same version and identical, and otherwise a failure to start,
-  which is what makes a change without a version bump visible."}
+  which is what makes a change without a version bump visible. Keeps the
+  meta-data it last loaded with the database's meta-data version stamp
+  it was loaded under, and opens a store with it, reading no meta-data,
+  while the stamp is unchanged; a save bumps the stamp."}
   meta-store
   {:system/start
    (fn [{:system/keys [config instance]}]
@@ -252,14 +270,16 @@
                                (meta-data/save record-db scoped-path)))]
         (if (error/anomaly? migrated)
           migrated
-          (do (when migrated (log/info "FDB meta-data at" scoped-path migrated))
-              (with-meta (fn [ctx store-name]
-                           (open-meta-store ctx
-                                            (keyspace/path scoped-path)
-                                            file-desc
-                                            (keyspace/scoped keyspace-prefix
-                                                             store-name)))
-                         {:keyspace-prefix keyspace-prefix}))))))
+          (let [cache (atom nil)]
+            (when migrated (log/info "FDB meta-data at" scoped-path migrated))
+            (with-meta (fn [ctx store-name]
+                         (open-meta-store cache
+                                          ctx
+                                          (keyspace/path scoped-path)
+                                          file-desc
+                                          (keyspace/scoped keyspace-prefix
+                                                           store-name)))
+                       {:keyspace-prefix keyspace-prefix}))))))
    :system/config {:record-db system/required-component
                    :path system/required-component
                    :descriptor system/required-component

@@ -246,6 +246,14 @@ so build first, and again after a change.
 
 ## Failures
 
+**Outbound payments on kind are accepted and never settle, and the
+simulators log `No notification registered`.** The simulator holds the
+adapters' webhook registrations in memory, so a simulator pod that
+restarts forgets them, and the adapters check again only every 15
+minutes. `kind-redeploy` restarts the adapters once the simulators have
+rolled out; after any other restart of the simulators, restart
+`queenswood-external-adapters-service`.
+
 **A merged version bump released nothing, or the Release run failed.**
 The workflow publishes the first green commit on `main` whose declared
 version has no tag, so a Tests run cancelled by a later push, or a

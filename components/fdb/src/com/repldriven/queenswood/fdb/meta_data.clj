@@ -336,4 +336,6 @@
              (or (when old (validate-save old meta-data))
                  (if (and old (= (.getVersion old) new-version))
                    :current
-                   (do (.saveRecordMetaData ms meta-data) :saved))))))))
+                   (do (.saveRecordMetaData ms meta-data)
+                       (.setMetaDataVersionStamp ctx)
+                       :saved))))))))
