@@ -83,6 +83,15 @@ The API-layer cache described below is layered on top of all of it.
 An API-layer idempotency cache backed by a single central FDB record
 store, operated by the `idempotency` brick as a Sieppari interceptor.
 
+### Reading the diagrams
+
+The sequence diagrams follow
+[payments-internal's conventions](payments-internal.md#reading-the-diagrams),
+and are the full account of the cache that payments-internal's first
+diagram draws in brief. The route stands for any write route that
+declares the pair, and the handler for whatever it does, which for a
+command is a send over the bus and a wait for the reply.
+
 ### Cache scope
 
 Each entry is keyed by `[principal_id, operation, idempotency_key]`
@@ -165,78 +174,99 @@ is known valid before the FDB lookup runs. Authentication has
 already run by then, which is what makes the principal scope
 available.
 
-**`:enter`** — runs a single FDB transaction (`claim-or-replay`):
-
-| Entry state                    | Action                          |
-| ------------------------------ | ------------------------------- |
-| `completed`, not expired       | terminate, replay the response  |
-| `pending`, not stale           | terminate with 409, in flight   |
-| live, fingerprint differs      | terminate with 422, key reused  |
-| absent, expired or stale       | write `pending`, run handler    |
-| lookup failed                  | terminate with 503, logged      |
-
-FDB's optimistic concurrency serialises concurrent arrivals: if two
-threads both pass the lookup and attempt to write `pending`, one
-transaction aborts and retries. The retry sees the now-`pending`
-entry and returns 409.
-
-The lookup runs inside the open transaction, and `fdb/transact` on
-an open `Txn` returns an anomaly *value* rather than throwing. The
-anomaly is returned as itself before the branch above is taken —
-without that it would bind as a truthy entry with no state, fall
-through to the last row, and run the handler against a cache it
-could not read.
-
-**`:leave`** — finalises the claim:
-
-| Response status  | Action                                       |
-| ---------------- | -------------------------------------------- |
-| 2xx or 4xx       | overwrite with `completed` (EDN, 24 h)       |
-| completion fails | log, release, return the handler's response  |
-| 5xx              | delete the `pending` marker — retryable      |
-
-An `:error` stage releases the `pending` claim when the handler
-throws through Sieppari's error path, since Sieppari skips `:leave`
-on the throwing path. The 60 s stale-pending timeout remains as a
-backstop for hard crashes that skip `:error` entirely.
-
-None of the terminating `:enter` paths stamps the request with the
-claim it would need, so `:leave` is a no-op on every replay, refusal
-and failure.
+#### `:enter` claims the key
 
 ```mermaid
 sequenceDiagram
+    box rgba(233, 236, 239, 0.5)
     participant C as Client
-    participant I as cache-response interceptor
-    participant F as FDB idempotency store
-    participant H as Handler
-
-    C->>I: POST (Idempotency-Key K)
-    I->>F: claim-or-replay [pid op K fingerprint]
-    alt lookup failed
-        F-->>I: anomaly
-        I-->>C: 503 cache unavailable
-    else completed entry exists
-        F-->>I: completed (status headers body)
-        I-->>C: replay, Idempotent-Replayed true
-    else pending entry exists (not stale)
-        F-->>I: in-flight
-        I-->>C: 409 request in flight
-    else live entry, different fingerprint
-        F-->>I: mismatch
-        I-->>C: 422 key reused
-    else no live entry
-        F-->>I: claimed (pending written)
-        I->>H: run handler
-        H-->>I: response
-        alt 2xx or 4xx
-            I->>F: save completed entry (EDN body 24h)
-        else 5xx
-            I->>F: delete pending claim
-        end
-        I-->>C: fresh response
+    end
+    box rgba(165, 216, 255, 0.45)
+    participant API as api-service<br/>idempotency/cache-response
+    participant H as api-service<br/>the route's handler
+    end
+    box rgba(255, 236, 153, 0.5)
+    participant DB as FDB
+    end
+    C->>API: a write, Idempotency-Key
+    alt the key is missing or malformed
+    API-->>C: 400, from server/require-idempotency-key
+    else
+    critical transact
+    API->>DB: read the Idempotency entry for principal, operation and key
+    opt no live entry, an expired one, or one pending past 60 s
+    API->>DB: save it pending, with the request's fingerprint
+    end
+    end
+    alt the read failed, or the stored body would not parse
+    API-->>C: 503 mono/idempotency-cache-unavailable, logged
+    else live, and its fingerprint differs
+    API-->>C: 422 mono/idempotency-key-reused
+    else completed
+    API-->>C: the response recorded, Idempotent-Replayed: true
+    else pending, another request with the key in flight
+    API-->>C: 409 mono/idempotent-request-in-flight
+    else claimed
+    API->>H: run the handler
+    end
     end
 ```
+
+`claim-or-replay` is one FDB transaction, so two requests racing on one
+key cannot both claim it: both read no entry and write `pending`, one
+commit conflicts, and its retry reads the other's claim and answers
+409. A fingerprint is checked before the state, so a key reused for a
+different request is refused 422 whether its first request is still
+running or has finished. The lookup runs in the open transaction, where
+`fdb/transact` returns an anomaly as a value rather than throwing, and
+the anomaly is answered as itself before any branch is taken — without
+that it would bind as an entry with no state and claim the key against
+a cache that could not be read. None of the refusals or the replay
+stamps the request with the claim, so `:leave` does nothing for them.
+
+#### `:leave` and `:error` finish the claim
+
+```mermaid
+sequenceDiagram
+    box rgba(233, 236, 239, 0.5)
+    participant C as Client
+    end
+    box rgba(165, 216, 255, 0.45)
+    participant API as api-service<br/>idempotency/cache-response
+    participant H as api-service<br/>the route's handler
+    end
+    box rgba(255, 236, 153, 0.5)
+    participant DB as FDB
+    end
+    alt the handler answers 2xx or 4xx
+    H-->>API: the response
+    critical transact
+    API->>DB: save the entry completed, for 24 h, its body less the route's omitted paths
+    end
+    opt the save failed, logged
+    critical transact
+    API->>DB: delete the entry
+    end
+    end
+    API-->>C: the handler's response
+    else the handler answers 5xx
+    H-->>API: the response
+    critical transact
+    API->>DB: delete the entry
+    end
+    API-->>C: the handler's response
+    else the handler throws
+    H-->>API: the exception, to :error
+    critical transact
+    API->>DB: delete the entry
+    end
+    API-->>C: 500, from the router
+    end
+```
+
+Sieppari skips `:leave` on a throwing path, which is why `:error`
+releases the claim too. What a failed save or delete, or a process that
+dies holding a claim, leaves behind is under Failure modes.
 
 ### Failure modes
 

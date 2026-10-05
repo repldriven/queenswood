@@ -330,8 +330,6 @@ header carries one of:
 - A Keycloak-issued user JWT minted by the `console` SPA
   (`queenswood` realm) or the operator SPA (`queenswood-ops`
   realm).
-- A per-organisation API key (cached lookup of the hashed
-  token, with a 60-second TTL cache layered over an FDB read).
 
 A successful identification attaches `:auth` to the request:
 
@@ -353,8 +351,10 @@ full.
 
 `server/authenticate-with-provider` and `auth/claims->principal` attach
 `:auth-claims` and `:auth` only when a token verifies; neither
-short-circuits, and an operation without `:openapi :security` is
-genuinely public.
+short-circuits on a token that does not, and an operation without
+`:openapi :security` is genuinely public. `claims->principal` does end
+the request where the store fails while resolving a person, since a
+store it cannot reach is not a person with no memberships.
 
 `server/require-scopes` reads the operation's `:openapi :security`
 (e.g. `[{"bearerAuth" ["org:developer"]}]`) when the router is built
@@ -376,24 +376,155 @@ not act on, or names none where one is needed. Termination uses
 `sieppari.context/terminate` — never `:response` or `:error`,
 which don't reliably short-circuit (see code-style recipe).
 
+#### Reading the diagrams
+
+The diagrams follow the conventions under
+[Reading the diagrams](payments-internal.md#reading-the-diagrams) in
+the internal payments TDD. Each step of the `/v1` interceptor chain is
+an arrow the `api-service` lane draws to itself, named for the
+interceptor, and Keycloak is the world outside, in either of the two
+realms the API verifies against.
+
+#### A bank's backend gets a token
+
 ```mermaid
 sequenceDiagram
-    participant C as Client
-    participant A as authenticate-with-provider, claims->principal
-    participant Z as require-bank, require-scopes
-    participant H as Handler
+    box rgba(233, 236, 239, 0.5)
+    participant C as A bank's backend
+    end
+    box rgba(165, 216, 255, 0.45)
+    participant API as api-service<br/>POST /oauth/token
+    end
+    box rgba(233, 236, 239, 0.5)
+    participant K as Keycloak<br/>realm queenswood
+    end
+    C->>API: client_credentials, client id = bank id, secret, scope
+    alt the grant is not client_credentials
+    API-->>C: 400 unsupported_grant_type
+    else no client id or secret
+    API-->>C: 400 invalid_request
+    else
+    API->>K: the grant, through keycloak/identity-provider
+    alt the realm refuses it
+    K-->>API: an error
+    API-->>C: 401 invalid_client
+    else
+    K-->>API: an access token, aud from the scope
+    API-->>C: 200 the token
+    end
+    end
+```
 
-    C->>A: Authorization: Bearer ...
-    A->>A: verify, resolve the principal
-    A->>Z: ctx with (or without) :auth-claims and :auth-scopes
-    Z->>Z: operation security → required scopes
-    alt scopes meet the gate
-        Z->>H: pass through
-        H-->>C: 2xx / 4xx / 5xx
+The route needs no token of its own. A person's token does not come
+this way: the console or the operator SPA signs the person in with
+Keycloak directly and sends the token it receives.
+
+#### The API verifies the token
+
+```mermaid
+sequenceDiagram
+    box rgba(233, 236, 239, 0.5)
+    participant C as Client
+    end
+    box rgba(165, 216, 255, 0.45)
+    participant API as api-service<br/>/v1 interceptors
+    end
+    box rgba(233, 236, 239, 0.5)
+    participant K as Keycloak<br/>realm queenswood or queenswood-ops
+    end
+    C->>API: Authorization: Bearer the token, Bank-Id
+    API->>API: credential, the token without its scheme
+    API->>API: authenticate-with-provider reads iss, unverified
+    alt no realm's issuer matches
+    Note over API: no claims
+    else
+    opt the realm's signing keys are older than 10 minutes
+    API->>K: fetch the JWKS
+    K-->>API: the signing keys, cached
+    end
+    opt the token's kid is not among them
+    API->>K: fetch the JWKS again, once
+    K-->>API: the signing keys, cached
+    end
+    alt RS256 signature, issuer, expiry and audience hold
+    Note over API: the claims as :auth-claims
+    else any of them fails, or the kid is still unknown
+    Note over API: no claims
+    end
+    end
+    API->>API: claims->scopes, the scope claim and realm roles
+```
+
+Verification ends no request: a token that fails leaves the request
+without claims, and `require-scopes` answers it.
+
+#### The API resolves the principal
+
+```mermaid
+sequenceDiagram
+    box rgba(165, 216, 255, 0.45)
+    participant API as api-service<br/>/v1 interceptors
+    end
+    box rgba(255, 236, 153, 0.5)
+    participant DB as FDB
+    end
+    box rgba(233, 236, 239, 0.5)
+    participant C as Client
+    end
+    opt the request has claims
+    alt azp is queenswood-console or queenswood-app, a person
+    critical transact
+    API->>DB: read the User by issuer and sub
+    opt none, or its profile claims changed
+    API->>DB: save the User
+    end
+    end
+    critical transact
+    API->>DB: read the User's active Memberships
+    end
+    alt either transaction failed
+    API-->>C: 5xx, the store's anomaly
+    else
+    API->>API: the membership the Bank-Id header names,<br/>or the only one, its role's levels,<br/>every level and the header's bank for an operator
+    end
+    else any other azp, a bank's backend
+    API->>API: the bank id is azp, every level for an operator<br/>with the header's bank, refused for another bank's header
+    end
+    end
+```
+
+A person's request writes to FDB in authentication itself, so a store
+that cannot be reached refuses it before any route runs.
+
+#### The route's gate
+
+```mermaid
+sequenceDiagram
+    box rgba(233, 236, 239, 0.5)
+    participant C as Client
+    end
+    box rgba(165, 216, 255, 0.45)
+    participant API as api-service<br/>/v1 interceptors
+    participant H as api-service<br/>the route's handler
+    end
+    alt the operation declares no security
+    API->>H: the request
+    H-->>C: 2xx, 4xx or 5xx
+    else
+    alt the Bank-Id header names a bank the caller is not in
+    API-->>C: 403 not a member of this bank
+    else no header, and several memberships
+    API-->>C: 403 name the bank in the Bank-Id header
+    else an organisation route, and no bank
+    API-->>C: 403 the token names no bank
     else no claims
-        Z-->>C: terminate 401 (RFC 9457)
-    else scopes miss
-        Z-->>C: terminate 403 (RFC 9457)
+    API-->>C: 401
+    else the scopes miss every requirement object
+    API-->>C: 403
+    else
+    API->>H: the request with :auth
+    H-->>C: 2xx, 4xx or 5xx
+    end
     end
 ```
 

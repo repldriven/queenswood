@@ -118,12 +118,14 @@ sequenceDiagram
     API->>DB: save it, pending
     end
     end
-    alt completed before
+    alt the cache could not be read
+    API-->>C: 503
+    else the key used before with another body
+    API-->>C: 422
+    else completed before
     API-->>C: the response recorded, Idempotent-Replayed
     else pending, another request with the key in flight
     API-->>C: 409
-    else the key used before with another body
-    API-->>C: 422
     else claimed
     API->>PC: submit-internal-payment
     PR->>API: the payment processor's reply

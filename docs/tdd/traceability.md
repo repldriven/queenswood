@@ -126,30 +126,175 @@ The brick is the project's only consumer of OTEL libraries
 
 ### Trace propagation
 
+#### Reading the diagrams
+
+The diagrams follow the conventions under
+[Reading the diagrams](payments-internal.md#reading-the-diagrams) in
+the internal payments TDD. A note over a participant names the span it
+opens and that span's parent, and a message, a changelog entry or a
+stored row names the span whose `traceparent` it carries. The example
+is a party whose status a request changes, and the webhook that change
+sends a customer: every chain takes these hops, or a subset of them.
+
+#### The API sends the command
+
 ```mermaid
 sequenceDiagram
+    box rgba(233, 236, 239, 0.5)
     participant C as Client
-    participant HTTP as HTTP API
-    participant B as message-bus
-    participant P as Processor
-    participant S as Subscriber
-
-    C->>HTTP: traceparent (parent span A)
-    HTTP->>HTTP: trace-span:<br/>server span B<br/>(child of A)
-    HTTP->>HTTP: inject-traceparent<br/>(refs B)
-    HTTP->>B: command envelope
-    B->>P: consume
-    P->>P: extract-parent-context<br/>with-span-parent → C<br/>(child of B)
-    P->>P: commit, build event
-    P->>P: inject-traceparent<br/>(refs C)
-    P->>B: event envelope
-    B->>S: fan-out
-    S->>S: extract-parent-context<br/>with-span-parent → D<br/>(child of C)
+    end
+    box rgba(165, 216, 255, 0.45)
+    participant API as api-service<br/>POST /v1/parties/{party-id}/suspend
+    end
+    box rgba(255, 236, 153, 0.5)
+    participant DB as FDB
+    end
+    box rgba(165, 216, 255, 0.45)
+    participant PC as topic-parties-command<br/>one partition, unkeyed
+    participant PR as topic-parties-command-response
+    end
+    C->>API: request, a traceparent or none
+    Note over API: trace-span opens the server span,<br/>named for the route, a child of the<br/>client's traceparent or a trace of its own
+    critical transact
+    Note over API,DB: fdb-transaction, a child of the server span
+    API->>DB: read the idempotency entry for the key
+    opt no live entry
+    API->>DB: save it, pending
+    end
+    end
+    API->>API: req->command-request stamps the server span's<br/>traceparent on the envelope
+    Note over API: command-send, a child of the server span,<br/>and bus-send under it
+    API->>PC: suspend-party, the server span's traceparent
+    PR->>API: the party processor's reply
+    API-->>C: 200, 4xx refused, 5xx unknown, retry with the key
 ```
 
-The trace tree the OTEL backend sees: A (client) → B (HTTP
-server) → C (processor) → D (subscriber). All with the same
-trace ID. Time spent in each span is visible.
+The envelope is stamped before `command-send` opens, so the processor's
+span is a sibling of `command-send` under the server span rather than a
+child of it.
+
+#### The processor handles it
+
+```mermaid
+sequenceDiagram
+    box rgba(165, 216, 255, 0.45)
+    participant PC as topic-parties-command<br/>one partition, unkeyed
+    end
+    box rgba(208, 191, 255, 0.45)
+    participant PP as operational-processors-service<br/>party/processor
+    end
+    box rgba(255, 236, 153, 0.5)
+    participant DB as FDB
+    end
+    box rgba(165, 216, 255, 0.45)
+    participant PR as topic-parties-command-response
+    end
+    PC->>PP: suspend-party, the API's server span
+    Note over PP: process-command, its parent<br/>extracted from the envelope
+    critical transact
+    Note over PP,DB: fdb-transaction, a child of process-command
+    PP->>DB: read the Party
+    PP->>DB: save the Party, suspended
+    PP->>DB: write party-status-changed to the parties changelog,<br/>the fdb-transaction span's traceparent
+    end
+    PP->>PR: the reply, process-command's traceparent
+    PP-->>PC: ack
+```
+
+A changelog entry is written inside the transaction that makes the
+change, so it carries that `fdb-transaction` span, and whatever the
+entry later causes joins the trace beneath it.
+
+#### The changelog relay publishes it
+
+```mermaid
+sequenceDiagram
+    box rgba(165, 216, 255, 0.45)
+    participant R as exclusive-dispatchers-service<br/>changelog-relay/runners
+    end
+    box rgba(255, 236, 153, 0.5)
+    participant DB as FDB
+    end
+    box rgba(165, 216, 255, 0.45)
+    participant PE as topic-parties-event<br/>partition-key = party
+    end
+    loop every 100 ms
+    critical transact
+    critical transact, a transaction of its own
+    R->>DB: read the cursor
+    end
+    R->>DB: read up to 500 entries after it, at snapshot
+    loop each entry
+    R->>R: copy the entry's traceparent onto the event envelope
+    Note over R: bus-send, with no span open,<br/>a trace of its own
+    R->>PE: party-status-changed, the writer's fdb-transaction span
+    end
+    R->>DB: save the cursor after the last entry
+    end
+    end
+```
+
+The relay opens no span of its own and does not join the writer's
+trace: the event carries the writer's span, so the consumer joins the
+writer's trace across the relay, and the relay's `bus-send` is a trace
+of one span.
+
+#### A consumer handles the event
+
+```mermaid
+sequenceDiagram
+    box rgba(165, 216, 255, 0.45)
+    participant PE as topic-parties-event<br/>partition-key = party
+    end
+    box rgba(255, 216, 168, 0.5)
+    participant W as external-adapters-service<br/>webhook/event-processor
+    end
+    box rgba(255, 236, 153, 0.5)
+    participant DB as FDB
+    end
+    PE->>W: party-status-changed, the writer's fdb-transaction span
+    Note over W: process-event, its parent<br/>extracted from the envelope
+    critical transact
+    Note over W,DB: fdb-transaction, a child of process-event
+    W->>DB: read the Party
+    W->>DB: read the bank's enabled endpoints
+    W->>DB: save the WebhookNotification,<br/>the fdb-transaction span's traceparent
+    W->>DB: save one pending delivery per endpoint
+    end
+    W-->>PE: ack
+```
+
+#### A poll loop does the work later
+
+```mermaid
+sequenceDiagram
+    box rgba(255, 216, 168, 0.5)
+    participant O as external-adapters-service<br/>webhook/outbound-runner
+    end
+    box rgba(255, 236, 153, 0.5)
+    participant DB as FDB
+    end
+    box rgba(233, 236, 239, 0.5)
+    participant E as The customer's endpoint
+    end
+    loop every poll
+    critical transact
+    O->>DB: claim the due deliveries
+    end
+    loop each claimed delivery
+    O->>DB: read its WebhookNotification and endpoint
+    Note over O: webhook-delivery, its parent the<br/>traceparent stored on the notification
+    O->>E: POST the notification
+    E-->>O: 2xx, or anything else
+    critical transact
+    O->>DB: save the delivery's outcome
+    end
+    end
+    end
+```
+
+A provider relay's intent and an `EmailDelivery` take the same shape,
+under the runner spans "Message-bus boundary" names.
 
 ### HTTP edge
 
@@ -185,10 +330,10 @@ an event):
    `telemetry/with-span-parent ["process-X" parent-ctx attrs
    f]`. The processor's work executes inside `f`, with the
    span set as the current thread-local context.
-3. If the processor emits further messages (replies, events,
-   downstream commands), `inject-traceparent` from inside the
-   span captures the *child* span's traceparent for the
-   outbound envelope.
+3. A reply sent from inside the span carries it, and a changelog
+   entry or a stored row written in one of its transactions
+   carries that transaction's `fdb-transaction` span, which is a
+   child of it.
 
 4. Record the outcome. `process-command` and `command-send`
    carry the reply as `command.status` — `ACCEPTED`, `REJECTED`
