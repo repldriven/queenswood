@@ -327,7 +327,10 @@ run at the next:
    step slowed by half together, on kind's one storage process. With FDB
    a process per role, a command takes 21.8 ms at 161 a second, all 160
    asked is accepted, and about 166 at 320, where the four replicas are
-   88% busy and this ceiling is theirs again.
+   88% busy and this ceiling is theirs again. That was on 12 CPUs; on 8,
+   the size of a test instance, a command takes 25 ms and the API accepts
+   about 127 a second at 160 and 320 asked, outbound 134 at 160, and an
+   inbound is credited at 1.8 s at p50 rather than 0.7.
 2. **Overload restarts the API.** Done. A request waited on its command
    until the dispatcher's 10-second timeout, holding one of Jetty's 50
    threads, so past the knee the pool filled, the liveness probe queued
@@ -547,8 +550,9 @@ holds it, and the run repeated.
 
 ## Known Limitations
 
-- **Kind figures are not published.** k6 shares Colima's 12 CPUs with
-  what it measures, against one Kafka broker.
+- **Kind figures are not published.** k6 shares Colima's 8 CPUs and
+  32 GiB, about a test instance's two `n2-standard-4` nodes, with what it
+  measures, against one Kafka broker.
   [values-local.yaml](/infra/helm/queenswood/values-local.yaml) runs
   FDB as a process per role — three storage, two logs, and six
   stateless for two commit proxies, a GRV proxy, a resolver, the master
