@@ -12,6 +12,10 @@ export const REJECTIONS = ["429", "500", "503", "0"];
 // The stages of onboarding a customer, which one lost is counted under.
 export const STAGES = ["party", "session", "verified", "account", "opened"];
 
+// The stages of opening an account, which one lost is counted under: the
+// request, and a followed account opening at the provider.
+export const OPENING = ["account", "opened"];
+
 // Why a followed payment did not settle: a final status other than
 // settled, or the follow timing out.
 export const UNSETTLED = ["failed", "returned", "timeout"];
@@ -32,6 +36,16 @@ export function onboardingThresholds() {
   const t = {};
   STAGES.forEach((s) => {
     t[`customers_lost{stage:${s}}`] = ["count>=0"];
+  });
+  return t;
+}
+
+// For the accounts scenario, whose `accounts_lost` counter k6 would
+// refuse a threshold on anywhere else.
+export function openingThresholds() {
+  const t = {};
+  OPENING.forEach((s) => {
+    t[`accounts_lost{stage:${s}}`] = ["count>=0"];
   });
   return t;
 }
@@ -137,6 +151,40 @@ function onboarding(data) {
   };
 }
 
+// Each kind of read a scenario named, by its request's `name` tag, whose
+// tagged duration k6 summarises only where a threshold names it.
+export function readThresholds(names) {
+  const t = {};
+  names.forEach((n) => {
+    t[`http_req_duration{phase:load,name:${n}}`] = ["max>=0"];
+  });
+  return t;
+}
+
+function reads(data, names) {
+  if (!names) return undefined;
+  const out = {};
+  names.forEach((n) => {
+    out[n] = latency(values(data, `http_req_duration{phase:load,name:${n}}`));
+  });
+  return out;
+}
+
+// The accounts a scenario opened: how many it followed, how many it lost
+// at each stage, and the time from the request to opened.
+function opening(data) {
+  if (values(data, "accounts_followed").count === undefined) return undefined;
+  const lost = {};
+  OPENING.forEach((s) => {
+    const n = values(data, `accounts_lost{stage:${s}}`).count;
+    if (n) lost[s] = n;
+  });
+  return Object.assign(
+    { followed: values(data, "accounts_followed").count, lost },
+    latency(values(data, "account_opened")),
+  );
+}
+
 function headline(data, run) {
   const unit = run.unit || "payments";
   const rejected = {};
@@ -152,6 +200,8 @@ function headline(data, run) {
     settlement: settlement(data),
     books: books(data),
     onboarding: onboarding(data),
+    opening: opening(data),
+    reads: reads(data, run.reads),
     steps: run.steps.map((s, i) => step(data, s, i, unit)),
   };
 }

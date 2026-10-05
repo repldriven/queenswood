@@ -17,7 +17,8 @@
                                      request
                                      "open-cash-account"
                                      "cash-account"
-                                     (assoc body :bank-id bank-id))
+                                     (assoc body :bank-id bank-id)
+                                     {:ordering-key bank-id})
                       #(str "/v1/cash-accounts/" (:account-id %)))))
 
 (defn close-cash-account
@@ -31,7 +32,8 @@
                    "close-cash-account"
                    "cash-account"
                    {:bank-id bank-id
-                    :account-id account-id})))
+                    :account-id account-id}
+                   {:ordering-key account-id})))
 
 (defn suspend-cash-account
   [request]
@@ -44,7 +46,8 @@
                    "suspend-cash-account"
                    "cash-account"
                    {:bank-id bank-id
-                    :account-id account-id})))
+                    :account-id account-id}
+                   {:ordering-key account-id})))
 
 (defn resume-cash-account
   [request]
@@ -57,7 +60,8 @@
                    "resume-cash-account"
                    "cash-account"
                    {:bank-id bank-id
-                    :account-id account-id})))
+                    :account-id account-id}
+                   {:ordering-key account-id})))
 
 (defn rotate-cash-account-address
   [request]
@@ -70,4 +74,5 @@
                    "rotate-cash-account-address"
                    "cash-account"
                    {:bank-id bank-id
-                    :account-id account-id})))
+                    :account-id account-id}
+                   {:ordering-key account-id})))

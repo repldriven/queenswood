@@ -13,12 +13,15 @@
     [com.repldriven.queenswood.policy.interface :as policy]
 
     [com.repldriven.mono.error.interface :refer [let-nom>]]
+    [com.repldriven.mono.telemetry.interface :as telemetry]
     [com.repldriven.mono.utility.interface :as utility]))
 
 (defn- get-policies
   ([txn bank-id opts]
    (or (:policies opts)
-       (policy/get-effective-policies txn {:bank-id bank-id})))
+       (policy/get-effective-policies-cached txn
+                                             {:bank-id bank-id}
+                                             (:policy-cache opts))))
   ([txn bank-id account-id opts]
    (or (:policies opts)
        (policy/get-effective-policies txn
@@ -27,14 +30,8 @@
 
 (defn- counts
   [txn bank-id product-type account-type currency]
-  (let-nom>
-    [total (q/count-by-org txn bank-id)
-     subtotal (q/count-by-org-product-account-type-currency
-               txn
-               bank-id
-               product-type
-               account-type
-               currency)]
+  (let-nom> [{:keys [total subtotal]}
+             (q/limit-counts txn bank-id product-type account-type currency)]
     {:cash-account
      {#{:bank-id} total
       #{:bank-id :product-type :account-type :currency} subtotal}}))
@@ -106,45 +103,64 @@
   ([txn data]
    (open-account txn data {}))
   ([txn data opts]
-   (or-already-opened
-    txn
-    data
-    (store/transact
-     txn
-     (fn [txn]
-       (let [{:keys [bank-id party-id product-id currency]} data
-             today (utility/today)]
-         (let-nom>
-           [policies (get-policies txn bank-id opts)
-            party (parties/get-party txn bank-id party-id)
-            product (products/get-product txn bank-id product-id)
-            product-version (products/active-version product today)
-            aggregates (when product-version
-                         (counts txn
-                                 bank-id
-                                 (product-type-of product-version)
-                                 (domain/party->account-type party)
-                                 currency))
-            account (domain/open-account
-                     data
-                     product-version
-                     today
-                     party
-                     aggregates
-                     policies)
-            _ (balances/new-balances
-               txn
-               bank-id
-               (domain/opening-balances account currency product-version)
-               {:policies (policy/platform-policies policies)})
-            _ (store/save-account txn
-                                  account
-                                  {:account-id (:account-id account)
-                                   :status-after (:account-status account)
-                                   :change-kind
-                                   :cash-account-change-kind-open})
-            _ (record-opening txn account party product-version)]
-           account)))))))
+   (let [opts (utility/assoc-some opts :policy-cache (:policy-cache txn))]
+     (or-already-opened
+      txn
+      data
+      (store/transact
+       txn
+       (fn [txn]
+         (let [{:keys [bank-id party-id product-id currency]} data
+               today (utility/today)]
+           (let-nom>
+             [policies (telemetry/with-span
+                        ["cash-account-policies"]
+                        (get-policies txn
+                                      bank-id
+                                      opts))
+              party (telemetry/with-span
+                     ["cash-account-party"]
+                     (parties/get-party txn bank-id party-id))
+              product (telemetry/with-span
+                       ["cash-account-product"]
+                       (products/get-product txn bank-id product-id))
+              product-version (products/active-version product today)
+              aggregates (when product-version
+                           (telemetry/with-span
+                            ["cash-account-counts"]
+                            (counts txn
+                                    bank-id
+                                    (product-type-of product-version)
+                                    (domain/party->account-type party)
+                                    currency)))
+              account (domain/open-account
+                       data
+                       product-version
+                       today
+                       party
+                       aggregates
+                       policies)
+              _ (telemetry/with-span
+                 ["cash-account-balances"]
+                 (balances/new-balances
+                  txn
+                  bank-id
+                  (domain/opening-balances account currency product-version)
+                  {:policies (policy/platform-policies policies)}))
+              _ (telemetry/with-span ["cash-account-save"]
+                                     (store/save-account
+                                      txn
+                                      account
+                                      {:account-id (:account-id account)
+                                       :status-after (:account-status account)
+                                       :change-kind
+                                       :cash-account-change-kind-open}))
+              _ (telemetry/with-span
+                 ["cash-account-record-activity"]
+                 (record-opening txn account party product-version))]
+             account)))
+       :cash-account/open
+       "Failed to open account")))))
 
 (defn close-account
   ([txn data]
@@ -167,7 +183,9 @@
                                   :change-kind
                                   :cash-account-change-kind-close})
            _ (record-closing txn updated)]
-          updated))))))
+          updated)))
+    :cash-account/close
+    "Failed to close account")))
 
 (def ^:private second-leg
   "The source statuses that have a second leg, each mapped to the
@@ -204,7 +222,9 @@
                                   :status-before status-after
                                   :status-after (:account-status
                                                  transitioned)
-                                  :change-kind change-kind}))))))))
+                                  :change-kind change-kind})))))
+     :cash-account/complete-transition
+     "Failed to complete account transition")))
 
 (defn suspend-account
   ([txn data]
@@ -225,7 +245,9 @@
                                   :status-after (:account-status updated)
                                   :change-kind
                                   :cash-account-change-kind-suspend})]
-          updated))))))
+          updated)))
+    :cash-account/suspend
+    "Failed to suspend account")))
 
 (defn resume-account
   ([txn data]
@@ -246,7 +268,9 @@
                                   :status-after (:account-status updated)
                                   :change-kind
                                   :cash-account-change-kind-resume})]
-          updated))))))
+          updated)))
+    :cash-account/resume
+    "Failed to resume account")))
 
 (defn- rotated-under-key?
   "True when the account's last rotation is the one this command is
@@ -282,7 +306,9 @@
                    :change-kind
                    :cash-account-change-kind-rotate-requested})
                _ (record-rotation txn updated)]
-              updated))))))))
+              updated)))))
+    :cash-account/rotate-address
+    "Failed to rotate account address")))
 
 (defn- provider-transition
   [txn bank-id account-id guard transition change-kind]
@@ -300,7 +326,9 @@
                                      :status-before (:account-status account)
                                      :status-after (:account-status updated)
                                      :change-kind change-kind})]
-             updated)))))))
+             updated)))))
+   :cash-account/provider-transition
+   "Failed to apply provider transition"))
 
 (defn- status?
   [status]
@@ -412,4 +440,6 @@
                                                 bank-id
                                                 target-product-id
                                                 target-version-id)]
-          (migrate-account txn account target-version policies)))))))
+          (migrate-account txn account target-version policies))))
+    :cash-account/migrate-product
+    "Failed to migrate account product")))

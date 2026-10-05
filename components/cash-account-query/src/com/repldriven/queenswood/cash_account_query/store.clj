@@ -114,6 +114,25 @@
                 {:message "Failed to count accounts by org"
                  :bank-id bank-id}))
 
+(defn limit-counts
+  [txn bank-id product-type account-type currency]
+  (fdb/transact
+   txn
+   (fn [txn]
+     (let [[total subtotal]
+           (fdb/aggregate-records
+            (fdb/open txn store-name)
+            [[:count "CashAccount_count_by_bank" bank-id]
+             [:count "CashAccount_count_by_bank_product_account_type_currency"
+              [bank-id
+               (schema/product-type->int product-type)
+               (schema/account-type->int account-type)
+               currency]]])]
+       {:total total :subtotal subtotal}))
+   :cash-account/limit-counts
+   {:message "Failed to count accounts for the limits"
+    :bank-id bank-id}))
+
 (defn count-by-version
   [txn bank-id version-id]
   (fdb/transact txn

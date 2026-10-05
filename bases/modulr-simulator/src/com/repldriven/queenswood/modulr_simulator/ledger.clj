@@ -38,11 +38,11 @@
   (str prefix (str/upper-case (str/replace (str (utility/uuidv7)) "-" ""))))
 
 (defn- account-number
-  [taken]
+  [taken?]
   (let [random (SecureRandom.)]
     (loop []
       (let [n (format "%08d" (.nextInt random 100000000))]
-        (if (contains? taken n) (recur) n)))))
+        (if (taken? n) (recur) n)))))
 
 (defn empty-state
   []
@@ -85,8 +85,9 @@
     (if (:refuse-next @state)
       (do (swap! state assoc :refuse-next false)
           {:refused "The account was declined"})
-      (let [number (account-number (set (map (fn [k] (subs k 6))
-                                             (keys (:scan @state)))))
+      (let [scan (:scan @state)
+            number (account-number (fn [n]
+                                     (contains? scan (str sort-code n))))
             a {:id (id "A")
                :customer-id customer-id
                :currency (or currency "GBP")

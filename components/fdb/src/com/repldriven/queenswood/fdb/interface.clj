@@ -210,13 +210,20 @@
   [store index-name key]
   (record/sum-records store index-name key {:isolation :snapshot}))
 
-(defn aggregate-records-snapshot
-  "Reads several COUNT and SUM index groups of one open FDBRecordStore
-  at SNAPSHOT, returning a vector of longs in the order given. Each
+(defn aggregate-records
+  "Reads several COUNT and SUM index groups of one open FDBRecordStore,
+  serializably, returning a vector of longs in the order given. Each
   aggregate is `[kind index-name key]`, kind `:count` or `:sum`, and an
   empty group reads 0. The reads are issued together and waited on
   once, so the batch costs one round trip rather than one per
   aggregate."
+  [store aggregates]
+  (record/aggregate-many store aggregates {}))
+
+(defn aggregate-records-snapshot
+  "`aggregate-records`, read at SNAPSHOT, so the groups' keys do not join
+  the transaction's read-conflict set and writers adding to them never
+  conflict the read."
   [store aggregates]
   (record/aggregate-many store aggregates {:isolation :snapshot}))
 

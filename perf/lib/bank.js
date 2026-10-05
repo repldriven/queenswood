@@ -159,7 +159,9 @@ function createProduct(bearer) {
   return product["product-id"];
 }
 
-function createParties(n, bearer) {
+// `n` person parties, each verified at the simulator until it is active,
+// returning their ids.
+export function createParties(n, bearer) {
   const people = Array.from({ length: n }, (_, i) => ({
     type: "person",
     "display-name": `Perf Person ${i}`,
@@ -320,6 +322,28 @@ export function freshBank() {
     productId: createProduct(bankToken.value),
     token: bankToken,
   };
+}
+
+// Gives each of `accounts` `perAccount` transactions: rounds in which every
+// account pays the next one minor unit, so every account sends and
+// receives one payment a round.
+export function history(accounts, perAccount, bearer) {
+  for (let round = 0; round < perAccount; round++) {
+    postAll(
+      accounts.map((a, i) => [a, accounts[(i + 1) % accounts.length]]),
+      () => "/v1/payments/internal",
+      ([debtor, creditor]) => ({
+        "debtor-account-id": debtor,
+        "creditor-account-id": creditor,
+        currency: "GBP",
+        amount: 1,
+        reference: "History",
+      }),
+      bearer,
+      201,
+      "making an account's history",
+    );
+  }
 }
 
 export function build(n, each) {

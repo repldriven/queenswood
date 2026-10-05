@@ -67,17 +67,18 @@
                                      :after after
                                      :before before
                                      :limit limit
-                                     :order order})]
+                                     :order order})
+           legs (mapv schema/pb->TransactionLeg (:records result))
+           parents (fdb/load-records txn-store (mapv :transaction-id legs))]
        {:transactions
-        (mapv (fn [leg]
-                (let [txn-record (fdb/load-record txn-store
-                                                  (:transaction-id leg))
-                      parent (when txn-record
-                               (schema/pb->Transaction txn-record))]
-                  (merge leg
-                         (select-keys parent
-                                      [:transaction-type :status :reference]))))
-              (map schema/pb->TransactionLeg (:records result)))
+        (mapv (fn [leg txn-record]
+                (merge leg
+                       (some-> txn-record
+                               schema/pb->Transaction
+                               (select-keys [:transaction-type :status
+                                             :reference]))))
+              legs
+              parents)
         :before (:before result)
         :after (:after result)}))
    :transaction/list

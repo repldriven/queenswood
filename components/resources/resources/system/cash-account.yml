@@ -3,6 +3,7 @@ processor: !system/component
   record-db: !system/ref fdb.record-db
   record-store: !system/ref fdb.meta-store
   schemas: !system/ref avro.serde
+  policy-cache-ttl-ms: 600000
 
 command-processor: !system/component
   system/component-kind: command-processor/command-processor
