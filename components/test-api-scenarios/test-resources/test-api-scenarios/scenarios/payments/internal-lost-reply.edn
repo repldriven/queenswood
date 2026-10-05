@@ -42,8 +42,7 @@
              :path "/v1/simulate/inbound-transfer"
              :auth :admin
              :headers {:bank-id [:ref :bank-0 :bank :bank-id]}
-             :body {:amount 100000
-                    :currency "GBP"}}
+             :body {:amount 100000 :currency "GBP"}}
    :as :funded-1
    :assert {:status 200}}
   ;; The money reaches the customer from the bank's own funds.
@@ -89,17 +88,17 @@
    :as :retry
    ;; The claim was released, so this ran rather than replayed.
    :assert {:status 201 :headers {:idempotent-replayed [:m/absent]}}}]
- :then
- [{:command :api/poll
-   :request {:method :get
-             :path "/v1/cash-accounts/{account-id}/balances"
-             :path-params {:account-id [:ref :debtor :account :account-id]}
-             :auth [:ref :bank-0 :token]}
-   :until {:status 200
-           :body {:available-balance {:value 97500 :currency "GBP"}}}}
-  {:command :api/request
-   :request {:method :get
-             :path "/v1/payments/internal/{payment-id}"
-             :path-params {:payment-id [:ref :retry :payment-id]}
-             :auth [:ref :bank-0 :token]}
-   :assert {:status 200 :body {:amount 2500 :reference "Lost reply"}}}]}
+ :then [{:command :api/poll
+         :request {:method :get
+                   :path "/v1/cash-accounts/{account-id}/balances"
+                   :path-params
+                   {:account-id [:ref :debtor :account :account-id]}
+                   :auth [:ref :bank-0 :token]}
+         :until {:status 200
+                 :body {:available-balance {:value 97500 :currency "GBP"}}}}
+        {:command :api/request
+         :request {:method :get
+                   :path "/v1/payments/internal/{payment-id}"
+                   :path-params {:payment-id [:ref :retry :payment-id]}
+                   :auth [:ref :bank-0 :token]}
+         :assert {:status 200 :body {:amount 2500 :reference "Lost reply"}}}]}

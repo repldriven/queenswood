@@ -1,15 +1,14 @@
 {:name "Tenant suspends and resumes a party"
- :given
- [{:fixture :bank
-   :as :org-0
-   :with {:name "Suspend Resume Party Test Org" :status "live"}}
-  {:fixture :person
-   :as :party-0
-   :with {:token [:ref :org-0 :token]
-          :display-name "Suspending Party"
-          :given-name "Suspending"
-          :family-name "Party"
-          :national-insurance "TN888013A"}}]
+ :given [{:fixture :bank
+          :as :org-0
+          :with {:name "Suspend Resume Party Test Org" :status "live"}}
+         {:fixture :person
+          :as :party-0
+          :with {:token [:ref :org-0 :token]
+                 :display-name "Suspending Party"
+                 :given-name "Suspending"
+                 :family-name "Party"
+                 :national-insurance "TN888013A"}}]
  :when
  [{:command :api/request
    :request {:method :post

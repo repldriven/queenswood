@@ -34,38 +34,38 @@
    :party [:ref :party :party-id]
    :auth [:ref :bank-0 :token]
    :as :session}]
- :then [{:command :api/poll
-         :request {:method :get
-                   :path "/v1/parties/{party-id}/verification"
-                   :path-params {:party-id [:ref :party :party-id]}
-                   :auth [:ref :bank-0 :token]}
-         :until
-         {:status 200
-          :body
-          {:status "accepted" :criteria [:m/seq-of {:state "established"}]}}}
-        {:command :api/poll
-         :request {:method :get
-                   :path "/v1/parties/{party-id}"
-                   :path-params {:party-id [:ref :party :party-id]}
-                   :auth [:ref :bank-0 :token]}
-         :until {:status 200
-                 :body {:party-id [:ref :party :party-id]
-                        :type "person"
-                        :display-name "Arthur Phillip Dent"
-                        :status "active"}}
-         :as :read}
-        ;; The customer is told the session was ready, and that the party
-        ;; is active, with the party as its read route renders it.
-        {:command :webhook/await-delivery
-         :address [:ref :hook :receiver :address]
-         :where {:kind "party.verification-session-ready"
-                 :resource-id [:ref :session :session-id]}
-         :secret [:ref :hook :registered :secret]}
-        {:command :webhook/await-delivery
-         :address [:ref :hook :receiver :address]
-         :where {:kind "party.opened" :resource-id [:ref :party :party-id]}
-         :secret [:ref :hook :registered :secret]
-         :as :notified}
-        {:command :assert/equals
-         :actual [:ref :notified 0 :body :data]
-         :expected [:ref :read]}]}
+ :then
+ [{:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}/verification"
+             :path-params {:party-id [:ref :party :party-id]}
+             :auth [:ref :bank-0 :token]}
+   :until {:status 200
+           :body {:status "accepted"
+                  :criteria [:m/seq-of {:state "established"}]}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/parties/{party-id}"
+             :path-params {:party-id [:ref :party :party-id]}
+             :auth [:ref :bank-0 :token]}
+   :until {:status 200
+           :body {:party-id [:ref :party :party-id]
+                  :type "person"
+                  :display-name "Arthur Phillip Dent"
+                  :status "active"}}
+   :as :read}
+  ;; The customer is told the session was ready, and that the party
+  ;; is active, with the party as its read route renders it.
+  {:command :webhook/await-delivery
+   :address [:ref :hook :receiver :address]
+   :where {:kind "party.verification-session-ready"
+           :resource-id [:ref :session :session-id]}
+   :secret [:ref :hook :registered :secret]}
+  {:command :webhook/await-delivery
+   :address [:ref :hook :receiver :address]
+   :where {:kind "party.opened" :resource-id [:ref :party :party-id]}
+   :secret [:ref :hook :registered :secret]
+   :as :notified}
+  {:command :assert/equals
+   :actual [:ref :notified 0 :body :data]
+   :expected [:ref :read]}]}

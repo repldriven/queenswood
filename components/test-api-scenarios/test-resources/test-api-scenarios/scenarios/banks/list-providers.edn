@@ -1,9 +1,11 @@
-{:name "The providers the installation offers are listed with each kind's default"
+{:name
+ "The providers the installation offers are listed with each kind's default"
  :when
  [{:command :api/request
    :request {:method :get :path "/v1/providers" :auth :admin}
-   :assert {:status 200
-            :body {:items [{:kind "idv" :providers ["onfido" "zyphe"] :default "zyphe"}
-                           {:kind "payment"
-                            :providers ["clearbank" "form3" "modulr"]
-                            :default "modulr"}]}}}]}
+   :assert
+   {:status 200
+    :body {:items [{:kind "idv" :providers ["onfido" "zyphe"] :default "zyphe"}
+                   {:kind "payment"
+                    :providers ["clearbank" "form3" "modulr"]
+                    :default "modulr"}]}}}]}

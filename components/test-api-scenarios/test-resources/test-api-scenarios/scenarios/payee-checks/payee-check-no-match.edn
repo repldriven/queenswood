@@ -3,18 +3,16 @@
  ;; Every payment simulator's name check recognises the test value
  ;; `COP_NOMATCH` in the creditor name and replies with a no-match
  ;; result.
- :given
- [{:fixture :bank
-   :as :org-0
-   :with {:name "Payee Check No Match Org" :status "live"}}
-  ;; A check is made from the bank's own funds, so it waits for the
-  ;; provider to open them.
-  {:command :api/poll
-   :request {:method :get
-             :path "/v1/cash-accounts"
-             :auth [:ref :org-0 :token]}
-   :until {:status 200
-           :body {:items [:m/embeds [{:account-status "opened"}]]}}}]
+ :given [{:fixture :bank
+          :as :org-0
+          :with {:name "Payee Check No Match Org" :status "live"}}
+         ;; A check is made from the bank's own funds, so it waits for the
+         ;; provider to open them.
+         {:command :api/poll
+          :request
+          {:method :get :path "/v1/cash-accounts" :auth [:ref :org-0 :token]}
+          :until {:status 200
+                  :body {:items [:m/embeds [{:account-status "opened"}]]}}}]
  :when
  [{:command :api/request
    :request {:method :post

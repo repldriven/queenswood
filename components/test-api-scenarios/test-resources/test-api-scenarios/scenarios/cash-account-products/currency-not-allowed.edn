@@ -1,10 +1,9 @@
 {:name "A currency the product's template doesn't allow is rejected"
- :given
- [{:fixture :bank
-   :as :org-0
-   :with {:name "Currency Not Allowed Test Org"
-          :status "live"
-          :currencies ["EUR" "GBP"]}}]
+ :given [{:fixture :bank
+          :as :org-0
+          :with {:name "Currency Not Allowed Test Org"
+                 :status "live"
+                 :currencies ["EUR" "GBP"]}}]
  :when
  ;; The savings template allows GBP alone, and the bank declaring EUR
  ;; doesn't widen it — the template is what refuses.

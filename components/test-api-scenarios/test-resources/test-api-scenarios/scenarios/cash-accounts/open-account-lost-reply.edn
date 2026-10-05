@@ -1,4 +1,5 @@
-{:name "A lost open-account reply is retried under the same key and opens
+{:name
+ "A lost open-account reply is retried under the same key and opens
         once"
  ;; The open commits and its reply never arrives, so the API answers
  ;; 500 and the cache releases its claim. The retry under the same key
@@ -9,24 +10,23 @@
  ;;
  ;; The lost reply is produced by a test-only seam keyed on the
  ;; `ik-lost-reply-` prefix; see `test_api_scenarios/fault.clj`.
- :given
- [{:fixture :bank
-   :as :bank-0
-   :with {:name "Open Lost Reply Test" :status "live"}}
-  {:fixture :person
-   :as :party-0
-   :with {:token [:ref :bank-0 :token]
-          :display-name "Tricia McMillan"
-          :given-name "Tricia"
-          :family-name "McMillan"
-          :date-of-birth "1962-03-08"
-          :national-insurance "TN555803E"
-          :address {:building-number "1"
-                    :street "Cottington Lane"
-                    :town "Cottington"
-                    :postcode "CT12 4XY"
-                    :country "GBR"}}}
-  {:fixture :product :as :draft :with {:token [:ref :bank-0 :token]}}]
+ :given [{:fixture :bank
+          :as :bank-0
+          :with {:name "Open Lost Reply Test" :status "live"}}
+         {:fixture :person
+          :as :party-0
+          :with {:token [:ref :bank-0 :token]
+                 :display-name "Tricia McMillan"
+                 :given-name "Tricia"
+                 :family-name "McMillan"
+                 :date-of-birth "1962-03-08"
+                 :national-insurance "TN555803E"
+                 :address {:building-number "1"
+                           :street "Cottington Lane"
+                           :town "Cottington"
+                           :postcode "CT12 4XY"
+                           :country "GBR"}}}
+         {:fixture :product :as :draft :with {:token [:ref :bank-0 :token]}}]
  :when
  [{:command :api/request
    :request {:method :post
@@ -42,9 +42,7 @@
   ;; party's account before the retry is sent -- otherwise the retry
   ;; would race the first command rather than follow it.
   {:command :api/poll
-   :request {:method :get
-             :path "/v1/cash-accounts"
-             :auth [:ref :bank-0 :token]}
+   :request {:method :get :path "/v1/cash-accounts" :auth [:ref :bank-0 :token]}
    :until {:status 200
            :body {:items
                   [:m/in-any-order
@@ -67,9 +65,7 @@
    :as :retried}]
  :then
  [{:command :api/request
-   :request {:method :get
-             :path "/v1/cash-accounts"
-             :auth [:ref :bank-0 :token]}
+   :request {:method :get :path "/v1/cash-accounts" :auth [:ref :bank-0 :token]}
    :assert {:status 200
             :body {:items
                    [:m/in-any-order

@@ -17,7 +17,8 @@
           :national-insurance "TN889011A"}}
   {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}
   {:command :api/request
-   :request {:method :get :path "/v1/ledger-accounts" :auth [:ref :org-0 :token]}
+   :request
+   {:method :get :path "/v1/ledger-accounts" :auth [:ref :org-0 :token]}
    :as :ledgers
    :assert {:status 200}}
   {:fixture :account
@@ -61,8 +62,7 @@
              :path "/v1/simulate/inbound-transfer"
              :auth :admin
              :headers {:bank-id [:ref :org-0 :bank :bank-id]}
-             :body {:amount 100000
-                    :currency "GBP"}}
+             :body {:amount 100000 :currency "GBP"}}
    :as :funded-1
    :assert {:status 200}}
   ;; The money reaches the customer from the bank's own funds.
@@ -123,12 +123,13 @@
              :path "/v1/cash-accounts/{account-id}/transactions"
              :path-params {:account-id [:ref :debtor :account :account-id]}
              :auth [:ref :org-0 :token]}
-   :assert {:status 200
-            :body {:items [:m/embeds
-                           [{:reference "Inbound to a closed address"
-                             :transaction-type "outbound-return"
-                             :side "credit"
-                             :amount 4200}]]}}}
+   :assert
+   {:status 200
+    :body {:items [:m/embeds
+                   [{:reference "Inbound to a closed address"
+                     :transaction-type "outbound-return"
+                     :side "credit"
+                     :amount 4200}]]}}}
   ;; Nothing arrived: neither the closed account nor suspense moved.
   {:command :api/request
    :request {:method :get

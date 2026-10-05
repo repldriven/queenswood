@@ -1,4 +1,5 @@
-{:name "A bank runs on the providers its create names, the default of each other kind"
+{:name
+ "A bank runs on the providers its create names, the default of each other kind"
  :when
  [{:command :api/request
    :request {:method :post
@@ -21,10 +22,10 @@
                     :currencies ["GBP"]}}
    :as :defaulted
    :assert {:status 201 :body {:providers {:payment "modulr" :idv "zyphe"}}}}]
- :then
- [{:command :api/request
-   :request {:method :get
-             :path "/v1/bank"
-             :auth :admin
-             :headers {:bank-id [:ref :named :bank-id]}}
-   :assert {:status 200 :body {:providers {:payment "modulr" :idv "zyphe"}}}}]}
+ :then [{:command :api/request
+         :request {:method :get
+                   :path "/v1/bank"
+                   :auth :admin
+                   :headers {:bank-id [:ref :named :bank-id]}}
+         :assert {:status 200
+                  :body {:providers {:payment "modulr" :idv "zyphe"}}}}]}

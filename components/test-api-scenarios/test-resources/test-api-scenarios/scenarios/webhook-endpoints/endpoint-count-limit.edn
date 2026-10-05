@@ -31,10 +31,11 @@
  :then
  ;; The refusal came before any write, so the bank holds what it held.
  [{:command :api/request
-   :request {:method :get :path "/v1/webhook-endpoints" :auth [:ref :org-0 :token]}
+   :request
+   {:method :get :path "/v1/webhook-endpoints" :auth [:ref :org-0 :token]}
    :assert {:status 200
-            :body {:items
-                   [:m/embeds
-                    [{:endpoint-id [:ref :endpoint-0 :endpoint :endpoint-id]}
-                     {:endpoint-id
-                      [:ref :endpoint-1 :endpoint :endpoint-id]}]]}}}]}
+            :body
+            {:items
+             [:m/embeds
+              [{:endpoint-id [:ref :endpoint-0 :endpoint :endpoint-id]}
+               {:endpoint-id [:ref :endpoint-1 :endpoint :endpoint-id]}]]}}}]}

@@ -1,8 +1,7 @@
 {:name "Editing a job's schedule persists time then pauses it"
- :given
- [{:fixture :bank
-   :as :org-0
-   :with {:name "Schedule Edit Test Bank" :status "live"}}]
+ :given [{:fixture :bank
+          :as :org-0
+          :with {:name "Schedule Edit Test Bank" :status "live"}}]
  :when
  ;; Omitted fields keep their current value, so changing only the time
  ;; leaves the daily cadence intact.

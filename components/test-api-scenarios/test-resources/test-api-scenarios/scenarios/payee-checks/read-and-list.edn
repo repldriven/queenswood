@@ -1,14 +1,13 @@
 {:name "Tenant reads a payee check back, by id and in the list"
  :given
- [{:fixture :bank :as :org-0 :with {:name "Payee Check Read Org" :status "live"}}
+ [{:fixture :bank
+   :as :org-0
+   :with {:name "Payee Check Read Org" :status "live"}}
   ;; A check is made from the bank's own funds, so it waits for the
   ;; provider to open them.
   {:command :api/poll
-   :request {:method :get
-             :path "/v1/cash-accounts"
-             :auth [:ref :org-0 :token]}
-   :until {:status 200
-           :body {:items [:m/embeds [{:account-status "opened"}]]}}}
+   :request {:method :get :path "/v1/cash-accounts" :auth [:ref :org-0 :token]}
+   :until {:status 200 :body {:items [:m/embeds [{:account-status "opened"}]]}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/payee-checks"
@@ -29,6 +28,7 @@
                    :result {:match-result "match"}}}}
   {:command :api/request
    :request {:method :get :path "/v1/payee-checks" :auth [:ref :org-0 :token]}
-   :assert {:status 200
-            :body {:items [{:check-id [:ref :check-0 :check-id]
-                            :result {:match-result "match"}}]}}}]}
+   :assert
+   {:status 200
+    :body {:items [{:check-id [:ref :check-0 :check-id]
+                    :result {:match-result "match"}}]}}}]}

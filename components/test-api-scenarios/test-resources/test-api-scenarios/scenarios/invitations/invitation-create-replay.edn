@@ -30,7 +30,8 @@
   {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/accept"
-             :path-params {:invitation-id [:ref :bank :owner-invitation :invitation-id]}
+             :path-params {:invitation-id [:ref :bank :owner-invitation
+                                           :invitation-id]}
              :auth :owner-token}
    :assert {:status 201}}]
  :when
@@ -44,8 +45,7 @@
    :as :first
    :assert {:status 201
             :headers {:idempotent-replayed [:m/absent]}
-            :body {:invitation-id [:m/regex "^inv\\."]
-                   :token [:m/absent]}}}
+            :body {:invitation-id [:m/regex "^inv\\."] :token [:m/absent]}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/invitations"
@@ -65,13 +65,14 @@
              :path "/v1/invitations"
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}}
-   :assert {:status 200
-            :body {:items [:m/in-any-order
-                           [{:email "replay-owner@queenswood.local"
-                             :status "accepted"}
-                            {:invitation-id [:ref :first :invitation-id]
-                             :email "replay-invitee@queenswood.local"
-                             :status "pending"}]]}}}
+   :assert
+   {:status 200
+    :body
+    {:items [:m/in-any-order
+             [{:email "replay-owner@queenswood.local" :status "accepted"}
+              {:invitation-id [:ref :first :invitation-id]
+               :email "replay-invitee@queenswood.local"
+               :status "pending"}]]}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/invitations/{invitation-id}/resend"

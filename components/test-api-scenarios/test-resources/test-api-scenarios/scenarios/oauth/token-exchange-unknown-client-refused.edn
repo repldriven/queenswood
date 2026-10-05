@@ -5,13 +5,12 @@
  ;; met a 500 for what is an ordinary authentication failure. A known
  ;; client's wrong secret is refused the same way, in onboarding's
  ;; status-change journey.
- :when
- [{:command :api/request
-   :request {:method :post
-             :path "/oauth/token"
-             :headers {:content-type "application/x-www-form-urlencoded"}
-             :form {:grant_type "client_credentials"
-                    :client_id "bnk.no-such-client"
-                    :client_secret "wrong"
-                    :scope "queenswood-api-live"}}
-   :assert {:status 401 :body {:error "invalid_client"}}}]}
+ :when [{:command :api/request
+         :request {:method :post
+                   :path "/oauth/token"
+                   :headers {:content-type "application/x-www-form-urlencoded"}
+                   :form {:grant_type "client_credentials"
+                          :client_id "bnk.no-such-client"
+                          :client_secret "wrong"
+                          :scope "queenswood-api-live"}}
+         :assert {:status 401 :body {:error "invalid_client"}}}]}

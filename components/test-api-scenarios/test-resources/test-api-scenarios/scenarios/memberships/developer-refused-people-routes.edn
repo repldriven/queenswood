@@ -29,7 +29,8 @@
   {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/accept"
-             :path-params {:invitation-id [:ref :bank :owner-invitation :invitation-id]}
+             :path-params {:invitation-id [:ref :bank :owner-invitation
+                                           :invitation-id]}
              :auth :owner-token}
    :as :owner-membership
    :assert {:status 201}}
@@ -102,11 +103,13 @@
              :path "/v1/memberships"
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}}
-   :assert {:status 200
-            :body {:items [:m/in-any-order
-                           [{:membership-id [:ref :owner-membership
-                                             :membership-id]
-                             :role "owner"}
-                            {:membership-id [:ref :developer-membership
-                                             :membership-id]
-                             :role "developer"}]]}}}]}
+   :assert
+   {:status 200
+    :body
+    {:items [:m/in-any-order
+             [{:membership-id [:ref :owner-membership
+                               :membership-id]
+               :role "owner"}
+              {:membership-id [:ref :developer-membership
+                               :membership-id]
+               :role "developer"}]]}}}]}

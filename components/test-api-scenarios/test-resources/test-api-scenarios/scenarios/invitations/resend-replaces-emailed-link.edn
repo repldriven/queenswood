@@ -78,19 +78,19 @@
              :path-params {:invitation-id [:ref :invitation :invitation-id]}
              :auth :invitee-token
              :headers {:invitation-token [:ref :second-email :token]}}
-   :assert {:status 201
-            :body {:bank-id [:ref :bank :bank-id] :role "viewer"}}}]
+   :assert {:status 201 :body {:bank-id [:ref :bank :bank-id] :role "viewer"}}}]
  :then
  [{:command :api/request
    :request {:method :get
              :path "/v1/bank/audit-events"
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}}
-   :assert {:status 200
-            :body {:items [:m/embeds
-                           [{:kind "invitation-resent"
-                             :actor {:kind "member"
-                                     :principal-id
-                                     [:ref :owner-membership :user-id]}
-                             :invitation-id [:ref :invitation
-                                             :invitation-id]}]]}}}]}
+   :assert
+   {:status 200
+    :body
+    {:items [:m/embeds
+             [{:kind "invitation-resent"
+               :actor
+               {:kind "member" :principal-id [:ref :owner-membership :user-id]}
+               :invitation-id [:ref :invitation
+                               :invitation-id]}]]}}}]}

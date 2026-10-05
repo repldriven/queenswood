@@ -1,8 +1,9 @@
 {:name "A version promises an opening reward, fixed once published"
- :given
- [{:fixture :bank
-   :as :org-0
-   :with {:name "Opening Reward Test Org" :status "live" :tier "test-scenario"}}]
+ :given [{:fixture :bank
+          :as :org-0
+          :with {:name "Opening Reward Test Org"
+                 :status "live"
+                 :tier "test-scenario"}}]
  :when
  [;; The reward is declared at create, in minor units of the currency.
   {:command :api/request
@@ -17,17 +18,17 @@
                     :effective-from "2026-01-01"}}
    :as :v1
    :assert {:status 201
-            :body {:status "draft"
-                   :opening-reward {:amount 1000}}}}
+            :body {:status "draft" :opening-reward {:amount 1000}}}}
   ;; It reads back with the version.
   {:command :api/request
    :request {:method :get
              :path "/v1/cash-account-products/{product-id}"
              :path-params {:product-id [:ref :v1 :product-id]}
              :auth [:ref :org-0 :token]}
-   :assert {:status 200
-            :body {:versions [{:version-id [:ref :v1 :version-id]
-                               :opening-reward {:amount 1000}}]}}}
+   :assert
+   {:status 200
+    :body {:versions [{:version-id [:ref :v1 :version-id]
+                       :opening-reward {:amount 1000}}]}}}
   ;; A draft's reward can change.
   {:command :api/request
    :request {:method :put
@@ -66,8 +67,7 @@
                   :version-id [:ref :v1 :version-id]}
     :auth [:ref :org-0 :token]}
    :assert {:status 200
-            :body {:status "published"
-                   :opening-reward {:amount 2500}}}}
+            :body {:status "published" :opening-reward {:amount 2500}}}}
   {:command :api/request
    :request {:method :put
              :path
@@ -88,7 +88,8 @@
              :path "/v1/cash-account-products/{product-id}"
              :path-params {:product-id [:ref :v1 :product-id]}
              :auth [:ref :org-0 :token]}
-   :assert {:status 200
-            :body {:versions [{:version-id [:ref :v1 :version-id]
-                               :status "published"
-                               :opening-reward {:amount 2500}}]}}}]}
+   :assert
+   {:status 200
+    :body {:versions [{:version-id [:ref :v1 :version-id]
+                       :status "published"
+                       :opening-reward {:amount 2500}}]}}}]}

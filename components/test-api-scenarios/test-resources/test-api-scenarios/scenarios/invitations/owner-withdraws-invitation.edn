@@ -1,4 +1,5 @@
-{:name "An owner withdraws a pending invitation, and the bank no longer lists it"
+{:name
+ "An owner withdraws a pending invitation, and the bank no longer lists it"
  ;; The bank's list still holds the owner's own accepted invitation, so
  ;; it is never empty and every item it holds is checked against the
  ;; withdrawn one.
@@ -23,7 +24,8 @@
   {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/accept"
-             :path-params {:invitation-id [:ref :bank :owner-invitation :invitation-id]}
+             :path-params {:invitation-id [:ref :bank :owner-invitation
+                                           :invitation-id]}
              :auth :owner-token}
    :as :owner-membership
    :assert {:status 201}}
@@ -59,26 +61,30 @@
              :path "/v1/invitations"
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}}
-   :assert {:status 200
-            :body {:items [:m/all-of
-                           [:m/embeds
-                            [{:invitation-id [:ref :bank :owner-invitation :invitation-id]
-                              :status "accepted"}]]
-                           [:m/seq-of
-                            [:m/mismatch
-                             {:invitation-id [:ref :invitation :invitation-id]}]]]}}}
+   :assert
+   {:status 200
+    :body
+    {:items
+     [:m/all-of
+      [:m/embeds
+       [{:invitation-id [:ref :bank :owner-invitation :invitation-id]
+         :status "accepted"}]]
+      [:m/seq-of
+       [:m/mismatch
+        {:invitation-id [:ref :invitation :invitation-id]}]]]}}}
   {:command :api/request
    :request {:method :get
              :path "/v1/bank/audit-events"
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}}
-   :assert {:status 200
-            :body {:items [:m/embeds
-                           [{:kind "invitation-withdrawn"
-                             :actor {:kind "member"
-                                     :principal-id
-                                     [:ref :owner-membership :user-id]}
-                             :invitation-id [:ref :invitation :invitation-id]
-                             :email "withdraw-invitee@example.test"
-                             :role-after "viewer"
-                             :reason "Sent to the wrong address"}]]}}}]}
+   :assert
+   {:status 200
+    :body
+    {:items [:m/embeds
+             [{:kind "invitation-withdrawn"
+               :actor
+               {:kind "member" :principal-id [:ref :owner-membership :user-id]}
+               :invitation-id [:ref :invitation :invitation-id]
+               :email "withdraw-invitee@example.test"
+               :role-after "viewer"
+               :reason "Sent to the wrong address"}]]}}}]}

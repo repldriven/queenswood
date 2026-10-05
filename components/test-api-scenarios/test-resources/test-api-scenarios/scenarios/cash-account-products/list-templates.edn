@@ -1,8 +1,7 @@
 {:name "The template menu lists the customer templates and not the internal one"
- :given
- [{:fixture :bank
-   :as :org-0
-   :with {:name "List Templates Test Org" :status "live"}}]
+ :given [{:fixture :bank
+          :as :org-0
+          :with {:name "List Templates Test Org" :status "live"}}]
  :when
  ;; A vector in expected position matches on length and order, so the
  ;; three customer templates sorted by product-type is also the
@@ -11,19 +10,20 @@
    :request {:method :get
              :path "/v1/cash-account-product-templates"
              :auth [:ref :org-0 :token]}
-   :assert {:status 200
-            :body {:items [{:template-id "tpl.00000000000000000000000001"
-                            :name "Current account"
-                            :product-type "current"
-                            :balance-sheet-side "liability"
-                            :allowed-currencies ["GBP"]}
-                           {:template-id "tpl.00000000000000000000000002"
-                            :name "Savings account"
-                            :product-type "savings"
-                            :balance-sheet-side "liability"
-                            :allowed-currencies ["GBP"]}
-                           {:template-id "tpl.00000000000000000000000003"
-                            :name "Term deposit"
-                            :product-type "term-deposit"
-                            :balance-sheet-side "liability"
-                            :allowed-currencies ["GBP"]}]}}}]}
+   :assert
+   {:status 200
+    :body {:items [{:template-id "tpl.00000000000000000000000001"
+                    :name "Current account"
+                    :product-type "current"
+                    :balance-sheet-side "liability"
+                    :allowed-currencies ["GBP"]}
+                   {:template-id "tpl.00000000000000000000000002"
+                    :name "Savings account"
+                    :product-type "savings"
+                    :balance-sheet-side "liability"
+                    :allowed-currencies ["GBP"]}
+                   {:template-id "tpl.00000000000000000000000003"
+                    :name "Term deposit"
+                    :product-type "term-deposit"
+                    :balance-sheet-side "liability"
+                    :allowed-currencies ["GBP"]}]}}}]}

@@ -1,4 +1,5 @@
-{:name "The customer registers an endpoint and proves it with a test notification"
+{:name
+ "The customer registers an endpoint and proves it with a test notification"
  :given [{:fixture :bank :as :bank-0 :with {:name "Endpoint Journey"}}
          {:command :webhook/open-receiver :as :receiver}]
  :when
@@ -37,7 +38,8 @@
              :path-params {:endpoint-id [:ref :registered :endpoint
                                          :endpoint-id]}
              :auth [:ref :bank-0 :token]}
-   :until {:status 200
-           :body {:items [{:delivery-id [:ref :test-delivery :delivery-id]
-                           :status "delivered"
-                           :last-response-status 200}]}}}]}
+   :until
+   {:status 200
+    :body {:items [{:delivery-id [:ref :test-delivery :delivery-id]
+                    :status "delivered"
+                    :last-response-status 200}]}}}]}

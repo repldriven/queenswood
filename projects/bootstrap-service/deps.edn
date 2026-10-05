@@ -24,7 +24,8 @@
  ;; `transaction` with it.
  :deps {ext/mono {:local/root "../../deps/mono"}
         component/bank-activity {:local/root "../../components/bank-activity"}
-        component/changelog-relay {:local/root "../../components/changelog-relay"}
+        component/changelog-relay {:local/root
+                                   "../../components/changelog-relay"}
         component/balance {:local/root "../../components/balance"}
         component/balance-domain {:local/root "../../components/balance-domain"}
         component/balance-query {:local/root "../../components/balance-query"}
@@ -40,8 +41,8 @@
         component/idv-provider {:local/root "../../components/idv-provider"}
         component/idv-query {:local/root "../../components/idv-query"}
         component/party-query {:local/root "../../components/party-query"}
-        component/person-identification {:local/root
-                                         "../../components/person-identification"}
+        component/person-identification
+        {:local/root "../../components/person-identification"}
         component/policy {:local/root "../../components/policy"}
         component/resources {:local/root "../../components/resources"}
         component/schema {:local/root "../../components/schema"}

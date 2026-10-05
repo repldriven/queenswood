@@ -1,28 +1,26 @@
 {:name "Tenant closes a party that holds no open accounts"
- :given
- [{:fixture :bank
-   :as :org-0
-   :with {:name "Close Party Test Org" :status "live"}}
-  {:fixture :person
-   :as :party-0
-   :with {:token [:ref :org-0 :token]
-          :display-name "Closing Party"
-          :given-name "Closing"
-          :family-name "Party"
-          :national-insurance "TN888016A"}}]
- :when
- [{:command :api/request
-   :request {:method :post
-             :path "/v1/parties/{party-id}/close"
-             :path-params {:party-id [:ref :party-0 :party :party-id]}
-             :auth [:ref :org-0 :token]}
-   :assert {:status 200
-            :body {:party-id [:ref :party-0 :party :party-id]
-                   :status "closed"}}}
-  ;; Close is terminal — there is no way back out of it.
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/parties/{party-id}/resume"
-             :path-params {:party-id [:ref :party-0 :party :party-id]}
-             :auth [:ref :org-0 :token]}
-   :assert {:status 409 :body {:type ":party/invalid-status"}}}]}
+ :given [{:fixture :bank
+          :as :org-0
+          :with {:name "Close Party Test Org" :status "live"}}
+         {:fixture :person
+          :as :party-0
+          :with {:token [:ref :org-0 :token]
+                 :display-name "Closing Party"
+                 :given-name "Closing"
+                 :family-name "Party"
+                 :national-insurance "TN888016A"}}]
+ :when [{:command :api/request
+         :request {:method :post
+                   :path "/v1/parties/{party-id}/close"
+                   :path-params {:party-id [:ref :party-0 :party :party-id]}
+                   :auth [:ref :org-0 :token]}
+         :assert
+         {:status 200
+          :body {:party-id [:ref :party-0 :party :party-id] :status "closed"}}}
+        ;; Close is terminal — there is no way back out of it.
+        {:command :api/request
+         :request {:method :post
+                   :path "/v1/parties/{party-id}/resume"
+                   :path-params {:party-id [:ref :party-0 :party :party-id]}
+                   :auth [:ref :org-0 :token]}
+         :assert {:status 409 :body {:type ":party/invalid-status"}}}]}

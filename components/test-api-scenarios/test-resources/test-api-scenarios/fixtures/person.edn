@@ -28,9 +28,7 @@
                                           :issuing-country "GB"}}}
    :as :party
    :assert {:status 201 :body {:status "pending"}}}
-  {:command :idv/verify
-   :party [:ref :party :party-id]
-   :auth [:param :token]}
+  {:command :idv/verify :party [:ref :party :party-id] :auth [:param :token]}
   {:command :api/poll
    :request {:method :get
              :path "/v1/parties/{party-id}"

@@ -15,7 +15,8 @@
   {:command :api/request
    :request {:method :put
              :path "/v1/webhook-endpoints/{endpoint-id}"
-             :path-params {:endpoint-id [:ref :hook :registered :endpoint :endpoint-id]}
+             :path-params {:endpoint-id [:ref :hook :registered :endpoint
+                                         :endpoint-id]}
              :auth [:ref :org-0 :token]
              :body {:address "https://93.184.216.35/hooks"}}
    :assert {:status 422 :problem {:type ":webhook-endpoint/invalid-address"}}}]}

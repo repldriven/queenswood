@@ -52,8 +52,7 @@
              :path "/v1/simulate/inbound-transfer"
              :auth :admin
              :headers {:bank-id [:ref :bank-a :bank :bank-id]}
-             :body {:amount 100000
-                    :currency "GBP"}}
+             :body {:amount 100000 :currency "GBP"}}
    :as :funded-1
    :assert {:status 200}}
   ;; The money reaches the customer from the bank's own funds.
@@ -116,30 +115,33 @@
              :path-params {:payment-id [:ref :internal :payment-id]}
              :auth [:ref :bank-b :token]}
    :assert {:status 404
-            :body [:m/equals {:title "REJECTED"
-                              :type ":payment/not-found"
-                              :status 404
-                              :detail "Payment not found"}]}}
+            :body [:m/equals
+                   {:title "REJECTED"
+                    :type ":payment/not-found"
+                    :status 404
+                    :detail "Payment not found"}]}}
   {:command :api/request
    :request {:method :get
              :path "/v1/payments/outbound/{payment-id}"
              :path-params {:payment-id [:ref :outbound :payment-id]}
              :auth [:ref :bank-b :token]}
    :assert {:status 404
-            :body [:m/equals {:title "REJECTED"
-                              :type ":payment/not-found"
-                              :status 404
-                              :detail "Payment not found"}]}}
+            :body [:m/equals
+                   {:title "REJECTED"
+                    :type ":payment/not-found"
+                    :status 404
+                    :detail "Payment not found"}]}}
   {:command :api/request
    :request {:method :get
              :path "/v1/payments/internal/{payment-id}"
              :path-params {:payment-id "pmt.01kprbmgcj35ptc8npmybhh4s5"}
              :auth [:ref :bank-a :token]}
    :assert {:status 404
-            :body [:m/equals {:title "REJECTED"
-                              :type ":payment/not-found"
-                              :status 404
-                              :detail "Payment not found"}]}}
+            :body [:m/equals
+                   {:title "REJECTED"
+                    :type ":payment/not-found"
+                    :status 404
+                    :detail "Payment not found"}]}}
   ;; Bank A reads both.
   {:command :api/request
    :request {:method :get

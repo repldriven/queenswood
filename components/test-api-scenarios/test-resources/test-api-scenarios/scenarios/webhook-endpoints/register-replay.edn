@@ -20,7 +20,8 @@
              :body {:address "https://93.184.216.34/hooks"
                     :kinds ["payment.outbound-completed"]}}
    :assert {:status 201
-            :body {:endpoint {:endpoint-id [:ref :first :endpoint :endpoint-id]}}}}
+            :body {:endpoint {:endpoint-id [:ref :first :endpoint
+                                            :endpoint-id]}}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/webhook-endpoints"
@@ -31,5 +32,6 @@
  :then
  ;; Two endpoints: the replayed key's one, and the fresh key's.
  [{:command :api/request
-   :request {:method :get :path "/v1/webhook-endpoints" :auth [:ref :org-0 :token]}
+   :request
+   {:method :get :path "/v1/webhook-endpoints" :auth [:ref :org-0 :token]}
    :assert {:status 200 :body {:items [{} {}]}}}]}

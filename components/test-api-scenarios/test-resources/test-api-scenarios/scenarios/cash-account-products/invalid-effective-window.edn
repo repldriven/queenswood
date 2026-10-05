@@ -1,8 +1,7 @@
 {:name "An effective-to on or before effective-from is rejected"
- :given
- [{:fixture :bank
-   :as :org-0
-   :with {:name "Invalid Window Test Org" :status "live"}}]
+ :given [{:fixture :bank
+          :as :org-0
+          :with {:name "Invalid Window Test Org" :status "live"}}]
  :when
  ;; effective-to strictly before effective-from.
  [{:command :api/request

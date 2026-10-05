@@ -1,4 +1,5 @@
-{:name "An invitation is not found without its token or a verified matching email"
+{:name
+ "An invitation is not found without its token or a verified matching email"
  ;; Two people fail the proof. A verified stranger sends a token that
  ;; is not the invitation's. The invitee's address matches, but the
  ;; realm holds it unverified, so the token's `email_verified` claim is
@@ -37,7 +38,8 @@
   {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/accept"
-             :path-params {:invitation-id [:ref :bank :owner-invitation :invitation-id]}
+             :path-params {:invitation-id [:ref :bank :owner-invitation
+                                           :invitation-id]}
              :auth :owner-token}
    :assert {:status 201}}
   {:command :api/request
@@ -92,7 +94,9 @@
              :path "/v1/invitations"
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}}
-   :assert {:status 200
-            :body {:items [:m/embeds
-                           [{:invitation-id [:ref :invitation :invitation-id]
-                             :status "pending"}]]}}}]}
+   :assert
+   {:status 200
+    :body
+    {:items [:m/embeds
+             [{:invitation-id [:ref :invitation :invitation-id]
+               :status "pending"}]]}}}]}

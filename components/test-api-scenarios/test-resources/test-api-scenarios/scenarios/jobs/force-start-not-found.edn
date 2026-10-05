@@ -1,8 +1,7 @@
 {:name "Force-starting an unknown job returns 404"
- :given
- [{:fixture :bank
-   :as :org-0
-   :with {:name "Force Start 404 Test Org" :status "live"}}]
+ :given [{:fixture :bank
+          :as :org-0
+          :with {:name "Force Start 404 Test Org" :status "live"}}]
  :when [{:command :api/request
          :request {:method :post
                    :path "/v1/jobs/{job-id}/runs"

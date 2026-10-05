@@ -23,8 +23,8 @@
   component/bank {:local/root "../../components/bank"}
   component/bank-query {:local/root "../../components/bank-query"}
   component/cash-account {:local/root "../../components/cash-account"}
-  component/cash-account-migration
-  {:local/root "../../components/cash-account-migration"}
+  component/cash-account-migration {:local/root
+                                    "../../components/cash-account-migration"}
   component/changelog-relay {:local/root "../../components/changelog-relay"}
   component/cash-account-query {:local/root
                                 "../../components/cash-account-query"}

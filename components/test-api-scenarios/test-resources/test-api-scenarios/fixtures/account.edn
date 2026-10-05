@@ -1,7 +1,6 @@
 {:doc "A cash account, opened."
- :required #{:token :party-id :product-id}
- :params {:name "Current Account"
-          :currency "GBP"}
+ :required #{:party-id :product-id :token}
+ :params {:name "Current Account" :currency "GBP"}
  :steps
  [{:command :api/request
    :request {:method :post

@@ -1,4 +1,5 @@
-{:name "The operator hands a bank to a new owner with a reason, and history shows it"
+{:name
+ "The operator hands a bank to a new owner with a reason, and history shows it"
  ;; A departed founder is the bank's only owner. The operator meets the
  ;; never-ownerless rule as a member does, so the founder cannot be
  ;; removed until the operator's owner invitation has been accepted.
@@ -29,7 +30,8 @@
   {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/accept"
-             :path-params {:invitation-id [:ref :bank :owner-invitation :invitation-id]}
+             :path-params {:invitation-id [:ref :bank :owner-invitation
+                                           :invitation-id]}
              :auth :founder-token}
    :as :founder-membership
    :assert {:status 201}}
@@ -91,13 +93,14 @@
              :path "/v1/memberships"
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}}
-   :assert {:status 200
-            :body {:items [{:membership-id [:ref :owner-membership
-                                            :membership-id]
-                            :role "owner"
-                            :invited-by {:kind "operator"
-                                         :principal-id "queenswood-admin"
-                                         :name "Queenswood"}}]}}}
+   :assert
+   {:status 200
+    :body {:items [{:membership-id [:ref :owner-membership
+                                    :membership-id]
+                    :role "owner"
+                    :invited-by {:kind "operator"
+                                 :principal-id "queenswood-admin"
+                                 :name "Queenswood"}}]}}}
   {:command :api/request
    :request {:method :get
              :path "/v1/bank/audit-events"
@@ -106,24 +109,23 @@
              :query-params {"page[size]" 3}}
    :assert
    {:status 200
-    :body {:items [{:kind "member-removed"
-                    :actor {:kind "operator"
-                            :principal-id "queenswood-admin"
-                            :name "Queenswood"}
-                    :subject-user-id [:ref :founder-membership :user-id]
-                    :subject-name [:ref :founder-me :name]
-                    :role-before "owner"
-                    :reason "Handed over to the new owner"}
-                   {:kind "invitation-accepted"
-                    :actor {:kind "member"
-                            :principal-id [:ref :owner-membership :user-id]}}
-                   {:kind "invitation-created"
-                    :actor {:kind "operator"
-                            :principal-id "queenswood-admin"
-                            :name "Queenswood"}
-                    :email "recovery-owner@queenswood.local"
-                    :role-after "owner"
-                    :reason "The founder has left and asked for a handover"}]}}}
+    :body
+    {:items
+     [{:kind "member-removed"
+       :actor
+       {:kind "operator" :principal-id "queenswood-admin" :name "Queenswood"}
+       :subject-user-id [:ref :founder-membership :user-id]
+       :subject-name [:ref :founder-me :name]
+       :role-before "owner"
+       :reason "Handed over to the new owner"}
+      {:kind "invitation-accepted"
+       :actor {:kind "member" :principal-id [:ref :owner-membership :user-id]}}
+      {:kind "invitation-created"
+       :actor
+       {:kind "operator" :principal-id "queenswood-admin" :name "Queenswood"}
+       :email "recovery-owner@queenswood.local"
+       :role-after "owner"
+       :reason "The founder has left and asked for a handover"}]}}}
   {:command :api/request
    :request {:method :get :path "/v1/me/memberships" :auth :founder-token}
    :assert {:status 200 :body {:items []}}}]}

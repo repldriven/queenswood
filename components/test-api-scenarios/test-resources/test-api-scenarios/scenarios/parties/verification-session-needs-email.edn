@@ -1,4 +1,5 @@
-{:name "Opening a verification session is refused without the email the provider needs"
+{:name
+ "Opening a verification session is refused without the email the provider needs"
  :requires #{:needs-email}
  :runs-on {:idv :every}
  :given
@@ -25,17 +26,17 @@
                                           :issuing-country "GB"}}}
    :as :party-0
    :assert {:status 201}}]
- :when
- [{:command :api/poll
-   :request {:method :get
-             :path "/v1/parties/{party-id}/verification"
-             :path-params {:party-id [:ref :party-0 :party-id]}
-             :auth [:ref :org-0 :token]}
-   :until {:status 200 :body {:status "pending"}}}
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/parties/{party-id}/verification-sessions"
-             :path-params {:party-id [:ref :party-0 :party-id]}
-             :auth [:ref :org-0 :token]
-             :body {:channel "web" :return-url "https://app.example.test/back"}}
-   :assert {:status 422 :body {:type ":idv/missing-email"}}}]}
+ :when [{:command :api/poll
+         :request {:method :get
+                   :path "/v1/parties/{party-id}/verification"
+                   :path-params {:party-id [:ref :party-0 :party-id]}
+                   :auth [:ref :org-0 :token]}
+         :until {:status 200 :body {:status "pending"}}}
+        {:command :api/request
+         :request {:method :post
+                   :path "/v1/parties/{party-id}/verification-sessions"
+                   :path-params {:party-id [:ref :party-0 :party-id]}
+                   :auth [:ref :org-0 :token]
+                   :body {:channel "web"
+                          :return-url "https://app.example.test/back"}}
+         :assert {:status 422 :body {:type ":idv/missing-email"}}}]}

@@ -3,25 +3,23 @@
  ;; registry, here its simulator, and answers under a registry-neutral
  ;; shape: a known number with the registry it came from, and an unknown
  ;; one refused with a kind that names no vendor.
- :given
- [{:command :auth/mint-user-token
-   :realm :queenswood
-   :client-id "queenswood-console"
-   :username "company-lookup"
-   :password "company-lookup"
-   :as :person-token}]
- :when
- [{:command :api/request
-   :request {:method :get
-             :path "/v1/companies/{company-number}"
-             :path-params {:company-number "SC998137"}
-             :auth :person-token}
-   :assert {:status 200
-            :body {:company-number "SC998137"
-                   :company-name [:m/non-empty]}}}
-  {:command :api/request
-   :request {:method :get
-             :path "/v1/companies/{company-number}"
-             :path-params {:company-number "99999999"}
-             :auth :person-token}
-   :assert {:status 404 :problem {:type ":company/not-found"}}}]}
+ :given [{:command :auth/mint-user-token
+          :realm :queenswood
+          :client-id "queenswood-console"
+          :username "company-lookup"
+          :password "company-lookup"
+          :as :person-token}]
+ :when [{:command :api/request
+         :request {:method :get
+                   :path "/v1/companies/{company-number}"
+                   :path-params {:company-number "SC998137"}
+                   :auth :person-token}
+         :assert {:status 200
+                  :body
+                  {:company-number "SC998137" :company-name [:m/non-empty]}}}
+        {:command :api/request
+         :request {:method :get
+                   :path "/v1/companies/{company-number}"
+                   :path-params {:company-number "99999999"}
+                   :auth :person-token}
+         :assert {:status 404 :problem {:type ":company/not-found"}}}]}

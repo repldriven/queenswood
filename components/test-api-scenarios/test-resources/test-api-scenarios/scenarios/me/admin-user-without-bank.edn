@@ -14,7 +14,9 @@
    :as :ops-token}
   {:command :api/request
    :request {:method :get :path "/v1/me" :auth :ops-token}
-   :assert {:status 200 :body {:issuer [:m/regex "/realms/queenswood-ops$"] :email "ops@queenswood.local"}}}
+   :assert {:status 200
+            :body {:issuer [:m/regex "/realms/queenswood-ops$"]
+                   :email "ops@queenswood.local"}}}
   {:command :api/request
    :request {:method :get :path "/v1/me/memberships" :auth :ops-token}
    :assert {:status 200 :body {:items []}}}

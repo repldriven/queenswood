@@ -2,32 +2,31 @@
  :runs-on {:payment :every}
  ;; 3650 bps is a hundredth of the balance a day: £1,000 earns 100p, and
  ;; 50p earns half a hundredth of a penny, which only advances the carry.
- :given
- [{:fixture :bank :as :bank-0 :with {:name "Daily Accrual Journey"}}
-  {:fixture :product
-   :as :saver
-   :with {:token [:ref :bank-0 :token]
-          :name "Easy Saver"
-          :template-id "tpl.00000000000000000000000002"
-          :effective-from "2020-01-01"
-          :interest-rate-bps 3650}}
-  {:fixture :person :as :arthur :with {:token [:ref :bank-0 :token]}}
-  {:fixture :funded-account
-   :as :earning
-   :with {:bank-id [:ref :bank-0 :bank :bank-id]
-          :token [:ref :bank-0 :token]
-          :party-id [:ref :arthur :party :party-id]
-          :product-id [:ref :saver :product :product-id]
-          :name "Easy Saver"
-          :amount 100000}}
-  {:fixture :funded-account
-   :as :carrying
-   :with {:bank-id [:ref :bank-0 :bank :bank-id]
-          :token [:ref :bank-0 :token]
-          :party-id [:ref :arthur :party :party-id]
-          :product-id [:ref :saver :product :product-id]
-          :name "Easy Saver"
-          :amount 50}}]
+ :given [{:fixture :bank :as :bank-0 :with {:name "Daily Accrual Journey"}}
+         {:fixture :product
+          :as :saver
+          :with {:token [:ref :bank-0 :token]
+                 :name "Easy Saver"
+                 :template-id "tpl.00000000000000000000000002"
+                 :effective-from "2020-01-01"
+                 :interest-rate-bps 3650}}
+         {:fixture :person :as :arthur :with {:token [:ref :bank-0 :token]}}
+         {:fixture :funded-account
+          :as :earning
+          :with {:bank-id [:ref :bank-0 :bank :bank-id]
+                 :token [:ref :bank-0 :token]
+                 :party-id [:ref :arthur :party :party-id]
+                 :product-id [:ref :saver :product :product-id]
+                 :name "Easy Saver"
+                 :amount 100000}}
+         {:fixture :funded-account
+          :as :carrying
+          :with {:bank-id [:ref :bank-0 :bank :bank-id]
+                 :token [:ref :bank-0 :token]
+                 :party-id [:ref :arthur :party :party-id]
+                 :product-id [:ref :saver :product :product-id]
+                 :name "Easy Saver"
+                 :amount 50}}]
  :when
  [{:command :api/request
    :request {:method :post
@@ -35,15 +34,13 @@
              :path-params {:job-id "daily-interest"}
              :auth [:ref :bank-0 :token]}
    :assert {:status 201
-            :body {:job-id "daily-interest"
-                   :trigger-source "forced"
-                   :status "succeeded"
-                   :tasks [{:label "accrue"
-                            :status "succeeded"
-                            :records-failed 0}
-                           {:label "capitalize"
-                            :status "succeeded"
-                            :records-failed 0}]}}}
+            :body
+            {:job-id "daily-interest"
+             :trigger-source "forced"
+             :status "succeeded"
+             :tasks
+             [{:label "accrue" :status "succeeded" :records-failed 0}
+              {:label "capitalize" :status "succeeded" :records-failed 0}]}}}
   ;; The run is daily, so a second one today is refused rather than
   ;; paid twice.
   {:command :api/request

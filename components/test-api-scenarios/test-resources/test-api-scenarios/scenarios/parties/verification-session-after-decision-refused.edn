@@ -26,19 +26,18 @@
   {:command :idv/verify
    :party [:ref :party-0 :party-id]
    :auth [:ref :org-0 :token]}]
- :when
- [{:command :api/poll
-   :request {:method :get
-             :path "/v1/parties/{party-id}"
-             :path-params {:party-id [:ref :party-0 :party-id]}
-             :auth [:ref :org-0 :token]}
-   :until {:status 200 :body {:status "active"}}}
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/parties/{party-id}/verification-sessions"
-             :path-params {:party-id [:ref :party-0 :party-id]}
-             :auth [:ref :org-0 :token]
-             :body {:channel "web"
-                    :return-url "https://app.example.test/back"
-                    :email "ford.after-decision@example.test"}}
-   :assert {:status 409 :body {:type ":idv/invalid-status"}}}]}
+ :when [{:command :api/poll
+         :request {:method :get
+                   :path "/v1/parties/{party-id}"
+                   :path-params {:party-id [:ref :party-0 :party-id]}
+                   :auth [:ref :org-0 :token]}
+         :until {:status 200 :body {:status "active"}}}
+        {:command :api/request
+         :request {:method :post
+                   :path "/v1/parties/{party-id}/verification-sessions"
+                   :path-params {:party-id [:ref :party-0 :party-id]}
+                   :auth [:ref :org-0 :token]
+                   :body {:channel "web"
+                          :return-url "https://app.example.test/back"
+                          :email "ford.after-decision@example.test"}}
+         :assert {:status 409 :body {:type ":idv/invalid-status"}}}]}

@@ -1,11 +1,11 @@
 {:name "Reading an endpoint the bank does not hold returns 404"
- :given [{:fixture :bank :as :org-0 :with {:name "Webhook Missing Endpoint Org"}}]
- :when
- [{:command :api/request
-   :request {:method :get
-             :path "/v1/webhook-endpoints/{endpoint-id}"
-             :path-params {:endpoint-id "whe.00000000000000000000000000"}
-             :auth [:ref :org-0 :token]}
-   :assert {:status 404
-            :problem {:type ":webhook-endpoint/not-found"
-                      :detail "Webhook endpoint not found"}}}]}
+ :given
+ [{:fixture :bank :as :org-0 :with {:name "Webhook Missing Endpoint Org"}}]
+ :when [{:command :api/request
+         :request {:method :get
+                   :path "/v1/webhook-endpoints/{endpoint-id}"
+                   :path-params {:endpoint-id "whe.00000000000000000000000000"}
+                   :auth [:ref :org-0 :token]}
+         :assert {:status 404
+                  :problem {:type ":webhook-endpoint/not-found"
+                            :detail "Webhook endpoint not found"}}}]}

@@ -1,8 +1,6 @@
 {:doc "A bank on the run's providers, with a token minted for it."
- :params {:name "Scenario Bank"
-          :status "test"
-          :tier "micro"
-          :currencies ["GBP"]}
+ :params
+ {:name "Scenario Bank" :status "test" :tier "micro" :currencies ["GBP"]}
  :steps
  [{:command :api/request
    :request {:method :post

@@ -1,8 +1,7 @@
 {:name "Tenant runs a webhook endpoint through its lifecycle"
- :given
- [{:fixture :bank
-   :as :org-0
-   :with {:name "Webhook Lifecycle Org" :status "live"}}]
+ :given [{:fixture :bank
+          :as :org-0
+          :with {:name "Webhook Lifecycle Org" :status "live"}}]
  :when
  [{:command :api/request
    :request {:method :post
@@ -21,25 +20,27 @@
   {:command :api/request
    :request {:method :get
              :path "/v1/webhook-endpoints/{endpoint-id}"
-             :path-params {:endpoint-id
-                           [:ref :endpoint-0 :endpoint :endpoint-id]}
+             :path-params {:endpoint-id [:ref :endpoint-0 :endpoint
+                                         :endpoint-id]}
              :auth [:ref :org-0 :token]}
    :assert {:status 200
             :body {:endpoint-id [:ref :endpoint-0 :endpoint :endpoint-id]
                    :address "https://93.184.216.34/hooks"
                    :status "enabled"}}}
   {:command :api/request
-   :request {:method :get :path "/v1/webhook-endpoints" :auth [:ref :org-0 :token]}
-   :assert {:status 200
-            :body {:items
-                   [:m/embeds
-                    [{:endpoint-id [:ref :endpoint-0 :endpoint :endpoint-id]
-                      :status "enabled"}]]}}}
+   :request
+   {:method :get :path "/v1/webhook-endpoints" :auth [:ref :org-0 :token]}
+   :assert
+   {:status 200
+    :body
+    {:items [:m/embeds
+             [{:endpoint-id [:ref :endpoint-0 :endpoint :endpoint-id]
+               :status "enabled"}]]}}}
   {:command :api/request
    :request {:method :put
              :path "/v1/webhook-endpoints/{endpoint-id}"
-             :path-params {:endpoint-id
-                           [:ref :endpoint-0 :endpoint :endpoint-id]}
+             :path-params {:endpoint-id [:ref :endpoint-0 :endpoint
+                                         :endpoint-id]}
              :auth [:ref :org-0 :token]
              :body {:address "https://93.184.216.34/hooks-v2"
                     :description "Tenant hooks, moved"
@@ -51,15 +52,15 @@
   {:command :api/request
    :request {:method :post
              :path "/v1/webhook-endpoints/{endpoint-id}/disable"
-             :path-params {:endpoint-id
-                           [:ref :endpoint-0 :endpoint :endpoint-id]}
+             :path-params {:endpoint-id [:ref :endpoint-0 :endpoint
+                                         :endpoint-id]}
              :auth [:ref :org-0 :token]}
    :assert {:status 200 :body {:status "disabled"}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/webhook-endpoints/{endpoint-id}/enable"
-             :path-params {:endpoint-id
-                           [:ref :endpoint-0 :endpoint :endpoint-id]}
+             :path-params {:endpoint-id [:ref :endpoint-0 :endpoint
+                                         :endpoint-id]}
              :auth [:ref :org-0 :token]
              :body {}}
    :assert {:status 200 :body {:status "enabled"}}}
@@ -69,17 +70,16 @@
   {:command :api/request
    :request {:method :post
              :path "/v1/webhook-endpoints/{endpoint-id}/enable"
-             :path-params {:endpoint-id
-                           [:ref :endpoint-0 :endpoint :endpoint-id]}
+             :path-params {:endpoint-id [:ref :endpoint-0 :endpoint
+                                         :endpoint-id]}
              :auth [:ref :org-0 :token]
              :body {}}
-   :assert {:status 409
-            :problem {:type ":webhook-endpoint/invalid-status"}}}
+   :assert {:status 409 :problem {:type ":webhook-endpoint/invalid-status"}}}
   {:command :api/request
    :request {:method :delete
              :path "/v1/webhook-endpoints/{endpoint-id}"
-             :path-params {:endpoint-id
-                           [:ref :endpoint-0 :endpoint :endpoint-id]}
+             :path-params {:endpoint-id [:ref :endpoint-0 :endpoint
+                                         :endpoint-id]}
              :auth [:ref :org-0 :token]}
    :assert {:status 204}}]
  :then
@@ -88,7 +88,7 @@
  [{:command :api/request
    :request {:method :get
              :path "/v1/webhook-endpoints/{endpoint-id}"
-             :path-params {:endpoint-id
-                           [:ref :endpoint-0 :endpoint :endpoint-id]}
+             :path-params {:endpoint-id [:ref :endpoint-0 :endpoint
+                                         :endpoint-id]}
              :auth [:ref :org-0 :token]}
    :assert {:status 200 :body {:status "removed"}}}]}

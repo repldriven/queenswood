@@ -14,24 +14,24 @@
    {:status 200
     :body
     {:items [:m/embeds
-            [{:job-id "daily-interest"
-              :name "Daily interest"
-              :kind "user"
-              :task-kinds ["accrue" "capitalize"]
-              :periodicity "daily"
-              :allowed-periodicities ["daily"]
-              :run-time-minutes 1020
-              :enabled true}
-             {:job-id "account-migration"
-              :kind "system"
-              :periodicity "daily"
-              :run-time-minutes 0
-              :allowed-periodicities ["daily" "monthly" "yearly"]}
-             {:job-id "hourly-rewards"
-              :name "Hourly rewards"
-              :kind "user"
-              :task-kinds ["reward"]
-              :periodicity "hourly"
-              :allowed-periodicities ["hourly" "daily"]
-              :run-time-minutes 0
-              :enabled true}]]}}}]}
+             [{:job-id "daily-interest"
+               :name "Daily interest"
+               :kind "user"
+               :task-kinds ["accrue" "capitalize"]
+               :periodicity "daily"
+               :allowed-periodicities ["daily"]
+               :run-time-minutes 1020
+               :enabled true}
+              {:job-id "account-migration"
+               :kind "system"
+               :periodicity "daily"
+               :run-time-minutes 0
+               :allowed-periodicities ["daily" "monthly" "yearly"]}
+              {:job-id "hourly-rewards"
+               :name "Hourly rewards"
+               :kind "user"
+               :task-kinds ["reward"]
+               :periodicity "hourly"
+               :allowed-periodicities ["hourly" "daily"]
+               :run-time-minutes 0
+               :enabled true}]]}}}]}

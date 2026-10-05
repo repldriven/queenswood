@@ -19,14 +19,14 @@
  [{:command :api/request
    :request {:method :get :path "/v1/bank/policies" :auth :bank-0-token}
    :assert {:status 200
-            :body {:items [:m/embeds
-                           [{:name "Platform policy"}
-                            {:name "Micro tier policy"
-                             :labels {:tier "micro"}}]]}}}
+            :body {:items
+                   [:m/embeds
+                    [{:name "Platform policy"}
+                     {:name "Micro tier policy" :labels {:tier "micro"}}]]}}}
   {:command :api/request
    :request {:method :get :path "/v1/bank/effective-policy" :auth :bank-0-token}
-   :assert {:status 200
-            :body {:limits [:m/embeds
-                            [{:reason "Micro tier - max 50 cash accounts"
-                              :origin {:tier "micro"
-                                       :name "Micro tier policy"}}]]}}}]}
+   :assert
+   {:status 200
+    :body {:limits [:m/embeds
+                    [{:reason "Micro tier - max 50 cash accounts"
+                      :origin {:tier "micro" :name "Micro tier policy"}}]]}}}]}

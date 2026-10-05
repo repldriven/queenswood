@@ -27,11 +27,14 @@
   component/access-api {:local/root "../../components/access-api"}
   component/balance-api {:local/root "../../components/balance-api"}
   component/bank-api {:local/root "../../components/bank-api"}
-  component/cash-account-migration-api {:local/root "../../components/cash-account-migration-api"}
-  component/cash-account-product-api {:local/root "../../components/cash-account-product-api"}
+  component/cash-account-migration-api
+  {:local/root "../../components/cash-account-migration-api"}
+  component/cash-account-product-api
+  {:local/root "../../components/cash-account-product-api"}
   component/company-api {:local/root "../../components/company-api"}
   component/job-api {:local/root "../../components/job-api"}
-  component/ledger-account-api {:local/root "../../components/ledger-account-api"}
+  component/ledger-account-api {:local/root
+                                "../../components/ledger-account-api"}
   component/me-api {:local/root "../../components/me-api"}
   component/oauth-api {:local/root "../../components/oauth-api"}
   component/party-api {:local/root "../../components/party-api"}
@@ -45,8 +48,8 @@
                                 "../../components/cash-account-query"}
   component/cash-account-product {:local/root
                                   "../../components/cash-account-product"}
-  component/cash-account-migration
-  {:local/root "../../components/cash-account-migration"}
+  component/cash-account-migration {:local/root
+                                    "../../components/cash-account-migration"}
   component/cash-account-product-query
   {:local/root "../../components/cash-account-product-query"}
   component/modulr-webhook {:local/root "../../components/modulr-webhook"}
@@ -54,8 +57,7 @@
   component/bank-activity {:local/root "../../components/bank-activity"}
   component/changelog-relay {:local/root "../../components/changelog-relay"}
   component/clearbank-relay {:local/root "../../components/clearbank-relay"}
-  component/clearbank-webhook {:local/root
-                              "../../components/clearbank-webhook"}
+  component/clearbank-webhook {:local/root "../../components/clearbank-webhook"}
   component/form3-relay {:local/root "../../components/form3-relay"}
   component/form3-webhook {:local/root "../../components/form3-webhook"}
   component/intent-queue {:local/root "../../components/intent-queue"}
@@ -90,8 +92,7 @@
   component/reward {:local/root "../../components/reward"}
   component/scheduler {:local/root "../../components/scheduler"}
   component/schema {:local/root "../../components/schema"}
-  component/scheme-simulator {:local/root
-                              "../../components/scheme-simulator"}
+  component/scheme-simulator {:local/root "../../components/scheme-simulator"}
   component/transaction {:local/root "../../components/transaction"}
   component/user {:local/root "../../components/user"}
   component/webhook {:local/root "../../components/webhook"}

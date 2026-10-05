@@ -1,19 +1,18 @@
 {:name "Opening a draft while one already exists is rejected"
- :given
- [{:fixture :bank
-   :as :org-0
-   :with {:name "Draft Already Exists Test Org" :status "live"}}
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/cash-account-products"
-             :auth [:ref :org-0 :token]
-             :body {:name "Initial Draft"
-                    :template-id "tpl.00000000000000000000000001"
-                    :currency "GBP"
-                    :interest-rate-bps 0
-                    :effective-from "2026-01-01"}}
-   :as :v1
-   :assert {:status 201}}]
+ :given [{:fixture :bank
+          :as :org-0
+          :with {:name "Draft Already Exists Test Org" :status "live"}}
+         {:command :api/request
+          :request {:method :post
+                    :path "/v1/cash-account-products"
+                    :auth [:ref :org-0 :token]
+                    :body {:name "Initial Draft"
+                           :template-id "tpl.00000000000000000000000001"
+                           :currency "GBP"
+                           :interest-rate-bps 0
+                           :effective-from "2026-01-01"}}
+          :as :v1
+          :assert {:status 201}}]
  :when [{:command :api/request
          :request {:method :post
                    :path "/v1/cash-account-products/{product-id}/versions"

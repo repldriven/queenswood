@@ -12,34 +12,33 @@
     component/test-resources {:local/root "../../components/test-resources"}
     component/testcontainers {:local/root "../../components/testcontainers"}
     component/test-schema {:local/root "../../components/test-schema"}
-    component/test-startup
-    {:local/root "../../components/test-startup"}}}}
- :deps {ext/mono {:local/root "../../deps/mono"}
-        component/bank-activity {:local/root "../../components/bank-activity"}
-        component/fdb {:local/root "../../components/fdb"}
-        component/changelog-relay {:local/root "../../components/changelog-relay"}
-        component/balance {:local/root "../../components/balance"}
-        component/balance-domain {:local/root "../../components/balance-domain"}
-        component/balance-query {:local/root "../../components/balance-query"}
-        component/bank-query {:local/root "../../components/bank-query"}
-        component/cash-account-query {:local/root
-                                      "../../components/cash-account-query"}
-        component/cash-account-product-query
-        {:local/root "../../components/cash-account-product-query"}
-        component/ledger-account {:local/root "../../components/ledger-account"}
-        component/party-query {:local/root "../../components/party-query"}
-        component/payee-check {:local/root "../../components/payee-check"}
-        component/payment {:local/root "../../components/payment"}
-        component/payment-provider {:local/root "../../components/payment-provider"}
-        component/payment-query {:local/root "../../components/payment-query"}
-        component/person-identification
-        {:local/root "../../components/person-identification"}
-        component/policy {:local/root "../../components/policy"}
-        component/resources {:local/root "../../components/resources"}
-        component/schema {:local/root "../../components/schema"}
-        component/transaction {:local/root "../../components/transaction"}
-        base/financial-processors {:local/root
-                                   "../../bases/financial-processors"}
-        org.clojure/clojure {:mvn/version "1.13.0-alpha8"}
-        pin/clojure-core-async {:local/root "../../deps/clojure-core-async"}}
+    component/test-startup {:local/root "../../components/test-startup"}}}}
+ :deps
+ {ext/mono {:local/root "../../deps/mono"}
+  component/bank-activity {:local/root "../../components/bank-activity"}
+  component/fdb {:local/root "../../components/fdb"}
+  component/changelog-relay {:local/root "../../components/changelog-relay"}
+  component/balance {:local/root "../../components/balance"}
+  component/balance-domain {:local/root "../../components/balance-domain"}
+  component/balance-query {:local/root "../../components/balance-query"}
+  component/bank-query {:local/root "../../components/bank-query"}
+  component/cash-account-query {:local/root
+                                "../../components/cash-account-query"}
+  component/cash-account-product-query
+  {:local/root "../../components/cash-account-product-query"}
+  component/ledger-account {:local/root "../../components/ledger-account"}
+  component/party-query {:local/root "../../components/party-query"}
+  component/payee-check {:local/root "../../components/payee-check"}
+  component/payment {:local/root "../../components/payment"}
+  component/payment-provider {:local/root "../../components/payment-provider"}
+  component/payment-query {:local/root "../../components/payment-query"}
+  component/person-identification {:local/root
+                                   "../../components/person-identification"}
+  component/policy {:local/root "../../components/policy"}
+  component/resources {:local/root "../../components/resources"}
+  component/schema {:local/root "../../components/schema"}
+  component/transaction {:local/root "../../components/transaction"}
+  base/financial-processors {:local/root "../../bases/financial-processors"}
+  org.clojure/clojure {:mvn/version "1.13.0-alpha8"}
+  pin/clojure-core-async {:local/root "../../deps/clojure-core-async"}}
  :paths ["resources"]}

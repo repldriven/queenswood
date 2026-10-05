@@ -1,8 +1,8 @@
 {:name "A session whose check the provider refuses fails, and another may open"
  :runs-on {:idv :every}
- ;; Every identity simulator refuses a check for refused@verification.example.
- ;; The session fails with the provider's reason, the party stays pending,
- ;; and the customer is told.
+ ;; Every identity simulator refuses a check for
+ ;; refused@verification.example. The session fails with the provider's
+ ;; reason, the party stays pending, and the customer is told.
  :given
  [{:fixture :bank
    :as :org-0

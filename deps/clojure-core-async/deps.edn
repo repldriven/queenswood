@@ -1,5 +1,6 @@
 ;; Single source of the Clojure-family coordinates that can be pinned from
-;; one place. Consumers reference this by :local/root as pin/clojure-core-async.
+;; one place. Consumers reference this by :local/root as
+;; pin/clojure-core-async.
 ;;
 ;; org.clojure/clojure is deliberately NOT here, and cannot be: the CLI
 ;; merges its own root deps.edn into every project's :deps, so Clojure is

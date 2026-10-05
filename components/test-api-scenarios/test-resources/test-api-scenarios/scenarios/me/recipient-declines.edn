@@ -33,7 +33,8 @@
   {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/accept"
-             :path-params {:invitation-id [:ref :bank :owner-invitation :invitation-id]}
+             :path-params {:invitation-id [:ref :bank :owner-invitation
+                                           :invitation-id]}
              :auth :owner-token}
    :as :owner-membership
    :assert {:status 201}}
@@ -42,7 +43,8 @@
              :path "/v1/invitations"
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}
-             :body {:email "decline-invitee@queenswood.local" :role "developer"}}
+             :body {:email "decline-invitee@queenswood.local"
+                    :role "developer"}}
    :as :invitation
    :assert {:status 201}}]
  :when
@@ -76,13 +78,13 @@
              :path "/v1/bank/audit-events"
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}}
-   :assert {:status 200
-            :body {:items [:m/embeds
-                           [{:kind "invitation-declined"
-                             :actor {:kind "member"
-                                     :principal-id
-                                     [:ref :invitee-me :user-id]}
-                             :subject-user-id [:ref :invitee-me :user-id]
-                             :invitation-id [:ref :invitation :invitation-id]
-                             :email "decline-invitee@queenswood.local"
-                             :role-after "developer"}]]}}}]}
+   :assert
+   {:status 200
+    :body
+    {:items [:m/embeds
+             [{:kind "invitation-declined"
+               :actor {:kind "member" :principal-id [:ref :invitee-me :user-id]}
+               :subject-user-id [:ref :invitee-me :user-id]
+               :invitation-id [:ref :invitation :invitation-id]
+               :email "decline-invitee@queenswood.local"
+               :role-after "developer"}]]}}}]}

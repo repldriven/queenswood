@@ -2,10 +2,9 @@
  ;; The rig retries every quarter-second and opens an endpoint's breaker
  ;; after three failures for a quarter-second at first, so the outage
  ;; plays out here in seconds.
- :given [{:fixture :bank :as :bank-0 :with {:name "Outage Journey"}}
-         {:fixture :webhook-receiver
-          :as :hook
-          :with {:token [:ref :bank-0 :token]}}]
+ :given
+ [{:fixture :bank :as :bank-0 :with {:name "Outage Journey"}}
+  {:fixture :webhook-receiver :as :hook :with {:token [:ref :bank-0 :token]}}]
  :when
  [{:fixture :person
    :as :before

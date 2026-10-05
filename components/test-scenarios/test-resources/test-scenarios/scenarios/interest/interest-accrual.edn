@@ -51,15 +51,14 @@
         {:command :assert-interest-reconciliation :args [:bank-0 "GBP"]}
         {:command :capitalize-interest :args [:bank-0 20260501]}
         {:command :assert-interest-reconciliation :args [:bank-0 "GBP"]}]
- ;; Both passes enumerate each customer account into an
- ;; InterestAccountRun row and flip it to done in the same transaction
- ;; as the posting. Scope is 3: acct-1 (savings), acct-0, which
- ;; `:create-bank` opens on a customer-current product, and the bank's
- ;; own-funds account, which opens once the payment provider issues its
- ;; address — the bank's 7 real GL accounts carry no product type and
- ;; stay out of scope. A row
- ;; reaching done records that an account was considered, whether or
- ;; not it earned anything, which is the only trace a zero-rate account
+ ;; Both passes enumerate each customer account into an. InterestAccountRun
+ ;; row and flip it to done in the same transaction as the posting. Scope
+ ;; is 3: acct-1 (savings), acct-0, which `:create-bank` opens on a
+ ;; customer-current product, and the bank's own-funds account, which opens
+ ;; once the payment provider issues its address — the bank's 7 real GL
+ ;; accounts carry no product type and stay out of scope. A row reaching
+ ;; done records that an account was considered, whether or not it earned
+ ;; anything, which is the only trace a zero-rate account
  ;; leaves. Closed means nothing was left pending.
  ;;
  ;; Accrual writes no per-account transaction — only the customer's
@@ -85,11 +84,17 @@
  :then [{:command :assert-no-anomaly :args []}
         {:command :assert-interest-run
          :args [:bank-0 20260501 :accrue
-                {:scope 3 :done 3 :failed 0 :pending 0
+                {:scope 3
+                 :done 3
+                 :failed 0
+                 :pending 0
                  :run-state :interest-run-state-closed}]}
         {:command :assert-interest-run
          :args [:bank-0 20260501 :capitalize
-                {:scope 3 :done 3 :failed 0 :pending 0
+                {:scope 3
+                 :done 3
+                 :failed 0
+                 :pending 0
                  :run-state :interest-run-state-closed}]}
         {:command :assert-gl-balance
          :args [:bank-0 :gl-account-code-interest-expense "GBP" -100]}

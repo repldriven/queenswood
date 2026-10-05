@@ -23,11 +23,10 @@
    :request {:method :get :path "/v1/cash-accounts" :auth :admin}
    :assert {:status 403 :problem {:type "auth/forbidden"}}}
   {:command :api/request
-   :request {:method :post
-             :path "/v1/banks"
-             :auth [:ref :bank-0 :token]
-             :body {:name "Second Bank"
-                    :status "live"
-                    :tier "micro"
-                    :currencies ["GBP"]}}
+   :request
+   {:method :post
+    :path "/v1/banks"
+    :auth [:ref :bank-0 :token]
+    :body
+    {:name "Second Bank" :status "live" :tier "micro" :currencies ["GBP"]}}
    :assert {:status 403 :problem {:type "auth/forbidden"}}}]}

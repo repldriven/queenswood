@@ -12,67 +12,70 @@
     component/testcontainers {:local/root "../../components/testcontainers"}
     component/test-schema {:local/root "../../components/test-schema"}
     component/test-startup {:local/root "../../components/test-startup"}}}}
- :deps {ext/mono {:local/root "../../deps/mono"}
-        component/bank-activity {:local/root "../../components/bank-activity"}
-        component/changelog-relay {:local/root "../../components/changelog-relay"}
-        component/circuit-breaker {:local/root "../../components/circuit-breaker"}
-        component/fdb {:local/root "../../components/fdb"}
-        component/api-schema {:local/root "../../components/api-schema"}
-        component/balance {:local/root "../../components/balance"}
-        component/balance-domain {:local/root "../../components/balance-domain"}
-        component/balance-query {:local/root "../../components/balance-query"}
-        component/cash-account-api
-        {:local/root "../../components/cash-account-api"}
-        component/payment-api {:local/root "../../components/payment-api"}
-        component/idv-provider {:local/root "../../components/idv-provider"}
-        component/payment-provider {:local/root "../../components/payment-provider"}
-        component/reward-api {:local/root "../../components/reward-api"}
-        component/access-api {:local/root "../../components/access-api"}
-        component/balance-api {:local/root "../../components/balance-api"}
-        component/bank-api {:local/root "../../components/bank-api"}
-        component/cash-account-migration-api {:local/root "../../components/cash-account-migration-api"}
-        component/cash-account-product-api {:local/root "../../components/cash-account-product-api"}
-        component/company-api {:local/root "../../components/company-api"}
-        component/job-api {:local/root "../../components/job-api"}
-        component/ledger-account-api {:local/root "../../components/ledger-account-api"}
-        component/me-api {:local/root "../../components/me-api"}
-        component/oauth-api {:local/root "../../components/oauth-api"}
-        component/party-api {:local/root "../../components/party-api"}
-        component/payee-check-api {:local/root "../../components/payee-check-api"}
-        component/policy-api {:local/root "../../components/policy-api"}
-        component/simulate-api {:local/root "../../components/simulate-api"}
-        component/tier-api {:local/root "../../components/tier-api"}
-        component/transaction-api {:local/root "../../components/transaction-api"}
-        component/cash-account {:local/root "../../components/cash-account"}
-        component/cash-account-query {:local/root
-                                      "../../components/cash-account-query"}
-        component/cash-account-migration
-        {:local/root "../../components/cash-account-migration"}
-        component/cash-account-product
-        {:local/root "../../components/cash-account-product"}
-        component/cash-account-product-query
-        {:local/root "../../components/cash-account-product-query"}
-        component/idempotency {:local/root "../../components/idempotency"}
-        component/idv-query {:local/root "../../components/idv-query"}
-        component/ledger-account {:local/root "../../components/ledger-account"}
-        component/membership-query {:local/root "../../components/membership-query"}
-        component/bank-query {:local/root "../../components/bank-query"}
-        component/interest {:local/root "../../components/interest"}
-        component/scheduler {:local/root "../../components/scheduler"}
-        component/party-query {:local/root "../../components/party-query"}
-        component/payee-check {:local/root "../../components/payee-check"}
-        component/payment-query {:local/root "../../components/payment-query"}
-        component/reward-query {:local/root "../../components/reward-query"}
-        component/person-identification
-        {:local/root "../../components/person-identification"}
-        component/policy {:local/root "../../components/policy"}
-        component/resources {:local/root "../../components/resources"}
-        component/reward {:local/root "../../components/reward"}
-        component/schema {:local/root "../../components/schema"}
-        component/transaction {:local/root "../../components/transaction"}
-        component/user {:local/root "../../components/user"}
-        component/webhook {:local/root "../../components/webhook"}
-        base/api {:local/root "../../bases/api"}
-        org.clojure/clojure {:mvn/version "1.13.0-alpha8"}
-        pin/clojure-core-async {:local/root "../../deps/clojure-core-async"}}
+ :deps
+ {ext/mono {:local/root "../../deps/mono"}
+  component/bank-activity {:local/root "../../components/bank-activity"}
+  component/changelog-relay {:local/root "../../components/changelog-relay"}
+  component/circuit-breaker {:local/root "../../components/circuit-breaker"}
+  component/fdb {:local/root "../../components/fdb"}
+  component/api-schema {:local/root "../../components/api-schema"}
+  component/balance {:local/root "../../components/balance"}
+  component/balance-domain {:local/root "../../components/balance-domain"}
+  component/balance-query {:local/root "../../components/balance-query"}
+  component/cash-account-api {:local/root "../../components/cash-account-api"}
+  component/payment-api {:local/root "../../components/payment-api"}
+  component/idv-provider {:local/root "../../components/idv-provider"}
+  component/payment-provider {:local/root "../../components/payment-provider"}
+  component/reward-api {:local/root "../../components/reward-api"}
+  component/access-api {:local/root "../../components/access-api"}
+  component/balance-api {:local/root "../../components/balance-api"}
+  component/bank-api {:local/root "../../components/bank-api"}
+  component/cash-account-migration-api
+  {:local/root "../../components/cash-account-migration-api"}
+  component/cash-account-product-api
+  {:local/root "../../components/cash-account-product-api"}
+  component/company-api {:local/root "../../components/company-api"}
+  component/job-api {:local/root "../../components/job-api"}
+  component/ledger-account-api {:local/root
+                                "../../components/ledger-account-api"}
+  component/me-api {:local/root "../../components/me-api"}
+  component/oauth-api {:local/root "../../components/oauth-api"}
+  component/party-api {:local/root "../../components/party-api"}
+  component/payee-check-api {:local/root "../../components/payee-check-api"}
+  component/policy-api {:local/root "../../components/policy-api"}
+  component/simulate-api {:local/root "../../components/simulate-api"}
+  component/tier-api {:local/root "../../components/tier-api"}
+  component/transaction-api {:local/root "../../components/transaction-api"}
+  component/cash-account {:local/root "../../components/cash-account"}
+  component/cash-account-query {:local/root
+                                "../../components/cash-account-query"}
+  component/cash-account-migration {:local/root
+                                    "../../components/cash-account-migration"}
+  component/cash-account-product {:local/root
+                                  "../../components/cash-account-product"}
+  component/cash-account-product-query
+  {:local/root "../../components/cash-account-product-query"}
+  component/idempotency {:local/root "../../components/idempotency"}
+  component/idv-query {:local/root "../../components/idv-query"}
+  component/ledger-account {:local/root "../../components/ledger-account"}
+  component/membership-query {:local/root "../../components/membership-query"}
+  component/bank-query {:local/root "../../components/bank-query"}
+  component/interest {:local/root "../../components/interest"}
+  component/scheduler {:local/root "../../components/scheduler"}
+  component/party-query {:local/root "../../components/party-query"}
+  component/payee-check {:local/root "../../components/payee-check"}
+  component/payment-query {:local/root "../../components/payment-query"}
+  component/reward-query {:local/root "../../components/reward-query"}
+  component/person-identification {:local/root
+                                   "../../components/person-identification"}
+  component/policy {:local/root "../../components/policy"}
+  component/resources {:local/root "../../components/resources"}
+  component/reward {:local/root "../../components/reward"}
+  component/schema {:local/root "../../components/schema"}
+  component/transaction {:local/root "../../components/transaction"}
+  component/user {:local/root "../../components/user"}
+  component/webhook {:local/root "../../components/webhook"}
+  base/api {:local/root "../../bases/api"}
+  org.clojure/clojure {:mvn/version "1.13.0-alpha8"}
+  pin/clojure-core-async {:local/root "../../deps/clojure-core-async"}}
  :paths ["resources"]}

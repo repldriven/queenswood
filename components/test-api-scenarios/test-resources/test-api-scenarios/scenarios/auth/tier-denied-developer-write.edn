@@ -1,4 +1,5 @@
-{:name "A write the tier refuses and a write the role refuses answer different types"
+{:name
+ "A write the tier refuses and a write the role refuses answer different types"
  ;; The bank is on the `no-webhooks` tier, whose policy refuses
  ;; registering a webhook endpoint. The developer passes the gate and
  ;; is refused by the policy; demoted to viewer, the same write is
@@ -31,7 +32,8 @@
   {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/accept"
-             :path-params {:invitation-id [:ref :bank :owner-invitation :invitation-id]}
+             :path-params {:invitation-id [:ref :bank :owner-invitation
+                                           :invitation-id]}
              :auth :owner-token}
    :assert {:status 201}}
   {:command :api/request
@@ -39,8 +41,7 @@
              :path "/v1/invitations"
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}
-             :body {:email "tier-developer@queenswood.local"
-                    :role "developer"}}
+             :body {:email "tier-developer@queenswood.local" :role "developer"}}
    :as :invitation
    :assert {:status 201}}
   {:command :api/request
@@ -78,10 +79,9 @@
                     :description "Refused hooks"
                     :kinds ["cash-account.opened"]}}
    :assert {:status 403 :problem {:type "auth/forbidden"}}}]
- :then
- [{:command :api/request
-   :request {:method :get
-             :path "/v1/webhook-endpoints"
-             :auth :owner-token
-             :headers {:bank-id [:ref :bank :bank-id]}}
-   :assert {:status 200 :body {:items []}}}]}
+ :then [{:command :api/request
+         :request {:method :get
+                   :path "/v1/webhook-endpoints"
+                   :auth :owner-token
+                   :headers {:bank-id [:ref :bank :bank-id]}}
+         :assert {:status 200 :body {:items []}}}]}

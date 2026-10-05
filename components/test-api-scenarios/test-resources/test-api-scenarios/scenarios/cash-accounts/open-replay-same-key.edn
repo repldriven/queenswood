@@ -1,16 +1,15 @@
 {:name "Opening a cash account twice under one key opens one account"
- :given
- [{:fixture :bank
-   :as :org-0
-   :with {:name "Open Replay Same Key Test Org" :status "live"}}
-  {:fixture :person
-   :as :party-0
-   :with {:token [:ref :org-0 :token]
-          :display-name "Replaying Holder"
-          :given-name "Replaying"
-          :family-name "Holder"
-          :national-insurance "TN889010A"}}
-  {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}]
+ :given [{:fixture :bank
+          :as :org-0
+          :with {:name "Open Replay Same Key Test Org" :status "live"}}
+         {:fixture :person
+          :as :party-0
+          :with {:token [:ref :org-0 :token]
+                 :display-name "Replaying Holder"
+                 :given-name "Replaying"
+                 :family-name "Holder"
+                 :national-insurance "TN889010A"}}
+         {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}]
  :when
  [{:command :api/request
    :request {:method :post

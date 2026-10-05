@@ -1,4 +1,5 @@
-{:name "The bank admits an inbound to an opened account, and refuses one to a suspended account"
+{:name
+ "The bank admits an inbound to an opened account, and refuses one to a suspended account"
  :requires #{:inbound-admitted}
  :runs-on {:payment :every}
  ;; Form3 asks the bank to admit each inbound before it settles. One to
@@ -82,11 +83,10 @@
    :assert {:status 202
             :body {:admission-status "failed"
                    :status-reason "blocked_account"}}}]
- :then
- [{:command :api/request
-   :request {:method :get
-             :path "/v1/cash-accounts/{account-id}/balances"
-             :path-params {:account-id [:ref :creditor :account-id]}
-             :auth [:ref :bank-0 :token]}
-   :assert {:status 200
-            :body {:posted-balance {:value 2500 :currency "GBP"}}}}]}
+ :then [{:command :api/request
+         :request {:method :get
+                   :path "/v1/cash-accounts/{account-id}/balances"
+                   :path-params {:account-id [:ref :creditor :account-id]}
+                   :auth [:ref :bank-0 :token]}
+         :assert {:status 200
+                  :body {:posted-balance {:value 2500 :currency "GBP"}}}}]}

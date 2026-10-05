@@ -1,5 +1,4 @@
-{:name
- "An invitee signed in under another address accepts by the emailed link"
+{:name "An invitee signed in under another address accepts by the emailed link"
  ;; The owner is invited by the operator's create and accepts with the
  ;; token its email carried. The invitation then names an address the
  ;; invitee does not sign in with, so the emailed token is the only
@@ -100,10 +99,12 @@
              :path "/v1/invitations"
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}}
-   :assert {:status 200
-            :body {:items [:m/embeds
-                           [{:invitation-id [:ref :invitation :invitation-id]
-                             :email "link-invitee@example.test"
-                             :accepted-email "link-invitee@queenswood.local"
-                             :accepted-by-user-id [:ref :accepted :user-id]
-                             :status "accepted"}]]}}}]}
+   :assert
+   {:status 200
+    :body
+    {:items [:m/embeds
+             [{:invitation-id [:ref :invitation :invitation-id]
+               :email "link-invitee@example.test"
+               :accepted-email "link-invitee@queenswood.local"
+               :accepted-by-user-id [:ref :accepted :user-id]
+               :status "accepted"}]]}}}]}

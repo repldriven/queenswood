@@ -1,25 +1,24 @@
 {:name "Tenant rotates a cash account's payment address"
- :given
- [{:fixture :bank
-   :as :org-0
-   :with {:name "Rotate Address Test Org" :status "live"}}
-  ;; Active party
-  {:fixture :person
-   :as :party-0
-   :with {:token [:ref :org-0 :token]
-          :display-name "Rotating Customer"
-          :given-name "Rotating"
-          :family-name "Customer"
-          :national-insurance "TN888004A"}}
-  ;; Published product
-  {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}
-  ;; Open the cash-account and wait for opened
-  {:fixture :account
-   :as :account-0
-   :with {:token [:ref :org-0 :token]
-          :party-id [:ref :party-0 :party :party-id]
-          :product-id [:ref :draft :product :product-id]
-          :name "To Be Rotated"}}]
+ :given [{:fixture :bank
+          :as :org-0
+          :with {:name "Rotate Address Test Org" :status "live"}}
+         ;; Active party
+         {:fixture :person
+          :as :party-0
+          :with {:token [:ref :org-0 :token]
+                 :display-name "Rotating Customer"
+                 :given-name "Rotating"
+                 :family-name "Customer"
+                 :national-insurance "TN888004A"}}
+         ;; Published product
+         {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}
+         ;; Open the cash-account and wait for opened
+         {:fixture :account
+          :as :account-0
+          :with {:token [:ref :org-0 :token]
+                 :party-id [:ref :party-0 :party :party-id]
+                 :product-id [:ref :draft :product :product-id]
+                 :name "To Be Rotated"}}]
  :when
  ;; The rotation is asked of the payment provider, so the reply still
  ;; carries the account's old addresses.
@@ -31,7 +30,8 @@
    :assert {:status 200
             :body {:account-id [:ref :account-0 :account :account-id]
                    :account-status "opened"
-                   :payment-addresses [:ref :account-0 :account :payment-addresses]}}}]
+                   :payment-addresses [:ref :account-0 :account
+                                       :payment-addresses]}}}]
  :then
  ;; Once the provider reports the new addresses they replace the old,
  ;; which are kept on the account as retired.
@@ -41,8 +41,9 @@
              :path-params {:account-id [:ref :account-0 :account :account-id]}
              :auth [:ref :org-0 :token]}
    :until {:status 200
-           :body {:account-status "opened"
-                  :payment-addresses [:m/mismatch
-                                      [:ref :account-0 :account :payment-addresses]]
-                  :retired-payment-addresses
-                  [{:address [:ref :account-0 :account :payment-addresses 0]}]}}}]}
+           :body
+           {:account-status "opened"
+            :payment-addresses [:m/mismatch
+                                [:ref :account-0 :account :payment-addresses]]
+            :retired-payment-addresses
+            [{:address [:ref :account-0 :account :payment-addresses 0]}]}}}]}

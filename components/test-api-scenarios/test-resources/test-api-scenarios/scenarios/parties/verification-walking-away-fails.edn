@@ -1,9 +1,8 @@
 {:name "A person who walks away fails the verification and stays pending"
  :runs-on {:idv :every}
- :given
- [{:fixture :bank
-   :as :org-0
-   :with {:name "Verification Test Org" :status "live"}}]
+ :given [{:fixture :bank
+          :as :org-0
+          :with {:name "Verification Test Org" :status "live"}}]
  :when
  [{:command :api/request
    :request {:method :post

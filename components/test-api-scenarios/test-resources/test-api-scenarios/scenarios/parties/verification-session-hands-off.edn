@@ -1,4 +1,5 @@
-{:name "A tenant opens a verification session and gets a hand-off for the person"
+{:name
+ "A tenant opens a verification session and gets a hand-off for the person"
  :runs-on {:idv :every}
  :given
  [{:fixture :bank
@@ -30,13 +31,14 @@
              :path "/v1/parties/{party-id}/verification"
              :path-params {:party-id [:ref :party-0 :party-id]}
              :auth [:ref :org-0 :token]}
-   :until {:status 200
-           :body {:status "pending"
-                  :criteria [:m/embeds
-                             [{:name "address"
-                               :kind "verification"
-                               :state "outstanding"
-                               :reason "A person's address must be verified"}]]}}}
+   :until
+   {:status 200
+    :body {:status "pending"
+           :criteria [:m/embeds
+                      [{:name "address"
+                        :kind "verification"
+                        :state "outstanding"
+                        :reason "A person's address must be verified"}]]}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/parties/{party-id}/verification-sessions"
@@ -47,7 +49,9 @@
                     :email "ford.hands-off@example.test"}}
    :as :session-0
    :assert {:status 202
-            :headers {:location [:m/regex "^/v1/parties/pty\\.[^/]+/verification-sessions/ses\\."]}
+            :headers {:location
+                      [:m/regex
+                       "^/v1/parties/pty\\.[^/]+/verification-sessions/ses\\."]}
             :body {:session-id [:m/regex "^ses\\."]
                    :channel "mobile"
                    :return-url "ford-app://verified"

@@ -9,15 +9,12 @@
  [{:command :api/request
    :request {:method :get :path "/v1/banks" :auth :admin}
    :assert {:status 200}}
-  {:command :keycloak/add-signing-key
-   :realm :queenswood
-   :as :rotated-key-id}]
- :when
- [{:command :auth/mint-token
-   :for {:client-id "queenswood-admin"
-         :client-secret "queenswood-admin-test-secret"
-         :scope "queenswood-api-test+realm-roles"}
-   :as :rotated-admin-token}
-  {:command :api/request
-   :request {:method :get :path "/v1/banks" :auth :rotated-admin-token}
-   :assert {:status 200}}]}
+  {:command :keycloak/add-signing-key :realm :queenswood :as :rotated-key-id}]
+ :when [{:command :auth/mint-token
+         :for {:client-id "queenswood-admin"
+               :client-secret "queenswood-admin-test-secret"
+               :scope "queenswood-api-test+realm-roles"}
+         :as :rotated-admin-token}
+        {:command :api/request
+         :request {:method :get :path "/v1/banks" :auth :rotated-admin-token}
+         :assert {:status 200}}]}

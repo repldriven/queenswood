@@ -1,4 +1,5 @@
-{:name "A provider outage holds payments until it ends, and costs them no attempts"
+{:name
+ "A provider outage holds payments until it ends, and costs them no attempts"
  :model :reality
  ;; The simulator answers 503 to every call while it is out. The payment's
  ;; failed calls open the adapter's breaker, which then calls nothing until

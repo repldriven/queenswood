@@ -36,7 +36,8 @@
           :product-id [:ref :product :product-id]
           :name "Arthur Current"}}]
  :when
- [;; The house account holds nothing, so the posting is refused and the reward left due.
+ [;; The house account holds nothing, so the posting is refused and the
+  ;; reward left due.
   {:command :api/request
    :request {:method :post
              :path "/v1/jobs/{job-id}/runs"
@@ -57,8 +58,7 @@
              :path "/v1/simulate/inbound-transfer"
              :auth :admin
              :headers {:bank-id [:ref :org-0 :bank :bank-id]}
-             :body {:amount 500000
-                    :currency "GBP"}}
+             :body {:amount 500000 :currency "GBP"}}
    :assert {:status 200}}
   {:command :api/request
    :request {:method :post
@@ -74,11 +74,11 @@
              :path "/v1/rewards"
              :auth [:ref :org-0 :token]
              :query-params {"account-id" [:ref :account :account :account-id]}}
-   :assert {:status 200
-            :body {:items [{:kind "opening"
-                            :amount 1000
-                            :status "due"
-                            :error [:m/regex ".+"]}]}}}
+   :assert
+   {:status 200
+    :body
+    {:items
+     [{:kind "opening" :amount 1000 :status "due" :error [:m/regex ".+"]}]}}}
   {:command :api/request
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}/balances"
