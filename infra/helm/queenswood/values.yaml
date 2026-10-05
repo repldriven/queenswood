@@ -734,6 +734,12 @@ fdb:
     storage: 1
     log: 1
     stateless: -1
+  # How many of each role the database recruits -- `logs`,
+  # `commit_proxies`, `grv_proxies`, `resolvers` -- beside its storage
+  # engine and redundancy. Empty takes FoundationDB's defaults. Each
+  # fdbserver is single-threaded, so a role on a process of its own is
+  # a core of its own.
+  databaseConfiguration: {}
   storage:
     storageClass: ""
     size: "4Gi"
