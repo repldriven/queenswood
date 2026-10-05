@@ -8,6 +8,8 @@ processor: !system/component
   business-day-cutoff:
     zone: Europe/London
     hour-of-day: 17
+  policy-cache-ttl-ms: 600000
+  ledger-cache-ttl-ms: 30000
 
 command-processor: !system/component
   system/component-kind: command-processor/command-processor
@@ -26,6 +28,8 @@ event-processor-impl: !system/component
   business-day-cutoff:
     zone: Europe/London
     hour-of-day: 17
+  policy-cache-ttl-ms: 600000
+  ledger-cache-ttl-ms: 30000
 
 event-processor: !system/component
   system/component-kind: event-processor/event-processor
@@ -43,6 +47,8 @@ activity-event-processor-impl: !system/component
   schemas: !system/ref avro.serde
   bus: !system/ref message-bus.bus
   payment-providers: !system/ref payment-provider.providers
+  cache-ttl-ms: 3600000
+  ledger-cache-ttl-ms: 30000
 
 activity-event-processor: !system/component
   system/component-kind: event-processor/event-processor

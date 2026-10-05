@@ -69,6 +69,18 @@
   [txn bank-id account-id]
   (store/get-balances txn bank-id account-id))
 
+(defn list-balances-of
+  "List several accounts' raw balance buckets in one round trip: a map
+  of account id to that account's vector of buckets, unenriched. A read
+  primitive for the write sibling's apply-legs computation.
+
+  Args:
+  - txn: FDB transaction or db handle.
+  - bank-id: owning bank id, which heads the key.
+  - account-ids: owning account ids."
+  [txn bank-id account-ids]
+  (store/list-balances-of txn bank-id account-ids))
+
 (defn find-balance
   "Load a single balance by composite key without rejecting when
   absent; returns the balance map or nil. A read primitive for the

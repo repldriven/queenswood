@@ -11,15 +11,23 @@
     [com.repldriven.mono.system.interface :as system]))
 
 (def ^:private ten-minutes-ms 600000)
+(def ^:private one-hour-ms 3600000)
 
 (def ^:private processor
   {:system/start (fn [{:system/keys [config instance]}]
-                   (or instance (commands/->IdvProcessor config)))
+                   (or instance
+                       (commands/->IdvProcessor
+                        (assoc config
+                               :policy-cache (cache/create (:policy-cache-ttl-ms
+                                                            config))
+                               :cache (cache/create (:cache-ttl-ms config))))))
    :system/config {:record-db system/required-component
                    :record-store system/required-component
                    :schemas system/required-component
                    :bus nil
-                   :idv-providers nil}
+                   :idv-providers nil
+                   :policy-cache-ttl-ms ten-minutes-ms
+                   :cache-ttl-ms one-hour-ms}
    :system/instance-schema some?})
 
 (def ^:private event-processor
@@ -44,13 +52,17 @@
    :system/instance-schema some?})
 
 (def ^:private activity-event-processor
-  {:system/start (fn [{:system/keys [config instance]}]
-                   (or instance (events/->IdvActivityEventProcessor config)))
+  {:system/start
+   (fn [{:system/keys [config instance]}]
+     (or instance
+         (events/->IdvActivityEventProcessor
+          (assoc config :cache (cache/create (:cache-ttl-ms config))))))
    :system/config {:record-db system/required-component
                    :record-store system/required-component
                    :schemas system/required-component
                    :bus system/required-component
-                   :idv-providers system/required-component}
+                   :idv-providers system/required-component
+                   :cache-ttl-ms one-hour-ms}
    :system/instance-schema some?})
 
 (def ^:private criteria-check

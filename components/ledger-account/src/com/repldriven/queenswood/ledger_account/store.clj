@@ -48,6 +48,57 @@
    :ledger-account/find-by-code
    "Failed to find ledger account by gl-account-code"))
 
+(defn cache
+  [txn]
+  (fdb/cache txn :ledger-account))
+
+(defn find-by-ids
+  [txn bank-id ledger-account-ids]
+  (fdb/transact
+   txn
+   (fn [txn]
+     (zipmap ledger-account-ids
+             (map (fn [record]
+                    (some-> record
+                            schema/pb->LedgerAccount))
+                  (fdb/load-records (fdb/open txn store-name)
+                                    (mapv (fn [id] [bank-id id])
+                                          ledger-account-ids)))))
+   :ledger-account/find-by-id
+   "Failed to load ledger accounts"))
+
+(defn preload-by-ids
+  [txn bank-id ledger-account-ids]
+  (fdb/transact txn
+                (fn [txn]
+                  (fdb/preload-records (fdb/open txn store-name)
+                                       (mapv (fn [id] [bank-id id])
+                                             ledger-account-ids)))
+                :ledger-account/find-by-id
+                "Failed to preload ledger accounts"))
+
+(defn find-by-codes
+  [txn bank-id gl-account-codes currency]
+  (fdb/transact
+   txn
+   (fn [txn]
+     (zipmap gl-account-codes
+             (map (fn [record]
+                    (some-> record
+                            schema/pb->LedgerAccount))
+                  (fdb/query-records-compound-one-each
+                   (fdb/open txn store-name)
+                   "LedgerAccount"
+                   (mapv (fn [code]
+                           [["bank_id" bank-id]
+                            ["gl_account_code"
+                             (schema/gl-account-code->pb-enum code)]
+                            ["currency" currency]])
+                         gl-account-codes)
+                   {:index "LedgerAccount_by_bank_gl_account_code"}))))
+   :ledger-account/find-by-code
+   "Failed to find ledger accounts by gl-account-code"))
+
 (defn list-by-bank
   [txn bank-id]
   (fdb/transact

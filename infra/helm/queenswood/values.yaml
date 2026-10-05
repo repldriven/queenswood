@@ -965,6 +965,9 @@ kafka:
   image: apache/kafka:4.3.1
   # Read only when enabled=false: external broker address (host:port).
   bootstrapServers: ""
+  # The image defaults the heap to 1G, the whole of the memory limit, so
+  # the broker is OOM-killed once off-heap use grows under load.
+  heapOpts: "-Xmx512m -Xms512m"
   resources:
     requests:
       cpu: 250m

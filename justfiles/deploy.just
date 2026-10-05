@@ -161,6 +161,10 @@ kind-redeploy tag="dev" *services:
     for svc in $rolled; do
       kubectl -n queenswood rollout status deploy/queenswood-$svc --timeout=5m
     done
+    if (( ${rolled[(Ie)external-simulators-service]} )); then
+      kubectl -n queenswood rollout restart deploy/queenswood-external-adapters-service
+      kubectl -n queenswood rollout status deploy/queenswood-external-adapters-service --timeout=5m
+    fi
 
 # Tear down the kind cluster
 kind-down:

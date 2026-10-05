@@ -246,6 +246,30 @@ so build first, and again after a change.
 
 ## Failures
 
+**Every FoundationDB transaction on kind times out at 5s, and requests
+fail with 500s.** The Colima VM's disk is past about 95% full, and
+FoundationDB's ratekeeper stops admitting transactions. kind's node, its
+local registry, the image store and BuildKit's cache share that disk.
+`just docker-free-space` reclaims what none of them is using: stopped
+containers, the build cache, unused images on the VM and in each kind
+node, and the registry's superseded pushes. It then reseeds BuildKit's
+Maven cache from `~/.m2`, so the next build resolves offline.
+
+**`docker-free-space` says `kind-registry` runs `registry:2`.** Its
+garbage collection with `--delete-untagged` deletes the image and
+attestation manifests an image's index points to, since nothing tags
+them, so every tag is left unpullable. `bash infra/kind/with-registry.sh`
+recreates the registry on `registry:3` over the same storage, and the
+recipe then collects it.
+
+**Outbound payments on kind are accepted and never settle, and the
+simulators log `No notification registered`.** The simulator holds the
+adapters' webhook registrations in memory, so a simulator pod that
+restarts forgets them, and the adapters check again only every 15
+minutes. `kind-redeploy` restarts the adapters once the simulators have
+rolled out; after any other restart of the simulators, restart
+`queenswood-external-adapters-service`.
+
 **A merged version bump released nothing, or the Release run failed.**
 The workflow publishes the first green commit on `main` whose declared
 version has no tag, so a Tests run cancelled by a later push, or a
@@ -336,9 +360,14 @@ hangs the same way.
   v<version>` on both of its unit's Applications. The
   chart's images default to its `appVersion`, so a unit
   names no image tag.
+- Free the kind loop's disk with `just docker-free-space`, with no
+  build or push running.
+- Run kind's local registry on `registry:3`.
 
 **MUST NOT:**
 
+- Garbage-collect a `registry:2` registry holding attested images with
+  `--delete-untagged`.
 - Pull `latest`, which no image carries: a tag is a released
   version, or the local loop's `dev`.
 - Release from a workflow button or by pushing a tag by hand.

@@ -14,7 +14,26 @@
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.log.interface :as log]
+    [com.repldriven.mono.telemetry.interface :as telemetry]
     [com.repldriven.mono.utility.interface :as utility]))
+
+(defn- bank-policies
+  [config txn bank-id]
+  (telemetry/with-span ["payment-policies"]
+                       (policy/get-effective-policies-cached
+                        txn
+                        {:bank-id bank-id}
+                        (:policy-cache config))))
+
+(defn- apply-legs
+  [txn bank-id stored transaction-type policies]
+  (telemetry/with-span ["payment-apply-legs"]
+                       (balances/apply-legs txn
+                                            bank-id
+                                            stored
+                                            transaction-type
+                                            {:policies (policy/platform-policies
+                                                        policies)})))
 
 (defn- check-debit-credit-code
   [debit-credit-code]
@@ -25,7 +44,7 @@
       :debit-credit-code debit-credit-code})))
 
 (defn- post-to-suspense
-  [txn data bank-id receiving-account-id]
+  [txn data bank-id receiving-account-id policies]
   (let [{:keys [currency]} data]
     (let-nom>
       [cash (ledger-accounts/find-by-code
@@ -47,7 +66,7 @@
        recorded (transactions/record-transaction txn transaction)
        {:keys [transaction-type legs]} recorded
        stored (ledger-accounts/stored-legs txn bank-id currency legs)
-       _ (balances/apply-legs txn bank-id stored transaction-type)]
+       _ (apply-legs txn bank-id stored transaction-type policies)]
       recorded)))
 
 (defn- record-suspended
@@ -67,12 +86,13 @@
   "Park an inbound the receiving account could not take in its bank's
   2500 suspense and persist a `suspended` InboundPayment, with the reason
   it was refused, for later reconciliation."
-  [txn data account business-day refusal]
+  [txn data account business-day refusal policies]
   (let-nom>
     [recorded (post-to-suspense txn
                                 data
                                 (:bank-id account)
-                                (:account-id account))
+                                (:account-id account)
+                                policies)
      {:keys [transaction-id]} recorded
      payment (inbound/suspended-inbound-payment data
                                                 (:bank-id account)
@@ -87,22 +107,22 @@
     payment))
 
 (defn- record-inbound-settlement
-  [txn data account business-day]
-  (let [{:keys [account-id bank-id]} account
+  [txn data account business-day policies]
+  (let [{:keys [account-id bank-id product-type]} account
         {:keys [currency]} data]
     (let-nom>
-      [cash (ledger-accounts/find-by-code
-             txn
-             bank-id
-             :gl-account-code-cash-at-correspondent
-             currency)
-       policies (policy/get-effective-policies
-                 txn
-                 {:bank-id bank-id})
-       today-count (q/count-inbound-by-org-business-day
-                    txn
-                    bank-id
-                    business-day)]
+      [_ (ledger-accounts/prefetch txn bank-id currency [product-type])
+       cash (telemetry/with-span ["payment-cash-at-correspondent"]
+                                 (ledger-accounts/find-by-code
+                                  txn
+                                  bank-id
+                                  :gl-account-code-cash-at-correspondent
+                                  currency))
+       today-count (telemetry/with-span ["payment-daily-count"]
+                                        (q/count-inbound-by-org-business-day
+                                         txn
+                                         bank-id
+                                         business-day))]
       (let [aggregates {:inbound-payment
                         {#{:bank-id :business-day} today-count}}
             transaction (inbound/inbound-payment->transaction
@@ -119,37 +139,52 @@
                                 data
                                 account
                                 business-day
-                                (inbound/acceptance-refusal transaction)))
+                                (inbound/acceptance-refusal transaction)
+                                policies))
           (let-nom>
             [_ transaction
-             checked-legs (ledger-accounts/ensure-controls
-                           txn
-                           bank-id
-                           currency
-                           (:legs transaction))
-             transaction+legs (transactions/record-transaction
-                               txn
-                               (assoc transaction :legs checked-legs))
+             checked-legs (telemetry/with-span ["payment-controls"]
+                                               (ledger-accounts/ensure-controls
+                                                txn
+                                                bank-id
+                                                currency
+                                                (:legs transaction)))
+             transaction+legs (telemetry/with-span
+                               ["payment-record-transaction"]
+                               (transactions/record-transaction
+                                txn
+                                (assoc transaction :legs checked-legs)))
              {:keys [transaction-id transaction-type legs]} transaction+legs
-             stored (ledger-accounts/stored-legs txn bank-id currency legs)
-             _ (balances/apply-legs txn bank-id stored transaction-type)
+             stored (telemetry/with-span ["payment-stored-legs"]
+                                         (ledger-accounts/stored-legs
+                                          txn
+                                          bank-id
+                                          currency
+                                          legs))
+             _ (apply-legs txn bank-id stored transaction-type policies)
              payment (inbound/new-inbound-payment data
                                                   account-id
                                                   bank-id
                                                   business-day
                                                   transaction-id)
-             _ (store/save-inbound-payment
-                txn
-                payment
-                {:change-kind :inbound-payment-change-kind-settle})]
+             _ (telemetry/with-span
+                ["payment-save"]
+                (store/save-inbound-payment
+                 txn
+                 payment
+                 {:change-kind :inbound-payment-change-kind-settle}))]
             payment))))))
 
 (defn- suspend-held
-  [txn data held refusal]
+  [txn data held refusal policies]
   (let [{:keys [bank-id creditor-account-id]} held
         {:keys [scheme-transaction-id]} data]
     (let-nom>
-      [recorded (post-to-suspense txn data bank-id creditor-account-id)
+      [recorded (post-to-suspense txn
+                                  data
+                                  bank-id
+                                  creditor-account-id
+                                  policies)
        {:keys [transaction-id]} recorded
        suspended (inbound/suspended-from-held held
                                               scheme-transaction-id
@@ -168,7 +203,7 @@
   today's count excluding the held record itself: post DEBIT 1100 / CREDIT
   creditor and transition the held record to `settled`. A release the checks
   refuse is parked in suspense and the held record becomes `suspended`."
-  [txn data account held business-day]
+  [txn data account held business-day policies]
   (let [{:keys [account-id bank-id]} account
         {:keys [scheme-transaction-id]} data
         {:keys [currency]} held]
@@ -178,9 +213,6 @@
              bank-id
              :gl-account-code-cash-at-correspondent
              currency)
-       policies (policy/get-effective-policies
-                 txn
-                 {:bank-id bank-id})
        today-count (q/count-inbound-by-org-business-day
                     txn
                     bank-id
@@ -201,7 +233,8 @@
               (suspend-held txn
                             data
                             held
-                            (inbound/acceptance-refusal transaction)))
+                            (inbound/acceptance-refusal transaction)
+                            policies))
           (let-nom>
             [_ transaction
              checked-legs (ledger-accounts/ensure-controls
@@ -214,7 +247,7 @@
                        (assoc transaction :legs checked-legs))
              {:keys [transaction-id transaction-type legs]} recorded
              stored (ledger-accounts/stored-legs txn bank-id currency legs)
-             _ (balances/apply-legs txn bank-id stored transaction-type)
+             _ (apply-legs txn bank-id stored transaction-type policies)
              released (inbound/settled-from-held held
                                                  scheme-transaction-id
                                                  transaction-id)
@@ -228,7 +261,7 @@
 (defn- record-admitted-settlement
   "Settle an admitted inbound: post DEBIT 1100 / CREDIT creditor without
   checking again, and flip the admitted record to `settled`."
-  [txn data account admitted]
+  [txn data account admitted policies]
   (let [{:keys [bank-id]} account
         {:keys [scheme-transaction-id]} data
         {:keys [currency]} admitted]
@@ -252,7 +285,7 @@
                  (assoc transaction :legs checked-legs))
        {:keys [transaction-id transaction-type legs]} recorded
        stored (ledger-accounts/stored-legs txn bank-id currency legs)
-       _ (balances/apply-legs txn bank-id stored transaction-type)
+       _ (apply-legs txn bank-id stored transaction-type policies)
        settled (inbound/settled-from-held admitted
                                           scheme-transaction-id
                                           transaction-id)
@@ -264,10 +297,10 @@
       settled)))
 
 (defn- admit
-  [txn data account business-day]
+  [config txn data account business-day]
   (let [{:keys [account-id bank-id]} account]
     (let-nom>
-      [policies (policy/get-effective-policies txn {:bank-id bank-id})
+      [policies (bank-policies config txn bank-id)
        today-count (q/count-inbound-by-org-business-day txn
                                                         bank-id
                                                         business-day)]
@@ -328,7 +361,7 @@
               (merge {:admitted false} refusal))
 
           :else
-          (admit txn data account business-day))))
+          (admit config txn data account business-day))))
      :payment/admit-inbound
      "Failed to admit inbound payment")))
 
@@ -345,8 +378,16 @@
      (fn [txn]
        (let-nom>
          [_ (check-debit-credit-code debit-credit-code)
-          account (cash-accounts/get-account-by-bban txn creditor-bban)
-          settled (q/get-inbound-payment txn scheme-transaction-id)
+          account (telemetry/with-span ["payment-creditor-account"]
+                                       (cash-accounts/get-account-by-bban
+                                        txn
+                                        creditor-bban))
+          policies (when account
+                     (bank-policies config txn (:bank-id account)))
+          settled (telemetry/with-span ["payment-load"]
+                                       (q/get-inbound-payment
+                                        txn
+                                        scheme-transaction-id))
           admitted (when account
                      (q/find-open-admission txn
                                             end-to-end-id
@@ -370,7 +411,8 @@
               (suspend-held txn
                             data
                             admitted
-                            (inbound/account-refusal account)))
+                            (inbound/account-refusal account)
+                            policies))
 
           ;; The BBAN resolves, but the account cannot take a credit —
           ;; park the funds in suspense as an unmatched BBAN is, so the
@@ -383,15 +425,16 @@
                                 data
                                 account
                                 business-day
-                                (inbound/account-refusal account)))
+                                (inbound/account-refusal account)
+                                policies))
 
           admitted
-          (record-admitted-settlement txn data account admitted)
+          (record-admitted-settlement txn data account admitted policies)
 
           ;; Release of a previously-held inbound — settle it to the
           ;; account and flip the held record to settled.
           held
-          (record-inbound-release txn data account held business-day)
+          (record-inbound-release txn data account held business-day policies)
 
           (nil? account)
           (error/fail :payment/unknown-creditor
@@ -399,7 +442,7 @@
                        :bban (:creditor-bban data)})
 
           :else
-          (record-inbound-settlement txn data account business-day))))
+          (record-inbound-settlement txn data account business-day policies))))
      :payment/settle-inbound
      "Failed to settle inbound payment")))
 
@@ -539,7 +582,8 @@
           :else
           (let [{:keys [bank-id currency]} payment]
             (let-nom>
-              [cash (ledger-accounts/find-by-code
+              [policies (bank-policies config txn bank-id)
+               cash (ledger-accounts/find-by-code
                      txn
                      bank-id
                      :gl-account-code-cash-at-correspondent
@@ -557,7 +601,7 @@
                           (:ledger-account-id suspense)))
                {:keys [transaction-type legs]} recorded
                stored (ledger-accounts/stored-legs txn bank-id currency legs)
-               _ (balances/apply-legs txn bank-id stored transaction-type)
+               _ (apply-legs txn bank-id stored transaction-type policies)
                returned (inbound/returned-inbound-payment payment)
                _ (store/save-inbound-payment
                   txn

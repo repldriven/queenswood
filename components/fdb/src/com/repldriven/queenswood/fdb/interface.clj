@@ -63,10 +63,28 @@
   [store primary-keys]
   (record/load-many store primary-keys))
 
+(defn preload-records
+  "Starts loading several records by primary key from an open
+  FDBRecordStore without waiting for them. A later load of one of the
+  keys from the same open store, in the same transaction, takes the
+  read already in flight rather than issuing its own. Keys are given as
+  for `load-records`."
+  [store primary-keys]
+  (record/preload-many store primary-keys))
+
 (defn save-record
   "Persists a protobuf message into an open FDBRecordStore."
   [store record]
   (record/save store record))
+
+(defn save-records
+  "Persists several protobuf messages, each into its own open
+  FDBRecordStore, in the order given. Takes `[store record]` pairs. The
+  reads each save makes of the record it replaces are issued together
+  and waited on once, so the batch costs one round trip rather than one
+  per record."
+  [store-records]
+  (record/save-many store-records))
 
 (defn delete-record
   "Deletes a record by primary key from an open FDBRecordStore.
@@ -118,6 +136,15 @@
    (record/query-one-compound store record-type filters))
   ([store record-type filters opts]
    (record/query-one-compound store record-type filters opts)))
+
+(defn query-records-compound-one-each
+  "As `query-record-compound` for each of several filter sets against
+  one open FDBRecordStore, returning the first matching record bytes, or
+  nil, per filter set in the order given. The queries are issued
+  together and waited on once, so the batch costs the round trips of
+  one query rather than of each. opts supports :index."
+  [store record-type filters-list opts]
+  (record/query-one-compound-many store record-type filters-list opts))
 
 (defn enum-value
   "The comparand a query on the enum `field` of `record-type` takes,
@@ -183,6 +210,16 @@
   [store index-name key]
   (record/sum-records store index-name key {:isolation :snapshot}))
 
+(defn aggregate-records-snapshot
+  "Reads several COUNT and SUM index groups of one open FDBRecordStore
+  at SNAPSHOT, returning a vector of longs in the order given. Each
+  aggregate is `[kind index-name key]`, kind `:count` or `:sum`, and an
+  empty group reads 0. The reads are issued together and waited on
+  once, so the batch costs one round trip rather than one per
+  aggregate."
+  [store aggregates]
+  (record/aggregate-many store aggregates {:isolation :snapshot}))
+
 (defn count-groups
   "Counts distinct grouping-key entries in a COUNT index whose
   group key starts with `prefix` — one per group, not the sum
@@ -214,6 +251,15 @@
     returns the highest-keyed records."
   [store opts]
   (scan/scan store opts))
+
+(defn scan-prefixes
+  "Scans an open FDBRecordStore under each of several primary-key
+  prefixes, returning a vector per prefix, in the order given, of up to
+  limit serialized records in key order. Each prefix is a vector of
+  leading PK parts. The scans are issued together and waited on once,
+  so the batch costs one round trip rather than one per prefix."
+  [store prefixes limit]
+  (scan/scan-prefixes store prefixes limit))
 
 (defn scan-record-entries
   "As `scan-records`, but each record comes back as
@@ -338,7 +384,8 @@
   "Runs f within a transaction. f receives a Txn. Given an existing
   Txn, reuses it; given a config map with :record-db and
   :record-store, opens a fresh FDB transaction, and an optional
-  :keyspace-prefix on that map scopes every key it writes.
+  :keyspace-prefix on that map scopes every key it writes. The map's
+  :caches, a map of name to cache, rides on the Txn for `cache`.
 
   If f returns an anomaly the transaction is rolled back and the
   anomaly returned to the caller."
@@ -346,6 +393,16 @@
    (transact/transact txn-or-config f))
   ([txn-or-config f category message]
    (transact/transact txn-or-config f category message)))
+
+(defn cache
+  "The cache named `cache-name` in the :caches of a config map, or of
+  the Txn `transact` opened from one, or nil when it carries none.
+
+  Args:
+  - txn-or-config: a Txn or a config map.
+  - cache-name: the cache's key in :caches."
+  [txn-or-config cache-name]
+  (transact/cache txn-or-config cache-name))
 
 (defn open
   "Opens a named store within the transaction. Memoised for the life of

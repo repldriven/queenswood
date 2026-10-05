@@ -2,7 +2,7 @@
 # Bring up a kind cluster wired to a host-side Docker registry.
 #
 # Adapted from https://kind.sigs.k8s.io/docs/user/local-registry/.
-# The host runs a `registry:2` container on 127.0.0.1:5001; the kind
+# The host runs a `registry:3` container on 127.0.0.1:5001; the kind
 # nodes' containerd is patched to mirror `localhost:5001` to the
 # registry container's internal address. Net effect: `docker push
 # localhost:5001/foo:dev` from the host puts an image somewhere kind
@@ -20,8 +20,20 @@ set -o pipefail
 CLUSTER_NAME="${1:-queenswood}"
 REG_NAME='kind-registry'
 REG_PORT='5001'
+REG_IMAGE='registry:3'
 
-# 1. Local registry container (skip if running).
+# 1. Local registry container (skip if running on REG_IMAGE). registry:2's
+#    `garbage-collect --delete-untagged` deletes the manifests an attested
+#    image's index points to, leaving every tag unpullable, so a registry
+#    on any other image is recreated on REG_IMAGE over the same storage.
+REG_VOLUME="${REG_NAME}"
+CURRENT_IMAGE="$(docker inspect -f '{{.Config.Image}}' "${REG_NAME}" 2>/dev/null || true)"
+if [ -n "${CURRENT_IMAGE}" ] && [ "${CURRENT_IMAGE}" != "${REG_IMAGE}" ]; then
+  REG_VOLUME="$(docker inspect -f \
+    '{{range .Mounts}}{{if eq .Destination "/var/lib/registry"}}{{.Name}}{{end}}{{end}}' \
+    "${REG_NAME}")"
+  docker rm -f "${REG_NAME}" >/dev/null
+fi
 if [ "$(docker inspect -f '{{.State.Running}}' "${REG_NAME}" 2>/dev/null || true)" \
      != 'true' ]; then
   docker run \
@@ -29,7 +41,8 @@ if [ "$(docker inspect -f '{{.State.Running}}' "${REG_NAME}" 2>/dev/null || true
     -p "127.0.0.1:${REG_PORT}:5000" \
     --network bridge \
     --name "${REG_NAME}" \
-    registry:2
+    -v "${REG_VOLUME}:/var/lib/registry" \
+    "${REG_IMAGE}"
 fi
 
 # 2. kind cluster with the containerd registry-config dir enabled.

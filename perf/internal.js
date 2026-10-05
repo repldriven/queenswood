@@ -24,7 +24,7 @@ const PROFILES = {
   knee: {
     mode: "spread",
     accounts: 200,
-    steps: [5, 10, 20, 40, 80, 160, 320].map((r) => [r, "1m"]),
+    steps: [20, 40, 80, 160, 320].map((r) => [r, "1m"]),
   },
   hot: {
     mode: "hot",

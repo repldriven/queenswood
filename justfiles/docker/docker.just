@@ -19,8 +19,8 @@ docker-start:
 docker-stop:
     colima stop
 
-# Reclaim Colima disk space: `just docker-free-space` or `... all`
-docker-free-space scope="safe":
+# Reclaim Colima disk space, then reseed BuildKit's Maven cache: `just docker-free-space` or `... all`
+docker-free-space scope="safe": && docker-warm-cache
     # FoundationDB's ratekeeper drops to zero TPS once the disk backing
     # its storage pod passes ~95% full, so every transaction times out at
     # 5s and surfaces as an unrelated-looking 500. kind nodes share this
@@ -32,8 +32,9 @@ docker-free-space scope="safe":
     docker container prune -f
     docker buildx prune -f
     if [ "{{ scope }}" = "all" ]; then docker image prune -a -f; else docker image prune -f; fi
+    for cluster in $(kind get clusters 2>/dev/null); do for node in $(kind get nodes --name "$cluster"); do docker exec "$node" crictl rmi --prune; done; done
+    if [ "$(docker inspect -f '{{{{.Config.Image}}' kind-registry 2>/dev/null)" = "registry:3" ]; then if docker exec kind-registry registry garbage-collect --delete-untagged /etc/distribution/config.yml >/dev/null 2>&1; then docker restart kind-registry >/dev/null; else echo "kind-registry garbage-collect failed: rerun it by hand to see why"; fi; elif docker inspect kind-registry >/dev/null 2>&1; then echo "kind-registry runs registry:2, whose collection breaks attested images: run 'bash infra/kind/with-registry.sh' to move it to registry:3, then this again"; fi
     @colima ssh -- df -h /var/lib/docker | awk 'NR==2 {print "after:  " $4 " free (" $5 " used)"}'
-    @echo "BuildKit's Maven cache was pruned too — run 'just docker-warm-cache' before the next build."
 
 # Build a single service Docker image: `just docker-build api-service dev`
 docker-build project tag="dev":

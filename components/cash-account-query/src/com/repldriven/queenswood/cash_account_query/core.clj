@@ -41,6 +41,20 @@
                                     :account-id account-id}))]
         (enrich-account txn opts account))))))
 
+(defn get-accounts-by-id
+  [txn bank-id account-ids]
+  (let-nom>
+    [found (store/find-accounts txn bank-id account-ids)]
+    (reduce (fn [acc account-id]
+              (if-some [account (get found account-id)]
+                (conj acc account)
+                (reduced (error/reject :cash-account/not-found
+                                       {:message "Account not found"
+                                        :bank-id bank-id
+                                        :account-id account-id}))))
+            []
+            account-ids)))
+
 (defn get-accounts
   ([txn bank-id]
    (get-accounts txn bank-id nil))

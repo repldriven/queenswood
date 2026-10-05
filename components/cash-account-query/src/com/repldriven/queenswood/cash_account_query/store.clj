@@ -63,6 +63,21 @@
    :cash-account/find
    "Failed to load account"))
 
+(defn find-accounts
+  [txn bank-id account-ids]
+  (fdb/transact
+   txn
+   (fn [txn]
+     (into {}
+           (keep (fn [record]
+                   (when record
+                     (let [account (schema/pb->CashAccount record)]
+                       [(:account-id account) account]))))
+           (fdb/load-records (fdb/open txn store-name)
+                             (mapv (fn [id] [bank-id id]) account-ids))))
+   :cash-account/find-many
+   "Failed to load accounts"))
+
 (defn get-accounts
   ([txn bank-id]
    (get-accounts txn bank-id nil))

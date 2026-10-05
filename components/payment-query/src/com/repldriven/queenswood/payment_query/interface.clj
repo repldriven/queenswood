@@ -205,17 +205,12 @@
   [txn bank-id business-day]
   (store/count-internal-by-org-business-day txn bank-id business-day))
 
-(defn count-outbound-by-org-business-day
-  "Count outbound payments for a bank on a business day. A read
-  primitive for the write sibling's limit checks."
+(defn outbound-totals-by-org-business-day
+  "Count outbound payments for a bank on a business day and sum their
+  amounts, in one round trip, as `{:count :sum}`. A read primitive for
+  the write sibling's limit checks."
   [txn bank-id business-day]
-  (store/count-outbound-by-org-business-day txn bank-id business-day))
-
-(defn sum-outbound-by-org-business-day
-  "Sum outbound payment amounts for a bank on a business day. A read
-  primitive for the write sibling's limit checks."
-  [txn bank-id business-day]
-  (store/sum-outbound-by-org-business-day txn bank-id business-day))
+  (store/outbound-totals-by-org-business-day txn bank-id business-day))
 
 (defn count-inbound-by-org-business-day
   "Count inbound payments for a bank on a business day. A read primitive

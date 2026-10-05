@@ -60,6 +60,20 @@
                 :balance/list
                 "Failed to list balances"))
 
+(defn list-balances-of
+  [txn bank-id account-ids]
+  (fdb/transact txn
+                (fn [txn]
+                  (zipmap account-ids
+                          (map (fn [records]
+                                 (mapv schema/pb->Balance records))
+                               (fdb/scan-prefixes
+                                (fdb/open txn store-name)
+                                (mapv (fn [id] [bank-id id]) account-ids)
+                                100))))
+                :balance/list
+                "Failed to list balances"))
+
 (def ^:private credit-sum-index
   "Balance_sum_credit_by_bank_product_currency_bucket")
 

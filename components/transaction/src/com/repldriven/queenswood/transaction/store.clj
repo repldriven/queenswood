@@ -23,22 +23,19 @@
    :transaction/save
    "Failed to save transaction"))
 
-(defn save-legs
-  [txn legs]
+(defn save-transaction-and-legs
+  [txn transaction legs]
   (fdb/transact
    txn
    (fn [txn]
-     (let [store (fdb/open txn legs-store-name)]
-       (reduce (fn [_ leg]
-                 (let [result (fdb/save-record
-                               store
-                               (schema/TransactionLeg->java leg))]
-                   (when (error/anomaly? result)
-                     (reduced result))))
-               nil
-               legs)))
-   :transaction/save-legs
-   "Failed to save transaction legs"))
+     (let [legs-store (fdb/open txn legs-store-name)]
+       (fdb/save-records
+        (into [[(fdb/open txn store-name)
+                (schema/Transaction->java transaction)]]
+              (map (fn [leg] [legs-store (schema/TransactionLeg->java leg)]))
+              legs))))
+   :transaction/save
+   "Failed to save transaction"))
 
 (defn find-transaction-by-idempotency-key
   [txn bank-id transaction-type idempotency-key]

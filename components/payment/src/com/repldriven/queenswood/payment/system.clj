@@ -12,46 +12,62 @@
 (def ^:private twenty-four-hours-ms 86400000)
 (def ^:private one-hour-ms 3600000)
 (def ^:private ten-minutes-ms 600000)
+(def ^:private thirty-seconds-ms 30000)
+
+(defn- ledger-caches
+  [config]
+  {:ledger-account (cache/create (:ledger-cache-ttl-ms config))})
 
 (def ^:private processor
   {:system/start (fn [{:system/keys [config instance]}]
                    (or instance
                        (commands/->PaymentProcessor
                         (assoc config
-                               :policy-cache
-                               (cache/create (:policy-cache-ttl-ms config))))))
+                               :policy-cache (cache/create (:policy-cache-ttl-ms
+                                                            config))
+                               :caches (ledger-caches config)))))
    :system/config {:record-db system/required-component
                    :record-store system/required-component
                    :schemas system/required-component
                    :bus nil
                    :payment-providers system/required-component
                    :business-day-cutoff default-cutoff
-                   :policy-cache-ttl-ms ten-minutes-ms}
+                   :policy-cache-ttl-ms ten-minutes-ms
+                   :ledger-cache-ttl-ms thirty-seconds-ms}
    :system/instance-schema some?})
 
 (def ^:private event-processor
   {:system/start (fn [{:system/keys [config instance]}]
-                   (or instance (commands/->PaymentEventProcessor config)))
+                   (or instance
+                       (commands/->PaymentEventProcessor
+                        (assoc config
+                               :policy-cache (cache/create (:policy-cache-ttl-ms
+                                                            config))
+                               :caches (ledger-caches config)))))
    :system/config {:record-db system/required-component
                    :record-store system/required-component
                    :schemas system/required-component
                    :bus nil
                    :payment-providers nil
-                   :business-day-cutoff default-cutoff}
+                   :business-day-cutoff default-cutoff
+                   :policy-cache-ttl-ms ten-minutes-ms
+                   :ledger-cache-ttl-ms thirty-seconds-ms}
    :system/instance-schema some?})
 
 (def ^:private activity-event-processor
-  {:system/start
-   (fn [{:system/keys [config instance]}]
-     (or instance
-         (commands/->ActivityEventProcessor
-          (assoc config :cache (cache/create (:cache-ttl-ms config))))))
+  {:system/start (fn [{:system/keys [config instance]}]
+                   (or instance
+                       (commands/->ActivityEventProcessor
+                        (assoc config
+                               :cache (cache/create (:cache-ttl-ms config))
+                               :caches (ledger-caches config)))))
    :system/config {:record-db system/required-component
                    :record-store system/required-component
                    :schemas system/required-component
                    :bus system/required-component
                    :payment-providers system/required-component
-                   :cache-ttl-ms one-hour-ms}
+                   :cache-ttl-ms one-hour-ms
+                   :ledger-cache-ttl-ms thirty-seconds-ms}
    :system/instance-schema some?})
 
 (def ^:private outbound-sweep

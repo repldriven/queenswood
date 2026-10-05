@@ -13,6 +13,7 @@
      person-identification]
     [com.repldriven.queenswood.policy.interface :as policy]
 
+    [com.repldriven.mono.cache.interface :as cache]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.log.interface :as log]
     [com.repldriven.mono.utility.interface :as utility]))
@@ -21,11 +22,27 @@
   [config]
   (select-keys config [:record-db :record-store]))
 
+(defn- cached
+  [config k load]
+  (if-let [c (:cache config)]
+    (let [failure (volatile! nil)
+          v (cache/lookup
+             c
+             k
+             (fn []
+               (let [v (load)]
+                 (if (error/anomaly? v) (do (vreset! failure v) nil) v))))]
+      (or @failure v))
+    (load)))
+
 (defn bank-provider
   [config txn bank-id]
   (when-let [providers (:idv-providers config)]
-    (let-nom> [bank (bank-query/find-bank txn bank-id)]
-      (idv-provider/for-bank providers bank))))
+    (cached config
+            [:provider bank-id]
+            (fn []
+              (let-nom> [bank (bank-query/find-bank txn bank-id)]
+                (idv-provider/for-bank providers bank))))))
 
 (defn- check-data
   [session identification criteria]
@@ -167,9 +184,10 @@
        (let-nom>
          [idv (get-party-idv txn bank-id party-id)
           provider (bank-provider config txn bank-id)
-          policies (policy/get-effective-policies txn
-                                                  {:bank-id
-                                                   bank-id})
+          policies (policy/get-effective-policies-cached
+                    txn
+                    {:bank-id bank-id}
+                    (:policy-cache config))
           opened-today (idv-query/count-sessions-on
                         txn
                         bank-id

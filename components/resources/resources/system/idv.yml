@@ -5,6 +5,8 @@ processor: !system/component
   schemas: !system/ref avro.serde
   bus: !system/ref message-bus.bus
   idv-providers: !system/ref idv-provider.providers
+  policy-cache-ttl-ms: 600000
+  cache-ttl-ms: 3600000
 
 command-processor: !system/component
   system/component-kind: command-processor/command-processor
@@ -18,6 +20,7 @@ event-processor-impl: !system/component
   record-db: !system/ref fdb.record-db
   record-store: !system/ref fdb.meta-store
   schemas: !system/ref avro.serde
+  policy-cache-ttl-ms: 600000
 
 event-processor: !system/component
   system/component-kind: event-processor/event-processor

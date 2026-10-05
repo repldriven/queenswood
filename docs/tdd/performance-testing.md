@@ -193,21 +193,23 @@ the steps:
 - **`smoke`.** 1 a second for a minute, on 10 accounts.
 - **`challenger`.** 50 a second for an hour, then 150 for five minutes, on
   200 accounts.
-- **`knee`.** 5, 10, 20, 40, 80, 160 and 320 a second, a minute each, on
+- **`knee`.** 20, 40, 80, 160 and 320 a second, a minute each, on
   200 accounts, run to the end however many requests fail, since an
   aborted run skips the teardown that checks the books.
 - **`hot`.** Scenario B: 1, 2, 5, 10, 20 and 40 a second, a minute each,
   from one account to the other 49, for internal payments only.
 
 `perf/parties.js` defines its own: `smoke` at 1 a second for a minute,
-`challenger` at 10 a second for ten minutes, and `knee` at 1, 2, 5, 10,
-20 and 40 a second, a minute each.
+`challenger` at 10 a second for ten minutes, and `knee` at 20, 40 and
+80 a second, a minute each.
 
-`RATE` and `DURATION` replace a profile's steps with one-minute steps at
-that rate, so a sustained run shows whether the rate holds, and
-`ACCOUNTS` replaces its account count. Amounts are between 1p and £1, and
-funding covers the run twice over, the hot account's every payment
-included, so no payment is refused for its balance.
+`FROM` drops a profile's steps below that rate, for a machine where
+the low steps tell nothing. `RATE` and `DURATION` replace a profile's
+steps with one-minute steps at that rate, so a sustained run shows
+whether the rate holds, and `ACCOUNTS` replaces its account count.
+Amounts are between 1p and £1, and funding covers the run twice over,
+the hot account's every payment included, so no payment is refused for
+its balance.
 
 A rejection is counted by status: 429 is a policy cap, 503 is FDB
 unavailable or in contention, 500 is a failure or the dispatcher's
@@ -471,7 +473,67 @@ run at the next:
     iterations it had no VU free for. The next queue is the webhook
     runner's consumer of `topic-idvs-event`, 1,565 behind: four events a
     customer at 6 ms each, on one partition in one
-    `external-adapters-service` replica.
+    `external-adapters-service` replica. With performers there, and the
+    store opens of entry 14, 40 asked holds at a p99 of 59 ms rather than
+    1.6 s, and 80 asked starts about 67 customers a second, every one
+    onboarded, a session ready at 7.9 s at p95. Opening a session read
+    the bank's effective policies and its IDV provider uncached; the IDV
+    processor now keeps both, the provider for `cache-ttl-ms`, an hour by
+    default.
+13. **A consumer handles one message at a time.** Done. Each consumer
+    now hands a message to one of its configured performers, chosen by
+    the message's key, by
+    [ADR-0041](../adr/0041-each-consumer-names-its-performers-and-the-key-that-chooses-them.md):
+    four on the IDV, party and payment events the webhook runner reads,
+    and on `topic-payments-command` and `topic-schemes-payments-event`.
+    The webhook runner's lag on `topic-idvs-event` fell from 1,565 to 16,
+    and onboarding reaches about 37 a second, k6's ramp capping 40 asked
+    at 39.2.
+14. **Opening a store.** Done. Every store a transaction opened read its
+    header and read and rebuilt the whole record meta-data, so the first
+    read of a store took 2.7 ms at p50 and a second read of it 0.4 ms. The
+    `meta-store` now keeps the meta-data it last loaded with the
+    database's meta-data version stamp it was loaded under, which a
+    meta-data save bumps, and opens each store cacheable on open, its
+    header kept by the Record Layer's store-state cache under the same
+    stamp. The internal posting's transaction fell from 22.6 ms to
+    15.4 ms at p50 in a one-a-second smoke.
+15. **Reads issued one at a time.** Done. A posting's reads that need no
+    other's answer are issued together and waited on once: the internal
+    payment's two accounts, each leg's account balances, the records each
+    save replaces, the outbound day's count and sum, and the ledger
+    accounts the control check and `stored-legs` look up by code. Each
+    payment processor keeps a ledger account's id by its code, bank and
+    currency for `ledger-cache-ttl-ms`, 30 seconds by default, and reads
+    the account by key so a closed one is still refused; a posting starts
+    loading its control, 1100 and 1200 by those ids as soon as it knows
+    its account. The internal posting's transaction fell to 13.3 ms, and
+    the outbound settlement's from 15.3 ms to 11.5 ms, its four ledger
+    lookups from 3.8 ms to 0.5 ms.
+16. **Every flow at 160 a second.** With the three above, each `knee`
+    holds 160 asked with none failed: internal at a p99 of 127 ms rather
+    than 3.9 s, accepting about 257 a second at 320 asked and turning the
+    rest away with 503; outbound submits at a p99 of 455 ms, 242 a second
+    at 320; and inbound credits, counted from the
+    `:payment/settle-inbound` transactions, keeping up with the
+    transaction at 15 ms rather than falling behind at 72 to 96 ms, 298 a
+    second at 320, and the books settled 5 seconds after the load rather
+    than 51.
+17. **Transactions per payment.** At 160 outbound a second every FDB
+    transaction in the cluster slows together, the idempotency claim
+    from 4.9 ms to 17 ms and the submit from 14 ms to 41 ms, at about
+    1,170 transactions a second: an outbound payment costs about 13 of
+    them across the services, its idempotency claim and save, the submit,
+    the activity mirror, the Modulr adapter's finds, save, update and
+    outbox, the webhook notification, the settlement and the reads
+    following it. Fewer transactions a payment, not shorter ones, is
+    what raises this ceiling.
+18. **The bank activity processor.** Outbound settlement queues behind
+    it: in an outbound `knee` run behind another's backlog, settlements
+    fell from 82 a second to 42 while submits rose from 91 to 161, since
+    every provider command for the run's one bank is sent from that
+    bank's activity in order, one entry at a time, which a posting
+    naming several accounts needs.
 
 ### Span candidates
 
@@ -644,6 +706,22 @@ holds it, and the run repeated.
   the financial and operational processors read has one partition, so
   one replica of each takes all of them beside its share of the
   partitioned ones.
+- **The inbound `knee` measures injections.** Its steps are the
+  simulator accepting a payment, under a millisecond, while the platform
+  credits it afterwards, so a step's achieved rate says nothing of the
+  credits. They are counted from the `:payment/settle-inbound`
+  transactions in SigNoz until the summary reports them by step.
+- **Knees run back to back share a backlog.** A run's provider
+  transfers drain through the bank activity processor after its load
+  stops, so the next run's settlements wait behind them; a pause of a
+  few minutes between runs keeps them apart.
+- **Kind's Kafka loses its topics on a restart.** The broker has no
+  volume, so a restarted container starts empty and the services
+  recreate each topic with one partition. The `apache/kafka` image's
+  default 1 GiB heap filled the container's 1 GiB limit, and the broker
+  was killed under load; `kafka.heapOpts` gives it 512 MiB. After a
+  restart, a topic `kafka-topics.yml` declares with four partitions is
+  grown back with `kafka-topics.sh --alter` and its consumers restarted.
 - **Reads and webhooks are absent.** No scenario reads balances or lists
   payments, and the test bank registers no webhook endpoint.
 

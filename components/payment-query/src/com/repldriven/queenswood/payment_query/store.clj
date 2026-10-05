@@ -248,29 +248,20 @@
     :bank-id bank-id
     :business-day business-day}))
 
-(defn count-outbound-by-org-business-day
+(defn outbound-totals-by-org-business-day
   [txn bank-id business-day]
   (fdb/transact
    txn
    (fn [txn]
-     (fdb/count-records-snapshot (fdb/open txn outbound-payments-store-name)
-                                 "OutboundPayment_count_by_bank_business_day"
-                                 [bank-id business-day]))
-   :payment/count-outbound-by-org-business-day
-   {:message "Failed to count outbound payments by org/day"
-    :bank-id bank-id
-    :business-day business-day}))
-
-(defn sum-outbound-by-org-business-day
-  [txn bank-id business-day]
-  (fdb/transact
-   txn
-   (fn [txn]
-     (fdb/sum-records-snapshot (fdb/open txn outbound-payments-store-name)
-                               "OutboundPayment_sum_amount_by_bank_business_day"
-                               [bank-id business-day]))
-   :payment/sum-outbound-by-org-business-day
-   {:message "Failed to sum outbound payments by org/day"
+     (let [[n total] (fdb/aggregate-records-snapshot
+                      (fdb/open txn outbound-payments-store-name)
+                      [[:count "OutboundPayment_count_by_bank_business_day"
+                        [bank-id business-day]]
+                       [:sum "OutboundPayment_sum_amount_by_bank_business_day"
+                        [bank-id business-day]]])]
+       {:count n :sum total}))
+   :payment/outbound-totals-by-org-business-day
+   {:message "Failed to total outbound payments by org/day"
     :bank-id bank-id
     :business-day business-day}))
 
