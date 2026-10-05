@@ -10,15 +10,17 @@
 ## Objective
 
 Measure how many payments a second one bank can make on a Queenswood
-installation, and show where the time goes when the rate stops rising. The
+installation, and how many customers a second it can onboard, and show
+where the time goes when the rate stops rising. The
 first run is a baseline: it is expected to be slow, and every later change
 to the payment path is judged by the run that follows it. This design
 decides the load scenarios, the bank they run against, where the load
 generator runs, what a run reports, and the reference rates a result is
 read against.
 
-In scope: k6 scenarios for internal, outbound and inbound payments on a
-bank whose payment provider is Modulr, a policy tier the test bank is
+In scope: k6 scenarios for internal, outbound and inbound payments and
+for onboarding customers on a bank whose payment provider is Modulr and
+identity provider Zyphe, a policy tier the test bank is
 placed on, k6 running as a Job inside the cluster on kind and on GKE, the
 figures a run reports, and the ceilings the baseline is expected to find.
 
@@ -168,6 +170,13 @@ Scripts live under `perf/`, outside every brick:
   unfunded.
 - `perf/mixed.js` — internal and outbound payments from one bank in one
   arrival rate, `OUTBOUND_SHARE` of them outbound, the challenger's mix.
+- `perf/onboarding.js` — one customer an iteration into a bank with no
+  customers: a person party created, a verification session opened and
+  awaited ready, the Zyphe simulator's decision posted as the person after
+  `THINK_S` seconds, none by default, the party awaited active, and a
+  current account opened and awaited opened at Modulr. A stage that
+  refuses, or outlasts `STAGE_TIMEOUT_S`, 120 by default, loses the
+  customer there.
 
 Every scenario runs as steps of a fixed arrival rate on k6's
 `ramping-arrival-rate` executor, each reached over five seconds and then
@@ -182,6 +191,10 @@ the steps:
   aborted run skips the teardown that checks the books.
 - **`hot`.** Scenario B: 1, 2, 5, 10, 20 and 40 a second, a minute each,
   from one account to the other 49, for internal payments only.
+
+Onboarding defines its own: `smoke` at 1 a second for a minute,
+`challenger` at 10 a second for ten minutes, and `knee` at 1, 2, 5, 10,
+20 and 40 a second, a minute each.
 
 `RATE` and `DURATION` replace a profile's steps with one-minute steps at
 that rate, so a sustained run shows whether the rate holds, and
@@ -293,6 +306,12 @@ load test signs in as a client of its own instead:
   those never settled by why, and the trend; `gracefulStop`, 120
   seconds, lets the last of them settle, and its polls carry
   `phase: follow`, so no load figure counts them.
+- **Onboarding.** The customers onboarded, those lost by stage, and the
+  time of each stage awaited: the session ready, the party active from
+  the decision, and the account opened from its request, with the whole
+  journey's time less the person's. Polls carry `phase: poll` and the
+  decision `phase: simulator`, so the load figures are the three
+  requests a customer sends.
 - **Books.** After a run, k6's `teardown` reads the bank's ledger through
   `GET /v1/ledger-accounts` and the Modulr simulator's balances for the
   bank's accounts until they stop moving: two readings five seconds
@@ -302,7 +321,9 @@ load test signs in as a client of its own instead:
   it paid out, which k6 counts as it sends, since outbound payments have
   no list to sum. 1100, the deposit and own-funds controls summed, and
   the provider's balances should each equal it, and the trial balance
-  should tie. `perf-run` exits 1 when they do not.
+  should tie. `perf-run` exits 1 when they do not, or when a run sent
+  none of its unit, payments or customers. Onboarding moves no money,
+  says so in its summary, and is not held to the books.
 - **Where the time went.** The run's window in SigNoz, where a payment's
   trace crosses the API, the bus, the processor and the adapter.
 - **Where FDB conflicted.** The storage dashboard's FoundationDB
