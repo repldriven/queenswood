@@ -203,11 +203,13 @@ the steps:
 `challenger` at 10 a second for ten minutes, and `knee` at 20, 40 and
 80 a second, a minute each.
 
-`RATE` and `DURATION` replace a profile's steps with one-minute steps at
-that rate, so a sustained run shows whether the rate holds, and
-`ACCOUNTS` replaces its account count. Amounts are between 1p and £1, and
-funding covers the run twice over, the hot account's every payment
-included, so no payment is refused for its balance.
+`FROM` drops a profile's steps below that rate, for a machine where
+the low steps tell nothing. `RATE` and `DURATION` replace a profile's
+steps with one-minute steps at that rate, so a sustained run shows
+whether the rate holds, and `ACCOUNTS` replaces its account count.
+Amounts are between 1p and £1, and funding covers the run twice over,
+the hot account's every payment included, so no payment is refused for
+its balance.
 
 A rejection is counted by status: 429 is a policy cap, 503 is FDB
 unavailable or in contention, 500 is a failure or the dispatcher's
