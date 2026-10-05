@@ -8,6 +8,7 @@
     [com.repldriven.queenswood.policy.interface :as policy]
     [com.repldriven.queenswood.transaction.interface :as transactions]
 
+    [com.repldriven.mono.cache.interface :as cache]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]))
 
 (defn- get-policies
@@ -99,13 +100,6 @@
       _ (store/save-account txn closed)]
      closed)))
 
-(defn find-by-code
-  [txn bank-id gl-account-code currency]
-  (let-nom>
-    [account (store/find-by-code txn bank-id gl-account-code currency)]
-    (if account
-      (domain/ensure-open account)
-      (domain/missing-currency-account bank-id gl-account-code currency))))
 
 (defn list-accounts
   [txn bank-id]
@@ -125,11 +119,41 @@
             []
             pairs)))
 
+(defn- cached-ids
+  [cache bank-id codes currency]
+  (into {}
+        (keep (fn [code]
+                (when-some [id (cache/lookup cache
+                                             [bank-id code currency]
+                                             (constantly nil))]
+                  [code id])))
+        codes))
+
+(defn- load-by-codes
+  [txn bank-id codes currency]
+  (let [cache (store/cache txn)
+        ids (if cache (cached-ids cache bank-id codes currency) {})
+        unknown (vec (remove (fn [code] (contains? ids code)) codes))]
+    (let-nom>
+      [by-id (if (seq ids) (store/find-by-ids txn bank-id (vals ids)) {})
+       found (if (seq unknown)
+               (store/find-by-codes txn bank-id unknown currency)
+               {})]
+      (when cache
+        (doseq [[code account] found
+                :when account]
+          (cache/lookup cache
+                        [bank-id code currency]
+                        (constantly (:ledger-account-id account)))))
+      (into found
+            (map (fn [[code id]] [code (get by-id id)]))
+            ids))))
+
 (defn- find-by-codes
   [txn bank-id codes currency]
   (let-nom>
     [found (if (seq codes)
-             (store/find-by-codes txn bank-id codes currency)
+             (load-by-codes txn bank-id codes currency)
              {})]
     (reduce (fn [acc code]
               (let [account (if-some [account (get found code)]
@@ -142,6 +166,11 @@
                   (conj acc account))))
             []
             codes)))
+
+(defn find-by-code
+  [txn bank-id gl-account-code currency]
+  (let-nom> [[account] (find-by-codes txn bank-id [gl-account-code] currency)]
+    account))
 
 (defn ensure-controls
   [txn bank-id currency legs]

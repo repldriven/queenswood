@@ -375,7 +375,8 @@
   "Runs f within a transaction. f receives a Txn. Given an existing
   Txn, reuses it; given a config map with :record-db and
   :record-store, opens a fresh FDB transaction, and an optional
-  :keyspace-prefix on that map scopes every key it writes.
+  :keyspace-prefix on that map scopes every key it writes. The map's
+  :caches, a map of name to cache, rides on the Txn for `cache`.
 
   If f returns an anomaly the transaction is rolled back and the
   anomaly returned to the caller."
@@ -383,6 +384,16 @@
    (transact/transact txn-or-config f))
   ([txn-or-config f category message]
    (transact/transact txn-or-config f category message)))
+
+(defn cache
+  "The cache named `cache-name` in the :caches of a config map, or of
+  the Txn `transact` opened from one, or nil when it carries none.
+
+  Args:
+  - txn-or-config: a Txn or a config map.
+  - cache-name: the cache's key in :caches."
+  [txn-or-config cache-name]
+  (transact/cache txn-or-config cache-name))
 
 (defn open
   "Opens a named store within the transaction. Memoised for the life of

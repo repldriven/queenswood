@@ -116,6 +116,10 @@
   [^Txn txn store-name]
   ((:open txn) store-name))
 
+(defn cache
+  [txn-or-config cache-name]
+  (get (:caches txn-or-config) cache-name))
+
 (defn transact
   ([txn-or-config f]
    (transact txn-or-config f :fdb/transact "Failed to execute transaction"))
@@ -143,11 +147,11 @@
                                                            store-name)]
                                          (swap! cache assoc store-name s)
                                          s)))
-                         result (try-nom category
-                                         message
-                                         (f (->Txn open-fn
-                                                   keyspace-prefix
-                                                   ctx)))]
+                         txn (cond-> (->Txn open-fn keyspace-prefix ctx)
+
+                                     (:caches txn-or-config)
+                                     (assoc :caches (:caches txn-or-config)))
+                         result (try-nom category message (f txn))]
                      (if (error/anomaly? result)
                        ;; nosemgrep: no-raw-throw
                        (throw (ex-info "Transaction rolled back"

@@ -10,6 +10,7 @@
     [com.repldriven.queenswood.policy.interface :as policy]
     [com.repldriven.queenswood.transaction.interface :as transactions]
 
+    [com.repldriven.mono.cache.interface :as cache]
     [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.system.interface :as system]
     [com.repldriven.mono.test-system.interface :refer
@@ -555,6 +556,29 @@
      (is (not (error/anomaly? first-close)))
      (is (error/anomaly? result))
      (is (= :ledger-account/invalid-status (error/kind result))))))
+
+(deftest a-cached-id-still-refuses-a-closed-account-test
+  (with-test-system
+   [sys "classpath:ledger-account/application-test.yml"]
+   (let [ledger-cache (cache/create 60000)
+         config (assoc (fdb-config sys) :caches {:ledger-account ledger-cache})
+         bank-id "bnk.test-cached-close"]
+     (nom-test> [_ (seed! config bank-id)
+                 found (suspense-account config bank-id)
+                 _ (is (= (:ledger-account-id found)
+                          (cache/lookup ledger-cache
+                                        [bank-id :gl-account-code-suspense
+                                         "GBP"]
+                                        (constantly nil)))
+                       "the code's id is cached")
+                 again (suspense-account config bank-id)
+                 _ (is (= (:ledger-account-id found)
+                          (:ledger-account-id again)))
+                 _
+                 (SUT/close-account config bank-id (:ledger-account-id found))])
+     (testing "the account behind a cached id is read, so a close is refused"
+       (is (= :ledger-account/closed
+              (error/kind (suspense-account config bank-id))))))))
 
 (deftest closed-control-rejects-a-posting-test
   (with-test-system
