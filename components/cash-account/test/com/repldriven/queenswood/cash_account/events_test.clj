@@ -57,7 +57,8 @@
        (core/complete-status-transition config
                                         test-bank-id
                                         account-id
-                                        :cash-account-status-opening)
+                                        :cash-account-status-opening
+                                        (constantly true))
        (nom-test> [found (q/find-account config test-bank-id account-id)
                    _ (is (= :cash-account-status-opened
                             (:account-status found)))])))))

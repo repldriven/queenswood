@@ -37,7 +37,8 @@
               _ (balances/apply-legs txn
                                      bank-id
                                      (:legs swept)
-                                     (:transaction-type recorded))]))]
+                                     (:transaction-type recorded)
+                                     {:policies (:policies ctx)})]))]
       swept)))
 
 (def pass

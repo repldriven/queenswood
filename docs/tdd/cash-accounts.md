@@ -696,13 +696,6 @@ What follows is what the model does not reach.
   has settled there (ADR-0033), so a refusal is the
   provider's own: the account returns to where it closed
   from, and closing it again is the caller's decision.
-- **Opening reads the platform policies twice.** The opening
-  transaction resolves the policies, then `balances/new-balances`
-  is called without them and resolves them again.
-- **Closing reads the account twice.** The closing handler reads
-  the account in one transaction, then again in the transaction
-  that closes it.
-
 ## References
 
 - [ADR-0002](../adr/0002-foundationdb-record-layer.md) —

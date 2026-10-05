@@ -26,7 +26,7 @@
 
 (defn ordering-key
   [data]
-  (or (:end-to-end-id data) (:transfer-id data)))
+  (or (:end-to-end-id data) (:transfer-id data) (:verification-id data)))
 
 (defn- outbox-event
   [config now intent descriptor]

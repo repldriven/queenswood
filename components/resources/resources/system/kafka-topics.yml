@@ -41,7 +41,7 @@
   - topic: topic-idv-command-response
     partitions: 1
   - topic: topic-idv-event
-    partitions: 1
+    partitions: 4
   - topic: topic-idvs-event
     partitions: 1
   - topic: topic-idvs-event-dlq

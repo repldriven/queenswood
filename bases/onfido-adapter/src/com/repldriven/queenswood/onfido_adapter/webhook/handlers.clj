@@ -2,6 +2,7 @@
   (:require
     [com.repldriven.queenswood.onfido-adapter.publisher :as publisher]
 
+    [com.repldriven.queenswood.intent-poller.interface :as intent-poller]
     [com.repldriven.queenswood.onfido-relay.interface :as relay]
     [com.repldriven.queenswood.onfido-webhook.interface :as onfido-webhook]
 
@@ -25,13 +26,15 @@
       (let-nom> [payload (avro/serialize schema data)]
         (let [res (relay/save-event
                    {:record-db record-db :record-store record-store}
-                   {:outbox-id (str (utility/uuidv7))
-                    :dedup-key dedup-key
-                    :event-name event-name
-                    :payload payload
-                    :correlation-id (str (utility/uuidv7))
-                    :causation-id (str (utility/uuidv7))
-                    :created-at (utility/now)})]
+                   (utility/assoc-some {:outbox-id (str (utility/uuidv7))
+                                        :dedup-key dedup-key
+                                        :event-name event-name
+                                        :payload payload
+                                        :correlation-id (str (utility/uuidv7))
+                                        :causation-id (str (utility/uuidv7))
+                                        :created-at (utility/now)}
+                                       :ordering-key
+                                       (intent-poller/ordering-key data)))]
           (if (relay/uniqueness-violation? res)
             :ok
             res))))))

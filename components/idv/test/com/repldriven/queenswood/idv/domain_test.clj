@@ -220,7 +220,7 @@
                                                  0)))))
     (testing "a bank past its daily limit is refused"
       (is (error/anomaly?
-           (SUT/check-open-session idv declaration data [platform] 100))))))
+           (SUT/check-open-session idv declaration data [platform] 100000))))))
 
 (deftest ready-session-test
   (let [opening {:session-id "ses.1" :status :idv-session-status-opening}

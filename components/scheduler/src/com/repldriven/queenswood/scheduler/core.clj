@@ -94,14 +94,15 @@
 ;; --- run engine -----------------------------------------------------------
 
 (defn- last-succeeded-run
-  [config bank-id job-id]
-  (let [runs (store/list-runs-by-job config bank-id job-id)]
-    (when-not (error/anomaly? runs)
-      (first (filter #(= :scheduler-run-status-succeeded (:status %)) runs)))))
+  [runs]
+  (first (filter (fn [run] (= :scheduler-run-status-succeeded (:status run)))
+                 runs)))
 
 (defn- open-run
-  "Write `run` as running, in the transaction that reads the job's runs,
-  unless `domain/period-refusal` refuses it, which it then returns."
+  "Write `run` as running, with the end the job's last success suggests,
+  in the transaction that reads the job's runs, unless
+  `domain/period-refusal` refuses it, which it then returns. Returns the
+  run written."
   [config job run]
   (store/transact config
                   (fn [txn]
@@ -109,8 +110,15 @@
                       [runs (store/list-runs-by-job txn
                                                     (:bank-id run)
                                                     (:job-id run))
-                       _ (domain/period-refusal job runs (:started-at run))]
-                      (store/save-run txn run)))
+                       _ (domain/period-refusal job runs (:started-at run))
+                       opened (utility/assoc-some
+                               run
+                               :expected-end-at
+                               (domain/expected-end-at (:started-at run)
+                                                       (last-succeeded-run
+                                                        runs)))
+                       _ (store/save-run txn opened)]
+                      opened))
                   :scheduler/open-run
                   "Failed to open scheduler run"))
 
@@ -130,23 +138,22 @@
         started-at (utility/now)
         as-of-date (utility/today)
         task-kinds (vec (:task-kinds job))
-        prev (last-succeeded-run config bank-id (:job-id job))
-        base (utility/assoc-some
-              {:bank-id bank-id
-               :run-id run-id
-               :job-id (:job-id job)
-               :trigger-source trigger-source
-               :started-at started-at
-               :tasks-total (count task-kinds)}
-              :expected-end-at
-              (domain/expected-end-at started-at prev))]
+        unopened {:bank-id bank-id
+                  :run-id run-id
+                  :job-id (:job-id job)
+                  :trigger-source trigger-source
+                  :started-at started-at
+                  :tasks-total (count task-kinds)}]
     (let-nom>
-      [_ (open-run config
-                   job
-                   (assoc base
-                          :status :scheduler-run-status-running
-                          :tasks-completed 0
-                          :current-task (task-label (first task-kinds))))]
+      [opened (open-run config
+                        job
+                        (assoc unopened
+                               :status :scheduler-run-status-running
+                               :tasks-completed 0
+                               :current-task (task-label (first task-kinds))))
+       base (utility/assoc-some unopened
+                                :expected-end-at
+                                (:expected-end-at opened))]
       (loop [[task-kind & more] task-kinds
              completed 0
              tasks []]

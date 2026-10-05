@@ -135,7 +135,8 @@
             _ (balances/new-balances
                txn
                bank-id
-               (domain/opening-balances account currency product-version))
+               (domain/opening-balances account currency product-version)
+               {:policies policies})
             _ (store/save-account txn
                                   account
                                   {:account-id (:account-id account)
@@ -182,17 +183,20 @@
   `opened`, `closing` becomes `closed`.
 
   Gated on the loaded account still sitting at the expected source
-  status, and skips silently when it doesn't. Event redelivery and
-  replay must be a no-op here, not a rejection — the transition having
-  already happened is the normal case, not an error."
-  [txn bank-id account-id status-after]
+  status, and holding `ready?` where it is given, and skips silently
+  when it doesn't. Event redelivery and replay must be a no-op here, not
+  a rejection — the transition having already happened is the normal
+  case, not an error."
+  [txn bank-id account-id status-after ready?]
   (when-let [[transition-fn change-kind] (get second-leg status-after)]
     (store/transact
      txn
      (fn [txn]
        (let-nom>
          [account (q/find-account txn bank-id account-id)]
-         (when (and account (= status-after (:account-status account)))
+         (when (and account
+                    (= status-after (:account-status account))
+                    (ready? account))
            (let [transitioned (transition-fn account)]
              (store/save-account txn
                                  transitioned

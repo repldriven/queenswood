@@ -2,8 +2,6 @@
   (:require
     [com.repldriven.queenswood.cash-account.core :as core]
 
-    [com.repldriven.queenswood.cash-account-query.interface :as q]
-
     [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.log.interface :as log]
@@ -21,14 +19,13 @@
   [config data]
   (let [{:keys [bank-id account-id status-after]} data]
     (when (= :cash-account-status-closing status-after)
-      (let-nom> [account (q/find-account (fdb config) bank-id account-id)]
-        (when (and account
-                   (= :cash-account-status-closing (:account-status account))
-                   (nil? (:provider-account-id account)))
-          (core/complete-status-transition (fdb config)
-                                           bank-id
-                                           account-id
-                                           :cash-account-status-closing))))))
+      (core/complete-status-transition (fdb config)
+                                       bank-id
+                                       account-id
+                                       :cash-account-status-closing
+                                       (fn [account]
+                                         (nil? (:provider-account-id
+                                                account)))))))
 
 (defn- dispatch
   [config message]

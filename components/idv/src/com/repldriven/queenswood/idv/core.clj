@@ -228,7 +228,10 @@
            (log/warn "Evidence for an unknown IDV — skipping"
                      {:verification-id verification-id})
            (let-nom>
-             [policies (policy/get-effective-policies txn {:bank-id bank-id})
+             [policies (policy/get-effective-policies-cached
+                        txn
+                        {:bank-id bank-id}
+                        (:policy-cache config))
               claimed (person-identification/get-person-identification
                        txn
                        (:party-id idv))]
