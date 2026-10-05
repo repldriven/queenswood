@@ -88,7 +88,7 @@ updated as consumers, topics and sends change.
 | operational-processors | `topic-idvs-event` (1) | party, on a verification's outcome | the party | the party |
 | operational-processors | `topic-bank-activity-event` (1) | IDV activity | the bank | the session's party: an opening names one |
 | operational-processors | `topic-banks-command` (1) | bank processor | none | next in turn |
-| operational-processors | `topic-cash-accounts-command` (1) | cash-account processor | none | the account, once sent under it; an open, next in turn |
+| operational-processors | `topic-cash-accounts-command` (1) | cash-account processor | the party for an open, otherwise the account | the same |
 | operational-processors | `topic-cash-accounts-event` (1) | cash-account, on a closing's second leg | the account | the account |
 | operational-processors | `topic-schemes-account-event` (1) | cash-account, on a provider's account | none | the account, once sent under it |
 | operational-processors | `topic-memberships-command` (1) | membership processor | none | next in turn |
