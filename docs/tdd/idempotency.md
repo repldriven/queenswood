@@ -58,15 +58,22 @@ meeting each other:
 - `Transaction_by_idempotency_key`, unique on
   `[bank_id, transaction_type, idempotency_key]`.
 
+Bank creation is the exception, since the bank does not exist yet:
+`Bank_by_creator_idempotency_key` is unique on
+`[created_by.principal_id, idempotency_key]`, so a key belongs to the
+person or operator who chose it.
+
 Behind the pair, the processors that carry such an index are
 cash-account opening, both payments, party creation, product
-creation, migration creation and transaction recording. The check is
-atomic with the write — same FDB transaction — and a uniqueness
-violation is resolved by reading the existing record back and
-returning it.
+creation, migration creation, transaction recording and bank
+creation. The check is atomic with the write — same FDB transaction —
+and a uniqueness violation is resolved by reading the existing record
+back and returning it. Bank creation reads first instead, before it
+issues a Keycloak client, and returns the bank it finds with the
+owner membership and invitation that create wrote.
 
-Behind the pair with no index of their own are bank creation and
-payee-check creation, among others; the adapter outbox and intent
+Behind the pair with no index of their own is payee-check creation,
+among others; the adapter outbox and intent
 stores dedup a redelivered webhook or command on their own
 `dedup-key`, which is a different mechanism for a different edge.
 The API-layer cache described below is layered on top of all of it.
@@ -138,17 +145,17 @@ late retry does has to know which one answers.
 
 So a key reused after a day does different things by route:
 
-- On account opening, a payment, a party, a product, a migration or
-  a recorded transaction, the processor's index still holds it and
-  the original resource is returned.
+- On account opening, a payment, a party, a product, a migration, a
+  recorded transaction or a bank, the processor's index still holds
+  it and the original resource is returned.
 - On a transition — closing an account, suspending a party — there
   is no index, and the retry meets the source-state guard: the
   entity has left the state the transition starts from, and the
   request is refused with a 409, which is the same answer the
   replayed cache entry would have given.
-- On a route with neither, a second resource is created. Bank
-  creation, payee-check creation, the forced job run and the
-  migration preview are the cases; see "Which routes rely on which
+- On a route with neither, a second resource is created.
+  Payee-check creation, the forced job run and the migration preview
+  are the cases; see "Which routes rely on which
   layer".
 
 ### Interceptor lifecycle
@@ -372,6 +379,10 @@ processor's index outlives the cache entry.
   `POST /v1/cash-account-migrations` and
   `POST /v1/simulate/inbound-transfer`, each read
   back off a unique index headed by `bank_id`.
+- `POST /v1/banks` reads off the index headed by the creator's
+  principal before it issues a Keycloak client, so a retry makes no
+  second bank or client. The client secret is rotated afresh for the
+  retry's answer, since the first was never delivered.
 - On the two payment routes the index also catches a redelivered
   command, which the payment processor answers with the original
   payment as ACCEPTED. A retry under a different key is a new request
@@ -399,10 +410,6 @@ given.
 **The pair alone.** After a 5xx release the guarantee rests on
 nothing, and a retry following a lost reply acts twice.
 
-- `POST /v1/banks` — a second bank, and a second Keycloak client.
-  The client is issued before the FDB write so a bank never exists
-  without one, which means a retry may leave a client behind even
-  where the write is refused.
 - `POST /v1/payee-checks` — a second check record.
 - `POST /v1/jobs/{job-id}/runs` — a second run.
 - `POST /v1/cash-account-migrations/{migration-id}/previews` — a

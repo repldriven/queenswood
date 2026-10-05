@@ -43,17 +43,33 @@ async function all_pages(path) {
   return { status: 200, body: { items } };
 }
 
-// Mutations get an `Idempotency-Key` so a retried POST/PUT/DELETE
-// doesn't double-apply on the server side. Same convention bank-app
-// uses; bank-api keys against this header to dedupe.
-function mutate(path, opts = {}) {
-  return request(path, {
-    ...opts,
-    headers: {
-      "Idempotency-Key": crypto.randomUUID(),
-      ...(opts.headers ?? {}),
-    },
-  });
+// A mutation is sent under one `Idempotency-Key` — the caller's `key`
+// where it passes one — and sent again under it, after a growing pause,
+// when the answer is a 5xx or never arrives. The API keeps only a 2xx or
+// 4xx against the key, so a retry either replays that answer or runs
+// again and finds what an earlier attempt wrote.
+const RETRY_DELAYS_MS = [500, 1000, 2000, 4000];
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function mutate(path, { key = crypto.randomUUID(), ...opts } = {}) {
+  const send = () =>
+    request(path, {
+      ...opts,
+      headers: { "Idempotency-Key": key, ...(opts.headers ?? {}) },
+    });
+  for (const delay of RETRY_DELAYS_MS) {
+    try {
+      const res = await send();
+      if (res.status < 500) return res;
+    } catch {
+      // No answer arrived; send it again under the same key.
+    }
+    await sleep(delay);
+  }
+  return send();
 }
 
 export function get_me() {
@@ -84,11 +100,14 @@ export function get_bank() {
 
 // A person creates a bank for the confirmed legal entity and becomes its
 // owner; the answer is the bank with the person's owner membership.
-// `{ companyNumber, bankName, providers }`, `providers` a map from kind
-// to provider key, each kind left out taking its default.
-export function create_bank({ companyNumber, bankName, providers }) {
+// `{ companyNumber, bankName, providers, key }`, `providers` a map from
+// kind to provider key, each kind left out taking its default, and `key`
+// the submission's `Idempotency-Key`, so creating again after a failure
+// answers with the bank an earlier attempt made rather than a second.
+export function create_bank({ companyNumber, bankName, providers, key }) {
   return mutate("/v1/banks", {
     method: "POST",
+    key,
     body: JSON.stringify({
       name: bankName,
       "company-number": companyNumber,

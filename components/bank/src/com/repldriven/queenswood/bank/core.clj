@@ -9,6 +9,8 @@
     [com.repldriven.queenswood.cash-account.interface :as cash-accounts]
     [com.repldriven.queenswood.idv-provider.interface :as idv-provider]
     [com.repldriven.queenswood.ledger-account.interface :as ledger-accounts]
+    [com.repldriven.queenswood.membership-query.interface :as
+     membership-query]
     [com.repldriven.queenswood.membership.interface :as memberships]
     [com.repldriven.queenswood.party.interface :as party]
     [com.repldriven.queenswood.policy.interface :as policy]
@@ -161,16 +163,114 @@
   [offered requested]
   (domain/choose-providers offered requested))
 
+(defn- earliest
+  [k xs]
+  (first (sort-by k xs)))
+
+(defn- replay
+  "What the create that made `bank` returned: the bank, the creator's
+  owner membership where the create asked for one, and the owner
+  invitation's id where it sent one."
+  [txn bank membership owner-invitation]
+  (let [{:keys [bank-id]} bank]
+    (let-nom>
+      [memberships (when membership
+                     (membership-query/list-by-bank txn bank-id))
+       invitations (when owner-invitation
+                     (membership-query/list-invitations-by-bank txn
+                                                                bank-id))]
+      {:bank (dissoc bank :created-by :idempotency-key)
+       :membership (earliest :membership-id
+                             (filter (fn [m]
+                                       (and (= (:user-id membership)
+                                               (:user-id m))
+                                            (= :role-owner (:role m))))
+                                     memberships))
+       :owner-invitation-id (:invitation-id
+                             (earliest :invitation-id
+                                       (filter (fn [i]
+                                                 (and (= :role-owner (:role i))
+                                                      (= owner-invitation-reason
+                                                         (:reason i))))
+                                               invitations)))})))
+
+(defn- create-bank
+  [txn bank-name bank-status tier currencies actor opts]
+  (let [{:keys [identity-provider idv-provider payment-provider
+                company-binding membership owner-invitation idempotency-key]}
+        opts
+        {:keys [user-id role]} membership]
+    (let-nom>
+      [policies (or (:policies opts)
+                    (policy/get-effective-policies txn {}))
+       tier-policies (if (some? tier)
+                       (policy/get-policies-by-tier txn tier)
+                       [])
+       bank (error/nom-> (domain/new-bank bank-name
+                                          bank-status
+                                          tier
+                                          company-binding
+                                          tier-policies
+                                          policies
+                                          idv-provider)
+                         (utility/assoc-seq :providers (:providers opts)))
+       bank-id (:bank-id bank)
+
+       ;; Issue the service-account client BEFORE the FDB write so an
+       ;; identity-provider failure aborts the transaction cleanly.
+       ;; Client-id == bank-id (deterministic mapping). `:audience` is
+       ;; the JWT `aud` claim the IDP stamps on tokens for this client
+       ;; — the bank-api handler picks it from its own status→audience
+       ;; config and forwards it here. No secret is minted here:
+       ;; callers rotate one after the reply, so no credential
+       ;; crosses the bus.
+       _ (identity-provider/create-service-account
+          identity-provider
+          {:bank-id bank-id
+           :name bank-name
+           :audience (:audience opts)})
+       _ (store/create txn
+                       (utility/assoc-some bank
+                                           :created-by actor
+                                           :idempotency-key idempotency-key))
+       {:keys [party-id]} (party/new-party
+                           txn
+                           {:bank-id bank-id
+                            :type :party-type-organization
+                            :display-name bank-name}
+                           {:policies policies})
+       _ (new-ledger-accounts txn bank-id currencies policies)
+       _ (new-house-accounts txn
+                             bank-id
+                             party-id
+                             currencies
+                             policies
+                             payment-provider)
+       _ (bind-policies txn bank-id tier-policies)
+       _ (scheduler/seed-jobs txn bank-id)
+       owner (when membership
+               (memberships/new-membership txn
+                                           {:user-id user-id
+                                            :bank-id bank-id
+                                            :role role}))
+       ;; The bank-created event before the invitation, so its id is
+       ;; the older and the history reads the two in order.
+       _ (memberships/record-bank-created txn
+                                          bank-id
+                                          {:actor actor :membership owner})
+       invitation (new-owner-invitation txn bank-id actor owner-invitation)]
+      {:bank bank
+       :membership owner
+       :owner-invitation-id (:invitation-id invitation)})))
+
 (defn new-bank
   [txn bank-name bank-status tier currencies opts]
   (store/transact
    txn
    (fn [txn]
-     (let [{:keys [identity-provider idv-provider payment-provider
-                   company-binding membership owner-invitation
+     (let [{:keys [identity-provider membership owner-invitation
                    idempotency-key]}
            opts
-           {:keys [user-id role]} membership
            actor (domain/creation-actor (:actor opts) membership)]
        (let-nom>
          [_
@@ -180,71 +280,21 @@
              {:message
               "A bank requires an identity-provider to issue its service-account client"
               :bank-name bank-name}))
-          ;; Before the identity-provider call, so a redelivered command
-          ;; aborts with no second client.
-          creations (when idempotency-key
-                      (store/count-creations txn
+          ;; Before the identity-provider call, so a create sent again
+          ;; makes no second client.
+          existing (when idempotency-key
+                     (store/find-by-creation txn
                                              (:principal-id actor)
-                                             idempotency-key))
-          _ (domain/check-first-creation idempotency-key creations)
-          policies (or (:policies opts)
-                       (policy/get-effective-policies txn {}))
-          tier-policies (if (some? tier)
-                          (policy/get-policies-by-tier txn tier)
-                          [])
-          bank (error/nom-> (domain/new-bank bank-name
-                                             bank-status
-                                             tier
-                                             company-binding
-                                             tier-policies
-                                             policies
-                                             idv-provider)
-                            (utility/assoc-seq :providers (:providers opts)))
-          bank-id (:bank-id bank)
-
-          ;; Issue the service-account client BEFORE the FDB write so an
-          ;; identity-provider failure aborts the transaction cleanly.
-          ;; Client-id == bank-id (deterministic mapping). `:audience` is
-          ;; the JWT `aud` claim the IDP stamps on tokens for this client
-          ;; — the bank-api handler picks it from its own status→audience
-          ;; config and forwards it here. No secret is minted here:
-          ;; callers rotate one after the reply, so no credential
-          ;; crosses the bus.
-          _ (identity-provider/create-service-account
-             identity-provider
-             {:bank-id bank-id
-              :name bank-name
-              :audience (:audience opts)})
-          _ (store/create txn bank)
-          {:keys [party-id]} (party/new-party
-                              txn
-                              {:bank-id bank-id
-                               :type :party-type-organization
-                               :display-name bank-name}
-                              {:policies policies})
-          _ (new-ledger-accounts txn bank-id currencies policies)
-          _ (new-house-accounts txn
-                                bank-id
-                                party-id
-                                currencies
-                                policies
-                                payment-provider)
-          _ (bind-policies txn bank-id tier-policies)
-          _ (scheduler/seed-jobs txn bank-id)
-          owner (when membership
-                  (memberships/new-membership txn
-                                              {:user-id user-id
-                                               :bank-id bank-id
-                                               :role role}))
-          ;; The bank-created event before the invitation, so its id is
-          ;; the older and the history reads the two in order.
-          _ (memberships/record-bank-created txn
-                                             bank-id
-                                             {:actor actor :membership owner})
-          invitation (new-owner-invitation txn bank-id actor owner-invitation)]
-         {:bank bank
-          :membership owner
-          :owner-invitation-id (:invitation-id invitation)})))
+                                             idempotency-key))]
+         (if existing
+           (replay txn existing membership owner-invitation)
+           (create-bank txn
+                        bank-name
+                        bank-status
+                        tier
+                        currencies
+                        actor
+                        opts)))))
    :bank/create
    "Failed to create bank"))
 

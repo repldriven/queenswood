@@ -1,0 +1,71 @@
+{:name "A lost create-bank reply is retried under the same key and
+        creates one bank"
+ ;; The command commits and its reply never arrives, so the API answers
+ ;; 500 and the cache releases its claim. The retry runs the handler
+ ;; again -- no replay header -- and the processor finds the bank the
+ ;; first attempt made under the operator's principal and the key, and
+ ;; answers with it and its owner invitation rather than making a second.
+ ;; The founder's pending invitations are the witness: a second bank
+ ;; would have invited them a second time.
+ ;;
+ ;; An operator's create looks no company up, so the create is the first
+ ;; command sent under the key, which is the one the seam loses the reply
+ ;; to; see `test_api_scenarios/fault.clj`.
+ :given
+ [{:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "lost-reply-founder"
+   :password "lost-reply-founder"
+   :as :founder-token}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-lost-reply-bank-first"}
+             :body {:name "Lost Reply Bank"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]
+                    :owner-email "lost-reply-founder@queenswood.local"}}
+   :assert {:status 500}}
+  ;; The bank the lost attempt made is committed, so its invitation
+  ;; appears before the retry is sent -- otherwise the retry would race
+  ;; the first command rather than follow it.
+  {:command :api/poll
+   :request {:method :get :path "/v1/me/invitations" :auth :founder-token}
+   :until {:status 200
+           :body {:items [:m/embeds [{:bank-name "Lost Reply Bank"}]]}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :headers {:idempotency-key "ik-lost-reply-bank-first"}
+             :body {:name "Lost Reply Bank"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]
+                    :owner-email "lost-reply-founder@queenswood.local"}}
+   :as :retry
+   ;; The claim was released, so this ran rather than replayed.
+   :assert {:status 201
+            :headers {:idempotent-replayed [:m/absent]}
+            :body {:name "Lost Reply Bank"
+                   :client-secret [:m/non-empty]
+                   :owner-invitation {:invitation-id [:m/regex "^inv\\."]
+                                      :email
+                                      "lost-reply-founder@queenswood.local"
+                                      :role "owner"}}}}]
+ :then
+ [{:command :api/request
+   :request {:method :get :path "/v1/me/invitations" :auth :founder-token}
+   :assert {:status 200
+            :body {:items [{:invitation-id [:ref :retry :owner-invitation
+                                            :invitation-id]
+                            :bank-id [:ref :retry :bank-id]
+                            :bank-name "Lost Reply Bank"
+                            :role "owner"
+                            :status "pending"
+                            :expires-at [:m/any]
+                            :invited-by [:m/any]}]}}}]}

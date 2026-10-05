@@ -10,18 +10,21 @@
 
 (def transact fdb/transact)
 
-(defn count-creations
+(def uniqueness-violation? fdb/uniqueness-violation?)
+
+(defn find-by-creation
   [txn principal-id idempotency-key]
   (fdb/transact txn
                 (fn [txn]
-                  (fdb/allocate-counter txn
-                                        store-name
-                                        "bank"
-                                        "creations"
-                                        principal-id
-                                        idempotency-key))
-                :bank/count-creations
-                "Failed to count bank creations"))
+                  (some-> (fdb/query-record-compound
+                           (fdb/open txn store-name)
+                           "Bank"
+                           [[["created_by" "principal_id"] principal-id]
+                            ["idempotency_key" idempotency-key]]
+                           {:index "Bank_by_creator_idempotency_key"})
+                          schema/pb->Bank))
+                :bank/find-by-creation
+                "Failed to find bank by creation"))
 
 (defn create
   [txn bank]

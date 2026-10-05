@@ -63,8 +63,13 @@
 
 (defn- field-filter
   [[field value]]
-  (-> (Query/field field)
-      (.equalsValue value)))
+  (if (sequential? field)
+    (let [[outer & inner] field]
+      (if (seq inner)
+        (.matches (Query/field outer) (field-filter [(vec inner) value]))
+        (field-filter [outer value])))
+    (-> (Query/field field)
+        (.equalsValue value))))
 
 (defn- apply-allowed-indexes
   "Constrains the planner to the named index when

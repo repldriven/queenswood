@@ -54,8 +54,10 @@
     `{:kind … :principal-id …}`, and when absent the membership's user
     acts as a member, or else an operator with principal id `unknown`;
     `:idempotency-key` (string, optional) is the command envelope's id,
-    and a second create under one key by one principal is rejected
-    `:bank/already-exists` before the identity-provider is called;
+    recorded on the bank with the actor as `:created-by`, and a create
+    by the same principal under a key that has already made a bank
+    returns that bank, the creator's owner membership and the owner
+    invitation's id, writing nothing and calling no identity-provider;
     `:policies` overrides the platform policies used for the capability
     check."
   [txn bank-name bank-status tier currencies opts]

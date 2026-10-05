@@ -23,13 +23,6 @@
    :else
    {:kind :actor-kind-operator :principal-id unknown-principal-id}))
 
-(defn check-first-creation
-  [idempotency-key creations]
-  (when (and (some? creations) (< 1 creations))
-    (error/reject :bank/already-exists
-                  {:message "A bank was already created by this command"
-                   :idempotency-key idempotency-key})))
-
 (defn- offering
   [offered]
   (into {}

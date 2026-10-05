@@ -2,8 +2,7 @@
   "Pure-function tests for bank provisioning: `:bank/unknown-tier` when
   the tier resolves to no policies, `:bank/company-not-active`
   when the bound company snapshot is not active, the actor a create
-  records when its command carries none, `:bank/already-exists`
-  when a key has already created a bank, `:idv/unsupported-criteria`
+  records when its command carries none, `:idv/unsupported-criteria`
   when a tier requires what the identity provider does not establish,
   and the providers a create chooses."
   (:require
@@ -122,17 +121,6 @@
     (testing "an unknown operator when there is neither"
       (is (= {:kind :actor-kind-operator :principal-id "unknown"}
              (SUT/creation-actor nil nil))))))
-
-(deftest check-first-creation-test
-  (testing "nil for the first creation under a key"
-    (is (nil? (SUT/check-first-creation "ik-bank-00000001" 1))))
-  (testing "nil when the command carries no key"
-    (is (nil? (SUT/check-first-creation nil nil))))
-  (testing "rejects a second creation under a key"
-    (let [r (SUT/check-first-creation "ik-bank-00000001" 2)]
-      (is (error/rejection? r))
-      (is (= :bank/already-exists (error/kind r)))
-      (is (= "ik-bank-00000001" (:idempotency-key (error/payload r)))))))
 
 (def ^:private test-bank {:bank-id "bnk.1" :status :bank-status-live})
 

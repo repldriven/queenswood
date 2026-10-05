@@ -145,6 +145,21 @@
       (is (= [{:name "name_idx" :added 1 :removed 2}]
              (:former-indexes (SUT/describe-meta-data meta-data)))))))
 
+(deftest an-index-may-key-on-a-nested-field-test
+  (testing "fields mixing a nested field and a top-level one"
+    (let [meta-data (built (-> v1
+                               (at-version 2)
+                               (add-index "pets"
+                                          (index "collar_species_idx"
+                                                 2 2
+                                                 "fields" [{"field" "collar"
+                                                            "nest" {"field"
+                                                                    "tag"}}
+                                                           "species"]
+                                                 "unique" true))))]
+      (is (= {:added 2 :modified 2}
+             (index-versions meta-data "collar_species_idx"))))))
+
 (deftest a-declaration-without-versions-is-refused-test
   (testing "no meta-data version"
     (let [anomaly (SUT/build-meta-data descriptor (dissoc v1 "version"))]

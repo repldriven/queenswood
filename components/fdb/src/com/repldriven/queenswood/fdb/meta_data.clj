@@ -116,8 +116,16 @@
 (defn- key-expression
   [{:strs [field fields fan-out nest]}]
   (cond
-   fields
+   (and fields (every? string? fields))
    (Key$Expressions/concatenateFields ^java.util.List fields)
+
+   fields
+   (Key$Expressions/concat ^java.util.List
+                           (mapv (fn [f]
+                                   (if (string? f)
+                                     (Key$Expressions/field f)
+                                     (key-expression f)))
+                                 fields))
 
    nest
    (.nest (Key$Expressions/field field (fan-type fan-out))

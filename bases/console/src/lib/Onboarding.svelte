@@ -50,6 +50,10 @@
   let providersError = $state(null);
   let creating = $state(false);
   let createError = $state(null);
+  // The key a create is sent under, kept while what it would create is
+  // unchanged, so pressing Create again after a failure cannot make a
+  // second bank.
+  let submission = null;
   let result = $state(null);
   let waiting = $state(false);
   let copied = $state(false);
@@ -140,12 +144,17 @@
     if (!canCreate) return;
     creating = true;
     createError = null;
+    const request = {
+      companyNumber: match["company-number"],
+      bankName: bankName.trim(),
+      providers: offered.length ? { ...choice } : undefined,
+    };
+    const signature = JSON.stringify(request);
+    if (submission?.signature !== signature) {
+      submission = { signature, key: crypto.randomUUID() };
+    }
     try {
-      const res = await create_bank({
-        companyNumber: match["company-number"],
-        bankName: bankName.trim(),
-        providers: offered.length ? { ...choice } : undefined,
-      });
+      const res = await create_bank({ ...request, key: submission.key });
       if (res.status === 201) {
         result = res.body;
         focus(() => enterButton);

@@ -319,8 +319,19 @@
   [m]
   (IdempotencyProto$Idempotency/parseFrom (Idempotency->pb m)))
 
-(def ^{:doc "Parse Bank protobuf bytes into a Clojure map."} pb->Bank
-  banks/pb->Bank)
+(defn pb->Bank
+  "Parse Bank protobuf bytes into a Clojure map. Strips `created-by`
+  and `idempotency-key` when unset — a bank created before they were
+  recorded leaves both unset, and one created by no command the
+  second."
+  [input]
+  (let [bank (banks/pb->Bank input)]
+    (cond-> bank
+            (nil? (:created-by bank))
+            (dissoc :created-by)
+
+            (= "" (:idempotency-key bank))
+            (dissoc :idempotency-key))))
 
 (defn Bank->pb
   "Serialise a Bank map to protobuf bytes.
