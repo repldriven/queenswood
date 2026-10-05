@@ -573,9 +573,11 @@ services:
   # Provisioning + identity: bank, party, cash-account, product, idv
   # processors in one JVM. Bank provisioning issues service-account
   # clients, hence the Keycloak env (from the shared env block). One
-  # replica per partition of topic-idv-event, where each verification's
-  # evidence arrives keyed by verification; every other topic it reads
-  # has one partition, so one replica takes it and the rest stand by.
+  # replica per partition of the topics with four: topic-parties-command
+  # and topic-idvs-command, an existing party's commands keyed by the
+  # party, and topic-idv-event, keyed by verification; every other topic
+  # it reads has one partition, so one replica takes it and the rest
+  # stand by.
   operational-processors-service:
     enabled: true
     replicas: 4

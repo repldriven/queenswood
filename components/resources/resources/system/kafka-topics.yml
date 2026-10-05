@@ -57,9 +57,9 @@
   - topic: topic-memberships-command-response
     partitions: 1
   - topic: topic-parties-command
-    partitions: 1
+    partitions: 4
   - topic: topic-idvs-command
-    partitions: 1
+    partitions: 4
   - topic: topic-parties-command-dlq
     partitions: 1
   - topic: topic-idvs-command-dlq

@@ -53,6 +53,13 @@ against a provider's own sandbox.
   debtor account, decides the partition, so one account's payments stay
   in order, as
   [account-serialisation](../plan/account-serialisation.md) designs.
+- **Onboarding commands and evidence run four at a time.**
+  `topic-parties-command`, `topic-idvs-command` and `topic-idv-event`
+  have four partitions and `operational-processors-service` four
+  replicas. The API keys an existing party's commands and its
+  verification sessions by the party, and each IDV adapter keys a
+  verification's evidence by the verification. A create carries no key,
+  as no earlier command names its party.
 - **An internal payment writes only its two customer balances.** A
   control account's balance is the sum of its sub-ledger's, read from
   SUM indexes the Record Layer keeps by atomic mutation, so payments in
@@ -103,9 +110,10 @@ against a provider's own sandbox.
   day ends at 17:00 London time, and a breach is a 429. Bootstrap seeds
   the `platform` and `micro` tiers, and only an admin names a bank's
   tier.
-- **Every service runs one replica.** The chart's
+- **The other services run one replica.** The chart's
   [values.yaml](/infra/helm/queenswood/values.yaml) sets `replicas: 1`
-  throughout, and `exclusive-dispatchers-service` stays at one by design.
+  beside the two processor services' four, and
+  `exclusive-dispatchers-service` stays at one by design.
   The API's command replies arrive on a one-partition topic under a fixed
   consumer group, so a second `api-service` replica would not see the
   replies to its own requests.
@@ -614,9 +622,10 @@ holds it, and the run repeated.
   Kind then ran one FDB storage process, which also held the commit
   proxy, the master and the ratekeeper, on Colima's disk beside k6 and
   every JVM.
-- **The financial processors' replicas are not evenly loaded.** Every
-  other topic their consumers read has one partition, so one replica
-  takes all of them beside its half of the payment commands.
+- **The processors' replicas are not evenly loaded.** Every other topic
+  the financial and operational processors read has one partition, so
+  one replica of each takes all of them beside its share of the
+  partitioned ones.
 - **Reads and webhooks are absent.** No scenario reads balances or lists
   payments, and the test bank registers no webhook endpoint.
 

@@ -32,7 +32,8 @@
                    request
                    command
                    "party"
-                   {:bank-id bank-id :party-id party-id})))
+                   {:bank-id bank-id :party-id party-id}
+                   {:ordering-key party-id})))
 
 (defn suspend-party
   [request]
@@ -59,7 +60,8 @@
                    "party"
                    {:bank-id bank-id
                     :party-id party-id
-                    :into-party-id into-party-id})))
+                    :into-party-id into-party-id}
+                   {:ordering-key party-id})))
 
 (def ^:private channel-names
   {:idv-session-channel-web "web" :idv-session-channel-mobile "mobile"})
