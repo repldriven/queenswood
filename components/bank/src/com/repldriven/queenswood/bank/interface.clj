@@ -19,7 +19,10 @@
   the tier policies to it, recording a bank-created access event in the
   actor's name. When `:membership` is supplied, also create the owner
   membership, and when `:owner-invitation` is supplied, a pending owner
-  invitation in the actor's name, in the same transaction. Returns
+  invitation in the actor's name, in the same transaction. The client
+  is created once that transaction has committed, so a create that
+  fails there leaves a bank without one, which a create sent again
+  under the same key creates. Returns
   `{:bank {…} :membership <map-or-nil> :owner-invitation-id <id-or-nil>}`
   or an anomaly. The service-account secret is not returned — callers
   needing one mint it via `identity-provider/rotate-secret` after
@@ -57,7 +60,7 @@
     recorded on the bank with the actor as `:created-by`, and a create
     by the same principal under a key that has already made a bank
     returns that bank, the creator's owner membership and the owner
-    invitation's id, writing nothing and calling no identity-provider;
+    invitation's id, writing nothing;
     `:policies` overrides the platform policies used for the capability
     check."
   [txn bank-name bank-status tier currencies opts]

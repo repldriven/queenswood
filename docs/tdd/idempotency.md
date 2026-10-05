@@ -68,9 +68,9 @@ cash-account opening, both payments, party creation, product
 creation, migration creation, transaction recording and bank
 creation. The check is atomic with the write — same FDB transaction —
 and a uniqueness violation is resolved by reading the existing record
-back and returning it. Bank creation reads first instead, before it
-issues a Keycloak client, and returns the bank it finds with the
-owner membership and invitation that create wrote.
+back and returning it. Bank creation reads first instead, and returns
+the bank it finds with the owner membership and invitation that
+create wrote.
 
 Behind the pair with no index of their own is payee-check creation,
 among others; the adapter outbox and intent stores dedup a redelivered
@@ -379,8 +379,10 @@ processor's index outlives the cache entry.
   `POST /v1/simulate/inbound-transfer`, each read
   back off a unique index headed by `bank_id`.
 - `POST /v1/banks` reads off the index headed by the creator's
-  principal before it issues a Keycloak client, so a retry makes no
-  second bank or client. The client secret is rotated afresh for the
+  principal, so a retry makes no second bank, and creates the
+  Keycloak client only once the bank has committed, under the bank's
+  id, so a retry makes no second client either and gives a bank whose
+  client failed the one it lacks. The client secret is rotated afresh for the
   retry's answer, since the first was never delivered.
 - On the two payment routes the index also catches a redelivered
   command, which the payment processor answers with the original

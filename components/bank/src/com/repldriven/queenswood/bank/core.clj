@@ -196,8 +196,8 @@
 
 (defn- create-bank
   [txn bank-name bank-status tier currencies actor opts]
-  (let [{:keys [identity-provider idv-provider payment-provider
-                company-binding membership owner-invitation idempotency-key]}
+  (let [{:keys [idv-provider payment-provider company-binding membership
+                owner-invitation idempotency-key]}
         opts
         {:keys [user-id role]} membership]
     (let-nom>
@@ -215,20 +215,6 @@
                                           idv-provider)
                          (utility/assoc-seq :providers (:providers opts)))
        bank-id (:bank-id bank)
-
-       ;; Issue the service-account client BEFORE the FDB write so an
-       ;; identity-provider failure aborts the transaction cleanly.
-       ;; Client-id == bank-id (deterministic mapping). `:audience` is
-       ;; the JWT `aud` claim the IDP stamps on tokens for this client
-       ;; — the bank-api handler picks it from its own status→audience
-       ;; config and forwards it here. No secret is minted here:
-       ;; callers rotate one after the reply, so no credential
-       ;; crosses the bus.
-       _ (identity-provider/create-service-account
-          identity-provider
-          {:bank-id bank-id
-           :name bank-name
-           :audience (:audience opts)})
        _ (store/create txn
                        (utility/assoc-some bank
                                            :created-by actor
@@ -263,40 +249,55 @@
        :membership owner
        :owner-invitation-id (:invitation-id invitation)})))
 
+(defn- issue-client
+  "Creates the service-account client of a committed `bank`, its client
+  id the bank id, with `audience` as the `aud` claim its tokens carry.
+  Creating one that exists answers the same, so a create sent again
+  issues a client its first attempt did not. No secret is minted:
+  callers rotate one after the reply, so no credential crosses the bus."
+  [identity-provider bank audience]
+  (identity-provider/create-service-account identity-provider
+                                            {:bank-id (:bank-id bank)
+                                             :name (:name bank)
+                                             :audience audience}))
+
 (defn new-bank
   [txn bank-name bank-status tier currencies opts]
-  (store/transact
-   txn
-   (fn [txn]
-     (let [{:keys [identity-provider membership owner-invitation
-                   idempotency-key]}
-           opts
-           actor (domain/creation-actor (:actor opts) membership)]
-       (let-nom>
-         [_
-          (when-not identity-provider
-            (error/reject
-             :bank/missing-identity-provider
-             {:message
-              "A bank requires an identity-provider to issue its service-account client"
-              :bank-name bank-name}))
-          ;; Before the identity-provider call, so a create sent again
-          ;; makes no second client.
-          existing (when idempotency-key
-                     (store/find-by-creation txn
-                                             (:principal-id actor)
-                                             idempotency-key))]
-         (if existing
-           (replay txn existing membership owner-invitation)
-           (create-bank txn
-                        bank-name
-                        bank-status
-                        tier
-                        currencies
-                        actor
-                        opts)))))
-   :bank/create
-   "Failed to create bank"))
+  (let [{:keys [identity-provider membership owner-invitation idempotency-key
+                audience]}
+        opts
+        actor (domain/creation-actor (:actor opts) membership)]
+    (let-nom>
+      [_
+       (when-not identity-provider
+         (error/reject
+          :bank/missing-identity-provider
+          {:message
+           "A bank requires an identity-provider to issue its service-account client"
+           :bank-name bank-name}))
+       result
+       (store/transact
+        txn
+        (fn [txn]
+          (let-nom>
+            [existing (when idempotency-key
+                        (store/find-by-creation txn
+                                                (:principal-id actor)
+                                                idempotency-key))]
+            (if existing
+              (replay txn existing membership owner-invitation)
+              (create-bank txn
+                           bank-name
+                           bank-status
+                           tier
+                           currencies
+                           actor
+                           opts))))
+        :bank/create
+        "Failed to create bank")
+       ;; After the commit, so no client exists for a bank that did not.
+       _ (issue-client identity-provider (:bank result) audience)]
+      result)))
 
 (defn change-tier
   [txn bank-id tier opts]

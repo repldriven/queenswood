@@ -2,8 +2,9 @@
   "What the API scenario suite can't see: that the owner membership, the
   bank-created access event and the owner invitation commit atomically
   with the bank, that a failure after the last write rolls every earlier
-  write back, and that the changelog separates a status change from a
-  tier change. Creating a bank over the bus, its providers, and changing
+  write back, that the service-account client is created only once the
+  bank has committed and a create sent again issues one that failed, and
+  that the changelog separates a status change from a tier change. Creating a bank over the bus, its providers, and changing
   its tier and status are onboarding/banks/*.edn in test-api-scenarios."
   (:require
     [com.repldriven.queenswood.fdb.interface :as fdb]
@@ -285,6 +286,46 @@
                      {:keys [access-events]} (q/list-access-events config
                                                                    bank-id)
                      _ (is (empty? access-events))]))))))
+
+(defn- failing-first-create
+  "An identity-provider whose first `create-service-account` fails, as
+  an unreachable one would, and whose later ones go to `idp`. Each
+  create asked for is conj'd onto `asked` and each one made onto
+  `created`."
+  [idp asked created]
+  (reify
+   identity-provider/IdentityProvider
+     (-create-service-account [_ data]
+       (swap! asked conj (:bank-id data))
+       (if (= 1 (count @asked))
+         (error/fail :test/identity-provider-down
+                     {:message "The identity provider is unreachable"})
+         (let [result (identity-provider/create-service-account idp data)]
+           (swap! created conj (:bank-id data))
+           result)))))
+
+(deftest client-created-after-the-commit-test
+  (with-test-system
+   [sys "classpath:bank/application-test.yml"]
+   (let [config (fdb-config sys)
+         asked (atom [])
+         created (atom [])
+         idp (failing-first-create (identity-provider/local-provider {})
+                                   asked
+                                   created)
+         opts {:idempotency-key "ik-client-after-commit" :actor operator}]
+     (testing "a client that fails leaves the committed bank without one"
+       (let [r (create-bank config idp "Client After Commit Bank" opts)]
+         (is (= :test/identity-provider-down (error/kind r)))
+         (is (= 1 (count @asked)))
+         (is (empty? @created))
+         (nom-test> [bank (bank-query/get-bank config (first @asked))
+                     _ (is (= "Client After Commit Bank" (:name bank)))])))
+     (testing "a create sent again replays the bank and issues its client"
+       (nom-test> [{:keys [bank]}
+                   (create-bank config idp "Client After Commit Bank" opts)
+                   _ (is (= (first @asked) (:bank-id bank)))
+                   _ (is (= [(:bank-id bank)] @created))])))))
 
 (deftest changelog-separates-status-from-tier-test
   (with-test-system
