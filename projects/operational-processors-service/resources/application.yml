@@ -253,8 +253,10 @@ system:
       idvs-command:
         consumer: !system/local-ref consumers.idvs-command
         timeout: 500
-      # Keyed by party for an open and by account otherwise: four performers
-      # take different parties' accounts at once, each in order (ADR-0041).
+      # Keyed by bank for an open and by account otherwise: a bank's opens
+      # run in turn, so its account limits hold exactly without conflicting,
+      # while four performers take other banks' opens and accounts at once
+      # (ADR-0041).
       cash-accounts-command:
         consumer: !system/local-ref consumers.cash-accounts-command
         timeout: 500

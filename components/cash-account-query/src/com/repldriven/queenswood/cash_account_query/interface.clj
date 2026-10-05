@@ -145,9 +145,10 @@
 
 (defn limit-counts
   "Count a bank's accounts, and those of one product type, account type
-  and currency, at snapshot in one round trip, as `{:total :subtotal}`.
-  A read primitive for the write sibling's limit checks, where a count
-  stale by the opens in flight is acceptable.
+  and currency, in one round trip, as `{:total :subtotal}`. Read
+  serializably, so a limit is never exceeded: an open that commits
+  between the read and the write conflicts it. A read primitive for the
+  write sibling's limit checks.
 
   Args:
   - txn: FDB transaction or db handle.

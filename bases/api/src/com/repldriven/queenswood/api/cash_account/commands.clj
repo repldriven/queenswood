@@ -18,7 +18,7 @@
                                      "open-cash-account"
                                      "cash-account"
                                      (assoc body :bank-id bank-id)
-                                     {:ordering-key (:party-id body)})
+                                     {:ordering-key bank-id})
                       #(str "/v1/cash-accounts/" (:account-id %)))))
 
 (defn close-cash-account

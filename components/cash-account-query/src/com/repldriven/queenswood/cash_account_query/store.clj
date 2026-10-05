@@ -120,7 +120,7 @@
    txn
    (fn [txn]
      (let [[total subtotal]
-           (fdb/aggregate-records-snapshot
+           (fdb/aggregate-records
             (fdb/open txn store-name)
             [[:count "CashAccount_count_by_bank" bank-id]
              [:count "CashAccount_count_by_bank_product_account_type_currency"
