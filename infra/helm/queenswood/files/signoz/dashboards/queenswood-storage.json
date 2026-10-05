@@ -778,6 +778,152 @@
             }
           ]
         }
+      },
+      "2d69eedc-bda0-5583-9792-c5c5bcc1bc52": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Retries, by category",
+            "description": "Attempts beyond a transaction's first, each a conflict FoundationDB made it retry"
+          },
+          "links": [],
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "global_time",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "short",
+                "decimalPrecision": "2"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none"
+              },
+              "axes": {
+                "softMin": 0,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list"
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "name": "A",
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "metrics",
+                    "stepInterval": 60,
+                    "aggregations": [
+                      {
+                        "metricName": "fdb.transaction.retries",
+                        "timeAggregation": "rate",
+                        "spaceAggregation": "sum"
+                      }
+                    ],
+                    "filter": {
+                      "expression": "service.name IN $service"
+                    },
+                    "having": {
+                      "expression": ""
+                    },
+                    "legend": "{{fdb.category}}",
+                    "groupBy": [
+                      {
+                        "name": "fdb.category",
+                        "fieldContext": "attribute",
+                        "fieldDataType": "string"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "bfc9731e-3c73-5f39-98e5-2fbc44093962": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Conflicted transactions, by category and key",
+            "description": "Transactions that took more than one attempt, by the keys FoundationDB reported in conflict"
+          },
+          "links": [],
+          "plugin": {
+            "kind": "signoz/TablePanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "global_time"
+              },
+              "formatting": {
+                "decimalPrecision": "2",
+                "columnUnits": {}
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "scalar",
+              "spec": {
+                "name": "A",
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "traces",
+                    "stepInterval": 60,
+                    "aggregations": [
+                      {
+                        "expression": "count()",
+                        "alias": "transactions"
+                      }
+                    ],
+                    "filter": {
+                      "expression": "name = 'fdb-transaction' AND service.name IN $service AND fdb.attempts > 1"
+                    },
+                    "having": {
+                      "expression": ""
+                    },
+                    "legend": "",
+                    "groupBy": [
+                      {
+                        "name": "fdb.category",
+                        "fieldContext": "attribute",
+                        "fieldDataType": "string"
+                      },
+                      {
+                        "name": "fdb.conflicting_keys",
+                        "fieldContext": "attribute",
+                        "fieldDataType": "string"
+                      }
+                    ],
+                    "limit": 20,
+                    "order": [
+                      {
+                        "key": {
+                          "name": "count()"
+                        },
+                        "direction": "desc"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
       }
     },
     "layouts": [
@@ -843,6 +989,24 @@
               "height": 8,
               "content": {
                 "$ref": "#/spec/panels/0bbbfeda-fd0a-5304-995b-ad0a47aea60b"
+              }
+            },
+            {
+              "x": 0,
+              "y": 24,
+              "width": 6,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/2d69eedc-bda0-5583-9792-c5c5bcc1bc52"
+              }
+            },
+            {
+              "x": 0,
+              "y": 32,
+              "width": 12,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/bfc9731e-3c73-5f39-98e5-2fbc44093962"
               }
             }
           ]

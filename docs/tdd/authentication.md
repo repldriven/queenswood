@@ -276,9 +276,11 @@ local impl for tests) exposes:
 
 **Creation is a bus round trip, and that shapes the lifecycle.**
 `new-bank` runs in the operational processors service, not in the
-API. It calls `create-service-account` *before* the FDB write, so an
-identity-provider failure aborts the transaction cleanly. That call
-mints **no secret**: the reply travels back over the command bus, and
+API. It calls `create-service-account` once the bank's FDB
+transaction has committed, so no client exists for a bank that does
+not, and a create replayed under its key calls it again, which
+answers the same for a client already there. That call mints **no
+secret**: the reply travels back over the command bus, and
 no credential is put on the bus. The API handler,
 holding the reply, calls **`rotate-secret`** for that bank and
 returns what it mints — once — in the create-bank response. So the
@@ -389,10 +391,10 @@ minted *by* it are admin principals at this API's edge.
   rotate a compromised credential. `revoke-service-account` has no
   caller at all, and bank deletion does not call it. Revoking a
   bank's access today means deleting its Keycloak client by hand.
-- **A retried creation can leave an orphan client.**
-  `create-service-account` runs inside `new-bank`'s FDB transaction
-  but is not part of it. A retried transaction calls it again and
-  mints a second client, and nothing removes the first. The
+- **A bank can commit without its client.** When
+  `create-service-account` fails after `new-bank`'s transaction has
+  committed, the create answers with the failure and the bank has no
+  client until a create sent again under its key replays it. The
   alternative is the intent-based path the
   [transaction-processing TDD](transaction-processing.md) describes
   for external calls: record the intent, drain it once from a relay.
@@ -427,6 +429,9 @@ minted *by* it are admin principals at this API's edge.
   automation attributes to "the admin client," not a person. Human
   Queenswood operators sign in through `queenswood-app` and do carry
   per-user identity.
+- **A person's request costs two FDB transactions.** Resolving the
+  principal upserts the user in one and reads its memberships in
+  another, before the route runs.
 
 ## References
 

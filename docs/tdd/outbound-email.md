@@ -66,27 +66,145 @@ has no local account to verify; and bounce handling.
 
 ## Proposed Solution
 
+### Reading the diagrams
+
+The sequence diagrams are drawn as
+[payments-internal.md](payments-internal.md#reading-the-diagrams) sets
+out: each participant the service that runs it and its component kind,
+each topic with the key it is partitioned by, each `critical transact`
+box one FDB transaction. The mail server is grey, as the world outside
+is.
+
 ### The flow
+
+The invitation and its `invitation-created` or `invitation-resent`
+changelog entry commit together, in the `membership` processor's
+transaction, or the `bank` processor's for a new bank's owner, as
+[memberships.md](memberships.md) describes. Three hops follow.
+
+#### The invitation is published
 
 ```mermaid
 sequenceDiagram
-    participant M as membership processor
-    participant R as changelog relay
-    participant P as email event processor
-    participant S as FDB
-    participant O as email outbound runner
-    participant X as mail server
+    box rgba(255, 236, 153, 0.5)
+    participant DB as FDB
+    end
+    box rgba(165, 216, 255, 0.45)
+    participant RR as exclusive-dispatchers-service<br/>changelog-relay/runners
+    participant IE as topic-invitations-event<br/>partition-key = invitation
+    end
+    critical transact
+    RR->>DB: read the cursor, invitations-relay
+    end
+    critical transact
+    RR->>DB: read a batch of invitations changelog entries after it, at snapshot
+    loop each entry, in commit order
+    RR->>IE: invitation-created or invitation-resent, verbatim, once the bus has taken it
+    end
+    RR->>DB: write the cursor, the last entry read
+    end
+```
 
-    M->>S: Invitation and invitation-created, one transaction
-    R->>S: tail the invitations changelog
-    R->>P: invitation-created event
-    P->>S: EmailDelivery pending, unique on event id
-    O->>S: claim due deliveries under a lease
-    O->>O: mint token
-    O->>M: record-invitation-token with the hash
-    M-->>O: accepted
-    O->>X: send the message with the link
-    O->>S: EmailDelivery sent, with the Message-ID
+#### The event processor records the delivery
+
+```mermaid
+sequenceDiagram
+    box rgba(255, 236, 153, 0.5)
+    participant DB as FDB
+    end
+    box rgba(165, 216, 255, 0.45)
+    participant IE as topic-invitations-event<br/>partition-key = invitation
+    end
+    box rgba(255, 216, 168, 0.5)
+    participant EP as external-adapters-service<br/>email/event-processor
+    end
+    IE->>EP: invitation-created or invitation-resent
+    critical transact
+    EP->>DB: save EmailDelivery, pending, with the expires-at the event carried
+    alt the changelog event id is new
+    Note over EP,DB: the transaction commits
+    else the id is recorded, a redelivery or a redrive
+    Note over EP,DB: the unique index on the id refuses the save,<br/>the transaction aborts, and the event is taken as recorded
+    end
+    end
+    EP-->>IE: ack
+```
+
+A handler that fails leaves the event unacknowledged, and it is
+delivered again. After the consumer's `max-redeliveries`, five, it goes
+to `topic-invitations-event-dlq` and is acknowledged.
+
+#### The runner sends the invitation
+
+```mermaid
+sequenceDiagram
+    box rgba(255, 236, 153, 0.5)
+    participant DB as FDB
+    end
+    box rgba(255, 216, 168, 0.5)
+    participant ER as external-adapters-service<br/>email/outbound-runner
+    end
+    box rgba(165, 216, 255, 0.45)
+    participant MC as topic-memberships-command<br/>partition-key = invitation
+    participant MR as topic-memberships-command-response
+    end
+    box rgba(208, 191, 255, 0.45)
+    participant MP as operational-processors-service<br/>membership/processor
+    end
+    box rgba(233, 236, 239, 0.5)
+    participant X as Mail server
+    end
+    loop every poll-ms
+    critical transact
+    ER->>DB: read the mail server's breaker, saving it when this pass claims the half-open probe
+    end
+    opt the breaker closed, or this its probe
+    critical transact
+    ER->>DB: read the in-flight deliveries whose lease has passed, then the pending ones due
+    loop each, up to batch-size, or the one probe
+    ER->>DB: save the delivery, in flight, under a claim-lease-ms lease, claimed by this runner
+    end
+    end
+    loop each claimed delivery, alongside each other
+    critical transact
+    ER->>DB: read the invitation, its bank and the inviting member's user
+    end
+    alt the invitation gone, no longer pending, or sent again since
+    Note over ER: superseded, nothing sent
+    else
+    Note over ER: mint a token, keeping its hash
+    ER->>MC: record-invitation-token, the hash and the delivery's expires-at
+    MC->>MP: one command at a time
+    critical transact
+    MP->>DB: read the invitation
+    opt still pending, and expires-at unchanged
+    MP->>DB: save the invitation, with the hash
+    end
+    end
+    MP->>MR: accepted, or refused as superseded or invalid-status
+    MP-->>MC: ack
+    MR->>ER: the reply
+    alt accepted
+    ER->>X: submit the message, its link carrying the token
+    X-->>ER: the Message-ID, or an error
+    critical transact
+    ER->>DB: read the mail server's breaker
+    opt its state or failure count changes
+    ER->>DB: save the breaker
+    end
+    end
+    else refused
+    Note over ER: superseded, nothing sent
+    else failed, or no reply within the dispatcher's timeout-ms
+    Note over ER: a failed attempt
+    end
+    end
+    critical transact
+    ER->>DB: save the delivery, sent with the Message-ID, superseded, else pending with its next attempt, or failed past its attempts or age
+    end
+    end
+    end
+    end
 ```
 
 On the system diagram this is an event reaching an external adapter,

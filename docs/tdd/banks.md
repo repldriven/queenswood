@@ -79,8 +79,8 @@ envelope the store writes is
 
 The create flow composes other bricks' interfaces inside one FDB
 transaction, which ADR-0002 makes atomic across record stores.
-The service-account client is created *before* the FDB write so
-an identity-provider failure aborts the transaction cleanly.
+The service-account client is created once that transaction has
+committed, so no client exists for a bank that does not.
 
 ```mermaid
 graph TD
@@ -99,7 +99,7 @@ graph TD
     DISP -->|"command envelope"| CH
     CH -->|consume| PROC
     PROC --> CORE
-    CORE -->|"before the write"| IDP
+    CORE -->|"after the commit"| IDP
     CORE --> BRICKS
     CORE --> FDB
     BRICKS --> FDB
@@ -114,10 +114,10 @@ sequentially inside one `store/transact`, threaded through
 `error/let-nom>`. A failure at any step rolls everything back; a
 successful commit means the whole tenant is up.
 
-The identity-provider call is the exception to that rollback: it
-runs inside a transaction FDB may re-run on conflict, and a retry
-mints a second client that nothing removes. The limitation is
-[authentication.md](authentication.md)'s.
+The identity-provider call is outside that rollback: a bank can
+commit and its client fail, and the create answers with the failure.
+The bank is then without a client until a create sent again under
+its key replays it and creates the client.
 
 ### The Bank record
 
@@ -158,11 +158,12 @@ yet.
 ### The atomic create flow
 
 `new-bank txn bank-name bank-status tier currencies opts` runs
-the following inside one FDB transaction. A step marked with an
-`opts` key runs only when the caller supplies that key. The actor
-is `opts`' `:actor`; a command sent before `create-bank` carried
-one acts as the membership's user, a member, or else as an
-operator with principal id `unknown`.
+steps 2 to 14 inside one FDB transaction and step 15 once it has
+committed. A step marked with an `opts` key runs only when the
+caller supplies that key. The actor is `opts`' `:actor`; a command
+sent before `create-bank` carried one acts as the membership's
+user, a member, or else as an operator with principal id
+`unknown`.
 
 1. **Require an identity-provider** — `opts` must carry
    `:identity-provider`, or the command is rejected
@@ -171,14 +172,13 @@ operator with principal id `unknown`.
    command envelope's `:id`, which a retry reuses, is looked up with
    the actor's principal id on the unique index
    `Bank_by_creator_idempotency_key`, over `created_by.principal_id`
-   and `idempotency_key`. A bank found there ends the flow: it
-   returns that bank, the earliest owner membership of the
-   membership's user and the earliest owner invitation carrying the
-   step-15 reason, each only where `opts` asks for it, writing
-   nothing and calling no identity-provider. Two creates racing
-   under one key conflict on the index range the lookup read, and
-   the runner's retry finds the winner. A person may own any number
-   of banks.
+   and `idempotency_key`. A bank found there skips to step 15 with
+   that bank, the earliest owner membership of the membership's user
+   and the earliest owner invitation carrying the step-14 reason,
+   each only where `opts` asks for it, writing nothing. Two creates
+   racing under one key conflict on the index range the lookup read,
+   and the runner's retry finds the winner. A person may own any
+   number of banks.
 3. **Resolve platform policies** — `policy/get-effective-policies
    txn {}` with empty selectors, since the bank does not exist
    yet. `opts` may override with `:policies`. These are threaded
@@ -194,37 +194,39 @@ operator with principal id `unknown`.
    `:company-binding` whose status is not active, and rejects
    `:bank/unknown-tier` when step 4 resolved no policies. Then it
    mints the record with a `bnk.*` id, the tier and the binding.
-6. **Create the service-account client** *(before the FDB
-   write)* — `identity-provider/create-service-account` with
-   `client_id == bank-id` and a status-derived audience. The
-   secret minted here is discarded: the command reply crosses the
-   bus, so no credential travels on it.
-7. **Persist the bank** — with the actor as `created_by` and the
+6. **Persist the bank** — with the actor as `created_by` and the
    key as `idempotency_key`; neither leaves the store, in the
    return value or the view.
-8. **Create the bank's org party** — `party/new-party` with
+7. **Create the bank's org party** — `party/new-party` with
    `:type :party-type-organization` and display-name = bank name.
-9. **Seed the ledger chart** — one `LedgerAccount` per seed row
+8. **Seed the ledger chart** — one `LedgerAccount` per seed row
    per currency, described below.
-10. **Open own-funds house accounts** — per currency, draft and
-    publish a `:product-type-sub-ledger-own-funds` product
-    ("Bank own funds", `effective-from` today), then open a real
-    `CashAccount` on the org party against it, which opens once
-    the payment provider has issued its address.
-11. **Bind the tier policies** — `policy/new-binding` per policy
+9. **Open own-funds house accounts** — per currency, draft and
+   publish a `:product-type-sub-ledger-own-funds` product
+   ("Bank own funds", `effective-from` today), then open a real
+   `CashAccount` on the org party against it, which opens once
+   the payment provider has issued its address.
+10. **Bind the tier policies** — `policy/new-binding` per policy
     resolved at step 4, targeting
     `{:kind {:bank {:bank-id <new-id>}}}`.
-12. **Seed the scheduled jobs** — `scheduler/seed-jobs`,
+11. **Seed the scheduled jobs** — `scheduler/seed-jobs`,
     idempotent on `[bank-id job-id]`.
-13. **Create the owner membership** *(`:membership`)*.
-14. **Record the bank-created access event** —
+12. **Create the owner membership** *(`:membership`)*.
+13. **Record the bank-created access event** —
     `membership/record-bank-created` in the actor's name, naming
     the owner membership when there is one.
-15. **Invite the owner** *(`:owner-invitation`)* —
+14. **Invite the owner** *(`:owner-invitation`)* —
     `membership/invite` with role owner, the actor, the given token
     hash and a fixed reason, writing a pending invitation and its
     invitation-created event. A token hash another invitation holds
     fails the transaction.
+15. **Create the service-account client** *(after the commit)* —
+    `identity-provider/create-service-account` for the bank created
+    or replayed, with `client_id == bank-id` and a status-derived
+    audience. A client already there under the id answers the same,
+    so a create whose commit landed and whose client did not is
+    given its client by the retry. No secret is minted: the command
+    reply crosses the bus, so no credential travels on it.
 
 The return value is
 `{:bank {…} :membership <map-or-nil> :owner-invitation-id <id-or-nil>}`:

@@ -229,6 +229,8 @@ API's 202, since it needs the executor to run what it queues.
 - **An account that fails every attempt holds its day open.** The
   bank's side for that date waits for an operator, while later days
   close independently.
+- **A run reads its job's runs twice.** `run-job` reads them once
+  to open the run and again inside the pass.
 
 ## References
 

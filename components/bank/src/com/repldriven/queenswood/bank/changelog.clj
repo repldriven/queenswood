@@ -42,10 +42,10 @@
        :causation-id bank-id
        :ordering-key bank-id
        :created-at (utility/now)}
-      ;; Written inside the command's transaction, so this is the
-      ;; `process-command` span — which is itself under the request. A
-      ;; relay would republish it and the consumer's span would join that
-      ;; trace.
+      ;; Written inside the command's transaction, so this is its
+      ;; `fdb-transaction` span, under `process-command` and so under the
+      ;; request. A relay would republish it and the consumer's span
+      ;; would join that trace.
       :traceparent
       (telemetry/inject-traceparent)))))
 

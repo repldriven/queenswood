@@ -4,7 +4,8 @@
 
 Customer accounts earn interest. The bank computes it daily,
 records it against the customer's balance, and capitalises it
-monthly so the customer can spend it. Across millions of
+at the cadence the bank's job sets, daily by default, so the
+customer can spend it. Across millions of
 accounts and 365 days, fractions of a penny per day add up to
 real money. The math has to conserve every micro-unit.
 
@@ -67,6 +68,13 @@ in `:credit-carry` and is updated alongside the daily
 posting.
 
 ## Proposed Solution
+
+### Reading the diagrams
+
+The sequence diagrams follow
+[payments-internal's conventions](payments-internal.md#reading-the-diagrams).
+The scheduler's runner is purple, as a processor is: the interest pass
+runs inside it and writes the books.
 
 ### Architecture
 
@@ -245,7 +253,7 @@ Between the per-account credits and this entry the books do
 not balance. That window is one run, and it closes before the
 run record is written.
 
-### Monthly capitalisation posting
+### Capitalisation posting
 
 When the customer's `:balance-type-interest-accrued` is
 non-zero at capitalisation time, a **two-leg transaction**
@@ -282,16 +290,134 @@ default bucket, which payments move, so it goes through
 `apply-legs`, and the read-modify-write inside the posting
 transaction is what stops a concurrent payment being lost.
 
+#### The scheduler runs the pass
+
 ```mermaid
 sequenceDiagram
-    participant A as Customer<br/>(interest-accrued)
-    participant D as Customer<br/>(default)
-    participant P as GL 2400<br/>(interest payable)
-
-    Note over A,P: Per account, one transaction — the statement line
-    P->>D: accrued (debit payable, credit default)
-    Note over A: emptied by the same posting
+    box rgba(208, 191, 255, 0.45)
+    participant Q as exclusive-dispatchers-service<br/>scheduler/scheduler
+    participant R as exclusive-dispatchers-service<br/>bank-scheduler/runner
+    end
+    box rgba(255, 236, 153, 0.5)
+    participant DB as FDB
+    end
+    Q->>R: the bank's daily-interest trigger fires
+    critical transact
+    R->>DB: read the SchedulerJob
+    end
+    critical transact
+    R->>DB: read the job's SchedulerRuns, for the last success's duration
+    end
+    critical transact
+    R->>DB: read the job's SchedulerRuns
+    R->>DB: save the SchedulerRun, running
+    end
+    Note over R: refused :scheduler/period-already-run<br/>where a run of the period is running or succeeded
+    Note over R: accrue runs first, then capitalize
+    critical transact
+    R->>DB: read the bank's LedgerAccounts, resolving 🟦 2400 per currency
+    end
+    critical transact
+    R->>DB: read the bank's effective policies
+    end
+    critical transact
+    R->>DB: count the day's capitalise InterestRuns
+    end
+    Note over R: refused at the policy's daily count
+    loop the merged scan, in account-id order
+    critical transact
+    R->>DB: read the next 1000 CashAccounts of the bank
+    end
+    critical transact
+    R->>DB: read the next 5000 Balances of the bank
+    end
+    loop each opened customer account
+    Note over R: the account and its balances join the chunk
+    opt the chunk holds 100, or the scan is done
+    Note over R,DB: the chunk is capitalised, drawn below
+    opt its transaction aborted
+    critical transact
+    loop each account in the chunk
+    R->>DB: read its InterestAccountRun
+    R->>DB: save it FAILED, with the anomaly's kind
+    end
+    end
+    end
+    end
+    end
+    end
+    alt an account FAILED
+    Note over R: :interest/run-incomplete, and no InterestRun
+    critical transact
+    R->>DB: save the SchedulerRun, failed
+    end
+    else every account DONE or skipped
+    critical transact
+    R->>DB: save the InterestRun, closed
+    end
+    critical transact
+    R->>DB: save the SchedulerRun's progress, capitalize finished
+    end
+    critical transact
+    R->>DB: save the SchedulerRun, succeeded
+    end
+    critical transact
+    R->>DB: save the SchedulerJob, its last and next run
+    end
+    end
 ```
+
+The scheduler fires every bank's jobs from one replica of
+`exclusive-dispatchers-service`, and the seeded `daily-interest` job
+runs accrual and then capitalisation in one run, saving the
+`SchedulerRun`'s progress after each. Capitalisation posts nothing at
+close, since each account's transaction debits 2400 itself. A pass that
+ends incomplete writes no `InterestRun`, so the daily count does not
+stop the pass that finishes it: a forced run, or the next day's.
+
+#### A chunk is capitalised
+
+```mermaid
+sequenceDiagram
+    box rgba(208, 191, 255, 0.45)
+    participant R as exclusive-dispatchers-service<br/>bank-scheduler/runner
+    end
+    box rgba(255, 236, 153, 0.5)
+    participant DB as FDB
+    end
+    critical transact
+    loop each account in the chunk
+    R->>DB: read its InterestAccountRun for the day
+    alt DONE, by an earlier attempt
+    Note over R: skipped
+    else absent, or FAILED
+    opt the scan's balances hold interest accrued
+    R->>DB: save Transaction, capitalize-account-day
+    R->>DB: save the two TransactionLegs, DR 🟦 2400, CR the account
+    R->>DB: write transaction-posted to the bank's activity log
+    R->>DB: read the effective policies
+    R->>DB: read every Balance of 🟦 2400
+    R->>DB: read every Balance of the account
+    R->>DB: save 🟦 2400's default/posted Balance
+    R->>DB: save the account's default/posted Balance
+    R->>DB: save the account's interest-accrued/posted Balance
+    end
+    R->>DB: save its InterestAccountRun, DONE
+    end
+    end
+    end
+```
+
+A chunk is up to a hundred accounts in one transaction, so an
+account's posting and the row recording it commit together, and an
+anomaly from any account aborts the chunk, whose rows the pass then
+saves FAILED. The accrued amount is the one the scan streamed, and
+`apply-legs` reads the account's balances again inside the chunk,
+because payments move the default bucket. The transaction's
+idempotency key, `capitalize-<account-id>-<as-of-date>`, is unique per
+bank and type, beside the DONE row that skips an account a second pass
+reaches. Its `transaction-posted` entry reaches the activity processor
+as any posted transaction's does.
 
 Net: the customer's spendable balance grows by `accrued`, the
 bank's payable clears by the same amount, and the deposit control,
@@ -536,6 +662,12 @@ somewhere.
   passes for one bank would both read the same balances;
   `check-daily-count` makes that a rejection rather than a
   race, but it is a limit rather than a guarantee.
+- **Capitalisation re-reads the policies per account.** It passes
+  no policies to `apply-legs`, so each account's posting resolves
+  the bank's effective policies again inside its chunk.
+- **The posting's reference says monthly.** Each capitalisation
+  transaction is referenced "Monthly interest capitalization",
+  whatever cadence the bank's job runs at, daily by default.
 
 ## References
 

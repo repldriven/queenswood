@@ -21,3 +21,4 @@ dispatcher: !system/component
   bus: !system/ref message-bus.bus
   command-channel: !keyword payee-checks-command
   command-response-channel: !keyword payee-checks-command-response
+  timeout-ms: !include system/command-timeout-ms.yml

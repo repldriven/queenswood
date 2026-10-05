@@ -3,3 +3,4 @@ dispatcher: !system/component
   bus: !system/ref message-bus.bus
   command-channel: !keyword banks-command
   command-response-channel: !keyword banks-command-response
+  timeout-ms: !include system/command-timeout-ms.yml

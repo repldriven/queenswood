@@ -1,11 +1,6 @@
 # Webhooks
 
-> **Status: proposal.** Nothing tenant-facing exists. What the design
-> reuses — the changelog relay and its envelope, the intent poller in
-> the ClearBank relay, the API's resource components — exists and is
-> named as such in Background. Everything under Proposed Solution is
-> the build list, and "Validate on one domain first" says which part
-> of it comes first.
+> **Status: implemented.**
 
 ## Objective
 
@@ -120,7 +115,17 @@ They now name the per-brick `event-processor` kind every consumer is
 built on, which redelivers on a thrown or returned anomaly. The
 webhook consumer is one of those.
 
-## Proposed Solution
+## Solution
+
+### Reading the diagrams
+
+The sequence diagrams are drawn as
+[payments-internal.md](payments-internal.md#reading-the-diagrams) sets
+out: each participant the service that runs it and its component kind,
+each topic with the key it is partitioned by, each `critical transact`
+box one FDB transaction. They follow a cash account's change, and every
+catalogued store takes the same path through its own relay and topic.
+The tenant's endpoint is grey, as the world outside is.
 
 ### Public shapes move out of the base
 
@@ -204,11 +209,9 @@ and the rejection examples every route shares live in `api-schema`.
   the tenant to recognise as a repeat.
 - **One consumer instance per relayed event topic**, because mono's
   `event-processor` kind takes a single `event-channel`. Each is a
-  component in the service's `application.yml` naming that channel and
-  the webhook processor: `cash-accounts-event`, `parties-event` and
-  `idvs-event` for the events that exist, `banks-event`,
-  `payments-event` and `interest-event` as their slices land, and
-  `webhook-endpoints-event` for the component's own endpoint changes.
+  component in `system/webhook.yml` naming that channel and the webhook
+  processor: `cash-accounts-event`, `parties-event`, `idvs-event`,
+  `payments-event` and `rewards-event`.
   Their consumer groups follow the `<brick>-service-<channel>` shape
   the existing groups use — `webhook-service-parties-event` and so on —
   and ADR-0036 requires them to move verbatim if the component is ever
@@ -217,27 +220,33 @@ and the rejection examples every route shares live in `api-schema`.
 A processor commits a transition and its envelope, as ADR-0021 already
 requires. Whether anything listens is invisible to it.
 
+#### The change is published
+
 ```mermaid
 sequenceDiagram
-    participant P as Processor
-    participant F as FDB
-    participant R as Relay runner
-    participant B as Bus
-    participant W as webhook, in external-adapters
-    participant E as Customer endpoint
-
-    P->>F: record + ChangelogEvent, one transaction
-    R->>F: tail cursor
-    R->>B: publish payload to the store's topic
-    B->>W: event
-    W->>F: load via <domain>-query, project via <domain>-api
-    W->>F: notification + one pending delivery per endpoint, one transaction
-    W->>B: ack
-    W->>F: due deliveries
-    W->>E: POST signed body, outside any transaction
-    E-->>W: 2xx
-    W->>F: attempt row, and the delivery delivered or re-scheduled
+    box rgba(255, 236, 153, 0.5)
+    participant DB as FDB
+    end
+    box rgba(165, 216, 255, 0.45)
+    participant RR as exclusive-dispatchers-service<br/>changelog-relay/runners
+    participant CE as topic-cash-accounts-event<br/>partition-key = account
+    end
+    critical transact
+    RR->>DB: read the cursor, cash-account-watcher
+    end
+    critical transact
+    RR->>DB: read a batch of cash-accounts changelog entries after it, at snapshot
+    loop each entry, in commit order
+    RR->>CE: cash-account-status-changed, verbatim, its event id as the envelope's id, once the bus has taken it
+    end
+    RR->>DB: write the cursor, the last entry read
+    end
 ```
+
+The relay publishes as
+[payments-internal.md](payments-internal.md) describes for the payments
+store: a failed publish aborts the pass, and the next pass publishes the
+batch again, the entries already published included.
 
 ### The notification body
 
@@ -380,6 +389,45 @@ consume-then-ack, as
 event name with no catalogue entry is logged and acknowledged; there
 is nothing to tell.
 
+#### The consumer writes the notification
+
+```mermaid
+sequenceDiagram
+    box rgba(255, 236, 153, 0.5)
+    participant DB as FDB
+    end
+    box rgba(165, 216, 255, 0.45)
+    participant CE as topic-cash-accounts-event<br/>partition-key = account
+    end
+    box rgba(255, 216, 168, 0.5)
+    participant WP as external-adapters-service<br/>webhook/event-processor
+    end
+    CE->>WP: cash-account-status-changed
+    alt a catalogue entry matches the event, its change kind and its statuses
+    critical transact
+    WP->>DB: read the CashAccount, through cash-account-query
+    WP->>DB: read the bank's webhook endpoints, a page at a time
+    WP->>DB: save WebhookNotification, its body the account as the read route returns it
+    loop each enabled endpoint that chose the kind
+    WP->>DB: save WebhookDelivery, pending
+    end
+    alt the changelog event id is new
+    Note over WP,DB: the transaction commits
+    else the id is recorded, a redelivery or a redrive
+    Note over WP,DB: the unique index on the id refuses the save,<br/>the transaction aborts, and the event is taken as told
+    end
+    end
+    else none matches, such as a leg landing on opening
+    Note over WP: logged, nothing written
+    end
+    WP-->>CE: ack
+```
+
+A handler that fails, as one whose record is not there does, leaves the
+event unacknowledged, and it is delivered again. After the consumer's
+`max-redeliveries`, five, it goes to `topic-cash-accounts-event-dlq` and
+is acknowledged.
+
 **The unique index is the changelog event id.** The relay carries the
 `ChangelogEvent`'s `event_id` onto the bus envelope as its `:id`,
 overriding the uuidv7 mono's publisher mints per publish, and the
@@ -448,6 +496,65 @@ breaker, which [outbound-delivery](outbound-delivery.md) describes: the
 claim takes none of an endpoint's deliveries while its breaker is open,
 and one while it is half-open. The scenario rig shortens the policy so
 an outage plays out in seconds.
+
+#### The runner delivers it
+
+```mermaid
+sequenceDiagram
+    box rgba(255, 236, 153, 0.5)
+    participant DB as FDB
+    end
+    box rgba(255, 216, 168, 0.5)
+    participant WR as external-adapters-service<br/>webhook/outbound-runner
+    end
+    box rgba(233, 236, 239, 0.5)
+    participant E as The tenant's endpoint
+    end
+    loop every poll-ms
+    critical transact
+    WR->>DB: read the in-flight deliveries whose lease has passed, then the pending ones due
+    loop each, up to batch-size
+    opt its endpoint not yet reached in this pass
+    WR->>DB: read the endpoint's breaker, saving it when this pass claims the half-open probe
+    end
+    opt the breaker closed, or this its probe, and the endpoint under max-in-flight-per-endpoint
+    WR->>DB: save the delivery, in flight, under a claim-lease-ms lease, claimed by this runner
+    end
+    end
+    end
+    loop each claimed delivery, alongside each other
+    critical transact
+    WR->>DB: read the endpoint
+    end
+    critical transact
+    WR->>DB: read the notification
+    end
+    alt the address resolves into a refused range, or the body cannot be signed
+    Note over WR: no call, a failed attempt
+    else
+    WR->>E: POST the notification's body, signed, within request-timeout-ms, no redirects
+    E-->>WR: a status, its body read to a bound
+    end
+    critical transact
+    WR->>DB: save the delivery, delivered on a 2xx, else pending with its next attempt, or failed past its attempts or age
+    WR->>DB: save a WebhookDeliveryAttempt
+    end
+    opt a call was made
+    critical transact
+    WR->>DB: read the endpoint's breaker
+    opt its state or failure count changes
+    WR->>DB: save the breaker, a 2xx answered and anything else failed
+    end
+    end
+    end
+    end
+    end
+```
+
+The claim commits before any call is made, so a second replica reading
+the same rows loses that transaction and sends nothing. A runner that
+stops between a claim and its outcome leaves the delivery in flight
+until its lease passes, when a pass takes it again.
 
 The address belongs to a tenant, so the call is guarded five ways.
 Neither existing runner sets any of them: mono's `http-client` passes
