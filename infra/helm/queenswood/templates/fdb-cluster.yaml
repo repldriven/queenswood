@@ -63,12 +63,12 @@ spec:
               resources:
                 {{- toYaml . | nindent 16 }}
               {{- end }}
-            {{- with .Values.fdb.resources }}
+            {{- with .Values.fdb.sidecarResources }}
             - name: foundationdb-kubernetes-sidecar
               resources:
                 {{- toYaml . | nindent 16 }}
             {{- end }}
-          {{- with .Values.fdb.resources }}
+          {{- with .Values.fdb.sidecarResources }}
           initContainers:
             - name: foundationdb-kubernetes-init
               resources:
