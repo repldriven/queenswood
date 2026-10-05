@@ -11,10 +11,14 @@
     [clojure.string :as str])
   (:import
     (com.apple.foundationdb FDB)
-    (com.apple.foundationdb.record.provider.foundationdb APIVersion
-                                                         FDBDatabaseFactory
-                                                         FDBMetaDataStore
-                                                         FDBRecordStore)
+    (com.apple.foundationdb.record.provider.foundationdb
+     APIVersion
+     FDBDatabaseFactory
+     FDBMetaDataStore
+     FDBRecordStore
+     FDBRecordStore$StateCacheabilityOnOpen)
+    (com.apple.foundationdb.record.provider.foundationdb.storestate
+     MetaDataVersionStampStoreStateCacheFactory)
     (java.io File)
     (java.util.concurrent Executors TimeUnit)))
 
@@ -105,7 +109,12 @@
                           [:api-version {:optional true} [:maybe pos-int?]]]
    :system/instance-schema some?})
 
-(def record-db
+(def
+  ^{:doc
+    "The Record Layer database, with a store-state cache invalidated by the
+  database's meta-data version stamp, so opening a store cacheable on open
+  reads no header while no store's header has changed."}
+  record-db
   {:system/start
    (fn [{:system/keys [config instance]}]
      (or instance
@@ -130,6 +139,10 @@
              "Opening FDB Record Layer database with async->sync timeout (ms):"
              timeout-ms)
             (.setAsyncToSyncTimeout db timeout-ms TimeUnit/MILLISECONDS)
+            (.setStoreStateCache
+             db
+             (.getCache (MetaDataVersionStampStoreStateCacheFactory/newInstance)
+                        db))
             db))))
    :system/stop (fn [{:system/keys [instance]}]
                   (when (some? instance)
@@ -172,6 +185,8 @@
                               (.setKeySpacePath (keyspace/path (keyspace/scoped
                                                                 keyspace-prefix
                                                                 store-name)))
+                              (.setStateCacheabilityOnOpen
+                               FDBRecordStore$StateCacheabilityOnOpen/CACHEABLE)
                               .createOrOpen))
                         {:keyspace-prefix keyspace-prefix})))))
    :system/config {:descriptor system/required-component
