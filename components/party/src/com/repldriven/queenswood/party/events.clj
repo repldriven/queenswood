@@ -4,7 +4,6 @@
 
     [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.error.interface :refer [let-nom>]]
-    [com.repldriven.mono.log.interface :as log]
     [com.repldriven.mono.processor.interface :as processor]))
 
 (defn- handle-idv-status-changed
@@ -14,15 +13,11 @@
 
 (defn- dispatch
   [config message]
-  (let [{:keys [event payload]} message
-        {:keys [schemas]} config
-        schema (get schemas event)]
-    (if-not schema
-      (do (log/warnf "Unknown idvs event: %s" event) nil)
-      (let-nom> [data (avro/deserialize-same schema payload)]
-        (case event
-          "idv-status-changed" (handle-idv-status-changed config data)
-          (do (log/warnf "Unknown idvs event: %s" event) nil))))))
+  (let [{:keys [event payload]} message]
+    (when (= "idv-status-changed" event)
+      (let-nom> [data (avro/deserialize-same (get (:schemas config) event)
+                                             payload)]
+        (handle-idv-status-changed config data)))))
 
 (defrecord PartyIdvEventProcessor [config]
   processor/Processor

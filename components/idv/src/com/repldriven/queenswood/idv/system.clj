@@ -6,8 +6,11 @@
 
     [com.repldriven.queenswood.idv-provider.interface :as idv-provider]
 
+    [com.repldriven.mono.cache.interface :as cache]
     [com.repldriven.mono.error.interface :refer [let-nom>]]
     [com.repldriven.mono.system.interface :as system]))
+
+(def ^:private ten-minutes-ms 600000)
 
 (def ^:private processor
   {:system/start (fn [{:system/keys [config instance]}]
@@ -21,10 +24,15 @@
 
 (def ^:private event-processor
   {:system/start (fn [{:system/keys [config instance]}]
-                   (or instance (events/->IdvEventProcessor config)))
+                   (or instance
+                       (events/->IdvEventProcessor
+                        (assoc config
+                               :policy-cache
+                               (cache/create (:policy-cache-ttl-ms config))))))
    :system/config {:record-db system/required-component
                    :record-store system/required-component
-                   :schemas system/required-component}
+                   :schemas system/required-component
+                   :policy-cache-ttl-ms ten-minutes-ms}
    :system/instance-schema some?})
 
 (def ^:private party-event-processor

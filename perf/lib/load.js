@@ -38,13 +38,13 @@ const RAMP = 5;
 
 // A threshold per step, which nothing fails, so the summary carries
 // each step's figures.
-function stepThresholds(steps) {
+function stepThresholds(steps, unit) {
   const t = {};
   steps.forEach((_, i) => {
     const tag = `{phase:load,step:${i}}`;
     t[`http_req_duration${tag}`] = ["max>=0"];
     t[`http_req_failed${tag}`] = ["rate<=1"];
-    t[`payments${tag}`] = ["count>=0"];
+    t[`${unit}${tag}`] = ["count>=0"];
   });
   return t;
 }
@@ -76,8 +76,8 @@ export function options(scenario, steps, profile, extra) {
         "http_req_failed{phase:load}": [{ threshold: "rate<0.001", abortOnFail: false }],
         "http_req_duration{phase:load}": [{ threshold: "p(99)<1000", abortOnFail: false }],
       },
-      stepThresholds(steps),
-      rejectionThresholds(),
+      stepThresholds(steps, o.unit || "payments"),
+      rejectionThresholds(o.unit),
       o.thresholds || {},
     ),
     summaryTrendStats: ["avg", "min", "med", "p(90)", "p(95)", "p(99)", "max"],

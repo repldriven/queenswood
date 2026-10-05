@@ -10,15 +10,17 @@
 ## Objective
 
 Measure how many payments a second one bank can make on a Queenswood
-installation, and show where the time goes when the rate stops rising. The
+installation, and how many customers a second it can onboard, and show
+where the time goes when the rate stops rising. The
 first run is a baseline: it is expected to be slow, and every later change
 to the payment path is judged by the run that follows it. This design
 decides the load scenarios, the bank they run against, where the load
 generator runs, what a run reports, and the reference rates a result is
 read against.
 
-In scope: k6 scenarios for internal, outbound and inbound payments on a
-bank whose payment provider is Modulr, a policy tier the test bank is
+In scope: k6 scenarios for internal, outbound and inbound payments and
+for onboarding customers on a bank whose payment provider is Modulr and
+identity provider Zyphe, a policy tier the test bank is
 placed on, k6 running as a Job inside the cluster on kind and on GKE, the
 figures a run reports, and the ceilings the baseline is expected to find.
 
@@ -51,6 +53,13 @@ against a provider's own sandbox.
   debtor account, decides the partition, so one account's payments stay
   in order, as
   [account-serialisation](../plan/account-serialisation.md) designs.
+- **Onboarding commands and evidence run four at a time.**
+  `topic-parties-command`, `topic-idvs-command` and `topic-idv-event`
+  have four partitions and `operational-processors-service` four
+  replicas. The API keys an existing party's commands and its
+  verification sessions by the party, and each IDV adapter keys a
+  verification's evidence by the verification. A create carries no key,
+  as no earlier command names its party.
 - **An internal payment writes only its two customer balances.** A
   control account's balance is the sum of its sub-ledger's, read from
   SUM indexes the Record Layer keeps by atomic mutation, so payments in
@@ -96,17 +105,17 @@ against a provider's own sandbox.
 - **Policies cap a bank's day.** The micro tier allows 50 cash accounts,
   500 internal and 500 outbound payments and 50 verification sessions a
   business day, and the platform policy, always applied, 100,000 of each
-  kind of payment and 100 verification sessions, all under
+  kind of payment and 100,000 verification sessions, all under
   [policies](/components/resources/resources/policies). The business
   day ends at 17:00 London time, and a breach is a 429. Bootstrap seeds
   the `platform` and `micro` tiers, and only an admin names a bank's
   tier.
-- **Every service runs one replica.** The chart's
+- **The other services run one replica.** The chart's
   [values.yaml](/infra/helm/queenswood/values.yaml) sets `replicas: 1`
-  throughout, and `exclusive-dispatchers-service` stays at one by design.
-  The API's command replies arrive on a one-partition topic under a fixed
-  consumer group, so a second `api-service` replica would not see the
-  replies to its own requests.
+  beside the two processor services' four, and
+  `exclusive-dispatchers-service` stays at one by design.
+  Each `api-service` process reads command replies in a consumer group
+  of its own, from the newest on, so every replica hears its own.
 - **Traces and JVM metrics go to SigNoz in the cluster.** Every service
   exports its traces and its JVM's runtime metrics over OTLP to the
   SigNoz the chart installs, as
@@ -168,6 +177,13 @@ Scripts live under `perf/`, outside every brick:
   unfunded.
 - `perf/mixed.js` — internal and outbound payments from one bank in one
   arrival rate, `OUTBOUND_SHARE` of them outbound, the challenger's mix.
+- `perf/parties.js` — one customer an iteration into a bank with no
+  customers: a person party created, a verification session opened and
+  awaited ready, the Zyphe simulator's decision posted as the person after
+  `THINK_S` seconds, none by default, and the party awaited active; with
+  `OPEN_ACCOUNT=true`, a current account then opened and awaited opened
+  at Modulr. A stage that refuses, or outlasts `STAGE_TIMEOUT_S`, 120 by
+  default, loses the customer there.
 
 Every scenario runs as steps of a fixed arrival rate on k6's
 `ramping-arrival-rate` executor, each reached over five seconds and then
@@ -182,6 +198,10 @@ the steps:
   aborted run skips the teardown that checks the books.
 - **`hot`.** Scenario B: 1, 2, 5, 10, 20 and 40 a second, a minute each,
   from one account to the other 49, for internal payments only.
+
+`perf/parties.js` defines its own: `smoke` at 1 a second for a minute,
+`challenger` at 10 a second for ten minutes, and `knee` at 1, 2, 5, 10,
+20 and 40 a second, a minute each.
 
 `RATE` and `DURATION` replace a profile's steps with one-minute steps at
 that rate, so a sustained run shows whether the rate holds, and
@@ -204,8 +224,7 @@ its daily counts start at zero:
 3. Takes the bank's own token, creates and publishes a current-account
    product.
 4. Creates up to `PARTIES` parties, 50 by default, each decided as a
-   match at the IDV simulator, and waits for each to be active: the
-   platform allows a bank 100 verification sessions a day.
+   match at the IDV simulator, and waits for each to be active.
 5. Opens `ACCOUNTS` accounts, 200 by default, across those parties in
    turn, and waits for each to be opened.
 6. Credits the own-funds account by `POST /v1/simulate/inbound-transfer`
@@ -294,6 +313,12 @@ load test signs in as a client of its own instead:
   those never settled by why, and the trend; `gracefulStop`, 120
   seconds, lets the last of them settle, and its polls carry
   `phase: follow`, so no load figure counts them.
+- **Onboarding.** The customers onboarded, those lost by stage, and the
+  time of each stage awaited: the session ready, the party active from
+  the decision, and with `OPEN_ACCOUNT` the account opened from its
+  request, with the whole journey's time less the person's. Polls carry
+  `phase: poll` and the decision `phase: simulator`, so the load figures
+  are the requests a customer sends.
 - **Books.** After a run, k6's `teardown` reads the bank's ledger through
   `GET /v1/ledger-accounts` and the Modulr simulator's balances for the
   bank's accounts until they stop moving: two readings five seconds
@@ -303,7 +328,9 @@ load test signs in as a client of its own instead:
   it paid out, which k6 counts as it sends, since outbound payments have
   no list to sum. 1100, the deposit and own-funds controls summed, and
   the provider's balances should each equal it, and the trial balance
-  should tie. `perf-run` exits 1 when they do not.
+  should tie. `perf-run` exits 1 when they do not, or when a run sent
+  none of its unit, payments or customers. `perf/parties.js` moves no
+  money, says so in its summary, and is not held to the books.
 - **Where the time went.** The run's window in SigNoz, where a payment's
   trace crosses the API, the bus, the processor and the adapter.
 - **Where FDB conflicted.** The storage dashboard's FoundationDB
@@ -430,6 +457,21 @@ run at the next:
     An adapter's outbox waiting on its relay, about 180 messages a second
     to a runner, is behind no consumer group, so the lag does not show
     it.
+12. **Onboarding.** One bank holds 20 customers a second with none lost,
+    a request at 64 ms at p95. At 40 asked it reached 24 a second while
+    a verification's three evidence events ran one at a time on one
+    partition of `topic-idv-event`, and 34.5 once that topic had four:
+    a create then waited seconds behind `topic-parties-command`'s one
+    partition, at 33 ms a command. With the party and IDV command topics
+    on four partitions, and a create reading the bank's effective
+    policies through the stamped cache in two FDB transactions rather
+    than four, it reaches 36.6 a second, the request at 1.3 s at p95 and
+    a customer onboarded at 6.8 s, none lost. k6 ramps a step over five
+    seconds, so 40 asked sends at most 39.2 a second, and dropped 153
+    iterations it had no VU free for. The next queue is the webhook
+    runner's consumer of `topic-idvs-event`, 1,565 behind: four events a
+    customer at 6 ms each, on one partition in one
+    `external-adapters-service` replica.
 
 ### Span candidates
 
@@ -594,9 +636,14 @@ holds it, and the run repeated.
   Kind then ran one FDB storage process, which also held the commit
   proxy, the master and the ratekeeper, on Colima's disk beside k6 and
   every JVM.
-- **The financial processors' replicas are not evenly loaded.** Every
-  other topic their consumers read has one partition, so one replica
-  takes all of them beside its half of the payment commands.
+- **A gone API process leaves its reply groups behind.** Each
+  `api-service` process reads replies in groups named for it, so after a
+  restart the old groups' lag grows on SigNoz's lag panel though nothing
+  waits on them, until Kafka expires their offsets.
+- **The processors' replicas are not evenly loaded.** Every other topic
+  the financial and operational processors read has one partition, so
+  one replica of each takes all of them beside its share of the
+  partitioned ones.
 - **Reads and webhooks are absent.** No scenario reads balances or lists
   payments, and the test bank registers no webhook endpoint.
 

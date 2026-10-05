@@ -6,6 +6,6 @@
         aggregate:
           kind:
             count:
-              value: 100
+              value: 100000
               window: !keyword time-window-daily
-  reason: "Platform-restricted - max 100 IDV submissions per day"
+  reason: "Platform-restricted - max 100,000 IDV submissions per day"

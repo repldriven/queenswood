@@ -14,20 +14,27 @@ import {
   token,
 } from "./api.js";
 
-const ZYPHE_SIMULATOR_URL = env(
+export const ZYPHE_SIMULATOR_URL = env(
   "ZYPHE_SIMULATOR_URL",
   "http://queenswood-external-simulators-service:8086",
 );
 
 const BATCH = parseInt(env("SETUP_BATCH", "20"));
 
-// The platform allows a bank 100 verification sessions a day, so the
-// accounts are spread across at most this many verified parties.
+// The accounts are spread across at most this many verified parties, as
+// each party takes a verification to set up.
 const PARTIES = parseInt(env("PARTIES", "50"));
 
 const SETUP = { phase: "setup" };
 
 const ZYPHE_RUN = /[?&]zypheVr=([^&]+)/;
+
+// The simulator's verification request a session's hand-off URL names.
+export function zypheRun(url) {
+  const run = ZYPHE_RUN.exec(url);
+  if (!run) throw new Error(`no Zyphe run in ${url}`);
+  return run[1];
+}
 
 function chunks(xs, n) {
   const out = [];
@@ -210,12 +217,10 @@ function createParties(n, bearer) {
   )) {
     const res = http.batch(
       group.map((i) => {
-        const url = ready[i]["hand-off"].url;
-        const run = ZYPHE_RUN.exec(url);
-        if (!run) throw new Error(`no Zyphe run in ${url}`);
+        const run = zypheRun(ready[i]["hand-off"].url);
         return {
           method: "POST",
-          url: `${ZYPHE_SIMULATOR_URL}/simulator/verification-requests/${run[1]}/decision`,
+          url: `${ZYPHE_SIMULATOR_URL}/simulator/verification-requests/${run}/decision`,
           body: JSON.stringify({
             outcome: "match",
             givenNames: "Perf",
@@ -302,18 +307,30 @@ function fund(accounts, each, bearer) {
   return own["account-id"];
 }
 
-export function build(n, each) {
+// A fresh bank and its current-account product, with no customers.
+export function freshBank() {
   const bank = createBank(adminToken());
   const clientId = bank["client-id"];
   const clientSecret = bank["client-secret"];
+  const bankToken = token(clientId, clientSecret);
+  return {
+    bankId: bank["bank-id"],
+    clientId,
+    clientSecret,
+    productId: createProduct(bankToken.value),
+    token: bankToken,
+  };
+}
+
+export function build(n, each) {
+  const { bankId, clientId, clientSecret, productId } = freshBank();
   const bearer = token(clientId, clientSecret).value;
-  const productId = createProduct(bearer);
   const parties = createParties(Math.min(n, PARTIES), bearer);
   const opened = openAccounts(n, parties, productId, bearer);
   const accounts = opened.map((a) => a.id);
   const ownFunds = each > 0 ? fund(accounts, each, bearer) : null;
   return {
-    bankId: bank["bank-id"],
+    bankId,
     clientId,
     clientSecret,
     ownFunds,

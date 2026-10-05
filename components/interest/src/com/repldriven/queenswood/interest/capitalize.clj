@@ -4,6 +4,7 @@
      capitalization]
     [com.repldriven.queenswood.interest.domain.chart :as chart]
     [com.repldriven.queenswood.balance.interface :as balances]
+    [com.repldriven.queenswood.policy.interface :as policy]
     [com.repldriven.queenswood.transaction.interface :as transactions]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]))
 
@@ -37,7 +38,9 @@
               _ (balances/apply-legs txn
                                      bank-id
                                      (:legs swept)
-                                     (:transaction-type recorded))]))]
+                                     (:transaction-type recorded)
+                                     {:policies (policy/platform-policies
+                                                 (:policies ctx))})]))]
       swept)))
 
 (def pass

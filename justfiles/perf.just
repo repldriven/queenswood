@@ -3,7 +3,7 @@
 
 PERF_NAMESPACE := "queenswood"
 
-# Run one scenario in the cluster and write its summary to target/perf. scenario: a script under perf/ (internal, outbound or inbound); profile: smoke or challenger (smoke); rate, duration, accounts: overrides, the profile's when empty.
+# Run one scenario in the cluster and write its summary to target/perf. scenario: a script under perf/ (internal, outbound, inbound, mixed or parties); profile: smoke, challenger or knee, as the scenario defines them (smoke); rate, duration, accounts: overrides, the profile's when empty.
 perf-run scenario="internal" profile="smoke" rate="" duration="" accounts="":
     #!/usr/bin/env zsh
     set -euo pipefail
@@ -46,13 +46,15 @@ perf-run scenario="internal" profile="smoke" rate="" duration="" accounts="":
       exit 1
     fi
     jq '{run: .run, headline: .headline}' target/perf/$NAME.json
-    PAYMENTS=$(jq '.headline.payments' target/perf/$NAME.json)
-    if [[ "$PAYMENTS" == "0" ]]; then
-      echo "no payments sent, log in target/perf/$NAME.log" >&2
+    UNIT=$(jq -r '.run.unit // "payments"' target/perf/$NAME.json)
+    SENT=$(jq --arg u "$UNIT" '.headline[$u] // 0' target/perf/$NAME.json)
+    if [[ "$SENT" == "0" ]]; then
+      echo "no $UNIT sent, log in target/perf/$NAME.log" >&2
       exit 1
     fi
+    BOOKS=$(jq '.run.books != false' target/perf/$NAME.json)
     HELD=$(jq '.headline.books.held' target/perf/$NAME.json)
-    if [[ "$HELD" == "null" ]]; then
+    if [[ "$BOOKS" == "true" && "$HELD" == "null" ]]; then
       echo "the books were not checked, log in target/perf/$NAME.log" >&2
       exit 1
     fi

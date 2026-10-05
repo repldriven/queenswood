@@ -39,6 +39,16 @@ fdb:
   resources:
     limits:
       memory: 2Gi
+  # The sidecar and init container hold a few tens of MB between
+  # upgrades, and kind's FDB is rebuilt rather than upgraded, so they
+  # reserve a fraction of a process here.
+  sidecarResources:
+    requests:
+      cpu: "50m"
+      memory: "64Mi"
+    limits:
+      cpu: "200m"
+      memory: "256Mi"
   # A process per role, since each fdbserver uses one core: three storage
   # servers sharing the keys, two logs, and the stateless roles -- two
   # commit proxies, a GRV proxy, a resolver, the master and the

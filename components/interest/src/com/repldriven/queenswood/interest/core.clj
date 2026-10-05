@@ -78,7 +78,7 @@
                                                              as-of-date)
        aggregates {policy-kind {#{:bank-id :business-day} today-count}}
        _ (run/check-daily-count policies policy-kind aggregates)
-       tally (scan/post-accounts config (assoc ctx :gl gl))
+       tally (scan/post-accounts config (assoc ctx :gl gl :policies policies))
        _ (run/check-complete bank-id as-of-date tally)
        _ (when entries-fn
            (post-run-entries spec config ctx gl (entries-fn (:seen tally))))

@@ -662,9 +662,6 @@ somewhere.
   passes for one bank would both read the same balances;
   `check-daily-count` makes that a rejection rather than a
   race, but it is a limit rather than a guarantee.
-- **Capitalisation re-reads the policies per account.** It passes
-  no policies to `apply-legs`, so each account's posting resolves
-  the bank's effective policies again inside its chunk.
 - **The posting's reference says monthly.** Each capitalisation
   transaction is referenced "Monthly interest capitalization",
   whatever cadence the bank's job runs at, daily by default.
