@@ -287,9 +287,11 @@ system:
       cash-accounts-event:
         consumer: !system/local-ref consumers.cash-accounts-event
         timeout: 500
+      # Keyed by payment (ADR-0041).
       payments-event:
         consumer: !system/local-ref consumers.payments-event
         timeout: 500
+        performers: 4
       rewards-event:
         consumer: !system/local-ref consumers.rewards-event
         timeout: 500
