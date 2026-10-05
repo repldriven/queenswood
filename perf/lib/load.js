@@ -55,6 +55,7 @@ function stepThresholds(steps, unit) {
 
 export function options(scenario, steps, profile, extra) {
   const top = Math.max(...steps.map((s) => s.rate));
+  const maxVUs = Math.min(2000, Math.max(50, top * 10));
   const o = extra || {};
   return {
     setupTimeout: env("SETUP_TIMEOUT", "30m"),
@@ -65,8 +66,8 @@ export function options(scenario, steps, profile, extra) {
         executor: "ramping-arrival-rate",
         startRate: steps[0].rate,
         timeUnit: "1s",
-        preAllocatedVUs: Math.max(10, top * 2),
-        maxVUs: Math.min(2000, Math.max(50, top * 10)),
+        preAllocatedVUs: Math.min(maxVUs, Math.max(10, top * 2)),
+        maxVUs,
         stages: steps.flatMap((s) => [
           { target: s.rate, duration: `${RAMP}s` },
           { target: s.rate, duration: `${s.seconds - RAMP}s` },
