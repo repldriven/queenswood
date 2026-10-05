@@ -4,7 +4,8 @@
 
 Customer accounts earn interest. The bank computes it daily,
 records it against the customer's balance, and capitalises it
-monthly so the customer can spend it. Across millions of
+at the cadence the bank's job sets, daily by default, so the
+customer can spend it. Across millions of
 accounts and 365 days, fractions of a penny per day add up to
 real money. The math has to conserve every micro-unit.
 
@@ -661,6 +662,12 @@ somewhere.
   passes for one bank would both read the same balances;
   `check-daily-count` makes that a rejection rather than a
   race, but it is a limit rather than a guarantee.
+- **Capitalisation re-reads the policies per account.** It passes
+  no policies to `apply-legs`, so each account's posting resolves
+  the bank's effective policies again inside its chunk.
+- **The posting's reference says monthly.** Each capitalisation
+  transaction is referenced "Monthly interest capitalization",
+  whatever cadence the bank's job runs at, daily by default.
 
 ## References
 

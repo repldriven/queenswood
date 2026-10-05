@@ -467,6 +467,9 @@ property under test.
   This contradicts the project's no-bang-on-side-effects
   convention (see code-style recipe). Worth a future rename
   pass on the wrapper functions.
+- **A relay's publish joins no trace.** Each event carries the
+  writing transaction's traceparent, but the relay's own `bus-send`
+  span has no parent, so every publish is a trace of its own.
 
 ## References
 

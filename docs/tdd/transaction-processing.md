@@ -714,6 +714,16 @@ throw-safe (a handler exception is logged, not fatal).
   Payee, for example, has no such index — a redelivered CoP
   command records a duplicate check, accepted because it carries
   no financial effect and the records are short-lived.
+- **The relay's cursor is read apart from its pass.** The cursor
+  is read in a transaction of its own, so two passes sharing a
+  consumer id would not conflict; only the single replica of
+  `exclusive-dispatchers-service` keeps them apart.
+- **Nothing consumes the adapter's command replies.** The Modulr
+  adapter replies on `topic-schemes-command-response`, which no
+  service subscribes to.
+- **An answered opening saves its intent twice.** On the answered
+  path the opening intent is saved settled, then saved again with
+  the provider account, in one transaction.
 
 ## References
 

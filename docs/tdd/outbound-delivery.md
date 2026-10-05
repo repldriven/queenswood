@@ -339,6 +339,11 @@ the runner had.
 - **A probe claimed and not made holds its lease.** A runner that dies
   holding a probe leaves the breaker half-open until `probe-lease-ms`
   passes.
+- **The two runners order their writes differently.** The webhook
+  runner asks the endpoint's breaker inside its claim transaction
+  and saves the outcome before recording the breaker; the email
+  runner asks in a transaction of its own and records the breaker
+  first.
 
 ## References
 

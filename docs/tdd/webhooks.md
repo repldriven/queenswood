@@ -1,11 +1,6 @@
 # Webhooks
 
-> **Status: proposal.** Nothing tenant-facing exists. What the design
-> reuses — the changelog relay and its envelope, the intent poller in
-> the ClearBank relay, the API's resource components — exists and is
-> named as such in Background. Everything under Proposed Solution is
-> the build list, and "Validate on one domain first" says which part
-> of it comes first.
+> **Status: implemented.**
 
 ## Objective
 
@@ -120,7 +115,7 @@ They now name the per-brick `event-processor` kind every consumer is
 built on, which redelivers on a thrown or returned anomaly. The
 webhook consumer is one of those.
 
-## Proposed Solution
+## Solution
 
 ### Reading the diagrams
 

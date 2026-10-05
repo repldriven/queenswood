@@ -429,6 +429,9 @@ minted *by* it are admin principals at this API's edge.
   automation attributes to "the admin client," not a person. Human
   Queenswood operators sign in through `queenswood-app` and do carry
   per-user identity.
+- **A person's request costs two FDB transactions.** Resolving the
+  principal upserts the user in one and reads its memberships in
+  another, before the route runs.
 
 ## References
 
