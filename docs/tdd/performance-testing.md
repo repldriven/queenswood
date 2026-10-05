@@ -170,13 +170,13 @@ Scripts live under `perf/`, outside every brick:
   unfunded.
 - `perf/mixed.js` — internal and outbound payments from one bank in one
   arrival rate, `OUTBOUND_SHARE` of them outbound, the challenger's mix.
-- `perf/onboarding.js` — one customer an iteration into a bank with no
+- `perf/parties.js` — one customer an iteration into a bank with no
   customers: a person party created, a verification session opened and
   awaited ready, the Zyphe simulator's decision posted as the person after
-  `THINK_S` seconds, none by default, the party awaited active, and a
-  current account opened and awaited opened at Modulr. A stage that
-  refuses, or outlasts `STAGE_TIMEOUT_S`, 120 by default, loses the
-  customer there.
+  `THINK_S` seconds, none by default, and the party awaited active; with
+  `OPEN_ACCOUNT=true`, a current account then opened and awaited opened
+  at Modulr. A stage that refuses, or outlasts `STAGE_TIMEOUT_S`, 120 by
+  default, loses the customer there.
 
 Every scenario runs as steps of a fixed arrival rate on k6's
 `ramping-arrival-rate` executor, each reached over five seconds and then
@@ -192,7 +192,7 @@ the steps:
 - **`hot`.** Scenario B: 1, 2, 5, 10, 20 and 40 a second, a minute each,
   from one account to the other 49, for internal payments only.
 
-Onboarding defines its own: `smoke` at 1 a second for a minute,
+`perf/parties.js` defines its own: `smoke` at 1 a second for a minute,
 `challenger` at 10 a second for ten minutes, and `knee` at 1, 2, 5, 10,
 20 and 40 a second, a minute each.
 
@@ -308,10 +308,10 @@ load test signs in as a client of its own instead:
   `phase: follow`, so no load figure counts them.
 - **Onboarding.** The customers onboarded, those lost by stage, and the
   time of each stage awaited: the session ready, the party active from
-  the decision, and the account opened from its request, with the whole
-  journey's time less the person's. Polls carry `phase: poll` and the
-  decision `phase: simulator`, so the load figures are the three
-  requests a customer sends.
+  the decision, and with `OPEN_ACCOUNT` the account opened from its
+  request, with the whole journey's time less the person's. Polls carry
+  `phase: poll` and the decision `phase: simulator`, so the load figures
+  are the requests a customer sends.
 - **Books.** After a run, k6's `teardown` reads the bank's ledger through
   `GET /v1/ledger-accounts` and the Modulr simulator's balances for the
   bank's accounts until they stop moving: two readings five seconds
@@ -322,8 +322,8 @@ load test signs in as a client of its own instead:
   no list to sum. 1100, the deposit and own-funds controls summed, and
   the provider's balances should each equal it, and the trial balance
   should tie. `perf-run` exits 1 when they do not, or when a run sent
-  none of its unit, payments or customers. Onboarding moves no money,
-  says so in its summary, and is not held to the books.
+  none of its unit, payments or customers. `perf/parties.js` moves no
+  money, says so in its summary, and is not held to the books.
 - **Where the time went.** The run's window in SigNoz, where a payment's
   trace crosses the API, the bus, the processor and the adapter.
 - **Where FDB conflicted.** The storage dashboard's FoundationDB

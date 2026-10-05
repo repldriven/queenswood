@@ -1,6 +1,7 @@
-// New customers onboarded into a fresh bank at a fixed arrival rate: a
-// person party, its identity verified at the simulator, and a current
-// account opened at the provider. See docs/tdd/performance-testing.md.
+// Person parties created in a fresh bank at a fixed arrival rate, each
+// verified at the simulator until it is active, and with OPEN_ACCOUNT a
+// current account opened for it at the provider. See
+// docs/tdd/performance-testing.md.
 
 import { check, sleep } from "k6";
 import exec from "k6/execution";
@@ -24,6 +25,9 @@ const STEPS = steps(profile);
 // includes.
 const THINK_S = parseFloat(env("THINK_S", "0"));
 
+// Whether each party then opens a current account at the provider.
+const OPEN_ACCOUNT = env("OPEN_ACCOUNT", "false") === "true";
+
 // How long a stage may take before the customer is counted lost at it.
 const STAGE_TIMEOUT_S = parseInt(env("STAGE_TIMEOUT_S", "120"));
 
@@ -38,7 +42,7 @@ const partyActive = new Trend("party_active", true);
 const accountOpened = new Trend("account_opened", true);
 const onboardTime = new Trend("onboard_time", true);
 
-export const options = loadOptions("onboarding", STEPS, profile, {
+export const options = loadOptions("parties", STEPS, profile, {
   unit: "customers",
   gracefulStop: `${4 * STAGE_TIMEOUT_S + THINK_S}s`,
   thresholds: onboardingThresholds(),
@@ -165,7 +169,15 @@ export default function (bank) {
   );
   if (!active) return lost.add(1, { stage: "verified", step });
   partyActive.add(active.ms);
+  if (OPEN_ACCOUNT && !openAccount(bank, partyId, bearer, step)) return;
 
+  onboarded.add(1, { step });
+  onboardTime.add(Date.now() - started - THINK_S * 1000);
+}
+
+// Opens a current account for the party and awaits it opened at the
+// provider, false when the customer is lost on the way.
+function openAccount(bank, partyId, bearer, step) {
   const account = postUntilKnown(
     "/v1/cash-accounts",
     {
@@ -177,7 +189,7 @@ export default function (bank) {
     bearer,
     { tags: { name: "cash-accounts", step } },
   );
-  if (refused(account, 201, "account", step)) return;
+  if (refused(account, 201, "account", step)) return false;
 
   const opened = awaited(
     `/v1/cash-accounts/${account.json()["account-id"]}`,
@@ -185,19 +197,21 @@ export default function (bank) {
     bearer,
     "cash-accounts/{id}",
   );
-  if (!opened) return lost.add(1, { stage: "opened", step });
+  if (!opened) {
+    lost.add(1, { stage: "opened", step });
+    return false;
+  }
   accountOpened.add(opened.ms);
-
-  onboarded.add(1, { step });
-  onboardTime.add(Date.now() - started - THINK_S * 1000);
+  return true;
 }
 
 export function handleSummary(data) {
   return summary(data, {
-    scenario: "onboarding",
+    scenario: "parties",
     profile: PROFILE,
     unit: "customers",
     books: false,
+    openAccount: OPEN_ACCOUNT,
     thinkS: THINK_S,
     stageTimeoutS: STAGE_TIMEOUT_S,
     steps: STEPS,

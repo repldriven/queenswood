@@ -3,7 +3,7 @@
 
 PERF_NAMESPACE := "queenswood"
 
-# Run one scenario in the cluster and write its summary to target/perf. scenario: a script under perf/ (internal, outbound, inbound, mixed or onboarding); profile: smoke, challenger or knee, as the scenario defines them (smoke); rate, duration, accounts: overrides, the profile's when empty.
+# Run one scenario in the cluster and write its summary to target/perf. scenario: a script under perf/ (internal, outbound, inbound, mixed or parties); profile: smoke, challenger or knee, as the scenario defines them (smoke); rate, duration, accounts: overrides, the profile's when empty.
 perf-run scenario="internal" profile="smoke" rate="" duration="" accounts="":
     #!/usr/bin/env zsh
     set -euo pipefail
@@ -52,7 +52,7 @@ perf-run scenario="internal" profile="smoke" rate="" duration="" accounts="":
       echo "no $UNIT sent, log in target/perf/$NAME.log" >&2
       exit 1
     fi
-    BOOKS=$(jq '.run.books // true' target/perf/$NAME.json)
+    BOOKS=$(jq '.run.books != false' target/perf/$NAME.json)
     HELD=$(jq '.headline.books.held' target/perf/$NAME.json)
     if [[ "$BOOKS" == "true" && "$HELD" == "null" ]]; then
       echo "the books were not checked, log in target/perf/$NAME.log" >&2
