@@ -5,7 +5,7 @@
 # its record type arrived on as since, and a store lists the indexes
 # removed from it under former-indexes with the versions they were added
 # and removed at. See docs/recipes/code/schema-evolution.md.
-version: 76
+version: 77
 stores:
   assertions:
     record-type: Assertion
@@ -244,7 +244,18 @@ stores:
         removed: 52
   banks:
     record-type: Bank
-    indexes: []
+    indexes:
+      # A create sent again under its Idempotency-Key is answered with
+      # the bank it made, found by who created it and the key.
+      - name: Bank_by_creator_idempotency_key
+        added: 77
+        modified: 77
+        fields:
+          - field: created_by
+            nest:
+              field: principal_id
+          - idempotency_key
+        unique: true
     former-indexes:
       - name: Bank_by_sort_code
         added: 45

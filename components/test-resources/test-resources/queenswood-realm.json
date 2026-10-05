@@ -1040,6 +1040,21 @@
           "temporary": false
         }
       ]
+    },
+    {
+      "username": "lost-reply-founder",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "lost-reply-founder@queenswood.local",
+      "firstName": "Lost",
+      "lastName": "Reply",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "lost-reply-founder",
+          "temporary": false
+        }
+      ]
     }
   ]
 }

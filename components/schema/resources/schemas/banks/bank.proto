@@ -3,6 +3,7 @@ syntax = "proto2";
 package com.repldriven.queenswood.schemas.banks;
 
 import "record_metadata_options.proto";
+import "schemas/memberships/actor.proto";
 
 option java_outer_classname = "BankProto";
 
@@ -49,4 +50,11 @@ message Bank {
   optional BankCompanyBinding company_binding = 9;
   optional string tier = 10;
   repeated BankProvider providers = 11;
+  // Who created the bank, a person or an operator, as its access log's
+  // bank-created entry names them.
+  optional com.repldriven.queenswood.schemas.memberships.Actor created_by = 12;
+  // The Idempotency-Key the creating request carried, unique with its
+  // creator's principal id, so a create sent again is answered with the
+  // bank it made.
+  optional string idempotency_key = 13;
 }

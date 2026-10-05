@@ -14,7 +14,13 @@
                                                  PetProto$Pet
                                                  PetProto$Toy)))
 
-(def pb->Pet pets/pb->Pet)
+(defn pb->Pet
+  "Parse Pet protobuf bytes into a map, without `:collar` when unset."
+  [input]
+  (let [pet (pets/pb->Pet input)]
+    (cond-> pet
+            (nil? (:collar pet))
+            (dissoc :collar))))
 (defn Pet->pb [m] (proto/->pb (pets/new-Pet m)))
 (defn Pet->java [m] (PetProto$Pet/parseFrom (Pet->pb m)))
 

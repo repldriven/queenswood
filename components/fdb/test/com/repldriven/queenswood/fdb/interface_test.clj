@@ -283,6 +283,35 @@
          _
          (is (= 2 (count indexed)))]))))
 
+(defn- test-query-nested-field
+  [sys pet-store]
+  (let [rex {:pet-id "pet-40" :species "dog" :collar {:tag "T-1"}}
+        fido {:pet-id "pet-41" :species "dog" :collar {:tag "T-2"}}
+        config {:record-db (system/instance sys [:fdb :record-db])
+                :record-store pet-store}]
+    (testing "a filter reaches a field of a nested message by its path"
+      (nom-test>
+        [_
+         (SUT/transact config
+                       (fn [txn]
+                         (let [store (SUT/open txn "pets")]
+                           (run! (fn [pet]
+                                   (SUT/save-record store
+                                                    (test-schema/Pet->java
+                                                     pet)))
+                                 [rex fido]))))
+         found
+         (SUT/transact config
+                       (fn [txn]
+                         (SUT/query-record-compound (SUT/open txn "pets")
+                                                    "Pet"
+                                                    [[["collar" "tag"] "T-2"]
+                                                     ["species" "dog"]])))
+         _
+         (is (= fido
+                (select-keys (utility/record->map (test-schema/pb->Pet found))
+                             (keys fido))))]))))
+
 (deftest kv-test
   (with-test-system [sys "classpath:fdb/application-test.yml"]
                     (test-str-kv sys)
@@ -294,6 +323,7 @@
                       (test-record-layer sys pet-store)
                       (test-query-records sys pet-store)
                       (test-query-records-compound sys pet-store)
+                      (test-query-nested-field sys pet-store)
                       (test-record-layer-consumer sys pet-store)
                       (test-changelog-under-concurrent-writes sys pet-store)
                       (test-changelog-pass-is-bounded sys pet-store)

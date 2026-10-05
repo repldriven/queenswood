@@ -127,6 +127,8 @@ mints a second client that nothing removes. The limitation is
  :status          :bank-status-test   ; or -live, -unknown
  :tier            "micro"
  :company-binding {...}               ; the registry snapshot, when bound
+ :created-by      {:kind :actor-kind-member :principal-id "<user-id>"}
+ :idempotency-key "<the creating command's id>"
  :created-at      <ms>
  :updated-at      <ms>}
 ```
@@ -165,14 +167,18 @@ operator with principal id `unknown`.
 1. **Require an identity-provider** — `opts` must carry
    `:identity-provider`, or the command is rejected
    `:bank/missing-identity-provider` before anything else.
-2. **Guard a redelivery** *(`:idempotency-key`)* — the command
-   envelope's `:id`, which a retry reuses, is counted under the
-   actor's principal id with `fdb/allocate-counter`, and a count
-   above one is rejected `:bank/already-exists`. The count commits
-   only with the bank and is read before the identity-provider
-   call, so a redelivered or retried command aborts with no second
-   bank, client or membership. A person may own any number of
-   banks.
+2. **Replay a create sent again** *(`:idempotency-key`)* — the
+   command envelope's `:id`, which a retry reuses, is looked up with
+   the actor's principal id on the unique index
+   `Bank_by_creator_idempotency_key`, over `created_by.principal_id`
+   and `idempotency_key`. A bank found there ends the flow: it
+   returns that bank, the earliest owner membership of the
+   membership's user and the earliest owner invitation carrying the
+   step-15 reason, each only where `opts` asks for it, writing
+   nothing and calling no identity-provider. Two creates racing
+   under one key conflict on the index range the lookup read, and
+   the runner's retry finds the winner. A person may own any number
+   of banks.
 3. **Resolve platform policies** — `policy/get-effective-policies
    txn {}` with empty selectors, since the bank does not exist
    yet. `opts` may override with `:policies`. These are threaded
@@ -193,7 +199,9 @@ operator with principal id `unknown`.
    `client_id == bank-id` and a status-derived audience. The
    secret minted here is discarded: the command reply crosses the
    bus, so no credential travels on it.
-7. **Persist the bank.**
+7. **Persist the bank** — with the actor as `created_by` and the
+   key as `idempotency_key`; neither leaves the store, in the
+   return value or the view.
 8. **Create the bank's org party** — `party/new-party` with
    `:type :party-type-organization` and display-name = bank name.
 9. **Seed the ledger chart** — one `LedgerAccount` per seed row
@@ -383,6 +391,10 @@ new one, as the create does.
   precedence. Rejected — tiers don't form a clean total order (a
   "developer" tier and a "production" tier are different shapes,
   not levels). String labels are flexible.
+- **Refusing a create sent again.** Count creations under the
+  principal and key, and reject a second as `:bank/already-exists`.
+  Rejected: a caller whose first create timed out never learned the
+  bank's id, and a refusal leaves them nothing to read it by.
 - **Random service-account `client_id`.** Rejected in favour of
   `client_id == bank-id`: a deterministic mapping means a service
   token's `azp` *is* the bank-id, so attribution needs no lookup.
@@ -399,9 +411,12 @@ new one, as the create does.
   client — `revoke-service-account` is unwired, see
   [authentication.md](authentication.md) — and archiving party
   data are all manual.
-- **No bank-level audit trail.** `created-at` is the only history;
-  which platform admin created the bank isn't recorded — only that
-  an admin principal made the call.
+- **No bank-level audit trail.** `created-at` and `created-by` are
+  the only history on the record, and a bank created before
+  `created_by` was added carries no `created-by`.
+- **A replay reads what is there now.** A create sent again after
+  its owner invitation was declined or withdrawn returns no
+  invitation id.
 - **Currencies are committed at create.** The flow fans the
   `currencies` argument across the ledger chart and own-funds
   house accounts. Adding a currency to an existing bank means

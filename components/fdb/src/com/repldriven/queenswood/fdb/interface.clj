@@ -99,8 +99,10 @@
 
 (defn query-records-compound
   "Queries an open FDBRecordStore where all [field value]
-  pairs match. Returns a vector of serialized byte arrays.
-  opts supports :index to pin the planner to a named index."
+  pairs match, a field being a name or a vector of names into a
+  nested message, as `[\"created_by\" \"principal_id\"]`. Returns a
+  vector of serialized byte arrays. opts supports :index to pin the
+  planner to a named index."
   ([store record-type filters]
    (record/query-compound store record-type filters))
   ([store record-type filters opts]
@@ -108,9 +110,10 @@
 
 (defn query-record-compound
   "Queries an open FDBRecordStore where all [field value]
-  pairs match, capping the planner at one result. Returns
-  the first matching record bytes, or nil. opts supports
-  :index to pin the planner to a named index."
+  pairs match, a field being a name or a vector of names into a
+  nested message, capping the planner at one result. Returns the
+  first matching record bytes, or nil. opts supports :index to pin
+  the planner to a named index."
   ([store record-type filters]
    (record/query-one-compound store record-type filters))
   ([store record-type filters opts]
@@ -378,8 +381,10 @@
   declaration in the shape of `fdb-record-types.yml`: a `version`, and
   under `stores` each record store's record type, primary key, indexes
   carrying the `added` and `modified` versions the Record Layer keeps
-  per index, and the `former-indexes` removed from it. Returns the
-  meta-data, or an anomaly listing each field missing or malformed."
+  per index, and the `former-indexes` removed from it. An index keys on
+  a `field`, a `field` with a `nest` into its message, or `fields`, each
+  a name or such a nested map. Returns the meta-data, or an anomaly
+  listing each field missing or malformed."
   [descriptor declaration]
   (meta-data/build descriptor declaration))
 
