@@ -755,17 +755,19 @@ fdb:
     limits:
       cpu: "1000m"
       memory: "1Gi"
-  # The sidecar beside each process and the init container before it,
-  # which copy the cluster file and patch the pod's annotations and hold
-  # a few tens of MB. Sized on their own, since `resources` above is a
-  # process's and would reserve that much again for each of them.
+  # The sidecar beside each process and the init container before it.
+  # In steady state they copy the cluster file and patch the pod's
+  # annotations, holding a few tens of MB, but an upgrade has the sidecar
+  # stage the new version's binaries beside the running ones, so they
+  # keep a process's headroom here. values-local.yaml sizes them for
+  # kind's VM, where nothing is upgraded in place.
   sidecarResources:
     requests:
-      cpu: "50m"
-      memory: "64Mi"
+      cpu: "100m"
+      memory: "512Mi"
     limits:
-      cpu: "200m"
-      memory: "256Mi"
+      cpu: "1000m"
+      memory: "1Gi"
   # Continuous backup to object storage. Off by default: a local kind
   # install has no bucket to write to, and the credentials only exist
   # in a cloud environment. See templates/fdb-backup.yaml.

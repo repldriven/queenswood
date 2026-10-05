@@ -268,12 +268,12 @@ the last, and `prune: false` leaves the old ones: a pod stuck in init
 or `ImagePullBackOff` keeps its memory request for as long as it
 exists. A rollout also starts each service's new pod beside the old
 one, where it waits in init on bootstrap, and every FoundationDB pod
-requests 2 GiB, its sidecar as much as the database. Delete the gate
-Jobs the current release does not name; where that is not enough, scale
-the five services to zero until FoundationDB, the migrator and
-bootstrap have finished, then sync the `queenswood` Application. Nothing
-in the chart yet frees a superseded Job, or sizes the sidecar apart
-from the database.
+requests 2 GiB, its sidecar as much again by default, which an upgrade
+needs (`fdb.sidecarResources`). Delete the gate Jobs the current release
+does not name; where that is not enough, scale the five services to zero
+until FoundationDB, the migrator and bootstrap have finished, then sync
+the `queenswood` Application. Nothing in the chart yet frees a
+superseded Job.
 
 **The migrator Job reads `BackoffLimitExceeded`.** It crashed while
 FoundationDB was unavailable and used its six retries, and nothing
