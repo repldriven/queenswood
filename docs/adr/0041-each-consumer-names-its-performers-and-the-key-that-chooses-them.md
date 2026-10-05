@@ -15,14 +15,14 @@ message going to one chosen by a hash of its key, narrowed where a
 subscriber names a narrower key. What it leaves to a workspace is how
 many performers each consumer has, and which key chooses them.
 
-The property wanted is that a consumer behind at the knee gets
+The property wanted is that a consumer that falls behind gets
 concurrency from its own configuration, without a topic recreated or a
 replica added, and that nothing a consumer must keep in order is
 reordered. Today a consumer handles one message at a time and the only
 way to add concurrency is a partition and a replica for each unit of
-it: the onboarding knee on kind reached 36.6 customers a second at 40
-asked with the party and IDV command topics on four partitions and
-`operational-processors-service` on four replicas, and its next queue
+it: onboarding on kind reached 36.6 customers a second of the 40 sent,
+with the party and IDV command topics on four partitions and
+`operational-processors-service` on four replicas, and the next queue
 was the webhook runner's consumer of `topic-idvs-event`, one partition
 in one `external-adapters-service` replica. A topic keyed by bank,
 `topic-bank-activity-event`, runs one bank's entries one at a time
@@ -74,7 +74,7 @@ The decision has these parts:
 
 ### Worked example
 
-The consumers each service ran at the onboarding knee in
+The consumers each service ran in the onboarding load test in
 [performance-testing](../tdd/performance-testing.md): the topic and its
 partitions, what each message is sent under, and the performer key the
 decision gives it. A row changes when a consumer, a topic or a
@@ -107,8 +107,8 @@ send does, and this table is not kept up to date with it.
 | external-adapters | `topic-rewards-event` (1) | webhook runner | the reward | the reward |
 | external-adapters | `topic-invitations-event` (1) | email runner | the invitation | the invitation |
 
-The onboarding knee's queue at `topic-idvs-event` is the webhook
-runner's row: one partition in one replica, keyed by party, so its
+The onboarding load test's queue at `topic-idvs-event` is the
+webhook runner's row: one partition in one replica, keyed by party, so its
 performers take different customers' verification events at once
 without a partition or a replica added.
 
@@ -116,7 +116,7 @@ without a partition or a replica added.
 
 Easier:
 
-- A consumer behind at the knee gets concurrency from a number in its
+- A consumer that falls behind gets concurrency from a number in its
   service's configuration, changed by a restart.
 - One bank's identity verifications are handled concurrently, a
   session at a time per party, where its activity log's one partition
@@ -126,7 +126,7 @@ Easier:
 
 Harder:
 
-- Every performer count is a judgement made from a kind run, and kind
+- Every performer count is a judgement made from a run on kind, which
   shares its CPUs between k6 and every JVM; a deployed instance's
   counts are set again from its own runs.
 - A narrowed key is checked by nobody: a consumer whose entries come to
