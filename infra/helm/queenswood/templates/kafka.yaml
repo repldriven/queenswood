@@ -79,6 +79,8 @@ spec:
               value: "1"
             - name: KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS
               value: "0"
+            - name: KAFKA_HEAP_OPTS
+              value: {{ .Values.kafka.heapOpts | quote }}
           resources:
             {{- toYaml .Values.kafka.resources | nindent 12 }}
           readinessProbe:
