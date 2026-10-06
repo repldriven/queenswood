@@ -143,7 +143,11 @@ returns `[:answered result]` or `[:refused reason]`, recorded as
 `:answered`, `[:retry reason]`, recorded as `:failed`, or
 `[:wait reason]`, where it made no call because the intent is not ready
 yet: a wait is not recorded on the breaker, counts no attempt, and gives
-up only by age. Reconciliations run only while the breaker is closed.
+up only by age. Reconciliations run only while the breaker is closed,
+and an operation's `:reconcile` returns its lookup's `:outcome` with its
+result, recorded on the breaker as a call's is, so a lookup the
+destination fails to answer counts towards opening it, and once it
+opens the pass starts no more.
 The poller's and the relays' constants go: each adapter's
 `outbound-runner` carries a `delivery-policy`, a `poll-ms` and, for
 Form3 and Modulr, a `reconcile-after-ms`, all required, and optionally a

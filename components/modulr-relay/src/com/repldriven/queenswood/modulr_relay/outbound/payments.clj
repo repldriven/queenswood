@@ -63,18 +63,20 @@
   [config now intent]
   (let [{:keys [intent-id dedup-key provider-payment-id]} intent
         {:keys! [amount currency]} (shared/context intent)
-        {:keys [status]} (shared/lookup config provider-payment-id)
+        [outcome {:keys [status]}] (shared/lookup config provider-payment-id)
         descriptor (outcomes/payment {:provider-payment-id provider-payment-id
                                       :end-to-end-id dedup-key
                                       :amount amount
                                       :currency currency
                                       :status status
                                       :at now})]
-    (if descriptor
-      (do (log/info "Reconciled a Modulr payment"
-                    {:intent-id intent-id :status status})
-          {:status "settled" :event descriptor})
-      (shared/wait config now))))
+    (assoc (if descriptor
+             (do (log/info "Reconciled a Modulr payment"
+                           {:intent-id intent-id :status status})
+                 {:status "settled" :event descriptor})
+             (shared/wait config now))
+           :outcome
+           outcome)))
 
 (intent-poller/defoperations :modulr
                              {"payment" {:call pay

@@ -56,6 +56,8 @@
                     now)})
 
 (defn- lookup
+  "`[outcome attributes]`: Form3's answer to looking the submission up,
+  its attributes where it answered, nil otherwise."
   [config provider-payment-id submission-id]
   (let [[outcome result] (shared/call config
                                       {:method :get
@@ -63,7 +65,7 @@
                                                    provider-payment-id)
                                                   "/submissions/"
                                                   submission-id)})]
-    (when (= :ok outcome) (get-in result [:data :attributes]))))
+    [outcome (when (= :ok outcome) (get-in result [:data :attributes]))]))
 
 (defn- reconcile-payment
   "Ask Form3 what became of a submitted payment no notification has
@@ -72,7 +74,7 @@
   [config now intent]
   (let [{:keys [intent-id dedup-key provider-payment-id]} intent
         {:keys! [amount currency submission-id]} (shared/context intent)
-        {:keys [status status_reason]}
+        [outcome {:keys [status status_reason]}]
         (lookup config provider-payment-id submission-id)
         descriptor (outcomes/payment {:provider-payment-id provider-payment-id
                                       :end-to-end-id dedup-key
@@ -81,11 +83,13 @@
                                       :status status
                                       :status-reason status_reason
                                       :at now})]
-    (if descriptor
-      (do (log/info "Reconciled a Form3 payment"
-                    {:intent-id intent-id :status status})
-          {:status "settled" :event descriptor})
-      (shared/wait config now))))
+    (assoc (if descriptor
+             (do (log/info "Reconciled a Form3 payment"
+                           {:intent-id intent-id :status status})
+                 {:status "settled" :event descriptor})
+             (shared/wait config now))
+           :outcome
+           outcome)))
 
 (intent-poller/defoperations :form3
                              {"payment" {:call pay

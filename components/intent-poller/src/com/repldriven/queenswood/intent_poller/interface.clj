@@ -50,7 +50,8 @@
 
 (defmacro defoperations
   "Register each operation `adapter` carries out, keyed by the `:kind` its
-  intents name. Each value is a map of three functions:
+  intents name. Each value is a map of three functions, and optionally a
+  fourth:
   - `:call` — `(fn [config now intent])`, calls the external API and
     returns `[:answered result]`, `[:refused reason]` or
     `[:retry reason]`, or `[:wait reason]` where it made no call and the
@@ -63,6 +64,11 @@
   - `:failed` — `(fn [config now intent failure reason])`, the event
     descriptor a failed intent reports, or nil; `failure` is `:refused`
     or `:undelivered`.
+  - `:reconcile` — `(fn [config now intent])`, looks a sent intent up at
+    the external API once due, and returns `{:status status :event
+    descriptor :changes changes}` as `:answered` does, with `:outcome`,
+    the lookup's `:ok`, `:refused` or `:retry`, which is recorded on the
+    adapter's breaker as a call's is.
 
   An event descriptor is `{:event-name :dedup-key :data}`, `:data`
   serialised with the config's schema for `:event-name`.

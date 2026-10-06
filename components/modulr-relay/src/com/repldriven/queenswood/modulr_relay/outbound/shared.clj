@@ -54,6 +54,8 @@
   {:advance ctx :changes {:nonce (modulr-webhook/nonce)}})
 
 (defn lookup
+  "`[outcome payment]`: Modulr's answer to looking `provider-payment-id`
+  up, the payment where it answered, nil otherwise."
   [config provider-payment-id]
   (let [{:keys [post-fn]} config
         [outcome result] (modulr/classify ((or post-fn modulr/request)
@@ -62,7 +64,7 @@
                                             :path "/payments"
                                             :query {"id"
                                                     provider-payment-id}}))]
-    (when (= :ok outcome) (first (:content result)))))
+    [outcome (when (= :ok outcome) (first (:content result)))]))
 
 (defn sent
   "Sent, as the provider's payment `result`, to be reconciled if no
