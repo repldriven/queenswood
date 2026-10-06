@@ -696,6 +696,14 @@ What follows is what the model does not reach.
   has settled there (ADR-0033), so a refusal is the
   provider's own: the account returns to where it closed
   from, and closing it again is the caller's decision.
+- **An account number already held stalls an opening.** When the
+  provider reports an account opened under a sort code and number
+  another account already holds, the cash-accounts store's unique index
+  refuses the transition, the event is redelivered and then
+  dead-lettered, and the account stays opening with nothing to say why.
+  A provider that issues each number once never does this; the Modulr
+  simulator did, after restarts, before it issued numbers in turn.
+
 ## References
 
 - [ADR-0002](../adr/0002-foundationdb-record-layer.md) —

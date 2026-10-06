@@ -11,7 +11,6 @@
     [clojure.string :as str])
   (:import
     (java.math BigDecimal RoundingMode)
-    (java.security SecureRandom)
     (java.time Instant ZoneOffset)
     (java.time.format DateTimeFormatter)))
 
@@ -37,16 +36,27 @@
   [prefix]
   (str prefix (str/upper-case (str/replace (str (utility/uuidv7)) "-" ""))))
 
+(def ^:private account-numbers
+  "How many eight-digit account numbers there are."
+  100000000)
+
 (defn- account-number
-  [taken?]
-  (let [random (SecureRandom.)]
-    (loop []
-      (let [n (format "%08d" (.nextInt random 100000000))]
-        (if (taken? n) (recur) n)))))
+  "The first number from `next` up that `taken?` refuses, and the one
+  after it."
+  [next taken?]
+  (loop [n next]
+    (let [number (format "%08d" n)
+          following (mod (inc n) account-numbers)]
+      (if (taken? number) (recur following) [number following]))))
 
 (defn empty-state
+  "A simulator with nothing open. Account numbers are issued in turn
+  from the clock's milliseconds when it starts, which run ahead of any
+  rate accounts are opened at, so a restarted simulator issues none an
+  earlier one did until the numbers wrap, about every 28 hours."
   []
-  {:accounts {}
+  {:next-number (mod (utility/now) account-numbers)
+   :accounts {}
    :scan {}
    :payments {}
    :waiting {}
@@ -85,9 +95,12 @@
     (if (:refuse-next @state)
       (do (swap! state assoc :refuse-next false)
           {:refused "The account was declined"})
-      (let [scan (:scan @state)
-            number (account-number (fn [n]
-                                     (contains? scan (str sort-code n))))
+      (let [{:keys [scan next-number]} @state
+            [number following] (account-number next-number
+                                               (fn [n]
+                                                 (contains? scan
+                                                            (str sort-code
+                                                                 n))))
             a {:id (id "A")
                :customer-id customer-id
                :currency (or currency "GBP")
@@ -100,6 +113,7 @@
         (swap! state
           (fn [s]
             (-> s
+                (assoc :next-number following)
                 (assoc-in [:accounts (:id a)] a)
                 (assoc-in [:scan (str sort-code number)] (:id a)))))
         a))))
