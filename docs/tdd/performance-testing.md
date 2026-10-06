@@ -290,7 +290,8 @@ their Services:
 
 [perf.just](/justfiles/perf.just) carries `perf-run scenario profile`,
 which archives the scenario, replaces the ConfigMap, applies the Job,
-follows its log and writes the summary, treating k6's exit 99 — a
+follows its log until the Job has ended, following it again if the
+stream drops first, and writes the summary, treating k6's exit 99 — a
 threshold not met — as a finished run, and `perf-clean`, which deletes
 the Job and the ConfigMap. On GKE the Job carries a node selector for a
 pool the services do not use.
