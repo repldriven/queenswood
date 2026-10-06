@@ -6,35 +6,38 @@
                                    ScanProperties
                                    TupleRange)
     (com.apple.foundationdb.record.provider.foundationdb
+     FDBRecord
+     FDBRecordStore
      FDBStoreTimer$Waits
      IndexScanRange)
     (com.apple.foundationdb.record.metadata IndexAggregateFunction
                                             IndexTypes)
-    (com.apple.foundationdb.record.query RecordQuery)
+    (com.apple.foundationdb.record.query RecordQuery RecordQuery$Builder)
     (com.apple.foundationdb.record.query.expressions Query)
     (com.apple.foundationdb.record.util ProtoUtils$DynamicEnum)
     (com.apple.foundationdb.tuple Tuple)
-    (com.google.protobuf Message MessageLite)))
+    (com.google.protobuf Message MessageLite)
+    (java.util.concurrent CompletableFuture)))
 
 (defn- record->bytes
-  [r]
+  [^FDBRecord r]
   (-> r
       .getRecord
       .toByteArray))
 
 (defn- ->tuple
-  [k]
+  ^Tuple [k]
   (Tuple/from (into-array Object (if (sequential? k) k [k]))))
 
 (defn load
-  [store & primary-key-parts]
+  [^FDBRecordStore store & primary-key-parts]
   (some-> (.loadRecord store (->tuple primary-key-parts))
           record->bytes))
 
 ;; Every load is issued before any is waited on, so `n` keys cost one
 ;; round trip in flight together rather than `n` in turn.
 (defn load-many
-  [store primary-keys]
+  [^FDBRecordStore store primary-keys]
   (let [futures (mapv (fn [k] (.loadRecordAsync store (->tuple k)))
                       primary-keys)]
     (mapv (fn [^java.util.concurrent.CompletableFuture f]
@@ -43,16 +46,16 @@
           futures)))
 
 (defn preload-many
-  [store primary-keys]
+  [^FDBRecordStore store primary-keys]
   (run! (fn [k] (.preloadRecordAsync store (->tuple k))) primary-keys))
 
 (defn save
-  [store ^MessageLite record]
+  [^FDBRecordStore store ^MessageLite record]
   (.saveRecord store record)
   nil)
 
 (defn- primary-key
-  [store ^Message record]
+  ^Tuple [^FDBRecordStore store ^Message record]
   (-> (.getRecordMetaData store)
       (.getRecordTypeForDescriptor (.getDescriptorForType record))
       .getPrimaryKey
@@ -64,7 +67,7 @@
 ;; the store's preload cache.
 (defn save-many
   [store-records]
-  (let [futures (mapv (fn [[store record]]
+  (let [futures (mapv (fn [[^FDBRecordStore store record]]
                         (.preloadRecordAsync store (primary-key store record)))
                       store-records)]
     (run! (fn [^java.util.concurrent.CompletableFuture f] (.join f)) futures)
@@ -72,11 +75,11 @@
     nil))
 
 (defn delete
-  [store & primary-key-parts]
+  [^FDBRecordStore store & primary-key-parts]
   (.deleteRecord store (->tuple primary-key-parts)))
 
 (defn enum-value
-  [store record-type field number]
+  [^FDBRecordStore store record-type field number]
   (let [value (-> (.getRecordMetaData store)
                   (.getRecordType record-type)
                   .getDescriptor
@@ -98,13 +101,13 @@
 (defn- apply-allowed-indexes
   "Constrains the planner to the named index when
   (:index opts) is provided. Returns the builder."
-  [builder opts]
+  ^RecordQuery$Builder [^RecordQuery$Builder builder opts]
   (let [index (:index opts)]
     (cond-> builder
             index
             (.setAllowedIndexes
              ^java.util.List
-             (java.util.ArrayList. ^java.util.Collection [index])))))
+             (java.util.ArrayList. ^java.util.Collection (vector index))))))
 
 (defn- equals-query
   ([record-type field value]
@@ -119,12 +122,13 @@
 (defn- and-query
   ([record-type filters]
    (and-query record-type filters nil))
-  ([record-type filters opts]
+  (^RecordQuery [record-type filters opts]
    (-> (RecordQuery/newBuilder)
        (.setRecordType record-type)
        (.setFilter (Query/and
                     ^java.util.List
-                    (java.util.ArrayList. (map field-filter filters))))
+                    (java.util.ArrayList. ^java.util.Collection
+                                          (map field-filter filters))))
        (apply-allowed-indexes opts)
        .build)))
 
@@ -138,20 +142,22 @@
            (.matches
             (Query/and ^java.util.List
                        (java.util.ArrayList.
-                        [(.equalsValue (Query/field "key") map-key)
-                         (.equalsValue (Query/field "value") map-value)])))))
+                        ^java.util.Collection
+                        (vector (.equalsValue (Query/field "key") map-key)
+                                (.equalsValue (Query/field "value")
+                                              map-value)))))))
       (apply-allowed-indexes opts)
       .build))
 
 (defn- execute-query
-  [store q]
+  [^FDBRecordStore store ^RecordQuery q]
   (->> (.executeQuery store q)
        .asList
        (.asyncToSync (.getContext store)
                      FDBStoreTimer$Waits/WAIT_EXECUTE_QUERY)))
 
 (defn- execute-query-one
-  [store q]
+  [^FDBRecordStore store ^RecordQuery q]
   (let [props (-> (ExecuteProperties/newBuilder)
                   (.setReturnedRowLimit 1)
                   .build)]
@@ -192,7 +198,7 @@
            record->bytes)))
 
 (defn query-one-compound-many
-  [store record-type filters-list opts]
+  [^FDBRecordStore store record-type filters-list opts]
   (let [props (-> (ExecuteProperties/newBuilder)
                   (.setReturnedRowLimit 1)
                   .build)
@@ -204,7 +210,7 @@
                                                 nil
                                                 props)))
                       filters-list)]
-    (mapv (fn [f]
+    (mapv (fn [^CompletableFuture f]
             (some-> (.asyncToSync (.getContext store)
                                   FDBStoreTimer$Waits/WAIT_EXECUTE_QUERY
                                   f)
@@ -227,7 +233,8 @@
 (def ^:private aggregate-types {:count IndexTypes/COUNT :sum IndexTypes/SUM})
 
 (defn- aggregate-future
-  [store index-type index-name key isolation]
+  ^CompletableFuture
+  [^FDBRecordStore store ^String index-type ^String index-name key isolation]
   (let [index (.getIndex (.getRecordMetaData store) index-name)
         agg-fn (IndexAggregateFunction. index-type
                                         (.getRootExpression index)
@@ -242,10 +249,10 @@
        com.apple.foundationdb.record.IsolationLevel/SERIALIZABLE))))
 
 (defn- aggregate-value
-  [store future]
-  (let [result (.asyncToSync (.getContext store)
-                             FDBStoreTimer$Waits/WAIT_SCAN_INDEX_RECORDS
-                             future)]
+  [^FDBRecordStore store ^CompletableFuture future]
+  (let [^Tuple result (.asyncToSync (.getContext store)
+                                    FDBStoreTimer$Waits/WAIT_SCAN_INDEX_RECORDS
+                                    future)]
     (if (nil? result) 0 (.getLong result 0))))
 
 (defn- aggregate-records
@@ -267,7 +274,7 @@
     (mapv (fn [f] (aggregate-value store f)) futures)))
 
 (defn count-groups
-  [store index-name prefix]
+  [^FDBRecordStore store index-name prefix]
   (let [index (.getIndex (.getRecordMetaData store) index-name)
         bounds (IndexScanRange. IndexScanType/BY_GROUP
                                 (TupleRange/allOf (->tuple prefix)))]

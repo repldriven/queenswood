@@ -6,7 +6,7 @@
     [com.repldriven.mono.error.interface :as error :refer [try-nom]]
     [com.repldriven.mono.log.interface :as log])
   (:import
-    (com.apple.foundationdb.record RecordMetaData)
+    (com.apple.foundationdb.record RecordMetaData RecordMetaDataBuilder)
     (com.apple.foundationdb.record.metadata FormerIndex
                                             Index
                                             IndexOptions
@@ -15,8 +15,10 @@
                                             MetaDataEvolutionValidator
                                             MetaDataException)
     (com.apple.foundationdb.record.metadata.expressions GroupingKeyExpression
+                                                        KeyExpression
                                                         KeyExpression$FanType)
-    (com.apple.foundationdb.record.provider.foundationdb FDBMetaDataStore
+    (com.apple.foundationdb.record.provider.foundationdb FDBDatabase
+                                                         FDBMetaDataStore
                                                          FDBRecordContext
                                                          FDBStoreTimer$Waits)
     (com.google.protobuf Descriptors$FileDescriptor)
@@ -114,7 +116,7 @@
   (if fan-out KeyExpression$FanType/FanOut KeyExpression$FanType/None))
 
 (defn- key-expression
-  [{:strs [field fields fan-out nest]}]
+  ^KeyExpression [{:strs [field fields fan-out nest]}]
   (cond
    (and fields (every? string? fields))
    (Key$Expressions/concatenateFields ^java.util.List fields)
@@ -139,7 +141,7 @@
 (defn- grouped
   "COUNT groups by every field, SUM by all but the trailing value
   column it sums."
-  [idx-type expr]
+  ^KeyExpression [idx-type expr]
   (condp = idx-type
     IndexTypes/COUNT (GroupingKeyExpression. expr 0)
     IndexTypes/SUM (GroupingKeyExpression. expr 1)
@@ -166,12 +168,12 @@
   Layer refuses to evolve meta-data that gained a record type carrying
   none, and refuses a stored one that moves, so a store declares it once
   and never again."
-  [builder record-type since]
+  [^RecordMetaDataBuilder builder record-type since]
   (when since
     (.setSinceVersion (.getRecordType builder record-type) (int since))))
 
 (defn- set-primary-key
-  [builder record-type primary-key]
+  [^RecordMetaDataBuilder builder record-type primary-key]
   (when primary-key
     (.setPrimaryKey (.getRecordType builder record-type)
                     (if (= 1 (count primary-key))
@@ -235,6 +237,7 @@
 
 (def
   ^{:private true
+    :tag MetaDataEvolutionValidator
     :doc
     "The rules a save is held to. Index rebuilds are allowed, so an
   index may change its key expression under its own name provided its
@@ -246,6 +249,7 @@
 
 (def
   ^{:private true
+    :tag MetaDataEvolutionValidator
     :doc
     "The rules meta-data at the stored version is held to: no rebuilds,
   and so no change of any kind, since a change without a version bump
@@ -305,13 +309,13 @@
     (.setEvolutionValidator rebuilding-validator)))
 
 (defn- stored
-  [^FDBRecordContext ctx ^FDBMetaDataStore ms]
+  ^RecordMetaData [^FDBRecordContext ctx ^FDBMetaDataStore ms]
   (.asyncToSync ctx
                 FDBStoreTimer$Waits/WAIT_LOAD_META_DATA
                 (.getRecordMetaDataAsync ms false)))
 
 (defn load
-  [record-db path]
+  [^FDBDatabase record-db path]
   (try-nom :fdb/meta-data-load
            {:message "FDB meta-data load failed" :path path}
            (.run record-db
@@ -319,13 +323,13 @@
                  (fn [ctx] (stored ctx (meta-data-store ctx path))))))
 
 (defn save
-  [record-db path ^RecordMetaData meta-data]
+  [^FDBDatabase record-db path ^RecordMetaData meta-data]
   (try-nom
    :fdb/meta-data-save
    {:message "FDB meta-data save failed" :path path}
    (.run record-db
          ^Function
-         (fn [ctx]
+         (fn [^FDBRecordContext ctx]
            (let [ms (meta-data-store ctx path)
                  old (stored ctx ms)
                  new-version (.getVersion meta-data)]

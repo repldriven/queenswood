@@ -31,6 +31,52 @@
   ([txn bank-id account-id opts]
    (core/get-account txn bank-id account-id opts)))
 
+(defn get-account-balances
+  "Read an account's balances, with the posted and available totals
+  derived from them, in one transaction with the check that the account
+  exists. Returns `{:balances [...] :posted-balance {...}
+  :available-balance {...}}`, or a `:cash-account/not-found` rejection
+  anomaly.
+
+  Args:
+  - txn: FDB transaction or db handle.
+  - bank-id: owning bank id.
+  - account-id: account id."
+  [txn bank-id account-id]
+  (core/get-account-balances txn bank-id account-id))
+
+(defn get-account-balance
+  "Read one of an account's balances by its composite key, in one
+  transaction with the check that the account exists. Returns the
+  balance map, nil when the account holds no such balance, or a
+  `:cash-account/not-found` rejection anomaly.
+
+  Args:
+  - txn: FDB transaction or db handle.
+  - bank-id: owning bank id.
+  - account-id: account id.
+  - balance-type, currency, balance-status: the balance's key."
+  [txn bank-id account-id balance-type currency balance-status]
+  (core/get-account-balance txn
+                            bank-id
+                            account-id
+                            balance-type
+                            currency
+                            balance-status))
+
+(defn page-account-transactions
+  "Read a page of an account's transactions, in one transaction with the
+  check that the account exists. Returns `{:transactions [...] :before
+  :after}`, or a `:cash-account/not-found` rejection anomaly.
+
+  Args:
+  - txn: FDB transaction or db handle.
+  - bank-id: owning bank id.
+  - account-id: account id.
+  - opts: `{:after :before :limit :order}`, as a page's cursor gives."
+  [txn bank-id account-id opts]
+  (core/page-account-transactions txn bank-id account-id opts))
+
 (defn get-accounts-by-id
   "Load several cash accounts by id in one round trip, unenriched.
   Returns a vector of account maps in the order of `account-ids`, or a

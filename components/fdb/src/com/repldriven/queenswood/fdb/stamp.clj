@@ -7,12 +7,14 @@
     (com.apple.foundationdb.record.provider.foundationdb
      FDBRecordContext
      FDBStoreTimer$Waits)
+    (com.apple.foundationdb.subspace Subspace)
     (com.apple.foundationdb.tuple Tuple Versionstamp)))
 
 (defn- stamp-key
   [prefix stamp-name]
   ;; stamp-key = [prefix] , root , "stamp" , stamp-name ;
-  (.pack (changelog/rooted prefix ["stamp" stamp-name])))
+  (.pack ^Subspace
+         (changelog/rooted prefix ["stamp" stamp-name])))
 
 (defn bump
   [^FDBRecordContext ctx prefix stamp-name]

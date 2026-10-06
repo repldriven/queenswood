@@ -2,11 +2,12 @@
   (:import
     (com.apple.foundationdb MutationType)
     (com.apple.foundationdb.record.provider.foundationdb
+     FDBRecordStore
      FDBStoreTimer$Waits)
     (com.apple.foundationdb.tuple Tuple)
     (java.nio ByteBuffer ByteOrder)))
 
-(defn- pack [parts] (.pack (Tuple/from (into-array Object parts))))
+(defn- pack ^bytes [parts] (.pack (Tuple/from (into-array Object parts))))
 
 (defn- long->little-endian
   [n]
@@ -22,7 +23,7 @@
       .getLong))
 
 (defn allocate
-  [store prefix & key-parts]
+  [^FDBRecordStore store prefix & key-parts]
   (let [ctx (.getContext store)
         tr (.ensureActive ctx)
         key (pack (if (seq prefix) (cons prefix key-parts) key-parts))]

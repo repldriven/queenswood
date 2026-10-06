@@ -104,7 +104,7 @@
    :system/stop (fn [{:system/keys [instance]}]
                   (when (some? instance)
                     (log/info "Closing FDB database")
-                    (.close instance)))
+                    (.close ^java.lang.AutoCloseable instance)))
    :system/config {:cluster-file-path system/required-component
                    :api-version default-api-version}
    :system/config-schema [:map
@@ -150,7 +150,7 @@
    :system/stop (fn [{:system/keys [instance]}]
                   (when (some? instance)
                     (log/info "Closing FDB Record Layer database")
-                    (.close instance)))
+                    (.close ^java.lang.AutoCloseable instance)))
    :system/config {:cluster-file-path system/required-component
                    :api-version default-api-version}
    :system/config-schema [:map

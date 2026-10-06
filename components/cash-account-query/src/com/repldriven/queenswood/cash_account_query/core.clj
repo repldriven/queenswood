@@ -106,3 +106,35 @@
                                 :currency currency
                                 :product-id (:product-id version)}))]
     account))
+
+(defn get-account-balances
+  [txn bank-id account-id]
+  (store/transact txn
+                  (fn [txn]
+                    (let-nom> [_ (get-account txn bank-id account-id)]
+                      (balances/get-balances txn bank-id account-id)))
+                  :cash-account/get-balances
+                  "Failed to read the account's balances"))
+
+(defn get-account-balance
+  [txn bank-id account-id balance-type currency balance-status]
+  (store/transact txn
+                  (fn [txn]
+                    (let-nom> [_ (get-account txn bank-id account-id)]
+                      (balances/get-balance txn
+                                            bank-id
+                                            account-id
+                                            balance-type
+                                            currency
+                                            balance-status)))
+                  :cash-account/get-balance
+                  "Failed to read the account's balance"))
+
+(defn page-account-transactions
+  [txn bank-id account-id opts]
+  (store/transact txn
+                  (fn [txn]
+                    (let-nom> [_ (get-account txn bank-id account-id)]
+                      (transactions/page-transactions txn account-id opts)))
+                  :cash-account/page-transactions
+                  "Failed to page the account's transactions"))
