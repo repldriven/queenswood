@@ -292,7 +292,7 @@ system:
         consumer: !system/local-ref consumers.payments-event
         timeout: 500
         performers: 16
-        max-in-flight: {}
+        max-in-flight: {initial: 4}
       rewards-event:
         consumer: !system/local-ref consumers.rewards-event
         timeout: 500
@@ -303,12 +303,12 @@ system:
         consumer: !system/local-ref consumers.idvs-event
         timeout: 500
         performers: 16
-        max-in-flight: {}
+        max-in-flight: {initial: 4}
       parties-event:
         consumer: !system/local-ref consumers.parties-event
         timeout: 500
         performers: 16
-        max-in-flight: {}
+        max-in-flight: {initial: 4}
       invitations-event:
         consumer: !system/local-ref consumers.invitations-event
         timeout: 500

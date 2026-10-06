@@ -156,13 +156,13 @@ system:
         consumer: !system/local-ref consumers.payments-command
         timeout: 500
         performers: 16
-        max-in-flight: {}
+        max-in-flight: {initial: 4}
       # Keyed by the payment's end-to-end id, else its transfer (ADR-0041).
       schemes-payments-event:
         consumer: !system/local-ref consumers.schemes-payments-event
         timeout: 500
         performers: 16
-        max-in-flight: {}
+        max-in-flight: {initial: 4}
       bank-activity-event:
         consumer: !system/local-ref consumers.bank-activity-event
         timeout: 500

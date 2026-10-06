@@ -261,7 +261,7 @@ system:
         consumer: !system/local-ref consumers.cash-accounts-command
         timeout: 500
         performers: 16
-        max-in-flight: {}
+        max-in-flight: {initial: 4}
       idv-event:
         consumer: !system/local-ref consumers.idv-event
         timeout: 500
