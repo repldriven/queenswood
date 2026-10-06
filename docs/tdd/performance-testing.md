@@ -618,8 +618,9 @@ run at the next:
     stage two decides. On the same run over 10,001 accounts, accrual took
     7.5 s rather than 9.8 and capitalisation 15.4 s rather than 24, no
     account failed, and the payments held a p99 of 53 ms or less. Eight
-    chunks at once gained a third rather than the most of it, so the run
-    is held by the one merged scan that feeds them.
+    chunks at once gained a third rather than most of the run, so
+    something serial holds it, the one merged scan that feeds the chunks
+    being the first candidate its spans have to confirm.
 
 ### Span candidates
 
