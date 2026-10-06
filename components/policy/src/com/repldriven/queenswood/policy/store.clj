@@ -152,44 +152,32 @@
     :policy-binding/list
     "Failed to list policy bindings")))
 
+(def ^:private bindings-limit 10000)
+
 (defn get-bindings-for-bank
-  "Returns all `PolicyBinding` records whose target is the given bank.
-  Does a full scan and filters in memory — fine while binding
-  cardinality is low; a `BankTarget` index is the natural follow-up
-  once bindings grow."
   [txn bank-id]
   (fdb/transact
    txn
    (fn [txn]
-     (let [result (fdb/scan-records
-                   (fdb/open txn bindings-store-name)
-                   {:limit 10000 :order :asc})]
-       (->> (:records result)
-            (mapv pb->PolicyBinding)
-            (filterv (fn [b]
-                       (= bank-id
-                          (get-in b
-                                  [:target :kind :bank
-                                   :bank-id])))))))
+     (mapv pb->PolicyBinding
+           (fdb/scan-index-records (fdb/open txn bindings-store-name)
+                                   "PolicyBinding_by_bank"
+                                   [bank-id]
+                                   {:limit bindings-limit})))
    :policy-binding/list-by-bank
    {:message "Failed to list bindings for bank"
     :bank-id bank-id}))
 
 (defn get-bindings-for-policy
-  "Returns all `PolicyBinding` records for the given policy id. Does a
-  full scan and filters in memory — fine while binding cardinality is
-  low; a `policy_id` index is the natural follow-up once bindings grow.
-  Used to guard archival (a bound policy can't be archived)."
   [txn policy-id]
   (fdb/transact
    txn
    (fn [txn]
-     (let [result (fdb/scan-records
-                   (fdb/open txn bindings-store-name)
-                   {:limit 10000 :order :asc})]
-       (->> (:records result)
-            (mapv pb->PolicyBinding)
-            (filterv (fn [b] (= policy-id (:policy-id b)))))))
+     (mapv pb->PolicyBinding
+           (fdb/scan-index-records (fdb/open txn bindings-store-name)
+                                   "PolicyBinding_by_policy"
+                                   [policy-id]
+                                   {:limit bindings-limit})))
    :policy-binding/list-by-policy
    {:message "Failed to list bindings for policy"
     :policy-id policy-id}))

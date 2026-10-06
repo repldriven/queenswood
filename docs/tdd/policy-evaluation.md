@@ -323,14 +323,12 @@ settlement and on the release of a hold alike. See
 
 ## Known Limitations
 
-- **Binding resolution is bank-scoped and unindexed.**
+- **Binding resolution is bank-scoped.**
   `get-effective-policies` resolves platform-tier policies
   plus policies bound to the selector's `:bank-id` via
-  `PolicyBinding` records (`policy/.../core.clj`).
-  Finer selectors (account-type, product) aren't honoured
-  yet, and `get-bindings-for-bank` does a full scan filtered
-  in memory (`store.clj`) — a `BankTarget` index is the
-  natural follow-up as binding cardinality grows.
+  `PolicyBinding` records, read from `PolicyBinding_by_bank`
+  (`policy/.../core.clj`). Finer selectors (account-type,
+  product) aren't honoured yet.
 - **A rule bites only where code checks it.** Each operation
   calls the check itself, with a request it shapes and the
   aggregates (counts, sums) it reads for the limits it
