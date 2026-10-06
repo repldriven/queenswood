@@ -563,6 +563,21 @@ run at the next:
     the API turns requests away with 503 at its 200 in hand. A page of
     an account's transactions loaded each leg's transaction one at a
     time; it loads them together, and 640 a second's p99 fell from 46 ms.
+    Three more changes lift what the API serves at 2,560 asked:
+    - **One transaction per read.** An account's balances and its page
+      of transactions are each read in one transaction with the check
+      that the account exists, which served about 1,380 a second.
+    - **Type hints.** The `fdb` brick's Record Layer calls carried no
+      type hints, so every load, scan and save looked its method up by
+      reflection, about 16% of the API's CPU. Hinted, it served about
+      1,530.
+    - **mono v0.0.55.** A bearer token's signature is verified once and
+      its claims kept until it expires. A span starts without walking
+      the stack, and the header is parsed without a regular expression.
+      Together these were about 10% of the CPU, and it served about
+      1,630.
+
+    1,280 a second holds with none refused at a p50 of 21 ms.
 
 ### Span candidates
 
