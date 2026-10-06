@@ -128,6 +128,9 @@ never takes a former index's name. A proto field no longer wanted is
 deprecated with its tag kept and dropped in the record conversion —
 never removed, nor its tag reserved, once a record has been written
 with it. Never clear a store's meta-data to make a refused save land.
+Run the migrator before the services roll: it opens every store and
+builds online each index of the store's record type the open left
+disabled, which a store past a few hundred records leaves a new one.
 `just test-all` runs the guard whatever changed.
 Commands: `just test-all`.
 See [schema-evolution](../../../docs/recipes/code/schema-evolution.md).

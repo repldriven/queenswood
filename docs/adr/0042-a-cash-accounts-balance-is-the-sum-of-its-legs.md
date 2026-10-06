@@ -136,9 +136,9 @@ Harder:
   reads, and stage two adds a leg per account per day of accrual.
 - Legs saved before stage one carry no `bank_id` or `product_type`, so
   an instance holding them has its legs back-filled before the new index
-  is built, and a store past a few hundred legs opens with the index
-  disabled until an `OnlineIndexer` builds it, as
-  [schema-evolution](../recipes/code/schema-evolution.md) records.
+  is built, which the migrator does online on a store past a few hundred
+  legs, as [schema-evolution](../recipes/code/schema-evolution.md)
+  records.
 - A leg stamped with the wrong product type misstates a control
   silently. The trial balance and the control-against-sub-ledger
   invariant, asserted after every step of both scenario runners, read
