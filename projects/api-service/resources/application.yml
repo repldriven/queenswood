@@ -280,11 +280,11 @@ system:
       handler: !system/ref server.handler
       interceptors: !system/ref server.interceptors
       # The most requests the API handles at once, any beyond answered
-      # 503 at once rather than held until the heap runs out, measured
-      # from 200 and never below it: a read's latency rises with what is
-      # in flight, so the knee the limiter measures sits well below the
-      # most the API serves.
-      max-in-flight: {initial: 200, min: 200}
+      # 503 at once rather than held until the heap runs out. 200 is the
+      # limit measured to serve the most, and the limiter moves it no more
+      # than a quarter either way: a read's latency rises with what is in
+      # flight, so the knee it measures unbounded sits well below that.
+      max-in-flight: {initial: 200, min: 150, max: 250}
       # Counts each request turned away as mono.server.request.rejected,
       # since it reaches no span.
       telemetry: !system/ref telemetry.otel-sdk
