@@ -409,13 +409,19 @@
 (defn- before-unread-sent
   "`pending` as far as `sent`, read `limit` at most, reaches: where the
   read stopped at its limit, an unread sent intent may be older than a
-  pending one it has to settle before, so only pending intents older
-  than the last sent one read are taken."
-  [pending sent limit]
+  pending one that settles first, so each such intent newer than the
+  last sent one read stays this pass without running, holding its
+  subjects."
+  [pending sent limit settles-first?]
   (if (< (count sent) limit)
     pending
     (let [last-id (:intent-id (peek sent))]
-      (filterv (fn [i] (neg? (compare (:intent-id i) last-id))) pending))))
+      (mapv (fn [i]
+              (if (and (pos? (compare (:intent-id i) last-id))
+                       (settles-first? i))
+                (assoc i :next-attempt-at Long/MAX_VALUE)
+                i))
+            pending))))
 
 (defn drain-once
   [config now]
@@ -425,7 +431,11 @@
         sent (store/intents-with-status config store "sent" limit)
         pending (if (or (error/anomaly? pending) (error/anomaly? sent))
                   pending
-                  (before-unread-sent pending sent limit))]
+                  (before-unread-sent pending
+                                      sent
+                                      limit
+                                      (or (:settles-first? config)
+                                          (constantly false))))]
     (if (or (error/anomaly? pending)
             (error/anomaly? sent)
             (and (empty? pending) (empty? sent)))
