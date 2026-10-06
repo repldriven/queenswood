@@ -613,6 +613,228 @@
             }
           ]
         }
+      },
+      "529c450c-5179-5934-8015-5367f62a567b": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Performers' limit, by group",
+            "description": "How many of a subscription's performers may run a handler at once, as its limiter measures it"
+          },
+          "links": [],
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "global_time",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "short",
+                "decimalPrecision": "2"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none"
+              },
+              "axes": {
+                "softMin": 0,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list"
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "name": "A",
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "metrics",
+                    "stepInterval": 60,
+                    "aggregations": [
+                      {
+                        "metricName": "mono.message_bus.subscription.limit",
+                        "timeAggregation": "avg",
+                        "spaceAggregation": "sum"
+                      }
+                    ],
+                    "filter": {
+                      "expression": ""
+                    },
+                    "having": {
+                      "expression": ""
+                    },
+                    "legend": "{{messaging.consumer.group.name}}",
+                    "groupBy": [
+                      {
+                        "name": "messaging.consumer.group.name",
+                        "fieldContext": "attribute",
+                        "fieldDataType": "string"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "a6776863-5940-5214-a5b7-87d3be5d6e9a": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Handlers in flight, by group",
+            "description": "Handlers a subscription's performers are running"
+          },
+          "links": [],
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "global_time",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "short",
+                "decimalPrecision": "2"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none"
+              },
+              "axes": {
+                "softMin": 0,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list"
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "name": "A",
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "metrics",
+                    "stepInterval": 60,
+                    "aggregations": [
+                      {
+                        "metricName": "mono.message_bus.subscription.active",
+                        "timeAggregation": "avg",
+                        "spaceAggregation": "sum"
+                      }
+                    ],
+                    "filter": {
+                      "expression": ""
+                    },
+                    "having": {
+                      "expression": ""
+                    },
+                    "legend": "{{messaging.consumer.group.name}}",
+                    "groupBy": [
+                      {
+                        "name": "messaging.consumer.group.name",
+                        "fieldContext": "attribute",
+                        "fieldDataType": "string"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "b555465a-d7ef-59b9-838d-3ae8166d992a": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Capacity, by group",
+            "description": "Messages a second a subscription's limiter estimates it handles at its knee"
+          },
+          "links": [],
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "global_time",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "short",
+                "decimalPrecision": "2"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none"
+              },
+              "axes": {
+                "softMin": 0,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list"
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "name": "A",
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "metrics",
+                    "stepInterval": 60,
+                    "aggregations": [
+                      {
+                        "metricName": "mono.message_bus.subscription.capacity",
+                        "timeAggregation": "avg",
+                        "spaceAggregation": "sum"
+                      }
+                    ],
+                    "filter": {
+                      "expression": ""
+                    },
+                    "having": {
+                      "expression": ""
+                    },
+                    "legend": "{{messaging.consumer.group.name}}",
+                    "groupBy": [
+                      {
+                        "name": "messaging.consumer.group.name",
+                        "fieldContext": "attribute",
+                        "fieldDataType": "string"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
       }
     },
     "layouts": [
@@ -722,6 +944,46 @@
               "height": 8,
               "content": {
                 "$ref": "#/spec/panels/ca432647-f9e1-5734-b25c-cbb68b12dfe8"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "Concurrency",
+            "collapse": {
+              "open": true
+            }
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 6,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/529c450c-5179-5934-8015-5367f62a567b"
+              }
+            },
+            {
+              "x": 6,
+              "y": 0,
+              "width": 6,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/a6776863-5940-5214-a5b7-87d3be5d6e9a"
+              }
+            },
+            {
+              "x": 0,
+              "y": 8,
+              "width": 6,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/b555465a-d7ef-59b9-838d-3ae8166d992a"
               }
             }
           ]

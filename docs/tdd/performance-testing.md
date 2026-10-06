@@ -226,7 +226,8 @@ minutes and a `challenger` of 1,000 accounts at 50 a second for four, the
 run and a minute either side of it.
 
 `FROM` drops a profile's steps below that rate, for a machine where
-the low steps tell nothing. `RATE` and `DURATION` replace a profile's
+the low steps tell nothing, and `STEP` gives every step one length, as
+`30s` for a quicker knee. `RATE` and `DURATION` replace a profile's
 steps with one-minute steps at that rate, so a sustained run shows
 whether the rate holds, and `ACCOUNTS` replaces its account count.
 Amounts are between 1p and £1, and funding covers the run twice over,
@@ -626,6 +627,21 @@ run at the next:
     transactions with their legs, idempotency keys and activity entries.
     The payments held a p99 of 71 ms or less, and 129 in the minute the
     run took.
+23. **Measured in-flight limits.** On mono v0.0.59 the API's
+    `max-in-flight` is measured from 200 and kept within a quarter of it,
+    and the six
+    busiest subscriptions run sixteen performers under a limit measured
+    from 4, as mono's decision on a dynamic concurrency limit has it. On knees in 30-second steps,
+    internal at 320 a second served 307 with none refused, where the fixed
+    limits refused 13%, at a p50 of 62 ms at 160 rather than 44; the
+    payment processor's limit rose to its sixteen performers. Outbound at
+    320 was admitted at 299 a second, but the Modulr leg settles about 60
+    a second, so the backlog took until a minute after the knee's
+    180-second settle to drain, and its books check failed on that alone:
+    the ledger, the controls and the provider agreed. Reads with no floor
+    let the limit fall to 18 under overload, at the lowest latency the
+    limiter measured, and served about 1,030 a second at 2,560 asked
+    rather than 1,500; with a floor at 200 they served about 1,450.
 
 ### Span candidates
 

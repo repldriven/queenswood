@@ -149,17 +149,20 @@ system:
         producer: !system/local-ref producers.payee-checks-command-response
     message-bus-consumers: !system/component
       system/component-kind: kafka/message-bus-consumers
-      # Keyed by debtor account: four performers take different debtors'
-      # payments at once, each debtor's in order (ADR-0041).
+      # Keyed by debtor account: sixteen performers take different
+      # debtors' payments, each debtor's in order (ADR-0041), as many at once
+      # as the measured limit allows.
       payments-command:
         consumer: !system/local-ref consumers.payments-command
         timeout: 500
-        performers: 4
+        performers: 16
+        max-in-flight: {initial: 4}
       # Keyed by the payment's end-to-end id, else its transfer (ADR-0041).
       schemes-payments-event:
         consumer: !system/local-ref consumers.schemes-payments-event
         timeout: 500
-        performers: 4
+        performers: 16
+        max-in-flight: {initial: 4}
       bank-activity-event:
         consumer: !system/local-ref consumers.bank-activity-event
         timeout: 500

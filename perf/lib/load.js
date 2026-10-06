@@ -20,13 +20,14 @@ export function chosen(profiles) {
 
 // An overridden rate or duration runs as one-minute steps at that rate,
 // so the summary shows whether a sustained rate holds. FROM drops the
-// profile's steps below that rate.
+// profile's steps below that rate, and STEP gives each the same length.
 export function steps(profile) {
   if (!(env("RATE") || env("DURATION"))) {
     const from = parseInt(env("FROM", "0"));
+    const step = env("STEP", "");
     return profile.steps
       .filter(([rate]) => rate >= from)
-      .map(([rate, d]) => ({ rate, seconds: seconds(d) }));
+      .map(([rate, d]) => ({ rate, seconds: seconds(step || d) }));
   }
   const rate = parseInt(env("RATE", profile.steps[0][0]));
   const total = seconds(env("DURATION", profile.steps[0][1]));
