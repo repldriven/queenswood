@@ -186,7 +186,7 @@ reserved against it, and not counting money still pending
 inbound. Money already committed to a payment stops earning
 when the reservation is taken rather than when it settles, and
 money that has not arrived has not started earning. It is
-computed with `balance-domain/available-balance`, the same
+computed with `balance-query/available-balance`, the same
 definition the limit checks use, so there is one meaning of
 available in the system. Spanning several buckets would have
 cost a second read on a design that paged accounts; on the

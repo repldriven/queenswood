@@ -1,6 +1,7 @@
 (ns com.repldriven.queenswood.balance-query.store
   (:require
-    [com.repldriven.queenswood.balance-domain.interface :as domain]
+    [com.repldriven.queenswood.balance-query.domain :as domain]
+
     [com.repldriven.queenswood.fdb.interface :as fdb]
     [com.repldriven.queenswood.schema.interface :as schema]
 

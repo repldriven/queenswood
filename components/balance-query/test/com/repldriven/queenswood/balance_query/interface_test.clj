@@ -1,6 +1,6 @@
-(ns com.repldriven.queenswood.balance-domain.interface-test
+(ns com.repldriven.queenswood.balance-query.interface-test
   (:require
-    [com.repldriven.queenswood.balance-domain.interface :as SUT]
+    [com.repldriven.queenswood.balance-query.interface :as SUT]
 
     [clojure.test :refer [deftest is testing]]))
 

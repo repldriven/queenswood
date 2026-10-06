@@ -13,7 +13,6 @@
     pin/clojure-core-async {:local/root "deps/clojure-core-async"}
     components/api-schema {:local/root "components/api-schema"}
     components/balance {:local/root "components/balance"}
-    components/balance-domain {:local/root "components/balance-domain"}
     components/balance-query {:local/root "components/balance-query"}
     components/cash-account-api {:local/root "components/cash-account-api"}
     components/payment-api {:local/root "components/payment-api"}
@@ -133,7 +132,6 @@
   :test {:extra-deps {ext/mono {:local/root "deps/mono-test"}
                       org.clojure/test.check {:mvn/version "1.1.3"}}
          :extra-paths ["components/balance/test-resources"
-                       "components/balance-domain/test"
                        "components/bank/test"
                        "components/bank/test-resources"
                        "components/cash-account-migration/test"

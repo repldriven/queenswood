@@ -3,7 +3,6 @@
     [com.repldriven.queenswood.balance.domain :as domain]
     [com.repldriven.queenswood.balance.store :as store]
 
-    [com.repldriven.queenswood.balance-domain.interface :as balance-math]
     [com.repldriven.queenswood.balance-query.interface :as q]
     [com.repldriven.queenswood.policy.interface :as policy]
 
@@ -73,7 +72,7 @@
   it, a cap against one that raises it. Only then does the check need
   the account's sums read serializably."
   [policies transaction-type account-legs]
-  (let [delta (balance-math/available-delta account-legs)
+  (let [delta (q/available-delta account-legs)
         sides (policy/bound-sides policies
                                   :balance
                                   {:kind {:computed {:name "available"}}

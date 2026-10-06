@@ -1,4 +1,4 @@
-(ns com.repldriven.queenswood.balance-domain.domain)
+(ns com.repldriven.queenswood.balance-query.domain)
 
 (defn- net
   [balance]

@@ -17,9 +17,8 @@
   reads."
   (:require
     [com.repldriven.queenswood.balance-query.core :as core]
-    [com.repldriven.queenswood.balance-query.store :as store]
-
-    [com.repldriven.queenswood.balance-domain.interface :as domain]))
+    [com.repldriven.queenswood.balance-query.domain :as domain]
+    [com.repldriven.queenswood.balance-query.store :as store]))
 
 (defn get-balance
   "Look up a single balance by its composite primary key. Returns
@@ -161,6 +160,49 @@
   have to name it, rather than reaching them one account at a time."}
   store-name
   store/store-name)
+
+
+(defn posted-balance
+  "Credit-positive total of the posted (settled) buckets in `balances`,
+  as `{:value :currency}`.
+
+  Args:
+  - balances: collection of balance maps.
+  - currency: ISO 4217 currency string stamped on the result."
+  [balances currency]
+  (domain/posted-balance balances currency))
+
+(defn available-balance
+  "Credit-positive total of the spendable buckets in `balances` (posted
+  plus pending-outgoing reservations, excluding GL), as
+  `{:value :currency}`.
+
+  Args:
+  - balances: collection of balance maps.
+  - currency: ISO 4217 currency string stamped on the result."
+  [balances currency]
+  (domain/available-balance balances currency))
+
+(defn derived?
+  "Whether `balance` is the sum of its legs rather than what its row
+  holds: a cash account's default bucket, whose rows a posting no longer
+  writes. Every other bucket, and every general-ledger account's, is the
+  row as stored. ADR-0042.
+
+  Args:
+  - balance: a balance map."
+  [balance]
+  (domain/derived? balance))
+
+(defn available-delta
+  "How far one account's `legs` together move its available balance:
+  what they add to its posted and pending-outgoing default buckets less
+  what they take, in minor units.
+
+  Args:
+  - legs: one account's legs."
+  [legs]
+  (domain/available-delta legs))
 
 (defn trial-balance
   "Aggregate account-level posted balances into a per-currency trial

@@ -1,6 +1,6 @@
 (ns com.repldriven.queenswood.balance.domain
   (:require
-    [com.repldriven.queenswood.balance-domain.interface :as balance-math]
+    [com.repldriven.queenswood.balance-query.interface :as q]
     [com.repldriven.queenswood.policy.interface :as policy]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
@@ -121,8 +121,8 @@
 (defn- check-available
   [pre post transaction-type policies]
   (let [{:keys [currency]} (first post)
-        pre-amount (balance-math/available-balance pre currency)
-        post-amount (balance-math/available-balance post currency)]
+        pre-amount (q/available-balance pre currency)
+        post-amount (q/available-balance post currency)]
     (policy/check-limit policies
                         :balance
                         {:kind {:computed {:name "available"}}
@@ -143,7 +143,7 @@
   after the posting recorded its legs, so its sums already hold them."
   [balances legs]
   (mapv (fn [b]
-          (if (balance-math/derived? b)
+          (if (q/derived? b)
             (reduce (fn [b leg]
                       (if (= (bucket b) (bucket leg))
                         (update b
@@ -168,7 +168,7 @@
     (into []
           (comp (remove (fn [b] (= b (get old-by (bucket b)))))
                 (keep (fn [b]
-                        (cond (not (balance-math/derived? b))
+                        (cond (not (q/derived? b))
                               b
 
                               (contains? old-by (bucket b))

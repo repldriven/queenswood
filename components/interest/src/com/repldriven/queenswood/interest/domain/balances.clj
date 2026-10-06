@@ -1,6 +1,6 @@
 (ns com.repldriven.queenswood.interest.domain.balances
   (:require
-    [com.repldriven.queenswood.balance-domain.interface :as balance-math]))
+    [com.repldriven.queenswood.balance-query.interface :as balance-query]))
 
 (defn- bucket
   [balances balance-type currency balance-status]
@@ -39,4 +39,4 @@
   "The principal amount for calculating accrued interest for `currency`,
   or zero when not found"
   [balances currency]
-  (:value (balance-math/available-balance balances currency)))
+  (:value (balance-query/available-balance balances currency)))

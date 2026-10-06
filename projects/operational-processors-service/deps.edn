@@ -18,7 +18,6 @@
   component/bank-activity {:local/root "../../components/bank-activity"}
   component/fdb {:local/root "../../components/fdb"}
   component/balance {:local/root "../../components/balance"}
-  component/balance-domain {:local/root "../../components/balance-domain"}
   component/balance-query {:local/root "../../components/balance-query"}
   component/bank {:local/root "../../components/bank"}
   component/bank-query {:local/root "../../components/bank-query"}
