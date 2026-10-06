@@ -96,22 +96,20 @@
                                    (mapv (comp :account-id first) chunk))
        accrued (accruals config ctx chunk carries)
        expense (expense-ids ctx accrued)
-       _ (reduce (fn [_ transaction]
-                   (let [result (let-nom>
-                                  [legs (ledger-accounts/ensure-controls
-                                         txn
-                                         bank-id
-                                         (:currency transaction)
-                                         (:legs transaction))]
-                                  (transactions/record-transaction
-                                   txn
-                                   (assoc transaction :legs legs)))]
-                     (when (error/anomaly? result) (reduced result))))
-                 nil
-                 (accrual/chunk-transactions bank-id
+       recording (accrual/chunk-transactions bank-id
                                              expense
                                              accrued
-                                             business-day))]
+                                             business-day)
+       _ (reduce (fn [_ transaction]
+                   (let [checked (ledger-accounts/ensure-controls
+                                  txn
+                                  bank-id
+                                  (:currency transaction)
+                                  (:legs transaction))]
+                     (when (error/anomaly? checked) (reduced checked))))
+                 nil
+                 recording)
+       _ (transactions/record-transactions txn recording)]
       (into {}
             (map (fn [[account result]] [(:account-id account) result]))
             accrued))))

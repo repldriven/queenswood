@@ -28,6 +28,20 @@
   [txn data]
   (core/record txn data))
 
+(defn record-transactions
+  "Record several transactions and their legs, as `record-transaction`
+  records one, saving them together so their records' reads cost one
+  round trip. Short-circuits on the first anomaly, recording none.
+
+  Args:
+  - txn: FDB handle or open transaction.
+  - datas: transaction data maps, as `record-transaction` takes.
+
+  Returns the transaction maps, each with `:legs`, in order, or an
+  anomaly."
+  [txn datas]
+  (core/record-many txn datas))
+
 (defn record-and-post
   "Record a transaction with its legs and apply them to balances in one
   FDB transaction. On a uniqueness violation — the same

@@ -6,7 +6,28 @@
     [com.repldriven.queenswood.balance.interface :as balances]
     [com.repldriven.queenswood.bank-activity.interface :as bank-activity]
 
-    [com.repldriven.mono.error.interface :refer [let-nom>]]))
+    [com.repldriven.mono.error.interface :as error :refer [let-nom>]]))
+
+(defn- prepare
+  [data]
+  (let-nom>
+    [transaction (domain/new-transaction data)
+     _ (domain/validate-legs (:legs data))]
+    (assoc transaction
+           :legs
+           (mapv (fn [leg] (domain/new-leg leg transaction)) (:legs data)))))
+
+(defn- record-posted
+  [txn data transaction]
+  (let [{:keys [transaction-id bank-id]} transaction]
+    (bank-activity/record txn
+                          {:bank-id bank-id
+                           :event-name "transaction-posted"
+                           :data (domain/posted transaction
+                                                (:legs data)
+                                                (:scheme-account-id data))
+                           :causation-id transaction-id
+                           :dedup-key transaction-id})))
 
 (defn record
   [txn data]
@@ -14,23 +35,32 @@
    txn
    (fn [txn]
      (let-nom>
-       [transaction (domain/new-transaction data)]
-       (let [{:keys [legs]} data
-             {:keys [transaction-id]} transaction
-             legs' (mapv (fn [leg] (domain/new-leg leg transaction)) legs)]
-         (let-nom>
-           [_ (domain/validate-legs legs)
-            _ (store/save-transaction-and-legs txn transaction legs')
-            _ (bank-activity/record txn
-                                    {:bank-id (:bank-id transaction)
-                                     :event-name "transaction-posted"
-                                     :data (domain/posted
-                                            transaction
-                                            legs
-                                            (:scheme-account-id data))
-                                     :causation-id transaction-id
-                                     :dedup-key transaction-id})]
-           (assoc transaction :legs legs')))))))
+       [transaction (prepare data)
+        _ (store/save-transaction-and-legs txn
+                                           (dissoc transaction :legs)
+                                           (:legs transaction))
+        _ (record-posted txn data transaction)]
+       transaction))))
+
+(defn record-many
+  [txn datas]
+  (store/transact
+   txn
+   (fn [txn]
+     (let-nom>
+       [transactions (reduce
+                      (fn [acc data]
+                        (let [t (prepare data)]
+                          (if (error/anomaly? t) (reduced t) (conj acc t))))
+                      []
+                      datas)
+        _ (store/save-transactions-and-legs txn transactions)
+        _ (reduce (fn [_ [data transaction]]
+                    (let [result (record-posted txn data transaction)]
+                      (when (error/anomaly? result) (reduced result))))
+                  nil
+                  (map vector datas transactions))]
+       transactions))))
 
 (defn- or-already-recorded
   "On a uniqueness violation — a redelivered record-transaction command

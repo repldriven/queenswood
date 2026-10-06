@@ -40,20 +40,17 @@
                                        account-run/done?)))
                      chunk)
           outcomes (if (seq todo) (chunk-fn config ctx txn todo) {})
-          _ (reduce (fn [_ [account]]
-                      (let [id (:account-id account)
-                            result (store/save-account-run
-                                    txn
-                                    (account-run/done
-                                     (account-run/new bank-id
-                                                      business-day
-                                                      account-kind
-                                                      account
-                                                      (get rows id))
-                                     (get outcomes id)))]
-                        (when (error/anomaly? result) (reduced result))))
-                    nil
-                    todo)]
+          _ (store/save-account-runs
+             txn
+             (mapv (fn [[account]]
+                     (let [id (:account-id account)]
+                       (account-run/done (account-run/new bank-id
+                                                          business-day
+                                                          account-kind
+                                                          account
+                                                          (get rows id))
+                                         (get outcomes id))))
+                   todo))]
          {:done (count todo) :skipped (- (count chunk) (count todo))})))))
 
 (defn- mark-chunk-failed
@@ -78,23 +75,21 @@
                                         business-day
                                         account-kind
                                         (mapv (comp :account-id first) chunk))]
-         (reduce
-          (fn [_ [account]]
-            (let [row (get rows (:account-id account))
-                  result (when-not (some-> row
-                                           account-run/done?)
-                           (store/save-account-run
-                            txn
-                            (account-run/failed
-                             (account-run/new bank-id
-                                              business-day
-                                              account-kind
-                                              account
-                                              row)
-                             (error/kind anomaly))))]
-              (when (error/anomaly? result) (reduced result))))
-          nil
-          chunk))))))
+         (store/save-account-runs
+          txn
+          (into []
+                (keep (fn [[account]]
+                        (let [row (get rows (:account-id account))]
+                          (when-not (some-> row
+                                            account-run/done?)
+                            (account-run/failed (account-run/new
+                                                 bank-id
+                                                 business-day
+                                                 account-kind
+                                                 account
+                                                 row)
+                                                (error/kind anomaly))))))
+                chunk)))))))
 
 (defn- settle
   "Waits on the oldest chunk in flight and adds its outcome to the tally.

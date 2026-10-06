@@ -51,18 +51,6 @@
 (def ^:private carry-index
   "InterestAccountRun_sum_carry_change_by_bank_kind_account")
 
-(defn load-account-run
-  "Reads one account's row for a run. Returns nil when absent, which is
-  how enumeration tells a fresh account from one a prior attempt
-  already finished."
-  [txn bank-id business-day kind account-id]
-  (some-> (fdb/load-record (fdb/open txn interest-account-runs-store-name)
-                           bank-id
-                           business-day
-                           (schema/interest-account-run-kind->int kind)
-                           account-id)
-          schema/pb->InterestAccountRun))
-
 (defn load-account-runs
   "Reads the rows of `account-ids` for a run in one round trip, as a map
   of account id to row, an account with none absent."
@@ -76,12 +64,15 @@
                   (when record [id (schema/pb->InterestAccountRun record)])))
           (map vector account-ids records))))
 
-(defn save-account-run
-  "Writes one account's row. Joins the caller's transaction so the DONE
-  flip commits with the posting it records."
-  [txn account-run]
-  (fdb/save-record (fdb/open txn interest-account-runs-store-name)
-                   (schema/InterestAccountRun->java account-run)))
+(defn save-account-runs
+  "Writes several accounts' rows, their reads issued together. Joins
+  the caller's transaction so the DONE flips commit with the postings
+  they record."
+  [txn account-runs]
+  (let [store (fdb/open txn interest-account-runs-store-name)]
+    (fdb/save-records (mapv (fn [row] [store
+                                       (schema/InterestAccountRun->java row)])
+                            account-runs))))
 
 (defn load-carries
   "The sub-unit carry each of `account-ids` opens its next accrual with,

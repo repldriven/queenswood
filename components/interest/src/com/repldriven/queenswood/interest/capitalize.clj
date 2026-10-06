@@ -10,16 +10,21 @@
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]))
 
 (defn- record
-  "Records one account's capitalisation, returning its recorded legs."
-  [txn bank-id transaction]
+  "Records the chunk's capitalisations, after checking each currency's
+  controls once, returning their recorded legs."
+  [txn bank-id transactions]
   (let-nom>
-    [legs (ledger-accounts/ensure-controls txn
-                                           bank-id
-                                           (:currency transaction)
-                                           (:legs transaction))
-     recorded (transactions/record-transaction txn
-                                               (assoc transaction :legs legs))]
-    (:legs recorded)))
+    [_ (reduce (fn [_ [currency txs]]
+                 (let [checked (ledger-accounts/ensure-controls
+                                txn
+                                bank-id
+                                currency
+                                (into [] (mapcat :legs) txs))]
+                   (when (error/anomaly? checked) (reduced checked))))
+               nil
+               (group-by :currency transactions))
+     recorded (transactions/record-transactions txn transactions)]
+    (into [] (mapcat :legs) recorded)))
 
 (defn- capitalize-chunk
   "Each account in a chunk has its accrued interest swept into its
@@ -45,13 +50,9 @@
                               [account sweep])))
                     chunk)]
     (let-nom>
-      [legs (reduce (fn [acc [_ sweep]]
-                      (let [legs (record txn bank-id (:transaction sweep))]
-                        (if (error/anomaly? legs)
-                          (reduced legs)
-                          (into acc legs))))
-                    []
-                    swept)
+      [legs (if (seq swept)
+              (record txn bank-id (mapv (comp :transaction second) swept))
+              [])
        _ (when (seq legs)
            (balances/apply-legs txn
                                 bank-id
