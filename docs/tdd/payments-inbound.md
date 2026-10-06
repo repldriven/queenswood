@@ -236,7 +236,8 @@ whose row is saved only when the bucket opens. The current account
 control is summed from the creditor's legs too. The transaction names
 the creditor as the account the scheme moved the money through, so its
 `transaction-posted` entry nets to nothing at a provider holding a
-balance per account, which credited it itself. A settlement delivered
+balance per account, which credited it itself, and the activity event
+processor reads and records nothing for it. A settlement delivered
 again finds the payment its scheme transaction id names and saves
 nothing. A handler that fails is delivered again, and dead-lettered once
 its retries run out.

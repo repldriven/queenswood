@@ -30,6 +30,22 @@
          (if (= amount due) (rest cs) (cons [c (- due amount)] (rest cs)))
          (conj out {:debtor d :creditor c :amount amount}))))))
 
+(defn mirrors-nothing?
+  "True for a posting `provider-transfers` turns into no transfer whatever
+  its accounts' parties: one with no mirrored leg, or one whose mirrored
+  legs are all on the account the scheme moved the money through and on
+  1100, summing to zero, since 1100 nets to that same account's party."
+  [posted cash-at-correspondent-id]
+  (let [{:keys [legs scheme-account-id]} posted
+        mirrored (filter mirrored? legs)]
+    (or (empty? mirrored)
+        (and (some? scheme-account-id)
+             (every? (fn [{:keys [account-id]}]
+                       (contains? #{scheme-account-id cash-at-correspondent-id}
+                                  account-id))
+                     mirrored)
+             (zero? (reduce + 0 (map net mirrored)))))))
+
 (defn provider-transfers
   "The movements between provider accounts that make them hold what the
   posting left in the ledger, each named by the cash accounts whose

@@ -331,14 +331,17 @@ sequenceDiagram
     end
     end
     alt the bank's provider declares balances: per-account
-    critical transact
-    AP->>DB: read the ProviderTransfers already recorded for the transaction
-    alt none recorded
     opt 🟧 1100 and the own-funds account not cached
+    critical transact
     AP->>DB: read 🟧 1100's LedgerAccount, by id where cached, else by code
     AP->>DB: read the bank's own-funds CashAccountProducts
     AP->>DB: read the own-funds CashAccount, by its product
     end
+    end
+    alt a posted default leg on an account other than the scheme's and 1100, or one that does not net to zero
+    critical transact
+    AP->>DB: read the ProviderTransfers already recorded for the transaction
+    alt none recorded
     opt a leg's account not cached
     AP->>DB: read the CashAccounts behind the legs not cached, in one batch
     end
@@ -351,6 +354,9 @@ sequenceDiagram
     end
     loop each ProviderTransfer still pending
     AP->>MC: transfer-between-accounts, debtor and creditor accounts
+    end
+    else no posted default leg, or the scheme's own settlement
+    Note over AP: nothing read, recorded or sent
     end
     else balances: pooled
     Note over AP: nothing recorded or sent
@@ -373,7 +379,11 @@ per party: the debtor's cash account owes, the creditor's is owed, and
 the pair becomes one `ProviderTransfer`, unique on transaction and pair.
 The bank's providers, its 1100 and own-funds account, and an account's
 party once it has a provider account never change, so each is read
-once and cached for an hour.
+once and cached for an hour. A posting with no posted default leg, as
+an outbound's reservation, or whose posted default legs are only on the
+account the scheme moved the money through and on 1100 and net to zero,
+as the scheme's own settlement, moves no money whatever its accounts'
+parties, so it reads and records nothing.
 
 A `transaction-posted` delivered again, because a send failed or the
 process stopped before the ack, finds its transfers recorded, saves

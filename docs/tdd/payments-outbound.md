@@ -610,7 +610,9 @@ opens. It leaves the available balance as it was, so no limit bounds it
 and the debtor's sums are read at snapshot. The transaction
 names the debtor as the account the scheme moved the money through, so
 its `transaction-posted` entry nets to nothing at a provider holding a
-balance per account, which moved the money itself. A settlement for a
+balance per account, which moved the money itself, and the activity
+event processor reads and records nothing for it, nor for the
+submission's reservation. A settlement for a
 `failed` payment is logged at ERROR.
 
 ### Rejected
