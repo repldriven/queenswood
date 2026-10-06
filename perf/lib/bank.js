@@ -275,13 +275,22 @@ function openAccounts(n, partyIds, productId, bearer) {
   ).map((b) => ({ id: b["account-id"], bban: b.bban }));
 }
 
+// What the bank's own funds keep beyond what they pay into the accounts,
+// as a share of it, for the interest and rewards they pay later.
+const RESERVE = 0.1;
+
+// The minor units `fund` credits the bank's own funds with.
+function credited(accounts, each) {
+  return each * accounts.length + Math.ceil(each * accounts.length * RESERVE);
+}
+
 // Pays `each` minor units into every account from the bank's own funds,
 // after crediting those funds with an inbound transfer.
 function fund(accounts, each, bearer) {
   const own = expect(
     postRetried(
       "/v1/simulate/inbound-transfer",
-      { amount: each * accounts.length, currency: "GBP" },
+      { amount: credited(accounts, each), currency: "GBP" },
       bearer,
       { tags: SETUP },
     ),
@@ -355,7 +364,7 @@ export function build(n, each, rateBps) {
     clientId,
     clientSecret,
     ownFunds,
-    injected: each > 0 ? each * accounts.length : 0,
+    injected: each > 0 ? credited(accounts, each) : 0,
     accounts,
     bbans: opened.map((a) => a.bban),
     token: token(clientId, clientSecret),
