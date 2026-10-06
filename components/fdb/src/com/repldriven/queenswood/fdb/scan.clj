@@ -2,12 +2,15 @@
   (:import
     (com.apple.foundationdb.record EndpointType
                                    ExecuteProperties
+                                   IndexScanType
                                    ScanProperties
                                    TupleRange)
     (com.apple.foundationdb.record.provider.foundationdb
+     FDBIndexedRecord
      FDBRecordStore
      FDBStoreTimer$Waits
-     FDBStoredRecord)
+     FDBStoredRecord
+     IndexOrphanBehavior)
     (com.apple.foundationdb.tuple Tuple)
     (java.util.concurrent CompletableFuture)))
 
@@ -163,3 +166,33 @@
                                 FDBStoreTimer$Waits/WAIT_SCAN_RECORDS
                                 f)))
           futures)))
+
+(defn- index-range
+  "Every key under `prefix`, or, with `through`, those under `prefix`
+  whose next fields are at most `through`'s."
+  ^TupleRange [prefix through]
+  (let [low (Tuple/from (into-array Object prefix))]
+    (if through
+      (TupleRange. low
+                   (Tuple/from (into-array Object (into (vec prefix) through)))
+                   EndpointType/RANGE_INCLUSIVE
+                   EndpointType/RANGE_INCLUSIVE)
+      (prefix-range low))))
+
+(defn scan-index-records
+  [^FDBRecordStore store index-name prefix {:keys [limit through]}]
+  (let [props (ScanProperties. (-> (ExecuteProperties/newBuilder)
+                                   (.setReturnedRowLimit (int limit))
+                                   .build))]
+    (->> (.scanIndexRecords store
+                            ^String index-name
+                            IndexScanType/BY_VALUE
+                            (index-range prefix through)
+                            nil
+                            IndexOrphanBehavior/ERROR
+                            props)
+         .asList
+         (.asyncToSync (.getContext store)
+                       FDBStoreTimer$Waits/WAIT_SCAN_INDEX_RECORDS)
+         (mapv (fn [^FDBIndexedRecord r]
+                 (.toByteArray (.getRecord (.getStoredRecord r))))))))
