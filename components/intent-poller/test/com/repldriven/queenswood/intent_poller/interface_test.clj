@@ -51,6 +51,18 @@
 (SUT/defoperations :poller-limit
                    {"call" {:call respond :answered answered :failed failed}})
 
+(defn- reconciled
+  [_config _now _intent]
+  {:status "settled"})
+
+(SUT/defoperations
+ :poller-reconcile
+ {"call"
+  {:call respond :answered answered :failed failed :reconcile reconciled}})
+
+(SUT/defoperations :poller-unread-sent
+                   {"call" {:call respond :answered answered :failed failed}})
+
 (defn- spec
   [adapter]
   {:adapter adapter
@@ -256,6 +268,57 @@
           (testing "and the next pass the rest"
             (is (= 1 (SUT/drain-once config (+ t0 1))))
             (is (= "settled" (status "lim.3"))))
+          (finally (.shutdown executor))))))
+
+(deftest unread-sent-test
+  (with-test-system
+   [sys "classpath:intent-poller/application-test.yml"]
+   (let [answers (atom [:answered nil])
+         executor (Executors/newFixedThreadPool 4)
+         config (assoc (poller-config sys :poller-unread-sent answers)
+                       :executor executor
+                       :pass-limit 2
+                       :settles-first? (fn [i] (= "uns.4" (:intent-id i))))
+         spec (spec :poller-unread-sent)
+         t0 1000000
+         save (fn [id status subjects]
+                (SUT/save-intent
+                 config
+                 spec
+                 (assoc (intent id t0) :status status :subjects subjects)))
+         status (fn [id] (:status (by-id config id)))]
+     (try (nom-test> [_ (save "uns.1" "sent" ["a"])
+                      _ (save "uns.2" "sent" ["b"])
+                      _ (save "uns.3" "pending" ["c"])
+                      _ (save "uns.4" "pending" ["d"])
+                      _ (save "uns.5" "pending" ["d"])])
+          (testing "a full read of sent intents holds only what settles first"
+            (is (= 1 (SUT/drain-once config t0)))
+            (is (= ["settled" "pending" "pending"]
+                   (mapv status ["uns.3" "uns.4" "uns.5"]))))
+          (finally (.shutdown executor))))))
+
+(deftest reconcile-concurrently-test
+  (with-test-system
+   [sys "classpath:intent-poller/application-test.yml"]
+   (let [answers (atom [:answered nil])
+         executor (Executors/newFixedThreadPool 4)
+         config (assoc (poller-config sys :poller-reconcile answers)
+                       :executor
+                       executor)
+         spec (spec :poller-reconcile)
+         t0 1000000
+         save (fn [id]
+                (SUT/save-intent
+                 config
+                 spec
+                 (assoc (intent id t0) :status "sent" :subjects [id])))
+         status (fn [id] (:status (by-id config id)))]
+     (try (nom-test> [_ (save "rec.1") _ (save "rec.2") _ (save "rec.3")])
+          (testing "a pass reconciles every due sent intent on its workers"
+            (SUT/drain-once config t0)
+            (is (= ["settled" "settled" "settled"]
+                   (mapv status ["rec.1" "rec.2" "rec.3"]))))
           (finally (.shutdown executor))))))
 
 (deftest ordering-key-test

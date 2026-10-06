@@ -152,10 +152,10 @@ Form3 and Modulr, a `reconcile-after-ms`, all required, and optionally a
 A pass reads at most `pass-limit` intents of each status, 1,000 by
 default, the oldest first, scanning the status index under the status
 rather than querying it. An intent beyond the limit is later than every
-one read, so it can hold none of them; where the sent read stops at its
-limit, only the pending intents older than the last sent one read are
-taken, so a close or reissue never runs ahead of an unread sent call it
-has to wait for.
+one read, so it can hold none of them. Where the sent read stops at its
+limit, a close or reissue newer than the last sent one read stays the
+pass without running, holding its account, so it never runs ahead of an
+unread sent call it has to wait for; every other pending intent runs.
 
 A `concurrency` above one gives the poller that many worker threads.
 While the breaker is closed, a pass runs in rounds: each takes the
@@ -165,9 +165,10 @@ unsent, nor, for a call that settles first, unsettled — runs them on the
 workers, and the next round is worked out from what that one left. A
 call it sent frees its subjects for the subject's next call in the same
 pass; one it settled or failed leaves the pass; one still pending holds
-its subjects, without running again, until the next pass. A probe, and
-a poller with no `concurrency`, drain in order on the poller's own
-thread. A failure that
+its subjects, without running again, until the next pass. The pass
+then reconciles its due sent intents on the workers too. A probe, and
+a poller with no `concurrency`, drain and reconcile in order on the
+poller's own thread. A failure that
 opens the breaker stops the calls not yet started, while up to
 `concurrency` less one already in flight finish. An answer through a
 breaker the pass found closed with no failure counted is not recorded,
