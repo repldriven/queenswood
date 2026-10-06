@@ -259,23 +259,38 @@
                           :balance-status :balance-status-posted
                           :currency "GBP"}]))
 
+(defn- post
+  "Records `legs` and applies the ones a balance row holds, as a posting
+  does: a cash account's default bucket is the sum of its recorded legs."
+  [config bank-id key transaction-type legs]
+  (error/let-nom>
+    [recorded (transactions/record-transaction config
+                                               {:bank-id bank-id
+                                                :idempotency-key key
+                                                :transaction-type
+                                                transaction-type
+                                                :currency "GBP"
+                                                :legs legs})
+     stored (SUT/stored-legs config bank-id "GBP" (:legs recorded))]
+    (balance/apply-legs config bank-id stored transaction-type)))
+
 (defn- deposit
-  [config bank-id cash-id account-id amount]
-  (balance/apply-legs config
-                      bank-id
-                      [{:account-id cash-id
-                        :balance-type :balance-type-default
-                        :balance-status :balance-status-posted
-                        :side :leg-side-debit
-                        :amount amount
-                        :currency "GBP"}
-                       {:account-id account-id
-                        :balance-type :balance-type-default
-                        :balance-status :balance-status-posted
-                        :side :leg-side-credit
-                        :amount amount
-                        :currency "GBP"}]
-                      :transaction-type-inbound-transfer))
+  [config bank-id cash-id account-id product-type amount]
+  (post config
+        bank-id
+        (str "deposit-" account-id "-" amount)
+        :transaction-type-inbound-transfer
+        [{:account-id cash-id
+          :balance-type :balance-type-default
+          :balance-status :balance-status-posted
+          :side :leg-side-debit
+          :amount amount}
+         {:account-id account-id
+          :product-type product-type
+          :balance-type :balance-type-default
+          :balance-status :balance-status-posted
+          :side :leg-side-credit
+          :amount amount}]))
 
 (deftest control-balance-is-its-sub-ledger-sum-test
   (with-test-system
@@ -300,9 +315,24 @@
                                           bank-id
                                           "acc.savings1"
                                           :product-type-sub-ledger-savings)
-                 _ (deposit config bank-id cash-id "acc.current1" 1000)
-                 _ (deposit config bank-id cash-id "acc.current2" 500)
-                 _ (deposit config bank-id cash-id "acc.savings1" 70)
+                 _ (deposit config
+                            bank-id
+                            cash-id
+                            "acc.current1"
+                            :product-type-sub-ledger-current
+                            1000)
+                 _ (deposit config
+                            bank-id
+                            cash-id
+                            "acc.current2"
+                            :product-type-sub-ledger-current
+                            500)
+                 _ (deposit config
+                            bank-id
+                            cash-id
+                            "acc.savings1"
+                            :product-type-sub-ledger-savings
+                            70)
                  control (current-deposits-control config bank-id)
                  bals (SUT/get-balances config bank-id control)
                  _ (is (= {:value 1500 :currency "GBP"} (:posted-balance bals))
@@ -322,17 +352,22 @@
                     "the chart pairs the control with the same summed balance")]))))
 
 (defn- reserve
-  [config bank-id account-id product-type amount]
-  (balance/apply-legs config
-                      bank-id
-                      [{:account-id account-id
-                        :product-type product-type
-                        :balance-type :balance-type-default
-                        :balance-status :balance-status-pending-outgoing
-                        :side :leg-side-debit
-                        :amount amount
-                        :currency "GBP"}]
-                      :transaction-type-outbound-transfer))
+  [config bank-id pending-id account-id product-type amount]
+  (post config
+        bank-id
+        (str "reserve-" account-id "-" amount)
+        :transaction-type-outbound-transfer
+        [{:account-id account-id
+          :product-type product-type
+          :balance-type :balance-type-default
+          :balance-status :balance-status-pending-outgoing
+          :side :leg-side-debit
+          :amount amount}
+         {:account-id pending-id
+          :balance-type :balance-type-default
+          :balance-status :balance-status-pending-outgoing
+          :side :leg-side-credit
+          :amount amount}]))
 
 (deftest pending-outbound-mirrors-pending-outgoing-test
   (with-test-system
@@ -354,22 +389,34 @@
                                  bank-id
                                  "acc.savings1"
                                  :product-type-sub-ledger-savings)
-        _ (deposit config bank-id cash-id "acc.current1" 1000)
-        _ (deposit config bank-id cash-id "acc.savings1" 1000)
+        _ (deposit config
+                   bank-id
+                   cash-id
+                   "acc.current1"
+                   :product-type-sub-ledger-current
+                   1000)
+        _ (deposit config
+                   bank-id
+                   cash-id
+                   "acc.savings1"
+                   :product-type-sub-ledger-savings
+                   1000)
+        pending (SUT/find-by-code config
+                                  bank-id
+                                  :gl-account-code-pending-outbound
+                                  "GBP")
         _ (reserve config
                    bank-id
+                   (:ledger-account-id pending)
                    "acc.current1"
                    :product-type-sub-ledger-current
                    300)
         _ (reserve config
                    bank-id
+                   (:ledger-account-id pending)
                    "acc.savings1"
                    :product-type-sub-ledger-savings
                    200)
-        pending (SUT/find-by-code config
-                                  bank-id
-                                  :gl-account-code-pending-outbound
-                                  "GBP")
         bals (SUT/get-balances config bank-id pending)
         _
         (is

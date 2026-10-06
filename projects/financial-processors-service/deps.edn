@@ -19,7 +19,6 @@
   component/fdb {:local/root "../../components/fdb"}
   component/changelog-relay {:local/root "../../components/changelog-relay"}
   component/balance {:local/root "../../components/balance"}
-  component/balance-domain {:local/root "../../components/balance-domain"}
   component/balance-query {:local/root "../../components/balance-query"}
   component/bank-query {:local/root "../../components/bank-query"}
   component/cash-account-query {:local/root

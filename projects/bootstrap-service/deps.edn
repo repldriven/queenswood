@@ -20,14 +20,12 @@
  ;; `idv/criteria-check` kind, and `idv-query`, `party-query` and
  ;; `person-identification` because `idv` requires them, as it does
  ;; `bank-query` to read a bank's providers, which brings `balance`,
- ;; `balance-domain`, `balance-query`, `cash-account-query` and
- ;; `transaction` with it.
+ ;; `balance-query`, `cash-account-query` and `transaction` with it.
  :deps {ext/mono {:local/root "../../deps/mono"}
         component/bank-activity {:local/root "../../components/bank-activity"}
         component/changelog-relay {:local/root
                                    "../../components/changelog-relay"}
         component/balance {:local/root "../../components/balance"}
-        component/balance-domain {:local/root "../../components/balance-domain"}
         component/balance-query {:local/root "../../components/balance-query"}
         component/bank-query {:local/root "../../components/bank-query"}
         component/cash-account-product {:local/root

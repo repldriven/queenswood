@@ -24,7 +24,6 @@
   component/idv-query {:local/root "../../components/idv-query"}
   component/api-schema {:local/root "../../components/api-schema"}
   component/balance {:local/root "../../components/balance"}
-  component/balance-domain {:local/root "../../components/balance-domain"}
   component/balance-query {:local/root "../../components/balance-query"}
   component/bank-query {:local/root "../../components/bank-query"}
   component/cash-account-api {:local/root "../../components/cash-account-api"}

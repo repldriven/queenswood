@@ -7,5 +7,5 @@
 ;; five shims together anyway unless there is a reason not to.
 {:deps {com.repldriven.mono/dev
         {:git/url "https://github.com/repldriven/mono.git"
-         :git/tag "v0.0.56"
-         :git/sha "267324028ed8b799cf6b31238fdf259287707884"}}}
+         :git/tag "v0.0.57"
+         :git/sha "73dfe71c346d38855cdf057560c903e7b2dc2666"}}}

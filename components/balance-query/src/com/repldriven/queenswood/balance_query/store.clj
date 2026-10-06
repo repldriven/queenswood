@@ -1,5 +1,7 @@
 (ns com.repldriven.queenswood.balance-query.store
   (:require
+    [com.repldriven.queenswood.balance-query.domain :as domain]
+
     [com.repldriven.queenswood.fdb.interface :as fdb]
     [com.repldriven.queenswood.schema.interface :as schema]
 
@@ -13,22 +15,90 @@
 
 (def transact fdb/transact)
 
+;; must match transaction.store/legs-store-name: a balance is read from
+;; the legs' SUM indexes, and requiring `transaction`, which applies legs
+;; through `balance`, would make a cycle.
+(def ^:private legs-store-name "transaction-legs")
+
+(def ^:private account-leg-sum-index
+  "TransactionLeg_sum_amount_by_account_bucket_side")
+
+(def ^:private sub-ledger-leg-sum-index
+  "TransactionLeg_sum_amount_by_bank_product_currency_bucket_side")
+
+(defn- start-account-sums
+  "Starts one scan of each account's leg sums, every bucket and side, and
+  returns a function that waits on them and returns a map of bucket key
+  to `[credit debit]`, so the rows can be scanned meanwhile."
+  [txn account-ids snapshot?]
+  (let [store (fdb/open txn legs-store-name)
+        scans (mapv (fn [id]
+                      (fdb/sum-groups-later store
+                                            account-leg-sum-index
+                                            [id]
+                                            {:isolation (if snapshot?
+                                                          :snapshot
+                                                          :serializable)}))
+                    account-ids)
+        credit (schema/leg-side->int :leg-side-credit)]
+    (fn []
+      (reduce (fn [by-bucket [[id balance-type balance-status side] sum]]
+                (update by-bucket
+                        [id balance-type balance-status]
+                        (fnil
+                         (fn [[c d]]
+                           (if (= credit side) [(+ c sum) d] [c (+ d sum)]))
+                         [0 0])))
+              {}
+              (mapcat (fn [scan] (scan)) scans)))))
+
+(defn- summed
+  "`balances` with each derived bucket given the sums in `by-bucket`,
+  keyed by account and the bucket's type and status as their ints. A
+  derived bucket no leg reached sums to zero."
+  [balances by-bucket]
+  (mapv (fn [balance]
+          (if (domain/derived? balance)
+            (let [{:keys [account-id balance-type balance-status]} balance
+                  [credit debit] (get by-bucket
+                                      [account-id
+                                       (schema/balance-type->int balance-type)
+                                       (schema/balance-status->int
+                                        balance-status)]
+                                      [0 0])]
+              (assoc balance :credit credit :debit debit))
+            balance))
+        balances))
+
+(defn with-leg-sums
+  [txn balances snapshot?]
+  (let [ids (into []
+                  (comp (filter domain/derived?) (map :account-id) (distinct))
+                  balances)]
+    (if (empty? ids)
+      balances
+      (summed balances ((start-account-sums txn ids snapshot?))))))
+
 (defn find-balance
   [txn bank-id account-id balance-type currency balance-status]
   (let-nom>
     [result (fdb/transact
              txn
              (fn [txn]
-               (fdb/load-record
-                (fdb/open txn store-name)
-                bank-id
-                account-id
-                (schema/balance-type->int balance-type)
-                currency
-                (schema/balance-status->int balance-status)))
+               (some->> (fdb/load-record
+                         (fdb/open txn store-name)
+                         bank-id
+                         account-id
+                         (schema/balance-type->int balance-type)
+                         currency
+                         (schema/balance-status->int balance-status))
+                        schema/pb->Balance
+                        vector
+                        ((fn [balances] (with-leg-sums txn balances false)))
+                        first))
              :balance/find
              "Failed to load balance")]
-    (when result (schema/pb->Balance result))))
+    result))
 
 (defn get-balance
   [txn bank-id account-id balance-type currency balance-status]
@@ -52,49 +122,57 @@
   [txn bank-id account-id]
   (fdb/transact txn
                 (fn [txn]
-                  (mapv schema/pb->Balance
-                        (:records (fdb/scan-records
-                                   (fdb/open txn store-name)
-                                   {:prefix [bank-id account-id]
-                                    :limit 100}))))
+                  (let [sums (start-account-sums txn [account-id] false)
+                        rows (mapv schema/pb->Balance
+                                   (:records (fdb/scan-records
+                                              (fdb/open txn store-name)
+                                              {:prefix [bank-id account-id]
+                                               :limit 100})))]
+                    (summed rows (sums))))
                 :balance/list
                 "Failed to list balances"))
 
 (defn list-balances-of
-  [txn bank-id account-ids]
-  (fdb/transact txn
-                (fn [txn]
-                  (zipmap account-ids
-                          (map (fn [records]
-                                 (mapv schema/pb->Balance records))
-                               (fdb/scan-prefixes
-                                (fdb/open txn store-name)
-                                (mapv (fn [id] [bank-id id]) account-ids)
-                                100))))
-                :balance/list
-                "Failed to list balances"))
-
-(def ^:private credit-sum-index
-  "Balance_sum_credit_by_bank_product_currency_bucket")
-
-(def ^:private debit-sum-index
-  "Balance_sum_debit_by_bank_product_currency_bucket")
+  [txn bank-id account-ids snapshot-ids]
+  (fdb/transact
+   txn
+   (fn [txn]
+     (let [{snapshot true serializable false}
+           (group-by (fn [id] (contains? snapshot-ids id)) account-ids)
+           snapshot-sums (start-account-sums txn snapshot true)
+           serializable-sums (start-account-sums txn serializable false)
+           rows (fdb/scan-prefixes (fdb/open txn store-name)
+                                   (mapv (fn [id] [bank-id id]) account-ids)
+                                   100)
+           by-bucket (merge (snapshot-sums) (serializable-sums))]
+       (zipmap account-ids
+               (map (fn [records]
+                      (summed (mapv schema/pb->Balance records) by-bucket))
+                    rows))))
+   :balance/list
+   "Failed to list balances"))
 
 (defn sum-bucket
   [txn bank-id product-type currency balance-type balance-status isolation]
   (fdb/transact
    txn
    (fn [txn]
-     (let [store (fdb/open txn store-name)
-           sum (if (= :serializable isolation)
-                 fdb/sum-records
-                 fdb/sum-records-snapshot)
-           group [bank-id
-                  (schema/product-type->int product-type)
-                  currency
-                  (schema/balance-type->int balance-type)
-                  (schema/balance-status->int balance-status)]]
-       {:credit (sum store credit-sum-index group)
-        :debit (sum store debit-sum-index group)}))
+     (let [aggregate (if (= :serializable isolation)
+                       fdb/aggregate-records
+                       fdb/aggregate-records-snapshot)
+           group (fn [side]
+                   [bank-id
+                    (schema/product-type->int product-type)
+                    currency
+                    (schema/balance-type->int balance-type)
+                    (schema/balance-status->int balance-status)
+                    (schema/leg-side->int side)])
+           [credit debit] (aggregate
+                           (fdb/open txn legs-store-name)
+                           [[:sum sub-ledger-leg-sum-index
+                             (group :leg-side-credit)]
+                            [:sum sub-ledger-leg-sum-index
+                             (group :leg-side-debit)]])]
+       {:credit credit :debit debit}))
    :balance/sum
    "Failed to sum balances"))

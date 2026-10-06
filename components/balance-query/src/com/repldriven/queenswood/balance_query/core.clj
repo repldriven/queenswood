@@ -1,8 +1,7 @@
 (ns com.repldriven.queenswood.balance-query.core
   (:require
+    [com.repldriven.queenswood.balance-query.domain :as domain]
     [com.repldriven.queenswood.balance-query.store :as store]
-
-    [com.repldriven.queenswood.balance-domain.interface :as domain]
 
     [com.repldriven.mono.error.interface :refer [let-nom>]]))
 

@@ -14,9 +14,9 @@
   becomes the customer's to spend. The customer's default balance is
   part of the deposit control its product type rolls into, so this one
   entry moves both sides of the bank's books."
-  [bank-id account-id currency payable-id accrued as-of-date]
+  [bank-id account currency payable-id accrued as-of-date]
   {:bank-id bank-id
-   :idempotency-key (idempotency-key account-id as-of-date)
+   :idempotency-key (idempotency-key (:account-id account) as-of-date)
    :transaction-type :transaction-type-interest-capital
    :currency currency
    :reference (str "Monthly interest capitalization "
@@ -27,7 +27,8 @@
            :side :leg-side-debit
            :amount accrued
            :currency currency}
-          {:account-id account-id
+          {:account-id (:account-id account)
+           :product-type (:product-type account)
            :balance-type :balance-type-default
            :balance-status :balance-status-posted
            :side :leg-side-credit
@@ -57,16 +58,17 @@
 
   This is the only part of interest a customer sees. Accrual runs
   silently day by day, capitalisation is the statement line."
-  [bank-id account-id currency payable-id account-balances as-of-date]
+  [bank-id account currency payable-id account-balances as-of-date]
   (let [accrued (balances/accrued-amount account-balances currency)]
     (when-not (zero? accrued)
       (let [tx (transaction bank-id
-                            account-id
+                            account
                             currency
                             payable-id
                             accrued
                             as-of-date)]
         {:transaction tx
-         :legs (conj (:legs tx) (accrued-leg account-id currency accrued))
+         :legs (conj (:legs tx)
+                     (accrued-leg (:account-id account) currency accrued))
          :amount accrued
          :principal accrued}))))

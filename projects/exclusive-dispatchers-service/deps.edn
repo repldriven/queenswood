@@ -21,7 +21,6 @@
   component/fdb {:local/root "../../components/fdb"}
   component/bank-activity {:local/root "../../components/bank-activity"}
   component/balance {:local/root "../../components/balance"}
-  component/balance-domain {:local/root "../../components/balance-domain"}
   component/balance-query {:local/root "../../components/balance-query"}
   component/bank-query {:local/root "../../components/bank-query"}
   component/cash-account {:local/root "../../components/cash-account"}

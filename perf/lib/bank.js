@@ -129,7 +129,7 @@ function createBank(admin) {
   return expect(res, 201, "creating the bank");
 }
 
-function createProduct(bearer) {
+function createProduct(bearer, rateBps) {
   const product = expect(
     post(
       "/v1/cash-account-products",
@@ -137,7 +137,7 @@ function createProduct(bearer) {
         name: "Perf Current Account",
         "template-id": "tpl.00000000000000000000000001",
         currency: "GBP",
-        "interest-rate-bps": 0,
+        "interest-rate-bps": rateBps || 0,
         "effective-from": "2026-01-01",
       },
       bearer,
@@ -309,8 +309,9 @@ function fund(accounts, each, bearer) {
   return own["account-id"];
 }
 
-// A fresh bank and its current-account product, with no customers.
-export function freshBank() {
+// A fresh bank and its current-account product, with no customers. The
+// product pays `rateBps` a year, nothing when it is omitted.
+export function freshBank(rateBps) {
   const bank = createBank(adminToken());
   const clientId = bank["client-id"];
   const clientSecret = bank["client-secret"];
@@ -319,7 +320,7 @@ export function freshBank() {
     bankId: bank["bank-id"],
     clientId,
     clientSecret,
-    productId: createProduct(bankToken.value),
+    productId: createProduct(bankToken.value, rateBps),
     token: bankToken,
   };
 }
@@ -346,8 +347,8 @@ export function history(accounts, perAccount, bearer) {
   }
 }
 
-export function build(n, each) {
-  const { bankId, clientId, clientSecret, productId } = freshBank();
+export function build(n, each, rateBps) {
+  const { bankId, clientId, clientSecret, productId } = freshBank(rateBps);
   const bearer = token(clientId, clientSecret).value;
   const parties = createParties(Math.min(n, PARTIES), bearer);
   const opened = openAccounts(n, parties, productId, bearer);

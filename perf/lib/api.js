@@ -135,6 +135,17 @@ export function postUntilKnown(path, body, bearer, opts) {
   }
 }
 
+export function put(path, body, bearer, opts) {
+  const o = opts || {};
+  return http.put(`${BASE_URL}${path}`, JSON.stringify(body), {
+    headers: headers(
+      bearer,
+      Object.assign({ "Idempotency-Key": crypto.randomUUID() }, o.headers),
+    ),
+    tags: o.tags,
+  });
+}
+
 export function get(path, bearer, opts) {
   const o = opts || {};
   return http.get(`${BASE_URL}${path}`, {

@@ -75,11 +75,13 @@ See [ADR-0032](../../../docs/adr/0032-signoz-is-configured-through-its-operator.
 A deposit or own-funds control — 2100, 2200, 2300, 3100 — holds no
 balance of its own: its balance is the sum of the `default / posted`
 balances of the cash accounts whose product type maps to it, read from
-the two SUM indexes on `balances`, over `credit` and over `debit`,
-grouped by `[bank_id, product_type, currency, balance_type,
-balance_status]`, which the Record Layer keeps by atomic mutation. A
-posting writes only the accounts its legs name and adds no leg for a
-control: call `ledger-account/ensure-controls` on a posting's legs
+the SUM index on `transaction-legs` over `amount`, grouped by
+`[bank_id, product_type, currency, balance_type, balance_status,
+side]`, which the Record Layer keeps by atomic mutation. A cash
+account's own `default` buckets are the sums of its legs, read from
+the per-account SUM index, so `balance/apply-legs` applies a leg on
+one only after it is recorded in the same transaction, and writes the
+bucket's row only when it opens. A posting adds no leg for a control: call `ledger-account/ensure-controls` on a posting's legs
 before recording them, which refuses `:gl/missing-currency-account` or
 `:ledger-account/closed` and returns the legs unchanged. 1200
 pending-outbound holds none either: its balance mirrors every customer
@@ -92,15 +94,17 @@ leaves its legs out of the balance writes too. Read a ledger account's
 balance through
 `ledger-account/get-balances`, never `balance-query` directly, at
 snapshot except a guard deciding inside its own transaction, and read
-a day's payment count or sum for a limit check at snapshot. A bucket a
-leg opens takes the leg's product type, else its account's, so every
-cash account's rows are summed into its own control. 2400, 2500 and
+a day's payment count or sum for a limit check at snapshot. A leg on a
+cash account carries its account's `product_type`, and every leg its
+`bank_id`, stamped when it is recorded, so every cash account's legs
+are summed into its own control. 2400, 2500 and
 5100 keep stored balances; capitalisation debits 2400 in each
 account's transaction and accrual credits it once per currency at the
 close of a run.
 See [ADR-0037](../../../docs/adr/0037-a-control-accounts-balance-is-the-sum-of-the-balances-that-roll-into-it.md),
 [ADR-0038](../../../docs/adr/0038-an-outbound-submit-writes-no-row-every-payment-shares.md),
-[ADR-0039](../../../docs/adr/0039-cash-at-correspondents-balance-is-the-sum-of-its-legs.md).
+[ADR-0039](../../../docs/adr/0039-cash-at-correspondents-balance-is-the-sum-of-its-legs.md),
+[ADR-0042](../../../docs/adr/0042-a-cash-accounts-balance-is-the-sum-of-its-legs.md).
 
 ## Record meta-data evolves by declared versions
 

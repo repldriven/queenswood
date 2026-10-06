@@ -40,7 +40,19 @@
                                                                     "LEG_SIDE_CREDIT"]}},
                   {"name": "amount",         "type": "long", "doc": "minor units, always > 0"},
                   {"name": "control",        "type": ["null", "boolean"], "default": null,
-                   "doc": "no longer set: a control account holds no balance of its own, see ADR-0037"}
+                   "doc": "no longer set: a control account holds no balance of its own, see ADR-0037"},
+                  {"name": "product_type",
+                   "type": ["null",
+                            {"type": "enum",
+                             "name": "ProductType",
+                             "symbols": ["PRODUCT_TYPE_UNKNOWN",
+                                         "PRODUCT_TYPE_GENERAL_LEDGER",
+                                         "PRODUCT_TYPE_SUB_LEDGER_CURRENT",
+                                         "PRODUCT_TYPE_SUB_LEDGER_SAVINGS",
+                                         "PRODUCT_TYPE_SUB_LEDGER_TERM_DEPOSIT",
+                                         "PRODUCT_TYPE_SUB_LEDGER_OWN_FUNDS"]}],
+                   "default": null,
+                   "doc": "the cash account's product type, which a control sums its legs by, see ADR-0042"}
                 ]}}}
   ]
 }
