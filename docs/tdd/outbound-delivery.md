@@ -149,13 +149,25 @@ The poller's and the relays' constants go: each adapter's
 Form3 and Modulr, a `reconcile-after-ms`, all required, and optionally a
 `concurrency`.
 
+A pass reads at most `pass-limit` intents of each status, 1,000 by
+default, the oldest first, scanning the status index under the status
+rather than querying it. An intent beyond the limit is later than every
+one read, so it can hold none of them; where the sent read stops at its
+limit, only the pending intents older than the last sent one read are
+taken, so a close or reissue never runs ahead of an unread sent call it
+has to wait for.
+
 A `concurrency` above one gives the poller that many worker threads.
-While the breaker is closed, a pass takes the intents
-`intent-queue/runnable` finds may run at once — the oldest due intent
-for each subject, with no earlier one for a subject it shares unsent,
-nor, for a call that settles first, unsettled — and runs them on the
-workers; the rest wait for a later pass. A probe, and a poller with no
-`concurrency`, drain in order on the poller's own thread. A failure that
+While the breaker is closed, a pass runs in rounds: each takes the
+intents `intent-queue/runnable` finds may run at once — the oldest due
+intent for each subject, with no earlier one for a subject it shares
+unsent, nor, for a call that settles first, unsettled — runs them on the
+workers, and the next round is worked out from what that one left. A
+call it sent frees its subjects for the subject's next call in the same
+pass; one it settled or failed leaves the pass; one still pending holds
+its subjects, without running again, until the next pass. A probe, and
+a poller with no `concurrency`, drain in order on the poller's own
+thread. A failure that
 opens the breaker stops the calls not yet started, while up to
 `concurrency` less one already in flight finish. An answer through a
 breaker the pass found closed with no failure counted is not recorded,
@@ -274,8 +286,10 @@ the runner had.
   and the intents behind the opening keep their attempts; an open
   breaker calls nothing; a probe's answer lets the rest through; an
   intent past `max-age-ms` fails while the breaker is open; with a
-  `concurrency`, a pass runs the first intent for each subject and leaves
-  a second for a subject to the next pass.
+  `concurrency`, a pass runs intents for different subjects at once and a
+  later one for a subject in a later round, an intent left pending holds
+  a later one for its subject, and a pass reads only the oldest up to
+  `pass-limit`.
 - **intent-queue** — `runnable` holding an intent behind an unsent one
   for a subject it shares, a call that settles first behind a sent one,
   and one not yet due.

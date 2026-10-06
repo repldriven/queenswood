@@ -629,9 +629,9 @@ run at the next:
     run took.
 23. **Measured in-flight limits.** On mono v0.0.59 the API's
     `max-in-flight` is measured from 200 and kept within a quarter of it,
-    and the six
-    busiest subscriptions run sixteen performers under a limit measured
-    from 4, as mono's decision on a dynamic concurrency limit has it. On knees in 30-second steps,
+    and the six busiest subscriptions run sixteen performers under a
+    limit measured from 4, as mono's decision on a dynamic concurrency
+    limit has it. On knees in 30-second steps,
     internal at 320 a second served 307 with none refused, where the fixed
     limits refused 13%, at a p50 of 62 ms at 160 rather than 44; the
     payment processor's limit rose to its sixteen performers. Outbound at
@@ -642,6 +642,18 @@ run at the next:
     let the limit fall to 18 under overload, at the lowest latency the
     limiter measured, and served about 1,030 a second at 2,560 asked
     rather than 1,500; with a floor at 200 they served about 1,450.
+24. **An adapter's backlog.** Where the provider holds each account's
+    balance, every posting is mirrored as a provider transfer, and a
+    perf bank's funding and capitalisation are all transfers out of the
+    house account. The intent poller ran one intent per subject per pass
+    and read every pending intent each pass, so a pass sent one of the
+    house account's transfers and took longer as the backlog grew: on a
+    10,001-account interest run its Modulr calls fell from 303 a minute
+    at about 2,000 pending to 34 at about 11,000. A pass now reads the
+    oldest thousand of each status from the status index and runs in
+    rounds, a subject's next call going out once its earlier one is
+    sent; the same backlog of about 30,000 calls drained in under four
+    minutes at up to 15,122 a minute.
 
 ### Span candidates
 
