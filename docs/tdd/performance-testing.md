@@ -609,6 +609,17 @@ run at the next:
     1,500 a second at 2,560 asked rather than 1,630: a read takes two
     range reads, the balance rows and the account's leg sums, where it
     took one.
+22. **Interest as legs.** A chunk's accrual is one transaction per
+    currency and its capitalisation one per account, both appending
+    legs, 2400 and 5100 sums of legs, and the carry the sum of each
+    accrual's change to it, so a chunk reads and rewrites no row another
+    chunk or a payment writes, and eight chunks post at once, as
+    [ADR-0042](../adr/0042-a-cash-accounts-balance-is-the-sum-of-its-legs.md)
+    stage two decides. On the same run over 10,001 accounts, accrual took
+    7.5 s rather than 9.8 and capitalisation 15.4 s rather than 24, no
+    account failed, and the payments held a p99 of 53 ms or less. Eight
+    chunks at once gained a third rather than the most of it, so the run
+    is held by the one merged scan that feeds them.
 
 ### Span candidates
 

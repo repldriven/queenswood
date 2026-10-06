@@ -518,6 +518,52 @@ components treat customer accounts as the universe; interest
 has to name the bank side too, because the money comes from
 somewhere.
 
+### Reading balances at the cut-off
+
+Not built yet. Each chunk takes its principals from the merged scan,
+read when the scan reached its accounts, so a run reads its accounts at
+as many moments as it has chunks. Money paid during a run from an
+account a chunk has read to one a later chunk has not earns a day's
+interest twice, on 5100, and money paid the other way earns none. The
+books still tie, so no invariant sees it. This section is what
+[ADR-0042](../adr/0042-a-cash-accounts-balance-is-the-sum-of-its-legs.md)
+means by a run's read at its cut-off, and the order to build it in.
+
+**The cut-off is a commit version, not a time.** At each UTC day
+boundary the scheduler's runner saves a `BusinessDayCutoff` for the
+day just ended, and the record's commit version, which FDB stamps,
+marks the end of that day. A clock time would not do: legs carry the
+`created_at` of whichever JVM wrote them, and a leg can commit after
+one stamped later, so a cut-off by time is off by clock skew and
+commit latency.
+
+**A leg is found by the version it committed at.** `transaction-legs`
+stores record versions, and a VERSION index over
+`[account_id, version]` at the next meta-data version finds an
+account's legs committed after a cut-off. Legs saved before carry no
+version, and count as before every cut-off.
+
+**A chunk reads its own principals.** In its transaction, at snapshot,
+a chunk reads each account's leg sums and its legs committed after the
+day's cut-off, one scan each, issued together, and accrues on the
+difference: the account's balance as it stood when the day ended,
+whenever the run executes. The scan of later legs is usually empty, as
+it holds only what moved since midnight. The merged scan still decides
+which accounts a run reaches; it no longer supplies their balances.
+
+**A day is accrued once it has ended.** The run on day D accrues D−1,
+and a run for a day with no cut-off yet is refused. A late or repeated
+run for a day reads the same cut-off, so it computes the same
+principals, and a second run still finds each account DONE and skips
+it. Capitalisation needs no cut-off: it sweeps the interest-accrued
+bucket, which only runs move.
+
+First, the version index and the cut-off record with its midnight
+write; then the chunk's read, with a domain scenario that pays between
+two accounts in different chunks while a run is between them; then the
+run's date. The scheduler's two limitations on a late day and on a
+run before the day ends go when it lands.
+
 ## Alternatives Considered
 
 - **Floating-point arithmetic.** Compute interest in doubles
@@ -590,6 +636,9 @@ somewhere.
 
 ## Known Limitations
 
+- **Each chunk reads its balances at its own moment.** A payment
+  between accounts in different chunks during a run is earned on twice
+  or not at all; see "Reading balances at the cut-off".
 - **Single day-count convention (actual/365).** Other
   conventions (actual/360, 30/360) aren't supported. Most
   retail UK products use actual/365, so this is fine for
