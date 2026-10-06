@@ -3,6 +3,7 @@
     (com.apple.foundationdb.record EndpointType
                                    ExecuteProperties
                                    IndexScanType
+                                   IsolationLevel
                                    ScanProperties
                                    TupleRange)
     (com.apple.foundationdb.record.provider.foundationdb
@@ -146,9 +147,13 @@
     {:records (mapv :record entries) :before before :after after}))
 
 (defn scan-prefixes
-  [^FDBRecordStore store prefixes limit]
+  [^FDBRecordStore store prefixes limit {:keys [isolation]}]
   (let [scan-props (ScanProperties. (-> (ExecuteProperties/newBuilder)
                                         (.setReturnedRowLimit limit)
+                                        (.setIsolationLevel
+                                         (if (= :snapshot isolation)
+                                           IsolationLevel/SNAPSHOT
+                                           IsolationLevel/SERIALIZABLE))
                                         .build))
         futures (mapv (fn [prefix]
                         (.asList (.scanRecords store
