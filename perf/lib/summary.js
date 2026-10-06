@@ -22,6 +22,23 @@ export const UNSETTLED = ["failed", "returned", "timeout"];
 
 // `unit` is what a scenario sends one of per iteration, `payments`
 // unless it says otherwise.
+export const INTEREST_TASKS = ["accrue", "capitalize"];
+
+export function interestThresholds() {
+  const t = {
+    interest_scheduled_s: ["value>=0"],
+    interest_started_s: ["value>=0"],
+    interest_finished_s: ["value>=0"],
+    interest_succeeded: ["value>=0"],
+  };
+  INTEREST_TASKS.forEach((k) => {
+    t[`interest_task_ms{task:${k}}`] = ["value>=0"];
+    t[`interest_task_processed{task:${k}}`] = ["value>=0"];
+    t[`interest_task_failed{task:${k}}`] = ["value>=0"];
+  });
+  return t;
+}
+
 export function rejectionThresholds(unit) {
   const t = {};
   REJECTIONS.forEach((s) => {
@@ -185,6 +202,26 @@ function opening(data) {
   );
 }
 
+function interest(data, tasks) {
+  if (!tasks) return undefined;
+  const v = (name) => values(data, name).value;
+  const out = {
+    succeeded: v("interest_succeeded") === 1,
+    scheduledS: round(v("interest_scheduled_s")),
+    startedS: round(v("interest_started_s")),
+    finishedS: round(v("interest_finished_s")),
+    tasks: {},
+  };
+  tasks.forEach((k) => {
+    out.tasks[k] = {
+      ms: v(`interest_task_ms{task:${k}}`),
+      processed: v(`interest_task_processed{task:${k}}`),
+      failed: v(`interest_task_failed{task:${k}}`),
+    };
+  });
+  return out;
+}
+
 function headline(data, run) {
   const unit = run.unit || "payments";
   const rejected = {};
@@ -202,6 +239,7 @@ function headline(data, run) {
     onboarding: onboarding(data),
     opening: opening(data),
     reads: reads(data, run.reads),
+    interest: interest(data, run.tasks),
     steps: run.steps.map((s, i) => step(data, s, i, unit)),
   };
 }
