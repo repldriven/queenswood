@@ -38,6 +38,19 @@
 (SUT/defoperations :poller-concurrent
                    {"call" {:call respond :answered answered :failed failed}})
 
+(defn- respond-by-id
+  "The external API's answer to one intent, as the test's `answers` atom
+  holds it by intent id, an answer for any it does not name."
+  [config _now intent]
+  (get @(:answers config) (:intent-id intent) [:answered nil]))
+
+(SUT/defoperations :poller-rounds
+                   {"call"
+                    {:call respond-by-id :answered answered :failed failed}})
+
+(SUT/defoperations :poller-limit
+                   {"call" {:call respond :answered answered :failed failed}})
+
 (defn- spec
   [adapter]
   {:adapter adapter
@@ -155,33 +168,95 @@
          spec (spec :poller-concurrent)
          t0 1000000
          status (fn [id] (:status (by-id config id)))]
+     (try
+       (nom-test> [_ (SUT/save-intent
+                      config
+                      spec
+                      (assoc (intent "con.1" t0) :subjects ["a"]))
+                   _ (SUT/save-intent
+                      config
+                      spec
+                      (assoc (intent "con.2" t0) :subjects ["b"]))
+                   _ (SUT/save-intent
+                      config
+                      spec
+                      (assoc (intent "con.3" t0) :subjects ["a"]))
+                   _ (SUT/save-intent
+                      config
+                      spec
+                      (assoc (intent "con.4" t0) :subjects ["c"]))])
+       (testing
+         "intents for different subjects run at once, and a later intent
+             for a subject in the next round of the same pass"
+         (is (= 4 (SUT/drain-once config t0)))
+         (is (= ["settled" "settled" "settled" "settled"]
+                (mapv status ["con.1" "con.2" "con.3" "con.4"]))))
+       (testing "a pass with nothing to do runs nothing"
+         (is (= 0 (SUT/drain-once config (+ t0 1)))))
+       (finally (.shutdown executor))))))
+
+
+(deftest rounds-keep-order-test
+  (with-test-system
+   [sys "classpath:intent-poller/application-test.yml"]
+   (let [answers (atom {"rnd.1" [:retry "not yet"]})
+         executor (Executors/newFixedThreadPool 4)
+         config
+         (assoc (poller-config sys :poller-rounds answers) :executor executor)
+         spec (spec :poller-rounds)
+         t0 1000000
+         by (fn [id] (by-id config id))]
      (try (nom-test> [_ (SUT/save-intent
                          config
                          spec
-                         (assoc (intent "con.1" t0) :subjects ["a"]))
+                         (assoc (intent "rnd.1" t0) :subjects ["a"]))
                       _ (SUT/save-intent
                          config
                          spec
-                         (assoc (intent "con.2" t0) :subjects ["b"]))
+                         (assoc (intent "rnd.2" t0) :subjects ["a"]))
                       _ (SUT/save-intent
                          config
                          spec
-                         (assoc (intent "con.3" t0) :subjects ["a"]))
-                      _ (SUT/save-intent
-                         config
-                         spec
-                         (assoc (intent "con.4" t0) :subjects ["c"]))])
-          (testing "intents for different subjects run in one pass"
-            (is (= 3 (SUT/drain-once config t0)))
-            (is (= ["settled" "settled" "pending" "settled"]
-                   (mapv status ["con.1" "con.2" "con.3" "con.4"]))))
-          (testing "a later intent for a subject runs on the next pass"
-            (is (= 1 (SUT/drain-once config (+ t0 1))))
-            (is (= "settled" (status "con.3"))))
-          (testing "a pass with nothing to do runs nothing"
-            (is (= 0 (SUT/drain-once config (+ t0 2)))))
+                         (assoc (intent "rnd.3" t0) :subjects ["b"]))])
+          (SUT/drain-once config t0)
+          (testing "an intent left pending holds a later one for its subject"
+            (is (= 1 (:attempts (by "rnd.1"))))
+            (is (= ["pending" 0] ((juxt :status :attempts) (by "rnd.2")))))
+          (testing "while another subject's runs"
+            (is (= "settled" (:status (by "rnd.3")))))
           (finally (.shutdown executor))))))
 
+(deftest pass-limit-test
+  (with-test-system
+   [sys "classpath:intent-poller/application-test.yml"]
+   (let [answers (atom [:answered nil])
+         executor (Executors/newFixedThreadPool 4)
+         config (assoc (poller-config sys :poller-limit answers)
+                       :executor executor
+                       :pass-limit 2)
+         spec (spec :poller-limit)
+         t0 1000000
+         status (fn [id] (:status (by-id config id)))]
+     (try (nom-test> [_ (SUT/save-intent
+                         config
+                         spec
+                         (assoc (intent "lim.3" t0) :subjects ["c"]))
+                      _ (SUT/save-intent
+                         config
+                         spec
+                         (assoc (intent "lim.1" t0) :subjects ["a"]))
+                      _ (SUT/save-intent
+                         config
+                         spec
+                         (assoc (intent "lim.2" t0) :subjects ["b"]))])
+          (testing "a pass reads only the oldest intents up to its limit"
+            (is (= 2 (SUT/drain-once config t0)))
+            (is (= ["settled" "settled" "pending"]
+                   (mapv status ["lim.1" "lim.2" "lim.3"]))))
+          (testing "and the next pass the rest"
+            (is (= 1 (SUT/drain-once config (+ t0 1))))
+            (is (= "settled" (status "lim.3"))))
+          (finally (.shutdown executor))))))
 
 (deftest ordering-key-test
   (testing "a payment's events are keyed by the payment"

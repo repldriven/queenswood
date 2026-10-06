@@ -53,19 +53,26 @@
      "Failed to save outbound intent")))
 
 (defn intents-with-status
-  [txn spec status]
-  (let [{:keys [intents intent-type pb->intent]} spec]
-    (fdb/transact
-     txn
-     (fn [txn]
-       (mapv pb->intent
-             (fdb/query-records (fdb/open txn intents)
-                                intent-type
-                                "status"
-                                status
-                                {:index (str intent-type "_by_status")})))
-     (category spec "outbound" "by-status")
-     "Failed to read outbound intents")))
+  ([txn spec status]
+   (intents-with-status txn spec status nil))
+  ([txn spec status limit]
+   (let [{:keys [intents intent-type pb->intent]} spec]
+     (fdb/transact
+      txn
+      (fn [txn]
+        (mapv pb->intent
+              (if limit
+                (fdb/scan-index-records (fdb/open txn intents)
+                                        (str intent-type "_by_status")
+                                        [status]
+                                        {:limit limit})
+                (fdb/query-records (fdb/open txn intents)
+                                   intent-type
+                                   "status"
+                                   status
+                                   {:index (str intent-type "_by_status")}))))
+      (category spec "outbound" "by-status")
+      "Failed to read outbound intents"))))
 
 (defn- recorded?
   [txn spec dedup-key]
