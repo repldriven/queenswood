@@ -615,12 +615,17 @@ run at the next:
     accrual's change to it, so a chunk reads and rewrites no row another
     chunk or a payment writes, and eight chunks post at once, as
     [ADR-0042](../adr/0042-a-cash-accounts-balance-is-the-sum-of-its-legs.md)
-    stage two decides. On the same run over 10,001 accounts, accrual took
-    7.5 s rather than 9.8 and capitalisation 15.4 s rather than 24, no
-    account failed, and the payments held a p99 of 53 ms or less. Eight
-    chunks at once gained a third rather than most of the run, so
-    something serial holds it, the one merged scan that feeds the chunks
-    being the first candidate its spans have to confirm.
+    stage two decides. The spans of the first run put eight chunks in
+    flight throughout, each saving its run rows, and capitalisation each
+    account's transaction, one record at a time, a round trip apiece; a
+    chunk now saves its rows, and records its capitalisations, a batch
+    at a time. On the same run over 10,001 accounts, accrual took 5.8 s
+    rather than 9.8 and capitalisation 8.7 s rather than 24, no account
+    failed and no chunk retried. An accrual chunk commits in about
+    150 ms and a capitalisation chunk in about 600, a hundred customer
+    transactions with their legs, idempotency keys and activity entries.
+    The payments held a p99 of 71 ms or less, and 129 in the minute the
+    run took.
 
 ### Span candidates
 
