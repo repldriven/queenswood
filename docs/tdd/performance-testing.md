@@ -630,7 +630,7 @@ run at the next:
 23. **Measured in-flight limits.** On mono v0.0.59 the API's
     `max-in-flight` is measured from 200 and never below it, and the six
     busiest subscriptions run sixteen performers under a limit measured
-    from 4, as mono's ADR-0041 decides. On knees in 30-second steps,
+    from 4, as mono's decision on a dynamic concurrency limit has it. On knees in 30-second steps,
     internal at 320 a second served 307 with none refused, where the fixed
     limits refused 13%, at a p50 of 62 ms at 160 rather than 44; the
     payment processor's limit rose to its sixteen performers. Outbound at
