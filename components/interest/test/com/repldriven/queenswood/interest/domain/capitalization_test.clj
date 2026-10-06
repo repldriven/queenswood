@@ -22,10 +22,13 @@
 
 (def ^:private nothing-accrued (vec (take 1 accrued-balances)))
 
+(def ^:private account
+  {:account-id "acc.1" :product-type :product-type-sub-ledger-current})
+
 (deftest sweep-test
   (testing "nothing accrued means nothing to sweep, and that is not a failure"
     (is (nil? (SUT/sweep "org.1"
-                         "acc.1"
+                         account
                          "GBP"
                          "led.payable"
                          nothing-accrued
@@ -39,10 +42,10 @@
                         :credit 100
                         :debit 100})]
       (is (nil?
-           (SUT/sweep "org.1" "acc.1" "GBP" "led.payable" zeroed 20260501)))))
+           (SUT/sweep "org.1" account "GBP" "led.payable" zeroed 20260501)))))
   (testing "a sweep takes the whole accrued balance"
     (let [swept (SUT/sweep "org.1"
-                           "acc.1"
+                           account
                            "GBP"
                            "led.payable"
                            accrued-balances
@@ -67,6 +70,10 @@
           (is (= :balance-type-default (:balance-type debit)))
           (is (= :leg-side-debit (:side debit)))
           (is (= "acc.1" (:account-id credit)))
+          (is
+           (= :product-type-sub-ledger-current (:product-type credit))
+           "the credit carries the account's product type, which its
+               control sums its legs by")
           (is (= :balance-type-default (:balance-type credit)))
           (is (= :leg-side-credit (:side credit)))))
       (testing "the legs applied also empty the customer's accrued balance"
@@ -88,7 +95,7 @@
   (testing "the key composes account and date, so a repeat posts once"
     (let [key-for (fn [account-id]
                     (get-in (SUT/sweep "org.1"
-                                       account-id
+                                       (assoc account :account-id account-id)
                                        "GBP"
                                        "led.payable"
                                        accrued-balances

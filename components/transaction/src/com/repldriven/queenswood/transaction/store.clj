@@ -72,7 +72,7 @@
            parents (fdb/load-records txn-store (mapv :transaction-id legs))]
        {:transactions
         (mapv (fn [leg txn-record]
-                (merge leg
+                (merge (dissoc leg :bank-id :product-type)
                        (some-> txn-record
                                schema/pb->Transaction
                                (select-keys [:transaction-type :status

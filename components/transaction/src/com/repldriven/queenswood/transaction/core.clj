@@ -16,10 +16,8 @@
      (let-nom>
        [transaction (domain/new-transaction data)]
        (let [{:keys [legs]} data
-             {:keys [transaction-id currency]} transaction
-             legs' (mapv (fn [leg]
-                           (domain/new-leg leg transaction-id currency))
-                         legs)]
+             {:keys [transaction-id]} transaction
+             legs' (mapv (fn [leg] (domain/new-leg leg transaction)) legs)]
          (let-nom>
            [_ (domain/validate-legs legs)
             _ (store/save-transaction-and-legs txn transaction legs')

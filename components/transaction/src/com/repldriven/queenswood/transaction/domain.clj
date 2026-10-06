@@ -56,19 +56,23 @@
                  "Transaction legs must balance (debits = credits)")))
 
 (defn new-leg
-  [leg transaction-id currency]
-  (let [{:keys [account-id balance-type balance-status
-                side amount]}
-        leg]
-    {:leg-id (utility/generate-id "leg")
-     :transaction-id transaction-id
-     :account-id account-id
-     :balance-type balance-type
-     :balance-status balance-status
-     :side side
-     :amount amount
-     :currency currency
-     :created-at (utility/now)}))
+  [leg transaction]
+  (let [{:keys [account-id balance-type balance-status side amount
+                product-type]}
+        leg
+        {:keys [transaction-id bank-id currency]} transaction]
+    (utility/assoc-some {:leg-id (utility/generate-id "leg")
+                         :transaction-id transaction-id
+                         :bank-id bank-id
+                         :account-id account-id
+                         :balance-type balance-type
+                         :balance-status balance-status
+                         :side side
+                         :amount amount
+                         :currency currency
+                         :created-at (utility/now)}
+                        :product-type
+                        product-type)))
 
 (defn- ->posted-leg
   [{:keys [account-id balance-type balance-status side amount]}]

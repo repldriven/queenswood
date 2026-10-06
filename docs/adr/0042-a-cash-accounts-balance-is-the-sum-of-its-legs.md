@@ -130,7 +130,8 @@ Harder:
   is built, and a store past a few hundred legs opens with the index
   disabled until an `OnlineIndexer` builds it, as
   [schema-evolution](../recipes/code/schema-evolution.md) records.
-- An index that sums the wrong legs misstates a balance silently. The
-  trial balance asserted after every step of both scenario runners,
-  with an invariant comparing each account's indexed sums with its
-  legs scanned, is the audit that makes it visible.
+- A leg stamped with the wrong product type misstates a control
+  silently. The trial balance and the control-against-sub-ledger
+  invariant, asserted after every step of both scenario runners, read
+  the control from the legs' index by stamped product type and the
+  sub-ledger by account, and are the audit that makes it visible.

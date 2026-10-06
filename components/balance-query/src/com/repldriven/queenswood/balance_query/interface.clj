@@ -3,8 +3,14 @@
   account's balances (enriched with posted/available totals), and the
   pure `trial-balance` aggregation. This is the only balance brick
   `bank-api` (and other readers) may require — it exposes no writes.
-  Balance mutation (`apply-legs`, `new-balances`, `set-carry`) lives in
-  `bank-balance`, which reuses these reads inside its own transactions.
+  Balance mutation (`apply-legs`, `new-balances`, `accrue`) lives in
+  `balance`, which reuses these reads inside its own transactions.
+
+  A cash account's default buckets are the sums of its legs, read from
+  the legs' SUM indexes, so every read here returns them with the
+  `credit` and `debit` its legs add up to rather than what the bucket's
+  row holds. Its other buckets, and every bucket of a general-ledger
+  account, are the rows as stored. ADR-0042.
 
   `find-balance` and `list-balances` are read primitives for the write
   sibling's transactions; `get-balance` / `get-balances` are the public
@@ -70,16 +76,36 @@
   (store/get-balances txn bank-id account-id))
 
 (defn list-balances-of
-  "List several accounts' raw balance buckets in one round trip: a map
-  of account id to that account's vector of buckets, unenriched. A read
-  primitive for the write sibling's apply-legs computation.
+  "List several accounts' raw balance buckets: a map of account id to
+  that account's vector of buckets, unenriched. A read primitive for the
+  write sibling's apply-legs computation. The legs are summed
+  serializably, except for the accounts `opts` names in
+  `:snapshot-ids`, whose sums join no read-conflict set, so a posting
+  that only adds to an account conflicts with nothing else adding to it.
 
   Args:
   - txn: FDB transaction or db handle.
   - bank-id: owning bank id, which heads the key.
-  - account-ids: owning account ids."
-  [txn bank-id account-ids]
-  (store/list-balances-of txn bank-id account-ids))
+  - account-ids: owning account ids.
+  - opts: optional `{:snapshot-ids #{account-id ...}}`."
+  ([txn bank-id account-ids]
+   (list-balances-of txn bank-id account-ids {}))
+  ([txn bank-id account-ids opts]
+   (store/list-balances-of txn
+                           bank-id
+                           account-ids
+                           (set (:snapshot-ids opts)))))
+
+(defn with-leg-sums
+  "`balances` with each cash account's default buckets given the
+  `credit` and `debit` its legs sum to, read at snapshot in one round
+  trip. For a caller that read the rows itself, as a merged scan does.
+
+  Args:
+  - txn: an open FDB transaction.
+  - balances: balance maps, of any accounts."
+  [txn balances]
+  (store/with-leg-sums txn balances true))
 
 (defn find-balance
   "Load a single balance by composite key without rejecting when
@@ -105,10 +131,10 @@
   "The summed `{:credit :debit}` of the default balances in one status,
   posted unless `opts` names another, of every account of `product-type`
   in `currency` across the bank — the balance of the ledger account
-  derived from them. Read from the balances store's SUM indexes, at
-  snapshot unless `opts` asks for `{:isolation :serializable}`, which a
-  guard deciding on the figure in its own transaction needs. An empty
-  group sums to zero.
+  derived from them. Read from the legs' SUM index grouped by bank and
+  product type, at snapshot unless `opts` asks for
+  `{:isolation :serializable}`, which a guard deciding on the figure in
+  its own transaction needs. An empty group sums to zero.
 
   Args:
   - txn: FDB transaction or db handle.

@@ -4,6 +4,7 @@ package com.repldriven.queenswood.schemas.transactions;
 
 import "record_metadata_options.proto";
 import "schemas/balances/balance.proto";
+import "schemas/types/product-type.proto";
 
 option java_outer_classname = "TransactionProto";
 
@@ -63,4 +64,9 @@ message TransactionLeg {
   required int64 amount = 7; // minor units, always > 0
   required string currency = 8; // ISO 4217
   required int64 created_at = 9;
+  // The posting's bank and, on a cash account, the account's product
+  // type, so a control sums its sub-ledger's legs by bank and product
+  // type. Absent on a leg recorded before they were stamped.
+  optional string bank_id = 10;
+  optional com.repldriven.queenswood.schemas.types.ProductType product_type = 11;
 }

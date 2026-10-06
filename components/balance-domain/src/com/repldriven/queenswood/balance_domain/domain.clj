@@ -25,6 +25,29 @@
 
 (defmethod available? :default [_] false)
 
+(defn derived?
+  [balance]
+  (let [{:keys [balance-type product-type]} balance]
+    (and (= :balance-type-default balance-type)
+         (some? product-type)
+         (not= :product-type-general-ledger product-type))))
+
+(defn lowers-available?
+  [legs]
+  (neg? (transduce (comp
+                    (filter (fn [leg]
+                              (= :balance-type-default
+                                 (:balance-type leg))))
+                    (filter (fn [leg]
+                              (contains? #{:balance-status-posted
+                                           :balance-status-pending-outgoing}
+                                         (:balance-status leg))))
+                    (map (fn [{:keys [side amount]}]
+                           (if (= :leg-side-debit side) (- amount) amount))))
+                   +
+                   0
+                   legs)))
+
 (defn net-balance
   [balances currency pred-fn]
   {:value (->> balances

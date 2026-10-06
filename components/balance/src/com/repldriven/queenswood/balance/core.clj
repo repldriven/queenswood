@@ -3,6 +3,7 @@
     [com.repldriven.queenswood.balance.domain :as domain]
     [com.repldriven.queenswood.balance.store :as store]
 
+    [com.repldriven.queenswood.balance-domain.interface :as balance-math]
     [com.repldriven.queenswood.balance-query.interface :as q]
     [com.repldriven.queenswood.policy.interface :as policy]
 
@@ -68,7 +69,18 @@
 
 (defn- load-account-balances
   [txn bank-id legs]
-  (q/list-balances-of txn bank-id (vec (distinct (map :account-id legs)))))
+  (let [by-account (group-by :account-id legs)]
+    (q/list-balances-of txn
+                        bank-id
+                        (vec (keys by-account))
+                        {:snapshot-ids (into #{}
+                                             (comp
+                                              (remove
+                                               (fn [[_ account-legs]]
+                                                 (balance-math/lowers-available?
+                                                  account-legs)))
+                                              (map key))
+                                             by-account)})))
 
 (defn apply-legs
   ([txn bank-id legs transaction-type]

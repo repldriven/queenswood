@@ -78,7 +78,7 @@
   how GL balances are seeded.
 
   `bank-id` comes from the caller rather than the leg: it heads the
-  balance's primary key, and a leg carries no bank of its own."
+  balance's primary key, and a leg reaching here need not carry one."
   [bank-id balances leg]
   (let [now (utility/now)]
     {:bank-id bank-id
@@ -134,23 +134,55 @@
                          :value {:value (:value post-amount)
                                  :currency currency}})))
 
+(defn- bucket
+  [b]
+  [(:balance-type b) (:balance-status b)])
+
+(defn- before-legs
+  "`balances` as they stood before `legs`: a derived bucket was read
+  after the posting recorded its legs, so its sums already hold them."
+  [balances legs]
+  (mapv (fn [b]
+          (if (balance-math/derived? b)
+            (reduce (fn [b leg]
+                      (if (= (bucket b) (bucket leg))
+                        (update b
+                                (if (= :leg-side-debit (:side leg))
+                                  :debit
+                                  :credit)
+                                -
+                                (:amount leg))
+                        b))
+                    b
+                    legs)
+            b))
+        balances))
+
 (defn- changed
-  "Balances in `new` that were added or modified versus `old`, matched by
-  (balance-type, balance-status) — so a freshly-opened bucket (appended,
-  with no positional counterpart in `old`) is still captured."
+  "Rows to save: balances in `new` that were added or modified versus
+  `old`, matched by (balance-type, balance-status), so a freshly opened
+  bucket is captured. A derived bucket is its legs' sum and its row is
+  never rewritten, so it is saved only when it opens, at zero."
   [old new]
-  (let [old-by (into {}
-                     (map (fn [b] [[(:balance-type b) (:balance-status b)] b]))
-                     old)]
-    (filterv (fn [b]
-               (not= b (get old-by [(:balance-type b) (:balance-status b)])))
-             new)))
+  (let [old-by (into {} (map (fn [b] [(bucket b) b])) old)]
+    (into []
+          (comp (remove (fn [b] (= b (get old-by (bucket b)))))
+                (keep (fn [b]
+                        (cond (not (balance-math/derived? b))
+                              b
+
+                              (contains? old-by (bucket b))
+                              nil
+
+                              :else
+                              (assoc b :credit 0 :debit 0)))))
+          new)))
 
 (defn apply-legs
   [bank-id account-balances legs transaction-type policies]
   (reduce
    (fn [acc [account-id account-legs]]
-     (let [pre (get account-balances account-id)
+     (let [pre (before-legs (get account-balances account-id) account-legs)
            post (let-nom>
                   [balances (apply-legs-to-balances bank-id
                                                     pre

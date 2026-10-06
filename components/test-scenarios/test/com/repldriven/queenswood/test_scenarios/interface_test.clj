@@ -4,6 +4,7 @@
     [com.repldriven.queenswood.test-scenarios.rig :as rig]
 
     [com.repldriven.queenswood.balance.interface :as balances]
+    [com.repldriven.queenswood.ledger-account.interface :as ledger-accounts]
 
     [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.log.interface :as log]
@@ -82,12 +83,15 @@
      (testing "books a step leaves untied fail the trial"
        (let [ctx (SUT/run-commands (fresh {}) create-bank)
              bank-id (get-in ctx [:banks :bank-0 :real-id])
-             acct-id (get-in ctx [:id-mapping :model->real :acct-0])]
+             expense (ledger-accounts/find-by-code
+                      bank
+                      bank-id
+                      :gl-account-code-interest-expense
+                      "GBP")]
          (is (nil? (balances/apply-legs bank
                                         bank-id
-                                        [{:account-id acct-id
-                                          :product-type
-                                          :product-type-sub-ledger-current
+                                        [{:account-id (:ledger-account-id
+                                                       expense)
                                           :balance-type :balance-type-default
                                           :balance-status :balance-status-posted
                                           :currency "GBP"

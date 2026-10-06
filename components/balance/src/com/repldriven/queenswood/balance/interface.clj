@@ -34,11 +34,18 @@
   success or an anomaly. `transaction-type` scopes which limits
   fire via the limit's `transaction-type` filter.
 
+  A cash account's default bucket is the sum of its legs, so its row is
+  not rewritten: a leg on one must already be recorded in this
+  transaction, which is how its sum moves, and the check reads the sum
+  less the posting's own legs as the balance before it. An account the
+  posting only adds to is summed at snapshot, so it conflicts with no
+  other posting adding to it. Every other bucket's row is read and
+  rewritten as before. ADR-0042.
+
   Args:
   - txn: FDB transaction or db handle.
-  - bank-id: owning bank id. Supplied rather than read off a leg,
-    which carries no bank of its own, and needed both to key the
-    balances this reads and to open a bucket a leg reaches first.
+  - bank-id: owning bank id, which keys the balances this reads and
+    opens a bucket a leg reaches first.
   - legs: collection of leg maps; each carries `:account-id`,
     `:balance-type`, `:balance-status`, `:side`, `:amount`.
   - transaction-type: transaction-type keyword (e.g.

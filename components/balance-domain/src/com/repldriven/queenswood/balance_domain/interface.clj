@@ -31,6 +31,28 @@
   [balances currency]
   (domain/available-balance balances currency))
 
+(defn derived?
+  "Whether `balance` is the sum of its legs rather than what its row
+  holds: a cash account's default bucket, whose rows a posting no longer
+  writes. Every other bucket, and every general-ledger account's, is the
+  row as stored. ADR-0042.
+
+  Args:
+  - balance: a balance map."
+  [balance]
+  (domain/derived? balance))
+
+(defn lowers-available?
+  "Whether one account's `legs` together lower its available balance:
+  they take more from its posted and pending-outgoing default buckets
+  than they add. Only such a posting needs its account's sums read
+  serializably.
+
+  Args:
+  - legs: one account's legs."
+  [legs]
+  (domain/lowers-available? legs))
+
 (defn trial-balance
   "Aggregate account-level posted balances into a per-currency trial
   balance — `[{:currency :debit :credit :accounts}]`, one block per

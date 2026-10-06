@@ -9,6 +9,43 @@
 ;; must match cash-account.store/store-name — same FDB store
 (def ^:private store-name "cash-accounts")
 
+(def ^:private sum-batch
+  "Accounts whose legs are summed in one transaction as the scan
+  streams them, so a bank's sums cost a round trip per hundred accounts
+  rather than one each."
+  100)
+
+(defn- deliver-pending
+  "Reduces `f` over the accounts the scan has buffered, each with its
+  balances, the default buckets summed from their legs. Returns the
+  state with the buffer emptied, or it `reduced` where `f` stopped."
+  [config f state]
+  (let [{:keys [pending acc]} state]
+    (if (empty? pending)
+      state
+      (let-nom>
+        [summed (fdb/transact config
+                              (fn [txn]
+                                (balances/with-leg-sums
+                                 txn
+                                 (into [] (mapcat :balances) pending)))
+                              :cash-account/sum-balances
+                              "Failed to sum account balances")]
+        (let [by-account (group-by :account-id summed)]
+          (loop [acc acc
+                 items pending]
+            (if-let [item (first items)]
+              (let [{:keys [account]} item
+                    result (f acc
+                              (assoc
+                               item
+                               :balances
+                               (get by-account (:account-id account) [])))]
+                (if (reduced? result)
+                  (reduced {:pending [] :acc @result})
+                  (recur result (rest items))))
+              {:pending [] :acc acc})))))))
+
 (defn reduce-accounts-with-balances
   "Streams a bank's accounts paired with their balances, in account-id
   order, reducing over `[acc {:account :balances}]`.
@@ -16,23 +53,34 @@
   One merged scan of two stores rather than a page of accounts and a
   balance lookup per account. Both are keyed `[bank_id, account_id,
   ...]`, so scanning each under the same bank prefix advances the two
-  cursors in step and the pairing costs no random reads.
+  cursors in step and the pairing costs no random reads. A default
+  bucket is the sum of its account's legs, read at snapshot for a
+  hundred accounts at a time as they arrive.
 
   Only this bank's rows are read. An account with no balances yet is
   delivered with an empty vector, because having none is a fact the
   caller may need rather than a reason to skip it."
   [config bank-id f init]
-  (fdb/merge-scan
-   config
-   {:left {:store store-name :prefix [bank-id] :limit 1000}
-    :right {:store balances/store-name :prefix [bank-id] :limit 5000}}
-   (fn [acc {:keys [left right]}]
-     (if-let [record (first left)]
-       (f acc
-          {:account (schema/pb->CashAccount record)
-           :balances (mapv schema/pb->Balance right)})
-       acc))
-   init))
+  (let-nom>
+    [state (fdb/merge-scan
+            config
+            {:left {:store store-name :prefix [bank-id] :limit 1000}
+             :right {:store balances/store-name :prefix [bank-id] :limit 5000}}
+            (fn [state {:keys [left right]}]
+              (if-let [record (first left)]
+                (let [state (update state
+                                    :pending
+                                    conj
+                                    {:account (schema/pb->CashAccount record)
+                                     :balances (mapv schema/pb->Balance
+                                                     right)})]
+                  (if (< (count (:pending state)) sum-batch)
+                    state
+                    (deliver-pending config f state)))
+                state))
+            {:pending [] :acc init})
+     state (deliver-pending config f (unreduced state))]
+    (:acc (unreduced state))))
 
 (def transact fdb/transact)
 

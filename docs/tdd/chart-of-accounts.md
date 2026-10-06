@@ -144,9 +144,8 @@ like a customer's `acc.` id. The balance-bucket model
 `(account-id, balance-type, balance-status, currency)` carries
 GL bucket totals exactly as it carries customer bucket totals,
 and the bricks don't distinguish. A control is the exception: it
-has no bucket of its own, and its balance is read from the
-balances store's SUM indexes over its sub-ledger — see "Control
-balances" below.
+has no bucket of its own, and its balance is read from the legs'
+SUM index over its sub-ledger — see "Control balances" below.
 
 The CoA is **per-bank**. Each tenant defines its own structure
 within the fixed A/L/E/I/E top-level grouping. Banks on the
@@ -392,10 +391,12 @@ one:
 The deposit and own-funds controls (2100 / 2200 / 2300 / 3100)
 carry none. Each one's `default / posted` balance is the sum of
 the `default / posted` buckets of the cash accounts whose product
-type rolls into it, read from two SUM indexes on the balances
-store — over `credit` and over `debit`, grouped by bank, product
-type, currency and bucket — which the Record Layer keeps by
-atomic mutation as each of those buckets is saved. A posting
+type rolls into it, read from a SUM index on the legs store over
+`amount`, grouped by bank, product type, currency, bucket and side,
+which the Record Layer keeps by atomic mutation as each leg is
+saved; a cash account's own buckets are the sums of its legs too,
+per [ADR-0042](../adr/0042-a-cash-accounts-balance-is-the-sum-of-its-legs.md).
+A posting
 writes only the accounts its legs name, so two payments in one
 bank share no row on the control's account, a read-modify-write
 no account key could otherwise spread; see
@@ -424,7 +425,7 @@ control.
 **1200 Pending outbound payments** carries none either. Its
 `default / pending-outgoing` balance mirrors the `default /
 pending-outgoing` buckets of every cash account whose product type
-rolls into a control, read from the same SUM indexes with credit
+rolls into a control, read from the same SUM index with credit
 and debit swapped. The outbound reservation still carries a leg
 crediting 1200 beside the customer's debit, and the settlement or
 a reversal one debiting it, so every transaction balances, but
@@ -473,9 +474,9 @@ control's default / posted balance
 
 The second is restricted to posted because the sum is: an
 in-flight bucket rolls into no control. A control's side is read
-from the SUM indexes, grouped by each balance bucket's own
-product type, and the sub-ledger's by scanning cash accounts,
-grouped by each account's, so the reconciliation catches a bucket
+from the legs' SUM index, grouped by the product type each leg was
+stamped with, and the sub-ledger's by scanning cash accounts,
+grouped by each account's, so the reconciliation catches a leg
 filed under a product type other than its account's.
 
 Neither invariant subsumes the other. A posting that debits one currency's
@@ -565,8 +566,8 @@ A control's balance is the live roll-up of its sub-ledger's posted
 default buckets, and nothing else: the sum of the `default / posted`
 buckets of every cash account whose `:product-type` maps to it, in
 its currency. `ledger-account`'s `get-balances` returns it as the
-control's one `default / posted` balance, read from the balances
-store's SUM indexes at snapshot, so the read neither conflicts with
+control's one `default / posted` balance, read from the legs'
+SUM index at snapshot, so the read neither conflicts with
 nor holds up the postings that move it. The list route, the balances
 route and the scenario invariants read it the same way; the
 `:gl/non-zero-on-close` guard reads it serializably, inside the

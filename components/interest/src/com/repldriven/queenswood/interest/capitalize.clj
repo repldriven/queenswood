@@ -22,11 +22,11 @@
   bucket, which payments move, so `apply-legs` reads inside the posting
   transaction and the read-modify-write there is load-bearing."
   [_config ctx txn account balances]
-  (let [{:keys [account-id bank-id currency]} account]
+  (let [{:keys [bank-id currency]} account]
     (let-nom>
       [gl (chart/accounts-for (:gl ctx) bank-id currency)
        swept (capitalization/sweep bank-id
-                                   account-id
+                                   account
                                    currency
                                    (:payable gl)
                                    balances

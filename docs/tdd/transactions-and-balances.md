@@ -66,9 +66,12 @@ Two bricks:
 - **`transaction`** — owns the immutable record
   (Transaction + Legs). `record-transaction` is the only
   write surface.
-- **`balance`** — owns the running Balance buckets and
-  the derived posted/available views. `apply-legs` updates
-  buckets; `get-balances` reads the derivation.
+- **`balance`** — owns the Balance buckets and the derived
+  posted/available views. A cash account's `default` buckets
+  are the sums of its legs, read from the legs' SUM index, and
+  their rows are written only when a bucket opens; every other
+  bucket is a stored row that `apply-legs` updates. See
+  [ADR-0042](../adr/0042-a-cash-accounts-balance-is-the-sum-of-its-legs.md).
 
 ```mermaid
 graph LR
@@ -175,14 +178,19 @@ concern that happens against potentially many buckets.
 `balance/apply-legs`:
 
 - For each leg, locates its target Balance by the composite
-  key.
+  key. A cash account's `default` bucket is read as the sum of
+  its recorded legs, less this posting's own, at snapshot where
+  the posting only adds to the account and serializably where it
+  takes from it.
 - Increments the bucket's `:credit` or `:debit` (per the
-  leg's `:side`) by `:amount`.
+  leg's `:side`) by `:amount`, to check the limits on the result.
 - Calls `policy/check-capability` per leg with kind
   `:balance` — the policy can deny postings to specific
   balance buckets, and (via the threaded `transaction-type`)
   scope policy filters to the kind of transaction.
-- Saves the updated balances.
+- Saves the updated stored balances, and a cash account's
+  `default` bucket only when it opens, at zero: its legs are what
+  move it.
 
 `apply-legs` is a separate call from `record-transaction`.
 The processor wraps both in one FDB transaction:

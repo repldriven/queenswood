@@ -5,7 +5,7 @@
 # its record type arrived on as since, and a store lists the indexes
 # removed from it under former-indexes with the versions they were added
 # and removed at. See docs/recipes/code/schema-evolution.md.
-version: 77
+version: 78
 stores:
   assertions:
     record-type: Assertion
@@ -21,20 +21,16 @@ stores:
     # matching cash-accounts and letting the interest pass scan one bank
     # rather than every bank's rows.
     primary-key: [bank_id, account_id, balance_type, currency, balance_status]
-    # A control account's balance is the sum of the sub-ledger balances
-    # rolling into it, read from these rather than stored on a row every
-    # posting would rewrite. ADR-0037.
-    indexes:
+    # A control sums its sub-ledger's legs rather than these rows, whose
+    # default buckets on a cash account are no longer written. ADR-0042.
+    indexes: []
+    former-indexes:
       - name: Balance_sum_credit_by_bank_product_currency_bucket
         added: 74
-        modified: 74
-        fields: [bank_id, product_type, currency, balance_type, balance_status, credit]
-        type: sum
+        removed: 78
       - name: Balance_sum_debit_by_bank_product_currency_bucket
         added: 74
-        modified: 74
-        fields: [bank_id, product_type, currency, balance_type, balance_status, debit]
-        type: sum
+        removed: 78
   cash-account-products:
     record-type: CashAccountProduct
     primary-key: [bank_id, product_id, version_id]
@@ -365,6 +361,13 @@ stores:
         added: 75
         modified: 75
         fields: [account_id, balance_type, balance_status, side, amount]
+        type: sum
+      # A deposit or own-funds control, and 1200, sum the legs of every
+      # cash account of a product type in the bank. ADR-0042.
+      - name: TransactionLeg_sum_amount_by_bank_product_currency_bucket_side
+        added: 78
+        modified: 78
+        fields: [bank_id, product_type, currency, balance_type, balance_status, side, amount]
         type: sum
   transactions:
     record-type: Transaction
