@@ -255,12 +255,13 @@ system:
         timeout: 500
       # Keyed by bank for an open and by account otherwise: a bank's opens
       # run in turn, so its account limits hold exactly without conflicting,
-      # while four performers take other banks' opens and accounts at once
-      # (ADR-0041).
+      # while sixteen performers take other banks' opens and accounts, as
+      # many at once as the measured limit allows (ADR-0041).
       cash-accounts-command:
         consumer: !system/local-ref consumers.cash-accounts-command
         timeout: 500
-        performers: 4
+        performers: 16
+        max-in-flight: {}
       idv-event:
         consumer: !system/local-ref consumers.idv-event
         timeout: 500

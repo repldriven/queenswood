@@ -280,10 +280,9 @@ system:
       handler: !system/ref server.handler
       interceptors: !system/ref server.interceptors
       # The most requests the API handles at once, any beyond answered
-      # 503 at once rather than held until the heap runs out. A write
-      # waits up to 10 s on its command, and the payment processor serves
-      # about 110 a second, so 200 holds about 2 s of work.
-      max-in-flight: 200
+      # 503 at once rather than held until the heap runs out, held at the
+      # knee the limiter measures and starting from 200.
+      max-in-flight: {initial: 200}
       # Counts each request turned away as mono.server.request.rejected,
       # since it reaches no span.
       telemetry: !system/ref telemetry.otel-sdk

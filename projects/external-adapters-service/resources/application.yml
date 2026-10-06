@@ -291,20 +291,24 @@ system:
       payments-event:
         consumer: !system/local-ref consumers.payments-event
         timeout: 500
-        performers: 4
+        performers: 16
+        max-in-flight: {}
       rewards-event:
         consumer: !system/local-ref consumers.rewards-event
         timeout: 500
-      # Keyed by party, so four performers deliver different customers'
-      # events at once, each customer's in order (ADR-0041).
+      # Keyed by party, so sixteen performers deliver different customers'
+      # events, each customer's in order (ADR-0041), as many at once as the
+      # measured limit allows.
       idvs-event:
         consumer: !system/local-ref consumers.idvs-event
         timeout: 500
-        performers: 4
+        performers: 16
+        max-in-flight: {}
       parties-event:
         consumer: !system/local-ref consumers.parties-event
         timeout: 500
-        performers: 4
+        performers: 16
+        max-in-flight: {}
       invitations-event:
         consumer: !system/local-ref consumers.invitations-event
         timeout: 500
