@@ -559,7 +559,18 @@ run at the next:
     fell from 82 a second to 42 while submits rose from 91 to 161, since
     every provider command for the run's one bank is sent from that
     bank's activity in order, one entry at a time, which a posting
-    naming several accounts needs.
+    naming several accounts needs. An outbound payment is three entries,
+    and its reservation and the scheme's settlement mirror nothing, so
+    the processor passes over both before reading anything: such an
+    entry takes 0.03 ms rather than 2 ms, and the processor keeps up at
+    about 630 entries a second. Settlement still takes a p50 of 38 s in
+    an outbound `knee` behind the Modulr adapter's command consumer,
+    which the bank's commands reach in order on one performer, saving an
+    intent each, about 13 ms under load, so about 75 a second; Zyphe's
+    commands, one subject each, are narrowed to performers by
+    verification, but a transfer names two accounts, so taking Modulr's
+    at once needs intents ordered by their activity entry rather than by
+    when they were saved.
 
 19. **Opening accounts.** One bank opened about 88 accounts a second,
     clean to 80 asked: the cash-account command consumer took one command
