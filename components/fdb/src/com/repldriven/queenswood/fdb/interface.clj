@@ -227,6 +227,15 @@
   [store aggregates]
   (record/aggregate-many store aggregates {:isolation :snapshot}))
 
+(defn aggregate-records-later
+  "Issues `aggregate-records`' reads now and returns a function of no
+  arguments that waits on them and returns their vector of longs, so a
+  caller can issue other reads before waiting and pay one round trip for
+  all of them. `opts` is `{:isolation :snapshot}` to read at SNAPSHOT,
+  serializable otherwise."
+  [store aggregates opts]
+  (record/aggregate-many-later store aggregates opts))
+
 (defn count-groups
   "Counts distinct grouping-key entries in a COUNT index whose
   group key starts with `prefix` — one per group, not the sum

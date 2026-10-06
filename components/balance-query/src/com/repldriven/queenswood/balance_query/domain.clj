@@ -1,8 +1,8 @@
 (ns com.repldriven.queenswood.balance-query.domain)
 
 (defn- net
-  [balance]
-  (if balance (- (:credit balance 0) (:debit balance 0)) 0))
+  ^long [balance]
+  (if balance (- (long (:credit balance 0)) (long (:debit balance 0))) 0))
 
 (defmulti ^:private posted? (fn [b] [(:balance-type b) (:balance-status b)]))
 
@@ -41,17 +41,15 @@
                                           :balance-status-pending-outgoing}
                                         (:balance-status leg))))
                    (map (fn [{:keys [side amount]}]
-                          (if (= :leg-side-debit side) (- amount) amount))))
+                          (let [amount (long amount)]
+                            (if (= :leg-side-debit side) (- amount) amount)))))
              +
              0
              legs))
 
 (defn net-balance
   [balances currency pred-fn]
-  {:value (->> balances
-               (filter pred-fn)
-               (map net)
-               (reduce + 0))
+  {:value (transduce (comp (filter pred-fn) (map net)) + 0 balances)
    :currency currency})
 
 (defn posted-balance

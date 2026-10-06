@@ -262,6 +262,17 @@
    store
    (aggregate-future store index-type index-name key isolation)))
 
+(defn aggregate-many-later
+  [store aggregates {:keys [isolation] :or {isolation :serializable}}]
+  (let [futures (mapv (fn [[aggregate index-name key]]
+                        (aggregate-future store
+                                          (aggregate-types aggregate)
+                                          index-name
+                                          key
+                                          isolation))
+                      aggregates)]
+    (fn [] (mapv (fn [f] (aggregate-value store f)) futures))))
+
 (defn aggregate-many
   [store aggregates {:keys [isolation] :or {isolation :serializable}}]
   (let [futures (mapv (fn [[aggregate index-name key]]

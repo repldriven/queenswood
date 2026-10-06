@@ -41,6 +41,40 @@
     [[:sum account-leg-sum-index (group :leg-side-credit)]
      [:sum account-leg-sum-index (group :leg-side-debit)]]))
 
+(def ^:private default-statuses
+  [:balance-status-posted :balance-status-pending-incoming
+   :balance-status-pending-outgoing])
+
+(defn- start-account-sums
+  "Issues the reads of every default bucket's legs for `account-ids`,
+  and returns a function that waits on them and returns a map of bucket
+  key to `[credit debit]`, so the rows can be scanned meanwhile."
+  [txn account-ids snapshot?]
+  (let [buckets (into []
+                      (comp (mapcat (fn [id]
+                                      (map (fn [status]
+                                             {:account-id id
+                                              :balance-type
+                                              :balance-type-default
+                                              :balance-status status})
+                                           default-statuses))))
+                      account-ids)
+        sums (fdb/aggregate-records-later
+              (fdb/open txn legs-store-name)
+              (into [] (mapcat leg-sum-aggregates) buckets)
+              {:isolation (if snapshot? :snapshot :serializable)})]
+    (fn [] (zipmap (map bucket-key buckets) (partition 2 (sums))))))
+
+(defn- summed
+  "`balances` with each derived bucket given the sums in `by-bucket`."
+  [balances by-bucket]
+  (mapv (fn [balance]
+          (if-let [[credit debit] (and (domain/derived? balance)
+                                       (get by-bucket (bucket-key balance)))]
+            (assoc balance :credit credit :debit debit)
+            balance))
+        balances))
+
 (defn with-leg-sums
   [txn balances snapshot?]
   (let [derived (filterv domain/derived? balances)]
@@ -52,11 +86,7 @@
             sums (aggregate (fdb/open txn legs-store-name)
                             (into [] (mapcat leg-sum-aggregates) derived))
             by-bucket (zipmap (map bucket-key derived) (partition 2 sums))]
-        (mapv (fn [balance]
-                (if-let [[credit debit] (get by-bucket (bucket-key balance))]
-                  (assoc balance :credit credit :debit debit)
-                  balance))
-              balances)))))
+        (summed balances by-bucket)))))
 
 (defn find-balance
   [txn bank-id account-id balance-type currency balance-status]
@@ -101,14 +131,13 @@
   [txn bank-id account-id]
   (fdb/transact txn
                 (fn [txn]
-                  (with-leg-sums
-                   txn
-                   (mapv schema/pb->Balance
-                         (:records (fdb/scan-records
-                                    (fdb/open txn store-name)
-                                    {:prefix [bank-id account-id]
-                                     :limit 100})))
-                   false))
+                  (let [sums (start-account-sums txn [account-id] false)
+                        rows (mapv schema/pb->Balance
+                                   (:records (fdb/scan-records
+                                              (fdb/open txn store-name)
+                                              {:prefix [bank-id account-id]
+                                               :limit 100})))]
+                    (summed rows (sums))))
                 :balance/list
                 "Failed to list balances"))
 
@@ -117,27 +146,18 @@
   (fdb/transact
    txn
    (fn [txn]
-     (let [rows (map (fn [records] (mapv schema/pb->Balance records))
-                     (fdb/scan-prefixes (fdb/open txn store-name)
-                                        (mapv (fn [id] [bank-id id])
-                                              account-ids)
-                                        100))
-           by-account (zipmap account-ids rows)
-           read (fn [snapshot?]
-                  (with-leg-sums txn
-                                 (into []
-                                       (comp (filter (fn [[id _]]
-                                                       (= snapshot?
-                                                          (contains?
-                                                           snapshot-ids
-                                                           id))))
-                                             (mapcat val))
-                                       by-account)
-                                 snapshot?))]
-       (merge-with (fn [_ summed] summed)
-                   by-account
-                   (group-by :account-id
-                             (concat (read false) (read true))))))
+     (let [{snapshot true serializable false}
+           (group-by (fn [id] (contains? snapshot-ids id)) account-ids)
+           snapshot-sums (start-account-sums txn snapshot true)
+           serializable-sums (start-account-sums txn serializable false)
+           rows (fdb/scan-prefixes (fdb/open txn store-name)
+                                   (mapv (fn [id] [bank-id id]) account-ids)
+                                   100)
+           by-bucket (merge (snapshot-sums) (serializable-sums))]
+       (zipmap account-ids
+               (map (fn [records]
+                      (summed (mapv schema/pb->Balance records) by-bucket))
+                    rows))))
    :balance/list
    "Failed to list balances"))
 
