@@ -804,6 +804,168 @@
             }
           ]
         }
+      },
+      "b00525e3-88e2-5ce4-8854-0e0f0233014a": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "In-flight limit",
+            "description": "Requests the API admits at once, as the limiter measures it, beside how many it holds"
+          },
+          "links": [],
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "global_time",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "short",
+                "decimalPrecision": "2"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none"
+              },
+              "axes": {
+                "softMin": 0,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list"
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "name": "A",
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "metrics",
+                    "stepInterval": 60,
+                    "aggregations": [
+                      {
+                        "metricName": "mono.server.request.limit",
+                        "timeAggregation": "avg",
+                        "spaceAggregation": "sum"
+                      }
+                    ],
+                    "filter": {
+                      "expression": "service.name = 'api-service'"
+                    },
+                    "having": {
+                      "expression": ""
+                    },
+                    "legend": "limit"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "time_series",
+              "spec": {
+                "name": "B",
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "B",
+                    "signal": "metrics",
+                    "stepInterval": 60,
+                    "aggregations": [
+                      {
+                        "metricName": "mono.server.request.active",
+                        "timeAggregation": "avg",
+                        "spaceAggregation": "sum"
+                      }
+                    ],
+                    "filter": {
+                      "expression": "service.name = 'api-service'"
+                    },
+                    "having": {
+                      "expression": ""
+                    },
+                    "legend": "in flight"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "cff70f8e-8482-58dd-8100-fcc30c5b6af7": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Capacity",
+            "description": "Requests a second the limiter estimates the API serves at its knee"
+          },
+          "links": [],
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "global_time",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "reqps",
+                "decimalPrecision": "2"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none"
+              },
+              "axes": {
+                "softMin": 0,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list"
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "name": "A",
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "metrics",
+                    "stepInterval": 60,
+                    "aggregations": [
+                      {
+                        "metricName": "mono.server.request.capacity",
+                        "timeAggregation": "avg",
+                        "spaceAggregation": "sum"
+                      }
+                    ],
+                    "filter": {
+                      "expression": "service.name = 'api-service'"
+                    },
+                    "having": {
+                      "expression": ""
+                    },
+                    "legend": "capacity"
+                  }
+                }
+              }
+            }
+          ]
+        }
       }
     },
     "layouts": [
@@ -940,6 +1102,37 @@
               "height": 8,
               "content": {
                 "$ref": "#/spec/panels/ea74ccbb-20ac-5b2c-831c-5105d87fe280"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "Concurrency",
+            "collapse": {
+              "open": true
+            }
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 6,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/b00525e3-88e2-5ce4-8854-0e0f0233014a"
+              }
+            },
+            {
+              "x": 6,
+              "y": 0,
+              "width": 6,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/cff70f8e-8482-58dd-8100-fcc30c5b6af7"
               }
             }
           ]
