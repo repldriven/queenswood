@@ -173,17 +173,19 @@
   (store/find-open-admission txn end-to-end-id creditor-account-id amount))
 
 (defn find-outbound-payments-by-status
-  "Return every outbound payment in `status`, across banks, oldest first.
-  For the outbound sweep, which looks for payments stuck in a status.
+  "Return the outbound payments in `status` created at or before
+  `created-by`, across banks, oldest first, `limit` of them at most. For
+  the outbound sweep, which looks for payments stuck in a status.
 
   Args:
   - txn: FDB handle or open transaction.
   - status: an OutboundPaymentStatus keyword, such as
     `:outbound-payment-status-pending`.
+  - opts: `{:created-by epoch-ms :limit n}`.
 
   Returns a vector of payment maps."
-  [txn status]
-  (store/find-outbound-payments-by-status txn status))
+  [txn status opts]
+  (store/find-outbound-payments-by-status txn status opts))
 
 (defn list-inbound-payments
   "Return every inbound payment of `bank-id` in `status`, newest first by

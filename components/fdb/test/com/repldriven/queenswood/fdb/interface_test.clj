@@ -312,6 +312,34 @@
                 (select-keys (utility/record->map (test-schema/pb->Pet found))
                              (keys fido))))]))))
 
+(defn- test-scan-index-records
+  [sys pet-store]
+  (let [config {:record-db (system/instance sys [:fdb :record-db])
+                :record-store pet-store}
+        ferret (fn [id] {:pet-id id :name id :species "ferret"})]
+    (testing "an index scan returns records under its prefix in key order"
+      (nom-test>
+        [_
+         (SUT/transact config
+                       (fn [txn]
+                         (let [store (SUT/open txn "pets")]
+                           (run! (fn [id]
+                                   (SUT/save-record store
+                                                    (test-schema/Pet->java
+                                                     (ferret id))))
+                                 ["pet-93" "pet-90" "pet-92" "pet-91"]))))
+         scanned
+         (SUT/transact config
+                       (fn [txn]
+                         (SUT/scan-index-records (SUT/open txn "pets")
+                                                 "species_idx"
+                                                 ["ferret"]
+                                                 {:limit 3})))
+         _
+         (is (= ["pet-90" "pet-91" "pet-92"]
+                (mapv (comp :pet-id test-schema/pb->Pet) scanned))
+             "the oldest three, by primary key, and no more")]))))
+
 (deftest kv-test
   (with-test-system [sys "classpath:fdb/application-test.yml"]
                     (test-str-kv sys)
@@ -324,6 +352,7 @@
                       (test-query-records sys pet-store)
                       (test-query-records-compound sys pet-store)
                       (test-query-nested-field sys pet-store)
+                      (test-scan-index-records sys pet-store)
                       (test-record-layer-consumer sys pet-store)
                       (test-changelog-under-concurrent-writes sys pet-store)
                       (test-changelog-pass-is-bounded sys pet-store)

@@ -8,15 +8,23 @@
     [com.repldriven.mono.log.interface :as log]
     [com.repldriven.mono.utility.interface :as utility]))
 
+(def ^:private report-limit
+  "The most stuck payments of each status one sweep reports."
+  1000)
+
 (defn sweep-once
   [config now]
-  (let [result (let-nom>
+  (let [opts {:created-by (- now (:report-after-ms config))
+              :limit report-limit}
+        result (let-nom>
                  [pending (q/find-outbound-payments-by-status
                            config
-                           :outbound-payment-status-pending)
+                           :outbound-payment-status-pending
+                           opts)
                   held (q/find-outbound-payments-by-status
                         config
-                        :outbound-payment-status-held)
+                        :outbound-payment-status-held
+                        opts)
                   stuck
                   (outbound/stuck-outbound (into pending held) now config)]
                  (doseq [payment stuck]

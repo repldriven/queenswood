@@ -57,16 +57,21 @@
    :email-delivery/find-by-changelog-event-id
    "Failed to find email delivery by changelog event id"))
 
+(def ^:private scan-factor
+  "How many rows a claim reads for each it may take."
+  10)
+
 (defn- deliveries-with-status
-  [store status]
-  (fdb/query-records store
-                     "EmailDelivery"
-                     "status"
-                     (fdb/enum-value store
-                                     "EmailDelivery"
-                                     "status"
-                                     (schema/email-delivery-status->int status))
-                     {:index "EmailDelivery_by_status_due"}))
+  "Up to `limit` of the deliveries in `status`, due first, and with
+  `due-by`, only those due by then."
+  [store status limit due-by]
+  (fdb/scan-index-records store
+                          "EmailDelivery_by_status_due"
+                          [(schema/email-delivery-status->int status)]
+                          (cond-> {:limit limit}
+
+                                  due-by
+                                  (assoc :through [due-by]))))
 
 (defn- claimable?
   "Whether a row may be claimed now: a pending one whose next attempt
@@ -92,8 +97,14 @@
                      (comp (map schema/pb->EmailDelivery)
                            (filter (fn [delivery] (claimable? delivery now)))
                            (take limit))
-                     (concat (deliveries-with-status store in-flight)
-                             (deliveries-with-status store pending)))]
+                     (concat (deliveries-with-status store
+                                                     in-flight
+                                                     (* scan-factor limit)
+                                                     nil)
+                             (deliveries-with-status store
+                                                     pending
+                                                     (* scan-factor limit)
+                                                     now)))]
        (reduce (fn [claimed delivery]
                  (let [row (assoc delivery
                                   :status in-flight

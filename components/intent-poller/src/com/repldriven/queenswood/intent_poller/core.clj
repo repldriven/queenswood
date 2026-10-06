@@ -22,7 +22,12 @@
   [:map
    [:delivery-policy circuit-breaker/delivery-policy-schema]
    [:poll-ms pos-int?]
-   [:concurrency {:optional true} pos-int?]])
+   [:concurrency {:optional true} pos-int?]
+   [:pass-limit {:optional true} pos-int?]])
+
+(def ^:private default-pass-limit
+  "The most intents of each status a pass reads, the oldest first."
+  1000)
 
 (defn ordering-key
   [data]
@@ -309,23 +314,54 @@
                                     (fn [i] (attempt config now pass i))))))
     intent))
 
+(defn- run-round
+  "Run `runnable` at once on the adapter's workers, returning a map of
+  each intent's id to what its run returned."
+  [config now pass runnable]
+  (let [^ExecutorService executor (:executor config)]
+    (zipmap (map :intent-id runnable)
+            (map (fn [^Future f] (.get f))
+                 (.invokeAll executor
+                             ^java.util.Collection
+                             (mapv (fn [intent]
+                                     ^Callable
+                                     (fn []
+                                       (run-intent config now pass intent)))
+                                   runnable))))))
+
+(defn- after-round
+  "`intents` once a round has run, `ran` mapping each run intent's id to
+  what its run returned: one it sent stays, holding a call that settles
+  first, one it settled or failed goes, and any other stays without
+  running again this pass, holding its subjects so nothing later for
+  them overtakes it."
+  [intents ran]
+  (into []
+        (keep (fn [intent]
+                (if-not (contains? ran (:intent-id intent))
+                  intent
+                  (let [result (get ran (:intent-id intent))
+                        status (when-not (error/anomaly? result)
+                                 (:status result))]
+                    (case status
+                      "sent" result
+                      ("settled" "failed") nil
+                      (assoc intent :next-attempt-at Long/MAX_VALUE))))))
+        intents))
+
 (defn- drain-concurrently
-  "Run the intents that may run at once, each on the adapter's workers."
+  "Run, in rounds on the adapter's workers, the intents that may run at
+  once: each round runs those whose subjects nothing earlier holds, and
+  the next is worked out from what that round left, so a subject's next
+  call goes out in the same pass once its earlier one is sent."
   [config now pass intents]
-  (let [{:keys [^ExecutorService executor settles-first?]} config
-        runnable (intent-queue/runnable intents
-                                        now
-                                        {:settles-first? (or settles-first?
-                                                             (constantly
-                                                              false))})]
-    (doseq [^Future f (.invokeAll
-                       executor
-                       ^java.util.Collection
-                       (mapv (fn [intent]
-                               ^Callable
-                               (fn [] (run-intent config now pass intent)))
-                             runnable))]
-      (.get f))))
+  (let [opts {:settles-first? (or (:settles-first? config)
+                                  (constantly false))}]
+    (loop [intents intents]
+      (let [runnable (intent-queue/runnable intents now opts)]
+        (when (and (seq runnable) (pos? (:budget @pass)))
+          (let [ran (run-round config now pass runnable)]
+            (recur (after-round intents ran))))))))
 
 (defn- drain-in-order
   [config now pass intents]
@@ -370,10 +406,26 @@
      (telemetry/set-attribute "intents.ran" (:ran @state))
      (:ran @state))))
 
+(defn- before-unread-sent
+  "`pending` as far as `sent`, read `limit` at most, reaches: where the
+  read stopped at its limit, an unread sent intent may be older than a
+  pending one it has to settle before, so only pending intents older
+  than the last sent one read are taken."
+  [pending sent limit]
+  (if (< (count sent) limit)
+    pending
+    (let [last-id (:intent-id (peek sent))]
+      (filterv (fn [i] (neg? (compare (:intent-id i) last-id))) pending))))
+
 (defn drain-once
   [config now]
-  (let [pending (intents-with-status config "pending")
-        sent (intents-with-status config "sent")]
+  (let [{:keys [store]} config
+        limit (:pass-limit config default-pass-limit)
+        pending (store/intents-with-status config store "pending" limit)
+        sent (store/intents-with-status config store "sent" limit)
+        pending (if (or (error/anomaly? pending) (error/anomaly? sent))
+                  pending
+                  (before-unread-sent pending sent limit))]
     (if (or (error/anomaly? pending)
             (error/anomaly? sent)
             (and (empty? pending) (empty? sent)))

@@ -254,17 +254,22 @@
 (def ^:private delivery-pending :webhook-delivery-status-pending)
 (def ^:private delivery-in-flight :webhook-delivery-status-in-flight)
 
+(def ^:private scan-factor
+  "How many rows a claim reads for each it may take, so the per-endpoint
+  limit can pass over some and still fill the batch."
+  10)
+
 (defn- deliveries-with-status
-  [store status]
-  (fdb/query-records store
-                     "WebhookDelivery"
-                     "status"
-                     (fdb/enum-value store
-                                     "WebhookDelivery"
-                                     "status"
-                                     (schema/webhook-delivery-status->int
-                                      status))
-                     {:index "WebhookDelivery_by_status_due"}))
+  "Up to `limit` of the deliveries in `status`, due first, and with
+  `due-by`, only those due by then."
+  [store status limit due-by]
+  (fdb/scan-index-records store
+                          "WebhookDelivery_by_status_due"
+                          [(schema/webhook-delivery-status->int status)]
+                          (cond-> {:limit limit}
+
+                                  due-by
+                                  (assoc :through [due-by]))))
 
 (defn- claimable?
   "Whether a row may be claimed now: a pending one whose next attempt
@@ -337,9 +342,13 @@
                            (filter within-endpoint-limit?)
                            (take limit))
                      (concat (deliveries-with-status store
-                                                     delivery-in-flight)
+                                                     delivery-in-flight
+                                                     (* scan-factor limit)
+                                                     nil)
                              (deliveries-with-status store
-                                                     delivery-pending)))]
+                                                     delivery-pending
+                                                     (* scan-factor limit)
+                                                     now)))]
        (reduce (fn [claimed delivery]
                  (let [row (assoc delivery
                                   :status delivery-in-flight
