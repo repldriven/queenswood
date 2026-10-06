@@ -288,24 +288,20 @@ function fund(accounts, each, bearer) {
     200,
     "crediting the bank's own funds",
   );
-  for (const account of accounts) {
-    expect(
-      postRetried(
-        "/v1/payments/internal",
-        {
-          "debtor-account-id": own["account-id"],
-          "creditor-account-id": account,
-          currency: "GBP",
-          amount: each,
-          reference: "Funding",
-        },
-        bearer,
-        { tags: SETUP },
-      ),
-      201,
-      "funding an account",
-    );
-  }
+  postAll(
+    accounts,
+    () => "/v1/payments/internal",
+    (account) => ({
+      "debtor-account-id": own["account-id"],
+      "creditor-account-id": account,
+      currency: "GBP",
+      amount: each,
+      reference: "Funding",
+    }),
+    bearer,
+    201,
+    "funding an account",
+  );
   return own["account-id"];
 }
 

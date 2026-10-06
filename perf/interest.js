@@ -11,8 +11,8 @@ import { chosen, options as loadOptions, stepNow, steps } from "./lib/load.js";
 import { INTEREST_TASKS, interestThresholds, summary } from "./lib/summary.js";
 
 const PROFILES = {
-  smoke: { accounts: 100, steps: Array(5).fill([5, "1m"]) },
-  challenger: { accounts: 1000, steps: Array(8).fill([50, "1m"]) },
+  smoke: { accounts: 100, steps: Array(4).fill([5, "1m"]) },
+  challenger: { accounts: 1000, steps: Array(4).fill([50, "1m"]) },
 };
 
 const [PROFILE, profile] = chosen(PROFILES);
@@ -24,7 +24,7 @@ const RATE_BPS = parseInt(env("RATE_BPS", "500"));
 
 // How many minutes ahead the run is scheduled: the scheduler reconciles
 // its triggers with the jobs every minute.
-const LEAD_MIN = 3;
+const LEAD_MIN = 2;
 
 // How long the run may take, once due, before the scenario gives up.
 const RUN_TIMEOUT_S = parseInt(env("RUN_TIMEOUT_S", "1800"));

@@ -192,7 +192,7 @@ Scripts live under `perf/`, outside every brick:
   funded and gave `HISTORY` payments sent and received, 20 by default:
   the account with its balances embedded, 40%; the first page of its
   transactions, 40%; and its balances, 20%, each timed by its `name`.
-- `perf/interest.js` — a bank's `daily-interest` job moved three minutes
+- `perf/interest.js` — a bank's `daily-interest` job moved two minutes
   ahead and its run followed to the end, while internal payments between
   the same accounts run at a fixed rate. Setup opens and funds the
   accounts, at least £1,000 each, on a product paying `RATE_BPS`, 500 by
@@ -221,8 +221,9 @@ the steps:
 `knee` with a `challenger` at 50 a second for ten minutes, and
 `perf/reads.js` runs its `knee` at 80, 160, 320, 640, 1,280 and 2,560 a
 second, with a `challenger` at 200 a second for ten minutes.
-`perf/interest.js` has a `smoke` of 100 accounts at 5 a second for five
-minutes and a `challenger` of 1,000 accounts at 50 a second for eight.
+`perf/interest.js` has a `smoke` of 100 accounts at 5 a second for four
+minutes and a `challenger` of 1,000 accounts at 50 a second for four, the
+run and a minute either side of it.
 
 `FROM` drops a profile's steps below that rate, for a machine where
 the low steps tell nothing. `RATE` and `DURATION` replace a profile's
