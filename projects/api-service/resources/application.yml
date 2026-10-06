@@ -284,6 +284,9 @@ system:
       # waits up to 10 s on its command, and the payment processor serves
       # about 110 a second, so 200 holds about 2 s of work.
       max-in-flight: 200
+      # Counts each request turned away as mono.server.request.rejected,
+      # since it reaches no span.
+      telemetry: !system/ref telemetry.otel-sdk
       options:
         port: 8080
         # A request waits on its command's reply, so a pool of platform
