@@ -192,6 +192,14 @@ Scripts live under `perf/`, outside every brick:
   funded and gave `HISTORY` payments sent and received, 20 by default:
   the account with its balances embedded, 40%; the first page of its
   transactions, 40%; and its balances, 20%, each timed by its `name`.
+- `perf/interest.js` — a bank's `daily-interest` job moved three minutes
+  ahead and its run followed to the end, while internal payments between
+  the same accounts run at a fixed rate. Setup opens and funds the
+  accounts, at least £1,000 each, on a product paying `RATE_BPS`, 500 by
+  default. The summary's `interest` block gives the run's start and end
+  in seconds into the load, and each task's time, accounts processed and
+  accounts failed; it checks no books, since capitalisation moves money
+  into the customers' balances.
 
 Every scenario runs as steps of a fixed arrival rate on k6's
 `ramping-arrival-rate` executor, each reached over five seconds and then
@@ -213,6 +221,8 @@ the steps:
 `knee` with a `challenger` at 50 a second for ten minutes, and
 `perf/reads.js` runs its `knee` at 80, 160, 320, 640, 1,280 and 2,560 a
 second, with a `challenger` at 200 a second for ten minutes.
+`perf/interest.js` has a `smoke` of 100 accounts at 5 a second for five
+minutes and a `challenger` of 1,000 accounts at 50 a second for eight.
 
 `FROM` drops a profile's steps below that rate, for a machine where
 the low steps tell nothing. `RATE` and `DURATION` replace a profile's
@@ -578,6 +588,24 @@ run at the next:
       1,630.
 
     1,280 a second holds with none refused at a p50 of 21 ms.
+21. **Balances from legs.** A daily interest run over 1,001 accounts,
+    with payments at 50 a second between them, failed 200: a
+    capitalisation chunk of a hundred accounts held its transaction open
+    for seconds, and payments to the same accounts exhausted its
+    retries on their balance rows. A cash account's default buckets are
+    now the sums of its legs, read from SUM indexes, so a posting appends
+    its journal, and an account's sums are read serializably only where
+    a limit bounds the way the posting moves them, as
+    [ADR-0042](../adr/0042-a-cash-accounts-balance-is-the-sum-of-its-legs.md)
+    decides.
+    On a run over 10,001 accounts beside the same payments, accrual took
+    26 s and capitalisation 38 s, 3.8 ms an account where it had taken
+    13, and no account failed. Outbound's `knee` holds 160 a second at a
+    p99 of 279 ms rather than 455 and accepts 258 a second at 320
+    rather than 242, internal's is unchanged, and reads serve about
+    1,500 a second at 2,560 asked rather than 1,630: a read takes two
+    range reads, the balance rows and the account's leg sums, where it
+    took one.
 
 ### Span candidates
 
@@ -772,6 +800,18 @@ holds it, and the run repeated.
   away with 503 once 200 are in hand, whatever they are, so commands
   waiting on their replies can fill it and refuse a read that would take
   2 ms.
+- **The Modulr simulator forgets on a restart.** It holds what it has
+  opened in memory, so after a restart it serves an account it issued
+  earlier as active with nothing to check. It issues account numbers in
+  turn from its start time's milliseconds, which stay ahead of any rate
+  a run opens accounts at, so a restart issues no number an earlier
+  simulator did until they wrap, about every 28 hours.
+- **A Modulr call can be refused as a duplicate.** During the knees the
+  simulator refused a few transfers with "The nonce has been used
+  before". A nonce is 64 random bits, and the adapter marks a call a
+  retry only from its intent's attempts, so a call whose intent update
+  then lost to a conflict is likely sent again under the same nonce,
+  unmarked.
 
 ## References
 
