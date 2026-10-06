@@ -10,25 +10,6 @@
     [com.repldriven.queenswood.policy.interface :as policy]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]))
 
-(defn- post-run-entries
-  "Posts the bank's side once the accounts are done, each entry against
-  the ledger accounts of its own currency. Short-circuits on the first
-  anomaly — the remaining entries would post into the same broken
-  chart."
-  [spec config ctx gl entries]
-  (let [{:keys [entry-fn entry-currency]} spec
-        bank-id (:bank-id ctx)]
-    (reduce (fn [_ entry]
-              (let [result (let-nom>
-                             [currency-gl (chart/accounts-for
-                                           gl
-                                           bank-id
-                                           (entry-currency entry))]
-                             (entry-fn config ctx currency-gl entry))]
-                (if (error/anomaly? result) (reduced result) nil)))
-            nil
-            entries)))
-
 (defn- run-interest
   "Run an interest pass under the platform daily-count limit for
   `policy-kind`. Counts prior runs of this kind for the org on
@@ -41,26 +22,23 @@
   chunks committed: a re-run streams every account again and skips the
   ones already posted, and posts the ones a failed chunk left FAILED. A
   pass with any account failed returns `:interest/run-incomplete` and
-  posts neither the bank's side nor the run record, so the sum the
-  bank's side is posted from covers every account when it is.
+  writes no run record, so the run closes only once every account is
+  posted.
 
   A chunk is a short FDB transaction — no long transaction is held
-  across the run. Accrual then posts the bank's side at close, once per
-  currency, the other half of a double entry its per-account writes
-  deliberately leave open. Capitalisation posts nothing at close: each
-  account's transaction debits interest payable itself.
+  across the run — and posts both sides of the books itself: accrual
+  debits interest expense, and capitalisation moves each account's
+  interest from 2400 to its deposit control, so nothing is posted at
+  close.
 
   The chart of accounts is resolved before any account is touched, once
-  per currency the chart carries, so a run posting in two currencies
-  names two 5100s and two 2400s. Both kinds move customer money as they
-  go, so a bank that cannot take the ledger side should fail before the
-  books go out rather than after. The one failure that cannot be caught
-  up front is an account in a currency the chart carries no row of at
-  all: the resolution reads the chart, which says nothing about it, so
-  it surfaces when that currency's entry is posted at close, or, for
-  capitalisation, when the account is."
+  per currency the chart carries, so a bank that cannot take the ledger
+  side fails before the books go out rather than after. The one failure
+  that cannot be caught up front is an account in a currency the chart
+  carries no row of at all: the resolution reads the chart, which says
+  nothing about it, so it surfaces when that account is posted."
   [config data spec]
-  (let [{:keys [policy-kind run-kind gl-fn entries-fn]} spec
+  (let [{:keys [policy-kind run-kind gl-fn]} spec
         {:keys [bank-id as-of-date]} data
         ctx (assoc spec
                    :bank-id bank-id
@@ -80,8 +58,6 @@
        _ (run/check-daily-count policies policy-kind aggregates)
        tally (scan/post-accounts config (assoc ctx :gl gl :policies policies))
        _ (run/check-complete bank-id as-of-date tally)
-       _ (when entries-fn
-           (post-run-entries spec config ctx gl (entries-fn (:seen tally))))
        record (run/closed bank-id as-of-date run-kind)
        _ (store/save-run config record)]
       {:bank-id bank-id
@@ -124,3 +100,12 @@
     (error/reject :interest/unknown-run-kind
                   {:message "Run kind must be :accrue or :capitalize"
                    :kind kind})))
+
+(defn accrual-carry
+  [config bank-id account-id]
+  (store/transact config
+                  (fn [txn]
+                    (get (store/load-carries txn bank-id [account-id])
+                         account-id))
+                  :interest/accrual-carry
+                  "Failed to read an account's accrual carry"))

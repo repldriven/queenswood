@@ -29,12 +29,6 @@
   [balances currency]
   (net (accrued-interest-balance balances currency)))
 
-(defn carry-amount
-  "The accrued interest carry amount for `currency`,
-  or zero when not found"
-  [balances currency]
-  (:credit-carry (accrued-interest-balance balances currency) 0))
-
 (defn principal-amount
   "The principal amount for calculating accrued interest for `currency`,
   or zero when not found"

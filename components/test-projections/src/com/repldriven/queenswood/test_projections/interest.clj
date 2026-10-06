@@ -1,6 +1,7 @@
 (ns com.repldriven.queenswood.test-projections.interest
   (:require
     [com.repldriven.queenswood.balance-query.interface :as balance]
+    [com.repldriven.queenswood.interest.interface :as interest]
 
     [com.repldriven.mono.error.interface :as error]))
 
@@ -11,11 +12,10 @@
                                account-id
                                :balance-type-interest-accrued
                                "GBP"
-                               :balance-status-posted)]
-    (if (error/anomaly? b)
-      {:interest-accrued 0 :credit-carry 0}
-      {:interest-accrued (- (:credit b 0) (:debit b 0))
-       :credit-carry (:credit-carry b 0)})))
+                               :balance-status-posted)
+        carry (interest/accrual-carry bank bank-real-id account-id)]
+    {:interest-accrued (if (error/anomaly? b) 0 (- (:credit b 0) (:debit b 0)))
+     :credit-carry (if (error/anomaly? carry) 0 carry)}))
 
 (defn project-interest
   [bank real->bank-id id-mapping]

@@ -87,9 +87,18 @@ The parts, in two stages, each released and load-tested before the next:
     read of the bank's accounts and their sums at the run's cut-off,
     then append each account's legs and run row, a hundred accounts a
     transaction, reading nothing a payment writes.
-  - Record accrual as a leg on the `interest-accrued` bucket, and carry
-    the sub-minor remainder on the account's `InterestAccountRun` row in
-    place of the balance row's `credit_carry`.
+  - Record a chunk's accrual as one transaction per currency, a leg on
+    each account's `interest-accrued` bucket and the opposite on 5100
+    interest expense, and its capitalisation as one transaction per
+    account from that bucket to the account's default one.
+  - Read 2400 interest payable as the sum of the customers'
+    `interest-accrued` buckets, through the legs' index by product type,
+    and 5100 as the sum of its own legs, as 1100 is, so no chunk writes
+    a row another chunk or a payment reads.
+  - Carry the sub-minor remainder on the account's `InterestAccountRun`
+    row as the change the accrual made to it, in place of the balance
+    row's `credit_carry`, and read the carry an accrual opens with as
+    the sum of those changes, from a SUM index on the rows.
   - Retire the `interest-accrued` rows once nothing reads them.
 - **Throughout.**
   - Keep a leg's amount in whole minor units: the accrual's sub-minor

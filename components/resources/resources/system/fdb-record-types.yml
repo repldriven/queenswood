@@ -5,7 +5,7 @@
 # its record type arrived on as since, and a store lists the indexes
 # removed from it under former-indexes with the versions they were added
 # and removed at. See docs/recipes/code/schema-evolution.md.
-version: 78
+version: 79
 stores:
   assertions:
     record-type: Assertion
@@ -211,18 +211,20 @@ stores:
         modified: 21
         fields: [bank_id, business_day, kind, state]
         type: count
-      # The run's total per currency, for accrual's ledger entry posted
-      # at close. Grouped by currency because one entry per currency is
-      # the only way the pair of legs can balance.
-      - name: InterestAccountRun_sum_amount_by_bank_day_kind_currency
-        added: 22
-        modified: 22
-        fields: [bank_id, business_day, kind, currency, amount]
+      # The sub-unit carry an account's next accrual opens with: the sum
+      # of every accrual's change to it. ADR-0042.
+      - name: InterestAccountRun_sum_carry_change_by_bank_kind_account
+        added: 79
+        modified: 79
+        fields: [bank_id, kind, account_id, carry_change]
         type: sum
     former-indexes:
       - name: InterestAccountRun_sum_amount_by_bank_day_kind_currency_product
         added: 23
         removed: 74
+      - name: InterestAccountRun_sum_amount_by_bank_day_kind_currency
+        added: 22
+        removed: 79
   memberships:
     record-type: Membership
     indexes:

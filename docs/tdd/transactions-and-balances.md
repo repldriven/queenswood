@@ -13,8 +13,7 @@ produce.
 In scope: the `transaction` and `balance` bricks;
 Transaction, Leg, and Balance shapes; the record + apply
 atomicity contract; posted vs available balance derivation;
-policy integration at the leg level; the credit-carry
-mechanism that supports fractional units.
+policy integration at the leg level.
 
 Out of scope: payment flows that consume this layer (see
 forthcoming payments TDD); interest accrual math (forthcoming
@@ -142,15 +141,16 @@ credit posted bucket).
  :currency
  :credit           ;; sum of all credit legs to this bucket
  :debit            ;; sum of all debit legs to this bucket
- :credit-carry     ;; fractional sub-minor-unit residue
+ :credit-carry     ;; deprecated, written zero
  ...}
 ```
 
 The composite key
 `(account-id, balance-type, balance-status, currency)` is
 the primary identifier. `(- credit debit)` is the bucket's
-net value; `:credit-carry` holds fractional residue from
-interest math (see interest TDD).
+net value. `:credit-carry` is no longer read: interest keeps its
+sub-minor residue on its own run rows, as
+[interest.md](interest.md) describes.
 
 ### Recording an event
 
@@ -326,21 +326,6 @@ need different machinery; for the cases that have come up so
 far, partial progress is acceptable and resumability is more
 valuable.
 
-### Credit-carry and fractional units
-
-Some operations (notably interest accrual) work at
-sub-minor-unit precision: the per-day interest on £1.00 at
-5% APR is well under a penny. The system tracks fractional
-residue in `:credit-carry` on the relevant balance. Once
-carry accumulates past one minor unit, the integer portion
-is posted as a credit leg and the fractional remainder
-stays in carry.
-
-`set-carry` updates the field independently of legs — carry
-isn't a leg event; it's a bookkeeping field that the
-interest engine reads, mutates, and writes back. The
-mechanism's semantics are detailed in the interest TDD.
-
 ### Caller contract
 
 A caller of `record-transaction` + `apply-legs` must:
@@ -407,10 +392,6 @@ A caller of `record-transaction` + `apply-legs` must:
   cross-currency operations need explicit FX legs. Acceptable
   at current scope (single-currency dominates); a multi-currency
   story would benefit from a dedicated FX brick.
-- **`:credit-carry` doesn't appear in the leg log.** It's a
-  bookkeeping field on the balance, mutated by `set-carry`.
-  Audit of carry changes relies on balance record-versioning,
-  not on legs.
 - **`available-balance` is hardcoded per product-type.** The
   mapping lives in `balance/domain.clj`. Adding a new
   product-type requires editing the brick. A

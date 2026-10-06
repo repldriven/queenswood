@@ -56,16 +56,6 @@
                 []
                 data))))))
 
-(defn accrue
-  [txn balance whole-units carry]
-  (store/transact
-   txn
-   (fn [txn]
-     (let-nom>
-       [updated (domain/accrue balance whole-units carry)
-        _ (store/save-balance txn updated)]
-       updated))))
-
 (defn- bounded?
   "Whether a limit in force bounds the way `account-legs` move the
   account's available balance: a floor against a posting that lowers

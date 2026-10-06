@@ -183,7 +183,8 @@
 (def
   ^{:doc
     "Real-side interest projection. Reads each account's
-  `interest-accrued / posted` bucket and returns
+  `interest-accrued / posted` bucket and the carry its accruals left,
+  and returns
   `{model-acct-id {:interest-accrued n :credit-carry micro-units}}`; an
   account with no bucket projects zeros. Args:
   - bank: FDB config map.

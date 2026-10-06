@@ -46,7 +46,9 @@
            (update-in [:accounts customer-acct :interest-accrued]
                       (fnil + 0)
                       whole-units)
-           (assoc-in [:accounts customer-acct :credit-carry] carry))))))
+           (assoc-in [:accounts customer-acct :credit-carry] carry)
+           (update-in [:accounts customer-acct :transaction-legs]
+                      (fnil inc 0)))))))
 
 (defn- accrue-org
   [state bank-id]
@@ -89,7 +91,8 @@
           (update-in [:accounts customer-acct :available] + accrued)
           (assoc-in [:accounts customer-acct :interest-accrued] 0)
           (update-in [:accounts customer-acct :transaction-legs]
-                     (fnil inc 0))))))
+                     (fnil + 0)
+                     2)))))
 
 (defn- capitalize-org
   [state bank-id]

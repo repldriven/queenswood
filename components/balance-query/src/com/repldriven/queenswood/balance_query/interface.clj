@@ -127,11 +127,11 @@
                       balance-status))
 
 (defn sub-ledger-balance
-  "The summed `{:credit :debit}` of the default balances in one status,
-  posted unless `opts` names another, of every account of `product-type`
-  in `currency` across the bank — the balance of the ledger account
-  derived from them. Read from the legs' SUM index grouped by bank and
-  product type, at snapshot unless `opts` asks for
+  "The summed `{:credit :debit}` of one bucket, default and posted
+  unless `opts` names another type or status, of every account of
+  `product-type` in `currency` across the bank — the balance of the
+  ledger account derived from them. Read from the legs' SUM index
+  grouped by bank and product type, at snapshot unless `opts` asks for
   `{:isolation :serializable}`, which a guard deciding on the figure in
   its own transaction needs. An empty group sums to zero.
 
@@ -141,7 +141,7 @@
   - product-type: the sub-ledger product type keyword.
   - currency: ISO 4217 currency string.
   - opts: optional `{:isolation :snapshot | :serializable,
-    :balance-status <status keyword>}`."
+    :balance-type <type keyword>, :balance-status <status keyword>}`."
   ([txn bank-id product-type currency]
    (sub-ledger-balance txn bank-id product-type currency {}))
   ([txn bank-id product-type currency opts]
@@ -149,7 +149,7 @@
                      bank-id
                      product-type
                      currency
-                     :balance-type-default
+                     (:balance-type opts :balance-type-default)
                      (:balance-status opts :balance-status-posted)
                      (:isolation opts :snapshot))))
 
@@ -185,9 +185,9 @@
 
 (defn derived?
   "Whether `balance` is the sum of its legs rather than what its row
-  holds: a cash account's default bucket, whose rows a posting no longer
-  writes. Every other bucket, and every general-ledger account's, is the
-  row as stored. ADR-0042.
+  holds: a cash account's default or interest-accrued bucket, whose rows
+  a posting no longer writes. Every other bucket, and every
+  general-ledger account's, is the row as stored. ADR-0042.
 
   Args:
   - balance: a balance map."

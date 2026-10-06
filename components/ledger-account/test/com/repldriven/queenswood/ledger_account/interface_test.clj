@@ -536,7 +536,7 @@
                                       :account-id "acc.customer2"})]
                  checked (SUT/ensure-controls config bank-id "GBP" legs)
                  _ (is (= legs checked) "no leg is added for the control")])
-     (testing "only a posted default customer leg is checked"
+     (testing "only a posted default or accrued customer leg is checked"
        (let [pending (customer-leg {:balance-status
                                     :balance-status-pending-outgoing})
              accrued (customer-leg {:balance-type
@@ -546,11 +546,15 @@
                      :balance-status :balance-status-posted
                      :side :leg-side-debit
                      :amount 1000}]
-         (is
-          (=
-           [pending accrued gl-leg]
-           (SUT/ensure-controls config bank-id "USD" [pending accrued gl-leg]))
-          "in a currency with no controls, unchecked legs pass"))))))
+         (is (= [pending gl-leg]
+                (SUT/ensure-controls config bank-id "USD" [pending gl-leg]))
+             "in a currency with no controls, unchecked legs pass")
+         (is (= :gl/missing-currency-account
+                (error/kind
+                 (SUT/ensure-controls config bank-id "USD" [accrued])))
+             "an accrued leg needs the currency's 2400")
+         (is (= [accrued] (SUT/ensure-controls config bank-id "GBP" [accrued]))
+             "and passes where it has one"))))))
 
 (deftest ensure-controls-unseeded-control-rejects-test
   (with-test-system

@@ -1,8 +1,8 @@
 (ns com.repldriven.queenswood.balance.interface
-  "Balance write side: create an account's balance buckets, apply
+  "Balance write side: create an account's balance buckets, and apply
   transaction legs to them (with policy-gated capability and limit
-  checks), and advance an accrued bucket from a frozen row. Buckets
-  are keyed by `(account-id, balance-type, currency, balance-status)`.
+  checks). Buckets are keyed by `(account-id, balance-type, currency,
+  balance-status)`.
 
   Reads (lookup, listing with posted/available totals, trial-balance)
   live in `bank-balance-query`, which this brick reuses inside its own
@@ -34,8 +34,8 @@
   success or an anomaly. `transaction-type` scopes which limits
   fire via the limit's `transaction-type` filter.
 
-  A cash account's default bucket is the sum of its legs, so its row is
-  not rewritten: a leg on one must already be recorded in this
+  A cash account's default and interest-accrued buckets are the sums of
+  their legs, so their rows are not rewritten: a leg on one must already be recorded in this
   transaction, which is how its sum moves, and the check reads the sum
   less the posting's own legs as the balance before it. An account's
   sums are read serializably only where a limit in force bounds the way
@@ -58,24 +58,3 @@
    (core/apply-legs txn bank-id legs transaction-type))
   ([txn bank-id legs transaction-type opts]
    (core/apply-legs txn bank-id legs transaction-type opts)))
-
-(defn accrue
-  "Advance a bucket the caller already holds: raise its `:credit` by
-  `whole-units` and replace its `:credit-carry`, writing the row back
-  without reading it first. Returns the updated balance or an anomaly.
-
-  Unlike `apply-legs` this reads nothing and checks no policy, so it
-  is sound only where the caller froze the row in an earlier
-  transaction and no other writer can have touched it since. That
-  holds for an interest-accrued bucket, which only the interest pass
-  credits and capitalisation sweeps. It does not hold for anything
-  payments reach, where a read-modify-write inside the writing
-  transaction is what keeps concurrent postings from being lost.
-
-  Args:
-  - txn: FDB transaction or db handle.
-  - balance: the frozen balance row, carrying its full primary key.
-  - whole-units: units to add to `:credit`.
-  - carry: the new `:credit-carry`."
-  [txn balance whole-units carry]
-  (core/accrue txn balance whole-units carry))

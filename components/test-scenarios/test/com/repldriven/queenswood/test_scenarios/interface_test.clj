@@ -83,15 +83,14 @@
      (testing "books a step leaves untied fail the trial"
        (let [ctx (SUT/run-commands (fresh {}) create-bank)
              bank-id (get-in ctx [:banks :bank-0 :real-id])
-             expense (ledger-accounts/find-by-code
-                      bank
-                      bank-id
-                      :gl-account-code-interest-expense
-                      "GBP")]
+             suspense (ledger-accounts/find-by-code bank
+                                                    bank-id
+                                                    :gl-account-code-suspense
+                                                    "GBP")]
          (is (nil? (balances/apply-legs bank
                                         bank-id
                                         [{:account-id (:ledger-account-id
-                                                       expense)
+                                                       suspense)
                                           :balance-type :balance-type-default
                                           :balance-status :balance-status-posted
                                           :currency "GBP"

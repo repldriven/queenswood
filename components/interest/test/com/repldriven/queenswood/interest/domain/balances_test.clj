@@ -24,8 +24,7 @@
     :balance-status :balance-status-posted
     :currency "GBP"
     :credit 40
-    :debit 0
-    :credit-carry 27397}])
+    :debit 0}])
 
 (deftest accrued-interest-balance-test
   (testing "the accrued balance is found by currency alone"
@@ -58,19 +57,6 @@
                                  :credit 100
                                  :debit 100}]
                                "GBP")))))
-
-(deftest carry-amount-test
-  (testing "the remainder is carried on the accrued balance"
-    (is (= 27397 (SUT/carry-amount account-balances "GBP"))))
-  (testing "no accrued balance means no remainder, not a nil"
-    (is (= 0 (SUT/carry-amount account-balances "USD"))))
-  (testing "an accrued balance that has never carried reads as zero"
-    (is (= 0
-           (SUT/carry-amount [{:balance-type :balance-type-interest-accrued
-                               :balance-status :balance-status-posted
-                               :currency "GBP"
-                               :credit 40}]
-                             "GBP")))))
 
 (deftest principal-amount-test
   (testing "interest is earned on the available balance, not the posted one"

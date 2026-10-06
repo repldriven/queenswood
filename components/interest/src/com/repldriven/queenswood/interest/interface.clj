@@ -57,7 +57,19 @@
   `:run-state` is nil until the run record is written, which happens
   once enumeration finishes.
 
-  Counts only. What a run accrued is per currency, and the ledger
-  entries it posts at close are where that figure is auditable."
+  Counts only. What a run accrued is in the transactions its chunks
+  record, against interest expense."
   [config bank-id as-of-date kind]
   (core/run-progress config bank-id as-of-date kind))
+
+(defn accrual-carry
+  "The sub-unit carry, in millionths of a minor unit, that an account's
+  next accrual opens with: what its earlier accruals left over. Zero for
+  an account none has accrued.
+
+  Args:
+  - config: FDB handle or open transaction.
+  - bank-id: the account's bank.
+  - account-id: the cash account."
+  [config bank-id account-id]
+  (core/accrual-carry config bank-id account-id))

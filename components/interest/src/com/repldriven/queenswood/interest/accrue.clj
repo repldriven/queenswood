@@ -3,9 +3,9 @@
     [com.repldriven.queenswood.interest.domain.accrual :as accrual]
     [com.repldriven.queenswood.interest.domain.chart :as chart]
     [com.repldriven.queenswood.interest.store :as store]
-    [com.repldriven.queenswood.balance.interface :as balances]
     [com.repldriven.queenswood.cash-account-product-query.interface :as
      products]
+    [com.repldriven.queenswood.ledger-account.interface :as ledger-accounts]
     [com.repldriven.queenswood.transaction.interface :as transactions]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]))
 
@@ -34,71 +34,92 @@
           (swap! versions assoc k version))
         version))))
 
-(defn- accrue-account
-  "One account's share of the day's interest, posted silently: the
-  customer's interest-accrued bucket is credited and the sub-unit
-  remainder carried, with no transaction record and no ledger leg.
+(defn- accruals
+  "Each account in `chunk` paired with its day's accrual, opening with
+  its carry in `carries`. An account with nothing to accrue is left
+  out."
+  [config ctx chunk carries]
+  (let [{:keys [bank-id versions]} ctx]
+    (reduce (fn [acc [account balances]]
+              (let [{:keys [account-id currency]} account
+                    result (let-nom>
+                             [version (get-product-version config
+                                                           versions
+                                                           bank-id
+                                                           account)]
+                             (accrual/accrue account-id
+                                             currency
+                                             balances
+                                             (get carries account-id 0)
+                                             (:interest-rate-bps version)))]
+                (cond (error/anomaly? result)
+                      (reduced result)
 
-  Accrual is not a statement line — what a customer sees is
-  capitalisation — so the per-account transaction bought nothing and
-  cost the two GL rows every accrual in the bank had to read and write.
-  The bank's side is posted once for the run.
+                      (nil? result)
+                      acc
 
-  Everything it computes on was frozen by the scan, so the whole
-  account costs one unread write. That is sound because only this pass
-  and capitalisation ever write an interest-accrued bucket; the
-  principal it reads sits on the default bucket, which payments move
-  and which this never writes."
-  [config ctx txn account balances]
-  (let [{:keys [bank-id account-id currency]} account]
+                      :else
+                      (conj acc [account result]))))
+            []
+            chunk)))
+
+(defn- expense-ids
+  "The bank's interest expense account in each currency `accruals` are
+  in, as a map of currency to id."
+  [ctx accruals]
+  (let [{:keys [bank-id gl]} ctx]
+    (reduce (fn [acc currency]
+              (let [resolved (chart/accounts-for gl bank-id currency)]
+                (if (error/anomaly? resolved)
+                  (reduced resolved)
+                  (assoc acc currency (:expense resolved)))))
+            {}
+            (distinct (map (comp :currency first) accruals)))))
+
+(defn- accrue-chunk
+  "A chunk's accrual: each account's day of interest, opening with the
+  carry its earlier accruals left, recorded as one transaction per
+  currency crediting each account's interest-accrued bucket and
+  debiting interest expense. Returns each account's accrual by account
+  id.
+
+  It appends and reads nothing a payment writes: the principal was read
+  by the scan, a carry is written only by its own account's accrual,
+  and both buckets the legs reach are sums of legs, 2400 summing the
+  interest-accrued buckets and 5100 its own legs, so no balance row is
+  read or written."
+  [config ctx txn chunk]
+  (let [{:keys [bank-id business-day]} ctx]
     (let-nom>
-      [version (get-product-version config (:versions ctx) bank-id account)
-       accrued (accrual/accrue account-id
-                               currency
-                               balances
-                               (:interest-rate-bps version))
-       _ (when accrued
-           (balances/accrue txn
-                            (:balance accrued)
-                            (:amount accrued)
-                            (:closing-carry accrued)))]
-      accrued)))
-
-(defn- post-ledger-entry
-  "The bank's ledger entry for one currency of an accrual run, posted
-  once at close against the `gl` roles resolved for that currency. The
-  total comes off the SUM index rather than a tally the pass kept,
-  because a resumed run only posts what it processed itself while the
-  index covers every row whichever attempt wrote it.
-
-  `record-and-post` reads back on a duplicate idempotency key, so
-  reaching close twice posts once."
-  [config ctx gl currency]
-  (let [{:keys [bank-id business-day account-kind]} ctx]
-    (store/transact
-     config
-     (fn [txn]
-       (let-nom>
-         [total (store/sum-account-run-amounts txn
-                                               bank-id
-                                               business-day
-                                               account-kind
-                                               currency)
-          transaction (accrual/ledger-transaction gl
-                                                  bank-id
-                                                  currency
-                                                  total
-                                                  business-day)
-          _ (when transaction
-              (transactions/record-and-post txn bank-id transaction))])))))
+      [carries (store/load-carries txn
+                                   bank-id
+                                   (mapv (comp :account-id first) chunk))
+       accrued (accruals config ctx chunk carries)
+       expense (expense-ids ctx accrued)
+       _ (reduce (fn [_ transaction]
+                   (let [result (let-nom>
+                                  [legs (ledger-accounts/ensure-controls
+                                         txn
+                                         bank-id
+                                         (:currency transaction)
+                                         (:legs transaction))]
+                                  (transactions/record-transaction
+                                   txn
+                                   (assoc transaction :legs legs)))]
+                     (when (error/anomaly? result) (reduced result))))
+                 nil
+                 (accrual/chunk-transactions bank-id
+                                             expense
+                                             accrued
+                                             business-day))]
+      (into {}
+            (map (fn [[account result]] [(:account-id account) result]))
+            accrued))))
 
 (def pass
   "Everything a run of this kind does differently from the other."
   {:policy-kind :accrual
    :run-kind :interest-run-kind-accrue
    :account-kind :interest-account-run-kind-accrue
-   :account-fn accrue-account
-   :gl-fn chart/accrual-accounts
-   :entry-fn post-ledger-entry
-   :entry-currency identity
-   :entries-fn accrual/entries})
+   :chunk-fn accrue-chunk
+   :gl-fn chart/accrual-accounts})

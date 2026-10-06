@@ -306,10 +306,9 @@ the customer interest-accrued balances** (interest the bank
 owes but has not yet capitalised), and **3100 holds the
 bank's own funds** (the own-funds cash account the bank funds
 and pays customers from). A deposit or own-funds control's
-balance is the sum of the cash accounts of its product type; 2400
-is posted to, by the accrual entry at the close of a run and by
-each account's capitalisation — see "Balance buckets per account
-class" below.
+balance is the sum of the cash accounts of its product type, and
+2400's the sum of their interest-accrued buckets — see "Balance
+buckets per account class" below.
 
 Accounts the chart will grow when those flows land — fee
 income (4xxx), retained earnings, accrued fees receivable —
@@ -402,19 +401,20 @@ bank share no row on the control's account, a read-modify-write
 no account key could otherwise spread; see
 [ADR-0037](../adr/0037-a-control-accounts-balance-is-the-sum-of-the-balances-that-roll-into-it.md).
 A customer bucket in `pending-incoming` or `pending-outgoing` is
-not summed, so the control moves when the payment posts, and a
-customer `interest-accrued` bucket is not summed either — the
-bank's side sits on 2400, so interest is never counted as both
-`2100.interest-accrued` and `2400.default`. 2400 is a control
-too, but posted to: by the accrual entry at the close of a run and
-by each account's capitalisation. See [interest.md](interest.md).
-2500 and 5100 are detail accounts, posted to directly. 1100 is a
-detail account whose balance is the sum of its legs, read from a SUM
-index on `transaction-legs` over `amount` grouped by account, bucket
-and side: every posting naming it still records its leg, but the leg
-is left out of the balance writes, so settlements in one bank share no
-row on 1100; see
-[ADR-0039](../adr/0039-cash-at-correspondents-balance-is-the-sum-of-its-legs.md).
+not summed, so the control moves when the payment posts. A
+customer `interest-accrued` bucket is summed into 2400 rather than
+the deposit control, so interest is counted once, on 2400, until
+capitalisation moves it to the default bucket and so to 2100; see
+[interest.md](interest.md). 2500 is a detail account, posted to
+directly. 1100 and 5100 are detail accounts whose balance is the
+sum of their legs, read from a SUM index on `transaction-legs` over
+`amount` grouped by account, bucket and side: every posting naming
+one still records its leg, but the leg is left out of the balance
+writes, so settlements in one bank share no row on 1100, and an
+interest run's chunks none on 5100; see
+[ADR-0039](../adr/0039-cash-at-correspondents-balance-is-the-sum-of-its-legs.md)
+and
+[ADR-0042](../adr/0042-a-cash-accounts-balance-is-the-sum-of-its-legs.md).
 
 A bucket a leg opens takes the leg's `:product-type`, else that of
 the account's existing buckets, and is tagged
@@ -441,9 +441,10 @@ expressed by separate GL accounts where business value exists
 distinct from 1100 *Cash at correspondent*) rather than by a
 pending status on a single account.
 
-The bank's liability to customers for interest is recorded
-directly in GL 2400's `default / posted` bucket — there's no
-separate `interest-payable` typed bucket on another account.
+The bank's liability to customers for interest is GL 2400's
+`default / posted` balance, the sum of the customers'
+`interest-accrued / posted` buckets — there's no separate
+`interest-payable` typed bucket on another account.
 
 ### The two invariants
 
@@ -517,10 +518,10 @@ after capitalisation:
   across every customer cash-account
 ```
 
-Each side of that equality is written by a different posting —
-the customer's accrued bucket by one, 2400 by the aggregate
-entry — so the reconciliation constrains the routing rather than
-restating one number twice.
+2400 is summed from the same buckets by product type, through the
+legs' index, and the other side account by account, so the
+reconciliation checks that every accrued leg carries its account's
+product type.
 
 The first invariant is enforced *in the commit path* —
 `validate-legs` rejects an unbalanced posting before commit. The
@@ -582,22 +583,18 @@ transfer between two current-account customers moves 2100 by
 nothing at all, since one customer's debit and the other's credit
 sum into it together.
 
-Two movements deliberately do not reach a control:
+One movement deliberately does not reach a control:
 
 - **The outbound reservation.** Submitting an outbound payment
   writes the customer's `default / pending-outgoing` bucket, which
   1200 mirrors and no deposit control sums. The deposit control
   moves at settlement, when the customer's posted debit is recorded
   — see [payments.md](payments.md).
-- **`interest-accrued` buckets.** The bank's side of an accrual is
-  posted in aggregate at the close of the run, one DR 5100 / CR
-  2400 entry per currency. Summing the buckets as well would book
-  2400 twice.
-
 A posting site calls `ensure-controls` on its legs before recording
 them. For each posted default leg carrying a sub-ledger
 `:product-type`, it resolves the control that product type maps to,
-reading the `LedgerAccount` record, and returns the legs unchanged.
+and for each posted interest-accrued one 2400, reading the
+`LedgerAccount` record, and returns the legs unchanged.
 Two rejections originate there, and both fail the whole posting:
 
 - `:gl/missing-currency-account` — the bank's chart has no row for
@@ -611,10 +608,11 @@ The `interest` brick raises its own
 a posting whose control was missing, the other an interest run
 that found no chart to post against.
 
-Interest calls no `ensure-controls`. Accrual writes a balance and
-no transaction; capitalisation posts DR 2400 / CR the customer's
-`default / posted` per account, which its customer leg carries no
-product type for, and the run resolves every control up front.
+Interest calls `ensure-controls` on each transaction a chunk
+records: accrual's credits each account's interest-accrued bucket
+and debits 5100, and capitalisation's moves each account's interest
+from that bucket to its default one, both legs carrying the
+account's product type.
 
 ### The bank's own funds
 
@@ -770,9 +768,10 @@ at any layer holds more than one currency.
   `:product-type`, and checks their controls via
   `ensure-controls`.
 - **`interest`** resolves 5100 and 2400 through its own
-  `domain/chart.clj`: accrual posts the bank's side as an
-  aggregate entry at the close of each run, and capitalisation
-  debits 2400 in each account's transaction.
+  `domain/chart.clj` before a run touches an account: a chunk's
+  accrual debits 5100 and credits each account's interest-accrued
+  bucket, which 2400 sums, and capitalisation moves it from there
+  to the default bucket.
 - **`transaction` / `balance`** record legs and
   maintain bucket balances uniformly across cash (`acc.`) and
   ledger (`led.`) account-ids; `validate-legs` checks every
@@ -976,14 +975,6 @@ the cash-account legs that roll into a control.
   per-scheme 1100 children), re-coding, versioning ("what a code
   meant" at posting time) and a tenant-facing close are all
   future work.
-- **`interest-accrued` is not summed into 2400.** This is
-  the design rather than a gap: the bank's interest payable
-  lives on 2400, posted to by accrual at the close of a run and
-  by each account's capitalisation, and the sub-ledger ↔ control
-  invariant is restricted to posted default buckets. The
-  interest reconciliation is a scenario-level assertion rather
-  than a commit-path check, because accrual's two sides move in
-  separate transactions.
 - **Indirect-access modelling is single-sided.** A bank using
   sponsor access sees its 1100 position as its own view of what
   the sponsor holds for it; the sponsor's books carry the

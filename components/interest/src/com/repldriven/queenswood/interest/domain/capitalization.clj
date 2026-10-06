@@ -8,67 +8,49 @@
   [account-id as-of-date]
   (str "capitalize-" account-id "-" as-of-date))
 
-(defn- transaction
-  "One account's capitalisation: DR interest payable, CR the customer's
-  default balance, for the whole accrued amount — what the bank owed
-  becomes the customer's to spend. The customer's default balance is
-  part of the deposit control its product type rolls into, so this one
-  entry moves both sides of the bank's books."
-  [bank-id account currency payable-id accrued as-of-date]
-  {:bank-id bank-id
-   :idempotency-key (idempotency-key (:account-id account) as-of-date)
-   :transaction-type :transaction-type-interest-capital
-   :currency currency
-   :reference (str "Monthly interest capitalization "
-                   (utility/epoch-day->iso-date as-of-date))
-   :legs [{:account-id payable-id
-           :balance-type :balance-type-default
-           :balance-status :balance-status-posted
-           :side :leg-side-debit
-           :amount accrued
-           :currency currency}
-          {:account-id (:account-id account)
-           :product-type (:product-type account)
-           :balance-type :balance-type-default
-           :balance-status :balance-status-posted
-           :side :leg-side-credit
-           :amount accrued
-           :currency currency}]})
-
-(defn- accrued-leg
-  "The debit that empties the customer's accrued interest balance as it
-  is paid. Applied with the transaction's legs and not recorded among
-  them, as accrual raises that balance without a transaction."
-  [account-id currency accrued]
-  {:account-id account-id
-   :balance-type :balance-type-interest-accrued
+(defn- leg
+  [account balance-type side amount currency]
+  {:account-id (:account-id account)
+   :product-type (:product-type account)
+   :balance-type balance-type
    :balance-status :balance-status-posted
-   :side :leg-side-debit
-   :amount accrued
+   :side side
+   :amount amount
    :currency currency})
 
+(defn- transaction
+  "One account's capitalisation: what accrued leaves its interest-accrued
+  bucket for its default one, a debit and a credit, or the reverse where
+  an overdrawn principal accrued a charge. Each bucket rolls into its
+  control, 2400 and the deposit control of the account's product type,
+  so the one entry moves both sides of the bank's books."
+  [bank-id account currency accrued as-of-date]
+  (let [[from to] (if (neg? accrued)
+                    [:leg-side-credit :leg-side-debit]
+                    [:leg-side-debit :leg-side-credit])
+        amount (abs accrued)]
+    {:bank-id bank-id
+     :idempotency-key (idempotency-key (:account-id account) as-of-date)
+     :transaction-type :transaction-type-interest-capital
+     :currency currency
+     :reference (str "Monthly interest capitalization "
+                     (utility/epoch-day->iso-date as-of-date))
+     :legs [(leg account :balance-type-interest-accrued from amount currency)
+            (leg account :balance-type-default to amount currency)]}))
+
 (defn sweep
-  "What one account capitalises: the `:transaction` to record, the
-  `:legs` to apply — its legs and the debit of the accrued balance —
-  and the `:amount` swept beside the `:principal` it came off. A sweep
-  takes whatever is there, so those two are the same number.
+  "What one account capitalises: the `:transaction` to record and the
+  `:amount` swept beside the `:principal` it came off. A sweep takes
+  whatever is there, so those two are the same number.
 
   Nil when nothing has accrued, which is not a failure — most accounts
   on most days have nothing to sweep.
 
-  This is the only part of interest a customer sees. Accrual runs
-  silently day by day, capitalisation is the statement line."
-  [bank-id account currency payable-id account-balances as-of-date]
+  Accrual moves the interest-accrued bucket day by day; this is the
+  line on the account's spendable balance."
+  [bank-id account currency account-balances as-of-date]
   (let [accrued (balances/accrued-amount account-balances currency)]
     (when-not (zero? accrued)
-      (let [tx (transaction bank-id
-                            account
-                            currency
-                            payable-id
-                            accrued
-                            as-of-date)]
-        {:transaction tx
-         :legs (conj (:legs tx)
-                     (accrued-leg (:account-id account) currency accrued))
-         :amount accrued
-         :principal accrued}))))
+      {:transaction (transaction bank-id account currency accrued as-of-date)
+       :amount accrued
+       :principal accrued})))

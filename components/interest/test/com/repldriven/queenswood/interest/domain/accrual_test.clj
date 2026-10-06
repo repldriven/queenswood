@@ -1,7 +1,7 @@
 (ns com.repldriven.queenswood.interest.domain.accrual-test
   "The daily-interest arithmetic at sub-minor-unit precision, the
-  outcome one account's accrual settles on, and the bank's side of a
-  run."
+  outcome one account's accrual settles on, and the transactions a
+  chunk of them records."
   (:require
     [com.repldriven.queenswood.interest.domain.accrual :as SUT]
 
@@ -9,8 +9,7 @@
 
 (def ^:private earning-balances
   "A current account holding 1500 available (2000 posted less a 500
-  outgoing reservation) and an accrued balance carrying yesterday's
-  sub-minor remainder."
+  outgoing reservation) and an accrued balance."
   [{:product-type :product-type-sub-ledger-current
     :balance-type :balance-type-default
     :balance-status :balance-status-posted
@@ -28,8 +27,7 @@
     :balance-status :balance-status-posted
     :currency "GBP"
     :credit 40
-    :debit 0
-    :credit-carry 27397}])
+    :debit 0}])
 
 (def ^:private spendable-only (vec (take 2 earning-balances)))
 
@@ -70,61 +68,75 @@
 
 (deftest accrue-test
   (testing "a product paying no interest accrues nothing"
-    (is (nil? (SUT/accrue "acc.1" "GBP" earning-balances 0))))
+    (is (nil? (SUT/accrue "acc.1" "GBP" earning-balances 27397 0))))
   (testing "a rate with nowhere to put it accrues nothing either"
     ;; Logged rather than rejected — nothing the account did caused it.
-    (is (nil? (SUT/accrue "acc.1" "GBP" spendable-only 100))))
-  (testing "a rate and a balance yield the advance and the row together"
+    (is (nil? (SUT/accrue "acc.1" "GBP" spendable-only 27397 100))))
+  (testing "a rate and a balance yield the amount and the carry together"
     ;; 1500 available at 100 bps opening at 27_397: Total-micro = 1500 *
     ;; 100 * 100 + 27_397 * 365 = 24_999_905 daily-micro = 24_999_905 / 365
     ;; = 68_492
-    (let [{:keys [balance amount closing-carry principal opening-carry]}
-          (SUT/accrue "acc.1" "GBP" earning-balances 100)]
-      (testing "the balance handed back is the accrued one"
-        (is (= :balance-type-interest-accrued (:balance-type balance)))
-        (is (= 40 (:credit balance))))
+    (let [{:keys [amount closing-carry carry-change principal opening-carry]}
+          (SUT/accrue "acc.1" "GBP" earning-balances 27397 100)]
       (testing "what the account earned, and the remainder it leaves"
         (is (= 0 amount))
-        (is (= 68492 closing-carry)))
+        (is (= 68492 closing-carry))
+        (is (= (- 68492 27397) carry-change)))
       (testing "and what those were computed from, so the row explains itself"
         (testing "interest is earned on available, not posted"
           (is (= 1500 principal)))
-        (is (= 27397 opening-carry)))))
-  (testing "a zero amount still accrues, because the remainder moved"
-    (let [{:keys [amount opening-carry closing-carry]}
-          (SUT/accrue "acc.1" "GBP" earning-balances 100)]
-      (is (= 0 amount))
-      (is (not= opening-carry closing-carry)))))
+        (is (= 27397 opening-carry))))))
 
-(deftest entries-test
-  (testing "one entry per currency — product type is not a distinction"
-    (is (= #{"GBP"}
-           (SUT/entries #{["GBP" :product-type-sub-ledger-current]
-                          ["GBP" :product-type-sub-ledger-savings]})))
-    (is (= #{"GBP" "EUR"}
-           (SUT/entries #{["GBP" :product-type-sub-ledger-current]
-                          ["EUR" :product-type-sub-ledger-current]})))))
+(def ^:private current
+  {:account-id "acc.1"
+   :currency "GBP"
+   :product-type :product-type-sub-ledger-current})
 
-(def ^:private gl {:expense "led.expense" :payable "led.payable"})
+(def ^:private expense {"GBP" "led.expense" "EUR" "led.expense-eur"})
 
-(deftest ledger-transaction-test
-  (testing "a currency that accrued nothing posts nothing"
-    (is (nil? (SUT/ledger-transaction gl "org.1" "GBP" 0 20260501))))
-  (testing "DR interest expense, CR interest payable"
-    (let [tx (SUT/ledger-transaction gl "org.1" "GBP" 5000 20260501)
-          [debit credit] (:legs tx)]
+(deftest chunk-transactions-test
+  (testing "a chunk that earned nothing whole records nothing"
+    (is (= []
+           (SUT/chunk-transactions "org.1"
+                                   expense
+                                   [[current {:amount 0}]]
+                                   20260501))))
+  (testing "CR each account's interest accrued, DR interest expense"
+    (let [saver (assoc current
+                       :account-id "acc.2"
+                       :product-type :product-type-sub-ledger-savings)
+          [tx] (SUT/chunk-transactions "org.1"
+                                       expense
+                                       [[current {:amount 3}]
+                                        [saver {:amount 5}]
+                                        [(assoc current :account-id "acc.3")
+                                         {:amount 0}]]
+                                       20260501)
+          legs (:legs tx)]
       (is (= :transaction-type-interest-accrual (:transaction-type tx)))
-      (is (= "led.expense" (:account-id debit)))
-      (is (= :leg-side-debit (:side debit)))
-      (is (= "led.payable" (:account-id credit)))
-      (is (= :leg-side-credit (:side credit)))
-      (testing "both legs carry the run's total, so the entry balances"
-        (is (= 5000 (:amount debit)))
-        (is (= 5000 (:amount credit))))))
-  (testing "the key separates currencies and repeats within one"
-    (let [key-for (fn [currency]
-                    (:idempotency-key (SUT/ledger-transaction gl
-                                                              "org.1" currency
-                                                              5000 20260501)))]
-      (is (not= (key-for "GBP") (key-for "EUR")))
-      (is (= (key-for "GBP") (key-for "GBP"))))))
+      (is (= "accrue-org.1-20260501-GBP-acc.1" (:idempotency-key tx)))
+      (is (= [["acc.1" :product-type-sub-ledger-current
+               :balance-type-interest-accrued :leg-side-credit 3]
+              ["acc.2" :product-type-sub-ledger-savings
+               :balance-type-interest-accrued :leg-side-credit 5]
+              ["led.expense" nil :balance-type-default :leg-side-debit 8]]
+             (mapv (juxt :account-id :product-type :balance-type :side :amount)
+                   legs)))))
+  (testing "an overdrawn account's accrual is a debit"
+    (let [[tx] (SUT/chunk-transactions "org.1"
+                                       expense
+                                       [[current {:amount -2}]]
+                                       20260501)]
+      (is (= [["acc.1" :leg-side-debit 2] ["led.expense" :leg-side-credit 2]]
+             (mapv (juxt :account-id :side :amount) (:legs tx))))))
+  (testing "one transaction per currency"
+    (let [txs (SUT/chunk-transactions
+               "org.1"
+               expense
+               [[current {:amount 3}]
+                [(assoc current :account-id "acc.2" :currency "EUR")
+                 {:amount 4}]]
+               20260501)]
+      (is (= #{"GBP" "EUR"} (set (map :currency txs))))
+      (is (= #{"led.expense" "led.expense-eur"}
+             (set (map (comp :account-id last :legs) txs)))))))
