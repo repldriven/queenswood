@@ -167,14 +167,14 @@ sequenceDiagram
     PP->>DB: read the policy stamp, at snapshot
     opt the bank's policies not cached under that stamp
     PP->>DB: read the platform Policies, by label
-    PP->>DB: read every PolicyBinding, keeping the bank's
+    PP->>DB: read the bank's PolicyBindings, by PolicyBinding_by_bank
     loop each of the bank's PolicyBindings
     PP->>DB: read the Policy it binds
     end
     end
     PP->>DB: read the debtor's and creditor's CashAccounts, in one batch
     opt ledger account ids cached
-    PP->>DB: start loading 🟧 1100, 🟧 1200, 🟥 5100 and the legs' controls, by id
+    PP->>DB: start loading the legs' controls, by id
     end
     PP->>DB: read today's InternalPayment count, at snapshot
     alt the controls' ids cached
@@ -186,7 +186,7 @@ sequenceDiagram
     PP->>DB: write transaction-posted to the bank's activity log
     PP->>DB: sum the debtor's legs by bucket, at snapshot unless a limit floors its balance
     PP->>DB: sum the creditor's legs by bucket, at snapshot unless a limit caps its balance
-    PP->>DB: read every Balance row of both accounts, in one batch
+    PP->>DB: read every Balance row of both accounts, in one batch, at snapshot
     opt a bucket a leg reaches has no row
     PP->>DB: save its Balance row, opened at zero
     end
@@ -218,7 +218,9 @@ is read. Its two legs debit the debtor's and credit the creditor's
 `default / posted` buckets, each the sum of its account's legs per
 [ADR-0042](../adr/0042-a-cash-accounts-balance-is-the-sum-of-its-legs.md),
 so the posting rewrites no balance row and writes one only where a leg
-opens a bucket. A sum is read at snapshot, and conflicts with nothing,
+opens a bucket. The accounts' rows are read at snapshot, since a derived
+bucket's row holds no amount: two postings opening one bucket at once
+write the same row. A sum is read at snapshot, and conflicts with nothing,
 unless a limit bounds the way the payment moves that account's available
 balance, a floor on the debtor's or a cap on the creditor's, when it is
 read serializably, so the check conflicts with a posting that changes
@@ -443,6 +445,12 @@ sequenceDiagram
     end
     loop each due sent transfer, once the rounds end with the breaker closed, at once on the adapter's workers
     IP->>PR: GET the payment
+    opt the lookup failed, or the breaker counts a failure, as read or since
+    critical transact
+    IP->>DB: read the breaker
+    IP->>DB: save the breaker, with the lookup's outcome
+    end
+    end
     critical transact
     IP->>DB: read the intent
     alt Modulr reports it final

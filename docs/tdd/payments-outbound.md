@@ -170,15 +170,17 @@ sequenceDiagram
     PP->>DB: read the policy stamp, at snapshot
     opt the bank's policies not cached under that stamp
     PP->>DB: read the platform Policies, by label
-    PP->>DB: read every PolicyBinding, keeping the bank's
+    PP->>DB: read the bank's PolicyBindings, by PolicyBinding_by_bank
     loop each of the bank's PolicyBindings
     PP->>DB: read the Policy it binds
     end
     end
+    opt the bank's providers not cached
     PP->>DB: read the Bank, for its payment provider
+    end
     PP->>DB: read the debtor's CashAccount
     opt the ledger account id cache holds their ids
-    PP->>DB: read 🟧 1200, 🟧 1100, 🟥 5100 and the debtor's control LedgerAccounts, in one batch, without waiting
+    PP->>DB: read 🟧 1200, 🟧 1100 and 🟥 5100's LedgerAccounts, in one batch, without waiting
     end
     PP->>DB: read 🟧 1200's LedgerAccount
     PP->>DB: read today's OutboundPayment count and sum, at snapshot
@@ -186,7 +188,7 @@ sequenceDiagram
     PP->>DB: write transaction-posted to the bank's activity log
     PP->>DB: read 🟧 1200, 🟧 1100 and 🟥 5100's LedgerAccounts, in one batch, whose legs write no balance
     PP->>DB: sum the debtor's legs by bucket, at snapshot unless a limit floors its balance
-    PP->>DB: read every Balance row of the debtor's account
+    PP->>DB: read every Balance row of the debtor's account, at snapshot
     opt the debtor's default/pending-outgoing bucket has no row
     PP->>DB: save its Balance row, opened at zero
     end
@@ -438,6 +440,14 @@ sequenceDiagram
     opt the breaker closed, and no call this pass opened it
     loop each sent intent due for reconciliation, at once on the adapter's workers
     IP->>PR: GET /payments, by the provider's payment id
+    opt the lookup failed, or the breaker has counted a failure
+    critical transact
+    IP->>DB: read the breaker
+    opt the outcome changes it
+    IP->>DB: save the breaker
+    end
+    end
+    end
     critical transact
     IP->>DB: read the intent
     alt Modulr reports it final
@@ -555,7 +565,7 @@ sequenceDiagram
     PE->>DB: read the policy stamp, at snapshot
     opt the bank's policies not cached under that stamp
     PE->>DB: read the platform Policies, by label
-    PE->>DB: read every PolicyBinding, keeping the bank's
+    PE->>DB: read the bank's PolicyBindings, by PolicyBinding_by_bank
     loop each of the bank's PolicyBindings
     PE->>DB: read the Policy it binds
     end
@@ -571,7 +581,7 @@ sequenceDiagram
     PE->>DB: write transaction-posted to the bank's activity log
     PE->>DB: read 🟧 1200, 🟧 1100 and 🟥 5100's LedgerAccounts, in one batch, whose legs write no balance
     PE->>DB: sum the debtor's legs by bucket, at snapshot
-    PE->>DB: read every Balance row of the debtor's account
+    PE->>DB: read every Balance row of the debtor's account, at snapshot
     opt a bucket a leg reaches has no row
     PE->>DB: save its Balance row, opened at zero
     end
@@ -691,10 +701,13 @@ sequenceDiagram
     PE->>DB: read the policy stamp, at snapshot
     opt the bank's policies not cached under that stamp
     PE->>DB: read the platform Policies, by label
-    PE->>DB: read every PolicyBinding, keeping the bank's
+    PE->>DB: read the bank's PolicyBindings, by PolicyBinding_by_bank
     loop each of the bank's PolicyBindings
     PE->>DB: read the Policy it binds
     end
+    end
+    opt their ids cached
+    PE->>DB: read 🟧 1200, 🟧 1100 and 🟥 5100's LedgerAccounts, in one batch, without waiting
     end
     PE->>DB: read 🟧 1200's LedgerAccount
     PE->>DB: read the debtor's CashAccount
@@ -702,7 +715,7 @@ sequenceDiagram
     PE->>DB: write transaction-posted to the bank's activity log
     PE->>DB: read 🟧 1200, 🟧 1100 and 🟥 5100's LedgerAccounts, in one batch, whose legs write no balance
     PE->>DB: sum the debtor's legs by bucket, at snapshot unless a limit caps its balance
-    PE->>DB: read every Balance row of the debtor's account
+    PE->>DB: read every Balance row of the debtor's account, at snapshot
     opt the debtor's default/pending-outgoing bucket has no row
     PE->>DB: save its Balance row, opened at zero
     end
@@ -899,19 +912,22 @@ sequenceDiagram
     PE->>DB: read the policy stamp, at snapshot
     opt the bank's policies not cached under that stamp
     PE->>DB: read the platform Policies, by label
-    PE->>DB: read every PolicyBinding, keeping the bank's
+    PE->>DB: read the bank's PolicyBindings, by PolicyBinding_by_bank
     loop each of the bank's PolicyBindings
     PE->>DB: read the Policy it binds
     end
     end
-    PE->>DB: read 🟧 1100's LedgerAccount
     PE->>DB: read the debtor's CashAccount
+    opt their ids cached
+    PE->>DB: read 🟧 1200, 🟧 1100, 🟥 5100 and the debtor's control LedgerAccounts, in one batch, without waiting
+    end
+    PE->>DB: read 🟧 1100's LedgerAccount
     PE->>DB: read the control LedgerAccount the debtor's leg rolls into
     PE->>DB: save Transaction outbound-return and the two TransactionLegs, in one batch
     PE->>DB: write transaction-posted to the bank's activity log
     PE->>DB: read 🟧 1200, 🟧 1100 and 🟥 5100's LedgerAccounts, in one batch, whose legs write no balance
     PE->>DB: sum the debtor's legs by bucket, at snapshot unless a limit caps its balance
-    PE->>DB: read every Balance row of the debtor's account
+    PE->>DB: read every Balance row of the debtor's account, at snapshot
     opt the debtor's default/posted bucket has no row
     PE->>DB: save its Balance row, opened at zero
     end

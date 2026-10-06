@@ -178,7 +178,7 @@ sequenceDiagram
     PE->>DB: read the policy stamp, at snapshot
     opt the bank's policies not cached under the stamp
     PE->>DB: read the platform Policies, by label
-    PE->>DB: read every PolicyBinding, keeping the bank's
+    PE->>DB: read the bank's PolicyBindings, by PolicyBinding_by_bank
     loop each of the bank's bindings
     PE->>DB: read the Policy it binds
     end
@@ -209,7 +209,7 @@ sequenceDiagram
     PE->>DB: write transaction-posted to the bank's activity log
     PE->>DB: read 🟧 1200, 🟧 1100 and 🟥 5100's LedgerAccounts, in one batch, whose legs write no balance
     PE->>DB: sum the creditor's legs by bucket, at snapshot unless a limit caps its balance
-    PE->>DB: read every Balance row of the creditor's account
+    PE->>DB: read every Balance row of the creditor's account, at snapshot
     opt its default/posted bucket opens
     PE->>DB: save its Balance row, opened at zero
     end
@@ -292,7 +292,7 @@ sequenceDiagram
     PE->>DB: read the policy stamp, at snapshot
     opt the bank's policies not cached under the stamp
     PE->>DB: read the platform Policies, by label
-    PE->>DB: read every PolicyBinding, keeping the bank's
+    PE->>DB: read the bank's PolicyBindings, by PolicyBinding_by_bank
     loop each of the bank's bindings
     PE->>DB: read the Policy it binds
     end
@@ -309,12 +309,14 @@ sequenceDiagram
     else the account is not opened
     Note over PE: no checks run
     end
+    opt their ids cached
+    PE->>DB: start loading 🟧 1100, 🟧 1200 and 🟥 5100, by id
+    end
     PE->>DB: read 🟧 1100
     PE->>DB: read 🟦 2500
     PE->>DB: save Transaction inbound-transfer, DEBIT 🟧 1100 and CREDIT 🟦 2500,<br/>and the two TransactionLegs, in one batch
     PE->>DB: write transaction-posted to the bank's activity log
     PE->>DB: read 🟧 1200, 🟧 1100 and 🟥 5100's LedgerAccounts, in one batch, whose legs write no balance
-    PE->>DB: sum 🟦 2500's legs by bucket, at snapshot unless a limit caps its balance
     PE->>DB: read every Balance row of 🟦 2500
     PE->>DB: save 🟦 2500's default/posted Balance row
     PE->>DB: save InboundPayment, suspended with the reason
@@ -437,7 +439,7 @@ sequenceDiagram
     PE->>DB: read the policy stamp, at snapshot
     opt the bank's policies not cached under the stamp
     PE->>DB: read the platform Policies, by label
-    PE->>DB: read every PolicyBinding, keeping the bank's
+    PE->>DB: read the bank's PolicyBindings, by PolicyBinding_by_bank
     loop each of the bank's bindings
     PE->>DB: read the Policy it binds
     end
@@ -446,6 +448,9 @@ sequenceDiagram
     PE->>DB: read an open admission for the end-to-end id, account and amount
     PE->>DB: read the open hold for the end-to-end id, account and amount
     alt the account is opened
+    opt their ids cached
+    PE->>DB: start loading 🟧 1100, 🟧 1200, 🟥 5100 and the creditor's control, by id
+    end
     PE->>DB: read 🟧 1100
     PE->>DB: read today's InboundPayment count, at snapshot
     alt the checks pass, the count without the hold
@@ -454,7 +459,7 @@ sequenceDiagram
     PE->>DB: write transaction-posted to the bank's activity log
     PE->>DB: read 🟧 1200, 🟧 1100 and 🟥 5100's LedgerAccounts, in one batch, whose legs write no balance
     PE->>DB: sum the creditor's legs by bucket, at snapshot unless a limit caps its balance
-    PE->>DB: read every Balance row of the creditor's account
+    PE->>DB: read every Balance row of the creditor's account, at snapshot
     opt its default/posted bucket opens
     PE->>DB: save its Balance row, opened at zero
     end
@@ -564,7 +569,7 @@ sequenceDiagram
     PP->>DB: read the policy stamp, at snapshot
     opt the bank's policies not cached under the stamp
     PP->>DB: read the platform Policies, by label
-    PP->>DB: read every PolicyBinding, keeping the bank's
+    PP->>DB: read the bank's PolicyBindings, by PolicyBinding_by_bank
     loop each of the bank's bindings
     PP->>DB: read the Policy it binds
     end
@@ -644,7 +649,7 @@ sequenceDiagram
     PE->>DB: read the policy stamp, at snapshot
     opt the bank's policies not cached under the stamp
     PE->>DB: read the platform Policies, by label
-    PE->>DB: read every PolicyBinding, keeping the bank's
+    PE->>DB: read the bank's PolicyBindings, by PolicyBinding_by_bank
     loop each of the bank's bindings
     PE->>DB: read the Policy it binds
     end
@@ -653,13 +658,16 @@ sequenceDiagram
     PE->>DB: read the open admission for the end-to-end id, account and amount
     PE->>DB: read an open hold for the end-to-end id, account and amount
     alt the account is still opened
+    opt their ids cached
+    PE->>DB: start loading 🟧 1100, 🟧 1200, 🟥 5100 and the creditor's control, by id
+    end
     PE->>DB: read 🟧 1100
     PE->>DB: read the control LedgerAccount the creditor's leg rolls into
     PE->>DB: save Transaction inbound-transfer and the two TransactionLegs, in one batch
     PE->>DB: write transaction-posted to the bank's activity log
     PE->>DB: read 🟧 1200, 🟧 1100 and 🟥 5100's LedgerAccounts, in one batch, whose legs write no balance
     PE->>DB: sum the creditor's legs by bucket, at snapshot unless a limit caps its balance
-    PE->>DB: read every Balance row of the creditor's account
+    PE->>DB: read every Balance row of the creditor's account, at snapshot
     opt its default/posted bucket opens
     PE->>DB: save its Balance row, opened at zero
     end
@@ -806,6 +814,12 @@ sequenceDiagram
     opt the breaker closed, and no call opened it
     loop each sent return due to be asked after, at once on the adapter's workers
     IP->>PR: GET the return's submission
+    opt the lookup failed, or the breaker has counted a failure
+    critical transact
+    IP->>DB: read the breaker
+    IP->>DB: save the breaker, with the lookup's outcome
+    end
+    end
     critical transact
     IP->>DB: read the intent
     alt delivered
@@ -865,17 +879,19 @@ sequenceDiagram
     PE->>DB: read the policy stamp, at snapshot
     opt the bank's policies not cached under the stamp
     PE->>DB: read the platform Policies, by label
-    PE->>DB: read every PolicyBinding, keeping the bank's
+    PE->>DB: read the bank's PolicyBindings, by PolicyBinding_by_bank
     loop each of the bank's bindings
     PE->>DB: read the Policy it binds
     end
+    end
+    opt their ids cached
+    PE->>DB: start loading 🟧 1100, 🟧 1200 and 🟥 5100, by id
     end
     PE->>DB: read 🟧 1100
     PE->>DB: read 🟦 2500
     PE->>DB: save Transaction inbound-return, DEBIT 🟦 2500 and CREDIT 🟧 1100,<br/>and the two TransactionLegs, in one batch
     PE->>DB: write transaction-posted to the bank's activity log
     PE->>DB: read 🟧 1200, 🟧 1100 and 🟥 5100's LedgerAccounts, in one batch, whose legs write no balance
-    PE->>DB: sum 🟦 2500's legs by bucket, at snapshot unless a limit floors its balance
     PE->>DB: read every Balance row of 🟦 2500
     PE->>DB: save 🟦 2500's default/posted Balance row
     PE->>DB: save InboundPayment, returned
