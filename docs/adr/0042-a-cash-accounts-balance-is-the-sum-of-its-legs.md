@@ -92,6 +92,8 @@ The parts, in two stages, each released and load-tested before the next:
     place of the balance row's `credit_carry`.
   - Retire the `interest-accrued` rows once nothing reads them.
 - **Throughout.**
+  - Keep a leg's amount in whole minor units: the accrual's sub-minor
+    remainder is the interest run's own state, never a balance.
   - Never delete a leg that a balance sums without first appending one
     that restates its sum, so archiving a period closes it with a
     carry-forward leg.
