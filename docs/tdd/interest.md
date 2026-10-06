@@ -448,8 +448,9 @@ with a volume attached, not a tuning knob.
    through one merged scan, filtering to *opened* customer
    product types — general-ledger accounts carry no product
    type and fall out here.
-4. Accumulate a chunk and post it in one transaction, marking
-   a failing chunk's accounts FAILED and continuing.
+4. Accumulate a chunk and post it in one transaction, up to
+   the runner's `interest-chunks-in-flight` chunks at once,
+   marking a failing chunk's accounts FAILED and continuing.
 5. Return `:interest/run-incomplete`, with the processed and
    failed counts, where any account failed.
 6. Write the run record closed.
@@ -471,6 +472,12 @@ A chunk of accounts is one FDB transaction. Every leg and
 every run row in it commits together or not at all,
 so an account can never be left with interest credited but no
 record that it was processed.
+
+Chunks post side by side, eight at once in
+[scheduler.yml](/components/resources/resources/system/scheduler.yml)
+and one where the setting is absent. They name disjoint accounts,
+and append legs and rows nothing else reads, so they do not
+conflict with each other.
 
 Across chunks the run is **resumable but not atomic**. A crash
 mid-run leaves earlier chunks committed and later ones

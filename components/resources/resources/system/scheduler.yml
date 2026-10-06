@@ -12,3 +12,5 @@ runner: !system/component
   record-store: !system/ref fdb.meta-store
   schemas: !system/ref avro.serde
   scheduler: !system/local-ref scheduler
+  # Chunks of a hundred accounts an interest run posts at once.
+  interest-chunks-in-flight: 8

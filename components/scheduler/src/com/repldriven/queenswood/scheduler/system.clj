@@ -9,7 +9,8 @@
 ;; owns the Quartz lifecycle; this runner only wires triggers against
 ;; it. The resolved config map (record-db / record-store / schemas /
 ;; scheduler, plus the triggers this JVM registered) is the instance,
-;; so consumers can run jobs through it.
+;; so consumers can run jobs through it. `interest-chunks-in-flight` is
+;; how many chunks of accounts an interest run posts at once.
 (def ^:private runner
   {:system/start (fn [{:system/keys [config instance]}]
                    (or instance
@@ -17,7 +18,8 @@
    :system/config {:record-db system/required-component
                    :record-store system/required-component
                    :schemas system/required-component
-                   :scheduler system/required-component}
+                   :scheduler system/required-component
+                   :interest-chunks-in-flight 1}
    :system/instance-schema some?})
 
 (system/defcomponents :bank-scheduler {:runner runner})

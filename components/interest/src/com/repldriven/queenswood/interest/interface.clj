@@ -12,7 +12,9 @@
   job's; a day is the unit this computes.
 
   Args:
-  - config: FDB handle plus product/balance/transaction interfaces.
+  - config: FDB handle plus product/balance/transaction interfaces,
+    with `:interest-chunks-in-flight`, how many chunks of a hundred
+    accounts it posts at once, one where absent.
   - data: map with :bank-id and :as-of-date (YYYYMMDD int).
 
   Returns `{:bank-id :as-of-date :accounts-processed}`,
@@ -29,7 +31,9 @@
   cadence is the scheduler job's, and may be daily, monthly or yearly.
 
   Args:
-  - config: FDB handle plus product/balance/transaction interfaces.
+  - config: FDB handle plus product/balance/transaction interfaces,
+    with `:interest-chunks-in-flight`, how many chunks of a hundred
+    accounts it posts at once, one where absent.
   - data: map with :bank-id and :as-of-date (YYYYMMDD int).
 
   Returns `{:bank-id :as-of-date :accounts-processed}`,

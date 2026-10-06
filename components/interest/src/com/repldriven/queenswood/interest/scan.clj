@@ -96,28 +96,57 @@
           nil
           chunk))))))
 
-(defn- flush-chunk
-  "Posts whatever the scan has accumulated and clears it. A failing
-  chunk is marked FAILED and the scan carries on — aborting would leave
-  every later account untouched and the run would never close."
+(defn- settle
+  "Waits on the oldest chunk in flight and adds its outcome to the tally.
+  A failing chunk is marked FAILED and the scan carries on — aborting
+  would leave every later account untouched and the run would never
+  close."
   [config ctx state]
-  (let [{:keys [chunk tally]} state]
+  (let [[chunk pending] (peek (:in-flight state))
+        result @pending]
+    (-> state
+        (update :in-flight pop)
+        (update :tally
+                (fn [tally]
+                  (if (error/anomaly? result)
+                    (do (mark-chunk-failed config ctx chunk result)
+                        (update tally :failed + (count chunk)))
+                    (-> tally
+                        (update :done + (:done result))
+                        (update :skipped + (:skipped result)))))))))
+
+(defn- flush-chunk
+  "Starts posting whatever the scan has accumulated and clears it, once
+  fewer than `ctx`'s `:chunks-in-flight` chunks are posting. Chunks post
+  to accounts no other chunk names and append legs and rows nothing
+  else reads, so they commit side by side without conflicting."
+  [config ctx state]
+  (let [{:keys [chunk]} state
+        limit (max 1 (:chunks-in-flight ctx 1))]
     (if (empty? chunk)
       state
-      (let [result (post-chunk config ctx chunk)]
-        (assoc state
-               :chunk []
-               :tally (if (error/anomaly? result)
-                        (do (mark-chunk-failed config ctx chunk result)
-                            (update tally :failed + (count chunk)))
-                        (-> tally
-                            (update :done + (:done result))
-                            (update :skipped + (:skipped result)))))))))
+      (loop [state state]
+        (if (< (count (:in-flight state)) limit)
+          (-> state
+              (assoc :chunk [])
+              (update :in-flight
+                      conj
+                      [chunk
+                       (future (error/try-nom :interest/post-chunk
+                                              "Failed to post a chunk"
+                                              (post-chunk config ctx chunk)))]))
+          (recur (settle config ctx state)))))))
+
+(defn- settle-all
+  [config ctx state]
+  (loop [state state]
+    (if (empty? (:in-flight state)) state (recur (settle config ctx state)))))
 
 (defn post-accounts
   "Streams the bank's accounts with their balances and posts every
   eligible one through `ctx`'s `:chunk-fn`, a chunk of them per
-  transaction. Returns the tally — `:done`, `:skipped` and `:failed`.
+  transaction and up to `:chunks-in-flight` chunks at once. Returns the
+  tally — `:done`, `:skipped` and `:failed`.
 
   One merged scan pairs each account with its balances, so a posting
   reads nothing of its own and computes on the figures the scan
@@ -138,5 +167,6 @@
                     state
                     (flush-chunk config ctx state)))))
             {:chunk []
+             :in-flight clojure.lang.PersistentQueue/EMPTY
              :tally {:done 0 :skipped 0 :failed 0}})]
-    (:tally (flush-chunk config ctx state))))
+    (:tally (settle-all config ctx (flush-chunk config ctx state)))))
