@@ -79,22 +79,25 @@
                                        :reason reason
                                        :status status
                                        :at now})]
-    (cond
-     descriptor
-     (do (log/info "Form3 delivered a return" {:intent-id intent-id})
-         {:status "settled" :event descriptor})
+    (assoc
+     (cond
+      descriptor
+      (do (log/info "Form3 delivered a return" {:intent-id intent-id})
+          {:status "settled" :event descriptor})
 
-     (= :failed (outcomes/outcome status))
-     (do (log/error "Form3 did not deliver a return; it stays in suspense"
-                    {:intent-id intent-id :status status})
-         {:status "failed"
-          :event (return-failed intent
-                                (or (get-in result
-                                            [:data :attributes :status_reason])
-                                    (str "Return " status)))})
+      (= :failed (outcomes/outcome status))
+      (do (log/error "Form3 did not deliver a return; it stays in suspense"
+                     {:intent-id intent-id :status status})
+          {:status "failed"
+           :event (return-failed intent
+                                 (or (get-in result
+                                             [:data :attributes :status_reason])
+                                     (str "Return " status)))})
 
-     :else
-     (shared/wait config now))))
+      :else
+      (shared/wait config now))
+     :outcome
+     outcome)))
 
 (intent-poller/defoperations :form3
                              {"return" {:call send-return

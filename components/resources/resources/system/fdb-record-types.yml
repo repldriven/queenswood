@@ -5,7 +5,7 @@
 # its record type arrived on as since, and a store lists the indexes
 # removed from it under former-indexes with the versions they were added
 # and removed at. See docs/recipes/code/schema-evolution.md.
-version: 79
+version: 80
 stores:
   assertions:
     record-type: Assertion
@@ -351,7 +351,19 @@ stores:
           fields: [key, value]
   policy-bindings:
     record-type: PolicyBinding
-    indexes: []
+    indexes:
+      - name: PolicyBinding_by_bank
+        added: 80
+        modified: 80
+        field: target
+        nest:
+          field: bank
+          nest:
+            field: bank_id
+      - name: PolicyBinding_by_policy
+        added: 80
+        modified: 80
+        field: policy_id
   transaction-legs:
     record-type: TransactionLeg
     primary-key: [account_id, transaction_id, leg_id]

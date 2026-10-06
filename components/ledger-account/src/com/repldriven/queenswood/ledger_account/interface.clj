@@ -138,9 +138,10 @@
 
 (defn prefetch
   "Start loading, without waiting, the ledger accounts a posting in
-  `currency` on accounts of `product-types` goes on to read: 1100, 1200,
-  and each product type's control, as `find-by-code`, `ensure-controls`
-  and `stored-legs` would. Only an account whose id the transaction's
+  `currency` on accounts of `product-types` goes on to read: each
+  product type's control, as `ensure-controls` would, and, unless `opts`
+  says `:journal? false`, 1100, 1200 and 5100, as `find-by-code` and
+  `stored-legs` would. Only an account whose id the transaction's
   `:ledger-account` cache holds is started; the rest are read as usual
   when asked for. Returns nil, or an anomaly when the loads could not be
   started.
@@ -149,9 +150,13 @@
   - txn: FDB transaction or db handle.
   - bank-id: owning bank id.
   - currency: ISO 4217 currency string of the posting.
-  - product-types: the product types of the cash accounts it posts to."
-  [txn bank-id currency product-types]
-  (core/prefetch txn bank-id currency product-types))
+  - product-types: the product types of the cash accounts it posts to.
+  - opts: optional `{:journal? false}` for a posting that names no
+    journal account and calls no `stored-legs`."
+  ([txn bank-id currency product-types]
+   (core/prefetch txn bank-id currency product-types {}))
+  ([txn bank-id currency product-types opts]
+   (core/prefetch txn bank-id currency product-types opts)))
 
 (defn list-accounts
   "Return every `LedgerAccount` for `bank-id` (the bank's full chart),
@@ -216,14 +221,13 @@
   "The legs of a recorded transaction whose balances are stored, for
   `balance/apply-legs`: `legs` less those on a ledger account that keeps
   no balance row — 1200 pending-outbound, which mirrors the customers'
-  pending-outgoing balances, and 1100 cash-at-correspondent, which sums
-  its own legs. Such a leg stays in the transaction, which balances with
-  it, and in the journal; it is only left out of the balance writes, so
-  no posting rewrites a row every payment shares. See ADR-0038 and
-  ADR-0039.
-
-  Fails with `:gl/missing-currency-account` or `:ledger-account/closed`
-  where one of those accounts is absent in `currency` or closed.
+  pending-outgoing balances, and 1100 cash-at-correspondent and 5100
+  interest-expense, which sum their own legs. Such a leg stays in the
+  transaction, which balances with it, and in the journal; it is only
+  left out of the balance writes, so no posting rewrites a row every
+  payment shares. One of those accounts the bank has no row for in
+  `currency` names no leg, so it is passed over. See ADR-0038, ADR-0039
+  and ADR-0042.
 
   Args:
   - txn: FDB transaction or db handle.

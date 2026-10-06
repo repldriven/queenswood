@@ -165,23 +165,37 @@ sequenceDiagram
     PC->>PP: submit-internal-payment, one at a time per partition
     critical transact
     PP->>DB: read the policy stamp, at snapshot
-    PP->>DB: read the debtor's CashAccount
-    PP->>DB: read the creditor's CashAccount
+    opt the bank's policies not cached under that stamp
+    PP->>DB: read the platform Policies, by label
+    PP->>DB: read the bank's PolicyBindings, by PolicyBinding_by_bank
+    loop each of the bank's PolicyBindings
+    PP->>DB: read the Policy it binds
+    end
+    end
+    PP->>DB: read the debtor's and creditor's CashAccounts, in one batch
+    opt ledger account ids cached
+    PP->>DB: start loading the legs' controls, by id
+    end
     PP->>DB: read today's InternalPayment count, at snapshot
-    PP->>DB: read the control LedgerAccount each leg rolls into
-    PP->>DB: save Transaction
-    PP->>DB: save the two TransactionLegs
+    alt the controls' ids cached
+    PP->>DB: read the control LedgerAccounts the legs roll into, by id
+    else not cached
+    PP->>DB: read the control LedgerAccounts the legs roll into, by code
+    end
+    PP->>DB: save Transaction and its two TransactionLegs, in one batch
     PP->>DB: write transaction-posted to the bank's activity log
-    PP->>DB: read every Balance of the debtor's account
-    PP->>DB: read every Balance of the creditor's account
-    PP->>DB: save the debtor's default/posted Balance
-    PP->>DB: save the creditor's default/posted Balance
+    PP->>DB: sum the debtor's legs by bucket, at snapshot unless a limit floors its balance
+    PP->>DB: sum the creditor's legs by bucket, at snapshot unless a limit caps its balance
+    PP->>DB: read every Balance row of both accounts, in one batch, at snapshot
+    opt a bucket a leg reaches has no row
+    PP->>DB: save its Balance row, opened at zero
+    end
     PP->>DB: save InternalPayment
     PP->>DB: write settle to the internal-payments changelog
     alt the idempotency key is new
     Note over PP,DB: the transaction commits
     else the key is recorded, a redelivery
-    Note over PP,DB: the unique index on the key refuses the save,<br/>and the transaction aborts
+    Note over PP,DB: the unique indexes on the key, the Transaction's<br/>and the InternalPayment's, refuse it, and the transaction aborts
     end
     end
     opt the transaction aborted on the key
@@ -195,12 +209,23 @@ sequenceDiagram
 
 The command's one FDB transaction checks both accounts are operable and
 in the payment's currency, the capability and the daily count,
-`ensure-controls` resolving the control each leg's product type rolls
-into, and then records and posts. The bank's policies are read again
-only when the policy stamp has moved since they were cached. Its two
-legs debit the debtor's and credit the creditor's `default / posted`
-buckets, which are the only balance rows it writes: the deposit
-controls 2100, 2200, 2300 and 3100 are summed from those rows, per
+`ensure-controls` checking the control each leg's product type rolls
+into is open in the currency, and then records and posts. The bank's
+policies are read again only when the policy stamp has moved since they
+were cached. A ledger account's id is cached for 30 seconds once read by
+code, and a cached one is read by id, its load started before the count
+is read. Its two legs debit the debtor's and credit the creditor's
+`default / posted` buckets, each the sum of its account's legs per
+[ADR-0042](../adr/0042-a-cash-accounts-balance-is-the-sum-of-its-legs.md),
+so the posting rewrites no balance row and writes one only where a leg
+opens a bucket. The accounts' rows are read at snapshot, since a derived
+bucket's row holds no amount: two postings opening one bucket at once
+write the same row. A sum is read at snapshot, and conflicts with nothing,
+unless a limit bounds the way the payment moves that account's available
+balance, a floor on the debtor's or a cap on the creditor's, when it is
+read serializably, so the check conflicts with a posting that changes
+it. The deposit controls 2100, 2200, 2300 and 3100 are summed from the
+legs, per
 [ADR-0037](../adr/0037-a-control-accounts-balance-is-the-sum-of-the-balances-that-roll-into-it.md),
 and carry no leg. A command delivered again finds its idempotency key
 recorded: the transaction aborts, nothing is written twice, and the
@@ -302,7 +327,7 @@ sequenceDiagram
     AE->>AP: transaction-posted
     opt the bank's providers not cached
     critical transact
-    AP->>DB: read the bank's providers
+    AP->>DB: read the Bank, for its providers
     end
     end
     alt the bank's provider declares balances: per-account
@@ -310,10 +335,16 @@ sequenceDiagram
     AP->>DB: read the ProviderTransfers already recorded for the transaction
     alt none recorded
     opt 🟧 1100 and the own-funds account not cached
-    AP->>DB: read 🟧 1100 and the own-funds CashAccount
+    AP->>DB: read 🟧 1100's LedgerAccount, by id where cached, else by code
+    AP->>DB: read the bank's own-funds CashAccountProducts
+    AP->>DB: read the own-funds CashAccount, by its product
     end
-    AP->>DB: read the CashAccount behind each leg
-    AP->>DB: save a ProviderTransfer, pending, for each pair
+    opt a leg's account not cached
+    AP->>DB: read the CashAccounts behind the legs not cached, in one batch
+    end
+    loop each netted pair
+    AP->>DB: save a ProviderTransfer, pending
+    end
     else recorded, a redelivery
     Note over AP: the recorded transfers, nothing saved
     end
@@ -340,6 +371,9 @@ sequenceDiagram
 The activity event processor nets the transaction's posted default legs
 per party: the debtor's cash account owes, the creditor's is owed, and
 the pair becomes one `ProviderTransfer`, unique on transaction and pair.
+The bank's providers, its 1100 and own-funds account, and an account's
+party once it has a provider account never change, so each is read
+once and cached for an hour.
 
 A `transaction-posted` delivered again, because a send failed or the
 process stopped before the ack, finds its transfers recorded, saves
@@ -365,28 +399,33 @@ sequenceDiagram
     participant WH as external-adapters-service<br/>modulr-adapter webhook handlers
     end
     critical transact
-    IP->>DB: read every pending intent
+    IP->>DB: read the oldest 1,000 pending intents, by the status index
     end
     critical transact
-    IP->>DB: read every sent intent
+    IP->>DB: read the oldest 1,000 sent intents, by the status index
     end
     critical transact
-    IP->>DB: read the adapter's breaker, claiming the probe when half-open
+    IP->>DB: read the adapter's breaker
+    opt open past its cool-down, with no live probe
+    IP->>DB: save the breaker, half-open, the probe claimed
+    end
     end
     opt the breaker closed
     critical transact
     IP->>DB: read the breaker, for a failure counted
     end
     end
-    loop each due pending intent no earlier unsent one shares an account with, on the adapter's workers
+    loop each round, while the breaker is closed
+    loop each due pending intent no earlier unsent one shares an account with, at once on the adapter's workers
     critical transact
-    IP->>DB: read the debtor's provider account
+    IP->>DB: read the debtor's open-account intent, for its provider account
     end
     critical transact
-    IP->>DB: read the creditor's provider account
+    IP->>DB: read the creditor's open-account intent, for its provider account
     end
+    alt both provider accounts open
     IP->>PR: POST a payment between the two provider accounts
-    opt the call failed, or the breaker has counted a failure
+    opt the call failed, or the breaker counts a failure, as read or since
     critical transact
     IP->>DB: read the breaker
     IP->>DB: save the breaker, with the call's outcome
@@ -396,16 +435,47 @@ sequenceDiagram
     IP->>DB: read the intent
     IP->>DB: save the intent, sent
     end
+    else one not open yet
+    critical transact
+    IP->>DB: read the intent
+    IP->>DB: save the intent, with its next attempt time
+    end
+    end
+    end
+    end
+    loop each due sent transfer, once the rounds end with the breaker closed, at once on the adapter's workers
+    IP->>PR: GET the payment
+    opt the lookup failed, or the breaker counts a failure, as read or since
+    critical transact
+    IP->>DB: read the breaker
+    IP->>DB: save the breaker, with the lookup's outcome
+    end
+    end
+    critical transact
+    IP->>DB: read the intent
+    alt Modulr reports it final
+    IP->>DB: save the intent, settled
+    IP->>DB: read the ModulrOutboxEvent with its dedup key
+    opt none recorded
+    IP->>DB: save ModulrOutboxEvent transfer-completed or transfer-failed
+    IP->>DB: write it to the modulr-outbox changelog
+    end
+    else not final
+    IP->>DB: save the intent, with its next reconcile time
+    end
+    end
     end
     PR-->>WH: PAYOUT webhook, status PROCESSED
     critical transact
-    WH->>DB: read the intent the payment answers
+    WH->>DB: read the intent the payment answers, by its dedup key
     end
     critical transact
     WH->>DB: save ModulrOutboxEvent transfer-completed
     WH->>DB: write it to the modulr-outbox changelog
-    WH->>DB: read the sent intent
+    WH->>DB: read the intent, by its dedup key
+    opt it is sent
     WH->>DB: save the intent, settled
+    end
     alt the event's dedup key is new
     Note over WH,DB: the transaction commits
     else the key is recorded, a webhook delivered again
@@ -415,19 +485,30 @@ sequenceDiagram
     WH-->>PR: 200
 ```
 
-A pass of the poller reads every intent the adapter holds, across every
-bank, and runs at once each pending one that is due and that no earlier
-intent still unsent shares an account with. The transfer's intent holds
-both accounts as its subjects, so a later call touching either waits
-until this one is sent, as
+A pass of the poller reads the oldest 1,000 pending and the oldest 1,000
+sent intents the adapter holds, across every bank, and runs them in
+rounds on the adapter's eight workers: each round runs at once every
+due pending intent that no earlier unsent one shares an account with,
+so a later call for an account goes out in the same pass once the
+earlier one is sent. The transfer's intent holds both accounts as its
+subjects, so a later call touching either waits until this one is
+sent, and a close or reissue of either waits until it settles, as
 [ADR-0033](../adr/0033-operations-reach-a-provider-in-the-order-they-were-accepted.md)
-decides. The call resolves the transfer's cash accounts to their
-provider accounts, the Modulr accounts the adapter recorded when it
-opened them. While the adapter's breaker is open a pass calls nothing,
-as
+decides. Where the sent read reaches its limit, a close or reissue newer
+than the last sent intent read waits for a later pass, since a sent
+intent the pass did not read may hold its account. The call resolves
+the transfer's cash accounts to their provider accounts, the Modulr
+accounts the adapter recorded on each account's open-account intent,
+and waits where one is not open yet.
+While the adapter's breaker is open a pass calls nothing, and half-open
+it makes the one probe, in order on the poller's thread, as
 [ADR-0034](../adr/0034-outbound-calls-go-through-a-breaker-on-their-destination.md)
-decides. The webhook answers 200 only once its outbox entry commits, so
-Modulr sends it again until it has.
+decides. A transfer sent and not settled by a webhook within five
+minutes is reconciled: the pass asks Modulr for the payment, records
+the outcome it reports under the dedup key its webhook would carry, and
+asks again five minutes later while it is not final. The webhook
+answers 200 only once its outbox entry commits, so Modulr sends it
+again until it has.
 
 #### The outcome reaches the payment
 
@@ -465,8 +546,9 @@ sequenceDiagram
     PE-->>SE: ack
 ```
 
-A `transfer-failed` leaves the ledger as it is and logs the transaction
-id at ERROR for the bank to reconcile.
+A `transfer-failed` leaves the ledger as it is, saves the transfer
+failed, and logs its id and the reason at ERROR for the bank to
+reconcile.
 
 ### Tests
 
@@ -526,3 +608,5 @@ id at ERROR for the bank to reconcile.
   — the breaker every call to Modulr goes through.
 - [ADR-0037](../adr/0037-a-control-accounts-balance-is-the-sum-of-the-balances-that-roll-into-it.md)
   — controls summed from the customer rows.
+- [ADR-0042](../adr/0042-a-cash-accounts-balance-is-the-sum-of-its-legs.md)
+  — a cash account's balance summed from its legs.

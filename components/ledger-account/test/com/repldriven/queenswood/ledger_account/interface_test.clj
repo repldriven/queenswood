@@ -440,7 +440,10 @@
                :side :leg-side-credit
                :amount 1000}
         stored (SUT/stored-legs config bank-id "GBP" [customer claim])
-        _ (is (= [customer] stored) "the 1200 leg is not written to a balance")]))))
+        _ (is (= [customer] stored) "the 1200 leg is not written to a balance")
+        unlisted (SUT/stored-legs config bank-id "EUR" [customer])
+        _ (is (= [customer] unlisted)
+              "a currency with no journal accounts keeps every leg")]))))
 
 (defn- inbound
   [config bank-id cash-id account-id amount]

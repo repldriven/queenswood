@@ -56,8 +56,8 @@ The shortlist:
 A cash account holds no stored balance: each of its buckets is the sum
 of the legs recorded against it, read from SUM indexes on
 `transaction-legs`, so a posting appends its journal, a debit reads its
-account's sum only to check what it may take, and a credit reads
-nothing.
+account's sum serializably only to check what it may take, and a credit
+reads only at snapshot, conflicting with nothing.
 
 The parts, in two stages, each released and load-tested before the next:
 

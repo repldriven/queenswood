@@ -168,19 +168,30 @@ sequenceDiagram
     PC->>PP: submit-outbound-payment, one at a time per partition
     critical transact
     PP->>DB: read the policy stamp, at snapshot
+    opt the bank's policies not cached under that stamp
+    PP->>DB: read the platform Policies, by label
+    PP->>DB: read the bank's PolicyBindings, by PolicyBinding_by_bank
+    loop each of the bank's PolicyBindings
+    PP->>DB: read the Policy it binds
+    end
+    end
+    opt the bank's providers not cached
     PP->>DB: read the Bank, for its payment provider
+    end
     PP->>DB: read the debtor's CashAccount
+    opt the ledger account id cache holds their ids
+    PP->>DB: read 🟧 1200, 🟧 1100 and 🟥 5100's LedgerAccounts, in one batch, without waiting
+    end
     PP->>DB: read 🟧 1200's LedgerAccount
-    PP->>DB: read today's OutboundPayment count, at snapshot
-    PP->>DB: read today's OutboundPayment sum, at snapshot
-    PP->>DB: read the control LedgerAccount the debtor's leg rolls into
-    PP->>DB: save Transaction
-    PP->>DB: save the two TransactionLegs
+    PP->>DB: read today's OutboundPayment count and sum, at snapshot
+    PP->>DB: save Transaction and the two TransactionLegs, in one batch
     PP->>DB: write transaction-posted to the bank's activity log
-    PP->>DB: read 🟧 1200's LedgerAccount, whose legs write no balance
-    PP->>DB: read 🟧 1100's LedgerAccount, whose legs write no balance
-    PP->>DB: read the debtor's Balances
-    PP->>DB: save the debtor's default/pending-outgoing Balance
+    PP->>DB: read 🟧 1200, 🟧 1100 and 🟥 5100's LedgerAccounts, in one batch, whose legs write no balance
+    PP->>DB: sum the debtor's legs by bucket, at snapshot unless a limit floors its balance
+    PP->>DB: read every Balance row of the debtor's account, at snapshot
+    opt the debtor's default/pending-outgoing bucket has no row
+    PP->>DB: save its Balance row, opened at zero
+    end
     PP->>DB: save OutboundPayment, pending
     PP->>DB: write submit to the outbound-payments changelog
     PP->>DB: write outbound-payment-submitted to the bank's activity log
@@ -202,15 +213,23 @@ sequenceDiagram
 The submission refuses a scheme the bank's provider does not declare,
 then checks the debtor, the capability, the daily count and the instant
 and daily amount limits. The bank's policies are read again only when
-the policy stamp has moved since they were cached. It reserves the
-amount: a debit on the debtor's `default / pending-outgoing` bucket,
-which drops the available balance and leaves the posted one, against a
-credit on 1200 pending-outbound. 1200 holds no row of its own, its
-balance mirroring every customer's pending-outgoing bucket, per
+the policy stamp has moved since they were cached. Where the ledger
+account id cache holds their ids, one read fetches 1200, 1100, 5100 and
+the debtor's control at once, and each later read of one takes it. It
+reserves the amount: a debit on the debtor's `default /
+pending-outgoing` bucket, which drops the available balance and leaves
+the posted one, against a credit on 1200 pending-outbound. 1200 holds
+no row of its own, its balance mirroring every customer's
+pending-outgoing bucket, per
 [ADR-0038](../adr/0038-an-outbound-submit-writes-no-row-every-payment-shares.md),
-so the submission writes the debtor's row and nothing every payment in
-the bank shares. The day's count and sum are read at snapshot, so the
-limit can be passed by the submissions in flight at once. A command
+and the debtor's bucket is the sum of its legs, per
+[ADR-0042](../adr/0042-a-cash-accounts-balance-is-the-sum-of-its-legs.md),
+so the submission writes a balance row only when the debtor's bucket
+opens, and nothing every payment in the bank shares. The funds check
+reads the debtor's sums serializably where a floor bounds the debit, so
+two debits on one account conflict. The day's count and sum are read at
+snapshot, so the limit can be passed by the submissions in flight at
+once. A command
 delivered again finds its idempotency key recorded: the transaction
 aborts, nothing is written twice, and the reply is the payment the first
 delivery recorded.
@@ -343,20 +362,39 @@ sequenceDiagram
     participant PR as Modulr
     end
     critical transact
-    IP->>DB: read every pending intent
+    IP->>DB: read the oldest 1,000 pending intents, by the status index
     end
     critical transact
-    IP->>DB: read every sent intent
+    IP->>DB: read the oldest 1,000 sent intents, by the status index
     end
     critical transact
-    IP->>DB: read the adapter's breaker, claiming the probe when half-open
+    IP->>DB: read the adapter's breaker
+    opt its cool-down over, and no live probe claimed
+    IP->>DB: save the breaker, half-open, the probe claimed by this pass
+    end
     end
     opt the breaker closed
     critical transact
     IP->>DB: read the breaker, for a failure counted
     end
     end
-    loop each due pending intent no earlier unsent one shares an account with, on the adapter's workers
+    alt the breaker open
+    loop each pending intent past its maximum age
+    critical transact
+    IP->>DB: read the intent
+    opt still pending
+    IP->>DB: save the intent, failed
+    IP->>DB: read the outbox for the event's dedup key
+    opt not recorded
+    IP->>DB: save ModulrOutboxEvent transaction-rejected (debit)
+    IP->>DB: write it to the modulr-outbox changelog
+    end
+    end
+    end
+    end
+    else closed, or this pass holds the probe
+    loop each round, while a pending intent may run
+    loop each due pending intent no earlier unsent one shares an account with,<br/>at once on the adapter's workers, one only on a probe
     critical transact
     IP->>DB: read the debtor's provider account
     end
@@ -364,7 +402,9 @@ sequenceDiagram
     opt the call failed, or the breaker has counted a failure
     critical transact
     IP->>DB: read the breaker
-    IP->>DB: save the breaker, with the call's outcome
+    opt the outcome changes it
+    IP->>DB: save the breaker
+    end
     end
     end
     alt Modulr took the payment
@@ -395,9 +435,19 @@ sequenceDiagram
     end
     end
     end
-    opt the breaker closed
-    loop each sent intent due for reconciliation
+    end
+    end
+    opt the breaker closed, and no call this pass opened it
+    loop each sent intent due for reconciliation, at once on the adapter's workers
     IP->>PR: GET /payments, by the provider's payment id
+    opt the lookup failed, or the breaker has counted a failure
+    critical transact
+    IP->>DB: read the breaker
+    opt the outcome changes it
+    IP->>DB: save the breaker
+    end
+    end
+    end
     critical transact
     IP->>DB: read the intent
     alt Modulr reports it final
@@ -419,21 +469,29 @@ sequenceDiagram
     end
 ```
 
-A pass of the poller reads every intent the adapter holds, across every
-bank, and runs at once each pending one that is due and that no earlier
-intent still unsent shares an account with, so an account's calls reach
+A pass of the poller reads the oldest 1,000 pending and the oldest 1,000
+sent intents the adapter holds, across every bank, by the status index,
+and runs them in rounds on the adapter's workers. Each round runs at
+once every pending intent that is due and that no earlier intent still
+unsent shares an account with, so an account's calls reach
 Modulr in the order they were accepted, per
-[ADR-0033](../adr/0033-operations-reach-a-provider-in-the-order-they-were-accepted.md).
-The call pays from the provider account the adapter recorded when it
-opened the debtor's account, which a reissue replaces. While the
-adapter's breaker is open a pass calls nothing, as
+[ADR-0033](../adr/0033-operations-reach-a-provider-in-the-order-they-were-accepted.md),
+and the next round takes an account's next call once its earlier one is
+sent. Where the sent read stops at its limit, a close or reissue newer
+than the last sent intent read waits for a later pass, since an unread
+sent intent may share its account. The call pays from the provider
+account the adapter recorded when it opened the debtor's account, which
+a reissue replaces. While the adapter's breaker is open a pass calls
+nothing, as
 [ADR-0034](../adr/0034-outbound-calls-go-through-a-breaker-on-their-destination.md)
-decides. A refusal, or a call given up, writes `transaction-rejected`
-with `failure_kind` `refused` or `undelivered`, which the rejection path
-below handles. A sent intent no webhook settles within the relay's
-`reconcile-after-ms` is looked up at Modulr, and a final status is
-written to the outbox under the dedup key its webhook would carry, so
-the payment settles on the lookup and a late webhook finds it there.
+decides, and fails each pending intent past its maximum age as
+undelivered. A refusal, or a call given up, writes
+`transaction-rejected` with `failure_kind` `refused` or `undelivered`,
+which the rejection path below handles. A sent intent no webhook
+settles within the relay's `reconcile-after-ms` is looked up at Modulr,
+on the adapter's workers, and a final status is written to the outbox
+under the dedup key its webhook would carry, so the payment settles on
+the lookup and a late webhook finds it there.
 
 ### Settled
 
@@ -504,19 +562,29 @@ sequenceDiagram
     alt pending or held
     PE->>DB: save the OutboundPayment, completed
     PE->>DB: write settle to the outbound-payments changelog
+    PE->>DB: read the policy stamp, at snapshot
+    opt the bank's policies not cached under that stamp
+    PE->>DB: read the platform Policies, by label
+    PE->>DB: read the bank's PolicyBindings, by PolicyBinding_by_bank
+    loop each of the bank's PolicyBindings
+    PE->>DB: read the Policy it binds
+    end
+    end
+    PE->>DB: read the debtor's CashAccount
+    opt the ledger account id cache holds their ids
+    PE->>DB: read 🟧 1200, 🟧 1100, 🟥 5100 and the debtor's control LedgerAccounts, in one batch, without waiting
+    end
     PE->>DB: read 🟧 1200's LedgerAccount
     PE->>DB: read 🟧 1100's LedgerAccount
-    PE->>DB: read the debtor's CashAccount
-    PE->>DB: read the control LedgerAccount the debtor's leg rolls into
-    PE->>DB: save Transaction
-    PE->>DB: save the four TransactionLegs
+    PE->>DB: read the control LedgerAccount the debtor's posted leg rolls into
+    PE->>DB: save Transaction and the four TransactionLegs, in one batch
     PE->>DB: write transaction-posted to the bank's activity log
-    PE->>DB: read 🟧 1200's LedgerAccount, whose legs write no balance
-    PE->>DB: read 🟧 1100's LedgerAccount, whose legs write no balance
-    PE->>DB: read the platform policies
-    PE->>DB: read the debtor's Balances
-    PE->>DB: save the debtor's default/pending-outgoing Balance
-    PE->>DB: save the debtor's default/posted Balance
+    PE->>DB: read 🟧 1200, 🟧 1100 and 🟥 5100's LedgerAccounts, in one batch, whose legs write no balance
+    PE->>DB: sum the debtor's legs by bucket, at snapshot
+    PE->>DB: read every Balance row of the debtor's account, at snapshot
+    opt a bucket a leg reaches has no row
+    PE->>DB: save its Balance row, opened at zero
+    end
     else completed, a redelivery, or failed or returned
     Note over PE,DB: nothing saved
     else no such payment
@@ -535,7 +603,11 @@ debtor's pending-outgoing bucket and debits its posted one, and debits
 1200 against a credit to 1100 cash-at-correspondent. Neither 1200 nor
 1100 holds a row, 1100's balance being the sum of its legs, per
 [ADR-0039](../adr/0039-cash-at-correspondents-balance-is-the-sum-of-its-legs.md),
-so the only balance rows written are the debtor's. The transaction
+and the debtor's two buckets are the sums of theirs, per
+[ADR-0042](../adr/0042-a-cash-accounts-balance-is-the-sum-of-its-legs.md),
+so settlement writes no balance row unless one of the debtor's buckets
+opens. It leaves the available balance as it was, so no limit bounds it
+and the debtor's sums are read at snapshot. The transaction
 names the debtor as the account the scheme moved the money through, so
 its `transaction-posted` entry nets to nothing at a provider holding a
 balance per account, which moved the money itself. A settlement for a
@@ -626,17 +698,27 @@ sequenceDiagram
     alt pending or held
     PE->>DB: save the OutboundPayment, failed, with its failure kind and reason code
     PE->>DB: write fail to the outbound-payments changelog
+    PE->>DB: read the policy stamp, at snapshot
+    opt the bank's policies not cached under that stamp
+    PE->>DB: read the platform Policies, by label
+    PE->>DB: read the bank's PolicyBindings, by PolicyBinding_by_bank
+    loop each of the bank's PolicyBindings
+    PE->>DB: read the Policy it binds
+    end
+    end
+    opt their ids cached
+    PE->>DB: read 🟧 1200, 🟧 1100 and 🟥 5100's LedgerAccounts, in one batch, without waiting
+    end
     PE->>DB: read 🟧 1200's LedgerAccount
     PE->>DB: read the debtor's CashAccount
-    PE->>DB: read the control LedgerAccount the debtor's leg rolls into
-    PE->>DB: save Transaction, reversing the reservation
-    PE->>DB: save the two TransactionLegs
+    PE->>DB: save Transaction, reversing the reservation, and the two TransactionLegs, in one batch
     PE->>DB: write transaction-posted to the bank's activity log
-    PE->>DB: read 🟧 1200's LedgerAccount, whose legs write no balance
-    PE->>DB: read 🟧 1100's LedgerAccount, whose legs write no balance
-    PE->>DB: read the platform policies
-    PE->>DB: read the debtor's Balances
-    PE->>DB: save the debtor's default/pending-outgoing Balance
+    PE->>DB: read 🟧 1200, 🟧 1100 and 🟥 5100's LedgerAccounts, in one batch, whose legs write no balance
+    PE->>DB: sum the debtor's legs by bucket, at snapshot unless a limit caps its balance
+    PE->>DB: read every Balance row of the debtor's account, at snapshot
+    opt the debtor's default/pending-outgoing bucket has no row
+    PE->>DB: save its Balance row, opened at zero
+    end
     else failed, a redelivery
     Note over PE,DB: nothing saved
     else completed or returned, or no such payment
@@ -653,8 +735,10 @@ sequenceDiagram
 A rejection reverses only a payment still in flight, `pending` or
 `held`: it debits 1200 and credits the debtor's pending-outgoing bucket,
 releasing the reservation, and records the platform's failure kind and
-ISO 20022 reason code, which the API answers as `failure`. A rejection
-is not a return, so one naming a completed payment fails.
+ISO 20022 reason code, which the API answers as `failure`. Neither leg
+is a posted one, so no control is read, and the debtor's bucket, the
+sum of its legs, writes no row once open. A rejection is not a return,
+so one naming a completed payment fails.
 
 ### Held
 
@@ -734,7 +818,10 @@ sequenceDiagram
 A provider screening the payment holds it with the money still reserved,
 and the settlement or rejection that follows moves it on. A payment
 pending or held for 24 hours is reported by `payment/outbound-sweep` in
-`exclusive-dispatchers-service`.
+`exclusive-dispatchers-service`: every five minutes it reads, in a
+transaction for each status, at most 1,000 pending and 1,000 held
+payments created before now less `report-after-ms`, from the
+`OutboundPayment_by_status_created_at` index, and logs each at ERROR.
 
 ### Returned after settling
 
@@ -822,17 +909,28 @@ sequenceDiagram
     alt completed
     PE->>DB: save the OutboundPayment, returned, with its reason code and reason
     PE->>DB: write return to the outbound-payments changelog
-    PE->>DB: read 🟧 1100's LedgerAccount
+    PE->>DB: read the policy stamp, at snapshot
+    opt the bank's policies not cached under that stamp
+    PE->>DB: read the platform Policies, by label
+    PE->>DB: read the bank's PolicyBindings, by PolicyBinding_by_bank
+    loop each of the bank's PolicyBindings
+    PE->>DB: read the Policy it binds
+    end
+    end
     PE->>DB: read the debtor's CashAccount
+    opt their ids cached
+    PE->>DB: read 🟧 1200, 🟧 1100, 🟥 5100 and the debtor's control LedgerAccounts, in one batch, without waiting
+    end
+    PE->>DB: read 🟧 1100's LedgerAccount
     PE->>DB: read the control LedgerAccount the debtor's leg rolls into
-    PE->>DB: save Transaction outbound-return
-    PE->>DB: save the two TransactionLegs
+    PE->>DB: save Transaction outbound-return and the two TransactionLegs, in one batch
     PE->>DB: write transaction-posted to the bank's activity log
-    PE->>DB: read 🟧 1200's LedgerAccount, whose legs write no balance
-    PE->>DB: read 🟧 1100's LedgerAccount, whose legs write no balance
-    PE->>DB: read the platform policies
-    PE->>DB: read the debtor's Balances
-    PE->>DB: save the debtor's default/posted Balance
+    PE->>DB: read 🟧 1200, 🟧 1100 and 🟥 5100's LedgerAccounts, in one batch, whose legs write no balance
+    PE->>DB: sum the debtor's legs by bucket, at snapshot unless a limit caps its balance
+    PE->>DB: read every Balance row of the debtor's account, at snapshot
+    opt the debtor's default/posted bucket has no row
+    PE->>DB: save its Balance row, opened at zero
+    end
     else returned, a redelivery
     Note over PE,DB: nothing saved
     else not completed, or no such payment
@@ -850,7 +948,8 @@ The scheme can return a payment after it completed, when the
 beneficiary's bank cannot apply it. The return debits 1100 and credits
 the debtor's posted bucket by the amount returned, and names the debtor
 as the account the scheme moved the money through, so it nets to nothing
-at a per-account provider.
+at a per-account provider. Like settlement, it writes no balance row
+unless the debtor's bucket opens.
 
 ### Tests
 

@@ -75,21 +75,33 @@
     (or (and (neg? delta) (contains? sides :min))
         (and (pos? delta) (contains? sides :max)))))
 
+(defn- cash-account?
+  "Whether `account-legs` post to a cash account, whose default buckets
+  are its legs' sums, rather than a ledger account keeping its balances
+  in its rows."
+  [account-legs]
+  (q/derived? {:balance-type :balance-type-default
+               :product-type (:product-type (first account-legs))}))
+
 (defn- load-account-balances
   [txn bank-id legs transaction-type policies]
   (let [by-account (group-by :account-id legs)]
-    (q/list-balances-of txn
-                        bank-id
-                        (vec (keys by-account))
-                        {:snapshot-ids (into #{}
-                                             (comp (remove
-                                                    (fn [[_ account-legs]]
-                                                      (bounded?
-                                                       policies
-                                                       transaction-type
-                                                       account-legs)))
-                                                   (map key))
-                                             by-account)})))
+    (q/list-balances-of
+     txn
+     bank-id
+     (vec (keys by-account))
+     {:snapshot-ids (into #{}
+                          (comp (remove (fn [[_ account-legs]]
+                                          (bounded? policies
+                                                    transaction-type
+                                                    account-legs)))
+                                (map key))
+                          by-account)
+      :stored-ids (into #{}
+                        (comp (remove (fn [[_ account-legs]]
+                                        (cash-account? account-legs)))
+                              (map key))
+                        by-account)})))
 
 (defn apply-legs
   ([txn bank-id legs transaction-type]

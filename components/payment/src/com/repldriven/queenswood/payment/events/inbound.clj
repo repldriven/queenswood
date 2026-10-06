@@ -47,7 +47,8 @@
   [txn data bank-id receiving-account-id policies]
   (let [{:keys [currency]} data]
     (let-nom>
-      [cash (ledger-accounts/find-by-code
+      [_ (ledger-accounts/prefetch txn bank-id currency [])
+       cash (ledger-accounts/find-by-code
              txn
              bank-id
              :gl-account-code-cash-at-correspondent
@@ -208,7 +209,11 @@
         {:keys [scheme-transaction-id]} data
         {:keys [currency]} held]
     (let-nom>
-      [cash (ledger-accounts/find-by-code
+      [_ (ledger-accounts/prefetch txn
+                                   bank-id
+                                   currency
+                                   [(:product-type account)])
+       cash (ledger-accounts/find-by-code
              txn
              bank-id
              :gl-account-code-cash-at-correspondent
@@ -266,7 +271,11 @@
         {:keys [scheme-transaction-id]} data
         {:keys [currency]} admitted]
     (let-nom>
-      [cash (ledger-accounts/find-by-code
+      [_ (ledger-accounts/prefetch txn
+                                   bank-id
+                                   currency
+                                   [(:product-type account)])
+       cash (ledger-accounts/find-by-code
              txn
              bank-id
              :gl-account-code-cash-at-correspondent
@@ -583,6 +592,7 @@
           (let [{:keys [bank-id currency]} payment]
             (let-nom>
               [policies (bank-policies config txn bank-id)
+               _ (ledger-accounts/prefetch txn bank-id currency [])
                cash (ledger-accounts/find-by-code
                      txn
                      bank-id

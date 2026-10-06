@@ -115,18 +115,20 @@ sequenceDiagram
     participant DB as FDB
     end
     PR->>WH: PAYIN webhook, signed
-    opt the payin carries a source reference
+    opt the payin carries a source reference, not a move's
     critical transact
     WH->>DB: read the intent the source reference names
     end
     end
-    opt the payin carries a payment reference, and no transfer or credit was found
+    opt the payin carries a payment reference, and no move, transfer or credit was found
     critical transact
     WH->>DB: read the intent the payment reference names
     end
     end
     alt a payin the adapter caused, a transfer's far side, a move or a credit
     Note over WH: nothing recorded, the ledger has it
+    else a payin of type PO_REV
+    Note over WH,DB: an outbound returned, as payments-outbound.md draws
     else money from outside
     critical transact
     WH->>DB: save ModulrOutboxEvent transaction-settled (credit)
@@ -141,8 +143,9 @@ sequenceDiagram
     WH-->>PR: 200
 ```
 
-The event's dedup key is Modulr's payment id, and its end-to-end id the
-same id, which the outbox entry carries as its ordering key.
+The event's dedup key is Modulr's payment id with `:settled` after it,
+and its end-to-end id the payment id, which the outbox entry carries as
+its ordering key.
 
 #### The settlement reaches the payment
 
@@ -171,6 +174,16 @@ sequenceDiagram
     SE->>PE: transaction-settled (credit)
     critical transact
     PE->>DB: read the CashAccount the creditor's BBAN names
+    opt the BBAN names an account
+    PE->>DB: read the policy stamp, at snapshot
+    opt the bank's policies not cached under the stamp
+    PE->>DB: read the platform Policies, by label
+    PE->>DB: read the bank's PolicyBindings, by PolicyBinding_by_bank
+    loop each of the bank's bindings
+    PE->>DB: read the Policy it binds
+    end
+    end
+    end
     PE->>DB: read the InboundPayment by its scheme transaction id
     opt the BBAN names an account
     PE->>DB: read an open admission for the end-to-end id, account and amount
@@ -178,25 +191,28 @@ sequenceDiagram
     end
     alt an InboundPayment carries the id, a redelivery
     Note over PE: nothing saved
-    else no account holds the BBAN
-    Note over PE: the handler fails
     else the account is not opened
     Note over PE,DB: parked in suspense, as below
     else an open admission or hold
     Note over PE,DB: settled as the sections below draw
+    else no account holds the BBAN
+    Note over PE: the handler fails
     else an opened account
+    opt their ids cached
+    PE->>DB: start loading 🟧 1100, 🟧 1200, 🟥 5100 and the creditor's control, by id
+    end
     PE->>DB: read 🟧 1100
-    PE->>DB: read the bank's effective policies
     PE->>DB: read today's InboundPayment count, at snapshot
     alt the checks pass
     PE->>DB: read the control LedgerAccount the creditor's leg rolls into
-    PE->>DB: save Transaction inbound-transfer
-    PE->>DB: save the two TransactionLegs
+    PE->>DB: save Transaction inbound-transfer and the two TransactionLegs, in one batch
     PE->>DB: write transaction-posted to the bank's activity log
-    PE->>DB: read 🟧 1100 and 🟧 1200, whose legs write no balance
-    PE->>DB: read the creditor's effective policies
-    PE->>DB: read the creditor's Balances
-    PE->>DB: save the creditor's default/posted Balance
+    PE->>DB: read 🟧 1200, 🟧 1100 and 🟥 5100's LedgerAccounts, in one batch, whose legs write no balance
+    PE->>DB: sum the creditor's legs by bucket, at snapshot unless a limit caps its balance
+    PE->>DB: read every Balance row of the creditor's account, at snapshot
+    opt its default/posted bucket opens
+    PE->>DB: save its Balance row, opened at zero
+    end
     PE->>DB: save InboundPayment, settled
     PE->>DB: write settle to the inbound-payments changelog
     else a check refuses
@@ -209,11 +225,15 @@ sequenceDiagram
 
 The settlement resolves the creditor by BBAN, checks the account is
 opened and that the inbound capability and daily count allow it, and
-posts DEBIT 1100 / CREDIT creditor. 1100 holds no row, its balance
-being the sum of its legs, per
+posts DEBIT 1100 / CREDIT creditor. The bank's policies are read again
+only when the policy stamp has moved since they were cached, and a
+ledger account whose id is cached is read by its id. Neither leg
+rewrites a balance row: 1100's balance is the sum of its legs, per
 [ADR-0039](../adr/0039-cash-at-correspondents-balance-is-the-sum-of-its-legs.md),
-so the only balance row written is the creditor's, and the current
-account control it rolls into is summed from it. The transaction names
+and the creditor's default bucket the sum of its own, per
+[ADR-0042](../adr/0042-a-cash-accounts-balance-is-the-sum-of-its-legs.md),
+whose row is saved only when the bucket opens. The current account
+control is summed from the creditor's legs too. The transaction names
 the creditor as the account the scheme moved the money through, so its
 `transaction-posted` entry nets to nothing at a provider holding a
 balance per account, which credited it itself. A settlement delivered
@@ -269,25 +289,36 @@ sequenceDiagram
     SE->>PE: transaction-settled (credit)
     critical transact
     PE->>DB: read the CashAccount the creditor's BBAN names
+    PE->>DB: read the policy stamp, at snapshot
+    opt the bank's policies not cached under the stamp
+    PE->>DB: read the platform Policies, by label
+    PE->>DB: read the bank's PolicyBindings, by PolicyBinding_by_bank
+    loop each of the bank's bindings
+    PE->>DB: read the Policy it binds
+    end
+    end
     PE->>DB: read the InboundPayment by its scheme transaction id
     PE->>DB: read an open admission for the end-to-end id, account and amount
     PE->>DB: read an open hold for the end-to-end id, account and amount
     alt the account is opened, and a check refuses
+    opt their ids cached
+    PE->>DB: start loading 🟧 1100, 🟧 1200, 🟥 5100 and the creditor's control, by id
+    end
     PE->>DB: read 🟧 1100
-    PE->>DB: read the bank's effective policies
     PE->>DB: read today's InboundPayment count, at snapshot
     else the account is not opened
     Note over PE: no checks run
     end
+    opt their ids cached
+    PE->>DB: start loading 🟧 1100, 🟧 1200 and 🟥 5100, by id
+    end
     PE->>DB: read 🟧 1100
     PE->>DB: read 🟦 2500
-    PE->>DB: save Transaction inbound-transfer, DEBIT 🟧 1100 and CREDIT 🟦 2500
-    PE->>DB: save the two TransactionLegs
+    PE->>DB: save Transaction inbound-transfer, DEBIT 🟧 1100 and CREDIT 🟦 2500,<br/>and the two TransactionLegs, in one batch
     PE->>DB: write transaction-posted to the bank's activity log
-    PE->>DB: read 🟧 1100 and 🟧 1200, whose legs write no balance
-    PE->>DB: read 🟦 2500's effective policies
-    PE->>DB: read 🟦 2500's Balances
-    PE->>DB: save 🟦 2500's default/posted Balance
+    PE->>DB: read 🟧 1200, 🟧 1100 and 🟥 5100's LedgerAccounts, in one batch, whose legs write no balance
+    PE->>DB: read every Balance row of 🟦 2500
+    PE->>DB: save 🟦 2500's default/posted Balance row
     PE->>DB: save InboundPayment, suspended with the reason
     PE->>DB: write suspend to the inbound-payments changelog
     PE->>DB: write inbound-payment-suspended to the bank's activity log
@@ -405,37 +436,60 @@ sequenceDiagram
     SE->>PE: transaction-settled (credit)
     critical transact
     PE->>DB: read the CashAccount the creditor's BBAN names
+    PE->>DB: read the policy stamp, at snapshot
+    opt the bank's policies not cached under the stamp
+    PE->>DB: read the platform Policies, by label
+    PE->>DB: read the bank's PolicyBindings, by PolicyBinding_by_bank
+    loop each of the bank's bindings
+    PE->>DB: read the Policy it binds
+    end
+    end
     PE->>DB: read the InboundPayment by its scheme transaction id
     PE->>DB: read an open admission for the end-to-end id, account and amount
     PE->>DB: read the open hold for the end-to-end id, account and amount
+    alt the account is opened
+    opt their ids cached
+    PE->>DB: start loading 🟧 1100, 🟧 1200, 🟥 5100 and the creditor's control, by id
+    end
     PE->>DB: read 🟧 1100
-    PE->>DB: read the bank's effective policies
     PE->>DB: read today's InboundPayment count, at snapshot
     alt the checks pass, the count without the hold
     PE->>DB: read the control LedgerAccount the creditor's leg rolls into
-    PE->>DB: save Transaction inbound-transfer
-    PE->>DB: save the two TransactionLegs
+    PE->>DB: save Transaction inbound-transfer and the two TransactionLegs, in one batch
     PE->>DB: write transaction-posted to the bank's activity log
-    PE->>DB: read 🟧 1100 and 🟧 1200, whose legs write no balance
-    PE->>DB: read the creditor's effective policies
-    PE->>DB: read the creditor's Balances
-    PE->>DB: save the creditor's default/posted Balance
+    PE->>DB: read 🟧 1200, 🟧 1100 and 🟥 5100's LedgerAccounts, in one batch, whose legs write no balance
+    PE->>DB: sum the creditor's legs by bucket, at snapshot unless a limit caps its balance
+    PE->>DB: read every Balance row of the creditor's account, at snapshot
+    opt its default/posted bucket opens
+    PE->>DB: save its Balance row, opened at zero
+    end
     PE->>DB: save InboundPayment, settled
     PE->>DB: write release to the inbound-payments changelog
     else a check refuses
     Note over PE,DB: the held payment parked in suspense, as above
     end
+    else it has stopped being opened
+    Note over PE,DB: a new payment parked in suspense, as above,<br/>the hold staying held
+    end
     end
     else returned to the remitter
     SE->>PE: transaction-rejected (credit)
     critical transact
-    PE->>DB: read the CashAccount the creditor's BBAN names
+    alt the rejection names the creditor's BBAN
+    PE->>DB: read the CashAccount the BBAN names
+    opt the BBAN names an account
     PE->>DB: read the open hold for the end-to-end id and account
-    alt a hold is open
+    end
+    else it names none
+    PE->>DB: read the open holds for the end-to-end id
+    end
+    alt one hold is open
     PE->>DB: save InboundPayment, returned
     PE->>DB: write return to the inbound-payments changelog
     else none, a redelivery
     Note over PE: nothing saved
+    else more than one, and no BBAN to choose by
+    Note over PE: the handler fails
     end
     end
     end
@@ -444,8 +498,9 @@ sequenceDiagram
 
 The release and the return are relayed from the `clearbank-outbox`
 changelog as the hold is. A release runs the checks a settlement runs,
-counting today's payments without the hold itself. A return moves no
-money: it never reached the bank.
+counting today's payments without the hold itself, and writes no balance
+row where the creditor's bucket is open. A return moves no money: it
+never reached the bank.
 
 ### Admitted before it settles
 
@@ -511,7 +566,14 @@ sequenceDiagram
     else no account, or one not opened
     Note over PP: rejected, AC01, AC04 or AC06
     else an opened account
-    PP->>DB: read the bank's effective policies
+    PP->>DB: read the policy stamp, at snapshot
+    opt the bank's policies not cached under the stamp
+    PP->>DB: read the platform Policies, by label
+    PP->>DB: read the bank's PolicyBindings, by PolicyBinding_by_bank
+    loop each of the bank's bindings
+    PP->>DB: read the Policy it binds
+    end
+    end
     PP->>DB: read today's InboundPayment count, at snapshot
     alt the checks pass
     PP->>DB: save InboundPayment, admitted
@@ -584,19 +646,31 @@ sequenceDiagram
     SE->>PE: transaction-settled (credit)
     critical transact
     PE->>DB: read the CashAccount the creditor's BBAN names
+    PE->>DB: read the policy stamp, at snapshot
+    opt the bank's policies not cached under the stamp
+    PE->>DB: read the platform Policies, by label
+    PE->>DB: read the bank's PolicyBindings, by PolicyBinding_by_bank
+    loop each of the bank's bindings
+    PE->>DB: read the Policy it binds
+    end
+    end
     PE->>DB: read the InboundPayment by its scheme transaction id
     PE->>DB: read the open admission for the end-to-end id, account and amount
     PE->>DB: read an open hold for the end-to-end id, account and amount
     alt the account is still opened
+    opt their ids cached
+    PE->>DB: start loading 🟧 1100, 🟧 1200, 🟥 5100 and the creditor's control, by id
+    end
     PE->>DB: read 🟧 1100
     PE->>DB: read the control LedgerAccount the creditor's leg rolls into
-    PE->>DB: save Transaction inbound-transfer
-    PE->>DB: save the two TransactionLegs
+    PE->>DB: save Transaction inbound-transfer and the two TransactionLegs, in one batch
     PE->>DB: write transaction-posted to the bank's activity log
-    PE->>DB: read 🟧 1100 and 🟧 1200, whose legs write no balance
-    PE->>DB: read the creditor's effective policies
-    PE->>DB: read the creditor's Balances
-    PE->>DB: save the creditor's default/posted Balance
+    PE->>DB: read 🟧 1200, 🟧 1100 and 🟥 5100's LedgerAccounts, in one batch, whose legs write no balance
+    PE->>DB: sum the creditor's legs by bucket, at snapshot unless a limit caps its balance
+    PE->>DB: read every Balance row of the creditor's account, at snapshot
+    opt its default/posted bucket opens
+    PE->>DB: save its Balance row, opened at zero
+    end
     PE->>DB: save InboundPayment, settled
     PE->>DB: write settle to the inbound-payments changelog
     else it has stopped being opened
@@ -689,20 +763,32 @@ sequenceDiagram
     participant PR as Form3
     end
     critical transact
-    IP->>DB: read every pending intent
+    IP->>DB: read the oldest 1,000 pending intents, by the status index
     end
     critical transact
-    IP->>DB: read every sent intent
+    IP->>DB: read the oldest 1,000 sent intents, by the status index
     end
+    opt an intent was read
     critical transact
     IP->>DB: read the adapter's breaker, claiming the probe when half-open
     end
+    alt the breaker open
+    loop each pending intent past its maximum age
+    critical transact
+    IP->>DB: read the intent
+    IP->>DB: save the intent, failed
+    IP->>DB: read the outbox for inbound-return-failed's dedup key
+    IP->>DB: save Form3OutboxEvent inbound-return-failed
+    IP->>DB: write it to the form3-outbox changelog
+    end
+    end
+    else closed, or half-open for one probe
     opt the breaker closed
     critical transact
     IP->>DB: read the breaker, for a failure counted
     end
     end
-    loop each due pending intent no earlier unsent one shares an account with, on the adapter's workers
+    loop each due pending intent no earlier unsent one shares an account with, in rounds on the adapter's workers, one only when half-open
     IP->>PR: POST the return
     IP->>PR: POST its submission
     opt the call failed, or the breaker has counted a failure
@@ -725,9 +811,15 @@ sequenceDiagram
     end
     end
     end
-    opt the breaker closed
-    loop each sent return due to be asked after
+    opt the breaker closed, and no call opened it
+    loop each sent return due to be asked after, at once on the adapter's workers
     IP->>PR: GET the return's submission
+    opt the lookup failed, or the breaker has counted a failure
+    critical transact
+    IP->>DB: read the breaker
+    IP->>DB: save the breaker, with the lookup's outcome
+    end
+    end
     critical transact
     IP->>DB: read the intent
     alt delivered
@@ -746,11 +838,14 @@ sequenceDiagram
     end
     end
     end
+    end
+    end
 ```
 
-Each save of the intent is made only where the intent still has the
-status the pass read it in, and an outbox event only where its dedup key
-is not already recorded.
+A pass reads at most `pass-limit`, 1,000 by default, of each status,
+oldest first. Each save of the intent is made only where the intent
+still has the status the pass read it in, and an outbox event only where
+its dedup key is not already recorded.
 
 #### The outcome reaches the payment
 
@@ -781,15 +876,24 @@ sequenceDiagram
     critical transact
     PE->>DB: read the InboundPayment by its scheme transaction id
     alt suspended
+    PE->>DB: read the policy stamp, at snapshot
+    opt the bank's policies not cached under the stamp
+    PE->>DB: read the platform Policies, by label
+    PE->>DB: read the bank's PolicyBindings, by PolicyBinding_by_bank
+    loop each of the bank's bindings
+    PE->>DB: read the Policy it binds
+    end
+    end
+    opt their ids cached
+    PE->>DB: start loading 🟧 1100, 🟧 1200 and 🟥 5100, by id
+    end
     PE->>DB: read 🟧 1100
     PE->>DB: read 🟦 2500
-    PE->>DB: save Transaction inbound-return, DEBIT 🟦 2500 and CREDIT 🟧 1100
-    PE->>DB: save the two TransactionLegs
+    PE->>DB: save Transaction inbound-return, DEBIT 🟦 2500 and CREDIT 🟧 1100,<br/>and the two TransactionLegs, in one batch
     PE->>DB: write transaction-posted to the bank's activity log
-    PE->>DB: read 🟧 1100 and 🟧 1200, whose legs write no balance
-    PE->>DB: read 🟦 2500's effective policies
-    PE->>DB: read 🟦 2500's Balances
-    PE->>DB: save 🟦 2500's default/posted Balance
+    PE->>DB: read 🟧 1200, 🟧 1100 and 🟥 5100's LedgerAccounts, in one batch, whose legs write no balance
+    PE->>DB: read every Balance row of 🟦 2500
+    PE->>DB: save 🟦 2500's default/posted Balance row
     PE->>DB: save InboundPayment, returned
     PE->>DB: write return to the inbound-payments changelog
     else returned already, a redelivery

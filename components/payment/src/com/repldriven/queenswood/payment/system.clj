@@ -23,6 +23,7 @@
                    (or instance
                        (commands/->PaymentProcessor
                         (assoc config
+                               :cache (cache/create (:cache-ttl-ms config))
                                :policy-cache (cache/create (:policy-cache-ttl-ms
                                                             config))
                                :caches (ledger-caches config)))))
@@ -32,6 +33,7 @@
                    :bus nil
                    :payment-providers system/required-component
                    :business-day-cutoff default-cutoff
+                   :cache-ttl-ms one-hour-ms
                    :policy-cache-ttl-ms ten-minutes-ms
                    :ledger-cache-ttl-ms thirty-seconds-ms}
    :system/instance-schema some?})
@@ -41,6 +43,7 @@
                    (or instance
                        (commands/->PaymentEventProcessor
                         (assoc config
+                               :cache (cache/create (:cache-ttl-ms config))
                                :policy-cache (cache/create (:policy-cache-ttl-ms
                                                             config))
                                :caches (ledger-caches config)))))
@@ -50,6 +53,7 @@
                    :bus nil
                    :payment-providers nil
                    :business-day-cutoff default-cutoff
+                   :cache-ttl-ms one-hour-ms
                    :policy-cache-ttl-ms ten-minutes-ms
                    :ledger-cache-ttl-ms thirty-seconds-ms}
    :system/instance-schema some?})

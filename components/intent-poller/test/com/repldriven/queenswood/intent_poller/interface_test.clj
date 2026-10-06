@@ -60,6 +60,15 @@
  {"call"
   {:call respond :answered answered :failed failed :reconcile reconciled}})
 
+(defn- unreachable
+  [_config now _intent]
+  {:status "sent" :changes {:next-attempt-at (+ now 60000)} :outcome :retry})
+
+(SUT/defoperations
+ :poller-reconcile-outage
+ {"call"
+  {:call respond :answered answered :failed failed :reconcile unreachable}})
+
 (SUT/defoperations :poller-unread-sent
                    {"call" {:call respond :answered answered :failed failed}})
 
@@ -320,6 +329,25 @@
             (is (= ["settled" "settled" "settled"]
                    (mapv status ["rec.1" "rec.2" "rec.3"]))))
           (finally (.shutdown executor))))))
+
+(deftest reconcile-outage-test
+  (with-test-system
+   [sys "classpath:intent-poller/application-test.yml"]
+   (let [answers (atom [:answered nil])
+         config (poller-config sys :poller-reconcile-outage answers)
+         spec (spec :poller-reconcile-outage)
+         t0 1000000
+         save (fn [id status]
+                (SUT/save-intent
+                 config
+                 spec
+                 (assoc (intent id t0) :status status :subjects [id])))]
+     (nom-test> [_ (save "reo.1" "sent") _ (save "reo.2" "sent")])
+     (testing "lookups that go unanswered open the breaker"
+       (SUT/drain-once config t0)
+       (nom-test> [_ (save "reo.3" "pending")])
+       (is (= 0 (SUT/drain-once config (+ t0 100))))
+       (is (= 0 (:attempts (by-id config "reo.3"))))))))
 
 (deftest ordering-key-test
   (testing "a payment's events are keyed by the payment"

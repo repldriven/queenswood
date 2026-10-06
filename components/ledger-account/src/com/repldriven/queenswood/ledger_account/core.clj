@@ -175,12 +175,15 @@
   (let-nom> [[account] (find-by-codes txn bank-id [gl-account-code] currency)]
     account))
 
+(def ^:private journal-codes
+  (into []
+        (keep (fn [[code spec]] (when (domain/posted-to? spec) code)))
+        domain/derived))
+
 (defn prefetch
-  [txn bank-id currency product-types]
+  [txn bank-id currency product-types {:keys [journal?] :or {journal? true}}]
   (when-let [cache (store/cache txn)]
-    (let [codes (into (set (keep (fn [[code spec]]
-                                   (when (domain/posted-to? spec) code))
-                                 domain/derived))
+    (let [codes (into (if journal? (set journal-codes) #{})
                       (keep domain/product-type->control-code)
                       product-types)
           ids (vals (cached-ids cache bank-id codes currency))]
@@ -198,11 +201,6 @@
 (defn stored-legs
   [txn bank-id currency legs]
   (let-nom>
-    [accounts (find-by-codes txn
-                             bank-id
-                             (vec (keep (fn [[code spec]]
-                                          (when (domain/posted-to? spec) code))
-                                        domain/derived))
-                             currency)
-     ids (set (map :ledger-account-id accounts))]
+    [accounts (load-by-codes txn bank-id journal-codes currency)
+     ids (into #{} (keep :ledger-account-id) (vals accounts))]
     (into [] (remove (fn [leg] (contains? ids (:account-id leg)))) legs)))

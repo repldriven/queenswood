@@ -67,7 +67,8 @@
                                        bank-id
                                        currency
                                        [(:product-type debtor-account)
-                                        (:product-type creditor-account)])
+                                        (:product-type creditor-account)]
+                                       {:journal? false})
            today-count (telemetry/with-span
                         ["payment-daily-count"]
                         (q/count-internal-by-org-business-day txn
@@ -165,11 +166,7 @@
                                      txn
                                      bank-id
                                      debtor-account-id))
-                    _ (ledger-accounts/prefetch txn
-                                                bank-id
-                                                currency
-                                                [(:product-type
-                                                  debtor-account)])
+                    _ (ledger-accounts/prefetch txn bank-id currency [])
                     pending-outbound
                     (telemetry/with-span ["payment-pending-outbound"]
                                          (ledger-accounts/find-by-code

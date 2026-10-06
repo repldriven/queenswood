@@ -372,21 +372,31 @@
                        :run (fn [intent] (run-intent config now pass intent))}))
 
 (defn- reconcile-one
-  [config now intent f]
-  (in-intent-trace config
-                   "reconcile"
-                   intent
-                   (fn []
-                     (checked
-                      config
-                      intent
-                      (fn [i]
-                        (record config now i "sent" (f config now i)))))))
+  "Reconcile `intent` with `f`, recording the lookup's `:outcome` on the
+  adapter's breaker as a call's, unless the breaker has opened this
+  pass."
+  [config now pass intent f]
+  (when (pos? (:budget @pass))
+    (in-intent-trace
+     config
+     "reconcile"
+     intent
+     (fn []
+       (checked config
+                intent
+                (fn [i]
+                  (let [result (f config now i)]
+                    (when-let [outcome (:outcome result)]
+                      (record-call config
+                                   now
+                                   pass
+                                   (if (= :retry outcome) :failed :answered)))
+                    (record config now i "sent" (dissoc result :outcome)))))))))
 
 (defn- reconcile
   "Reconcile each due sent intent whose operation has a `:reconcile`, at
   once on the adapter's workers where it has them."
-  [config now sent]
+  [config now pass sent]
   (let [due (keep (fn [intent]
                     (when-let [f (reconciler config intent)]
                       (when (due? now intent) [intent f])))
@@ -400,11 +410,12 @@
                                             (fn []
                                               (reconcile-one config
                                                              now
+                                                             pass
                                                              intent
                                                              f)))
                                           due))]
         (.get f))
-      (doseq [[intent f] due] (reconcile-one config now intent f)))))
+      (doseq [[intent f] due] (reconcile-one config now pass intent f)))))
 
 (defn- pass
   [config now pending sent]
@@ -422,7 +433,7 @@
              (drain-concurrently config now state (into pending sent))
              (drain-in-order config now state (into pending sent)))
            (when (and (= :closed decision) (pos? (:budget @state)))
-             (reconcile config now sent))))
+             (reconcile config now state sent))))
      (telemetry/set-attribute "intents.ran" (:ran @state))
      (:ran @state))))
 

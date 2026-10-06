@@ -283,9 +283,19 @@
   prefixes, returning a vector per prefix, in the order given, of up to
   limit serialized records in key order. Each prefix is a vector of
   leading PK parts. The scans are issued together and waited on once,
-  so the batch costs one round trip rather than one per prefix."
-  [store prefixes limit]
-  (scan/scan-prefixes store prefixes limit))
+  so the batch costs one round trip rather than one per prefix. With
+  `{:isolation :snapshot}` the scans join no read-conflict set.
+
+  Args:
+  - store: an open FDBRecordStore.
+  - prefixes: a vector of primary-key prefixes.
+  - limit: the most records returned for each prefix.
+  - opts: optional `{:isolation :snapshot | :serializable}`, serializable
+    by default."
+  ([store prefixes limit]
+   (scan/scan-prefixes store prefixes limit {}))
+  ([store prefixes limit opts]
+   (scan/scan-prefixes store prefixes limit opts)))
 
 (defn scan-index-records
   "The records a value index holds under `prefix`, in the index's order —

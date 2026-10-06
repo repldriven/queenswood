@@ -115,9 +115,11 @@ non-trivial work on their topic.
   offers running side by side on a command channel of its own, and
   operations reaching a provider in the order they were accepted, through
   a per-bank activity log published keyed by bank and acted on from the
-  event alone.
+  event alone; proposed, a per-account provider's transfers sent in
+  batch requests, an account's debits together.
   See [ADR-0030](docs/adr/0030-a-bank-chooses-its-providers-when-it-is-created.md),
-  [ADR-0033](docs/adr/0033-operations-reach-a-provider-in-the-order-they-were-accepted.md)
+  [ADR-0033](docs/adr/0033-operations-reach-a-provider-in-the-order-they-were-accepted.md),
+  [ADR-0043](docs/adr/0043-a-per-account-providers-transfers-go-in-batches.md)
   and [tdd/bank-providers.md](docs/tdd/bank-providers.md).
 - **Outbound delivery** — a circuit breaker on each destination an
   outbound call goes to, its state in FDB, and every retry, cap and

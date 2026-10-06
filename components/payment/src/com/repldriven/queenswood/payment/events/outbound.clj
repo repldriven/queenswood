@@ -176,6 +176,7 @@
   (let [{:keys [bank-id debtor-account-id currency]} payment]
     (let-nom>
       [policies (bank-policies config txn bank-id)
+       _ (ledger-accounts/prefetch txn bank-id currency [])
        pending (ledger-accounts/find-by-code
                 txn
                 bank-id
@@ -272,15 +273,19 @@
   (let [{:keys [bank-id debtor-account-id currency]} payment]
     (let-nom>
       [policies (bank-policies config txn bank-id)
+       debtor-account (cash-accounts/get-account
+                       txn
+                       bank-id
+                       debtor-account-id)
+       _ (ledger-accounts/prefetch txn
+                                   bank-id
+                                   currency
+                                   [(:product-type debtor-account)])
        cash (ledger-accounts/find-by-code
              txn
              bank-id
              :gl-account-code-cash-at-correspondent
              currency)
-       debtor-account (cash-accounts/get-account
-                       txn
-                       bank-id
-                       debtor-account-id)
        tx (outbound/outbound-return->transaction
            payment
            debtor-account

@@ -77,23 +77,30 @@
 (defn list-balances-of
   "List several accounts' raw balance buckets: a map of account id to
   that account's vector of buckets, unenriched. A read primitive for the
-  write sibling's apply-legs computation. The legs are summed
-  serializably, except for the accounts `opts` names in
-  `:snapshot-ids`, whose sums join no read-conflict set, so a posting
-  no limit bounds conflicts with nothing else posting to the account.
+  write sibling's apply-legs computation. An account `opts` names in
+  `:stored-ids` keeps its balances in its rows, which are read
+  serializably and summed from no legs, unless one of them turns out to
+  be a derived bucket, when that account's legs are summed after its
+  rows are read. Every other account's rows are
+  read at snapshot, since its derived buckets' rows hold no amount, and
+  its legs are summed serializably, except for the accounts named in
+  `:snapshot-ids`, whose sums join no read-conflict set, so a posting no
+  limit bounds conflicts with nothing else posting to the account.
 
   Args:
   - txn: FDB transaction or db handle.
   - bank-id: owning bank id, which heads the key.
   - account-ids: owning account ids.
-  - opts: optional `{:snapshot-ids #{account-id ...}}`."
+  - opts: optional `{:snapshot-ids #{account-id ...}
+    :stored-ids #{account-id ...}}`."
   ([txn bank-id account-ids]
    (list-balances-of txn bank-id account-ids {}))
   ([txn bank-id account-ids opts]
    (store/list-balances-of txn
                            bank-id
                            account-ids
-                           (set (:snapshot-ids opts)))))
+                           (set (:snapshot-ids opts))
+                           (set (:stored-ids opts)))))
 
 (defn with-leg-sums
   "`balances` with each cash account's default buckets given the

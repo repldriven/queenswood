@@ -133,22 +133,36 @@
                 "Failed to list balances"))
 
 (defn list-balances-of
-  [txn bank-id account-ids snapshot-ids]
+  [txn bank-id account-ids snapshot-ids stored-ids]
   (fdb/transact
    txn
    (fn [txn]
-     (let [{snapshot true serializable false}
-           (group-by (fn [id] (contains? snapshot-ids id)) account-ids)
+     (let [{stored true summed-ids false}
+           (group-by (fn [id] (contains? stored-ids id)) account-ids)
+           {snapshot true serializable false}
+           (group-by (fn [id] (contains? snapshot-ids id)) summed-ids)
            snapshot-sums (start-account-sums txn snapshot true)
            serializable-sums (start-account-sums txn serializable false)
-           rows (fdb/scan-prefixes (fdb/open txn store-name)
-                                   (mapv (fn [id] [bank-id id]) account-ids)
-                                   100)
-           by-bucket (merge (snapshot-sums) (serializable-sums))]
+           store (fdb/open txn store-name)
+           prefixes (fn [ids] (mapv (fn [id] [bank-id id]) ids))
+           rows (merge (zipmap stored
+                               (fdb/scan-prefixes store (prefixes stored) 100))
+                       (zipmap summed-ids
+                               (fdb/scan-prefixes store
+                                                  (prefixes summed-ids)
+                                                  100
+                                                  {:isolation :snapshot})))
+           balances (update-vals rows
+                                 (fn [records]
+                                   (mapv schema/pb->Balance records)))
+           unsummed (filterv (fn [id] (some domain/derived? (get balances id)))
+                             stored)
+           by-bucket (merge (snapshot-sums)
+                            (serializable-sums)
+                            ((start-account-sums txn unsummed false)))]
        (zipmap account-ids
-               (map (fn [records]
-                      (summed (mapv schema/pb->Balance records) by-bucket))
-                    rows))))
+               (map (fn [id] (summed (get balances id) by-bucket))
+                    account-ids))))
    :balance/list
    "Failed to list balances"))
 
