@@ -26,67 +26,58 @@
 (def ^:private sub-ledger-leg-sum-index
   "TransactionLeg_sum_amount_by_bank_product_currency_bucket_side")
 
-(defn- bucket-key
-  [balance]
-  ((juxt :account-id :balance-type :balance-status) balance))
-
-(defn- leg-sum-aggregates
-  [balance]
-  (let [{:keys [account-id balance-type balance-status]} balance
-        group (fn [side]
-                [account-id
-                 (schema/balance-type->int balance-type)
-                 (schema/balance-status->int balance-status)
-                 (schema/leg-side->int side)])]
-    [[:sum account-leg-sum-index (group :leg-side-credit)]
-     [:sum account-leg-sum-index (group :leg-side-debit)]]))
-
-(def ^:private default-statuses
-  [:balance-status-posted :balance-status-pending-incoming
-   :balance-status-pending-outgoing])
-
 (defn- start-account-sums
-  "Issues the reads of every default bucket's legs for `account-ids`,
-  and returns a function that waits on them and returns a map of bucket
-  key to `[credit debit]`, so the rows can be scanned meanwhile."
+  "Starts one scan of each account's leg sums, every bucket and side, and
+  returns a function that waits on them and returns a map of bucket key
+  to `[credit debit]`, so the rows can be scanned meanwhile."
   [txn account-ids snapshot?]
-  (let [buckets (into []
-                      (comp (mapcat (fn [id]
-                                      (map (fn [status]
-                                             {:account-id id
-                                              :balance-type
-                                              :balance-type-default
-                                              :balance-status status})
-                                           default-statuses))))
-                      account-ids)
-        sums (fdb/aggregate-records-later
-              (fdb/open txn legs-store-name)
-              (into [] (mapcat leg-sum-aggregates) buckets)
-              {:isolation (if snapshot? :snapshot :serializable)})]
-    (fn [] (zipmap (map bucket-key buckets) (partition 2 (sums))))))
+  (let [store (fdb/open txn legs-store-name)
+        scans (mapv (fn [id]
+                      (fdb/sum-groups-later store
+                                            account-leg-sum-index
+                                            [id]
+                                            {:isolation (if snapshot?
+                                                          :snapshot
+                                                          :serializable)}))
+                    account-ids)
+        credit (schema/leg-side->int :leg-side-credit)]
+    (fn []
+      (reduce (fn [by-bucket [[id balance-type balance-status side] sum]]
+                (update by-bucket
+                        [id balance-type balance-status]
+                        (fnil
+                         (fn [[c d]]
+                           (if (= credit side) [(+ c sum) d] [c (+ d sum)]))
+                         [0 0])))
+              {}
+              (mapcat (fn [scan] (scan)) scans)))))
 
 (defn- summed
-  "`balances` with each derived bucket given the sums in `by-bucket`."
+  "`balances` with each derived bucket given the sums in `by-bucket`,
+  keyed by account and the bucket's type and status as their ints. A
+  derived bucket no leg reached sums to zero."
   [balances by-bucket]
   (mapv (fn [balance]
-          (if-let [[credit debit] (and (domain/derived? balance)
-                                       (get by-bucket (bucket-key balance)))]
-            (assoc balance :credit credit :debit debit)
+          (if (domain/derived? balance)
+            (let [{:keys [account-id balance-type balance-status]} balance
+                  [credit debit] (get by-bucket
+                                      [account-id
+                                       (schema/balance-type->int balance-type)
+                                       (schema/balance-status->int
+                                        balance-status)]
+                                      [0 0])]
+              (assoc balance :credit credit :debit debit))
             balance))
         balances))
 
 (defn with-leg-sums
   [txn balances snapshot?]
-  (let [derived (filterv domain/derived? balances)]
-    (if (empty? derived)
+  (let [ids (into []
+                  (comp (filter domain/derived?) (map :account-id) (distinct))
+                  balances)]
+    (if (empty? ids)
       balances
-      (let [aggregate (if snapshot?
-                        fdb/aggregate-records-snapshot
-                        fdb/aggregate-records)
-            sums (aggregate (fdb/open txn legs-store-name)
-                            (into [] (mapcat leg-sum-aggregates) derived))
-            by-bucket (zipmap (map bucket-key derived) (partition 2 sums))]
-        (summed balances by-bucket)))))
+      (summed balances ((start-account-sums txn ids snapshot?))))))
 
 (defn find-balance
   [txn bank-id account-id balance-type currency balance-status]

@@ -2,7 +2,9 @@
   (:refer-clojure :exclude [load])
   (:import
     (com.apple.foundationdb.record ExecuteProperties
+                                   IndexEntry
                                    IndexScanType
+                                   IsolationLevel
                                    ScanProperties
                                    TupleRange)
     (com.apple.foundationdb.record.provider.foundationdb
@@ -296,6 +298,28 @@
                                          bounds
                                          nil
                                          ScanProperties/FORWARD_SCAN)))))
+
+(defn sum-groups-later
+  [^FDBRecordStore store index-name prefix {:keys [isolation]}]
+  (let [index (.getIndex (.getRecordMetaData store) index-name)
+        bounds (IndexScanRange. IndexScanType/BY_GROUP
+                                (TupleRange/allOf (->tuple prefix)))
+        props (ScanProperties. (-> (ExecuteProperties/newBuilder)
+                                   (.setIsolationLevel
+                                    (if (= :snapshot isolation)
+                                      IsolationLevel/SNAPSHOT
+                                      IsolationLevel/SERIALIZABLE))
+                                   .build))
+        ^CompletableFuture entries (.asList
+                                    (.scanIndex store index bounds nil props))]
+    (fn []
+      (into {}
+            (map (fn [^IndexEntry entry]
+                   [(vec (.getItems (.getKey entry)))
+                    (.getLong (.getValue entry) 0)]))
+            (.asyncToSync (.getContext store)
+                          FDBStoreTimer$Waits/WAIT_SCAN_INDEX_RECORDS
+                          entries)))))
 
 (defn count-records
   ([store index-name key] (count-records store index-name key {}))

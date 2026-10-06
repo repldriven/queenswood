@@ -236,6 +236,16 @@
   [store aggregates opts]
   (record/aggregate-many-later store aggregates opts))
 
+(defn sum-groups-later
+  "Starts one scan of a SUM index's groups under `prefix` and returns a
+  function of no arguments that waits on it and returns a map of each
+  group's full grouping key, as a vector, to its sum. A group no record
+  ever reached has no entry. One range read however many groups the
+  prefix holds, so it costs less than an aggregate per group. `opts` is
+  `{:isolation :snapshot}` to read at SNAPSHOT, serializable otherwise."
+  [store index-name prefix opts]
+  (record/sum-groups-later store index-name prefix opts))
+
 (defn count-groups
   "Counts distinct grouping-key entries in a COUNT index whose
   group key starts with `prefix` — one per group, not the sum
