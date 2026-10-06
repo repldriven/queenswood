@@ -226,7 +226,8 @@ minutes and a `challenger` of 1,000 accounts at 50 a second for four, the
 run and a minute either side of it.
 
 `FROM` drops a profile's steps below that rate, for a machine where
-the low steps tell nothing. `RATE` and `DURATION` replace a profile's
+the low steps tell nothing, and `STEP` gives every step one length, as
+`30s` for a quicker knee. `RATE` and `DURATION` replace a profile's
 steps with one-minute steps at that rate, so a sustained run shows
 whether the rate holds, and `ACCOUNTS` replaces its account count.
 Amounts are between 1p and £1, and funding covers the run twice over,
