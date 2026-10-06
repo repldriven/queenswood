@@ -627,6 +627,20 @@ run at the next:
     transactions with their legs, idempotency keys and activity entries.
     The payments held a p99 of 71 ms or less, and 129 in the minute the
     run took.
+23. **Measured in-flight limits.** On mono v0.0.59 the API's
+    `max-in-flight` is measured from 200 and never below it, and the six
+    busiest subscriptions run sixteen performers under a limit measured
+    from 4, as mono's ADR-0041 decides. On knees in 30-second steps,
+    internal at 320 a second served 307 with none refused, where the fixed
+    limits refused 13%, at a p50 of 62 ms at 160 rather than 44; the
+    payment processor's limit rose to its sixteen performers. Outbound at
+    320 was admitted at 299 a second, but the Modulr leg settles about 60
+    a second, so the backlog took until a minute after the knee's
+    180-second settle to drain, and its books check failed on that alone:
+    the ledger, the controls and the provider agreed. Reads with no floor
+    let the limit fall to 18 under overload, at the lowest latency the
+    limiter measured, and served about 1,030 a second at 2,560 asked
+    rather than 1,500; with the floor at 200 they served about 1,450.
 
 ### Span candidates
 
