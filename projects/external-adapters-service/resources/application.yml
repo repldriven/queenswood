@@ -275,9 +275,13 @@ system:
       clearbank-command:
         consumer: !system/local-ref consumers.clearbank-command
         timeout: 500
+      # Sent keyed by bank, and handed to sixteen performers by verification,
+      # each verification's commands in the order they were sent (ADR-0040).
       zyphe-idv-command:
         consumer: !system/local-ref consumers.zyphe-idv-command
         timeout: 500
+        performers: 16
+        max-in-flight: {initial: 4}
       onfido-idv-command:
         consumer: !system/local-ref consumers.onfido-idv-command
         timeout: 500

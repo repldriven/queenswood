@@ -37,21 +37,33 @@
 
 (def ^:private command-handlers {"submit-idv-check" submit-idv-check-intent})
 
-(defn- dispatch
+(defn- command-data
+  "The command's handler and its decoded data, nil for a command this
+  adapter does not handle, or an anomaly."
   [config message]
   (let [{:keys [command payload]} message
-        handler (get command-handlers command)]
-    (if (nil? handler)
-      (do (log/warnf "Zyphe adapter ignoring unknown command: %s" command)
-          nil)
-      (let [{:keys [schemas]} config
-            schema (get schemas command)]
-        (if-not schema
-          (do (log/warnf "No schema found for command: %s" command)
-              nil)
-          (let-nom> [data (avro/deserialize-same schema payload)]
-            (handler config data)))))))
+        handler (get command-handlers command)
+        schema (get (:schemas config) command)]
+    (cond
+     (nil? handler)
+     (log/warnf "Zyphe adapter ignoring unknown command: %s" command)
+
+     (nil? schema)
+     (log/warnf "No schema found for command: %s" command)
+
+     :else
+     (let-nom> [data (avro/deserialize-same schema payload)]
+       [handler data]))))
+
+(defn- dispatch
+  [config message]
+  (let-nom> [[handler data] (command-data config message)]
+    (when handler (handler config data))))
 
 (defrecord ZypheCommandProcessor [config]
   processor/Processor
-    (process [_ message] (dispatch config message)))
+    (process [_ message] (dispatch config message))
+  processor/Keyed
+    (performer-key [_ message]
+      (let [found (command-data config message)]
+        (when-not (error/anomaly? found) (:verification-id (second found))))))
