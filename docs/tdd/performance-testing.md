@@ -77,8 +77,9 @@ against a provider's own sandbox.
   which the adapter sends to Modulr as a payment between accounts.
 - **An outbound payment reaches Modulr through two relays and a poller.**
   The submit records an activity entry; a `changelog-relay` runner per
-  bank-activity shard in `exclusive-dispatchers-service`, polling every
-  100 ms for up to 500 entries, publishes it; `payment`'s activity event
+  bank-activity shard in `exclusive-dispatchers-service`, reading up to
+  500 entries a pass, again at once after a pass that relays entries and
+  after 100 ms otherwise, publishes it; `payment`'s activity event
   processor sends the command; the Modulr adapter saves an intent; and
   the `intent-poller` in
   [core.clj](/components/intent-poller/src/com/repldriven/queenswood/intent_poller/core.clj)
@@ -442,7 +443,8 @@ run at the next:
    busy for about one second in each, and nothing pending at the end.
    Each pass still reads every pending and sent intent.
 6. **The relays.** One bank's activity is one shard's log, read by one
-   runner at up to 500 entries every 100 ms.
+   runner at up to 500 entries a pass, again at once after a pass that
+   relays entries and after 100 ms otherwise.
 7. **The outbound settlement consumer.** Done for 50 a second. `payment`
    settled outbound payments from `topic-schemes-payments-event`, one
    partition, one message at a time, at 17.6 ms each, so at 50 a second

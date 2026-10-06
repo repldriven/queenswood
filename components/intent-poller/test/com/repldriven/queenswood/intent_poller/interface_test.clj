@@ -11,6 +11,7 @@
     [com.repldriven.mono.system.interface :as system]
     [com.repldriven.mono.test-system.interface :refer
      [with-test-system nom-test>]]
+    [com.repldriven.mono.utility.interface :as utility]
 
     [clojure.test :refer [deftest is testing]])
   (:import
@@ -68,6 +69,9 @@
  :poller-reconcile-outage
  {"call"
   {:call respond :answered answered :failed failed :reconcile unreachable}})
+
+(SUT/defoperations :poller-wake
+                   {"call" {:call respond :answered answered :failed failed}})
 
 (SUT/defoperations :poller-unread-sent
                    {"call" {:call respond :answered answered :failed failed}})
@@ -348,6 +352,30 @@
        (nom-test> [_ (save "reo.3" "pending")])
        (is (= 0 (SUT/drain-once config (+ t0 100))))
        (is (= 0 (:attempts (by-id config "reo.3"))))))))
+
+(deftest wake-test
+  (with-test-system
+   [sys "classpath:intent-poller/application-test.yml"]
+   (let [answers (atom [:answered nil])
+         config (assoc (poller-config sys :poller-wake answers) :poll-ms 60000)
+         spec (spec :poller-wake)
+         poller (SUT/start config)
+         settled? (fn [] (= "settled" (:status (by-id config "wake.1"))))]
+     (try (Thread/sleep 500)
+          (nom-test> [_ (SUT/save-intent config
+                                         spec
+                                         (intent "wake.1" (utility/now)))])
+          (testing "a save wakes the idle poller rather than waiting poll-ms"
+            (is (loop [n 0]
+                  (cond (settled?)
+                        true
+
+                        (< n 40)
+                        (do (Thread/sleep 50) (recur (inc n)))
+
+                        :else
+                        false))))
+          (finally ((:stop poller)))))))
 
 (deftest ordering-key-test
   (testing "a payment's events are keyed by the payment"

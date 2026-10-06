@@ -177,9 +177,10 @@ opens the breaker stops the calls not yet started, while up to
 `concurrency` less one already in flight finish. An answer through a
 breaker the pass found closed with no failure counted is not recorded,
 since it would change nothing. The poller starts its next pass at once
-after one that made a call, and after `poll-ms` otherwise. Each pass is
-a `<adapter>-pass` span carrying `intents.pending`, `intents.sent` and
-`intents.ran`.
+after one that made a call, or when `save-intent` saves an intent to
+its store in the same process, and after `poll-ms` otherwise. Each pass
+is a `<adapter>-pass` span carrying `intents.pending`, `intents.sent`
+and `intents.ran`.
 
 An outbox entry about a payment or a transfer, whether the poller or a
 payment adapter's webhook wrote it, carries `ordering_key`, which
