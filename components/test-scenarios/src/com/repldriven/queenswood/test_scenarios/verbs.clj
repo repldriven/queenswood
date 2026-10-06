@@ -1499,9 +1499,7 @@
                    "Bank has no 2400 interest-payable account in this currency"
                    :bank-id bank-id
                    :currency currency}))
-     balances (balances-query/get-balances txn
-                                           bank-id
-                                           (:ledger-account-id payable))]
+     balances (ledger-accounts/get-balances txn bank-id payable)]
     (:value (:posted-balance balances))))
 
 (defn- accrued-total

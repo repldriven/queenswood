@@ -12,7 +12,9 @@
   job's; a day is the unit this computes.
 
   Args:
-  - config: FDB handle plus product/balance/transaction interfaces.
+  - config: FDB handle plus product/balance/transaction interfaces,
+    with `:interest-chunks-in-flight`, how many chunks of a hundred
+    accounts it posts at once, one where absent.
   - data: map with :bank-id and :as-of-date (YYYYMMDD int).
 
   Returns `{:bank-id :as-of-date :accounts-processed}`,
@@ -29,7 +31,9 @@
   cadence is the scheduler job's, and may be daily, monthly or yearly.
 
   Args:
-  - config: FDB handle plus product/balance/transaction interfaces.
+  - config: FDB handle plus product/balance/transaction interfaces,
+    with `:interest-chunks-in-flight`, how many chunks of a hundred
+    accounts it posts at once, one where absent.
   - data: map with :bank-id and :as-of-date (YYYYMMDD int).
 
   Returns `{:bank-id :as-of-date :accounts-processed}`,
@@ -57,7 +61,19 @@
   `:run-state` is nil until the run record is written, which happens
   once enumeration finishes.
 
-  Counts only. What a run accrued is per currency, and the ledger
-  entries it posts at close are where that figure is auditable."
+  Counts only. What a run accrued is in the transactions its chunks
+  record, against interest expense."
   [config bank-id as-of-date kind]
   (core/run-progress config bank-id as-of-date kind))
+
+(defn accrual-carry
+  "The sub-unit carry, in millionths of a minor unit, that an account's
+  next accrual opens with: what its earlier accruals left over. Zero for
+  an account none has accrued.
+
+  Args:
+  - config: FDB handle or open transaction.
+  - bank-id: the account's bank.
+  - account-id: the cash account."
+  [config bank-id account-id]
+  (core/accrual-carry config bank-id account-id))

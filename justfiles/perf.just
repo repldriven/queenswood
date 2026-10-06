@@ -27,8 +27,14 @@ perf-run scenario="internal" profile="smoke" rate="" duration="" accounts="" fro
     fi
     envsubst '$K6_IMAGE' < infra/perf/k6-job.yaml | kubectl apply -f -
     echo "running $NAME on $K6_IMAGE"
-    kubectl -n {{ PERF_NAMESPACE }} logs -f job/queenswood-perf \
-      --pod-running-timeout=5m > target/perf/$NAME.log || true
+    while true; do
+      kubectl -n {{ PERF_NAMESPACE }} logs -f job/queenswood-perf \
+        --pod-running-timeout=5m > target/perf/$NAME.log || true
+      ENDED=$(kubectl -n {{ PERF_NAMESPACE }} get job queenswood-perf \
+        -o jsonpath='{.status.succeeded}{.status.failed}')
+      if [[ -n "$ENDED" ]]; then break; fi
+      sleep 5
+    done
     POD=$(kubectl -n {{ PERF_NAMESPACE }} get pods -l job-name=queenswood-perf \
       -o jsonpath='{.items[0].metadata.name}')
     EXIT=""

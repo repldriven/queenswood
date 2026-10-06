@@ -56,8 +56,6 @@ message InterestAccountRun {
   optional string failure_reason = 8;
 
   // What the run computed for this account, and what it computed from.
-  // The amount is summed per run to post one ledger entry for the whole
-  // bank, so the row is the only place the per-account figure survives.
   // The inputs make the amount reproducible after the fact: the balance
   // alone is not enough, because the sub-unit carry feeds the same
   // calculation.
@@ -70,20 +68,13 @@ message InterestAccountRun {
   optional int64 principal = 10;
   optional int64 opening_carry = 11;
 
-  // The account's currency, and part of the amount index's grouping
-  // key. Without it a bank holding more than one currency would sum
-  // pounds and euros into a single figure and post one ledger entry
-  // for the nonsense total. Required, and safely so — a currency is
+  // The account's currency. Required, and safely so — a currency is
   // an ISO 4217 code and never the empty string that would be dropped
   // from the wire.
   required string currency = 12;
 
-  // The account's product type, and the rest of the capitalisation
-  // index's grouping key. Capitalisation's customer legs fan out to
-  // two different controls — the accrued leg always to interest
-  // payable (2400), the default leg to whichever deposit control the
-  // product type maps to (2100/2200/2300) — so a total per currency
-  // alone cannot say how much to credit each one.
+  // The account's product type, which its legs carry so each rolls
+  // into its control.
   //
   // Optional rather than required, unlike currency: the zero value of
   // this enum is a real label (PRODUCT_TYPE_UNKNOWN) rather than an
@@ -91,6 +82,12 @@ message InterestAccountRun {
   // would fail the Java parse of a required field.
   optional com.repldriven.queenswood.schemas.types.ProductType
       product_type = 13;
+
+  // How much this accrual moved the account's sub-unit carry, closing
+  // less opening. The carry is the run's own state rather than a
+  // balance, and summing these per account, by the carry index, gives
+  // the carry the next accrual opens with. Unset on capitalisation.
+  optional int64 carry_change = 14;
 
   // Mirrors InterestRun.InterestRunKind. Duplicated rather than
   // referenced so each message owns the enum protojure generates

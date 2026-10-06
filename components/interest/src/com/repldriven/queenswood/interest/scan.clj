@@ -10,111 +10,138 @@
 
 (def ^:private chunk-size
   "Accounts posted per transaction. FDB caps a transaction at 10MB and
-  five seconds; an accrual writes two small records per account, so
+  five seconds; a posting writes a few small records per account, so
   this sits well inside both while spreading the per-transaction cost
   over a hundred accounts instead of paying it for each."
   100)
 
-(defn- post-account
-  "One account's posting and its row, inside the chunk's transaction.
-  Skips an account an earlier attempt already posted, and posts one it
-  left pending or failed. Returns :done, :skipped, or an anomaly."
-  [config ctx txn account balances]
-  (let [{:keys [bank-id business-day account-kind account-fn]} ctx
-        row (store/load-account-run txn
-                                    bank-id
-                                    business-day
-                                    account-kind
-                                    (:account-id account))]
-    (if (and row (account-run/done? row))
-      :skipped
-      (let-nom> [result (account-fn config ctx txn account balances)
-                 _ (store/save-account-run txn
-                                           (account-run/done
-                                            (account-run/new bank-id
-                                                             business-day
-                                                             account-kind
-                                                             account
-                                                             row)
-                                            result))]
-        :done))))
-
 (defn- post-chunk
-  "Posts a chunk of accounts in one transaction, so every balance write
-  and every row flip in it commits together or none does. Returns the
-  per-state counts, or an anomaly if any account in the chunk failed —
-  in which case nothing in the chunk landed."
+  "Posts a chunk of accounts in one transaction, so every posting and
+  every row flip in it commits together or none does. Skips an account
+  an earlier attempt already posted, and hands the rest, as pairs of
+  account and balances, to `ctx`'s `:chunk-fn`, which posts them and
+  returns each one's outcome by account id. Returns the per-state
+  counts, or an anomaly if the chunk failed — in which case nothing in
+  it landed."
   [config ctx chunk]
-  (store/transact
-   config
-   (fn [txn]
-     (reduce (fn [counts [account balances]]
-               (let [result (post-account config ctx txn account balances)]
-                 (if (error/anomaly? result)
-                   (reduced result)
-                   (update counts result inc))))
-             {:done 0 :skipped 0}
-             chunk))))
+  (let [{:keys [bank-id business-day account-kind chunk-fn]} ctx]
+    (store/transact
+     config
+     (fn [txn]
+       (let-nom>
+         [rows (store/load-account-runs txn
+                                        bank-id
+                                        business-day
+                                        account-kind
+                                        (mapv (comp :account-id first) chunk))
+          todo (into []
+                     (remove (fn [[account]]
+                               (some-> (get rows (:account-id account))
+                                       account-run/done?)))
+                     chunk)
+          outcomes (if (seq todo) (chunk-fn config ctx txn todo) {})
+          _ (store/save-account-runs
+             txn
+             (mapv (fn [[account]]
+                     (let [id (:account-id account)]
+                       (account-run/done (account-run/new bank-id
+                                                          business-day
+                                                          account-kind
+                                                          account
+                                                          (get rows id))
+                                         (get outcomes id))))
+                   todo))]
+         {:done (count todo) :skipped (- (count chunk) (count todo))})))))
 
 (defn- mark-chunk-failed
   "Records every account in a failed chunk as FAILED, in its own
   transaction — the chunk's transaction has already rolled back, taking
-  any DONE flip with it.
+  any DONE flip with it. An account an earlier attempt finished stays
+  DONE, so the next attempt skips it rather than posting it twice.
 
   The whole chunk is marked rather than the one account that raised.
-  Accrual reads nothing and writes a row only this pass writes, so a
-  failure here is a database that is unwell or a product whose accounts
-  all fail the same way; isolating the offender would draw a
-  distinction that does not exist in practice."
+  A chunk appends legs and rows nothing else writes, so a failure here
+  is a database that is unwell or a product whose accounts all fail the
+  same way; isolating the offender would draw a distinction that does
+  not exist in practice."
   [config ctx chunk anomaly]
   (let [{:keys [bank-id business-day account-kind]} ctx]
     (store/transact
      config
      (fn [txn]
-       (reduce
-        (fn [_ [account _balances]]
-          (let [row (store/load-account-run txn
-                                            bank-id
-                                            business-day
-                                            account-kind
-                                            (:account-id account))
-                result (store/save-account-run txn
-                                               (account-run/failed
-                                                (account-run/new
+       (let-nom>
+         [rows (store/load-account-runs txn
+                                        bank-id
+                                        business-day
+                                        account-kind
+                                        (mapv (comp :account-id first) chunk))]
+         (store/save-account-runs
+          txn
+          (into []
+                (keep (fn [[account]]
+                        (let [row (get rows (:account-id account))]
+                          (when-not (some-> row
+                                            account-run/done?)
+                            (account-run/failed (account-run/new
                                                  bank-id
                                                  business-day
                                                  account-kind
                                                  account
                                                  row)
-                                                (error/kind anomaly)))]
-            (when (error/anomaly? result) (reduced result))))
-        nil
-        chunk)))))
+                                                (error/kind anomaly))))))
+                chunk)))))))
+
+(defn- settle
+  "Waits on the oldest chunk in flight and adds its outcome to the tally.
+  A failing chunk is marked FAILED and the scan carries on — aborting
+  would leave every later account untouched and the run would never
+  close."
+  [config ctx state]
+  (let [[chunk pending] (peek (:in-flight state))
+        result @pending]
+    (-> state
+        (update :in-flight pop)
+        (update :tally
+                (fn [tally]
+                  (if (error/anomaly? result)
+                    (do (mark-chunk-failed config ctx chunk result)
+                        (update tally :failed + (count chunk)))
+                    (-> tally
+                        (update :done + (:done result))
+                        (update :skipped + (:skipped result)))))))))
 
 (defn- flush-chunk
-  "Posts whatever the scan has accumulated and clears it. A failing
-  chunk is marked FAILED and the scan carries on — aborting would leave
-  every later account untouched and the run would never close."
+  "Starts posting whatever the scan has accumulated and clears it, once
+  fewer than `ctx`'s `:chunks-in-flight` chunks are posting. Chunks post
+  to accounts no other chunk names and append legs and rows nothing
+  else reads, so they commit side by side without conflicting."
   [config ctx state]
-  (let [{:keys [chunk tally]} state]
+  (let [{:keys [chunk]} state
+        limit (max 1 (:chunks-in-flight ctx 1))]
     (if (empty? chunk)
       state
-      (let [result (post-chunk config ctx chunk)]
-        (assoc state
-               :chunk []
-               :tally (if (error/anomaly? result)
-                        (do (mark-chunk-failed config ctx chunk result)
-                            (update tally :failed + (count chunk)))
-                        (-> tally
-                            (update :done + (:done result))
-                            (update :skipped + (:skipped result)))))))))
+      (loop [state state]
+        (if (< (count (:in-flight state)) limit)
+          (-> state
+              (assoc :chunk [])
+              (update :in-flight
+                      conj
+                      [chunk
+                       (future (error/try-nom :interest/post-chunk
+                                              "Failed to post a chunk"
+                                              (post-chunk config ctx chunk)))]))
+          (recur (settle config ctx state)))))))
+
+(defn- settle-all
+  [config ctx state]
+  (loop [state state]
+    (if (empty? (:in-flight state)) state (recur (settle config ctx state)))))
 
 (defn post-accounts
   "Streams the bank's accounts with their balances and posts every
-  eligible one through `ctx`'s `:account-fn`, a chunk of them per
-  transaction. Returns the tally — `:done`, `:skipped`, `:failed`, and
-  the `:seen` currency and product type pairs the ledger entries at
-  close are owed for.
+  eligible one through `ctx`'s `:chunk-fn`, a chunk of them per
+  transaction and up to `:chunks-in-flight` chunks at once. Returns the
+  tally — `:done`, `:skipped` and `:failed`.
 
   One merged scan pairs each account with its balances, so a posting
   reads nothing of its own and computes on the figures the scan
@@ -130,23 +157,11 @@
             (fn [state {:keys [account balances]}]
               (if-not (run/eligible-cash-account? account)
                 state
-                (let [state
-                      (-> state
-                          (update :chunk conj [account balances])
-                          ;; The currency and product type of every
-                          ;; account in scope, gathered as the scan
-                          ;; runs, for the domain to reduce to the
-                          ;; ledger entries its kind owes. Complete
-                          ;; even on a re-run, because the scan visits
-                          ;; every account each time and only the
-                          ;; posting is skipped.
-                          (update-in [:tally :seen]
-                                     conj
-                                     [(:currency account)
-                                      (:product-type account)]))]
+                (let [state (update state :chunk conj [account balances])]
                   (if (< (count (:chunk state)) chunk-size)
                     state
                     (flush-chunk config ctx state)))))
             {:chunk []
-             :tally {:done 0 :skipped 0 :failed 0 :seen #{}}})]
-    (:tally (flush-chunk config ctx state))))
+             :in-flight clojure.lang.PersistentQueue/EMPTY
+             :tally {:done 0 :skipped 0 :failed 0}})]
+    (:tally (settle-all config ctx (flush-chunk config ctx state)))))

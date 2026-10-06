@@ -21,30 +21,38 @@
 (def derived
   "How each ledger account holding no balance row of its own reads one,
   by `:gl-account-code`. A deposit or own-funds control sums its
-  sub-ledger's posted balances from the balances store's indexes, by
-  `:product-types` and `:balance-status`; 1200 pending-outbound does the
-  same with every customer's pending-outgoing balance and `:mirror?`s
-  it, crediting what they debit; 1100 cash-at-correspondent, whose
-  movements mirror no set of customer balances, sums its own legs from
-  the journal (`:journal?`). A ledger account absent from it keeps a
-  stored balance. See ADR-0037, ADR-0038 and ADR-0039."
+  sub-ledger's posted balances from the legs' indexes, by
+  `:product-types` and `:balance-status`; 2400 interest-payable does the
+  same with every customer's `:balance-type` interest-accrued bucket;
+  1200 pending-outbound with every customer's pending-outgoing balance,
+  and `:mirror?`s it, crediting what they debit; 1100
+  cash-at-correspondent and 5100 interest-expense, whose movements
+  mirror no set of customer balances, sum their own legs from the
+  journal (`:journal?`). A ledger account absent from it keeps a stored
+  balance. See ADR-0037, ADR-0038, ADR-0039 and ADR-0042."
   (assoc (into {}
                (map (fn [[product-type code]] [code
                                                {:product-types [product-type]
                                                 :balance-status
                                                 :balance-status-posted}]))
                product-type->control-code)
+         :gl-account-code-interest-payable
+         {:product-types (vec (keys product-type->control-code))
+          :balance-type :balance-type-interest-accrued
+          :balance-status :balance-status-posted}
          :gl-account-code-pending-outbound
          {:product-types (vec (keys product-type->control-code))
           :balance-status :balance-status-pending-outgoing
           :mirror? true}
          :gl-account-code-cash-at-correspondent
+         {:balance-status :balance-status-posted :journal? true}
+         :gl-account-code-interest-expense
          {:balance-status :balance-status-posted :journal? true}))
 
 (defn posted-to?
   "Whether postings name a derived account in their legs, which stay in
-  the journal but write no balance row: 1200 and 1100, where a control
-  is never named."
+  the journal but write no balance row: 1200, 1100 and 5100, where a
+  control is never named."
   [spec]
   (boolean (or (:mirror? spec) (:journal? spec))))
 
@@ -111,15 +119,23 @@
      :balance-status :balance-status-posted
      :currency currency}))
 
-(defn fans-out?
-  "Posted default customer legs roll up into their product-type control
-  (2100/2200/2300/3100). Every other bucket and every non-posted status
-  is sub-ledger-only: an `interest-accrued` bucket does not roll up,
-  because the bank's side of an accrual is posted to 2400 rather than
-  summed from the sub-ledger."
+(defn control-code
+  "The `:gl-account-code` of the control a posted customer leg rolls up
+  into: its product type's (2100/2200/2300/3100) for the default
+  bucket, 2400 for the interest-accrued one. Nil for every other bucket
+  and status, which are sub-ledger-only."
   [leg]
-  (and (= :balance-status-posted (:balance-status leg))
-       (= :balance-type-default (:balance-type leg))))
+  (let [{:keys [balance-type balance-status product-type]} leg]
+    (when (= :balance-status-posted balance-status)
+      (case balance-type
+        :balance-type-default
+        (product-type->control-code product-type)
+
+        :balance-type-interest-accrued
+        (when (product-type->control-code product-type)
+          :gl-account-code-interest-payable)
+
+        nil))))
 
 (defn debit-normal?
   "True for the debit-normal account families (asset, expense); false

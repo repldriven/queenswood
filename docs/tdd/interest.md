@@ -12,9 +12,8 @@ real money. The math has to conserve every micro-unit.
 This TDD describes the daily-accrual + capitalisation
 machinery: the integer-only arithmetic with sub-minor-unit
 carry; a pass that streams a bank's accounts with their
-balances and writes them in chunks; the split between what is
-posted per account and what is aggregated for the bank at
-close; and the per-account rows that make a re-run safe.
+balances and appends their postings in chunks; and the
+per-account rows that make a re-run safe and hold the carry.
 
 In scope: the `interest` brick, the daily-interest
 formula and carry mechanism, accrual and capitalisation
@@ -48,24 +47,20 @@ loses pennies systematically is a bank with an audit
 problem. The arithmetic must be deterministic and lossless
 across run boundaries.
 
-**Two sides moving at different granularities.** When interest
-accrues, the customer's accrued bucket grows — a per-account
-event. The bank's side of the same entry is a general-ledger
-movement that is identical for every account in the run, so
-posting it per account made every accrual in the bank contend on
-the same two rows. Accrual's two sides therefore move at
-different granularities: per account for the customer, once per
-currency at close for the bank. Capitalisation's move together,
-per account: the deposit control is the sum of the customer
-balances, which leaves 2400 alone to post, and the run's chunks
-write it one after another.
+**A run beside payments.** A run posts to every account in the
+bank while payments post to the same accounts. A posting that
+read and rewrote a balance row, the customer's or the bank's,
+conflicted with every payment and every other posting to that
+row, and a run of a thousand accounts beside payments failed a
+fifth of them.
 
-The design answers all three with a single mechanism:
-**integer micro-unit arithmetic with carry between days**,
-backed by FDB record-store transactions for atomicity. No
-floating point. Carry lives on the customer's balance record
-in `:credit-carry` and is updated alongside the daily
-posting.
+The design answers all three with **integer micro-unit
+arithmetic with carry between days**, and postings that append.
+No floating point. Every balance a run moves is a sum of legs, as
+[ADR-0042](../adr/0042-a-cash-accounts-balance-is-the-sum-of-its-legs.md)
+decides, so a chunk records its legs and its rows and reads
+nothing a payment writes. The carry is the run's own state, kept
+on the account's `InterestAccountRun` rows.
 
 ## Proposed Solution
 
@@ -94,27 +89,24 @@ with their balances through one merged scan
 transaction — the bounded-batch discipline from
 [transactions-and-balances.md](transactions-and-balances.md).
 
-Pairing the scans is what lets a posting read nothing. Every
-figure an accrual needs is frozen as the account streams past,
-so the transaction that writes it performs no read of its
-own.
+Pairing the scans is what lets a posting read nothing a payment
+writes. The principal is frozen as the account streams past, and
+the chunk's transaction reads only the accounts' run rows and
+their carries, which only the run writes.
 
 ```mermaid
 graph LR
     CMD["accrue-day / capitalize-accrued<br/>(per bank)"]
     SCAN["merged scan of accounts + balances<br/>under one bank prefix"]
     CALC["daily-interest math<br/>(or capitalise) from frozen inputs"]
-    CHUNK["chunk of accounts:<br/>balance writes + run rows"]
+    CHUNK["chunk of accounts:<br/>transactions, legs + run rows"]
     FDB[("FDB<br/>one transaction per chunk")]
-    ENTRY["accrual's ledger entry per currency at close"]
 
     CMD --> SCAN
     SCAN --> CALC
     CALC --> CHUNK
     CHUNK --> FDB
     SCAN -.->|"next account"| CALC
-    CMD -->|"at close"| ENTRY
-    ENTRY --> FDB
 ```
 
 A run for one bank commits a transaction per chunk rather than
@@ -134,17 +126,18 @@ Interest uses two balance-type buckets on the customer:
   never writes it.
 - **`:balance-type-interest-accrued`** — interest earned by
   the customer, recorded daily, not yet spendable. Drained at
-  capitalisation. The only bucket accrual writes.
+  capitalisation. The only bucket accrual moves.
 
-Its `:credit-carry` field holds the sub-minor-unit remainder
-between days. It sits on the accrued bucket, with the rest of
-the accrual state, rather than on the default bucket that
-payments contend on — which is what lets accrual write one row
-and never touch a row another writer might be moving.
+Both are sums of the account's legs. The sub-minor-unit
+remainder between days is not a balance: it is the sum of the
+`carry_change` on the account's accrual `InterestAccountRun`
+rows, read from
+`InterestAccountRun_sum_carry_change_by_bank_kind_account`.
 
-The bank's side is not a balance type. It lives in the chart
-of accounts: 5100 interest expense, 2400 interest payable, and
-the deposit controls the product types roll into. See
+The bank's side lives in the chart of accounts: 5100 interest
+expense, the sum of its own legs as 1100 is, 2400 interest
+payable, the sum of every customer's interest-accrued bucket,
+and the deposit controls the product types roll into. See
 [chart-of-accounts.md](chart-of-accounts.md).
 
 ### Daily-interest math
@@ -198,97 +191,60 @@ not a math constraint** — see "Capitalisation cadence" below.
 
 ### Daily accrual posting
 
-Accrual is silent, and costs one write. It advances the
-customer's interest-accrued bucket — credit raised by the
-day's whole units, `:credit-carry` replaced with the new
-remainder — and records nothing else. No transaction, no
-ledger leg, no second row for the carry:
+A chunk's accrual is one transaction per currency. It credits
+each account's interest-accrued bucket the day's whole units and
+debits 5100 interest expense their total:
 
 ```
-customer-account  interest-accrued / posted
-    credit      += whole units earned
-    credit-carry = the new sub-minor remainder
+CREDIT customer-account  interest-accrued / posted   whole units earned
+CREDIT customer-account  interest-accrued / posted   ...
+DEBIT  5100 interest expense  default / posted       the chunk's total
 ```
 
-The row is written from the copy the scan froze, without being
-read back. That is sound because only this pass and
-capitalisation ever write an interest-accrued bucket, so
-nothing can have moved it in between. It would not be sound
-for the default bucket, which every payment writes — and the
-pass never writes that one.
+An overdrawn principal accrues a charge, so its leg is a debit
+and 5100's the opposite of the net. An account whose day came to
+no whole unit has no leg, and its row still records the carry's
+change. The transaction is keyed on the run, the currency and
+the chunk's first account, so a chunk retried after its commit
+was lost records once.
 
-At a zero rate there is nothing to earn and nothing is
-written. At a non-zero rate the row is written even when the
-whole units come to zero, because the carry still moved.
+Nothing is read back or rewritten. 2400 is the sum of the
+interest-accrued buckets and 5100 the sum of its own legs, so the
+legs move both, and the bank's books balance after every chunk.
+The carry an account opens with is read from the SUM index on its
+accrual rows, at snapshot, since only the account's own accrual
+writes them.
 
-There is no per-account transaction because accrual is not a
-statement line: what a customer sees is capitalisation. The
-per-account double entry cost far more than it bought, since
-every accrual in the bank read and wrote the same two ledger
-rows — 5100 and the 2400 control — and so contended with every
-other accrual regardless of account.
-
-### The run's ledger entry
-
-The bank's side is posted once, at the end of the run, per
-currency:
-
-```
-DEBIT  5100 interest expense           run total
-CREDIT 2400 interest payable control   run total
-```
-
-The total comes off the `InterestAccountRun` SUM index rather
-than a tally the pass kept in memory, because a resumed run
-only processes the accounts still pending while the index
-covers every row whichever attempt wrote it. The entry is
-keyed on the run's identity, so reaching close twice posts
-once.
-
-One entry per currency, and necessarily so — a single entry
-for a bank holding pounds and euros could not balance. The
-index groups on currency for the same reason.
-
-Between the per-account credits and this entry the books do
-not balance. That window is one run, and it closes before the
-run record is written.
+The transaction carries every account in the chunk, so a customer
+sees their accrual as a line on the interest-accrued bucket, and
+no customer can read another's: an account's transactions are
+listed from its own legs.
 
 ### Capitalisation posting
 
 When the customer's `:balance-type-interest-accrued` is
 non-zero at capitalisation time, a **two-leg transaction**
-moves the accrued amount from interest payable into the
-customer's spendable default balance, and the same posting
-empties their accrued balance:
+moves the accrued amount from the account's interest-accrued
+bucket to its spendable default balance:
 
 ```
-DEBIT  2400 interest payable    default          / posted    accrued
-CREDIT customer-account         default          / posted    accrued
-
-;; applied with the legs, not recorded among them
-DEBIT  customer-account         interest-accrued / posted    accrued
+DEBIT  customer-account   interest-accrued / posted    accrued
+CREDIT customer-account   default          / posted    accrued
 ```
 
-Capitalisation keeps its per-account transaction where accrual
-has none, because this transaction *is* the customer's
-statement line — the one part of interest they ever see. The
-customer's default balance is part of the deposit control its
-product type rolls into, which is the sum of its sub-ledger — see
-[ADR-0037](../adr/0037-a-control-accounts-balance-is-the-sum-of-the-balances-that-roll-into-it.md)
-— so debiting 2400 in the same transaction moves both sides of the
-bank's books, and there is no entry at close. The accrued balance
-is debited without a leg of the record, as accrual credits it
-without one.
+Capitalisation is a transaction per account because it *is* the
+customer's statement line on their spendable balance. Each bucket
+rolls into its control, 2400 and the deposit control of the
+account's product type, so the one entry moves both sides of the
+bank's books.
 
-Every account's capitalisation reads and rewrites 2400. The run's
-chunks commit one after another, each a hundred accounts in one
-transaction, so they never contend with each other, and payments
-never write 2400.
-
-Unlike accrual this cannot be an unread write. It credits the
-default bucket, which payments move, so it goes through
-`apply-legs`, and the read-modify-write inside the posting
-transaction is what stops a concurrent payment being lost.
+The chunk records every account's transaction and then applies
+all their legs with one `apply-legs`, which reads the accounts'
+sums in one round trip: at snapshot, since a credit reads nothing
+a payment writes, unless a limit in force caps the account's
+balance, as
+[ADR-0042](../adr/0042-a-cash-accounts-balance-is-the-sum-of-its-legs.md)
+decides.
 
 #### The scheduler runs the pass
 
@@ -315,7 +271,7 @@ sequenceDiagram
     Note over R: refused :scheduler/period-already-run<br/>where a run of the period is running or succeeded
     Note over R: accrue runs first, then capitalize
     critical transact
-    R->>DB: read the bank's LedgerAccounts, resolving 🟦 2400 per currency
+    R->>DB: read the bank's LedgerAccounts, resolving the chart per currency
     end
     critical transact
     R->>DB: read the bank's effective policies
@@ -337,9 +293,9 @@ sequenceDiagram
     Note over R,DB: the chunk is capitalised, drawn below
     opt its transaction aborted
     critical transact
-    loop each account in the chunk
-    R->>DB: read its InterestAccountRun
-    R->>DB: save it FAILED, with the anomaly's kind
+    R->>DB: read the chunk's InterestAccountRuns
+    loop each account in the chunk not DONE
+    R->>DB: save its InterestAccountRun FAILED, with the anomaly's kind
     end
     end
     end
@@ -370,10 +326,37 @@ sequenceDiagram
 The scheduler fires every bank's jobs from one replica of
 `exclusive-dispatchers-service`, and the seeded `daily-interest` job
 runs accrual and then capitalisation in one run, saving the
-`SchedulerRun`'s progress after each. Capitalisation posts nothing at
-close, since each account's transaction debits 2400 itself. A pass that
+`SchedulerRun`'s progress after each. Neither posts anything at close,
+since each chunk posts both sides of the books. A pass that
 ends incomplete writes no `InterestRun`, so the daily count does not
 stop the pass that finishes it: a forced run, or the next day's.
+
+#### A chunk is accrued
+
+```mermaid
+sequenceDiagram
+    box rgba(208, 191, 255, 0.45)
+    participant R as exclusive-dispatchers-service<br/>bank-scheduler/runner
+    end
+    box rgba(255, 236, 153, 0.5)
+    participant DB as FDB
+    end
+    critical transact
+    R->>DB: read the chunk's InterestAccountRuns for the day
+    Note over R: an account DONE by an earlier attempt is skipped
+    R->>DB: read each remaining account's carry, at snapshot
+    Note over R: each account's day of interest, from the scan's principal
+    loop each currency an account moved by a whole unit
+    R->>DB: save Transaction, accrue-run-currency-first-account
+    R->>DB: save a TransactionLeg per account, CR its interest accrued
+    R->>DB: save a TransactionLeg, DR 🟦 5100 the total
+    R->>DB: write transaction-posted to the bank's activity log
+    end
+    loop each remaining account
+    R->>DB: save its InterestAccountRun, DONE, with its carry change
+    end
+    end
+```
 
 #### A chunk is capitalised
 
@@ -386,24 +369,17 @@ sequenceDiagram
     participant DB as FDB
     end
     critical transact
-    loop each account in the chunk
-    R->>DB: read its InterestAccountRun for the day
-    alt DONE, by an earlier attempt
-    Note over R: skipped
-    else absent, or FAILED
-    opt the scan's balances hold interest accrued
+    R->>DB: read the chunk's InterestAccountRuns for the day
+    Note over R: an account DONE by an earlier attempt is skipped
+    loop each remaining account with interest accrued in the scan
     R->>DB: save Transaction, capitalize-account-day
-    R->>DB: save the two TransactionLegs, DR 🟦 2400, CR the account
+    R->>DB: save the two TransactionLegs, DR its interest accrued, CR its default
     R->>DB: write transaction-posted to the bank's activity log
+    end
     R->>DB: read the effective policies
-    R->>DB: read every Balance of 🟦 2400
-    R->>DB: read every Balance of the account
-    R->>DB: save 🟦 2400's default/posted Balance
-    R->>DB: save the account's default/posted Balance
-    R->>DB: save the account's interest-accrued/posted Balance
-    end
+    R->>DB: read each account's leg sums and Balance rows, at snapshot
+    loop each remaining account
     R->>DB: save its InterestAccountRun, DONE
-    end
     end
     end
 ```
@@ -411,17 +387,15 @@ sequenceDiagram
 A chunk is up to a hundred accounts in one transaction, so an
 account's posting and the row recording it commit together, and an
 anomaly from any account aborts the chunk, whose rows the pass then
-saves FAILED. The accrued amount is the one the scan streamed, and
-`apply-legs` reads the account's balances again inside the chunk,
-because payments move the default bucket. The transaction's
-idempotency key, `capitalize-<account-id>-<as-of-date>`, is unique per
-bank and type, beside the DONE row that skips an account a second pass
-reaches. Its `transaction-posted` entry reaches the activity processor
-as any posted transaction's does.
+saves FAILED. The accrued amount is the one the scan streamed. The
+transaction's idempotency key, `capitalize-<account-id>-<as-of-date>`,
+is unique per bank and type, beside the DONE row that skips an account
+a second pass reaches. Its `transaction-posted` entry reaches the
+activity processor as any posted transaction's does.
 
-Net: the customer's spendable balance grows by `accrued`, the
-bank's payable clears by the same amount, and the deposit control,
-summed from the customer balances, rises with them.
+Net: the customer's spendable balance grows by `accrued`, and 2400,
+summed from the interest-accrued buckets, falls by the amount the
+deposit control, summed from the default ones, rises.
 
 ### Capitalisation cadence
 
@@ -474,32 +448,36 @@ with a volume attached, not a tuning knob.
    through one merged scan, filtering to *opened* customer
    product types — general-ledger accounts carry no product
    type and fall out here.
-4. Accumulate a chunk and post it in one transaction, marking
-   a failing chunk's accounts FAILED and continuing.
+4. Accumulate a chunk and post it in one transaction, up to
+   the runner's `interest-chunks-in-flight` chunks at once,
+   marking a failing chunk's accounts FAILED and continuing.
 5. Return `:interest/run-incomplete`, with the processed and
    failed counts, where any account failed.
-6. Post accrual's bank side per currency, then write the run
-   record closed.
+6. Write the run record closed.
 
-Re-running a date is safe, by different means on each side.
-
-Accrual has no transaction to key, so its guard is the
-`InterestAccountRun` row: a second pass finds the row already
-DONE and skips the posting. The row is written in the same FDB
-transaction as the balance update, so the work and the record
-of the work commit together and a crash cannot separate them.
-
-Capitalisation still writes a transaction per account — that
-one is the customer's statement line — and keys it
-`capitalize-<account-id>-<as-of-date>`, so a repeat returns
-the prior outcome; see [idempotency.md](idempotency.md).
+Re-running a date is safe because of the `InterestAccountRun`
+row: a second pass finds an account's row already DONE and skips
+the posting. The row is written in the same FDB transaction as
+the posting, so the work and the record of the work commit
+together and a crash cannot separate them. Each transaction is
+also keyed — accrual's on the run, the currency and the chunk's
+first account, capitalisation's
+`capitalize-<account-id>-<as-of-date>` — so a chunk retried
+after its commit was lost records once; see
+[idempotency.md](idempotency.md).
 
 ### Chunk atomicity, run-level resumability
 
-A chunk of accounts is one FDB transaction. Every balance
-write and every run row in it commits together or not at all,
+A chunk of accounts is one FDB transaction. Every leg and
+every run row in it commits together or not at all,
 so an account can never be left with interest credited but no
 record that it was processed.
+
+Chunks post side by side, eight at once in
+[scheduler.yml](/components/resources/resources/system/scheduler.yml)
+and one where the setting is absent. They name disjoint accounts,
+and append legs and rows nothing else reads, so they do not
+conflict with each other.
 
 Across chunks the run is **resumable but not atomic**. A crash
 mid-run leaves earlier chunks committed and later ones
@@ -511,16 +489,14 @@ re-run skips it, or it is not, and a re-run redoes it — a row
 recording that the pass intended to reach it would distinguish
 neither.
 
-A failing chunk marks all of its accounts FAILED and the pass
-continues, then ends incomplete: the bank's side is posted from
-a sum over DONE rows, so it waits until every account is done,
-and no run record is written, so the daily-count limit does not
-block the pass that finishes it. It does not try to isolate the
-one account that
-raised, because accrual reads nothing and writes a row only it
-writes — so a failure is a database that is unwell, or a
-product whose accounts all fail alike, rather than one unlucky
-account in an otherwise good chunk.
+A failing chunk marks the accounts in it not already DONE as
+FAILED and the pass continues, then ends incomplete: no run
+record is written, so the daily-count limit does not block the
+pass that finishes it. It does not try to isolate the one
+account that raised, because a chunk appends legs and rows
+nothing else writes — so a failure is a database that is
+unwell, or a product whose accounts all fail alike, rather than
+one unlucky account in an otherwise good chunk.
 
 This is the bounded-batch discipline applied to a long-
 running process: many bounded transactions, predictable
@@ -529,7 +505,7 @@ failure modes, forward progress preserved.
 ### Chart-of-accounts dependency
 
 The bank's side of both entries lands on general-ledger
-accounts, so a run resolves the ones it will need — 5100 and
+accounts, so a run resolves the ones its legs move — 5100 and
 2400 for accrual, 2400 and the three deposit controls for
 capitalisation — **before it touches a single account**. A
 bank whose chart cannot take the posting fails before the
@@ -541,6 +517,52 @@ bookkeeping is visible from a customer-facing brick. Most
 components treat customer accounts as the universe; interest
 has to name the bank side too, because the money comes from
 somewhere.
+
+### Reading balances at the cut-off
+
+Not built yet. Each chunk takes its principals from the merged scan,
+read when the scan reached its accounts, so a run reads its accounts at
+as many moments as it has chunks. Money paid during a run from an
+account a chunk has read to one a later chunk has not earns a day's
+interest twice, on 5100, and money paid the other way earns none. The
+books still tie, so no invariant sees it. This section is what
+[ADR-0042](../adr/0042-a-cash-accounts-balance-is-the-sum-of-its-legs.md)
+means by a run's read at its cut-off, and the order to build it in.
+
+**The cut-off is a commit version, not a time.** At each UTC day
+boundary the scheduler's runner saves a `BusinessDayCutoff` for the
+day just ended, and the record's commit version, which FDB stamps,
+marks the end of that day. A clock time would not do: legs carry the
+`created_at` of whichever JVM wrote them, and a leg can commit after
+one stamped later, so a cut-off by time is off by clock skew and
+commit latency.
+
+**A leg is found by the version it committed at.** `transaction-legs`
+stores record versions, and a VERSION index over
+`[account_id, version]` at the next meta-data version finds an
+account's legs committed after a cut-off. Legs saved before carry no
+version, and count as before every cut-off.
+
+**A chunk reads its own principals.** In its transaction, at snapshot,
+a chunk reads each account's leg sums and its legs committed after the
+day's cut-off, one scan each, issued together, and accrues on the
+difference: the account's balance as it stood when the day ended,
+whenever the run executes. The scan of later legs is usually empty, as
+it holds only what moved since midnight. The merged scan still decides
+which accounts a run reaches; it no longer supplies their balances.
+
+**A day is accrued once it has ended.** The run on day D accrues D−1,
+and a run for a day with no cut-off yet is refused. A late or repeated
+run for a day reads the same cut-off, so it computes the same
+principals, and a second run still finds each account DONE and skips
+it. Capitalisation needs no cut-off: it sweeps the interest-accrued
+bucket, which only runs move.
+
+First, the version index and the cut-off record with its midnight
+write; then the chunk's read, with a domain scenario that pays between
+two accounts in different chunks while a run is between them; then the
+run's date. The scheduler's two limitations on a late day and on a
+run before the day ends go when it lands.
 
 ## Alternatives Considered
 
@@ -584,6 +606,20 @@ somewhere.
   ends — and every account's posting contended on the same two
   ledger rows to produce it. See
   [statementing.md](../plan/statementing.md).
+- **Accrual as a row write, its bank side once at close.** What this
+  design used to do: accrual raised each account's interest-accrued
+  row and its carry without a leg, and posted DR 5100, CR 2400 per
+  currency when the run closed. Rejected: the row was a second copy
+  of a balance no leg explained, the books were out of balance until
+  close, and capitalisation then read and rewrote 2400 and every
+  customer's default row, so a run beside payments conflicted with
+  them. See
+  [ADR-0042](../adr/0042-a-cash-accounts-balance-is-the-sum-of-its-legs.md).
+- **The carry on the interest-accrued row, or the latest run row.**
+  Rejected: the first is a row the run rewrites, kept only to hold
+  state a balance does not need, and the second needs a scan back
+  per account to find the last accrual. A sum of changes is one
+  index read, whatever days were missed.
 - **Storing the interest rate per account.** Would denormalise
   rate from product to account. Rejected — rate is a
   product-version property; storing it per account loses
@@ -600,6 +636,9 @@ somewhere.
 
 ## Known Limitations
 
+- **Each chunk reads its balances at its own moment.** A payment
+  between accounts in different chunks during a run is earned on twice
+  or not at all; see "Reading balances at the cut-off".
 - **Single day-count convention (actual/365).** Other
   conventions (actual/360, 30/360) aren't supported. Most
   retail UK products use actual/365, so this is fine for
@@ -652,14 +691,14 @@ somewhere.
 - **Interest is recognised in whole minor units only.** The
   carry is real money the books do not show — around half a
   minor unit per account, so roughly £5,000 across a million
-  accounts. The books still balance, because customer accrued
-  buckets and the 2400 control both carry whole units; the
+  accounts. The books still balance, because 2400 is the sum of
+  the customers' accrued buckets, both in whole units; the
   carry is an unrecognised obligation rather than a break.
   Recognising it would mean a true-up on the change in
   aggregate carry, netted against the accrual in the same
   run. Deliberately not done.
 - **The pass is single-writer per bank.** Two concurrent
-  passes for one bank would both read the same balances;
+  passes for one bank would both read the same carries;
   `check-daily-count` makes that a rejection rather than a
   race, but it is a limit rather than a guarantee.
 - **The posting's reference says monthly.** Each capitalisation
@@ -672,9 +711,12 @@ somewhere.
   FoundationDB Record Layer (per-account atomicity)
 - [ADR-0005](../adr/0005-error-handling-with-anomalies.md) —
   Error handling with anomalies
+- [ADR-0042](../adr/0042-a-cash-accounts-balance-is-the-sum-of-its-legs.md)
+  — A cash account's balance is the sum of its legs (why a run
+  appends, and where the carry lives)
 - [transactions-and-balances.md](transactions-and-balances.md)
-  — Transactions and balances (the substrate; carry field;
-  bounded-batch discipline)
+  — Transactions and balances (the substrate; bounded-batch
+  discipline)
 - [chart-of-accounts.md](chart-of-accounts.md) — the general
   ledger both runs post their bank side to
 - [interest-batch-pass.md](../plan/interest-batch-pass.md) —

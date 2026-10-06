@@ -166,12 +166,13 @@
           nil)))
 
 (defn- migrate-meta-data!
-  [record-db path decl]
+  [record-db prefix path decl]
   ((:system/start components/meta-store)
    {:system/config {:record-db record-db
                     :path path
                     :descriptor descriptor
                     :metadata decl
+                    :keyspace-prefix prefix
                     :migrate true}}))
 
 (defn- stored-meta-data
@@ -209,7 +210,9 @@
   (with-test-system
    [sys "classpath:fdb/application-test.yml"]
    (let [record-db (system/instance sys [:fdb :record-db])
-         path (str "meta-evolution-" (utility/uuidv7))
+         prefix (str (utility/uuidv7))
+         path "meta-evolution"
+         scoped (keyspace/scoped prefix path)
          file-desc (meta-data/file-descriptor descriptor)
          current (declaration)
          version (get current "version")
@@ -221,16 +224,16 @@
        (is (= (inc (get previous "version")) version)))
      (seed-meta-data!
       record-db
-      path
+      scoped
       (#'meta-data/build* (union-without file-desc arriving) previous))
-     (let [before (stored-meta-data record-db path)]
+     (let [before (stored-meta-data record-db scoped)]
        (testing "the keyspace starts on meta-data that predates the arrivals"
          (is (empty? (set/intersection arriving (record-type-names before))))
          (is (empty? (set/intersection modified (index-names before)))))
-       (let [migrated (migrate-meta-data! record-db path current)]
+       (let [migrated (migrate-meta-data! record-db prefix path current)]
          (testing "the migrate saved rather than refusing the save"
            (is (not (error/anomaly? migrated)) (reason migrated))))
-       (let [after (stored-meta-data record-db path)]
+       (let [after (stored-meta-data record-db scoped)]
          (testing "the migrate applied, rather than logging already-current"
            (is (< (.getVersion before) (.getVersion after))))
          (testing "the arriving record types are in the stored meta-data"

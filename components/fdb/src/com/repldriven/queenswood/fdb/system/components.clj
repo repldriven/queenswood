@@ -1,9 +1,10 @@
 (ns com.repldriven.queenswood.fdb.system.components
   (:require
+    [com.repldriven.queenswood.fdb.indexes :as indexes]
     [com.repldriven.queenswood.fdb.keyspace :as keyspace]
     [com.repldriven.queenswood.fdb.meta-data :as meta-data]
 
-    [com.repldriven.mono.error.interface :as error :refer [nom->> try-nom]]
+    [com.repldriven.mono.error.interface :as error :refer [let-nom> try-nom]]
     [com.repldriven.mono.log.interface :as log]
     [com.repldriven.mono.system.interface :as system]
     [com.repldriven.mono.utility.interface :as utility]
@@ -250,7 +251,10 @@
   declaration: saved when its version exceeds the stored one and the
   evolution validator accepts it, a no-op when the stored meta-data is
   at the same version and identical, and otherwise a failure to start,
-  which is what makes a change without a version bump visible. Keeps the
+  which is what makes a change without a version bump visible. It then
+  opens every declared store, evolving it, and builds online each index
+  of the store's record type the open left unreadable, which is what a
+  store past a few hundred records leaves an index it has not built. Keeps the
   meta-data it last loaded with the database's meta-data version stamp
   it was loaded under, and opens a store with it, reading no meta-data,
   while the stamp is unchanged; a save bumps the stamp."}
@@ -263,11 +267,17 @@
             config
             scoped-path (keyspace/scoped keyspace-prefix path)
             file-desc (meta-data/file-descriptor descriptor)
-            migrated (when (truthy-flag? migrate)
-                       (log/info "FDB meta-store migrating meta-data at:"
-                                 scoped-path)
-                       (nom->> (meta-data/build descriptor metadata)
-                               (meta-data/save record-db scoped-path)))]
+            migrated
+            (when (truthy-flag? migrate)
+              (log/info "FDB meta-store migrating meta-data at:" scoped-path)
+              (let-nom> [meta (meta-data/build descriptor metadata)
+                         saved (meta-data/save record-db scoped-path meta)
+                         built (indexes/build-unreadable record-db
+                                                         meta
+                                                         metadata
+                                                         keyspace-prefix)]
+                (when (seq built) (log/info "FDB built indexes" built))
+                saved))]
         (if (error/anomaly? migrated)
           migrated
           (let [cache (atom nil)]

@@ -29,9 +29,10 @@ carries the meta-data `version`, and each index the version it was
 whose record type arrived after the first version carries that version
 as `since`. A store lists the indexes removed from it under
 `former-indexes`. The migrator saves with a validator that allows index
-rebuilds and refuses everything else, and the guard runs the same
-validator between the last `stable-*` tag's meta-data and the working
-tree's.
+rebuilds and refuses everything else, then opens every declared store and
+builds online each index of the store's record type the open left
+unreadable, and the guard runs the same validator between the last
+`stable-*` tag's meta-data and the working tree's.
 
 ### Prerequisites
 
@@ -119,6 +120,8 @@ tree's.
   with its `name`, its `added` and the version it was removed at.
 - Deprecate a proto field that is no longer wanted, keeping its tag,
   and drop it in the record conversion.
+- Run the migrator before the services roll, so every index it builds
+  online is readable before a service reads it.
 
 **MUST NOT:**
 
@@ -159,11 +162,15 @@ change without a bump fails the Job. Below the stored version, an older
 image is being deployed over a store that has moved on, and its
 services would fail to open the stores anyway.
 
-**Known limitations.** A store opening against meta-data whose index
-versions moved rebuilds a small index inline and leaves a large one
-disabled until an `OnlineIndexer` runs. Nothing in the migrator runs
-one, so an index rebuilt on a store past a few hundred records stays
-disabled.
+A store opening against meta-data whose index versions moved rebuilds
+a small index inline and leaves a large one disabled until an
+`OnlineIndexer` builds it, and a disabled index refuses every read. A
+service opens its stores lazily, so the migrator opens each one itself
+and runs the `OnlineIndexer` over whatever the open left disabled,
+before the services roll. Only the indexes of a store's own record type
+are built: every store shares the one meta-data, so an index added to
+one record type is disabled in every store, and building it in a store
+of another type would scan that store for nothing.
 
 The guard's baseline is the last `stable-*` tag rather than an
 instance, because it is the one thing every checkout can reach. The

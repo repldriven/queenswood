@@ -9,7 +9,8 @@
     [com.repldriven.queenswood.transaction.interface :as transactions]
 
     [com.repldriven.mono.cache.interface :as cache]
-    [com.repldriven.mono.error.interface :as error :refer [let-nom>]]))
+    [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
+    [com.repldriven.mono.utility.interface :as utility]))
 
 (defn- get-policies
   [txn bank-id opts]
@@ -37,8 +38,10 @@
 (defn- sub-ledger-sums
   [txn account spec opts]
   (let [{:keys [bank-id currency]} account
-        {:keys [product-types balance-status]} spec
-        opts (assoc opts :balance-status balance-status)]
+        {:keys [product-types balance-type balance-status]} spec
+        opts (utility/assoc-some (assoc opts :balance-status balance-status)
+                                 :balance-type
+                                 balance-type)]
     (reduce (fn [acc product-type]
               (let [sum (balance-query/sub-ledger-balance
                          txn
@@ -188,13 +191,7 @@
   (let-nom>
     [_ (find-by-codes txn
                       bank-id
-                      (vec (into #{}
-                                 (comp (filter domain/fans-out?)
-                                       (keep
-                                        (fn [leg]
-                                          (domain/product-type->control-code
-                                           (:product-type leg)))))
-                                 legs))
+                      (vec (into #{} (keep domain/control-code) legs))
                       currency)]
     legs))
 

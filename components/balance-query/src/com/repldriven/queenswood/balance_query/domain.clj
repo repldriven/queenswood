@@ -25,10 +25,13 @@
 
 (defmethod available? :default [_] false)
 
+(def ^:private derived-types
+  #{:balance-type-default :balance-type-interest-accrued})
+
 (defn derived?
   [balance]
   (let [{:keys [balance-type product-type]} balance]
-    (and (= :balance-type-default balance-type)
+    (and (contains? derived-types balance-type)
          (some? product-type)
          (not= :product-type-general-ledger product-type))))
 

@@ -192,7 +192,7 @@ Scripts live under `perf/`, outside every brick:
   funded and gave `HISTORY` payments sent and received, 20 by default:
   the account with its balances embedded, 40%; the first page of its
   transactions, 40%; and its balances, 20%, each timed by its `name`.
-- `perf/interest.js` — a bank's `daily-interest` job moved three minutes
+- `perf/interest.js` — a bank's `daily-interest` job moved two minutes
   ahead and its run followed to the end, while internal payments between
   the same accounts run at a fixed rate. Setup opens and funds the
   accounts, at least £1,000 each, on a product paying `RATE_BPS`, 500 by
@@ -221,8 +221,9 @@ the steps:
 `knee` with a `challenger` at 50 a second for ten minutes, and
 `perf/reads.js` runs its `knee` at 80, 160, 320, 640, 1,280 and 2,560 a
 second, with a `challenger` at 200 a second for ten minutes.
-`perf/interest.js` has a `smoke` of 100 accounts at 5 a second for five
-minutes and a `challenger` of 1,000 accounts at 50 a second for eight.
+`perf/interest.js` has a `smoke` of 100 accounts at 5 a second for four
+minutes and a `challenger` of 1,000 accounts at 50 a second for four, the
+run and a minute either side of it.
 
 `FROM` drops a profile's steps below that rate, for a machine where
 the low steps tell nothing. `RATE` and `DURATION` replace a profile's
@@ -290,7 +291,8 @@ their Services:
 
 [perf.just](/justfiles/perf.just) carries `perf-run scenario profile`,
 which archives the scenario, replaces the ConfigMap, applies the Job,
-follows its log and writes the summary, treating k6's exit 99 — a
+follows its log until the Job has ended, following it again if the
+stream drops first, and writes the summary, treating k6's exit 99 — a
 threshold not met — as a finished run, and `perf-clean`, which deletes
 the Job and the ConfigMap. On GKE the Job carries a node selector for a
 pool the services do not use.
@@ -607,6 +609,23 @@ run at the next:
     1,500 a second at 2,560 asked rather than 1,630: a read takes two
     range reads, the balance rows and the account's leg sums, where it
     took one.
+22. **Interest as legs.** A chunk's accrual is one transaction per
+    currency and its capitalisation one per account, both appending
+    legs, 2400 and 5100 sums of legs, and the carry the sum of each
+    accrual's change to it, so a chunk reads and rewrites no row another
+    chunk or a payment writes, and eight chunks post at once, as
+    [ADR-0042](../adr/0042-a-cash-accounts-balance-is-the-sum-of-its-legs.md)
+    stage two decides. The spans of the first run put eight chunks in
+    flight throughout, each saving its run rows, and capitalisation each
+    account's transaction, one record at a time, a round trip apiece; a
+    chunk now saves its rows, and records its capitalisations, a batch
+    at a time. On the same run over 10,001 accounts, accrual took 5.8 s
+    rather than 9.8 and capitalisation 8.7 s rather than 24, no account
+    failed and no chunk retried. An accrual chunk commits in about
+    150 ms and a capitalisation chunk in about 600, a hundred customer
+    transactions with their legs, idempotency keys and activity entries.
+    The payments held a p99 of 71 ms or less, and 129 in the minute the
+    run took.
 
 ### Span candidates
 

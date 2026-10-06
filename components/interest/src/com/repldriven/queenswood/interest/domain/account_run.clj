@@ -28,17 +28,18 @@
 
 (defn done
   "Marks the run done and records what the account earned and what it
-  was computed from — the `:amount`, and the `:principal` and
-  `:opening-carry` behind it. Each is omitted when absent rather than
-  recorded as nil, and an account with nothing to do carries none of
-  them."
+  was computed from — the `:amount`, the `:principal` and
+  `:opening-carry` behind it, and the `:carry-change` an accrual left.
+  Each is omitted when absent rather than recorded as nil, and an
+  account with nothing to do carries none of them."
   [account-run outcome]
   (utility/assoc-some (assoc account-run
                              :state :interest-account-run-state-done
                              :updated-at (utility/now))
                       :amount (:amount outcome)
                       :principal (:principal outcome)
-                      :opening-carry (:opening-carry outcome)))
+                      :opening-carry (:opening-carry outcome)
+                      :carry-change (:carry-change outcome)))
 
 (defn failed
   "Marks the run failed so a pass can move past it. `reason` is the

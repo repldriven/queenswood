@@ -78,29 +78,35 @@ balances of the cash accounts whose product type maps to it, read from
 the SUM index on `transaction-legs` over `amount`, grouped by
 `[bank_id, product_type, currency, balance_type, balance_status,
 side]`, which the Record Layer keeps by atomic mutation. A cash
-account's own `default` buckets are the sums of its legs, read from
-the per-account SUM index, so `balance/apply-legs` applies a leg on
-one only after it is recorded in the same transaction, and writes the
-bucket's row only when it opens. A posting adds no leg for a control: call `ledger-account/ensure-controls` on a posting's legs
-before recording them, which refuses `:gl/missing-currency-account` or
+account's own `default` and `interest-accrued` buckets are the sums of
+its legs, read from the per-account SUM index, so `balance/apply-legs`
+applies a leg on one only after it is recorded in the same
+transaction, and writes the bucket's row only when it opens. 2400
+interest-payable is the sum of the customers' `interest-accrued /
+posted` buckets the same way. A posting adds no leg for a control:
+call `ledger-account/ensure-controls` on a posting's legs before
+recording them, which refuses `:gl/missing-currency-account` or
 `:ledger-account/closed` and returns the legs unchanged. 1200
 pending-outbound holds none either: its balance mirrors every customer
 account's `default / pending-outgoing` balance, its legs stay in each
 transaction's journal, and `ledger-account/stored-legs` drops them
-before `balance/apply-legs`. 1100 cash-at-correspondent holds none:
-its balance is the sum of its legs, read from the SUM index on
-`transaction-legs` through `transaction/sum-legs`, and `stored-legs`
-leaves its legs out of the balance writes too. Read a ledger account's
+before `balance/apply-legs`. 1100 cash-at-correspondent and 5100
+interest-expense hold none: each balance is the sum of its own legs,
+read from the SUM index on `transaction-legs` through
+`transaction/sum-legs`, and `stored-legs` leaves their legs out of the
+balance writes too. Read a ledger account's
 balance through
 `ledger-account/get-balances`, never `balance-query` directly, at
 snapshot except a guard deciding inside its own transaction, and read
 a day's payment count or sum for a limit check at snapshot. A leg on a
 cash account carries its account's `product_type`, and every leg its
 `bank_id`, stamped when it is recorded, so every cash account's legs
-are summed into its own control. 2400, 2500 and
-5100 keep stored balances; capitalisation debits 2400 in each
-account's transaction and accrual credits it once per currency at the
-close of a run.
+are summed into its own control. 2500 keeps a stored balance. An
+interest run appends: a chunk's accrual is one transaction per
+currency, crediting each account's `interest-accrued` bucket and
+debiting 5100, its capitalisation one per account from that bucket to
+the default one, and the sub-minor carry the next accrual opens with
+is the sum of the `carry_change` on the account's accrual rows.
 See [ADR-0037](../../../docs/adr/0037-a-control-accounts-balance-is-the-sum-of-the-balances-that-roll-into-it.md),
 [ADR-0038](../../../docs/adr/0038-an-outbound-submit-writes-no-row-every-payment-shares.md),
 [ADR-0039](../../../docs/adr/0039-cash-at-correspondents-balance-is-the-sum-of-its-legs.md),
@@ -122,6 +128,9 @@ never takes a former index's name. A proto field no longer wanted is
 deprecated with its tag kept and dropped in the record conversion —
 never removed, nor its tag reserved, once a record has been written
 with it. Never clear a store's meta-data to make a refused save land.
+Run the migrator before the services roll: it opens every store and
+builds online each index of the store's record type the open left
+disabled, which a store past a few hundred records leaves a new one.
 `just test-all` runs the guard whatever changed.
 Commands: `just test-all`.
 See [schema-evolution](../../../docs/recipes/code/schema-evolution.md).
