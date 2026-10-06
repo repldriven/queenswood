@@ -67,19 +67,39 @@
         _ (store/save-balance txn updated)]
        updated))))
 
+(defn- bounded?
+  "Whether a limit in force bounds the way `account-legs` move the
+  account's available balance: a floor against a posting that lowers
+  it, a cap against one that raises it. Only then does the check need
+  the account's sums read serializably."
+  [policies transaction-type account-legs]
+  (let [delta (balance-math/available-delta account-legs)
+        sides (policy/bound-sides policies
+                                  :balance
+                                  {:kind {:computed {:name "available"}}
+                                   :transaction-type transaction-type
+                                   :aggregate :amount
+                                   :window :time-window-instant
+                                   :value {:value 0
+                                           :currency (:currency
+                                                      (first account-legs))}})]
+    (or (and (neg? delta) (contains? sides :min))
+        (and (pos? delta) (contains? sides :max)))))
+
 (defn- load-account-balances
-  [txn bank-id legs]
+  [txn bank-id legs transaction-type policies]
   (let [by-account (group-by :account-id legs)]
     (q/list-balances-of txn
                         bank-id
                         (vec (keys by-account))
                         {:snapshot-ids (into #{}
-                                             (comp
-                                              (remove
-                                               (fn [[_ account-legs]]
-                                                 (balance-math/lowers-available?
-                                                  account-legs)))
-                                              (map key))
+                                             (comp (remove
+                                                    (fn [[_ account-legs]]
+                                                      (bounded?
+                                                       policies
+                                                       transaction-type
+                                                       account-legs)))
+                                                   (map key))
                                              by-account)})))
 
 (defn apply-legs
@@ -95,7 +115,11 @@
                    (get-policies txn (:account-id (first legs)) opts))
          account-balances (telemetry/with-span
                            ["balance-load"]
-                           (load-account-balances txn bank-id legs))
+                           (load-account-balances txn
+                                                  bank-id
+                                                  legs
+                                                  transaction-type
+                                                  policies))
          changed (domain/apply-legs bank-id
                                     account-balances
                                     legs

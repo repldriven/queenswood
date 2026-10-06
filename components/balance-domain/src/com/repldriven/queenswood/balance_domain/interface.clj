@@ -42,16 +42,15 @@
   [balance]
   (domain/derived? balance))
 
-(defn lowers-available?
-  "Whether one account's `legs` together lower its available balance:
-  they take more from its posted and pending-outgoing default buckets
-  than they add. Only such a posting needs its account's sums read
-  serializably.
+(defn available-delta
+  "How far one account's `legs` together move its available balance:
+  what they add to its posted and pending-outgoing default buckets less
+  what they take, in minor units.
 
   Args:
   - legs: one account's legs."
   [legs]
-  (domain/lowers-available? legs))
+  (domain/available-delta legs))
 
 (defn trial-balance
   "Aggregate account-level posted balances into a per-currency trial

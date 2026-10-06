@@ -37,9 +37,12 @@
   A cash account's default bucket is the sum of its legs, so its row is
   not rewritten: a leg on one must already be recorded in this
   transaction, which is how its sum moves, and the check reads the sum
-  less the posting's own legs as the balance before it. An account the
-  posting only adds to is summed at snapshot, so it conflicts with no
-  other posting adding to it. Every other bucket's row is read and
+  less the posting's own legs as the balance before it. An account's
+  sums are read serializably only where a limit in force bounds the way
+  the posting moves its available balance, a floor for a posting that
+  lowers it or a cap for one that raises it; otherwise at snapshot, so
+  a credit to an account with no cap conflicts with nothing else
+  posting to it. Every other bucket's row is read and
   rewritten as before. ADR-0042.
 
   Args:

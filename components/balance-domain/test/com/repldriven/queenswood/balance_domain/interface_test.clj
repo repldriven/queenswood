@@ -86,3 +86,33 @@
             [{:currency "GBP" :normal-side :debit :value -100000}
              {:currency "GBP" :normal-side :credit :value 90000}]))))
   (testing "no entries yields no blocks" (is (= [] (SUT/trial-balance [])))))
+
+(deftest available-delta-test
+  (let [leg (fn [status side amount]
+              {:balance-type :balance-type-default
+               :balance-status status
+               :side side
+               :amount amount})]
+    (testing "a debit to posted lowers available, a credit raises it"
+      (is (= -300
+             (SUT/available-delta
+              [(leg :balance-status-posted :leg-side-debit 300)])))
+      (is (= 300
+             (SUT/available-delta
+              [(leg :balance-status-posted :leg-side-credit 300)]))))
+    (testing "a reservation into pending-outgoing lowers it too"
+      (is (= -50
+             (SUT/available-delta
+              [(leg :balance-status-pending-outgoing :leg-side-debit 50)]))))
+    (testing "settling a reservation moves it between buckets, not overall"
+      (is (= 0
+             (SUT/available-delta
+              [(leg :balance-status-pending-outgoing :leg-side-credit 50)
+               (leg :balance-status-posted :leg-side-debit 50)]))))
+    (testing "pending-incoming and other balance types leave it alone"
+      (is (= 0
+             (SUT/available-delta
+              [(leg :balance-status-pending-incoming :leg-side-credit 70)
+               (assoc (leg :balance-status-posted :leg-side-credit 70)
+                      :balance-type
+                      :balance-type-interest-accrued)]))))))

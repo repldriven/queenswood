@@ -32,21 +32,19 @@
          (some? product-type)
          (not= :product-type-general-ledger product-type))))
 
-(defn lowers-available?
+(defn available-delta
   [legs]
-  (neg? (transduce (comp
-                    (filter (fn [leg]
-                              (= :balance-type-default
-                                 (:balance-type leg))))
-                    (filter (fn [leg]
-                              (contains? #{:balance-status-posted
-                                           :balance-status-pending-outgoing}
-                                         (:balance-status leg))))
-                    (map (fn [{:keys [side amount]}]
-                           (if (= :leg-side-debit side) (- amount) amount))))
-                   +
-                   0
-                   legs)))
+  (transduce (comp (filter (fn [leg]
+                             (= :balance-type-default (:balance-type leg))))
+                   (filter (fn [leg]
+                             (contains? #{:balance-status-posted
+                                          :balance-status-pending-outgoing}
+                                        (:balance-status leg))))
+                   (map (fn [{:keys [side amount]}]
+                          (if (= :leg-side-debit side) (- amount) amount))))
+             +
+             0
+             legs))
 
 (defn net-balance
   [balances currency pred-fn]

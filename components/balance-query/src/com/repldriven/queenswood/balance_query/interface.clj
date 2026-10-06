@@ -81,7 +81,7 @@
   write sibling's apply-legs computation. The legs are summed
   serializably, except for the accounts `opts` names in
   `:snapshot-ids`, whose sums join no read-conflict set, so a posting
-  that only adds to an account conflicts with nothing else adding to it.
+  no limit bounds conflicts with nothing else posting to the account.
 
   Args:
   - txn: FDB transaction or db handle.

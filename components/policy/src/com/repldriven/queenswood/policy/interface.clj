@@ -143,6 +143,19 @@
   [policies kind request]
   (limit/check policies kind request))
 
+(defn bound-sides
+  "The sides, `:max` and `:min`, that the live limits in `policies`
+  matching `request` bound — what a request of that shape could breach,
+  whatever its value. A `:range` bounds both.
+
+  Args:
+  - policies: collection of policy maps to evaluate.
+  - kind: limit kind keyword.
+  - request: map of the shape `check-limit` takes; its `:value` need
+    carry only the currency an `:amount` limit is matched on."
+  [policies kind request]
+  (limit/sides-in-force policies kind request))
+
 (defn get-effective-policies
   "Return the policies effective for the given binding-target
   selectors: the always-on `tier=platform` policies plus any

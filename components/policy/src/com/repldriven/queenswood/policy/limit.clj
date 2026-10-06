@@ -180,6 +180,16 @@
        (filter domain/live?)
        (mapcat :limits)))
 
+(defn sides-in-force
+  [policies kind request]
+  (into #{}
+        (comp (filter (fn [l] (match/matches? l kind request)))
+              (mapcat (fn [{:keys [bound]}] (bound-sides bound)))
+              (filter (fn [{:keys [aggregate]}]
+                        (aggregate-applies? aggregate request)))
+              (map :side))
+        (enabled-limits policies)))
+
 (defn check
   [policies kind request]
   (let [matching (filter (fn [l] (match/matches? l kind request))

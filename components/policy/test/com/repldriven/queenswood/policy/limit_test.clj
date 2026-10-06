@@ -175,3 +175,51 @@
                             {:aggregate :count
                              :window :time-window-instant
                              :value 11}))))))
+
+(def ^:private available-floor
+  "The platform's floor on available balance, for the transfers it
+  names."
+  [{:enabled true
+    :limits
+    [{:kind {:balance {:filters [{:kind {:computed {:name "available"}}
+                                  :transaction-type
+                                  :transaction-type-internal-transfer}]}}
+      :bound {:kind {:min {:aggregate
+                           {:kind {:amount {:value {:value 0 :currency "GBP"}
+                                            :window :time-window-instant}}}}}}
+      :allow :limit-allow-improving}]}])
+
+(defn- available-request
+  [transaction-type]
+  {:kind {:computed {:name "available"}}
+   :transaction-type transaction-type
+   :aggregate :amount
+   :window :time-window-instant
+   :value {:value 0 :currency "GBP"}})
+
+(deftest sides-in-force-test
+  (testing "a floor bounds the minimum side of the transfers it names"
+    (is (= #{:min}
+           (SUT/sides-in-force available-floor
+                               :balance
+                               (available-request
+                                :transaction-type-internal-transfer)))))
+  (testing "and nothing for a transaction type it does not name"
+    (is (= #{}
+           (SUT/sides-in-force available-floor
+                               :balance
+                               (available-request
+                                :transaction-type-interest-capital)))))
+  (testing "a cap bounds the maximum side, in its own currency only"
+    (let [policies (amount-max-policy :outbound-payment 1000000
+                                      "GBP" :time-window-instant)]
+      (is (= #{:max}
+             (SUT/sides-in-force
+              policies
+              :outbound-payment
+              (amount-request :time-window-instant 0 "GBP"))))
+      (is (= #{}
+             (SUT/sides-in-force
+              policies
+              :outbound-payment
+              (amount-request :time-window-instant 0 "EUR")))))))
