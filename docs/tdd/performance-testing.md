@@ -599,8 +599,9 @@ run at the next:
     [ADR-0042](../adr/0042-a-cash-accounts-balance-is-the-sum-of-its-legs.md)
     decides.
     On a run over 10,001 accounts beside the same payments, accrual took
-    26 s and capitalisation 38 s, 3.8 ms an account where it had taken
-    13, and no account failed. Outbound's `knee` holds 160 a second at a
+    9.8 s and capitalisation 24 s, 2.4 ms an account where it had taken
+    13, no account failed, and the payments held a p99 of 67 ms or
+    less. Outbound's `knee` holds 160 a second at a
     p99 of 279 ms rather than 455 and accepts 258 a second at 320
     rather than 242, internal's is unchanged, and reads serve about
     1,500 a second at 2,560 asked rather than 1,630: a read takes two
