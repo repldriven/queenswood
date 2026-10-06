@@ -810,7 +810,7 @@
         "spec": {
           "display": {
             "name": "In-flight limit",
-            "description": "Requests the API admits at once, as the limiter measures it, beside how many it holds"
+            "description": "Requests the API admits at once, as the limiter measures it"
           },
           "links": [],
           "plugin": {
@@ -865,34 +865,6 @@
                       "expression": ""
                     },
                     "legend": "limit"
-                  }
-                }
-              }
-            },
-            {
-              "kind": "time_series",
-              "spec": {
-                "name": "B",
-                "plugin": {
-                  "kind": "signoz/BuilderQuery",
-                  "spec": {
-                    "name": "B",
-                    "signal": "metrics",
-                    "stepInterval": 60,
-                    "aggregations": [
-                      {
-                        "metricName": "mono.server.request.active",
-                        "timeAggregation": "avg",
-                        "spaceAggregation": "sum"
-                      }
-                    ],
-                    "filter": {
-                      "expression": "service.name = 'api-service'"
-                    },
-                    "having": {
-                      "expression": ""
-                    },
-                    "legend": "in flight"
                   }
                 }
               }
@@ -960,6 +932,73 @@
                       "expression": ""
                     },
                     "legend": "capacity"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "67b13230-212e-5cb7-b2e1-18e718586129": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "In flight",
+            "description": "Requests the API holds at once, against its limit"
+          },
+          "links": [],
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "global_time",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "short",
+                "decimalPrecision": "2"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none"
+              },
+              "axes": {
+                "softMin": 0,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list"
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "name": "A",
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "metrics",
+                    "stepInterval": 60,
+                    "aggregations": [
+                      {
+                        "metricName": "mono.server.request.active",
+                        "timeAggregation": "avg",
+                        "spaceAggregation": "sum"
+                      }
+                    ],
+                    "filter": {
+                      "expression": "service.name = 'api-service'"
+                    },
+                    "having": {
+                      "expression": ""
+                    },
+                    "legend": "in flight"
                   }
                 }
               }
@@ -1129,6 +1168,15 @@
             {
               "x": 6,
               "y": 0,
+              "width": 6,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/67b13230-212e-5cb7-b2e1-18e718586129"
+              }
+            },
+            {
+              "x": 0,
+              "y": 8,
               "width": 6,
               "height": 8,
               "content": {
