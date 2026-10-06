@@ -293,16 +293,30 @@
      (testing "outbound payments by status span banks, oldest first"
        (nom-test> [pending (q/find-outbound-payments-by-status
                             config
-                            :outbound-payment-status-pending)
+                            :outbound-payment-status-pending
+                            {:created-by 5000 :limit 10})
                    _ (is (= ["pmt.p2" "pmt.p4" "pmt.p1"] (payment-ids pending)))
                    completed (q/find-outbound-payments-by-status
                               config
-                              :outbound-payment-status-completed)
+                              :outbound-payment-status-completed
+                              {:created-by 5000 :limit 10})
                    _ (is (= ["pmt.p3"] (payment-ids completed)))
                    failed (q/find-outbound-payments-by-status
                            config
-                           :outbound-payment-status-failed)
+                           :outbound-payment-status-failed
+                           {:created-by 5000 :limit 10})
                    _ (is (= [] failed))]))
+     (testing "only those created by the time given, up to the limit"
+       (nom-test> [older (q/find-outbound-payments-by-status
+                          config
+                          :outbound-payment-status-pending
+                          {:created-by 2000 :limit 10})
+                   _ (is (= ["pmt.p2" "pmt.p4"] (payment-ids older)))
+                   first-one (q/find-outbound-payments-by-status
+                              config
+                              :outbound-payment-status-pending
+                              {:created-by 5000 :limit 1})
+                   _ (is (= ["pmt.p2"] (payment-ids first-one)))]))
      (testing "inbound payments save in several statuses and banks"
        (nom-test> [_ (store/save-inbound-payment
                       config

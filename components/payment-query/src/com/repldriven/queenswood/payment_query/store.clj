@@ -192,22 +192,15 @@
     :end-to-end-id end-to-end-id}))
 
 (defn find-outbound-payments-by-status
-  [txn status]
+  [txn status {:keys [created-by limit]}]
   (fdb/transact
    txn
    (fn [txn]
-     (let [store (fdb/open txn outbound-payments-store-name)]
-       (->> (fdb/query-records store
-                               "OutboundPayment"
-                               "payment_status"
-                               (fdb/enum-value
-                                store
-                                "OutboundPayment"
-                                "payment_status"
-                                (schema/outbound-payment-status->int status))
-                               {:index "OutboundPayment_by_status_created_at"})
-            (map schema/pb->OutboundPayment)
-            oldest-first)))
+     (->> (fdb/scan-index-records (fdb/open txn outbound-payments-store-name)
+                                  "OutboundPayment_by_status_created_at"
+                                  [(schema/outbound-payment-status->int status)]
+                                  {:limit limit :through [created-by]})
+          (mapv schema/pb->OutboundPayment)))
    :payment/find-outbound-payments-by-status
    {:message "Failed to find outbound payments by status"
     :status status}))
