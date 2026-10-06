@@ -658,8 +658,9 @@ for its `name`, holding `name`, `schemaVersion` `v2`, `source` and
 `spec`, its title in `spec.displayName`. Suspend a dashboard's resource
 before editing it in the SigNoz UI, and lift the suspension once its
 file is installed. Put several series in one panel as a
-`signoz/CompositeQuery`, lay panels on a grid twelve wide, and group a
-numeric attribute as a `number`. Never set `interval`, or any field the
+`signoz/CompositeQuery`, lay panels on a grid twelve wide, group a
+numeric attribute as a `number`, and give a number panel over a metric
+a `reduceTo` on its aggregation. Never set `interval`, or any field the
 operator writes a default into, on a `Dashboard` the chart renders, and
 never keep a dashboard only in SigNoz: nothing declares it, and it goes
 with the cluster's volumes.

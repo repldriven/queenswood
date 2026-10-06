@@ -86,11 +86,13 @@ kubectl -n queenswood get dashboards.resources.signoz.io "$DASHBOARD"
 ## Failures
 
 **`READY` `False` with `REASON` `Rejected`.** SigNoz refused the body,
-and the resource's `Synced` condition carries its message. Two it gives
-that the CRD's schema does not reveal: `x (12) must be less than grid
-width 12`, since the grid is twelve wide, and `panel must have one
+and the resource's `Synced` condition carries its message. Three it
+gives that the CRD's schema does not reveal: `x (12) must be less than
+grid width 12`, since the grid is twelve wide, `panel must have one
 query, found 3`, since several series in a panel go in as one
-`signoz/CompositeQuery`. A rejection is terminal until the resource
+`signoz/CompositeQuery`, and `reduceTo is required`, since a number
+panel over a metric needs its aggregation reduced to one value, as
+`"reduceTo": "sum"`. A rejection is terminal until the resource
 changes, so fix the file and install it again.
 
 **A saved view `Rejected` with `a lowercase RFC 1123 label`.** Its
@@ -135,6 +137,7 @@ kubectl -n queenswood delete job \
 - Put several series in one panel as a `signoz/CompositeQuery`, and lay
   panels on a grid twelve wide.
 - Group a numeric attribute as a `number`.
+- Give a number panel over a metric a `reduceTo` on its aggregation.
 - Install with `just helm-install`, and open SigNoz with
   `just telemetry-ui`.
 

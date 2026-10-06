@@ -677,6 +677,133 @@
             }
           ]
         }
+      },
+      "a04f2fca-0ab4-5879-bd59-7953fb04a3c5": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Requests rejected",
+            "description": "Requests turned away with a 503 at the API's in-flight limit, before any route: they carry no span, so the panels built from traces do not count them"
+          },
+          "links": [],
+          "plugin": {
+            "kind": "signoz/NumberPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "global_time"
+              },
+              "formatting": {
+                "unit": "",
+                "decimalPrecision": "2"
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "scalar",
+              "spec": {
+                "name": "A",
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "metrics",
+                    "stepInterval": 60,
+                    "aggregations": [
+                      {
+                        "metricName": "mono.server.request.rejected",
+                        "timeAggregation": "increase",
+                        "spaceAggregation": "sum",
+                        "reduceTo": "sum"
+                      }
+                    ],
+                    "filter": {
+                      "expression": "service.name = 'api-service'"
+                    },
+                    "having": {
+                      "expression": ""
+                    },
+                    "legend": ""
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "346d8e74-9004-5218-b189-65113e533382": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Rejected, by reason",
+            "description": "Requests turned away a second, by error.type: server/overloaded is the in-flight limit"
+          },
+          "links": [],
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "global_time",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "reqps",
+                "decimalPrecision": "2"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none"
+              },
+              "axes": {
+                "softMin": 0,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list"
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "name": "A",
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "metrics",
+                    "stepInterval": 60,
+                    "aggregations": [
+                      {
+                        "metricName": "mono.server.request.rejected",
+                        "timeAggregation": "rate",
+                        "spaceAggregation": "sum"
+                      }
+                    ],
+                    "filter": {
+                      "expression": "service.name = 'api-service'"
+                    },
+                    "having": {
+                      "expression": ""
+                    },
+                    "legend": "{{error.type}}",
+                    "groupBy": [
+                      {
+                        "name": "error.type",
+                        "fieldContext": "attribute",
+                        "fieldDataType": "string"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
       }
     },
     "layouts": [
@@ -714,12 +841,30 @@
               "width": 6,
               "height": 8,
               "content": {
-                "$ref": "#/spec/panels/c32b4192-4804-5978-8466-368f5c4d521a"
+                "$ref": "#/spec/panels/a04f2fca-0ab4-5879-bd59-7953fb04a3c5"
               }
             },
             {
               "x": 6,
               "y": 4,
+              "width": 6,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/346d8e74-9004-5218-b189-65113e533382"
+              }
+            },
+            {
+              "x": 0,
+              "y": 12,
+              "width": 6,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/c32b4192-4804-5978-8466-368f5c4d521a"
+              }
+            },
+            {
+              "x": 6,
+              "y": 12,
               "width": 6,
               "height": 8,
               "content": {
