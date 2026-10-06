@@ -371,20 +371,40 @@
                                            (constantly false))
                        :run (fn [intent] (run-intent config now pass intent))}))
 
+(defn- reconcile-one
+  [config now intent f]
+  (in-intent-trace config
+                   "reconcile"
+                   intent
+                   (fn []
+                     (checked
+                      config
+                      intent
+                      (fn [i]
+                        (record config now i "sent" (f config now i)))))))
+
 (defn- reconcile
+  "Reconcile each due sent intent whose operation has a `:reconcile`, at
+  once on the adapter's workers where it has them."
   [config now sent]
-  (doseq [intent sent
-          :let [f (reconciler config intent)]
-          :when (and f (due? now intent))]
-    (in-intent-trace config
-                     "reconcile"
-                     intent
-                     (fn []
-                       (checked
-                        config
-                        intent
-                        (fn [i]
-                          (record config now i "sent" (f config now i))))))))
+  (let [due (keep (fn [intent]
+                    (when-let [f (reconciler config intent)]
+                      (when (due? now intent) [intent f])))
+                  sent)
+        ^ExecutorService executor (:executor config)]
+    (if executor
+      (doseq [^Future f (.invokeAll executor
+                                    ^java.util.Collection
+                                    (mapv (fn [[intent f]]
+                                            ^Callable
+                                            (fn []
+                                              (reconcile-one config
+                                                             now
+                                                             intent
+                                                             f)))
+                                          due))]
+        (.get f))
+      (doseq [[intent f] due] (reconcile-one config now intent f)))))
 
 (defn- pass
   [config now pending sent]

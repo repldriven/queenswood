@@ -165,9 +165,10 @@ unsent, nor, for a call that settles first, unsettled — runs them on the
 workers, and the next round is worked out from what that one left. A
 call it sent frees its subjects for the subject's next call in the same
 pass; one it settled or failed leaves the pass; one still pending holds
-its subjects, without running again, until the next pass. A probe, and
-a poller with no `concurrency`, drain in order on the poller's own
-thread. A failure that
+its subjects, without running again, until the next pass. The pass
+then reconciles its due sent intents on the workers too. A probe, and
+a poller with no `concurrency`, drain and reconcile in order on the
+poller's own thread. A failure that
 opens the breaker stops the calls not yet started, while up to
 `concurrency` less one already in flight finish. An answer through a
 breaker the pass found closed with no failure counted is not recorded,
