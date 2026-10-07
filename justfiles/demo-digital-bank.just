@@ -166,7 +166,7 @@ demo-digital-bank-seed:
     RES=$(curl -sS {{ DEMO_API_URL }}/v1/cash-account-products -H "authorization: Bearer $TOKEN")
     EXISTING=$(jq -r '.items[].versions[].name' <<<"$RES")
     TODAY=$(date +%F)
-    for SPEC in "Everyday|tpl.00000000000000000000000001|0|5000" \
+    for SPEC in "Everyday|tpl.00000000000000000000000001|0|20000" \
                 "Rainy Day|tpl.00000000000000000000000002|410|0" \
                 "1 Year Fixed|tpl.00000000000000000000000003|465|0"; do
       NAME=${SPEC%%|*}; REST=${SPEC#*|}; TEMPLATE=${REST%%|*}; REST=${REST#*|}; BPS=${REST%%|*}; REWARD=${REST#*|}

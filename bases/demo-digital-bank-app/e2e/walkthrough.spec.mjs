@@ -8,11 +8,9 @@ import { test, expect } from "@playwright/test";
 // waits on the balance rather than on the job. Every screen is held a
 // beat for the viewer, and typed fields are typed.
 const bank = process.env.DEMO_BANK_URL ?? "http://localhost:8100";
-// A number and a National Insurance number no earlier customer signed
-// up with: sign-in resolves a customer by phone, and the platform holds
-// one party per identifier. 07700 900000 to 900999 is the range Ofcom
-// keeps for fiction, so no take can ring anybody, and QQ is a prefix
-// never issued, which is why HMRC's own examples carry it.
+// A number no earlier customer signed up with: sign-in resolves a
+// customer by phone. 07700 900000 to 900999 is the range Ofcom keeps
+// for fiction, so no take can ring anybody.
 const stamp = String(Date.now());
 const phone = "7700 900" + stamp.slice(-3);
 const passcode = "2468";
@@ -120,9 +118,9 @@ test("a new customer signs up and opens two accounts", async ({ page }) => {
     .toBe("verified");
   await page.waitForTimeout(BEAT);
 
-  // An Everyday, and the £50 the product promised, paid on the hour.
+  // An Everyday, and the £200 the product promised, paid on the hour.
   await openAccount(page, "Everyday");
-  await expect(page.locator(".big.num")).toHaveText("£50.00", { timeout: 4 * 60 * 1000 });
+  await expect(page.locator(".big.num")).toHaveText("£200.00", { timeout: 4 * 60 * 1000 });
   await page.waitForTimeout(BEAT * 2);
 
   // A Rainy Day, with £20 of it.
