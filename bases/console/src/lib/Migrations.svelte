@@ -86,18 +86,21 @@
     };
   }
 
-  // `source-version-ids` is absent when a migration takes every version
-  // of its source. Widening it here means the rest of the screen only
-  // ever reasons about an explicit list.
+  // `source-version-ids` is absent or empty when a migration takes every
+  // version of its source. Widening it here means the rest of the screen
+  // only ever reasons about an explicit list.
   function normaliseMigration(m, byProduct) {
     const source = byProduct[m["source-product-id"]];
+    const narrowed = m["source-version-ids"] ?? [];
     return {
       id: m["migration-id"],
       name: m.name ?? "",
       status: shortEnum(m.status),
       sourceProductId: m["source-product-id"],
       sourceVersionIds:
-        m["source-version-ids"] ?? (source?.versions ?? []).map((v) => v.id),
+        narrowed.length > 0
+          ? narrowed
+          : (source?.versions ?? []).map((v) => v.id),
       targetProductId: m["target-product-id"],
       targetVersionId: m["target-version-id"],
       notifiedOn: m["notified-on"] ?? null,
