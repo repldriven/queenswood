@@ -37,7 +37,7 @@ serving it.
 # the domain the apex zone is for
 export DOMAIN=example.com
 # the directory holding the page
-export SITE_DIR=./site
+export SITE_DIR=~/site
 # the private manifests repository, wherever it is checked out
 export QW_INSTALLATIONS_REPO=../installations
 ```
