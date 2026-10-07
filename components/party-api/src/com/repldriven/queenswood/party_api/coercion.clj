@@ -17,15 +17,6 @@
                            "merged" :party-status-merged}
                           :party-status-unknown))
 
-(def ^:private identifier-type-enum
-  (coercion/enum-coercion {"national-insurance"
-                           :identifier-type-national-insurance
-                           "passport" :identifier-type-passport
-                           "driving-licence" :identifier-type-driving-licence
-                           "national-id-card" :identifier-type-national-id-card
-                           "tax-id" :identifier-type-tax-id}
-                          :identifier-type-unknown))
-
 (def ^:private verification-status-enum
   (coercion/enum-coercion {"pending" :idv-status-pending
                            "in-review" :idv-status-in-review
@@ -64,7 +55,6 @@
 
 (def party-status-enum-schema (:enum-schema party-status-enum))
 
-(def identifier-type-enum-schema (:enum-schema identifier-type-enum))
 
 (def verification-status-enum-schema (:enum-schema verification-status-enum))
 

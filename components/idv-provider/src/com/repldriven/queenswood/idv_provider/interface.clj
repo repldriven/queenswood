@@ -60,3 +60,37 @@
     :provider}`."
   [instance bank]
   (core/for-bank instance bank))
+
+(defn full-name
+  "The non-blank `parts` of a name joined by single spaces, or nil where
+  none is.
+
+  Args:
+  - parts: name parts — given, middle, family — any of them nil."
+  [& parts]
+  (apply core/full-name parts))
+
+(defn name-match
+  "How the name a provider read off a document compares with the name
+  the run was started for — `:idv-name-match-match`,
+  `:idv-name-match-close-match` or `:idv-name-match-no-match` — or nil
+  where either is blank. An adapter reports the grade and never the
+  names, so nothing the provider read leaves it (ADR-0045).
+
+  Args:
+  - run-name: the name the run was started for, as `party-name` reads
+    it.
+  - read-name: the name the provider read off the document."
+  [run-name read-name]
+  (core/name-match run-name read-name))
+
+(defn party-name
+  "The full name a person party was registered with, which a run for it
+  is graded against: nil where `party-id` is blank or names no person,
+  or an anomaly where it cannot be read.
+
+  Args:
+  - txn: an FDB handle or open transaction.
+  - party-id: the party the run is for."
+  [txn party-id]
+  (core/party-name txn party-id))

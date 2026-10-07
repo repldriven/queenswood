@@ -23,9 +23,8 @@
   ^{:doc
     "Malli registry of the party schemas, keyed by the name each
   appears under in the document's `components/schemas`: `PartyType`,
-  `PartyStatus`, `IdentifierType`, `Party`, `PartyDetail`,
-  `PartyEmbedQuery`, `NationalIdentifier`, `Address`,
-  `CreatePartyRequest`, `CreatePartyResponse`, `PartyList`,
+  `PartyStatus`, `Party`, `ExternalReference`, `PartyDetail`,
+  `PartyEmbedQuery`, `CreatePartyRequest`, `CreatePartyResponse`, `PartyList`,
   `MergePartyRequest`, `MergePartyResponse`, `SuspendPartyResponse`,
   `ResumePartyResponse`, `ClosePartyResponse`, and the party's
   verification: `Verification`, `VerificationCriterion`,
@@ -156,10 +155,10 @@
 
 (def
   ^{:doc
-    "RFC 9457 body for a 422 `:party/identification-rejected`
-  rejection: Identification rejected for this party."}
-  IdentificationRejected
-  examples/IdentificationRejected)
+    "RFC 9457 body for a 409 `:party/external-reference-taken`
+  rejection: A party already has this external reference."}
+  ExternalReferenceTaken
+  examples/ExternalReferenceTaken)
 
 (def
   ^{:doc

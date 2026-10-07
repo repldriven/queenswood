@@ -4,7 +4,7 @@
   {:building_number "155"
    :street "Country Lane"
    :town "Cottington"
-   :postcode "CT12 4XY"
+   :postcode "QC1 4XY"
    :country "GBR"})
 
 (def CreateApplicantRequest

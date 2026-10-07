@@ -11,38 +11,6 @@
     {"name": "given_name", "type": "string"},
     {"name": "middle_names", "type": ["null", "string"], "default": null},
     {"name": "family_name", "type": "string"},
-    {"name": "date_of_birth", "type": "int", "doc": "YYYYMMDD"},
-    {"name": "nationality", "type": "string", "doc": "ISO 3166-1 alpha-2"},
-    {"name": "address", "type": {
-      "type": "record",
-      "name": "Address",
-      "fields": [
-        {"name": "flat_number",     "type": ["null", "string"], "default": null},
-        {"name": "building_number", "type": ["null", "string"], "default": null},
-        {"name": "building_name",   "type": ["null", "string"], "default": null},
-        {"name": "street",          "type": "string"},
-        {"name": "sub_street",      "type": ["null", "string"], "default": null},
-        {"name": "town",            "type": "string"},
-        {"name": "state",           "type": ["null", "string"], "default": null},
-        {"name": "postcode",        "type": "string"},
-        {"name": "country",         "type": "string"},
-        {"name": "start_date",      "type": ["null", "string"], "default": null}
-      ]
-    }},
-    {"name": "national_identifier", "type": ["null", {
-      "type": "record",
-      "name": "NationalIdentifier",
-      "fields": [
-        {"name": "type", "type": {"type": "enum",
-                                               "name": "IdentifierType",
-                                               "symbols": ["IDENTIFIER_TYPE_NATIONAL_INSURANCE",
-                                                            "IDENTIFIER_TYPE_PASSPORT",
-                                                            "IDENTIFIER_TYPE_DRIVING_LICENCE",
-                                                            "IDENTIFIER_TYPE_NATIONAL_ID_CARD",
-                                                            "IDENTIFIER_TYPE_TAX_ID"]}},
-        {"name": "value", "type": "string"},
-        {"name": "issuing_country", "type": "string"}
-      ]
-    }], "default": null}
+    {"name": "external_reference", "type": ["null", "string"], "default": null}
   ]
 }

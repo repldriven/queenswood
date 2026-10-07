@@ -48,8 +48,7 @@
   [session identification criteria]
   (let [{:keys [verification-id party-id session-id channel return-url email]}
         session
-        {:keys [given-name middle-names family-name date-of-birth address]}
-        identification]
+        {:keys [given-name middle-names family-name]} identification]
     (utility/assoc-some {:verification-id verification-id
                          :party-id party-id
                          :first-name (or given-name "")
@@ -65,8 +64,6 @@
                                                (idv-query/criterion-name c)))
                                            criteria)}
                         :middle-names middle-names
-                        :date-of-birth (when date-of-birth (str date-of-birth))
-                        :address address
                         :channel channel
                         :return-url return-url
                         :email email)))
@@ -249,11 +246,8 @@
              [policies (policy/get-effective-policies-cached
                         txn
                         {:bank-id bank-id}
-                        (:policy-cache config))
-              claimed (person-identification/get-person-identification
-                       txn
-                       (:party-id idv))]
-             (let [updated (domain/apply-evidence idv data policies claimed)]
+                        (:policy-cache config))]
+             (let [updated (domain/apply-evidence idv data policies)]
                (if (error/anomaly? updated)
                  (log/info "IDV not awaiting evidence — skipping"
                            {:verification-id verification-id
@@ -316,3 +310,5 @@
 (defn get
   [txn data]
   (get-idv txn (:bank-id data) (:verification-id data)))
+
+(defn clear-read-evidence [config] (store/clear-read-evidence config))

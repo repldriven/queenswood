@@ -288,17 +288,10 @@
 
 (def ^:private verification-return-url "https://app.example.test/verified")
 
-(defn- iso-date
-  [yyyymmdd]
-  (when (and (int? yyyymmdd) (pos? yyyymmdd))
-    (format "%04d-%02d-%02d"
-            (quot yyyymmdd 10000)
-            (rem (quot yyyymmdd 100) 100)
-            (rem yyyymmdd 100))))
-
 (defn- person-document
-  "What the person's own document says, read off the party as the
-  tenant registered it."
+  "What the person's own document says: the names read off the party as
+  the tenant registered it, and a date of birth the platform never
+  holds."
   [ctx auth party-id]
   (let [{:keys [body]} (send-once ctx
                                   {:method :get
@@ -306,10 +299,10 @@
                                    :query-params {"embed[person-identification]"
                                                   "true"}
                                    :auth auth})
-        {:keys [given-name middle-names family-name date-of-birth]} body]
+        {:keys [given-name middle-names family-name]} body]
     {:givenNames (str/join " " (remove str/blank? [given-name middle-names]))
      :familyName family-name
-     :dateOfBirth (iso-date date-of-birth)}))
+     :dateOfBirth "1970-01-01"}))
 
 (defn- open-session
   "Open a verification session for `party-id` straight after its

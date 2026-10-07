@@ -16,11 +16,16 @@
                                                    "IDV_EVIDENCE_OUTCOME_PASSED",
                                                    "IDV_EVIDENCE_OUTCOME_FAILED",
                                                    "IDV_EVIDENCE_OUTCOME_REVIEW"]}},
-        {"name": "given_names",     "type": ["null", "string"], "default": null},
-        {"name": "family_name",     "type": ["null", "string"], "default": null},
-        {"name": "date_of_birth",   "type": ["null", "string"], "default": null},
         {"name": "document_type",   "type": ["null", "string"], "default": null},
-        {"name": "issuing_country", "type": ["null", "string"], "default": null}
+        {"name": "issuing_country", "type": ["null", "string"], "default": null},
+        {"name": "name_match", "type": ["null", {"type": "enum",
+                                                  "name": "IdvNameMatch",
+                                                  "namespace": "com.repldriven.mono.idv",
+                                                  "symbols": ["IDV_NAME_MATCH_UNKNOWN",
+                                                               "IDV_NAME_MATCH_MATCH",
+                                                               "IDV_NAME_MATCH_CLOSE_MATCH",
+                                                               "IDV_NAME_MATCH_NO_MATCH"]}],
+         "default": null}
       ]}], "default": null},
     {"name": "liveness", "type": ["null", {
       "type": "record",

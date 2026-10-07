@@ -279,7 +279,11 @@ bank's activity is caught the same way (ADR-0033).
   connection and its circuit breaker. One customer with a live and a
   test instance is served; a second customer on the same instance relies
   on the provider accepting both customers' payments down one
-  connection, which the simulators do not show.
+  connection, which the simulators do not show. For identity
+  verification it also puts every customer's evidence in the platform's
+  provider account, where
+  [ADR-0045](../adr/0045-a-persons-identity-evidence-stays-with-the-customers-provider.md)
+  wants it in the customer's.
 - **Modulr's processing order is assumed.** The simulator processes an
   account's payments in the order Modulr accepts them, which Modulr is
   assumed to do and has not been checked against its sandbox.

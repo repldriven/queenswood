@@ -11,6 +11,12 @@ organisation and internal parties become active immediately.
 The party model is the *who* on both sides of every
 movement of money.
 
+The platform keeps a person's name and the outcome of their
+identity checks. What proves who they are — their date of
+birth, address, nationality, identity numbers and documents —
+they give to the identity verification provider the customer
+uses, and it stays there.
+
 ## Users and stakeholders
 
 **Customer engineering team.** Calls the banking API to register parties on
@@ -21,12 +27,13 @@ something they can react to or poll for.
 **End customer.** The natural human (or the business) on
 whose behalf a party is registered. Doesn't interact with
 Queenswood directly — they go through the customer's
-end-customer-facing surface — but their personal data ends
-up in the party record.
+end-customer-facing surface. Their name ends up in the party
+record, and everything else they give to the identity
+verification provider directly.
 
-**Platform operator.** Indirectly involved. Operates the platform that runs IDV
-and stores PII, and chooses which IDV providers an installation offers; needs
-the model to support the compliance posture the platform takes on.
+**Platform operator.** Indirectly involved. Operates the platform that runs
+IDV, and chooses which IDV providers an installation offers; needs the platform
+to hold no identity evidence it would have to protect, answer for, or erase.
 
 ## Goals
 
@@ -47,9 +54,11 @@ the model to support the compliance posture the platform takes on.
   verification completes, activation happens automatically.
   The customer doesn't have to make a follow-up call to flip
   the status.
-- **Identifier capture.** Parties can carry national
-  identifiers (passport, NI number, etc.) and person
-  identifications (given/family/middle names, demographics).
+- **Names, not evidence.** A person party carries the
+  person's given, middle and family names and, optionally,
+  the customer's own reference for the person. The platform
+  keeps whether each identity check passed, never what the
+  provider read.
 - **Soft name matching.** The platform offers a way to
   compare two name strings — match, close match, or no
   match. Used in Confirmation of Payee and other places
@@ -75,12 +84,11 @@ the model to support the compliance posture the platform takes on.
 - **Party merging.** Two records for the same physical
   person — created in error, or arising from a duplicate —
   can't be merged.
-- **PII encryption at rest.** Personal data is stored as
-  plain fields. No field-level encryption or tokenisation.
-- **National identifier validation.** The platform stores
-  identifier type, value, and issuing country but doesn't
-  validate that a "passport" value looks like a passport
-  number. Caller-side discipline.
+- **Holding identity evidence.** The platform keeps no date
+  of birth, address, nationality, identity number or
+  anything read off a document. These live with the identity
+  verification provider, given there by the person. See
+  [ADR-0045](../adr/0045-a-persons-identity-evidence-stays-with-the-customers-provider.md).
 - **Vendor-grade name matching.** The platform's name
   comparison is deliberately simple. It isn't a
   fuzzy-matching library and isn't a Confirmation of Payee
@@ -106,10 +114,17 @@ supplying:
 
 - The party type (person, organisation, internal).
 - A display name.
-- For person parties, person details (given name, family
-  name, middle names, etc.).
-- Optionally, one or more national identifiers (type,
-  value, issuing country).
+- For person parties, the person's given name, family name
+  and any middle names.
+- Optionally, the customer's own reference for the person,
+  which no other party of the organisation may share: a
+  second registration under one is refused, so the customer's
+  own record of the person is what keeps them from being
+  registered twice.
+
+A registration that also supplies a date of birth, an address,
+a nationality or an identity number is refused, so none of
+them reaches the platform by accident.
 
 The call returns the created party with its identifier and
 status. For organisation and internal parties, status is
@@ -131,12 +146,15 @@ organisation's IDV provider — the one chosen when the
 organisation was created, from those the installation
 offers, Zyphe for example, or a simulator standing in for
 it — for a page the person completes, and hands its link
-back on the session. The person completes the provider's
+back on the session. The platform tells the provider the
+person's name and nothing else. The person gives the
+provider their details and documents and completes its
 checks there; the provider notifies the platform when it's
 done, and the platform flips the party to active (or
-rejected). The customer sees the new status the next time
-they read the party, and is told by webhook where they have
-an endpoint.
+rejected). Whether the name on the document matches the
+registered name is one of those checks. The customer sees
+the new status the next time they read the party, and is
+told by webhook where they have an endpoint.
 
 A check can take anywhere from seconds to minutes for an
 automated outcome, or hours to days for a human-review
@@ -167,15 +185,14 @@ call returns the party with its new status, and a request
 against a party in the wrong state is refused, naming the
 statuses the change accepts.
 
-### Identifiers
+### What the platform keeps about a person
 
-A party can carry zero or more national identifiers — one
-per identifier type per party. Types include passport,
-national insurance number, and others. The platform stores
-the value and issuing country alongside the type.
-
-Person parties also carry person details: given name, family
-name, middle names, and other demographics.
+A person party carries the person's names and the customer's
+reference where one was given. Each identity check is kept as
+an outcome — passed, in review or failed — and the customer
+reads those outcomes, never what the provider read. The
+customer finds the evidence behind them in its account with
+the provider.
 
 ### Name matching
 
@@ -209,14 +226,14 @@ sequenceDiagram
     participant Q as Queenswood
     participant I as IDV provider<br/>(or simulator)
 
-    T->>Q: register person party (name, identifiers)
+    T->>Q: register person party (name)
     Q-->>T: pending party
     T->>Q: open a verification session
     Q->>I: start a check for the person
     I-->>Q: link to the provider's page
     Q-->>T: session ready, with the link
     T->>E: hand over the link
-    E->>I: completes the checks
+    E->>I: gives their details, completes the checks
     I-->>Q: check completed (accepted or rejected)
     Q->>Q: update IDV record, then party
     T->>Q: read party
@@ -226,7 +243,8 @@ sequenceDiagram
 The customer registers a person party for one of their end
 customers and gets a pending party straight away. It opens a
 verification session, and hands the link the session carries
-to the end customer, who completes the provider's checks.
+to the end customer, who gives the provider their details
+and completes its checks.
 When the provider notifies the platform that the check is
 complete, the party becomes active (or rejected). The
 customer sees the new status the next time they read the
@@ -239,7 +257,7 @@ sequenceDiagram
     participant T as Customer system
     participant Q as Queenswood
 
-    T->>Q: register organisation party (name, identifiers)
+    T->>Q: register organisation party (name)
     Q->>Q: create party (status active)
     Q-->>T: active party
 ```
@@ -259,12 +277,13 @@ opened against it, payments can name it.
   the platform isn't enforcing real KYC, even though the
   shape of the integration is real.
 - **Simulator outcomes are scripted, not realistic.**
-  The IDV simulator routes outcomes off the applicant's
-  first name (`Reject` rejects, anything else accepts).
-  It doesn't model partial outcomes, manual-review queues,
-  document-quality failures, or rate limits. Useful for
-  end-to-end tests; not a stand-in for production
-  behaviour.
+  The simulator's page takes the person through the steps a
+  provider's would — their details, a document, a selfie,
+  proof of address — and settles each step from sandbox
+  values the person enters. It doesn't model document
+  quality, a reviewer's queue, or rate limits. Assumed
+  meanwhile: a demonstration shows the person's side of
+  verification faithfully, and its outcomes are chosen.
 - **IDV outcomes beyond accept and reject.** Today the
   platform models *accepted* and *rejected* only. Real IDV
   produces manual-review, expired, and partially-completed
@@ -277,20 +296,10 @@ opened against it, payments can name it.
 - **A merged record is pointed at, not folded in.** A
   duplicate can be wound down and pointed at the record it
   duplicates, but nothing moves across: verification
-  results, identifiers and personal details stay on the
-  duplicate. A customer reading the duplicate is directed to
-  the surviving record, and one reading the survivor sees
-  only what was recorded there. There is no way to undo a
-  merge.
-- **PII at rest.** Personal data is stored unencrypted at
-  the field level. Production would want tokenised storage
-  or per-field encryption, depending on the regulator's
-  view.
-- **National identifier validation.** The platform doesn't
-  enforce that a passport value looks like a passport
-  number, or that a national insurance number is
-  well-formed. Caller-side discipline today; a real product
-  would validate per type and per issuing country.
+  results and names stay on the duplicate. A customer
+  reading the duplicate is directed to the surviving
+  record, and one reading the survivor sees only what was
+  recorded there. There is no way to undo a merge.
 - **Name-matching sophistication.** Token-set matching
   after lower-casing covers the bulk of cases but misses
   accent folding, transliteration, edit-distance fuzziness,
@@ -307,12 +316,21 @@ opened against it, payments can name it.
   modelling. A user might
   act on behalf of a party, or be a party in self-service
   flows. Neither link exists today.
+- **The customer's own provider account.** The provider
+  account a person's evidence sits in should be the
+  customer's, configured by them, so the evidence is theirs
+  to keep and answer for. Assumed meanwhile: one provider
+  account per installation serves every customer, and the
+  evidence sits in the platform's account.
 
 ## References
 
 - **Engineering view**: [tdd/parties](../tdd/parties.md)
   for the full data model, the verification flow, and how
   the code is organised.
+- **Personal data**:
+  [ADR-0045](../adr/0045-a-persons-identity-evidence-stays-with-the-customers-provider.md)
+  — what the platform keeps about a person.
 - **Platform context**: [platform](platform.md);
   [onboarding](onboarding.md) — the customer's own party is
   seeded here.

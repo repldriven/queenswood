@@ -5,7 +5,7 @@
 # its record type arrived on as since, and a store lists the indexes
 # removed from it under former-indexes with the versions they were added
 # and removed at. See docs/recipes/code/schema-evolution.md.
-version: 80
+version: 82
 stores:
   assertions:
     record-type: Assertion
@@ -271,6 +271,11 @@ stores:
         modified: 50
         fields: [bank_id, idempotency_key]
         unique: true
+      - name: Party_by_external_reference
+        added: 82
+        modified: 82
+        fields: [bank_id, external_reference]
+        unique: true
   party-national-identifiers:
     record-type: PartyNationalIdentifier
     primary-key: [party_id, type]
@@ -282,6 +287,10 @@ stores:
         unique: true
   person-identifications:
     record-type: PersonIdentification
+    indexes: []
+  person-names:
+    record-type: PersonName
+    since: 82
     indexes: []
   inbound-payments:
     record-type: InboundPayment

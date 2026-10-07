@@ -21,7 +21,9 @@
                  :created-at now
                  :updated-at now}
                 :idempotency-key
-                (:idempotency-key data))))
+                (:idempotency-key data)
+                :external-reference
+                (:external-reference data))))
 
 (defn activate-party
   [party]
@@ -34,16 +36,6 @@
   (assoc party
          :status :party-status-rejected
          :updated-at (utility/now)))
-
-(defn new-party-national-identifier
-  [national-identifier bank-id party-id]
-  (let [{:keys [type value issuing-country]} national-identifier]
-    {:bank-id bank-id
-     :party-id party-id
-     :type type
-     :value value
-     :issuing-country issuing-country
-     :created-at (utility/now)}))
 
 (defn- check-capability
   [action policies]

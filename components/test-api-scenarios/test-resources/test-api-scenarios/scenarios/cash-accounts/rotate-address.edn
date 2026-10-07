@@ -8,8 +8,7 @@
           :with {:token [:ref :org-0 :token]
                  :display-name "Rotating Customer"
                  :given-name "Rotating"
-                 :family-name "Customer"
-                 :national-insurance "TN888004A"}}
+                 :family-name "Customer"}}
          ;; Published product
          {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}
          ;; Open the cash-account and wait for opened

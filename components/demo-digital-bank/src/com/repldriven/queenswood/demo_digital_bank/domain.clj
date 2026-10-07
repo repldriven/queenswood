@@ -146,22 +146,16 @@
   (assoc submission :response answer))
 
 (defn party-registration
-  "The platform's registration of a person, from what the sign-up
-  screens collect. A UK bank's defaults fill what the screens leave out."
-  [details]
-  (let [{:keys [given-name family-name date-of-birth nationality address
-                national-identifier]}
-        details]
+  "The platform's registration of a person: their names, and the sign-up
+  as the bank's own reference for them. What proves who they are the
+  person gives the identity provider (ADR-0045)."
+  [sign-up-id details]
+  (let [{:keys [given-name family-name]} details]
     {:type "person"
      :display-name (str given-name " " family-name)
      :given-name given-name
      :family-name family-name
-     :date-of-birth date-of-birth
-     :nationality (or nationality "GB")
-     :address (merge {:country "GBR"} address)
-     :national-identifier (merge {:type "national-insurance"
-                                  :issuing-country "GB"}
-                                 national-identifier)}))
+     :external-reference sign-up-id}))
 
 (defn verification-session-request
   "The session a sign-up opens to hand the person to the identity

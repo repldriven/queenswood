@@ -13,8 +13,7 @@
    :with {:token [:ref :org-0 :token]
           :display-name "Closed Address Holder"
           :given-name "Closed"
-          :family-name "Holder"
-          :national-insurance "TN889011A"}}
+          :family-name "Holder"}}
   {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}
   {:command :api/request
    :request

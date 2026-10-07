@@ -26,9 +26,7 @@
    :assert {:status 200}}
   {:fixture :person
    :as :arthur
-   :with {:token [:ref :org-0 :token]
-          :date-of-birth "1952-03-11"
-          :national-insurance "TN555202A"}}
+   :with {:token [:ref :org-0 :token]}}
   {:fixture :account
    :as :account
    :with {:token [:ref :org-0 :token]

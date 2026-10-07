@@ -1,0 +1,26 @@
+{:name "A second person under one external reference is refused"
+ :given [{:fixture :bank
+          :as :org-0
+          :with {:name "External Reference Test Org" :status "live"}}
+         {:command :api/request
+          :request {:method :post
+                    :path "/v1/parties"
+                    :auth [:ref :org-0 :token]
+                    :body {:type "person"
+                           :display-name "Arthur Dent"
+                           :given-name "Arthur"
+                           :family-name "Dent"
+                           :external-reference "cust-4471"}}
+          :as :first
+          :assert {:status 201}}]
+ :when [{:command :api/request
+         :request {:method :post
+                   :path "/v1/parties"
+                   :auth [:ref :org-0 :token]
+                   :body {:type "person"
+                          :display-name "Ford Prefect"
+                          :given-name "Ford"
+                          :family-name "Prefect"
+                          :external-reference "cust-4471"}}
+         :assert {:status 409
+                  :body {:type ":party/external-reference-taken"}}}]}

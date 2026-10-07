@@ -102,8 +102,11 @@
       (is (= [{:type "EXTERNAL_ID" :externalId "pty.1"}] (:credentials body)))
       (is (= "ada@example.com" (:email body)))
       (is (not-any? #{"Ada" "Lovelace"} (tree-seq coll? seq body))))
-    (testing "the bank, verification and session ids ride as customData"
-      (is (= {:bankId "bnk.1" :verificationId "idv.1" :sessionId "ses.1"}
+    (testing "the bank, verification, party and session ids ride as customData"
+      (is (= {:bankId "bnk.1"
+              :verificationId "idv.1"
+              :partyId "pty.1"
+              :sessionId "ses.1"}
              (:customData body))))
     (testing "the session webhook points at the adapter, signed V2"
       (is (= {:url "https://adapter.example/webhooks/zyphe"

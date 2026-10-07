@@ -14,9 +14,6 @@
 (def PartyStatus
   (coercion/party-status-enum-schema {:json-schema/example "active"}))
 
-(def IdentifierType
-  (coercion/identifier-type-enum-schema {:json-schema/example "passport"}))
-
 (def Party
   [:map {:json-schema/example examples/Party}
    [:bank-id [:ref "BankId"]]
@@ -25,35 +22,24 @@
    [:display-name [:ref "Name"]]
    [:status [:ref "PartyStatus"]]
    [:merged-into-party-id {:optional true} [:maybe [:ref "PartyId"]]]
+   [:external-reference {:optional true} [:maybe [:ref "ExternalReference"]]]
    [:created-at [:ref "Timestamp"]]
    [:updated-at [:ref "Timestamp"]]])
 
-(def NationalIdentifier
-  [:map {:closed true}
-   [:type [:ref "IdentifierType"]]
-   [:value [:ref "NationalIdentifierValue"]]
-   [:issuing-country [:ref "CountryCode"]]])
-
-(def Address
-  "Address shape mirrors the Entrust/Onfido applicant address
-  object. `country` is ISO 3166-1 alpha-3 to match what the
-  applicants API expects; this differs from `nationality` (alpha-2)
-  on PersonIdentification — kept separate so the adapter doesn't
-  need a code-table conversion at the edge."
-  [:map {:closed true :json-schema/example examples/Address}
-   [:flat-number {:optional true} [:ref "Name"]]
-   [:building-number {:optional true} [:ref "Name"]]
-   [:building-name {:optional true} [:ref "Name"]]
-   [:street [:ref "Name"]]
-   [:sub-street {:optional true} [:ref "Name"]]
-   [:town [:ref "Name"]]
-   [:state {:optional true} [:ref "Name"]]
-   [:postcode [:ref "Name"]]
-   [:country [:ref "Country3Code"]]
-   [:start-date {:optional true} [:ref "Date"]]])
+(def ExternalReference
+  "The customer's own id for the person, unique within the bank."
+  [:string
+   {:min 1
+    :max 128
+    :json-schema/example "cust-4471"
+    :json-schema/description
+    "The customer's own id for the person, unique within the bank."}])
 
 (def CreatePartyRequest
-  [:map {:json-schema/example examples/CreatePartyRequest}
+  "A person is registered by name alone: what proves who they are they
+  give to the identity provider (ADR-0045), so the map is closed and a
+  request carrying anything else is refused."
+  [:map {:closed true :json-schema/example examples/CreatePartyRequest}
    [:type
     [:enum
      {:json-schema coercion/party-type-json-schema
@@ -63,16 +49,11 @@
    [:given-name [:ref "Name"]]
    [:middle-names {:optional true} [:maybe [:ref "Name"]]]
    [:family-name [:ref "Name"]]
-   [:date-of-birth [:ref "DateOfBirth"]]
-   [:nationality [:ref "CountryCode"]]
-   [:address [:ref "Address"]]
-   [:national-identifier [:ref "NationalIdentifier"]]])
+   [:external-reference {:optional true} [:ref "ExternalReference"]]])
 
 (def PartyDetail
-  "Party-by-id detail: the summary fields plus the person
-  identification and national identifier the record was created with.
-  Open map — internal/organisation parties carry only the summary, and
-  email/phone aren't persisted so they're never present."
+  "Party-by-id detail: the summary fields, and the person's names where
+  `embed[person-identification]` asks for them."
   [:map {:json-schema/example examples/Party}
    [:bank-id [:ref "BankId"]]
    [:party-id [:ref "PartyId"]]
@@ -80,41 +61,24 @@
    [:display-name [:ref "Name"]]
    [:status [:ref "PartyStatus"]]
    [:merged-into-party-id {:optional true} [:maybe [:ref "PartyId"]]]
+   [:external-reference {:optional true} [:maybe [:ref "ExternalReference"]]]
    [:created-at [:ref "Timestamp"]]
    [:updated-at [:ref "Timestamp"]]
-   ;; Enriched fields are deliberately lenient. The merged record carries
-   ;; raw protobuf values — an integer date-of-birth, a keyword
-   ;; identifier type, a default-filled address — and putting those
-   ;; through strict refs (DateOfBirth's int→ISO encoder, the closed
-   ;; Address / NationalIdentifier schemas) trips response coercion. Held
-   ;; as plain types here, they pass straight through; the console
-   ;; formats them for display.
    [:given-name {:optional true} [:maybe :string]]
    [:middle-names {:optional true} [:maybe :string]]
-   [:family-name {:optional true} [:maybe :string]]
-   [:date-of-birth {:optional true} [:maybe :int]]
-   [:nationality {:optional true} [:maybe :string]]
-   [:address {:optional true} [:maybe [:map]]]
-   [:national-identifier {:optional true} [:maybe [:map]]]])
+   [:family-name {:optional true} [:maybe :string]]])
 
 (def PartyEmbedQuery
   "Nested `embed` deepObject query parameter for the party detail
-  endpoint. Wire form is
-  `embed[person-identification]=true&embed[address]=true&embed[national-identifier]=true`,
-  nested into `{:person-identification …}` by the
-  `nest-bracket-query-params` interceptor before validation. Each flag
-  opts the corresponding sub-record into the response; omitted, the GET
-  returns just the summary party."
+  endpoint. Wire form is `embed[person-identification]=true`, nested
+  into `{:person-identification …}` by the `nest-bracket-query-params`
+  interceptor before validation. Set, it opts the person's names into
+  the response; omitted, the GET returns just the summary party."
   [:map {:closed true}
    [:person-identification
     {:optional true
      :json-schema/description
-     "Embed person identification (names, date of birth, nationality)"}
-    boolean?]
-   [:address {:optional true :json-schema/description "Embed address"}
-    boolean?]
-   [:national-identifier
-    {:optional true :json-schema/description "Embed national identifier"}
+     "Embed the person's given, middle and family names"}
     boolean?]])
 
 (def CreatePartyResponse [:ref "Party"])
@@ -210,14 +174,14 @@
 
 (def registry
   (components-registry
-   [#'PartyType #'PartyStatus #'IdentifierType #'Party #'PartyDetail
-    #'PartyEmbedQuery #'NationalIdentifier #'Address #'CreatePartyRequest
-    #'CreatePartyResponse #'PartyList #'MergePartyRequest #'MergePartyResponse
-    #'SuspendPartyResponse #'ResumePartyResponse #'ClosePartyResponse
-    #'VerificationId #'VerificationSessionId #'VerificationStatus
-    #'VerificationChannel #'VerificationSessionStatus #'HandOffType
-    #'VerificationCriterionState #'ReturnUrl #'OpenVerificationSessionRequest
-    #'HandOff #'VerificationSession #'VerificationCriterion #'Verification]))
+   [#'PartyType #'PartyStatus #'Party #'ExternalReference #'PartyDetail
+    #'PartyEmbedQuery #'CreatePartyRequest #'CreatePartyResponse #'PartyList
+    #'MergePartyRequest #'MergePartyResponse #'SuspendPartyResponse
+    #'ResumePartyResponse #'ClosePartyResponse #'VerificationId
+    #'VerificationSessionId #'VerificationStatus #'VerificationChannel
+    #'VerificationSessionStatus #'HandOffType #'VerificationCriterionState
+    #'ReturnUrl #'OpenVerificationSessionRequest #'HandOff #'VerificationSession
+    #'VerificationCriterion #'Verification]))
 
 (def ^:private party-keys (into [] (comp (filter vector?) (map first)) Party))
 

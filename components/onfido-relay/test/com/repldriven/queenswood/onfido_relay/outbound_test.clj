@@ -104,26 +104,14 @@
   (is (empty? (SUT/uncovered [full] {:verifies ["address"] :screens ["pep"]}))))
 
 (deftest applicant-test
-  (is
-   (= {:first_name "Arthur Philip"
-       :last_name "Dent"
-       :dob "1952-03-11"
-       :email "arthur@example.test"
-       :address {:street "Country Lane"
-                 :town "Cottington"
-                 :postcode "CT12 4XY"
-                 :country "GBR"
-                 :building_number "155"}}
-      (SUT/applicant {:first-name "Arthur"
-                      :middle-names "Philip"
-                      :last-name "Dent"
-                      :date-of-birth "1952-03-11"
-                      :email "arthur@example.test"
-                      :address {:building-number "155"
-                                :street "Country Lane"
-                                :town "Cottington"
-                                :postcode "CT12 4XY"
-                                :country "GBR"}}))))
+  (testing "the applicant is the person's names and email, nothing else"
+    (is (= {:first_name "Arthur Philip"
+            :last_name "Dent"
+            :email "arthur@example.test"}
+           (SUT/applicant {:first-name "Arthur"
+                           :middle-names "Philip"
+                           :last-name "Dent"
+                           :email "arthur@example.test"})))))
 
 (deftest workflow-run-test
   (let [run (SUT/workflow-run {:hand-off-ttl-ms 60000}

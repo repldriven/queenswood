@@ -7,8 +7,7 @@
           :with {:token [:ref :org-0 :token]
                  :display-name "Suspended Closer"
                  :given-name "Suspended"
-                 :family-name "Closer"
-                 :national-insurance "TN889005A"}}
+                 :family-name "Closer"}}
          {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}
          {:fixture :account
           :as :account-0

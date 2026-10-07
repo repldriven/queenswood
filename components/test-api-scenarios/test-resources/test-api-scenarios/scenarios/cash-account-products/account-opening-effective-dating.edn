@@ -12,14 +12,7 @@
    :with {:token [:ref :org-0 :token]
           :display-name "Trillian Astra"
           :given-name "Trillian"
-          :family-name "Astra"
-          :date-of-birth "1975-03-14"
-          :national-insurance "TN000042A"
-          :address {:building-number "42"
-                    :street "Hitchhiker Way"
-                    :town "Cottington"
-                    :postcode "CT12 4XY"
-                    :country "GBR"}}}
+          :family-name "Astra"}}
   ;; --- Current: a live version and a future-dated successor ---------
   {:command :api/request
    :request {:method :post

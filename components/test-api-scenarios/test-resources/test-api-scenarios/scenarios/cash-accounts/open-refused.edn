@@ -26,14 +26,7 @@
    :with {:token [:ref :bank-a-token]
           :display-name "Slartibartfast Magrathea"
           :given-name "Slartibartfast"
-          :family-name "Magrathea"
-          :date-of-birth "1947-05-19"
-          :national-insurance "TN555201E"
-          :address {:building-number "1"
-                    :street "Fjord Lane"
-                    :town "Cottington"
-                    :postcode "CT12 4XY"
-                    :country "GBR"}}}
+          :family-name "Magrathea"}}
   ;; The bank's own account opens first, so the refusal is not its.
   {:command :api/poll
    :request {:method :get :path "/v1/cash-accounts" :auth :bank-a-token}

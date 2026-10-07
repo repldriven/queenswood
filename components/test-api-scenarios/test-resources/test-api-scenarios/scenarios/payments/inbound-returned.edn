@@ -17,14 +17,7 @@
    :with {:token [:ref :bank-0 :token]
           :display-name "Trillian Astra"
           :given-name "Trillian"
-          :family-name "Astra"
-          :date-of-birth "1960-03-11"
-          :national-insurance "TN555933A"
-          :address {:building-number "7"
-                    :street "Islington Row"
-                    :town "London"
-                    :postcode "N1 8QH"
-                    :country "GBR"}}}
+          :family-name "Astra"}}
   {:command :api/request
    :request {:method :post
              :path "/v1/cash-accounts"

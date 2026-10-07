@@ -1,7 +1,6 @@
 (ns com.repldriven.queenswood.idv.domain
   (:require
     [com.repldriven.queenswood.idv-query.interface :as idv-query]
-    [com.repldriven.queenswood.party-query.interface :as party-query]
     [com.repldriven.queenswood.policy.interface :as policy]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
@@ -121,22 +120,6 @@
             (:cancelled reported)
             (assoc :cancelled true))))
 
-(defn- present
-  [s]
-  (when-not (str/blank? s) s))
-
-(defn- iso-date
-  [yyyymmdd]
-  (when (and yyyymmdd (pos? yyyymmdd))
-    (format "%04d-%02d-%02d"
-            (quot yyyymmdd 10000)
-            (rem (quot yyyymmdd 100) 100)
-            (rem yyyymmdd 100))))
-
-(defn- full-name
-  [& parts]
-  (str/join " " (keep present parts)))
-
 (def ^:private outcome->state
   {:idv-evidence-outcome-passed :idv-criterion-state-established
    :idv-evidence-outcome-review :idv-criterion-state-review
@@ -147,29 +130,13 @@
    :idv-sanctions-outcome-possible-match :idv-criterion-state-review
    :idv-sanctions-outcome-hit :idv-criterion-state-failed})
 
-(defn- claimed-identity-state
-  [document claimed]
-  (let [{:keys [given-names family-name date-of-birth]} document
-        read-name (full-name given-names family-name)]
-    (when (and (present read-name) (present (:family-name claimed)))
-      (let [grade (party-query/match-name (full-name (:given-name claimed)
-                                                     (:middle-names claimed)
-                                                     (:family-name claimed))
-                                          read-name)
-            same-birth? (= (iso-date (:date-of-birth claimed))
-                           (present date-of-birth))]
-        (cond
-         (or (= :no-match grade) (not same-birth?))
-         :idv-criterion-state-failed
-
-         (= :close-match grade)
-         :idv-criterion-state-review
-
-         :else
-         :idv-criterion-state-established)))))
+(def ^:private name-match->state
+  {:idv-name-match-match :idv-criterion-state-established
+   :idv-name-match-close-match :idv-criterion-state-review
+   :idv-name-match-no-match :idv-criterion-state-failed})
 
 (defn- settle
-  [evidence claimed criterion]
+  [evidence criterion]
   (let [{:keys [document liveness address screening]} evidence]
     (or (case (or (:verification criterion) (:screening criterion))
           :idv-verification-identity
@@ -179,7 +146,7 @@
           (outcome->state (:outcome liveness))
 
           :idv-verification-claimed-identity
-          (claimed-identity-state document claimed)
+          (name-match->state (:name-match document))
 
           :idv-verification-address
           (outcome->state (:outcome address))
@@ -208,12 +175,12 @@
             requests)))
 
 (defn decide
-  [idv policies claimed]
+  [idv policies]
   (let [{:keys [evidence]} idv
         criteria (mapv (fn [criterion]
                          (assoc criterion
                                 :state
-                                (settle evidence claimed criterion)))
+                                (settle evidence criterion)))
                        idv-query/criteria)
         states (set (map :state criteria))]
     {:criteria criteria
@@ -240,7 +207,7 @@
    :idv-status-failed failed-idv})
 
 (defn apply-evidence
-  [idv reported policies claimed]
+  [idv reported policies]
   (let-nom>
     [_ (guard-source-status idv
                             "IDV is not awaiting evidence"
@@ -248,7 +215,7 @@
     (let [merged (assoc idv
                         :evidence
                         (merge-evidence (:evidence idv) reported))
-          {:keys [criteria status]} (decide merged policies claimed)
+          {:keys [criteria status]} (decide merged policies)
           settled (assoc merged :criteria criteria :updated-at (utility/now))
           transition (status->transition status)]
       (if (and transition (not= status (:status idv)))

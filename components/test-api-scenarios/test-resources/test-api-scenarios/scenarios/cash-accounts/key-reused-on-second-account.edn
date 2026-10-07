@@ -14,14 +14,7 @@
    :with {:token [:ref :bank-0 :token]
           :display-name "Reuse Customer"
           :given-name "Reuse"
-          :family-name "Customer"
-          :date-of-birth "1962-02-02"
-          :national-insurance "TN555801H"
-          :address {:building-number "3"
-                    :street "Improbability Drive"
-                    :town "Cottington"
-                    :postcode "CT12 4XY"
-                    :country "GBR"}}}
+          :family-name "Customer"}}
   {:fixture :account
    :as :first
    :with {:token [:ref :bank-0 :token]

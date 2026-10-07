@@ -3,7 +3,8 @@
 > **Status: proposal.** Parties, the IDV record, the activation chain
 > and the IDV adapters exist, and Background names them. Everything
 > under Proposed Solution is the build list; the criteria, the provider
-> declaration, evidence and sessions are built for both adapters, and
+> declaration, evidence, sessions, the provider's page and what the
+> platform keeps about a person are built for both adapters, and
 > [First slices](#first-slices) says what comes next.
 
 ## Objective
@@ -13,15 +14,18 @@ legal entity, or an internal bookkeeping identity of the bank. A person
 is verified before it can transact. This TDD decides how a bank's
 policies state what a verification must establish, the contract every
 IDV adapter meets whichever provider it speaks to, how a provider's
-evidence becomes a decision, and how the person reaches the provider
-from a tenant's web or mobile app.
+evidence becomes a decision, how the person reaches the provider from a
+tenant's web or mobile app, and what the platform keeps about a person
+once the person's identity evidence stays with the provider, per
+[ADR-0045](../adr/0045-a-persons-identity-evidence-stays-with-the-customers-provider.md).
 
-In scope: the `party` and `idv` bricks; the `idv-action-accept`
-capability and the verifications and screenings its denies name; the
-provider declaration and the check that it meets a bank's policies;
-the IDV adapter contract, covering evidence, sessions and the
-simulator every adapter ships; verification sessions and their
-hand-off to the person; name matching.
+In scope: the `party`, `person-identification` and `idv` bricks; the
+`idv-action-accept` capability and the verifications and screenings its
+denies name; the provider declaration and the check that it meets a
+bank's policies; the IDV adapter contract, covering evidence, sessions
+and the simulator every adapter ships; verification sessions and their
+hand-off to the person; name matching; the personal data a party, an
+IDV and an adapter's stores keep.
 
 Out of scope: users and their authentication, distinct from parties,
 see [authentication.md](authentication.md); the policy engine's
@@ -32,7 +36,9 @@ see [banks.md](banks.md); account ownership, see
 [payments.md](payments.md); the demo bank's own onboarding screens, see
 [demo-digital-bank.md](demo-digital-bank.md); how a particular
 provider's API maps onto the contract, which lives with its adapter;
-organisation (KYB) verification, which no adapter offers yet.
+organisation (KYB) verification, which no adapter offers yet; a
+provider account per bank, which ADR-0045 requires and
+[bank-providers.md](bank-providers.md) carries as a known limitation.
 
 ## Background
 
@@ -42,9 +48,20 @@ organisation (KYB) verification, which no adapter offers yet.
   `match-name`, which normalises and tokenises two names and answers
   `:match`, `:close-match` or `:no-match`.
 - **Person identification.** `person-identification` holds a person's
-  given, middle and family names, date of birth, nationality and one
-  current address, the address snake-case with its country as ISO
-  3166-1 alpha-3.
+  given, middle and family names as a `PersonName`, and nothing else
+  about them. `POST /v1/parties` takes the names and an optional
+  `external-reference`, unique within the bank. The former
+  `PersonIdentification` and `PartyNationalIdentifier` record types
+  remain registered, emptied by the migrator's clearance.
+- **What reaches a provider and comes back.** `submit-idv-check`, and
+  the `idv-session-opening` activity it is published from, carry the
+  person's names and the session's email. Onfido's relay creates its
+  applicant from the names and the email, and Zyphe's run carries the
+  party id in its `customData`. Each adapter grades the name read off
+  the document against the party's, read by party id through
+  `idv-provider/party-name`, and writes the grade, never the name, into
+  its `idv-evidence` outbox entry. A settled or failed intent keeps
+  only the ids and the criteria it asked for.
 - **Lifecycle.** `suspend-party`, `resume-party` and `close-party` are
   direct single-phase commands guarded on source status in `party`'s
   `domain.clj`, per
@@ -78,8 +95,11 @@ organisation (KYB) verification, which no adapter offers yet.
   Onfido's, and every build runs both side by side.
 - **Simulators.** Each adapter's simulator waits for a decision, made
   on the hosted page `idv-simulator-page` serves for both or through
-  its decision route. `test-scenarios` runs Zyphe's, and
-  `test-api-scenarios` runs both.
+  its decision route. The page takes the person through their details,
+  document, selfie and address, settled by the sandbox values it lists,
+  and `simulate` and `pace` on the hand-off URL play a person through
+  it for a demonstration. `test-scenarios`
+  runs Zyphe's, and `test-api-scenarios` runs both.
 - **The provider as a deployment fact.** Which adapter runs is decided
   by the service's `application.yml`, never by a request, per
   [ADR-0020](../adr/0020-providers-are-deployment-facts.md). Each
@@ -115,8 +135,8 @@ provider's method:
     government photo document.
   - `liveness` — the person is live and matches the document's
     portrait.
-  - `claimed-identity` — the document's name and date of birth match
-    what the tenant registered for the party.
+  - `claimed-identity` — the document's name matches the name the
+    tenant registered for the party.
   - `address` — the residential address, from an address document.
 - **`IdvScreening`**, established by checking lists:
   - `sanctions` — screened against sanctions lists.
@@ -221,9 +241,10 @@ The adapter reports evidence, and `idv` decides. An Avro event
 `bank-id` and `verification-id`, and one optional section per kind of
 evidence the provider event reported:
 
-- **`document`** — `passed`, `failed` or `review`, with the extracted
-  `given-names`, `family-name`, `date-of-birth`, `document-type` and
-  `issuing-country`.
+- **`document`** — `passed`, `failed` or `review`, with the
+  `document-type`, the `issuing-country`, and `name-match`, `match`,
+  `close-match` or `no-match`, where the provider read a name the
+  adapter could compare.
 - **`liveness`** — `passed` or `failed`.
 - **`address`** — `passed` or `failed`, with the `document-type`.
 - **`screening`** — `sanctions` `clear`, `possible-match` or `hit`, and
@@ -234,17 +255,17 @@ evidence the provider event reported:
 and `criteria`, each verification and screening with its state:
 `outstanding`, `established`, `review` or `failed`. `idv`'s
 `event-processor` handles `idv-evidence` by merging it and calling
-`domain/decide idv policies claimed`. `claimed` is the person
-identification, read through `person-identification`, and the
-claimed-identity comparison uses `party-query/match-name` on the names
-and equality on the date of birth. `decide` settles each verification
-and screening by one treatment table:
+`domain/decide idv policies`. `idv` reads no person identification:
+the adapter has already compared the names, as
+[The IDV adapter contract](#the-idv-adapter-contract) describes.
+`decide` settles each verification and screening by one treatment
+table:
 
 | Verification or screening | Established | Review | Reject |
 |---|---|---|---|
 | identity | document passed | document review | document failed |
 | liveness | liveness passed | — | liveness failed |
-| claimed-identity | `:match`, same date of birth | `:close-match` | `:no-match` or another date of birth |
+| claimed-identity | `match` | `close-match` | `no-match` |
 | address | address passed | — | address failed |
 | sanctions | clear | possible match | hit |
 | pep | not a PEP | a PEP | — |
@@ -253,10 +274,10 @@ Any reject makes the IDV `rejected`; otherwise any review makes it
 `in-review`; otherwise it is `accepted` when the `idv-action-accept`
 checks all pass, and stays `pending` while one is denied. A PEP is
 enhanced due diligence, not a refusal, so it reviews. `cancelled`
-fails the IDV. A claimed identity with no family name stays
-outstanding. Redelivered evidence merges to the same record and
-decides the same way, so it needs no dedup beyond the outbox's, and an
-IDV no longer pending or in review takes no more.
+fails the IDV. A document reported with no `name-match` leaves
+`claimed-identity` outstanding. Redelivered evidence merges to the
+same record and decides the same way, so it needs no dedup beyond the
+outbox's, and an IDV no longer pending or in review takes no more.
 
 ### Verification sessions
 
@@ -314,8 +335,8 @@ runs changes nothing outside it:
 
 - **Declares.** It ships its provider's declaration,
   `system/idv-providers/<key>.yml`, verifying `claimed-identity` only
-  where the provider returns the document's extracted name and date of
-  birth. Its config maps
+  where the provider returns the name it read off the document. Its
+  config maps
   provider configurations to the verifications and screenings each
   establishes, and it refuses to start when they do not cover what the
   file declares.
@@ -323,7 +344,7 @@ runs changes nothing outside it:
   intent whose subject is the verification, and its runner takes a
   verification's intents in the order they were accepted (ADR-0033),
   starting the provider's run on the smallest configuration covering the
-  verifications and screenings requested.
+  verifications and screenings requested, for the person's names.
   Starting again for the same verification resumes the run rather
   than opening a second one, and mints a fresh hand-off.
 - **Hands off.** It builds the hand-off for the session's channel,
@@ -336,23 +357,143 @@ runs changes nothing outside it:
   provider, as the provider signs it, before anything else, maps each
   provider result to `idv-evidence`, and writes one outbox entry per
   provider event, deduplicated on the provider's event id.
+- **Compares the name.** It grades the name read off the document
+  against the party's, read through `idv-provider/party-name` by the
+  party id the run carries, with `idv-provider/name-match`, and reports
+  the grade as the document's `name-match`. Neither name, nor any other
+  field the provider read, leaves its memory: no outbox entry, intent,
+  log line or span carries one.
+- **Keeps only ids.** Its store spec's `:redact` keeps, of a settled or
+  failed intent's request, the ids and the criteria asked for, so the
+  email and the names go once the provider has them.
 - **Stays neutral.** Its anomalies are the `:idv/*` kinds, its
   correlation carries only opaque ids, and no provider name leaves its
   bricks.
 - **Ships a simulator.** `<provider>-simulator` serves the provider's
   API as the adapter calls it, signs its deliveries as the provider
-  does, and serves the hosted page the hand-off points at. The page
-  asks for what the person's document says and offers the outcomes a
-  person or a reviewer produces: a document that matches, someone
-  else's document, a document in review, a forged document, failed
-  liveness, a failed address document, a sanctions hit, a sanctions
-  possible match, a PEP, and walking away.
-  Submitting emits the provider's results for that outcome and returns
-  the person to the return URL. A decision route takes the same body,
-  so a test drives what a person would, and nothing settles a run
-  without one. A check for `refused@verification.example` is refused.
-  Deployed, the console proxies the page at
-  `/identity-provider/`, and the adapter's verify URL points there.
+  does, and serves the hosted page the hand-off points at, as
+  [The simulator's hosted page](#the-simulators-hosted-page)
+  describes. A decision route takes the outcome a person or a reviewer
+  produces — a document that matches, someone else's document, a
+  document in review, a forged document, failed liveness, a failed
+  address document, a sanctions hit, a sanctions possible match, a PEP,
+  and walking away — with what the document says, so a test settles a
+  run without the page, and nothing settles a run without one or the
+  other. A check for `refused@verification.example` is refused.
+  Deployed, the console proxies the page at `/identity-provider/`, and
+  the adapter's verify URL points there.
+
+### The simulator's hosted page
+
+Once the API takes names alone, the provider's page is the only place
+a person gives what the provider checks, so `idv-simulator-page` plays
+the provider's flow from the redirect in to the redirect back, rather
+than asking for a document's names and offering a choice of outcome.
+It takes the person through four steps, one at a time, every run
+covering all four since the platform floor requires every verification:
+
+- **Details.** Given and family names, typed by the person since the
+  provider is never told them, the date of birth and the nationality.
+- **Document.** Its type, issuing country and number, and a capture
+  standing in for the camera.
+- **Selfie.** A capture standing in for the liveness check, with a
+  *look away* control.
+- **Address.** The residential address, and the type of the
+  proof-of-address document.
+
+Each step settles from what the person enters, as a provider's sandbox
+does, and a sandbox panel on the page lists the values:
+
+- **Name.** The names on the details step are the document's, so
+  changing them presents someone else's document and the adapter
+  grades `no-match` or `close-match`.
+- **Document number.** A number starting `REVIEW` puts the document in
+  review, `FORGED` fails it, and `HIT`, `POSSIBLE` and `PEP` produce a
+  sanctions hit, a sanctions possible match and a PEP. Any other number
+  passes and screens clear.
+- **Selfie.** *Look away* fails liveness.
+- **Address.** The postcode `XX0 0XX` fails the address document.
+- **Leaving.** *Leave* on any step returns the person to the return URL
+  with the run walked away from.
+
+Finishing posts what the person entered to the decision route, whose
+body is `idv-simulator-page`'s `Submission`: an `outcome`, as a test
+posts, or the person's entries, which `decision` maps to an outcome by
+the values above, so both simulators settle a page alike. The person
+returns to the return URL. The simulator keeps what the person entered
+in memory for the run, and posts the provider's results to the adapter
+with the read names and date of birth in them, as a provider does, so
+the adapter's reduction is exercised. `simulate` and `pace` on the
+hand-off URL stay: `simulate` names an outcome, and the page fills each
+step with the values producing it and finishes, at `pace` where one is
+given, its card inert while it plays so a viewer's click or keystroke
+cannot change the run. Zyphe's and Onfido's simulators serve the one page.
+
+### What the platform keeps about a person
+
+A person's names, and the outcome of each check, are all the platform
+keeps, per ADR-0045. Everything else the person gives to the provider,
+on the provider's page.
+
+- **Registering.** `POST /v1/parties` for a person takes
+  `display-name`, `given-name`, `middle-names`, `family-name` and an
+  optional `external-reference`, the tenant's own opaque id for the
+  person, at most 128 characters. `CreatePartyRequest` drops
+  `date-of-birth`, `nationality`, `address` and `national-identifier`
+  and becomes a closed map, so a request still carrying one is refused
+  400 rather than read and ignored. `create-party` drops them too, and
+  `Party` gains `optional string external_reference`, unique within the
+  bank through `Party_by_external_reference`, so a second person under
+  one is refused 409 `:party/external-reference-taken`: with national
+  identifiers gone, it is the duplicate guard, and the tenant's.
+  `:party/identification-rejected` retires with the identifiers' index.
+  The party read returns the names and the reference, and its
+  `embed[address]` and `embed[national-identifier]` retire.
+- **Person identification.** `person-identification` keeps the three
+  names as a `PersonName` in a `person-names` store of its own.
+  `PersonIdentification`'s date of birth, nationality and address are
+  `required`, and the meta-data guard refuses a required field made
+  optional, per [schema-evolution](../recipes/code/schema-evolution.md),
+  so they cannot be cleared in place; the record type stays until the
+  clearance has moved every record.
+- **National identifiers.** `PartyNationalIdentifier` retires: nothing
+  writes one, and its record type is removed once the clearance below
+  has deleted every record.
+- **The run's input.** `submit-idv-check` and the
+  `idv-session-opening` activity carry the person's names and no date
+  of birth or address. Onfido's relay creates its applicant from the
+  names and the email alone, and Zyphe's run carries the party id in
+  its `customData`, so each adapter can read the party's name back when
+  the result arrives.
+- **Evidence.** `IdvDocumentEvidence`'s `given_names`, `family_name`
+  and `date_of_birth` are deprecated, and it gains `optional
+  IdvNameMatch name_match`. An outbox entry's payload, the bus and
+  `Idv.evidence` therefore carry no name read off a document.
+- **An intent's request.** A settled or failed intent keeps only the
+  ids and the criteria of its `request`: the intent-poller applies the
+  store spec's `:redact` in the transaction that settles or fails the
+  intent, so the email and the names stay only while the provider may
+  still need them.
+- **Clearance.** A `personal-data` brick's `personal-data/clearance`
+  kind runs as the migrator starts, its record store the meta-store so
+  it follows the meta-data's save. Each owning brick clears its own
+  store through `fdb/rewrite-store`, a page per transaction:
+  `person-identification` moves every `PersonIdentification`'s names to
+  a `PersonName` and deletes it, `idv` clears the three read fields
+  from every `Idv`, `party` deletes every `PartyNationalIdentifier`, and
+  each IDV relay reduces its settled and failed intents to what its
+  `:redact` keeps and replaces each `idv-evidence` outbox entry's
+  payload with `cleared` — the outbox changelog carries what is
+  relayed, so an entry is read again only through its dedup key, and
+  `payload` is required. Every part is idempotent, so a rerun clears
+  nothing.
+- **Logs and traces.** No adapter logs or adds to a span any field of a
+  provider's result, and `party`, `person-identification` and `idv` log
+  ids and statuses, never a name.
+
+Idempotency records of earlier creates keep their response bodies until
+they expire, a topic keeps earlier messages for its retention period,
+and a changelog keeps every entry; the clearance touches none of them.
 
 ### First slices
 
@@ -381,6 +522,29 @@ runs changes nothing outside it:
    reports once a signed `workflow_run.completed` arrives, and its
    simulator on the shared hosted page. `idv-completed` retires.
    Proved by the party scenarios on Onfido. Built.
+5. **Outcomes only.** `submit-idv-check` carrying the names, each
+   relay starting the run for them, the adapters comparing the name and
+   reporting `name-match`, the read fields deprecated, `decide` without
+   the person identification, and an intent settling without its email.
+   Proved by the treatment table's `claimed-identity` rows through both
+   simulators, and an adapter test reading the outbox entry back with no
+   read name in it. Built.
+6. **The provider's page.** `idv-simulator-page`'s steps, its sandbox
+   values and panel, and `simulate` filling the steps. The console's
+   onboarding scenario and the demo bank's walkthrough play Zaphod
+   through the steps. Proved by a `decision` test per sandbox value and
+   a browser run of the page through every step, by hand and by
+   `simulate`. Built.
+7. **Names only.** `CreatePartyRequest` closed and narrowed,
+   `external-reference`, `person-identification` narrowed,
+   `PartyNationalIdentifier` retired, the `embed` flags retired, the
+   console's party drawer and scenarios and the demo bank's sign-up
+   sending names alone, and the migrator's clearance. Proved by a create
+   carrying a date of birth refused, a second person under one
+   external reference refused, and the clearance run twice over records
+   holding every cleared field. Follows slices 5 and 6, since the
+   comparison moves off the date of birth, and the page takes it,
+   before the API stops taking it. Built.
 
 Resolving a review and re-verification follow under this TDD.
 The demo bank's onboarding screens follow under
@@ -392,19 +556,34 @@ The demo bank's onboarding screens follow under
   the check that names its value, and passing a check that names
   neither.
 - **`idv`** — `unmet-criteria` over the platform and micro policies,
-  `domain/decide` over every row of the treatment table, evidence
+  `domain/decide` over every row of the treatment table, with no person
+  identification read, evidence
   merged in any order, redelivery deciding the same way, the
   session's refusals, and a session made ready, completed and failed.
 - **`idv-query`** — the criteria a bank's policies require, and a
   session reading expired.
 - **`bank`** — create and tier change refused with what is missing.
 - **`<provider>-adapter`** — each provider result mapped to its
-  evidence, an unauthenticated delivery refused, and the refusal to
+  evidence, each grade of `name-match`, an outbox entry carrying no
+  read field, an unauthenticated delivery refused, and the refusal to
   start on a declaration its configuration does not cover.
 - **`<provider>-relay`** — configuration selection by verifications and
-  screenings, resuming a run, and the hand-off for each channel.
-- **`<provider>-simulator`** — each hosted-page outcome posting its
-  results, authenticated as the provider's are.
+  screenings, resuming a run, the run started for the person's names,
+  an intent settled or failed without its email, and the hand-off for
+  each channel.
+- **`party`** — a person created with names and a reference, and a
+  second under the same reference refused.
+- **`personal-data`** — the clearance over records in their former
+  shape, what is still kept left alone, and a second run clearing
+  nothing.
+- **`migrator`** — the schema-evolution guard over the new store and
+  index.
+- **`<provider>-simulator`** — each decision posting its results,
+  authenticated as the provider's are, with the read names and date of
+  birth in them.
+- **`idv-simulator-page`** — `decision` over every sandbox value and a
+  posted outcome, and the page carrying each step and the sandbox
+  panel.
 - **`test-api-scenarios`** — a scenario per row of the treatment
   table, a session handing off, the refusals, a session refused once
   the IDV decides, a session the provider refuses, and the
@@ -442,6 +621,13 @@ The demo bank's onboarding screens follow under
 - **Starting the run at party creation.** Rejected: the channel, the
   return URL and the email are unknown until the tenant has the person
   in front of it.
+- **Comparing the names in `idv`.** Rejected: the name read off the
+  document would cross an outbox entry and a topic to reach it, and
+  stay in both.
+- **Comparing the date of birth as well.** Rejected: the platform would
+  hold the date of birth it compares against, which ADR-0045 refuses.
+- **Clearing the read evidence once decided.** Rejected: by then it is
+  in an outbox entry, on a topic and in a backup.
 - **Direct calls between `party`, `idv` and the adapter.** Rejected:
   it couples the bricks and loses each hop's durable, replayable
   event.
@@ -486,14 +672,30 @@ The demo bank's onboarding screens follow under
 - **No organisation party over the API.** The create route takes person
   parties only, so the PRD's organisation journey cannot run.
 - **The hand-off URL is a credential at rest.** It is stored unencrypted
-  until it expires, as is all PII in FDB.
+  on the session, Zyphe's carrying the person's email, and stays after
+  it expires.
+- **The provider account is the installation's.** One set of a
+  provider's credentials serves every bank, so the evidence sits in the
+  platform's provider account rather than the customer's, until a
+  provider account per bank is built.
+- **A check is bound to its person by name.** A hand-off reaching
+  somebody of the same name verifies the wrong person, which the
+  platform cannot tell from the right one.
+- **Changelogs keep what they carried.** An `idv-session-opening`
+  activity entry carries the email to the adapter, and an outbox
+  changelog entry the evidence it relays, and nothing trims a
+  changelog, so each keeps it; entries written before slice 5 keep the
+  date of birth, address and read names too, and the clearance cannot
+  reach them.
+- **Names and payments stay in backups.** A cleared field stays in
+  every FDB backup taken before the clearance, until the backup
+  expires.
 - **Party and User are not linked.** A `User` and a `Party` coexist
   with no relation between them.
 - **Name matching is naive.** Token sets after lower-casing, with no
   accent folding, transliteration or edit distance.
-- **National identifiers are not validated per type.**
-- **Merging does not re-parent.** IDVs, identifiers and person
-  identification stay on the merged-away party.
+- **Merging does not re-parent.** IDVs and person identification stay
+  on the merged-away party.
 
 ## References
 
@@ -507,10 +709,15 @@ The demo bank's onboarding screens follow under
   `match-name`.
 - [transaction-processing](transaction-processing.md) — the intent and
   outbox pattern every IDV adapter follows.
+- [bank-providers](bank-providers.md) — the provider a bank chooses,
+  and the one connection per provider an installation holds.
 - [ADR-0020](../adr/0020-providers-are-deployment-facts.md) — the
   provider as a deployment fact.
 - [ADR-0021](../adr/0021-changelog-relay.md) — the changelog relay the
   activation chain runs on.
+- [ADR-0045](../adr/0045-a-persons-identity-evidence-stays-with-the-customers-provider.md)
+  — what the platform keeps about a person, and what stays with the
+  provider.
 - [schema-evolution](../recipes/code/schema-evolution.md) — the
   meta-data bumps for the `Policy` and `Idv` changes and the
-  `idv-sessions` store.
+  `idv-sessions` store, and the fields this design deprecates.

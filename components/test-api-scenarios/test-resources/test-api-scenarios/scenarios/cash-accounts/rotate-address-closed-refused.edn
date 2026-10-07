@@ -9,8 +9,7 @@
    :with {:token [:ref :org-0 :token]
           :display-name "Closed Rotating Customer"
           :given-name "Closed"
-          :family-name "Rotator"
-          :national-insurance "TN888005A"}}
+          :family-name "Rotator"}}
   ;; Published product
   {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}
   ;; Open, then close the cash-account

@@ -30,6 +30,9 @@ message Party {
   // wire level for compatibility with parties written before this field.
   optional string idempotency_key = 9;
 
+  // The customer's own id for the person, unique within the bank.
+  optional string external_reference = 10;
+
   enum PartyType {
     PARTY_TYPE_UNKNOWN = 0;
     PARTY_TYPE_PERSON = 1;

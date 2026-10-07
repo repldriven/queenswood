@@ -11,8 +11,7 @@
           :with {:token [:ref :org-0 :token]
                  :display-name "Euro Holder"
                  :given-name "Euro"
-                 :family-name "Holder"
-                 :national-insurance "TN889007A"}}
+                 :family-name "Holder"}}
          {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}]
  :when
  [{:command :api/request

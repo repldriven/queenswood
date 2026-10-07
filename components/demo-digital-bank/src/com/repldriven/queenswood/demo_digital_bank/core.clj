@@ -139,7 +139,7 @@
   [bank sign-up-id details]
   (let-nom> [sign-up (fetch-sign-up bank sign-up-id)
              _ (domain/check-step sign-up :details)
-             registration (domain/party-registration details)
+             registration (domain/party-registration sign-up-id details)
              submitted (submission bank sign-up registration)
              party (platform/register-party (:platform bank)
                                             (:idempotency-key submitted)

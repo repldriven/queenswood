@@ -27,6 +27,7 @@
 (defn- read-run
   [status reports]
   {:run {:id "run-1" :status status}
+   :run-name "Arthur Dent"
    :bank-id "bnk.1"
    :verification-id "idv.1"
    :reports reports})
@@ -46,14 +47,12 @@
     (testing "it names the verification, deduplicated on the run"
       (is (= "idv-evidence" (:event-name evidence)))
       (is (= "run-1:completed" (:dedup-key evidence))))
-    (testing "every report is evidence, the document with what it says"
+    (testing "every report is evidence, the document graded on its name"
       (is (= {:bank-id "bnk.1"
               :verification-id "idv.1"
               :cancelled false
               :document {:outcome :idv-evidence-outcome-passed
-                         :given-names "Arthur"
-                         :family-name "Dent"
-                         :date-of-birth "1952-03-11"
+                         :name-match :idv-name-match-match
                          :document-type "passport"
                          :issuing-country "GBR"}
               :liveness {:outcome :idv-evidence-outcome-passed}
@@ -61,6 +60,14 @@
                         :document-type "utility_bill"}
               :screening {:sanctions :idv-sanctions-outcome-clear :pep false}}
              (:data evidence))))))
+
+(deftest name-match-test
+  (testing "someone else's document is graded no match"
+    (is (= :idv-name-match-no-match
+           (get-in (data
+                    "approved"
+                    [(assoc-in document [:properties :first_name] "Trillian")])
+                   [:document :name-match])))))
 
 (deftest document-sub-result-test
   (testing "a caution goes to review, a suspected document fails"

@@ -1,0 +1,13 @@
+{:name "A second party under one external reference within a bank is refused"
+ ;; Pins the rejection kind that the property test only sees as a generic
+ ;; `:denied` outcome. Two creates with the same external reference in the
+ ;; same bank — the second must reject with
+ ;; `:party/external-reference-taken`. The reference is the customer's own
+ ;; id for the person, so the platform's only duplicate guard is theirs.
+ :given [{:command :create-bank :args []}
+         {:command :create-person-party :args [:bank-0 :cust-shared]}]
+ :when [{:command :assert-no-anomaly :args []}
+        {:command :create-person-party :args [:bank-0 :cust-shared]}]
+ :then [{:command :assert-outcome :args [:denied]}
+        {:command :assert-rejection-kind
+         :args [:party/external-reference-taken]}]}

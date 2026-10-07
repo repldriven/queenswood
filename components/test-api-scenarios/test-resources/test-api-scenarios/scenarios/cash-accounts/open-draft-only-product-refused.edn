@@ -9,8 +9,7 @@
           :with {:token [:ref :org-0 :token]
                  :display-name "Draft Product Holder"
                  :given-name "Draft"
-                 :family-name "Holder"
-                 :national-insurance "TN889009A"}}
+                 :family-name "Holder"}}
          {:command :api/request
           :request {:method :post
                     :path "/v1/cash-account-products"

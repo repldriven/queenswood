@@ -104,15 +104,9 @@
   (fn [request]
     (let [{:keys [state parameters webhook-delay-ms]} request
           id (get-in parameters [:path :id])
-          {:keys [outcome] :as body} (:body parameters)
+          {:keys [outcome document]} (page/decision (:body parameters))
           run (when (outcomes/known? outcome)
-                (outcomes/settle state
-                                 webhook-delay-ms
-                                 id
-                                 outcome
-                                 (select-keys body
-                                              [:givenNames :familyName
-                                               :dateOfBirth])))]
+                (outcomes/settle state webhook-delay-ms id outcome document))]
       (cond
        (not (outcomes/known? outcome))
        (error 422 "workflow_run/unknown-outcome" (str "No outcome: " outcome))

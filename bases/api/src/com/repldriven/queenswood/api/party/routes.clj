@@ -11,7 +11,7 @@
      [ErrorExamples ErrorResponse]]
     [com.repldriven.queenswood.idempotency.interface :as bank-idempotency]
     [com.repldriven.queenswood.party-api.interface :as party-api :refer
-     [IdentificationRejected MissingEmail PartyInvalidStatus PartyMergeIntoSelf
+     [ExternalReferenceTaken MissingEmail PartyInvalidStatus PartyMergeIntoSelf
       PartyNotFound PartyOpenAccounts UnsupportedChannel
       VerificationInvalidStatus VerificationNotFound
       VerificationSessionNotFound]]
@@ -46,8 +46,11 @@
                             "identity provider. It becomes active if "
                             "verification accepts it or rejected if not, with "
                             "a `party.opened` or `party.rejected` webhook "
-                            "notification. A national identifier another "
-                            "party already holds is refused with 422.")
+                            "notification. The person is registered by name "
+                            "alone: their date of birth, address and "
+                            "documents they give to the identity provider. "
+                            "An `external-reference` another party of the "
+                            "bank already has is refused with 409.")
                        :security [{"bearerAuth" ["org:developer"]}]
                        :requestBody {:required true}
                        :parameters ^:replace
@@ -64,7 +67,7 @@
                                                     "party")}
                               :links party-api/from-party}}
                403 (ErrorExamples [#'api-schema/PolicyDenied])
-               422 (ErrorResponse [#'IdentificationRejected])})
+               409 (ErrorResponse [#'ExternalReferenceTaken])})
              :handler commands/create-party}}]
     ["/{party-id}" {:parameters {:path {:party-id [:ref "PartyId"]}}}
      [""
@@ -72,19 +75,19 @@
        :get {:summary "Retrieve a party"
              :openapi {:operationId "RetrieveParty"
                        :description
-                       (str "Set `embed[person-identification]`, "
-                            "`embed[address]` or `embed[national-identifier]` "
-                            "to include those records with the party. A "
-                            "merged party names the party it was merged into.")
+                       (str "Set `embed[person-identification]` to include "
+                            "the person's names with the party. A merged "
+                            "party names the party it was merged into.")
                        :parameters ^:replace
                                    [shared.parameters/ref-party-id
                                     shared.parameters/ref-party-embed
                                     shared.parameters/ref-bank-id-header]}
              :parameters {:query get-party-query-schema}
-             :responses {200 {:description
-                              "The party, with any records the request embeds."
-                              :body [:ref "PartyDetail"]}
-                         404 (ErrorResponse [#'PartyNotFound])}
+             :responses
+             {200 {:description
+                   "The party, with the names where the request embeds them."
+                   :body [:ref "PartyDetail"]}
+              404 (ErrorResponse [#'PartyNotFound])}
              :handler queries/get-party}}]
      ["/verification"
       {:openapi {:security [{"bearerAuth" ["org:viewer"]}]}

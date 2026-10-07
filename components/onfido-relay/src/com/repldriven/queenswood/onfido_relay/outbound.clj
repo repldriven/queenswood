@@ -103,31 +103,13 @@
     first-name
     (str/trim (str first-name " " middle-names))))
 
-(defn- address->onfido
-  [address]
-  (let [{:keys! [street town postcode country]
-         :keys [flat-number building-number building-name sub-street state]}
-        address]
-    (utility/assoc-some {:street street
-                         :town town
-                         :postcode postcode
-                         :country country}
-                        :flat_number flat-number
-                        :building_number building-number
-                        :building_name building-name
-                        :sub_street sub-street
-                        :state state)))
-
 (defn applicant
   [data]
-  (let [{:keys! [first-name last-name]
-         :keys [middle-names date-of-birth address email]}
-        data]
+  (let [{:keys! [first-name last-name] :keys [middle-names email]} data]
     (utility/assoc-some {:first_name (full-first-name first-name middle-names)
                          :last_name last-name}
-                        :dob date-of-birth
-                        :email (when-not (str/blank? email) email)
-                        :address (when address (address->onfido address)))))
+                        :email
+                        (when-not (str/blank? email) email))))
 
 (defn- expires-at
   [{:keys [hand-off-ttl-ms]}]

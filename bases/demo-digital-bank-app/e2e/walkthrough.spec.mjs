@@ -8,20 +8,17 @@ import { test, expect } from "@playwright/test";
 // waits on the balance rather than on the job. Every screen is held a
 // beat for the viewer, and typed fields are typed.
 const bank = process.env.DEMO_BANK_URL ?? "http://localhost:8100";
-// A number and a National Insurance number no earlier customer signed
-// up with: sign-in resolves a customer by phone, and the platform holds
-// one party per identifier. 07700 900000 to 900999 is the range Ofcom
-// keeps for fiction, so no take can ring anybody, and QQ is a prefix
-// never issued, which is why HMRC's own examples carry it.
+// A number no earlier customer signed up with: sign-in resolves a
+// customer by phone. 07700 900000 to 900999 is the range Ofcom keeps
+// for fiction, so no take can ring anybody.
 const stamp = String(Date.now());
 const phone = "7700 900" + stamp.slice(-3);
-const nino = "QQ" + stamp.slice(-6) + "C";
 const passcode = "2468";
 const BEAT = 1800;
 
 const screen = (page, label) => page.locator(`[data-screen-label="${label}"]`);
 const button = (page, name) => page.getByRole("button", { name, exact: true });
-const type = (locator, text) => locator.pressSequentially(text, { delay: 70 });
+const type = (locator, text) => locator.pressSequentially(text, { delay: 35 });
 async function tap(page, digits) {
   for (const d of digits) {
     await page.locator(".pad").getByRole("button", { name: d, exact: true }).click();
@@ -62,29 +59,15 @@ test("a new customer signs up and opens two accounts", async ({ page }) => {
   await expect(screen(page, "About you")).toBeVisible({ timeout: 30_000 });
   await type(page.locator('input.inp[placeholder="Amara"]'), "Hotblack");
   await type(page.locator('input.inp[placeholder="Okafor"]'), "Desiato");
-  await type(page.locator('input.inp[placeholder="DD / MM / YYYY"]'), "31101979");
   await type(page.locator('input.inp[placeholder="amara@example.com"]'), "hotblack@example.com");
-  await type(page.locator('input.inp[placeholder="12"]'), "42");
-  await type(page.locator('input.inp[placeholder="Mare Street"]'), "Improbability Drive");
-  await type(page.locator('input.inp[placeholder="London"]'), "Disaster Area");
-  await type(page.locator('input.inp[placeholder="E8 3RH"]'), "QZ1 9ZX");
-  await type(page.locator('input.inp[placeholder="QQ123456C"]'), nino);
   await page.waitForTimeout(600);
   await button(page, "Continue").click();
-  await expect(screen(page, "Photo ID")).toBeVisible();
+  await expect(screen(page, "Identity check")).toBeVisible();
   await page.waitForTimeout(BEAT);
-  await button(page, "Scan document").click();
-  await expect(button(page, "Continue")).toBeVisible({ timeout: 60_000 });
-  await page.waitForTimeout(BEAT);
-  await button(page, "Continue").click();
-  await expect(screen(page, "Selfie check")).toBeVisible();
-  await page.waitForTimeout(BEAT);
-  await button(page, "Start selfie check").click();
-  await expect(button(page, "Continue")).toBeVisible({ timeout: 10_000 });
-  await page.waitForTimeout(BEAT);
-  await button(page, "Continue").click();
+  await button(page, "Continue to identity check").click();
 
-  // The provider's page: what the document says, and a check that passes.
+  // The provider's page: the person's details, their document, a selfie
+  // and their address, each passing.
   await expect(page.getByRole("heading", { name: "Verify your identity" })).toBeVisible({
     timeout: 60_000,
   });
@@ -92,10 +75,23 @@ test("a new customer signs up and opens two accounts", async ({ page }) => {
   await type(page.getByLabel("Given names", { exact: true }), "Hotblack");
   await type(page.getByLabel("Family name", { exact: true }), "Desiato");
   await page.getByLabel("Date of birth", { exact: true }).fill("1979-10-31");
+  await type(page.getByLabel("Nationality", { exact: true }), "GB");
   await page.waitForTimeout(600);
-  await page.locator("label.tile", { hasText: "Everything checks out" }).click();
+  await button(page, "Continue").click();
+  await type(page.getByLabel("Issuing country", { exact: true }), "GBR");
+  await type(page.getByLabel("Document number", { exact: true }), "123456789");
+  await button(page, "Take photo").click();
   await page.waitForTimeout(BEAT);
   await button(page, "Continue").click();
+  await button(page, "Take selfie").click();
+  await page.waitForTimeout(BEAT);
+  await button(page, "Continue").click();
+  await type(page.getByLabel("Address", { exact: true }), "42 Improbability Drive");
+  await type(page.getByLabel("Town", { exact: true }), "Disaster Area");
+  await type(page.getByLabel("Postcode", { exact: true }), "QZ1 9ZX");
+  await type(page.getByLabel("Country", { exact: true }), "GBR");
+  await page.waitForTimeout(600);
+  await button(page, "Submit").click();
   await expect(screen(page, "Passcode")).toBeVisible({ timeout: 30_000 });
   await page.waitForTimeout(600);
   await tap(page, passcode);
@@ -122,9 +118,9 @@ test("a new customer signs up and opens two accounts", async ({ page }) => {
     .toBe("verified");
   await page.waitForTimeout(BEAT);
 
-  // An Everyday, and the £50 the product promised, paid on the hour.
+  // An Everyday, and the £200 the product promised, paid on the hour.
   await openAccount(page, "Everyday");
-  await expect(page.locator(".big.num")).toHaveText("£50.00", { timeout: 4 * 60 * 1000 });
+  await expect(page.locator(".big.num")).toHaveText("£200.00", { timeout: 4 * 60 * 1000 });
   await page.waitForTimeout(BEAT * 2);
 
   // A Rainy Day, with £20 of it.

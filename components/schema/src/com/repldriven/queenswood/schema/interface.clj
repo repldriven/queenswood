@@ -72,7 +72,8 @@
      PartyProto$Party
      PartyNationalIdentifierProto$PartyNationalIdentifier)
     (com.repldriven.queenswood.schemas.person_identification
-     PersonIdentificationProto$PersonIdentification)
+     PersonIdentificationProto$PersonIdentification
+     PersonNameProto$PersonName)
     (com.repldriven.queenswood.schemas.payments
      InboundPaymentProto$InboundPayment
      InternalPaymentProto$InternalPayment
@@ -351,10 +352,11 @@
 
 (defn pb->Party
   "Parse Party protobuf bytes into a Clojure map. Strips
-  `merged-into-party-id` and `idempotency-key` when they deserialise
-  as the proto2 empty-string default — every party except a
-  merged-away one leaves the first unset, and every party not created
-  by a client command leaves the second unset."
+  `merged-into-party-id`, `idempotency-key` and `external-reference`
+  when they deserialise as the proto2 empty-string default — every
+  party except a merged-away one leaves the first unset, every party
+  not created by a client command the second, and every party
+  registered without a reference the third."
   [input]
   (let [party (party/pb->Party input)]
     (cond-> party
@@ -362,7 +364,10 @@
             (dissoc :merged-into-party-id)
 
             (= "" (:idempotency-key party))
-            (dissoc :idempotency-key))))
+            (dissoc :idempotency-key)
+
+            (= "" (:external-reference party))
+            (dissoc :external-reference))))
 
 (defn Party->pb
   "Serialise a Party map to protobuf bytes.
@@ -426,6 +431,26 @@
   [m]
   (PersonIdentificationProto$PersonIdentification/parseFrom
    (PersonIdentification->pb m)))
+
+(def ^{:doc "Parse PersonName protobuf bytes into a Clojure map."}
+     pb->PersonName
+  person-identification/pb->PersonName)
+
+(defn PersonName->pb
+  "Serialise a PersonName map to protobuf bytes.
+
+  Args:
+  - m: PersonName map matching the generated schema."
+  [m]
+  (proto/->pb (person-identification/new-PersonName m)))
+
+(defn PersonName->java
+  "Parse a PersonName map into the generated Java protobuf class.
+
+  Args:
+  - m: PersonName map matching the generated schema."
+  [m]
+  (PersonNameProto$PersonName/parseFrom (PersonName->pb m)))
 
 (def ^{:doc "Parse Idv protobuf bytes into a Clojure map."} pb->Idv idv/pb->Idv)
 

@@ -18,14 +18,7 @@
           :with {:token [:ref :bank-0 :token]
                  :display-name "Tricia McMillan"
                  :given-name "Tricia"
-                 :family-name "McMillan"
-                 :date-of-birth "1962-03-08"
-                 :national-insurance "TN555803E"
-                 :address {:building-number "1"
-                           :street "Cottington Lane"
-                           :town "Cottington"
-                           :postcode "CT12 4XY"
-                           :country "GBR"}}}
+                 :family-name "McMillan"}}
          {:fixture :product :as :draft :with {:token [:ref :bank-0 :token]}}]
  :when
  [{:command :api/request

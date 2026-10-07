@@ -2,6 +2,7 @@
   (:require
     [com.repldriven.queenswood.zyphe-adapter.publisher :as publisher]
 
+    [com.repldriven.queenswood.idv-provider.interface :as idv-provider]
     [com.repldriven.queenswood.intent-poller.interface :as intent-poller]
     [com.repldriven.queenswood.zyphe-relay.interface :as relay]
     [com.repldriven.queenswood.zyphe-webhook.interface :as zyphe-webhook]
@@ -39,18 +40,30 @@
 
 (defn- record
   [request event]
-  (let [descriptor (publisher/->idv-evidence event)]
-    (if (nil? descriptor)
-      (do (log/info "Zyphe webhook carries no evidence; acknowledged"
-                    {:event-id (:id event)
-                     :type (:type event)
-                     :flow-status (get-in event [:flow :status])})
-          {:status 200 :body {:received true}})
-      (let [res (record-event request descriptor)]
-        (if (error/anomaly? res)
-          (do (log/error "Failed to record Zyphe evidence" res)
-              {:status 500 :body {:error "webhook not recorded"}})
-          {:status 200 :body {:received true}})))))
+  (let [{:keys [record-db record-store]} request
+        run-name (idv-provider/party-name {:record-db record-db
+                                           :record-store record-store}
+                                          (publisher/party-id event))
+        descriptor (when-not (error/anomaly? run-name)
+                     (publisher/->idv-evidence event run-name))]
+    (cond
+     (error/anomaly? run-name)
+     (do (log/error "Failed to read the party's name" run-name)
+         {:status 500 :body {:error "webhook not recorded"}})
+
+     (nil? descriptor)
+     (do (log/info "Zyphe webhook carries no evidence; acknowledged"
+                   {:event-id (:id event)
+                    :type (:type event)
+                    :flow-status (get-in event [:flow :status])})
+         {:status 200 :body {:received true}})
+
+     :else
+     (let [res (record-event request descriptor)]
+       (if (error/anomaly? res)
+         (do (log/error "Failed to record Zyphe evidence" res)
+             {:status 500 :body {:error "webhook not recorded"}})
+         {:status 200 :body {:received true}})))))
 
 (defn receive
   [_config]

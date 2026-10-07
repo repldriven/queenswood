@@ -9,11 +9,11 @@
            :status 404
            :detail "Party not found"}})
 
-(def IdentificationRejected
+(def ExternalReferenceTaken
   {:value {:title "REJECTED"
-           :type ":party/identification-rejected"
-           :status 422
-           :detail "Identification rejected for this party"}})
+           :type ":party/external-reference-taken"
+           :status 409
+           :detail "A party already has this external reference"}})
 
 (def PartyInvalidStatus
   {:value {:title "REJECTED"
@@ -64,7 +64,7 @@
            :detail "The identity provider needs the person's email"}})
 
 (def registry
-  (examples-registry [#'PartyNotFound #'IdentificationRejected
+  (examples-registry [#'PartyNotFound #'ExternalReferenceTaken
                       #'PartyInvalidStatus #'PartyOpenAccounts
                       #'PartyMergeIntoSelf #'VerificationNotFound
                       #'VerificationSessionNotFound #'VerificationInvalidStatus
@@ -76,6 +76,7 @@
    :type :person
    :display-name "Arthur Phillip Dent"
    :status :pending
+   :external-reference "cust-4471"
    :created-at "2025-01-01T00:00:00Z"
    :updated-at "2025-01-01T00:00:00Z"})
 
@@ -83,24 +84,13 @@
 
 (def PartyList {:items [Party]})
 
-(def Address
-  {:building-number "155"
-   :street "Country Lane"
-   :town "Cottington"
-   :postcode "CT12 4XY"
-   :country "GBR"})
-
 (def CreatePartyRequest
   {:type :person
    :display-name "Arthur Phillip Dent"
    :given-name "Arthur"
    :middle-names "Phillip"
    :family-name "Dent"
-   :date-of-birth "1950-07-27"
-   :nationality "GB"
-   :address Address
-   :national-identifier
-   {:type :national-insurance :value "TN000001A" :issuing-country "GB"}})
+   :external-reference "cust-4471"})
 
 (def MergePartyRequest {:into-party-id "pty.01kprbmgcj35ptc8npmybhh4sb"})
 

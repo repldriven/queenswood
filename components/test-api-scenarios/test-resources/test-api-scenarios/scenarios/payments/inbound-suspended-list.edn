@@ -19,14 +19,7 @@
    :with {:token [:ref :bank-a :token]
           :display-name "Fenchurch Wells"
           :given-name "Fenchurch"
-          :family-name "Wells"
-          :date-of-birth "1955-06-09"
-          :national-insurance "TN556211A"
-          :address {:building-number "12"
-                    :street "Rickmansworth Road"
-                    :town "Cottington"
-                    :postcode "CT12 4XY"
-                    :country "GBR"}}}
+          :family-name "Wells"}}
   {:fixture :account
    :as :debtor-a
    :with {:token [:ref :bank-a :token]

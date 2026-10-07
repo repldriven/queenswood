@@ -62,41 +62,48 @@
   const TPL_FIXED = "tpl.00000000000000000000000003";
   // Amounts in pence. The welcome reward funds the whole story.
   const FUND_BANK = 5000000; // £50,000 into the bank's own funds
-  const REWARD = 5000; // £50 welcome reward on every Everyday opened
-  const ARTHUR_SAVE = 3000; // £30 Arthur Everyday → Rainy Day
-  const OVERDRAW = 4000; // £40 Arthur tries to move with only £20 left
+  const REWARD = 20000; // £200 welcome reward on every Everyday opened
+  const ARTHUR_SAVE = 17000; // £170 Arthur Everyday → Rainy Day, 2p a night at 4.35%
+  const OVERDRAW = 4000; // £40 Arthur tries to move with only £30 left
   const FORD_PAYS = 2000; // £20.00 Ford → Arthur, outbound FPS (beer and nuts)
   const RAINY_DAY_BPS = 410;
   const RAINY_DAY_V2_BPS = 435;
 
-  const ADDRESS = {
-    "building-number": "155",
-    street: "Country Lane",
-    town: "Cottington",
-    postcode: "CT12 4XY",
-    country: "GBR",
-  };
-  // Each person is played through the identity provider's hosted page:
-  // Arthur and Ford show their own documents, and Zaphod turns out to be
-  // on a sanctions list.
+  // Each person is registered by name, under the bank's own reference,
+  // and played through the identity provider's hosted page: Arthur and
+  // Ford show their own documents, and Zaphod turns out to be on a
+  // sanctions list.
   const PARTY = {
     arthur: {
       type: "person", "display-name": "Arthur Dent",
       "given-name": "Arthur", "family-name": "Dent",
-      "date-of-birth": "1950-07-27", nationality: "GB", address: ADDRESS,
-      "national-identifier": { type: "national-insurance", value: "TN555101A", "issuing-country": "GB" },
+      "external-reference": "cust-arthur",
     },
     ford: {
       type: "person", "display-name": "Ford Prefect",
       "given-name": "Ford", "family-name": "Prefect",
-      "date-of-birth": "1948-04-01", nationality: "GB", address: ADDRESS,
-      "national-identifier": { type: "national-insurance", value: "TN555102B", "issuing-country": "GB" },
+      "external-reference": "cust-ford",
     },
     zaphod: {
       type: "person", "display-name": "Zaphod Beeblebrox",
       "given-name": "Zaphod", "family-name": "Beeblebrox",
-      "date-of-birth": "1947-02-02", nationality: "GB", address: ADDRESS,
-      "national-identifier": { type: "national-insurance", value: "TN555103C", "issuing-country": "GB" },
+      "external-reference": "cust-zaphod",
+    },
+  };
+  // What each person tells the identity provider on its page, which the
+  // platform never holds.
+  const BORN = { Arthur: "1950-07-27", Ford: "1948-04-01", Zaphod: "1947-02-02" };
+  const HOME = {
+    Arthur: { addressLine: "155 Country Lane", town: "Cottington", postcode: "QC1 4XY" },
+    Ford: {
+      addressLine: "c/o The Hitchhiker's Guide, Megadodo House",
+      town: "Ursa Minor Beta",
+      postcode: "QU4 2MB",
+    },
+    Zaphod: {
+      addressLine: "Presidential Suite, Heart of Gold",
+      town: "Damogran",
+      postcode: "QD4 2ZB",
     },
   };
   const TEAM = {
@@ -136,10 +143,10 @@
     {
       id: "s1", num: "01", title: "Publish", view: "products",
       story:
-        "Draft and publish the three products the bank sells: Everyday at 0 bps with a £50 welcome reward, Rainy Day at 4.10% and 1 Year Fixed at 4.65%. The reward is a term on the version, fixed once published.",
+        "The product team drafts and publishes the bank's three products in the console: Everyday at 0 bps with a £200 welcome reward, Rainy Day at 4.10% and 1 Year Fixed at 4.65%. The reward is a term of the version, fixed once published.",
       backing: ["journeys/cash-account-products/1-designing-and-publishing-a-new-product", "opening-reward"],
       steps: [
-        { name: "Draft Everyday · 0 bps, £50 welcome reward", raw: [{ method: "POST", path: "/v1/cash-account-products", tag: "request" }] },
+        { name: "Draft Everyday · 0 bps, £200 welcome reward", raw: [{ method: "POST", path: "/v1/cash-account-products", tag: "request" }] },
         { name: "Publish it", raw: [{ method: "POST", path: "/v1/cash-account-products/{id}/versions/{v}/publish", tag: "request" }] },
         { name: "Draft Rainy Day @ 4.10%", raw: [{ method: "POST", path: "/v1/cash-account-products", tag: "request" }] },
         { name: "Publish it", raw: [{ method: "POST", path: "/v1/cash-account-products/{id}/versions/{v}/publish", tag: "request" }] },
@@ -150,7 +157,7 @@
     {
       id: "s2", num: "02", title: "Invite", view: "people",
       story:
-        "Invite a developer and a viewer to the bank's team, resend the developer's invitation, and read the audit log the platform keeps of every one of those acts.",
+        "The owner invites a developer and a viewer to the bank's team in the console, resends the developer's invitation, and reads the audit log the platform keeps of each act.",
       backing: ["journeys/memberships/1-a-founding-owner-brings-in-a-colleague", "resend-replaces-emailed-link", "audit-log-pages-in-order"],
       steps: [
         { name: "Invite Trillian as a developer", raw: [{ method: "POST", path: "/v1/invitations", tag: "request" }] },
@@ -162,7 +169,7 @@
     {
       id: "s3", num: "03", title: "Verify", view: "parties",
       story:
-        "Onboard Arthur Dent, Ford Prefect and Zaphod Beeblebrox. Each is handed to the identity provider's page through a verification session: Arthur and Ford show their own documents and go active; Zaphod turns out to be on a sanctions list, is rejected, and the platform denies him an account.",
+        "Arthur Dent, Ford Prefect and Zaphod Beeblebrox sign up on the bank's app, which hands each to the bank's identity provider. Arthur and Ford show their own documents and go active; Zaphod turns out to be on a sanctions list, is rejected, and is refused an account.",
       backing: ["journeys/parties/1-registering-a-person-party", "verification-sanctions-hit-rejects", "verification-session-hands-off"],
       steps: [
         { name: "Onboard Arthur Dent", raw: [{ method: "POST", path: "/v1/parties", tag: "request" }] },
@@ -176,7 +183,7 @@
     {
       id: "s4", num: "04", title: "Fund", view: "ledger",
       story:
-        "£50,000 arrives from outside into the bank's own funds. The books move — 1100 cash-at-correspondent debited, own funds credited — debits equal credits, to the penny. Customers are paid from here, never from nowhere.",
+        "The bank's treasury sends £50,000 from outside into the bank's own funds. The books move — 1100 cash at correspondent debited, own funds credited — and debits equal credits, to the penny. Customers are paid from here, never from nowhere.",
       backing: ["simulate/inbound-transfer-foreign-bank-refused", "ledger-accounts/post-second-currency"],
       steps: [
         { name: "Fund the bank · £50,000 into own funds", raw: [{ method: "POST", path: "/v1/simulate/inbound-transfer", tag: "request" }] },
@@ -186,7 +193,7 @@
     {
       id: "s5", num: "05", title: "Open", view: "accounts",
       story:
-        "Open an Everyday account each for Arthur and Ford. Each is created pending and transitions to opened; the version promises them a welcome reward the next hour.",
+        "Arthur and Ford each open an Everyday on the bank's app. Each account is created pending and then opened, and the version promises a welcome reward the next hour.",
       backing: ["journeys/cash-accounts/1-opening-an-end-customer-s-first-account"],
       steps: [
         { name: "Open Arthur's Everyday", raw: [{ method: "POST", path: "/v1/cash-accounts", tag: "request" }] },
@@ -197,41 +204,41 @@
     {
       id: "s6", num: "06", title: "Reward", view: "jobs",
       story:
-        "Force-start the hourly-rewards job that stands in for the hour's tick. It pays £50 into each Everyday from the bank's own funds, records a reward per account, and would pay nothing a second time.",
+        "On the hour, the platform's rewards job pays £200 into each Everyday from the bank's own funds and records a reward per account; a second run pays nothing. The console forces the run rather than waiting for the hour.",
       backing: ["rewards/opening-reward-paid", "rewards/opening-reward-deferred"],
       steps: [
         { name: "Force-start hourly-rewards job", tone: "exception", raw: [{ method: "POST", path: "/v1/jobs/{id}/runs", tag: "request" }] },
-        { name: "Two rewards paid, £50 each", raw: [{ method: "GET", path: "/v1/rewards?account-id={id}", tag: "poll" }] },
-        { name: "Everyday balances read £50", raw: [{ method: "GET", path: "/v1/cash-accounts/{id}/balances", tag: "poll" }] },
+        { name: "Two rewards paid, £200 each", raw: [{ method: "GET", path: "/v1/rewards?account-id={id}", tag: "poll" }] },
+        { name: "Everyday balances read £200", raw: [{ method: "GET", path: "/v1/cash-accounts/{id}/balances", tag: "poll" }] },
         { name: "Own funds down £100", raw: [{ method: "GET", path: "/v1/ledger-accounts", tag: "request" }] },
       ],
     },
     {
       id: "s7", num: "07", title: "Move", view: "accounts",
       story:
-        "Arthur opens a Rainy Day and moves £30 of his reward into it. An internal payment between a customer's own accounts posts at once.",
+        "Arthur opens a Rainy Day on the bank's app and moves £170 of the reward into it. A payment between a customer's own accounts posts at once.",
       backing: ["journeys/payments/1-internal-transfer"],
       steps: [
         { name: "Open Arthur's Rainy Day", raw: [{ method: "POST", path: "/v1/cash-accounts", tag: "request" }] },
-        { name: "Arthur moves £30 · Everyday → Rainy Day", raw: [{ method: "POST", path: "/v1/payments/internal", tag: "request" }] },
-        { name: "Rainy Day reads £30", raw: [{ method: "GET", path: "/v1/cash-accounts/{id}/balances", tag: "poll" }] },
+        { name: "Arthur moves £170 · Everyday → Rainy Day", raw: [{ method: "POST", path: "/v1/payments/internal", tag: "request" }] },
+        { name: "Rainy Day reads £170", raw: [{ method: "GET", path: "/v1/cash-accounts/{id}/balances", tag: "poll" }] },
       ],
     },
     {
       id: "s8", num: "08", title: "Refuse", view: "policies",
       story:
-        "Arthur tries to move £40 with £20 left. The platform's non-negative-balance policy refuses it synchronously and nothing posts — the policy is data, and the console shows the rule that held.",
+        "Arthur tries to move £40 on the bank's app with £30 left. The platform's non-negative-balance policy refuses it at once and nothing posts; the policy is data, and the console shows the rule that held.",
       backing: ["daily-limit-breach-internal", "capability-denied-outbound"],
       steps: [
         { name: "Arthur sends £40 · Everyday → Rainy Day", raw: [{ method: "POST", path: "/v1/payments/internal", tag: "request" }] },
         { name: "Refused · available must stay ≥ £0", tone: "exception", raw: [{ method: "GET", path: "/v1/bank/effective-policy", tag: "request" }] },
-        { name: "Nothing posted · Everyday still £20", raw: [{ method: "GET", path: "/v1/cash-accounts/{id}/balances", tag: "poll" }] },
+        { name: "Nothing posted · Everyday still £30", raw: [{ method: "GET", path: "/v1/cash-accounts/{id}/balances", tag: "poll" }] },
       ],
     },
     {
       id: "s9", num: "09", title: "Pay", view: "accounts",
       story:
-        "Ford checks Arthur's name against the account he is about to pay, then sends £20 by Faster Payments. The scheme settles it and, this being the same bank, it lands as an inbound: Ford −£20, Arthur +£20.",
+        "On the bank's app, Ford checks Arthur's name against the account about to be paid, then sends £20 by Faster Payments. The scheme settles it and, this being the same bank, it lands as an inbound: Ford −£20, Arthur +£20.",
       backing: ["payee-check-match", "journeys/payments/2-outbound-payment-happy-path", "journeys/payments/4-inbound-payment"],
       steps: [
         { name: "Check the payee · Arthur Dent matches", raw: [{ method: "POST", path: "/v1/payee-checks", tag: "request" }] },
@@ -243,7 +250,7 @@
     {
       id: "s10", num: "10", title: "Migrate", view: "migrations",
       story:
-        "Reprice Rainy Day to 4.35% as a new version, plan a migration of its holders onto it, approve the plan, and run the account-migration job. Arthur's Rainy Day moves to the new rate.",
+        "The product team reprices Rainy Day to 4.35% as a new version in the console, plans a migration of its holders onto it and approves the plan. The platform's migration job, forced here, moves Arthur's Rainy Day to the new rate.",
       backing: ["journeys/cash-account-products/2-changing-terms-new-version", "journeys/cash-account-migrations/1-moving-customers-onto-new-terms"],
       steps: [
         { name: "Revise Rainy Day → v2 @ 4.35%", raw: [{ method: "POST", path: "/v1/cash-account-products/{id}/versions", tag: "request" }, { method: "POST", path: "/v1/cash-account-products/{id}/versions/{v}/publish", tag: "request" }] },
@@ -256,7 +263,7 @@
     {
       id: "s11", num: "11", title: "Accrue", view: "jobs",
       story:
-        "Force-start the daily-interest job that stands in for the night. The accrue → capitalise pipeline gives Rainy Day its statement line at 4.35% and posts the bank's own entry — pence, at a real rate, and ties to the penny.",
+        "Overnight, the platform's daily-interest job accrues and capitalises: Rainy Day gets its statement line at 4.35% and the bank's own entry posts, pence at a real rate, tied to the penny. The console forces the run rather than waiting for the night.",
       backing: ["journeys/interest/1-daily-accrual-run", "interest-accrual"],
       steps: [
         { name: "Force-start daily-interest job", tone: "exception", raw: [{ method: "POST", path: "/v1/jobs/{id}/runs", tag: "request" }] },
@@ -337,7 +344,7 @@
     const activeCustomers = d("s3") ? 2 : 0;
     const accountsOpen = (d("s5") ? 2 : 0) + (d("s7") ? 1 : 0);
     let cash = 0;
-    if (d("s6")) cash += 2 * REWARD; // both Everydays rewarded £50
+    if (d("s6")) cash += 2 * REWARD; // both Everydays rewarded £200
     // Moving (s7), the refused overdraw (s8) and Ford paying Arthur (s9)
     // all stay inside the bank; interest (s11) is pence at a real rate.
     return { productsLive, applicants, activeCustomers, accountsOpen, cash };
@@ -458,10 +465,11 @@
     poll(() => api.get_party(id), (r) => r.status === 200 && r.body?.status === status, { tries: 40, delay: 600 });
 
   // Play the person through the identity provider's hosted page: open a
-  // session, wait for its hand-off, and show it in a panel, asking the
-  // page to fill in what the document says and submit `outcome` at a
-  // pace a viewer can follow. The panel closes once the verification
-  // decides. Skipped for a person whose verification has already decided.
+  // session, wait for its hand-off, and show it in a panel as the bank's
+  // app would open it, asking the page to fill in what the document says
+  // and submit `outcome` at a pace a viewer can follow. The panel closes
+  // once the verification decides, having shown what the platform heard.
+  // Skipped for a person whose verification has already decided.
   const OUTCOMES = { match: "everything checks out", "sanctions-hit": "a sanctions hit" };
   let idv = $state(null);
   let idvOpen = $state(false);
@@ -484,17 +492,25 @@
     url.searchParams.set("simulate", outcome);
     url.searchParams.set("givenNames", body["given-name"]);
     url.searchParams.set("familyName", body["family-name"]);
-    url.searchParams.set("dateOfBirth", body["date-of-birth"]);
+    url.searchParams.set("dateOfBirth", BORN[body["given-name"]]);
+    for (const [k, v] of Object.entries(HOME[body["given-name"]])) url.searchParams.set(k, v);
     url.searchParams.set("pace", "900");
-    idv = { name: body["display-name"], outcome: OUTCOMES[outcome] ?? outcome, url: url.toString() };
+    idv = {
+      name: body["display-name"],
+      given: body["given-name"],
+      outcome: OUTCOMES[outcome] ?? outcome,
+      url: url.toString(),
+      heard: null,
+    };
     idvOpen = true;
     try {
-      await poll(
+      const decided = await poll(
         () => api.get_verification(partyId),
         (r) => r.status === 200 && r.body?.status !== "pending",
         { tries: 60, delay: 600 },
       );
-      await sleep(1500);
+      idv.heard = decided.body?.status ?? "decided";
+      await sleep(2000);
     } finally {
       idvOpen = false;
       await sleep(300);
@@ -634,7 +650,7 @@
     async s8({ step }) {
       const ae = ctx.accounts.arthurEveryday;
       await step(0, async () => {
-        // Arthur's Everyday holds £20; £40 out would breach the
+        // Arthur's Everyday holds £30; £40 out would breach the
         // platform non-negative-balance limit. Expect a synchronous 429.
         const r = await api.submit_internal_payment({ "debtor-account-id": ae.accountId, "creditor-account-id": ctx.accounts.arthurRainyDay.accountId, currency: "GBP", amount: OVERDRAW, reference: "Overdraw attempt" });
         if (r.status !== 429) throw new Error(`expected 429 policy limit, got ${r.status}`);
@@ -681,7 +697,7 @@
           { tries: 40, delay: 600 },
         ));
       // Outbound to a same-bank account round-trips back as an inbound:
-      // Ford −£20, Arthur +£20, so Arthur's Everyday climbs to £40.
+      // Ford −£20, Arthur +£20, so Arthur's Everyday climbs to £50.
       await step(3, () =>
         poll(
           () => api.get_cash_account_balances(arthur.accountId),
@@ -695,6 +711,7 @@
         const r = await api.create_cash_account_migration({
           name: "Rainy Day holders onto v2",
           "source-product-id": rainy.productId,
+          "source-version-ids": [rainy.priorVersionId],
           "target-product-id": rainy.productId,
           "target-version-id": rainy.versionId,
           "notified-on": TODAY,
@@ -990,7 +1007,7 @@
 {#snippet payoff(s)}
   {#if s.id === "s1"}
     <div class="prod-chips">
-      <div class="prod-chip"><span class="pc-name">Everyday</span><span class="pc-rate">0 bps · £50 welcome reward</span><Badge tone="published">published</Badge><span class="pc-ver">v1</span></div>
+      <div class="prod-chip"><span class="pc-name">Everyday</span><span class="pc-rate">0 bps · £200 welcome reward</span><Badge tone="published">published</Badge><span class="pc-ver">v1</span></div>
       <div class="prod-chip"><span class="pc-name">Rainy Day</span><span class="pc-rate">4.10%</span><Badge tone="published">published</Badge><span class="pc-ver">v1</span></div>
       <div class="prod-chip"><span class="pc-name">1 Year Fixed</span><span class="pc-rate">4.65%</span><Badge tone="published">published</Badge><span class="pc-ver">v1</span></div>
     </div>
@@ -1027,18 +1044,18 @@
       <div class="jl-note">The hourly-rewards job stood in for the hour's tick: two accounts owed a reward, two paid, each in a transaction of its own from the bank's own funds. A second run would find both paid and pay nothing.</div>
     </div>
     <div class="pay-lines">
-      <div class="pay-line"><span class="py-amt">£50.00</span><Badge tone="published">paid</Badge><span class="py-desc">Arthur · Everyday <span class="mono">£0 → £50</span> · ref <span class="mono">Welcome reward</span></span></div>
-      <div class="pay-line"><span class="py-amt">£50.00</span><Badge tone="published">paid</Badge><span class="py-desc">Ford · Everyday <span class="mono">£0 → £50</span> · ref <span class="mono">Welcome reward</span></span></div>
+      <div class="pay-line"><span class="py-amt">£200.00</span><Badge tone="published">paid</Badge><span class="py-desc">Arthur · Everyday <span class="mono">£0 → £200</span> · ref <span class="mono">Welcome reward</span></span></div>
+      <div class="pay-line"><span class="py-amt">£200.00</span><Badge tone="published">paid</Badge><span class="py-desc">Ford · Everyday <span class="mono">£0 → £200</span> · ref <span class="mono">Welcome reward</span></span></div>
     </div>
     <div class="tb-tie">{@render icoCheck()}<span>Own funds <span class="mono">−£100</span>, customer money <span class="mono">+£100</span> — the books still tie.</span></div>
   {:else if s.id === "s7"}
     <div class="pay-lines">
-      <div class="pay-line"><span class="py-amt">£30.00</span><Badge tone="published">settled</Badge><span class="py-desc">Arthur · Everyday → Rainy Day · Rainy Day <span class="mono">£0 → £30</span></span></div>
+      <div class="pay-line"><span class="py-amt">£170.00</span><Badge tone="published">settled</Badge><span class="py-desc">Arthur · Everyday → Rainy Day · Rainy Day <span class="mono">£0 → £170</span></span></div>
     </div>
     <div class="tb-tie">{@render icoCheck()}<span>Money moved between a customer's own accounts, posted at once — debits still equal credits.</span></div>
   {:else if s.id === "s8"}
     <div class="pay-lines">
-      <div class="pay-line"><span class="py-amt">−£40.00</span><Badge tone="rejected">refused</Badge><span class="py-desc">Arthur · Everyday → Rainy Day · Everyday holds only <span class="mono">£20</span></span></div>
+      <div class="pay-line"><span class="py-amt">−£40.00</span><Badge tone="rejected">refused</Badge><span class="py-desc">Arthur · Everyday → Rainy Day · Everyday holds only <span class="mono">£30</span></span></div>
     </div>
     <div class="tb-tie neutral">{@render icoSpark()}<span><span class="hl">Available balance must stay at or above £0</span> — the platform policy refused the transfer before any money moved. Nothing posted.</span></div>
   {:else if s.id === "s9"}
@@ -1046,7 +1063,7 @@
       <div class="pay-line"><span class="py-amt">check</span><Badge tone="published">match</Badge><span class="py-desc">Payee check · <span class="mono">Arthur Dent</span> against the account Ford is about to pay</span></div>
       <div class="pay-line"><span class="py-amt">£20.00</span><Badge tone="published">completed</Badge><span class="py-desc">Ford → Arthur · outbound FPS · ref <span class="mono">Beer and nuts</span></span></div>
     </div>
-    <div class="tb-tie">{@render icoCheck()}<span>Ford <span class="mono">£50 → £30</span>, Arthur <span class="mono">£20 → £40</span> — it left over the scheme and arrived back, and the books still tie.</span></div>
+    <div class="tb-tie">{@render icoCheck()}<span>Ford <span class="mono">£200 → £180</span>, Arthur <span class="mono">£30 → £50</span> — it left over the scheme and arrived back, and the books still tie.</span></div>
   {:else if s.id === "s10"}
     <div class="prod-chips">
       <div class="prod-chip"><span class="pc-name">Rainy Day</span><span class="pc-rate">4.10%</span><Badge tone="published">published</Badge><span class="pc-ver">v1</span></div>
@@ -1060,7 +1077,7 @@
   {:else if s.id === "s11"}
     <div class="joblet">
       <TaskPipeline steps={[{ name: "accrue", status: "ok" }, { name: "capitalise", status: "ok" }]} />
-      <div class="jl-note">The daily-interest job accrues silently, then capitalises — one statement line for Rainy Day and the bank's own entry posted once for the run. At 4.35% on £30 a night is a fraction of a penny, and the fraction is carried rather than rounded away. See the run in <span class="mono">Jobs</span> and the postings in the <span class="mono">Ledger</span>.</div>
+      <div class="jl-note">The daily-interest job accrues silently, then capitalises — one statement line for Rainy Day and the bank's own entry posted once for the run. At 4.35% on £170 a night is just over 2p: Rainy Day is credited 2p, and the fraction left over is carried rather than rounded away. See the run in <span class="mono">Jobs</span> and the postings in the <span class="mono">Ledger</span>.</div>
     </div>
     <div class="tb-tie">{@render icoCheck()}<span>Interest posting ties to the penny.</span></div>
   {/if}
@@ -1068,14 +1085,27 @@
 
 <Drawer
   open={idvOpen}
-  kicker="Identity provider"
-  title={idv?.name ?? ""}
-  sub={idv ? `The provider's hosted page, played through to ${idv.outcome}.` : ""}
+  kicker={bankName ? `On ${bankName}'s app` : "On the bank's app"}
+  title={idv ? `${idv.name}'s identity check` : ""}
+  sub={idv
+    ? `${bankName ? `${bankName}'s` : "The bank's"} app hands ${idv.given} to its identity provider, here a simulated one, played through to ${idv.outcome}. Queenswood opens the session and hears the outcome; it never sees this page.`
+    : ""}
   width={460}
-  label="Identity provider"
+  label="Identity check"
 >
   {#if idv}
-    <iframe class="idv-frame" title="Identity provider" src={idv.url}></iframe>
+    <div class="idv-phone">
+      <div class="idv-appbar">
+        <span class="idv-appmark">{(bankName ?? "B").slice(0, 1)}</span>
+        <span>{bankName ?? "Your bank"}</span>
+      </div>
+      <iframe class="idv-frame" title="Identity provider" src={idv.url}></iframe>
+    </div>
+    <ol class="idv-hops">
+      <li class="done">{bankName ?? "The bank"}'s app</li>
+      <li class:active={!idv.heard} class:done={idv.heard}>Identity provider</li>
+      <li class:done={idv.heard}>Queenswood hears{idv.heard ? ` ${idv.heard}` : " the outcome"}</li>
+    </ol>
   {/if}
 </Drawer>
 
@@ -1287,12 +1317,70 @@
   }
   .toast :global(svg) { width: 15px; height: 15px; }
   .toast .t-ok { color: var(--gold-bright); display: inline-flex; }
+  /* The bank's app, not the console: a phone in neutral greys that take
+     no colour from the console's theme. */
+  .idv-phone {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    border: 9px solid #17191e;
+    border-radius: 34px;
+    overflow: hidden;
+    background: #f4f5f7;
+    box-shadow: 0 18px 40px -18px rgba(0, 0, 0, 0.45);
+  }
+  .idv-appbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px 10px;
+    background: #17191e;
+    color: #f4f5f7;
+    font: 600 13px/1 system-ui, sans-serif;
+  }
+  .idv-appmark {
+    display: inline-grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    background: #f4f5f7;
+    color: #17191e;
+    font-size: 11px;
+  }
   .idv-frame {
     flex: 1;
     width: 100%;
     min-height: 0;
-    border: 1px solid var(--rule);
-    border-radius: 12px;
+    border: 0;
     background: #f4f5f7;
+  }
+  .idv-hops {
+    display: flex;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 12px;
+    color: var(--fg-muted);
+  }
+  .idv-hops li {
+    flex: 1;
+    padding: 7px 8px;
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    text-align: center;
+  }
+  .idv-hops li + li::before {
+    content: "→ ";
+    color: var(--fg-muted);
+  }
+  .idv-hops li.done {
+    color: var(--fg);
+  }
+  .idv-hops li.active {
+    border-color: var(--gold-bright);
+    color: var(--fg);
   }
 </style>

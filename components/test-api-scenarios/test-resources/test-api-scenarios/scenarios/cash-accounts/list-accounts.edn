@@ -8,8 +8,7 @@
           :with {:token [:ref :org-0 :token]
                  :display-name "Account Holder"
                  :given-name "Account"
-                 :family-name "Holder"
-                 :national-insurance "TN999001A"}}
+                 :family-name "Holder"}}
          ;; Product 1: Current — create + publish
          {:fixture :product
           :as :current-draft

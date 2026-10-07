@@ -16,14 +16,7 @@
           :with {:name "Rotate Lost Reply Test" :status "live"}}
          {:fixture :person
           :as :party-0
-          :with {:token [:ref :bank-0 :token]
-                 :date-of-birth "1953-03-08"
-                 :national-insurance "TN555802E"
-                 :address {:building-number "1"
-                           :street "Cottington Lane"
-                           :town "Cottington"
-                           :postcode "CT12 4XY"
-                           :country "GBR"}}}
+          :with {:token [:ref :bank-0 :token]}}
          {:fixture :product :as :draft :with {:token [:ref :bank-0 :token]}}
          {:fixture :account
           :as :account-0

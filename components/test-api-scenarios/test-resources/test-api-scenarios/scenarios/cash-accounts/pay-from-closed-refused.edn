@@ -8,8 +8,7 @@
    :with {:token [:ref :org-0 :token]
           :display-name "Closed Payer"
           :given-name "Closed"
-          :family-name "Payer"
-          :national-insurance "TN889003A"}}
+          :family-name "Payer"}}
   {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}
   {:fixture :account
    :as :debtor

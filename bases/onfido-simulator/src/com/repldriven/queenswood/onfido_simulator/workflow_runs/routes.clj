@@ -1,14 +1,11 @@
 (ns com.repldriven.queenswood.onfido-simulator.workflow-runs.routes
   (:require
     [com.repldriven.queenswood.onfido-simulator.workflow-runs.handlers
-     :as handlers]))
+     :as handlers]
 
-(def ^:private Decision
-  [:map
-   [:outcome string?]
-   [:givenNames {:optional true} [:maybe string?]]
-   [:familyName {:optional true} [:maybe string?]]
-   [:dateOfBirth {:optional true} [:maybe string?]]])
+    [com.repldriven.queenswood.idv-simulator-page.interface :as page]))
+
+(def ^:private Decision page/Submission)
 
 (def routes
   [["/v3.6/workflow_runs"

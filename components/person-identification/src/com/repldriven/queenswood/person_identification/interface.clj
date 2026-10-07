@@ -1,9 +1,9 @@
 (ns com.repldriven.queenswood.person-identification.interface
-  "Person-identification records — identity-document data
-  (given/family/middle names, date of birth, nationality) keyed by
-  party-id. Created by bank-party when a person party is registered;
-  read by bank-idv, on a `party-status-changed` event, to seed an
-  identity verification. The brick exists to break a would-be cycle between
+  "Person-identification records — a person's given, middle and family
+  names, and nothing else that identifies them (ADR-0045), keyed by
+  party-id. Created by `party` when a person party is registered; read
+  by `idv` when a verification session opens, and by an IDV adapter to
+  grade the name a provider read. The brick exists to break a would-be cycle between
   bank-party and bank-idv: both bricks need this data, and it lives
   here so neither has to require the other."
   (:require
@@ -14,8 +14,8 @@
   "Build a person-identification record. Pure data.
 
   Args:
-  - data: source map with `:given-name`, `:middle-names`,
-    `:family-name`, `:date-of-birth`, `:nationality`.
+  - data: source map with `:given-name`, `:middle-names` and
+    `:family-name`; any other key is ignored.
   - party-id: party id this identification is linked to."
   [data party-id]
   (domain/new-person-identification data party-id))
@@ -40,3 +40,14 @@
   - party-id: party id."
   [txn party-id]
   (store/get-person-identification txn party-id))
+
+(defn clear-identity-details
+  "Move every person identification stored before ADR-0045 to its names
+  alone, deleting the record that held the date of birth, nationality
+  and address. Returns how many it moved — none on a rerun — or an
+  anomaly.
+
+  Args:
+  - config: `{:record-db :record-store}`."
+  [config]
+  (store/clear-identity-details config))

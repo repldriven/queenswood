@@ -10,17 +10,7 @@
              :body {:type "person"
                     :display-name "Zaphod Beeblebrox"
                     :given-name "Zaphod"
-                    :family-name "Beeblebrox"
-                    :date-of-birth "1955-02-10"
-                    :nationality "GB"
-                    :address {:building-number "155"
-                              :street "Country Lane"
-                              :town "Cottington"
-                              :postcode "CT12 4XY"
-                              :country "GBR"}
-                    :national-identifier {:type "national-insurance"
-                                          :value "TN000003C"
-                                          :issuing-country "GB"}}}
+                    :family-name "Beeblebrox"}}
    :as :party-1
    :assert {:status 201}}
   {:command :idv/verify
@@ -33,17 +23,7 @@
              :body {:type "person"
                     :display-name "Trillian Astra"
                     :given-name "Trillian"
-                    :family-name "Astra"
-                    :date-of-birth "1960-08-22"
-                    :nationality "GB"
-                    :address {:building-number "155"
-                              :street "Country Lane"
-                              :town "Cottington"
-                              :postcode "CT12 4XY"
-                              :country "GBR"}
-                    :national-identifier {:type "national-insurance"
-                                          :value "TN000004D"
-                                          :issuing-country "GB"}}}
+                    :family-name "Astra"}}
    :as :party-2
    :assert {:status 201}}
   {:command :idv/verify

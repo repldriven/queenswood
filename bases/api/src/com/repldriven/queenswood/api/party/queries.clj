@@ -32,13 +32,12 @@
         {:keys [path query]} parameters
         {:keys [party-id]} path
         {:keys [embed]} query
-        {pi :person-identification addr :address ni :national-identifier} embed
         result (parties/get-party-detail request
                                          bank-id
                                          party-id
-                                         {:person-identification pi
-                                          :address addr
-                                          :national-identifier ni})]
+                                         (select-keys
+                                          embed
+                                          [:person-identification]))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       {:status 200 :body (party-api/->detail-body result)})))

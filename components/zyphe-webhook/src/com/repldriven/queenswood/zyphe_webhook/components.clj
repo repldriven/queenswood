@@ -16,7 +16,8 @@
   [:map
    {:json-schema/example examples/CustomData}
    [:bankId {:optional true} string?]
-   [:verificationId {:optional true} string?]])
+   [:verificationId {:optional true} string?]
+   [:partyId {:optional true} string?]])
 
 (def FlowStep
   [:map

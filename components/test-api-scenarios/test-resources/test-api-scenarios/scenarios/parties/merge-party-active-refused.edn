@@ -7,15 +7,13 @@
           :with {:token [:ref :org-0 :token]
                  :display-name "Survivor Customer"
                  :given-name "Survivor"
-                 :family-name "Customer"
-                 :national-insurance "TN888011A"}}
+                 :family-name "Customer"}}
          {:fixture :person
           :as :party-1
           :with {:token [:ref :org-0 :token]
                  :display-name "Active Duplicate Customer"
                  :given-name "Active"
-                 :family-name "Duplicate"
-                 :national-insurance "TN888012A"}}]
+                 :family-name "Duplicate"}}]
  :when [{:command :api/request
          :request {:method :post
                    :path "/v1/parties/{party-id}/merge"

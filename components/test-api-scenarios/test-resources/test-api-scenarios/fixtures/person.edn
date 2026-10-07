@@ -2,15 +2,7 @@
  :required #{:token}
  :params {:display-name "Arthur Dent"
           :given-name "Arthur"
-          :family-name "Dent"
-          :date-of-birth "1970-01-01"
-          :nationality "GB"
-          :national-insurance "TN000001A"
-          :address {:building-number "155"
-                    :street "Country Lane"
-                    :town "Cottington"
-                    :postcode "CT12 4XY"
-                    :country "GBR"}}
+          :family-name "Dent"}
  :steps
  [{:command :api/request
    :request {:method :post
@@ -19,13 +11,7 @@
              :body {:type "person"
                     :display-name [:param :display-name]
                     :given-name [:param :given-name]
-                    :family-name [:param :family-name]
-                    :date-of-birth [:param :date-of-birth]
-                    :nationality [:param :nationality]
-                    :address [:param :address]
-                    :national-identifier {:type "national-insurance"
-                                          :value [:param :national-insurance]
-                                          :issuing-country "GB"}}}
+                    :family-name [:param :family-name]}}
    :as :party
    :assert {:status 201 :body {:status "pending"}}}
   {:command :idv/verify :party [:ref :party :party-id] :auth [:param :token]}

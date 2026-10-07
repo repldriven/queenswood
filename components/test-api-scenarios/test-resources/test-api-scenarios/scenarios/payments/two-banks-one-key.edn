@@ -11,14 +11,7 @@
    :with {:token [:ref :bank-a :token] :name "Current"}}
   {:fixture :person
    :as :party-a
-   :with {:token [:ref :bank-a :token]
-          :date-of-birth "1950-07-27"
-          :national-insurance "TN555401D"
-          :address {:building-number "155"
-                    :street "Improbability Drive"
-                    :town "Cottington"
-                    :postcode "CT12 4XY"
-                    :country "GBR"}}}
+   :with {:token [:ref :bank-a :token]}}
   {:fixture :account
    :as :debtor-a
    :with {:token [:ref :bank-a :token]
@@ -67,14 +60,7 @@
    :with {:token [:ref :bank-b :token]
           :display-name "Marvin Android"
           :given-name "Marvin"
-          :family-name "Android"
-          :date-of-birth "1961-11-04"
-          :national-insurance "TN555402E"
-          :address {:building-number "42"
-                    :street "Improbability Drive"
-                    :town "Cottington"
-                    :postcode "CT12 4XY"
-                    :country "GBR"}}}
+          :family-name "Android"}}
   {:fixture :account
    :as :debtor-b
    :with {:token [:ref :bank-b :token]

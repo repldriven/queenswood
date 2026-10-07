@@ -49,15 +49,14 @@
   - txn: FDB handle or open transaction.
   - bank-id: bank id.
   - party-id: party id.
-  - opts: embed flags — `:person-identification` (given/middle/family
-    names, date-of-birth, nationality), `:address`, and
-    `:national-identifier`. Each truthy flag opts that sub-record into
-    the result; omit them all for just the summary.
+  - opts: embed flags — `:person-identification`, the given, middle
+    and family names. Truthy, it opts the names into the result; omit
+    it for just the summary.
 
   Returns the (possibly enriched) party map, or a `:party/not-found`
   anomaly. Enrichment is best-effort — a sub-record read failure is
   skipped, never propagated. Internal and organisation parties carry no
-  person identification, so those embeds are no-ops for them."
+  person identification, so the embed is a no-op for them."
   [txn bank-id party-id opts]
   (core/get-party-detail txn bank-id party-id opts))
 

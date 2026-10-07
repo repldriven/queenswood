@@ -1,4 +1,5 @@
 system:
   kafka: !include system/kafka-bootstrap.yml
   fdb: !include system/fdb.yml
+  personal-data: !include system/personal-data.yml
   telemetry: !include system/telemetry.yml

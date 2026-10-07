@@ -11,17 +11,7 @@
              :body {:type "person"
                     :display-name "Ford Prefect"
                     :given-name "Ford"
-                    :family-name "Prefect"
-                    :date-of-birth "1960-01-01"
-                    :nationality "GB"
-                    :address {:building-number "155"
-                              :street "Country Lane"
-                              :town "Cottington"
-                              :postcode "CT12 4XY"
-                              :country "GBR"}
-                    :national-identifier {:type "national-insurance"
-                                          :value "TN300002S"
-                                          :issuing-country "GB"}}}
+                    :family-name "Prefect"}}
    :as :party-0
    :assert {:status 201}}]
  :when

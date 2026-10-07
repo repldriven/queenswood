@@ -27,17 +27,7 @@
              :body {:type "person"
                     :display-name "Arthur Dent"
                     :given-name "Arthur"
-                    :family-name "Dent"
-                    :date-of-birth "1952-03-11"
-                    :nationality "GB"
-                    :address {:building-number "155"
-                              :street "Country Lane"
-                              :town "Cottington"
-                              :postcode "CT12 4XY"
-                              :country "GBR"}
-                    :national-identifier {:type "national-insurance"
-                                          :value "TN400001A"
-                                          :issuing-country "GB"}}}
+                    :family-name "Dent"}}
    :as :first-party
    :assert {:status 201}}
   {:command :api/request
@@ -63,17 +53,7 @@
              :body {:type "person"
                     :display-name "Arthur Dent"
                     :given-name "Arthur"
-                    :family-name "Dent"
-                    :date-of-birth "1952-03-11"
-                    :nationality "GB"
-                    :address {:building-number "155"
-                              :street "Country Lane"
-                              :town "Cottington"
-                              :postcode "CT12 4XY"
-                              :country "GBR"}
-                    :national-identifier {:type "national-insurance"
-                                          :value "TN400002A"
-                                          :issuing-country "GB"}}}
+                    :family-name "Dent"}}
    :as :second-party
    :assert {:status 201}}
   {:command :api/request

@@ -160,17 +160,13 @@
               "verification_request_not_found"
               (str "No verification request with id: " id)))
 
-(defn- ->document
-  [body]
-  (select-keys body [:givenNames :familyName :dateOfBirth]))
-
 (defn decide
   [_config]
   (fn [request]
     (let [{:keys [state parameters]} request
           id (get-in parameters [:path :id])
-          {:keys [body]} parameters
-          vr (settle state id (:outcome body) (->document body))]
+          {:keys [outcome document]} (page/decision (:body parameters))
+          vr (settle state id outcome document)]
       (cond
        (nil? vr)
        (not-found id)
