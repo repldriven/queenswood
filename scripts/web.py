@@ -14,7 +14,6 @@ import json
 import os
 import subprocess
 import sys
-import time
 import urllib.error
 import urllib.request
 
@@ -61,14 +60,6 @@ class Hosting:
                 return None
             fail(f"{method} {url}: {error.code}\n{error.read().decode()}")
         return json.loads(text) if text else {}
-
-    def wait(self, operation):
-        while not operation.get("done"):
-            time.sleep(3)
-            operation = self.call("GET", f"{API}/{operation['name']}")
-        if "error" in operation:
-            fail(json.dumps(operation["error"], indent=2))
-        return operation.get("response", {})
 
 
 def load(path):
@@ -121,10 +112,14 @@ def apply(s):
                      f"in Hosting, not {body.get('redirectTarget')!r}")
             print(f"  {host} exists")
             continue
-        hosting.wait(hosting.call(
+        # Not waited on: the operation stays open until the domain's
+        # records resolve, and those are what this run reports.
+        operation = hosting.call(
             "POST",
             f"{API}/{s['parent']}/customDomains?customDomainId={host}",
-            body=body))
+            body=body)
+        if "error" in operation:
+            fail(json.dumps(operation["error"], indent=2))
         print(f"  {host} created")
 
     print()
