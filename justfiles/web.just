@@ -71,9 +71,11 @@ web-project-create yes="":
       OP=$(curl -sS -X POST -H "Authorization: Bearer $TOKEN" \
              -H "x-goog-user-project: $PROJECT" \
              -H "Content-Type: application/json" -d '{}' \
-             "$API/projects/$PROJECT:addFirebase")
-      NAME=$(printf '%s' "$OP" | jq -r '.name // empty')
-      if [[ -z "$NAME" ]]; then
+             "$API/projects/${PROJECT}:addFirebase")
+      # Braced: zsh reads `$PROJECT:a` as a modifier and expands the id
+      # to an absolute path.
+      if ! NAME=$(printf '%s' "$OP" | jq -r '.name // empty' 2>/dev/null) \
+           || [[ -z "$NAME" ]]; then
         printf '%s\n' "$OP" >&2
         exit 1
       fi
