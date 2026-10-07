@@ -1102,7 +1102,7 @@
       <iframe class="idv-frame" title="Identity provider" src={idv.url}></iframe>
     </div>
     <ol class="idv-hops">
-      <li class="done">{bankName ?? "The bank"}'s app</li>
+      <li class="done">The bank's app</li>
       <li class:active={!idv.heard} class:done={idv.heard}>Identity provider</li>
       <li class:done={idv.heard}>Queenswood hears{idv.heard ? ` ${idv.heard}` : " the outcome"}</li>
     </ol>
