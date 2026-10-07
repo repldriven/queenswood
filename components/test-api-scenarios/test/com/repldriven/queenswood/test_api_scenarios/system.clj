@@ -25,6 +25,7 @@
     [com.repldriven.queenswood.payment-provider.interface]
     [com.repldriven.queenswood.payment.interface]
     [com.repldriven.queenswood.policy.interface]
+    [com.repldriven.queenswood.reward.interface]
     [com.repldriven.queenswood.schema.interface]
     [com.repldriven.queenswood.testcontainers.interface]
     [com.repldriven.queenswood.transaction.interface]

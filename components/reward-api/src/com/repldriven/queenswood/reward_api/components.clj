@@ -31,7 +31,6 @@
    [:currency [:ref "Currency"]]
    [:status [:ref "RewardStatus"]]
    [:transaction-id {:optional true} [:maybe [:ref "TransactionId"]]]
-   [:run-id {:optional true} [:maybe string?]]
    [:error {:optional true} [:maybe string?]]
    [:paid-at {:optional true} [:maybe [:ref "Timestamp"]]]
    [:created-at [:ref "Timestamp"]]

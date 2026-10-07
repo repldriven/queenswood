@@ -17,9 +17,9 @@ job missed, retrying the accounts an interest pass failed, and
 force-start over the API as a queued run.
 
 Out of scope: the interest arithmetic and the ledger entries, which
-[interest](interest.md) decides; what the rewards and migration tasks
-do inside their passes, which [rewards](rewards.md) and
-[cash-account-migration](cash-account-migration.md) decide; and a
+[interest](interest.md) decides; what the migration task does inside
+its pass, which
+[cash-account-migration](cash-account-migration.md) decides; and a
 progress route for an interest run in flight.
 
 ## Background
@@ -65,10 +65,11 @@ progress route for an interest run in flight.
   A second pass for the date posts the FAILED accounts and closes. The
   run records the task failed with `records_failed`, and its period
   stays open for an operator to force it again.
-- **Rewards and migrations are work lists.** `reward/pay-due` pays every
-  account owed a reward, and `run-due-migrations` commits every approved
-  migration that is due. Neither owes anything per date, so the next run
-  does what a missed one would have.
+- **Migrations are a work list.** `run-due-migrations` commits every
+  approved migration that is due. It owes nothing per date, so the next
+  run does what a missed one would have. A reward is no task: the
+  `reward` processor pays it as the account opens, see
+  [rewards](rewards.md).
 
 ## Proposed Solution
 
@@ -80,13 +81,12 @@ declares `:catch-up`:
 
 - `:every-slot` for accrual and capitalisation. Each slot is a business
   day owed on its own, and its as-of date keys the postings.
-- `:latest` for rewards and migrations. The newest slot covers every
-  earlier one.
+- `:latest` for migrations. The newest slot covers every earlier one.
 
 A job owes every slot it missed where any of its tasks is
 `:every-slot`, and only the newest otherwise.
 
-A task's contract, which all four meet:
+A task's contract, which all three meet:
 
 - Running a task twice for one bank and as-of date posts once.
 - A task returns an anomaly while any of its work is outstanding, so the

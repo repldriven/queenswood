@@ -6,8 +6,9 @@
 > simulate route that puts money into a bank, and the changelog relay
 > that tells an endpoint exist, and Background names them. Everything
 > under Proposed Solution is the build list; the term, the record, the
-> hourly job that pays it and the entry, relay and kind that tell the
-> bank are built, and "First slice" says what comes next.
+> entry, relay and kind that tell the bank, and the processor that pays
+> a reward as an account opens are built, and "First slice" says what
+> comes next.
 
 ## Objective
 
@@ -15,16 +16,16 @@ A bank offers a reward on a product — a welcome payment to every
 customer who opens an account under it — and the platform pays it from
 the bank's own funds without anybody submitting a transfer. This TDD
 decides where the reward is declared, how a payment of it is recorded
-exactly once, which job pays it and on what cadence, how the bank is
-told, and how money gets into a bank in the first place, since a reward
-is only ever paid from money the bank already holds.
+exactly once, what pays it and when, how the bank is told, and how
+money gets into a bank in the first place, since a reward is only ever
+paid from money the bank already holds.
 
 In scope: the reward term on a product version, the `Reward` record and
-its changelog, the `reward` brick and the hourly job that runs it, the
-hourly periodicity and the two scheduler fixes the job depends on, the
-`reward` transaction type, the `reward.paid` webhook kind, the read
-routes over rewards, and the simulate route funding only the bank's own
-account.
+its changelog, the `reward` brick and the processor that pays a reward
+as an account opens, the hourly periodicity and the two scheduler fixes
+built for the job it replaced, the `reward` transaction type, the
+`reward.paid` webhook kind, the read routes over rewards, and the
+simulate route funding only the bank's own account.
 
 Out of scope: a reward with a qualifying condition (a balance held for
 a period, a referral), which needs a condition model this design leaves
@@ -130,7 +131,8 @@ A `Reward` is what was paid, or is due, to one account, in a new
 - `bank_id`, `reward_id` (`rwd.` prefix), `account_id`, `party_id`,
   `product_id`, `version_id`, `kind` (`REWARD_KIND_OPENING`),
   `amount`, `currency`, `status` (`DUE`, `PAID`), `transaction_id`,
-  `run_id`, `error`, `created_at`, `updated_at`, `paid_at`.
+  `error`, `created_at`, `updated_at`, `paid_at`, and `run_id`,
+  deprecated, since a reward is paid by no run.
 - Primary key `[bank_id, reward_id]`; index `Reward_by_bank_account` on
   `[bank_id, account_id, kind]`, which is the once-only check.
 
@@ -141,33 +143,42 @@ keyed by account rather than by version so that a migration onto a
 version carrying a reward pays nothing: the account was rewarded for
 its opening, once.
 
-### The job
+### The processor
 
-A `reward` brick with a `pay-due` run function, called by the scheduler
-the way `interest/accrue-day` is, taking the runner's config and
-`{:bank-id :as-of}` and answering `{:accounts-processed
-:accounts-failed}`:
+A `reward` brick hosts a `:reward/event-processor` in the
+financial-processors service, consuming `cash-accounts-event` under a
+consumer group of its own beside the cash-account processor's and the
+webhook's. Its `events.clj` acts on one entry,
+`cash-account-status-changed` with the status after `opened` and the
+change kind `open`, which is written in the transaction that opens the
+account, so the account accepts a posting by the time the entry is
+read. A migration or a resume leaves an opened account opened under
+another kind, and a refusal is `open` with the status after `refused`;
+none of them pays. `pay-opening` takes `{:bank-id :account-id}`:
 
-1. Stream the bank's accounts with
-   `cash-account-query/reduce-accounts-with-balances`, keeping those
-   whose status is `opened` and whose product type is a customer's.
-2. For each, read the pinned version through `products/get-version`,
-   memoised per run as the interest pass does. An account whose version
-   carries no `opening-reward`, or which already has a `Reward` row of
-   kind `opening`, falls out.
-3. Pay the rest, one FDB transaction per account: the `Reward` row
-   `paid` with its changelog entry, and the transaction below, all
-   committed together, so a crash leaves either nothing or a paid
-   reward with its posting.
-4. Where the posting is refused — the house account short of funds is
-   the case that matters — write the row `due` with the anomaly's
-   message in `error`, count it failed, and carry on. The next run
-   finds the row `due` and tries again, so funding the bank is the
-   remedy and nothing has to be resubmitted.
+1. Read the account, and keep it only where its status is `opened` and
+   its product type a customer's.
+2. Read its pinned version through `products/get-version`. A version
+   with no `opening-reward`, or an account with a `Reward` row of kind
+   `opening` already `paid`, pays nothing.
+3. Pay the rest in the same FDB transaction as those reads: the
+   `Reward` row `paid` with its changelog entry, and the transaction
+   below, all committed together, so a crash leaves either nothing or a
+   paid reward with its posting, and a redelivered entry finds the row
+   paid and pays nothing. The house account comes from a cache keyed by
+   bank and currency, since only a bank's creation changes it, and the
+   control accounts' ids from the ledger cache the payment processor
+   uses.
+4. Where the posting is refused — the house account short of funds, or
+   missing for the currency — write the row `due` with the refusal's
+   message in `error`, in a transaction of its own. Any other anomaly is
+   answered, so the consumer delivers the entry again.
 
-The job is `hourly-rewards` in `jobs.edn`, task kind
-`SCHEDULER_TASK_KIND_REWARD`, periodicity hourly at minute 0, kind
-`user`, so a bank may pause it or move it to daily.
+The financial-processors service hosts it because a reward is a
+posting. It is its own brick, rather than a reaction inside
+`cash-account`, because what earns a reward will grow: a later
+condition is another event this processor listens to, not another
+change to the account's processor.
 
 ### The transaction
 
@@ -238,20 +249,20 @@ What moves with it:
 
 ### The scheduler
 
-Three changes, each small and each needed before the job can run
-anywhere but a forced run:
+Three changes, made for the hourly reward job the processor replaced
+and kept, since each holds for every job:
 
 - **Hourly.** `SCHEDULER_PERIODICITY_HOURLY` in
   [scheduler-job.proto](/components/schema/resources/schemas/scheduler/scheduler-job.proto);
   `->cron` answers `0 m * * * ?` for it, where `run-time-minutes` is
   the minute past the hour and the schedule guard refuses sixty or
-  more; `task-allowed-periods` allows the reward task hourly and daily;
-  the jobs API's coercion and view order learn the word.
+  more; the jobs API's coercion and view order learn the word. No
+  seeded task allows it.
 - **Declared once, run locally.** A `system/scheduler.yml` declares the
   `scheduler` and `bank-scheduler` components, included by the monolith
   and exclusive-dispatchers manifests in place of their inline copies
   and by `monolith/application-test.yml`, so `just monolith-start`
-  fires triggers and the demo pays its rewards on the hour.
+  fires triggers.
 - **A reconcile.** The runner makes the live triggers match the job
   rows at start and, on a trigger of its own, every minute after: a
   template a bank has no row for is seeded, and only that one, since
@@ -274,8 +285,6 @@ anywhere but a forced run:
   `GET /v1/rewards/{reward-id}`, `org:viewer`, from `reward-query`;
   `reward-api` holds the shapes, so the webhook projects with the
   schema the routes declare.
-- The jobs API needs nothing: `hourly-rewards` lists, forces and
-  reschedules like the others.
 - The product drawer gets a reward field beside the rate, and the
   products table a column, so an operator can see what a version
   promises.
@@ -284,9 +293,8 @@ anywhere but a forced run:
 
 The seed sets an opening reward on the current-account version it
 creates and funds the bank's house account. A customer who opens an
-account is paid on the hour, or when an operator forces the job from
-the console, and the demo bank hears `reward.paid` once it consumes the
-kind. The money-arrived screen the demo's PRD wants is then the
+account is paid as it opens, and the demo bank hears `reward.paid` once
+it consumes the kind. The money-arrived screen the demo's PRD wants is then the
 reward's first customer.
 
 ### First slice
@@ -298,11 +306,10 @@ reward's first customer.
 2. The term on the version and the `Reward` record, `product-fields`
    threading the term, the schema version bump, and the API's request
    and response shapes.
-3. The `reward` brick, the transaction type, `house-account` in the
-   query brick, the task kind and the job in `jobs.edn`, proved by a
-   scenario that publishes a rewarding version, opens an account,
-   forces the job, polls the balance, and forces it again to pay
-   nothing.
+3. The `reward` brick and its processor in the financial-processors
+   service, the transaction type and `house-account` in the query
+   brick, proved by a scenario that publishes a rewarding version,
+   opens an account, and polls its reward until it reads `paid`.
 
 Then, under this design: the changelog, relay, `reward.paid`, the read
 routes and the simulate route with the scenarios, the fund recipe and
@@ -318,24 +325,28 @@ and is built.
 - `cash-account-product` — the term threads through create, new
   version and update, is refused non-positive, and is immutable once
   published.
-- `reward` — domain tests for eligibility (status, product type, a
-  version with no reward, a row already there), the legs a reward
-  posts, and a run that leaves a `due` row when the house account
-  cannot pay and pays it on the next run.
-- `test-api-scenarios` — the opening-reward scenario above; the
-  simulate route funding the house account and refusing nothing; the
-  twelve rewritten funding steps still passing.
+- `reward` — domain tests for which entries are an opening (opened
+  under `open`, never a refusal, a migration or a resume), eligibility
+  (status, product type), what a version promises, the legs a reward
+  posts, and the rows a paid and a deferred reward leave.
+- `test-api-scenarios` — the opening-reward scenario above, and one
+  opening an account on an unfunded bank whose reward reads `due` with
+  why; the simulate route funding the house account and refusing
+  nothing; the twelve rewritten funding steps still passing.
 - `webhook` — `reward.paid` delivered once for a `pay` and never for a
   `defer`, in `events_test.clj`.
 
 ## Alternatives Considered
 
-- **A processor on `cash-account.opened`.** Rejected: the moment a
-  reward is paid is the scheme's rule rather than the write's, and a
-  job is where a later qualifying condition is evaluated, where a
-  bank's transfers batch, and what an operator pauses and forces
-  through the jobs API. Taken in part: the job's once-only row is keyed
-  by account so that only an opening, never a migration, is paid.
+- **A scheduled job scanning every account.** Rejected: a reward
+  waited for the hour, or for an operator to force the run, and every
+  run read every account to find the few just opened. Taken in part:
+  the once-only row is keyed by account, so that only an opening, never
+  a migration, is paid.
+- **A reaction inside the `cash-account` processor.** Rejected: it
+  would pay sooner by a hop, but the account's processor would carry
+  every condition a reward grows, and the posting would run in the
+  operational group rather than beside the other postings.
 - **A flat `opening_reward_amount` beside the rate.** Rejected: a
   nested message gives a later condition a home and needs no stripping
   of the proto2 zero default that a flat scalar would.
@@ -354,10 +365,11 @@ and is built.
 
 ## Known Limitations
 
-- **The scan is every account, every hour.** The first slice reads the
-  bank's accounts each run and asks for a row per opened one. An index
-  on `[bank_id, created_at]` bounding the scan to accounts opened since
-  the previous run is the follow-up when a bank's size demands it.
+- **A due reward waits.** A reward the house account could not cover
+  is left `due`, visible on the read routes, and nothing pays it once
+  the bank is funded. Paying it when own funds are credited needs an
+  event for that posting, which the event per posting below would give
+  the processor to listen to.
 - **One kind, no condition.** Only an opening reward exists, paid once
   per account. A reward that waits for a balance or a period is the
   condition model this design leaves out.
@@ -365,9 +377,6 @@ and is built.
   to a rewards expense line, following the chart the platform has. A
   bank that wants rewards on its profit and loss needs a line the chart
   does not seed.
-- **A forced run runs in the API's pod.** It can overlap the hour's
-  tick for the same bank; the once-only row makes the overlap pay
-  nothing twice, but both runs read the same accounts.
 - **Nothing bounds the amount.** A policy tier limits how many products
   a bank may publish, not what a version may promise. A limit on the
   reward amount is a policy change this design does not make.
@@ -377,7 +386,7 @@ and is built.
   deferred.
 - **The house account must hold the currency.** A version in a currency
   the bank was not created with has no house account to pay from, and
-  every reward under it defers.
+  every reward under it is left `due`.
 
 ## References
 
@@ -393,8 +402,12 @@ and is built.
   3100 control and the two journals a reward is made of.
 - [banks](banks.md) — bank creation seeding the chart, the house
   accounts and the jobs.
-- [interest](interest.md) — the run pattern, the per-account row and
-  the scheduler's caller contract this job copies.
+- [cash-accounts](cash-accounts.md) — the two-step opening whose
+  `opened` entry the processor acts on.
+- [processor-bricks](processor-bricks.md) — `events.clj` reacting to
+  another brick's transition, the shape the processor takes.
+- [scheduler](scheduler.md) — the jobs the hourly periodicity and the
+  reconcile serve.
 - [payments](payments.md) — the internal payment this design does not
   use, and the scheme inbound that funds a customer from outside.
 - [webhooks](webhooks.md) — the catalogue `reward.paid` joins and the
@@ -402,6 +415,7 @@ and is built.
 - [scenario-testing](scenario-testing.md) — the model verb that shares
   a name with the simulate route.
 - [ADR-0021](../adr/0021-changelog-relay.md) — why the reward's news
-  travels off its changelog.
+  travels off its changelog, and why the processor reacts to the
+  account's rather than being called by it.
 - [schema-evolution](../recipes/code/schema-evolution.md) — the version
   bump and `since` a new store needs.

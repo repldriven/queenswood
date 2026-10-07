@@ -18,13 +18,11 @@
 
 ;; Per-task periodicity constraints. Accrual must run once per day;
 ;; capitalization and account-migration may run on any cadence of a
-;; day or longer; the reward pass runs hourly or daily.
+;; day or longer.
 (def task-allowed-periods
   {:scheduler-task-kind-accrue #{:scheduler-periodicity-daily}
    :scheduler-task-kind-capitalize daily-or-longer
-   :scheduler-task-kind-account-migration daily-or-longer
-   :scheduler-task-kind-reward #{:scheduler-periodicity-hourly
-                                 :scheduler-periodicity-daily}})
+   :scheduler-task-kind-account-migration daily-or-longer})
 
 (defn job-allowed-periods
   "Periodicities a job may use — the intersection of its tasks'

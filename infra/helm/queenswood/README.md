@@ -10,7 +10,7 @@ Kubernetes:
   chart provides the `FoundationDBCluster` CR)
 - **api-service** (HTTP REST API + dispatchers)
 - **financial-processors-service** (payment, transaction,
-  interest, payee-check) and
+  interest, payee-check, reward) and
   **operational-processors-service** (bank, party,
   cash-account, cash-account-product, idv)
 - **exclusive-dispatchers-service** — the changelog relay

@@ -13,6 +13,8 @@ enum SchedulerTaskKind {
   SCHEDULER_TASK_KIND_ACCRUE = 1;
   SCHEDULER_TASK_KIND_CAPITALIZE = 2;
   SCHEDULER_TASK_KIND_ACCOUNT_MIGRATION = 3;
+  // No longer run: the reward processor pays a reward when the account
+  // opens. Kept so a job row written with it still reads.
   SCHEDULER_TASK_KIND_REWARD = 4;
 }
 

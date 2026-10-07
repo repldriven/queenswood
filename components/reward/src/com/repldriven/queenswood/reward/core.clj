@@ -9,187 +9,114 @@
     [com.repldriven.queenswood.ledger-account.interface :as ledger-accounts]
     [com.repldriven.queenswood.transaction.interface :as transactions]
 
+    [com.repldriven.mono.cache.interface :as cache]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
-    [com.repldriven.mono.utility.interface :as utility]
 
     [clojure.tools.logging :as log]))
 
-(defn- memoised
-  "The value under `k` in the run-scoped `cache`, computed once by `f`.
-  An anomaly is answered but never kept, so a read that failed is tried
-  again by the next account that needs it."
-  [cache k f]
-  (if-some [hit (get @cache k)]
-    hit
-    (let [value (f)]
-      (when-not (error/anomaly? value) (swap! cache assoc k value))
-      value)))
-
-(defn- version-of
-  "The account's pinned version, memoised for the run: one view of the
-  terms across the pass, and a hash lookup after the first account on
-  each version."
-  [config ctx account]
-  (memoised (:versions ctx)
-            [(:product-id account) (:version-id account)]
-            #(products/get-version config
-                                   (:bank-id ctx)
-                                   (:product-id account)
-                                   (:version-id account))))
-
-(defn- house-account-for
-  [config ctx currency]
-  (memoised (:house-accounts ctx)
-            currency
-            #(cash-accounts/house-account config (:bank-id ctx) currency)))
-
 (defn- existing-row
-  [txn ctx account]
+  [txn account]
   (store/find-by-account txn
-                         (:bank-id ctx)
+                         (:bank-id account)
                          (:account-id account)
                          :reward-kind-opening))
 
+(defn- house-account
+  "The bank's own-funds account for `currency`, from `config`'s `:cache`
+  where the processor holds one, since it changes only when a bank is
+  created. An anomaly is answered and not cached."
+  [config txn bank-id currency]
+  (let [load #(cash-accounts/house-account txn bank-id currency)]
+    (if-let [c (:cache config)]
+      (let [failure (volatile! nil)
+            v (cache/lookup c
+                            [:house-account bank-id currency]
+                            (fn []
+                              (let [v (load)]
+                                (if (error/anomaly? v)
+                                  (do (vreset! failure v) nil)
+                                  v))))]
+        (or @failure v))
+      (load))))
+
+(defn- owed
+  "What `account` is owed, read in `txn`: `{:account :amount :existing}`,
+  or nil where it is not eligible, its version promises nothing, or its
+  reward is already paid."
+  [txn bank-id account-id]
+  (let-nom>
+    [account (cash-accounts/get-account txn bank-id account-id)
+     version (when (domain/eligible? account)
+               (products/get-version txn
+                                     bank-id
+                                     (:product-id account)
+                                     (:version-id account)))
+     amount (domain/promised version)
+     existing (when amount (existing-row txn account))]
+    (when (and amount (not (domain/paid? existing)))
+      {:account account :amount amount :existing existing})))
+
 (defn- pay
-  "Pays `account` its reward from `house`, the posting and the row
-  `paid` in one transaction. The row is read again inside it, so two
-  runs reaching the same account pay it once: the second finds it paid
-  and answers `:paid-before`. Returns the paid row, `:paid-before`, or
-  the anomaly that refused the posting — in which case nothing landed."
-  [config ctx house account amount]
+  "Pays what `owed` finds in one transaction: the reads, the posting from
+  the house account and the row `paid` commit together, so a redelivered
+  entry finds the row paid and pays nothing. Returns the paid row, nil
+  where nothing is owed, or the anomaly that refused it — in which case
+  nothing landed."
+  [config bank-id account-id]
   (store/transact
    config
    (fn [txn]
-     (let [existing (existing-row txn ctx account)]
-       (cond
-        (error/anomaly? existing)
-        existing
-
-        (domain/paid? existing)
-        :paid-before
-
-        :else
-        (let [reward (or existing
-                         (domain/new-reward account amount (:run-id ctx)))
-              transaction (domain/reward-transaction house account reward)]
-          (let-nom>
-            [legs (ledger-accounts/ensure-controls txn
-                                                   (:bank-id ctx)
-                                                   (:currency reward)
-                                                   (:legs transaction))
-             posted (transactions/record-and-post
-                     txn
-                     (:bank-id ctx)
-                     (assoc transaction :legs legs))]
-            (store/save-reward txn
-                               (domain/paid reward
-                                            (:transaction-id posted)
-                                            (:run-id ctx))
-                               {:change-kind :reward-change-kind-pay
-                                :status-before (:status existing)}))))))
+     (let-nom>
+       [{:keys [account amount existing] :as due} (owed txn bank-id account-id)]
+       (when due
+         (let-nom>
+           [house (house-account config txn bank-id (:currency account))
+            reward (or existing (domain/new-reward account amount))
+            transaction (domain/reward-transaction house account reward)
+            legs (ledger-accounts/ensure-controls txn
+                                                  bank-id
+                                                  (:currency reward)
+                                                  (:legs transaction))
+            posted (transactions/record-and-post txn
+                                                 bank-id
+                                                 (assoc transaction
+                                                        :legs
+                                                        legs))]
+           (store/save-reward txn
+                              (domain/paid reward (:transaction-id posted))
+                              {:change-kind :reward-change-kind-pay
+                               :status-before (:status existing)})))))
    :reward/pay
    "Failed to pay reward"))
 
 (defn- defer
-  "Records that `account` is owed its reward and why it was not paid,
-  in a transaction of its own since the paying one rolled back."
-  [config ctx account amount anomaly]
+  "Records that the account is owed its reward and why it was not paid,
+  in a transaction of its own since the paying one rolled back. What is
+  owed is read again, so a delivery that paid it meanwhile is left
+  alone."
+  [config bank-id account-id anomaly]
   (store/transact
    config
    (fn [txn]
-     (let [existing (existing-row txn ctx account)]
-       (cond
-        (error/anomaly? existing)
-        existing
-
-        (domain/paid? existing)
-        existing
-
-        :else
-        (store/save-reward txn
-                           (domain/deferred (or existing
-                                                (domain/new-reward
-                                                 account
-                                                 amount
-                                                 (:run-id ctx)))
-                                            anomaly
-                                            (:run-id ctx))
-                           {:change-kind :reward-change-kind-defer
-                            :status-before (:status existing)}))))
+     (let-nom>
+       [{:keys [account amount existing] :as due} (owed txn bank-id account-id)]
+       (when due
+         (store/save-reward txn
+                            (domain/deferred (or existing
+                                                 (domain/new-reward account
+                                                                    amount))
+                                             anomaly)
+                            {:change-kind :reward-change-kind-defer
+                             :status-before (:status existing)}))))
    :reward/defer
    "Failed to record a deferred reward"))
 
-(defn- consider
-  "One account's outcome: `:ineligible`, `:unpromised`, `:paid-before`,
-  `:paid` or `:deferred`. A read that fails before anything is owed —
-  the version, or the row — defers nothing, since a row needs an
-  amount, and is logged for the run to try again."
-  [config ctx account]
-  (if-not (domain/eligible? account)
-    :ineligible
-    (let [version (version-of config ctx account)]
-      (cond
-       (error/anomaly? version)
-       (do (log/warn "reward: version unreadable, account left for the next run"
-                     {:account-id (:account-id account)
-                      :error (error/format-anomaly version)})
-           :deferred)
-
-       (nil? (domain/promised version))
-       :unpromised
-
-       :else
-       (let [amount (domain/promised version)
-             existing (existing-row config ctx account)]
-         (cond
-          (error/anomaly? existing)
-          (do (log/warn "reward: row unreadable, account left for the next run"
-                        {:account-id (:account-id account)
-                         :error (error/format-anomaly existing)})
-              :deferred)
-
-          (domain/paid? existing)
-          :paid-before
-
-          :else
-          (let [house (house-account-for config ctx (:currency account))
-                result (if (error/anomaly? house)
-                         house
-                         (pay config ctx house account amount))]
-            (cond
-             (= :paid-before result)
-             :paid-before
-
-             (error/anomaly? result)
-             (do (defer config ctx account amount result)
-                 (log/warn "reward: deferred"
-                           {:account-id (:account-id account)
-                            :error (error/format-anomaly result)})
-                 :deferred)
-
-             :else
-             :paid))))))))
-
-(defn pay-due
-  [config {:keys [bank-id as-of-date]}]
-  (let [ctx {:bank-id bank-id
-             :run-id (str (utility/uuidv7))
-             :versions (atom {})
-             :house-accounts (atom {})}]
-    (let-nom>
-      [tally (cash-accounts/reduce-accounts-with-balances
-              config
-              bank-id
-              (fn [tally {:keys [account]}]
-                (let [outcome (consider config ctx account)]
-                  (cond-> tally
-                          (= :paid outcome)
-                          (update :paid inc)
-
-                          (= :deferred outcome)
-                          (update :deferred inc))))
-              {:paid 0 :deferred 0})]
-      {:bank-id bank-id
-       :as-of-date as-of-date
-       :accounts-processed (:paid tally)
-       :accounts-failed (:deferred tally)})))
+(defn pay-opening
+  [config {:keys [bank-id account-id]}]
+  (let [result (pay config bank-id account-id)]
+    (if (error/rejection? result)
+      (do (log/warn "reward: deferred"
+                    {:account-id account-id
+                     :error (error/format-anomaly result)})
+          (defer config bank-id account-id result))
+      result)))

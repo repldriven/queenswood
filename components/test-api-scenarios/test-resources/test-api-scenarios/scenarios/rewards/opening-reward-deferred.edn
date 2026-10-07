@@ -34,38 +34,14 @@
           :product-id [:ref :product :product-id]
           :name "Arthur Current"}}]
  :when
- [;; The house account holds nothing, so the posting is refused and the
-  ;; reward left due.
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/jobs/{job-id}/runs"
-             :path-params {:job-id "hourly-rewards"}
+ [;; The house account holds nothing, so the posting is refused as the
+  ;; account opens and the reward is left due.
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/rewards"
+             :query-params {:account-id [:ref :account :account :account-id]}
              :auth [:ref :org-0 :token]}
-   :assert {:status 201
-            :body {:job-id "hourly-rewards"
-                   :trigger-source "forced"
-                   :status "succeeded"
-                   :tasks [{:label "reward"
-                            :status "succeeded"
-                            :records-processed 0
-                            :records-failed 1}]}}}
-  ;; Funding the bank is the remedy, and the next hour's run pays it:
-  ;; this hour has had its run.
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/simulate/inbound-transfer"
-             :auth :admin
-             :headers {:bank-id [:ref :org-0 :bank :bank-id]}
-             :body {:amount 500000 :currency "GBP"}}
-   :assert {:status 200}}
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/jobs/{job-id}/runs"
-             :path-params {:job-id "hourly-rewards"}
-             :auth [:ref :org-0 :token]}
-   :assert {:status 409
-            :problem {:type ":scheduler/period-already-run"
-                      :detail "The job has already run this period"}}}]
+   :until {:status 200 :body {:items [{:status "due"}]}}}]
  :then
  [{:command :api/request
    :request {:method :get

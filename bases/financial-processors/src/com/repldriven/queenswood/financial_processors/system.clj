@@ -1,6 +1,6 @@
 (ns com.repldriven.queenswood.financial-processors.system
   "Bare-require bundle for the financial processors service —
-  payment, transaction, payee-check — every brick whose
+  payment, transaction, payee-check, reward — every brick whose
   component-kinds its application.yml instantiates. Loaded by
   main.clj before `system/start`; nothing else lives here. The
   service's composition is the project's application.yml
@@ -11,6 +11,7 @@
     [com.repldriven.queenswood.payee-check.interface]
     [com.repldriven.queenswood.payment-provider.interface]
     [com.repldriven.queenswood.payment.interface]
+    [com.repldriven.queenswood.reward.interface]
     [com.repldriven.queenswood.schema.interface]
     [com.repldriven.queenswood.transaction.interface]
 

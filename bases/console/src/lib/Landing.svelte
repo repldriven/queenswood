@@ -274,18 +274,17 @@
     { num: "03", label: "Verify", status: "done" },
     { num: "04", label: "Fund", status: "done" },
     { num: "05", label: "Open", status: "done" },
-    { num: "06", label: "Reward", status: "done" },
-    { num: "07", label: "Move", status: "running" },
-    { num: "08", label: "Refuse", status: "ready" },
-    { num: "09", label: "Pay", status: "locked" },
-    { num: "10", label: "Migrate", status: "locked" },
-    { num: "11", label: "Accrue", status: "locked" },
+    { num: "06", label: "Move", status: "running" },
+    { num: "07", label: "Refuse", status: "ready" },
+    { num: "08", label: "Pay", status: "locked" },
+    { num: "09", label: "Migrate", status: "locked" },
+    { num: "10", label: "Accrue", status: "locked" },
   ];
   const DEMO_BANK_CELLS = [
-    { figure: 6, unit: "/ 11", label: "Scenes run" },
+    { figure: 5, unit: "/ 10", label: "Scenes run" },
     { figure: 3, label: "Products live" },
     { figure: 2, unit: "/ 3", label: "Active customers" },
-    { figure: "£100.00", label: "Customer money held" },
+    { figure: "£400.00", label: "Customer money held" },
   ];
 </script>
 
@@ -425,7 +424,7 @@
     <h2>A tour of what your bank <em>can do.</em></h2>
     <p class="lead">
       The console ships a sandbox that fires these capabilities against the live
-      API, in order — eleven scenes, each building on the one before. The screens
+      API, in order — ten scenes, each building on the one before. The screens
       below are those scenes, rendered with the real components, not mockups.
     </p>
     <div class="spine-wrap">

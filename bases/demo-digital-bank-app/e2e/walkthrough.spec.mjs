@@ -3,10 +3,9 @@ import { test, expect } from "@playwright/test";
 // A new customer's walk through the app, filmed: sign up, be handed to
 // the identity provider's page and verified there, open an Everyday and
 // be paid its welcome reward, then open a Rainy Day with some of it. It runs against the bank the console's
-// scenes have been through. The reward is paid by the platform's hourly
-// job, which the recipe forces once the Everyday exists, so the walk
-// waits on the balance rather than on the job. Every screen is held a
-// beat for the viewer, and typed fields are typed.
+// scenes have been through. The platform pays the reward as the account
+// opens, so the walk waits on the balance. Every screen is held a beat
+// for the viewer, and typed fields are typed.
 const bank = process.env.DEMO_BANK_URL ?? "http://localhost:8100";
 // A number no earlier customer signed up with: sign-in resolves a
 // customer by phone. 07700 900000 to 900999 is the range Ofcom keeps
@@ -118,9 +117,9 @@ test("a new customer signs up and opens two accounts", async ({ page }) => {
     .toBe("verified");
   await page.waitForTimeout(BEAT);
 
-  // An Everyday, and the £200 the product promised, paid on the hour.
+  // An Everyday, and the £200 the product promised, paid as it opens.
   await openAccount(page, "Everyday");
-  await expect(page.locator(".big.num")).toHaveText("£200.00", { timeout: 4 * 60 * 1000 });
+  await expect(page.locator(".big.num")).toHaveText("£200.00", { timeout: 60 * 1000 });
   await page.waitForTimeout(BEAT * 2);
 
   // A Rainy Day, with £20 of it.

@@ -411,8 +411,8 @@ is decided until the local loop works end to end.
   screens against the running base and a local monolith, which is
   where the real platform is met: by hand, or filmed by
   `just demo-digital-bank-record-walkthrough`, which signs a new
-  customer up and opens an Everyday and a Rainy Day, forcing the
-  hourly-rewards job so the Everyday's reward lands.
+  customer up and opens an Everyday and a Rainy Day, the Everyday paid
+  its reward as it opens.
 
 ## Alternatives Considered
 

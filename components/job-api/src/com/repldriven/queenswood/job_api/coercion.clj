@@ -13,8 +13,7 @@
   (coercion/enum-coercion {"accrue" :scheduler-task-kind-accrue
                            "capitalize" :scheduler-task-kind-capitalize
                            "account-migration"
-                           :scheduler-task-kind-account-migration
-                           "reward" :scheduler-task-kind-reward}
+                           :scheduler-task-kind-account-migration}
                           :scheduler-task-kind-unknown))
 
 (def ^:private run-status-enum
