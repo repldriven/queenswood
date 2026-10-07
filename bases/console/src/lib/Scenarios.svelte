@@ -169,7 +169,7 @@
     {
       id: "s3", num: "03", title: "Verify", view: "parties",
       story:
-        "Onboard Arthur Dent, Ford Prefect and Zaphod Beeblebrox. Each is handed to the identity provider's page through a verification session: Arthur and Ford show their own documents and go active; Zaphod turns out to be on a sanctions list, is rejected, and the platform denies him an account.",
+        "Onboard Arthur Dent, Ford Prefect and Zaphod Beeblebrox. Each is handed from the bank's app to the bank's identity provider through a verification session: Arthur and Ford show their own documents and go active; Zaphod turns out to be on a sanctions list, is rejected, and the platform denies him an account.",
       backing: ["journeys/parties/1-registering-a-person-party", "verification-sanctions-hit-rejects", "verification-session-hands-off"],
       steps: [
         { name: "Onboard Arthur Dent", raw: [{ method: "POST", path: "/v1/parties", tag: "request" }] },
@@ -465,10 +465,11 @@
     poll(() => api.get_party(id), (r) => r.status === 200 && r.body?.status === status, { tries: 40, delay: 600 });
 
   // Play the person through the identity provider's hosted page: open a
-  // session, wait for its hand-off, and show it in a panel, asking the
-  // page to fill in what the document says and submit `outcome` at a
-  // pace a viewer can follow. The panel closes once the verification
-  // decides. Skipped for a person whose verification has already decided.
+  // session, wait for its hand-off, and show it in a panel as the bank's
+  // app would open it, asking the page to fill in what the document says
+  // and submit `outcome` at a pace a viewer can follow. The panel closes
+  // once the verification decides, having shown what the platform heard.
+  // Skipped for a person whose verification has already decided.
   const OUTCOMES = { match: "everything checks out", "sanctions-hit": "a sanctions hit" };
   let idv = $state(null);
   let idvOpen = $state(false);
@@ -494,15 +495,22 @@
     url.searchParams.set("dateOfBirth", BORN[body["given-name"]]);
     for (const [k, v] of Object.entries(HOME[body["given-name"]])) url.searchParams.set(k, v);
     url.searchParams.set("pace", "900");
-    idv = { name: body["display-name"], outcome: OUTCOMES[outcome] ?? outcome, url: url.toString() };
+    idv = {
+      name: body["display-name"],
+      given: body["given-name"],
+      outcome: OUTCOMES[outcome] ?? outcome,
+      url: url.toString(),
+      heard: null,
+    };
     idvOpen = true;
     try {
-      await poll(
+      const decided = await poll(
         () => api.get_verification(partyId),
         (r) => r.status === 200 && r.body?.status !== "pending",
         { tries: 60, delay: 600 },
       );
-      await sleep(1500);
+      idv.heard = decided.body?.status ?? "decided";
+      await sleep(2000);
     } finally {
       idvOpen = false;
       await sleep(300);
@@ -1076,14 +1084,27 @@
 
 <Drawer
   open={idvOpen}
-  kicker="Identity provider"
-  title={idv?.name ?? ""}
-  sub={idv ? `The provider's hosted page, played through to ${idv.outcome}.` : ""}
+  kicker={bankName ? `On ${bankName}'s app` : "On the bank's app"}
+  title={idv ? `${idv.name}'s identity check` : ""}
+  sub={idv
+    ? `${bankName ? `${bankName}'s` : "The bank's"} app hands ${idv.given} to its identity provider, here a simulated one, played through to ${idv.outcome}. Queenswood opens the session and hears the outcome; it never sees this page.`
+    : ""}
   width={460}
-  label="Identity provider"
+  label="Identity check"
 >
   {#if idv}
-    <iframe class="idv-frame" title="Identity provider" src={idv.url}></iframe>
+    <div class="idv-phone">
+      <div class="idv-appbar">
+        <span class="idv-appmark">{(bankName ?? "B").slice(0, 1)}</span>
+        <span>{bankName ?? "Your bank"}</span>
+      </div>
+      <iframe class="idv-frame" title="Identity provider" src={idv.url}></iframe>
+    </div>
+    <ol class="idv-hops">
+      <li class="done">{bankName ?? "The bank"}'s app</li>
+      <li class:active={!idv.heard} class:done={idv.heard}>Identity provider</li>
+      <li class:done={idv.heard}>Queenswood hears{idv.heard ? ` ${idv.heard}` : " the outcome"}</li>
+    </ol>
   {/if}
 </Drawer>
 
@@ -1295,12 +1316,70 @@
   }
   .toast :global(svg) { width: 15px; height: 15px; }
   .toast .t-ok { color: var(--gold-bright); display: inline-flex; }
+  /* The bank's app, not the console: a phone in neutral greys that take
+     no colour from the console's theme. */
+  .idv-phone {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    border: 9px solid #17191e;
+    border-radius: 34px;
+    overflow: hidden;
+    background: #f4f5f7;
+    box-shadow: 0 18px 40px -18px rgba(0, 0, 0, 0.45);
+  }
+  .idv-appbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px 10px;
+    background: #17191e;
+    color: #f4f5f7;
+    font: 600 13px/1 system-ui, sans-serif;
+  }
+  .idv-appmark {
+    display: inline-grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    background: #f4f5f7;
+    color: #17191e;
+    font-size: 11px;
+  }
   .idv-frame {
     flex: 1;
     width: 100%;
     min-height: 0;
-    border: 1px solid var(--rule);
-    border-radius: 12px;
+    border: 0;
     background: #f4f5f7;
+  }
+  .idv-hops {
+    display: flex;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 12px;
+    color: var(--fg-muted);
+  }
+  .idv-hops li {
+    flex: 1;
+    padding: 7px 8px;
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    text-align: center;
+  }
+  .idv-hops li + li::before {
+    content: "→ ";
+    color: var(--fg-muted);
+  }
+  .idv-hops li.done {
+    color: var(--fg);
+  }
+  .idv-hops li.active {
+    border-color: var(--gold-bright);
+    color: var(--fg);
   }
 </style>
