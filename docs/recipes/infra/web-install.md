@@ -4,10 +4,16 @@
 
 ## Status
 
-**Untested.** Derived from
+**Verified.** One organisation's apex was built this way end to end on
+2026-10-07: the project with Firebase on it, `web.yml`, both domains
+connected, their records published through `apex.yml`, and the page
+released, each domain reaching `HOST_ACTIVE` and `OWNERSHIP_ACTIVE`
+and the apex serving its own certificate from Google Trust Services
+while Hosting still reported `CERT_PROPAGATING`.
+
+Written from
 [ADR-0044](../../adr/0044-the-apex-serves-a-static-site-from-a-project-of-its-own.md)
-and the Firebase Hosting REST API; the recipes have not yet been run
-against an organisation.
+and the Firebase Hosting REST API.
 
 ## Problem
 
