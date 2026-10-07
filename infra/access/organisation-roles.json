@@ -71,6 +71,23 @@
       "boundElsewhere": "On the organisation-level project holding the DNS managed zones. No installation's capability reaches it and this one reaches no installation. Break-glass because every act on it is a write -- reading a zone to check for drift means joining too."
     },
     {
+      "key": "webAdmin",
+      "scope": "org",
+      "membership": "break-glass",
+      "grants": "Administers the site the organisation's apex answers with: the domains connected to it and what it serves.",
+      "roles": [
+        {
+          "role": "roles/firebasehosting.admin",
+          "why": "Held by a person for the length of a task. Creates the site, connects its domains and releases what it serves. Bound on the one project holding the site, so it reaches nothing else."
+        },
+        {
+          "role": "roles/serviceusage.serviceUsageConsumer",
+          "why": "The Hosting API bills a person's calls to a quota project, and this is what lets the web project be that project."
+        }
+      ],
+      "boundElsewhere": "On the organisation-level project holding the apex's site. No installation's capability reaches it and this one reaches no installation. Break-glass because every act on it is a write -- reading a domain's state means joining too."
+    },
+    {
       "key": "billingAdmin",
       "scope": "org",
       "membership": "break-glass",

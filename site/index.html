@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Queenswood: open-source core banking</title>
+<meta name="description" content="Whether you're building a bank or embedding banking into your product, Queenswood runs the banking behind it.">
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+<link rel="preload" href="assets/fonts/geist-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/cormorant-garamond-latin-500-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<nav class="nav" id="nav">
+  <div class="wrap">
+    <a class="brand" href="#"><img src="assets/logo.svg" alt=""><span>QUEENS<b>WOOD</b></span></a>
+    <button class="menu" aria-label="Menu" aria-expanded="false" aria-controls="nav" onclick="var n=document.getElementById('nav');n.classList.toggle('open');this.setAttribute('aria-expanded',n.classList.contains('open'))"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"></path></svg></button>
+    <div class="links">
+      <a href="#why">Why Queenswood</a>
+      <a href="#pm">Product</a>
+      <a href="#developers">Developers</a>
+      <a href="https://repldriven.github.io/queenswood/">API</a>
+      <a href="https://github.com/repldriven/queenswood">GitHub</a>
+      <a class="btn solid m-btn" href="${CONSOLE_URL}" data-console>Register</a>
+    </div>
+    <a class="btn solid" href="${CONSOLE_URL}" data-console>Register</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <div>
+      <h1 class="serif rise">Open-source <em>core banking.</em></h1>
+      <p class="lede rise d2">Whether you're building a bank or embedding banking into your product, Queenswood runs the banking behind it. You bring the banking licence, the payments provider and the identity provider.</p>
+      <div class="cta rise d3">
+        <a class="btn solid" href="${CONSOLE_URL}" data-console>Register and open a sandbox bank</a>
+        <a class="btn line" href="https://github.com/repldriven/queenswood"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.4-1.8-1.4-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5z"></path></svg>Source on GitHub</a>
+      </div>
+    </div>
+    <a class="shot rise d2" href="https://github.com/user-attachments/assets/cd3b010e-0e4e-491e-bdc2-14c518d6df70" aria-label="Watch a tour of the operator console"><img src="assets/demo-console.png" alt="A tour of what your bank can do, in the operator console" width="1200" height="750"><span class="cap">Watch the console tour</span></a>
+  </div>
+</header>
+
+<div class="bring">
+  <div class="wrap">
+    <div class="lab">What you bring</div>
+    <div class="cell"><span class="n">1</span><h3>A banking licence</h3><p>Or a partner who holds one.</p></div>
+    <div class="cell"><span class="n">2</span><h3>A payments provider</h3><p>Your account with one, such as Modulr. We connect to it for you.</p></div>
+    <div class="cell"><span class="n">3</span><h3>An identity provider</h3><p>Your account with one, such as Zyphe. Same again.</p></div>
+    <div class="cell"><span class="n">4</span><h3>Somewhere to run it</h3><p>Your own infrastructure, Google Cloud, or wait for our managed offering.</p></div>
+  </div>
+  <div class="wrap none">
+    <p class="none-t serif">Bring <em>nothing</em> while you test.</p>
+    <p class="none-p">Our sandbox simulates your choice of payments and identity providers, and no licence is needed for simulated money.</p>
+  </div>
+</div>
+
+<section class="s" id="why">
+  <div class="wrap">
+    <div class="head">
+      <div><p class="eyebrow">For decision-makers</p><h2 class="t">Why run your bank on Queenswood</h2></div>
+    </div>
+    <div class="grid g4">
+      <div class="item"><h3>Open source</h3><p>The code is yours to read, run and change under the MIT licence, on infrastructure you choose. No licence fee, and you decide when to take each release.</p></div>
+      <div class="item"><h3>Audit trail</h3><p>Everyone on your team signs in as themselves with a role, and an audit log records every change to who may act for your bank, with who made it and why.</p></div>
+      <div class="item"><h3>Pluggable providers</h3><p>Payments and identity verification each connect through an adapter, and a simulator stands in for each provider, so you can build and test before a contract is signed.</p></div>
+      <div class="item"><h3>Fine-grained policies</h3><p>Policies are records checked on every request, from simple limits to rules over rolling windows of activity, and your bank's tier sets the capabilities it works within. Changing either ships no code.</p></div>
+      <div class="item"><h3>Configurable products</h3><p>Rates, fees, limits and rewards are configuration, published as versions and migrated on your schedule. A new product line needs no code change.</p></div>
+      <div class="item"><h3>Sandbox</h3><p>Your bank starts in test, where you try everything with simulated money on the same software your customers will use, and moves to live when you're ready.</p></div>
+      <div class="item"><h3>Test suite</h3><p>Generated tests check its answers against a model of how a bank should behave, and scenarios drive the live API end to end.</p></div>
+      <div class="item"><h3>Documentation</h3><p>Every decision, design and procedure is written down, and all of it says what's done and what's not.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="s" id="pm">
+  <div class="wrap">
+    <div class="split lead">
+      <div>
+        <p class="eyebrow">For product</p>
+        <h2 class="t">Configurable products</h2>
+        <p class="lede">Change a rate, add a welcome reward or launch a new product line, and move existing customers to the new terms only when you plan and approve it, with no need to ship code.</p>
+        <p class="more muted">Your product team publishes each product version in the console, and plans the migrations that move holders onto a new one.</p>
+      </div>
+      <div class="shot"><img src="assets/migrations.png" alt="A migration moving holders onto a new product version, in the console" width="1097" height="648" loading="lazy"></div>
+    </div>
+    <div class="grid g3">
+      <div class="item"><h3>Products</h3><p>Configure rates, fees, limits and rewards per product, and publish each change as a new version. No code to ship.</p></div>
+      <div class="item"><h3>Onboarding</h3><p>Every new customer is identity-checked as they sign up, and can't open an account until the check clears.</p></div>
+      <div class="item"><h3>Payments</h3><p>Customers pay and are paid by UK Faster Payments in seconds, with Confirmation of Payee first.</p></div>
+      <div class="item"><h3>Interest</h3><p>You decide when interest is accrued and paid: daily, monthly or yearly.</p></div>
+      <div class="item"><h3>Migrations</h3><p>Move holders onto a new product version as a planned campaign: choose who moves, notify them, set the schedule, and approve it before it runs.</p></div>
+      <div class="item"><h3>Product specs</h3><p>Every capability has a spec saying what it's for and who uses it, in product language.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="s" id="finance">
+  <div class="wrap">
+    <div class="split">
+      <div>
+        <p class="eyebrow">For finance</p>
+        <h2 class="t">General ledger and trial balance</h2>
+        <p class="lede">Your finance team reads the general ledger in the console, checks the trial balance ties, and sees what waits in suspense.</p>
+        <p class="more muted">Every movement is recorded as matching debits and credits, so the books always balance, down to fractions of a penny of interest.</p>
+      </div>
+      <div class="shot"><img src="assets/trial-balance.png" alt="Trial balance in the console" width="1097" height="648" loading="lazy"></div>
+    </div>
+  </div>
+</section>
+
+<section class="s" id="compliance">
+  <div class="wrap">
+    <div class="split rev">
+      <div>
+        <p class="eyebrow">For compliance</p>
+        <h2 class="t">Audit trail</h2>
+        <p class="lede">The access log, the policies in force and the ledger say who did what, and under which rules.</p>
+        <p class="more muted">Everyone on your team signs in as themselves, as owner, admin, developer or viewer. An audit log records every change to who may act for your bank (invitations, role changes, removals and the operator's own acts) with who made it and why.</p>
+      </div>
+      <div class="shot"><img src="assets/people.png" alt="People and access in the console" width="1097" height="648" loading="lazy"></div>
+    </div>
+  </div>
+</section>
+
+<section class="s dark" id="developers">
+  <div class="wrap">
+    <div class="head">
+      <div><p class="eyebrow">For engineering</p><h2 class="t">One API</h2></div>
+      <p class="lede">One base URL, not a service per domain, described by a single OpenAPI 3.x spec. The spec is generated from the routes themselves, so it can't drift from what the API does.</p>
+    </div>
+    <div class="split">
+      <div class="grid g2">
+        <div class="item"><h3>Idempotent writes</h3><p>Every write takes an idempotency key, so a retried request replays the first answer rather than paying twice.</p></div>
+        <div class="item"><h3>Webhooks</h3><p>Deliveries are retried until acknowledged, up to a limit, and each is recorded, so a missed one can be found and sent again.</p></div>
+        <div class="item"><h3>Simulators</h3><p>A simulator stands in for the payments and identity providers, so you build and test with no network dependencies.</p></div>
+        <div class="item"><h3>A worked example</h3><p>The demo digital bank is a retail banking app built entirely on the API, and the reference for building yours.</p></div>
+      </div>
+<pre class="code"><span class="c"># The platform, as one process with its containers.</span>
+just monolith-start
+
+<span class="c"># The console, on http://localhost:5173.</span>
+just console-start
+
+<span class="c"># The demo digital bank: seed it, then start its</span>
+<span class="c"># backend and its app, on http://localhost:5174.</span>
+just demo-digital-bank-seed
+just demo-digital-bank-start
+just demo-digital-bank-app-start</pre>
+    </div>
+    <div class="more-links">
+      <a class="btn line" href="https://repldriven.github.io/queenswood/">Read the API reference</a>
+      <a class="btn line" href="https://github.com/repldriven/queenswood/tree/main/docs">Technical documentation</a>
+    </div>
+  </div>
+</section>
+
+<section class="s" id="register">
+  <div class="wrap sand">
+    <p class="eyebrow">Sandbox</p>
+    <h2 class="t">Your bank starts in test</h2>
+    <p class="lede">Register, name your bank and choose its providers. You try everything with simulated money on the same software your customers will use, and move to live when you're ready.</p>
+    <div class="cta">
+      <a class="btn solid" href="${CONSOLE_URL}" data-console>Register</a>
+      <a class="btn line" href="https://github.com/repldriven/queenswood/releases/latest">Run it on your own cluster</a>
+    </div>
+    <p class="fine">${CONSOLE_NOTE}</p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <a class="brand" href="#"><img src="assets/logo.svg" alt=""><span>QUEENS<b>WOOD</b></span></a>
+    <ul>
+      <li><a href="https://github.com/repldriven/queenswood">GitHub</a></li>
+      <li><a href="https://repldriven.github.io/queenswood/">API reference</a></li>
+      <li><a href="https://github.com/repldriven/queenswood/tree/main/docs">Documentation</a></li>
+      <li><a href="https://github.com/repldriven/queenswood/blob/main/docs/compliance/readme.md">Compliance register</a></li>
+      <li><a href="https://github.com/repldriven/mono">Built on mono</a></li>
+    </ul>
+    <span>MIT licence</span>
+  </div>
+</footer>
+</body>
+</html>

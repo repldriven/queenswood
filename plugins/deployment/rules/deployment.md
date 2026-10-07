@@ -549,8 +549,8 @@ outside its own IAM policy. Revoke the super admin's local credentials,
 and its direct organisation binding, once the group carries the role —
 either one left standing still reaches super admin. Never leave anybody
 standing in `grp-gcp-org-admin@`, `grp-gcp-folder-admin@`,
-`grp-gcp-billing-admin@`, `grp-gcp-project-admin@` or
-`grp-gcp-dns-admin@`. Declare an organisation-scoped role in
+`grp-gcp-billing-admin@`, `grp-gcp-project-admin@`,
+`grp-gcp-dns-admin@` or `grp-gcp-web-admin@`. Declare an organisation-scoped role in
 [organisation-roles.json](/infra/access/organisation-roles.json), never
 in the recipe that binds it, and read what a capability grants, and why,
 before granting or questioning one; everything folder or project scoped
@@ -796,11 +796,39 @@ delegated to it in `environment.yml` and never the apex above. All of it
 may be skipped where an organisation hands over a folder and a subdomain
 — their apex is theirs, and an installation reads the same either way —
 and the apex may point at a front door rather than at an environment's
-address once one exists, since it is the same record.
+address once one exists, or at a static site, since it is the same
+record.
 Commands: `just dns-apex-project-create`, `just dns-apex-zone-create`,
 `just dns-apex-apply`, `just dns-apex-diff`.
 See [apex-install](../../../docs/recipes/infra/apex-install.md) and
 [ADR-0028](../../../docs/adr/0028-the-apex-belongs-to-no-installation.md).
+
+## The apex serves a static site from a project of its own
+
+Serve the apex's page from Firebase Hosting in `prj-c-web-<suffix>`, a
+project at the organisation beside the apex zone's, created outside
+every folder with no billing account linked, so serving past the
+no-cost quota stops the site rather than charging for it, and with
+`webAdmin` bound on that project alone, break-glass like `dnsAdmin`.
+Declare the domain, the project, the site and the names that redirect
+to the apex in `web.yml` at the root of the manifests repository, and
+change them by merging that file and running `just web-apply`, which
+creates what is absent and deletes nothing. Publish the records Hosting
+asks for through `apex.yml` and `just dns-apex-apply`, reading them
+from `just web-status` — the web recipes never write the apex zone —
+and give the apex's A record a 60-second TTL. Release the site with
+`just web-publish`. Never connect a domain or release a site from the
+Firebase console, since nothing records it, and never remove Hosting's
+`hosting-site=` TXT value from `apex.yml` while the site serves, since
+Hosting checks it continually. A billing account may be linked to keep
+the site serving past the quota, which charges for what it serves
+beyond it, a site may redirect no names, and the apex may point at a
+load balancer instead once one exists.
+Commands: `just web-project-create`, `just web-manifest`, `just
+web-apply`, `just web-status`, `just web-publish`, `just
+dns-apex-apply`.
+See [web-install](../../../docs/recipes/infra/web-install.md) and
+[ADR-0044](../../../docs/adr/0044-the-apex-serves-a-static-site-from-a-project-of-its-own.md).
 
 ## A public zone needs proven ownership, and the registrar is touched once
 
