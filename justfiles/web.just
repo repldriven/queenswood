@@ -122,6 +122,10 @@ web-manifest domain project names="www" file=WEB:
       echo "{{ file }} already exists; edit it" >&2
       exit 1
     fi
+    if [[ -z "{{ domain }}" || -z "{{ project }}" ]]; then
+      echo "a domain and a project are needed" >&2
+      exit 1
+    fi
     NAMES=""
     for N in ${=:-{{ names }}}; do
       NAMES+="  - \"$N\""$'\n'
