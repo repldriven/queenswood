@@ -44,7 +44,7 @@
             :openapi {:info {:title "Form3 Adapter"
                              :description
                              "Adapts between Queenswood and the Form3 API"
-                             :version "0.0.7"}
+                             :version "0.0.8"}
                       :components {:examples
                                    form3-webhook/example-registry}}
             :handler (server/standard-openapi-handler)}}]
