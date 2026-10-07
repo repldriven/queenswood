@@ -105,13 +105,17 @@
 (defn save-intent
   "Persist an outbound intent. Returns it, or a `:<adapter>-outbound/save`
   anomaly, a uniqueness violation where its `dedup-key` is enqueued.
+  Once saved, it wakes a poller this process runs over the same store,
+  which then starts its next pass at once rather than after `poll-ms`;
+  given an open transaction, the pass may run before it commits and find
+  the intent on the one after.
 
   Args:
   - txn: an open FDB transaction or `{:record-db :record-store}` config.
   - spec: the store spec.
   - intent: the intent record."
   [txn spec intent]
-  (store/save-intent txn spec intent))
+  (core/save-intent txn spec intent))
 
 (defn intents-with-status
   "Every intent of `config`'s store at `status`, or an anomaly.
@@ -170,8 +174,9 @@
 
 (defn start
   "Start a daemon thread that drains `config`'s pending intents, again at
-  once after a pass that ran one and after `:poll-ms` otherwise, with
-  `:concurrency` workers where it is above one. Returns `{:stop fn}`.
+  once after a pass that ran one, or that `save-intent` woke, and after
+  `:poll-ms` otherwise, with `:concurrency` workers where it is above
+  one. Returns `{:stop fn}`.
 
   Args:
   - config: a poller config."

@@ -84,7 +84,9 @@ organisation (KYB) verification, which no adapter offers yet.
   by the service's `application.yml`, never by a request, per
   [ADR-0020](../adr/0020-providers-are-deployment-facts.md). Each
   adapter consumes its own command channel, `zyphe-idv-command` for
-  Zyphe.
+  Zyphe, which is sent keyed by bank and handed to sixteen performers by
+  verification, so different customers' checks are saved at once and
+  each verification's in order.
 - **Capabilities.** `policy`'s `check-capability` takes a kind and a
   request map. A capability matches when its kind and its fields beside
   `filters` equal the request's, and when it has no filters or any one

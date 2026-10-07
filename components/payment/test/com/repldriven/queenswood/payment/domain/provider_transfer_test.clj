@@ -75,6 +75,47 @@
                          :leg-side-credit 20
                          :balance-status :balance-status-pending-outgoing)])))))
 
+(deftest mirrors-nothing-test
+  (let [nothing? (fn [legs scheme-account-id]
+                   (SUT/mirrors-nothing? {:legs legs
+                                          :scheme-account-id scheme-account-id}
+                                         "gl.1100"))]
+    (testing "a posting of pending legs alone"
+      (let [legs [(posted-leg "acc.a"
+                              :leg-side-debit 20
+                              :balance-status :balance-status-pending-outgoing)
+                  (posted-leg "gl.1200"
+                              :leg-side-credit 20
+                              :balance-status
+                              :balance-status-pending-outgoing)]]
+        (is (nothing? legs nil))
+        (is (= [] (transfers legs)))))
+    (testing "the scheme's own settlement, whatever its account's party"
+      (doseq [scheme ["acc.a" "acc.no"]
+              legs [[(posted-leg scheme :leg-side-debit 900)
+                     (posted-leg "gl.1100" :leg-side-credit 900)
+                     (posted-leg "gl.1200"
+                                 :leg-side-debit 900
+                                 :balance-status
+                                 :balance-status-pending-outgoing)]
+                    [(posted-leg "gl.1100" :leg-side-debit 900)
+                     (posted-leg scheme :leg-side-credit 900)]]]
+        (is (nothing? legs scheme))
+        (is (= [] (transfers legs (get-in accounts [:cash-accounts scheme]))))))
+    (testing "a posting that moves money is not nothing"
+      (doseq [[legs scheme]
+              [[[(posted-leg "acc.a" :leg-side-debit 500)
+                 (posted-leg "acc.b" :leg-side-credit 500)] nil]
+               [[(posted-leg "gl.1100" :leg-side-debit 900)
+                 (posted-leg "gl.2500" :leg-side-credit 900)] "acc.a"]
+               [[(posted-leg "gl.1100" :leg-side-debit 5000)
+                 (posted-leg "acc.house" :leg-side-credit 5000)] nil]
+               [[(posted-leg "acc.a" :leg-side-debit 100)
+                 (posted-leg "gl.1100" :leg-side-credit 60)
+                 (posted-leg "gl.1200" :leg-side-credit 40)] "acc.a"]]]
+        (is (not (nothing? legs scheme)))
+        (is (seq (transfers legs scheme)))))))
+
 (deftest mirror-party-test
   (testing "an account with a provider account holds its own money"
     (is (= "acc.a"

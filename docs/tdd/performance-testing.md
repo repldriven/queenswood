@@ -77,8 +77,9 @@ against a provider's own sandbox.
   which the adapter sends to Modulr as a payment between accounts.
 - **An outbound payment reaches Modulr through two relays and a poller.**
   The submit records an activity entry; a `changelog-relay` runner per
-  bank-activity shard in `exclusive-dispatchers-service`, polling every
-  100 ms for up to 500 entries, publishes it; `payment`'s activity event
+  bank-activity shard in `exclusive-dispatchers-service`, reading up to
+  500 entries a pass, again at once after a pass that relays entries and
+  after 100 ms otherwise, publishes it; `payment`'s activity event
   processor sends the command; the Modulr adapter saves an intent; and
   the `intent-poller` in
   [core.clj](/components/intent-poller/src/com/repldriven/queenswood/intent_poller/core.clj)
@@ -442,7 +443,8 @@ run at the next:
    busy for about one second in each, and nothing pending at the end.
    Each pass still reads every pending and sent intent.
 6. **The relays.** One bank's activity is one shard's log, read by one
-   runner at up to 500 entries every 100 ms.
+   runner at up to 500 entries a pass, again at once after a pass that
+   relays entries and after 100 ms otherwise.
 7. **The outbound settlement consumer.** Done for 50 a second. `payment`
    settled outbound payments from `topic-schemes-payments-event`, one
    partition, one message at a time, at 17.6 ms each, so at 50 a second
@@ -557,7 +559,18 @@ run at the next:
     fell from 82 a second to 42 while submits rose from 91 to 161, since
     every provider command for the run's one bank is sent from that
     bank's activity in order, one entry at a time, which a posting
-    naming several accounts needs.
+    naming several accounts needs. An outbound payment is three entries,
+    and its reservation and the scheme's settlement mirror nothing, so
+    the processor passes over both before reading anything: such an
+    entry takes 0.03 ms rather than 2 ms, and the processor keeps up at
+    about 630 entries a second. Settlement still takes a p50 of 38 s in
+    an outbound `knee` behind the Modulr adapter's command consumer,
+    which the bank's commands reach in order on one performer, saving an
+    intent each, about 13 ms under load, so about 75 a second; Zyphe's
+    commands, one subject each, are narrowed to performers by
+    verification, but a transfer names two accounts, so taking Modulr's
+    at once needs intents ordered by their activity entry rather than by
+    when they were saved.
 
 19. **Opening accounts.** One bank opened about 88 accounts a second,
     clean to 80 asked: the cash-account command consumer took one command

@@ -164,4 +164,4 @@
                                          (.getKey ^KeyValue (last entries)))
                                 0)]
                    (write-checkpoint tr cp-key last-vs)))
-               nil))))))
+               (count entries)))))))

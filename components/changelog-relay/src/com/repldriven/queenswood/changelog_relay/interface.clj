@@ -42,7 +42,9 @@
   Args:
   - config: a map with `:record-db`, `:consumer-id`, `:store-name`,
     `:handler` (a 2-arity fn of `[ctx changelog-bytes]`), and an
-    optional `:poll-ms` (default 100).
+    optional `:poll-ms` (default 100), how long it waits after a pass
+    that relays nothing; after one that relays entries it reads again at
+    once.
 
   Reuse an existing `:consumer-id` when taking over a cursor — a fresh
   one starts from no checkpoint and would scan the store's entire

@@ -16,7 +16,9 @@
                           ExecutorService
                           Executors
                           Future
-                          ThreadFactory)))
+                          LinkedBlockingQueue
+                          ThreadFactory
+                          TimeUnit)))
 
 (def config-schema
   [:map
@@ -473,6 +475,19 @@
       0
       (pass config now pending sent))))
 
+(def ^:private wakers
+  "Each running poller's wake queue, by the name of the intent store it
+  drains, so a save in this process starts its next pass at once."
+  (atom {}))
+
+(defn save-intent
+  [txn spec intent]
+  (let [saved (store/save-intent txn spec intent)]
+    (when-not (error/anomaly? saved)
+      (doseq [^LinkedBlockingQueue q (get @wakers (:intents spec))]
+        (.offer q true)))
+    saved))
+
 (defn- worker-pool
   "`n` threads the adapter's intents run on, or nil for one, where a pass
   runs them in order on the poller's own thread."
@@ -500,6 +515,9 @@
                                    :executor
                                    executor)
         running (atom true)
+        store-name (get-in config [:store :intents])
+        wake (LinkedBlockingQueue.)
+        _ (swap! wakers update store-name (fnil conj #{}) wake)
         t (doto (Thread.
                  (fn []
                    (while @running
@@ -511,7 +529,8 @@
                                     "Intent poller drain threw; continuing")
                                    0))]
                        (try (when (and @running (not (pos? ran)))
-                              (Thread/sleep poll-ms))
+                              (.poll wake poll-ms TimeUnit/MILLISECONDS)
+                              (.clear wake))
                             (catch InterruptedException _
                               (reset! running false)))))))
             (.setDaemon true)
@@ -519,6 +538,7 @@
             (.start))]
     {:stop (fn []
              (reset! running false)
+             (swap! wakers update store-name disj wake)
              (.interrupt t)
              (some-> ^ExecutorService executor
                      .shutdown))}))

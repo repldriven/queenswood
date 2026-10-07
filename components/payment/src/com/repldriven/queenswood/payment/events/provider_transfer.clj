@@ -138,18 +138,27 @@
   the transfers that make the provider accounts hold what a posted
   transaction left in the ledger, naming each cash account for the
   adapter to resolve. A redelivery sends again those still pending,
-  which the adapter takes as the transfers it already has."
+  which the adapter takes as the transfers it already has. A posting
+  that mirrors nothing whatever its accounts' parties, as an outbound's
+  reservation and the scheme's own settlement, reads and records
+  nothing."
   [config posted]
-  (let-nom> [declaration (provider/declaration config config (:bank-id posted))]
-    (when (= "per-account" (:balances declaration))
-      (let-nom> [transfers (record-transfers config posted)]
-        (reduce (fn [_ t]
-                  (if (= :provider-transfer-status-pending (:status t))
-                    (let [res (send-transfer config t)]
-                      (if (error/anomaly? res) (reduced res) nil))
-                    nil))
-                nil
-                transfers)))))
+  (let [{:keys [bank-id currency]} posted]
+    (let-nom> [declaration (provider/declaration config config bank-id)]
+      (when (= "per-account" (:balances declaration))
+        (let-nom> [{:keys [cash-at-correspondent-id]}
+                   (bank-accounts config config bank-id currency)]
+          (when-not (provider-transfer/mirrors-nothing?
+                     posted
+                     cash-at-correspondent-id)
+            (let-nom> [transfers (record-transfers config posted)]
+              (reduce (fn [_ t]
+                        (if (= :provider-transfer-status-pending (:status t))
+                          (let [res (send-transfer config t)]
+                            (if (error/anomaly? res) (reduced res) nil))
+                          nil))
+                      nil
+                      transfers))))))))
 
 (defn- finish-transfer
   [config data status reason]

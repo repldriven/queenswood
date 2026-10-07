@@ -18,20 +18,25 @@
             (Thread.
              (fn []
                (while @running
-                 (try (fdb/process-changelog record-db
-                                             consumer-id
-                                             store-name
-                                             handler
-                                             {:deduplicate? false
-                                              :keyspace-prefix
-                                              keyspace-prefix})
-                      (catch Exception e
-                        (log/error e
-                                   "Changelog relay pass failed; will redrive"
-                                   {:consumer-id consumer-id
-                                    :store-name store-name})))
-                 (try (when @running (Thread/sleep interval))
-                      (catch InterruptedException _ (reset! running false))))))
+                 (let [relayed (try
+                                 (fdb/process-changelog
+                                  record-db
+                                  consumer-id
+                                  store-name
+                                  handler
+                                  {:deduplicate? false
+                                   :keyspace-prefix keyspace-prefix})
+                                 (catch Exception e
+                                   (log/error
+                                    e
+                                    "Changelog relay pass failed; will redrive"
+                                    {:consumer-id consumer-id
+                                     :store-name store-name})
+                                   0))]
+                   (when-not (pos? relayed)
+                     (try (when @running (Thread/sleep interval))
+                          (catch InterruptedException _
+                            (reset! running false))))))))
             (.setDaemon true)
             (.setName (str consumer-id "-relay"))
             (.start))]

@@ -218,7 +218,7 @@ sequenceDiagram
     box rgba(165, 216, 255, 0.45)
     participant PE as topic-parties-event<br/>partition-key = party
     end
-    loop every 100 ms
+    loop at once after a pass that relays entries, else after 100 ms
     critical transact
     critical transact, a transaction of its own
     R->>DB: read the cursor

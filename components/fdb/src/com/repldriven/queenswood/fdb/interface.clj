@@ -400,7 +400,7 @@
   checkpoint, so a fresh consumer-id starts from the beginning of the
   log. The log is read as a snapshot, so a writer appending to it does
   not conflict the pass and have its handler run again; what it appends
-  is the next pass's.
+  is the next pass's. Returns the number of entries the pass read.
 
   Args:
   - opts: `:deduplicate?` (default true) processes only the latest
