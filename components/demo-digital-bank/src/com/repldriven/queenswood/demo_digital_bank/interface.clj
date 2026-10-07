@@ -73,12 +73,9 @@
   Args:
   - bank: the started bank component.
   - sign-up-id: the sign-up's id.
-  - request: `{:given-name :family-name :date-of-birth :email
-    :nationality :address :national-identifier}`, the date ISO 8601,
-    the address
-    `{:building-number :street :town :postcode :country}` and the
-    identifier `{:type :value :issuing-country}`; nationality, country,
-    type and issuing country default to a UK person's."
+  - request: `{:given-name :family-name :email}`. The person gives the
+    identity provider everything else, and the platform registers them
+    under the sign-up's id as the bank's reference."
   [bank sign-up-id request]
   (core/register-details bank sign-up-id request))
 

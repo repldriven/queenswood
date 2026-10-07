@@ -11,9 +11,7 @@
           :with {:token [:ref :bank-0 :token]
                  :display-name "Ford Prefect"
                  :given-name "Ford"
-                 :family-name "Prefect"
-                 :date-of-birth "1952-03-11"
-                 :national-insurance "TN555201A"}}
+                 :family-name "Prefect"}}
          ;; £1,000 from outside, paid in from the bank's own funds.
          {:fixture :funded-account
           :as :debtor

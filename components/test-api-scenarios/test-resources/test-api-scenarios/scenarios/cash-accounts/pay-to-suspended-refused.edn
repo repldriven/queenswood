@@ -7,8 +7,7 @@
           :with {:token [:ref :org-0 :token]
                  :display-name "Suspended Payee"
                  :given-name "Suspended"
-                 :family-name "Payee"
-                 :national-insurance "TN889002A"}}
+                 :family-name "Payee"}}
          {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}
          {:fixture :account
           :as :debtor

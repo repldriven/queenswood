@@ -69,36 +69,30 @@
   const RAINY_DAY_BPS = 410;
   const RAINY_DAY_V2_BPS = 435;
 
-  const ADDRESS = {
-    "building-number": "155",
-    street: "Country Lane",
-    town: "Cottington",
-    postcode: "CT12 4XY",
-    country: "GBR",
-  };
-  // Each person is played through the identity provider's hosted page:
-  // Arthur and Ford show their own documents, and Zaphod turns out to be
-  // on a sanctions list.
+  // Each person is registered by name, under the bank's own reference,
+  // and played through the identity provider's hosted page: Arthur and
+  // Ford show their own documents, and Zaphod turns out to be on a
+  // sanctions list.
   const PARTY = {
     arthur: {
       type: "person", "display-name": "Arthur Dent",
       "given-name": "Arthur", "family-name": "Dent",
-      "date-of-birth": "1950-07-27", nationality: "GB", address: ADDRESS,
-      "national-identifier": { type: "national-insurance", value: "TN555101A", "issuing-country": "GB" },
+      "external-reference": "cust-arthur",
     },
     ford: {
       type: "person", "display-name": "Ford Prefect",
       "given-name": "Ford", "family-name": "Prefect",
-      "date-of-birth": "1948-04-01", nationality: "GB", address: ADDRESS,
-      "national-identifier": { type: "national-insurance", value: "TN555102B", "issuing-country": "GB" },
+      "external-reference": "cust-ford",
     },
     zaphod: {
       type: "person", "display-name": "Zaphod Beeblebrox",
       "given-name": "Zaphod", "family-name": "Beeblebrox",
-      "date-of-birth": "1947-02-02", nationality: "GB", address: ADDRESS,
-      "national-identifier": { type: "national-insurance", value: "TN555103C", "issuing-country": "GB" },
+      "external-reference": "cust-zaphod",
     },
   };
+  // What each person tells the identity provider on its page, which the
+  // platform never holds.
+  const BORN = { Arthur: "1950-07-27", Ford: "1948-04-01", Zaphod: "1947-02-02" };
   const TEAM = {
     developer: { email: "trillian@example.test", role: "developer" },
     viewer: { email: "marvin@example.test", role: "viewer" },
@@ -484,7 +478,7 @@
     url.searchParams.set("simulate", outcome);
     url.searchParams.set("givenNames", body["given-name"]);
     url.searchParams.set("familyName", body["family-name"]);
-    url.searchParams.set("dateOfBirth", body["date-of-birth"]);
+    url.searchParams.set("dateOfBirth", BORN[body["given-name"]]);
     url.searchParams.set("pace", "900");
     idv = { name: body["display-name"], outcome: OUTCOMES[outcome] ?? outcome, url: url.toString() };
     idvOpen = true;

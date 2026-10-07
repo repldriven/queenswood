@@ -17,6 +17,7 @@
   - `:event-type` — the outbox event's record type, its dedup key index
     named `<event-type>_by_dedup_key`.
   - `:event->java`, `:event->pb`, `:intent->java`, `:pb->intent`.
+  - `:pb->event`, optionally, for `clear-payloads`.
   - `:redact`, optionally — a function of an intent's encoded `request`
     returning only what may be kept once the external API no longer
     needs it, applied in the transaction that settles or fails the
@@ -201,3 +202,28 @@
   - data: the event's data, before it is serialised."
   [data]
   (core/ordering-key data))
+
+
+(defn redact-done
+  "Apply the store spec's `:redact` to every settled or failed intent
+  whose request it would change. Returns how many it rewrote — none on
+  a rerun, or where the spec has no `:redact` — or an anomaly.
+
+  Args:
+  - config: `{:record-db :record-store}`.
+  - spec: the store spec."
+  [config spec]
+  (store/redact-done config spec))
+
+(defn clear-payloads
+  "Replace the payload of every outbox entry named `event-name` with the
+  bytes of `cleared`. The outbox changelog carries what is relayed, so
+  an entry is read again only through its dedup key. Returns how many it blanked — none on a
+  rerun — or an anomaly.
+
+  Args:
+  - config: `{:record-db :record-store}`.
+  - spec: the store spec, carrying `:pb->event`.
+  - event-name: the outbox event to blank."
+  [config spec event-name]
+  (store/clear-payloads config spec event-name))

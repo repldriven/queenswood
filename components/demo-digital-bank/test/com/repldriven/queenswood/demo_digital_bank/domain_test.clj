@@ -20,21 +20,16 @@
   (is (nil? (SUT/sort-code nil))))
 
 (deftest party-registration-test
-  (testing "the screens' details become the platform's person, defaults filled"
-    (let [party (SUT/party-registration
-                 {:given-name "Amara"
-                  :family-name "Okafor"
-                  :date-of-birth "1994-03-12"
-                  :address
-                  {:street "Mare Street" :town "London" :postcode "E8 3RH"}
-                  :national-identifier {:value "QQ123456C"}})]
-      (is (= "person" (:type party)))
-      (is (= "Amara Okafor" (:display-name party)))
-      (is (= "GB" (:nationality party)))
-      (is (= "GBR" (get-in party [:address :country])))
-      (is (=
-           {:type "national-insurance" :value "QQ123456C" :issuing-country "GB"}
-           (:national-identifier party))))))
+  (testing "the person is registered by name, under the sign-up's id"
+    (is (= {:type "person"
+            :display-name "Amara Okafor"
+            :given-name "Amara"
+            :family-name "Okafor"
+            :external-reference "sgn.1"}
+           (SUT/party-registration "sgn.1"
+                                   {:given-name "Amara"
+                                    :family-name "Okafor"
+                                    :email "amara@example.com"})))))
 
 (deftest published-products-test
   (let [listing {:items [{:product-id "p1"

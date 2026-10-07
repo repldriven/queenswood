@@ -1,11 +1,11 @@
-// Onboarding: welcome → mobile → code → about you → photo ID → selfie →
+// Onboarding: welcome → mobile → code → about you → identity check →
 // passcode → done, each step a call to the bank; and signing in, for a
 // returning customer. The code fills itself in, standing in for what a
-// real sign-up would do off the phone, and the document scan and the
-// selfie stand in the same way for the identity provider's own capture.
-// While the document scans the bank registers the person; once the
-// selfie is taken the app hands them to the identity provider's page,
-// which returns them here at `#verified` to choose a passcode.
+// real sign-up would do off the phone. The bank asks only for a name and
+// an email: the identity check registers the person and hands them to
+// the identity provider's page, where they give their date of birth,
+// address, document and selfie, which the bank never sees. The page
+// returns them here at `#verified` to choose a passcode.
 import { useState, useEffect } from "react";
 import { brand } from "./brand.js";
 import { Ic, Top, Field, Pad, Err } from "./ui.jsx";
@@ -21,46 +21,12 @@ const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 const e164 = (digits) => "+44" + digits.replace(/\D/g, "").replace(/^0/, "");
 const phoneOk = (digits) => digits.replace(/\D/g, "").length >= 10;
 
-// A date of birth as DD / MM / YYYY, formatted as it is typed, and as
-// the bank takes it once it is complete and real.
-const fmtDob = (s) => {
-  const d = s.replace(/\D/g, "").slice(0, 8);
-  return d.length > 4
-    ? `${d.slice(0, 2)} / ${d.slice(2, 4)} / ${d.slice(4)}`
-    : d.length > 2
-      ? `${d.slice(0, 2)} / ${d.slice(2)}`
-      : d;
-};
-const isoDob = (s) => {
-  const d = s.replace(/\D/g, "");
-  if (d.length !== 8) return null;
-  const [day, month, year] = [+d.slice(0, 2), +d.slice(2, 4), +d.slice(4)];
-  const t = new Date(Date.UTC(year, month - 1, day));
-  const real =
-    t.getUTCFullYear() === year &&
-    t.getUTCMonth() === month - 1 &&
-    t.getUTCDate() === day;
-  return real && year >= 1900 && t < new Date()
-    ? `${d.slice(4)}-${d.slice(2, 4)}-${d.slice(0, 2)}`
-    : null;
-};
-
-const NI = /^[A-Z]{2}\d{6}[A-D]$/;
-
-// What the selfie asks of the person, one cue at a time.
-const CUES = [
-  "Look straight at the camera",
-  "Turn your head slowly left",
-  "Now slowly right",
-  "Hold still…",
-];
-const CUE_MS = 1100;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // The sign-up the app left for the identity provider's page, kept so it
 // can carry on when the page returns the person.
 const HANDED_OFF = "xepha.handed-off";
-const PASSCODE_STEP = 6;
+const PASSCODE_STEP = 5;
 const returning = () => {
   if (!location.hash.startsWith("#verified")) return null;
   try {
@@ -186,17 +152,8 @@ export default function Onboarding({ onDone }) {
     first: resumed?.first ?? "",
     last: "",
     email: "",
-    dob: "",
-    number: "",
-    street: "",
-    town: "",
-    postcode: "",
-    ni: "",
   });
-  const [idState, setIdState] = useState("idle");
   const [verification, setVerification] = useState(null);
-  const [handOff, setHandOff] = useState(null);
-  const [face, setFace] = useState(-1);
   const [pin, setPin] = useState("");
   const [pin2, setPin2] = useState("");
   const [err, setErr] = useState(null);
@@ -229,39 +186,26 @@ export default function Onboarding({ onDone }) {
   const details = () => ({
     "given-name": me.first.trim(),
     "family-name": me.last.trim(),
-    "date-of-birth": isoDob(me.dob),
     email: me.email.trim(),
-    address: {
-      ...(me.number.trim() ? { "building-number": me.number.trim() } : {}),
-      street: me.street.trim(),
-      town: me.town.trim(),
-      postcode: me.postcode.trim(),
-    },
-    "national-identifier": { value: me.ni },
   });
-  const scan = async () => {
+  const verify = async () => {
+    setBusy(true);
     setErr(null);
-    setIdState("scanning");
     try {
-      const [registered] = await Promise.all([
-        api.registerDetails(signUp.id, details()),
-        delay(2200),
-      ]);
+      const registered = await api.registerDetails(signUp.id, details());
       setVerification(registered.verification);
-      setHandOff(registered["hand-off-url"] ?? null);
-      setIdState("done");
+      const handOff = registered["hand-off-url"];
+      if (!handOff) return next();
+      sessionStorage.setItem(
+        HANDED_OFF,
+        JSON.stringify({ id: signUp.id, first: me.first.trim() }),
+      );
+      location.assign(handOff);
     } catch (e) {
       setErr(e.message);
-      setIdState("idle");
+    } finally {
+      setBusy(false);
     }
-  };
-  const verify = () => {
-    if (!handOff) return next();
-    sessionStorage.setItem(
-      HANDED_OFF,
-      JSON.stringify({ id: signUp.id, first: me.first.trim() }),
-    );
-    location.assign(handOff);
   };
   const finish = async () => {
     setBusy(true);
@@ -295,11 +239,6 @@ export default function Onboarding({ onDone }) {
       live = false;
     };
   }, [code, step]);
-  useEffect(() => {
-    if (face < 0 || face >= CUES.length) return;
-    const t = setTimeout(() => setFace((f) => f + 1), CUE_MS);
-    return () => clearTimeout(t);
-  }, [face]);
   useEffect(() => {
     if (pin.length !== 4 || pin2.length !== 4) return;
     if (pin !== pin2) {
@@ -340,16 +279,7 @@ export default function Onboarding({ onDone }) {
     value: me[k],
     onChange: (e) => setMe({ ...me, [k]: transform(e.target.value) }),
   });
-  const meOk =
-    me.first.trim() &&
-    me.last.trim() &&
-    isoDob(me.dob) &&
-    me.street.trim() &&
-    me.town.trim() &&
-    me.postcode.trim().length >= 5 &&
-    EMAIL.test(me.email.trim()) &&
-    NI.test(me.ni);
-  const faceDone = face >= CUES.length;
+  const meOk = me.first.trim() && me.last.trim() && EMAIL.test(me.email.trim());
   const screens = [
     <div
       className={cls}
@@ -448,7 +378,7 @@ export default function Onboarding({ onDone }) {
       <Top onBack={back} />
       <div className="body">
         <h1>Tell us about you</h1>
-        <p className="sub">Exactly as it appears on your ID.</p>
+        <p className="sub">Your name exactly as it appears on your ID.</p>
         <div className="row" style={{ gap: 10, alignItems: "flex-start" }}>
           <Field label="First name">
             <input className="inp" placeholder="Amara" {...field("first")} />
@@ -457,54 +387,12 @@ export default function Onboarding({ onDone }) {
             <input className="inp" placeholder="Okafor" {...field("last")} />
           </Field>
         </div>
-        <Field label="Date of birth">
-          <input
-            className="inp mono"
-            inputMode="numeric"
-            placeholder="DD / MM / YYYY"
-            {...field("dob", fmtDob)}
-          />
-        </Field>
         <Field label="Email">
           <input
             className="inp"
             inputMode="email"
             placeholder="amara@example.com"
             {...field("email", (v) => v.trim())}
-          />
-        </Field>
-        <div className="row" style={{ gap: 10, alignItems: "flex-start" }}>
-          <Field label="House no." style={{ flex: "0 0 96px" }}>
-            <input className="inp mono" placeholder="12" {...field("number")} />
-          </Field>
-          <Field label="Street" style={{ flex: 1 }}>
-            <input
-              className="inp"
-              placeholder="Mare Street"
-              {...field("street")}
-            />
-          </Field>
-        </div>
-        <div className="row" style={{ gap: 10, alignItems: "flex-start" }}>
-          <Field label="Town">
-            <input className="inp" placeholder="London" {...field("town")} />
-          </Field>
-          <Field label="Postcode">
-            <input
-              className="inp mono"
-              placeholder="E8 3RH"
-              {...field("postcode", (v) => v.toUpperCase())}
-            />
-          </Field>
-        </div>
-        <Field
-          label="National Insurance number"
-          hint="On your payslip, P60 or letters about tax."
-        >
-          <input
-            className="inp mono"
-            placeholder="QQ123456C"
-            {...field("ni", (v) => v.toUpperCase().replace(/\s/g, ""))}
           />
         </Field>
       </div>
@@ -514,166 +402,40 @@ export default function Onboarding({ onDone }) {
         </button>
       </div>
     </div>,
-    <div className={cls} key="i" data-screen-label="Photo ID">
+    <div className={cls} key="v" data-screen-label="Identity check">
       <Top onBack={back} />
       <div className="body">
-        <div className="eyebrow" style={{ marginBottom: 8 }}>
-          Step 1 of 2 · Photo ID
-        </div>
-        <h1>Scan your photo ID</h1>
+        <h1>Now, check it's you</h1>
         <p className="sub">
-          Passport or UK driving licence. Lay it flat in good light.
+          Our identity partner asks for your date of birth, your address, a
+          photo of your ID and a selfie. They tell us when you're verified; we
+          never see any of it.
         </p>
         <div
           className="card"
           style={{
-            height: 300,
             display: "grid",
             placeItems: "center",
-            background:
-              idState === "done" ? "rgba(200,245,66,.1)" : "var(--bg-2)",
+            padding: "36px 16px",
+            background: "var(--bg-2)",
             border: "1px dashed var(--line-2)",
-            color: idState === "done" ? "var(--lime)" : "var(--muted)",
-            position: "relative",
-            overflow: "hidden",
+            color: "var(--muted)",
+            textAlign: "center",
           }}
         >
-          {idState === "scanning" && <div className="scan"></div>}
-          <div style={{ textAlign: "center" }}>
-            {idState === "done" ? Ic.check : Ic.cam}
+          <div>
+            {Ic.cam}
             <div style={{ fontSize: 14, marginTop: 10 }}>
-              {idState === "idle"
-                ? "camera view · passport in frame"
-                : idState === "scanning"
-                  ? "Reading document…"
-                  : "Passport read · details match"}
+              Takes about two minutes
             </div>
           </div>
-        </div>
-        <div style={{ marginTop: 16 }} className="hint">
-          Your documents are checked automatically and never stored on your
-          phone.
         </div>
         <Err>{err}</Err>
       </div>
       <div className="foot">
-        {idState === "done" ? (
-          <button
-            className="btn"
-            onClick={() => {
-              setFace(-1);
-              next();
-            }}
-          >
-            Continue
-          </button>
-        ) : (
-          <button
-            className="btn"
-            disabled={idState === "scanning"}
-            onClick={scan}
-          >
-            {idState === "scanning" ? "Scanning…" : "Scan document"}
-          </button>
-        )}
-      </div>
-    </div>,
-    <div className={cls} key="l" data-screen-label="Selfie check">
-      <Top onBack={back} />
-      <div className="body">
-        <div className="eyebrow" style={{ marginBottom: 8 }}>
-          Step 2 of 2 · Selfie
-        </div>
-        <h1>Take a quick selfie</h1>
-        <p className="sub">
-          We'll match your face to your ID and check it's really you.
-        </p>
-        <div
-          style={{ display: "grid", placeItems: "center", margin: "8px 0 4px" }}
-        >
-          <div style={{ position: "relative", width: 236, height: 292 }}>
-            <svg
-              width="236"
-              height="292"
-              viewBox="0 0 236 292"
-              style={{ position: "absolute", inset: 0 }}
-            >
-              <ellipse
-                cx="118"
-                cy="146"
-                rx="110"
-                ry="138"
-                fill="var(--bg-2)"
-                stroke="var(--line-2)"
-                strokeWidth="2"
-                strokeDasharray={face < 0 ? "6 6" : "0"}
-              />
-              {face >= 0 && (
-                <path
-                  d="M118 8 A110 138 0 1 1 117.99 8"
-                  fill="none"
-                  stroke="var(--lime)"
-                  strokeWidth="4"
-                  strokeLinecap="round"
-                  pathLength="100"
-                  strokeDasharray={`${(Math.min(face, CUES.length) / CUES.length) * 100} 100`}
-                  style={{ transition: "stroke-dasharray .9s ease" }}
-                />
-              )}
-            </svg>
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                display: "grid",
-                placeItems: "center",
-                textAlign: "center",
-                color: faceDone ? "var(--lime)" : "var(--muted)",
-              }}
-            >
-              <div>
-                {faceDone ? Ic.check : Ic.cam}
-                <div style={{ fontSize: 14, marginTop: 10, padding: "0 28px" }}>
-                  {face < 0
-                    ? "front camera · face in oval"
-                    : faceDone
-                      ? "Selfie taken"
-                      : "Checking…"}
-                </div>
-              </div>
-            </div>
-          </div>
-          <div
-            style={{
-              marginTop: 18,
-              minHeight: 24,
-              fontSize: 17,
-              fontWeight: 500,
-              textAlign: "center",
-            }}
-          >
-            {face < 0 ? "" : faceDone ? "All done" : CUES[face]}
-          </div>
-        </div>
-        <div style={{ marginTop: 8 }} className="hint">
-          Remove glasses or hats. Your selfie is only used to confirm your
-          identity.
-        </div>
-      </div>
-      <div className="foot">
-        {faceDone ? (
-          <button className="btn" onClick={verify}>
-            Continue
-          </button>
-        ) : (
-          <button
-            className="btn"
-            disabled={face >= 0}
-            onClick={() => setFace(0)}
-          >
-            {face >= 0 ? "Hold steady…" : "Start selfie check"}
-          </button>
-        )}
+        <button className="btn" disabled={busy} onClick={verify}>
+          {busy ? "One moment…" : "Continue to identity check"}
+        </button>
       </div>
     </div>,
     <div className={cls} key="pc" data-screen-label="Passcode">

@@ -28,13 +28,7 @@
    :with {:token [:ref :per-account-token]
           :display-name "Per Account Bank Customer"
           :given-name "Per"
-          :family-name "Customer"
-          :national-insurance "TN889012A"
-          :address {:building-number "42"
-                    :street "Country Lane"
-                    :town "Cottington"
-                    :postcode "CT12 4XY"
-                    :country "GBR"}}}
+          :family-name "Customer"}}
   {:fixture :product
    :as :per-account-product
    :with {:token [:ref :per-account-token]}}
@@ -77,13 +71,7 @@
    :with {:token [:ref :rails-token]
           :display-name "Rails Bank Customer"
           :given-name "Rails"
-          :family-name "Customer"
-          :national-insurance "TN889013A"
-          :address {:building-number "42"
-                    :street "Country Lane"
-                    :town "Cottington"
-                    :postcode "CT12 4XY"
-                    :country "GBR"}}}
+          :family-name "Customer"}}
   {:fixture :product :as :rails-product :with {:token [:ref :rails-token]}}
   {:command :api/request
    :request {:method :post

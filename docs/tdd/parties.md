@@ -3,8 +3,8 @@
 > **Status: proposal.** Parties, the IDV record, the activation chain
 > and the IDV adapters exist, and Background names them. Everything
 > under Proposed Solution is the build list; the criteria, the provider
-> declaration, evidence and sessions are built for both adapters, what
-> the platform keeps about a person is not, and
+> declaration, evidence, sessions, the provider's page and what the
+> platform keeps about a person are built for both adapters, and
 > [First slices](#first-slices) says what comes next.
 
 ## Objective
@@ -48,11 +48,11 @@ provider account per bank, which ADR-0045 requires and
   `match-name`, which normalises and tokenises two names and answers
   `:match`, `:close-match` or `:no-match`.
 - **Person identification.** `person-identification` holds a person's
-  given, middle and family names, date of birth, nationality and one
-  current address, the address snake-case with its country as ISO
-  3166-1 alpha-3. `party` holds a person's national identifiers as
-  `PartyNationalIdentifier`, one per type, the value in plain text.
-  `POST /v1/parties` takes all of them.
+  given, middle and family names as a `PersonName`, and nothing else
+  about them. `POST /v1/parties` takes the names and an optional
+  `external-reference`, unique within the bank. The former
+  `PersonIdentification` and `PartyNationalIdentifier` record types
+  remain registered, emptied by the migrator's clearance.
 - **What reaches a provider and comes back.** `submit-idv-check`, and
   the `idv-session-opening` activity it is published from, carry the
   person's names and the session's email. Onfido's relay creates its
@@ -442,14 +442,20 @@ on the provider's page.
   `date-of-birth`, `nationality`, `address` and `national-identifier`
   and becomes a closed map, so a request still carrying one is refused
   400 rather than read and ignored. `create-party` drops them too, and
-  `Party` gains `optional string external_reference`. The party read
-  returns the names and the reference, and its `embed[address]` and
-  `embed[national-identifier]` retire.
+  `Party` gains `optional string external_reference`, unique within the
+  bank through `Party_by_external_reference`, so a second person under
+  one is refused 409 `:party/external-reference-taken`: with national
+  identifiers gone, it is the duplicate guard, and the tenant's.
+  `:party/identification-rejected` retires with the identifiers' index.
+  The party read returns the names and the reference, and its
+  `embed[address]` and `embed[national-identifier]` retire.
 - **Person identification.** `person-identification` keeps the three
-  names. `date_of_birth`, `nationality` and `address` become optional
-  and deprecated, per
-  [schema-evolution](../recipes/code/schema-evolution.md), and nothing
-  writes them.
+  names as a `PersonName` in a `person-names` store of its own.
+  `PersonIdentification`'s date of birth, nationality and address are
+  `required`, and the meta-data guard refuses a required field made
+  optional, per [schema-evolution](../recipes/code/schema-evolution.md),
+  so they cannot be cleared in place; the record type stays until the
+  clearance has moved every record.
 - **National identifiers.** `PartyNationalIdentifier` retires: nothing
   writes one, and its record type is removed once the clearance below
   has deleted every record.
@@ -468,22 +474,26 @@ on the provider's page.
   store spec's `:redact` in the transaction that settles or fails the
   intent, so the email and the names stay only while the provider may
   still need them.
-- **Clearance.** The `migrator` base, which saves the meta-data and
-  writes no record today, gains a clearance step it runs after saving.
-  Once slice 7 is deployed it clears `date_of_birth`, `nationality` and
-  `address` from every stored `PersonIdentification`, the three read
-  fields from every stored `Idv` and from the payload of every
-  `idv-evidence` outbox entry, reduces every settled or failed intent
-  of both IDV relays to what its `:redact` keeps, and deletes every
-  `PartyNationalIdentifier`. It is idempotent, so a rerun finds nothing
-  left to clear.
+- **Clearance.** A `personal-data` brick's `personal-data/clearance`
+  kind runs as the migrator starts, its record store the meta-store so
+  it follows the meta-data's save. Each owning brick clears its own
+  store through `fdb/rewrite-store`, a page per transaction:
+  `person-identification` moves every `PersonIdentification`'s names to
+  a `PersonName` and deletes it, `idv` clears the three read fields
+  from every `Idv`, `party` deletes every `PartyNationalIdentifier`, and
+  each IDV relay reduces its settled and failed intents to what its
+  `:redact` keeps and replaces each `idv-evidence` outbox entry's
+  payload with `cleared` — the outbox changelog carries what is
+  relayed, so an entry is read again only through its dedup key, and
+  `payload` is required. Every part is idempotent, so a rerun clears
+  nothing.
 - **Logs and traces.** No adapter logs or adds to a span any field of a
   provider's result, and `party`, `person-identification` and `idv` log
   ids and statuses, never a name.
 
 Idempotency records of earlier creates keep their response bodies until
-they expire, and a topic keeps earlier messages for its retention
-period; the clearance touches neither.
+they expire, a topic keeps earlier messages for its retention period,
+and a changelog keeps every entry; the clearance touches none of them.
 
 ### First slices
 
@@ -530,10 +540,11 @@ period; the clearance touches neither.
    `PartyNationalIdentifier` retired, the `embed` flags retired, the
    console's party drawer and scenarios and the demo bank's sign-up
    sending names alone, and the migrator's clearance. Proved by a create
-   carrying a date of birth refused, and the clearance run twice over
-   records holding every cleared field. Follows slices 5 and 6, since
-   the comparison moves off the date of birth, and the page takes it,
-   before the API stops taking it.
+   carrying a date of birth refused, a second person under one
+   external reference refused, and the clearance run twice over records
+   holding every cleared field. Follows slices 5 and 6, since the
+   comparison moves off the date of birth, and the page takes it,
+   before the API stops taking it. Built.
 
 Resolving a review and re-verification follow under this TDD.
 The demo bank's onboarding screens follow under
@@ -561,9 +572,12 @@ The demo bank's onboarding screens follow under
   an intent settled or failed without its email, and the hand-off for
   each channel.
 - **`party`** — a person created with names and a reference, and a
-  create carrying a removed field refused.
-- **`migrator`** — the clearance over records holding every cleared
-  field, and a second run finding nothing.
+  second under the same reference refused.
+- **`personal-data`** — the clearance over records in their former
+  shape, what is still kept left alone, and a second run clearing
+  nothing.
+- **`migrator`** — the schema-evolution guard over the new store and
+  index.
 - **`<provider>-simulator`** — each decision posting its results,
   authenticated as the provider's are, with the read names and date of
   birth in them.
@@ -667,11 +681,12 @@ The demo bank's onboarding screens follow under
 - **A check is bound to its person by name.** A hand-off reaching
   somebody of the same name verifies the wrong person, which the
   platform cannot tell from the right one.
-- **The activity log keeps a session's email.** An
-  `idv-session-opening` entry carries the email to the adapter, and
-  nothing trims a changelog, so the entry keeps it, and entries written
-  before slice 5 keep the date of birth and address too; the clearance
-  cannot reach them.
+- **Changelogs keep what they carried.** An `idv-session-opening`
+  activity entry carries the email to the adapter, and an outbox
+  changelog entry the evidence it relays, and nothing trims a
+  changelog, so each keeps it; entries written before slice 5 keep the
+  date of birth, address and read names too, and the clearance cannot
+  reach them.
 - **Names and payments stay in backups.** A cleared field stays in
   every FDB backup taken before the clearance, until the backup
   expires.

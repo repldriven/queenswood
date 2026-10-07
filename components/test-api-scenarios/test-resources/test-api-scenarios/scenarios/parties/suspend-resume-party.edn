@@ -7,8 +7,7 @@
           :with {:token [:ref :org-0 :token]
                  :display-name "Suspending Party"
                  :given-name "Suspending"
-                 :family-name "Party"
-                 :national-insurance "TN888013A"}}]
+                 :family-name "Party"}}]
  :when
  [{:command :api/request
    :request {:method :post

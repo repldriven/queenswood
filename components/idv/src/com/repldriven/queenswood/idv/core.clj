@@ -310,3 +310,5 @@
 (defn get
   [txn data]
   (get-idv txn (:bank-id data) (:verification-id data)))
+
+(defn clear-read-evidence [config] (store/clear-read-evidence config))

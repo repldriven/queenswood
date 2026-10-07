@@ -16,13 +16,6 @@
 
     [clojure.string :as str]))
 
-(defn- iso-date
-  [yyyymmdd]
-  (format "%04d-%02d-%02d"
-          (quot yyyymmdd 10000)
-          (rem (quot yyyymmdd 100) 100)
-          (rem yyyymmdd 100)))
-
 (defn verify
   "Verify the person `party-id` of `bank-id` as having shown a document
   that matches `person`, the payload it was created with. Returns the
@@ -35,7 +28,7 @@
   [ctx bank-id party-id person]
   (let [{:keys [bank]} ctx
         {:keys [zyphe-simulator-url]} bank
-        {:keys [given-name middle-names family-name date-of-birth]} person]
+        {:keys [given-name middle-names family-name]} person]
     (let-nom>
       [session (idv/open-session bank
                                  {:bank-id bank-id
@@ -70,7 +63,7 @@
                                            (remove str/blank?
                                                    [given-name middle-names]))
                      :familyName family-name
-                     :dateOfBirth (iso-date date-of-birth)})})]
+                     :dateOfBirth "1970-01-01"})})]
       (if (= 200 (:status res))
         ready
         (error/fail :scenario/decision

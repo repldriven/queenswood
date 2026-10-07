@@ -162,3 +162,38 @@
                  status
                  (fn [i] (moved i outcome attempts nil))
                  event))
+
+(defn redact-done
+  [config spec]
+  (let [{:keys [intents redact intent->java pb->intent]} spec]
+    (if-not redact
+      0
+      (fdb/rewrite-store
+       config
+       intents
+       (fn [_txn bytes]
+         (let [intent (pb->intent bytes)
+               redacted (update intent :request redact)]
+           (when (and (#{"settled" "failed"} (:status intent))
+                      (not= (:request intent) (:request redacted)))
+             (intent->java redacted))))
+       {}))))
+
+(def ^:private cleared-payload
+  "What a cleared payload holds: `payload` is a required field, and an
+  empty one is not written at all."
+  (.getBytes "cleared" "UTF-8"))
+
+(defn clear-payloads
+  [config spec event-name]
+  (let [{:keys [outbox event->java pb->event]} spec]
+    (fdb/rewrite-store
+     config
+     outbox
+     (fn [_txn bytes]
+       (let [event (pb->event bytes)]
+         (when (and (= event-name (:event-name event))
+                    (not (java.util.Arrays/equals ^bytes cleared-payload
+                                                  ^bytes (:payload event))))
+           (event->java (assoc event :payload cleared-payload)))))
+     {})))

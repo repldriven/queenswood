@@ -1,25 +1,21 @@
 <script>
   /* Drawer-hosted detail view + create/edit form for a Party.
 
-     Organizations carry only the base summary (display-name, status,
-     timestamps) — no person identity — so read mode renders a plain
-     Organization view with no Edit affordance. Persons get the full
-     identity / address / identification view and the create/edit form.
+     A person is registered by name alone: their date of birth, address
+     and documents they give to the identity provider, and the platform
+     never holds them (ADR-0045). Organizations carry only the base
+     summary, so read mode renders a plain Organization view with no
+     Edit affordance.
 
      Modes (person only):
-       read    pre-filled detail view with an Edit affordance.
+       read    the person's names and the bank's reference, read from
+               the detail endpoint, with an Edit affordance.
        create  blank form. Calls create_party on Save.
        edit    pre-filled form. bank-api has no PUT for parties yet,
                so Save is a no-op that returns to the read view; we
-               surface a small notice so the user knows.
+               surface a small notice so the user knows. */
 
-     The list endpoint only returns the Party summary (party-id,
-     type, display-name, status, timestamps). For persons, read mode
-     fetches the detail endpoint (GET /v1/parties/{id}) for the
-     identity, address, and identification fields. Email and phone
-     aren't persisted, so they stay "—". */
-
-  import { Drawer, Field, Input, Select, Button, Badge } from "@queenswood/ui";
+  import { Drawer, Field, Input, Button, Badge } from "@queenswood/ui";
   import { create_party, get_party } from "./api.mjs";
 
   let {
@@ -35,25 +31,15 @@
 
   // Form state — reset whenever the drawer enters create/edit mode.
   let firstName = $state("");
+  let middleNames = $state("");
   let lastName = $state("");
-  let dob = $state("");
-  let role = $state("customer");
-  let email = $state("");
-  let phone = $state("");
-  let line1 = $state("");
-  let line2 = $state("");
-  let city = $state("");
-  let postcode = $state("");
-  let country = $state("United Kingdom");
-  let idType = $state("Passport");
-  let idNumber = $state("");
+  let reference = $state("");
 
   let submitting = $state(false);
   let formError = $state(null);
 
-  // Heuristic name split for the read view and to pre-fill the edit
-  // form from a summary record. Production code would carry first /
-  // last as separate fields on the Party shape.
+  // Heuristic name split to pre-fill the edit form from a summary
+  // record, which carries the display name alone.
   function splitName(displayName) {
     const tokens = (displayName ?? "").split(" ");
     return {
@@ -68,91 +54,40 @@
     if (mode === "edit" && target) {
       const { first, last } = splitName(target["display-name"]);
       firstName = first;
+      middleNames = "";
       lastName = last;
-      role = target.type ?? "customer";
-      // Detail fields aren't on the list payload — leave blank so
-      // the user knows what's missing rather than fabricating.
-      dob = "";
-      email = "";
-      phone = "";
-      line1 = "";
-      line2 = "";
-      city = "";
-      postcode = "";
-      country = "United Kingdom";
-      idType = "Passport";
-      idNumber = "";
+      reference = target["external-reference"] ?? "";
     } else if (mode === "create") {
       firstName = "";
+      middleNames = "";
       lastName = "";
-      dob = "";
-      role = "customer";
-      email = "";
-      phone = "";
-      line1 = "";
-      line2 = "";
-      city = "";
-      postcode = "";
-      country = "United Kingdom";
-      idType = "Passport";
-      idNumber = "";
+      reference = "";
     }
   });
 
   const readSplit = $derived(splitName(target?.["display-name"]));
 
-  // Read mode fetches the full party detail (identity, address,
-  // identification); the list summary the drawer is handed only carries
-  // the display name. Guard against a stale response landing after the
-  // user has moved to a different party.
+  // Read mode fetches the party's names; the list summary the drawer is
+  // handed only carries the display name. Guard against a stale
+  // response landing after the user has moved to a different party.
   let detail = $state(null);
   $effect(() => {
-    // Only persons carry embeddable detail; organizations are summary-only.
+    // Only persons carry names; organizations are summary-only.
     if (!(open && mode === "read" && target?.type === "person")) return;
     const id = target?.["party-id"];
     if (!id) return;
     detail = null;
-    get_party(id, {
-      embed: ["person-identification", "address", "national-identifier"],
-    }).then((r) => {
+    get_party(id, { embed: ["person-identification"] }).then((r) => {
       if (r.status === 200 && r.body?.["party-id"] === id) detail = r.body;
     });
   });
 
-  const ALPHA3 = { GBR: "United Kingdom", IRL: "Ireland", USA: "United States", HKG: "Hong Kong", DEU: "Germany", FRA: "France" };
-  const ALPHA2 = { GB: "United Kingdom", IE: "Ireland", US: "United States", HK: "Hong Kong", DE: "Germany", FR: "France" };
-  function fmtDob(v) {
-    if (v == null || v === "") return "—";
-    if (typeof v === "number") {
-      const s = String(v).padStart(8, "0");
-      return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
-    }
-    return v;
-  }
-  function prettyIdType(t) {
-    if (t == null || t === "") return "—";
-    // Tolerate however the enum serialises — a plain string, or a
-    // keyword rendered as ":identifier-type-national-insurance".
-    return String(t)
-      .replace(/^:/, "")
-      .replace(/^identifier-type-/, "")
-      .replace(/-/g, " ")
-      .replace(/\b\w/g, (c) => c.toUpperCase());
-  }
-
-  const addr = $derived(detail?.address ?? {});
-  const idn = $derived(detail?.["national-identifier"]);
   const readFirst = $derived(detail?.["given-name"] ?? readSplit.first);
+  const readMiddle = $derived(detail?.["middle-names"] ?? "");
   const readLast = $derived(detail?.["family-name"] ?? readSplit.last);
-  const readDob = $derived(fmtDob(detail?.["date-of-birth"]));
-  const readNat = $derived(ALPHA2[detail?.nationality] ?? detail?.nationality ?? "");
-  const readLine1 = $derived([addr["building-number"], addr.street].filter(Boolean).join(" "));
-  const readLine2 = $derived(addr["sub-street"] ?? "");
-  const readCity = $derived(addr.town ?? "");
-  const readPostcode = $derived(addr.postcode ?? "");
-  const readCountry = $derived(ALPHA3[addr.country] ?? addr.country ?? "");
-  const readIdType = $derived(prettyIdType(idn?.type));
-  const readIdNumber = $derived(idn?.value ?? "");
+  const readReference = $derived(
+    detail?.["external-reference"] ?? target?.["external-reference"] ?? "",
+  );
 
   // Organization read view — orgs carry only the base summary.
   function fmtDate(iso) {
@@ -211,25 +146,8 @@
   const subFor = $derived(
     mode === "read"
       ? `${target?.type ?? ""} · updated ${formatRelative(target?.["updated-at"])}`
-      : "Capture identity, address, and a primary identification document. Status starts as pending until a reviewer approves.",
+      : "Register the person by name. They give their date of birth, address and documents to the identity provider when you open a verification session. Status starts as pending until the check completes.",
   );
-
-  // ISO country lookup so the form's friendly names map onto what
-  // bank-api expects: alpha-3 for the address, alpha-2 for
-  // nationality and the national identifier's issuing country.
-  const COUNTRY_CODES = {
-    "United Kingdom": { alpha2: "GB", alpha3: "GBR" },
-    Ireland: { alpha2: "IE", alpha3: "IRL" },
-    "United States": { alpha2: "US", alpha3: "USA" },
-    "Hong Kong": { alpha2: "HK", alpha3: "HKG" },
-    Germany: { alpha2: "DE", alpha3: "DEU" },
-    France: { alpha2: "FR", alpha3: "FRA" },
-  };
-
-  function dobToInt(str) {
-    if (!str) return null;
-    return parseInt(str.replace(/-/g, ""), 10);
-  }
 
   function errorDetail(body) {
     if (!body) return null;
@@ -254,30 +172,17 @@
     submitting = true;
     formError = null;
     try {
-      const codes = COUNTRY_CODES[country] ?? { alpha2: "GB", alpha3: "GBR" };
-      const displayName = [firstName, lastName].filter(Boolean).join(" ").trim();
       const payload = {
         type: "person",
-        "display-name": displayName,
+        "display-name": [firstName, middleNames, lastName]
+          .map((n) => n.trim())
+          .filter(Boolean)
+          .join(" "),
         "given-name": firstName.trim(),
         "family-name": lastName.trim(),
-        "date-of-birth": dobToInt(dob),
-        nationality: codes.alpha2,
-        address: {
-          street: line1.trim(),
-          town: city.trim(),
-          postcode: postcode.trim(),
-          country: codes.alpha3,
-        },
-        // bank-api currently only knows "national-insurance"; the
-        // form's id-type is captured for the eventual wider schema.
-        "national-identifier": {
-          type: "national-insurance",
-          value: idNumber.trim(),
-          "issuing-country": codes.alpha2,
-        },
       };
-      if (line2.trim()) payload.address["sub-street"] = line2.trim();
+      if (middleNames.trim()) payload["middle-names"] = middleNames.trim();
+      if (reference.trim()) payload["external-reference"] = reference.trim();
       const res = await create_party(payload);
       if (res.status >= 200 && res.status < 300) {
         onSaved?.();
@@ -323,32 +228,15 @@
     <section class="drawer-section">
       <h3 class="drawer-section-title">Identity</h3>
       <dl class="detail-list">
-        <dt>First name</dt> <dd class:empty={!readFirst}>{readFirst || "—"}</dd>
-        <dt>Last name</dt>  <dd class:empty={!readLast}>{readLast || "—"}</dd>
-        <dt>Date of birth</dt> <dd class="mono" class:empty={readDob === "—"}>{readDob}</dd>
-        <dt>Nationality</dt> <dd class:empty={!readNat}>{readNat || "—"}</dd>
-        <dt>Email</dt>      <dd class="empty">—</dd>
-        <dt>Phone</dt>      <dd class="mono empty">—</dd>
+        <dt>First name</dt>    <dd class:empty={!readFirst}>{readFirst || "—"}</dd>
+        <dt>Middle names</dt>  <dd class:empty={!readMiddle}>{readMiddle || "—"}</dd>
+        <dt>Last name</dt>     <dd class:empty={!readLast}>{readLast || "—"}</dd>
+        <dt>Your reference</dt> <dd class="mono" class:empty={!readReference}>{readReference || "—"}</dd>
       </dl>
-    </section>
-
-    <section class="drawer-section">
-      <h3 class="drawer-section-title">Address</h3>
-      <dl class="detail-list">
-        <dt>Line 1</dt>     <dd class:empty={!readLine1}>{readLine1 || "—"}</dd>
-        <dt>Line 2</dt>     <dd class:empty={!readLine2}>{readLine2 || "—"}</dd>
-        <dt>City</dt>       <dd class:empty={!readCity}>{readCity || "—"}</dd>
-        <dt>Postcode</dt>   <dd class="mono" class:empty={!readPostcode}>{readPostcode || "—"}</dd>
-        <dt>Country</dt>    <dd class:empty={!readCountry}>{readCountry || "—"}</dd>
-      </dl>
-    </section>
-
-    <section class="drawer-section">
-      <h3 class="drawer-section-title">Identification</h3>
-      <dl class="detail-list">
-        <dt>Type</dt>       <dd class:empty={readIdType === "—"}>{readIdType}</dd>
-        <dt>Number</dt>     <dd class="mono" class:empty={!readIdNumber}>{readIdNumber || "—"}</dd>
-      </dl>
+      <p class="notice">
+        Date of birth, address and documents are held by the identity
+        provider, in your account with it, never by the platform.
+      </p>
     </section>
     {/if}
   {:else}
@@ -369,70 +257,12 @@
             <Input id="f-lastname" bind:value={lastName} />
           </Field>
         </div>
-        <div class="field-row">
-          <Field label="Date of birth" htmlFor="f-dob">
-            <Input id="f-dob" type="date" bind:value={dob} />
-          </Field>
-          <Field label="Type" htmlFor="f-role">
-            <Select id="f-role" bind:value={role}>
-              <option value="customer">customer</option>
-              <option value="director">director</option>
-              <option value="beneficial-owner">beneficial-owner</option>
-              <option value="signatory">signatory</option>
-            </Select>
-          </Field>
-        </div>
-        <Field label="Email" htmlFor="f-email">
-          <Input id="f-email" type="email" bind:value={email} />
+        <Field label="Middle names (optional)" htmlFor="f-middlenames">
+          <Input id="f-middlenames" bind:value={middleNames} />
         </Field>
-        <Field label="Phone" htmlFor="f-phone">
-          <Input id="f-phone" type="tel" bind:value={phone} />
+        <Field label="Your reference (optional)" htmlFor="f-reference">
+          <Input id="f-reference" bind:value={reference} />
         </Field>
-      </section>
-
-      <section class="drawer-section">
-        <h3 class="drawer-section-title">Address</h3>
-        <Field label="Address line 1" htmlFor="f-line1">
-          <Input id="f-line1" bind:value={line1} />
-        </Field>
-        <Field label="Address line 2 (optional)" htmlFor="f-line2">
-          <Input id="f-line2" bind:value={line2} />
-        </Field>
-        <div class="field-row split-7030">
-          <Field label="City" htmlFor="f-city">
-            <Input id="f-city" bind:value={city} />
-          </Field>
-          <Field label="Postcode" htmlFor="f-postcode">
-            <Input id="f-postcode" bind:value={postcode} />
-          </Field>
-        </div>
-        <Field label="Country" htmlFor="f-country">
-          <Select id="f-country" bind:value={country}>
-            <option>United Kingdom</option>
-            <option>Ireland</option>
-            <option>United States</option>
-            <option>Hong Kong</option>
-            <option>Germany</option>
-            <option>France</option>
-          </Select>
-        </Field>
-      </section>
-
-      <section class="drawer-section">
-        <h3 class="drawer-section-title">Identification</h3>
-        <div class="field-row">
-          <Field label="Type" htmlFor="f-id-type">
-            <Select id="f-id-type" bind:value={idType}>
-              <option>Passport</option>
-              <option>Driving licence</option>
-              <option>National ID</option>
-              <option>HKID</option>
-            </Select>
-          </Field>
-          <Field label="Number" htmlFor="f-id-number">
-            <Input id="f-id-number" bind:value={idNumber} />
-          </Field>
-        </div>
       </section>
 
       {#if formError}
@@ -466,9 +296,9 @@
 </Drawer>
 
 <style>
-  /* Sectioned body — Identity / Address / Identification. The first
-     section sits flush with the body padding; subsequent sections
-     get a hairline separator and breathing room. */
+  /* Sectioned body. The first section sits flush with the body
+     padding; subsequent sections get a hairline separator and
+     breathing room. */
   .drawer-section {
     display: flex;
     flex-direction: column;
@@ -532,8 +362,7 @@
   }
 
   /* Edit-mode form layout. Two-column field rows at the wider 560px
-     drawer; `split-7030` for the City/Postcode pair where the city
-     deserves more room. */
+     drawer. */
   form {
     display: flex;
     flex-direction: column;
@@ -543,9 +372,6 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 16px;
-  }
-  .field-row.split-7030 {
-    grid-template-columns: 2fr 1fr;
   }
 
   .notice {

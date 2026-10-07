@@ -79,21 +79,6 @@
   [n]
   (when (int? n) (str (LocalDate/ofEpochDay (long n)))))
 
-(defn- iso-date->yyyymmdd
-  "Packs a strict ISO-8601 calendar date (validated by
-  `java.time.LocalDate/parse`) into a YYYYMMDD int. Returns nil when
-  `s` isn't a real calendar date — so month/day combinations the
-  shape regex lets through (Nov 31, Feb 30, non-leap Feb 29) are
-  rejected here too."
-  [s]
-  (when (string? s)
-    (try
-      (let [d (LocalDate/parse ^String s)]
-        (+ (* (.getYear d) 10000)
-           (* (.getMonthValue d) 100)
-           (.getDayOfMonth d)))
-      (catch DateTimeParseException _ nil))))
-
 (defn- valid-iso-date?
   "True when `s` parses as a real ISO-8601 calendar date — catches
   month/day combinations the regex alone can't (Nov 31, Feb 30,
@@ -102,28 +87,6 @@
   (and (string? s)
        (try (some? (LocalDate/parse ^String s))
             (catch DateTimeParseException _ false))))
-
-(defn- valid-yyyymmdd?
-  "True when `n` decomposes into a real calendar date — year
-  `(quot n 10000)`, month `(mod (quot n 100) 100)`, day `(mod n 100)`.
-  Rejects nonsense ints like 0 or 99999999 that the int-type alone
-  lets through."
-  [n]
-  (and (int? n)
-       (try (some? (LocalDate/of (int (quot n 10000))
-                                 (int (mod (quot n 100) 100))
-                                 (int (mod n 100))))
-            (catch Exception _ false))))
-
-(defn- past-yyyymmdd?
-  "True when the packed-YYYYMMDD int decomposes into a real calendar
-  date that is strictly before today (UTC)."
-  [n]
-  (and (valid-yyyymmdd? n)
-       (.isBefore (LocalDate/of (int (quot n 10000))
-                                (int (mod (quot n 100) 100))
-                                (int (mod n 100)))
-                  (LocalDate/now ZoneOffset/UTC))))
 
 (defn- parse-timestamp
   [s]
@@ -134,13 +97,6 @@
                  (.toInstant (.atStartOfDay (LocalDate/parse s)
                                             ZoneOffset/UTC)))
                 (catch DateTimeParseException _ s))))))
-
-(defn- yyyymmdd->iso-date
-  [n]
-  (format "%04d-%02d-%02d"
-          (quot n 10000)
-          (mod (quot n 100) 100)
-          (mod n 100)))
 
 (def AccountNumber
   [:re
@@ -159,23 +115,6 @@
   [:re
    {:title "Bban" :json-schema/example "04000412345678"}
    #"^[0-9]{14}$"])
-
-(def CountryCode
-  "ISO 3166-1 alpha-2 country code: two uppercase ASCII letters.
-  Matches the `nationality` field contract declared in
-  `person-identification.proto`."
-  [:re
-   {:title "CountryCode" :json-schema/example "GB"}
-   #"^[A-Z]{2}$"])
-
-(def Country3Code
-  "ISO 3166-1 alpha-3 country code: three uppercase ASCII letters.
-  Used by address fields — the Entrust/Onfido applicant accepts
-  alpha-3 in `address.country`, separate from our alpha-2
-  `nationality`."
-  [:re
-   {:title "Country3Code" :json-schema/example "GBR"}
-   #"^[A-Z]{3}$"])
 
 (def Currency
   "Closed enum of currencies the system natively supports. Stricter
@@ -235,32 +174,6 @@
                          :else
                          v))
      :encode/api epoch-day->iso-date}]])
-
-(def DateOfBirth
-  "ISO 8601 calendar date at the API boundary, stored as a packed
-  `YYYYMMDD` integer internally (matches the `int32` field on the
-  `PersonIdentification` proto). Decoded/encoded via `:api` so the
-  storage format never leaks to clients. The `:fn valid-yyyymmdd?`
-  predicate rejects raw-int payloads (e.g. `0`) that happen to
-  satisfy `[:int]` but don't decompose into a real calendar date."
-  [:and
-   {:json-schema {:type "string"
-                  :format "date"
-                  :pattern "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
-                  :example "1950-07-27"}}
-   [:int
-    {:decode/api (fn [v]
-                   (cond (int? v)
-                         v
-
-                         (string? v)
-                         (or (iso-date->yyyymmdd v) v)
-
-                         :else
-                         v))
-     :encode/api (fn [n] (when (int? n) (yyyymmdd->iso-date n)))}]
-   [:fn {:error/message "must be a valid calendar date in the past"}
-    past-yyyymmdd?]])
 
 (def EmbedQuery
   "Nested `embed` deepObject query parameter. Wire form is
@@ -347,18 +260,6 @@
    {:title "Name" :json-schema/example "Arthur Dent"}
    #"^(?!\s*$)[^\x00-\x1F\x7F-\x9F]{1,140}$"])
 
-(def NationalIdentifierValue
-  "Opaque national-identifier value (e.g. UK NI number, passport
-  number, tax id). Format differs per `IdentifierType` / issuing
-  country, so we don't regex-validate the shape — just enforce
-  non-empty and an upper bound to block empty-string collisions on
-  the `(organization, type, value)` uniqueness index."
-  [:string
-   {:title "NationalIdentifierValue"
-    :min 1
-    :max 64
-    :json-schema/example "ZZ999999D"}])
-
 (def SignedAmount
   "Signed monetary amount paired with its currency — same shape as
   `Amount` but permits negative values (e.g. available balances that
@@ -440,9 +341,8 @@
 
 (def registry
   (components-registry
-   [#'AccountNumber #'Amount #'Bban #'BankId #'BusinessDay #'CountryCode
-    #'Country3Code #'Currency #'CurrencyCode #'Date #'DateOfBirth #'EmbedQuery
-    #'IdempotencyKey #'MinorUnits #'Name #'PartyId #'PaymentAddressScheme
-    #'PaymentMinorUnits #'NationalIdentifierValue #'PageLinks #'PageQuery
+   [#'AccountNumber #'Amount #'Bban #'BankId #'BusinessDay #'Currency
+    #'CurrencyCode #'Date #'EmbedQuery #'IdempotencyKey #'MinorUnits #'Name
+    #'PartyId #'PaymentAddressScheme #'PaymentMinorUnits #'PageLinks #'PageQuery
     #'ProductId #'ProductType #'SignedAmount #'SignedBasisPoints
     #'SignedMinorUnits #'SortCode #'Timestamp #'VersionId]))

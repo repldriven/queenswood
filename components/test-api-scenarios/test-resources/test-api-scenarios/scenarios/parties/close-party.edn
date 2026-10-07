@@ -7,8 +7,7 @@
           :with {:token [:ref :org-0 :token]
                  :display-name "Closing Party"
                  :given-name "Closing"
-                 :family-name "Party"
-                 :national-insurance "TN888016A"}}]
+                 :family-name "Party"}}]
  :when [{:command :api/request
          :request {:method :post
                    :path "/v1/parties/{party-id}/close"

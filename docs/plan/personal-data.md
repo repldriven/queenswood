@@ -168,70 +168,92 @@ Docs:
 
 The schema:
 
-- [ ] `party/party.proto`: `optional string external_reference`.
-- [ ] `person-identification.proto`: `date_of_birth`, `nationality`
-      and `address` optional and deprecated.
-- [ ] `party/create-party.avsc.json`: names and `externalReference`
+- [x] `party/party.proto`: `optional string external_reference = 10`,
+      and `Party_by_external_reference`, unique on `[bank_id,
+      external_reference]`.
+- [x] `person-identification/person-name.proto`: `PersonName`, the
+      three names, in a `person-names` store since 82.
+      `PersonIdentification` stays as it was: the meta-data guard
+      refuses a required field made optional.
+- [x] `party/create-party.avsc.json`: names and `external_reference`
       only.
-- [ ] `fdb-record-types.yml`: `version` 81 to 82. `just force-prep`.
+- [x] `fdb-record-types.yml`: `version` 81 to 82. `just force-prep`.
 
 The API and the domain:
 
-- [ ] `components/party-api/src/.../components.clj`:
-      `CreatePartyRequest` closed and narrowed, `external-reference`
-      at most 128 characters; `PartyDetail` without the removed
-      fields; `PartyEmbedQuery` without `address` and
-      `national-identifier`. `examples.clj` to match.
-- [ ] `bases/api/src/.../party/`: commands, queries, routes and
-      `shared/parameters.clj` without the removed fields.
-- [ ] `components/party`, `components/party-query`,
-      `components/person-identification`: nothing writes a
-      `PartyNationalIdentifier`, a date of birth, a nationality or an
-      address.
-- [ ] `components/api-schema`: the removed shared schemas, where
-      nothing else refers to them.
+- [x] `components/party-api`: `CreatePartyRequest` closed and
+      narrowed, `ExternalReference` at most 128 characters,
+      `PartyDetail` and `PartyEmbedQuery` to the names alone,
+      `IdentifierType`, `NationalIdentifier` and `Address` retired, and
+      `ExternalReferenceTaken` (409) in place of
+      `IdentificationRejected` (422).
+- [x] `bases/api`: the create and read routes, `errors.clj` mapping
+      `:party/external-reference-taken` to 409.
+- [x] `components/party`, `components/party-query`,
+      `components/person-identification`: names to `person-names`, no
+      national identifier written or read.
+- [x] `components/api-schema`: `CountryCode`, `Country3Code`,
+      `DateOfBirth`, `NationalIdentifierValue` and their date helpers
+      retired.
 
 The callers:
 
-- [ ] `bases/console/src/lib/`: `PartyDrawer.svelte`,
-      `People.svelte`, `PeopleDrawer.svelte`, `Onboarding.svelte`,
-      `Scenarios.svelte`, `api.mjs`.
-- [ ] `components/demo-digital-bank`, `bases/demo-digital-bank-api`
-      (`sign_up/components.clj`), `bases/demo-digital-bank-app`
-      (`Onboarding.jsx`, the photo ID and selfie screens retired).
-- [ ] `components/test-api-scenarios/test-resources`: every scenario
-      and fixture registering a person with names alone.
-- [ ] `components/test-scenarios`: the model and its generators.
+- [x] `bases/console`: the party drawer to names and a reference, the
+      scenario's people registered under `cust-*` references, their
+      dates of birth told only to the provider's page.
+- [x] `components/demo-digital-bank`, `bases/demo-digital-bank-api`,
+      `bases/demo-digital-bank-app`: sign-up takes names and email,
+      registers the person under the sign-up's id, and an *Identity
+      check* screen hands them to the provider; the photo ID and selfie
+      screens retired. The walkthrough follows.
+- [x] `components/test-api-scenarios`: every fixture and scenario
+      stripped of the removed fields by a rewrite-clj pass; two
+      scenarios added, a date of birth refused and a reference taken.
+- [x] `components/test-scenarios`: the model's marker is an external
+      reference, and `external-reference-taken` replaces
+      `identification-rejected`.
 
 The clearance:
 
-- [ ] `bases/migrator`: a clearance step after the meta-data is saved,
-      clearing the person identification's three fields, the `Idv`
-      read fields, the `idv-evidence` outbox payloads' read fields and
-      the IDV intents' email, and deleting every
-      `PartyNationalIdentifier`.
+- [x] `components/fdb`: `rewrite-store`, a store a page per
+      transaction.
+- [x] Each owning brick clears its own store: `person-identification`,
+      `idv`, `party`, `intent-poller` through each IDV relay.
+- [x] `components/personal-data`: the `personal-data/clearance` kind,
+      in `migrator-service` with the bricks it reaches.
+
+This is transitional: the next release starts from an empty cluster,
+which the clearance meets as a no-op.
 
 Proved by:
 
-- [ ] `party-api` — a create carrying each removed field refused 400.
-- [ ] `party` — a person created with names and a reference.
-- [ ] `migrator` — the clearance over records holding every cleared
-      field, and a second run finding nothing.
-- [ ] `just test-all`.
+- [x] `party-api`, `party` — names and a reference, the 409.
+- [x] `personal-data` — every former shape cleared, what is kept left,
+      a rerun clearing nothing.
+- [x] `migrator-service` — the schema-evolution guard over the new
+      store and index.
+- [x] `just test-all`: 677 tests; seven failures, the property test's
+      Kafka topics refusing to start and four Modulr account polls
+      timing out under the parallel load, all passing when
+      `test-scenarios` and `test-api-scenarios` reran alone.
 
 Docs:
 
-- [ ] `docs/tdd/parties.md`: slice 7 "Built"; the Background's
-      "Person identification" bullet as built.
-- [ ] `docs/tdd/demo-digital-bank.md`: the sign-up as built.
+- [x] `docs/tdd/parties.md`: slice 7 "Built", Background, the banner,
+      the clearance and the changelog limitation as built.
+- [x] `docs/tdd/demo-digital-bank.md`: the sign-up and the hand-off's
+      flow as built.
+- [x] `docs/prd/parties.md`: the reference as the duplicate guard.
 
 ### 4. After deployment
 
 - [ ] Run the migrator on the test instance and read the clearance's
       counts from its log.
-- [ ] Retire `PartyNationalIdentifier`'s record type and its store, per
-      [schema-evolution](../recipes/code/schema-evolution.md), once
-      every instance has run the clearance.
+- [ ] Retire the `PartyNationalIdentifier` and `PersonIdentification`
+      record types and their stores, per
+      [schema-evolution](../recipes/code/schema-evolution.md) — or with
+      the clean slate the next release starts from, along with the
+      clearance.
 - [ ] A check in `scripts/hooks/enforce-idioms.sh` refusing the removed
       field names in `components/schema`, as ADR-0045's Harder names.
 - [ ] ADR-0045 **Accepted**, and the `design` rule synced with

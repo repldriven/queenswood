@@ -116,7 +116,11 @@ supplying:
 - A display name.
 - For person parties, the person's given name, family name
   and any middle names.
-- Optionally, the customer's own reference for the person.
+- Optionally, the customer's own reference for the person,
+  which no other party of the organisation may share: a
+  second registration under one is refused, so the customer's
+  own record of the person is what keeps them from being
+  registered twice.
 
 A registration that also supplies a date of birth, an address,
 a nationality or an identity number is refused, so none of

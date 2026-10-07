@@ -10,8 +10,7 @@
           :with {:token [:ref :bank-0 :token]
                  :display-name "Ford Prefect"
                  :given-name "Ford"
-                 :family-name "Prefect"
-                 :national-insurance "TN000002A"}}
+                 :family-name "Prefect"}}
          {:fixture :product
           :as :v1
           :with {:token [:ref :bank-0 :token]

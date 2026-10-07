@@ -15,7 +15,6 @@ const bank = process.env.DEMO_BANK_URL ?? "http://localhost:8100";
 // never issued, which is why HMRC's own examples carry it.
 const stamp = String(Date.now());
 const phone = "7700 900" + stamp.slice(-3);
-const nino = "QQ" + stamp.slice(-6) + "C";
 const passcode = "2468";
 const BEAT = 1800;
 
@@ -62,27 +61,12 @@ test("a new customer signs up and opens two accounts", async ({ page }) => {
   await expect(screen(page, "About you")).toBeVisible({ timeout: 30_000 });
   await type(page.locator('input.inp[placeholder="Amara"]'), "Hotblack");
   await type(page.locator('input.inp[placeholder="Okafor"]'), "Desiato");
-  await type(page.locator('input.inp[placeholder="DD / MM / YYYY"]'), "31101979");
   await type(page.locator('input.inp[placeholder="amara@example.com"]'), "hotblack@example.com");
-  await type(page.locator('input.inp[placeholder="12"]'), "42");
-  await type(page.locator('input.inp[placeholder="Mare Street"]'), "Improbability Drive");
-  await type(page.locator('input.inp[placeholder="London"]'), "Disaster Area");
-  await type(page.locator('input.inp[placeholder="E8 3RH"]'), "QZ1 9ZX");
-  await type(page.locator('input.inp[placeholder="QQ123456C"]'), nino);
   await page.waitForTimeout(600);
   await button(page, "Continue").click();
-  await expect(screen(page, "Photo ID")).toBeVisible();
+  await expect(screen(page, "Identity check")).toBeVisible();
   await page.waitForTimeout(BEAT);
-  await button(page, "Scan document").click();
-  await expect(button(page, "Continue")).toBeVisible({ timeout: 60_000 });
-  await page.waitForTimeout(BEAT);
-  await button(page, "Continue").click();
-  await expect(screen(page, "Selfie check")).toBeVisible();
-  await page.waitForTimeout(BEAT);
-  await button(page, "Start selfie check").click();
-  await expect(button(page, "Continue")).toBeVisible({ timeout: 10_000 });
-  await page.waitForTimeout(BEAT);
-  await button(page, "Continue").click();
+  await button(page, "Continue to identity check").click();
 
   // The provider's page: the person's details, their document, a selfie
   // and their address, each passing.

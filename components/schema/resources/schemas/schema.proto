@@ -36,6 +36,7 @@ import "schemas/payments/internal-payment.proto";
 import "schemas/payments/outbound-payment.proto";
 import "schemas/payments/provider-transfer.proto";
 import "schemas/person-identification/person-identification.proto";
+import "schemas/person-identification/person-name.proto";
 import "schemas/policies/policy.proto";
 import "schemas/rewards/reward.proto";
 import "schemas/transactions/transaction.proto";
@@ -109,4 +110,5 @@ message RecordTypeUnion {
   optional com.repldriven.queenswood.schemas.form3.Form3OutboxEvent _Form3OutboxEvent = 53;
   optional com.repldriven.queenswood.schemas.form3.Form3OutboundIntent _Form3OutboundIntent = 54;
   optional com.repldriven.queenswood.schemas.outbound.CircuitBreaker _CircuitBreaker = 55;
+  optional com.repldriven.queenswood.schemas.person_identification.PersonName _PersonName = 56;
 }

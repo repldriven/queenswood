@@ -16,14 +16,7 @@
    :with {:token [:ref :bank-a :token]
           :display-name "Trillian Astra"
           :given-name "Trillian"
-          :family-name "Astra"
-          :date-of-birth "1952-03-11"
-          :national-insurance "TN556201A"
-          :address {:building-number "7"
-                    :street "Islington Row"
-                    :town "Cottington"
-                    :postcode "CT12 4XY"
-                    :country "GBR"}}}
+          :family-name "Astra"}}
   {:fixture :account
    :as :debtor-a
    :with {:token [:ref :bank-a :token]

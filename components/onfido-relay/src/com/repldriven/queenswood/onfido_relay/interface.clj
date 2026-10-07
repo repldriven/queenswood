@@ -63,3 +63,15 @@
   - run-id: the workflow run's id."
   [config run-id]
   (outbound/read-run config run-id))
+
+(defn clear-personal-data
+  "Reduce every settled or failed intent's request to what the store
+  spec's `:redact` keeps, and clear the payload of every `idv-evidence`
+  outbox entry, which the outbox changelog relays and nothing reads
+  again (ADR-0045). Returns `{:intents :payloads}`, how many of each it
+  cleared — none on a rerun — or an anomaly.
+
+  Args:
+  - config: `{:record-db :record-store}`."
+  [config]
+  (store/clear-personal-data config))

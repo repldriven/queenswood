@@ -24,17 +24,7 @@
              :body {:type "person"
                     :display-name "Ford Prefect"
                     :given-name "Ford"
-                    :family-name "Prefect"
-                    :date-of-birth "1952-03-11"
-                    :nationality "GB"
-                    :address {:building-number "42"
-                              :street "Betelgeuse Way"
-                              :town "Cottington"
-                              :postcode "CT12 4XY"
-                              :country "GBR"}
-                    :national-identifier {:type "national-insurance"
-                                          :value "TN555801D"
-                                          :issuing-country "GB"}}}
+                    :family-name "Prefect"}}
    :assert {:status 500}}
   ;; The party the lost attempt wrote is committed, so it appears in the
   ;; listing before the retry is sent -- otherwise the retry would race
@@ -51,17 +41,7 @@
              :body {:type "person"
                     :display-name "Ford Prefect"
                     :given-name "Ford"
-                    :family-name "Prefect"
-                    :date-of-birth "1952-03-11"
-                    :nationality "GB"
-                    :address {:building-number "42"
-                              :street "Betelgeuse Way"
-                              :town "Cottington"
-                              :postcode "CT12 4XY"
-                              :country "GBR"}
-                    :national-identifier {:type "national-insurance"
-                                          :value "TN555801D"
-                                          :issuing-country "GB"}}}
+                    :family-name "Prefect"}}
    :as :retry
    ;; The claim was released, so this ran rather than replayed.
    :assert {:status 201

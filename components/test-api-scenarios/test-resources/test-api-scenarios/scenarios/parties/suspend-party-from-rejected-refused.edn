@@ -13,17 +13,7 @@
              :body {:type "person"
                     :display-name "Reject Party"
                     :given-name "Reject"
-                    :family-name "Party"
-                    :date-of-birth "1970-01-01"
-                    :nationality "GB"
-                    :address {:building-number "155"
-                              :street "Country Lane"
-                              :town "Cottington"
-                              :postcode "CT12 4XY"
-                              :country "GBR"}
-                    :national-identifier {:type "national-insurance"
-                                          :value "TN888014A"
-                                          :issuing-country "GB"}}}
+                    :family-name "Party"}}
    :as :party-0
    :assert {:status 201}}
   {:command :idv/verify

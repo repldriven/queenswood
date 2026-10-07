@@ -193,6 +193,38 @@ passcode is stored as a salted hash. A session is an opaque random id
 held in the store with an expiry, sent by the app as a bearer, and a
 returning customer opens one with their phone number and passcode.
 
+The hand-off is a hosted-page redirect, the shape of an OAuth 2.0
+authorization redirect: the browser carries the person out to the
+provider and back to the return URL, and the result travels server to
+server as signed webhooks. The return carries no result, so the app
+learns the outcome from the bank, which learns it from the platform.
+
+```mermaid
+sequenceDiagram
+    participant P as Person
+    participant A as Bank app
+    participant B as Bank backend
+    participant Q as Queenswood
+    participant I as IDV provider
+
+    P->>A: phone number, code, name, email
+    A->>B: sign up
+    B->>Q: register person (names, external-reference)
+    Q-->>B: party, pending
+    B->>Q: open verification session (email, return URL)
+    Q->>I: start a run (party id only)
+    I-->>Q: hosted page URL
+    Q-->>B: session ready, hand-off URL
+    B-->>A: hand-off URL
+    A->>I: redirect the browser to the hosted page
+    P->>I: date of birth, address, document, selfie
+    I-->>A: redirect back to the return URL (#verified)
+    I->>Q: signed webhook, results
+    Note over Q: grade the name, keep outcomes only
+    Q->>B: signed webhook, party.opened or party.rejected
+    B-->>A: you are verified
+```
+
 Isolation is the bank's, on every request: the session resolves to a
 customer, the customer to a party id and the account ids the bank
 opened for it, and a request naming any other account is answered as

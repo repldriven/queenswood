@@ -14,14 +14,7 @@
    :with {:token [:ref :bank-0 :token]
           :display-name "Random Frequentflyer"
           :given-name "Random"
-          :family-name "Frequentflyer"
-          :date-of-birth "1955-05-05"
-          :national-insurance "TN555601F"
-          :address {:building-number "9"
-                    :street "Improbability Drive"
-                    :town "Cottington"
-                    :postcode "CT12 4XY"
-                    :country "GBR"}}}
+          :family-name "Frequentflyer"}}
   {:fixture :account
    :as :debtor
    :with {:token [:ref :bank-0 :token]

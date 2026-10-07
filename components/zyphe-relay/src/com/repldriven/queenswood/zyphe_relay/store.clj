@@ -3,6 +3,8 @@
     [com.repldriven.queenswood.intent-poller.interface :as intent-poller]
     [com.repldriven.queenswood.schema.interface :as schema]
 
+    [com.repldriven.mono.error.interface :refer [let-nom>]]
+
     [clojure.edn :as edn]))
 
 (def ^:private kept
@@ -23,6 +25,7 @@
    :event-type "ZypheOutboxEvent"
    :event->java schema/ZypheOutboxEvent->java
    :event->pb schema/ZypheOutboxEvent->pb
+   :pb->event schema/pb->ZypheOutboxEvent
    :intent->java schema/ZypheOutboundIntent->java
    :pb->intent schema/pb->ZypheOutboundIntent
    :redact redact})
@@ -38,3 +41,9 @@
 (defn intents-with-status
   [config status]
   (intent-poller/intents-with-status (assoc config :store spec) status))
+
+(defn clear-personal-data
+  [config]
+  (let-nom> [intents (intent-poller/redact-done config spec)
+             payloads (intent-poller/clear-payloads config spec "idv-evidence")]
+    {:intents intents :payloads payloads}))

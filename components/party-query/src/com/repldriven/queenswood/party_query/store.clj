@@ -5,9 +5,6 @@
 
 ;; must match bank-party.store/store-name — same FDB store
 (def ^:private store-name "parties")
-;; must match bank-party.store/party-national-identifiers-store-name
-(def ^:private party-national-identifiers-store-name
-  "party-national-identifiers")
 
 (def transact fdb/transact)
 
@@ -35,22 +32,6 @@
              schema/pb->Party))
    :party/find-by-idempotency-key
    "Failed to find party by idempotency key"))
-
-(defn get-party-national-identifier
-  [txn party-id]
-  (fdb/transact
-   txn
-   (fn [txn]
-     ;; The store's primary key is compound [party-id type] — a party
-     ;; can hold one identifier per type — so scan the party-id prefix
-     ;; and take the first rather than load-record by an exact key.
-     (let [result (fdb/scan-records
-                   (fdb/open txn party-national-identifiers-store-name)
-                   {:prefix [party-id] :limit 1})]
-       (some-> (first (:records result))
-               schema/pb->PartyNationalIdentifier)))
-   :party/get-party-national-identifier
-   "Failed to load party national identifier"))
 
 (defn get-parties
   ([txn bank-id]

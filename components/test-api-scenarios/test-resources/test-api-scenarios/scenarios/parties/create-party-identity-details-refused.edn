@@ -1,0 +1,17 @@
+{:name "A person registered with a date of birth is refused"
+ ;; The person gives what proves who they are to the identity provider
+ ;; (ADR-0045), so the create takes names alone and refuses the rest
+ ;; rather than reading it and dropping it.
+ :given [{:fixture :bank
+          :as :org-0
+          :with {:name "Identity Details Test Org" :status "live"}}]
+ :when [{:command :api/request
+         :request {:method :post
+                   :path "/v1/parties"
+                   :auth [:ref :org-0 :token]
+                   :body {:type "person"
+                          :display-name "Arthur Dent"
+                          :given-name "Arthur"
+                          :family-name "Dent"
+                          :date-of-birth "1952-03-11"}}
+         :assert {:status 400}}]}

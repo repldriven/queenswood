@@ -32,15 +32,7 @@
 (def ^:private config "classpath:demo-digital-bank-api/application-test.yml")
 
 (def ^:private details
-  {:given-name "Amara"
-   :family-name "Okafor"
-   :date-of-birth "1994-03-12"
-   :email "amara@example.com"
-   :address {:building-number "12"
-             :street "Mare Street"
-             :town "London"
-             :postcode "E8 3RH"}
-   :national-identifier {:value "QQ123456C"}})
+  {:given-name "Amara" :family-name "Okafor" :email "amara@example.com"})
 
 (defn- call
   [base-url method path {:keys [body token key]}]

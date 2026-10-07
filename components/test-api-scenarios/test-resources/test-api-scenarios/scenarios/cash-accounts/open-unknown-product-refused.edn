@@ -9,8 +9,7 @@
           :with {:token [:ref :org-0 :token]
                  :display-name "Unknown Product Holder"
                  :given-name "Unknown"
-                 :family-name "Holder"
-                 :national-insurance "TN889008A"}}
+                 :family-name "Holder"}}
          {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}]
  :when
  [{:command :api/request

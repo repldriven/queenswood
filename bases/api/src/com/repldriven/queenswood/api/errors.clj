@@ -60,6 +60,7 @@
    ;; rejection, which a command response can carry.
    :membership/role-not-granted 403
    :party/invalid-status 409
+   :party/external-reference-taken 409
    :party/open-accounts 409
    :policy/limit-exceeded 429
    :scheduler/period-already-run 409

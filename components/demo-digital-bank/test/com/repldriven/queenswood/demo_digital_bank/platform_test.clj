@@ -21,13 +21,7 @@
   {:type "person"
    :display-name "Ford Prefect"
    :given-name "Ford"
-   :family-name "Prefect"
-   :date-of-birth "1970-01-01"
-   :nationality "GB"
-   :address
-   {:street "Mare Street" :town "London" :postcode "E8 3RH" :country "GBR"}
-   :national-identifier
-   {:type "national-insurance" :value "QQ000000A" :issuing-country "GB"}})
+   :family-name "Prefect"})
 
 (deftest token-cache-test
   (with-test-system

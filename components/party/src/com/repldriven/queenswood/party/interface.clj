@@ -27,10 +27,12 @@
     [com.repldriven.mono.error.interface :refer [let-nom>]]))
 
 (defn new-party
-  "Create a party. Person parties also persist a person-
-  identification and optional national-identifier; internal and
-  organisation parties skip both. Capability is checked against
-  effective policies before the write.
+  "Create a party. Person parties also persist a person identification,
+  their names alone (ADR-0045); internal and organisation parties skip
+  it. An `:external-reference`, the customer's own id for the person,
+  is unique within the bank: a second party under one is a
+  `:party/external-reference-taken` rejection. Capability is checked
+  against effective policies before the write.
 
   A create-party command stamps its `:idempotency-key` onto the party,
   unique per bank, so a retry under that key reads the original party
@@ -39,9 +41,9 @@
 
   Args:
   - txn: FDB handle or open transaction.
-  - data: party submission map (bank-id, type,
-    display-name, optional person fields, and on the command path the
-    envelope's `:idempotency-key`).
+  - data: party submission map (bank-id, type, display-name, the
+    person's names, an optional external-reference, and on the command
+    path the envelope's `:idempotency-key`).
   - opts: optional map; `:policies` overrides policy resolution.
 
   Returns the party map or an anomaly."
@@ -145,3 +147,13 @@
                               :status-before (:status party)
                               :status-after (:status activated)})]
     saved))
+
+(defn delete-national-identifiers
+  "Delete every stored national identifier, which nothing writes any
+  longer (ADR-0045). Returns how many it deleted — none on a rerun — or
+  an anomaly.
+
+  Args:
+  - config: `{:record-db :record-store}`."
+  [config]
+  (core/delete-national-identifiers config))

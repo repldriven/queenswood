@@ -19,17 +19,7 @@
              :body {:type "person"
                     :display-name "Marvin"
                     :given-name "Marvin"
-                    :family-name "Android"
-                    :date-of-birth "1978-03-08"
-                    :nationality "GB"
-                    :address {:building-number "42"
-                              :street "Country Lane"
-                              :town "Cottington"
-                              :postcode "CT12 4XY"
-                              :country "GBR"}
-                    :national-identifier {:type "national-insurance"
-                                          :value "TN000014A"
-                                          :issuing-country "GB"}}}
+                    :family-name "Android"}}
    :as :party
    :assert {:status 201 :body {:status "pending"}}}
   {:command :idv/verify

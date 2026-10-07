@@ -5,7 +5,7 @@
  [{:fixture :bank :as :org-0 :with {:name "Outbound Returned Twice Org"}}
   {:fixture :person
    :as :party-0
-   :with {:token [:ref :org-0 :token] :national-insurance "TN889012A"}}
+   :with {:token [:ref :org-0 :token]}}
   {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}
   {:fixture :funded-account
    :as :debtor

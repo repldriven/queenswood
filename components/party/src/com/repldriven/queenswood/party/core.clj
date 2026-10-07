@@ -17,18 +17,10 @@
    txn
    (fn [txn]
      (let [party (domain/new-party data)
-           {:keys [national-identifier]} data
            {:keys [bank-id party-id status]} party
            pi (person-id/new-person-identification data party-id)]
        (let-nom>
          [_ (person-id/save-person-identification txn pi)
-          _ (when national-identifier
-              (store/save-party-national-identifier
-               txn
-               (domain/new-party-national-identifier
-                national-identifier
-                bank-id
-                party-id)))
           result (store/save-party
                   txn
                   party
@@ -62,11 +54,11 @@
   party back and return it, so the caller gets the original resource
   instead of a duplicate party or a bare rejection.
 
-  A retry violates the national-identifier index as readily as the
+  A retry violates the external-reference index as readily as the
   key's, and the Record Layer names whichever it reaches first, so the
   read-back rather than the exception decides which happened: a party
   under this bank and key means the retry, and no party means a second
-  person arriving under another party's national identifier, whose
+  party arriving under another party's external reference, whose
   violation passes through unchanged."
   [txn data result]
   (if (and (store/uniqueness-violation? result)
@@ -97,8 +89,9 @@
                      (create-person txn data)
                      (create-internal txn data)))]
        (if (store/uniqueness-violation? result)
-         (error/reject :party/identification-rejected
-                       "Identification rejected for this party")
+         (error/reject :party/external-reference-taken
+                       {:message "A party already has this external reference"
+                        :external-reference (:external-reference data)})
          result)))))
 
 (def ^:private idv-status->transition
@@ -215,3 +208,7 @@
                                        :status-before (:status merged-away)
                                        :status-after (:status updated)})]
             result)))))))
+
+(defn delete-national-identifiers
+  [config]
+  (store/delete-national-identifiers config))

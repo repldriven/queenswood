@@ -14,14 +14,7 @@
    :with {:token [:ref :bank-0 :token]
           :display-name "Zaphod Beeblebrox"
           :given-name "Zaphod"
-          :family-name "Beeblebrox"
-          :date-of-birth "1955-02-19"
-          :national-insurance "TN555931A"
-          :address {:building-number "42"
-                    :street "Improbability Drive"
-                    :town "Cottington"
-                    :postcode "CT12 4XY"
-                    :country "GBR"}}}
+          :family-name "Beeblebrox"}}
   {:command :api/request
    :request {:method :post
              :path "/v1/cash-accounts"

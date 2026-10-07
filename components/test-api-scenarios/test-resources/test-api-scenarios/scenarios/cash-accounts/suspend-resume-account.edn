@@ -8,8 +8,7 @@
           :with {:token [:ref :org-0 :token]
                  :display-name "Suspending Customer"
                  :given-name "Suspending"
-                 :family-name "Customer"
-                 :national-insurance "TN888002A"}}
+                 :family-name "Customer"}}
          ;; Published product
          {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}
          ;; Open the cash-account and wait for opened

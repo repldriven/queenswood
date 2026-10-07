@@ -15,6 +15,7 @@
     [com.repldriven.queenswood.fdb.merge :as merge]
     [com.repldriven.queenswood.fdb.meta-data :as meta-data]
     [com.repldriven.queenswood.fdb.record :as record]
+    [com.repldriven.queenswood.fdb.rewrite :as rewrite]
     [com.repldriven.queenswood.fdb.scan :as scan]
     [com.repldriven.queenswood.fdb.stamp :as stamp]
     [com.repldriven.queenswood.fdb.transact :as transact]))
@@ -277,6 +278,23 @@
     returns the highest-keyed records."
   [store opts]
   (scan/scan store opts))
+
+(defn rewrite-store
+  "Walks every record of `store-name` a page at a time, each page in a
+  transaction of its own opened from `config`, and calls `f` with the
+  page's transaction and each record's serialized bytes. `f` returns nil
+  to leave the record, the protobuf message to save in its place, or
+  `:delete` to delete it, and may write elsewhere in the transaction.
+  Returns how many records it saved or deleted, or the anomaly a page
+  failed with, the pages before it having committed.
+
+  Args:
+  - config: `{:record-db :record-store}`.
+  - store-name: the store to walk.
+  - f: the rewrite, of the transaction and a record's bytes.
+  - opts: `{:limit}`, the records per page, 200 by default."
+  [config store-name f opts]
+  (rewrite/rewrite-store config store-name f opts))
 
 (defn scan-prefixes
   "Scans an open FDBRecordStore under each of several primary-key

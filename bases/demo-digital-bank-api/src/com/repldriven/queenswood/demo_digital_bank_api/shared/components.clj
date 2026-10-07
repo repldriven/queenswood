@@ -15,9 +15,6 @@
 
 (def Passcode [:re {:json-schema/example "2468"} #"^[0-9]{4}$"])
 
-(def IsoDate
-  [:re {:json-schema/example "1994-03-12"} #"^[0-9]{4}-[0-9]{2}-[0-9]{2}$"])
-
 (def SortCode
   [:re {:json-schema/example "04-00-75"} #"^[0-9]{2}-?[0-9]{2}-?[0-9]{2}$"])
 

@@ -9,9 +9,10 @@
 
 ;; must match bank-party-query.store/store-name — same FDB store
 (def ^:private store-name "parties")
-;; must match bank-party-query.store/party-national-identifiers-store-name
-(def ^:private party-national-identifiers-store-name
-  "party-national-identifiers")
+
+;; Nothing writes national identifiers (ADR-0045); the store stays until
+;; every instance has deleted its records.
+(def ^:private national-identifiers-store-name "party-national-identifiers")
 
 (def transact fdb/transact)
 (def uniqueness-violation? fdb/uniqueness-violation?)
@@ -36,13 +37,9 @@
    :party/save
    "Failed to save party"))
 
-(defn save-party-national-identifier
-  [txn party-national-identifier]
-  (fdb/transact
-   txn
-   (fn [txn]
-     (fdb/save-record
-      (fdb/open txn party-national-identifiers-store-name)
-      (schema/PartyNationalIdentifier->java party-national-identifier)))
-   :party/save-party-national-identifier
-   "Failed to save party national identifier"))
+(defn delete-national-identifiers
+  [config]
+  (fdb/rewrite-store config
+                     national-identifiers-store-name
+                     (fn [_txn _bytes] :delete)
+                     {}))

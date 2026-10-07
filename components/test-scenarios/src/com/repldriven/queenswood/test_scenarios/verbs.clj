@@ -469,28 +469,17 @@
 
 (defmethod dispatch :create-person-party
   [{:keys [bank counter next-party-id banks] :as ctx}
-   {[model-bank ni-marker] :args}]
+   {[model-bank reference-marker] :args}]
   (let [model-party (model-id-for-next-party next-party-id)
         {bank-real-id :real-id} (get banks model-bank)
-        ni (when ni-marker
-             {:type :identifier-type-national-insurance
-              :value (name ni-marker)
-              :issuing-country "GB"})
         payload (cond-> {:bank-id bank-real-id
                          :type :party-type-person
                          :display-name (str "Scenario Person " counter)
                          :given-name "Scenario"
-                         :family-name (str "Person" counter)
-                         :date-of-birth 19700101
-                         :nationality "GB"
-                         :address {:building-number "155"
-                                   :street "Country Lane"
-                                   :town "Cottington"
-                                   :postcode "CT12 4XY"
-                                   :country "GBR"}}
+                         :family-name (str "Person" counter)}
 
-                        ni
-                        (assoc :national-identifier ni))
+                        reference-marker
+                        (assoc :external-reference (name reference-marker)))
         result (party/new-party bank payload)
         ;; Reality: the party's IDV waits for a session; the person
         ;; shows a matching document through it and the party
@@ -602,14 +591,7 @@
                        :type :party-type-person
                        :display-name (str "Scenario Customer " counter)
                        :given-name "Scenario"
-                       :family-name (str "Customer" counter)
-                       :date-of-birth 19700101
-                       :nationality "GB"
-                       :address {:building-number "155"
-                                 :street "Country Lane"
-                                 :town "Cottington"
-                                 :postcode "CT12 4XY"
-                                 :country "GBR"}}
+                       :family-name (str "Customer" counter)}
         party-result (party/new-party bank party-payload)
         party-result (if (error/anomaly? party-result)
                        party-result

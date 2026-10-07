@@ -9,10 +9,7 @@
              :path "/v1/parties"
              :auth [:ref :bank-0 :token]
              :body {:type "organization"
-                    :display-name "Megadodo Publications"
-                    :national-identifier {:type "tax-id"
-                                          :value "GB123456789"
-                                          :issuing-country "GB"}}}
+                    :display-name "Megadodo Publications"}}
    :as :party
    :assert {:status 201
             :body {:party-id [:m/regex "^pty\\."]

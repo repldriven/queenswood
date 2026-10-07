@@ -119,9 +119,7 @@
               party-id (util/generate-id "pty")
               party (assoc (select-keys body-params
                                         [:type :display-name :given-name
-                                         :family-name :date-of-birth
-                                         :nationality :address
-                                         :national-identifier])
+                                         :family-name :external-reference])
                            :bank-id "bnk.00000000000000000000000001"
                            :party-id party-id
                            :status "pending"
