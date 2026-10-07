@@ -52,6 +52,7 @@ h2.t { font-family: var(--serif); font-weight: 500; font-size: clamp(34px, 4.6vw
 .btn.line { border-color: var(--rule); color: var(--ink-2); background: transparent; }
 .btn.line:hover { background: rgba(20, 15, 10, .05); color: var(--ink); }
 .btn svg { width: 16px; height: 16px; flex: none; }
+.btn.off, .btn.off:hover { opacity: .45; cursor: not-allowed; }
 
 /* nav */
 .nav { position: sticky; top: 0; z-index: 20; background: color-mix(in oklch, var(--bone) 86%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-bottom: 1px solid var(--rule-2); }
