@@ -17,14 +17,8 @@
 (def ^:private declaration
   (:idv-provider (env/config "classpath:idv/criteria-test.yml" :test)))
 
-(def ^:private claimed
-  {:given-name "Arthur" :family-name "Dent" :date-of-birth 19520311})
-
 (def ^:private document
-  {:outcome :idv-evidence-outcome-passed
-   :given-names "Arthur"
-   :family-name "Dent"
-   :date-of-birth "1952-03-11"})
+  {:outcome :idv-evidence-outcome-passed :name-match :idv-name-match-match})
 
 (def ^:private passed {:outcome :idv-evidence-outcome-passed})
 
@@ -38,9 +32,7 @@
 (defn- decide
   ([evidence] (decide evidence [platform]))
   ([evidence policies]
-   (SUT/decide {:status :idv-status-pending :evidence evidence}
-               policies
-               claimed)))
+   (SUT/decide {:status :idv-status-pending :evidence evidence} policies)))
 
 (defn- state
   [evidence criterion]
@@ -73,29 +65,22 @@
            (:status (decide (assoc everything :liveness failed)))))))
 
 (deftest claimed-identity-test
-  (testing "the same name and date of birth establish it"
+  (testing "a matching name establishes it"
     (is (= :idv-criterion-state-established
            (state everything :idv-verification-claimed-identity))))
   (testing "a close match puts the IDV in review"
     (is (= :idv-status-in-review
-           (:status (SUT/decide {:status :idv-status-pending
-                                 :evidence everything}
-                                [platform]
-                                (assoc claimed :middle-names "Phillip"))))))
+           (:status (decide (assoc-in everything
+                             [:document :name-match]
+                             :idv-name-match-close-match))))))
   (testing "someone else's name rejects"
     (is (= :idv-status-rejected
-           (:status (decide (update everything
-                                    :document assoc
-                                    :given-names "Trillian"
-                                    :family-name "Astra"))))))
-  (testing "another date of birth rejects"
-    (is (= :idv-status-rejected
            (:status (decide (assoc-in everything
-                             [:document :date-of-birth]
-                             "1971-05-23"))))))
-  (testing "a document with no extracted name leaves it outstanding"
+                             [:document :name-match]
+                             :idv-name-match-no-match))))))
+  (testing "a document with no name graded leaves it outstanding"
     (is (= :idv-criterion-state-outstanding
-           (state (update everything :document dissoc :given-names :family-name)
+           (state (update everything :document dissoc :name-match)
                   :idv-verification-claimed-identity)))))
 
 (deftest address-test
@@ -164,19 +149,18 @@
 
 (deftest apply-evidence-test
   (let [idv {:status :idv-status-pending :verification-id "idv.1"}
-        applied (SUT/apply-evidence idv everything [platform] claimed)]
+        applied (SUT/apply-evidence idv everything [platform])]
     (testing "evidence that establishes everything accepts the IDV"
       (is (= :idv-status-accepted (:status applied)))
       (is (= 6 (count (:criteria applied)))))
     (testing "redelivered evidence decides the same way"
       (let [again (SUT/apply-evidence (assoc idv :evidence everything)
                                       everything
-                                      [platform]
-                                      claimed)]
+                                      [platform])]
         (is (= (:criteria applied) (:criteria again)))
         (is (= (:status applied) (:status again)))))
     (testing "an IDV already decided takes no more evidence"
-      (let [r (SUT/apply-evidence applied everything [platform] claimed)]
+      (let [r (SUT/apply-evidence applied everything [platform])]
         (is (error/rejection? r))
         (is (= :idv/invalid-status (error/kind r)))))
     (testing "an IDV in review stays in review on evidence that decides nothing"
@@ -184,8 +168,7 @@
              (:status (SUT/apply-evidence
                        (assoc idv :status :idv-status-in-review)
                        {:address passed}
-                       [platform]
-                       claimed)))))))
+                       [platform])))))))
 
 (deftest check-open-session-test
   (let [idv {:status :idv-status-pending :verification-id "idv.1"}

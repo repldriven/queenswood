@@ -43,68 +43,83 @@ the TDD and bank-providers.md carry it as a known limitation.
 
 The schema:
 
-- [ ] `components/schema/resources/schemas/idv/idv.proto`: an
-      `IdvNameMatch` enum (`unknown`, `match`, `close-match`,
-      `no-match`), `optional IdvNameMatch name_match` on
+- [x] `components/schema/resources/schemas/idv/idv.proto`: an
+      `IdvNameMatch` enum, `optional IdvNameMatch name_match = 7` on
       `IdvDocumentEvidence`, and `given_names`, `family_name` and
       `date_of_birth` marked deprecated.
-- [ ] `idv/idv-evidence.avsc.json`: `nameMatch` on the document, the
+- [x] `idv/idv-evidence.avsc.json`: `name_match` on the document, the
       three read fields removed.
-- [ ] `idv/submit-idv-check.avsc.json`: `givenName`, `middleNames`,
-      `familyName` in place of the person identification.
-- [ ] `components/resources/resources/system/fdb-record-types.yml`:
+- [x] `idv/submit-idv-check.avsc.json` and
+      `bank-activity/idv-session-opening.avsc.json`: `date_of_birth`
+      and `address` removed; the names were already there.
+- [x] `components/resources/resources/system/fdb-record-types.yml`:
       `version` 80 to 81. `just force-prep`.
 
 The domain:
 
-- [ ] `components/idv/src/.../core.clj`: the session publishes
-      `submit-idv-check` with the party's names, read through
-      `person-identification`, and evidence handling reads no person
-      identification.
-- [ ] `components/idv/src/.../domain.clj`: `decide` takes no
-      `claimed`; `claimed-identity` settles from `name-match` by the
-      treatment table, and stays outstanding without one.
+- [x] `components/idv/src/.../core.clj`: the session's activity carries
+      the party's names and no date of birth or address, and evidence
+      handling reads no person identification.
+- [x] `components/idv/src/.../domain.clj`: `decide` and
+      `apply-evidence` take no `claimed`; `claimed-identity` settles
+      from `name-match`, and stays outstanding without one.
 
 The adapters:
 
-- [ ] `components/zyphe-relay/src/.../outbound.clj`: the names in the
-      run's `customData`.
-- [ ] `bases/zyphe-adapter/src/.../publisher.clj`: grade the read name
-      against the `customData` names with `party-query/match-name`,
-      report `name-match`, and drop the read fields.
-- [ ] `components/onfido-relay/src/.../outbound.clj`: the applicant
-      from the names and the email alone; the evidence read graded
-      against the applicant's names, read back with the run.
-- [ ] `bases/onfido-adapter/src/.../publisher.clj`: report
-      `name-match`, no read fields.
-- [ ] Logs and spans in both adapters and relays: no field of a
-      provider's result, no email, no name.
+- [x] `components/idv-provider`: `name-match`, `full-name` and
+      `party-name`, the last reading the party's names through
+      `person-identification` by party id.
+- [x] `components/zyphe-relay/src/.../outbound.clj`: the party id in
+      the run's `customData`, never a name.
+- [x] `bases/zyphe-adapter`: the publisher grades the read name against
+      `run-name` and drops the read fields; the webhook handler reads
+      `run-name` by the `customData` party id.
+- [x] `components/onfido-relay/src/.../outbound.clj`: the applicant
+      from the names and the email alone.
+- [x] `bases/onfido-adapter`: the same, reading `run-name` by the run's
+      `customer_user_id`.
+- [x] Logs in both adapters and relays: ids and statuses only, as they
+      were.
 
-The intent's email:
+The intent's request:
 
-- [ ] `components/intent-poller`: a `:redact` function on the store
-      spec, applied to the intent's `request` in the transaction that
-      settles or fails it; absent, the request is kept as it is.
-- [ ] `zyphe-relay` and `onfido-relay` `store.clj`: `:redact` drops
-      `:email`.
+- [x] `components/intent-poller`: an optional `:redact` function on the
+      store spec, applied to the request in the transaction that
+      settles or fails the intent.
+- [x] `zyphe-relay` and `onfido-relay` `store.clj`: `:redact` keeps
+      only the ids, the channel and the criteria.
 
 Proved by:
 
-- [ ] `idv` — `decide` over every row of the treatment table, with
-      `claimed-identity` from each grade and outstanding without one.
-- [ ] Each adapter — each grade from its simulator's results, and the
-      outbox entry's payload read back with no read field in it.
-- [ ] `intent-poller` — a settled and a failed intent read back
-      redacted, and an unredacted spec untouched.
-- [ ] `test-api-scenarios` — the `claimed-identity` rows through both
-      simulators.
-- [ ] `clojure -M:poly test brick:idv:zyphe-relay:onfido-relay:intent-poller project:dev :all`,
-      then `just test-all`.
+- [x] `idv` — `decide` over the treatment table, `claimed-identity`
+      from each grade and outstanding without one.
+- [x] Each adapter's publisher — each grade, and no read field.
+- [x] `zyphe-adapter` — a webhook's outbox entry read back and
+      decoded, its bytes carrying no read name or date of birth. The
+      grade through a saved party is the scenarios' to prove: a brick
+      test may require only what the brick does.
+- [x] `intent-poller` — a settled and a failed intent read back
+      redacted, a pending one and an unredacted spec untouched.
+- [x] `clojure -M:poly test brick:idv:idv-provider:intent-poller:zyphe-relay:onfido-relay:zyphe-adapter:onfido-adapter:zyphe-webhook project:dev :all`.
+- [x] `just test-all`, the `claimed-identity` scenarios through both
+      simulators among them: 598 tests, the four failures all
+      `verification-another-date-of-birth-rejects`, which asserted the
+      date-of-birth check this slice removes, so the scenario goes.
 
 Docs:
 
-- [ ] `docs/tdd/parties.md`: slice 5 "Built", and the Background's
-      "What reaches a provider and comes back" rewritten as built.
+- [x] `docs/tdd/parties.md`: slice 5 "Built", the Background's "What
+      reaches a provider and comes back", the adapter contract and
+      "What the platform keeps" as built, and the activity log's email
+      under Known Limitations.
+- [x] ADR-0045: the name read by party id rather than carried by the
+      run.
+
+Found on the way:
+
+- [ ] The bank-activity log keeps every `idv-session-opening` entry,
+      email included, since nothing trims a changelog. Trimming
+      published entries is its own change, not this plan's.
 
 ### 2. Slice 6 — the provider's page
 
@@ -214,11 +229,18 @@ Docs:
 
 ## Decisions taken in this plan
 
-- **`match-name` stays in `party-query`.** The adapters call it
-  through its interface; `external-adapters-service` already carries
-  the brick.
+- **`match-name` stays in `party-query`.** The adapters reach it
+  through `idv-provider/name-match`; every project carrying
+  `idv-provider` already carries `party-query` and
+  `person-identification`.
 - **Redaction is the intent-poller's.** One `:redact` on the store
   spec, rather than each relay rewriting its own intents, so the
-  payment relays are untouched.
+  payment relays are untouched. A relay's `:redact` keeps the keys it
+  names rather than dropping the ones it fears, so a field added later
+  goes by default.
+- **The adapter reads the party's name.** A run carries only the party
+  id, and the adapter reads the name through `idv-provider/party-name`
+  when the result arrives, so no name rides to a provider in
+  correlation data.
 - **The clearance is the migrator's.** It already opens every store
   before the services roll, and runs once per deployment.

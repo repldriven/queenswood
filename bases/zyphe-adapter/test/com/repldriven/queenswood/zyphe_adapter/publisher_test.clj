@@ -9,26 +9,36 @@
   {:id "evt-1"
    :type type
    :flow {:status flow-status
-          :customData {:bankId "bnk.1" :verificationId "idv.1"}}
+          :customData
+          {:bankId "bnk.1" :verificationId "idv.1" :partyId "pty.1"}}
    :data data})
 
 (defn- evidence
   [type flow-status data]
-  (:data (SUT/->idv-evidence (event type flow-status data))))
+  (:data (SUT/->idv-evidence (event type flow-status data)
+                             "Arthur Philip Dent")))
+
+(defn- read-as
+  [first-name last-name]
+  (get-in (evidence "verification.dv.completed"
+                    "PROCESSING"
+                    {:dv {:status "PASSED" :reasons []}
+                     :additionalData {:firstName first-name
+                                      :lastName last-name
+                                      :dateOfBirth "1952-03-11"}})
+          [:document :name-match]))
 
 (deftest document-test
-  (testing "a passed document reports what it says, and liveness"
+  (testing "a passed document reports its grade, never what it says"
     (let [ev (evidence "verification.dv.completed"
                        "PROCESSING"
                        {:dv {:status "PASSED" :reasons []}
-                        :additionalData {:firstName "Arthur"
+                        :additionalData {:firstName "Arthur Philip"
                                          :lastName "Dent"
                                          :dateOfBirth "1952-03-11"
                                          :issuingState "GBR"}})]
       (is (= {:outcome :idv-evidence-outcome-passed
-              :given-names "Arthur"
-              :family-name "Dent"
-              :date-of-birth "1952-03-11"
+              :name-match :idv-name-match-match
               :document-type nil
               :issuing-country "GBR"}
              (:document ev)))
@@ -55,6 +65,18 @@
                              "REVIEW"
                              {:dv {:status "REVIEW" :reasons []}})
                    [:document :outcome])))))
+
+(deftest party-id-test
+  (is (= "pty.1"
+         (SUT/party-id (event "verification.dv.completed" "PROCESSING" {})))))
+
+(deftest name-match-test
+  (testing "the read name is graded against the run's"
+    (is (= :idv-name-match-match (read-as "Arthur Philip" "Dent")))
+    (is (= :idv-name-match-close-match (read-as "Arthur" "Dent")))
+    (is (= :idv-name-match-no-match (read-as "Trillian" "Astra"))))
+  (testing "a document with no read name is not graded"
+    (is (nil? (read-as nil nil)))))
 
 (deftest address-test
   (is (= {:outcome :idv-evidence-outcome-failed :document-type "UTILITY_BILL"}
@@ -94,10 +116,12 @@
                                      {:dv {:status "FAILED"}})))))
   (testing "a run's completion reports nothing"
     (is (nil? (SUT/->idv-evidence
-               (event "flow.completed" "COMPLETED" {:identityId "id-1"})))))
+               (event "flow.completed" "COMPLETED" {:identityId "id-1"})
+               nil))))
   (testing "an event naming no verification reports nothing"
     (is (nil? (SUT/->idv-evidence (assoc-in (event "verification.dv.completed"
                                                    "PROCESSING"
                                                    {:dv {:status "PASSED"}})
                                    [:flow :customData]
-                                   {}))))))
+                                   {})
+                                  nil)))))

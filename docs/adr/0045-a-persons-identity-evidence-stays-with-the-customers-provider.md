@@ -79,8 +79,8 @@ The decision has these parts:
 - Reduce the provider's webhook to outcomes in the adapter, so nothing
   the provider read reaches a topic, an outbox, a log or a trace.
 - Settle `claimed-identity` in the adapter, comparing the name the
-  provider read with the name the run was started for and reporting the
-  grade, never either name.
+  provider read with the party's, read by the party id the run carries,
+  and reporting the grade, never either name.
 - Record a verification as each criterion's state and the provider's
   reference to its result, and tell the customer a party's status,
   never evidence.

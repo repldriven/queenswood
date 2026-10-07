@@ -17,6 +17,10 @@
   - `:event-type` — the outbox event's record type, its dedup key index
     named `<event-type>_by_dedup_key`.
   - `:event->java`, `:event->pb`, `:intent->java`, `:pb->intent`.
+  - `:redact`, optionally — a function of an intent's encoded `request`
+    returning only what may be kept once the external API no longer
+    needs it, applied in the transaction that settles or fails the
+    intent.
 
   A poller config carries the FDB `:record-db` and `:record-store`, the
   `:schemas` events are serialised with, `:adapter`, the store spec as

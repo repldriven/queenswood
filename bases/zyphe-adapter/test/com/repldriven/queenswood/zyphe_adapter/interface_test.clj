@@ -1,13 +1,15 @@
 (ns com.repldriven.queenswood.zyphe-adapter.interface-test
   (:require
-    [com.repldriven.queenswood.fdb.interface]
     [com.repldriven.queenswood.testcontainers.interface]
 
     [com.repldriven.queenswood.zyphe-adapter.interface :as SUT]
 
+    [com.repldriven.queenswood.fdb.interface :as fdb]
+    [com.repldriven.queenswood.schema.interface :as schema]
     [com.repldriven.queenswood.zyphe-relay.interface :as relay]
     [com.repldriven.queenswood.zyphe-webhook.interface :as zyphe-webhook]
 
+    [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.http-client.interface :as http]
     [com.repldriven.mono.json.interface :as json]
     [com.repldriven.mono.message-bus.interface]
@@ -37,7 +39,8 @@
             :flowResultId "result-1"}
    :flow {:status flow-status
           :slug "onboarding"
-          :customData {:bankId "bnk.test-001"
+          :customData {:partyId "pty.test-001"
+                       :bankId "bnk.test-001"
                        :verificationId verification-id}}
    :data data})
 
@@ -77,6 +80,23 @@
                       :payload (.getBytes "probe")
                       :created-at (utility/now)})))
 
+(defn- recorded-evidence
+  "The idv-evidence the adapter wrote to its outbox under `dedup-key`,
+  decoded, and the payload's bytes as text."
+  [config serde dedup-key]
+  (let [event (fdb/transact config
+                            (fn [txn]
+                              (some-> (fdb/query-record
+                                       (fdb/open txn "zyphe-outbox")
+                                       "ZypheOutboxEvent"
+                                       "dedup_key"
+                                       dedup-key
+                                       {:index "ZypheOutboxEvent_by_dedup_key"})
+                                      schema/pb->ZypheOutboxEvent)))
+        payload (:payload event)]
+    {:evidence (avro/deserialize-same (get serde "idv-evidence") payload)
+     :text (String. ^bytes payload StandardCharsets/UTF_8)}))
+
 (deftest webhook-test
   (with-test-system
    [sys
@@ -92,6 +112,17 @@
                      body (http/res->edn res)
                      _ (is (true? (:received body)))])
          (is (recorded? config "evt-1")))
+       (testing "nothing the document says is recorded"
+         (nom-test> [res (deliver-event (document-event "evt-7" "idv.007"))
+                     _ (is (= 200 (:status res)))])
+         (let [{:keys [evidence text]} (recorded-evidence
+                                        config
+                                        (system/instance sys [:avro :serde])
+                                        "evt-7")]
+           (is (= :idv-evidence-outcome-passed
+                  (get-in evidence [:document :outcome])))
+           (is (not-any? (fn [read] (.contains ^String text read))
+                         ["Arthur" "Dent" "1952-03-11"]))))
        (testing "a redelivered event is acknowledged again"
          (nom-test> [res (deliver-event (document-event "evt-1" "idv.001"))
                      _ (is (= 200 (:status res)))]))

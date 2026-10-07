@@ -2,6 +2,7 @@
   (:require
     [com.repldriven.queenswood.onfido-adapter.publisher :as publisher]
 
+    [com.repldriven.queenswood.idv-provider.interface :as idv-provider]
     [com.repldriven.queenswood.intent-poller.interface :as intent-poller]
     [com.repldriven.queenswood.onfido-relay.interface :as relay]
     [com.repldriven.queenswood.onfido-webhook.interface :as onfido-webhook]
@@ -41,13 +42,19 @@
 
 (defn- record
   "Read the finished run back from Onfido, since the delivery names it
-  and none of its results, and record its evidence."
+  and none of its results, and record its evidence, the document graded
+  against the name of the party the run is for."
   [request run-id]
-  (let [{:keys [onfido-url api-token]} request
+  (let [{:keys [onfido-url api-token record-db record-store]} request
         res (let-nom> [read (relay/read-run {:onfido-url onfido-url
                                              :api-token api-token}
-                                            run-id)]
-              (if-let [descriptor (publisher/->idv-evidence read)]
+                                            run-id)
+                       run-name (idv-provider/party-name
+                                 {:record-db record-db
+                                  :record-store record-store}
+                                 (get-in read [:run :customer_user_id]))]
+              (if-let [descriptor (publisher/->idv-evidence
+                                   (assoc read :run-name run-name))]
                 (record-event request descriptor)
                 (log/info "Onfido run carries no evidence; acknowledged"
                           {:run-id run-id})))]

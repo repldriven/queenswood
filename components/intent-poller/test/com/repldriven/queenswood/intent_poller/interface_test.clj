@@ -1,6 +1,7 @@
 (ns com.repldriven.queenswood.intent-poller.interface-test
   "The poller's passes against an adapter's breaker: an outage opening
-  it, a probe closing it, and an intent outliving its maximum age."
+  it, a probe closing it, and an intent outliving its maximum age; and a
+  store spec's redaction of a request once its intent is done."
   (:require
     [com.repldriven.queenswood.testcontainers.interface]
 
@@ -13,6 +14,7 @@
      [with-test-system nom-test>]]
     [com.repldriven.mono.utility.interface :as utility]
 
+    [clojure.edn :as edn]
     [clojure.test :refer [deftest is testing]])
   (:import
     (java.util.concurrent Executors)))
@@ -376,6 +378,54 @@
                         :else
                         false))))
           (finally ((:stop poller)))))))
+
+(defn- kept-bank-id
+  [request]
+  (pr-str (select-keys (edn/read-string request) [:bank-id])))
+
+(deftest redact-test
+  (with-test-system
+   [sys "classpath:intent-poller/application-test.yml"]
+   (let [config (poller-config sys :poller-redact (atom nil))
+         redacting (assoc (spec :poller-redact) :redact kept-bank-id)
+         request (pr-str {:bank-id "bnk.1" :email "arthur@example.test"})
+         saved (fn [id spec]
+                 (SUT/save-intent config
+                                  spec
+                                  (assoc (intent id 1000) :request request)))
+         request-of (fn [id] (edn/read-string (:request (by-id config id))))]
+     (nom-test> [_ (saved "red.1" redacting)
+                 _ (saved "red.2" redacting)
+                 _ (saved "red.3" (spec :poller-redact))
+                 _ (SUT/advance config redacting "red.1" {:step 2} nil)])
+     (testing "a pending intent keeps its whole request"
+       (is (= "arthur@example.test" (:email (request-of "red.1")))))
+     (nom-test> [_ (SUT/finish config
+                               redacting
+                               "red.1"
+                               "pending"
+                               "settled"
+                               nil
+                               nil)
+                 _ (SUT/finish config
+                               redacting
+                               "red.2"
+                               "pending"
+                               "failed"
+                               nil
+                               nil)
+                 _ (SUT/finish config
+                               (spec :poller-redact)
+                               "red.3"
+                               "pending"
+                               "settled"
+                               nil
+                               nil)])
+     (testing "a settled or failed intent keeps only what the spec keeps"
+       (is (= {:bank-id "bnk.1"} (request-of "red.1")))
+       (is (= {:bank-id "bnk.1"} (request-of "red.2"))))
+     (testing "a spec with no redaction keeps the request"
+       (is (= "arthur@example.test" (:email (request-of "red.3"))))))))
 
 (deftest ordering-key-test
   (testing "a payment's events are keyed by the payment"

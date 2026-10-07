@@ -5,10 +5,14 @@
   reasons, liveness; a proof-of-address result reports the address; an
   AML result reports sanctions and PEP together; and a run the person
   walked away from reports that. The custom data the relay attached
-  when it created the run carries the bank and verification ids. The
-  webhook handler persists the descriptor to the outbox; the relay
-  publishes it."
+  when it created the run carries the bank, verification and party ids;
+  the document's read name is graded against the party's, and the read
+  name, date of birth and every other field the person gave Zyphe stay
+  here. The webhook handler persists the
+  descriptor to the outbox; the relay publishes it."
   (:require
+    [com.repldriven.queenswood.idv-provider.interface :as idv-provider]
+
     [clojure.string :as str]))
 
 (def ^:private result-status->outcome
@@ -23,7 +27,7 @@
       (str/starts-with? reason "FACE_MATCH")))
 
 (defn- document-evidence
-  [dv additional]
+  [dv additional run-name]
   (let [{:keys [status reasons documentType]} dv
         outcome (result-status->outcome status)
         liveness-failed? (and (= :idv-evidence-outcome-failed outcome)
@@ -33,9 +37,11 @@
               (not liveness-failed?)
               (assoc :document
                      {:outcome outcome
-                      :given-names (:firstName additional)
-                      :family-name (:lastName additional)
-                      :date-of-birth (:dateOfBirth additional)
+                      :name-match (idv-provider/name-match
+                                   run-name
+                                   (idv-provider/full-name
+                                    (:firstName additional)
+                                    (:lastName additional)))
                       :document-type (or documentType
                                          (:documentClassCode additional))
                       :issuing-country (:issuingState additional)})
@@ -73,7 +79,7 @@
                  :pep (boolean (:hasPep aml))}}))
 
 (defn- evidence
-  [event]
+  [event run-name]
   (let [{:keys [type flow data]} event
         {:keys [dv additionalData poa aml]} data]
     (cond
@@ -81,7 +87,7 @@
      {:cancelled true}
 
      (str/starts-with? (or type "") "verification.dv.")
-     (document-evidence dv additionalData)
+     (document-evidence dv additionalData run-name)
 
      (str/starts-with? (or type "") "verification.poa.")
      (address-evidence poa)
@@ -95,14 +101,20 @@
     (or (not-empty (:customData flow))
         (some (fn [[_ result]] (not-empty (:customData result))) data))))
 
+(defn party-id
+  "The party the run behind `event` is for, from its custom data."
+  [event]
+  (:partyId (ids event)))
+
 (defn ->idv-evidence
   "The idv-evidence event descriptor for `event`, or nil when it reports
   nothing a decision rests on — a run's completion, a notification, or
   an event whose custom data names no verification. `dedup-key` is the
-  event's id, which Zyphe keeps across retries and endpoints."
-  [event]
+  event's id, which Zyphe keeps across retries and endpoints. A document
+  is graded against `run-name`, the party's name."
+  [event run-name]
   (let [{:keys [bankId verificationId]} (ids event)
-        reported (evidence event)]
+        reported (evidence event run-name)]
     (when (and reported bankId verificationId)
       {:event-name "idv-evidence"
        :dedup-key (:id event)

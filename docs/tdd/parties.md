@@ -53,12 +53,15 @@ provider account per bank, which ADR-0045 requires and
   3166-1 alpha-3. `party` holds a person's national identifiers as
   `PartyNationalIdentifier`, one per type, the value in plain text.
   `POST /v1/parties` takes all of them.
-- **What reaches a provider and comes back.** `submit-idv-check`
-  carries the person identification and the session's email, and
-  Onfido's relay creates its applicant from the names, date of birth,
-  address and email. Each adapter writes the document's read names and
-  date of birth into its `idv-evidence` outbox entry, and `Idv.evidence`
-  keeps them, compared with the person identification in `idv`.
+- **What reaches a provider and comes back.** `submit-idv-check`, and
+  the `idv-session-opening` activity it is published from, carry the
+  person's names and the session's email. Onfido's relay creates its
+  applicant from the names and the email, and Zyphe's run carries the
+  party id in its `customData`. Each adapter grades the name read off
+  the document against the party's, read by party id through
+  `idv-provider/party-name`, and writes the grade, never the name, into
+  its `idv-evidence` outbox entry. A settled or failed intent keeps
+  only the ids and the criteria it asked for.
 - **Lifecycle.** `suspend-party`, `resume-party` and `close-party` are
   direct single-phase commands guarded on source status in `party`'s
   `domain.clj`, per
@@ -354,14 +357,17 @@ runs changes nothing outside it:
   provider result to `idv-evidence`, and writes one outbox entry per
   provider event, deduplicated on the provider's event id.
 - **Compares the name.** It grades the name read off the document
-  against the name the run was started for, as the provider hands it
-  back, with `party-query/match-name`, and reports the grade as the
-  document's `name-match`. Neither name, nor any other field the
-  provider read, leaves its memory: no outbox entry, intent, log line or
-  span carries one.
+  against the party's, read through `idv-provider/party-name` by the
+  party id the run carries, with `idv-provider/name-match`, and reports
+  the grade as the document's `name-match`. Neither name, nor any other
+  field the provider read, leaves its memory: no outbox entry, intent,
+  log line or span carries one.
+- **Keeps only ids.** Its store spec's `:redact` keeps, of a settled or
+  failed intent's request, the ids and the criteria asked for, so the
+  email and the names go once the provider has them.
 - **Stays neutral.** Its anomalies are the `:idv/*` kinds, its
-  correlation carries opaque ids and the names the run was started for,
-  and no provider name leaves its bricks.
+  correlation carries only opaque ids, and no provider name leaves its
+  bricks.
 - **Ships a simulator.** `<provider>-simulator` serves the provider's
   API as the adapter calls it, signs its deliveries as the provider
   does, and serves the hosted page the hand-off points at, as
@@ -442,26 +448,28 @@ on the provider's page.
 - **National identifiers.** `PartyNationalIdentifier` retires: nothing
   writes one, and its record type is removed once the clearance below
   has deleted every record.
-- **The run's input.** `submit-idv-check` carries the person's three
-  names in place of the person identification. Onfido's relay creates
-  its applicant from the names and the email alone, and Zyphe's adds
-  the names to the run's `customData`, so each provider holds the name
-  the run was started for and hands it back with the result.
+- **The run's input.** `submit-idv-check` and the
+  `idv-session-opening` activity carry the person's names and no date
+  of birth or address. Onfido's relay creates its applicant from the
+  names and the email alone, and Zyphe's run carries the party id in
+  its `customData`, so each adapter can read the party's name back when
+  the result arrives.
 - **Evidence.** `IdvDocumentEvidence`'s `given_names`, `family_name`
   and `date_of_birth` are deprecated, and it gains `optional
   IdvNameMatch name_match`. An outbox entry's payload, the bus and
   `Idv.evidence` therefore carry no name read off a document.
-- **An intent's request.** A settled or failed intent keeps its
-  `request` without `email`: the runner rewrites the request in the
-  transaction that settles or fails the intent, so the email stays only
-  while the provider may still need it.
+- **An intent's request.** A settled or failed intent keeps only the
+  ids and the criteria of its `request`: the intent-poller applies the
+  store spec's `:redact` in the transaction that settles or fails the
+  intent, so the email and the names stay only while the provider may
+  still need them.
 - **Clearance.** The `migrator` base, which saves the meta-data and
   writes no record today, gains a clearance step it runs after saving.
   Once slice 7 is deployed it clears `date_of_birth`, `nationality` and
   `address` from every stored `PersonIdentification`, the three read
   fields from every stored `Idv` and from the payload of every
-  `idv-evidence` outbox entry, and `email` from every settled or failed
-  intent of both IDV relays, and deletes every
+  `idv-evidence` outbox entry, reduces every settled or failed intent
+  of both IDV relays to what its `:redact` keeps, and deletes every
   `PartyNationalIdentifier`. It is idempotent, so a rerun finds nothing
   left to clear.
 - **Logs and traces.** No adapter logs or adds to a span any field of a
@@ -505,7 +513,7 @@ period; the clearance touches neither.
    the person identification, and an intent settling without its email.
    Proved by the treatment table's `claimed-identity` rows through both
    simulators, and an adapter test reading the outbox entry back with no
-   read name in it.
+   read name in it. Built.
 6. **The provider's page.** `idv-simulator-page`'s steps, its sandbox
    values and panel, and `simulate` filling the steps. The console's
    onboarding scenario and the demo bank's walkthrough play Zaphod
@@ -653,6 +661,11 @@ The demo bank's onboarding screens follow under
 - **A check is bound to its person by name.** A hand-off reaching
   somebody of the same name verifies the wrong person, which the
   platform cannot tell from the right one.
+- **The activity log keeps a session's email.** An
+  `idv-session-opening` entry carries the email to the adapter, and
+  nothing trims a changelog, so the entry keeps it, and entries written
+  before slice 5 keep the date of birth and address too; the clearance
+  cannot reach them.
 - **Names and payments stay in backups.** A cleared field stays in
   every FDB backup taken before the clearance, until the backup
   expires.

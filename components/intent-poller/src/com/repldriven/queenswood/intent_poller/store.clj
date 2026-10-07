@@ -83,6 +83,13 @@
                              dedup-key
                              {:index (str event-type "_by_dedup_key")}))))
 
+(defn- redacted
+  [spec intent]
+  (let [{:keys [redact]} spec]
+    (if (and redact (#{"settled" "failed"} (:status intent)))
+      (update intent :request redact)
+      intent)))
+
 (defn update-intent
   ([txn spec intent-id status f event]
    (update-intent txn spec intent-id status f event nil))
@@ -96,7 +103,7 @@
                                pb->intent)]
           (if (not= status (:status existing))
             existing
-            (let [updated (f existing)]
+            (let [updated (redacted spec (f existing))]
               (let-nom>
                 [_ (fdb/save-record store (intent->java updated))
                  _ (when (and event

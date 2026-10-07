@@ -21,10 +21,6 @@
                              :party-id "pty.1"
                              :first-name "Arthur"
                              :last-name "Dent"
-                             :address {:street "Load Lane"
-                                       :town "Testford"
-                                       :postcode "TF1 1AA"
-                                       :country "GBR"}
                              :verifications []
                              :screenings []})})
 

@@ -101,9 +101,10 @@
 (defn verification-request
   "The create-verification-request body for a submit-idv-check. The
   person is identified by party id as an external-id credential and by
-  email where there is one, the bank, verification and session ids ride
-  as `customData`, and the session webhook is keyed by the adapter's
-  secret. Creating again for the same identity resumes the run, so a
+  email where there is one, the bank, verification, party and session
+  ids ride as `customData`, which Zyphe echoes so the adapter can grade
+  the name it reads against the party's, and the session webhook is
+  keyed by the adapter's secret. Creating again for the same identity resumes the run, so a
   retried intent or a second session does not start a second one."
   [config data]
   (let [{:keys [adapter-url webhook-secret]} config
@@ -112,7 +113,8 @@
     (utility/assoc-some
      {:credentials [{:type "EXTERNAL_ID" :externalId party-id}]
       :customData (utility/assoc-some {:bankId bank-id
-                                       :verificationId verification-id}
+                                       :verificationId verification-id
+                                       :partyId party-id}
                                       :sessionId
                                       session-id)
       :webhook {:url (str adapter-url zyphe-webhook/path)
