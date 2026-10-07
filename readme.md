@@ -16,14 +16,14 @@ provider. See [queenswood.io](https://queenswood.io).
 
 ## Demo
 
-[![Video: a tour of what your bank can do, in the operator console](docs/assets/demo-console.png)](https://github.com/user-attachments/assets/cd3b010e-0e4e-491e-bdc2-14c518d6df70)
+[![Video: a tour of what your bank can do, in the operator console](docs/assets/demo-console.png)](https://github.com/user-attachments/assets/47959017-65e2-4c8a-9b08-ed8687e67aa0)
 
 A tour of what your bank can do, in the operator console: **Publish** products,
 **Invite** operators, **Verify** customers, **Fund** the bank, **Open**
-accounts, **Reward** customers, **Move** money, **Refuse** an overdraft, **Pay**
-someone, **Migrate** accounts and **Accrue** interest.
+accounts that pay a welcome reward, **Move** money, **Refuse** an overdraft,
+**Pay** someone, **Migrate** accounts and **Accrue** interest.
 
-[![Video: the same bank from your customer's side, in the demo app](docs/assets/demo-app.png)](https://github.com/user-attachments/assets/1af39692-bfa1-4d7c-b407-907bd6a61672)
+[![Video: the same bank from your customer's side, in the demo app](docs/assets/demo-app.png)](https://github.com/user-attachments/assets/1fdc1fe1-91aa-4d04-8dfb-10752439b7e7)
 
 The same bank from your customer's side, in the
 [demo digital bank](docs/prd/demo-digital-bank.md)'s app: **Sign up**,

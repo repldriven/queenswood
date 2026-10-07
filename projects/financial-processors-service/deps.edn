@@ -35,6 +35,7 @@
                                    "../../components/person-identification"}
   component/policy {:local/root "../../components/policy"}
   component/resources {:local/root "../../components/resources"}
+  component/reward {:local/root "../../components/reward"}
   component/schema {:local/root "../../components/schema"}
   component/transaction {:local/root "../../components/transaction"}
   base/financial-processors {:local/root "../../bases/financial-processors"}

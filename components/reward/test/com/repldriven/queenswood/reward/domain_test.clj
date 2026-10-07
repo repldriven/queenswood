@@ -1,7 +1,8 @@
 (ns com.repldriven.queenswood.reward.domain-test
-  "Pure-function tests for what the reward pass decides without a
-  store: which accounts are eligible, what a version promises, the
-  legs a reward posts, and the row a paid or deferred reward leaves."
+  "Pure-function tests for what the reward processor decides without a
+  store: which events are an opening, which accounts are eligible, what
+  a version promises, the legs a reward posts, and the row a paid or
+  deferred reward leaves."
   (:require
     [com.repldriven.queenswood.reward.domain :as SUT]
 
@@ -26,6 +27,21 @@
    :currency "GBP"
    :account-status :cash-account-status-opened})
 
+(deftest opening-test
+  (testing "an account becoming opened is an opening"
+    (is (SUT/opening? {:status-before :cash-account-status-opening
+                       :status-after :cash-account-status-opened
+                       :change-kind :cash-account-change-kind-open})))
+  (testing "a refused opening is not"
+    (is (not (SUT/opening? {:status-after :cash-account-status-refused
+                            :change-kind :cash-account-change-kind-open}))))
+  (testing "a migration or a resume, opened before and after, is not"
+    (doseq [kind [:cash-account-change-kind-migrate
+                  :cash-account-change-kind-resume]]
+      (is (not (SUT/opening? {:status-before :cash-account-status-opened
+                              :status-after :cash-account-status-opened
+                              :change-kind kind}))))))
+
 (deftest eligible-test
   (testing "an opened customer account is eligible"
     (is (SUT/eligible? account)))
@@ -43,7 +59,7 @@
     (is (nil? (SUT/promised {:interest-rate-bps 250})))))
 
 (deftest reward-transaction-test
-  (let [reward (SUT/new-reward account 1000 "run.1")
+  (let [reward (SUT/new-reward account 1000)
         transaction (SUT/reward-transaction house account reward)
         [debit credit] (:legs transaction)]
     (testing "the row is due, keyed by the account, in its currency"
@@ -64,18 +80,16 @@
       (is (= [1000 1000] (map :amount [debit credit]))))))
 
 (deftest paid-and-deferred-test
-  (let [reward (SUT/new-reward account 1000 "run.1")
+  (let [reward (SUT/new-reward account 1000)
         refusal (error/reject :policy/limit-exceeded
                               {:message "Available balance would go negative"})
-        deferred (SUT/deferred reward refusal "run.2")
-        paid (SUT/paid deferred "txn.1" "run.3")]
+        deferred (SUT/deferred reward refusal)
+        paid (SUT/paid deferred "txn.1")]
     (testing "a deferred row stays due and says why"
       (is (= :reward-status-due (:status deferred)))
-      (is (= "run.2" (:run-id deferred)))
       (is (re-find #"limit-exceeded" (:error deferred))))
     (testing "a paid row carries the transaction and drops the error"
       (is (SUT/paid? paid))
       (is (= "txn.1" (:transaction-id paid)))
-      (is (= "run.3" (:run-id paid)))
       (is (some? (:paid-at paid)))
       (is (not (contains? paid :error))))))

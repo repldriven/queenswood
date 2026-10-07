@@ -13,8 +13,8 @@ enum RewardKind {
   REWARD_KIND_OPENING = 1;
 }
 
-// DUE is a reward a run could not pay and will try again; PAID carries
-// the transaction that paid it.
+// DUE is a reward whose posting was refused, with why in `error`; PAID
+// carries the transaction that paid it.
 enum RewardStatus {
   REWARD_STATUS_UNKNOWN = 0;
   REWARD_STATUS_DUE = 1;
@@ -44,7 +44,9 @@ message Reward {
   // the Java parse used to bridge into FDB. Read sites drop the default
   // an unset one decodes to.
   optional string transaction_id = 11;
-  optional string run_id = 12;
+  // The scheduler run that paid it, when a job paid rewards. The
+  // processor pays as an account opens, in no run.
+  optional string run_id = 12 [deprecated = true];
   optional string error = 13;
   required int64 created_at = 14;
   required int64 updated_at = 15;

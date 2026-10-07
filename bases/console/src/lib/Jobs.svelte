@@ -66,7 +66,7 @@
   let now = $state(Date.now());
 
   let open = $state({}); // job-id → expanded?
-  // `#/jobs?open=hourly-rewards` lands with that job's row expanded,
+  // `#/jobs?open=daily-interest` lands with that job's row expanded,
   // which is how the scenarios show the run they forced.
   const openFromHash = () => new URLSearchParams(location.hash.split("?")[1] ?? "").get("open");
   let busy = $state({}); // job-id → a run/edit is in flight

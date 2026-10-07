@@ -50,9 +50,7 @@
                    _ (is (= "0 0 17 * * ?"
                             (registered config bank-id "daily-interest")))
                    _ (is (= "0 0 0 * * ?"
-                            (registered config bank-id "account-migration")))
-                   _ (is (= "0 0 * * * ?"
-                            (registered config bank-id "hourly-rewards")))]))
+                            (registered config bank-id "account-migration")))]))
      (testing "and a second reconcile changes nothing"
        (let [before @(:triggers config)]
          (SUT/reconcile! config)

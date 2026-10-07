@@ -1,4 +1,4 @@
-{:name "An account opened under a rewarding version is paid once, on the hour"
+{:name "An account opened under a rewarding version is paid once, as it opens"
  :given
  [{:fixture :bank
    :as :org-0
@@ -44,20 +44,13 @@
           :product-id [:ref :product :product-id]
           :name "Arthur Current"}}]
  :when
- [;; A forced run stands in for the hour's tick and pays the one account.
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/jobs/{job-id}/runs"
-             :path-params {:job-id "hourly-rewards"}
+ [;; The account opening is what pays it: nothing is run or forced.
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/rewards"
+             :query-params {:account-id [:ref :account :account :account-id]}
              :auth [:ref :org-0 :token]}
-   :assert {:status 201
-            :body {:job-id "hourly-rewards"
-                   :trigger-source "forced"
-                   :status "succeeded"
-                   :tasks [{:label "reward"
-                            :status "succeeded"
-                            :records-processed 1
-                            :records-failed 0}]}}}
+   :until {:status 200 :body {:items [{:status "paid"}]}}}
   {:command :api/request
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}/balances"
@@ -118,20 +111,4 @@
    :as :notified}
   {:command :assert/equals
    :actual [:ref :notified 0 :body :data]
-   :expected [:ref :reward]}
-  ;; The job runs once an hour, so a second run this hour is refused.
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/jobs/{job-id}/runs"
-             :path-params {:job-id "hourly-rewards"}
-             :auth [:ref :org-0 :token]}
-   :assert {:status 409
-            :problem {:type ":scheduler/period-already-run"
-                      :detail "The job has already run this period"}}}
-  {:command :api/request
-   :request {:method :get
-             :path "/v1/cash-accounts/{account-id}/balances"
-             :path-params {:account-id [:ref :account :account :account-id]}
-             :auth [:ref :org-0 :token]}
-   :assert {:status 200
-            :body {:available-balance {:value 1000 :currency "GBP"}}}}]}
+   :expected [:ref :reward]}]}

@@ -61,7 +61,7 @@ _video-lead take at:
     mv "$DIR/take.webm" "{{ take }}"
     rm -rf "$DIR"
 
-# Film the console's eleven scenes with Playwright, signed in as CONSOLE_USER (xepha) against CONSOLE_URL (http://localhost:5173), the monolith and the console already running; the video lands in target/recordings/scenarios.webm, a failed take included.
+# Film the console's ten scenes with Playwright, signed in as CONSOLE_USER (xepha) against CONSOLE_URL (http://localhost:5173), the monolith and the console already running; the video lands in target/recordings/scenarios.webm, a failed take included.
 console-record-scenarios:
     #!/usr/bin/env zsh
     set -e

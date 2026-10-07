@@ -27,7 +27,6 @@
    :currency "GBP"
    :status :reward-status-paid
    :transaction-id "txn.01kprbmgcj35ptc8npmybhh4sb"
-   :run-id "run.01kprbmgcj35ptc8npmybhh4t2"
    :paid-at 1700000000000
    :created-at 1700000000000
    :updated-at 1700000000001})

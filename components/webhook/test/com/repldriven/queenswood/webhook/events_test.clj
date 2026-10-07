@@ -743,7 +743,9 @@
                      (is (= "acc.events.rewarded"
                             (get-in body [:data :account-id])))
                      (is (= "paid" (get-in body [:data :status])))
-                     (is (= "run.events" (get-in body [:data :run-id]))))
+                     ;; A row a job paid still carries its run; the
+                     ;; deprecated field is not published.
+                     (is (not (contains? (:data body) :run-id))))
                  _ (testing "and one delivery to the endpoint that chose it"
                      (nom-test> [chosen (deliveries config
                                                     (str "whe.r." suffix))

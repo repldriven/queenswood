@@ -2,14 +2,14 @@ import { test, expect } from "@playwright/test";
 
 // Signs in through Keycloak's own form as a member of a bank with
 // nothing in it yet, opens the Scenarios page in autoplay, and waits
-// for the eleven scenes to run through, each followed by a few seconds
+// for the ten scenes to run through, each followed by a few seconds
 // on the view where it pays off. The video the fixture records of it
 // is the deliverable as much as the assertion, which is why the sign-in
 // is paced for a viewer rather than run as fast as it can go.
 const user = process.env.CONSOLE_USER ?? "xepha";
 const password = process.env.CONSOLE_PASSWORD ?? "xepha";
 
-test("the eleven scenes run through in order", async ({ page }) => {
+test("the ten scenes run through in order", async ({ page }) => {
   await page.goto("/#/sign-in");
   await page.waitForTimeout(2_000);
   // The third option is Keycloak's own username and password form.

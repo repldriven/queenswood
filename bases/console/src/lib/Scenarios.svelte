@@ -1,6 +1,6 @@
 <script>
   /* Scenarios — a customer-facing SANDBOX that proves the platform
-     works by running real, HTTP-driven scenarios live. Eleven scenes
+     works by running real, HTTP-driven scenarios live. Ten scenes
      tour what a bank can do, fired manually in order. State is CUMULATIVE: each scene builds on the
      last, and the bank-state band accumulates the evidence as scenes
      complete.
@@ -9,8 +9,8 @@
      (org tier): the three products the demo bank sells, the team
      invited, parties (poll until IDV flips), the bank's own funds
      topped up through the org-tier simulate inbound-transfer, an
-     Everyday account each for Arthur and Ford, the welcome reward paid
-     by the hourly job, a transfer into a new Rainy Day, an overdraw the
+     Everyday account each for Arthur and Ford, paid the welcome reward
+     as it opens, a transfer into a new Rainy Day, an overdraw the
      non-negative-balance policy refuses, a payee check and an outbound
      Faster Payment over the scheme (Ford pays Arthur for beer and
      nuts), a repriced Rainy Day that the migration job moves Arthur
@@ -131,11 +131,10 @@
     return id ? `#/accounts?account=${id}` : VIEWS.accounts.href;
   };
   const PAYOFF = {
-    s6: () => ["#/jobs?open=hourly-rewards"],
-    s7: () => [accountHref("arthurEveryday"), accountHref("arthurRainyDay")],
-    s8: () => ["#/policies?q=balance"],
-    s9: () => [accountHref("fordEveryday"), accountHref("arthurEveryday")],
-    s11: () => ["#/jobs?open=daily-interest", VIEWS.ledger.href],
+    s6: () => [accountHref("arthurEveryday"), accountHref("arthurRainyDay")],
+    s7: () => ["#/policies?q=balance"],
+    s8: () => [accountHref("fordEveryday"), accountHref("arthurEveryday")],
+    s10: () => ["#/jobs?open=daily-interest", VIEWS.ledger.href],
   };
   const payoffHrefs = (s) => PAYOFF[s.id]?.() ?? [VIEWS[s.view].href];
 
@@ -193,28 +192,22 @@
     {
       id: "s5", num: "05", title: "Open", view: "accounts",
       story:
-        "Arthur and Ford each open an Everyday on the bank's app. Each account is created pending and then opened, and the version promises a welcome reward the next hour.",
-      backing: ["journeys/cash-accounts/1-opening-an-end-customer-s-first-account"],
+        "Arthur and Ford each open an Everyday on the bank's app. Each account is created pending and then opened, and as it opens the platform pays the £200 welcome reward the version promises from the bank's own funds, recording a reward per account.",
+      backing: [
+        "journeys/cash-accounts/1-opening-an-end-customer-s-first-account",
+        "rewards/opening-reward-paid",
+        "rewards/opening-reward-deferred",
+      ],
       steps: [
         { name: "Open Arthur's Everyday", raw: [{ method: "POST", path: "/v1/cash-accounts", tag: "request" }] },
         { name: "Open Ford's Everyday", raw: [{ method: "POST", path: "/v1/cash-accounts", tag: "request" }] },
         { name: "Both transition to opened", raw: [{ method: "GET", path: "/v1/cash-accounts/{id}", tag: "poll" }] },
-      ],
-    },
-    {
-      id: "s6", num: "06", title: "Reward", view: "jobs",
-      story:
-        "On the hour, the platform's rewards job pays £200 into each Everyday from the bank's own funds and records a reward per account; a second run pays nothing. The console forces the run rather than waiting for the hour.",
-      backing: ["rewards/opening-reward-paid", "rewards/opening-reward-deferred"],
-      steps: [
-        { name: "Force-start hourly-rewards job", tone: "exception", raw: [{ method: "POST", path: "/v1/jobs/{id}/runs", tag: "request" }] },
         { name: "Two rewards paid, £200 each", raw: [{ method: "GET", path: "/v1/rewards?account-id={id}", tag: "poll" }] },
         { name: "Everyday balances read £200", raw: [{ method: "GET", path: "/v1/cash-accounts/{id}/balances", tag: "poll" }] },
-        { name: "Own funds down £100", raw: [{ method: "GET", path: "/v1/ledger-accounts", tag: "request" }] },
       ],
     },
     {
-      id: "s7", num: "07", title: "Move", view: "accounts",
+      id: "s6", num: "06", title: "Move", view: "accounts",
       story:
         "Arthur opens a Rainy Day on the bank's app and moves £170 of the reward into it. A payment between a customer's own accounts posts at once.",
       backing: ["journeys/payments/1-internal-transfer"],
@@ -225,7 +218,7 @@
       ],
     },
     {
-      id: "s8", num: "08", title: "Refuse", view: "policies",
+      id: "s7", num: "07", title: "Refuse", view: "policies",
       story:
         "Arthur tries to move £40 on the bank's app with £30 left. The platform's non-negative-balance policy refuses it at once and nothing posts; the policy is data, and the console shows the rule that held.",
       backing: ["daily-limit-breach-internal", "capability-denied-outbound"],
@@ -236,7 +229,7 @@
       ],
     },
     {
-      id: "s9", num: "09", title: "Pay", view: "accounts",
+      id: "s8", num: "08", title: "Pay", view: "accounts",
       story:
         "On the bank's app, Ford checks Arthur's name against the account about to be paid, then sends £20 by Faster Payments. The scheme settles it and, this being the same bank, it lands as an inbound: Ford −£20, Arthur +£20.",
       backing: ["payee-check-match", "journeys/payments/2-outbound-payment-happy-path", "journeys/payments/4-inbound-payment"],
@@ -248,7 +241,7 @@
       ],
     },
     {
-      id: "s10", num: "10", title: "Migrate", view: "migrations",
+      id: "s9", num: "09", title: "Migrate", view: "migrations",
       story:
         "The product team reprices Rainy Day to 4.35% as a new version in the console, plans a migration of its holders onto it and approves the plan. The platform's migration job, forced here, moves Arthur's Rainy Day to the new rate.",
       backing: ["journeys/cash-account-products/2-changing-terms-new-version", "journeys/cash-account-migrations/1-moving-customers-onto-new-terms"],
@@ -261,7 +254,7 @@
       ],
     },
     {
-      id: "s11", num: "11", title: "Accrue", view: "jobs",
+      id: "s10", num: "10", title: "Accrue", view: "jobs",
       story:
         "Overnight, the platform's daily-interest job accrues and capitalises: Rainy Day gets its statement line at 4.35% and the bank's own entry posts, pence at a real rate, tied to the penny. The console forces the run rather than waiting for the night.",
       backing: ["journeys/interest/1-daily-accrual-run", "interest-accrual"],
@@ -279,14 +272,14 @@
 
   // ── persisted state ───────────────────────────────────────────────
   // Versioned keys: bumped whenever scene semantics change so stale
-  // localStorage doesn't strand the runner. v5 re-cut the story around
-  // the demo bank's products, the welcome reward and the migration.
+  // localStorage doesn't strand the runner. v6 folded the welcome reward
+  // into opening, since the platform pays it as an account opens.
   // Keyed by bank as well, so a fresh sandbox bank starts with no
   // scenes run and switching back finds the old bank's progress where
   // it was.
   const bankKey = memberships?.[0]?.["bank-id"];
-  const DONE_KEY = `queenswood.scenarios.v5.done${bankKey ? "." + bankKey : ""}`;
-  const CTX_KEY = `queenswood.scenarios.v5.ctx${bankKey ? "." + bankKey : ""}`;
+  const DONE_KEY = `queenswood.scenarios.v6.done${bankKey ? "." + bankKey : ""}`;
+  const CTX_KEY = `queenswood.scenarios.v6.ctx${bankKey ? "." + bankKey : ""}`;
   const load = (k, fb) => {
     try {
       const r = localStorage.getItem(k);
@@ -342,11 +335,11 @@
     const productsLive = d("s1") ? 3 : 0;
     const applicants = d("s3") ? 3 : 0;
     const activeCustomers = d("s3") ? 2 : 0;
-    const accountsOpen = (d("s5") ? 2 : 0) + (d("s7") ? 1 : 0);
+    const accountsOpen = (d("s5") ? 2 : 0) + (d("s6") ? 1 : 0);
     let cash = 0;
-    if (d("s6")) cash += 2 * REWARD; // both Everydays rewarded £200
-    // Moving (s7), the refused overdraw (s8) and Ford paying Arthur (s9)
-    // all stay inside the bank; interest (s11) is pence at a real rate.
+    if (d("s5")) cash += 2 * REWARD; // both Everydays rewarded £200
+    // Moving (s6), the refused overdraw (s7) and Ford paying Arthur (s8)
+    // all stay inside the bank; interest (s10) is pence at a real rate.
     return { productsLive, applicants, activeCustomers, accountsOpen, cash };
   });
 
@@ -623,20 +616,16 @@
       await step(0, open("arthurEveryday", "arthur", "Arthur Everyday", "everyday"));
       await step(1, open("fordEveryday", "ford", "Ford Everyday", "everyday"));
       await step(2, () => tick());
-    },
-    async s6({ step }) {
       const ae = ctx.accounts.arthurEveryday;
       const fe = ctx.accounts.fordEveryday;
-      await step(0, () => forceJob(/hourly-rewards/));
-      await step(1, async () => {
+      await step(3, async () => {
         await pollRewardPaid(ae.accountId);
         await pollRewardPaid(fe.accountId);
       });
-      await step(2, () =>
+      await step(4, () =>
         poll(() => api.get_cash_account_balances(ae.accountId), (r) => r.status === 200 && available(r) >= REWARD));
-      await step(3, () => api.list_ledger_accounts());
     },
-    async s7({ step }) {
+    async s6({ step }) {
       const ae = ctx.accounts.arthurEveryday;
       const rainy = await step(0, () =>
         ensureAccount("arthurRainyDay", { "party-id": ctx.parties.arthur, name: "Arthur Rainy Day", currency: "GBP", "product-id": ctx.products.rainyDay.productId }));
@@ -647,7 +636,7 @@
       await step(2, () =>
         poll(() => api.get_cash_account_balances(rainy.accountId), (r) => r.status === 200 && available(r) >= ARTHUR_SAVE));
     },
-    async s8({ step }) {
+    async s7({ step }) {
       const ae = ctx.accounts.arthurEveryday;
       await step(0, async () => {
         // Arthur's Everyday holds £30; £40 out would breach the
@@ -659,7 +648,7 @@
       await step(2, () =>
         poll(() => api.get_cash_account_balances(ae.accountId), (r) => r.status === 200 && available(r) === REWARD - ARTHUR_SAVE));
     },
-    async s9({ step }) {
+    async s8({ step }) {
       const ford = ctx.accounts.fordEveryday;
       const arthur = ctx.accounts.arthurEveryday;
       let paymentId;
@@ -704,7 +693,7 @@
           (r) => r.status === 200 && available(r) >= REWARD - ARTHUR_SAVE + FORD_PAYS,
         ));
     },
-    async s10({ step }) {
+    async s9({ step }) {
       const rainy = await step(0, () => reviseProduct("rainyDay", PROD_RAINY_DAY_V2));
       const migrationId = await step(1, async () => {
         if (ctx.migration) return ctx.migration;
@@ -734,7 +723,7 @@
           { tries: 40, delay: 600 },
         ));
     },
-    async s11({ step }) {
+    async s10({ step }) {
       await step(0, () => forceJob(/daily-interest/));
       await step(1, () => tick());
       await step(2, () => tick());
@@ -899,7 +888,7 @@
 <PageHeader
   {kicker}
   title="Scenarios"
-  sub="A tour of what your bank can do: eleven scenes, fired in order against the live API. State carries across the session, so the books you see are the books the scenes moved."
+  sub="A tour of what your bank can do: ten scenes, fired in order against the live API. State carries across the session, so the books you see are the books the scenes moved."
 >
   {#snippet titleAside()}
     <span class="cum-chip" title="State carries across scenes — each builds on the last.">
@@ -935,7 +924,7 @@
     {#if done.length === 0}
       Run Scene 01 to publish your bank's products.
     {:else if nextIdx === -1}
-      All eleven scenes run · the books tie to the penny
+      All ten scenes run · the books tie to the penny
     {:else}
       {bank.activeCustomers} customer{bank.activeCustomers === 1 ? "" : "s"} · <span class="mono">{fmtMoney(bank.cash)}</span> held
     {/if}
@@ -1037,34 +1026,28 @@
       <div class="prod-chip"><span class="pc-name">Arthur · Everyday</span><Badge tone="published">opened</Badge></div>
       <div class="prod-chip"><span class="pc-name">Ford · Everyday</span><Badge tone="published">opened</Badge></div>
     </div>
-    <div class="tb-tie">{@render icoCheck()}<span>Two accounts open, each with its own sort code and account number, and each promised a welcome reward.</span></div>
-  {:else if s.id === "s6"}
-    <div class="joblet">
-      <TaskPipeline steps={[{ name: "reward", status: "ok" }]} />
-      <div class="jl-note">The hourly-rewards job stood in for the hour's tick: two accounts owed a reward, two paid, each in a transaction of its own from the bank's own funds. A second run would find both paid and pay nothing.</div>
-    </div>
     <div class="pay-lines">
       <div class="pay-line"><span class="py-amt">£200.00</span><Badge tone="published">paid</Badge><span class="py-desc">Arthur · Everyday <span class="mono">£0 → £200</span> · ref <span class="mono">Welcome reward</span></span></div>
       <div class="pay-line"><span class="py-amt">£200.00</span><Badge tone="published">paid</Badge><span class="py-desc">Ford · Everyday <span class="mono">£0 → £200</span> · ref <span class="mono">Welcome reward</span></span></div>
     </div>
-    <div class="tb-tie">{@render icoCheck()}<span>Own funds <span class="mono">−£100</span>, customer money <span class="mono">+£100</span> — the books still tie.</span></div>
-  {:else if s.id === "s7"}
+    <div class="tb-tie">{@render icoCheck()}<span>Two accounts open, each with its own sort code and account number, each paid its welcome reward as it opened. Own funds <span class="mono">−£400</span>, customer money <span class="mono">+£400</span> — the books still tie.</span></div>
+  {:else if s.id === "s6"}
     <div class="pay-lines">
       <div class="pay-line"><span class="py-amt">£170.00</span><Badge tone="published">settled</Badge><span class="py-desc">Arthur · Everyday → Rainy Day · Rainy Day <span class="mono">£0 → £170</span></span></div>
     </div>
     <div class="tb-tie">{@render icoCheck()}<span>Money moved between a customer's own accounts, posted at once — debits still equal credits.</span></div>
-  {:else if s.id === "s8"}
+  {:else if s.id === "s7"}
     <div class="pay-lines">
       <div class="pay-line"><span class="py-amt">−£40.00</span><Badge tone="rejected">refused</Badge><span class="py-desc">Arthur · Everyday → Rainy Day · Everyday holds only <span class="mono">£30</span></span></div>
     </div>
     <div class="tb-tie neutral">{@render icoSpark()}<span><span class="hl">Available balance must stay at or above £0</span> — the platform policy refused the transfer before any money moved. Nothing posted.</span></div>
-  {:else if s.id === "s9"}
+  {:else if s.id === "s8"}
     <div class="pay-lines">
       <div class="pay-line"><span class="py-amt">check</span><Badge tone="published">match</Badge><span class="py-desc">Payee check · <span class="mono">Arthur Dent</span> against the account Ford is about to pay</span></div>
       <div class="pay-line"><span class="py-amt">£20.00</span><Badge tone="published">completed</Badge><span class="py-desc">Ford → Arthur · outbound FPS · ref <span class="mono">Beer and nuts</span></span></div>
     </div>
     <div class="tb-tie">{@render icoCheck()}<span>Ford <span class="mono">£200 → £180</span>, Arthur <span class="mono">£30 → £50</span> — it left over the scheme and arrived back, and the books still tie.</span></div>
-  {:else if s.id === "s10"}
+  {:else if s.id === "s9"}
     <div class="prod-chips">
       <div class="prod-chip"><span class="pc-name">Rainy Day</span><span class="pc-rate">4.10%</span><Badge tone="published">published</Badge><span class="pc-ver">v1</span></div>
       <div class="prod-chip"><span class="pc-name">Rainy Day</span><span class="pc-rate">4.35%</span><Badge tone="published">published</Badge><span class="pc-ver">v2</span></div>
@@ -1074,7 +1057,7 @@
       <div class="jl-note">A migration is a statement of intent: planning moves nothing, and neither does approving. The account-migration job moved Arthur's Rainy Day onto v2, and recorded a verdict per account. See it in <span class="mono">Migrations</span>.</div>
     </div>
     <div class="tb-tie">{@render icoCheck()}<span>Arthur's Rainy Day now earns 4.35%.</span></div>
-  {:else if s.id === "s11"}
+  {:else if s.id === "s10"}
     <div class="joblet">
       <TaskPipeline steps={[{ name: "accrue", status: "ok" }, { name: "capitalise", status: "ok" }]} />
       <div class="jl-note">The daily-interest job accrues silently, then capitalises — one statement line for Rainy Day and the bank's own entry posted once for the run. At 4.35% on £170 a night is just over 2p: Rainy Day is credited 2p, and the fraction left over is carried rather than rounded away. See the run in <span class="mono">Jobs</span> and the postings in the <span class="mono">Ledger</span>.</div>

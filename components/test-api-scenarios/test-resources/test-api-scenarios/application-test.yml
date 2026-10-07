@@ -48,6 +48,7 @@ system:
   payments-relay: !include system/payment-relay.yml
   payment-sweep: !include system/payment-outbound-sweep.yml
   policies: !include system/policy-test.yml
+  rewards: !include system/reward-test.yml
   rewards-relay: !include system/reward-relay.yml
   scenario-policies: !include test-api-scenarios/policy-test.yml
   server: !include test-api-scenarios/server-test.yml

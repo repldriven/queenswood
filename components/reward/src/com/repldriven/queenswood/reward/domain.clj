@@ -7,6 +7,14 @@
   #{:product-type-sub-ledger-current :product-type-sub-ledger-savings
     :product-type-sub-ledger-term-deposit})
 
+(defn opening?
+  "Whether a cash-account changelog entry is an account becoming
+  opened: the second leg of an opening, never a migration or a resume,
+  which leave an opened account opened under another kind."
+  [{:keys [status-after change-kind]}]
+  (and (= :cash-account-status-opened status-after)
+       (= :cash-account-change-kind-open change-kind)))
+
 (defn eligible?
   "An account a reward may be paid to: opened, and a customer's rather
   than the bank's own."
@@ -22,7 +30,7 @@
 (defn paid? [reward] (= :reward-status-paid (:status reward)))
 
 (defn new-reward
-  [account amount run-id]
+  [account amount]
   (let [now (utility/now)]
     {:bank-id (:bank-id account)
      :reward-id (utility/generate-id "rwd")
@@ -34,27 +42,24 @@
      :amount amount
      :currency (:currency account)
      :status :reward-status-due
-     :run-id run-id
      :created-at now
      :updated-at now}))
 
 (defn paid
-  [reward transaction-id run-id]
+  [reward transaction-id]
   (let [now (utility/now)]
     (-> reward
         (dissoc :error)
         (assoc :status :reward-status-paid
                :transaction-id transaction-id
-               :run-id run-id
                :paid-at now
                :updated-at now))))
 
 (defn deferred
-  [reward anomaly run-id]
+  [reward anomaly]
   (assoc reward
          :status :reward-status-due
          :error (error/format-anomaly anomaly)
-         :run-id run-id
          :updated-at (utility/now)))
 
 (defn reward-transaction

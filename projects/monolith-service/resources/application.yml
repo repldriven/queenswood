@@ -52,6 +52,7 @@ system:
   memberships: !include system/membership.yml
   parties: !include system/party.yml
   payments: !include system/payment.yml
+  rewards: !include system/reward.yml
   transactions: !include system/transaction.yml
   idv: !include system/idv.yml
   idv-activity: !include system/idv-activity.yml

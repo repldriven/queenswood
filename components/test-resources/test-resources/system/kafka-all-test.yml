@@ -514,6 +514,16 @@ consumers: !system/component
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       group.id: test-webhook-cash-accounts-event
+  # The reward processor's own group on the same topic, for the same
+  # reason.
+  reward-cash-accounts-event:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword event
+    topics: [topic-cash-accounts-event]
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      group.id: test-reward-cash-accounts-event
   payments-event:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -929,6 +939,9 @@ message-bus-consumers: !system/component
     timeout: 500
   webhook-cash-accounts-event:
     consumer: !system/local-ref consumers.webhook-cash-accounts-event
+    timeout: 500
+  reward-cash-accounts-event:
+    consumer: !system/local-ref consumers.reward-cash-accounts-event
     timeout: 500
   payments-event:
     consumer: !system/local-ref consumers.payments-event

@@ -26,6 +26,7 @@
     [com.repldriven.queenswood.party.interface]
     [com.repldriven.queenswood.payment-provider.interface]
     [com.repldriven.queenswood.payment.interface]
+    [com.repldriven.queenswood.reward.interface]
     [com.repldriven.queenswood.scheduler.interface]
     [com.repldriven.queenswood.schema.interface]
     [com.repldriven.queenswood.scheme-simulator.interface]

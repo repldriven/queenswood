@@ -553,8 +553,8 @@ services:
       limits: { cpu: "1000m", memory: "1500Mi" }
       requests: { cpu: "200m", memory: "768Mi" }
 
-  # Money path: payment, transaction, payee-check processors
-  # in one JVM. Payee-check invokes the bank's payment adapter for
+  # Money path: payment, transaction, payee-check and reward
+  # processors in one JVM. Payee-check invokes the bank's payment adapter for
   # Confirmation of Payee, hence an adapter URL per provider.
   financial-processors-service:
     enabled: true

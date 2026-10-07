@@ -86,6 +86,12 @@ system:
           topic: topic-payee-checks-command-dlq
           acks: all
           linger.ms: 0
+      cash-accounts-event-dlq:
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          topic: topic-cash-accounts-event-dlq
+          acks: all
+          linger.ms: 0
     consumers: !system/component
       system/component-kind: kafka/consumers
       payments-command:
@@ -133,6 +139,15 @@ system:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           group.id: payee-check-service-payee-checks-command
+      cash-accounts-event:
+        schemas: !system/local-ref schemas
+        schema: !keyword event
+        topics: [topic-cash-accounts-event]
+        dead-letter-producer: !system/local-ref producers.cash-accounts-event-dlq
+        max-redeliveries: 5
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          group.id: reward-service-cash-accounts-event
     message-bus-producers: !system/component
       system/component-kind: kafka/message-bus-producers
       payments-command-response:
@@ -172,6 +187,9 @@ system:
       payee-checks-command:
         consumer: !system/local-ref consumers.payee-checks-command
         timeout: 500
+      cash-accounts-event:
+        consumer: !system/local-ref consumers.cash-accounts-event
+        timeout: 500
   message-bus: !include system/message-bus.yml
   fdb: !include system/fdb.yml
   avro: !include system/avro.yml
@@ -179,4 +197,5 @@ system:
   payments: !include system/payment.yml
   transactions: !include system/transaction.yml
   payee-checks: !include system/payee-check.yml
+  rewards: !include system/reward.yml
   telemetry: !include system/telemetry.yml
