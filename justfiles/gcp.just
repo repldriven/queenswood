@@ -159,6 +159,7 @@ _gcp-groups-bind scope:
         folderAdmin)      printf '%s' "{{ FOLDER_ADMIN }}" ;;
         projectAdmin)     printf '%s' "{{ PROJECT_ADMIN }}" ;;
         dnsAdmin)         printf '%s' "{{ DNS_ADMIN }}" ;;
+        webAdmin)         printf '%s' "{{ WEB_ADMIN }}" ;;
         billingAdmin)     printf '%s' "{{ ORG_BILLING_ADMIN_GROUP }}" ;;
         securityReviewer) printf '%s' "{{ SECURITY_REVIEWER }}" ;;
         platformViewer)   printf '%s' "{{ PLATFORM_VIEWER }}" ;;

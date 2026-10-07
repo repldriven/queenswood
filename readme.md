@@ -12,7 +12,7 @@ customer onboarding with identity checks, products and accounts, payments,
 interest and rewards, a general ledger, policies, end-of-day processing,
 webhooks and an operator console, all of it configured and driven through one
 API. You bring the banking licence, the clearing partner and the identity
-provider.
+provider. See [queenswood.io](https://queenswood.io).
 
 ## Demo
 
@@ -23,7 +23,7 @@ A tour of what your bank can do, in the operator console: **Publish** products,
 accounts, **Reward** customers, **Move** money, **Refuse** an overdraft, **Pay**
 someone, **Migrate** accounts and **Accrue** interest.
 
-[![Video: the same bank from your customer's side, in the demo digital bank's app](docs/assets/demo-app.png)](https://github.com/user-attachments/assets/9dada1c8-a531-4b03-937f-c36bbbd2c844)
+[![Video: the same bank from your customer's side, in the demo app](docs/assets/demo-app.png)](https://github.com/user-attachments/assets/9dada1c8-a531-4b03-937f-c36bbbd2c844)
 
 The same bank from your customer's side, in the
 [demo digital bank](docs/prd/demo-digital-bank.md)'s app: **Sign up**,

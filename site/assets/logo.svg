@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="200" height="200" aria-label="Queenswood">
+  <defs>
+    <linearGradient id="qw-tg-0" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="#85997e" />
+      <stop offset="100%" stop-color="#081b02" />
+    </linearGradient>
+    <linearGradient id="qw-tg-1" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="#91a991" />
+      <stop offset="100%" stop-color="#09230b" />
+    </linearGradient>
+    <linearGradient id="qw-tg-2" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="#7e9b85" />
+      <stop offset="100%" stop-color="#0b2b16" />
+    </linearGradient>
+    <linearGradient id="qw-tg-3" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="#93a98f" />
+      <stop offset="100%" stop-color="#081e05" />
+    </linearGradient>
+    <linearGradient id="qw-tg-4" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="#809a83" />
+      <stop offset="100%" stop-color="#09260f" />
+    </linearGradient>
+    <linearGradient id="qw-tg-5" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="#8caa95" />
+      <stop offset="100%" stop-color="#0b2e1a" />
+    </linearGradient>
+    <linearGradient id="qw-tg-6" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="#829a81" />
+      <stop offset="100%" stop-color="#082108" />
+    </linearGradient>
+    <linearGradient id="qw-tg-7" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="#8eaa93" />
+      <stop offset="100%" stop-color="#092913" />
+    </linearGradient>
+  </defs>
+  <polygon points="22,72 2,120 42,120" fill="url(#qw-tg-0)" />
+  <polygon points="216,64 197,120 235,120" fill="url(#qw-tg-7)" />
+  <polygon points="78,56 58,120 98,120" fill="url(#qw-tg-2)" />
+  <polygon points="190,44 168,120 212,120" fill="url(#qw-tg-6)" />
+  <polygon points="50,42 27,120 73,120" fill="url(#qw-tg-1)" />
+  <polygon points="134,36 112,120 156,120" fill="url(#qw-tg-4)" />
+  <polygon points="106,16 81,120 131,120" fill="url(#qw-tg-3)" />
+  <polygon points="162,4 136,120 188,120" fill="url(#qw-tg-5)" />
+  <line x1="14" y1="120" x2="226" y2="120" stroke="#14130f" stroke-opacity="0.16" stroke-width="0.75" />
+  <polygon points="36,120 204,120 204,136 192,182 180,136 168,182 156,136 144,182 132,136 120,182 108,136 96,182 84,136 72,182 60,136 48,182 36,136" fill="#c48218" />
+  <line x1="40" y1="134.8" x2="200" y2="134.8" stroke="#955900" stroke-opacity="0.6" stroke-width="0.8" />
+  <g>
+    <circle cx="48" cy="186.2" r="3.6" fill="#c48218" />
+    <circle cx="46.740" cy="184.940" r="1.008" fill="#eebb58" opacity="0.85" />
+  </g>
+  <g>
+    <circle cx="72" cy="186.2" r="3.6" fill="#c48218" />
+    <circle cx="70.740" cy="184.940" r="1.008" fill="#eebb58" opacity="0.85" />
+  </g>
+  <g>
+    <circle cx="96" cy="186.2" r="3.6" fill="#c48218" />
+    <circle cx="94.740" cy="184.940" r="1.008" fill="#eebb58" opacity="0.85" />
+  </g>
+  <g>
+    <circle cx="120" cy="186.2" r="3.6" fill="#c48218" />
+    <circle cx="118.740" cy="184.940" r="1.008" fill="#eebb58" opacity="0.85" />
+  </g>
+  <g>
+    <circle cx="144" cy="186.2" r="3.6" fill="#c48218" />
+    <circle cx="142.740" cy="184.940" r="1.008" fill="#eebb58" opacity="0.85" />
+  </g>
+  <g>
+    <circle cx="168" cy="186.2" r="3.6" fill="#c48218" />
+    <circle cx="166.740" cy="184.940" r="1.008" fill="#eebb58" opacity="0.85" />
+  </g>
+  <g>
+    <circle cx="192" cy="186.2" r="3.6" fill="#c48218" />
+    <circle cx="190.740" cy="184.940" r="1.008" fill="#eebb58" opacity="0.85" />
+  </g>
+</svg>

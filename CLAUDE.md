@@ -346,6 +346,14 @@ non-trivial work on their topic.
   See
   [ADR-0028](docs/adr/0028-the-apex-belongs-to-no-installation.md) and
   [apex-install](docs/recipes/infra/apex-install.md).
+- **A site at the apex** — a static page served by Firebase Hosting
+  from an unbilled project at the organisation, declared in `web.yml`,
+  its records published through `apex.yml`, and no cluster running.
+  Queenswood's own page is `site/`, released by `just site-publish up`,
+  or `down` to disable its Register links while the test console is
+  not running. See
+  [ADR-0044](docs/adr/0044-the-apex-serves-a-static-site-from-a-project-of-its-own.md)
+  and [web-install](docs/recipes/infra/web-install.md).
 - **Cloud DNS** — the manual half: proving domain ownership before a
   public zone may be created, and what has to survive a registrar move.
   See [gcp-dns.md](docs/recipes/infra/gcp-dns.md).
