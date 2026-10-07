@@ -15,8 +15,12 @@
      figures and the trial-balance band; we only fetch an account's full
      balances lazily, on expand, to render its decomposition. Each balance is
      keyed by (balance-type, balance-status) and carries credit/debit in
-     minor units; its signed net is credit − debit (credit-positive),
-     which is what the per-bucket rows show. */
+     minor units; its signed net is credit − debit (credit-positive).
+
+     Every figure, an account's or a balance's, is shown positive in the
+     Debit or the Credit column for the side its net falls on, as a trial
+     balance lays it out; a zero sits on the account type's normal side.
+     The totals are the band's, not a footer row. */
 
   import {
     PageHeader,
@@ -82,6 +86,17 @@
   // and asset/overdraft positions read negative (→ danger tone).
   function netMinor(b) {
     return (b.credit ?? 0) - (b.debit ?? 0);
+  }
+
+  // Asset and expense accounts are debit-normal; the rest credit-normal.
+  function debitNormal(glType) {
+    return glType === "asset" || glType === "expense";
+  }
+
+  // Which column a credit-positive net shows in, and its unsigned value.
+  function side(minor, glType) {
+    if (minor === 0) return { debit: debitNormal(glType), minor: 0 };
+    return { debit: minor < 0, minor: Math.abs(minor) };
   }
 
   function mapBalance(b) {
@@ -185,7 +200,7 @@
 <PageHeader
   {kicker}
   title="Ledger Accounts"
-  sub="The bank's chart of accounts. Class marks each account's role — control accounts roll up a sub-ledger — and type its accounting family. Accounts decompose into their balances; the headline figure is the posted balance."
+  sub="The bank's chart of accounts. Class marks each account's role — control accounts roll up a sub-ledger — and type its accounting family. Each account's posted balance shows in the Debit or Credit column, and decomposes into its balances."
 >
   {#snippet actions()}
     <Button variant="ghost" onclick={load}>Refresh</Button>
@@ -220,7 +235,8 @@
         <Th>Name</Th>
         <Th>Class</Th>
         <Th>Type</Th>
-        <Th align="right">Posted Balance</Th>
+        <Th align="right">Debit</Th>
+        <Th align="right">Credit</Th>
       </Tr>
     </Thead>
     <Tbody>
@@ -236,7 +252,14 @@
           <Td emphasized>{acc.name}<span class="qw-denom">{acc.ccy}</span></Td>
           <Td><GlClass value={acc.glClass} /></Td>
           <Td><GlType value={acc.glType} /></Td>
-          <MoneyCell minor={acc.postedMinor} ccy={acc.ccy} emphasized />
+          {@const s = side(acc.postedMinor, acc.glType)}
+          {#if s.debit}
+            <MoneyCell minor={s.minor} ccy={acc.ccy} emphasized />
+            <Td />
+          {:else}
+            <Td />
+            <MoneyCell minor={s.minor} ccy={acc.ccy} emphasized />
+          {/if}
         </Tr>
         {#if open[acc.id]}
           {#if acc.balances}
@@ -252,7 +275,14 @@
                 </Td>
                 <Td />
                 <Td />
-                <MoneyCell minor={b.minor} ccy={acc.ccy} />
+                {@const s = side(b.minor, acc.glType)}
+                {#if s.debit}
+                  <MoneyCell minor={s.minor} ccy={acc.ccy} />
+                  <Td />
+                {:else}
+                  <Td />
+                  <MoneyCell minor={s.minor} ccy={acc.ccy} />
+                {/if}
               </Tr>
             {/each}
           {:else}
@@ -260,6 +290,7 @@
               <Td expander />
               <Td />
               <Td muted>Loading…</Td>
+              <Td />
               <Td />
               <Td />
               <Td />
