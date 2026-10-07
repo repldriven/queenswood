@@ -23,7 +23,7 @@ A tour of what your bank can do, in the operator console: **Publish** products,
 accounts, **Reward** customers, **Move** money, **Refuse** an overdraft, **Pay**
 someone, **Migrate** accounts and **Accrue** interest.
 
-[![Video: the same bank from your customer's side, in the demo digital bank's app](docs/assets/demo-app.png)](https://github.com/user-attachments/assets/9dada1c8-a531-4b03-937f-c36bbbd2c844)
+[![Video: the same bank from your customer's side, in the demo app](docs/assets/demo-app.png)](https://github.com/user-attachments/assets/9dada1c8-a531-4b03-937f-c36bbbd2c844)
 
 The same bank from your customer's side, in the
 [demo digital bank](docs/prd/demo-digital-bank.md)'s app: **Sign up**,
