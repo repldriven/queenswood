@@ -711,6 +711,7 @@
         const r = await api.create_cash_account_migration({
           name: "Rainy Day holders onto v2",
           "source-product-id": rainy.productId,
+          "source-version-ids": [rainy.priorVersionId],
           "target-product-id": rainy.productId,
           "target-version-id": rainy.versionId,
           "notified-on": TODAY,
