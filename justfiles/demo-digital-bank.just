@@ -68,7 +68,8 @@ _demo-digital-bank-organisation:
       CLIENT_ID="${OUT%%$'\n'*}"
       OUT=$(pass show {{ DEMO_PASS }}/demo-digital-bank)
       CLIENT_SECRET="${OUT%%$'\n'*}"
-      if TOKEN=$(just _demo-digital-bank-token "$CLIENT_ID" "$CLIENT_SECRET" queenswood-api-test 2>/dev/null); then
+      if TOKEN=$(just _demo-digital-bank-token "$CLIENT_ID" "$CLIENT_SECRET" queenswood-api-test 2>/dev/null) \
+         && curl -fsS -o /dev/null {{ DEMO_API_URL }}/v1/bank -H "authorization: Bearer $TOKEN"; then
         echo "organisation $CLIENT_ID, from pass" >&2
       else
         echo "organisation $CLIENT_ID in pass is unknown to the platform; creating it again" >&2
@@ -154,7 +155,7 @@ demo-digital-bank-start:
     export DEMO_API_URL={{ DEMO_API_URL }} DEMO_APP_URL={{ DEMO_APP_URL }}
     clj -M{{ DOMAIN_ALIASES }}:dev:test -e "(require 'com.repldriven.mono.testcontainers.interface)" -m com.repldriven.queenswood.demo-digital-bank-api.main -c "classpath:demo-digital-bank-api/application-test.yml" -p "dev" 2>&1 | tee demo-digital-bank.log
 
-# Create the bank's organisation on the local monolith with its owner invited, store its credential in pass, publish its three products, fund its own funds with £10,000 once, register its webhook endpoint with the secret in pass, and accept the owner's invitation as the owner; does only what is not already done, and replaces a credential the platform no longer knows.
+# Create the bank's organisation on the local monolith with its owner invited, store its credential in pass, publish its three products, fund its own funds with £10,000 once, register its webhook endpoint with the secret in pass, and accept the owner's invitation as the owner; does only what is not already done, and replaces a credential the platform no longer knows or whose bank it no longer holds.
 demo-digital-bank-seed:
     #!/usr/bin/env zsh
     set -e
@@ -297,7 +298,7 @@ demo-digital-bank-record-walkthrough:
     done
     TRIES=0
     while [[ -n "$ACCOUNT" ]] && (( TRIES < 10 )) && kill -0 $PW 2>/dev/null; do
-      curl -fsS -o /dev/null -X POST -H "Authorization: Bearer $TOKEN" -H "Idempotency-Key: $(uuidgen)" "{{ DEMO_API_URL }}/v1/jobs/$JOB/runs"
+      curl -fsS -o /dev/null -X POST -H "Authorization: Bearer $TOKEN" -H "Idempotency-Key: $(uuidgen)" "{{ DEMO_API_URL }}/v1/jobs/$JOB/runs" || true
       sleep 6
       REWARDS=$(curl -fsS -H "Authorization: Bearer $TOKEN" "{{ DEMO_API_URL }}/v1/rewards?account-id=$ACCOUNT" || echo '{}')
       if [[ $(jq '[.items[]? | select(.status == "paid")] | length' <<<"$REWARDS") -gt 0 ]]; then
