@@ -159,6 +159,9 @@ def relative(fqdn, domain):
 def rdata_for(rrtype, rdata):
     if rrtype == "TXT":
         return f'"{bare(rdata)}"'
+    if rrtype == "CAA":
+        flags, tag, value = rdata.split(" ", 2)
+        return f'{flags} {tag} "{bare(value)}"'
     if rrtype == "CNAME" and not rdata.endswith("."):
         return rdata + "."
     return rdata
