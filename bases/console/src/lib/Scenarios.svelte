@@ -93,6 +93,19 @@
   // What each person tells the identity provider on its page, which the
   // platform never holds.
   const BORN = { Arthur: "1950-07-27", Ford: "1948-04-01", Zaphod: "1947-02-02" };
+  const HOME = {
+    Arthur: { addressLine: "155 Country Lane", town: "Cottington", postcode: "QC1 4XY" },
+    Ford: {
+      addressLine: "c/o The Hitchhiker's Guide, Megadodo House",
+      town: "Ursa Minor Beta",
+      postcode: "QU4 2MB",
+    },
+    Zaphod: {
+      addressLine: "Presidential Suite, Heart of Gold",
+      town: "Damogran",
+      postcode: "QD4 2ZB",
+    },
+  };
   const TEAM = {
     developer: { email: "trillian@example.test", role: "developer" },
     viewer: { email: "marvin@example.test", role: "viewer" },
@@ -479,6 +492,7 @@
     url.searchParams.set("givenNames", body["given-name"]);
     url.searchParams.set("familyName", body["family-name"]);
     url.searchParams.set("dateOfBirth", BORN[body["given-name"]]);
+    for (const [k, v] of Object.entries(HOME[body["given-name"]])) url.searchParams.set(k, v);
     url.searchParams.set("pace", "900");
     idv = { name: body["display-name"], outcome: OUTCOMES[outcome] ?? outcome, url: url.toString() };
     idvOpen = true;

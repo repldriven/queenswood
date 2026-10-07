@@ -12,7 +12,7 @@
    :familyName "Dent"
    :dateOfBirth "1952-03-11"
    :documentNumber "123456789"
-   :postcode "CT12 4XY"
+   :postcode "QC1 4XY"
    :lookedAway false})
 
 (defn- outcome [changes] (:outcome (SUT/decision (merge person changes))))
