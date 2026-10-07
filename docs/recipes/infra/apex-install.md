@@ -211,7 +211,8 @@ this zone. `just dns-apex-diff` is what finds it, and only when run.
   subdomain. Their apex is theirs, and an installation reads the same
   either way.
 - Point the apex at a front door rather than at an environment's
-  address, once one exists. It is the same record.
+  address, once one exists, or at a static site —
+  [web-install](web-install.md). It is the same record.
 
 ## References
 

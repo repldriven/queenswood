@@ -102,6 +102,9 @@ What that settles, and how each was checked rather than assumed:
   from a zone's name because an environment supplies a label to use
   instead; here there is none, and two apex zones differ in nothing
   else.
+- **Web project** — `prj-c-web-<suffix>`. No code, for the apex zone's
+  reason: it holds the site the apex answers with. Its Hosting site
+  takes the project id, the one name Hosting needs unique.
 - **Service account** — no environment where the identity is one per
   installation, following the guide, which names an identity for its job
   rather than its tier: `sa-qw01-platform` runs the whole installation,

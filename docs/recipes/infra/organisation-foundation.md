@@ -100,6 +100,9 @@ appears on every screen and the console sorts by scope.
   DNS — the ownership tokens, the mail policy, and the delegations
   naming which installation answers on which name. Break-glass: join for
   the task, then leave."*
+- **`grp-gcp-web-admin@`** — Empty. *"Administers the site the
+  organisation's apex answers with — the domains connected to it and
+  what it serves. Break-glass: join for the task, then leave."*
 - **`grp-gcp-security-reviewer@`** — Populated. *"Reads IAM policy across
   the organisation and changes nothing. Populated: auditing who holds
   what must never require the power to change it."*
@@ -128,10 +131,12 @@ just gcp-groups-bind-org
 
 Each group against the roles that implement its capability, which are
 declared in [organisation-roles.json](/infra/access/organisation-roles.json)
-and printed readably by `just gcp-roles org`. Two report as bound below
-the organisation rather than here: `grp-gcp-billing-admin@`, which step
-7 binds on the billing account, and `grp-gcp-dns-admin@`, which
-[apex-install](apex-install.md) binds on the apex project.
+and printed readably by `just gcp-roles org`. Three report as bound
+below the organisation rather than here: `grp-gcp-billing-admin@`, which
+step 7 binds on the billing account, `grp-gcp-dns-admin@`, which
+[apex-install](apex-install.md) binds on the apex project, and
+`grp-gcp-web-admin@`, which [web-install](web-install.md) binds on the
+web project.
 
 ### 7. Create the billing account
 
@@ -244,7 +249,8 @@ answers as though the group were absent rather than saying so.
   quota to a project, and at foundation time none exists.
 - Leave anybody standing in `grp-gcp-org-admin@`,
   `grp-gcp-folder-admin@`, `grp-gcp-billing-admin@`,
-  `grp-gcp-project-admin@` or `grp-gcp-dns-admin@`.
+  `grp-gcp-project-admin@`, `grp-gcp-dns-admin@` or
+  `grp-gcp-web-admin@`.
 
 **MAY:**
 
