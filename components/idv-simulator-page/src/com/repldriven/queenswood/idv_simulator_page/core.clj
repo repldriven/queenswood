@@ -335,7 +335,7 @@
    "'[data-set='+el.name+'][data-value=\"'+x+'\"]');"
    "if(pace)reveal(b);await wait(pace/2);b.click()}"
    "else if(pace&&el.type==='text'){el.value='';"
-   "for(const c of x){el.value+=c;await wait(60)}}"
+   "for(const c of x){el.value+=c;await wait(30)}}"
    "else{el.value=x}" "if(pace)await wait(pace/3)}"
    "if(o==='walk-away'){await wait(pace);leave.click();return}"
    "await wait(pace);f.requestSubmit()}})()}"))

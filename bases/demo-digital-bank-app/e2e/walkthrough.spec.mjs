@@ -18,7 +18,7 @@ const BEAT = 1800;
 
 const screen = (page, label) => page.locator(`[data-screen-label="${label}"]`);
 const button = (page, name) => page.getByRole("button", { name, exact: true });
-const type = (locator, text) => locator.pressSequentially(text, { delay: 70 });
+const type = (locator, text) => locator.pressSequentially(text, { delay: 35 });
 async function tap(page, digits) {
   for (const d of digits) {
     await page.locator(".pad").getByRole("button", { name: d, exact: true }).click();
