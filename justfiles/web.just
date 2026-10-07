@@ -52,6 +52,7 @@ web-project-create yes="":
 
     echo ">>> enabling the Firebase APIs on $PROJECT"
     gcloud services enable --project="$PROJECT" \
+      cloudresourcemanager.googleapis.com serviceusage.googleapis.com \
       firebase.googleapis.com firebasehosting.googleapis.com
 
     TOKEN=$(gcloud auth print-access-token)

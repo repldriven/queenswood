@@ -21,6 +21,9 @@ serving it.
 
 - Step 1 — the organisation's capabilities, `webAdmin` among them —
   [organisation-foundation](organisation-foundation.md).
+- Step 1 — the Firebase Terms of Service accepted by the account that
+  runs it. The Firebase console offers them when that account first
+  adds Firebase to a project.
 - Step 4 — the apex zone, declared in `apex.yml` and delegated —
   [apex-install](apex-install.md).
 - Step 6 — a directory holding the page, with an `index.html` at its
@@ -34,7 +37,7 @@ serving it.
 # the domain the apex zone is for
 export DOMAIN=example.com
 # the directory holding the page
-export SITE_DIR=~/site
+export SITE_DIR=./site
 # the private manifests repository, wherever it is checked out
 export QW_INSTALLATIONS_REPO=../installations
 ```
@@ -135,6 +138,14 @@ gcloud projects remove-iam-policy-binding "$WEB_PROJECT" \
 ```
 
 ## Failures
+
+**Step 1 stops with `403 The caller does not have permission` on adding
+Firebase, from a project's Owner.** The account has not accepted the
+Firebase Terms of Service. In the
+[Firebase console](https://console.firebase.google.com), signed in as
+that account, add Firebase to the project step 1 printed, accepting the
+terms and declining Analytics, then run step 1 again: it finds Firebase
+on the project and carries on.
 
 **A browser warns that the certificate is for another name.** Until the
 domain's own is issued, Hosting answers with one that does not name it.
