@@ -95,9 +95,10 @@ provider account per bank, which ADR-0045 requires and
   Onfido's, and every build runs both side by side.
 - **Simulators.** Each adapter's simulator waits for a decision, made
   on the hosted page `idv-simulator-page` serves for both or through
-  its decision route. The page asks for the document's names and date
-  of birth and offers a choice of outcome, and `simulate` and `pace` on
-  the hand-off URL fill it in for a demonstration. `test-scenarios`
+  its decision route. The page takes the person through their details,
+  document, selfie and address, settled by the sandbox values it lists,
+  and `simulate` and `pace` on the hand-off URL play a person through
+  it for a demonstration. `test-scenarios`
   runs Zyphe's, and `test-api-scenarios` runs both.
 - **The provider as a deployment fact.** Which adapter runs is decided
   by the service's `application.yml`, never by a request, per
@@ -388,11 +389,11 @@ Once the API takes names alone, the provider's page is the only place
 a person gives what the provider checks, so `idv-simulator-page` plays
 the provider's flow from the redirect in to the redirect back, rather
 than asking for a document's names and offering a choice of outcome.
-It takes the person through a step for each part of the run's
-configuration, and only those:
+It takes the person through four steps, one at a time, every run
+covering all four since the platform floor requires every verification:
 
-- **Details.** Given, middle and family names, prefilled with the
-  names the run was started for, the date of birth and the nationality.
+- **Details.** Given and family names, typed by the person since the
+  provider is never told them, the date of birth and the nationality.
 - **Document.** Its type, issuing country and number, and a capture
   standing in for the camera.
 - **Selfie.** A capture standing in for the liveness check, with a
@@ -415,14 +416,18 @@ does, and a sandbox panel on the page lists the values:
 - **Leaving.** *Leave* on any step returns the person to the return URL
   with the run walked away from.
 
-Finishing posts the same decision the route takes and returns the
-person to the return URL. The simulator keeps what the person entered
+Finishing posts what the person entered to the decision route, whose
+body is `idv-simulator-page`'s `Submission`: an `outcome`, as a test
+posts, or the person's entries, which `decision` maps to an outcome by
+the values above, so both simulators settle a page alike. The person
+returns to the return URL. The simulator keeps what the person entered
 in memory for the run, and posts the provider's results to the adapter
 with the read names and date of birth in them, as a provider does, so
 the adapter's reduction is exercised. `simulate` and `pace` on the
 hand-off URL stay: `simulate` names an outcome, and the page fills each
 step with the values producing it and finishes, at `pace` where one is
-given. Zyphe's and Onfido's simulators serve the one page.
+given, its card inert while it plays so a viewer's click or keystroke
+cannot change the run. Zyphe's and Onfido's simulators serve the one page.
 
 ### What the platform keeps about a person
 
@@ -517,8 +522,9 @@ period; the clearance touches neither.
 6. **The provider's page.** `idv-simulator-page`'s steps, its sandbox
    values and panel, and `simulate` filling the steps. The console's
    onboarding scenario and the demo bank's walkthrough play Zaphod
-   through the steps. Proved by a `<provider>-simulator` test per
-   sandbox value and a browser run of the page through every step.
+   through the steps. Proved by a `decision` test per sandbox value and
+   a browser run of the page through every step, by hand and by
+   `simulate`. Built.
 7. **Names only.** `CreatePartyRequest` closed and narrowed,
    `external-reference`, `person-identification` narrowed,
    `PartyNationalIdentifier` retired, the `embed` flags retired, the
@@ -558,12 +564,12 @@ The demo bank's onboarding screens follow under
   create carrying a removed field refused.
 - **`migrator`** — the clearance over records holding every cleared
   field, and a second run finding nothing.
-- **`<provider>-simulator`** — each sandbox value and each decision
-  posting its results, authenticated as the provider's are, with the
-  read names and date of birth in them.
-- **`idv-simulator-page`** — the steps a run's configuration selects,
-  the details prefilled with the run's names, and `simulate` filling
-  every step.
+- **`<provider>-simulator`** — each decision posting its results,
+  authenticated as the provider's are, with the read names and date of
+  birth in them.
+- **`idv-simulator-page`** — `decision` over every sandbox value and a
+  posted outcome, and the page carrying each step and the sandbox
+  panel.
 - **`test-api-scenarios`** — a scenario per row of the treatment
   table, a session handing off, the refusals, a session refused once
   the IDV decides, a session the provider refuses, and the

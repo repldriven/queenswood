@@ -1,31 +1,8 @@
 (ns com.repldriven.queenswood.idv-simulator-page.core
   (:require
-    [clojure.string :as str]))
+    [com.repldriven.queenswood.idv-simulator-page.decision :as decision]
 
-(def ^:private outcome-groups
-  "Each group's heading and its outcomes, as value, title and hint."
-  [["Passes"
-    [["match" "Everything checks out"
-      "My own document, and every check passes"]]]
-   ["Document"
-    [["other-document" "Someone else's document"
-      "The name or date of birth will not match"]
-     ["document-review" "Needs a reviewer"
-      "The document goes to manual review"]
-     ["document-failed" "Forged document"
-      "The document fails its authenticity checks"]]]
-   ["Checks"
-    [["liveness-failed" "Liveness fails"
-      "The selfie does not match the document"]
-     ["address-failed" "Address refused"
-      "The proof of address is rejected"]]]
-   ["Screening"
-    [["sanctions-hit" "Sanctions hit" "Screening finds a sanctions match"]
-     ["sanctions-possible-match" "Possible sanctions match"
-      "Screening flags a possible match for review"]
-     ["pep" "Politically exposed" "Screening finds a PEP"]]]
-   ["Leaving"
-    [["walk-away" "Walk away" "Abandon the check part way through"]]]])
+    [clojure.string :as str]))
 
 (def ^:private css
   "The page's styles. On a laptop the page sits in a phone-sized frame,
@@ -71,19 +48,29 @@
     "padding:.6rem .75rem}"
     ".field input:focus{outline:2px solid var(--accent);outline-offset:1px;"
     "border-color:transparent}"
-    "fieldset{border:0;margin:0;padding:0}"
-    ".group{font-size:.75rem;font-weight:600;color:var(--muted);"
-    "margin:.9rem 0 .4rem}"
-    ".tiles{display:grid;gap:.5rem}"
-    ".tile{display:flex;gap:.7rem;align-items:flex-start;cursor:pointer;"
-    "border:1px solid var(--line);border-radius:12px;padding:.7rem .85rem;"
-    "transition:border-color .12s,background .12s}"
-    ".tile:hover{border-color:var(--muted)}"
-    ".tile:has(input:checked){border-color:var(--accent);"
-    "background:var(--accent-soft)}"
-    ".tile input{accent-color:var(--accent);margin:.2rem 0 0}"
-    ".tile b{display:block;font-weight:600}"
-    ".tile small{color:var(--muted);font-size:.85rem}"
+    ".field select{width:100%;font:inherit;color:inherit;"
+    "background:var(--card);border:1px solid var(--line);border-radius:10px;"
+    "padding:.6rem .75rem}"
+    ".progress{display:flex;gap:.4rem;list-style:none;padding:0;"
+    "margin:0 0 1.25rem}"
+    ".progress li{flex:1;font-size:.72rem;font-weight:600;color:var(--muted);"
+    "border-top:3px solid var(--line);padding-top:.35rem}"
+    ".progress li.on{color:var(--ink);border-color:var(--accent)}"
+    ".capture{display:grid;place-items:center;gap:.5rem;text-align:center;"
+    "border:1px dashed var(--line);border-radius:12px;padding:1.5rem 1rem;"
+    "margin-top:.75rem;color:var(--muted)}"
+    ".capture.taken{border-style:solid;border-color:var(--accent);"
+    "background:var(--accent-soft);color:var(--ink)}"
+    ".choices{display:grid;gap:.5rem;margin-top:.75rem}"
+    ".secondary{color:var(--ink);background:transparent;"
+    "border:1px solid var(--line)}"
+    ".link{color:var(--muted);background:transparent;font-weight:500;"
+    "padding:.5rem;margin-top:.25rem}"
+    ".sandbox{max-width:36rem;margin:0 auto 1rem;padding:0 1rem;"
+    "font-size:.8rem;color:var(--muted)}"
+    ".sandbox summary{cursor:pointer;font-weight:600}"
+    ".sandbox code{font-size:.78rem}"
+    "[inert]{cursor:default;user-select:none}"
     ".actions{position:sticky;bottom:0;margin:1.5rem -1.5rem -1.5rem;"
     "padding:1rem 1.5rem 1.5rem;background:var(--card);"
     "border-top:1px solid var(--line);border-radius:0 0 16px 16px}"
@@ -133,7 +120,7 @@
       (str/replace "\"" "&quot;")))
 
 (defn- document
-  [title body]
+  [title body & [after]]
   (str "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
        "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
        "<title>"
@@ -147,7 +134,9 @@
        "<span class=\"badge\">Simulated</span></header>"
        "<main class=\"card\" id=\"card\">"
        body
-       "</main><p class=\"note\">This page stands in for an identity "
+       "</main>"
+       after
+       "<p class=\"note\">This page stands in for an identity "
        "provider. Nothing entered here leaves this environment.</p>"
        "</div></body></html>"))
 
@@ -172,72 +161,181 @@
        name
        "\" required></label>"))
 
-(defn- tile
-  [[value title hint] checked?]
-  (str "<label class=\"tile\"><input type=\"radio\" name=\"outcome\" value=\""
-       value
-       "\""
-       (when checked? " checked")
-       "><span><b>"
-       (escape title)
-       "</b><small>"
-       (escape hint)
-       "</small></span></label>"))
+(defn- select
+  [label name options]
+  (str "<label class=\"field wide\"><span>"
+       label
+       "</span><select name=\""
+       name
+       "\" required>"
+       (str/join (map (fn [[value text]]
+                        (str "<option value=\"" value "\">" text "</option>"))
+                      options))
+       "</select></label>"))
 
-(defn- tiles
+(defn- capture
+  [name prompt taken missing]
+  (str "<input type=\"hidden\" name=\""
+       name
+       "\" required data-missing=\""
+       (escape missing)
+       "\"><div class=\"capture\" data-for=\""
+       name
+       "\" data-taken=\""
+       (escape taken)
+       "\"><span>"
+       (escape prompt)
+       "</span></div>"))
+
+(def ^:private steps
+  [["Details"
+    (str "<h2>Your details</h2><div class=\"fields\">"
+         (field "Given names" "givenNames" "text" nil)
+         (field "Family name" "familyName" "text" nil)
+         (field "Date of birth" "dateOfBirth" "date" nil)
+         (field "Nationality" "nationality" "text" nil)
+         "</div>")]
+   ["Document"
+    (str "<h2>Your photo document</h2><div class=\"fields\">"
+         (select "Document"
+                 "documentType"
+                 [["passport" "Passport"]
+                  ["driving-licence" "Driving licence"]
+                  ["national-identity-card" "National identity card"]])
+         (field "Issuing country" "issuingCountry" "text" nil)
+         (field "Document number" "documentNumber" "text" nil)
+         "</div>"
+         (capture "documentPhoto" "Photograph the front of your document"
+                  "Document photographed"
+                  "Photograph your document to continue.")
+         "<div class=\"choices\"><button type=\"button\" class=\"secondary\" "
+         "data-set=\"documentPhoto\" data-value=\"taken\">Take photo</button>"
+         "</div>")]
+   ["Selfie"
+    (str "<h2>A selfie</h2>"
+         "<p class=\"lede\">We match your face to your document's photo.</p>"
+         (capture "selfie" "Hold your phone at eye level"
+                  "Selfie taken" "Take a selfie to continue.")
+         "<div class=\"choices\"><button type=\"button\" class=\"secondary\" "
+         "data-set=\"selfie\" data-value=\"taken\">Take selfie</button>"
+         "<button type=\"button\" class=\"secondary\" data-set=\"selfie\" "
+         "data-value=\"looked-away\">Look away</button></div>")]
+   ["Address"
+    (str "<h2>Your address</h2><div class=\"fields\">"
+         (field "Address" "addressLine" "text" "wide")
+         (field "Town" "town" "text" nil)
+         (field "Postcode" "postcode" "text" nil)
+         (field "Country" "country" "text" "wide")
+         (select "Proof of address"
+                 "proofType"
+                 [["utility-bill" "Utility bill"]
+                  ["bank-statement" "Bank statement"]
+                  ["council-tax-bill" "Council tax bill"]])
+         "</div>")]])
+
+(defn- sandbox
   []
-  (str/join
-   (map-indexed (fn [i [heading outcomes]]
-                  (str "<div class=\"group\">"
-                       (escape heading)
-                       "</div><div class=\"tiles\">"
-                       (str/join (map-indexed (fn [j o]
-                                                (tile o
-                                                      (and (zero? i)
-                                                           (zero? j))))
-                                              outcomes))
-                       "</div>"))
-                outcome-groups)))
+  (str
+   "<details class=\"sandbox\"><summary>Sandbox values</summary><ul>"
+   "<li>A name other than the one registered is someone else's document."
+   "</li>"
+   (str/join
+    (map (fn [[prefix outcome]]
+           (str "<li>A document number starting <code>"
+                prefix
+                "</code>: "
+                outcome
+                ".</li>"))
+         decision/document-prefixes))
+   "<li><b>Look away</b> fails liveness.</li>"
+   "<li>The postcode <code>"
+   decision/failing-postcode
+   "</code> fails the address.</li>"
+   "<li><b>Leave</b> walks away from the check.</li>"
+   "<li>Anything else passes, and screens clear.</li></ul></details>"))
 
 (def ^:private script
   (str
    "const q=new URLSearchParams(location.search);"
    "const f=document.getElementById('verify');"
-   "const btn=f.querySelector('button');"
+   "const next=document.getElementById('next');"
+   "const leave=document.getElementById('leave');"
    "const err=document.getElementById('error');"
-   "const leaving=back&&!q.get('simulate');"
-   "const done=()=>{document.getElementById('card').innerHTML="
+   "const steps=[...f.querySelectorAll('.step')];"
+   "const marks=[...document.querySelectorAll('.progress li')];"
+   "const leaving=back&&!q.get('simulate');" "let at=0;"
+   "const show=i=>{at=i;steps.forEach((s,j)=>s.hidden=j!==i);"
+   "marks.forEach((m,j)=>m.classList.toggle('on',j<=i));"
+   "next.textContent=i===steps.length-1?'Submit':'Continue'};"
+   "const set=(name,value)=>{f.elements[name].value=value;"
+   "const c=f.querySelector('.capture[data-for='+name+']');"
+   "c.classList.add('taken');"
+   "c.querySelector('span').textContent=c.dataset.taken+"
+   "(value==='looked-away'?' (looking away)':'');err.textContent=''};"
+   "f.querySelectorAll('[data-set]').forEach(b=>b.addEventListener('click',"
+   "()=>set(b.dataset.set,b.dataset.value)));"
+   "const valid=()=>{for(const el of steps[at].querySelectorAll("
+   "'input,select')){if(el.type==='hidden'){if(!el.value){"
+   "err.textContent=el.dataset.missing;return false}}"
+   "else if(!el.checkValidity()){el.reportValidity();return false}}"
+   "return true};" "const done=()=>{document.getElementById('card').innerHTML="
    "'<div class=\"done\"><span class=\"mark\">'+tick+"
    "'</span><h1>You are done</h1><p class=\"lede\">'+"
    "(leaving?'Taking you back\\u2026':'You can close this page.')+"
    "'</p></div>'};"
-   "f.addEventListener('submit',async e=>{"
-   "e.preventDefault();err.textContent='';"
-   "btn.disabled=true;btn.textContent='Checking\\u2026';"
+   "const send=async body=>{err.textContent='';next.disabled=true;"
+   "leave.disabled=true;next.textContent='Checking\\u2026';"
    "const base=location.pathname.replace(new RegExp(page),'');"
    "try{const r=await fetch(base+decision,{method:'POST',"
-   "headers:{'Content-Type':'application/json'},"
-   "body:JSON.stringify(Object.fromEntries(new FormData(f)))});"
-   "if(!r.ok)throw new Error(r.status);"
-   "done();if(leaving)location.href=back}"
+   "headers:{'Content-Type':'application/json'}," "body:JSON.stringify(body)});"
+   "if(!r.ok)throw new Error(r.status);" "done();if(leaving)location.href=back}"
    "catch(x){err.textContent='Something went wrong. Please try again.';"
-   "btn.disabled=false;btn.textContent='Continue'}});"
-   "const wait=ms=>new Promise(r=>setTimeout(r,ms));"
+   "next.disabled=false;leave.disabled=false;show(at)}};"
+   "const submission=()=>{const d=Object.fromEntries(new FormData(f));"
+   "const looked=d.selfie==='looked-away';"
+   "delete d.selfie;delete d.documentPhoto;"
+   "return Object.assign(d,{lookedAway:looked})};"
+   "f.addEventListener('submit',e=>{e.preventDefault();err.textContent='';"
+   "if(!valid())return;"
+   "if(at<steps.length-1){show(at+1);return}send(submission())});"
+   "leave.addEventListener('click',()=>send({left:true}));"
+   "show(0);" "const wait=ms=>new Promise(r=>setTimeout(r,ms));"
    "const reveal=el=>{const d=document.querySelector('.device');"
    "const box=d&&getComputedStyle(d).overflowY==='auto'?d:null;"
    "const r=el.getBoundingClientRect();"
    "const by=r.top-(box?box.getBoundingClientRect().top+box.clientHeight/2"
    ":innerHeight/2);" "(box||window).scrollBy({top:by,behavior:'smooth'})};"
-   "if(q.get('simulate')){(async()=>{"
-   "const pace=Math.min(Number(q.get('pace'))||0,5000);"
-   "await wait(pace);"
-   "for(const k of ['givenNames','familyName','dateOfBirth']){"
-   "const v=q.get(k)||'';const el=f.elements[k];"
-   "if(pace&&el.type!=='date'){for(const c of v){el.value+=c;await wait(60)}}"
-   "else{el.value=v}" "if(pace)await wait(pace/3)}"
-   "for(const o of f.elements.outcome){o.checked=o.value===q.get('simulate');"
-   "if(o.checked&&pace)reveal(o.closest('.tile'))}"
-   "await wait(pace*1.5);" "f.requestSubmit()})()}"))
+   "const sandbox={"
+   "'other-document':{givenNames:'Trillian',familyName:'Astra'},"
+   "'document-review':{documentNumber:'REVIEW0001'},"
+   "'document-failed':{documentNumber:'FORGED0001'},"
+   "'sanctions-hit':{documentNumber:'HIT0001'},"
+   "'sanctions-possible-match':{documentNumber:'POSSIBLE0001'},"
+   "'pep':{documentNumber:'PEP0001'},"
+   "'liveness-failed':{selfie:'looked-away'},"
+   "'address-failed':{postcode:'XX0 0XX'}};"
+   "const values=o=>Object.assign({givenNames:q.get('givenNames')||'',"
+   "familyName:q.get('familyName')||'',"
+   "dateOfBirth:q.get('dateOfBirth')||'1970-01-01',nationality:'GB',"
+   "documentType:'passport',issuingCountry:'GBR',"
+   "documentNumber:'123456789',documentPhoto:'taken',selfie:'taken',"
+   "addressLine:'155 Country Lane',town:'Cottington',"
+   "postcode:'CT12 4XY',country:'GBR',proofType:'utility-bill'},"
+   "sandbox[o]||{});" "if(q.get('simulate')){"
+   "document.getElementById('card').inert=true;"
+   "document.querySelector('.badge').textContent='Playing';"
+   "(async()=>{" "const o=q.get('simulate');const v=values(o);"
+   "const pace=Math.min(Number(q.get('pace'))||0,5000);" "await wait(pace);"
+   "for(const s of steps){"
+   "for(const el of s.querySelectorAll('input,select')){"
+   "const x=v[el.name]??'';" "if(el.type==='hidden'){const b=s.querySelector("
+   "'[data-set='+el.name+'][data-value=\"'+x+'\"]');"
+   "if(pace)reveal(b);await wait(pace/2);b.click()}"
+   "else if(pace&&el.type==='text'){el.value='';"
+   "for(const c of x){el.value+=c;await wait(60)}}"
+   "else{el.value=x}" "if(pace)await wait(pace/3)}"
+   "if(o==='walk-away'){await wait(pace);leave.click();return}"
+   "await wait(pace);f.requestSubmit()}})()}"))
 
 (defn form
   [page-path decision-path return-url]
@@ -245,18 +343,19 @@
    "Identity verification"
    (str
     "<h1>Verify your identity</h1>"
-    "<p class=\"lede\">Tell us what your photo document says, then "
-    "choose how the check goes.</p>"
-    "<form id=\"verify\">"
-    "<h2>Your document</h2><div class=\"fields\">"
-    (field "Given names" "givenNames" "text" nil)
-    (field "Family name" "familyName" "text" nil)
-    (field "Date of birth" "dateOfBirth" "date" "wide")
-    "</div><h2>What happens</h2><fieldset>"
-    "<legend hidden>What happens</legend>"
-    (tiles)
-    "</fieldset><div class=\"actions\">"
-    "<button type=\"submit\">Continue</button>"
+    "<p class=\"lede\">Four short steps. What you give here goes to the "
+    "identity provider, not to the bank.</p>"
+    "<ol class=\"progress\">"
+    (str/join (map (fn [[title]] (str "<li>" title "</li>")) steps))
+    "</ol><form id=\"verify\" novalidate>"
+    (str/join (map (fn [[_ body]]
+                     (str "<section class=\"step\">"
+                          body
+                          "</section>"))
+                   steps))
+    "<div class=\"actions\">"
+    "<button type=\"submit\" id=\"next\">Continue</button>"
+    "<button type=\"button\" class=\"link\" id=\"leave\">Leave</button>"
     "<p class=\"error\" id=\"error\" role=\"alert\"></p></div></form>"
     "<script>const page="
     (js-string page-path)
@@ -268,7 +367,8 @@
     (js-string tick)
     ";"
     script
-    "</script>")))
+    "</script>")
+   (sandbox)))
 
 (defn response
   [status html]

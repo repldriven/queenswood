@@ -123,36 +123,46 @@ Found on the way:
 
 ### 2. Slice 6 — the provider's page
 
-- [ ] `components/idv-simulator-page/src/.../core.clj`: the steps,
-      chosen by the run's configuration, the details prefilled with the
-      run's names, the sandbox panel, *Leave* on every step, and
-      `simulate` filling each step with the values producing an
-      outcome.
-- [ ] `components/idv-simulator-page/src/.../interface.clj`: `form`
-      takes the run's names and steps.
-- [ ] `bases/zyphe-simulator/src/.../verification_requests/`: the page
-      served with the run's `customData` names and its flow's steps;
-      the page's post mapped from sandbox values to an outcome.
-- [ ] `bases/onfido-simulator/src/.../outcomes.clj` and
-      `applicants/`: the same from the applicant and the workflow.
-- [ ] `bases/console/src/lib/Scenarios.svelte`, `api.mjs`: the
-      onboarding scenario plays Zaphod through the steps.
-- [ ] `bases/demo-digital-bank-app/e2e/walkthrough.spec.mjs`: the
-      walkthrough passes through the steps.
+- [x] `components/idv-simulator-page/src/.../core.clj`: four steps —
+      details, document, selfie, address — the sandbox panel, *Leave*
+      on every step, and `simulate` filling each step with the values
+      producing an outcome. Every run shows every step, since the
+      platform floor requires every verification, and nothing is
+      prefilled, since the provider is never told the names.
+- [x] `components/idv-simulator-page/src/.../decision.clj`: the
+      `Submission` schema, the `outcomes`, and `decision`, mapping what
+      the person entered to an outcome by the sandbox values.
+- [x] `bases/zyphe-simulator` and `bases/onfido-simulator`: the decision
+      route takes a `Submission` and settles by `page/decision`.
+- [x] `bases/console/src/lib/Scenarios.svelte`: unchanged — its
+      `simulate` hand-off plays Zaphod through the steps as it is.
+- [x] `bases/demo-digital-bank-app/e2e/walkthrough.spec.mjs`: the
+      provider's page driven through the four steps.
 
 Proved by:
 
-- [ ] Each simulator — a test per sandbox value posting its results,
-      the read names and date of birth in them.
-- [ ] `idv-simulator-page` — the steps per configuration, the
-      prefilled names, `simulate` filling every step.
-- [ ] A browser run of the page through every step, from a hand-off to
-      the return URL, against the monolith.
+- [x] `idv-simulator-page` — `decision` over every sandbox value, a
+      posted outcome and leaving, and the page carrying each step and
+      the sandbox panel.
+- [x] `zyphe-simulator`, `onfido-simulator` — their decision tests, a
+      posted outcome settling as before.
+- [x] A browser run of the rendered page in headless Chromium against a
+      stub recording what it posts: by hand through every step, the
+      empty step and the missing photo refused, the failing postcode
+      carried; by `simulate` for `pep`, `liveness-failed`, `walk-away`
+      and `match`; and the walkthrough's own labels and buttons. Not
+      against the monolith: the decision route's settling is the
+      simulators' tests' and the scenarios'.
+- [x] While `simulate` plays the card is inert and the badge reads
+      *Playing*: 104 real clicks on *Submit*, *Leave* and the fields,
+      with typing and Enter, during a paced `pep` run left one post,
+      the simulation's own.
+- [x] `just test-all`: 603 tests, no failures.
 
 Docs:
 
-- [ ] `docs/tdd/parties.md`: slice 6 "Built"; the Background's
-      "Simulators" bullet as built.
+- [x] `docs/tdd/parties.md`: slice 6 "Built"; the Background's
+      "Simulators" bullet, the page's design and its tests as built.
 
 ### 3. Slice 7 — names only
 

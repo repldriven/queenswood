@@ -3,13 +3,11 @@
     [com.repldriven.queenswood.zyphe-simulator.verification-requests.examples
      :as examples]
 
-    [com.repldriven.queenswood.zyphe-simulator.schema :as schema]))
+    [com.repldriven.queenswood.zyphe-simulator.schema :as schema]
 
-(def outcomes
-  ["match" "other-document" "document-review" "document-failed"
-   "liveness-failed"
-   "address-failed" "sanctions-hit" "sanctions-possible-match" "pep"
-   "walk-away"])
+    [com.repldriven.queenswood.idv-simulator-page.interface :as page]))
+
+(def outcomes page/outcomes)
 
 (def Credential
   [:map
@@ -72,12 +70,7 @@
    [:sessionWebhook {:optional true} [:ref "SessionWebhook"]]])
 
 (def Decision
-  [:map
-   {:json-schema/example examples/Decision}
-   [:outcome (into [:enum] outcomes)]
-   [:givenNames {:optional true} [:maybe string?]]
-   [:familyName {:optional true} [:maybe string?]]
-   [:dateOfBirth {:optional true} [:maybe string?]]])
+  (into [:map {:json-schema/example examples/Decision}] (rest page/Submission)))
 
 (def HostedPageQuery
   [:map
