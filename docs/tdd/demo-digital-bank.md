@@ -177,16 +177,18 @@ one it has not.
 
 The bank mints its own sessions, and the platform's identity server
 plays no part. Sign-up follows the screens: a phone number, a code,
-the person's details, a photo ID, a selfie, a four-digit passcode. The
-code is fixed under the dev and test profiles, as the design assumes,
-and a sender for live is a later concern. The details — name, date of
-birth, email, address and National Insurance number — register a party
-and open a verification session while the photo ID screen scans. The
-scan and the selfie are the app's own animations, standing in for the
-provider's capture as the filled-in code stands in for a text. Once the
-selfie is taken the app sends the person to the session's hand-off, the
+the person's name and email, the provider's page, a four-digit
+passcode. The code is fixed under the dev and test profiles, as the
+design assumes, and a sender for live is a later concern. The name
+registers a party and the email opens a verification session, per
+[ADR-0045](../adr/0045-a-persons-identity-evidence-stays-with-the-customers-provider.md):
+the bank asks for nothing the provider checks. The app sends the
+person to the session's hand-off, where the simulator's page takes
+their details, document, selfie and address, as
+[parties.md](parties.md#the-simulators-hosted-page) describes; the
 provider returns them to the bank's `app-url` at `#verified`, and
-sign-up resumes at the passcode. The
+sign-up resumes at the passcode. The app's photo ID and selfie screens,
+its own animations, retire with the details they followed. The
 passcode is stored as a salted hash. A session is an opaque random id
 held in the store with an expiry, sent by the app as a bearer, and a
 returning customer opens one with their phone number and passcode.

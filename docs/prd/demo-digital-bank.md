@@ -163,8 +163,10 @@ the right accounts in front of the right person.
 
 ### Signing up
 
-A person who is not yet a customer gives the bank their name, date of
-birth, address and a national identifier, and chooses their login.
+A person who is not yet a customer gives the bank their name and
+email, and chooses their login. The bank sends them to the identity
+verification provider's page, where they give their date of birth,
+address and document and take a selfie; the bank never sees those.
 
 The bank registers them with the platform as a person, and the
 platform begins identity verification in the background, as
@@ -336,18 +338,22 @@ sequenceDiagram
     participant Q as Queenswood
     participant I as Identity verification provider
 
-    P->>A: sign up (name, date of birth, address, identifier, login)
+    P->>A: sign up (name, email, login)
     A->>Q: register person
-    Q-->>A: registered, verifying
+    Q->>I: open a check for the person (name)
+    Q-->>A: registered, with the provider's page
+    A-->>P: on to the identity check
+    P->>I: date of birth, address, document, selfie
+    I-->>P: back to the bank
     A-->>P: we are checking your identity
-    Q->>I: check identity
     I-->>Q: check complete
     Q-->>A: person verified
     A-->>P: you are verified, open an account (in app and by email)
 ```
 
-The person types their details once and is in, waiting. Nothing on
-the screen spins. When the check completes, the app and an email tell
+The person gives the bank their name and the provider everything
+else, each once, and is back in the bank, waiting. Nothing on the
+screen spins. When the check completes, the app and an email tell
 them, and the next thing they see is the offer of an account.
 
 ### 2. A first account, and money arrives
@@ -459,12 +465,11 @@ savings account shows the payment as a line of its own.
   Whether the demos move to a repository of their own, consuming only
   the platform's published API description to prove the API stands
   alone, is open.
-- **Identity documents.** The demonstration collects typed details,
-  shows a photo ID screen and a selfie screen that capture nothing, and
-  the simulator decides the outcome. A real provider expects a
-  photographed document and a face, captured in the provider's own
-  way. Whether that capture can run inside the bank's two screens, or
-  only on the provider's page after them, is open.
+- **Identity documents.** The simulator's page captures nothing for
+  the document or the selfie, and the sandbox values the person types
+  decide the outcome. A real provider expects a photographed document
+  and a face. Assumed meanwhile: a demonstration shows where the
+  person gives them, not the capture itself.
 - **Support.** The bank's staff have the console for the organisation
   and nothing for a customer: finding a person from their name, seeing
   their accounts, or suspending them. A support screen in the bank is
