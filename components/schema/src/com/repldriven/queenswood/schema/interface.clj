@@ -382,9 +382,17 @@
   [m]
   (CompanyProto$Company/parseFrom (Company->pb m)))
 
-(def ^{:doc "Parse Idempotency protobuf bytes into a Clojure map."}
-     pb->Idempotency
-  idempotency/pb->Idempotency)
+(defn pb->Idempotency
+  "Parse Idempotency protobuf bytes into a Clojure map. A pending entry
+  carries no `:response` or `:completed-at`; a completed one's response
+  is a plain map.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (-> (idempotency/pb->Idempotency input)
+      (without-unset {:response nil :completed-at 0})
+      (plain-embedded :response)))
 
 (defn Idempotency->pb
   "Serialise an Idempotency map to protobuf bytes."

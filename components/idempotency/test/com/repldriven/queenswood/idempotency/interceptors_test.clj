@@ -332,7 +332,8 @@
        (is (= "true" (get-in replay [:headers "Idempotent-Replayed"]))))
      (testing "the stored entry holds no token"
        (is (= :idempotency-status-completed (:status entry)))
-       (is (not (.contains ^String (:response-body entry) "token-1"))))
+       (is (not (.contains ^String (get-in entry [:response :body])
+                           "token-1"))))
      (testing "no second invitation was minted" (is (= 1 @calls))))))
 
 (deftest an-omitted-path-under-an-absent-parent-test

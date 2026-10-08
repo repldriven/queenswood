@@ -12,8 +12,15 @@ enum IdempotencyStatus {
   IDEMPOTENCY_STATUS_COMPLETED = 2;
 }
 
-// A request's response, kept under the Idempotency-Key the principal sent
-// it with for the operation.
+// A response an API call produced, kept to replay to a repeat.
+message IdempotencyResponse {
+  required int32 status = 1; // HTTP status
+  required string headers = 2; // EDN
+  required string body = 3; // EDN
+}
+
+// A request made under an Idempotency-Key: claimed while its handler
+// runs, then holding the response to replay to a repeat.
 message Idempotency {
   option (com.apple.foundationdb.record.record).usage = RECORD;
 
@@ -22,10 +29,10 @@ message Idempotency {
   required string idempotency_key = 3;
   required IdempotencyStatus status = 4;
   required string fingerprint = 5; // hash of the path and decoded body
-  optional int32 response_status = 6; // HTTP status
-  optional string response_headers = 7; // EDN
-  optional string response_body = 8; // EDN
-  required int64 expires_at = 9;
+  optional IdempotencyResponse response = 6;
+  required int64 expires_at = 7;
+
+  optional int64 completed_at = 51;
 
   required int64 created_at = 101;
 }

@@ -130,8 +130,9 @@ Each cache entry has one of two statuses:
 - **`pending`** — a handler is currently processing this key. Set on
   first arrival, with the fingerprint, and cleared when the handler
   completes.
-- **`completed`** — handler finished; `response_status`,
-  `response_headers` and `response_body` hold the response to replay.
+- **`completed`** — handler finished; `response`, an
+  `IdempotencyResponse` of `status`, `headers` and `body`, holds the
+  response to replay, and `completed_at` when it was kept.
 
 A stale-`pending` entry (older than 60 s) is treated as abandoned —
 a server crashed, say. It is reclaimable by the next request, and
@@ -353,11 +354,10 @@ mints a fresh token.
 | `idempotency_key` | string | required |
 | `status` | `IdempotencyStatus` | `PENDING` or `COMPLETED` |
 | `fingerprint` | string | SHA-256 of path, body and bank |
-| `response_status` | int32 | optional (completed only) |
-| `response_headers` | string | optional EDN (completed only) |
-| `response_body` | string | optional EDN (completed only) |
+| `response` | `IdempotencyResponse` | optional (completed only): `status` int32, `headers` and `body` EDN |
 | `expires_at` | int64 | epoch ms |
-| `created_at` | int64 | epoch ms, field 101 |
+| `completed_at` | int64 | epoch ms, field 51, completed only |
+| `created_at` | int64 | epoch ms, field 101, when the key was claimed |
 
 Primary key: `[principal_id, operation, idempotency_key]`. No
 secondary indexes.

@@ -82,11 +82,11 @@
             {:type ::mismatch}
 
             (and live (= completed (:status existing)))
-            {:type ::completed
-             :status (:response-status existing)
-             :headers (some-> (not-empty (:response-headers existing))
-                              edn/read-string)
-             :body (edn/read-string (:response-body existing))}
+            (let [{:keys [status headers body]} (:response existing)]
+              {:type ::completed
+               :status status
+               :headers (edn/read-string headers)
+               :body (edn/read-string body)})
 
             (and live (= pending (:status existing)))
             {:type ::in-flight}
@@ -116,22 +116,32 @@
 
 (defn complete
   "Replace the `pending` marker with a `completed` entry holding the
-  response to replay. Called from the interceptor's `:leave` when the
-  handler returned a cacheable status (2xx/4xx)."
+  response to replay, keeping when the key was claimed. Called from the
+  interceptor's `:leave` when the handler returned a cacheable status
+  (2xx/4xx)."
   [config principal-id operation idempotency-key fingerprint
    {:keys [status headers body]}]
-  (let [now (utility/now)]
-    (store/save config
-                {:principal-id principal-id
-                 :operation operation
-                 :idempotency-key idempotency-key
-                 :status completed
-                 :response-status status
-                 :response-headers (pr-str (or headers {}))
-                 :response-body (pr-str (plain body))
-                 :fingerprint fingerprint
-                 :created-at now
-                 :expires-at (+ now completed-ttl-ms)})))
+  (store/transact
+   config
+   (fn [txn]
+     (let [existing (store/lookup txn principal-id operation idempotency-key)
+           now (utility/now)]
+       (if (error/anomaly? existing)
+         existing
+         (store/save txn
+                     {:principal-id principal-id
+                      :operation operation
+                      :idempotency-key idempotency-key
+                      :status completed
+                      :fingerprint fingerprint
+                      :response {:status status
+                                 :headers (pr-str (or headers {}))
+                                 :body (pr-str (plain body))}
+                      :expires-at (+ now completed-ttl-ms)
+                      :completed-at now
+                      :created-at (or (:created-at existing) now)}))))
+   :idempotency/complete
+   "Failed to complete idempotency entry"))
 
 (defn release
   "Drop the `pending` claim — used when the response wasn't cacheable

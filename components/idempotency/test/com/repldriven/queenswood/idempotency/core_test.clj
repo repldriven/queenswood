@@ -87,8 +87,9 @@
                                     :operation operation
                                     :idempotency-key key
                                     :status :idempotency-status-completed
-                                    :response-status 200
-                                    :response-body (pr-str {:ok true})
+                                    :response {:status 200
+                                               :headers (pr-str {})
+                                               :body (pr-str {:ok true})}
                                     :fingerprint fingerprint
                                     :created-at (- now day-ms)
                                     :expires-at (- now 1000)})])
