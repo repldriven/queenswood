@@ -27,7 +27,6 @@
                    :currency "GBP"
                    :gl-account-type "liability"
                    :gl-account-class "control"
-                   :required "mandatory"
                    :status "open"
                    :posted-balance [:m/absent]
                    :created-at [:m/regex ".+"]

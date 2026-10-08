@@ -154,8 +154,7 @@
     {:ledger-account-id (:ledger-account-id account)
      :gl-account-code (:gl-account-code account)
      :currency (:currency account)
-     :normal-side (if (ledger-accounts/debit-normal?
-                       (:gl-account-type account))
+     :normal-side (if (ledger-accounts/debit-normal? account)
                     :debit
                     :credit)
      :value posted

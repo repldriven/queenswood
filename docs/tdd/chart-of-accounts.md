@@ -181,25 +181,18 @@ one row of the chart:
 
 ```protobuf
 message LedgerAccount {
-  reserved 3;
-  reserved "gl_code";                  // replaced by typed gl_account_code
   required string bank_id = 1;
-  required string ledger_account_id = 2;   // "led.<uuidv7>"
-  required string name = 4;
-  required string currency = 5;            // ISO 4217
-  required GlAccountType gl_account_type = 6;
-                                       // A/L/E/I/E (one of the five classes)
-  required GlAccountClass gl_account_class = 7;
-                                       // detail, summary, control
-  required Required required = 8;          // mandatory, optional
-  optional SubLedgerKind sub_ledger_kind = 9;
-                                       // only on control accounts
-  required int64 created_at = 10;
-  required int64 updated_at = 11;
-  required GlAccountCode gl_account_code = 12;
+  required string ledger_account_id = 2;   // led.<uuidv7>
+  required GlAccountCode gl_account_code = 3;
                                        // role; enum value = chart number
-  optional LedgerAccountStatus status = 13;
-                                       // open or closed; unset reads as open
+  required string name = 4;
+  required LedgerAccountStatus status = 5; // open or closed
+  required string currency = 6;            // ISO 4217
+  required GlAccountType gl_account_type = 7;
+                                       // detail, control or summary
+
+  required int64 created_at = 101;
+  required int64 updated_at = 103;
 }
 ```
 
@@ -234,10 +227,9 @@ message CashAccount {
 Notes:
 
 - **GL accounts and cash accounts are separate record types.**
-  A `LedgerAccount` carries the GL classification fields
-  (`gl_account_code`, `gl_account_type`, `gl_account_class`,
-  `required`) directly on the record; there is no product
-  behind it. A `CashAccount` carries no GL fields — its
+  A `LedgerAccount` carries its chart role (`gl_account_code`)
+  and how it posts (`gl_account_type`) directly on the record;
+  there is no product behind it. A `CashAccount` carries no GL fields — its
   control is derived from `product_type`.
 - **The control link is *not* stored on the cash account.**
   There is no `gl_control_account_id`. A control's balance is
@@ -255,7 +247,13 @@ Notes:
   holder party. Customer accounts on a person party are
   personal; the own-funds account on the bank's org party is
   business.
-- **`gl_account_class`** distinguishes three roles:
+- **The class is derived from the code.** An account's class —
+  asset, liability, equity, income or expense — is the thousand
+  of its chart number, which `ledger-account/gl-account-class`
+  reads, so no stored class can disagree with the code. The API
+  still names it `gl-account-type`, and the type
+  `gl-account-class`, until its names are revisited.
+- **`gl_account_type`** distinguishes three:
   - `detail` — leaf, accepts legs.
   - `summary` — rolls up children, never receives legs
     directly.
@@ -263,16 +261,13 @@ Notes:
     Detail lives elsewhere (in customer cash-accounts); the
     control account is the GL's single line item for that
     sub-ledger cohort.
-- **`sub_ledger_kind`** is an optional discriminator on
-  control accounts naming the cohort they aggregate. The
-  seeded chart leaves it unset — the sub-ledger → control
-  roll-up is driven by `product-type->control-code`, which
-  maps a `:product-type` to the control `:gl-account-code`
-  directly. The field is reserved for finer cohort
-  classification (loans, cards) when those instruments land.
-- **Normal side** is *derived*, not stored — assets and
-  expenses are debit-normal; liabilities, equity, and income
-  are credit-normal. Reporting derives at read time.
+- **The sub-ledger a control stands for** is not stored: the
+  roll-up is driven by `product-type->control-code`, which maps
+  a `:product-type` to the control `:gl-account-code` directly.
+- **Normal side** is *derived*, not stored, from the class —
+  assets and expenses are debit-normal; liabilities, equity,
+  and income are credit-normal. Reporting derives at read
+  time.
 - **`currency`** lives on the `LedgerAccount` record, one
   currency per account — see "Currency" below for the flat
   per-currency chart that follows from it.
@@ -777,8 +772,7 @@ at any layer holds more than one currency.
   ledger (`led.`) account-ids; `validate-legs` checks every
   posting, and `new-zero-balance` opens a bucket on first use.
 - **`schema`** defines the `LedgerAccount` message and the
-  `GlAccountType` / `GlAccountClass` / `Required` /
-  `SubLedgerKind` / `GlAccountCode` / `LedgerAccountStatus`
+  `GlAccountType` / `GlAccountCode` / `LedgerAccountStatus`
   enums, the `LedgerAccount` entry in `RecordTypeUnion`, and the
   `LedgerAccount_by_bank_gl_account_code` index. `ProductType`
   carries the sub-ledger values `-current` / `-savings` /

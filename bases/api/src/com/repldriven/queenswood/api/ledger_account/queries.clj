@@ -14,14 +14,20 @@
   `:ledger-account-id` is exposed as `:account-id` so the resource speaks
   the same id key as the path parameter and the balance API, and the
   `:gl-account-code` role is rendered back to its chart number as the
-  `:gl-code` string clients (and the console's ledger view) expect."
+  `:gl-code` string clients (and the console's ledger view) expect. The
+  class derived from the code is `:gl-account-type` and the account's
+  type `:gl-account-class`, the names the API used before the record
+  swapped them."
   [account]
-  (-> account
-      (set/rename-keys {:ledger-account-id :account-id})
-      (assoc :gl-code
-             (ledger-accounts/gl-account-code->gl-code
-              (:gl-account-code account)))
-      (dissoc :gl-account-code)))
+  (let [{:keys [gl-account-code gl-account-type]} account]
+    (-> account
+        (set/rename-keys {:ledger-account-id :account-id})
+        (assoc :gl-code (ledger-accounts/gl-account-code->gl-code
+                         gl-account-code)
+               :gl-account-type (ledger-accounts/gl-account-class
+                                 gl-account-code)
+               :gl-account-class gl-account-type)
+        (dissoc :gl-account-code))))
 
 (defn- with-posted-balance
   "Attach the account's derived `:posted-balance` ({value, currency}),
@@ -34,10 +40,10 @@
 
 (defn- trial-balance-entry
   "Project an enriched account into a bank-balance trial-balance entry:
-  its currency, normal side (from the gl-account-type), and posted net."
+  its currency, normal side (from its class), and posted net."
   [account]
   {:currency (:currency account)
-   :normal-side (if (ledger-accounts/debit-normal? (:gl-account-type account))
+   :normal-side (if (ledger-accounts/debit-normal? account)
                   :debit
                   :credit)
    :value (:value (:posted-balance account))})

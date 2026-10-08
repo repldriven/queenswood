@@ -14,10 +14,9 @@
   ^{:doc
     "Malli registry of the ledger-account schemas, keyed by the name
   each appears under in the document's `components/schemas`:
-  `LedgerAccountId`, `GlAccountType`, `GlAccountClass`, `Required`,
-  `SubLedgerKind`, `LedgerAccountStatus`, `LedgerAccount`,
-  `TrialBalanceEntry`, `LedgerAccountList`, `LedgerBalance`,
-  `LedgerBalanceList`. Merged into the coercion registry in
+  `LedgerAccountId`, `GlAccountType`, `GlAccountClass`,
+  `LedgerAccountStatus`, `LedgerAccount`, `TrialBalanceEntry`,
+  `LedgerAccountList`, `LedgerBalance`, `LedgerBalanceList`. Merged into the coercion registry in
   `api.clj`, so `[:ref \"X\"]` resolves them on any route."}
   registry
   components/registry)

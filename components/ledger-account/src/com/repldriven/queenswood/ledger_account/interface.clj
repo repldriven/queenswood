@@ -59,7 +59,7 @@
   - bank-id: owning bank id.
   - currency: ISO 4217 currency string.
   - row: chart-of-accounts row (`:gl-account-code`, `:name`,
-    `:gl-account-type`, `:gl-account-class`, `:required`).
+    `:gl-account-type`).
   - opts (optional): `:policies` to check against."
   ([txn bank-id currency row]
    (core/new-account txn bank-id currency row))
@@ -185,15 +185,26 @@
   [config bank-id]
   (core/list-accounts-with-balances config bank-id))
 
-(defn debit-normal?
-  "True for debit-normal account families (asset, expense), false for
-  credit-normal (liability, equity, income) — which column a ledger
-  account's balance falls in when assembling a trial balance.
+(defn gl-account-class
+  "The class of the account in a `gl-account-code` role, from the thousand
+  of its chart number: `:gl-account-class-asset`, `-liability`,
+  `-equity`, `-income` or `-expense`.
 
   Args:
-  - gl-account-type: a `:gl-account-type-*` keyword."
-  [gl-account-type]
-  (domain/debit-normal? gl-account-type))
+  - gl-account-code: a `:gl-account-code-*` keyword."
+  [gl-account-code]
+  (domain/gl-account-class gl-account-code))
+
+(defn debit-normal?
+  "True for an account whose class is debit-normal (asset, expense),
+  false for a credit-normal one (liability, equity, income) — which
+  column a ledger account's balance falls in when assembling a trial
+  balance.
+
+  Args:
+  - account: a `LedgerAccount` map, read for its `:gl-account-code`."
+  [account]
+  (domain/debit-normal? account))
 
 (defn ensure-controls
   "Check the control every posted default customer leg in `legs` rolls

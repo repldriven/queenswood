@@ -80,6 +80,22 @@
   [gl-account-code]
   (str (schema/gl-account-code->int gl-account-code)))
 
+(def ^:private class-by-thousand
+  "An account's class by the thousand of its chart number."
+  {1 :gl-account-class-asset
+   2 :gl-account-class-liability
+   3 :gl-account-class-equity
+   4 :gl-account-class-income
+   5 :gl-account-class-expense})
+
+(defn gl-account-class
+  "The class of the account in a `gl-account-code` role, from the thousand
+  of its chart number: `:gl-account-class-asset`, `-liability`,
+  `-equity`, `-income` or `-expense`."
+  [gl-account-code]
+  (class-by-thousand (quot (schema/gl-account-code->int gl-account-code)
+                           1000)))
+
 (defn new-ledger-account
   "Build a `LedgerAccount` map for one template `row` in `currency`,
   stamping a fresh `led.` id and timestamps. Gated on the
@@ -93,9 +109,7 @@
                                 :ledger-account
                                 {:action :ledger-account-action-open})]
     (let [now (utility/now)]
-      (assoc (select-keys row
-                          [:gl-account-code :name :gl-account-type
-                           :gl-account-class :required])
+      (assoc (select-keys row [:gl-account-code :name :gl-account-type])
              :bank-id bank-id
              :currency currency
              :ledger-account-id (utility/generate-id "led")
@@ -133,20 +147,18 @@
         nil))))
 
 (defn debit-normal?
-  "True for the debit-normal account families (asset, expense); false
-  for the credit-normal ones (liability, equity, income). A trial
+  "True for an account whose class is debit-normal (asset, expense);
+  false for a credit-normal one (liability, equity, income). A trial
   balance places a debit-normal account's balance in the debit column
   and a credit-normal account's in the credit column."
-  [gl-account-type]
-  (contains? #{:gl-account-type-asset :gl-account-type-expense}
-             gl-account-type))
+  [account]
+  (contains? #{:gl-account-class-asset :gl-account-class-expense}
+             (gl-account-class (:gl-account-code account))))
 
 (defn open?
-  "True unless `account` has been closed. An absent or unset `:status`
-  (pre-existing seeded rows, the proto2 zero-default sentinel) counts
-  as open, so no backfill is needed."
+  "True unless `account` has been closed."
   [account]
-  (not= :ledger-account-status-closed (:status account)))
+  (= :ledger-account-status-open (:status account)))
 
 (defn ensure-open
   "Return `account` unchanged if open, or `:ledger-account/closed`

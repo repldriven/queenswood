@@ -29,49 +29,31 @@
   bank-bank seeds every customer bank with at provisioning time."
   [{:gl-account-code :gl-account-code-cash-at-correspondent
     :name "Cash at correspondent"
-    :gl-account-type :gl-account-type-asset
-    :gl-account-class :gl-account-class-detail
-    :required :required-mandatory}
+    :gl-account-type :gl-account-type-detail}
    {:gl-account-code :gl-account-code-pending-outbound
     :name "Pending outbound payments"
-    :gl-account-type :gl-account-type-asset
-    :gl-account-class :gl-account-class-detail
-    :required :required-mandatory}
+    :gl-account-type :gl-account-type-detail}
    {:gl-account-code :gl-account-code-customer-deposits-current
     :name "Customer deposits - current"
-    :gl-account-type :gl-account-type-liability
-    :gl-account-class :gl-account-class-control
-    :required :required-mandatory}
+    :gl-account-type :gl-account-type-control}
    {:gl-account-code :gl-account-code-customer-deposits-savings
     :name "Customer deposits - savings"
-    :gl-account-type :gl-account-type-liability
-    :gl-account-class :gl-account-class-control
-    :required :required-mandatory}
+    :gl-account-type :gl-account-type-control}
    {:gl-account-code :gl-account-code-customer-deposits-term
     :name "Customer deposits - term deposits"
-    :gl-account-type :gl-account-type-liability
-    :gl-account-class :gl-account-class-control
-    :required :required-mandatory}
+    :gl-account-type :gl-account-type-control}
    {:gl-account-code :gl-account-code-interest-payable
     :name "Interest payable"
-    :gl-account-type :gl-account-type-liability
-    :gl-account-class :gl-account-class-control
-    :required :required-mandatory}
+    :gl-account-type :gl-account-type-control}
    {:gl-account-code :gl-account-code-suspense
     :name "Suspense - unreconciled inbound"
-    :gl-account-type :gl-account-type-liability
-    :gl-account-class :gl-account-class-detail
-    :required :required-mandatory}
+    :gl-account-type :gl-account-type-detail}
    {:gl-account-code :gl-account-code-own-funds
     :name "Bank own funds"
-    :gl-account-type :gl-account-type-equity
-    :gl-account-class :gl-account-class-control
-    :required :required-mandatory}
+    :gl-account-type :gl-account-type-control}
    {:gl-account-code :gl-account-code-interest-expense
     :name "Interest expense"
-    :gl-account-type :gl-account-type-expense
-    :gl-account-class :gl-account-class-detail
-    :required :required-mandatory}])
+    :gl-account-type :gl-account-type-detail}])
 
 (def ^:private chart-numbers
   "The chart number each role in `template` reports, as a string."
@@ -184,8 +166,7 @@
                  control (current-deposits-control config bank-id)
                  _ (is (= :gl-account-code-customer-deposits-current
                           (:gl-account-code control)))
-                 _ (is (= :gl-account-class-control
-                          (:gl-account-class control)))
+                 _ (is (= :gl-account-type-control (:gl-account-type control)))
                  fetched
                  (SUT/get-account config bank-id (:ledger-account-id control))
                  _ (is (= (:ledger-account-id control)
