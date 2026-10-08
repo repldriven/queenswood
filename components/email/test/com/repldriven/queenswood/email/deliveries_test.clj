@@ -62,16 +62,16 @@
                      (is (= {:bank-id "bnk.email"
                              :kind :email-kind-invitation
                              :invitation-id (:invitation-id data)
-                             :expires-at 1790000000000
+                             :invitation-expires-at 1790000000000
                              :changelog-event-id event-id
                              :status :email-delivery-status-pending}
                             (select-keys written
                                          [:bank-id :kind :invitation-id
-                                          :expires-at
+                                          :invitation-expires-at
                                           :changelog-event-id :status]))))
                  claimed (SUT/claim-due-deliveries config
                                                    {:now (utility/now)
-                                                    :claimed-by "runner-a"
+                                                    :claim-holder "runner-a"
                                                     :lease-ms lease-ms
                                                     :limit 16})
                  _ (testing "and a redelivered event writes no second"
@@ -96,7 +96,7 @@
                                                    :expires-at 1790000000000}
                                                   (str (utility/uuidv7))
                                                   now)
-         opts {:claimed-by "runner-a" :lease-ms lease-ms :limit 16}]
+         opts {:claim-holder "runner-a" :lease-ms lease-ms :limit 16}]
      (nom-test> [_ (SUT/save-delivery
                     config
                     (assoc delivery :next-attempt-at (+ now 60000)))
@@ -110,20 +110,20 @@
                  _ (testing "a due delivery is claimed in flight under a lease"
                      (is (= 1 (count first-claim)))
                      (is (= {:status :email-delivery-status-in-flight
-                             :claimed-by "runner-a"
+                             :claim-holder "runner-a"
                              :claim-lease-expires-at (+ now lease-ms)}
                             (select-keys (first first-claim)
-                                         [:status :claimed-by
+                                         [:status :claim-holder
                                           :claim-lease-expires-at]))))
                  live (SUT/claim-due-deliveries
                        config
-                       (assoc opts :now (inc now) :claimed-by "runner-b"))
+                       (assoc opts :now (inc now) :claim-holder "runner-b"))
                  _ (testing
                      "a second runner takes nothing while the lease holds"
                      (is (empty? live)))
                  passed
                  (SUT/claim-due-deliveries
                   config
-                  (assoc opts :now (+ now lease-ms) :claimed-by "runner-b"))
+                  (assoc opts :now (+ now lease-ms) :claim-holder "runner-b"))
                  _ (testing "and takes the delivery once the lease has passed"
-                     (is (= ["runner-b"] (mapv :claimed-by passed))))]))))
+                     (is (= ["runner-b"] (mapv :claim-holder passed))))]))))

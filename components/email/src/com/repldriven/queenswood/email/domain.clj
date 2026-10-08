@@ -20,9 +20,10 @@
      :delivery-id (utility/generate-id "eml")
      :kind :email-kind-invitation
      :invitation-id invitation-id
-     :expires-at expires-at
+     :invitation-expires-at expires-at
      :changelog-event-id changelog-event-id
      :status pending
+     :attempts 0
      :next-attempt-at now
      :created-at now
      :updated-at now}))
@@ -37,14 +38,14 @@
    (not= invitation-pending (:status invitation))
    (str "invitation is " (name (:status invitation)))
 
-   (not= (:expires-at delivery) (:expires-at invitation))
+   (not= (:invitation-expires-at delivery) (:expires-at invitation))
    "invitation was sent again"))
 
 (defn- settled
   [delivery now]
   (-> delivery
       (assoc :updated-at now)
-      (dissoc :claim-lease-expires-at :claimed-by :next-attempt-at)))
+      (dissoc :claim-lease-expires-at :claim-holder :next-attempt-at)))
 
 (defn mark-sent
   "The delivery once the mail server accepted the message, with the

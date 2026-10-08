@@ -64,7 +64,7 @@
                  held (store/find-delivery config bank-id delivery-id)
                  _ (testing "an open breaker claims nothing and counts nothing"
                      (is (= :email-delivery-status-pending (:status held)))
-                     (is (nil? (:claimed-by held)))
+                     (is (nil? (:claim-holder held)))
                      (is (not (pos? (or (:attempts held) 0)))))
                  _ (circuit-breaker/record config breaker "smtp" :answered now)
                  _ (SUT/drain-once config)

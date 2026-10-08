@@ -1600,10 +1600,9 @@
   webhooks/WebhookDeliveryStatus-label2val)
 
 (def ^:private email-delivery-unset
-  {:attempts 0
+  {:claim-holder ""
    :claim-lease-expires-at 0
-   :claimed-by ""
-   :expires-at 0
+   :invitation-expires-at 0
    :invitation-id ""
    :last-error ""
    :message-id ""

@@ -120,7 +120,8 @@
 
 (defn- stubbed-save
   [txn-or-config entry]
-  (if (and (= :complete *stub*) (= "completed" (:state entry)))
+  (if (and (= :complete *stub*)
+           (= :idempotency-status-completed (:status entry)))
     timeout
     (real-save txn-or-config entry)))
 
@@ -330,8 +331,8 @@
        (is (not (contains? (:body replay) :token)))
        (is (= "true" (get-in replay [:headers "Idempotent-Replayed"]))))
      (testing "the stored entry holds no token"
-       (is (= "completed" (:state entry)))
-       (is (not (.contains ^String (:body entry) "token-1"))))
+       (is (= :idempotency-status-completed (:status entry)))
+       (is (not (.contains ^String (:response-body entry) "token-1"))))
      (testing "no second invitation was minted" (is (= 1 @calls))))))
 
 (deftest an-omitted-path-under-an-absent-parent-test

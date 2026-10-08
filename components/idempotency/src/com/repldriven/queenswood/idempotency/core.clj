@@ -11,6 +11,9 @@
 (def ^:private completed-ttl-ms (* 24 60 60 1000))    ; 24 hours
 (def ^:private pending-ttl-ms (* 60 1000))          ; 60 seconds
 
+(def ^:private pending :idempotency-status-pending)
+(def ^:private completed :idempotency-status-completed)
+
 (defn cacheable-status?
   "Cache definite outcomes (2xx, 4xx) — skip 5xx, which are
   transient and should be retried."
@@ -34,8 +37,8 @@
   [entry now]
   (boolean
    (and entry
-        (or (and (= "completed" (:state entry)) (not (expired? entry now)))
-            (and (= "pending" (:state entry))
+        (or (and (= completed (:status entry)) (not (expired? entry now)))
+            (and (= pending (:status entry))
                  (not (stale-pending? entry now)))))))
 
 (defn claim-or-replay
@@ -57,7 +60,7 @@
   runs inside the open transaction, and `fdb/transact` on an open
   `Txn` returns an anomaly *value* rather than throwing, so without
   this the `cond` would bind it as a truthy `existing` with a nil
-  `:state`, fall through to `:else`, and run the handler on a cache
+  `:status`, fall through to `:else`, and run the handler on a cache
   it could not read.
 
   FDB's optimistic concurrency control serialises concurrent
@@ -73,21 +76,19 @@
        (if (error/anomaly? existing)
          existing
          (let [live (live? existing now)
-               ;; Absent on an entry written before the field existed,
-               ;; which matches anything for the rest of its life.
-               stored (not-empty (:fingerprint existing))]
+               stored (:fingerprint existing)]
            (cond
-            (and live stored (not= stored fingerprint))
+            (and live (not= stored fingerprint))
             {:type ::mismatch}
 
-            (and live (= "completed" (:state existing)))
+            (and live (= completed (:status existing)))
             {:type ::completed
-             :status (:status existing)
-             :headers (some-> (not-empty (:headers existing))
+             :status (:response-status existing)
+             :headers (some-> (not-empty (:response-headers existing))
                               edn/read-string)
-             :body (edn/read-string (:body existing))}
+             :body (edn/read-string (:response-body existing))}
 
-            (and live (= "pending" (:state existing)))
+            (and live (= pending (:status existing)))
             {:type ::in-flight}
 
             :else
@@ -95,7 +96,7 @@
                             {:principal-id principal-id
                              :operation operation
                              :idempotency-key idempotency-key
-                             :state "pending"
+                             :status pending
                              :fingerprint fingerprint
                              :created-at now
                              :expires-at (+ now completed-ttl-ms)})
@@ -124,10 +125,10 @@
                 {:principal-id principal-id
                  :operation operation
                  :idempotency-key idempotency-key
-                 :state "completed"
-                 :status status
-                 :headers (pr-str (or headers {}))
-                 :body (pr-str (plain body))
+                 :status completed
+                 :response-status status
+                 :response-headers (pr-str (or headers {}))
+                 :response-body (pr-str (plain body))
                  :fingerprint fingerprint
                  :created-at now
                  :expires-at (+ now completed-ttl-ms)})))

@@ -238,13 +238,13 @@ Two component kinds, registered from `system.clj`:
 `EmailDelivery` under `schemas/emails/`, in its own store:
 
 - Delivery id (prefix `eml`), bank id, kind (invitation), invitation
-  id, and the `expires_at` the event carried.
+  id, and the `invitation_expires_at` the event carried.
 - The changelog event id, under a unique index, so a relay redrive
   writes nothing twice.
 - Status: pending, in flight, sent, superseded, failed.
-- `claim_lease_expires_at`, `claimed_by`, `attempts`,
-  `next_attempt_at`, `last_error`, and the `message_id` the mail server
-  was handed, each `optional`.
+- `attempts`, and the `next_attempt_at`, `last_error`,
+  `claim_holder`, `claim_lease_expires_at` and the `message_id` the
+  mail server was handed, each `optional`.
 - `created_at` and `updated_at`.
 
 Indexed by the event id and by status with `next_attempt_at`, which is

@@ -88,7 +88,7 @@
   second runner reading the same rows loses the transaction and claims
   nothing. Rows whose lease has passed are scanned before pending ones,
   so a pending backlog cannot starve their recovery."
-  [txn {:keys [now claimed-by lease-ms limit]}]
+  [txn {:keys [now claim-holder lease-ms limit]}]
   (fdb/transact
    txn
    (fn [txn]
@@ -109,7 +109,7 @@
                  (let [row (assoc delivery
                                   :status in-flight
                                   :claim-lease-expires-at (+ now lease-ms)
-                                  :claimed-by claimed-by
+                                  :claim-holder claim-holder
                                   :updated-at now)
                        res (fdb/save-record store
                                             (schema/EmailDelivery->java row))]

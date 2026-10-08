@@ -239,14 +239,15 @@
       (is (= event (SUT/pb->AccessEvent (SUT/AccessEvent->pb event)))))))
 
 (deftest email-delivery-record-round-trip-test
-  (testing "a pending delivery carries no claim, attempt or message id"
+  (testing "a pending delivery carries no claim or message id"
     (let [delivery {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
                     :delivery-id "eml.01kprbmgcj35ptc8npmybhh4t7"
                     :kind :email-kind-invitation
                     :invitation-id "inv.01kprbmgcj35ptc8npmybhh4t2"
-                    :expires-at 1700604800000
+                    :invitation-expires-at 1700604800000
                     :changelog-event-id "01kprbmgcj35ptc8npmybhh4t8"
                     :status :email-delivery-status-pending
+                    :attempts 0
                     :next-attempt-at 1700000000000
                     :created-at 1700000000000
                     :updated-at 1700000000000}]
@@ -257,7 +258,7 @@
                     :delivery-id "eml.01kprbmgcj35ptc8npmybhh4t7"
                     :kind :email-kind-invitation
                     :invitation-id "inv.01kprbmgcj35ptc8npmybhh4t2"
-                    :expires-at 1700604800000
+                    :invitation-expires-at 1700604800000
                     :changelog-event-id "01kprbmgcj35ptc8npmybhh4t8"
                     :status :email-delivery-status-sent
                     :attempts 2

@@ -68,13 +68,14 @@
   `{:error message}` for a failure or no reply."
   [config delivery token-hash]
   (let [{:keys [dispatcher schemas]} config
-        {:keys [bank-id invitation-id expires-at delivery-id]} delivery
+        {:keys [bank-id invitation-id invitation-expires-at delivery-id]}
+        delivery
         id (str (utility/uuidv7))
         reply (let-nom>
                 [payload (avro/serialize (get schemas record-token-command)
                                          {:bank-id bank-id
                                           :invitation-id invitation-id
-                                          :expires-at expires-at
+                                          :expires-at invitation-expires-at
                                           :token-hash token-hash})]
                 (command/send dispatcher
                               {:id id
@@ -221,7 +222,7 @@
         claimed (if (pos? limit)
                   (store/claim-due-deliveries config
                                               {:now now
-                                               :claimed-by (:runner-id config)
+                                               :claim-holder (:runner-id config)
                                                :lease-ms (:claim-lease-ms
                                                           config)
                                                :limit limit})

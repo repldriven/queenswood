@@ -123,18 +123,15 @@ second account, merging a second party or accruing for a second bank
 under a key already spent is refused rather than silently answered
 with the first resource's response.
 
-An entry written before the field existed carries no fingerprint,
-and matches anything for the rest of its life.
-
 ### Two-state machine
 
-Each cache entry is in one of two states:
+Each cache entry has one of two statuses:
 
 - **`pending`** — a handler is currently processing this key. Set on
   first arrival, with the fingerprint, and cleared when the handler
   completes.
-- **`completed`** — handler finished; `status`, `headers` and `body`
-  hold the response to replay.
+- **`completed`** — handler finished; `response_status`,
+  `response_headers` and `response_body` hold the response to replay.
 
 A stale-`pending` entry (older than 60 s) is treated as abandoned —
 a server crashed, say. It is reclaimable by the next request, and
@@ -215,12 +212,12 @@ sequenceDiagram
 `claim-or-replay` is one FDB transaction, so two requests racing on one
 key cannot both claim it: both read no entry and write `pending`, one
 commit conflicts, and its retry reads the other's claim and answers
-409. A fingerprint is checked before the state, so a key reused for a
+409. A fingerprint is checked before the status, so a key reused for a
 different request is refused 422 whether its first request is still
 running or has finished. The lookup runs in the open transaction, where
 `fdb/transact` returns an anomaly as a value rather than throwing, and
 the anomaly is answered as itself before any branch is taken — without
-that it would bind as an entry with no state and claim the key against
+that it would bind as an entry with no status and claim the key against
 a cache that could not be read. None of the refusals or the replay
 stamps the request with the claim, so `:leave` does nothing for them.
 
@@ -354,20 +351,16 @@ mints a fresh token.
 | `principal_id` | string | required |
 | `operation` | string | required |
 | `idempotency_key` | string | required |
-| `state` | string | `"pending"` or `"completed"` |
-| `status` | int32 | optional (completed only) |
-| `headers` | string | optional EDN (completed only) |
-| `body` | string | optional EDN (completed only) |
-| `created_at` | int64 | epoch ms |
+| `status` | `IdempotencyStatus` | `PENDING` or `COMPLETED` |
+| `fingerprint` | string | SHA-256 of path, body and bank |
+| `response_status` | int32 | optional (completed only) |
+| `response_headers` | string | optional EDN (completed only) |
+| `response_body` | string | optional EDN (completed only) |
 | `expires_at` | int64 | epoch ms |
-| `fingerprint` | string | optional SHA-256 of path, body and bank |
+| `created_at` | int64 | epoch ms, field 101 |
 
 Primary key: `[principal_id, operation, idempotency_key]`. No
 secondary indexes.
-
-`fingerprint` is optional on the wire so entries written before it
-existed still parse; the record-metadata evolution the `fdb` brick
-enforces refuses a new required field.
 
 ### Every write route declares the pair or names a guard
 

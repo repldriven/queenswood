@@ -14,7 +14,7 @@
 (def ^:private delivery
   (assoc (SUT/new-invitation-delivery event "evt.test" now)
          :status :email-delivery-status-in-flight
-         :claimed-by "runner"
+         :claim-holder "runner"
          :claim-lease-expires-at (+ now 60000)))
 
 (def ^:private invitation
@@ -31,9 +31,10 @@
       (is (= {:bank-id "bnk.test"
               :kind :email-kind-invitation
               :invitation-id "inv.test"
-              :expires-at expires-at
+              :invitation-expires-at expires-at
               :changelog-event-id "evt.test"
               :status :email-delivery-status-pending
+              :attempts 0
               :next-attempt-at now
               :created-at now
               :updated-at now}
@@ -56,7 +57,7 @@
       (is (= (+ now 30000) (:next-attempt-at failed)))
       (is (= "connection refused" (:last-error failed)))
       (is (not-any? (partial contains? failed)
-                    [:claimed-by :claim-lease-expires-at]))))
+                    [:claim-holder :claim-lease-expires-at]))))
   (testing "the backoff grows by the policy's growth"
     (let [failed (SUT/record-failure (assoc delivery :attempts 1)
                                      retry-policy
@@ -99,11 +100,12 @@
       (is (= "<id@queenswood.local>" (:message-id sent)))
       (is (= 1 (:attempts sent)))
       (is (not-any? (partial contains? sent)
-                    [:claimed-by :claim-lease-expires-at :next-attempt-at]))))
+                    [:claim-holder :claim-lease-expires-at :next-attempt-at]))))
   (testing "a superseded delivery carries its reason and no claim"
     (let [superseded
           (SUT/mark-superseded delivery "invitation is withdrawn" now)]
       (is (= :email-delivery-status-superseded (:status superseded)))
       (is (= "invitation is withdrawn" (:last-error superseded)))
       (is (not-any? (partial contains? superseded)
-                    [:claimed-by :claim-lease-expires-at :next-attempt-at])))))
+                    [:claim-holder :claim-lease-expires-at
+                     :next-attempt-at])))))
