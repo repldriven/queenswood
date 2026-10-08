@@ -5,8 +5,9 @@
 End-customer accounts earn interest. The platform computes
 interest daily on each account's settled balance, records
 it as accrued, and capitalises it — moving it into the
-account's spendable balance — at a cadence the operator
-schedules. The arithmetic conserves every fraction of a
+account's spendable balance — on the days the account's
+product version says. The rate itself can vary with the
+balance and over time. The arithmetic conserves every fraction of a
 penny across millions of accounts and 365 days; nothing is
 lost or quietly rounded away. Re-running a day is safe.
 
@@ -19,16 +20,14 @@ funds, capitalisation appearing on their account at the
 expected cadence, the rate matching what they signed up
 for.
 
-**Customer engineering team.** Defines the rate as part of the cash account
-product. Decides the capitalisation cadence for the products they offer (in
-co-ordination with the operator who runs the daily and capitalisation jobs).
-Cares about: rate fidelity (the account earns what the product says), no
-surprises around rounding or lost pennies, the audit trail being intact.
+**Customer engineering team.** Defines the rate, how it varies with the balance
+and over time, and when interest is paid, as part of the cash account product.
+Cares about: being able to state the offers it advertises, rate fidelity (the
+account earns what the product says), no surprises around rounding or lost
+pennies, the audit trail being intact.
 
-**Platform operator.** Schedules the daily accrual run and the capitalisation
-runs. Owns the operational side: making sure the daily job fires every day,
-sequencing capitalisation at the agreed cadence, operating the bank's settlement
-account.
+**Platform operator.** Owns the operational side: making sure the daily
+interest job fires every day, and operating the bank's settlement account.
 
 ## Goals
 
@@ -47,12 +46,19 @@ account.
   even after the product publishes a new version with a
   different rate — see
   [cash-account-products](cash-account-products.md).
-- **Operator-scheduled capitalisation.** Capitalisation —
-  the moment accrued interest becomes part of the
-  spendable balance — happens at any cadence the operator
-  schedules. Daily, weekly, monthly, quarterly, annual
-  all work. The cadence is a product choice, not a
-  platform constraint.
+- **Rates that band and step.** A product version can pay
+  different rates on different parts of the balance ("5% up
+  to £5,000, nothing above") or on the whole balance by the
+  band it reaches, and change its rate on set dates or a
+  number of months after an account opens ("a bonus rate for
+  twelve months"). Every balance on every day has exactly one
+  rate.
+- **Paid when the product says.** Capitalisation — the
+  moment accrued interest becomes part of the spendable
+  balance — happens daily, monthly, quarterly, annually or
+  only when the account closes, on the day the product
+  version names: the account's own day, a fixed day of the
+  month, or the month's last.
 - **Compounding falls out of cadence.** Daily
   capitalisation produces daily-compounded interest;
   monthly produces monthly-compounded. The platform
@@ -76,29 +82,28 @@ account.
 
 ## Non-goals
 
-- **Internal scheduling.** The platform doesn't decide
-  when to run accruals or capitalisations. An external
-  scheduler (cron, a workflow engine, an operator
-  triggering by hand) drives the runs.
 - **Floating-point arithmetic.** All interest math is
   integer arithmetic at sub-penny precision.
-- **Multiple day-count conventions.** Only actual/365 is
-  supported today. No actual/360, no 30/360.
+- **Other day-count conventions.** Actual/365, and
+  actual/actual dividing by 366 in a leap year, are
+  supported. No actual/360, no 30/360.
 - **Per-currency rates inside one product.** A product
   version carries one rate. Products that earn different
   rates in different currencies aren't expressible as a
   single product version.
-- **Mid-period rate changes within a version.** Rate
-  changes happen at the version boundary. There's no
-  "rate effective from date X" within a version — to
-  change the rate, the customer publishes a new product
-  version.
+- **Rates that follow a reference rate.** A rate tracking
+  the Bank of England base rate changes by publishing a
+  new product version and migrating accounts onto it.
+- **Rates that depend on what the end customer does.** No
+  rate that drops after a number of withdrawals in a month,
+  or holds only while a set amount is paid in.
+- **Paying interest elsewhere.** Interest is paid into the
+  account that earned it, never to a nominated account.
+- **Working days.** Payment days are calendar days; no
+  "first working day of the month".
 - **Interest on pending balances.** Pending-incoming and
   pending-outgoing amounts don't earn interest. Only
   settled balance does.
-- **Tiered or stepped rates.** A product version carries
-  one flat rate. No "5% on the first £10,000, 3% above"
-  tiered shape today.
 - **Negative interest.** Rates are non-negative; the
   platform doesn't model accounts charged interest on
   positive balances.
@@ -116,12 +121,13 @@ capitalisation. Both are run per organisation.
 
 ### Daily accrual
 
-Once per day, the operator triggers the daily accrual run
-for each organisation. The platform:
+Once per day, the platform runs the daily accrual for each
+organisation. It:
 
 - Walks every end-customer account on that organisation.
 - For each account, reads the settled balance and the
-  rate from the account's pinned product version.
+  rates from the account's pinned product version that
+  apply that day.
 - Computes the day's interest using integer arithmetic
   at sub-penny precision; uses the account's carry to
   remember sub-penny remainders between days.
@@ -139,9 +145,9 @@ free of zero-value entries.
 
 ### Capitalisation
 
-At the operator's chosen cadence, the platform sweeps
+On each account's payment day, the platform sweeps
 accrued interest into the account's spendable balance.
-For each account:
+For each account due:
 
 - Reads the account's accrued bucket.
 - If the accrued amount is non-zero, posts a transaction
@@ -158,24 +164,62 @@ larger by the accrued amount; the next day's accrual
 computes against the new, larger balance — which is what
 makes compounding emerge from the cadence.
 
-### Cadence choices
+### Rates that change with the balance and over time
 
-The operator chooses the capitalisation cadence and the
-choice has real end-customer-facing consequences:
+A product version's rate is a schedule. Its steps start on
+calendar dates, or a number of months after each account
+opened, and the first applies from the start. Each step
+splits the balance into bands from zero up, the last with no
+upper limit, and either pays each band's rate on the part of
+the balance within it or pays the rate of the band the
+balance reaches on all of it. A flat rate is one step of one
+band. A balance at or below zero earns nothing.
+
+### When interest is paid
+
+The product version says how often interest is paid, and on
+which day, and the choice has real end-customer-facing
+consequences:
 
 - **Daily.** The end customer sees interest credited every
   day. Compounding is daily.
-- **Weekly / monthly.** The end customer sees interest
-  credited at that cadence. Compounding is at the same
+- **Monthly or quarterly.** Paid on the day of the month the
+  account opened, on a fixed day from the 1st to the 28th,
+  or on the month's last day. Compounding is at the same
   cadence.
-- **Annually.** The end customer sees interest credited
-  once a year. Compounding only on the anniversary.
+- **Annually.** Paid on the anniversary, or on a fixed date
+  such as 31 March. Compounding only once a year.
+- **At close.** Interest accrues for the life of the account
+  and is paid when it closes.
 
-Less frequent capitalisation means the end customer earns
-less in absolute terms (since accrued interest doesn't
-itself earn interest until it has been capitalised). The
-trade-off is a product decision; the platform supports
-any choice.
+Less frequent payment means the end customer earns less in
+absolute terms (since accrued interest doesn't itself earn
+interest until it has been paid). The trade-off is a product
+decision.
+
+### Fixed-term accounts
+
+A product version can give its accounts a term, such as twelve
+months. The end customer names, when opening the account, another of
+their accounts at the bank to receive the money. On the day the term
+ends the account matures: its accrued interest is paid, it stops
+earning and stops accepting money in, and its whole balance moves to
+the named account, after which it closes.
+
+If the money cannot move that day, because a payment is still on its
+way or the named account has since closed, the account stays matured
+and the platform tries again each day. The money is never sent
+anywhere the end customer did not name: the customer uses the API to
+name another account, or the end customer moves the money out
+themselves and the account is closed.
+
+### Closing an account with interest owed
+
+An account can only close with nothing in it, and between
+payment days accrued interest is still in it. The customer
+uses the API to pay the account's accrued interest at once,
+moves the balance out, and closes the account. A fraction of
+a penny not yet credited is not paid.
 
 ### Rate stability over time
 
@@ -261,9 +305,9 @@ sequenceDiagram
     participant Q as Queenswood
     participant L as Ledger
 
-    Note over Op,L: at the operator's chosen cadence
+    Note over Op,L: once per day per organisation, after accrual
     Op->>Q: capitalise (organisation, date)
-    loop for each end-customer account
+    loop for each end-customer account whose payment day it is
         alt accrued > 0
             Q->>L: drain accrued<br/>credit spendable balance
         end
@@ -272,8 +316,9 @@ sequenceDiagram
     Q-->>Op: run summary
 ```
 
-At the chosen cadence, the operator triggers
-capitalisation. Accrued interest moves into the end
+Each day, after accrual, capitalisation pays the accounts
+whose product version names that day. Accrued interest
+moves into the end
 customer's spendable balance, and each end customer sees a
 statement line for what they were paid. The bank's own matching liability
 clears once at the end of the run rather than account by
@@ -317,42 +362,91 @@ The cohort property in action. Existing end customers don't
 see a rate cut overnight when the customer publishes a new
 version with a different rate.
 
+### 5. End customer earns a bonus rate, then the standard rate
+
+```mermaid
+sequenceDiagram
+    participant T as Customer system
+    participant E as End customer
+    participant Q as Queenswood
+
+    T->>Q: publish a version: 5% up to £5,000 for 12 months,<br/>then 1.5%, paid monthly on the opening day
+    E->>T: opens an account on 15 January with £8,000
+    Note over E,Q: each day for 12 months: 5% on £5,000, nothing on £3,000
+    Q->>E: on the 15th of each month, the month's interest is paid
+    Note over E,Q: from 15 January next year: 1.5% on the whole balance
+```
+
+The customer states a twelve-month bonus capped at £5,000
+once, when it publishes the version. Every account opened on
+it gets its own twelve months from the day it opened, and is
+paid on its own day of the month.
+
+### 6. End customer closes an account with interest owed
+
+```mermaid
+sequenceDiagram
+    participant E as End customer
+    participant T as Customer system
+    participant Q as Queenswood
+
+    Note over E,Q: the account is paid monthly, and is mid-month
+    E->>T: close my account
+    T->>Q: pay the account's accrued interest now
+    Q-->>T: interest paid into the account
+    T->>Q: move the whole balance to the end customer's other bank
+    T->>Q: close the account
+    Q-->>T: account closed
+```
+
+The end customer leaves with every penny accrued up to the
+day they closed, not just up to the last payment day.
+
+### 7. A regular saver matures
+
+```mermaid
+sequenceDiagram
+    participant T as Customer system
+    participant E as End customer
+    participant Q as Queenswood
+
+    T->>Q: publish a version: 6.31% fixed, paid monthly,<br/>a twelve-month term
+    E->>T: opens a saver, paying out to their current account
+    Note over E,Q: each month for twelve months: interest paid into the saver
+    Note over E,Q: twelve months after opening
+    Q->>E: the last interest is paid and the saver matures
+    Q->>E: the whole balance moves to the current account
+    Q-->>T: the saver is closed
+```
+
+The end customer saves for a fixed term and finds the money in their
+current account when it ends, with nothing to do. Had they closed
+that current account in the meantime, the saver would wait, matured,
+until they named another.
+
 ## Open questions
 
-- **Internal scheduling.** Today the platform relies on
-  an external scheduler to trigger the daily accrual and
-  the capitalisation runs. A real product probably wants
-  the platform to be the source of truth for "did today's
-  accrual fire?" rather than depending on operator
-  discipline.
 - **Reversing a wrongly-accrued day.** No packaged flow
   for unwinding an accrual or capitalisation. Reversal
   is possible by hand via the underlying ledger but
   isn't a first-class capability.
-- **Capitalisation date validation.** Calling
-  capitalisation with a particular date capitalises
-  whatever's in the accrued bucket at that moment; the
-  platform doesn't validate that the date is a
-  period-end or that all of the period's accruals have
-  posted. Sequencing is the operator's responsibility.
-- **Tiered or stepped rates.** No "5% on the first
-  £10,000, 3% above". Real retail products often use
-  tiered rates; the platform doesn't model them.
 - **Per-currency rates within one product.** A product
   version carries one rate. Products that earn different
   rates in different currencies need a model change.
-- **Mid-period rate changes.** A rate change requires
-  publishing a new product version. There's no "rate
-  effective from date X within the same version" flow.
-  Real products sometimes need this for promotional
-  rates.
+- **Conditional rates.** Limited-access savers drop
+  their rate in a month with withdrawals, and some current
+  accounts pay only while money is paid in each month.
+  Whether a rate's condition shares a shape with a
+  reward's is open; until then a version's rates apply
+  whatever the end customer does.
+- **Paying out elsewhere or renewing.** A matured
+  balance goes to another account at the same bank. Paying
+  it to an account at another bank, or rolling it into a
+  new term, is not offered.
 - **Interest on pending balances.** Pending-incoming and
   pending-outgoing amounts don't earn interest. A "earn
   interest on cleared funds same day" feature would need
   explicit treatment.
-- **Day-count convention.** Only actual/365 is
-  supported. Other conventions (actual/360, 30/360)
-  would matter for some product types.
 - **Account-skip and run summary.** When an account
   fails its checks during a run, the run records the
   failure and continues. A more developed run summary

@@ -209,6 +209,177 @@ primary key. `get-product` returns the aggregate (`{:versions [...]}`
 sorted newest-first); `active-version` returns the version in effect
 on a given day (see **Effective dating** below).
 
+#### Interest terms
+
+Not built yet. A version states its rate as a schedule and says when
+interest is paid, in one `interest` field that replaces
+`interest_rate_bps` and is absent on a version that pays none, such as
+the own-funds house product. How the interest pass reads it is
+[interest](interest.md#a-versions-interest-terms).
+
+```proto
+enum InterestScheduleBasis {
+  INTEREST_SCHEDULE_BASIS_UNKNOWN = 0;
+  INTEREST_SCHEDULE_BASIS_FIXED = 1;
+  INTEREST_SCHEDULE_BASIS_RELATIVE = 2;
+}
+
+enum InterestBanding {
+  INTEREST_BANDING_UNKNOWN = 0;
+  INTEREST_BANDING_MARGINAL = 1;
+  INTEREST_BANDING_WHOLE_BALANCE = 2;
+}
+
+enum InterestDayCount {
+  INTEREST_DAY_COUNT_UNKNOWN = 0;
+  INTEREST_DAY_COUNT_ACTUAL_365 = 1;
+  INTEREST_DAY_COUNT_ACTUAL_ACTUAL = 2;
+}
+
+enum InterestPaymentFrequency {
+  INTEREST_PAYMENT_FREQUENCY_UNKNOWN = 0;
+  INTEREST_PAYMENT_FREQUENCY_DAILY = 1;
+  INTEREST_PAYMENT_FREQUENCY_MONTHLY = 2;
+  INTEREST_PAYMENT_FREQUENCY_QUARTERLY = 3;
+  INTEREST_PAYMENT_FREQUENCY_ANNUALLY = 4;
+  INTEREST_PAYMENT_FREQUENCY_AT_CLOSE = 5;
+}
+
+enum InterestPaymentDay {
+  INTEREST_PAYMENT_DAY_UNKNOWN = 0;
+  INTEREST_PAYMENT_DAY_ACCOUNT = 1;       // the account's pinned_on
+  INTEREST_PAYMENT_DAY_DAY_OF_MONTH = 2;  // day_of_month
+  INTEREST_PAYMENT_DAY_LAST_OF_MONTH = 3;
+}
+
+// A rate on the part of a balance within a band.
+message InterestBand {
+  optional int64 up_to = 1; // minor units
+  required int32 rate_bps = 2;
+}
+
+// The bands in force from a step's start until the next step's.
+message InterestStep {
+  optional int64 starts_on = 1; // epoch day
+  optional int32 starts_after_months = 2;
+  repeated InterestBand bands = 3;
+}
+
+// When accrued interest is paid into the account.
+message InterestPayment {
+  required InterestPaymentFrequency frequency = 1;
+  optional InterestPaymentDay day = 2;
+  optional int32 day_of_month = 3; // 1 to 28
+  optional int32 month = 4; // 1 to 12
+}
+
+// A version's interest rate and when it is paid.
+message InterestTerms {
+  required InterestScheduleBasis basis = 1;
+  required InterestBanding banding = 2;
+  repeated InterestStep steps = 3;
+  required InterestDayCount day_count = 4;
+  required InterestPayment payment = 5;
+}
+```
+
+`CashAccountProduct` carries it as `optional InterestTerms interest =
+15`.
+
+**Steps.** One step is in force on any day: the last whose start is on
+or before it. A `FIXED` schedule starts its steps on calendar days, a
+`RELATIVE` one a number of calendar months after the day the account
+came onto the version, a day the month lacks moving to its last. The
+first step has no start, so it is in force from the beginning.
+
+**Bands.** A step's bands cover the balance from zero up, each from the
+previous band's `up_to` to its own, the last with no `up_to`. A
+`MARGINAL` step pays each band's rate on the part of the balance within
+it: 500 bps up to £5,000 and 0 above pays 5% on the first £5,000 and
+nothing on the rest. A `WHOLE_BALANCE` step pays the rate of the band
+the balance falls in on all of it, a balance equal to an `up_to` falling
+in the band above. A flat rate is one step of one band, and the two
+bandings agree on it.
+
+**Day count.** `ACTUAL_365` divides a year's interest by 365 every day.
+`ACTUAL_ACTUAL` divides by 366 on a day in a leap year.
+
+**Payment.** `DAILY` pays every day and `AT_CLOSE` only when the
+account's accrued interest is paid as it closes, and neither takes a
+`day`. `MONTHLY`,
+`QUARTERLY` and `ANNUALLY` pay on the `day` named:
+
+- `ACCOUNT` — the day of the month the account came onto the version,
+  or the month's last where the month is shorter, every one, three or
+  twelve months from it. Each payment is set from the original day, so
+  an account pinned on 31 January is paid on 28 February and 31 March.
+- `DAY_OF_MONTH` — `day_of_month`, 1 to 28, so the day never moves.
+- `LAST_OF_MONTH` — the month's last day.
+
+A quarterly or annual payment on `DAY_OF_MONTH` or `LAST_OF_MONTH`
+names the `month` of its first payment in the year: quarterly on the
+last day from March pays in March, June, September and December, and
+annually on the last day of December pays on 31 December.
+
+The fields are siblings rather than a `oneof`, because protojure nests
+a `oneof` under its name and the version's Avro event would no longer
+match the record, as `PaymentAddress` found.
+
+**Validation.** `ensure-interest-terms` in `domain.clj` runs on create
+and update beside `ensure-effective-window`, and refuses
+`:cash-account-product/invalid-interest-terms`, a 422 whose message
+names the rule broken:
+
+- the first step has no start, and every later one has the start its
+  basis names, strictly after the one before;
+- every step has at least one band, every band but the last an `up_to`
+  above zero and above the one before, and the last none;
+- every `rate_bps` is zero or more;
+- a `DAILY` or `AT_CLOSE` payment names no `day`, and any other names
+  one;
+  `DAY_OF_MONTH` names a `day_of_month` from 1 to 28; a quarterly or
+  annual payment on a fixed day names a `month`, and no other does;
+- at most 12 steps and 10 bands a step.
+
+A fixed step may start after the version's `effective-to`: that date
+stops accounts opening on the version, and accounts already on it keep
+accruing.
+
+The API takes and returns the terms as one object:
+
+```json
+"interest": {
+  "basis": "relative",
+  "banding": "marginal",
+  "steps": [
+    {"bands": [{"up-to": 500000, "rate-bps": 500}, {"rate-bps": 0}]},
+    {"starts-after-months": 12, "bands": [{"rate-bps": 150}]}
+  ],
+  "day-count": "actual-365",
+  "payment": {"frequency": "monthly", "day": "account"}
+}
+```
+
+That reads: 5% on the first £5,000 and nothing above it for twelve
+months, then 1.5% on the whole balance, paid monthly on the day the
+account opened.
+
+#### Term
+
+Not built yet. A version may give its accounts a fixed term,
+`optional int32 term_months = 19` on `CashAccountProduct`, from 1 to
+120, absent on a version whose accounts stay open until closed. An
+account opened on a version with a term names the account its balance
+is paid out to when it matures, and matures that many months after it
+opened; [interest](interest.md#a-versions-interest-terms) says how the
+pass matures it. The API takes it as `"term-months": 12`.
+
+A migration refuses a source or target version with a term,
+`:cash-account-migration/fixed-term-version`, since an
+account's term and payout account are fixed when it opens. A
+twelve-month regular saver is a savings version with a term of 12, one
+step at its fixed rate, and a payment of monthly or at close.
+
 #### The currency gate
 
 A template names the currencies it allows, and a create or update
