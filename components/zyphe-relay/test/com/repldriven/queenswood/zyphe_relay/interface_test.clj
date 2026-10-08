@@ -27,12 +27,13 @@
   [intent-id dedup-key]
   {:intent-id intent-id
    :dedup-key dedup-key
+   :kind :zyphe-outbound-intent-kind-check
    :request (pr-str {:bank-id "bnk.1"
                      :verification-id dedup-key
                      :party-id "pty.1"
                      :first-name "Ada"
                      :last-name "Lovelace"})
-   :status "pending"
+   :status :outbound-intent-status-pending
    :attempts 0
    :created-at (utility/now)})
 
@@ -72,7 +73,9 @@
        (nom-test> [_ (SUT/save-intent config (intent-of "int.3" "iv-B"))])
        (outbound/drain-once (merge config unreachable) (utility/now))
        (let [i3 (first (filter #(= "int.3" (:intent-id %))
-                               (store/intents-with-status config "pending")))]
+                               (store/intents-with-status
+                                config
+                                :outbound-intent-status-pending)))]
          (is (some? i3) "still pending after an unreachable submit")
          (is (= 1 (:attempts i3)) "attempt count bumped")))
      (testing "a verification's later intent waits behind an earlier one"
@@ -85,6 +88,8 @@
        (outbound/drain-once (merge config unreachable) (utility/now))
        (let [attempts (into {}
                             (map (juxt :intent-id :attempts))
-                            (store/intents-with-status config "pending"))]
+                            (store/intents-with-status
+                             config
+                             :outbound-intent-status-pending))]
          (is (= 1 (get attempts "int.4")) "the earlier intent is tried")
          (is (= 0 (get attempts "int.5")) "the later one is held"))))))

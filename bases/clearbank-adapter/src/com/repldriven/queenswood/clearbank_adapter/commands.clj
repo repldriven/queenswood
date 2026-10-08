@@ -15,7 +15,7 @@
   (let [res (relay/save-intent (select-keys config [:record-store :record-db])
                                (assoc intent
                                       :intent-id (str (utility/uuidv7))
-                                      :status "pending"
+                                      :status :outbound-intent-status-pending
                                       :attempts 0
                                       :created-at (utility/now)))]
     (cond
@@ -32,6 +32,7 @@
   [config data]
   (save-intent config
                {:dedup-key (:end-to-end-id data)
+                :kind :clearbank-outbound-intent-kind-payment
                 :subjects (vec (keep identity [(:debtor-account-id data)]))
                 :request (clearbank/->fps-body data)}))
 
@@ -45,7 +46,7 @@
     (let-nom> [account-number (relay/allocate-account-number (fdb config))]
       (save-intent config
                    {:dedup-key (str "open:" account-id)
-                    :kind "open-account"
+                    :kind :clearbank-outbound-intent-kind-open-account
                     :subjects [account-id]
                     :request (clearbank/->virtual-account-body
                               (:sort-code config)
@@ -61,7 +62,7 @@
   (let [{:keys [bank-id account-id provider-account-id]} data]
     (save-intent config
                  {:dedup-key (str "close:" account-id)
-                  :kind "close-account"
+                  :kind :clearbank-outbound-intent-kind-close-account
                   :subjects [account-id]
                   :request "{}"
                   :context (pr-str {:bank-id bank-id
@@ -75,7 +76,7 @@
     (let-nom> [account-number (relay/allocate-account-number (fdb config))]
       (save-intent config
                    {:dedup-key (str "reissue:" account-id ":" rotation-key)
-                    :kind "reissue-address"
+                    :kind :clearbank-outbound-intent-kind-reissue-address
                     :subjects [account-id]
                     :request (clearbank/->virtual-account-body
                               (:sort-code config)

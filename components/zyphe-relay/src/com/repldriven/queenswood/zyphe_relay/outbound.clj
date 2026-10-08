@@ -228,13 +228,13 @@
   session."
   [config now intent reply]
   (let [data (request intent)]
-    {:status "settled"
+    {:status :outbound-intent-status-settled
      :event (when (:session-id data) (session-opened config now data reply))}))
 
 (defn- check-failed
   [_config _now intent failure reason]
   (let [data (request intent)]
-    {:status "failed"
+    {:status :outbound-intent-status-failed
      :event (when (:session-id data)
               (session-failed data
                               (if (= :undelivered failure)
@@ -243,14 +243,14 @@
 
 (intent-poller/defoperations
  :zyphe
- {"check" {:call check :answered checked :failed check-failed}})
+ {:zyphe-outbound-intent-kind-check
+  {:call check :answered checked :failed check-failed}})
 
 (defn- runner-config
   [config]
   (assoc config
          :adapter :zyphe
-         :store store/spec
-         :default-operation "check"))
+         :store store/spec))
 
 (defn drain-once
   "Relay each pending intent once, oldest first, holding one for a

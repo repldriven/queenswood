@@ -47,7 +47,7 @@
 
 (defn- payment-failed
   [_config now intent failure reason]
-  {:status "failed"
+  {:status :outbound-intent-status-failed
    :event (rejected intent
                     (if (= :refused failure)
                       :failure-kind-refused
@@ -86,13 +86,14 @@
     (assoc (if descriptor
              (do (log/info "Reconciled a Form3 payment"
                            {:intent-id intent-id :status status})
-                 {:status "settled" :event descriptor})
+                 {:status :outbound-intent-status-settled :event descriptor})
              (shared/wait config now))
            :outcome
            outcome)))
 
 (intent-poller/defoperations :form3
-                             {"payment" {:call pay
-                                         :answered paid
-                                         :failed payment-failed
-                                         :reconcile reconcile-payment}})
+                             {:form3-outbound-intent-kind-payment
+                              {:call pay
+                               :answered paid
+                               :failed payment-failed
+                               :reconcile reconcile-payment}})

@@ -38,10 +38,11 @@
 (defn- settle
   [txn dedup-key]
   (let-nom> [intent (find-intent txn dedup-key)]
-    (when (= "sent" (:status intent))
-      (fdb/save-record (fdb/open txn (:intents spec))
-                       (schema/Form3OutboundIntent->java
-                        (assoc intent :status "settled"))))))
+    (when (= :outbound-intent-status-sent (:status intent))
+      (fdb/save-record
+       (fdb/open txn (:intents spec))
+       (schema/Form3OutboundIntent->java
+        (assoc intent :status :outbound-intent-status-settled))))))
 
 (defn save-event
   "Persist an outbox event and append it to the store's changelog in one

@@ -219,13 +219,13 @@
   session."
   [config _now intent run]
   (let [data (request intent)]
-    {:status "settled"
+    {:status :outbound-intent-status-settled
      :event (when (:session-id data) (session-opened config data run))}))
 
 (defn- check-failed
   [_config _now intent failure reason]
   (let [data (request intent)]
-    {:status "failed"
+    {:status :outbound-intent-status-failed
      :event (when (:session-id data)
               (session-failed data
                               (if (= :undelivered failure)
@@ -234,14 +234,14 @@
 
 (intent-poller/defoperations
  :onfido
- {"check" {:call check :answered checked :failed check-failed}})
+ {:onfido-outbound-intent-kind-check
+  {:call check :answered checked :failed check-failed}})
 
 (defn- runner-config
   [config]
   (assoc config
          :adapter :onfido
-         :store store/spec
-         :default-operation "check"))
+         :store store/spec))
 
 (defn drain-once
   [config now]

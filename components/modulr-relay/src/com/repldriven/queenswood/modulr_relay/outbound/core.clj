@@ -11,7 +11,8 @@
 (def ^:private
      ^{:doc "Operations that wait for an account's calls to settle."}
      settles-first
-  #{"close-account" "reissue-address"})
+  #{:modulr-outbound-intent-kind-close-account
+    :modulr-outbound-intent-kind-reissue-address})
 
 (defn- poller-config
   [config]

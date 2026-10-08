@@ -77,8 +77,8 @@
                              also)))))
 
 (defn- operation-of
-  [config intent]
-  (or (not-empty (:kind intent)) (:default-operation config)))
+  [_config intent]
+  (:kind intent))
 
 (defn- retry-policy
   [config intent]
@@ -166,7 +166,7 @@
           (record config
                   now
                   intent
-                  "pending"
+                  :outbound-intent-status-pending
                   (answered config now intent result))
 
           :refused
@@ -178,7 +178,7 @@
               (record config
                       now
                       intent
-                      "pending"
+                      :outbound-intent-status-pending
                       (failed config now intent :refused result)))
 
           (:retry :wait)
@@ -193,7 +193,7 @@
                 (record config
                         now
                         intent
-                        "pending"
+                        :outbound-intent-status-pending
                         (failed config now intent :undelivered result)))
             (retry config
                    now
@@ -216,7 +216,8 @@
                                                   "intent.id"
                                                   (:intent-id intent)
                                                   "intent.kind"
-                                                  (not-empty (:kind intent)))
+                                                  (some-> (:kind intent)
+                                                          name))
                               f))
 
 (defn- checked
@@ -233,8 +234,14 @@
                     :intent-id intent-id
                     :operation (operation-of config intent)
                     :anomaly res})
-        (store/finish config store intent-id status "failed" attempts nil)
-        (assoc intent :status "failed"))
+        (store/finish config
+                      store
+                      intent-id
+                      status
+                      :outbound-intent-status-failed
+                      attempts
+                      nil)
+        (assoc intent :status :outbound-intent-status-failed))
       res)))
 
 (defn intents-with-status
@@ -258,7 +265,7 @@
     (record config
             now
             intent
-            "pending"
+            :outbound-intent-status-pending
             ((:failed operation) config now intent :undelivered expired))))
 
 (defn- expire-aged
@@ -346,8 +353,10 @@
                         status (when-not (error/anomaly? result)
                                  (:status result))]
                     (case status
-                      "sent" result
-                      ("settled" "failed") nil
+                      :outbound-intent-status-sent result
+                      (:outbound-intent-status-settled
+                       :outbound-intent-status-failed)
+                      nil
                       (assoc intent :next-attempt-at Long/MAX_VALUE))))))
         intents))
 
@@ -393,7 +402,11 @@
                                    now
                                    pass
                                    (if (= :retry outcome) :failed :answered)))
-                    (record config now i "sent" (dissoc result :outcome)))))))))
+                    (record config
+                            now
+                            i
+                            :outbound-intent-status-sent
+                            (dissoc result :outcome)))))))))
 
 (defn- reconcile
   "Reconcile each due sent intent whose operation has a `:reconcile`, at
@@ -460,8 +473,14 @@
   [config now]
   (let [{:keys [store]} config
         limit (:pass-limit config default-pass-limit)
-        pending (store/intents-with-status config store "pending" limit)
-        sent (store/intents-with-status config store "sent" limit)
+        pending (store/intents-with-status config
+                                           store
+                                           :outbound-intent-status-pending
+                                           limit)
+        sent (store/intents-with-status config
+                                        store
+                                        :outbound-intent-status-sent
+                                        limit)
         pending (if (or (error/anomaly? pending) (error/anomaly? sent))
                   pending
                   (before-unread-sent pending

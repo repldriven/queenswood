@@ -53,7 +53,7 @@
      (nil? creditor)
      nil
 
-     (= "credit" (:kind intent))
+     (= :modulr-outbound-intent-kind-credit (:kind intent))
      (json/write-str {:accountId creditor
                       :amount (modulr/->major-units amount)
                       :description reference
@@ -76,7 +76,9 @@
     (shared/answer (shared/call config
                                 intent
                                 {:method :post
-                                 :path (if (= "credit" (:kind intent))
+                                 :path (if (=
+                                            :modulr-outbound-intent-kind-credit
+                                            (:kind intent))
                                          "/credit"
                                          "/payments")
                                  :raw-body body}))
@@ -86,13 +88,15 @@
   "A credit is complete once Modulr takes it; a transfer is sent, to be
   reconciled if no webhook settles it first."
   [config now intent result]
-  (if (= "credit" (:kind intent))
-    {:status "settled" :event (transfer-completed intent now)}
+  (if (= :modulr-outbound-intent-kind-credit (:kind intent))
+    {:status :outbound-intent-status-settled
+     :event (transfer-completed intent now)}
     (shared/sent config now result)))
 
 (defn- transfer-not-made
   [_config now intent _failure reason]
-  {:status "failed" :event (transfer-failed intent reason now)})
+  {:status :outbound-intent-status-failed
+   :event (transfer-failed intent reason now)})
 
 (defn- reconcile-transfer
   "Ask Modulr what became of a sent transfer no webhook has settled, and
@@ -109,15 +113,16 @@
     (assoc (if descriptor
              (do (log/info "Reconciled a Modulr transfer"
                            {:intent-id intent-id :status status})
-                 {:status "settled" :event descriptor})
+                 {:status :outbound-intent-status-settled :event descriptor})
              (shared/wait config now))
            :outcome
            outcome)))
 
 (intent-poller/defoperations
  :modulr
- {"transfer" {:call transfer
-              :answered transferred
-              :failed transfer-not-made
-              :reconcile reconcile-transfer}
-  "credit" {:call transfer :answered transferred :failed transfer-not-made}})
+ {:modulr-outbound-intent-kind-transfer {:call transfer
+                                         :answered transferred
+                                         :failed transfer-not-made
+                                         :reconcile reconcile-transfer}
+  :modulr-outbound-intent-kind-credit
+  {:call transfer :answered transferred :failed transfer-not-made}})

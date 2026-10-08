@@ -40,10 +40,11 @@
 (defn- settle
   [txn dedup-key]
   (let-nom> [intent (find-intent txn dedup-key)]
-    (when (= "sent" (:status intent))
-      (fdb/save-record (fdb/open txn (:intents spec))
-                       (schema/ModulrOutboundIntent->java
-                        (assoc intent :status "settled"))))))
+    (when (= :outbound-intent-status-sent (:status intent))
+      (fdb/save-record
+       (fdb/open txn (:intents spec))
+       (schema/ModulrOutboundIntent->java
+        (assoc intent :status :outbound-intent-status-settled))))))
 
 (defn save-event
   "Persist an outbox event and append it to the store's changelog in one
@@ -79,7 +80,7 @@
   was not opened here or is not open yet."
   [txn account-id]
   (let-nom> [intent (find-intent txn (open-dedup-key account-id))]
-    (when (= "settled" (:status intent))
+    (when (= :outbound-intent-status-settled (:status intent))
       (:provider-account-id (intent-context intent)))))
 
 (defn hold

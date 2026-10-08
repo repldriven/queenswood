@@ -70,11 +70,12 @@
   "Sent, as the provider's payment `result`, to be reconciled if no
   webhook settles it first."
   [config now result]
-  {:status "sent"
+  {:status :outbound-intent-status-sent
    :changes (utility/assoc-some {:next-attempt-at (reconcile-at config now)}
                                 :provider-payment-id
                                 (:id result))})
 
 (defn wait
   [config now]
-  {:status "sent" :changes {:next-attempt-at (reconcile-at config now)}})
+  {:status :outbound-intent-status-sent
+   :changes {:next-attempt-at (reconcile-at config now)}})

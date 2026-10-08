@@ -25,8 +25,7 @@
 
   A poller config carries the FDB `:record-db` and `:record-store`, the
   `:schemas` events are serialised with, `:adapter`, the store spec as
-  `:store`, the `:default-operation` of an intent whose `:kind` names
-  none, the `:delivery-policy` its retries, giving up and breaker take
+  `:store`, the `:delivery-policy` its retries, giving up and breaker take
   (ADR-0034), `:poll-ms`, and optionally `:settles-first?` and
   `:concurrency`. Each pass asks the breaker on `adapter:<adapter>`
   first: open, it calls nothing and fails the intents past their maximum
@@ -55,7 +54,7 @@
 
 (defmacro defoperations
   "Register each operation `adapter` carries out, keyed by the `:kind` its
-  intents name. Each value is a map of three functions, and optionally a
+  intents name, a keyword of the adapter's own intent kind enum. Each value is a map of three functions, and optionally a
   fourth:
   - `:call` — `(fn [config now intent])`, calls the external API and
     returns `[:answered result]`, `[:refused reason]` or
@@ -64,7 +63,8 @@
     its failure to answer are recorded on the adapter's breaker; a wait
     is not.
   - `:answered` — `(fn [config now intent result])`, returns
-    `{:status status :event descriptor}`, the status the intent ends at
+    `{:status status :event descriptor}`, the `:outbound-intent-status-*`
+    the intent ends at
     and the event it reports, or nil for none.
   - `:failed` — `(fn [config now intent failure reason])`, the event
     descriptor a failed intent reports, or nil; `failure` is `:refused`
@@ -79,7 +79,9 @@
   serialised with the config's schema for `:event-name`.
 
   Usage:
-    (defoperations :adapter {\"check\" {:call check :answered checked :failed failed}})"
+    (defoperations :adapter
+                   {:adapter-outbound-intent-kind-check
+                    {:call check :answered checked :failed failed}})"
   [adapter operation-map]
   `(operations/defoperations ~adapter ~operation-map))
 

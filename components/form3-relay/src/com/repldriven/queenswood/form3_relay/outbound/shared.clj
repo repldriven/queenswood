@@ -48,14 +48,15 @@
 (defn sent
   "Submitted, to be reconciled if no notification settles it first."
   [config now intent]
-  {:status "sent"
+  {:status :outbound-intent-status-sent
    :changes (utility/assoc-some {:next-attempt-at (reconcile-at config now)}
                                 :provider-payment-id
                                 (:provider-payment-id intent))})
 
 (defn wait
   [config now]
-  {:status "sent" :changes {:next-attempt-at (reconcile-at config now)}})
+  {:status :outbound-intent-status-sent
+   :changes {:next-attempt-at (reconcile-at config now)}})
 
 (defn payment-path
   [payment-id]

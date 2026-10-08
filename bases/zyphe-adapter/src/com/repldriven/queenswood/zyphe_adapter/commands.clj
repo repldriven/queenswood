@@ -20,9 +20,10 @@
         res (relay/save-intent fdb-config
                                {:intent-id (str (utility/uuidv7))
                                 :dedup-key (or session-id verification-id)
+                                :kind :zyphe-outbound-intent-kind-check
                                 :subjects [verification-id]
                                 :request (pr-str data)
-                                :status "pending"
+                                :status :outbound-intent-status-pending
                                 :attempts 0
                                 :created-at (utility/now)})]
     (cond

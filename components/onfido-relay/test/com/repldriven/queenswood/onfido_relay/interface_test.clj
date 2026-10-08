@@ -27,11 +27,12 @@
   [intent-id dedup-key]
   {:intent-id intent-id
    :dedup-key dedup-key
+   :kind :onfido-outbound-intent-kind-check
    :request (pr-str {:bank-id "bnk.1"
                      :verification-id dedup-key
                      :first-name "Ada"
                      :last-name "Lovelace"})
-   :status "pending"
+   :status :outbound-intent-status-pending
    :attempts 0
    :created-at (utility/now)})
 
@@ -65,6 +66,8 @@
                                            :probe-lease-ms 1000}})
         (utility/now))
        (let [i3 (first (filter #(= "int.3" (:intent-id %))
-                               (store/intents-with-status config "pending")))]
+                               (store/intents-with-status
+                                config
+                                :outbound-intent-status-pending)))]
          (is (some? i3) "still pending after an unreachable submit")
          (is (= 1 (:attempts i3)) "attempt count bumped"))))))

@@ -1,0 +1,23 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schemas.form3;
+
+import "record_metadata_options.proto";
+
+option java_outer_classname = "Form3OutboxEventProto";
+
+// An event the Form3 adapter has yet to publish to the bus.
+message Form3OutboxEvent {
+  option (com.apple.foundationdb.record.record).usage = RECORD;
+
+  required string outbox_id = 1; // uuidv7
+  required string dedup_key = 2;
+  required string event_name = 3;
+  required bytes payload = 4; // Avro
+  optional string correlation_id = 5;
+  optional string causation_id = 6;
+  optional string traceparent = 7; // W3C trace context
+  optional string ordering_key = 8;
+
+  required int64 created_at = 101;
+}

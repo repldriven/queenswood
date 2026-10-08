@@ -39,7 +39,12 @@
 
 (defn mark-sent
   [config intent-id]
-  (finish config intent-id "pending" "sent" nil nil))
+  (finish config
+          intent-id
+          :outbound-intent-status-pending
+          :outbound-intent-status-sent
+          nil
+          nil))
 
 (defn allocate-account-number
   [txn]

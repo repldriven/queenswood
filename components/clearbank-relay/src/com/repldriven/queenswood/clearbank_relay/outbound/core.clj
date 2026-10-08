@@ -11,8 +11,7 @@
   [config]
   (assoc config
          :adapter :clearbank
-         :store store/spec
-         :default-operation "payment"))
+         :store store/spec))
 
 (defn drain-once
   "Make each due pending call once, oldest first, holding a call for an

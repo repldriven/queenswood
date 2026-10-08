@@ -83,11 +83,11 @@
     (com.repldriven.queenswood.schemas.payee_check
      PayeeCheckProto$PayeeCheck)
     (com.repldriven.queenswood.schemas.clearbank
-     ClearbankOutboxProto$ClearbankOutboxEvent
-     ClearbankOutboxProto$ClearbankOutboundIntent)
+     ClearbankOutboxEventProto$ClearbankOutboxEvent
+     ClearbankOutboundIntentProto$ClearbankOutboundIntent)
     (com.repldriven.queenswood.schemas.onfido
-     OnfidoOutboxProto$OnfidoOutboxEvent
-     OnfidoOutboxProto$OnfidoOutboundIntent)
+     OnfidoOutboxEventProto$OnfidoOutboxEvent
+     OnfidoOutboundIntentProto$OnfidoOutboundIntent)
     (com.repldriven.queenswood.schemas.policies
      PolicyProto$Policy
      PolicyProto$PolicyBinding)
@@ -115,16 +115,17 @@
      WebhookEndpointProto$WebhookEndpoint
      WebhookNotificationProto$WebhookNotification)
     (com.repldriven.queenswood.schemas.outbound
-     CircuitBreakerProto$CircuitBreaker)
+     CircuitBreakerProto$CircuitBreaker
+     OutboundTypesProto$OutboundIntentStatus)
     (com.repldriven.queenswood.schemas.zyphe
-     ZypheOutboxProto$ZypheOutboxEvent
-     ZypheOutboxProto$ZypheOutboundIntent)
+     ZypheOutboxEventProto$ZypheOutboxEvent
+     ZypheOutboundIntentProto$ZypheOutboundIntent)
     (com.repldriven.queenswood.schemas.form3
-     Form3OutboxProto$Form3OutboundIntent
-     Form3OutboxProto$Form3OutboxEvent)
+     Form3OutboundIntentProto$Form3OutboundIntent
+     Form3OutboxEventProto$Form3OutboxEvent)
     (com.repldriven.queenswood.schemas.modulr
-     ModulrOutboxProto$ModulrOutboxEvent
-     ModulrOutboxProto$ModulrOutboundIntent)))
+     ModulrOutboxEventProto$ModulrOutboxEvent
+     ModulrOutboundIntentProto$ModulrOutboundIntent)))
 
 (def ^{:doc "Parse AccountBalance protobuf bytes into a Clojure map."}
      pb->AccountBalance
@@ -186,6 +187,20 @@
   [gl-account-code]
   (LedgerAccountProto$GlAccountCode/forNumber
    (gl-account-code->int gl-account-code)))
+
+(def ^{:doc "Map of OutboundIntentStatus label to protobuf int value."}
+     outbound-intent-status->int
+  outbound/OutboundIntentStatus-label2val)
+
+(defn outbound-intent-status->pb-enum
+  "Convert an outbound-intent-status keyword to the protobuf enum value,
+  for use as the comparand in an FDB enum-field index query.
+
+  Args:
+  - outbound-intent-status: `:outbound-intent-status-*` keyword."
+  [outbound-intent-status]
+  (OutboundTypesProto$OutboundIntentStatus/forNumber
+   (outbound-intent-status->int outbound-intent-status)))
 
 (defn iso-cash-account-type->pb-enum
   "Convert an iso-cash-account-type keyword to the protobuf enum
@@ -1052,7 +1067,7 @@
   Args:
   - m: ClearbankOutboxEvent map matching the generated schema."
   [m]
-  (ClearbankOutboxProto$ClearbankOutboxEvent/parseFrom
+  (ClearbankOutboxEventProto$ClearbankOutboxEvent/parseFrom
    (ClearbankOutboxEvent->pb m)))
 
 (def ^{:doc "Parse ClearbankOutboundIntent protobuf bytes into a Clojure map."}
@@ -1073,7 +1088,7 @@
   Args:
   - m: ClearbankOutboundIntent map matching the generated schema."
   [m]
-  (ClearbankOutboxProto$ClearbankOutboundIntent/parseFrom
+  (ClearbankOutboundIntentProto$ClearbankOutboundIntent/parseFrom
    (ClearbankOutboundIntent->pb m)))
 
 (def ^{:doc "Parse OnfidoOutboxEvent protobuf bytes into a Clojure map."}
@@ -1088,7 +1103,8 @@
 (defn OnfidoOutboxEvent->java
   "Parse an OnfidoOutboxEvent map into the generated Java protobuf class."
   [m]
-  (OnfidoOutboxProto$OnfidoOutboxEvent/parseFrom (OnfidoOutboxEvent->pb m)))
+  (OnfidoOutboxEventProto$OnfidoOutboxEvent/parseFrom (OnfidoOutboxEvent->pb
+                                                       m)))
 
 (def ^{:doc "Parse OnfidoOutboundIntent protobuf bytes into a Clojure map."}
      pb->OnfidoOutboundIntent
@@ -1102,7 +1118,7 @@
 (defn OnfidoOutboundIntent->java
   "Parse an OnfidoOutboundIntent map into the generated Java protobuf class."
   [m]
-  (OnfidoOutboxProto$OnfidoOutboundIntent/parseFrom
+  (OnfidoOutboundIntentProto$OnfidoOutboundIntent/parseFrom
    (OnfidoOutboundIntent->pb m)))
 
 (def ^{:doc "Parse ZypheOutboxEvent protobuf bytes into a Clojure map."}
@@ -1117,7 +1133,7 @@
 (defn ZypheOutboxEvent->java
   "Parse a ZypheOutboxEvent map into the generated Java protobuf class."
   [m]
-  (ZypheOutboxProto$ZypheOutboxEvent/parseFrom (ZypheOutboxEvent->pb m)))
+  (ZypheOutboxEventProto$ZypheOutboxEvent/parseFrom (ZypheOutboxEvent->pb m)))
 
 (def ^{:doc "Parse ZypheOutboundIntent protobuf bytes into a Clojure map."}
      pb->ZypheOutboundIntent
@@ -1131,7 +1147,7 @@
 (defn ZypheOutboundIntent->java
   "Parse a ZypheOutboundIntent map into the generated Java protobuf class."
   [m]
-  (ZypheOutboxProto$ZypheOutboundIntent/parseFrom
+  (ZypheOutboundIntentProto$ZypheOutboundIntent/parseFrom
    (ZypheOutboundIntent->pb m)))
 
 (def ^{:doc "Map of ProviderTransferStatus keyword to its proto enum int."}
@@ -1150,7 +1166,8 @@
 (defn ModulrOutboxEvent->java
   "Parse a ModulrOutboxEvent map into the generated Java protobuf class."
   [m]
-  (ModulrOutboxProto$ModulrOutboxEvent/parseFrom (ModulrOutboxEvent->pb m)))
+  (ModulrOutboxEventProto$ModulrOutboxEvent/parseFrom (ModulrOutboxEvent->pb
+                                                       m)))
 
 (def ^{:doc "Parse ModulrOutboundIntent protobuf bytes into a Clojure map."}
      pb->ModulrOutboundIntent
@@ -1164,7 +1181,7 @@
 (defn ModulrOutboundIntent->java
   "Parse a ModulrOutboundIntent map into the generated Java protobuf class."
   [m]
-  (ModulrOutboxProto$ModulrOutboundIntent/parseFrom
+  (ModulrOutboundIntentProto$ModulrOutboundIntent/parseFrom
    (ModulrOutboundIntent->pb m)))
 
 (def ^{:doc "Parse Form3OutboxEvent protobuf bytes into a Clojure map."}
@@ -1179,7 +1196,7 @@
 (defn Form3OutboxEvent->java
   "Parse a Form3OutboxEvent map into the generated Java protobuf class."
   [m]
-  (Form3OutboxProto$Form3OutboxEvent/parseFrom (Form3OutboxEvent->pb m)))
+  (Form3OutboxEventProto$Form3OutboxEvent/parseFrom (Form3OutboxEvent->pb m)))
 
 (def ^{:doc "Parse Form3OutboundIntent protobuf bytes into a Clojure map."}
      pb->Form3OutboundIntent
@@ -1193,7 +1210,7 @@
 (defn Form3OutboundIntent->java
   "Parse a Form3OutboundIntent map into the generated Java protobuf class."
   [m]
-  (Form3OutboxProto$Form3OutboundIntent/parseFrom
+  (Form3OutboundIntentProto$Form3OutboundIntent/parseFrom
    (Form3OutboundIntent->pb m)))
 
 (defn pb->ProviderTransfer

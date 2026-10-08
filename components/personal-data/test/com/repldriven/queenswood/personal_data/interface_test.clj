@@ -37,6 +37,7 @@
   [intent-id status]
   {:intent-id intent-id
    :dedup-key intent-id
+   :kind :zyphe-outbound-intent-kind-check
    :request (pr-str {:bank-id "bnk.1"
                      :verification-id "idv.1"
                      :party-id "pty.1"
@@ -100,12 +101,12 @@
                            :created-at 1}))
                  _ (save config
                          "zyphe-outbound-intents"
-                         (schema/ZypheOutboundIntent->java (intent "int.1"
-                                                                   "settled")))
+                         (schema/ZypheOutboundIntent->java
+                          (intent "int.1" :outbound-intent-status-settled)))
                  _ (save config
                          "zyphe-outbound-intents"
-                         (schema/ZypheOutboundIntent->java (intent "int.2"
-                                                                   "pending")))
+                         (schema/ZypheOutboundIntent->java
+                          (intent "int.2" :outbound-intent-status-pending)))
                  _ (zyphe-relay/save-event config
                                            (event "obx.1" "idv-evidence"))
                  _ (zyphe-relay/save-event config

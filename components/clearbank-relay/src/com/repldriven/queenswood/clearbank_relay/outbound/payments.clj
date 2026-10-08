@@ -74,11 +74,11 @@
   "An accepted submission leaves the payment sent, for the settlement
   webhook to complete."
   [_config _now _intent _result]
-  {:status "sent"})
+  {:status :outbound-intent-status-sent})
 
 (defn- payment-failed
   [_config now intent failure reason]
-  {:status "failed"
+  {:status :outbound-intent-status-failed
    :event (rejected intent
                     (if (= :refused failure)
                       :failure-kind-refused
@@ -88,4 +88,5 @@
 
 (intent-poller/defoperations
  :clearbank
- {"payment" {:call pay :answered paid :failed payment-failed}})
+ {:clearbank-outbound-intent-kind-payment
+  {:call pay :answered paid :failed payment-failed}})

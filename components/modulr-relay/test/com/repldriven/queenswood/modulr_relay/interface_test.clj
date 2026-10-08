@@ -45,10 +45,10 @@
    (let [config (config sys)
          intent {:intent-id "int.1"
                  :dedup-key "pmt.1"
-                 :kind "payment"
+                 :kind :modulr-outbound-intent-kind-payment
                  :request "{}"
                  :nonce "n-1"
-                 :status "pending"
+                 :status :outbound-intent-status-pending
                  :attempts 0
                  :created-at (utility/now)}]
      (nom-test> [_ (SUT/save-intent config intent)])

@@ -108,9 +108,11 @@
   [request payin]
   (let [{:keys [SourceExternalReference PaymentReference]} payin]
     (or (str/starts-with? (or SourceExternalReference "") move-prefix)
-        (contains? #{"transfer" "credit"}
+        (contains? #{:modulr-outbound-intent-kind-transfer
+                     :modulr-outbound-intent-kind-credit}
                    (:kind (intent request SourceExternalReference)))
-        (= "credit" (:kind (intent request PaymentReference))))))
+        (= :modulr-outbound-intent-kind-credit
+           (:kind (intent request PaymentReference))))))
 
 (defn- search-payments
   [request query]

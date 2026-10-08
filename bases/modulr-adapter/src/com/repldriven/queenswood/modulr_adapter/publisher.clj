@@ -99,7 +99,8 @@
                 DateTime]}
         payin
         end-to-end-id (relay/reference->id (:externalReference original))]
-    (if-not (and end-to-end-id (= "payment" (:kind intent)))
+    (if-not (and end-to-end-id
+                 (= :modulr-outbound-intent-kind-payment (:kind intent)))
       (inbound payin)
       (let-nom> [amount (amount->minor-units Amount PaymentId)]
         [{:event-name "transaction-returned"
@@ -125,7 +126,7 @@
         {:keys [kind context]} intent
         at (epoch-millis EventTime)]
     (let-nom> [amount (amount->minor-units Amount PaymentId)]
-      (->> [(if (= "transfer" kind)
+      (->> [(if (= :modulr-outbound-intent-kind-transfer kind)
               (relay/transfer-outcome {:provider-payment-id PaymentId
                                        :transfer-id (:dedup-key intent)
                                        :bank-id (:bank-id context)

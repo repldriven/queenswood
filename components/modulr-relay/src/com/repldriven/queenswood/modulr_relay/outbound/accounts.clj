@@ -52,7 +52,7 @@
   "Settled with `event`, recording in the same transaction that
   `account-id`'s money is now held in `provider-account-id`."
   [account-id provider-account-id event]
-  {:status "settled"
+  {:status :outbound-intent-status-settled
    :event event
    :also (fn [txn] (store/hold txn account-id provider-account-id))})
 
@@ -79,7 +79,7 @@
 
 (defn- open-failed
   [_config _now intent failure reason]
-  {:status "failed"
+  {:status :outbound-intent-status-failed
    :event (account-refused intent (shared/undelivered failure reason))})
 
 (defn- close-refused
@@ -104,14 +104,14 @@
 (defn- closed
   [_config _now intent _result]
   (let [{:keys! [bank-id account-id]} (shared/context intent)]
-    {:status "settled"
+    {:status :outbound-intent-status-settled
      :event (account-event intent
                            "payment-account-closed"
                            {:bank-id bank-id :account-id account-id})}))
 
 (defn- close-failed
   [_config _now intent failure reason]
-  {:status "failed"
+  {:status :outbound-intent-status-failed
    :event (close-refused intent (shared/undelivered failure reason))})
 
 (defn- reissue-step
@@ -228,7 +228,7 @@
    (held-reissued intent ctx)
 
    :else
-   {:status "failed" :event (reissue-failed intent ctx)}))
+   {:status :outbound-intent-status-failed :event (reissue-failed intent ctx)}))
 
 (defn- reissue-stopped
   "A reissue stopped at closing the old account is reissued, the old one
@@ -250,7 +250,8 @@
 
      (= "unblock" step)
      (do (log/error "Modulr did not unblock the old account" log-context)
-         {:status "failed" :event (reissue-failed intent ctx)})
+         {:status :outbound-intent-status-failed
+          :event (reissue-failed intent ctx)})
 
      (and provider-account-id
           (not (and (= "block" step) (= :refused failure))))
@@ -261,12 +262,14 @@
          (shared/next-step (assoc ctx :step "unblock" :failure reason)))
 
      :else
-     {:status "failed"
+     {:status :outbound-intent-status-failed
       :event (reissue-failed intent (assoc ctx :failure reason))})))
 
 (intent-poller/defoperations
  :modulr
- {"open-account" {:call open :answered opened :failed open-failed}
-  "close-account" {:call close :answered closed :failed close-failed}
-  "reissue-address"
+ {:modulr-outbound-intent-kind-open-account
+  {:call open :answered opened :failed open-failed}
+  :modulr-outbound-intent-kind-close-account
+  {:call close :answered closed :failed close-failed}
+  :modulr-outbound-intent-kind-reissue-address
   {:call reissue :answered reissue-advanced :failed reissue-stopped}})

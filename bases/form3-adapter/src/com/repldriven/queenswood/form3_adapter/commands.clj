@@ -14,7 +14,7 @@
   (let [res (relay/save-intent (select-keys config [:record-store :record-db])
                                (assoc intent
                                       :intent-id (str (utility/uuidv7))
-                                      :status "pending"
+                                      :status :outbound-intent-status-pending
                                       :attempts 0
                                       :created-at (utility/now)))]
     (if (or (not (error/anomaly? res)) (relay/uniqueness-violation? res))
@@ -35,7 +35,7 @@
                 currency reference]}
         data]
     {:dedup-key end-to-end-id
-     :kind "payment"
+     :kind :form3-outbound-intent-kind-payment
      :provider-payment-id (str (utility/uuidv7))
      :request (json/write-str
                (utility/assoc-some
@@ -58,7 +58,7 @@
                 reason-code reason]}
         data]
     {:dedup-key (str "return:" payment-id)
-     :kind "return"
+     :kind :form3-outbound-intent-kind-return
      :provider-payment-id scheme-transaction-id
      :request (json/write-str {:amount (relay/->major-units amount)
                                :currency currency
@@ -75,7 +75,7 @@
   [data]
   (let [{:keys [bank-id account-id holder-name currency]} data]
     {:dedup-key (str "open:" account-id)
-     :kind "open-account"
+     :kind :form3-outbound-intent-kind-open-account
      :request "{}"
      :context (pr-str {:bank-id bank-id
                        :account-id account-id
@@ -86,7 +86,7 @@
   [data]
   (let [{:keys [bank-id account-id provider-account-id]} data]
     {:dedup-key (str "close:" account-id)
-     :kind "close-account"
+     :kind :form3-outbound-intent-kind-close-account
      :request "{}"
      :context (pr-str {:bank-id bank-id
                        :account-id account-id
@@ -96,7 +96,7 @@
   [data]
   (let [{:keys [bank-id account-id provider-account-id rotation-key]} data]
     {:dedup-key (str "reissue:" account-id ":" rotation-key)
-     :kind "reissue-address"
+     :kind :form3-outbound-intent-kind-reissue-address
      :request "{}"
      :context (pr-str {:bank-id bank-id
                        :account-id account-id

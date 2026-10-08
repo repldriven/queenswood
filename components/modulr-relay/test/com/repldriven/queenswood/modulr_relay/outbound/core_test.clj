@@ -61,7 +61,7 @@
    :kind kind
    :request request
    :nonce (str "nonce-" intent-id)
-   :status "pending"
+   :status :outbound-intent-status-pending
    :attempts 0
    :created-at (utility/now)
    :context (pr-str context)})
@@ -109,14 +109,14 @@
      (nom-test> [_ (relay/save-intent
                     config
                     (intent "int.p1"
-                            "payment"
+                            :modulr-outbound-intent-kind-payment
                             "pmt.1"
                             request
                             {:bank-id "bnk.1" :amount 150 :currency "GBP"}))])
      (SUT/drain-once config 0)
      (testing "a failed call parks the intent for another attempt"
        (let [i (load-intent config "int.p1")]
-         (is (= "pending" (:status i)))
+         (is (= :outbound-intent-status-pending (:status i)))
          (is (= 1 (:attempts i)))))
      (SUT/drain-once config 10000)
      (testing "the retry sends the first attempt's nonce, marked a retry"
@@ -127,7 +127,7 @@
          (is (= request (:raw-body retry)))))
      (testing "an accepted payment is sent, with Modulr's id kept"
        (let [i (load-intent config "int.p1")]
-         (is (= "sent" (:status i)))
+         (is (= :outbound-intent-status-sent (:status i)))
          (is (= "P9" (:provider-payment-id i))))))))
 
 (deftest refused-payment-is-rejected-test
@@ -141,12 +141,14 @@
                     (json-response
                      400
                      "[{\"code\":\"INVALID\",\"message\":\"Bad\"}]"))))]
-     (nom-test> [_ (relay/save-intent config
-                                      (intent "int.p2"
-                                              "payment" "pmt.2"
-                                              "{}" {:bank-id "bnk.1"}))])
+     (nom-test> [_ (relay/save-intent
+                    config
+                    (intent "int.p2"
+                            :modulr-outbound-intent-kind-payment "pmt.2"
+                            "{}" {:bank-id "bnk.1"}))])
      (SUT/drain-once config 0)
-     (is (= "failed" (:status (load-intent config "int.p2"))))
+     (is (= :outbound-intent-status-failed
+            (:status (load-intent config "int.p2"))))
      (let [event (outbox-event config "pmt.2:submission-rejected")
            data (decoded config event)]
        (is (= "transaction-rejected" (:event-name event)))
@@ -169,12 +171,12 @@
                                @status
                                "\"}]}")))
                      (json-response 201 "{\"id\":\"P3\"}"))))]
-     (nom-test> [_ (relay/save-intent config
-                                      (intent "int.p3"
-                                              "payment" "pmt.3"
-                                              "{}" {:bank-id "bnk.1"
-                                                    :amount 250
-                                                    :currency "GBP"}))])
+     (nom-test> [_ (relay/save-intent
+                    config
+                    (intent "int.p3"
+                            :modulr-outbound-intent-kind-payment "pmt.3"
+                            "{}"
+                            {:bank-id "bnk.1" :amount 250 :currency "GBP"}))])
      (SUT/drain-once config 0)
      (testing "nothing is asked before reconcile-after-ms"
        (SUT/drain-once config 1000)
@@ -182,11 +184,13 @@
      (testing "a payment still pending is asked again later"
        (SUT/drain-once config 60001)
        (is (= 1 @lookups))
-       (is (= "sent" (:status (load-intent config "int.p3")))))
+       (is (= :outbound-intent-status-sent
+              (:status (load-intent config "int.p3")))))
      (testing "a processed payment settles under the webhook's dedup key"
        (reset! status "PROCESSED")
        (SUT/drain-once config 200000)
-       (is (= "settled" (:status (load-intent config "int.p3"))))
+       (is (= :outbound-intent-status-settled
+              (:status (load-intent config "int.p3"))))
        (let [event (outbox-event config "P3:settled")
              data (decoded config event)]
          (is (= "transaction-settled" (:event-name event)))
@@ -203,10 +207,11 @@
                                    (do (swap! lookups inc)
                                        (json-response 200 "{\"content\":[]}"))
                                    (json-response 201 "{\"id\":\"P4\"}"))))]
-     (nom-test> [_ (relay/save-intent config
-                                      (intent "int.p4"
-                                              "payment" "pmt.4"
-                                              "{}" {:bank-id "bnk.1"}))])
+     (nom-test> [_ (relay/save-intent
+                    config
+                    (intent "int.p4"
+                            :modulr-outbound-intent-kind-payment "pmt.4"
+                            "{}" {:bank-id "bnk.1"}))])
      (SUT/drain-once config 0)
      (nom-test> [_ (relay/save-event config
                                      {:outbox-id "obx.p4"
@@ -216,7 +221,8 @@
                                       :created-at 0}
                                      "pmt.4")])
      (SUT/drain-once config 200000)
-     (is (= "settled" (:status (load-intent config "int.p4"))))
+     (is (= :outbound-intent-status-settled
+            (:status (load-intent config "int.p4"))))
      (is (zero? @lookups)))))
 
 (deftest credit-completes-at-once-test
@@ -225,15 +231,16 @@
    (let [calls (atom [])
          config
          (runner-config sys (recording calls (fn [_] {:status 200 :body ""})))]
-     (nom-test> [_ (relay/save-intent config
-                                      (intent "int.c1"
-                                              "credit" "ptr.1"
-                                              "{}" {:bank-id "bnk.1"
-                                                    :amount 150
-                                                    :currency "GBP"}))])
+     (nom-test> [_ (relay/save-intent
+                    config
+                    (intent "int.c1"
+                            :modulr-outbound-intent-kind-credit "ptr.1"
+                            "{}"
+                            {:bank-id "bnk.1" :amount 150 :currency "GBP"}))])
      (SUT/drain-once config 0)
      (is (= "/credit" (:path (first @calls))))
-     (is (= "settled" (:status (load-intent config "int.c1"))))
+     (is (= :outbound-intent-status-settled
+            (:status (load-intent config "int.c1"))))
      (is (= {:transfer-id "ptr.1" :bank-id "bnk.1"}
             (select-keys (decoded config
                                   (outbox-event config "ptr.1:completed"))
@@ -251,11 +258,12 @@
          config (runner-config sys
                                (recording calls
                                           (fn [_] (json-response 201 opened))))]
-     (nom-test> [_ (relay/save-intent config
-                                      (intent "int.o1"
-                                              "open-account" "open:acc.1"
-                                              "{}" {:bank-id "bnk.1"
-                                                    :account-id "acc.1"}))])
+     (nom-test> [_ (relay/save-intent
+                    config
+                    (intent "int.o1"
+                            :modulr-outbound-intent-kind-open-account
+                            "open:acc.1"
+                            "{}" {:bank-id "bnk.1" :account-id "acc.1"}))])
      (SUT/drain-once config 0)
      (is (= "/customers/C1/accounts" (:path (first @calls))))
      (is (= {:bank-id "bnk.1"
@@ -288,14 +296,15 @@
 
               :else
               (json-response 200 "{}")))))]
-     (nom-test> [_ (relay/save-intent config
-                                      (intent "int.r1"
-                                              "reissue-address"
-                                              "reissue:acc.1:k1"
-                                              "{}" {:bank-id "bnk.1"
-                                                    :account-id "acc.1"
-                                                    :provider-account-id "A1"
-                                                    :rotation-key "k1"}))])
+     (nom-test> [_ (relay/save-intent
+                    config
+                    (intent "int.r1"
+                            :modulr-outbound-intent-kind-reissue-address
+                            "reissue:acc.1:k1"
+                            "{}" {:bank-id "bnk.1"
+                                  :account-id "acc.1"
+                                  :provider-account-id "A1"
+                                  :rotation-key "k1"}))])
      (doseq [t (range 6)] (SUT/drain-once config t))
      (testing "block, read, open, move and close, in that order"
        (is (= [[:post "/accounts/A1/block"] [:get "/accounts/A1"]
@@ -318,7 +327,8 @@
                             "reissue:acc.1:k1:payment-address-reissued"))]
          (is (= "A2" (:provider-account-id data)))
          (is (= "k1" (:rotation-key data)))))
-     (is (= "settled" (:status (load-intent config "int.r1"))))
+     (is (= :outbound-intent-status-settled
+            (:status (load-intent config "int.r1"))))
      (is (= "done"
             (:step (edn/read-string (:context (load-intent config
                                                            "int.r1")))))))))
@@ -333,17 +343,18 @@
                                   (json-response
                                    400
                                    "{\"message\":\"Balance is not zero\"}"))))]
-     (nom-test> [_ (relay/save-intent config
-                                      (intent "int.c2"
-                                              "close-account" "close:acc.2"
-                                              "{}" {:bank-id "bnk.1"
-                                                    :account-id "acc.2"
-                                                    :provider-account-id
-                                                    "A2"}))])
+     (nom-test> [_ (relay/save-intent
+                    config
+                    (intent "int.c2"
+                            :modulr-outbound-intent-kind-close-account
+                            "close:acc.2"
+                            "{}" {:bank-id "bnk.1"
+                                  :account-id "acc.2"
+                                  :provider-account-id "A2"}))])
      (SUT/drain-once config 0)
      (testing "a refused close fails rather than being tried again"
        (let [i (load-intent config "int.c2")]
-         (is (= "failed" (:status i)))
+         (is (= :outbound-intent-status-failed (:status i)))
          (is (= 1 (:attempts i))))))))
 
 (deftest a-close-waits-for-the-transfer-before-it-test
@@ -365,7 +376,8 @@
      (nom-test> [_ (relay/save-intent
                     config
                     (assoc (intent "int.1-transfer"
-                                   "transfer" "ptr.wait.1"
+                                   :modulr-outbound-intent-kind-transfer
+                                   "ptr.wait.1"
                                    "{}" {:bank-id "bnk.1"
                                          :amount 150
                                          :currency "GBP"
@@ -375,19 +387,21 @@
                                          :creditor-provider-account-id "A2"})
                            :subjects
                            ["acc.wait.1" "acc.wait.2"]))
-                 _ (relay/save-intent config
-                                      (assoc (intent
-                                              "int.2-close"
-                                              "close-account" "close:acc.wait.1"
-                                              "{}" {:bank-id "bnk.1"
-                                                    :account-id "acc.wait.1"
-                                                    :provider-account-id "A1"})
-                                             :subjects
-                                             ["acc.wait.1"]))])
+                 _ (relay/save-intent
+                    config
+                    (assoc (intent "int.2-close"
+                                   :modulr-outbound-intent-kind-close-account
+                                   "close:acc.wait.1"
+                                   "{}" {:bank-id "bnk.1"
+                                         :account-id "acc.wait.1"
+                                         :provider-account-id "A1"})
+                           :subjects
+                           ["acc.wait.1"]))])
      (SUT/drain-once config 0)
      (testing "the transfer is sent and the close held while it is unsettled"
        (is (= ["/payments"] (paths)))
-       (is (= "pending" (:status (load-intent config "int.2-close")))))
+       (is (= :outbound-intent-status-pending
+              (:status (load-intent config "int.2-close")))))
      (relay/save-event config
                        {:outbox-id "obx.wait.1"
                         :dedup-key "P1:wait:settled"
@@ -402,7 +416,8 @@
      (SUT/drain-once config 0)
      (testing "once the transfer settles the close is made"
        (is (= ["/payments" "/accounts/A1/close"] (paths)))
-       (is (= "settled" (:status (load-intent config "int.2-close"))))))))
+       (is (= :outbound-intent-status-settled
+              (:status (load-intent config "int.2-close"))))))))
 
 (defn- opened-as
   [provider-account-id]
@@ -433,7 +448,7 @@
                                 "{\"id\":\"P1\",\"status\":\"SUBMITTED\"}")))))
          open (fn [intent-id account-id]
                 (intent intent-id
-                        "open-account"
+                        :modulr-outbound-intent-kind-open-account
                         (str "open:" account-id)
                         (json/write-str {:currency "GBP"
                                          :externalReference (relay/->reference
@@ -446,7 +461,7 @@
                  _ (relay/save-intent
                     config
                     (intent "int.names.t1"
-                            "transfer" "ptr.names.1"
+                            :modulr-outbound-intent-kind-transfer "ptr.names.1"
                             "{}" {:bank-id "bnk.1"
                                   :amount 150
                                   :currency "GBP"
@@ -464,17 +479,18 @@
          (is (= {:type "ACCOUNT" :id "A2"} (:destination body)))))
      (testing
        "a transfer naming an account no open has made yet waits, counting no attempt"
-       (nom-test> [_ (relay/save-intent
-                      config
-                      (intent "int.names.t2"
-                              "transfer" "ptr.names.2"
-                              "{}" {:bank-id "bnk.1"
-                                    :amount 150
-                                    :currency "GBP"
-                                    :debtor-account-id "acc.names.1"
-                                    :creditor-account-id "acc.9"}))])
+       (nom-test> [_ (relay/save-intent config
+                                        (intent
+                                         "int.names.t2"
+                                         :modulr-outbound-intent-kind-transfer
+                                         "ptr.names.2"
+                                         "{}" {:bank-id "bnk.1"
+                                               :amount 150
+                                               :currency "GBP"
+                                               :debtor-account-id "acc.names.1"
+                                               :creditor-account-id "acc.9"}))])
        (SUT/drain-once config 0)
        (let [i (load-intent config "int.names.t2")]
-         (is (= "pending" (:status i)))
+         (is (= :outbound-intent-status-pending (:status i)))
          (is (= 0 (:attempts i)))
          (is (pos? (:next-attempt-at i))))))))

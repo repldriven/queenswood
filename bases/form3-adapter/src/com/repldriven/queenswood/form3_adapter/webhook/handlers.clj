@@ -106,7 +106,8 @@
   "True for a payment the adapter submitted for the platform."
   [request end-to-end-id]
   (let [intent (relay/find-intent (fdb request) end-to-end-id)]
-    (and (not (error/anomaly? intent)) (= "payment" (:kind intent)))))
+    (and (not (error/anomaly? intent))
+         (= :form3-outbound-intent-kind-payment (:kind intent)))))
 
 (defn- submission
   [request data]

@@ -1,6 +1,7 @@
 (ns com.repldriven.queenswood.intent-poller.store
   (:require
     [com.repldriven.queenswood.fdb.interface :as fdb]
+    [com.repldriven.queenswood.schema.interface :as schema]
 
     [com.repldriven.mono.error.interface :refer [let-nom>]]
     [com.repldriven.mono.telemetry.interface :as telemetry]
@@ -64,12 +65,14 @@
               (if limit
                 (fdb/scan-index-records (fdb/open txn intents)
                                         (str intent-type "_by_status")
-                                        [status]
+                                        [(schema/outbound-intent-status->int
+                                          status)]
                                         {:limit limit})
                 (fdb/query-records (fdb/open txn intents)
                                    intent-type
                                    "status"
-                                   status
+                                   (schema/outbound-intent-status->pb-enum
+                                    status)
                                    {:index (str intent-type "_by_status")}))))
       (category spec "outbound" "by-status")
       "Failed to read outbound intents"))))
@@ -86,7 +89,9 @@
 (defn- redacted
   [spec intent]
   (let [{:keys [redact]} spec]
-    (if (and redact (#{"settled" "failed"} (:status intent)))
+    (if (and redact
+             (#{:outbound-intent-status-settled :outbound-intent-status-failed}
+              (:status intent)))
       (update intent :request redact)
       intent)))
 
@@ -122,7 +127,8 @@
                              :attempts
                              attempts)
                  changes)
-          (and (= "sent" outcome) (not= "sent" (:status intent)))
+          (and (= :outbound-intent-status-sent outcome)
+               (not= :outbound-intent-status-sent (:status intent)))
           (assoc :sent-at (utility/now))))
 
 (defn advanced
@@ -139,7 +145,7 @@
   (update-intent txn
                  spec
                  intent-id
-                 "pending"
+                 :outbound-intent-status-pending
                  (fn [i] (advanced i ctx changes))
                  nil))
 
@@ -149,7 +155,7 @@
    txn
    spec
    intent-id
-   "pending"
+   :outbound-intent-status-pending
    (fn [i]
      (assoc i :attempts attempts :next-attempt-at next-attempt-at))
    nil))
@@ -174,7 +180,9 @@
        (fn [_txn bytes]
          (let [intent (pb->intent bytes)
                redacted (update intent :request redact)]
-           (when (and (#{"settled" "failed"} (:status intent))
+           (when (and (#{:outbound-intent-status-settled
+                         :outbound-intent-status-failed}
+                       (:status intent))
                       (not= (:request intent) (:request redacted)))
              (intent->java redacted))))
        {}))))
