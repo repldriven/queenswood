@@ -2,45 +2,18 @@ syntax = "proto2";
 
 package com.repldriven.queenswood.schemas.changelog;
 
-option java_outer_classname = "ChangelogProto";
+option java_outer_classname = "ChangelogEventProto";
 
-// The shared changelog envelope. A store writes this as its
-// `write-changelog` payload, so the relay can republish any store's
-// changelog without knowing the domain — it decodes this one message,
-// wraps it in an event envelope, and publishes `payload` verbatim.
-//
-// This is not an FDB record: it is the changelog value, and the
-// changelog itself is the outbox (ADR-0002). No RecordTypeUnion entry.
-//
-// Field numbers and wire types match ClearbankOutboxEvent /
-// OnfidoOutboxEvent (only `outbox_id` becomes `event_id`), so an
-// adapter outbox entry already on the cursor decodes as a
-// ChangelogEvent — the adapters can adopt this without a cutover.
-//
-// Every field is optional: protojure omits zero/empty values on the
-// wire, and a proto2 `required` scalar holding its default then fails
-// to parse.
+// An entry on a store's changelog, republished to the bus by the relay.
 message ChangelogEvent {
-  optional string event_id       = 1;  // uuidv7, the consumer's dedup key
-  optional string dedup_key      = 2;  // logical identity of the change
-  optional string event_name     = 3;  // bus event name to publish
-  optional bytes  payload        = 4;  // Avro-serialised event payload
+  required string event_id = 1; // uuidv7
+  required string dedup_key = 2;
+  required string event_name = 3;
+  required bytes payload = 4; // Avro
   optional string correlation_id = 5;
-  optional string causation_id   = 6;
-  optional int64  created_at     = 7;
-  // W3C traceparent of the span that wrote the entry, so the relay can
-  // publish under it and the consumer's span joins the same trace.
-  optional string traceparent    = 8;
-  // The identity whose events must stay in sequence relative to each
-  // other — an account id, a party id. The relay hands it to the bus as
-  // the message key, so entries sharing one keep their commit order
-  // through the broker. Named for the guarantee, not the transport:
-  // partitions are one backend's mechanism, and the local bus has none.
-  //
-  // Declared, never inferred. A writer that sets nothing gets an
-  // unkeyed publish, which is correct while a topic has one partition
-  // and silently reorders once it does not. Deriving it from
-  // `causation_id` would make an ordering guarantee depend on a lineage
-  // field, failing quietly in both directions.
-  optional string ordering_key   = 9;
+  optional string causation_id = 6;
+  optional string traceparent = 7; // W3C trace context
+  optional string ordering_key = 8;
+
+  required int64 created_at = 101;
 }

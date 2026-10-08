@@ -6,24 +6,20 @@ import "record_metadata_options.proto";
 
 option java_outer_classname = "ClearbankOutboxProto";
 
-// A durable egress event for the ClearBank adapter. Written in the same
-// FDB transaction that records a webhook, then relayed to the message bus
-// by a changelog watcher. This is the transactional-outbox entry: the
-// changelog is the outbox, this record gives dedup + durability.
+// An event the ClearBank adapter has yet to publish to the bus.
 message ClearbankOutboxEvent {
   option (com.apple.foundationdb.record.record).usage = RECORD;
 
-  required string outbox_id = 1;       // primary key (uuidv7)
-  // Webhook-derived logical identity of the event (e.g. e2e-id + kind).
-  // Unique-indexed so a redelivered webhook does not double-enqueue.
+  required string outbox_id = 1; // uuidv7
   required string dedup_key = 2;
-  required string event_name = 3;      // bus event name to publish
-  required bytes  payload = 4;         // Avro-serialised event payload
+  required string event_name = 3;
+  required bytes payload = 4; // Avro
   optional string correlation_id = 5;
   optional string causation_id = 6;
-  optional int64  created_at = 7;
-  optional string traceparent = 8;   // W3C, see ChangelogEvent
-  optional string ordering_key = 9;    // the bus key, see ChangelogEvent
+  optional string traceparent = 7; // W3C trace context
+  optional string ordering_key = 8;
+
+  required int64 created_at = 101;
 }
 
 // A pending outbound ClearBank HTTP call (an FPS payment submit). Written

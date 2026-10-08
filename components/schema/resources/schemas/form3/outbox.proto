@@ -6,25 +6,20 @@ import "record_metadata_options.proto";
 
 option java_outer_classname = "Form3OutboxProto";
 
-// A durable egress event for the Form3 adapter: a scheme or account event
-// a webhook, a call's outcome or a reconciliation reported. Written in the
-// FDB transaction that records it, then relayed to the message bus by a
-// changelog runner. Field numbers match ChangelogEvent's, so an entry
-// decodes as one.
+// An event the Form3 adapter has yet to publish to the bus.
 message Form3OutboxEvent {
   option (com.apple.foundationdb.record.record).usage = RECORD;
 
-  required string outbox_id = 1;       // primary key (uuidv7)
-  // The event's logical identity. Unique-indexed so a redelivered
-  // webhook, or a reconciliation after one, does not double-enqueue.
+  required string outbox_id = 1; // uuidv7
   required string dedup_key = 2;
-  required string event_name = 3;      // bus event name to publish
-  required bytes  payload = 4;         // Avro-serialised event payload
+  required string event_name = 3;
+  required bytes payload = 4; // Avro
   optional string correlation_id = 5;
   optional string causation_id = 6;
-  optional int64  created_at = 7;
-  optional string traceparent = 8;     // W3C, see ChangelogEvent
-  optional string ordering_key = 9;    // the bus key, see ChangelogEvent
+  optional string traceparent = 7; // W3C trace context
+  optional string ordering_key = 8;
+
+  required int64 created_at = 101;
 }
 
 // A pending call to Form3: a payment, or an account registered, closed or

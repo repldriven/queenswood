@@ -6,22 +6,20 @@ import "record_metadata_options.proto";
 
 option java_outer_classname = "ZypheOutboxProto";
 
-// Durable egress event for the Zyphe adapter — the evidence a signed
-// webhook reports, or the hand-off the relay composed for a session.
-// Written atomically with the webhook receipt or the intent it settles,
-// relayed to the bus by a changelog watcher.
+// An event the Zyphe adapter has yet to publish to the bus.
 message ZypheOutboxEvent {
   option (com.apple.foundationdb.record.record).usage = RECORD;
 
-  required string outbox_id = 1;       // primary key (uuidv7)
-  required string dedup_key = 2;       // unique: the provider event id
-  required string event_name = 3;      // bus event name to publish
-  required bytes  payload = 4;         // Avro-serialised event payload
+  required string outbox_id = 1; // uuidv7
+  required string dedup_key = 2;
+  required string event_name = 3;
+  required bytes payload = 4; // Avro
   optional string correlation_id = 5;
   optional string causation_id = 6;
-  optional int64  created_at = 7;
-  optional string traceparent = 8;   // W3C, see ChangelogEvent
-  optional string ordering_key = 9;    // the bus key, see ChangelogEvent
+  optional string traceparent = 7; // W3C trace context
+  optional string ordering_key = 8;
+
+  required int64 created_at = 101;
 }
 
 // A pending outbound Zyphe verification request. Written in the FDB
