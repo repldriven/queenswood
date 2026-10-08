@@ -8,11 +8,11 @@ option java_outer_classname = "LedgerAccountProto";
 
 // How an account posts: detail takes legs, control stands for a
 // sub-ledger, summary rolls up others.
-enum GlAccountType {
-  GL_ACCOUNT_TYPE_UNKNOWN = 0;
-  GL_ACCOUNT_TYPE_DETAIL = 1;
-  GL_ACCOUNT_TYPE_CONTROL = 2;
-  GL_ACCOUNT_TYPE_SUMMARY = 3;
+enum LedgerAccountType {
+  LEDGER_ACCOUNT_TYPE_UNKNOWN = 0;
+  LEDGER_ACCOUNT_TYPE_DETAIL = 1;
+  LEDGER_ACCOUNT_TYPE_CONTROL = 2;
+  LEDGER_ACCOUNT_TYPE_SUMMARY = 3;
 }
 
 enum LedgerAccountStatus {
@@ -24,17 +24,17 @@ enum LedgerAccountStatus {
 // A chart role; each value is its chart-of-accounts number, whose
 // thousand is its class: 1 asset, 2 liability, 3 equity, 4 income,
 // 5 expense.
-enum GlAccountCode {
-  GL_ACCOUNT_CODE_UNKNOWN = 0;
-  GL_ACCOUNT_CODE_CASH_AT_CORRESPONDENT = 1100;
-  GL_ACCOUNT_CODE_PENDING_OUTBOUND = 1200;
-  GL_ACCOUNT_CODE_CUSTOMER_DEPOSITS_CURRENT = 2100;
-  GL_ACCOUNT_CODE_CUSTOMER_DEPOSITS_SAVINGS = 2200;
-  GL_ACCOUNT_CODE_CUSTOMER_DEPOSITS_TERM = 2300;
-  GL_ACCOUNT_CODE_INTEREST_PAYABLE = 2400;
-  GL_ACCOUNT_CODE_SUSPENSE = 2500;
-  GL_ACCOUNT_CODE_OWN_FUNDS = 3100;
-  GL_ACCOUNT_CODE_INTEREST_EXPENSE = 5100;
+enum LedgerAccountCode {
+  LEDGER_ACCOUNT_CODE_UNKNOWN = 0;
+  LEDGER_ACCOUNT_CODE_CASH_AT_CORRESPONDENT = 1100;
+  LEDGER_ACCOUNT_CODE_PENDING_OUTBOUND = 1200;
+  LEDGER_ACCOUNT_CODE_CUSTOMER_DEPOSITS_CURRENT = 2100;
+  LEDGER_ACCOUNT_CODE_CUSTOMER_DEPOSITS_SAVINGS = 2200;
+  LEDGER_ACCOUNT_CODE_CUSTOMER_DEPOSITS_TERM = 2300;
+  LEDGER_ACCOUNT_CODE_INTEREST_PAYABLE = 2400;
+  LEDGER_ACCOUNT_CODE_SUSPENSE = 2500;
+  LEDGER_ACCOUNT_CODE_OWN_FUNDS = 3100;
+  LEDGER_ACCOUNT_CODE_INTEREST_EXPENSE = 5100;
 }
 
 // A bank's own general-ledger account, one row of its chart of accounts
@@ -44,11 +44,11 @@ message LedgerAccount {
 
   required string bank_id = 1;
   required string ledger_account_id = 2; // led.<uuidv7>
-  required GlAccountCode gl_account_code = 3;
+  required LedgerAccountCode code = 3;
   required string name = 4;
   required LedgerAccountStatus status = 5;
   required string currency = 6; // ISO 4217
-  required GlAccountType gl_account_type = 7;
+  required LedgerAccountType account_type = 7;
 
   required int64 created_at = 101;
   required int64 updated_at = 103;

@@ -65,7 +65,7 @@
      InterestAccountRunProto$InterestAccountRun)
     (com.repldriven.queenswood.schemas.ledger_accounts
      LedgerAccountProto$LedgerAccount
-     LedgerAccountProto$GlAccountCode)
+     LedgerAccountProto$LedgerAccountCode)
     (com.repldriven.queenswood.schemas.scheduler
      SchedulerJobProto$SchedulerJob
      SchedulerRunProto$SchedulerRun)
@@ -174,21 +174,21 @@
 
 (def
   ^{:doc
-    "Map of GlAccountCode role label to protobuf int value — the
-  chart number itself, e.g. :gl-account-code-suspense -> 2500."}
-  gl-account-code->int
-  ledger-accounts/GlAccountCode-label2val)
+    "Map of LedgerAccountCode role label to protobuf int value — the
+  chart number itself, e.g. :ledger-account-code-suspense -> 2500."}
+  ledger-account-code->int
+  ledger-accounts/LedgerAccountCode-label2val)
 
-(def ^{:doc "Map of GlAccountCode protobuf int value to role label."}
-     int->gl-account-code
-  ledger-accounts/GlAccountCode-val2label)
+(def ^{:doc "Map of LedgerAccountCode protobuf int value to role label."}
+     int->ledger-account-code
+  ledger-accounts/LedgerAccountCode-val2label)
 
-(defn gl-account-code->pb-enum
-  "Convert a gl-account-code role keyword to the protobuf enum value, for
+(defn ledger-account-code->pb-enum
+  "Convert a code role keyword to the protobuf enum value, for
   use as the comparand in an FDB enum-field index query."
-  [gl-account-code]
-  (LedgerAccountProto$GlAccountCode/forNumber
-   (gl-account-code->int gl-account-code)))
+  [code]
+  (LedgerAccountProto$LedgerAccountCode/forNumber
+   (ledger-account-code->int code)))
 
 (def ^{:doc "Map of OutboundIntentStatus label to protobuf int value."}
      outbound-intent-status->int

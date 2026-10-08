@@ -13,21 +13,18 @@
   "Present a stored LedgerAccount over the wire: the internal
   `:ledger-account-id` is exposed as `:account-id` so the resource speaks
   the same id key as the path parameter and the balance API, and the
-  `:gl-account-code` role is rendered back to its chart number as the
-  `:gl-code` string clients (and the console's ledger view) expect. The
-  class derived from the code is `:gl-account-type` and the account's
-  type `:gl-account-class`, the names the API used before the record
-  swapped them."
+  `:code` role is rendered back to its chart number as the `:gl-code`
+  string clients (and the console's ledger view) expect. The class
+  derived from the code is `:gl-account-type` and the account's type
+  `:gl-account-class`, the names the API has used throughout."
   [account]
-  (let [{:keys [gl-account-code gl-account-type]} account]
+  (let [{:keys [code account-type]} account]
     (-> account
         (set/rename-keys {:ledger-account-id :account-id})
-        (assoc :gl-code (ledger-accounts/gl-account-code->gl-code
-                         gl-account-code)
-               :gl-account-type (ledger-accounts/gl-account-class
-                                 gl-account-code)
-               :gl-account-class gl-account-type)
-        (dissoc :gl-account-code))))
+        (assoc :gl-code (ledger-accounts/chart-number code)
+               :gl-account-type (ledger-accounts/account-class code)
+               :gl-account-class account-type)
+        (dissoc :code :account-type))))
 
 (defn- with-posted-balance
   "Attach the account's derived `:posted-balance` ({value, currency}),

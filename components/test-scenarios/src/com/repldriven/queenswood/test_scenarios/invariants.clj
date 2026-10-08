@@ -119,7 +119,8 @@
 
                (default-pending-outgoing? balance)
                (update acc
-                       [:gl-account-code-pending-outbound (:currency account)]
+                       [:ledger-account-code-pending-outbound
+                        (:currency account)]
                        (fnil + 0)
                        (- (net balance)))
 
@@ -147,12 +148,12 @@
 
 (defn- chart-entry
   "One chart row, as both a trial-balance entry and a reconciliation
-  target: `:normal-side` and `:value` for the tie, `:gl-account-code`
+  target: `:normal-side` and `:value` for the tie, `:code`
   and `:currency` for resolving a control."
   [txn bank-id account]
   (let [{:keys [posted pending-outgoing]} (nets txn bank-id account)]
     {:ledger-account-id (:ledger-account-id account)
-     :gl-account-code (:gl-account-code account)
+     :code (:code account)
      :currency (:currency account)
      :normal-side (if (ledger-accounts/debit-normal? account)
                     :debit
@@ -281,8 +282,8 @@
   unnoticed."
   [bank-id {:keys [chart sub-ledger]}]
   (let [control (into {}
-                      (map (fn [{:keys [gl-account-code currency value]}]
-                             [[gl-account-code currency] value]))
+                      (map (fn [{:keys [code currency value]}]
+                             [[code currency] value]))
                       chart)]
     (for [code (distinct (vals ledger-accounts/product-type->control-code))
           currency (distinct (map :currency chart))
@@ -306,10 +307,10 @@
   `default / pending-outgoing` buckets, for each currency the bank's
   chart carries 1200 in."
   [bank-id {:keys [chart sub-ledger]}]
-  (for [{:keys [gl-account-code currency pending-outgoing]} chart
-        :when (= :gl-account-code-pending-outbound gl-account-code)
+  (for [{:keys [code currency pending-outgoing]} chart
+        :when (= :ledger-account-code-pending-outbound code)
         :let [expected (get sub-ledger
-                            [:gl-account-code-pending-outbound currency]
+                            [:ledger-account-code-pending-outbound currency]
                             0)]
         :when (not= expected pending-outgoing)]
     (str "1200 must mirror the customers' pending-outgoing — bank "

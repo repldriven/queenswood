@@ -25,7 +25,7 @@
        [cash (ledger-accounts/find-by-code
               txn
               bank-id
-              :gl-account-code-cash-at-correspondent
+              :ledger-account-code-cash-at-correspondent
               currency)
         house (cash-accounts/house-account txn bank-id currency)]
        {:cash-at-correspondent-id (:ledger-account-id cash)

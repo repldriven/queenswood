@@ -51,12 +51,12 @@
        cash (ledger-accounts/find-by-code
              txn
              bank-id
-             :gl-account-code-cash-at-correspondent
+             :ledger-account-code-cash-at-correspondent
              currency)
        suspense (ledger-accounts/find-by-code
                  txn
                  bank-id
-                 :gl-account-code-suspense
+                 :ledger-account-code-suspense
                  currency)
        transaction (inbound/inbound-suspense->transaction
                     data
@@ -117,7 +117,7 @@
                                  (ledger-accounts/find-by-code
                                   txn
                                   bank-id
-                                  :gl-account-code-cash-at-correspondent
+                                  :ledger-account-code-cash-at-correspondent
                                   currency))
        today-count (telemetry/with-span ["payment-daily-count"]
                                         (q/count-inbound-by-org-business-day
@@ -216,7 +216,7 @@
        cash (ledger-accounts/find-by-code
              txn
              bank-id
-             :gl-account-code-cash-at-correspondent
+             :ledger-account-code-cash-at-correspondent
              currency)
        today-count (q/count-inbound-by-org-business-day
                     txn
@@ -278,7 +278,7 @@
        cash (ledger-accounts/find-by-code
              txn
              bank-id
-             :gl-account-code-cash-at-correspondent
+             :ledger-account-code-cash-at-correspondent
              currency)
        transaction (inbound/admitted-inbound->transaction
                     admitted
@@ -596,12 +596,12 @@
                cash (ledger-accounts/find-by-code
                      txn
                      bank-id
-                     :gl-account-code-cash-at-correspondent
+                     :ledger-account-code-cash-at-correspondent
                      currency)
                suspense (ledger-accounts/find-by-code
                          txn
                          bank-id
-                         :gl-account-code-suspense
+                         :ledger-account-code-suspense
                          currency)
                recorded (transactions/record-transaction
                          txn

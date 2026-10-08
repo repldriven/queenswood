@@ -24,9 +24,9 @@
          :args [:e2e-refused :inbound-payment-status-suspended :acct-0]}
         {:command :assert-balance :args [:acct-0 0]}
         {:command :assert-gl-balance
-         :args [:bank-0 :gl-account-code-suspense "GBP" 1000]}
+         :args [:bank-0 :ledger-account-code-suspense "GBP" 1000]}
         {:command :assert-gl-balance
-         :args [:bank-0 :gl-account-code-cash-at-correspondent "GBP" -1000]}
+         :args [:bank-0 :ledger-account-code-cash-at-correspondent "GBP" -1000]}
         {:command :assert-gl-balance
-         :args [:bank-0 :gl-account-code-customer-deposits-current "GBP"
+         :args [:bank-0 :ledger-account-code-customer-deposits-current "GBP"
                 0]}]}

@@ -700,11 +700,11 @@
    :reference reference
    :legs [gl-leg customer-leg]})
 
-(defn- gl-account-for
-  "Look up the bank's GL account by `gl-account-code` role and `currency`
+(defn- ledger-account-for
+  "Look up the bank's GL account by `code` role and `currency`
   on its own books."
-  [bank bank-id gl-account-code currency]
-  (ledger-accounts/find-by-code bank bank-id gl-account-code currency))
+  [bank bank-id code currency]
+  (ledger-accounts/find-by-code bank bank-id code currency))
 
 (defn- bank-id-for-account
   "Resolve the bank-id that owns `model-acct`."
@@ -829,15 +829,14 @@
 ;; Closes a bank's own ledger account, which no route or command does, so
 ;; a scenario can meet a closed control on a production path.
 (defmethod dispatch :close-ledger-account
-  [{:keys [bank banks] :as ctx} {[model-bank gl-account-code] :args}]
+  [{:keys [bank banks] :as ctx} {[model-bank code] :args}]
   (let [{bank-real-id :real-id} (get banks model-bank)
-        result (error/let-nom> [account (gl-account-for bank
-                                                        bank-real-id
-                                                        gl-account-code
-                                                        "GBP")]
-                 (ledger-accounts/close-account bank
-                                                bank-real-id
-                                                (:ledger-account-id account)))]
+        result
+        (error/let-nom> [account
+                         (ledger-account-for bank bank-real-id code "GBP")]
+          (ledger-accounts/close-account bank
+                                         bank-real-id
+                                         (:ledger-account-id account)))]
     (-> ctx
         (update :counter inc)
         (track result))))
@@ -1127,10 +1126,10 @@
   ;; until 4100 fee-income lands in a future wave).
   (let [real-id (id-mapping/real id-mapping model-id)
         bank-id (bank-id-for-account banks accounts model-id)
-        cash (gl-account-for bank
-                             bank-id
-                             :gl-account-code-cash-at-correspondent
-                             "GBP")
+        cash (ledger-account-for bank
+                                 bank-id
+                                 :ledger-account-code-cash-at-correspondent
+                                 "GBP")
         result
         (if (or (nil? cash) (error/anomaly? cash))
           (error/reject :scenario/no-cash-at-correspondent-account
@@ -1224,10 +1223,10 @@
   ;; sandbox's simulated inbound posts it: 1100 up and the house account
   ;; credited. Mirroring credits the house's provider account from outside.
   (let [{bank-real-id :real-id} (get banks model-bank)
-        cash (gl-account-for bank
-                             bank-real-id
-                             :gl-account-code-cash-at-correspondent
-                             "GBP")
+        cash (ledger-account-for bank
+                                 bank-real-id
+                                 :ledger-account-code-cash-at-correspondent
+                                 "GBP")
         house (cash-accounts-query/house-account bank bank-real-id "GBP")
         result (if (error/anomaly? house)
                  house
@@ -1296,10 +1295,10 @@
                                                          bank-real-id
                                                          account-id)))
         held (simulated-balances bank)
-        cash (gl-account-for bank
-                             bank-real-id
-                             :gl-account-code-cash-at-correspondent
-                             "GBP")]
+        cash (ledger-account-for bank
+                                 bank-real-id
+                                 :ledger-account-code-cash-at-correspondent
+                                 "GBP")]
     {:accounts (into {}
                      (map (fn [account-id]
                             [account-id
@@ -1330,14 +1329,12 @@
     ctx))
 
 (defmethod dispatch :assert-gl-balance
-  [{:keys [bank banks] :as ctx}
-   {[model-bank gl-account-code currency expected] :args}]
+  [{:keys [bank banks] :as ctx} {[model-bank code currency expected] :args}]
   (let [{bank-real-id :real-id} (get banks model-bank)
-        gl (gl-account-for bank bank-real-id gl-account-code currency)
+        gl (ledger-account-for bank bank-real-id code currency)
         balances (ledger-accounts/get-balances bank bank-real-id gl)
         actual (:value (:posted-balance balances))]
-    (is (= expected actual)
-        (str "GL " (name gl-account-code) " balance for " model-bank))
+    (is (= expected actual) (str "GL " (name code) " balance for " model-bank))
     ctx))
 
 (defn- decode-message
@@ -1492,8 +1489,8 @@
   (error/let-nom>
     [accounts (ledger-accounts/list-accounts txn bank-id)
      payable (or (first (filter (fn [account]
-                                  (and (= :gl-account-code-interest-payable
-                                          (:gl-account-code account))
+                                  (and (= :ledger-account-code-interest-payable
+                                          (:code account))
                                        (= currency (:currency account))))
                                 accounts))
                  (error/fail

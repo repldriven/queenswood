@@ -3,18 +3,18 @@
     [com.repldriven.queenswood.api-schema.interface :as coercion]))
 
 (def ^:private gl-account-type-enum
-  (coercion/enum-coercion {"asset" :gl-account-class-asset
-                           "liability" :gl-account-class-liability
-                           "equity" :gl-account-class-equity
-                           "income" :gl-account-class-income
-                           "expense" :gl-account-class-expense}
-                          :gl-account-class-unknown))
+  (coercion/enum-coercion {"asset" :ledger-account-class-asset
+                           "liability" :ledger-account-class-liability
+                           "equity" :ledger-account-class-equity
+                           "income" :ledger-account-class-income
+                           "expense" :ledger-account-class-expense}
+                          :ledger-account-class-unknown))
 
 (def ^:private gl-account-class-enum
-  (coercion/enum-coercion {"detail" :gl-account-type-detail
-                           "control" :gl-account-type-control
-                           "summary" :gl-account-type-summary}
-                          :gl-account-type-unknown))
+  (coercion/enum-coercion {"detail" :ledger-account-type-detail
+                           "control" :ledger-account-type-control
+                           "summary" :ledger-account-type-summary}
+                          :ledger-account-type-unknown))
 
 (def ^:private ledger-account-status-enum
   (coercion/enum-coercion {"open" :ledger-account-status-open

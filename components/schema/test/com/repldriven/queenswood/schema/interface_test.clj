@@ -123,7 +123,7 @@
       (is (= [] (:retired-payment-addresses body)))
       (testing "and publishes none of the GL fields the record dropped"
         (is (empty? (select-keys body
-                                 [:gl-code :gl-account-type :gl-account-class
+                                 [:gl-code :gl-account-type :account-class
                                   :required :gl-control-code]))))))
   (testing "a rotated account's history round-trips"
     (let [body (avro/deserialize-same reply-schema

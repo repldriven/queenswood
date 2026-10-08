@@ -44,13 +44,13 @@
                                     (ledger-accounts/find-by-code
                                      txn
                                      bank-id
-                                     :gl-account-code-pending-outbound
+                                     :ledger-account-code-pending-outbound
                                      currency))
        cash (telemetry/with-span ["payment-cash-at-correspondent"]
                                  (ledger-accounts/find-by-code
                                   txn
                                   bank-id
-                                  :gl-account-code-cash-at-correspondent
+                                  :ledger-account-code-cash-at-correspondent
                                   currency))
        tx (outbound/outbound-settlement->transaction
            payment
@@ -180,7 +180,7 @@
        pending (ledger-accounts/find-by-code
                 txn
                 bank-id
-                :gl-account-code-pending-outbound
+                :ledger-account-code-pending-outbound
                 currency)
        debtor-account (cash-accounts/get-account
                        txn
@@ -284,7 +284,7 @@
        cash (ledger-accounts/find-by-code
              txn
              bank-id
-             :gl-account-code-cash-at-correspondent
+             :ledger-account-code-cash-at-correspondent
              currency)
        tx (outbound/outbound-return->transaction
            payment

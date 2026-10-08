@@ -6,7 +6,7 @@
  ;; single-sided.
  :given [{:command :create-bank :args []}
          {:command :close-ledger-account
-          :args [:bank-0 :gl-account-code-customer-deposits-current]}]
+          :args [:bank-0 :ledger-account-code-customer-deposits-current]}]
  :when [{:command :assert-outcome :args [:succeeded]}
         {:command :inbound-transfer :args [:acct-0 250000]}]
  :then [{:command :assert-outcome :args [:denied]}

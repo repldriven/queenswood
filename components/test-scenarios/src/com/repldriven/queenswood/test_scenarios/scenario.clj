@@ -39,7 +39,7 @@
 
 (def ^:private currency [:re #"^[A-Z]{3}$"])
 
-(def ^:private gl-account-code (prefixed "gl-account-code-"))
+(def ^:private ledger-account-code (prefixed "ledger-account-code-"))
 
 (def ^:private none [:cat])
 
@@ -114,7 +114,7 @@
    :bind-policy {:kind :model :args [:cat bank policy]}
    :fixture/apply-fee {:kind :fixture :args [:cat acct int?]}
    :fixture/fund-house {:kind :fixture :args [:cat bank int?]}
-   :close-ledger-account {:kind :reality :args [:cat bank gl-account-code]}
+   :close-ledger-account {:kind :reality :args [:cat bank ledger-account-code]}
    :admit-inbound {:kind :reality :args [:cat [:or acct string?] int? e2e]}
    :settle-inbound-event {:kind :reality :args [:cat acct int? string?]}
    :outbound-payment-redelivered {:kind :reality :args [:cat acct int?]}
@@ -128,7 +128,7 @@
    :assert-no-anomaly {:kind :assert :args none}
    :assert-balance {:kind :assert :args [:cat acct int?]}
    :assert-gl-balance {:kind :assert
-                       :args [:cat bank gl-account-code currency int?]}
+                       :args [:cat bank ledger-account-code currency int?]}
    :assert-admission {:kind :assert :args [:cat boolean? [:maybe string?]]}
    :assert-inbound-status {:kind :assert
                            :args [:cat e2e

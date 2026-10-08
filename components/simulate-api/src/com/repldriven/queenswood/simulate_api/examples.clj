@@ -50,7 +50,7 @@
            :type ":gl/missing-currency-account"
            :status 409
            :detail (str "Bank has no"
-                        " gl-account-code-cash-at-correspondent"
+                        " ledger-account-code-cash-at-correspondent"
                         " ledger account in USD")}})
 
 (def SimulateLiveBank

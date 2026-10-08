@@ -97,11 +97,11 @@
                  :pending 0
                  :run-status :interest-run-status-closed}]}
         {:command :assert-gl-balance
-         :args [:bank-0 :gl-account-code-interest-expense "GBP" -100]}
+         :args [:bank-0 :ledger-account-code-interest-expense "GBP" -100]}
         {:command :assert-gl-balance
-         :args [:bank-0 :gl-account-code-interest-payable "GBP" 0]}
+         :args [:bank-0 :ledger-account-code-interest-payable "GBP" 0]}
         {:command :assert-gl-balance
-         :args [:bank-0 :gl-account-code-customer-deposits-savings
+         :args [:bank-0 :ledger-account-code-customer-deposits-savings
                 "GBP" 100100]}
         {:command :assert-gl-balance
-         :args [:bank-0 :gl-account-code-customer-deposits-current "GBP" 0]}]}
+         :args [:bank-0 :ledger-account-code-customer-deposits-current "GBP" 0]}]}

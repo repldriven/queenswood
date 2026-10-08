@@ -36,7 +36,7 @@
                              :given bank
                              :when [{:command :close-ledger-account
                                      :args [:bank-0
-                                            :gl-account-code-suspense]}]})]
+                                            :ledger-account-code-suspense]}]})]
       (is (= :test-scenarios/scenario (error/kind parsed)))
       (is (= [:close-ledger-account] (:verbs (error/payload parsed))))
       (is (= "inline.edn" (:resource (error/payload parsed))))))
@@ -48,7 +48,7 @@
                           :given bank
                           :when [{:command :close-ledger-account
                                   :args [:bank-0
-                                         :gl-account-code-suspense]}]}))))))
+                                         :ledger-account-code-suspense]}]}))))))
 
 (deftest sections-test
   (testing "a :given step never asserts"

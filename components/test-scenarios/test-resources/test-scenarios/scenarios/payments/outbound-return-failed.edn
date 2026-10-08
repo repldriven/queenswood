@@ -16,6 +16,6 @@
          :args [:pmt-0 :outbound-payment-status-failed]}
         {:command :assert-balance :args [:acct-0 1000]}
         {:command :assert-gl-balance
-         :args [:bank-0 :gl-account-code-cash-at-correspondent "GBP" -1000]}
+         :args [:bank-0 :ledger-account-code-cash-at-correspondent "GBP" -1000]}
         {:command :assert-gl-balance
-         :args [:bank-0 :gl-account-code-pending-outbound "GBP" 0]}]}
+         :args [:bank-0 :ledger-account-code-pending-outbound "GBP" 0]}]}

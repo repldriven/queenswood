@@ -129,10 +129,11 @@ stores:
     record-type: LedgerAccount
     primary-key: [bank_id, ledger_account_id]
     indexes:
-      - name: LedgerAccount_by_bank_gl_account_code
+      - name: LedgerAccount_by_bank_code
         added: 1
         modified: 1
-        fields: [bank_id, gl_account_code, currency]
+        fields: [bank_id, code, currency]
+        unique: true
   companies:
     record-type: Company
     primary-key: [registry, company_number]

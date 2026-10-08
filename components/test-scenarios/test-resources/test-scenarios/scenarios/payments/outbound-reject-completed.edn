@@ -13,23 +13,23 @@
         {:command :assert-intents :args [:pmt-0 1]}
         {:command :assert-balance :args [:acct-0 750]}
         {:command :assert-gl-balance
-         :args [:bank-0 :gl-account-code-cash-at-correspondent "GBP" -750]}
+         :args [:bank-0 :ledger-account-code-cash-at-correspondent "GBP" -750]}
         {:command :assert-gl-balance
-         :args [:bank-0 :gl-account-code-pending-outbound "GBP" 0]}
+         :args [:bank-0 :ledger-account-code-pending-outbound "GBP" 0]}
         {:command :assert-gl-balance
-         :args [:bank-0 :gl-account-code-suspense "GBP" 0]}
+         :args [:bank-0 :ledger-account-code-suspense "GBP" 0]}
         {:command :assert-gl-balance
-         :args [:bank-0 :gl-account-code-customer-deposits-current "GBP"
+         :args [:bank-0 :ledger-account-code-customer-deposits-current "GBP"
                 750]} {:command :reject-outbound-payment :args [:pmt-0]}]
  :then [{:command :assert-outcome :args [:denied]}
         {:command :assert-rejection-kind :args [:payment/reject-outbound]}
         {:command :assert-balance :args [:acct-0 750]}
         {:command :assert-gl-balance
-         :args [:bank-0 :gl-account-code-cash-at-correspondent "GBP" -750]}
+         :args [:bank-0 :ledger-account-code-cash-at-correspondent "GBP" -750]}
         {:command :assert-gl-balance
-         :args [:bank-0 :gl-account-code-pending-outbound "GBP" 0]}
+         :args [:bank-0 :ledger-account-code-pending-outbound "GBP" 0]}
         {:command :assert-gl-balance
-         :args [:bank-0 :gl-account-code-suspense "GBP" 0]}
+         :args [:bank-0 :ledger-account-code-suspense "GBP" 0]}
         {:command :assert-gl-balance
-         :args [:bank-0 :gl-account-code-customer-deposits-current "GBP"
+         :args [:bank-0 :ledger-account-code-customer-deposits-current "GBP"
                 750]}]}

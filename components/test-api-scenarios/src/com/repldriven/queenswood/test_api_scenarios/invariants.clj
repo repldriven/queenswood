@@ -52,7 +52,7 @@
    "own-funds" :product-type-sub-ledger-own-funds})
 
 (defn- control-role
-  "The `:gl-account-code` role a cash account's posted default balance
+  "The `:code` role a cash account's posted default balance
   rolls up into, from its wire `:product-type`. Nil for a product type
   that rolls into no control."
   [product-type]
@@ -63,7 +63,7 @@
   "Every control role a sub-ledger rolls into, keyed by the `:gl-code`
   the API renders on that control's ledger account."
   (into {}
-        (map (fn [role] [(ledger-accounts/gl-account-code->gl-code role) role]))
+        (map (fn [role] [(ledger-accounts/chart-number role) role]))
         (vals ledger-accounts/product-type->control-code)))
 
 (def ^:private ledger-accounts-path "/v1/ledger-accounts")
@@ -208,7 +208,7 @@
                " "
                role
                " ("
-               (ledger-accounts/gl-account-code->gl-code role)
+               (ledger-accounts/chart-number role)
                ")"
                " "
                currency

@@ -27,45 +27,45 @@
   "Test chart of accounts passed into seed!, the nine-row seed of
   components/resources/resources/ledgers/general-ledger.edn, which
   bank-bank seeds every customer bank with at provisioning time."
-  [{:gl-account-code :gl-account-code-cash-at-correspondent
+  [{:code :ledger-account-code-cash-at-correspondent
     :name "Cash at correspondent"
-    :gl-account-type :gl-account-type-detail}
-   {:gl-account-code :gl-account-code-pending-outbound
+    :account-type :ledger-account-type-detail}
+   {:code :ledger-account-code-pending-outbound
     :name "Pending outbound payments"
-    :gl-account-type :gl-account-type-detail}
-   {:gl-account-code :gl-account-code-customer-deposits-current
+    :account-type :ledger-account-type-detail}
+   {:code :ledger-account-code-customer-deposits-current
     :name "Customer deposits - current"
-    :gl-account-type :gl-account-type-control}
-   {:gl-account-code :gl-account-code-customer-deposits-savings
+    :account-type :ledger-account-type-control}
+   {:code :ledger-account-code-customer-deposits-savings
     :name "Customer deposits - savings"
-    :gl-account-type :gl-account-type-control}
-   {:gl-account-code :gl-account-code-customer-deposits-term
+    :account-type :ledger-account-type-control}
+   {:code :ledger-account-code-customer-deposits-term
     :name "Customer deposits - term deposits"
-    :gl-account-type :gl-account-type-control}
-   {:gl-account-code :gl-account-code-interest-payable
+    :account-type :ledger-account-type-control}
+   {:code :ledger-account-code-interest-payable
     :name "Interest payable"
-    :gl-account-type :gl-account-type-control}
-   {:gl-account-code :gl-account-code-suspense
+    :account-type :ledger-account-type-control}
+   {:code :ledger-account-code-suspense
     :name "Suspense - unreconciled inbound"
-    :gl-account-type :gl-account-type-detail}
-   {:gl-account-code :gl-account-code-own-funds
+    :account-type :ledger-account-type-detail}
+   {:code :ledger-account-code-own-funds
     :name "Bank own funds"
-    :gl-account-type :gl-account-type-control}
-   {:gl-account-code :gl-account-code-interest-expense
+    :account-type :ledger-account-type-control}
+   {:code :ledger-account-code-interest-expense
     :name "Interest expense"
-    :gl-account-type :gl-account-type-detail}])
+    :account-type :ledger-account-type-detail}])
 
 (def ^:private chart-numbers
   "The chart number each role in `template` reports, as a string."
-  {:gl-account-code-cash-at-correspondent "1100"
-   :gl-account-code-pending-outbound "1200"
-   :gl-account-code-customer-deposits-current "2100"
-   :gl-account-code-customer-deposits-savings "2200"
-   :gl-account-code-customer-deposits-term "2300"
-   :gl-account-code-interest-payable "2400"
-   :gl-account-code-suspense "2500"
-   :gl-account-code-own-funds "3100"
-   :gl-account-code-interest-expense "5100"})
+  {:ledger-account-code-cash-at-correspondent "1100"
+   :ledger-account-code-pending-outbound "1200"
+   :ledger-account-code-customer-deposits-current "2100"
+   :ledger-account-code-customer-deposits-savings "2200"
+   :ledger-account-code-customer-deposits-term "2300"
+   :ledger-account-code-interest-payable "2400"
+   :ledger-account-code-suspense "2500"
+   :ledger-account-code-own-funds "3100"
+   :ledger-account-code-interest-expense "5100"})
 
 (def ^:private list-cap
   "The row cap `list-accounts` scans a bank's chart under."
@@ -99,30 +99,30 @@
   [config bank-id]
   (SUT/find-by-code config
                     bank-id
-                    :gl-account-code-customer-deposits-current
+                    :ledger-account-code-customer-deposits-current
                     "GBP"))
 
 ;; --- Pure mapping checks ------------------------------------------------
 
 (deftest product-type->control-code-test
-  (is (= :gl-account-code-customer-deposits-current
+  (is (= :ledger-account-code-customer-deposits-current
          (SUT/product-type->control-code :product-type-sub-ledger-current)))
-  (is (= :gl-account-code-customer-deposits-savings
+  (is (= :ledger-account-code-customer-deposits-savings
          (SUT/product-type->control-code :product-type-sub-ledger-savings)))
-  (is (= :gl-account-code-customer-deposits-term
+  (is (= :ledger-account-code-customer-deposits-term
          (SUT/product-type->control-code
           :product-type-sub-ledger-term-deposit)))
-  (is (= :gl-account-code-own-funds
+  (is (= :ledger-account-code-own-funds
          (SUT/product-type->control-code :product-type-sub-ledger-own-funds)))
   (testing "non-customer product types have no control"
     (is (nil? (SUT/product-type->control-code :product-type-unknown)))))
 
-(deftest gl-account-code->gl-code-test
+(deftest chart-number-test
   (testing "the test chart is the nine seeded roles"
-    (is (= (set (keys chart-numbers)) (set (map :gl-account-code template)))))
+    (is (= (set (keys chart-numbers)) (set (map :code template)))))
   (testing "each role reports its chart number as a string"
     (doseq [[role number] chart-numbers]
-      (is (= number (SUT/gl-account-code->gl-code role)) (str role)))))
+      (is (= number (SUT/chart-number role)) (str role)))))
 
 ;; --- FDB-backed seed / lookup / controls -------------------------------
 
@@ -140,7 +140,7 @@
      (testing "each seeded account but a control opens a default-posted balance"
        (nom-test> [suspense (SUT/find-by-code config
                                               bank-id
-                                              :gl-account-code-suspense
+                                              :ledger-account-code-suspense
                                               "GBP")
                    bals (balances/get-balances config
                                                bank-id
@@ -164,24 +164,24 @@
          bank-id "bnk.test-lookup"]
      (nom-test> [_ (seed! config bank-id)
                  control (current-deposits-control config bank-id)
-                 _ (is (= :gl-account-code-customer-deposits-current
-                          (:gl-account-code control)))
-                 _ (is (= :gl-account-type-control (:gl-account-type control)))
+                 _ (is (= :ledger-account-code-customer-deposits-current
+                          (:code control)))
+                 _ (is (= :ledger-account-type-control (:account-type control)))
                  fetched
                  (SUT/get-account config bank-id (:ledger-account-id control))
                  _ (is (= (:ledger-account-id control)
                           (:ledger-account-id fetched)))])
      (testing "a currency the chart lacks rejects; an unknown id is nil"
-       (let [result (SUT/find-by-code config
-                                      bank-id
-                                      :gl-account-code-customer-deposits-current
-                                      "USD")
+       (let [result (SUT/find-by-code
+                     config
+                     bank-id
+                     :ledger-account-code-customer-deposits-current
+                     "USD")
              payload (error/payload result)]
          (is (error/anomaly? result))
          (is (= :gl/missing-currency-account (error/kind result)))
          (is (= bank-id (:bank-id payload)))
-         (is (= :gl-account-code-customer-deposits-current
-                (:gl-account-code payload)))
+         (is (= :ledger-account-code-customer-deposits-current (:code payload)))
          (is (= "USD" (:currency payload))))
        (is (nil? (SUT/get-account config bank-id "led.nope")))))))
 
@@ -217,10 +217,10 @@
                                                          {:bank-id bank-id})
                  created
                  (reduce
-                  (fn [acc _]
+                  (fn [acc n]
                     (let [result (SUT/new-account config
                                                   bank-id
-                                                  "GBP"
+                                                  (str "X" n)
                                                   row
                                                   {:policies policies})]
                       (if (error/anomaly? result) (reduced result) (inc acc))))
@@ -280,10 +280,11 @@
    (let [config (fdb-config sys)
          bank-id "bnk.test-sum"]
      (nom-test> [_ (seed! config bank-id)
-                 cash (SUT/find-by-code config
-                                        bank-id
-                                        :gl-account-code-cash-at-correspondent
-                                        "GBP")
+                 cash (SUT/find-by-code
+                       config
+                       bank-id
+                       :ledger-account-code-cash-at-correspondent
+                       "GBP")
                  cash-id (:ledger-account-id cash)
                  _ (open-customer-account config
                                           bank-id
@@ -360,7 +361,7 @@
        [_ (seed! config bank-id)
         cash (SUT/find-by-code config
                                bank-id
-                               :gl-account-code-cash-at-correspondent
+                               :ledger-account-code-cash-at-correspondent
                                "GBP")
         cash-id (:ledger-account-id cash)
         _ (open-customer-account config
@@ -385,7 +386,7 @@
                    1000)
         pending (SUT/find-by-code config
                                   bank-id
-                                  :gl-account-code-pending-outbound
+                                  :ledger-account-code-pending-outbound
                                   "GBP")
         _ (reserve config
                    bank-id
@@ -452,10 +453,11 @@
    (let [config (fdb-config sys)
          bank-id "bnk.test-cash"]
      (nom-test> [_ (seed! config bank-id)
-                 cash (SUT/find-by-code config
-                                        bank-id
-                                        :gl-account-code-cash-at-correspondent
-                                        "GBP")
+                 cash (SUT/find-by-code
+                       config
+                       bank-id
+                       :ledger-account-code-cash-at-correspondent
+                       "GBP")
                  cash-id (:ledger-account-id cash)
                  first-in (inbound config bank-id cash-id "acc.one" 1000)
                  _ (inbound config bank-id cash-id "acc.two" 250)
@@ -553,15 +555,14 @@
      (is (error/anomaly? result)
          "a posted default leg whose control is unseeded rejects")
      (is (= :gl/missing-currency-account (error/kind result)))
-     (is (= :gl-account-code-customer-deposits-current
-            (:gl-account-code payload)))
+     (is (= :ledger-account-code-customer-deposits-current (:code payload)))
      (is (= "USD" (:currency payload))))))
 
 ;; --- Close lifecycle -----------------------------------------------------
 
 (defn- suspense-account
   [config bank-id]
-  (SUT/find-by-code config bank-id :gl-account-code-suspense "GBP"))
+  (SUT/find-by-code config bank-id :ledger-account-code-suspense "GBP"))
 
 (deftest close-account-zero-balance-test
   (with-test-system
@@ -603,7 +604,7 @@
                  found (suspense-account config bank-id)
                  _ (is (= (:ledger-account-id found)
                           (cache/lookup ledger-cache
-                                        [bank-id :gl-account-code-suspense
+                                        [bank-id :ledger-account-code-suspense
                                          "GBP"]
                                         (constantly nil)))
                        "the code's id is cached")
@@ -625,7 +626,7 @@
      (nom-test> [_ (seed! config bank-id)
                  _ (SUT/find-by-code config
                                      bank-id
-                                     :gl-account-code-cash-at-correspondent
+                                     :ledger-account-code-cash-at-correspondent
                                      "GBP")])
      (testing "a prefetched account closed in the same transaction reads closed"
        (let [result
@@ -639,13 +640,13 @@
                       cash (SUT/find-by-code
                             txn
                             bank-id
-                            :gl-account-code-cash-at-correspondent
+                            :ledger-account-code-cash-at-correspondent
                             "GBP")]
                   (SUT/close-account txn bank-id (:ledger-account-id cash))
                   (error/kind (SUT/find-by-code
                                txn
                                bank-id
-                               :gl-account-code-cash-at-correspondent
+                               :ledger-account-code-cash-at-correspondent
                                "GBP")))))]
          (is (= :ledger-account/closed result)))))))
 

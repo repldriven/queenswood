@@ -172,7 +172,7 @@
                                          (ledger-accounts/find-by-code
                                           txn
                                           bank-id
-                                          :gl-account-code-pending-outbound
+                                          :ledger-account-code-pending-outbound
                                           currency))
                     today (telemetry/with-span
                            ["payment-daily-totals"]

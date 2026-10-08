@@ -48,5 +48,5 @@
         {:command :assert-inbound-status
          :args [:e2e-refused :inbound-payment-status-suspended]}
         {:command :assert-gl-balance
-         :args [:bank-0 :gl-account-code-suspense "GBP" 2500]}
+         :args [:bank-0 :ledger-account-code-suspense "GBP" 2500]}
         {:command :assert-provider-balances :args [:bank-0]}]}

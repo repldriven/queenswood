@@ -31,7 +31,7 @@
    "Failed to load ledger account"))
 
 (defn find-by-code
-  [txn bank-id gl-account-code currency]
+  [txn bank-id code currency]
   (fdb/transact
    txn
    (fn [txn]
@@ -39,14 +39,14 @@
               (fdb/open txn store-name)
               "LedgerAccount"
               [["bank_id" bank-id]
-               ["gl_account_code"
-                (schema/gl-account-code->pb-enum
-                 gl-account-code)]
+               ["code"
+                (schema/ledger-account-code->pb-enum
+                 code)]
                ["currency" currency]]
-              {:index "LedgerAccount_by_bank_gl_account_code"})
+              {:index "LedgerAccount_by_bank_code"})
              schema/pb->LedgerAccount))
    :ledger-account/find-by-code
-   "Failed to find ledger account by gl-account-code"))
+   "Failed to find ledger account by code"))
 
 (defn cache
   [txn]
@@ -78,11 +78,11 @@
                 "Failed to preload ledger accounts"))
 
 (defn find-by-codes
-  [txn bank-id gl-account-codes currency]
+  [txn bank-id codes currency]
   (fdb/transact
    txn
    (fn [txn]
-     (zipmap gl-account-codes
+     (zipmap codes
              (map (fn [record]
                     (some-> record
                             schema/pb->LedgerAccount))
@@ -91,13 +91,13 @@
                    "LedgerAccount"
                    (mapv (fn [code]
                            [["bank_id" bank-id]
-                            ["gl_account_code"
-                             (schema/gl-account-code->pb-enum code)]
+                            ["code"
+                             (schema/ledger-account-code->pb-enum code)]
                             ["currency" currency]])
-                         gl-account-codes)
-                   {:index "LedgerAccount_by_bank_gl_account_code"}))))
+                         codes)
+                   {:index "LedgerAccount_by_bank_code"}))))
    :ledger-account/find-by-code
-   "Failed to find ledger accounts by gl-account-code"))
+   "Failed to find ledger accounts by code"))
 
 (defn list-by-bank
   [txn bank-id]

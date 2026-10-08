@@ -80,7 +80,7 @@ payment or a run counts for.
 
 Name a classifying enum `…Type` or `…Kind` by what it classifies. A
 type is what a thing is as banking, accounting or an outside standard
-has it, kept for the thing's life: `GlAccountType`, `IsoCashAccountType`,
+has it, kept for the thing's life: `LedgerAccountType`, `IsoCashAccountType`,
 `SchemeType`, `TransactionType`, `AccountType`. A kind is which of the
 platform's own variants a record is, the one that selects the code
 handling it: `EmailKind`, `RewardKind`, `SchedulerTaskKind`,

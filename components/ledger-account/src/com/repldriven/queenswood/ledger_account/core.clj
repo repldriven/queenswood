@@ -25,7 +25,7 @@
      [policies (get-policies txn bank-id opts)
       account (domain/new-ledger-account bank-id currency row policies)
       _ (store/save-account txn account)
-      _ (when-not (domain/derived (:gl-account-code account))
+      _ (when-not (domain/derived (:code account))
           (balances/new-balances txn
                                  bank-id
                                  [(domain/opening-balance account)]))]
@@ -69,7 +69,7 @@
 
 (defn- account-balances
   [txn bank-id account]
-  (if-let [spec (domain/derived (:gl-account-code account))]
+  (if-let [spec (domain/derived (:code account))]
     (let-nom> [balance (derived-balance txn account spec {})]
       [balance])
     (balance-query/list-balances txn bank-id (:ledger-account-id account))))
@@ -82,7 +82,7 @@
 
 (defn- posted-balance
   [txn bank-id account]
-  (if-let [spec (domain/derived (:gl-account-code account))]
+  (if-let [spec (domain/derived (:code account))]
     (derived-balance txn account spec {:isolation :serializable})
     (balance-query/get-balance txn
                                bank-id
@@ -112,7 +112,7 @@
   (let-nom>
     [pairs (store/list-by-bank-with-balances config bank-id)]
     (reduce (fn [acc {:keys [account] :as pair}]
-              (if-let [spec (domain/derived (:gl-account-code account))]
+              (if-let [spec (domain/derived (:code account))]
                 (let [balance (derived-balance config account spec {})]
                   (if (error/anomaly? balance)
                     (reduced balance)
@@ -170,8 +170,8 @@
             codes)))
 
 (defn find-by-code
-  [txn bank-id gl-account-code currency]
-  (let-nom> [[account] (find-by-codes txn bank-id [gl-account-code] currency)]
+  [txn bank-id code currency]
+  (let-nom> [[account] (find-by-codes txn bank-id [code] currency)]
     account))
 
 (def ^:private journal-codes
