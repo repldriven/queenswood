@@ -1,7 +1,7 @@
 {
   "type": "record",
   "name": "InboundPaymentSuspended",
-  "namespace": "com.repldriven.queenswood.bank_activity",
+  "namespace": "com.repldriven.mono.payments",
   "doc": "An inbound payment parked in suspense rather than credited.",
   "fields": [
     {

@@ -1,7 +1,7 @@
 {
   "type": "record",
   "name": "AccountOpening",
-  "namespace": "com.repldriven.queenswood.bank_activity",
+  "namespace": "com.repldriven.mono.cash_accounts.cash_account_lifecycle",
   "doc": "A cash account the bank's payment provider is to open.",
   "fields": [
     {

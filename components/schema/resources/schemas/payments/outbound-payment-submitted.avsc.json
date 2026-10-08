@@ -1,7 +1,7 @@
 {
   "type": "record",
   "name": "OutboundPaymentSubmitted",
-  "namespace": "com.repldriven.queenswood.bank_activity",
+  "namespace": "com.repldriven.mono.payments",
   "doc": "An outbound payment accepted from a cash account, to be sent through the bank's payment provider.",
   "fields": [
     {

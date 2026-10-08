@@ -1,7 +1,7 @@
 {
   "type": "record",
   "name": "AccountAddressRotationRequested",
-  "namespace": "com.repldriven.queenswood.bank_activity",
+  "namespace": "com.repldriven.mono.cash_accounts.cash_account_lifecycle",
   "doc": "A cash account whose payment address is to be reissued.",
   "fields": [
     {

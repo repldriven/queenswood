@@ -19,6 +19,9 @@ record's name and `Proto`: `balances/account-balance.proto` holds
 `AccountBalance` in `AccountBalanceProto`. A message only that record
 uses stays in its file. An enum or message several files use goes in
 the folder's `types.proto`, and another folder imports it from there.
+A folder is a domain, and a schema goes in the folder of the domain it
+belongs to, an Avro event beside the record it describes, never in a
+folder named for what carries it, such as the activity log.
 
 Number a record's fields in three bands, a blank line between them:
 
@@ -98,6 +101,8 @@ the record's fields in the proto's order.
 - Keep one stored record per file, named for the record, with the
   outer class `<Record>Proto`, and an enum or message shared across
   files in the folder's `types.proto`.
+- File a schema in its domain's folder, never in one named for the
+  mechanism that carries it.
 - Number the primary key's fields first in key order, the record's own
   fields from 1 to 50, its transitions from 51 to 99 as `_at` and `_by`
   pairs with the `_at` odd, and `idempotency_key`, `created_at`,

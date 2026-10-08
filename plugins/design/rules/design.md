@@ -144,7 +144,9 @@ See [schema-evolution](../../../docs/recipes/code/schema-evolution.md).
 
 Keep one stored record per file, named for the record, with the outer
 class `<Record>Proto`, and an enum or message shared across files in the
-folder's `types.proto`. Number the primary key's fields first in key
+folder's `types.proto`, and file a schema in its domain's folder, never
+in one named for the mechanism that carries it. Number the primary key's
+fields first in key
 order, the record's own fields from 1 to 50, its transitions from 51 to
 99 as `_at` and `_by` pairs with the `_at` odd, and `idempotency_key`,
 `created_at`, `created_by`, `updated_at` and `updated_by` at 100 to 104,
