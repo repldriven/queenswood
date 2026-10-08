@@ -151,10 +151,10 @@ order, the record's own fields from 1 to 50, its transitions from 51 to
 99 as `_at` and `_by` pairs with the `_at` odd, `idempotency_key`,
 `created_at`, `created_by`, `updated_at` and `updated_by` at 100 to 104,
 the key taken from the API call or changelog event that created the
-record, and, on a record that retries an outbound call,
-`attempt_count`, `next_attempt_at`, `traceparent` and `failure_reason`
-at 201 to 204, keeping no retried attempt's error, lease or claim
-holder; and write no `reserved` for a number a record does not use.
+record, `failure_reason` at 200, and, on a record that retries an
+outbound call, `attempt_count`, `next_attempt_at` and `traceparent` at
+201 to 203, keeping no retried attempt's error, lease or claim holder;
+and write no `reserved` for a number a record does not use.
 Name a date `_on`, an instant `_at`, an actor `_by`, a count `_count`,
 and the reason a record failed `failure_reason`. Name an enum `…Type`
 for what a thing is in banking, accounting or an outside standard, and

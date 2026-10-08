@@ -122,8 +122,8 @@ message IdvSession {
   required int64 opened_day = 9;
   required int64 created_at = 10;
   required int64 updated_at = 11;
-  // Why the provider could not run the session's check.
-  optional string failure_reason = 12;
+
+  optional string failure_reason = 200;
 
   enum IdvSessionChannel {
     IDV_SESSION_CHANNEL_UNKNOWN = 0;

@@ -37,8 +37,9 @@ message EmailDelivery {
   required int64 created_at = 101;
   required int64 updated_at = 103;
 
+  optional string failure_reason = 200;
+
   required int32 attempt_count = 201;
   optional int64 next_attempt_at = 202; // in flight: when the claim lapses
   optional string traceparent = 203; // W3C trace context
-  optional string failure_reason = 204;
 }

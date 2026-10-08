@@ -44,7 +44,8 @@ message OutboundPayment {
   required int64 business_day = 17;
   optional OutboundPaymentFailureKind failure_kind = 18;
   optional string failure_reason_code = 19;
-  optional string failure_reason = 20;
   optional string return_reason_code = 21;
   optional string return_reason = 22;
+
+  optional string failure_reason = 200;
 }

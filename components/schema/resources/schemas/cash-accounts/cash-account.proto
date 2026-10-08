@@ -74,7 +74,6 @@ message CashAccount {
   repeated RetiredPaymentAddress retired_payment_addresses = 14;
   optional string provider_account_id = 15;
   optional AddressRotation rotation = 16;
-  optional string failure_reason = 17;
 
   optional int64 opened_at = 51;
   optional int64 suspended_at = 53;
@@ -90,4 +89,6 @@ message CashAccount {
   required int64 created_at = 101;
   required com.repldriven.queenswood.schemas.memberships.Actor created_by = 102;
   required int64 updated_at = 103;
+
+  optional string failure_reason = 200;
 }

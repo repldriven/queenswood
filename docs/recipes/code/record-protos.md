@@ -61,11 +61,12 @@ message CashAccountMigration {
   created the record is recognised by, whether the request is an API
   call carrying an `Idempotency-Key` or a changelog event a consumer
   may be handed twice.
-- **201 to 204, delivery.** On a record that retries an outbound call,
-  as an email delivery does: `attempt_count` 201, `next_attempt_at` 202,
-  `traceparent` 203 and `failure_reason` 204. An in-flight item's
-  `next_attempt_at` is when its claim lapses, so no other field holds a
-  lease or who claimed it.
+- **200, the failure.** `failure_reason` on any record that can end in
+  a failed status or outcome.
+- **201 to 203, delivery.** On a record that retries an outbound call,
+  as an email delivery does: `attempt_count` 201, `next_attempt_at` 202
+  and `traceparent` 203. An in-flight item's `next_attempt_at` is when
+  its claim lapses, so no other field holds a lease or who claimed it.
 
 Name a field by what it holds: `_on` for a date as an epoch day, `_at`
 for an instant in milliseconds, `_by` for an `Actor` and never a
@@ -115,9 +116,10 @@ the record's fields in the proto's order.
 - Number the primary key's fields first in key order, the record's own
   fields from 1 to 50, its transitions from 51 to 99 as `_at` and `_by`
   pairs with the `_at` odd, `idempotency_key`, `created_at`,
-  `created_by`, `updated_at` and `updated_by` at 100 to 104, and, on a
-  record that retries an outbound call, `attempt_count`,
-  `next_attempt_at`, `traceparent` and `failure_reason` at 201 to 204.
+  `created_by`, `updated_at` and `updated_by` at 100 to 104,
+  `failure_reason` at 200, and, on a record that retries an outbound
+  call, `attempt_count`, `next_attempt_at` and `traceparent` at 201 to
+  203.
 - Take a record's `idempotency_key` from the request that created it,
   an API call's `Idempotency-Key` or the changelog event it answers.
 - Name a date `_on`, an instant `_at`, an actor `_by`, a count

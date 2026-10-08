@@ -53,7 +53,6 @@ message InterestAccountRun {
   required InterestAccountRunState state = 5;
   required int64 created_at = 6;
   optional int64 updated_at = 7;
-  optional string failure_reason = 8;
 
   // What the run computed for this account, and what it computed from.
   // The inputs make the amount reproducible after the fact: the balance
@@ -88,6 +87,8 @@ message InterestAccountRun {
   // balance, and summing these per account, by the carry index, gives
   // the carry the next accrual opens with. Unset on capitalisation.
   optional int64 carry_change = 14;
+
+  optional string failure_reason = 200;
 
   // Mirrors InterestRun.InterestRunKind. Duplicated rather than
   // referenced so each message owns the enum protojure generates

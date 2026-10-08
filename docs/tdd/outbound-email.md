@@ -244,8 +244,9 @@ Two component kinds, registered from `system.clj`:
 - The changelog event id as its `idempotency_key`, under a unique
   index, so a relay redrive writes nothing twice; `created_at` and
   `updated_at`.
-- In the delivery band from 201: `attempt_count`, `next_attempt_at`,
-  `traceparent` and the `failure_reason` a failed delivery ends with.
+- The `failure_reason` a failed delivery ends with, at 200, and the
+  delivery band from 201: `attempt_count`, `next_attempt_at` and
+  `traceparent`.
   An in-flight delivery's `next_attempt_at` is when its claim lapses.
 
 Indexed by the idempotency key, by status with `next_attempt_at`, which

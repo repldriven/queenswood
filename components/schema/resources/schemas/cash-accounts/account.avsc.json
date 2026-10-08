@@ -165,14 +165,6 @@
       "default": []
     },
     {
-      "name": "failure_reason",
-      "type": [
-        "null",
-        "string"
-      ],
-      "default": null
-    },
-    {
       "name": "created_at",
       "type": {
         "type": "long",
@@ -185,6 +177,14 @@
         "type": "long",
         "logicalType": "timestamp-millis"
       }
+    },
+    {
+      "name": "failure_reason",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
     }
   ]
 }

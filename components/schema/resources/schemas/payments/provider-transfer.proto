@@ -32,7 +32,8 @@ message ProviderTransfer {
   required int64 amount = 6;
   required string currency = 7;
   required ProviderTransferStatus status = 8;
-  optional string failure_reason = 9;
   required int64 created_at = 10;
   required int64 updated_at = 11;
+
+  optional string failure_reason = 200;
 }

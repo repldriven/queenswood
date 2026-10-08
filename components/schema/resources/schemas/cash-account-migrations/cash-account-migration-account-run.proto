@@ -33,7 +33,8 @@ message CashAccountMigrationAccountRun {
   required CashAccountMigrationOutcome outcome = 5;
   required string source_version_id = 6;
   optional CashAccountMigrationIneligibility ineligibility = 7;
-  optional string failure_reason = 8;
 
   required int64 created_at = 101;
+
+  optional string failure_reason = 200;
 }
