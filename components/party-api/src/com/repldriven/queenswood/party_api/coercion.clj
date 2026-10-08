@@ -43,11 +43,11 @@
                           :idv-hand-off-type-unknown))
 
 (def ^:private criterion-state-enum
-  (coercion/enum-coercion {"outstanding" :idv-criterion-state-outstanding
-                           "established" :idv-criterion-state-established
-                           "in-review" :idv-criterion-state-review
-                           "failed" :idv-criterion-state-failed}
-                          :idv-criterion-state-unknown))
+  (coercion/enum-coercion {"outstanding" :idv-criterion-status-outstanding
+                           "established" :idv-criterion-status-established
+                           "in-review" :idv-criterion-status-review
+                           "failed" :idv-criterion-status-failed}
+                          :idv-criterion-status-unknown))
 
 (def decode-party-type (:decode party-type-enum))
 (def party-type-json-schema (:json-schema party-type-enum))

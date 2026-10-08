@@ -58,7 +58,8 @@
     (com.repldriven.queenswood.schemas.emails
      EmailDeliveryProto$EmailDelivery)
     (com.repldriven.queenswood.schemas.idempotency IdempotencyProto$Idempotency)
-    (com.repldriven.queenswood.schemas.idv IdvProto$Idv IdvProto$IdvSession)
+    (com.repldriven.queenswood.schemas.idv IdvProto$Idv
+                                           IdvSessionProto$IdvSession)
     (com.repldriven.queenswood.schemas.interest
      InterestRunProto$InterestRun
      InterestRunProto$InterestAccountRun)
@@ -486,7 +487,14 @@
   [m]
   (PersonNameProto$PersonName/parseFrom (PersonName->pb m)))
 
-(def ^{:doc "Parse Idv protobuf bytes into a Clojure map."} pb->Idv idv/pb->Idv)
+(defn pb->Idv
+  "Parse Idv protobuf bytes into a Clojure map, without a `:completed-at`
+  or `:failure-reason` it was never given.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (without-unset (idv/pb->Idv input) {:completed-at 0 :failure-reason ""}))
 
 (defn Idv->pb
   "Serialise an Idv map to protobuf bytes.
@@ -531,7 +539,7 @@
   Args:
   - m: IdvSession map matching the generated schema."
   [m]
-  (IdvProto$IdvSession/parseFrom (IdvSession->pb m)))
+  (IdvSessionProto$IdvSession/parseFrom (IdvSession->pb m)))
 
 (def ^{:doc "Parse CashAccountMigration protobuf bytes into a Clojure map."}
      pb->CashAccountMigration

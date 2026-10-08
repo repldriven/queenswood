@@ -15,6 +15,7 @@ import "schemas/company/company.proto";
 import "schemas/emails/email-delivery.proto";
 import "schemas/idempotency/idempotency.proto";
 import "schemas/idv/idv.proto";
+import "schemas/idv/idv-session.proto";
 import "schemas/interest/interest-run.proto";
 import "schemas/ledger-accounts/ledger-account.proto";
 import "schemas/scheduler/scheduler-job.proto";

@@ -38,12 +38,12 @@
   [evidence criterion]
   (some (fn [c]
           (when (= criterion (or (:verification c) (:screening c)))
-            (:state c)))
+            (:status c)))
         (:criteria (decide evidence))))
 
 (deftest identity-test
   (testing "a passed document establishes identity"
-    (is (= :idv-criterion-state-established
+    (is (= :idv-criterion-status-established
            (state everything :idv-verification-identity))))
   (testing "a document in review puts the IDV in review"
     (is (= :idv-status-in-review
@@ -58,7 +58,7 @@
 
 (deftest liveness-test
   (testing "passed liveness establishes it"
-    (is (= :idv-criterion-state-established
+    (is (= :idv-criterion-status-established
            (state everything :idv-verification-liveness))))
   (testing "failed liveness rejects"
     (is (= :idv-status-rejected
@@ -66,7 +66,7 @@
 
 (deftest claimed-identity-test
   (testing "a matching name establishes it"
-    (is (= :idv-criterion-state-established
+    (is (= :idv-criterion-status-established
            (state everything :idv-verification-claimed-identity))))
   (testing "a close match puts the IDV in review"
     (is (= :idv-status-in-review
@@ -79,13 +79,13 @@
                              [:document :name-match]
                              :idv-name-match-no-match))))))
   (testing "a document with no name graded leaves it outstanding"
-    (is (= :idv-criterion-state-outstanding
+    (is (= :idv-criterion-status-outstanding
            (state (update everything :document dissoc :name-match)
                   :idv-verification-claimed-identity)))))
 
 (deftest address-test
   (testing "a passed address document establishes it"
-    (is (= :idv-criterion-state-established
+    (is (= :idv-criterion-status-established
            (state everything :idv-verification-address))))
   (testing "a failed address document rejects"
     (is (= :idv-status-rejected
@@ -93,7 +93,7 @@
 
 (deftest sanctions-test
   (testing "clear establishes it"
-    (is (= :idv-criterion-state-established
+    (is (= :idv-criterion-status-established
            (state everything :idv-screening-sanctions))))
   (testing "a possible match puts the IDV in review"
     (is (= :idv-status-in-review
@@ -108,7 +108,7 @@
 
 (deftest pep-test
   (testing "not a PEP establishes it"
-    (is (= :idv-criterion-state-established
+    (is (= :idv-criterion-status-established
            (state everything :idv-screening-pep))))
   (testing "a PEP puts the IDV in review"
     (is (= :idv-status-in-review

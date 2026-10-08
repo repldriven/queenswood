@@ -68,7 +68,9 @@ provider account per bank, which ADR-0045 requires and
 - **The IDV record.** `idv` holds one IDV per person party, keyed
   `idv.<ulid>`, unique on party through `Idv_by_party`, with status
   `pending`, `in-review`, `accepted`, `rejected` or `failed`, each
-  transition guarded on source status in `idv`'s `domain.clj`.
+  transition guarded on source status in `idv`'s `domain.clj`. A
+  failed IDV keeps its `failure_reason`: today only that the person
+  cancelled the check.
 - **The activation chain.** A pending person party relays
   `party-status-changed` off the parties changelog. `idv`'s
   `party-event-processor` creates the IDV, which waits pending for a
@@ -250,7 +252,7 @@ evidence the provider event reported:
 - **`cancelled`** — `true` when the person abandoned the run.
 
 `Idv` gains an `evidence` sub-message holding the latest of each kind,
-and `criteria`, each verification and screening with its state:
+and `criteria`, each verification and screening with its status:
 `outstanding`, `established`, `review` or `failed`. `idv`'s
 `event-processor` handles `idv-evidence` by merging it and calling
 `domain/decide idv policies`. `idv` reads no person identification:
@@ -456,10 +458,9 @@ on the provider's page.
   names and the email alone, and Zyphe's run carries the party id in
   its `customData`, so each adapter can read the party's name back when
   the result arrives.
-- **Evidence.** `IdvDocumentEvidence`'s `given_names`, `family_name`
-  and `date_of_birth` are deprecated, and it gains `optional
-  IdvNameMatch name_match`. An outbox entry's payload, the bus and
-  `Idv.evidence` therefore carry no name read off a document.
+- **Evidence.** `IdvDocumentEvidence` holds no name read off a
+  document, only `IdvNameMatch name_match`, how it compares. An outbox
+  entry's payload, the bus and `Idv.evidence` therefore carry none.
 - **An intent's request.** A settled or failed intent keeps only the
   ids and the criteria of its `request`: the intent-poller applies the
   store spec's `:redact` in the transaction that settles or fails the
@@ -498,7 +499,7 @@ on the provider's page.
    Proved by the party scenarios on Onfido. Built.
 5. **Outcomes only.** `submit-idv-check` carrying the names, each
    relay starting the run for them, the adapters comparing the name and
-   reporting `name-match`, the read fields deprecated, `decide` without
+   reporting `name-match`, the read fields removed, `decide` without
    the person identification, and an intent settling without its email.
    Proved by the treatment table's `claimed-identity` rows through both
    simulators, and an adapter test reading the outbox entry back with no

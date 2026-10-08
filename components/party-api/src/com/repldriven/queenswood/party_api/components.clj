@@ -222,12 +222,12 @@
 
 (defn- criterion-body
   [criterion]
-  (let [{:keys [verification screening state reason]} criterion]
+  (let [{:keys [verification screening status reason]} criterion]
     (cond-> {:name (str/replace (name (or verification screening))
                                 #"^idv-(verification|screening)-"
                                 "")
              :kind (if verification "verification" "screening")
-             :state state}
+             :state status}
             reason
             (assoc :reason reason))))
 

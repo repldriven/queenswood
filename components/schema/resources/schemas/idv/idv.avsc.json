@@ -3,7 +3,7 @@
   "name": "Idv",
   "namespace": "com.repldriven.mono.idv",
   "fields": [
-    {"name": "bank_id", "type": "string"},
+    {"name": "bank_id",         "type": "string"},
     {"name": "verification_id", "type": "string"},
     {"name": "party_id",        "type": "string"},
     {"name": "status",          "type": {"type": "enum",
@@ -14,8 +14,9 @@
                                                        "IDV_STATUS_ACCEPTED",
                                                        "IDV_STATUS_REJECTED",
                                                        "IDV_STATUS_FAILED"]}},
-    {"name": "created_at",   "type": {"type": "long", "logicalType": "timestamp-millis"}},
-    {"name": "completed_at", "type": ["null", {"type": "long", "logicalType": "timestamp-millis"}], "default": null},
-    {"name": "updated_at",   "type": {"type": "long", "logicalType": "timestamp-millis"}}
+    {"name": "completed_at",   "type": ["null", {"type": "long", "logicalType": "timestamp-millis"}], "default": null},
+    {"name": "created_at",     "type": {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name": "updated_at",     "type": {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name": "failure_reason", "type": ["null", "string"], "default": null}
   ]
 }
