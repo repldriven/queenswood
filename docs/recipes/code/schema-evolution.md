@@ -55,7 +55,8 @@ unreadable, and the guard runs the same validator between the last
    the new version. A rename is a former entry and a new index.
 
 6. Keep a proto field that is no longer wanted, with its tag, marked
-   `[deprecated = true]`, and drop it in the record conversion.
+   `[deprecated = true]`, and drop it in the record conversion. Where
+   the field is `required`, write it with a placeholder instead.
 
 7. Run the full suite:
 
@@ -119,7 +120,8 @@ unreadable, and the guard runs the same validator between the last
 - List a removed or renamed index under its store's `former-indexes`
   with its `name`, its `added` and the version it was removed at.
 - Deprecate a proto field that is no longer wanted, keeping its tag,
-  and drop it in the record conversion.
+  and drop it in the record conversion, or write a placeholder where
+  the field is `required`.
 - Run the migrator before the services roll, so every index it builds
   online is readable before a service reads it.
 
@@ -178,6 +180,68 @@ chain composes: the version only rises, `added` never moves and a
 former entry never leaves, so a working tree that evolves from the tag
 before it evolves from every tag before that. An instance whose stored
 meta-data fell behind the tags is what the migrator's log line is for.
+
+A field stays in the descriptor once written because the validator
+compares descriptors, not data, and cannot know no stored record
+carries it. The Record Layer will not relax a `required` field to
+`optional` either, so a deprecated required field goes on being written.
+
+### Worked examples
+
+Each is a commit on `main`; `git show` on it gives the declaration and
+proto diff.
+
+- **The declared versions, read off a store.** `2d1763e4a` (#636). The
+  test instance stored version 49, its indexes numbered by the order the
+  old builder met them. Every index kept the number the store gave it as
+  `added`. Four whose keys had moved since — the three idempotency-key
+  indexes #609 gave a leading `bank_id`, and
+  `LedgerAccount_by_bank_gl_account_code`, which #634 gave a trailing
+  `currency` — took `modified: 50`, `Party_by_idempotency_key`, which
+  the store had never seen, took `added: 50`, and the version became 50.
+- **A field removed, and restored.** `6255aeea8` (#635). #626 reserved
+  tag 20 of `CashAccount` in place of `gl_control_account_id`. The
+  migrator refused it with `field removed from message descriptor`, the
+  bootstrap Job waited on the migrator until its backoff ran out, and
+  every service sat in `Init:1/2`. The field came back with
+  `[deprecated = true]`, and the conversion drops it.
+- **A store added.** `86d56e719` (#639), version 51:
+  `webhook-endpoints` and `webhook-notifications` each carry `since: 51`
+  and indexes `added` and `modified` at 51.
+- **An index added to a store holding data.** `414d97140` (#656),
+  version 54: `InboundPayment_by_bank_status_created_at` and
+  `OutboundPayment_by_status_created_at`, each `added` and `modified` at
+  54. `7b2e33b38` (#829), version 77, adds `Bank_by_creator_idempotency_key`
+  over a nested field, `created_by.principal_id`.
+- **A proto change with no index change.** `94c3654ae` (#671), version
+  56: two enum values, `SCHEDULER_TASK_KIND_REWARD` and
+  `TRANSACTION_TYPE_REWARD`. The descriptor changed, so the version rose.
+- **An index retired, and a required field deprecated.** `8bffa974f`
+  (#745), version 62: `Bank_by_sort_code` moved under `former-indexes`
+  with `added: 45` and `removed: 62`, leaving `indexes: []`. The
+  required `sort_code` field stayed, deprecated, written with a
+  placeholder in the bank's `domain.clj`.
+- **A sum index moved between stores, twice.** `ad14cb272` (#812),
+  version 74, retired
+  `InterestAccountRun_sum_amount_by_bank_day_kind_currency_product`
+  and gave `balances` its first indexes,
+  `Balance_sum_credit_by_bank_product_currency_bucket` and its debit
+  pair. `bb210fa13` (#838), version 78, retired that pair in turn, each
+  former entry `added: 74` and `removed: 78`, leaving `balances` with
+  `indexes: []`, and added
+  `TransactionLeg_sum_amount_by_bank_product_currency_bucket_side`.
+- **An index renamed, built online.** `98de50966` (#839), version 79:
+  `InterestAccountRun_sum_amount_by_bank_day_kind_currency` became a
+  former entry, `added: 22` and `removed: 79`, beside the new
+  `InterestAccountRun_sum_carry_change_by_bank_kind_account`. The same
+  change gave the migrator its `OnlineIndexer` pass in the fdb brick's
+  `indexes.clj`, since a store past a few hundred records left the new
+  index disabled on opening.
+- **Fields deprecated together, and a store with no indexes.**
+  `91e69240d` (#846), version 82: `Idv`'s `given_names`, `family_name`
+  and `date_of_birth` deprecated beside a new `name_match`, and
+  `person-names` added with `since: 82` and `indexes: []`. The version
+  skipped 81, which a slice inside the squashed change had taken.
 
 ## References
 
