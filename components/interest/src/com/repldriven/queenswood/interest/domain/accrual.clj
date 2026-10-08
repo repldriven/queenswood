@@ -31,7 +31,7 @@
 (defn accrue
   "A day's accrual for one account opening with the sub-unit carry
   `opening-carry`: the `:principal` it was computed from, the `:amount`
-  earned, and the `:closing-carry` left over with its `:carry-change`.
+  earned, and the `:closing-carry` left over with its `:carry-delta`.
 
   Returns nil when there is nothing to accrue, either:
   * the product pays no interest, or
@@ -45,7 +45,7 @@
         (assoc accrued
                :principal principal
                :opening-carry opening-carry
-               :carry-change (- (:closing-carry accrued) opening-carry))
+               :carry-delta (- (:closing-carry accrued) opening-carry))
         (do (log/warnf (str "Account %s has a non-zero interest rate but no"
                             " accrual balance - interest is not being accrued"
                             " for this account.")

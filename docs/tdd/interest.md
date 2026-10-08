@@ -130,9 +130,9 @@ Interest uses two balance-type buckets on the customer:
 
 Both are sums of the account's legs. The sub-minor-unit
 remainder between days is not a balance: it is the sum of the
-`carry_change` on the account's accrual `InterestAccountRun`
+`carry_delta` on the account's accrual `InterestAccountRun`
 rows, read from
-`InterestAccountRun_sum_carry_change_by_bank_kind_account`.
+`InterestAccountRun_sum_carry_delta_by_bank_kind_account`.
 
 The bank's side lives in the chart of accounts: 5100 interest
 expense, the sum of its own legs as 1100 is, 2400 interest
@@ -353,7 +353,7 @@ sequenceDiagram
     R->>DB: write transaction-posted to the bank's activity log
     end
     loop each remaining account
-    R->>DB: save its InterestAccountRun, DONE, with its carry change
+    R->>DB: save its InterestAccountRun, DONE, with its carry delta
     end
     end
 ```

@@ -13,15 +13,14 @@
 
 (defn- fresh-run
   []
-  (SUT/new "org.1" 20260501 :interest-account-run-kind-accrue account nil))
+  (SUT/new "org.1" 20260501 :interest-run-kind-accrue account nil))
 
 (deftest new-test
   (testing "no run yet means a fresh pending one off the account"
     (let [row (fresh-run)]
       (is (not (SUT/done? row)))
       (is (= "acc.1" (:account-id row)))
-      (is (= "GBP" (:currency row)))
-      (is (= :product-type-sub-ledger-current (:product-type row)))
+      (is (not-any? (partial contains? row) [:currency :product-type]))
       (is (number? (:created-at row)))))
   (testing "a run an earlier attempt left behind is kept, not replaced"
     ;; A re-run has to record its outcome on the existing run — a fresh
@@ -30,7 +29,7 @@
       (is (= existing
              (SUT/new "org.1"
                       20260501
-                      :interest-account-run-kind-accrue
+                      :interest-run-kind-accrue
                       account
                       existing))))))
 
@@ -39,9 +38,9 @@
     (let [done (SUT/done (fresh-run) {:amount 7})
           failed (SUT/failed (fresh-run) :interest/boom)]
       (is (SUT/done? done))
-      (is (= :interest-account-run-state-done (:state done)))
+      (is (= :interest-account-run-status-done (:status done)))
       (is (not (SUT/done? failed)))
-      (is (= :interest-account-run-state-failed (:state failed)))
+      (is (= :interest-account-run-status-failed (:status failed)))
       (is (= ":interest/boom" (:failure-reason failed)))))
   (testing "a done run carries what was earned and what it came from"
     (let [done (SUT/done (fresh-run)

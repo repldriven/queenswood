@@ -68,6 +68,6 @@
   "Everything a run of this kind does differently from the other."
   {:policy-kind :capitalize
    :run-kind :interest-run-kind-capitalize
-   :account-kind :interest-account-run-kind-capitalize
+   :account-kind :interest-run-kind-capitalize
    :chunk-fn capitalize-chunk
    :gl-fn chart/capitalization-accounts})

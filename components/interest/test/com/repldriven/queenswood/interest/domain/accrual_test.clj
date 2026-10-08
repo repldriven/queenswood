@@ -76,12 +76,12 @@
     ;; 1500 available at 100 bps opening at 27_397: Total-micro = 1500 *
     ;; 100 * 100 + 27_397 * 365 = 24_999_905 daily-micro = 24_999_905 / 365
     ;; = 68_492
-    (let [{:keys [amount closing-carry carry-change principal opening-carry]}
+    (let [{:keys [amount closing-carry carry-delta principal opening-carry]}
           (SUT/accrue "acc.1" "GBP" earning-balances 27397 100)]
       (testing "what the account earned, and the remainder it leaves"
         (is (= 0 amount))
         (is (= 68492 closing-carry))
-        (is (= (- 68492 27397) carry-change)))
+        (is (= (- 68492 27397) carry-delta)))
       (testing "and what those were computed from, so the row explains itself"
         (testing "interest is earned on available, not posted"
           (is (= 1500 principal)))

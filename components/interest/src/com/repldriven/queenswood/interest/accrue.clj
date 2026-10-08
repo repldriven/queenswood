@@ -122,6 +122,6 @@
   "Everything a run of this kind does differently from the other."
   {:policy-kind :accrual
    :run-kind :interest-run-kind-accrue
-   :account-kind :interest-account-run-kind-accrue
+   :account-kind :interest-run-kind-accrue
    :chunk-fn accrue-chunk
    :gl-fn chart/accrual-accounts})

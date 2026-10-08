@@ -80,18 +80,18 @@
   (if-let [{:keys [run-kind account-kind]} (kind->run kind)]
     (let-nom>
       [scope (store/count-account-runs config bank-id as-of-date account-kind)
-       done (store/count-account-runs-by-state
+       done (store/count-account-runs-by-status
              config
              bank-id
              as-of-date
              account-kind
-             :interest-account-run-state-done)
-       failed (store/count-account-runs-by-state
+             :interest-account-run-status-done)
+       failed (store/count-account-runs-by-status
                config
                bank-id
                as-of-date
                account-kind
-               :interest-account-run-state-failed)
+               :interest-account-run-status-failed)
        run (store/load-run config bank-id as-of-date run-kind)]
       {:scope scope
        :done done

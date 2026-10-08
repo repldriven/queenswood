@@ -631,13 +631,9 @@
      interest-run-status->int
   interest/InterestRunStatus-label2val)
 
-(def ^{:doc "Map of InterestAccountRunKind label to protobuf int value."}
-     interest-account-run-kind->int
-  interest/InterestAccountRun-InterestAccountRunKind-label2val)
-
-(def ^{:doc "Map of InterestAccountRunState label to protobuf int value."}
-     interest-account-run-state->int
-  interest/InterestAccountRun-InterestAccountRunState-label2val)
+(def ^{:doc "Map of InterestAccountRunStatus label to protobuf int value."}
+     interest-account-run-status->int
+  interest/InterestAccountRunStatus-label2val)
 
 (def ^{:doc "Parse InterestRun protobuf bytes into a Clojure map."}
      pb->InterestRun

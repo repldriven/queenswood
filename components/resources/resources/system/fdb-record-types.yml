@@ -185,17 +185,17 @@ stores:
         fields: [bank_id, business_day, kind]
         type: count
       # Progress and residue: count pending/done/failed within a run.
-      - name: InterestAccountRun_count_by_bank_day_kind_state
+      - name: InterestAccountRun_count_by_bank_day_kind_status
         added: 1
         modified: 1
-        fields: [bank_id, business_day, kind, state]
+        fields: [bank_id, business_day, kind, status]
         type: count
       # The sub-unit carry an account's next accrual opens with: the sum
-      # of every accrual's change to it. ADR-0042.
-      - name: InterestAccountRun_sum_carry_change_by_bank_kind_account
+      # of every accrual's delta to it. ADR-0042.
+      - name: InterestAccountRun_sum_carry_delta_by_bank_kind_account
         added: 1
         modified: 1
-        fields: [bank_id, kind, account_id, carry_change]
+        fields: [bank_id, kind, account_id, carry_delta]
         type: sum
   memberships:
     record-type: Membership

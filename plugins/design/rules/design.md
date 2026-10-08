@@ -106,7 +106,7 @@ interest run appends: a chunk's accrual is one transaction per
 currency, crediting each account's `interest-accrued` bucket and
 debiting 5100, its capitalisation one per account from that bucket to
 the default one, and the sub-minor carry the next accrual opens with
-is the sum of the `carry_change` on the account's accrual rows.
+is the sum of the `carry_delta` on the account's accrual rows.
 See [ADR-0037](../../../docs/adr/0037-a-control-accounts-balance-is-the-sum-of-the-balances-that-roll-into-it.md),
 [ADR-0038](../../../docs/adr/0038-an-outbound-submit-writes-no-row-every-payment-shares.md),
 [ADR-0039](../../../docs/adr/0039-cash-at-correspondents-balance-is-the-sum-of-its-legs.md),
