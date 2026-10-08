@@ -1,0 +1,11 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schemas.interest;
+
+option java_outer_classname = "InterestTypesProto";
+
+enum InterestRunKind {
+  INTEREST_RUN_KIND_UNKNOWN = 0;
+  INTEREST_RUN_KIND_ACCRUE = 1;
+  INTEREST_RUN_KIND_CAPITALIZE = 2;
+}

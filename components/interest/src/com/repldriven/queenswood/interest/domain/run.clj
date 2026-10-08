@@ -44,13 +44,13 @@
   {:bank-id bank-id
    :business-day business-day
    :kind kind
-   :state :interest-run-state-running
+   :status :interest-run-status-running
    :created-at (utility/now)})
 
 (defn- close
   [run]
   (assoc run
-         :state :interest-run-state-closed
+         :status :interest-run-status-closed
          :closed-at (utility/now)))
 
 (defn closed

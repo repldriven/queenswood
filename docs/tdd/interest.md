@@ -818,8 +818,8 @@ compares two schedules rather than two rates.
   finished, and written closed — which is what lets a crashed
   run retry without tripping the daily-count limit, but means
   an in-flight run has no record and `run-progress` reports a
-  nil run state throughout. The state exists in the enum and
-  nothing writes it.
+  nil run status throughout. `RUNNING` exists in
+  `InterestRunStatus` and nothing writes it.
 - **A missing accrued bucket is logged, not enforced.** Every
   product type the pass admits declares the bucket, and
   `balance-products` is copied from a seeded template rather

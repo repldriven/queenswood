@@ -74,7 +74,9 @@ process, and `failure_reason` for why a record ended in a failed status
 or outcome. A record that retries keeps no error from an attempt it
 will retry, which goes to the log, and `error` belongs to the envelope
 or response carrying a record rather than to the record. Name a count
-`<thing>_count`, keeping a plural for a `repeated` field.
+`<thing>_count`, keeping a plural for a `repeated` field. The one date
+not named `_on` is `business_day`, the banking term for the day a
+payment or a run counts for.
 
 Name a classifying enum `…Type` or `…Kind` by what it classifies. A
 type is what a thing is as banking, accounting or an outside standard
@@ -122,8 +124,9 @@ the record's fields in the proto's order.
   203.
 - Take a record's `idempotency_key` from the request that created it,
   an API call's `Idempotency-Key` or the changelog event it answers.
-- Name a date `_on`, an instant `_at`, an actor `_by`, a count
-  `_count`, and the reason a record failed `failure_reason`.
+- Name a date `_on`, `business_day` excepted, an instant `_at`, an
+  actor `_by`, a count `_count`, and the reason a record failed
+  `failure_reason`.
 - Name an enum `…Type` for what a thing is in banking, accounting or an
   outside standard, and `…Kind` for which of the platform's own variants
   selects the code that handles it.

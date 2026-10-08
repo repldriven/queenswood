@@ -155,8 +155,9 @@ record, `failure_reason` at 200, and, on a record that retries an
 outbound call, `attempt_count`, `next_attempt_at` and `traceparent` at
 201 to 203, keeping no retried attempt's error, lease or claim holder;
 and write no `reserved` for a number a record does not use.
-Name a date `_on`, an instant `_at`, an actor `_by`, a count `_count`,
-and the reason a record failed `failure_reason`. Name an enum `…Type`
+Name a date `_on`, `business_day` excepted, an instant `_at`, an actor
+`_by`, a count `_count`, and the reason a record failed
+`failure_reason`. Name an enum `…Type`
 for what a thing is in banking, accounting or an outside standard, and
 `…Kind` for which of the platform's own variants selects the code that
 handles it. Hold a state as a status enum, never a `bool`, and call a

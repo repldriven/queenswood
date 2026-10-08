@@ -57,8 +57,8 @@
   - as-of-date: business day (YYYYMMDD int).
   - kind: `:accrue` or `:capitalize`.
 
-  Returns `{:scope :done :failed :pending :run-state}` or an anomaly.
-  `:run-state` is nil until the run record is written, which happens
+  Returns `{:scope :done :failed :pending :run-status}` or an anomaly.
+  `:run-status` is nil until the run record is written, which happens
   once enumeration finishes.
 
   Counts only. What a run accrued is in the transactions its chunks

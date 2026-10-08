@@ -62,7 +62,7 @@
                                            IdvSessionProto$IdvSession)
     (com.repldriven.queenswood.schemas.interest
      InterestRunProto$InterestRun
-     InterestRunProto$InterestAccountRun)
+     InterestAccountRunProto$InterestAccountRun)
     (com.repldriven.queenswood.schemas.ledger_accounts
      LedgerAccountProto$LedgerAccount
      LedgerAccountProto$GlAccountCode)
@@ -621,15 +621,15 @@
 
 (def ^{:doc "Map of InterestRunKind label to protobuf int value."}
      interest-run-kind->int
-  interest/InterestRun-InterestRunKind-label2val)
+  interest/InterestRunKind-label2val)
 
 (def ^{:doc "Map of InterestRunKind protobuf int value to label."}
      int->interest-run-kind
-  interest/InterestRun-InterestRunKind-val2label)
+  interest/InterestRunKind-val2label)
 
-(def ^{:doc "Map of InterestRunState label to protobuf int value."}
-     interest-run-state->int
-  interest/InterestRun-InterestRunState-label2val)
+(def ^{:doc "Map of InterestRunStatus label to protobuf int value."}
+     interest-run-status->int
+  interest/InterestRunStatus-label2val)
 
 (def ^{:doc "Map of InterestAccountRunKind label to protobuf int value."}
      interest-account-run-kind->int
@@ -678,7 +678,7 @@
   Args:
   - m: InterestAccountRun map matching the generated schema."
   [m]
-  (InterestRunProto$InterestAccountRun/parseFrom
+  (InterestAccountRunProto$InterestAccountRun/parseFrom
    (InterestAccountRun->pb m)))
 
 (def ^{:doc "Parse SchedulerJob protobuf bytes into a Clojure map."}

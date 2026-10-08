@@ -72,7 +72,7 @@
 (deftest closed-test
   (testing "a finished pass leaves one closed record, never an open one"
     (let [run (SUT/closed "org.1" 20260501 :interest-run-kind-accrue)]
-      (is (= :interest-run-state-closed (:state run)))
+      (is (= :interest-run-status-closed (:status run)))
       (is (= "org.1" (:bank-id run)))
       (is (= 20260501 (:business-day run)))
       (is (= :interest-run-kind-accrue (:kind run)))

@@ -88,14 +88,14 @@
                  :done 3
                  :failed 0
                  :pending 0
-                 :run-state :interest-run-state-closed}]}
+                 :run-status :interest-run-status-closed}]}
         {:command :assert-interest-run
          :args [:bank-0 20260501 :capitalize
                 {:scope 3
                  :done 3
                  :failed 0
                  :pending 0
-                 :run-state :interest-run-state-closed}]}
+                 :run-status :interest-run-status-closed}]}
         {:command :assert-gl-balance
          :args [:bank-0 :gl-account-code-interest-expense "GBP" -100]}
         {:command :assert-gl-balance

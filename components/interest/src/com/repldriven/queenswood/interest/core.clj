@@ -65,7 +65,7 @@
        :as-of-date as-of-date
        :accounts-processed (+ (:done tally) (:skipped tally))
        :accounts-failed (:failed tally)
-       :run-state (:state record)})))
+       :run-status (:status record)})))
 
 (defn accrue-day [config data] (run-interest config data accrue/pass))
 
@@ -97,7 +97,7 @@
        :done done
        :failed failed
        :pending (- scope done failed)
-       :run-state (:state run)})
+       :run-status (:status run)})
     (error/reject :interest/unknown-run-kind
                   {:message "Run kind must be :accrue or :capitalize"
                    :kind kind})))
