@@ -1,8 +1,8 @@
 (ns com.repldriven.queenswood.email.deliveries-test
   "The event processor and the claim against a real record store: one
-  delivery for a repeated changelog event id, and a claim that takes a
-  due delivery once, leaves a live lease alone and takes a passed one
-  again. Envelopes are built here from the invitation event's own
+  delivery for a repeated changelog event id, a claim that takes a due
+  delivery once, leaves a live claim alone and takes a lapsed one again,
+  and a later delivery about the same invitation found as newer. Envelopes are built here from the invitation event's own
   schema and handed to the processor directly."
   (:require
     [com.repldriven.queenswood.email.test-system]
@@ -56,74 +56,84 @@
          message (envelope sys "invitation-created" event-id data)]
      (nom-test> [_ (consume sys message)
                  _ (consume sys message)
-                 written (SUT/find-delivery-by-changelog-event-id config
-                                                                  event-id)
+                 written (SUT/find-delivery-by-idempotency-key config event-id)
                  _ (testing "a created invitation writes a pending delivery"
                      (is (= {:bank-id "bnk.email"
                              :kind :email-kind-invitation
-                             :invitation-id (:invitation-id data)
-                             :invitation-expires-at 1790000000000
-                             :changelog-event-id event-id
+                             :subject-id (:invitation-id data)
+                             :idempotency-key event-id
                              :status :email-delivery-status-pending}
                             (select-keys written
-                                         [:bank-id :kind :invitation-id
-                                          :invitation-expires-at
-                                          :changelog-event-id :status]))))
-                 claimed (SUT/claim-due-deliveries config
-                                                   {:now (utility/now)
-                                                    :claim-holder "runner-a"
-                                                    :lease-ms lease-ms
-                                                    :limit 16})
+                                         [:bank-id :kind :subject-id
+                                          :idempotency-key :status]))))
+                 claimed (SUT/claim-due-deliveries
+                          config
+                          {:now (utility/now) :lease-ms lease-ms :limit 16})
                  _ (testing "and a redelivered event writes no second"
                      (is (= [(:delivery-id written)]
                             (mapv :delivery-id claimed))))
                  other-id (str (utility/uuidv7))
                  _ (consume sys
                             (envelope sys "invitation-withdrawn" other-id data))
-                 ignored (SUT/find-delivery-by-changelog-event-id config
-                                                                  other-id)
+                 ignored (SUT/find-delivery-by-idempotency-key config other-id)
                  _ (testing "an event with no email writes nothing"
                      (is (nil? ignored)))]))))
 
-(deftest claim-respects-the-lease-test
+(deftest claim-lapses-at-the-next-attempt-test
   (with-test-system
    [sys config-file]
    (let [config (fdb-config sys)
          now (utility/now)
          delivery (domain/new-invitation-delivery {:bank-id "bnk.email"
                                                    :invitation-id
-                                                   (utility/generate-id "inv")
-                                                   :expires-at 1790000000000}
+                                                   (utility/generate-id "inv")}
                                                   (str (utility/uuidv7))
                                                   now)
-         opts {:claim-holder "runner-a" :lease-ms lease-ms :limit 16}]
-     (nom-test> [_ (SUT/save-delivery
-                    config
-                    (assoc delivery :next-attempt-at (+ now 60000)))
-                 early (SUT/claim-due-deliveries config (assoc opts :now now))
+         opts {:lease-ms lease-ms :limit 16}]
+     (nom-test>
+       [_ (SUT/save-delivery config
+                             (assoc delivery :next-attempt-at (+ now 60000)))
+        early (SUT/claim-due-deliveries config (assoc opts :now now))
+        _ (testing "a delivery whose next attempt has not come is not claimed"
+            (is (empty? early)))
+        _ (SUT/save-delivery config delivery)
+        first-claim (SUT/claim-due-deliveries config (assoc opts :now now))
+        _
+        (testing
+          "a due delivery is claimed in flight until the claim
+                     lapses"
+          (is (= 1 (count first-claim)))
+          (is (= {:status :email-delivery-status-in-flight
+                  :next-attempt-at (+ now lease-ms)}
+                 (select-keys (first first-claim) [:status :next-attempt-at]))))
+        live (SUT/claim-due-deliveries config (assoc opts :now (inc now)))
+        _ (testing "a second runner takes nothing while the claim holds"
+            (is (empty? live)))
+        lapsed (SUT/claim-due-deliveries config
+                                         (assoc opts :now (+ now lease-ms)))
+        _ (testing "and takes the delivery once the claim has lapsed"
+            (is (= [(:delivery-id delivery)] (mapv :delivery-id lapsed))))]))))
+
+(deftest newer-delivery-test
+  (with-test-system
+   [sys config-file]
+   (let [config (fdb-config sys)
+         now (utility/now)
+         invitation {:bank-id "bnk.email"
+                     :invitation-id (utility/generate-id "inv")}
+         earlier
+         (domain/new-invitation-delivery invitation (str (utility/uuidv7)) now)
+         later (domain/new-invitation-delivery invitation
+                                               (str (utility/uuidv7))
+                                               (inc now))]
+     (nom-test> [_ (SUT/save-delivery config earlier)
+                 alone (SUT/newer-delivery? config earlier)
+                 _ (testing "a delivery with none after it has no newer"
+                     (is (false? alone)))
+                 _ (SUT/save-delivery config later)
+                 superseded (SUT/newer-delivery? config earlier)
+                 latest (SUT/newer-delivery? config later)
                  _ (testing
-                     "a delivery whose next attempt has not come is not claimed"
-                     (is (empty? early)))
-                 _ (SUT/save-delivery config delivery)
-                 first-claim (SUT/claim-due-deliveries config
-                                                       (assoc opts :now now))
-                 _ (testing "a due delivery is claimed in flight under a lease"
-                     (is (= 1 (count first-claim)))
-                     (is (= {:status :email-delivery-status-in-flight
-                             :claim-holder "runner-a"
-                             :claim-lease-expires-at (+ now lease-ms)}
-                            (select-keys (first first-claim)
-                                         [:status :claim-holder
-                                          :claim-lease-expires-at]))))
-                 live (SUT/claim-due-deliveries
-                       config
-                       (assoc opts :now (inc now) :claim-holder "runner-b"))
-                 _ (testing
-                     "a second runner takes nothing while the lease holds"
-                     (is (empty? live)))
-                 passed
-                 (SUT/claim-due-deliveries
-                  config
-                  (assoc opts :now (+ now lease-ms) :claim-holder "runner-b"))
-                 _ (testing "and takes the delivery once the lease has passed"
-                     (is (= ["runner-b"] (mapv :claim-holder passed))))]))))
+                     "a later delivery about the same invitation is newer"
+                     (is (true? superseded))
+                     (is (false? latest)))]))))

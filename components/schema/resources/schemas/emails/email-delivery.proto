@@ -28,17 +28,17 @@ message EmailDelivery {
   required string delivery_id = 2;
   required EmailKind kind = 3;
   required EmailDeliveryStatus status = 4;
-  required string changelog_event_id = 5;
-  optional string invitation_id = 6;
-  optional int64 invitation_expires_at = 7;
-  required int32 attempts = 8;
-  optional int64 next_attempt_at = 9;
-  optional string last_error = 10;
-  optional string claim_holder = 11;
-  optional int64 claim_lease_expires_at = 12;
-  optional string message_id = 13; // Message-ID
-  optional string traceparent = 14; // W3C trace context
+  required string subject_id = 5; // the record the kind is about
+  optional string message_id = 6; // Message-ID
 
+  optional int64 sent_at = 51;
+
+  required string idempotency_key = 100; // the changelog entry that asked for it
   required int64 created_at = 101;
   required int64 updated_at = 103;
+
+  required int32 attempt_count = 201;
+  optional int64 next_attempt_at = 202; // in flight: when the claim lapses
+  optional string traceparent = 203; // W3C trace context
+  optional string failure_reason = 204;
 }

@@ -160,20 +160,20 @@ sequenceDiagram
     end
     opt the breaker closed, or this its probe
     critical transact
-    ER->>DB: read the in-flight deliveries whose lease has passed, then the pending ones due
+    ER->>DB: read the in-flight deliveries whose claim has lapsed, then the pending ones due
     loop each, up to batch-size, or the one probe
-    ER->>DB: save the delivery, in flight, under a claim-lease-ms lease, claimed by this runner
+    ER->>DB: save the delivery, in flight, its next attempt claim-lease-ms away
     end
     end
     loop each claimed delivery, alongside each other
     critical transact
-    ER->>DB: read the invitation, its bank and the inviting member's user
+    ER->>DB: read the invitation, its bank, the inviting member's user and any newer delivery about the invitation
     end
-    alt the invitation gone, no longer pending, or sent again since
+    alt the invitation gone, no longer pending, or a newer delivery written
     Note over ER: superseded, nothing sent
     else
     Note over ER: mint a token, keeping its hash
-    ER->>MC: record-invitation-token, the hash and the delivery's expires-at
+    ER->>MC: record-invitation-token, the hash and the invitation's expires-at
     MC->>MP: one command at a time
     critical transact
     MP->>DB: read the invitation
@@ -237,18 +237,20 @@ Two component kinds, registered from `system.clj`:
 
 `EmailDelivery` under `schemas/emails/`, in its own store:
 
-- Delivery id (prefix `eml`), bank id, kind (invitation), invitation
-  id, and the `invitation_expires_at` the event carried.
-- The changelog event id, under a unique index, so a relay redrive
-  writes nothing twice.
+- Delivery id (prefix `eml`), bank id, kind (invitation), and
+  `subject_id`, the record the kind is about: the invitation's id.
 - Status: pending, in flight, sent, superseded, failed.
-- `attempts`, and the `next_attempt_at`, `last_error`,
-  `claim_holder`, `claim_lease_expires_at` and the `message_id` the
-  mail server was handed, each `optional`.
-- `created_at` and `updated_at`.
+- The `message_id` the mail server was handed, and `sent_at`.
+- The changelog event id as its `idempotency_key`, under a unique
+  index, so a relay redrive writes nothing twice; `created_at` and
+  `updated_at`.
+- In the delivery band from 201: `attempt_count`, `next_attempt_at`,
+  `traceparent` and the `failure_reason` a failed delivery ends with.
+  An in-flight delivery's `next_attempt_at` is when its claim lapses.
 
-Indexed by the event id and by status with `next_attempt_at`, which is
-what a claim scans. The declaration follows
+Indexed by the idempotency key, by status with `next_attempt_at`, which
+is what a claim scans, and by bank, kind and subject, which finds a
+newer delivery about the same invitation. The declaration follows
 [schema-evolution](../recipes/code/schema-evolution.md): `version`
 bumps once and the store carries it as `since`. The recipient's address
 is not stored: it is read from the invitation at send, so a withdrawn
@@ -258,22 +260,26 @@ invitation's address is not kept twice.
 
 For each claimed delivery the runner:
 
-1. Reads the invitation, its bank's name and the inviter's name. An
-   invitation that is no longer pending, or whose `expires_at` differs
-   from the delivery's, is marked superseded and nothing is sent.
+1. Reads the invitation, its bank's name, the inviter's name and
+   whether a newer delivery about the invitation was written. An
+   invitation that is no longer pending, or one with a newer delivery,
+   marks this one superseded and nothing is sent.
 2. Mints a token with `membership-query/new-invitation-token`, the one
    place the token's length and hash are decided.
 3. Sends `record-invitation-token` with the bank id, invitation id,
-   `expires_at` and the hash, and awaits the reply. A rejection —
+   the invitation's `expires_at` as read and the hash, and awaits the
+   reply. A rejection —
    `:invitation/superseded` or `:invitation/invalid-status` — marks the
    delivery superseded. A failure or no reply is a failed attempt.
 4. Sends the message through `smtp/send`. An anomaly is a failed
    attempt.
-5. Marks the delivery sent with the Message-ID `send` answered.
+5. Marks the delivery sent with the Message-ID `send` answered and
+   `sent_at`.
 
-A failed attempt increments `attempts` and sets `next_attempt_at` from the
-runner's `delivery-policy`, and past its maximum attempts or age marks the
-delivery failed. A pass claims nothing while the mail server's breaker is open,
+A failed attempt increments `attempt_count`, logs its error and sets
+`next_attempt_at` from the runner's `delivery-policy`, and past its
+maximum attempts or age marks the delivery failed with the error as its
+`failure_reason`. A pass claims nothing while the mail server's breaker is open,
 as [outbound-delivery](outbound-delivery.md) describes. The next attempt mints a
 fresh token, so an email that went out but was never recorded as sent is
 followed by one whose link works and whose predecessor's does not. The plaintext
@@ -390,10 +396,11 @@ Google Cloud refuses outbound port 25 and allows submission on 587 and
 
 - **The `email` brick** covers the backoff and give-up, and a pass
   claiming nothing while the mail server's breaker is open; the
-  superseded rules against a withdrawn, accepted and resent invitation;
-  the link and message against `smtp/render`; the event processor
-  writing one delivery for a repeated event id; and the claim under a
-  live and a passed lease, against FDB under `with-test-system`.
+  superseded rules against a withdrawn and accepted invitation and a
+  newer delivery; the link and message against `smtp/render`; the event
+  processor writing one delivery for a repeated event id; the claim
+  under a live and a lapsed claim; and finding a newer delivery, against
+  FDB under `with-test-system`.
 - **The `membership` brick** covers `record-invitation-token` refusing
   a superseded `expires_at`, an expired and a non-pending invitation,
   and replacing an earlier hash.

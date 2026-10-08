@@ -23,7 +23,7 @@ A folder is a domain, and a schema goes in the folder of the domain it
 belongs to, an Avro event beside the record it describes, never in a
 folder named for what carries it, such as the activity log.
 
-Number a record's fields in three bands, a blank line between them:
+Number a record's fields in bands, a blank line between them:
 
 ```proto
 message CashAccountMigration {
@@ -57,14 +57,23 @@ message CashAccountMigration {
 - **100 to 104, creation and update.** `idempotency_key` 100,
   `created_at` 101, `created_by` 102, `updated_at` 103, `updated_by`
   104, each only where the record has it and it is not in the primary
-  key.
+  key. The idempotency key is the key a repeat of the request that
+  created the record is recognised by, whether the request is an API
+  call carrying an `Idempotency-Key` or a changelog event a consumer
+  may be handed twice.
+- **201 to 204, delivery.** On a record that retries an outbound call,
+  as an email delivery does: `attempt_count` 201, `next_attempt_at` 202,
+  `traceparent` 203 and `failure_reason` 204. An in-flight item's
+  `next_attempt_at` is when its claim lapses, so no other field holds a
+  lease or who claimed it.
 
 Name a field by what it holds: `_on` for a date as an epoch day, `_at`
-for an instant in milliseconds, `_by` for an `Actor`, and
-`failure_reason` for why a record ended in a failed status or outcome.
-`last_error` is the latest error on something still being retried, and
-`error` belongs to the envelope or response carrying a record rather
-than to the record.
+for an instant in milliseconds, `_by` for an `Actor` and never a
+process, and `failure_reason` for why a record ended in a failed status
+or outcome. A record that retries keeps no error from an attempt it
+will retry, which goes to the log, and `error` belongs to the envelope
+or response carrying a record rather than to the record. Name a count
+`<thing>_count`, keeping a plural for a `repeated` field.
 
 Name a classifying enum `…Type` or `…Kind` by what it classifies. A
 type is what a thing is as banking, accounting or an outside standard
@@ -105,10 +114,14 @@ the record's fields in the proto's order.
   mechanism that carries it.
 - Number the primary key's fields first in key order, the record's own
   fields from 1 to 50, its transitions from 51 to 99 as `_at` and `_by`
-  pairs with the `_at` odd, and `idempotency_key`, `created_at`,
-  `created_by`, `updated_at` and `updated_by` at 100 to 104.
-- Name a date `_on`, an instant `_at`, an actor `_by`, and the reason a
-  record failed `failure_reason`.
+  pairs with the `_at` odd, `idempotency_key`, `created_at`,
+  `created_by`, `updated_at` and `updated_by` at 100 to 104, and, on a
+  record that retries an outbound call, `attempt_count`,
+  `next_attempt_at`, `traceparent` and `failure_reason` at 201 to 204.
+- Take a record's `idempotency_key` from the request that created it,
+  an API call's `Idempotency-Key` or the changelog event it answers.
+- Name a date `_on`, an instant `_at`, an actor `_by`, a count
+  `_count`, and the reason a record failed `failure_reason`.
 - Name an enum `…Type` for what a thing is in banking, accounting or an
   outside standard, and `…Kind` for which of the platform's own variants
   selects the code that handles it.
@@ -123,6 +136,8 @@ the record's fields in the proto's order.
 - Write `reserved` for an audit or transition number a record does not
   use.
 - Comment a record or field with how something elsewhere uses it.
+- Keep a retried attempt's error, a lease or a claim's holder on a
+  record.
 
 **MAY:**
 

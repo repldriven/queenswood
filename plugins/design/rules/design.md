@@ -148,18 +148,22 @@ folder's `types.proto`, and file a schema in its domain's folder, never
 in one named for the mechanism that carries it. Number the primary key's
 fields first in key
 order, the record's own fields from 1 to 50, its transitions from 51 to
-99 as `_at` and `_by` pairs with the `_at` odd, and `idempotency_key`,
+99 as `_at` and `_by` pairs with the `_at` odd, `idempotency_key`,
 `created_at`, `created_by`, `updated_at` and `updated_by` at 100 to 104,
-and write no `reserved` for a number a record does not use. Name a date
-`_on`, an instant `_at`, an actor `_by`, and the reason a record failed
-`failure_reason`. Name an enum `…Type` for what a thing is in banking,
-accounting or an outside standard, and `…Kind` for which of the
-platform's own variants selects the code that handles it. Hold a state
-as a status enum, never a `bool`, and call a record's one status
-`status`. Declare a field `required` wherever every write gives
-it a value, never with an explicit `[default = …]`. Comment a record
-with what it is and a field with its unit, never with how something
-elsewhere uses it. Change the folder's `.avsc.json` files with its
+the key taken from the API call or changelog event that created the
+record, and, on a record that retries an outbound call,
+`attempt_count`, `next_attempt_at`, `traceparent` and `failure_reason`
+at 201 to 204, keeping no retried attempt's error, lease or claim
+holder; and write no `reserved` for a number a record does not use.
+Name a date `_on`, an instant `_at`, an actor `_by`, a count `_count`,
+and the reason a record failed `failure_reason`. Name an enum `…Type`
+for what a thing is in banking, accounting or an outside standard, and
+`…Kind` for which of the platform's own variants selects the code that
+handles it. Hold a state as a status enum, never a `bool`, and call a
+record's one status `status`. Declare a field `required` wherever every
+write gives it a value, never with an explicit `[default = …]`. Comment
+a record with what it is and a field with its unit, never with how
+something elsewhere uses it. Change the folder's `.avsc.json` files with its
 protos.
 See [record-protos](../../../docs/recipes/code/record-protos.md).
 

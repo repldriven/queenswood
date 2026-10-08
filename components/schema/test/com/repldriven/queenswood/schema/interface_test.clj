@@ -239,33 +239,46 @@
       (is (= event (SUT/pb->AccessEvent (SUT/AccessEvent->pb event)))))))
 
 (deftest email-delivery-record-round-trip-test
-  (testing "a pending delivery carries no claim or message id"
+  (testing "a pending delivery carries no message id, send or failure"
     (let [delivery {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
                     :delivery-id "eml.01kprbmgcj35ptc8npmybhh4t7"
                     :kind :email-kind-invitation
-                    :invitation-id "inv.01kprbmgcj35ptc8npmybhh4t2"
-                    :invitation-expires-at 1700604800000
-                    :changelog-event-id "01kprbmgcj35ptc8npmybhh4t8"
                     :status :email-delivery-status-pending
-                    :attempts 0
-                    :next-attempt-at 1700000000000
+                    :subject-id "inv.01kprbmgcj35ptc8npmybhh4t2"
+                    :idempotency-key "01kprbmgcj35ptc8npmybhh4t8"
                     :created-at 1700000000000
-                    :updated-at 1700000000000}]
+                    :updated-at 1700000000000
+                    :attempt-count 0
+                    :next-attempt-at 1700000000000}]
       (is (= delivery (SUT/pb->EmailDelivery (SUT/EmailDelivery->pb delivery))))
       (is (some? (SUT/EmailDelivery->java delivery)))))
-  (testing "a sent delivery carries its attempts and message id"
+  (testing "a sent delivery carries its attempts, message id and send"
     (let [delivery {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
                     :delivery-id "eml.01kprbmgcj35ptc8npmybhh4t7"
                     :kind :email-kind-invitation
-                    :invitation-id "inv.01kprbmgcj35ptc8npmybhh4t2"
-                    :invitation-expires-at 1700604800000
-                    :changelog-event-id "01kprbmgcj35ptc8npmybhh4t8"
                     :status :email-delivery-status-sent
-                    :attempts 2
-                    :last-error "connection refused"
+                    :subject-id "inv.01kprbmgcj35ptc8npmybhh4t2"
                     :message-id "<abc@queenswood.local>"
+                    :sent-at 1700000060000
+                    :idempotency-key "01kprbmgcj35ptc8npmybhh4t8"
                     :created-at 1700000000000
-                    :updated-at 1700000060000}]
+                    :updated-at 1700000060000
+                    :attempt-count 2
+                    :traceparent
+                    "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01"}]
+      (is (= delivery
+             (SUT/pb->EmailDelivery (SUT/EmailDelivery->pb delivery))))))
+  (testing "a failed delivery carries its reason"
+    (let [delivery {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
+                    :delivery-id "eml.01kprbmgcj35ptc8npmybhh4t7"
+                    :kind :email-kind-invitation
+                    :status :email-delivery-status-failed
+                    :subject-id "inv.01kprbmgcj35ptc8npmybhh4t2"
+                    :idempotency-key "01kprbmgcj35ptc8npmybhh4t8"
+                    :created-at 1700000000000
+                    :updated-at 1700000060000
+                    :attempt-count 11
+                    :failure-reason "connection refused"}]
       (is (= delivery
              (SUT/pb->EmailDelivery (SUT/EmailDelivery->pb delivery)))))))
 

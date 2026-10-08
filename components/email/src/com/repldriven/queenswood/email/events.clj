@@ -23,7 +23,7 @@
         result (store/save-delivery config delivery)]
     (if (store/uniqueness-violation? result)
       (log/info "Email delivery already written for this event"
-                {:changelog-event-id (:id message)
+                {:idempotency-key (:id message)
                  :invitation-id (:invitation-id data)})
       result)))
 

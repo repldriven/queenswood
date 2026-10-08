@@ -507,15 +507,19 @@ stores:
     record-type: EmailDelivery
     primary-key: [bank_id, delivery_id]
     indexes:
-      - name: EmailDelivery_by_changelog_event_id
+      - name: EmailDelivery_by_idempotency_key
         added: 1
         modified: 1
-        field: changelog_event_id
+        field: idempotency_key
         unique: true
       - name: EmailDelivery_by_status_due
         added: 1
         modified: 1
         fields: [status, next_attempt_at]
+      - name: EmailDelivery_by_subject
+        added: 1
+        modified: 1
+        fields: [bank_id, kind, subject_id]
   rewards:
     record-type: Reward
     primary-key: [bank_id, reward_id]

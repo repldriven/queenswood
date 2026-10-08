@@ -44,43 +44,47 @@
        (:name found)))))
 
 (defn- invitation-context
-  "The invitation, its bank's name and its inviter's name, read in one
-  transaction. An unknown invitation is nil."
-  [config {:keys [bank-id invitation-id]}]
-  (store/transact
-   config
-   (fn [txn]
-     (let [invitation (memberships/find-invitation txn bank-id invitation-id)]
-       (if (= :invitation/not-found (error/kind invitation))
-         nil
-         (let-nom> [invitation invitation
-                    bank (bank-query/get-bank txn bank-id)
-                    inviter (inviter-name txn (:invited-by invitation))]
-           {:invitation invitation
-            :bank-name (:name bank)
-            :inviter-name inviter}))))
-   :email/read-invitation
-   "Failed to read the invitation to email"))
+  "The invitation, its bank's name, its inviter's name and whether a
+  newer delivery about it was written, read in one transaction. An
+  unknown invitation is nil."
+  [config delivery]
+  (let [{:keys [bank-id subject-id]} delivery]
+    (store/transact
+     config
+     (fn [txn]
+       (let [invitation (memberships/find-invitation txn bank-id subject-id)]
+         (if (= :invitation/not-found (error/kind invitation))
+           nil
+           (let-nom> [invitation invitation
+                      bank (bank-query/get-bank txn bank-id)
+                      inviter (inviter-name txn (:invited-by invitation))
+                      newer? (store/newer-delivery? txn delivery)]
+             {:invitation invitation
+              :bank-name (:name bank)
+              :inviter-name inviter
+              :newer? newer?}))))
+     :email/read-invitation
+     "Failed to read the invitation to email")))
 
 (defn- record-token
   "Send `record-invitation-token` and await the reply. Returns
   `{:accepted true}`, `{:superseded reason}` for a refusal, or
   `{:error message}` for a failure or no reply."
-  [config delivery token-hash]
+  [config delivery invitation token-hash]
   (let [{:keys [dispatcher schemas]} config
-        {:keys [bank-id invitation-id invitation-expires-at delivery-id]}
-        delivery
+        {:keys [bank-id delivery-id idempotency-key]} delivery
+        {:keys [invitation-id expires-at]} invitation
         id (str (utility/uuidv7))
         reply (let-nom>
                 [payload (avro/serialize (get schemas record-token-command)
                                          {:bank-id bank-id
                                           :invitation-id invitation-id
-                                          :expires-at invitation-expires-at
+                                          :expires-at expires-at
                                           :token-hash token-hash})]
                 (command/send dispatcher
                               {:id id
                                :correlation-id delivery-id
-                               :causation-id (:changelog-event-id delivery)
+                               :causation-id idempotency-key
                                :command record-token-command
                                :payload payload
                                :traceparent (telemetry/inject-traceparent)
@@ -106,12 +110,12 @@
   message}`, with the mail server's `:answered` or `:failed` as
   `:smtp-outcome` where the send was made."
   [config delivery context]
-  (let [{:keys [token token-hash]} (memberships/new-invitation-token)
-        recorded (record-token config delivery token-hash)]
+  (let [{:keys [invitation]} context
+        {:keys [token token-hash]} (memberships/new-invitation-token)
+        recorded (record-token config delivery invitation token-hash)]
     (if-not (:accepted recorded)
       recorded
-      (let [{:keys [invitation]} context
-            link (message/invitation-link (:console-url config)
+      (let [link (message/invitation-link (:console-url config)
                                           (:invitation-id invitation)
                                           token)
             sent (smtp/send (:smtp config)
@@ -132,7 +136,8 @@
      {:superseded "invitation not found"}
 
      :else
-     (if-let [reason (domain/supersession delivery (:invitation context))]
+     (if-let [reason (domain/supersession (:invitation context)
+                                          (:newer? context))]
        {:superseded reason}
        (send-invitation config delivery context)))))
 
@@ -167,7 +172,7 @@
         now (utility/now)
         updated (cond
                  superseded
-                 (domain/mark-superseded delivery superseded now)
+                 (domain/mark-superseded delivery now)
 
                  error
                  (domain/record-failure delivery
@@ -181,6 +186,9 @@
                  (domain/mark-sent delivery message-id now))]
     (when smtp-outcome
       (record-send config smtp-outcome now))
+    (when superseded
+      (log/info "Email delivery superseded"
+                {:delivery-id (:delivery-id delivery) :reason superseded}))
     (when error
       (log/warn "Email delivery attempt failed"
                 {:delivery-id (:delivery-id delivery) :error error}))
@@ -222,7 +230,6 @@
         claimed (if (pos? limit)
                   (store/claim-due-deliveries config
                                               {:now now
-                                               :claim-holder (:runner-id config)
                                                :lease-ms (:claim-lease-ms
                                                           config)
                                                :limit limit})

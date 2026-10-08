@@ -1620,14 +1620,11 @@
   webhooks/WebhookDeliveryStatus-label2val)
 
 (def ^:private email-delivery-unset
-  {:claim-holder ""
-   :claim-lease-expires-at 0
-   :invitation-expires-at 0
-   :invitation-id ""
-   :last-error ""
-   :message-id ""
+  {:message-id ""
+   :sent-at 0
    :next-attempt-at 0
-   :traceparent ""})
+   :traceparent ""
+   :failure-reason ""})
 
 (defn pb->EmailDelivery
   "Parse EmailDelivery protobuf bytes into a Clojure map. Each optional
@@ -1657,6 +1654,9 @@
 (def ^{:doc "Map of EmailDeliveryStatus label to protobuf int value."}
      email-delivery-status->int
   emails/EmailDeliveryStatus-label2val)
+
+(def ^{:doc "Map of EmailKind label to protobuf int value."} email-kind->int
+  emails/EmailKind-label2val)
 
 (def ^:private circuit-breaker-unset
   {:consecutive-failures 0
